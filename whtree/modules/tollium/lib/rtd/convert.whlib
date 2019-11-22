@@ -1,0 +1,921 @@
+﻿<?wh
+/** @short Richdocument output
+    @long Richdocument (RTD) as output format, facilitating DOC/DOCX -> RTD conversion using the existing conversion engine */
+
+/* formerly unword.whlib. this library is based on wh::formatter/hsxml.whlib,
+   which will be deprecated and removed once the internal hsxml format is no
+   longer needed */
+
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::formatter/output.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::formatter/hsxml.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+INTEGER FUNCTION CalculatePixelSize(INTEGER val, INTEGER maxwidth DEFAULTSTO 0, INTEGER relativeWidth DEFAULTSTO 0, INTEGER ttlcols DEFAULTSTO 0)
+{
+  IF(val = 0)
+    RETURN 0;
+
+  IF(relativeWidth < 0 AND maxwidth > 0)
+  {
+    maxwidth := (maxwidth / 100 * (relativeWidth / -1));
+    INTEGER percentage := val / (ttlcols / 100);
+    RETURN maxwidth / 100 * percentage;
+  }
+  ELSE
+    RETURN ((val / 15) < 1)? 1 : val / 15;
+}
+
+MONEY FUNCTION CalculateRawPixelSize(INTEGER val, INTEGER maxwidth DEFAULTSTO 0, INTEGER relativeWidth DEFAULTSTO 0, INTEGER ttlcols DEFAULTSTO 0)
+{
+  IF(val = 0)
+    RETURN 0;
+
+  IF(relativeWidth < 0 AND maxwidth > 0)
+  {
+    maxwidth := (maxwidth / 100 * (relativeWidth / -1));
+    INTEGER percentage := val / (ttlcols / 100);
+    RETURN maxwidth / 100 * percentage;
+  }
+  ELSE
+    RETURN val / 15;
+}
+
+STRING FUNCTION EncodePoints100(INTEGER val)
+{
+  IF(val=0)
+    RETURN "0";
+  STRING retval := FormatMoney(val/100m,0,".","",FALSE) || "pt";
+  IF(retval LIKE "0.*")
+    retval:=Substring(retval,1);
+  RETURN retval;
+
+}
+
+STRING FUNCTION EncodePoints100Round(INTEGER val)
+{
+  IF(val=0)
+    RETURN "0";
+  STRING retval := FormatMoney(val/100m,0,".","",FALSE) || "pt";
+  IF(retval LIKE "0.*")
+    retval:="1pt";
+  RETURN retval;
+}
+
+STRING FUNCTION ToColorCode(INTEGER hspixelcode) //note: drawlib stores U32 pixels as ABGR, but the translation layer already made it ARGB
+{
+  RETURN "#"||Right("00000"||ToString(hspixelcode,16),6);
+}
+
+STRING FUNCTION ExplainHAlign(INTEGER jc)
+{
+  RETURN ["left","center","right","justified"][jc];
+}
+STRING FUNCTION ExplainValign(INTEGER valign)
+{
+  RETURN ["top","middle","bottom"][valign];
+}
+STRING FUNCTION ExplainListtype(INTEGER listtype)
+{
+  RETURN ["none","inline_bullet","sidebyside_bullet"][listtype];
+}
+
+
+STRING FUNCTION ExplainPadding(RECORD data) //FIXME this shoudl be in TWIPS too, just like image padding is now
+{
+  RETURN "[distance:top=" || data.top || ",right=" || data.right || ",bottom=" || data.bottom || ",left=" || data.left || "]";
+}
+
+STRING FUNCTION ExplainParagraph(RECORD data)
+{
+  RETURN "<paraprops"
+        || " firstindent='" || data.textindent || "'"
+        || " padding='" || ExplainPadding(data.padding) || "'"
+        || " jc='" || ExplainHalign(data.halign) || "'"
+        || "/>";
+}
+
+STRING FUNCTION ExplainBorder(RECORD bordertype)
+{
+  RETURN " color='" || ToColorCode(bordertype.color)
+         || "' thickness_twips='" || bordertype.thickness
+         || "' overlapped='" || (bordertype.overlapped?"yes":"no")
+        || "'";
+}
+/*std::ostream& operator || (std::ostream &str, Table::CellTypes celltype)
+{
+        switch(celltype)
+        {
+        case Table::Open: str || "open"; break;
+        case Table::Data: str || "data"; break;
+        case Table::OverlappedStartLower: str || "overlappedstartlower"; break;
+        case Table::OverlappedRemainder: str || "overlappedremainder"; break;
+        case Table::OutsideTable: str || "outsidetable"; break;
+        default: str || "unknown celltype?";
+        }
+        return str;
+}*/
+STRING FUNCTION ExplainTableCell(RECORD format)
+{
+  IF(NOT RecordExists(format))
+  {
+    //this is one of the 'overlapped' types
+    RETURN "<cellformat />\n";
+  }
+
+  STRING celltype := format.isopen ? "open" : "data";
+  STRING retval := "<cellformat type='" || celltype || "'";
+  IF(NOT format.isopen)
+  {
+    IF( (format.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+      retval := retval || " bgcolor='" || ToColorCode(format.bgcolor) || "'";
+    retval := retval || " valign='" || EXplainValign(format.valign)
+              || "' rowspan='" || format.rowspan
+              || "' colspan='" || format.colspan
+              || "' padding='" || ExplainPadding(format.padding)
+              || "'";
+  }
+  retval := retval || ">";
+  IF(NOT format.isopen)
+  {
+    retval := retval || "<topborder" || ExplainBorder(format.bordertop) || " />";
+    retval := retval || "<rightborder" || ExplainBorder(format.borderright) || " />";
+    retval := retval || "<bottomborder" || ExplainBorder(format.borderbottom) || " />";
+    retval := retval || "<leftborder" || ExplainBorder(format.borderleft) || " />";
+  }
+  retval := retval || "</cellformat>\n";
+  RETURN retval;
+}
+
+STRING FUNCTION ExplainTable(RECORD format)
+{
+  STRING retval := "\n<tableinfo rows='" || Length(format.rows)
+                    || "' cols='" || Length(format.cols)
+                    || "' tablepadding='" || ExplainPadding(format.padding)
+                    || "' defaultcellpadding='" || ExplainPadding(format.cellpadding)
+                    || "' cellspacing='" || format.cellspacing
+                    || "' halign='" || ExplainHalign(format.halign)
+                    || "'>\n";
+
+  retval := retval || "<widths>";
+  FOREVERY(RECORD col FROM format.cols)
+    retval := retval || "<column width=\"" || col.width || "\" />";
+  retval := retval || "</widths>\n";
+  retval := retval || "<grid>\n";
+  FOREVERY(RECORD gridrow FROM format.gridrows)
+  {
+    retval := retval || "<gridrow>\n";
+    FOREVERY(RECORD cellrec FROM gridrow.cells)
+      retval := retval || ExplainTableCell(cellrec);
+    retval := retval || "</gridrow>\n";
+  }
+  retval := retval || "</grid>\n";
+  retval := retval || "</tableinfo>\n";
+  RETURN retval;
+}
+
+OBJECTTYPE UnwordFormatterPage EXTEND __CallbackFormatterPageBase
+<
+  RECORD actual_character;
+  RECORD actual_hyperlink;
+  RECORD official_character;
+  RECORD official_hyperlink;
+  RECORD ARRAY pvt_images;
+  RECORD ARRAY outputobjectmapping;
+  RECORD ARRAY pending_hyperlinks;
+  RECORD ARRAY registererdlinks;
+
+  PUBLIC PROPERTY images(pvt_images, -);
+  PUBLIC PROPERTY links(GetFormattedLinks, -);
+  PUBLIC RECORD ARRAY definedstyles;
+  ///Suppress the use of Blue and Underline inside hyperlinks, to clean up the input from word. defaults to true.
+  PUBLIC BOOLEAN suppress_hyperlink_formatting;
+  PUBLIC INTEGER maxwidth;
+  PUBLIC FUNCTION PTR onprepareimage;
+
+  OBJECT doc;
+  OBJECT ARRAY blockstack;
+  OBJECT currentparagraph; //current paragraph nesting level
+  OBJECT currenthyperlink; //current hyperlink (equal or deeper to currentparagraph)
+  OBJECT currentcharcontext; //current inline formatting (equal or deeper to currenthyperlink)
+  INTEGER nextobjectid;
+
+  INTEGER currenttabledepth;
+  OBJECT currenttable;
+  OBJECT currenttablebody;
+  OBJECT currentrow;
+  OBJECT currentcell;
+  OBJECT tablestartcontext;
+
+  MACRO NEW(OBJECT formatteroutput, OBJECT doc)
+  : __CallbackFormatterPageBase(formatteroutput, 0/*streamid - why did it want a filestream?  keep you hands off.... */)
+  {
+    this->doc := doc;
+    INSERT doc->GetElementsByTagName("body")->Item(0) INTO this->blockstack AT END;
+    this->official_character := this->base_character;
+    this->suppress_hyperlink_formatting := TRUE;
+    this->maxwidth := 960;
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    RECORD ARRAY createlinks := SELECT destid, targetnodes := GroupedValues(hyperlink)
+                                  FROM this->pending_hyperlinks
+                              GROUP BY destid;
+
+    FOREVERY(RECORD link FROM createlinks)
+    {
+      OBJECT targetnode := SELECT AS OBJECT node FROM this->outputobjectmapping WHERE id=link.destid;
+      IF(NOT ObjectExists(targetnode))
+        THROW NEW Exception("Unable to find destination object #" || link.destid || " for link (" || Left(link.targetnodes[0]->textcontent,80) || ")");
+
+      //ADDME Where to place new anchors? How to name them? Use existing anchors if available...
+      STRING anchorname := "rtd-anchor-" || link.destid;
+      OBJECT anchor := this->doc->CreateElement("a");
+      anchor->SetAttribute("name", anchorname);
+      targetnode->InsertBefore(anchor, targetnode->firstchild);
+
+      FOREVERY(OBJECT node FROM link.targetnodes)
+        node->SetAttribute("href", "#" || anchorname);
+    }
+    __CallbackFormatterPageBase::Close();
+  }
+
+  UPDATE PUBLIC MACRO PrintParserObject(INTEGER parserobjectid)
+  {
+    //FIXME PrintParserObject (the non-object function) evades this override, could be confusing. should be lead beak to the object.
+    this->nextobjectid := parserobjectid;
+    __CallbackFormatterPageBase::PrintParserObject(parserobjectid);
+  }
+
+  UPDATE INTEGER FUNCTION PredefineStyle(STRING suggestedname, RECORD paragraph, RECORD character)
+  {
+    RECORD matchstyle := SELECT *
+                           FROM richstructure_constants.builtinstyles
+                          WHERE mswordid = paragraph.mswordid;
+
+    IF(NOT RecordExists(matchstyle))
+      matchstyle := [ containertag := "p", tag := ToLowercase(Substitute(suggestedname,' ','')) ];
+
+    INSERT [ name := suggestedname, paragraph := paragraph, character := character, def := matchstyle ] INTO this->definedstyles AT END;
+    RETURN Length(this->definedstyles);
+  }
+
+  UPDATE MACRO StartParagraph(RECORD parainfo)
+  {
+    IF(ObjectExists(this->currentparagraph))
+      THROW NEW Exception("StartParagraph inside open paragraph!");
+
+/*
+    PrintTo(this->outputstream,"\n<paragraph xmlns='http://www.webhare.net/xmlns/harescript/hsxml'"
+                               || " listtype='" || ExplainListtype(parainfo.listtype) || "'"
+                               || " predefstyle='" || parainfo.styleid || "'"
+                               || (parainfo.paragraph.headinglevel != 0 ? " headinglevel='" || parainfo.paragraph.headinglevel || "'" : "")
+                               || ">\n"
+                               || ExplainParagraph(parainfo.paragraph)
+                               || "\n");*/
+    this->actual_character := this->base_character;
+
+    RECORD style := this->definedstyles[parainfo.styleid-1];
+    //dumpvalue(style,'tree'); enable this to see style info
+    OBJECT node := this->doc->CreateElement(style.def.containertag);
+    node->SetAttribute("class", ToLowercase(style.def.tag));
+
+    this->currentparagraph := node;
+    this->currentcharcontext := node;
+    this->currenthyperlink := node;
+    this->blockstack[END-1]->AppendChild(node);
+
+    IF(this->nextobjectid != 0 AND NOT RecordExists(SELECT FROM this->outputobjectmapping WHERE id = this->nextobjectid))
+      INSERT [ id := this->nextobjectid, node := this->currentparagraph ] INTO this->outputobjectmapping AT END;
+
+    // This workaround for the block stack is needed to process tables!
+   // IF(Length(this->blockstack) > 1)
+     // this->blockstack := [ this->blockstack[0] ];
+
+  }
+  UPDATE MACRO EnterParaText()
+  {
+  }
+  UPDATE MACRO EndParagraph()
+  {
+    this->currentparagraph := DEFAULT OBJECT;
+  }
+  UPDATE MACRO ChangeFormatting(RECORD newformatting)
+  {
+    this->official_character := newformatting;
+  }
+  MACRO EnsureFormattingUptodate()
+  {
+    OBJECT charstack;
+
+    RECORD setcharacter := this->official_character;
+    RECORD sethyperlink := this->official_hyperlink;
+
+    IF(RecordExists(sethyperlink) AND this->suppress_hyperlink_formatting)
+    {
+      IF(setcharacter.color = 0xFF0000FF)
+        setcharacter.color := 0x00FFFFFF;
+      IF(setcharacter.underline != 0)
+        setcharacter.underline := 0;
+    }
+
+    BOOLEAN changelink := EncodeJSON(sethyperlink) != EncodeJSON(this->actual_hyperlink);
+    BOOLEAN changeformat := EncodeJSON(setcharacter) != EncodeJSON(this->actual_character);
+
+    IF(NOT changelink AND NOT changeformat)
+      RETURN;
+
+    this->actual_hyperlink := sethyperlink;
+    this->actual_character := setcharacter;
+
+    IF(changelink AND ObjectExists(this->currenthyperlink))
+    {
+      IF(RecordExists(this->actual_hyperlink)) //then set the hyperlink
+      {
+        this->currenthyperlink := this->doc->CreateElement("a");
+        //FIXME intralinks... handle 'objectid'.
+        IF(this->actual_hyperlink.title!="")
+          this->currenthyperlink->SetAttribute("title",this->actual_hyperlink.title);
+        IF(this->actual_hyperlink.objectid != 0) //link to a specific object
+          INSERT INTO this->pending_hyperlinks(hyperlink, destid) VALUES(this->currenthyperlink, this->actual_hyperlink.objectid) AT END;
+        ELSE IF(this->actual_hyperlink.href!="")
+          this->currenthyperlink->SetAttribute("href",this->actual_hyperlink.href);
+        IF(this->actual_hyperlink.target!="")
+          this->currenthyperlink->SetAttribute("target",this->actual_hyperlink.target);
+
+        this->currentparagraph->AppendChild(this->currenthyperlink);
+      }
+      ELSE
+      {
+        this->currenthyperlink := this->currentparagraph;
+      }
+    }
+
+    //based on writer.cpp:GenerateCharStyle
+    this->currentcharcontext := this->currenthyperlink;
+
+    STRING fontsize := FormatFloat(setcharacter.fontsize,1);
+    IF(fontsize LIKE "*.0")
+      fontsize := Left(fontsize,LEngth(fontsize)-2);
+
+    //ADDME css.whlib could be providing us style building?
+    STRING style;
+    style := style || "font: normal " || fontsize || "pt";
+
+    FOREVERY(STRING face FROM Tokenize(setcharacter.fontface,","))
+    {
+      face := TrimWhitespace(face);
+      IF(SearchSubstring(face,' ') != -1) //ADDME better CSS pattern matching?
+        face := "'" || face || "'";
+      style := style || (#face=0 ? " " : ", ") || face;
+    }
+    style := style || ";";
+
+    IF( (setcharacter.color BITAND 0xFF000000) != 0) //not fully transparent
+      style := style || "color: " || ToColorCode(setcharacter.color) || ";";
+
+    IF( (setcharacter.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+      style := style || " background-color:" || ToColorCode(setcharacter.bgcolor) || ";";
+
+    //based on writer.cpp:UpdateCharacterFormatting
+    IF(setcharacter.insertion)
+    {
+      OBJECT newnode := this->doc->CreateElement("ins");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.deletion)
+    {
+      OBJECT newnode := this->doc->CreateElement("del");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.bold)
+    {
+      OBJECT newnode := this->doc->CreateElement("b");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.italic)
+    {
+      OBJECT newnode := this->doc->CreateElement("i");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.underline != 0) //ADDME alternative underline modes
+    {
+      OBJECT newnode := this->doc->CreateElement("u");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(style!="")
+    {
+      OBJECT newnode := this->doc->CreateElement("span");
+      newnode->SetAttribute("style", style);
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.subsuper != 0)
+    {
+      OBJECT newnode := this->doc->CreateElement(setcharacter.subsuper = 1 ? "sub" : "sup");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+    IF(setcharacter.strikethrough)
+    {
+      OBJECT newnode := this->doc->CreateElement("strike");
+      this->currentcharcontext->AppendChild(newnode);
+      this->currentcharcontext := newnode;
+    }
+
+    /* FIXME: Remains to be added/handled/tested:
+       "strikethrough","blink","smallcaps","doublestrike"
+       "shadow","emboss","imprint","outline","overline"
+
+       underline modes other than 'single'
+
+       " fontoverride='" || (data.fontallowoverride ? "ok" : "never") || "'";
+       */
+  }
+
+  UPDATE MACRO ExecuteImageCallback(RECORD img)
+  {
+    this->EnsureFormattingUptodate();
+
+    BLOB image;
+    IF(Length(img.animated_gif) = 0)
+    {
+      IF(this->onprepareimage != DEFAULT FUNCTION PTR)
+        img := this->onprepareimage(img);
+
+      INTEGER lenx := img.lenx, leny := img.leny;
+      OBJECT imgcanvas := CreateEmptyCanvas(lenx,leny,img.bgcolor);
+      img.renderimage(imgcanvas->canvasid, 0, 0, lenx, leny);
+      image := imgcanvas->ExportAsPNG(FALSE);
+      imgcanvas->Close();
+    }
+    ELSE
+      image := img.animated_gif;
+
+    //merge identical images
+    STRING usecid;
+    STRING hash := GetHashForBlob(image,"MD5");
+    RECORD match := SELECT * FROM this->pvt_images WHERE imghash = hash;
+    IF(RecordExists(match))
+    {
+      usecid := match.cid;
+    }
+    ELSE
+    {
+      usecid := GenerateUFS128BitId();
+      INSERT INTO this->pvt_images(pngdata, cid, imghash) VALUES(image, usecid, hash) AT END;
+    }
+
+    //ADDME a general version should combine with redirector code in the base?
+    OBJECT newnode := this->doc->CreateElement("img");
+    newnode->SetAttribute("src", "cid:" || usecid);// -- Causes races (Arnold: ????? )
+    newnode->SetAttribute("alt", EncodeValue(img.alttag));// -- Causes races
+    newnode->SetAttribute("title", EncodeValue(img.title));// -- Causes races
+    STRING ARRAY styles;
+    IF(img.lenx > 0)
+      INSERT "width: " || ToString(img.lenx) || "px;" INTO styles AT END;
+    IF(img.leny > 0)
+      INSERT "height: " || ToString(img.leny) || "px;" INTO styles AT END;
+    IF(img.bgcolor > 0)
+      INSERT "background-color: " || ToColorCode(img.bgcolor) || ";" INTO styles AT END;
+    IF(img.padding.top > 0)
+      INSERT "margin-top: " || CalculatePixelSize(img.padding.top) || "px;" INTO styles AT END;
+    IF(img.padding.right > 0)
+      INSERT "margin-right: " || CalculatePixelSize(img.padding.right) || "px;" INTO styles AT END;
+    IF(img.padding.bottom > 0)
+      INSERT "margin-bottom: " || CalculatePixelSize(img.padding.bottom) || "px;" INTO styles AT END;
+    IF(img.padding.left > 0)
+      INSERT "margin-left: " || CalculatePixelSize(img.padding.left) || "px;" INTO styles AT END;
+
+    IF(img.align>0)
+      newnode->SetAttribute("class", "wh-rtd-float" || ((img.align = 1)? "left" : "right"));
+    newnode->SetAttribute("style", DeTokenize(styles, " "));
+    this->currentcharcontext->AppendChild(newnode);
+
+/*    PrintTo(this->outputstream,
+            "<image"
+            || (img.align=1 ? " text-align='left'" : "")
+            || (img.align=2 ? " text-align='right'" : "")
+            || " src='" || img.uniqueid || "'"
+            || " width='" || img.lenx || "px'"
+            || " height='" || img.leny || "px'"
+            || " bgcolor='" || ToColorCode(img.bgcolor) || "'"
+            || " is_known_photo='" || (img.is_known_photo?"1":"0") || "'"
+            //FIXME we should be referring a standard 'padding'structure
+            || " alttag='" || EncodeValue(img.alttag) || "'"
+            || " title='" ||EncodeValue(img.title) || "'"
+            || " animated_gif='" || EncodeBase16(BlobToString(img.animated_gif,-1)) || "'"
+            || "/>");*/
+  }
+
+  UPDATE MACRO SetAnchor(STRING anchor)
+  {
+/*    PrintTo(this->outputstream, "<anchor name='" || EncodeValue(anchor) || "' />\n");*/
+  }
+
+  UPDATE MACRO WriteText(STRING text)
+  {
+    this->EnsureFormattingUptodate();
+
+    FOREVERY(STRING line FROM Tokenize(text,"\n"))
+    {
+      IF(#line>0) //softbreak!
+        this->currentcharcontext->AppendChild(this->Doc->CreateElement('br'));
+
+      this->currentcharcontext->AppendChild(this->doc->CreateTextNode(line));
+    }
+  }
+
+  UPDATE MACRO StartTable(RECORD tableformat)
+  {
+    this->currenttabledepth := this->currenttabledepth + 1;
+    IF(this->currenttabledepth > 1) //table in table: is not supported in RTD conversions
+      RETURN;
+
+    this->tablestartcontext := this->blockstack[0];
+    this->currenttable := this->doc->CreateElement("table");
+    this->currenttable->SetAttribute("cellspacing", ToString(tableformat.cellspacing));
+    this->currenttable->SetAttribute("style", "border-collapse: collapse;");
+
+    // Cols:
+    IF(Length(tableformat.cols) > 0)
+    {
+      OBJECT cols := this->doc->CreateElement("colgroup");
+      FOREVERY(RECORD tablecol FROM tableformat.cols)
+      {
+        OBJECT col := this->doc->CreateElement("col");
+        col->SetAttribute("style", "width: " || CalculatePixelSize(tablecol.width, this->maxwidth, tableformat.width, SELECT AS INTEGER Sum(width) FROM tableformat.cols) || "px;");
+        cols->AppendChild(col);
+      }
+      this->currenttable->AppendChild(cols);
+    }
+    // TBody:
+    this->currenttablebody := this->doc->CreateElement("tbody");
+    this->currenttable->AppendChild(this->currenttablebody);
+
+/*    PrintTo(this->outputstream,
+            "<table xmlns='http://www.webhare.net/xmlns/harescript/hsxml'>\n"
+            || ExplainTable(tableformat)
+            || "<body>\n");*/
+
+  }
+  UPDATE MACRO StartTableRow()
+  {
+    IF(this->currenttabledepth > 1)
+      RETURN;
+
+    this->currentrow := this->doc->CreateElement("tr");
+/*    PrintTo(this->outputstream, "<tablerow>\n");*/
+  }
+  UPDATE MACRO StartTableCell(INTEGER row, INTEGER col, RECORD cellformat)
+  {
+    IF(this->currenttabledepth > 1)
+      RETURN;
+
+    this->currentcell := this->doc->CreateElement("td");
+    IF(cellformat.colspan > 1)
+      this->currentcell->SetAttribute("colspan", ToString(cellformat.colspan));
+    IF(cellformat.rowspan > 1)
+      this->currentcell->SetAttribute("rowspan", ToString(cellformat.rowspan));
+
+    STRING ARRAY styles;
+    IF(cellformat.bgcolor != 0)
+      INSERT "background-color: " || ToColorCode(cellformat.bgcolor) || "px;" INTO styles AT END;
+    IF(cellformat.padding.top > 0)
+      INSERT "padding-top: " || CalculatePixelSize(cellformat.padding.top) || "px;" INTO styles AT END;
+    IF(cellformat.padding.right > 0)
+      INSERT "padding-right: " || CalculatePixelSize(cellformat.padding.right) || "px;" INTO styles AT END;
+    IF(cellformat.padding.bottom > 0)
+      INSERT "padding-bottom: " || CalculatePixelSize(cellformat.padding.bottom) || "px;" INTO styles AT END;
+    IF(cellformat.padding.left > 0)
+      INSERT "padding-left: " || CalculatePixelSize(cellformat.padding.left) || "px;" INTO styles AT END;
+    IF(cellformat.bordertop.thickness > 0)// AND cellformat.bordertop.color > 0)
+      INSERT "border-top: " || CalculatePixelSize(cellformat.bordertop.thickness) || "px solid " || ToColorCode(cellformat.bordertop.color) || ";" INTO styles AT END;
+    IF(cellformat.borderright.thickness > 0)// AND cellformat.borderright.color > 0)
+      INSERT "border-right: " || CalculatePixelSize(cellformat.borderright.thickness) || "px solid " || ToColorCode(cellformat.borderright.color) || ";" INTO styles AT END;
+    IF(cellformat.borderbottom.thickness > 0)// AND cellformat.borderbottom.color > 0)
+      INSERT "border-bottom: " || CalculatePixelSize(cellformat.borderbottom.thickness) || "px solid " || ToColorCode(cellformat.borderbottom.color) || ";" INTO styles AT END;
+    IF(cellformat.borderleft.thickness > 0)// AND cellformat.borderleft.color > 0)
+      INSERT "border-left: " || CalculatePixelSize(cellformat.borderleft.thickness) || "px solid " || ToColorCode(cellformat.borderleft.color) || ";" INTO styles AT END;
+    STRING ARRAY alignments := [ "bottom;", "top;", "middle;" ];
+    IF(cellformat.valign > 0)
+      INSERT "vertical-align: " || alignments[cellformat.valign] INTO styles AT END;
+    this->currentcell->SetAttribute("style", DeTokenize(styles, " "));
+    INSERT this->currentcell INTO this->blockstack AT END;
+
+/*    PrintTo(this->outputstream,
+             "<tablecell"
+             || " border-style='solid'"
+             || " padding-top='" || EncodePoints100(cellformat.padding.top*5)
+             || "' padding-bottom='" || EncodePoints100(cellformat.padding.bottom*5)
+             || "' padding-left='" || EncodePoints100(cellformat.padding.left*5)
+             || "' padding-right='" || EncodePoints100(cellformat.padding.right*5)
+             || "'");*/
+
+    IF(cellformat.bordertop.thickness = cellformat.borderleft.thickness
+      AND cellformat.borderleft.thickness = cellformat.borderright.thickness
+      AND cellformat.borderright.thickness = cellformat.borderbottom.thickness)
+    {
+/*      PrintTo(this->outputstream, " border-width='" || EncodePoints100(cellformat.bordertop.thickness*5) || "'");*/
+    }
+    ELSE
+    {
+/*      PrintTo(this->outputstream,
+              " border-top-width='" || EncodePoints100(cellformat.bordertop.thickness*5)
+              || "' border-bottom-width='" || EncodePoints100(cellformat.borderbottom.thickness*5)
+              || "' border-left-width='" || EncodePoints100(cellformat.borderleft.thickness*5)
+              || "' border-right-width='" || EncodePoints100(cellformat.borderright.thickness*5)
+              || "'");*/
+    }
+
+    IF(cellformat.bordertop.color = cellformat.borderleft.color
+       AND cellformat.borderleft.color = cellformat.borderright.color
+       AND cellformat.borderright.color = cellformat.borderbottom.color)
+    {
+/*      PrintTo(this->outputstream, " border-color='" || ToColorCode(cellformat.bordertop.color) || "'");*/
+    }
+    ELSE
+    {
+/*      PrintTo(this->outputstream,
+              " border-top-color='" || ToColorCode(cellformat.bordertop.color)
+              || "' border-bottom-color='" || ToColorCode(cellformat.borderbottom.color)
+              || "' border-left-color='" || ToColorCode(cellformat.borderleft.color)
+              || "' border-right-color='" || ToColorCode(cellformat.borderright.color)
+              || "'");*/
+    }
+
+/*    IF( (cellformat.bgcolor BITAND 0xFF000000) != 0) //not fully transparent
+      PrintTo(this->outputstream," background-color='" || ToColorCode(cellformat.bgcolor) || "'");*/
+
+/*    PrintTo(this->outputstream,
+             " number-columns-spanned='" || cellformat.colspan || "'"
+             || " number-rows-spanned='" || cellformat.rowspan || "'"
+             || ">\n");*/
+  }
+  UPDATE MACRO EndTableCell()
+  {
+    IF(this->currenttabledepth > 1)
+      RETURN;
+
+    IF(NOT ObjectExists(this->currentrow))
+      RETURN;
+
+    DELETE FROM this->blockstack AT END-1;
+    this->currentrow->AppendChild(this->currentcell);
+/*    PrintTo(this->outputstream, "</tablecell>\n");*/
+  }
+  UPDATE MACRO EndTableRow()
+  {
+    IF(this->currenttabledepth > 1)
+      RETURN;
+
+    IF(NOT ObjectExists(this->currenttable))
+      RETURN;
+
+    this->currenttablebody->AppendChild(this->currentrow);
+/*    PrintTo(this->outputstream, "</tablerow>\n");*/
+  }
+  UPDATE MACRO EndTable()
+  {
+    this->currenttabledepth := this->currenttabledepth - 1;
+    IF(this->currenttabledepth >= 1)
+      RETURN; //we didn't close the highest level table
+
+    IF(NOT ObjectExists(this->currenttable))
+      RETURN;
+
+    this->tablestartcontext->AppendChild(this->currenttable);
+/*    PrintTo(this->outputstream, "</body>\n</table>\n");*/
+  }
+  UPDATE MACRO StartHyperlink(RECORD hyperlink)
+  {
+    this->official_hyperlink := hyperlink;
+    INSERT hyperlink INTO this->registererdlinks AT END;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetFormattedLinks()
+  {
+    //ADDME: This should some day be rewritten to return a properly formatted record array for RTD links
+    RETURN this->registererdlinks;
+  }
+
+  UPDATE MACRO EndHyperlink()
+  {
+    this->official_hyperlink := DEFAULT RECORD;
+    //PrintTo(this->outputstream, "</hyperlink>\n");
+  }
+>;
+
+STATIC OBJECTTYPE UnwordFormatterOutput EXTEND FormattingOutputBase
+<
+  PUBLIC OBJECT FUNCTION CreatePage(OBJECT doc)
+  {
+    RETURN NEW UnwordFormatterPage(this, doc);
+  }
+>;
+
+//ADDME Define a friendlier api, eg emptydocobjects must be configurable
+PUBLIC RECORD FUNCTION __MSWordToRichdoc(BLOB worddoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ onprepareimage := DEFAULT FUNCTION PTR
+                             , emptydocobjects := TRUE
+                             , styles := RECORD[] ], options);
+  RECORD profile := CELL[ options.emptydocobjects, options.styles ];
+
+  /* Open and parse the word file */
+  INTEGER docid := OpenMSWordDocument(worddoc);
+  RECORD results := ScanMSWordDocument(docid, profile.emptydocobjects, profile.styles);
+
+  OBJECT newdoc := MakeXMLDocumentFromHTML(StringToBLob("<body></body>"));
+
+  OBJECT outputdoc := NEW UnwordFormatterOutput;
+  OBJECT outputpage := outputdoc->CreatePage(newdoc);
+  outputpage->onprepareimage := options.onprepareimage;
+
+  RECORD ARRAY images;
+  FOREVERY(RECORD obj FROM results.parserobjects)
+  {
+    outputpage->PrintParserObject(obj.id);
+  }
+
+  images := outputpage->images;
+  outputpage->Close();
+  CloseMSWordDocument(docid);
+
+  FOREVERY(OBJECT para FROM newdoc->GetElementsByTagName("p")->GetCurrentElements())
+  {
+    IF(para->childElementCount = 0 AND TrimWhitespace(para->textcontent) = "")
+    {
+      para->Empty();
+      OBJECT br := newdoc->CreateElement("br");
+      para->AppendChild(br);
+      br->setattribute("data-wh-rte","bogus");
+    }
+  }
+
+  // Format as HTML
+  OBJECT writer := NEW HtmlRewriterContext;
+  BLOB data := writer->GenerateHTML(newdoc);
+
+  RECORD ARRAY embed;
+  FOREVERY(RECORD img FROM outputpage->images)
+  {
+    RECORD out := [ data := img.pngdata
+                  , mimetype := "image/png"
+                  , width := img.x
+                  , height := img.y
+                  , filename := CellExists(img, 'filename') ? img.filename : ''
+                  , extension := "png"
+                  , url := ""
+                  ];
+
+    RECORD fileinfo := WrapBlob(img.pngdata, CellExists(img, "filename") ? img.filename : "");
+    fileinfo := MakeMergedRecord(fileinfo, [ contentid := img.cid ]);
+
+    INSERT fileinfo INTO embed AT END;
+  }
+
+  RETURN [ htmltext := data
+         , embedded := embed
+         , links := DEFAULT RECORD ARRAY
+         /* SELECT contentid
+                                      , COLUMN data
+                                      , mimetype
+                                      , width
+                                      , height
+                                      , filename := CellExists(embedded, 'filename') ? embedded.filename : ''
+                                      , extension := CellExists(embedded, 'extension') ? embedded.extension : '' //ADDME fill in..
+                                      , url := ""
+                                   FROM data.embedded */
+         ];
+}
+
+MACRO CleanupEmbedVideo(INTEGER fileid, OBJECT richdoc)
+{
+}
+
+//this is a temporary API that may be moved or removed in the future.
+PUBLIC MACRO __ConvertDOCTORTD(RECORD fileinfo, RECORD options)
+{
+  BOOLEAN printprogress := CellExists(options,'progress') AND options.progress;
+  BOOLEAN reconvert := CellExists(options,'reconvert') AND options.reconvert;
+  BOOLEAN rename := CellExists(options,'rename') AND options.rename;
+  BOOLEAN embedvideo := CellExists(options,'embedvideo') AND options.embedvideo;
+  INTEGER maxwidth := CellExists(options, 'width')? options.maxwidth : 0;
+  MACRO PTR userpostprocess := CellExists(options, 'postprocess') ? options.postprocess : DEFAULT MACRO PTR;
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  IF(fileinfo.type != 4)
+  {
+    IF(NOT reconvert)
+      RETURN;
+
+    RECORD tryoriginal := richdoctype->GetInstanceData(fileinfo.id).original;
+    IF(NOT RecordExists(tryoriginal))
+      RETURN;
+
+    fileinfo.data := tryoriginal.data; //Hack, but works with our scanblob below...
+  }
+
+  STRING mimetype := ScanBlob(fileinfo.data).mimetype;
+  IF(mimetype NOT IN ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"])
+  {
+    IF(printprogress)
+      Print("Skipping " || mimetype || ": " || fileinfo.whfspath || "\n");
+    RETURN;
+  }
+
+  IF(printprogress)
+    Print(fileinfo.whfspath || "\n");
+
+
+  GetPrimary()->BeginWork();
+
+  IF(fileinfo.type=4)
+  {
+    //Save original version, and rename it.
+    richdoctype->SetInstanceData(fileinfo.id, [ original := WrapBlob(fileinfo.data, fileinfo.name) ], [ isvisibleedit := FALSE ]);
+
+    STRING ext := GetExtensionFromPath(fileinfo.name);
+    STRING newname := fileinfo.name;
+
+    IF(rename AND (ext=".doc" OR ext=".docx"))
+      newname := GetBasenameFromPath(newname) || ".rtd";
+
+    UPDATE system.fs_objects SET type := richdoctype->id
+                               , name := newname
+                               , data := DEFAULT BLOB
+                           WHERE id = fileinfo.id;
+  }
+  ELSE
+  {
+    STRING ext := GetExtensionFromPath(fileinfo.name);
+    STRING newname := fileinfo.name;
+
+    IF(rename AND (ext=".doc" OR ext=".docx"))
+    {
+      newname := GetBasenameFromPath(newname) || ".rtd";
+      UPDATE system.fs_objects SET name := newname
+                             WHERE id = fileinfo.id;
+    }
+  }
+
+  RECORD indata := richdoctype->GetInstanceData(fileinfo.id);
+  RECORD richdoc := __MSWordToRichdoc(indata.original.data);
+
+  //Any postprocessing?
+  IF(embedvideo OR userpostprocess != DEFAULT MACRO PTR) //ADDME otehr postprocess ifs, even user custom stuff
+  {
+    OBJECT parseddoc := NEW EditablerichDocument;
+    parseddoc->ImportFromRecord(richdoc);
+    IF(embedvideo)
+      CleanupEmbedVideo(fileinfo.id, parseddoc);
+    IF(userpostprocess != DEFAULT MACRO PTR)
+      userpostprocess(fileinfo.id, parseddoc);
+    richdoc := parseddoc->ExportAsRecord();
+  }
+
+  richdoctype->SetInstanceData(fileinfo.id, [ data := richdoc ], [ isvisibleedit := FALSE ] );
+  ScheduleFileRepublish(fileinfo.id);
+
+  GetPrimary()->CommitWork();
+}
+
+//this is a temporary API that may be moved or removed in the future.
+PUBLIC MACRO __ConvertDOCSToRTD(INTEGER parentid, RECORD options)
+{
+  BOOLEAN reconvert := CellExists(options,'reconvert') AND options.reconvert;
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  RECORD convertfolder := SELECT whfspath FROM system.fs_objects WHERE id=parentid;
+
+  INTEGER ARRAY convertlist := reconvert ? [4, richdoctype->id ] : [4];
+  RECORD ARRAY convertfiles := SELECT id, name, type, data, whfspath
+                                 FROM system.fs_objects
+                                WHERE parent = parentid
+                                      AND type IN convertlist;
+
+  FOREVERY(RECORD convertfile FROM convertfiles)
+    __ConvertDOCTORTD(convertfile, options);
+
+  RECORD ARRAY subs := SELECT id FROM system.fs_objects WHERE parent=parentid AND isfolder AND id != 10;
+  FOREVERY(RECORD sub FROM subs)
+    __ConvertDOCSToRTD(sub.id, options);
+}
+

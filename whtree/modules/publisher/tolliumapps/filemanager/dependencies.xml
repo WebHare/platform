@@ -1,0 +1,83 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="dependencies.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemanager.dependencies"
+         >
+
+  <screen name="deptab" gid=".deptab" title="">
+    <actions>
+      <action name="resetdeps" onexecute="doresetdependencies" />
+      <action name="editrepository" onexecute="doeditrepository">
+        <enableon source="repositories" min="1" max="1" />
+      </action>
+      <action name="addrepository" onexecute="doaddrepository" />
+    </actions>
+    <body height="1pr">
+
+      <line>
+        <select name="outputmode_js" type="pulldown" onchange="onoutputmodechange" rowkeytype="integer">
+          <option rowkey="0" />
+          <option rowkey="1" />
+          <option rowkey="2" />
+        </select>
+        <select name="outputmode_css" type="pulldown" onchange="onoutputmodechange" rowkeytype="integer">
+          <option rowkey="0" />
+          <option rowkey="1" />
+          <option rowkey="2" />
+        </select>
+        <text valuetid=".immediateeffect" />
+      </line>
+
+      <grid height="1pr">
+        <col width="1pr" />
+        <col />
+        <row height="1pr">
+          <cell>
+            <list name="repositories" selectmode="single" openaction="editrepository">
+              <column name="server" width="1pr" type="text" />
+              <column name="repository" width="1pr" type="text" />
+              <column name="localversion" type="text" width="2pr" />
+            </list>
+          </cell>
+          <cell>
+            <button action="addrepository" width="1pr" />
+            <button action="editrepository" width="1pr" />
+            <button action="resetdeps" width="1pr" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="editdep" gid=".editdep">
+    <body>
+      <textedit name="version" valuetype="integer" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="repository" gid=".repository">
+    <actions>
+      <action name="resettocurrent" onexecute="doresettocurrent" />
+    </actions>
+    <body>
+      <textedit name="server" required="true" validationchecks="http-url" value="http://designfiles.b-lex.com/" />
+      <textedit name="repository" required="true" />
+      <select name="bindtype" type="radio">
+        <option rowkey="remote">
+          <textedit name="version" minvalue="0" valuetype="integer" title="" errorlabeltid=".remote" />
+          <button action="resettocurrent" />
+        </option>
+        <option rowkey="local">
+          <publisher:browseforobject name="localversion" title="" />
+        </option>
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+</screens>

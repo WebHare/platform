@@ -1,0 +1,115 @@
+﻿<?wh
+/// @short Datetime tests
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::os.whlib";
+
+RECORD arguments;
+RECORD result;
+
+MACRO ParseArgumentsTest()
+{
+  OpenTest("TestArguments: ParseArgumentsTest");
+
+  // Test different kinds of arguments
+  arguments := ParseArguments( [ "-m", "foo", "--path=/test/", "--option", "-m=bar", "3", "one", "two", "three" ]
+                             , [ [ name := "option", type := "switch" ]
+                               , [ name := "switch", type := "switch", defaultvalue := TRUE ]
+                               , [ name := "check",  type := "switch" ]
+                               , [ name := "m",      type := "stringlist" ]
+                               , [ name := "path",   type := "stringopt" ]
+                               , [ name := "count",  type := "param" ]
+                               , [ name := "other",  type := "paramlist" ]
+                               ]);
+
+  TestEqualBoolean(1, TRUE, RecordExists(arguments));
+  TestEqualBoolean(2, TRUE, CellExists(arguments, "option"));
+  TestEqualBoolean(3, TRUE, CellExists(arguments, "switch"));
+  TestEqualBoolean(4, TRUE, CellExists(arguments, "check"));
+  TestEqualBoolean(5, TRUE, CellExists(arguments, "m"));
+  TestEqualBoolean(6, TRUE, CellExists(arguments, "path"));
+  TestEqualBoolean(7, TRUE, CellExists(arguments, "count"));
+  TestEqualBoolean(8, TRUE, CellExists(arguments, "other"));
+
+  TestEqualBoolean(9, TRUE, arguments.option);
+  TestEqualBoolean(10, TRUE, arguments."switch");
+  TestEqualBoolean(11, FALSE, arguments.check);
+
+  TestEqualInteger(12, 2, Length(arguments.m));
+  TestEqualString(13, "foo", arguments.m[0]);
+  TestEqualString(14, "bar", arguments.m[1]);
+
+  TestEqualString(15, "/test/", arguments.path);
+  TestEqualString(16, "3", arguments.count);
+
+  TestEqualInteger(17, 3, Length(arguments.other));
+  TestEqualString(18, "one", arguments.other[0]);
+  TestEqualString(19, "two", arguments.other[1]);
+  TestEqualString(20, "three", arguments.other[2]);
+
+  // Test empty argument list
+  arguments := ParseArguments(DEFAULT STRING ARRAY, [ [ name := "option", type := "switch" ]
+                                                    , [ name := "switch", type := "switch", defaultvalue := TRUE ]
+                                                    , [ name := "check",  type := "switch" ]
+                                                    , [ name := "m",      type := "stringlist" ]
+                                                    , [ name := "path",   type := "stringopt" ]
+                                                    , [ name := "count",  type := "param" ]
+                                                    , [ name := "other",  type := "paramlist" ]
+                                                    ]);
+
+  TestEqualBoolean(21, TRUE, RecordExists(arguments));
+  TestEqualBoolean(22, TRUE, CellExists(arguments, "option"));
+  TestEqualBoolean(23, TRUE, CellExists(arguments, "switch"));
+  TestEqualBoolean(24, TRUE, CellExists(arguments, "check"));
+  TestEqualBoolean(25, TRUE, CellExists(arguments, "m"));
+  TestEqualBoolean(26, TRUE, CellExists(arguments, "path"));
+  TestEqualBoolean(27, TRUE, CellExists(arguments, "count"));
+  TestEqualBoolean(28, TRUE, CellExists(arguments, "other"));
+
+  TestEqualBoolean(29, FALSE, arguments.option);
+  TestEqualBoolean(30, TRUE, arguments."switch");
+  TestEqualBoolean(31, FALSE, arguments.check);
+  TestEqualInteger(32, 0, Length(arguments.m));
+  TestEqualString(33, "", arguments.path);
+  TestEqualString(34, "", arguments.count);
+  TestEqualInteger(35, 0, Length(arguments.other));
+
+  arguments := ParseArguments(DEFAULT STRING ARRAY, [ [ name := "option", type := "switch", defaultvalue := "yes" ] ]);
+  TestEqualBoolean(36, TRUE, RecordExists(arguments));
+  TestEqualBoolean(37, TRUE, CellExists(arguments, "option"));
+  TestEqualBoolean(38, FALSE, arguments.option);
+
+  arguments := ParseArguments([ "--switch" ], [ [ name := "option", type := "switch", defaultvalue := "yes" ] ]);
+  TestEqualBoolean(39, FALSE, RecordExists(arguments));
+
+  arguments := ParseArguments(DEFAULT STRING ARRAY, [ [ name := "count", type := "param", required := TRUE ] ]);
+  TestEqualBoolean(40, FALSE, RecordExists(arguments));
+
+  // Test illegal parameters
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ name := "option", type := "check" ] ]); ?>');
+  MustContainError(44, result.errors, 182, "Unknown argument type 'CHECK'");
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ type := "switch" ] ]); ?>');
+  MustContainError(45, result.errors, 182, "Column 'NAME' does not exist in variable record");
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ name := TRUE, type := "switch" ] ]); ?>');
+  MustContainError(46, result.errors, 182, "Column 'NAME' not of type STRING");
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ name := "option" ] ]); ?>');
+  MustContainError(47, result.errors, 182, "Column 'TYPE' does not exist in variable record");
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ name := "option", type := TRUE ] ]); ?>');
+  MustContainError(48, result.errors, 182, "Column 'TYPE' not of type STRING");
+  result := TestCompileAndRun('<?wh LOADLIB "wh::os.whlib"; ParseArguments(DEFAULT STRING ARRAY, [ [ name := "other", type := "paramlist" ], [ name := "count", type := "param" ] ]); ?>');
+  MustContainError(49, result.errors, 182, "'PARAMLIST' not the last variable record type");
+
+  // Test ParseArguments not ignoring empty arguments (like '"" "b"')
+  TestEQ(
+      [ a :=  ""
+      , b :=  "b"
+      ], ParseArguments([ "", "b" ],
+                        [ [ name := "a", type := "param" ]
+                        ,  [ name := "b", type := "param" ]
+                        ]));
+
+  CloseTest("TestArguments: ParseArgumentsTest");
+}
+
+PRINT("\n === Running TestArguments\n");
+ParseArgumentsTest();

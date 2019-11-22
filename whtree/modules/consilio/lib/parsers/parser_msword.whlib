@@ -1,0 +1,46 @@
+<?wh
+/** @private Format parser. (may be replaced with tika at some point) */
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::parser/msword.whlib";
+LOADLIB "wh::parser/objects.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
+
+PUBLIC RECORD FUNCTION ParseMSWordDoc(BLOB wordblob)
+{
+  INTEGER worddoc := OpenMSWordDocument(wordblob);
+  IF (worddoc <= 0)
+    RETURN [ success := FALSE, errormsg := "Could not open MSWord document" ];
+
+  RECORD scanneddoc := ScanMSWordDocument(worddoc, FALSE, DEFAULT RECORD ARRAY);
+  IF (scanneddoc.errorcode != 0)
+    RETURN [ success := FALSE, errormsg := "Error " || scanneddoc.errorcode || " while scanning MSWord document: " || scanneddoc.errormsg ];
+
+  RECORD parsed_page := CreateParsedPage();
+  parsed_page.type_ext := "doc";
+  parsed_page.follow_links := FALSE;
+
+  // Read document meta data
+  RECORD doc_meta := GetDocumentMetadata(WrapBlob(wordblob,"word.doc"));
+  parsed_page.title := CleanWhitespace(doc_meta.title);
+  parsed_page.keywords := CleanWhitespace(doc_meta.keywords);
+  parsed_page.description := CleanWhitespace(doc_meta.description);
+
+  STRING body;
+  // Set document language, if known
+  //ADDME: People are lazy and don't always set the correct language for their Word documents
+  //IF (doc_meta.lang != "")
+  //  body := "\x1E" || ToUppercase(TrimWhitespace(pdf_meta.lang)) || "\x1E";
+
+  // Get all body text
+  FOREVERY (RECORD parserobject FROM scanneddoc.parserobjects)
+    IF (NOT parserobject.hidden)
+      body := body || " " || GetParserObjectRawtext(parserobject.id,65000,FALSE);
+  parsed_page.text := CleanWhitespace(body);
+
+  CloseMSWordDocument(worddoc);
+
+  RETURN parsed_page;
+}

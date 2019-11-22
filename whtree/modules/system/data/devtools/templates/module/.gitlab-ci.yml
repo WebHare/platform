@@ -1,0 +1,22 @@
+stages:
+  - test
+
+runtest-vs-head:
+  stage: test
+  script:
+    - curl -s https://build.webhare.org/ci/testmodule.sh | bash -s -- -w head
+  artifacts:
+    paths:
+      - artifacts
+    when: on_failure
+    expire_in: 1 week
+
+runtest-vs-stable:
+  stage: test
+  script:
+    - curl -s https://build.webhare.org/ci/testmodule.sh | bash -s -- -w stable
+  artifacts:
+    paths:
+      - artifacts
+    when: on_failure
+    expire_in: 1 week

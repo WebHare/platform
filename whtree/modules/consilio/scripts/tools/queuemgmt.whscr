@@ -1,0 +1,69 @@
+﻿<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OpenPrimary();
+Print("Waiting for input\n");
+
+STRING command := ReadConsoleInput();
+WHILE (command != "")
+{
+  IF (ToUppercase(command) IN [ "HELP", "?" ])
+  {
+    Print("Available queue manager commands:\n");
+    Print("CHECKGROUP (indexid|0) (contentsourceid|0) groupid [commanddate]\n");
+    Print("CHECKINDEX [indexid]\n");
+    Print("CHECKOBJECT indexid contentsourceid groupid objectid [commanddate]\n");
+    Print("DELETEINDEX indexid [contentsourceid]\n");
+    Print("DELETEGROUP (indexid|0) (contentsourceid|0) groupid\n");
+    Print("DELETEOBJECT (indexid|0) groupid\n");
+    Print("CONFIGURE debuglevel n\n");
+    Print("CONFIGURE numworkers n\n");
+    Print("SHUTDOWN\n");
+    Print("STATUS\n");
+    Print("UPDATEGROUP (indexid|0) (contentsourceid|0) groupid [commanddate]\n");
+    Print("UPDATEINDEX [indexid]\n");
+    Print("GETERRORS\n");
+    Print("CLEARERRORS contentsourceid\n");
+    Print("\n");
+    Print("Available local commands (for debugging, not sent to queue manager):\n");
+    Print("/INDICES withdeleted\n");
+    Print("/SOURCES withdeleted\n");
+    Print("\n");
+    Print("Empty input to quit\n");
+  }
+  ELSE
+  {
+    IF (command LIKE "test *")
+    {
+      Print(AnyToString(GetQueueDataFromCommand(Right(command, Length(command) - 5)), "tree"));
+    }
+    ELSE IF(ToUppercase(command) LIKE "/INDICES*")
+    {
+      PrintRecordArrayTo(0, (SELECT id, name FROM consilio.indices WHERE type != 2 AND (command LIKE " *withdeleted" OR name NOT LIKE "$consilio$deleted$*") ORDER BY id), 'boxed');
+    }
+    ELSE IF(ToUppercase(command) LIKE "/SOURCES*")
+    {
+      PrintRecordArrayTo(0, (SELECT indexid, id, contentprovider, data FROM consilio.contentsources WHERE command LIKE " *withdeleted" OR tag NOT LIKE "$consilio$deleted$*" ORDER BY indexid, id), 'boxed');
+    }
+    ELSE
+    {
+      RECORD data := GetQueueDataFromCommand(command);
+      IF (RecordExists(data) AND data.success)
+      {
+        RECORD msg := SendQueueManagerData(data);
+        IF (NOT RecordExists(msg))
+          Print("Error while sending command '" || data.action || "'\n");
+        ELSE
+          Print(AnyToString(msg, "tree"));
+      }
+      ELSE
+        Print("Unknown command '" || command || "', try 'HELP' for available commands\n");
+    }
+  }
+
+  Print("\nWaiting for input\n");
+  command := ReadConsoleInput();
+}

@@ -1,0 +1,118 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/components/menuitem.whlib";
+
+/////////////////////////////////////////////////////////////////////
+//
+// AddToStartMenu
+//
+PUBLIC OBJECTTYPE AddToStartMenu EXTEND TolliumMenuItem
+<
+  OBJECT myaction;
+  STRING pvt_application;
+  RECORD pvt_target;
+  RECORD pvt_message;
+
+  PUBLIC PROPERTY application(pvt_application, SetApplication);
+  PUBLIC PROPERTY target(pvt_target, SetTarget);
+  PUBLIC PROPERTY message(pvt_message, SetMessage);
+  ///Name for the menu item, if added to the portal (if empty, frame->title is used)
+  PUBLIC STRING menuitemname;
+  PUBLIC STRING menuitemicon;
+
+  MACRO SetApplication(STRING app)
+  {
+    this->pvt_application := app;
+    this->CheckMenuItem();
+  }
+
+  MACRO SetTarget(RECORD data)
+  {
+    this->pvt_target := data;
+    this->CheckMenuItem();
+  }
+
+  MACRO SetMessage(RECORD message)
+  {
+    this->pvt_message := message;
+    this->CheckMenuItem();
+  }
+
+  MACRO CheckMenuItem()
+  {
+    IF(this->myaction = DEFAULT OBJECT)
+      RETURN; //not even rendered yet
+
+    BOOLEAN onportal := FALSE;
+
+    IF(this->pvt_application!="")
+    {
+      this->myaction->enabled := TRUE;
+      OBJECT work := this->owner->BeginUnvalidatedWork();
+      onportal := this->owner->tolliumcontroller->IsFavoriteAdded(this->pvt_application, this->pvt_target, this->pvt_message);
+      work->Cancel();
+    }
+    ELSE
+    {
+      this->myaction->enabled := FALSE;
+    }
+
+    this->checked := onportal;
+  }
+
+  MACRO DoAddRemove()
+  {
+    OBJECT work := this->owner->BeginUnvalidatedWork();
+    BOOLEAN todelete := NOT this->owner->tolliumcontroller->AddFavorite(this->pvt_application,
+                                                                        this->pvt_target,
+                                                                        this->pvt_message,
+                                                                        this->menuitemname ?? this->owner->frame->title,
+                                                                        this->menuitemicon);
+    IF (todelete)
+    {
+      // If the item wasn't added, delete it
+      this->owner->tolliumcontroller->RemoveFavorite(this->pvt_application, this->pvt_target, this->pvt_message);
+    }
+    work->Finish();
+    this->CheckMenuItem();
+    IF (todelete)
+    {
+      BroadcastEvent("tollium:dashboard.shortcuts." || this->owner->tolliumuser->entityid, DEFAULT RECORD);
+      this->owner->tolliumcontroller->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
+    }
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD definition)
+  {
+    this->TolliumComponentBase_StaticInit(definition);
+    IF(this->title="")
+      this->title := GetTid("tollium:common.actions.addtostartmenu");
+
+    // ADDME hint? this->hint := "Add application to the start menu";
+    this->pvt_application := definition.application;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->myaction := this->CreateSubComponent("action");
+    this->myaction->onexecute := PTR this->DoAddRemove;
+    this->action := this->myaction;
+    this->CheckMenuItem();
+  }
+  UPDATE PUBLIC PROPERTY enabled(GetEnabled,SetEnabled);
+
+  BOOLEAN FUNCTION GetEnabled()
+  {
+    IF(NOT ObjectExists(this->myaction))
+      RETURN FALSE;
+    RETURN this->myaction->enabled;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newenabled)
+  {
+    IF(ObjectExists(this->myaction))
+      this->myaction->enabled := newenabled;
+  }
+>;
+

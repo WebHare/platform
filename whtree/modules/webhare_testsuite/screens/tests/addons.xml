@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/addons.whlib"
+         gid="addons">
+
+  <screen name="block_multilinecomponent" implementation="none">
+    <body>
+      <select name="selectcomponent" type="radio" title="">
+        <option rowkey="youtube">
+          <testcomp:block_multilinecomponent title="" name="multilinecomponent" />
+        </option>
+      </select>
+    </body>
+  </screen>
+  <screen name="inline_multilinecomponent" implementation="none">
+    <body>
+      <select name="selectcomponent" type="radio" title="">
+        <option rowkey="youtube">
+          <testcomp:inline_multilinecomponent title="" name="multilinecomponent" />
+        </option>
+      </select>
+    </body>
+  </screen>
+
+  <screen name="youtubecomponent" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components" gid="youtubecomponent">
+    <body>
+      <select name="selectcomponent" type="radio" title="">
+        <option rowkey="youtube">
+          <p:browseforobject required="true" errorlabeltid=".youtube_videoid" name="youtubecomponent" public="true"/>
+        </option>
+      </select>
+    </body>
+  </screen>
+</screens>

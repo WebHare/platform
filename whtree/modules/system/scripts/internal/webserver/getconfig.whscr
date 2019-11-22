@@ -1,0 +1,140 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+/* ADDME Throw in a FlushConfig() when we reconnect with the database after a disconnect, as we may have missed
+         people being deauthorized
+   ADDME Restore 'single interface port' functionality?
+*/
+
+STATIC OBJECTTYPE GetconfigPortHandler EXTEND IPCPortHandlerBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Promise for the currently active reload.
+  OBJECT current_reload;
+
+
+  STRING saved_configpath;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port)
+  : IPCPortHandlerBase(port)
+  {
+    this->flat_responses := TRUE;
+
+    CreateDiskDirectoryRecursive(MergePath(GetWebHareConfiguration().varroot, "system.cache"),TRUE);
+    this->saved_configpath := MergePath(GetWebHareConfiguration().varroot, "system.cache/webserver-config");
+
+    EnsureWHFSCacheListener(); //avoid inversion of run order between our OnRefresh and teh internal.siteprofiles.recompiled listener in this function
+    RegisterMultiEventCallback("publisher:internal.siteprofiles.recompiled", PTR this->OnRefresh);
+
+    this->DoInitialLoad();
+  }
+
+  MACRO DoInitialLoad()
+  {
+    TRY
+    {
+      // Do we have a previous configuration?
+      RECORD config;
+      IF (RecordExists(GetDiskFileProperties(this->saved_configpath)))
+        config := DecodeHSONBlob(GetDiskResource(this->saved_configpath));
+
+      IF(NOT RecordExists(config))
+        config := CreateMinimalWebserverConfig();
+
+      RECORD lastconfig := CallFunctionFromJob("mod::system/lib/internal/webserver/reloadconfig.whlib", "ReloadPreviousConfig", config);
+      StoreDiskFile(this->saved_configpath, EncodeHSONBlob(lastconfig), [ overwrite := TRUE ]);
+    }
+    CATCH (OBJECT e)
+    {
+      // Something went wrong, log and ignore it
+      LogHarescriptException(e);
+    }
+
+    // We expect site profile compilation during startup to trigger our real config load
+    //this->RequestReload();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+  UPDATE RECORD FUNCTION OnMessage(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    IF (NOT this->IsCellOk(message, "TASK", TypeID(STRING)))
+      THROW NEW Exception("Wrong message format, expected 'task' cell");
+
+    SWITCH (message.task)
+    {
+      CASE "rescan"
+      {
+        this->DoRescan(link, message, replyid);
+        RETURN [ result := "defer"
+               ];
+      }
+    }
+
+    THROW NEW Exception("Getconfig script received unknown command '"||message.task||"'");
+  }
+  ASYNC MACRO DoRescan(OBJECT link, RECORD message, INTEGER64 replyid)
+  {
+    TRY
+    {
+      RECORD reloadstatus := AWAIT this->RequestReload();
+      link->SendReply([ status := "ok", msg := "", reloadstatus := reloadstatus ], replyid);
+    }
+    CATCH(OBJECT ex)
+    {
+      LogHarescriptException(ex);
+      link->SendReply([ status := "error"], replyid);
+    }
+  }
+
+  MACRO OnRefresh(STRING event, RECORD ARRAY events)
+  {
+    this->RequestReload();
+  }
+  ASYNC FUNCTION RequestReload()
+  {
+    //Wait for previous preload to complete
+    IF(ObjectExists(this->current_reload))
+      AWAIT this->current_reload;
+
+    //Schedule a new preload
+    this->current_reload := this->DoReload();
+    TRY RETURN AWAIT this->current_reload;
+    FINALLY
+    {
+      this->current_reload := DEFAULT OBJECT;
+    }
+  }
+  ASYNC FUNCTION DoReload()
+  {
+    RECORD lastconfig := CallFunctionFromJob("mod::system/lib/internal/webserver/reloadconfig.whlib#ReloadConfig");
+    // Save this configuration to disk (StoreDiskFile doesnt normally overwrite inplace, so this is safe)
+    StoreDiskFile(this->saved_configpath, EncodeHSONBlob(lastconfig), [ overwrite := TRUE ]);
+    // Signal the waiters for this reload. You might accidentally wait for an earlier reload, but only urlhistory uses it... see if urlhistory test can do without
+    BroadcastEvent("system:internal.webserver.didconfigreload", DEFAULT RECORD);
+    RETURN lastconfig.reloadstatus;
+  }
+>;
+
+// Create BEFORE we create the port
+OBJECT commport := InitManagedScript();
+OBJECT handler := NEW GetConfigPortHandler(commport);
+handler->Run();

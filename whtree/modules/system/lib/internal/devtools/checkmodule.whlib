@@ -1,0 +1,159 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
+LOADLIB "mod::publisher/lib/search/support.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+
+
+OBJECTTYPE CheckerObject
+<
+  RECORD options;
+  RECORD ARRAY seenissues;
+  STRING module;
+  RECORD validateconfig;
+
+  MACRO AddIssue(RECORD issue, BOOLEAN iserror)
+  {
+    IF(this->validateconfig.futuremodule)
+      iserror := FALSE;
+    ELSE IF(this->validateconfig.nowarnings)
+      iserror := TRUE;
+
+    RECORD rec := CELL[ resourcename := issue.resourcename, line := issue.line, col := issue.col, message := issue.message, iserror ];
+    RECORD pos := RecordLowerBound(this->seenissues, rec, [ "RESOURCENAME", "LINE", "COL", "ISERROR", "MESSAGE" ]);
+    IF (pos.found)
+      RETURN;
+
+    INSERT rec INTO this->seenissues AT pos.position;
+    IF(this->options.printissues)
+      Print(`${iserror?`${AnsiCmd("red")}ERR!:`:"Warn:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${issue.message}\n`);
+  }
+
+  MACRO OnSkippedFile(STRING resourcename, STRING why)
+  {
+    IF(this->options.printissues)
+      Print(`Info: Skipping ${resourcename} because: ${why}\n`);
+  }
+
+  MACRO VerifyModuleDefinition(STRING modname)
+  {
+    RECORD moddef := GetWebhareModuleInfo(modname);
+    STRING moddefname := `mod::${modname}/moduledefinition.xml`;
+
+    //validate searchfilter objects
+    __searchfilterprops := [ context := DEFAULT OBJECT ];
+    FOREVERY (RECORD filter FROM moddef.searchfilters)
+    {
+      TRY
+      {
+        OBJECT filterobject := MakeObject(filter.filterobjname);
+
+        IF (filterobject NOT EXTENDSFROM BaseSearchFilter)
+          THROW NEW Exception(`Search filterobject '${filter.filterobjname}' does not derive from BaseSearchFilter`);
+
+        ValidateOptions(
+            [ matchlabel := ""
+            , matchtype := DEFAULT RECORD ARRAY
+            , textquery := ""
+            , datequery := DEFAULT RECORD
+            , valuequery := DEFAULT RECORD ARRAY
+            , valuequerytype := ""
+            , selectquery := DEFAULT RECORD
+            , customquery := DEFAULT FUNCTION PTR
+            ], filterobject->GetFields(),
+            [ title := "fields"
+            , optional := [ "*" ]
+            //, notypecheck := [ "textquery" ] //ADDME: If we want to support input types other than text
+            ]);
+
+      }
+      CATCH(OBJECT e)
+      {
+        this->AddIssue([ resourcename := moddefname, line := filter.linenum, col := 0, message := e->what ], TRUE  );
+      }
+    }
+  }
+
+  PUBLIC MACRO Check(STRING modname, RECORD options)
+  {
+    this->module := modname;
+    this->options := ValidateOptions([ printissues := FALSE
+                                     , debug := FALSE
+                                     , onlytids := FALSE
+                                     , filemask := ""
+                                     , color := FALSE
+                                     , documentation := FALSE
+                                     , nowarnings := FALSE
+                                     ], options);
+
+    IF (this->options.color)
+      SetAnsiCmdMode("enabled");
+
+    STRING ARRAY issues;
+    STRING moddir := GetModuleInstallationRoot(modname);
+    IF(moddir="")
+      THROW NEW Exception(`No such module '${modname}'`);
+
+    this->validateconfig := GetModuleValidationConfig(modname);
+    IF(this->validateconfig.futuremodule)
+      Print(`INFO: Module '${modname}' does not apply to this WebHare (${this->validateconfig.futuremodulewhy}) - all errors will be treated as warnings\n`);
+    IF(this->options.nowarnings)
+      this->validateconfig.nowarnings := TRUE;
+
+    //verify node modules
+    IF(this->options.filemask = "")
+    {
+      RECORD ARRAY nodeissues := CheckNodeModulesInModule(moddir);
+      FOREVERY(RECORD issue FROM nodeissues)
+        this->AddIssue([ resourcename := GetResourceNameFromDiskPath(issue.basepath), line := 0, col := 0, message := issue.error ], TRUE);
+    }
+
+    //verify moduledefinition
+    this->VerifyModuleDefinition(modname);
+
+    //verify code
+    STRING ARRAY scanlist := GetValidatableFiles(this->validateconfig, modname
+                                                 , [ onskippedfile := PTR this->OnSkippedFile
+                                                   , filemask := this->options.filemask ?? "*"
+                                                   ]);
+
+    FOREVERY(STRING toscan FROM scanlist)
+    {
+      IF(this->options.debug)
+        Print(`${toscan}\n`);
+
+      RECORD result := ValidateSingleFile(toscan, [ onlytids := this->options.onlytids
+                                                  , perfectcompile := this->validateconfig.perfectcompile
+                                                  , nomissingtids := this->validateconfig.nomissingtids
+                                                  , nowarnings := this->validateconfig.nowarnings
+                                                  , documentation := this->options.documentation
+                                                  ]);
+
+      FOREVERY(RECORD issue FROM result.errors)
+        this->AddIssue(issue,TRUE);
+      FOREVERY(RECORD issue FROM result.warnings)
+        this->AddIssue(issue,FALSE);
+    }
+
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetIssues()
+  {
+    RETURN this->seenissues;
+  }
+>;
+
+PUBLIC RECORD ARRAY FUNCTION CheckModule(STRING modulename, RECORD options DEFAULTSTO CELL[])
+{
+  OBJECT checker := NEW CheckerObject;
+  checker->Check(modulename,options);
+
+  RETURN checker->GetIssues();
+}

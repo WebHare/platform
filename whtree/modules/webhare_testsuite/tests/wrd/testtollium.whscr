@@ -1,0 +1,231 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
+OBJECT person1;
+
+MACRO CreateMyTestSchema()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  TestEq(TRUE, ObjectExists(schemaobj));
+
+  // Initialize the schema, and test the attribute naem function
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  persontype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isrequired := TRUE]);
+  persontype->CreateAttribute("TEST_ARRAY", "ARRAY");
+  persontype->CreateAttribute("TEST_ARRAY.TEXT", "FREE");
+  persontype->CreateAttribute("TEST_ARRAY2", "ARRAY");
+  persontype->CreateAttribute("TEST_ARRAY2.TEXT", "FREE");
+  persontype->CreateAttribute("USERS", "ARRAY");
+  persontype->CreateAttribute("USERS.ID", "DOMAIN",[domaintag:=    "WRD_PERSON"]);
+  persontype->CreateAttribute("POSTAL", "ADDRESS");
+
+  person1 := persontype->CreateEntity( [ wrd_contact_email := "person1@example.net"
+                                       , wrd_tag := "TEST1"
+                                       , wrd_lastname := "One"
+                                       , test_array := [[ text := "row 1" ]
+                                                       ,[ text := "row 2" ]
+                                                       ]
+                                       , test_array2 := [[ text := "row 1" ]
+                                                        ,[ text := "row 2" ]
+                                                        ]
+                                       ]);
+
+  // Won't use launchapplication, so need to register this context manually
+  TestEq(GetTestController(), GetTestController()->contexts->controller);
+  TestEq(DEFAULT OBJECT, GetTestController()->contexts->wrdschema);
+
+  GetTestController()->contexts->wrdschema := testfw->GetWRDschema();
+  TestEQ(testfw->GetWRDschema(), GetTestController()->contexts->wrdschema);
+
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestBrowserEditEntity()
+{
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  INTEGER testperson := persontype->Search("WRD_TAG","TEST1");
+  TestEq(TRUE, testperson!=0);
+
+  AWAIT ExpectScreenChange(+1, PTR RunWRDEntityEditDialog(GetTestController(), persontype, testperson));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+}
+
+OBJECT ASYNC FUNCTION TestCommonEditEntity()
+{
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  INTEGER testperson := persontype->Search("WRD_TAG","TEST1");
+
+  OBJECT editdialog := MakeWRDEditEntityDialog(GetTestController(), persontype, testperson);
+  AWAIT ExpectScreenChange(+1, PTR editdialog->RunDialog());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION  TestOurEditEntity()
+{
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  INTEGER testperson := persontype->Search("WRD_TAG","TEST1");
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/wrd.edit", [ wrdschema := schemaobj, id := testperson ]);
+  TestEq(TRUE,ObjectExists(scr));
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  RETURN TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// test the legacy dialog. we should deprecate it someday though.
+//
+
+OBJECT ASYNC FUNCTION  TestCommonQueryDialog()
+{
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+
+  testfw->BeginWork();
+  persontype->CreateEntity( [ wrd_contact_email := "person2@example.net"
+                             , wrd_lastname := "Two"
+                             , wrd_creationdate := MakeDate(2012,1,1)
+                             ]);
+  persontype->CreateEntity( [ wrd_contact_email := "person3@example.net"
+                             , wrd_lastname := "Three"
+                             , wrd_creationdate := MakeDate(2013,1,1)
+                             ]);
+  testfw->CommitWork();
+
+  OBJECT dynquery := MakeWRDQuery(
+    [ sources := [ [ name := "persons"
+                   , type := persontype
+                   , outputcolumns := [ personid      := "WRD_ID"
+                                      , lastname      := "WRD_LASTNAME"
+                                      , fullname      := "WRD_FULLNAME"
+                                      , email         := "WRD_CONTACT_EMAIL"
+                                      ]
+                   , filters := [[ field := "WRD_CONTACT_EMAIL", matchtype := "LIKE", value_p := "email"]
+                                ,[ field := "WRD_CREATIONDATE", matchtype := ">=", value_p := "since" ]
+                                ]
+                   ]
+                 ]
+    , params := [ [ name := "email"
+                  , title := "EMAIL"
+                  , type := "EMAIL"
+                  , valuedefault := "*@example.net"
+                  ]
+                , [ name := "since"
+                  , type := "DATE"
+                  , title := "Creation date"
+                  , valuedefault := MakeDate(2012,1,1)
+                  ]
+                ]
+    ]);
+
+  OBJECT searcher :=  MakeWRDQueryDialog(GetTestController(), dynquery);
+  AWAIT ExpectScreenChange(+1, PTR searcher->RunDialog());
+
+  OBJECT fieldemail := SELECT AS OBJECT field FROM topscreen->parameterfields WHERE name="email";
+  OBJECT fieldsince := SELECT AS OBJECT field FROM topscreen->parameterfields WHERE name="since";
+
+  TestEq("*@example.net", fieldemail->value);
+  TestEq(MakeDate(2012,1,1), fieldsince->value);
+
+  topscreen->runbutton->TolliumClick();
+
+  RECORD ARRAY rows := SELECT * FROM topscreen->results->rows ORDER BY email;
+  TestEq(3, LEngth(rows));
+
+  fieldsince->value := MakeDate(2013,1,1);
+  topscreen->runbutton->TolliumClick();
+  rows := SELECT * FROM topscreen->results->rows ORDER BY email;
+  TestEq(2, LEngth(rows));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  RETURN TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// test complex list columns
+//
+
+OBJECT ASYNC FUNCTION  TestListColumns()
+{
+  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT persontype := schemaobj->GetType("WRD_PERSON");
+  OBJECT person2 := persontype->GetEntity(persontype->Search("WRD_CONTACT_EMAIL", "person2@example.net"));
+
+  OBJECT dialog := GetTestController()->LoadScreen("mod::webhare_testsuite/screens/tests/wrd.xml#entityrefcolumn");
+  dialog->entity->wrdtype := persontype; //it needs some context
+  dialog->wrdtools->value := [[ id := person2->id, weight := 5 ]];
+
+  dialog->fstools->value := [[ guid := person2->guid
+                             , weight := 5
+                            ]];
+
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal());
+  VARIANT ARRAY wrdrows := topscreen->wrdtools->embeddedlist->Web_renderRows(topscreen->wrdtools->embeddedlist->rows, TRUE);
+  TestEq(1, Length(wrdrows));
+  TestEq(TRUE, "person2@example.net" IN wrdrows[0]);
+
+  VARIANT ARRAY toolrows := topscreen->fstools->embeddedlist->Web_renderRows(topscreen->fstools->embeddedlist->rows, TRUE);
+  TestEQ(1, Length(toolrows));
+  TestEq(TRUE, "person2@example.net" IN toolrows[0]);
+
+  //Reset columns
+  TT("wrdtools")->columns := TT("wrdtools")->columns;
+  wrdrows := topscreen->wrdtools->embeddedlist->Web_renderRows(topscreen->wrdtools->embeddedlist->rows, TRUE);
+  TestEq(1, Length(wrdrows));
+  TestEq(TRUE, "person2@example.net" IN wrdrows[0]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  RETURN TRUE;
+}
+
+OBJECT ASYNC FUNCTION TestModernWRDContext()
+{
+  GetTestController()->RegisterAppContext("wrd:schema", testfw->GetWRDSchema());
+
+  OBJECT dialog := GetTestController()->LoadScreen("webhare_testsuite:tests/wrd.entitycontext", [tag := "TEST1", create := FALSE]);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal());
+  TestEq("person1@example.net", dialog->email->value);
+  dialog->email->value := "person1+update@example.net";
+  AWAIT ExpectScreenChange(-1, PTR dialog->TolliumExecuteSubmit());
+
+  TestEq("person1+update@example.net", person1->GetField("WRD_CONTACT_EMAIL"));
+
+  //now try creating
+  dialog := GetTestController()->LoadScreen("webhare_testsuite:tests/wrd.entitycontext", [tag := "NEW1" ,create := TRUE]);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal());
+  dialog->email->value := "new1@example.net";
+  AWAIT ExpectScreenChange(-1, PTR dialog->TolliumExecuteSubmit());
+
+  OBJECT new1 := testfw->GetWRDSchema()->^wrd_person->GetEntity(testfw->GetWRDSchema()->^wrd_person->Search("WRD_TAG", "NEW1"));
+  TestEq(TRUE, ObjectExists(new1));
+  TestEq("new1@example.net", new1->GetField("WRD_CONTACT_EMAIL"));
+
+  RETURN TRUE;
+}
+
+RunTestFramework([ PTR CreateMyTestSchema
+                 , PTR TestBrowserEditEntity
+                 , PTR TestCommonEditEntity
+                 , PTR TestOurEditEntity
+                 , PTR TestCommonQueryDialog
+                 , PTR TestListColumns
+                 , PTR TestModernWRDContext
+                 ]);

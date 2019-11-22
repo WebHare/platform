@@ -1,0 +1,24 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="components/browsecustom.whlib"
+         gid="components.browsecustom">
+
+  <messageboxes>
+  </messageboxes>
+
+  <fragment name="browsecustom"
+            gid=".browsecustom"
+            >
+    <actions>
+      <action name="browse" onexecute="dobrowse" title="" />
+      <action name="clear" onexecute="doclear" title="" />
+    </actions>
+    <contents>
+      <line>
+        <textedit name="titletext" enabled="false" />
+        <button name="browsebutton" action="browse" title="" icon="tollium:actions/edit" />
+        <button name="clearbutton" action="clear" title="" icon="tollium:actions/delete" />
+      </line>
+    </contents>
+  </fragment>
+
+</screens>

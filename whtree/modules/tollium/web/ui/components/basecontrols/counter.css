@@ -1,0 +1,40 @@
+.wh-counter
+{
+  display: inline-block;
+  white-space: nowrap;
+
+  opacity: 0;
+  transition: opacity .15s;
+}
+
+  .wh-counter__separator
+, .wh-counter__limit
+{
+  display: none;
+}
+
+  .wh-counter--havelimit .wh-counter__separator
+, .wh-counter--havelimit .wh-counter__limit
+{
+  display: inline;
+}
+
+.wh-counter__separator
+{
+  display: inline-block;
+  padding: 0 3px;
+}
+.wh-counter--hasfocus
+{
+  opacity: 0.45;
+}
+
+.wh-counter.wh-counter--overflow
+{
+  background-color: #C22121;
+  opacity: 1;
+}
+.wh-rtd__editor .wh-counter
+{
+  right: 14px;
+}

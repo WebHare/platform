@@ -1,0 +1,9 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/versioning.whlib";
+
+
+PUBLIC MACRO StartVersioningApp(OBJECT controller, RECORD data)
+{
+  RunVersioningApplication("webhare_testsuite.site", controller, data);
+}

@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://www.webhare.net/xmlns/tollium/common"
+           targetNamespace="http://www.webhare.net/xmlns/tollium/common"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+           elementFormDefault="qualified"
+           xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:simpleType name="OptionalName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*)?"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ComponentRef">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*->)*([\p{L}_][\p{L}\p{N}_]*\.)?[\p{L}_][\p{L}\p{N}_]*"/>
+      <!-- match: (identifier->)* (identifier.)? identifier -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ComponentRefList">
+    <xs:list itemType="ComponentRef" />
+  </xs:simpleType>
+
+  <xs:simpleType name="Handler">
+    <xs:restriction base="xs:string">
+      <!-- match: ((Name)->)*Name -->
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*->)*[\p{L}_][\p{L}\p{N}_]*" />
+      <!-- match: Library#Name  (strictly a resourceref could be '#Name' but let's not build hybrid xml/whlib/witty files (again) -->
+      <xs:pattern value=".+#[\p{L}_][\p{L}\p{N}_]*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Color">
+    <xs:restriction base="sc:Color"/>
+  </xs:simpleType>
+
+  <!-- A size: number ("pr"|"px"|"x") or "0" -->
+  <xs:simpleType name="Size">
+    <xs:annotation>
+      <xs:documentation>
+          There are a number of different ways to specify sizes: a proportional
+          part of the available size (pr), an exact number of pixels (px) and a
+          number of characters/lines (x).
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='0'/>
+      <xs:pattern value='\d+(pr|px|x)'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Height">
+    <xs:annotation>
+      <xs:documentation>
+          There are a number of different ways to specify sizes: a proportional
+          part of the available size (pr), an exact number of pixels (px), a
+          number of characters/lines (x) and grid size (gr). To create a textarea
+          spanning 2 grid lines, a height of "2gr" can be specified.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='0'/>
+      <xs:pattern value='\d+(pr|px|x|gr)'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="NamedComponent">
+    <xs:attribute name="name" type="sc:Name">
+      <xs:annotation>
+        <xs:documentation>
+          The (unique) name of this component.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="public" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          Make the object (component, action, composition etc) public, making it possible to refer to it from code outside of the screen's own objecttype.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:simpleType name="AbsSize">
+    <xs:annotation>
+      <xs:documentation>
+        An absolute size may not be proportional
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='(\d+(px|x))|0'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AbsHeight">
+    <xs:annotation>
+      <xs:documentation>
+        An absolute vertical size may not be proportional but may be expressed in 'gr' units
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value='(\d+(px|x|gr))|0'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Flags">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[\w_]+(\s+[\w_]+)*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:attributeGroup name="IsDirtyable">
+    <xs:attribute name="dirtylistener" type="ComponentRef"  />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Required">
+    <xs:attributeGroup ref="sc:Required" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="CompositionBase">
+    <xs:attribute name="mergecompositions" type="ComponentRefList" />
+    <xs:attributeGroup ref="IsDirtyable" />
+    <xs:attributeGroup ref="ComponentBase" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ComponentBase">
+    <xs:attributeGroup ref="NamedComponent" />
+
+    <xs:attribute name="hint" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          text which will be shown when the pointer is hovering over the item the hint belongs to
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="hinttid" type="sc:Tid">
+      <xs:annotation>
+        <xs:documentation>
+          path to the text which will be shown when the pointer is hovering over the item the hint belongs to.
+          When hinttid is specified, the hint attribute will be ignored.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="readonly" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to true, the value of this component will be shown as text instead of input fields.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="visible" type="xs:boolean" default="true" >
+      <xs:annotation>
+        <xs:documentation>
+          If set to false, this component will not be visible.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="enabled" type="xs:boolean" default="true">
+      <xs:annotation>
+        <xs:documentation>
+          whether the user can interact and change the state of the component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="minwidth" type="AbsSize">
+      <xs:annotation>
+        <xs:documentation>
+          Absolute minimum width of the component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="minheight" type="AbsHeight">
+      <xs:annotation>
+        <xs:documentation>
+          Absolute minimum width of the component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="width" type="Size">
+      <xs:annotation>
+        <xs:documentation>
+          Preferred width of the component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="height" type="Height">
+      <xs:annotation>
+        <xs:documentation>
+          Preferred height of the component
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="defaultbutton" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the button to select (e.g. give focus) upon focusing this component (for focusable components) or a component within this component (for container components).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <!-- obsolete and ignored attributes -->
+    <xs:attribute name="margintop" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="marginbottom" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="marginleft" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="marginright" type="sc:DeprecatedAttribute" />
+
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="IsComposableListener">
+    <xs:attribute name="composition" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          Specify where to store the data in this instance, relative to the base object for this composition.<br />
+          This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
+          recommended as it is incompatible with the history/versioning system.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="IsComposable">
+    <xs:attributeGroup ref="IsComposableListener" />
+    <xs:attribute name="cellname" type="OptionalName">
+      <xs:annotation>
+        <xs:documentation>
+          Container to specify the name that you have filled in on the member property in the contenteditor
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ComposableComponentBase">
+    <xs:attributeGroup ref="ComponentBase" />
+    <xs:attributeGroup ref="IsComposable" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="OnChange">
+    <xs:attribute name="onchange" type="Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <t:callbacksignature />
+        </xs:appinfo>
+        <xs:documentation>
+          The name of the function to perform when a change occurs for this component.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="EventListenerBase">
+    <xs:attributeGroup ref="ComponentBase" />
+    <xs:attribute name="onevent" type="Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <t:callbacksignature arguments="string recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          Called if an event that matches the mask is received.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="onevents" type="Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <t:callbacksignature arguments="recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          Called if events that match the mask have been received. Contains records
+            of [ STRING event, RECORD data ].
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="groupinterval" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>
+          Specifies the minimum time between groups of calls to onevent (or a single call to onevents) in milliseconds
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ListColumnBase">
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attribute name="name" type="sc:Name" use="required">
+      <xs:annotation>
+        <xs:documentation>
+            Name of the row cell which contains the data for this column.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="width" type="Size">
+      <xs:annotation>
+        <xs:documentation>
+            Preferred with of the column. May be fixed or proportional.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="minwidth" type="AbsSize">
+      <xs:annotation>
+        <xs:documentation>
+            Minimum width of the column, only fixed sizes can be used.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="sortkeyname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+            When a sortkeyname is given, the field specified will be used for sorting instead of the content of the column.
+            <b>Potential usecases:</b><br />
+            <ul>
+              <li>have a column of type="text" which display's money including currency symbol, but still have it sort correctly</li>
+            </ul>
+
+            <b>Examples of how to use it</b>:<br />
+            If you want to have a column 'onlineusers' sort on both onlineusers and loginname, you can do the following:
+            <ul>
+              <li>have a field in the row called 'onlineandname'</li>
+              <li>when creating the rows: onlineandname := (isonline ? "0" : "1") || user.login</li>
+              <li>in the screen definition use something like: &lt;column name="onlineusers" sortkeyname="onlineandname" /&gt;</li>
+            </ul>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="hintname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+            Name of the cell containing the hint for the column (which can be of any column type).
+            If set, the hintname text will be used upon hover.
+            Setting hintname overrides the behaviour to show the full text content of the column when the textual content in the column doesn't fit.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="linkname" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+            Name of the cell containing the hyperlink for the column (which can be of any column type).
+            If set, the text will be clickable and appear as a hyperlink
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Shortcut">
+    <xs:attribute name="shortcut" type="Shortcut">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the function from the accompanying library to run when calling this action.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <!-- A keyboard shortcut: [ctrl+][shift+][alt+](a-z,0-9,punctuation,f1-f12,esc,enter,left,up,right,down,tab,bksp,del,home,end,pgup,pgdn)
+       Valid punctuation characters: . , : ; + - /
+
+       From the Windows Guidelines at http://msdn.microsoft.com/en-us/library/bb545460.aspx:
+       "Don't use the following characters for shortcut keys: @ ? $ {} [] \ ~ | ^ ' < >. These characters require different
+        key combinations across languages or are locale specific."
+  -->
+  <xs:simpleType name="Shortcut">
+    <xs:annotation>
+      <xs:documentation>
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(ctrl\+)?(alt\+)?(shift\+)?([a-z0-9\.+\-:;&lt;>{}]|(,)|(\[)|(\])|(\\)|(f([1-9]|(10)|(11)|(12)))|(esc)|(enter)|(left)|(up)|(right)|(down)|(tab)|(bksp)|(del)|(home)|(end)|(pgup)|(pgdn))"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+
+</xs:schema>

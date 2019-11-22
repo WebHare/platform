@@ -1,0 +1,32 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+ASYNC MACRO TestInsertObject()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:wrddemo"));
+  //Select John Doe
+  TT("persons")->selection := SELECT * FROM TT("persons")->rows WHERE wrd_contact_email = "other@example.com";
+
+  //Edit him and trigger object insertion in the RTD
+  AWAIT ExpectScreenChange(+1, PTR TTClick("editbutton"));
+  AWAIT ExpectScreenChange(+1, PTR TT("richie")->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Closing insert video with escape shouldn't crash
+  AWAIT ExpectScreenChange(+1, PTR TT("richie")->ProcessInboundMessage("buttonclick", [ button := "object-video" ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Leave app
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR CreateWRDTestSchema
+                 , PTR TestInsertObject
+                 ],
+                 [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ] ]
+                 ]);

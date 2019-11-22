@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
+
+
+// command: apply <file>
+// short: apply configuration from file
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "filename", type := "param", required := TRUE ]
+    ]);
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh apply <filename>\n");
+  TerminateScriptWithError("Syntax error");
+}
+
+STRING path := args.filename;
+IF(NOT IsAbsoluteResourcePath(path))
+  path := ResolveToAbsolutePath(path);
+
+STRING resname := GetResourceNameFromDiskPath(path);
+IF(resname NOT LIKE "mod::*")
+  THROW NEW Exception(`Path ${path} not mapped back to a module`);
+
+RECORD validateres := ValidateSingleFile(resname);
+IF(Length(validateres.errors)>0)
+{
+  FOREVERY(RECORD err FROM validateres.errors)
+    PrintTo(2,GetWebHareResourceDiskPath(err.resourcename) || ":" || err.line || ":" || err.col || ": " || err.message || "\n");
+  TerminateScriptWithError(`Errors validating ${path}`);
+}
+
+
+IF(resname LIKE "*.wrdschema.xml")
+{
+  OBJECT trans := OpenPrimary();
+  RECORD ARRAY matchschemas := SELECT * FROM GetModuleDefinedWRDSchemas(GetModuleNameFromResourcePath(resname)) WHERE definitionfile = resname;
+  IF(Length(matchschemas) = 0)
+    THROW NEW Exception(`No schema definitions claims '${resname}'`);
+
+  STRING ARRAY candidates := GetWRDSchemaDefCandidates(matchschemas);
+  FOREVERY(STRING candidate FROM candidates)
+    IF(NOT UpdateACandidateSchema(candidate, resname))
+      SetConsoleExitCode(1);
+
+  RETURN;
+}
+IF(resname LIKE "*/moduledefinition.xml")
+{
+  OpenPrimary();
+  STRING mod := GetModuleNameFromResourcePath(resname);
+  RECORD res := ActivateInstalledModule(mod, GetModuleInstallationRoot(mod));
+  FOREVERY(STRING warning FROM res.warnings)
+    Print(`- ${warning}\n`);
+  RETURN;
+}
+
+TerminateScriptWithError("Unrecognized file type");

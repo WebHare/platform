@@ -1,0 +1,12 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+
+
+RECORD ARRAY issues := CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
+FOREVERY (STRING modulename FROM GetInstalledModulenames())
+  issues := issues CONCAT CheckNodeModulesInModule(GetModuleInstallationRoot(modulename));
+
+PRINT(Detokenize((SELECT AS STRING ARRAY DISTINCT basepath || "\n" FROM issues), ""));

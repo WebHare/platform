@@ -1,0 +1,313 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO Normalizations()
+{
+  TestEq("//www.example.org/", NormalizeHistoryURL("http://www.example.org"));
+  TestEq("//www.example.org/", NormalizeHistoryURL("http://www.example.org/"));
+  TestEq("//www.example.org/", NormalizeHistoryURL("http://www.example.org:80"));
+  TestEq("//www.example.org/", NormalizeHistoryURL("https://www.example.org:443/"));
+  TestEq("//www.example.org/abc", NormalizeHistoryURL("https://www.example.org:443/abc/"));
+  TestEq("//www.example.org/abc%20def", NormalizeHistoryURL("https://www.example.org:443/abc%20def/"));
+  TestEq("//www.example.org/abc%20def/%20", NormalizeHistoryURL("https://www.example.org:443/abc def/ "));
+
+  TestEq("//www.example.org/a/%20", NormalizeHistoryURL("https://www.example.org/a/%2520/"));
+  TestEq("//www.example.org/a/%20", NormalizeHistoryURL(NormalizeHistoryURL("https://www.example.org/a/%2520/")));
+  TestEq("https://www.example.org/a/%2520", PrepareHistoryURLForDisplay(NormalizeHistoryURL("https://www.example.org/a/%2520/")));
+
+  TestEq("//www.example.org/", NormalizeHistoryURL("https://www.example.org/#-stayinformed"));
+  TestEq("//www.example.org/%23-stayinformed", NormalizeHistoryURL("https://www.example.org/%23-stayinformed"));
+}
+
+MACRO Prepare()
+{
+  RECORD simulatedtestport := testfw->CreateWebserverPort([ port := 0, virtualhosts:=["urlhistory.example.net"], secure_keyfile := "demo", outputserver := TRUE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ withcontent := FALSE, waitwebserver := TRUE, enableoutput := FALSE ]);
+
+  testfw->BeginWork();
+  testfw->GetTestsite()->SetPrimaryOutput(simulatedtestport.webservers[0].id, '/');
+
+  OBJECT siteroot := testfw->GetTestSite()->rootobject->EnsureFolder([name := "tmp"]);
+  OBJECT followhtmldoc := siteroot->CreateFile([name:="follow.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
+  OBJECT followlinkdoc := siteroot->CreateFile([name:="follow.whlink", externallink := "http://www.example.net/", publish := TRUE, type := 18 ]);
+  OBJECT ignorehtmldoc := siteroot->CreateFile([name:="ignore.html", data := StringToBlob("Een <b>negeerbare</b> pagina"), publish := TRUE, type := 5 ]);
+  OBJECT mutatabledoc := siteroot->CreateFile([name:="mutate.html", data := StringToBlob("Een <b>muteerbare</b> pagina"), publish := TRUE, type := 5 ]);
+  OBJECT mutatablesub := siteroot->CreateFolder([name := "sub"]);
+  OBJECT mutatablesubdoc := mutatablesub->CreateFile([name:="mutatesub.html", data := StringToBlob("Een <b>muteerbare</b> subpagina"), publish := TRUE, type := 5 ]);
+  OBJECT followindexhtmldoc := siteroot->CreateFile([name:="followindex.html", data := StringToBlob("Een <b>negeerbare</b> pagina"), publish := TRUE, type := 5 ]);
+
+  OBJECT subfolder := siteroot->CreateFolder([name := "subje"]);
+  OBJECT subindex := subfolder->CreateFile([name:="followindex.html", data := StringToBlob("Een <b>negeerbare</b> pagina"), publish := TRUE, type := 5 ]);
+
+  OBJECT subbangfolder := siteroot->CreateFolder([name := "subbang"]);
+  OBJECT subbangindex := subbangfolder->CreateFile([name:="followindex.html", publish := TRUE, type := 5 ]);
+
+  siteroot->UpdateMetadata([indexdoc := followindexhtmldoc->id ]);
+  subfolder->UpdateMetadata([indexdoc := subindex->id ]);
+  subbangfolder->UpdateMetadata([indexdoc := subbangindex->id ]);
+
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig();
+  testfw->WaitForPublishCompletion(siteroot->id);
+}
+
+MACRO Moves()
+{
+  OBJECT siteroot := testfw->GetTestSite()->OpenByPath("tmp");
+
+  testfw->BeginWork();
+  siteroot->OpenByPath("follow.html")->MoveTo(siteroot, "follow2.html");
+  siteroot->OpenByPath("follow.whlink")->MoveTo(siteroot, "follow2.whlink");
+  siteroot->OpenByPath("ignore.html")->MoveTo(siteroot, "ignore2.html");
+  siteroot->UpdateMetadata([indexdoc := 0]);
+  siteroot->OpenByName("subje")->UpdateMetadata([indexdoc := 0]);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  ScanSingleFolder(siteroot->OpenByName("subje")->id);
+
+  STRING root := testfw->GetTestsite()->webroot || "tmp/";
+  STRING altroot := Substitute(root, 'https:', 'http:');
+
+  testfw->browser->autofollow := FALSE;
+  testfw->browser->SetupWebHareTrustedPort(GetWebhareConfiguration().trustedhost, GetWebhareConfiguration().trustedport,"100::1234:5789");
+
+  TestEq(FALSE, testfw->browser->GotoWebPage(root || "ignore.html"));
+  TestEq(404, testfw->browser->GetHTTPStatusCode(), testfw->browser->url);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "follow.html"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "follow2.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "follow.whlink"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq("http://www.example.net/", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "follow.html?utm_campaign=jaja&utm_content=hetisweerzover"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "follow2.html?utm_campaign=jaja&utm_content=hetisweerzover", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "followindex.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subje/" ), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "subje/followindex.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subje" ), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq("/tmp/subje/", testfw->browser->GetResponseHeader("Location")); //This is webhare's subredirect. RFC7231 tolerates a relative URL, so this is okay...
+
+  //move 'subje' to a new name, and track the redirects
+  testfw->BeginWork();
+  siteroot->OpenByName("subje")->UpdateMetadata([ name := "subje 2" ]);
+  ScheduleFolderRepublish(siteroot->id, TRUE);
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subje/" ), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "subje%202/followindex.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subje" ), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "subje%202/followindex.html", testfw->browser->GetResponseHeader("Location"));
+
+
+  //move 'subje' to another new name
+  testfw->BeginWork();
+  siteroot->OpenByName("subje 2")->UpdateMetadata([ name := "subje 3" ]);
+  //Rename the subbang folder to test /!/ links
+  siteroot->OpenByPath("subbang")->UpdateMetadata([name := "subbang2"]);
+
+  ScheduleFolderRepublish(siteroot->id, TRUE);
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+
+
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  //Test GetURLHistoryRedirect and GetURLHistoryRedirectWHFSID (these are used by publisher goto url so should work)..
+  //PRint(openwhfsobject(GetURLHistoryRedirectWHFSID(root || "subje/"))->whfspath || "\n");
+  INTEGER dest := siteroot->OpenByPath("subje 3/followindex.html")->id;
+  TestEq(dest, GetURLHistoryRedirect(root || "subje/", FALSE, FALSE).destid);
+  TestEq(dest, GetURLHistoryRedirect(altroot || "subje/", FALSE, FALSE).destid);
+
+  TestEqMembers([ desturl := root || "subje%203/followindex.html?utm_content=bla&utm_campaign=diebla", destid := dest ]
+                , GetURLHistoryRedirect(root || "subje/?utm_content=bla&utm_campaign=diebla", FALSE, FALSE), "DESTURL,DESTID");
+
+  TestEq(dest, GetURLHistoryRedirect(root || "subje 2/followindex.html", FALSE, FALSE).destid);
+  TestEq(dest, GetURLHistoryRedirect(altroot || "subje 2/followindex.html", FALSE, FALSE).destid);
+  TestEq(dest, GetURLHistoryRedirect(root || "subje%202/followindex.html", FALSE, FALSE).destid);
+  TestEq(dest, GetURLHistoryRedirect(altroot || "subje%202/followindex.html", FALSE, FALSE).destid);
+
+  //A file may NEVER return itself, because that might cause an endless loop
+  STRING selfurl := siteroot->OpenByPath("subje 3/followindex.html")->indexurl;
+  TestEq(FALSE, RecordExists(GetURLHistoryRedirect(selfurl, FALSE, FALSE)));
+  TestEq(TRUE, RecordExists(GetURLHistoryRedirect(selfurl, TRUE, FALSE)));
+  TestEq(FALSE, RecordExists(GetURLHistoryRedirect(selfurl || "?utm_content=bla", FALSE, FALSE)));
+
+  Testeq(FALSE, RecordExists(GetURLHistoryRedirect(root || "subbang2/", FALSE, FALSE)));
+  Testeq(FALSE, RecordExists(GetURLHistoryRedirect(root || "subbang2/!/sub", FALSE, FALSE)), `URL '${root || "subbang2/!/sub"}' should not redirect`);
+
+  //Depublish subject and wait for it to go away
+  testfw->BeginWork();
+  siteroot->OpenByPath("subje 3/followindex.html")->UpdateMetadata([ publish := FALSE ]);
+  ScheduleFolderRepublish(siteroot->id, TRUE);
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  TestEq(FALSE, RecordExists(GetURLHistoryRedirect(root || "subje 2/followindex.html", FALSE, FALSE)));
+  TestEq(FALSE, RecordExists(GetURLHistoryRedirect(root || "subje 3/followindex.html", FALSE, FALSE)));
+}
+
+MACRO HistoryMutations()
+{
+  STRING root := testfw->GetTestsite()->webroot || "tmp/";
+  OBJECT siteroot := testfw->GetTestSite()->OpenByPath("tmp");
+
+  testfw->browser->autofollow := FALSE;
+  testfw->BeginWork();
+  OBJECT basefile := siteroot->OpenByPath("mutate.html");
+  OBJECT subfile := siteroot->OpenByPath("sub/mutatesub.html");
+  /// Now, add some URLs to the basefile:
+  INTEGER historyid := AddURLHistoryEntry(basefile->id, root || "mutate_1.html");
+  INTEGER historyid2 := AddURLHistoryEntry(basefile->id, root || "mutate_1.html");
+  TestEq(historyid2, historyid, "prevent unneeded reinserts");
+  AddURLHistoryEntry(basefile->id, root || "mutate_2.html");
+  AddURLHistoryEntry(basefile->id, root || "sub/mutate/");
+  AddURLHistoryEntry(basefile->id, root || "weirdlinks/%2520x");
+  /// And the subfile
+  AddURLHistoryEntry(subfile->id, root || "mutatesub.html");
+
+  siteroot->UpdateMetadata([indexdoc := 0]);
+  ScanSingleFolder(siteroot->id); //make sure the old version is cleaned (outputanalyzer does that usually, but on a delay)
+  testfw->CommitWork();
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "mutate_1.html"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "mutate_2.html"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "sub/mutate/"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "weirdlinks/%2520x"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "sub/mutatesub.html"), testfw->browser->url);
+  TestEq(200, testfw->browser->GetHTTPStatusCode(), "URL history should not prevent existing files from being resolved");
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "mutatesub.html"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "sub/mutatesub.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subbang/"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "subbang2/", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "subbang/!/newsevents"), testfw->browser->url);
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "subbang2/!/newsevents", testfw->browser->GetResponseHeader("Location"));
+}
+
+ASYNC MACRO TestHistoryUI()
+{
+  testfw->browser->autofollow := FALSE;
+
+  STRING root := testfw->GetTestsite()->webroot || "tmp/";
+  OBJECT siteroot := testfw->GetTestSite()->OpenByPath("tmp");
+  OBJECT basefile := siteroot->OpenByPath("mutate.html");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(basefile->id)], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("manageurlhistory"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("url")->value := root || "encodedhashes/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  //We use LIKE here because urlhistory normalizes URLs under the assumption https is fine and strips proto+portnumber, and our 'root' will point to http://127.0.0.1:8000/ on testservers.
+  TestEqLike("*encodedhashes", TT("history")->selection.url);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("url")->value := root || "encodedhashes/%23"; //somebody leaked a url with '%23' where he should have just spread around '#'
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEqLike("*encodedhashes/%23", TT("history")->selection.url); //should appear as %23 in the list
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEqLike("*encodedhashes/%23", TT("history")->selection.url); //should appear as %23 in the list
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add")); //outside site, should be fine as we're a sysop
+  TT("url")->value := GetPrimaryWebHareInterfaceURL() || "webhare-testsuite-test-urlhistory";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close")); //escape url history
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //escape publisher
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "encodedhashes/"));
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(root || "encodedhashes/%23"));
+  TestEq(301, testfw->browser->GetHTTPStatusCode());
+  TestEq(root || "mutate.html", testfw->browser->GetResponseHeader("Location"));
+
+  //Test access checking
+  testfw->SetTestUser("limited");
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse",testfw->GetUserObject("limited"),testfw->GetTestsite()->id,FALSE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_fullaccess",testfw->GetUserObject("limited"),testfw->GetTestsite()->OpenByPath("tmp")->id,FALSE);
+  testfw->Commitwork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ ToString(basefile->id) ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("manageurlhistory"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add")); //outside site, should be fine as we're a sysop
+  TT("url")->value := GetPrimaryWebHareInterfaceURL() || "outside-my-site";
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*do not have write access*" ]);
+  TT("url")->value := root || "simpleurl/";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close")); //escape url history
+
+  topscreen->frame->focused := TT("foldertree");
+  TT("foldertree")->value := testfw->GetTestsite()->id;
+
+  RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("reporturlhistory"))).file;
+  RECORD ARRAY historyrows := GetOOXMLSpreadsheetRows(download.data);
+  TestEq(TRUE, RecordExists(SELECT FROM historyrows WHERE historyrows."current url" = "https://www.example.net/" AND historyrows."history url" = "https://urlhistory.example.net/tmp/follow.whlink"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //escape publisher
+}
+
+RunTestframework([ PTR Normalizations
+                 , PTR Prepare
+                 , PTR Moves
+                 , PTR HistoryMutations
+                 , PTR TestHistoryUI
+                 ], [ testusers :=
+                            [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                            , [ login := "limited" ]
+                            ]
+                    ]);

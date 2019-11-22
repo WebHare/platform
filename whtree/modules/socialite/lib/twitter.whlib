@@ -1,0 +1,36 @@
+<?wh
+/** @private Deprecate. Either move to system (but where to store API keys) or move to central service */
+
+LOADLIB "mod::socialite/lib/internal/feeds.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+
+/** @param searchcriterium Search query. See https://dev.twitter.com/docs/using-search
+    @return Column 'entries', a record array containing for example:
+
+	  +CREATED: 2013-03-07 (66) 17:50:08.000
+	  +FROMUSER: 'pascalrotteveel'
+	  +FROMUSERID: '37893036'
+	  +FROMUSERNAME: 'Pascal Rotteveel'
+	  +INREPLYTOSTATUSID: ''
+	  +MESSAGEID: '309722646675877888'
+	  +RICHTEXT: '<span class=\"twitter-user\" data-screenname=\"AstridGr\" data-name=\"Astrid Groenewegen\">@AstridGr</span> Ik denk dat je gehackt bent. <a class=\"twitter-media\" href=\"http://t.co/JDoylwUkE4\">http://t.co/JDoylwUkE4</a>'
+	  +TEXT: '@AstridGr Ik denk dat je gehackt bent. http://t.co/JDoylwUkE4'
+	  +TOUSER: 'AstridGr'
+	  +TOUSERID: '68452974'
+	  +TOUSERNAME: 'Astrid Groenewegen'
+
+	  Also returns a 'DATA' cell containing the original Twitter data.
+  */
+/*
+*/
+PUBLIC RECORD FUNCTION GetTwitterSearchFeed(STRING sessionname, STRING searchcriterium, INTEGER maxnum, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN RequestFeed("SOCIALITE_FEEDS", "TWITTER", sessionname, searchcriterium, maxnum, CellExists(options,'force') AND options.force);
+}
+
+PUBLIC STRING FUNCTION EncodeTwitterQuery(STRING inquery)
+{
+  IF(inquery="")
+    THROW NEW Exception("Specifying an empty twitter query");
+  RETURN EncryptForThisServer("socialite:twitterquery", inquery);
+}

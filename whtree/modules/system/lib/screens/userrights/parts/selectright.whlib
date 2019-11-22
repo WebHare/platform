@@ -1,0 +1,304 @@
+﻿<?wh
+
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+
+
+
+PUBLIC OBJECTTYPE SelectRight EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT rightsinfo;
+
+  // Switch to hide the object path text.
+  BOOLEAN hideobject;
+
+  /// Creationdate of current grant
+  DATETIME pvt_creationdate;
+
+  /// Grantor of current grant
+  OBJECT pvt_grantor;
+
+  /// Grantable value for remembering during selection of system:sysop
+  BOOLEAN nonsysop_grantoption;
+
+  BOOLEAN pvt_localreadonly;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// The currently selected right
+  PUBLIC PROPERTY rightname(GetSelectedRight, -);
+
+  /// The currently selected grant option
+  PUBLIC PROPERTY withgrantoption(GetWithGrantOption, SetWithGrantOption);
+
+  /// Title of the box
+  PUBLIC PROPERTY boxtitle(-, SetBoxTitle);
+
+  /// List of selectable rights
+  PUBLIC PROPERTY selectablerights(GetSelectableRights, -);
+
+  /** Value
+      @cell rightname
+      @cell withgrantoption
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Date of current grant (DEFAULT DATETIME to hide)
+  PUBLIC PROPERTY creationdate(pvt_creationdate, SetCreationDate);
+
+  /// Grantor of current grant (DEFAULT OBJECT to hide)
+  PUBLIC PROPERTY grantor(pvt_grantor, SetGrantor);
+
+  UPDATE PUBLIC PROPERTY readonly(pvt_localreadonly, SetLocalReadOnly);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium registration
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetSelectedRight()
+  {
+    RETURN this->rightslist->value;
+  }
+
+  BOOLEAN FUNCTION GetWithGrantOption()
+  {
+    RETURN this->grantwithgrantoption->value;
+  }
+
+  MACRO SetWithGrantOption(BOOLEAN newvalue)
+  {
+    this->nonsysop_grantoption := newvalue;
+    this->grantwithgrantoption->value := newvalue OR this->rightslist->value = "system:sysop";
+  }
+
+  MACRO SetBoxTitle(STRING title)
+  {
+    this->grantbox->title := title;
+  }
+
+  STRING ARRAY FUNCTION GetSelectableRights()
+  {
+    STRING ARRAY rights :=
+        SELECT AS STRING ARRAY rowkey
+          FROM this->rightslist->options;
+
+    IF (rights[0] = "")
+      RETURN DEFAULT STRING ARRAY;
+
+    RETURN rights;
+  }
+
+  RECORD FUNCTION GetValue()
+  {
+    RETURN
+        [ rightname :=          this->rightname
+        , withgrantoption :=    this->grantwithgrantoption->value
+        ];
+  }
+
+  MACRO SetValue(RECORD newval)
+  {
+    this->rightslist->value := newval.rightname;
+    this->withgrantoption->value := newval.withgrantoption;
+  }
+
+  MACRO SetCreationDate(DATETIME creationdate)
+  {
+    this->pvt_creationdate := creationdate;
+    this->grantcreationdate->value := this->owner->tolliumuser->FormatDateTime(creationdate, "seconds", TRUE, TRUE);
+    this->grantcreationdate->visible := creationdate != DEFAULT DATETIME;
+  }
+
+  MACRO SetGrantor(OBJECT grantor)
+  {
+    this->pvt_grantor := grantor;
+    IF (ObjectExists(grantor))
+    {
+      this->grantgrantor->value := GetAuthObjectPresentationName(this->contexts, grantor);
+    }
+    this->grantgrantor->visible := ObjectExists(grantor) AND grantor->IsVisibleFor(this->owner->tolliumuser);
+  }
+
+  MACRO SetLocalReadOnly(BOOLEAN newvalue)
+  {
+    this->pvt_localreadonly := newvalue;
+    this->grantwithgrantoption->enabled := NOT newvalue AND this->rightslist->value != "system:sysop";
+    this->rightslist->readonly := newvalue;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+
+  MACRO OnRightSelect()
+  {
+    // Grant option is disabled for system:sysop
+    BOOLEAN now_enabled := this->rightslist->value != "system:sysop" AND NOT this->pvt_localreadonly;
+    IF (this->grantwithgrantoption->enabled != now_enabled)
+    {
+      PRINT("Change enabled to " || (now_enabled ? "on" : "off") || ", saved value before: " || (this->nonsysop_grantoption ? "on" : "off") || ", set value is " || (this->grantwithgrantoption->value?"on":"off") ||"\n");
+
+      IF (now_enabled)
+        this->grantwithgrantoption->value := this->nonsysop_grantoption;
+      ELSE
+      {
+        this->nonsysop_grantoption := this->grantwithgrantoption->value;
+        this->grantwithgrantoption->value := TRUE;
+      }
+      this->grantwithgrantoption->enabled := now_enabled;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC BOOLEAN FUNCTION Reset(STRING rightname, INTEGER objectid, BOOLEAN selectfirstright)
+  {
+    // Determine and show which rights can be chosen here
+    RECORD ARRAY relevant_rights := this->rightsinfo->GetRightsInSameGroup(rightname);
+
+    // Fill select with relevant (visible) rights, and the requested right
+    RECORD ARRAY options :=
+          SELECT rowkey := name
+               , title  := title || (description = "" ? "" : " (" || description || ")")
+               , isglobal
+            FROM relevant_rights
+           WHERE (isglobal ? this->owner->tolliumuser->HasRight(name) : this->owner->tolliumuser->HasRightOn(name, objectid))
+              OR (NOT selectfirstright AND name = rightname)
+        ORDER BY ordering
+               , ToUppercase(title);
+
+    IF (LENGTH(options) = 0)
+    {
+      this->rightslist->options :=
+        [ [ rowkey := ""
+          , title  := ""
+          , isglobal := ""
+          ]
+        ];
+
+      // FIXME: show error that no rights are available
+      RETURN FALSE;
+    }
+
+    this->rightslist->type := LENGTH(options) > 6 ? "pulldown" : "radio";
+    this->rightslist->options := options;
+
+    IF (selectfirstright)
+      this->rightslist->selection := options[0];
+    ELSE
+      this->rightslist->value := rightname;
+
+    // If no choice present, only show the one right as text
+    IF (LENGTH(options) = 1)
+    {
+      this->singleright->value := options[0].title;
+      this->singleright->visible := TRUE;
+      this->rightslist->visible := FALSE;
+    }
+    ELSE
+    {
+      this->singleright->visible := FALSE;
+      this->rightslist->visible := TRUE;
+    }
+
+    // Show object for non-global rights, groupname for global rights
+    IF (NOT relevant_rights[0].isglobal)
+    {
+      IF (NOT this->hideobject)
+      {
+        TRY
+        {
+          this->objectpath->value := this->rightsinfo->GetObjectFullPath(relevant_rights[0].objecttypename, objectid, this->owner->tolliumuser->authobject);
+        }
+        CATCH (OBJECT e)
+        {
+          LogHarescriptException(e);
+          this->objectpath->value := GetTid("system:userrights.error");
+
+        }
+        this->objectpath->visible := TRUE;
+      }
+      ELSE
+        this->objectpath->visible := FALSE;
+      this->rightsgroup->visible := FALSE;
+    }
+    ELSE
+    {
+      RECORD groupdata := this->rightsinfo->GetRightsGroupByName(relevant_rights[0].rightsgroup);
+      this->rightsgroup->value := groupdata.title;
+      this->rightsgroup->visible := TRUE;
+      this->objectpath->visible := FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @param data Init data
+      @cell data.rightname Name of right that is in the group of rights to show
+      @cell data.objectid Object on which the right is defined
+      @cell data.withgrantoption Initial state of 'withgrantoption' checkbox
+      @cell data.hideobject If TRUE, hide the object (optional)
+      @cell data.selectfirstright If not present or FALSE, select right @a rightname, else select first right.
+  */
+  PUBLIC BOOLEAN FUNCTION Init(RECORD data)
+  {
+    this->rightsinfo := GetRightsInfoObject(this->owner->tolliumuser);
+
+    this->hideobject := CellExists(data, "HIDEOBJECT") AND data.hideobject;
+    BOOLEAN selectfirstright := CellExists(data, "SELECTFIRSTRIGHT") AND data.selectfirstright;
+    this->grantwithgrantoption->value := data.withgrantoption;
+
+    PRINT("Just set data, now resetting: " || AnyToString(data, "tree"));
+
+    RETURN this->Reset(data.rightname, data.objectid, selectfirstright);
+  }
+
+>;

@@ -1,0 +1,2266 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_fetcher, print_defer_connection, __indexmanager_debugall;
+LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+// -----------------------------------------------------------------------------
+//
+// Public API
+//
+
+PUBLIC OBJECT FUNCTION WaitForIndexManager(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
+{
+  waituntil := waituntil ?? MAX_DATETIME;
+  RECORD indexmanager := SELECT type FROM consilio.indexmanagers WHERE id = indexmgrid;
+
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        RETURN WaitForConsilio(indexmgrid, waituntil);
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        RETURN WaitForElasticsearch(indexmgrid, waituntil);
+      }
+    }
+  }
+  RETURN CreateRejectedPromise(NEW Exception(SearchIndexNotFound));
+}
+
+
+/** @short Configure the indexmanager
+    @param param What to configure ("all" or "stopwords")
+    @return Result status
+*/
+PUBLIC STRING FUNCTION ConfigureIndexManager(STRING param)
+{
+  STRING res;
+
+  // Only Consilio indexmanagers have to be configured
+  FOREVERY (INTEGER id FROM SELECT AS INTEGER ARRAY COLUMN id FROM consilio.indexmanagers WHERE type = 1)
+  {
+    // Configure loglevel too
+    BroadcastEvent("consilio:indexmanager.config",
+        [ loglevel :=     ReadRegistryKey("consilio.indexmanager.loglevel")
+        ]);
+
+    STRING indexmgrres := ConfigureConsilioIndexManager(id, param);
+    IF (indexmgrres != SearchOk)
+      res := res ?? indexmgrres; // Keep first error code
+  }
+  res := res ?? SearchOk;
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "ConfigureIndexManager", param, res);
+
+  RETURN res;
+}
+
+/** @short Clear the indexmanager status
+    @long This call only applies to Consilio indexmanagers and is ignored for
+        Elasticsearch indexmanagers (i.e. always returns SearchOk).
+    @param indexmgrid The id of the indexmanager
+    @return Result status
+*/
+PUBLIC STRING FUNCTION ClearIndexManagerStatus(INTEGER indexmgrid)
+{
+  RECORD indexmanager := GetIndexManagers(indexmgrid);
+
+  STRING res := SearchIndexNotFound;
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        RECORD response := SendToConsilio(indexmanager.id, 0, "/setstatus", DEFAULT RECORD ARRAY, "POST");
+        res := response.status;
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        // Not supported, ignore
+        res := SearchOk;
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "ClearIndexManagerStatus", indexmgrid, res);
+
+  RETURN res;
+}
+
+PUBLIC RECORD FUNCTION GetIndexManagerState(INTEGER indexmgrid)
+{
+  RECORD result :=
+      [ status := SearchOk
+      , msg := DEFAULT STRING ARRAY
+      ];
+
+  RECORD indexmanager := GetIndexManagers(indexmgrid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        RECORD response := SendToConsilio(indexmanager.id, 0, "/status", DEFAULT RECORD ARRAY, "POST");
+        result.status := response.status;
+        IF (response.status = SearchOk)
+          result.msg := Tokenize(BlobToString(response.content, 1024 * 1024), "\n");
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        result := GetElasticsearchStatus(indexmanager.id);
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "GetIndexManagerState", indexmgrid, result);
+
+  RETURN result;
+}
+
+/** @short Get a list of indices from an indexmanager
+    @param indexmgrid The id of the indexmanager
+    @return The result
+    @cell(string) return.status The result status
+    @cell(integer array) return.indices The list of index id's known by this
+        indexmanager, or DEFAULT INTEGER ARRAY when there are no indices or when
+        no indexmanager with the given id exists
+*/
+PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ indexsuffixes := 0
+      ], options);
+
+  RECORD result :=
+      [ status := SearchIndexNotFound
+      , indices := DEFAULT INTEGER ARRAY
+      , suffixes := DEFAULT STRING ARRAY
+      ];
+
+  RECORD ARRAY indexmanagers := GetIndexManagers(indexmgrid);
+  RECORD indexmanager := indexmanagers;
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        // No support for unmanaged indices
+        IF (options.indexsuffixes = 0)
+        {
+          RECORD response := SendToConsilio(indexmanager.id, 0, "/indexlist", DEFAULT RECORD ARRAY, "POST");
+          result.status := response.status;
+          IF (response.status = SearchOk)
+          {
+            RECORD ARRAY indexlist :=
+                SELECT indexid := ToInteger(indexid, 0)
+                  FROM ToRecordArray(Tokenize(BlobToString(response.content, -1), "\n"), "indexid");
+            result.indices :=
+                SELECT AS INTEGER ARRAY DISTINCT indexid
+                  FROM indexlist
+                 WHERE indexid != 0;
+          }
+        }
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/indices/?format=json", DEFAULT RECORD, "GET");
+        result.status := response.status;
+        IF (response.status = SearchOk)
+        {
+          //Find the indices we were expecting here
+          RECORD ARRAY matchagainst := SELECT * FROM indexmanagers WHERE indexname != "";
+
+          // Unmanaged indices may have a suffix: <prefix>__<indexid>-<suffix>
+
+          // 0      1      2     3    4   5   6          7            8          9
+          // health status index uuid pri rep docs.count docs.deleted store.size pri.store.size
+          RECORD ARRAY indexlist := RECORD ARRAY(DecodeJSONBlob(response.content));
+
+          indexlist := SELECT *
+                            , indexname := indexlist."index"
+                            , matchindex := (SELECT *
+                                               FROM indexmanagers
+                                              WHERE indexlist."index" = indexname
+                                                    OR indexlist."index" LIKE indexname || "-*")
+                         FROM indexlist;
+
+          indexlist := SELECT indexid := matchindex.indexid
+                            , suffix := Substring(indexname, Length(matchindex.indexname)+1)
+                         FROM indexlist
+                        WHERE RecordExists(matchindex);
+
+          IF (options.indexsuffixes != 0)
+            result.suffixes :=
+                SELECT AS STRING ARRAY DISTINCT suffix
+                  FROM indexlist
+                 WHERE indexid = options.indexsuffixes;
+          ELSE
+            result.indices :=
+                SELECT AS INTEGER ARRAY DISTINCT indexid
+                  FROM indexlist
+                 WHERE indexid != 0;
+        }
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "GetIndexManagerIndexList", indexmgrid, options.indexsuffixes, result);
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , throwonfailure := TRUE
+      ], options);
+
+  STRING result := SearchOk;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (NOT RecordExists(indexmanager))
+   THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
+
+  SWITCH (indexmanager.type)
+  {
+    CASE whconstant_consilio_indexmanager_legacybackend
+    {
+      // Not supported, ignore
+    }
+    CASE whconstant_consilio_indexmanager_elasticsearch
+    {
+      IF (indexmanager.indextype = whconstant_consilio_catalogtype_moduleindex)
+      {
+        IF(indexmanager.indexname = "")
+          THROW NEW Exception(`Index #${indexid} has no name`);
+
+        RECORD settings := [ "index.number_of_replicas" := 0 ];
+        TRY
+        {
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "") || "?wait_for_active_shards=1", "", CELL[settings], "PUT", CELL[options.throwonfailure]);
+          IF (response.status = SearchHTTPError
+              AND RecordExists(response.result)
+              AND response.result.status = 400
+              AND RecordExists(response.result.error)
+              AND response.result.error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+            result := SearchOk; // It's ok, the index aleady exists
+          ELSE
+            result := response.status;
+        }
+        CATCH(OBJECT<ElasticSearchException> e)
+        {
+          IF(RecordExists(e->error) AND e->error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+            result := Searchok;
+          ELSE
+            THROW;
+        }
+      }
+      ELSE
+      {
+        IF(options.suffix != "")
+          THROW NEW Exception("Cannot specify a suffix for a non-module index");
+
+        // Setup an nGram analyzer for suggestions and substring searches. This analyzer uses a standard tokenizer, converts
+        // all text to lowercase and folders characters into their ascii equivalents (i.e. normalizes the text) and adds all
+        // substrings of the terms with lengths min_gram to max_gram to the index.
+        RECORD config :=
+            [ settings :=
+                [ analysis :=
+                    [ filter :=
+                        [ ngram_filter :=
+                            [ type := "nGram"
+                            , min_gram := 2
+                            , max_gram := 20
+                            , token_chars := [ "letter", "digit" ]
+                            ]
+                        ]
+                    , analyzer :=
+                        [ ngram_analyzer :=
+                            [ type := "custom"
+                            , tokenizer := "standard"
+                            , filter := [ "lowercase", "asciifolding", "ngram_filter" ]
+                            ]
+                        ]
+                    ]
+                ]
+            ];
+
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", config, "PUT");
+        IF (response.status = SearchHTTPError
+            AND RecordExists(response.result)
+            AND response.result.status = 400
+            AND RecordExists(response.result.error)
+            AND response.result.error.type IN [ "index_already_exists_exception", "resource_already_exists_exception" ])
+          result := SearchOk; // It's ok, the index aleady exists
+        ELSE
+          result := response.status;
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "EnsureIndexManagerIndex", indexid, result);
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER contentsourceid)
+{
+  STRING result := SearchOk;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        // Not supported, ignore
+      }
+      CASE 2
+      {
+        // Define a default mapping by setting the field type for some standard
+        // fields to untokenized 'keyword' fields: indexid, groupid, objectid,
+        // initialfilter.
+        RECORD settings :=
+            [ properties := defaultmappingfields
+            ];
+
+        RECORD ARRAY mapping := GetContentSourceMapping(contentsourceid);
+        BOOLEAN have_suggested;
+        FOREVERY (RECORD field FROM mapping)
+        {
+          IF (field.name LIKE "_*")
+          {
+            // Overwrite standard field settings, like "body"
+            STRING fieldname := Substring(field.name, 1);
+            IF (CellExists(settings.properties, fieldname))
+            {
+              RECORD fielddef := GetCell(settings.properties, fieldname);
+              fielddef.type := field.tokenized ? "text" : "keyword";
+              have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
+              settings.properties := CellUpdate(settings.properties, fieldname, fielddef);
+            }
+          }
+          ELSE IF (NOT CellExists(settings.properties, field.name))
+          {
+            RECORD fielddef :=
+                [ type := field.name LIKE "date_*" OR field.name LIKE "*.date_*" ? "date"
+                        : field.tokenized ? "text"
+                        : "keyword"
+                ];
+            have_suggested := have_suggested OR (CellExists(field, "suggested") AND field.suggested);
+            settings.properties := CellInsert(settings.properties, field.name, fielddef);
+          }
+        }
+
+        // If there are any suggested fields, add a '_suggested' field with 'completion' type
+        IF (have_suggested)
+          INSERT CELL _suggested :=
+              [ type := "completion"
+              ] INTO settings.properties;
+
+        RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_mapping/_doc", settings, "PUT");
+        IF (response.status = SearchHTTPError
+            AND RecordExists(response.result)
+            AND response.result.status = 400
+            AND RecordExists(response.result.error)
+            AND response.result.error.type = "illegal_argument_exception"
+            AND response.result.error.reason LIKE "mapper [*]")
+          result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
+        ELSE
+          result := response.status;
+      }
+    }
+  }
+
+  IF (result = SearchOk)
+    BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "EnsureIndexManagerContentSource", indexid, contentsourceid, result);
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION GetIndexManagerMapping(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , throwonfailure := TRUE
+      ], options);
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (NOT (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1))
+    THROW NEW Exception("Invalid index for GetIndexManagerMapping");
+
+  STRING finalindexname := indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "");
+  RECORD response := SendToElasticsearch(indexmanager.id, finalindexname, "/_mapping", DEFAULT RECORD, "GET", CELL[options.throwonfailure]);
+
+  RECORD mappings := GetCell(response.result, finalindexname).mappings;
+  mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);
+  RETURN mappings;
+}
+
+// For unmanaged Elasticsearch indices only
+PUBLIC STRING FUNCTION EnsureIndexManagerMapping(INTEGER indexid, RECORD mapping, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , throwonfailure := FALSE
+      ], options);
+
+  STRING result := SearchCommandUnsupported;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager) AND indexmanager.type = 2 AND indexmanager.indextype = 1)
+  {
+    //why was &wait_for_active_shards=1 here? got request [/anvblj1n__/_mapping] contains unrecognized parameter: [wait_for_active_shards]"}
+    RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_mapping?include_type_name=false", mapping, "PUT", CELL[options.throwonfailure]);
+    IF (response.status = SearchHTTPError
+        AND RecordExists(response.result)
+        AND response.result.status = 400
+        AND RecordExists(response.result.error)
+        AND response.result.error.type = "illegal_argument_exception"
+        AND response.result.error.reason LIKE "mapper [*]")
+      result := SearchRebuildCatalog; // Cannot update mapping, index must be deleted and re-indexed
+    ELSE
+      result := response.status;
+
+    IF (__indexmanager_debugall OR result != SearchOk)
+      LogDebug("IndexManager", "EnsureIndexManagerMapping", indexid, mapping, result, response);
+  }
+  RETURN result;
+}
+
+RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
+{
+  // Get the default result fields
+  RECORD defaultmapping;
+  FOREVERY (RECORD field FROM GetIndexMapping(indexid))
+    IF (field.defaultvalue != "")
+      defaultmapping := CellInsert(defaultmapping, field.name, DecodeHSON(field.defaultvalue));
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+
+  RETURN [ value := CELL [ defaultmapping, indexmanagers ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "consilio:contentsourceschanged"
+                         , "consilio:indexfields"
+                         ]
+         ];
+}
+
+/** @short Search an index
+    @param indexid The id of the index to query; 0 for all indices
+    @param query The query to execute
+    @param options Search options
+    @cell(integer) options.first The first result to return (0-based, defaults to 0)
+    @cell(integer) options.count The number of results to return; 0 for no results (but still returning the number of result),
+        -1 for all results (defaults to 0)
+    @cell(integer) options.summary The length of the summary to generate; 0 for no summary (defaults to 200)
+    @cell(boolean) options.donthighlight Don't highlight matched search terms in the summary
+    @cell(string) options.lang The language used for searching (used for various language-specific features)
+    @cell(string) options.restrict_to Restrict results to URLs starting with restrict_to
+    @cell(record) options.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
+*/
+PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD useroptions)
+{
+  RECORD indexoptions := GetAdhocCached( [ indexoptions := indexid ], PTR GetCacheableIndexConfiguration(indexid));
+  RECORD defaultoptions :=
+      [ first := 0
+      , count := 0
+      , summary := 200
+      , donthighlight := FALSE
+      , lang := ""
+      , restrict_to := ""
+      , exclude_urls := STRING[]
+      , mapping := indexoptions.defaultmapping
+      , session := DEFAULT RECORD
+      , addscore := FALSE
+      , debug := FALSE
+      ];
+
+  RECORD options := ValidateOptions(defaultoptions, useroptions);
+  IF(options.addscore)
+    options.mapping := CELL[...options.mapping, _score := 0f ];
+
+  // Make sure at least objectid and groupid are returned, if this is not an aggregation query
+  IF (NOT CellExists(query, "aggregation"))
+  {
+    IF (NOT CellExists(options.mapping, "OBJECTID"))
+      INSERT CELL objectid := "" INTO options.mapping;
+    IF (NOT CellExists(options.mapping, "GROUPID"))
+      INSERT CELL groupid := "" INTO options.mapping;
+  }
+  IF (options.summary != 0 AND NOT CellExists(options.mapping, "_SUMMARY"))
+    INSERT CELL _summary := "" INTO options.mapping;
+
+  RECORD result :=
+      [ status := SearchIndexNotFound
+      , totalcount := 0
+      , results := DEFAULT RECORD ARRAY
+      , session := options.session
+      ];
+
+  STRING catalog := SELECT AS STRING name FROM consilio.indices WHERE id = indexid AND name NOT LIKE "$consilio$deleted$*";
+  IF (catalog = "")
+    RETURN result;
+
+  DATETIME querystart := GetCurrentDateTime();
+
+  FOREVERY (RECORD indexmanager FROM indexoptions.indexmanagers)
+  {
+    STRING queryuuid := GenerateUFS128BitId();
+
+    RECORD ARRAY in_requested_fields := SELECT * FROM UnpackRecord(options.mapping);
+    IF(indexmanager.type = 1) // Objectid is always returned first, groupid always returned second
+      in_requested_fields := SELECT * FROM in_requested_fields ORDER BY name != "OBJECTID", name != "GROUPID", name;
+
+    STRING ARRAY requested_fields :=
+        SELECT AS STRING ARRAY ToLowercase(name)
+          FROM in_requested_fields;
+
+    //FIXME Get rid of the broadcasts, just use the logging system ?
+    RECORD searchstart := CELL[ event := "searchstart"
+                              , queryuuid
+                              , restrict_to := options.restrict_to
+                              , exclude_urls := options.exclude_urls
+                              , first := options.first
+                              , count := options.count
+                              , summary_length := options.summary
+                              , lang := options.lang
+                              , sess := RecordExists(options.session) ? options.session.sessid : ""
+                              , donthighlight := options.donthighlight
+                              , fields := requested_fields
+                              , uuid := queryuuid
+                              , now := querystart
+                              , catalog
+                              , indexmanager := indexmanager.type = 1 ? "Consilio" : indexmanager.type = 2 ? "ElasticSearch" : "#" || indexmanager.type
+                              ];
+
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD ARRAY vars :=
+            [ [ name := "query",  value := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]) ]
+            ];
+
+        INSERT [ name := "fields", value := Detokenize(requested_fields, ",") ] INTO vars AT END;
+
+        IF (options.first != defaultoptions.first)
+          INSERT [ name := "first", value := ToString(options.first) ] INTO vars AT END;
+        IF (options.count != defaultoptions.count)
+          INSERT [ name := "count", value := ToString(options.count) ] INTO vars AT END;
+        IF (options.summary != defaultoptions.summary)
+          INSERT [ name := "summary", value := ToString(options.summary) ] INTO vars AT END;
+        IF (options.donthighlight != defaultoptions.donthighlight)
+          INSERT [ name := "donthighlight", value := "" ] INTO vars AT END;
+        IF (options.lang != defaultoptions.lang)
+          INSERT [ name := "lang", value := ToUppercase(options.lang) ] INTO vars AT END;
+        IF (options.restrict_to != defaultoptions.restrict_to)
+          INSERT [ name := "restrict-to", value := options.restrict_to ] INTO vars AT END;
+        IF (Length(options.exclude_urls) > 0)
+          INSERT [ name := "exclude-urls", value := Detokenize(options.exclude_urls, "\t") ] INTO vars AT END;
+
+        STRING queryvalue := __FormatQuery(indexid, query, [ language := options.lang ]);
+        ModuleLog("consilio:searches", EncodeJSON(CELL[ ...searchstart, query := queryvalue ]));
+        BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
+                                                     , query := queryvalue
+                                                     , options.restrict_to
+                                                     , options.exclude_urls
+                                                     , options.first
+                                                     , options.count
+                                                     , summary_length := options.summary
+                                                     , options.lang
+                                                     , sess := RecordExists(options.session) ? options.session.sessid : ""
+                                                     , options.donthighlight
+                                                     , fields := requested_fields
+                                                     , uuid := queryuuid
+                                                     , now := querystart
+                                                     , catalog
+                                                     ]);
+
+        IF(options.debug)
+          Print("Final consilio query: " || queryvalue || "\n");
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/search", vars, "POST");
+
+        result.status := response.status;
+        IF (result.status = SearchOk)
+        {
+          result.totalcount := result.totalcount + ToInteger(GetMIMEHeader(response.headers, "Total-Hits"), 0);
+
+          // Read result lines from returned content
+          INTEGER resultstream := OpenBlobAsFile(response.content);
+          STRING line := ReadLineFrom(resultstream, 32768, TRUE);
+          WHILE (TRUE)
+          {
+            // If we got an empty line, check if we're at the end of the content
+            IF (line = "" AND IsAtEndOfStream(resultstream))
+              BREAK; // Yes, we're done
+
+            STRING ARRAY received_fields := Tokenize(line,'\t');
+            RECORD lineresult;
+            FOREVERY (STRING fld FROM requested_fields)
+            {
+              IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
+                lineresult := CellInsert(lineresult, fld, StringToDateTime(received_fields[#fld]));
+              ELSE
+                lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
+            }
+
+            RECORD singleresult;
+            FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
+            {
+              IF (CellExists(singleresult, field.name))
+                CONTINUE;
+
+              // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+              IF (CellExists(lineresult, field.name))
+              {
+                VARIANT value := GetCell(lineresult, field.name);
+                IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+                {
+                  singleresult := CellInsert(singleresult, field.name, value);
+                  CONTINUE;
+                }
+                ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+                {
+                  // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+                  value := Substitute(value, "\x1D", "");
+                  value := Substitute(value, "\x1C", "");
+
+                  // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+                  VARIANT decoded := DecodeJSON(value);
+                  IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+                  {
+                    field.value := decoded;
+                    singleresult := CellInsert(singleresult, field.name, field.value);
+                    CONTINUE;
+                  }
+                }
+              }
+              // If we got here, we have to insert the default field value
+              singleresult := CellInsert(singleresult, field.name, field.value);
+            }
+            IF (RecordExists(singleresult))
+              INSERT singleresult INTO result.results AT END;
+
+            line := ReadLineFrom(resultstream, 32768, TRUE);
+          }
+          CloseBlobFile(resultstream);
+
+          IF (NOT IsDatabaseReadonly())
+            result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
+        }
+
+        BroadcastEvent("consilio:executedquery", [ isstart := FALSE
+                                                 , uuid := queryuuid
+                                                 , status := response.status
+                                                 , code := CellExists(response, "code") ? response.code : 0
+                                                 , numresults := CellExists(response, "results") ? Length(result.results) : 0
+                                                 , now := GetCurrentDateTime()
+                                                 ]);
+      }
+      CASE 2
+      {
+        RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
+
+        INSERT CELL _source := requested_fields INTO searchquery;
+
+        IF (options.first != defaultoptions.first)
+          INSERT CELL "from" := options.first INTO searchquery;
+        IF (CellExists(searchquery, "aggs"))
+          INSERT CELL size := 0 INTO searchquery; // Only interested in aggregation result
+        ELSE IF (options.count != defaultoptions.count)
+          INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
+        //IF (options.summary != defaultoptions.summary)
+        //  INSERT [ name := "summary", value := ToString(options.summary) ] INTO vars AT END;
+        //ADDME: Highlight all relevant fields (_all doesn't work without properly configuring the indexed fields)
+        IF (options.donthighlight = defaultoptions.donthighlight)
+          INSERT CELL highlight := [ fields := [ body := [ number_of_fragments := 0 ]
+                                               , title := [ number_of_fragments := 0 ]
+                                               ]
+                                   , pre_tags := [ "\x1d" ]
+                                   , post_tags := [ "\x1c" ]
+                                   ] INTO searchquery;
+        //IF (options.lang != defaultoptions.lang)
+        //  INSERT [ name := "lang", value := ToUppercase(options.lang) ] INTO vars AT END;
+        IF (options.restrict_to != defaultoptions.restrict_to)
+        {
+          RECORD restrict_filter := [ prefix := [ initialfilter := options.restrict_to ] ];
+          searchquery.query := AddElasticsearchQueryFilters(searchquery.query, [ restrict_filter ], FALSE);
+        }
+        IF (Length(options.exclude_urls) > 0)
+        {
+          RECORD ARRAY exclude_filters;
+          FOREVERY (STRING url FROM options.exclude_urls)
+            INSERT [ "not" := [ prefix := [ initialfilter := options.restrict_to ] ] ] INTO exclude_filters AT END;
+          searchquery.query := AddElasticsearchQueryFilters(searchquery.query, exclude_filters, TRUE);
+        }
+
+        RECORD finalquery := [ method := "GET"
+                             , path := "/" || indexmanager.indexname || (indexmanager.indextype = 1 ? "*" : "") || "/_search"
+                             , body := searchquery
+                             ];
+
+        ModuleLog("consilio:searches", EncodeJSON(CELL[ ...searchstart, searchquery := finalquery ]));
+        BroadcastEvent("consilio:executedquery", CELL[ isstart := TRUE
+                                                     , uuid := queryuuid
+                                                     , searchquery := finalquery
+                                                     , options.restrict_to
+                                                     , options.first
+                                                     , options.count
+                                                     , summary_length := options.summary
+                                                     , options.lang
+                                                     , sess := RecordExists(options.session) ? options.session.sessid : ""
+                                                     , options.donthighlight
+                                                     , fields := requested_fields
+                                                     , now := querystart
+                                                     , catalog
+                                                     ]);
+
+        IF(options.debug)
+          Print("Final Elasticsearch query: " || EncodeJSON(searchquery) || "\n");
+
+        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, [ throwonfailure := FALSE]);
+        IF(options.debug)
+          DumpValue(response);
+
+        result.status := response.status;
+        IF (result.status = SearchOk)
+        {
+          IF (response.result.timed_out)
+            result.status := SearchTimeOutError;
+          ELSE IF (CellExists(query, "aggregation"))
+          {
+            result.totalcount := result.totalcount + response.result.hits.total.value;
+
+            // If the main aggregation is a 'count' aggregation, there are no aggregation results
+            IF (query.aggregation._type = "count")
+            {
+              RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
+              RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.mapping);
+              IF (RecordExists(singleresult))
+                INSERT singleresult INTO result.results AT END;
+            }
+            ELSE
+            {
+              // For now, we only have one top-level aggregation per query
+              RECORD main_aggregation := UnpackRecord(response.result.aggregations);
+              IF (RecordExists(main_aggregation))
+              {
+                VARIANT aggresult := ReadElasticsearchAggregationResult(query.aggregation, main_aggregation.name, response.result.aggregations);
+                IF (IsTypeIDArray(TypeID(aggresult)))
+                {
+                  FOREVERY (RECORD lineresult FROM aggresult)
+                  {
+                    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.mapping);
+                    IF (RecordExists(singleresult))
+                      INSERT singleresult INTO result.results AT END;
+                  }
+                }
+                ELSE
+                {
+                  RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.mapping);
+                  IF (RecordExists(singleresult))
+                    INSERT singleresult INTO result.results AT END;
+                }
+              }
+            }
+          }
+          ELSE
+          {
+            result.totalcount := result.totalcount + response.result.hits.total.value;
+
+            // An array with length 0 is returned as VARIANT ARRAY
+            IF (Length(response.result.hits.hits) > 0)
+            {
+              FOREVERY (RECORD hit FROM response.result.hits.hits)
+              {
+                RECORD lineresult;
+                FOREVERY (STRING fld FROM requested_fields)
+                {
+                  IF (fld = "indexid")
+                    lineresult := CellInsert(lineresult, "indexid", ToInteger(Substring(hit._index, Length(indexmanager.prefix)), 0));
+                  ELSE IF (fld = "score")
+                    lineresult := CellInsert(lineresult, "score", hit._score);
+                  ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
+                    lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
+                  ELSE IF (CellExists(hit._source, fld))
+                  {
+                    IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
+                      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit._source, fld)));
+                    ELSE
+                      lineresult := CellInsert(lineresult, fld, GetCell(hit._source, fld));
+                  }
+                }
+
+                RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.mapping);
+                IF (RecordExists(singleresult))
+                  INSERT singleresult INTO result.results AT END;
+              }
+            }
+          }
+
+          result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
+        }
+
+        BroadcastEvent("consilio:executedquery", [ isstart := FALSE
+                                                 , uuid := queryuuid
+                                                 , status := response.status
+                                                 , code := CellExists(response, "code") ? response.code : 0
+                                                 , numresults := CellExists(response, "results") ? Length(result.results) : 0
+                                                 , now := GetCurrentDateTime()
+                                                 ]);
+      }
+    }
+    ModuleLog("consilio:searches", EncodeJSON(CELL[ event := "searchdone" //FIXME separate 'done' and 'fail'
+                                                  , queryuuid
+//                                                  , status := response.status
+//                                                  , code := CellExists(response, "code") ? response.code : 0
+                                                  , numresults := result.totalcount
+                                                  , time_msecs := GetDatetimeDifference(querystart, GetCurrentDateTime()).msecs
+                                                  ]));
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "SearchIndexManager", indexid, query, options, result);
+
+  RETURN result;
+}
+
+PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD options)
+{
+  RECORD defaultoptions :=
+      [ first := 0
+      , count := 0
+      , mapping := DEFAULT RECORD
+      , lang := ""
+      , suffix := ""
+      , managedonly := FALSE
+      ];
+  options := ValidateOptions(defaultoptions, options);
+
+  // Make sure at least objectid and groupid are returned
+  IF (NOT CellExists(options.mapping, "OBJECTID"))
+    INSERT CELL objectid := "" INTO options.mapping;
+  IF (NOT CellExists(options.mapping, "GROUPID"))
+    INSERT CELL groupid := "" INTO options.mapping;
+
+  RECORD result :=
+      [ status := SearchIndexNotFound
+      , totalcount := 0
+      , results := DEFAULT RECORD ARRAY
+      ];
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ managedonly := options.managedonly ]);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD ARRAY vars :=
+            [ [ name := "query",  value := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]) ]
+            ];
+
+        STRING ARRAY requested_fields :=
+            SELECT AS STRING ARRAY ToLowercase(name)
+              FROM UnpackRecord(options.mapping)
+          ORDER BY name != "OBJECTID", name != "GROUPID", name;
+        INSERT [ name := "fields", value := Detokenize(requested_fields, ",") ] INTO vars AT END;
+
+        IF (options.first != defaultoptions.first)
+          INSERT [ name := "first", value := ToString(options.first) ] INTO vars AT END;
+        IF (options.count != defaultoptions.count)
+          INSERT [ name := "count", value := ToString(options.count) ] INTO vars AT END;
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/search", vars, "POST");
+
+        result.status := response.status;
+        IF (result.status = SearchOk)
+        {
+          result.totalcount := result.totalcount + ToInteger(GetMIMEHeader(response.headers, "Total-Hits"), 0);
+
+          // Read result lines from returned content
+          INTEGER resultstream := OpenBlobAsFile(response.content);
+          STRING line := ReadLineFrom(resultstream, 32768, TRUE);
+          WHILE (TRUE)
+          {
+            // If we got an empty line, check if we're at the end of the content
+            IF (line = "" AND IsAtEndOfStream(resultstream))
+              BREAK; // Yes, we're done
+
+            STRING ARRAY received_fields := Tokenize(line,'\t');
+            RECORD lineresult;
+            FOREVERY (STRING fld FROM requested_fields)
+            {
+              IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
+                lineresult := CellInsert(lineresult, fld, StringToDateTime(received_fields[#fld]));
+              ELSE
+                lineresult := CellInsert(lineresult, fld, DecodeJava(received_fields[#fld]));
+            }
+
+            RECORD singleresult;
+            FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
+            {
+              IF (CellExists(singleresult, field.name))
+                CONTINUE;
+
+              // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+              IF (CellExists(lineresult, field.name))
+              {
+                VARIANT value := GetCell(lineresult, field.name);
+                IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+                {
+                  singleresult := CellInsert(singleresult, field.name, value);
+                  CONTINUE;
+                }
+                ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+                {
+                  // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+                  value := Substitute(value, "\x1D", "");
+                  value := Substitute(value, "\x1C", "");
+
+                  // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+                  VARIANT decoded := DecodeJSON(value);
+                  IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+                  {
+                    field.value := decoded;
+                    singleresult := CellInsert(singleresult, field.name, field.value);
+                    CONTINUE;
+                  }
+                }
+              }
+              // If we got here, we have to insert the default field value
+              singleresult := CellInsert(singleresult, field.name, field.value);
+            }
+            IF (RecordExists(singleresult))
+              INSERT singleresult INTO result.results AT END;
+
+            line := ReadLineFrom(resultstream, 32768, TRUE);
+          }
+          CloseBlobFile(resultstream);
+        }
+      }
+      CASE 2
+      {
+        RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
+
+        STRING ARRAY requested_fields :=
+            SELECT AS STRING ARRAY ToLowercase(name)
+              FROM UnpackRecord(options.mapping);
+
+        INSERT CELL _source := requested_fields INTO searchquery;
+
+        // Optimization when scoring isn't relevant
+        INSERT CELL sort := [ "_doc" ] INTO searchquery;
+
+        IF (options.first != defaultoptions.first)
+          INSERT CELL "from" := options.first INTO searchquery;
+        BOOLEAN scrolling;
+        IF (options.count != defaultoptions.count)
+        {
+          INSERT CELL size := options.count >= 0 ? options.count : 10000 INTO searchquery;
+
+          // If requesting all results, use the scrolling API
+          scrolling := options.count = -1;
+        }
+
+        STRING scrollid;
+        BOOLEAN search_done;
+        INTEGER totalhits;
+        WHILE (NOT search_done)
+        {
+          RECORD response;
+          // If we have a scroll id, request the next batch of results
+          IF (scrollid != "")
+            response := SendToElasticsearch(indexmanager.id, "", "/_search/scroll", [ scroll := "10s", scroll_id := scrollid ], "GET");
+          ELSE
+          {
+            STRING suffix := indexid > 0 AND indexmanager.indextype = 1 ? (options.suffix != "" ? "-" || options.suffix : "") : "";
+            response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname || suffix : "_all", "/_search" || (scrolling ? "?scroll=10s" : ""), searchquery, "GET");
+          }
+
+          result.status := response.status;
+          IF (result.status = SearchOk)
+          {
+            IF (response.result.timed_out)
+            {
+              result.status := SearchTimeOutError;
+              BREAK;
+            }
+            ELSE
+            {
+              // If we're not using the scrolling API, we're done, otherwise
+              // store the scroll id for retrieval of the next batch of results
+              IF (NOT scrolling)
+                search_done := TRUE;
+
+              totalhits := response.result.hits.total.value;
+
+              // An array with length 0 is returned as VARIANT ARRAY
+              IF (Length(response.result.hits.hits) > 0)
+              {
+                IF (scrolling)
+                  scrollid := response.result._scroll_id;
+
+                FOREVERY (RECORD hit FROM response.result.hits.hits)
+                {
+                  RECORD lineresult;
+                  FOREVERY (STRING fld FROM requested_fields)
+                  {
+                    IF (fld = "indexid")
+                      lineresult := CellInsert(lineresult, "indexid", ToInteger(Substring(hit._index, Length(indexmanager.prefix)), 0));
+                    ELSE IF (fld = "score")
+                      lineresult := CellInsert(lineresult, "score", hit._score);
+                    ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
+                      lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
+                    ELSE IF (CellExists(hit._source, fld))
+                    {
+                      IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
+                        lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit._source, fld)));
+                      ELSE
+                        lineresult := CellInsert(lineresult, fld, GetCell(hit._source, fld));
+                    }
+                  }
+
+                  RECORD singleresult;
+                  FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
+                  {
+                    IF (CellExists(singleresult, field.name))
+                      CONTINUE;
+
+                    // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
+                    IF (CellExists(lineresult, field.name))
+                    {
+                      VARIANT value := GetCell(lineresult, field.name);
+                      IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+                      {
+                        singleresult := CellInsert(singleresult, field.name, value);
+                        CONTINUE;
+                      }
+                      ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+                      {
+                        // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+                        value := Substitute(value, "\x1D", "");
+                        value := Substitute(value, "\x1C", "");
+
+                        // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+                        VARIANT decoded := DecodeJSON(value);
+                        IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+                        {
+                          field.value := decoded;
+                          singleresult := CellInsert(singleresult, field.name, field.value);
+                          CONTINUE;
+                        }
+                      }
+                    }
+                    // If we got here, we have to insert the default field value
+                    singleresult := CellInsert(singleresult, field.name, field.value);
+                  }
+                  IF (RecordExists(singleresult))
+                    INSERT singleresult INTO result.results AT END;
+                }
+              }
+              ELSE
+              {
+                // If a batch doesn't contain results, we're done
+                search_done := TRUE;
+              }
+            }
+          }
+          ELSE
+            BREAK;
+        }
+
+        result.totalcount := result.totalcount + totalhits;
+
+        // Clear the last scrolling context, if necessary
+        IF (scrollid != "")
+          SendToElasticsearch(indexmanager.id, "", "/_search/scroll", [ scroll_id := [ scrollid ] ], "DELETE");
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "QueryIndexManager", indexid, query, options, result);
+
+  RETURN result;
+}
+
+/*
+*/
+PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD options)
+{
+  RECORD defaultoptions :=
+      [ count := 10
+      , doccount := "search"
+      , prefix := ""
+      , restrict_to := ""
+      , and_search := FALSE
+      ];
+  options := ValidateOptions(defaultoptions, options);
+
+  RECORD result := [ status := SearchIndexNotFound
+                   , suggestions := DEFAULT RECORD ARRAY
+                   ];
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD ARRAY vars :=
+            [ [ name := "query", value := query ]
+            , [ name := "doccount", value := options.doccount ]
+            , [ name := "count", value := ToString(options.count >= 0 ? options.count : defaultoptions.count) ]
+            ];
+        IF (indexid = -1 AND options.prefix != "")
+          INSERT [ name := "prefix", value := options.prefix ] INTO vars AT END;
+        ELSE IF (indexid != -1 AND options.restrict_to != "")
+          INSERT [ name := "restrict-to", value := options.restrict_to ] INTO vars AT END;
+        IF (options.and_search)
+          INSERT [ name := "and-search", value := "true" ] INTO vars AT END;
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/suggest", vars, "GET");
+        result.status := response.status;
+        IF (response.status = SearchOk)
+        {
+          IF (Length(response.content) > 0)
+          {
+            STRING content := BlobToString(response.content, Length(response.content));
+
+            // Content consists of lines with word and document count, separated by tab
+            STRING ARRAY lines := Tokenize(content, "\n");
+            FOREVERY (STRING line FROM lines)
+            {
+              STRING ARRAY parts := Tokenize(line, "\t");
+              IF (parts[0] != "")
+                INSERT [ text := parts[0]
+                       , count := Length(parts) > 1 ? ToInteger(parts[1], 0) : 0
+                       ] INTO result.suggestions AT END;
+            }
+          }
+        }
+      }
+      CASE 2
+      {
+        OBJECT tokenizer := NEW TokenStream(query);
+        RECORD token := tokenizer->GetNextToken();
+        STRING userquery, userword, querystring;
+        WHILE (RecordExists(token))
+        {
+          IF (token.type = TokenTypeWord)
+          {
+            querystring := token.normalizedtext;
+            userword := token.text;
+            userquery := Left(query, token.startoffset);
+          }
+          token := tokenizer->GetNextToken();
+        }
+        INTEGER wordlen := Length(userword);
+        INTEGER prefixlen;
+        IF (indexid = -1 AND options.prefix != "")
+        {
+          querystring := options.prefix || "_" || querystring;
+          prefixlen := Length(options.prefix) + 1;
+        }
+        IF (querystring != "")
+        {
+          RECORD suggestquery :=
+              [ _source := [ "_suggested" ]
+              , suggest :=
+                  [ suggested :=
+                      [ prefix := querystring
+                      , completion := [ field := "_suggested" ]
+                      ]
+                  ]
+              ];
+          IF (indexid != -1 AND options.restrict_to != "")
+            INSERT "initialfilter" INTO suggestquery._source AT END;
+
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", suggestquery, "POST");
+          result.status := response.status;
+          IF (response.status = SearchOk AND CellExists(response.result, "suggest")) // suggest may not exist if indexmanager should be restarted
+          {
+            // The suggest results are by matching document, returning only the first matching suggestion, so we'll have to
+            // manually go through all suggested terms (the original input) and see which terms match with the query. This has
+            // the added benefit of having a method to count the number of matching documents
+            IF (Length(response.result.suggest.suggested.options) > 0)
+              FOREVERY (RECORD suggest FROM response.result.suggest.suggested.options)
+              {
+                IF (indexid != -1
+                    AND options.restrict_to != ""
+                    AND suggest._source.initialfilter NOT LIKE options.restrict_to || "*")
+                  CONTINUE;
+                FOREVERY (STRING text FROM suggest._source._suggested.input)
+                  IF (text LIKE querystring || "*")
+                  {
+                    text := userword || Substring(text, prefixlen + wordlen);
+                    INTEGER cur :=
+                        (SELECT AS INTEGER #suggestions + 1
+                           FROM result.suggestions
+                          WHERE COLUMN text = VAR text) - 1;
+                    IF (cur < 0)
+                    {
+                      cur := Length(result.suggestions);
+                      INSERT [ text := text, count := 0 ] INTO result.suggestions AT cur;
+                    }
+                    IF (options.doccount != "" AND cur >= 0)
+                      result.suggestions[cur].count := result.suggestions[cur].count + 1;
+                  }
+              }
+
+            INTEGER max := options.count != defaultoptions.count AND options.count >= 0 ? options.count : defaultoptions.count;
+            IF (max > 0)
+              result.suggestions :=
+                  SELECT *
+                    FROM result.suggestions
+                   ORDER BY COLUMN count DESC
+                          , text
+                   LIMIT max;
+          }
+          IF (userquery != "")
+            UPDATE result.suggestions
+               SET text := userquery || text;
+        }
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "SuggestIndexManager", indexid, query, options, result);
+
+  RETURN result;
+}
+
+PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
+{
+  INTEGER size := -1;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/size", DEFAULT RECORD ARRAY, "POST");
+        IF (response.status = SearchOk)
+          size := ToInteger(GetMIMEHeader(response.headers, "Index-Size"), -1);
+      }
+      CASE 2
+      {
+        STRING suffix := indexmanager.indextype = 1 ? "*" : "";
+        RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD, "GET");
+        IF (response.status = SearchOk)
+        {
+          // 0     1         2
+          // epoch timestamp count
+          RECORD ARRAY indexlist :=
+              SELECT TEMPORARY parts := Tokenize(indexrow, " ")
+                   , indexsize := Length(parts) > 2 ? ToInteger(parts[2], -1) : -1
+                FROM ToRecordArray(Tokenize(BlobToString(response.content), "\n"), "indexrow");
+
+          size := SELECT AS INTEGER indexsize FROM indexlist;
+        }
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "GetIndexManagerSize", indexid, size);
+
+  RETURN size;
+}
+
+// @cell objects.objectid
+// @cell objects.documentfields
+// @cell objects.suggestfields
+// @cell objects.suggestprefixes
+PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
+                                              RECORD contentsource,
+                                              STRING groupid,
+                                              RECORD ARRAY objects,
+                                              RECORD options)
+{
+  RECORD defaultoptions :=
+      [ discardsummaries := FALSE // Set to TRUE to not store the document body for summary generation, Consilio only
+      , refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
+      , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , throwonfailure := FALSE
+      ];
+  options := ValidateOptions(defaultoptions, options);
+
+  STRING result := SearchIndexNotFound;
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        IF(NOT RecordExists(contentsource))
+          THROW NEW Exception("Module indices are not supported by the legacy backend");
+
+        FOREVERY (RECORD obj FROM objects)
+        {
+          RECORD ARRAY vars := [ [ name := "groupid",           value := groupid ]
+                               , [ name := "objectid",          value := obj.objectid ]
+                               , [ name := "contentsource",     value := ToString(contentsource.id) ]
+                               ];
+          // Make name lowercase, as Consilio expects field names to be in lowercase and UnpackRecord returns uppercase field names
+          vars := vars CONCAT
+              SELECT name := ToLowercase(name)
+                   , value := (name LIKE "DATE_*" OR name LIKE "*.DATE_*") AND TypeID(value) = TypeID(DATETIME) ? DateTimeToString(value) : value
+                FROM UnpackRecord(obj.documentfields);
+          // Don't index empty fields
+          DELETE FROM vars WHERE IsDefaultValue(value);
+
+          // Add indexid to the suggest field
+          IF (Length(obj.suggestfields) > 0)
+          {
+            // The first part of the suggestfields field is used as the suggest prefix in the index
+            STRING indexprefix := ToString(indexid);
+            obj.suggestprefixes := obj.suggestprefixes CONCAT RepeatElement("", Length(obj.suggestfields) - Length(obj.suggestprefixes));
+
+            STRING suggestfield;
+            FOREVERY (STRING fld FROM obj.suggestfields)
+            {
+              IF (fld = "")
+                CONTINUE;
+
+              STRING prefix := indexprefix || "_" || obj.suggestprefixes[#fld];
+              IF (Right(prefix, 1) != "_")
+                prefix := prefix || "_";
+
+              suggestfield := suggestfield || " " || fld || " " || prefix;
+            }
+
+            INSERT [ name := "suggestfields", value := TrimWhitespace(suggestfield) ] INTO vars AT END;
+          }
+
+          IF (options.discardsummaries)
+            INSERT [ name := "-discardsummaries", value := "" ] INTO vars AT END;
+
+          RECORD response := SendToConsilio(indexmanager.id, indexid, "/add", vars, "POST-MULTIPART");
+          result := response.status;
+          IF (result != SearchOk)
+            BREAK;
+        }
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        RECORD response;
+        IF (indexmanager.indextype = 1)
+        {
+          FOREVERY (RECORD objgroup FROM SELECT objs := GroupedValues(objects) FROM objects)
+          {
+            RECORD ARRAY bulkrequests;
+            FOREVERY (RECORD obj FROM objgroup.objs)
+            {
+              // action_and_meta_data
+              INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix), "_type" := "_doc" ]] INTO bulkrequests AT END;
+              // optional_source
+              INSERT obj.documentfields INTO bulkrequests AT END;
+            }
+
+            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+          }
+        }
+        ELSE
+        {
+          RECORD ARRAY mapping := GetContentSourceMapping(contentsource.id);
+          mapping := SELECT * FROM mapping WHERE suggested;
+
+          RECORD ARRAY bulkrequests;
+          FOREVERY (RECORD obj FROM objects)
+          {
+            RECORD document := obj.documentfields;
+            INSERT CELL groupid := groupid
+                      , objectid := obj.objectid
+                      , contentsource := contentsource.id
+              INTO document;
+            FOREVERY (RECORD field FROM UnpackRecord(document))
+            {
+              // Don't index empty fields
+              IF (IsDefaultValue(field.value))
+                document := CellDelete(document, field.name);
+              ELSE IF ((field.name LIKE "DATE_*" OR field.name LIKE "*.DATE_*") AND TypeID(field.value) = TypeID(DATETIME))
+                document := CellInsert(CellDelete(document, field.name), field.name, FormatISO8601DateTime(field.value, "day", "milliseconds"));
+            }
+
+            IF (RecordExists(mapping))
+            {
+              STRING ARRAY suggested;
+              OBJECT tokenizer := NEW TokenStream("");
+              FOREVERY (RECORD field FROM mapping)
+              {
+                STRING fieldname := field.name LIKE "_*" ? Substring(field.name, 1) : field.name;
+                IF (CellExists(document, fieldname))
+                  tokenizer->AddText(GetCell(document, fieldname));
+              }
+              RECORD token := tokenizer->GetNextToken();
+              WHILE (RecordExists(token))
+              {
+                IF (token.type = TokenTypeWord AND token.normalizedtext NOT IN suggested)
+                  INSERT token.normalizedtext INTO suggested AT END;
+                token := tokenizer->GetNextToken();
+              }
+              IF (Length(suggested) > 0)
+                INSERT CELL _suggested := [ input := suggested ] INTO document;
+            }
+
+            // action_and_meta_data
+            INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid) ] ] INTO bulkrequests AT END;
+            // optional_source
+            INSERT document INTO bulkrequests AT END;
+
+            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_doc/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST");
+          }
+        }
+
+        result := response.status;
+        IF (result = SearchOk)
+        {
+          IF(response.result.errors)
+          {
+            RECORD faileditem := SELECT * FROM response.result.items WHERE CellExists(items."index", "error");
+            //FIXME we get an _id back, but we don't calculate them here so how to figure out which object it actually referred to for a proper error?
+            THROW NEW Exception(`Failed on document '${faileditem."index"._id}': ${faileditem."index".error.reason} (${faileditem."index".error.type})`);
+          }
+        }
+      }
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "AddIndexManagerObject", indexid, contentsource, groupid, objects, options, result);
+
+  RETURN result;
+}
+
+/** @short Delete a group from an index
+    @param indexid The index to delete the group from (0 for all indices)
+    @param contentsourceid The content source to delete the group from (0 for
+        all content sources)
+    @param groupid The group to delete
+    @return If the deletion was successful for all affected indexmanagers
+*/
+PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contentsourceid, STRING groupid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ refresh := FALSE
+      ], options);
+
+  IF (groupid = "")
+    RETURN SearchInvalidArgument;
+
+  STRING result;
+  IF (groupid != "")
+  {
+    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+    FOREVERY (RECORD indexmanager FROM indexmanagers)
+    {
+      SWITCH (indexmanager.type)
+      {
+        CASE 1
+        {
+          RECORD ARRAY vars := [ [ name := "groupid", value := groupid ]
+                               ];
+          IF (contentsourceid != 0)
+            INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
+
+          RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
+          IF (response.status != SearchOk)
+            result := result ?? response.status;
+        }
+        CASE 2
+        {
+          // No support for groupids in unmanaged indices
+          IF (indexmanager.indextype = 1)
+          {
+            IF (indexid != 0)
+              result := SearchCommandUnsupported;
+            CONTINUE;
+          }
+
+          RECORD query :=
+              [ query :=
+                  [ bool :=
+                      [ must :=
+                            [ [ match := [ groupid := groupid ] ]
+                            ]
+                      ]
+                  ]
+              ];
+          IF (contentsourceid != 0)
+            INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+
+          RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+          result := response.status;
+        }
+      }
+    }
+    result := result ?? SearchOk;
+  }
+  ELSE
+    result := SearchInvalidArgument;
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "DeleteIndexManagerGroup", indexid, contentsourceid, groupid, result);
+
+  RETURN result;
+}
+
+/** @short Delete an object from an index
+    @param indexid The index to delete the object from (0 for all indices)
+    @param objectid The object to delete
+    @return If the deletion was successful for all affected indexmanagers
+*/
+PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER contentsourceid, STRING objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ refresh := FALSE
+      ], options);
+
+  STRING result;
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD ARRAY vars := [ [ name := "objectid", value := objectid ]
+                             ];
+        IF (contentsourceid != 0)
+          INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
+        IF (response.status != SearchOk)
+          result := result ?? response.status;
+      }
+      CASE 2
+      {
+        // No support for objectids in unmanaged indices
+        IF (indexmanager.indextype = 1)
+        {
+          IF (indexid != 0)
+            result := SearchCommandUnsupported;
+          CONTINUE;
+        }
+
+        RECORD query :=
+            [ query :=
+                [ bool :=
+                    [ must :=
+                          [ [ match := [ objectid := objectid ] ]
+                          ]
+                    ]
+                ]
+            ];
+        IF (contentsourceid != 0)
+          INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+
+        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+        result := response.status;
+      }
+    }
+  }
+  result := result ?? SearchOk;
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "DeleteIndexManagerObject", indexid, contentsourceid, objectid, result);
+
+  RETURN result;
+}
+
+/** @short Delete outdated objects
+    @param indexid The index to delete outdated objects from
+    @param contentsourceid The content source to delete outdated objects from (0
+        for all content sources)
+    @param groupid Delete outdated objects for this group only ("" for all groups)
+    @param objectid Delete outdated objects for this object only ("" for all objects)
+    @param deletebefore Delete all objects that have been indexed before this date
+    @return The deletion result
+    @cell(integer) return.deleted The number of deleted objects
+    @cell(string array) return.active The id's of the objects that were matched,
+        but not deleted, because they were indexed on or after the given date
+*/
+PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
+                                                  INTEGER contentsourceid,
+                                                  STRING groupid,
+                                                  STRING objectid,
+                                                  DATETIME deletebefore,
+                                                  RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ refresh := FALSE
+      ], options);
+
+  RECORD result := [ status := SearchInvalidArgument
+                   , deleted := 0
+                   , active := DEFAULT STRING ARRAY
+                   ];
+  IF (indexid != 0 AND deletebefore != DEFAULT DATETIME)
+  {
+    RECORD indexmanager := GetIndexManagersForIndex(indexid);
+    IF (RecordExists(indexmanager))
+    {
+      SWITCH (indexmanager.type)
+      {
+        CASE 1
+        {
+          // All objects in the index with an index date before this task's index date can be removed from the index.
+          RECORD ARRAY vars := [ [ name := "last_indexed", value := DateTimeToString(deletebefore) ]
+                               ];
+          IF (contentsourceid != 0)
+            INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
+          IF (groupid != "")
+            INSERT [ name := "groupid", value := groupid ] INTO vars AT END;
+          IF (objectid != "")
+            INSERT [ name := "objectid", value := objectid ] INTO vars AT END;
+
+          RECORD response := SendToConsilio(indexmanager.id, indexid, "/deleteoutdated", vars, "POST");
+
+          result.status := response.status;
+          IF (result.status = SearchOk)
+          {
+            result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
+            result.active :=
+                SELECT AS STRING ARRAY LimitUTF8Bytes(objid, VAR MaxLinkLength)
+                  FROM ToRecordArray(Tokenize(BlobToString(response.content, -1), "\n"), "objid")
+                 WHERE objid != "";
+          }
+        }
+        CASE 2
+        {
+          // No support for outdated documents in unmanaged indices
+          IF (indexmanager.indextype = 1)
+            result.status := SearchCommandUnsupported;
+
+          // delete all documents having 'date_indexed' before 'deletebefore'
+          RECORD query :=
+              [ query :=
+                  [ bool :=
+                      [ must := DEFAULT RECORD ARRAY
+                      , filter :=
+                          [ [ range := [ date_indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
+                          ]
+                      ]
+                  ]
+              ];
+          IF (contentsourceid != 0)
+            INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+          IF (groupid != "")
+            INSERT [ match := [ groupid := groupid ] ] INTO query.query.bool.must AT END;
+          IF (objectid != "")
+            INSERT [ match := [ objectid := objectid ] ] INTO query.query.bool.must AT END;
+
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+          result.status := response.status;
+          IF (result.status = SearchOk)
+          {
+            result.deleted := response.result.deleted;
+
+            // Find documents that aren't deleted
+            DELETE CELL filter FROM query.query.bool;
+            INSERT CELL _source := [ "objectid" ] INTO query;
+            response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_search", query, "POST");
+            IF (response.status = SearchOk AND Length(response.result.hits.hits) > 0)
+            {
+              result.active :=
+                  SELECT AS STRING ARRAY _source.objectid
+                    FROM response.result.hits.hits;
+            }
+          }
+        }
+      }
+    }
+    ELSE
+      result.status := SearchIndexNotFound;
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "DeleteIndexManagerOutdated", indexid, contentsourceid, groupid, objectid, deletebefore, result);
+
+  RETURN result;
+}
+
+/** Deletes all documents in an index from a specific contentsource
+    @param indexmgrid Id of the indexmanager to use
+    @param indexid Id of the index
+    @param contentsourceid Id of the contentsource whose documents must be removed (set to 0 to delete the entire index)
+    @return Execution result
+    @cell return.status Status
+    @cell return.deleted Number of deleted documents
+*/
+PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEGER indexid, INTEGER contentsourceid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      ], options);
+
+  RECORD result := [ status := SearchUnavailable
+                   , deleted := 0
+                   ];
+
+  RECORD indexmanager := indexid != 0 ? GetIndexManagersForIndex(indexid) : GetIndexManagers(indexmgrid);
+
+  IF (RecordExists(indexmanager) AND indexid != 0)
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        RECORD ARRAY vars := [ [ name := "indexid", value := ToString(indexid) ]
+                             ];
+        IF (contentsourceid != 0)
+          INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
+
+        RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
+        result.status := response.status;
+        IF (result.status = SearchOk)
+          result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
+      }
+      CASE 2
+      {
+        RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
+        IF (RecordExists(indexinfo) AND indexinfo.type = 2)
+        {
+          // Cannot delete fieldgroups
+          result.status := SearchCommandUnsupported;
+        }
+        ELSE IF (RecordExists(indexinfo) AND indexinfo.type = 1)
+        {
+          // Delete the specific subindex if suffix is set, otherwise delete all subindices
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : "*"), "", DEFAULT RECORD, "DELETE");
+          result.status := response.status;
+          // Deleting an index doesn't return the number of deleted documents...
+        }
+        ELSE IF (contentsourceid = 0)
+        {
+          // No content source specified, delete entire index
+          RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "", DEFAULT RECORD, "DELETE");
+          result.status := response.status;
+          // Deleting an index doesn't return the number of deleted documents...
+        }
+        ELSE
+        {
+          RECORD query :=
+              [ query :=
+                  [ bool :=
+                      [ must :=
+                            [ [ match := [ contentsource := contentsourceid ] ]
+                            ]
+                      ]
+                  ]
+              ];
+          // Delete all objects within the content source
+          RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", "/_delete_by_query", query, "POST");
+          result.status := response.status;
+          IF (result.status = SearchOk)
+            result.deleted := response.result.deleted;
+        }
+      }
+    }
+  }
+
+  IF (result.status = SearchOk)
+    BroadcastEvent("consilio:contentsourcestatus", [ id := contentsourceid ]);
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "DeleteIndexManagerContentSource", indexmgrid, indexid, contentsourceid, result);
+
+  RETURN result;
+}
+
+PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
+{
+  STRING result := SearchOk;
+
+  RECORD indexmanager := indexmgrid != 0
+      ? GetIndexManagers(indexmgrid)
+      : GetIndexManagersForIndex(indexid);
+  IF (RecordExists(indexmanager))
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE 1
+      {
+        // Not supported, ignore
+      }
+      CASE 2
+      {
+        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "", "/_refresh", DEFAULT RECORD, "GET");
+        result := response.status;
+      }
+    }
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetIndexMapping(INTEGER indexid)
+{
+  RECORD ARRAY fields :=
+      SELECT fields.name
+           , fields.defaultvalue
+           , fields.tokenized
+           , fields.suggested
+        FROM consilio.contentsourcefields AS fields
+           , consilio.contentsources AS sources
+       WHERE fields.contentsourceid = sources.id
+             AND sources.indexid = VAR indexid
+             AND sources.tag NOT LIKE "$consilio$deleted$*";
+  fields :=
+      SELECT AS RECORD ARRAY GroupedValues(fields)[0]
+        FROM fields
+       GROUP BY ToUppercase(name);
+  RETURN fields;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetContentSourceMapping(INTEGER contentsourceid)
+{
+  RECORD ARRAY fields :=
+      SELECT name
+           , defaultvalue
+           , tokenized
+           , suggested
+        FROM consilio.contentsourcefields
+       WHERE COLUMN contentsourceid = VAR contentsourceid
+       ORDER BY ToUppercase(name)
+              , id;
+  RETURN fields;
+}
+
+
+// -----------------------------------------------------------------------------
+//
+// Helper functions
+//
+
+/** @short Find an indexmanager
+    @param indexmgrid The id of the indexmanager, or -1 for all indexmanagers
+    @return The indexmanager(s)
+    @cell(integer) return.id The indexmanager id
+    @cell(integer) return.type The indexmanager type (currently either 1 for
+        Consilio or 2 for Elasticsearch)
+*/
+RECORD ARRAY FUNCTION GetIndexManagers(INTEGER indexmgrid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ managedonly := FALSE ], options);
+
+  RETURN
+      SELECT indexmanagers.id
+           , indexmanagers.type
+           , indices.indexname
+           , indextype := indices.type
+           , indexid := indices.id
+        FROM consilio.indexmanagers, consilio.indices
+       WHERE indexmanagers.id = indices.indexmanager
+             AND (options.managedonly ? indices.type = 0 : indices.type != 2)
+             AND (indexmgrid = -1 OR indexmanagers.id = indexmgrid)
+             AND indices.name NOT LIKE "$consilio$deleted$*";
+}
+
+/** @short Find the indexmanager for an index
+    @param indexid The id of the index, or 0 for the indexmanagers of all indices
+    @return The indexmanager(s)
+    @cell(integer) return.id The indexmanager id
+    @cell(integer) return.type The indexmanager type (currently either 1 for
+        Consilio or 2 for Elasticsearch)
+*/
+PUBLIC RECORD ARRAY FUNCTION GetIndexManagersForIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ managedonly := FALSE ], options);
+  IF (indexid = 0)
+    RETURN GetIndexManagers(-1, options);
+
+  RETURN
+      SELECT indexmanagers.id
+           , indexmanagers.type
+           , indices.indexname
+           , indextype := indices.type
+        FROM consilio.indices
+           , consilio.indexmanagers
+       WHERE indices.id = indexid
+             AND indices.indexmanager = indexmanagers.id
+             AND (options.managedonly ? indices.type = 0 : indices.type != 2)
+             AND indices.name NOT LIKE "$consilio$deleted$*";
+}
+
+RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restrict, DATETIME searchdate, INTEGER numresults)
+{
+  IF (NOT RecordExists(sess) OR /*sess.sessid="" OR*/ idx = 0 OR numresults < 0)
+    RETURN sess;
+
+  // Format query and truncate to fit into 1024-byte database limit
+  STRING querystring := __FormatQuery(idx, query, [ field := "", userquery := TRUE ]); //FIXME language for __FormatQuery
+  querystring := LimitUTF8Bytes(querystring, 1024);
+
+  INTEGER site;
+  // Check if the siteid is supplied explicitly through the session record
+  IF (CellExists(sess, "siteid"))
+    site := SELECT AS INTEGER id FROM system.sites WHERE id = sess.siteid;
+  IF (site = 0)
+  {
+    // Try to determine the searched site
+    RECORD ARRAY contentsource := SELECT data
+                                    FROM consilio.contentsources
+                                   WHERE indexid = idx
+                                         AND publishercontent
+                                         AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+    IF (Length(contentsource) = 1)
+    {
+      RECORD data := DecodeHSON(contentsource[0].data);
+
+      // Only one site added to index, use it
+      site := SELECT AS INTEGER parentsite
+                FROM system.fs_objects
+               WHERE VAR data.folder = fs_objects.id
+                     AND fs_objects.isfolder = TRUE;
+    }
+    ELSE
+    {
+      // Lookup restriction url (LookupPublisherURL always returns a record, 'site' may be 0)
+      site := LookupPublisherURL(restrict).site;
+    }
+  }
+
+  RETURN RunInSeparatePrimary(PTR StoreQuery(sess, querystring, idx, numresults, site));
+}
+
+RECORD FUNCTION StoreQuery(RECORD sess, STRING querystring, INTEGER idx, INTEGER numresults, INTEGER site)
+{
+  GetPrimary()->BeginWork();
+
+  DATETIME now := GetCurrentDateTime();
+  RECORD savedsess := SELECT * FROM consilio.query_results WHERE COLUMN sess = VAR sess.sessid;
+
+  // Create a new search session if the session doesn't exists yet, if another
+  // query was issued or if the session expired
+  IF (NOT RecordExists(savedsess) OR savedsess.query != querystring OR AddTimeToDate(session_timeout * 60 * 1000, savedsess.when) < now)
+  {
+    // Update session id and insert new session
+    sess.sessid := GenerateUFS128BitId();
+    INSERT INTO consilio.query_results(query, when, indexid, pages, sess, results, site, tag)
+         VALUES (querystring, now, idx, 0, sess.sessid, numresults, site, sess.tag);
+  }
+  ELSE
+  {
+    // Update existing session
+    UPDATE consilio.query_results
+       SET when := now
+         , pages := pages + 1
+         , results := numresults
+     WHERE COLUMN sess = VAR sess.sessid;
+  }
+
+  GetPrimary()->CommitWork();
+
+  RETURN sess;
+}
+
+
+
+// -----------------------------------------------------------------------------
+//
+// Consilio indexmanager
+//
+
+ASYNC FUNCTION WaitForConsilio(INTEGER indexmgrid, DATETIME waituntil DEFAULTSTO DEFAULT DATETIME)
+{
+  RETURN AWAIT CreatePromise(PTR ConnectConsilio(indexmgrid, #1, #2, waituntil ?? MAX_DATETIME));
+}
+
+/** @short Open connection to Consilio IndexManager
+    @return Connection status: 0 = Success, >0 = HTTP Error code, -1 = Connection
+         error, -2 = Unknown indexmanager or empty indexmanager address
+*/
+ASYNC MACRO ConnectConsilio(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCTION PTR reject, DATETIME waituntil)
+{
+  WHILE (GetCurrentDateTime() < waituntil)
+  {
+    RECORD indexmanager;
+    IF (indexmanagerconnections->Has(indexmgrid))
+    {
+      indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    }
+    ELSE
+    {
+      STRING address := SELECT AS STRING COLUMN address FROM consilio.indexmanagers WHERE id = indexmgrid;
+      IF (address = "builtin")
+        address := "127.0.0.1:" || GetWebhareConfiguration().baseport + 3;
+      IF (address NOT LIKE "*:*")
+      {
+        reject(NEW Exception(SearchInvalidArgument));
+        RETURN;
+      }
+
+      indexmanager := [ address := address
+                      , browser := DEFAULT OBJECT
+                      ];
+    }
+    IF (ObjectExists(indexmanager.browser))
+    {
+      resolve(SearchOk);
+      RETURN;
+    }
+
+    OBJECT browser := NEW WebBrowser();
+    browser->timeout := consilio_timeout * 1000;
+
+    FetcherDebug(ConsilioDebugInfo, "Connecting to Consilio");
+    IF (NOT browser->SendRawRequest("HEAD", "http://" || indexmanager.address || "/connect", DEFAULT RECORD ARRAY, DEFAULT BLOB))
+    {
+      FetcherDebug(ConsilioDebugInfo, "Could not connect to Consilio " || indexmgrid || " on " || indexmanager.address);
+    }
+    ELSE
+    {
+      indexmanager.browser := browser;
+      indexmanagerconnections->Add(indexmgrid, indexmanager);
+
+      // Check if the indexmanager should be configured
+      STRING configure := indexmanager.browser->GetResponseHeader("Configure");
+      IF (configure != "")
+      {
+        IF (running_in_fetcher)
+        {
+          Print("Defer:connectionreset\n");
+          Print("Command:CONFIGURE indexmanager " || configure || "\n");
+        }
+      }
+
+      // Check if index should be checked or rebuilt
+      IF (indexmanager.browser->GetResponseHeader("Index-Status") = "check")
+      {
+        LogDebug("consilio", "ContentSourceStatus", "ConnectConsilio");
+        IF (running_in_fetcher)
+        {
+          Print("Defer:connectionreset\n");
+          Print("Command:UPDATEINDEX 0 0 setstatus\n"); // Send a general UPDATEINDEX command, set index status if done
+        }
+      }
+
+      IF (indexmanager.browser->GetHTTPStatusCode() = 200)
+      {
+        resolve(SearchOk);
+        RETURN;
+      }
+
+      IF (indexmanager.browser->GetSocketError() = -9) // timeout
+        FetcherDebug(ConsilioDebugInfo, "Timeout while connecting to Consilio " || indexmgrid || " on " || indexmanager.address);
+      ELSE
+        FetcherDebug(ConsilioDebugInfo, "Could not connect to Consilio " || indexmgrid || " on " || indexmanager.address || ", got " || indexmanager.browser->GetHTTPStatusCode() || ":" || indexmanager.browser->GetHTTPStatusText());
+    }
+
+    // Wait before trying again
+    AWAIT CreateSleepPromise(1000);
+  }
+
+  reject(NEW Exception(SearchTimeOutError));
+}
+
+
+/** @short Send a command to the IndexManager
+    @param indexmgrid Id of the indexmanager to connect to
+    @param command The command to send
+    @param vars Variables for the command
+    @cell(string) vars.name Variable name
+    @cell vars.value Variable value (STRING, can be BLOB when method is "POST-MULTIPART")
+    @param method "GET", "POST", or "POST-MULTIPART"
+*/
+RECORD FUNCTION SendToConsilio(INTEGER indexmgrid, INTEGER indexid, STRING command, RECORD ARRAY vars, STRING method)
+{
+  STRING result := WaitForPromise(WaitForConsilio(indexmgrid));
+  IF (result != SearchOk) // could not connect or index should be checked
+  {
+    IF (running_in_fetcher AND print_defer_connection)
+      Print("Defer:connection\n");
+    RETURN [ status := result ];
+  }
+
+  INTEGER statuscode;
+  RECORD indexmanager;
+  FOR (INTEGER retry := 0; retry < consilio_maxtries; retry := retry + 1) // Repeat until succesfully sent
+  {
+    // If WaitForConsilio returned SearchOk, the indexmanager is present in indexmanagerconnections
+    indexmanager := indexmanagerconnections->Lookup(indexmgrid);
+    IF (NOT ObjectExists(indexmanager.browser))
+    {
+      IF (running_in_fetcher AND print_defer_connection)
+        Print("Defer:connection\n");
+      RETURN [ status := SearchConnectError ];
+    }
+
+    STRING indexname := indexid != 0 ? "/index/" || indexid : "";
+
+    BOOLEAN success;
+    IF (method = "POST")
+    {
+      success := indexmanager.browser->PostWebPage("http://" || indexmanager.address || indexname || command, vars, "application/x-www-form-urlencoded");
+    }
+    ELSE IF (method = "POST-MULTIPART")
+    {
+      success := indexmanager.browser->PostWebPage("http://" || indexmanager.address || indexname || command, vars, "multipart/form-data");
+    }
+    ELSE
+    {
+      FOREVERY (RECORD field FROM vars)
+        command := AddVariableToUrl(command, field.name, field.value);
+      success := indexmanager.browser->GotoWebPage("http://" || indexmanager.address || indexname || command);
+    }
+
+    statuscode := indexmanager.browser->GetHTTPStatusCode();
+    IF (NOT success)
+    {
+      IF (indexmanager.browser->GetSocketError() = -9 OR statuscode = 0) // timeout, broken connection
+      {
+        FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
+        result := WaitForPromise(WaitForConsilio(indexmgrid, AddTimeToDate(consilio_timeout * 1000, GetCurrentDateTime())));
+        IF (result != SearchOk) // could not connect or index should be checked
+        {
+          IF (running_in_fetcher AND print_defer_connection)
+            Print("Defer:connection\n");
+          RETURN [ status := result ];
+        }
+        FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
+        // Don't break, try to send request again with new connection
+      }
+      ELSE IF (statuscode = 503)
+      {
+        // The IndexManager is busy doing something, so we'll just have to wait
+        // If we didn't get a time to wait, we'll wait for 30 seconds
+        INTEGER waitseconds := ToInteger(indexmanager.browser->GetResponseHeader("Retry-After"), 30);
+        FetcherDebug(ConsilioDebugAll, "Sleeping " || waitseconds || " seconds");
+        IF (running_in_fetcher)
+        {
+          Print("Defer:sleep " || waitseconds || "\n");
+          // Flush buffer to let the UrlManager know we're sleeping
+          FlushOutputBuffer();
+          Sleep(waitseconds * 1000);
+          Print("Done\n");
+        }
+        BREAK; // The item we we're working on is queued again, just wait for the next item to be scheduled
+      }
+      ELSE
+      {
+        // Got an unexpected code, but we'll let it slide
+        FetcherDebug(ConsilioDebugInfo, "Unexpected response code " || statuscode || ": " || indexmanager.browser->GetHTTPStatusText());
+        LogDebug("consilio", "SendToConsilio", indexmanager.browser->GetSocketError(), statuscode, indexmanager.browser->GetHTTPStatusText());
+        BREAK;
+      }
+    }
+    ELSE
+    {
+      // Got 2xx response code, everything is alright
+      BREAK;
+    }
+  }
+
+  // Check if index should be checked or rebuilt
+  IF (indexmanager.browser->GetResponseHeader("Index-Status") = "check")
+  {
+    LogDebug("consilio", "ContentSourceStatus", "SendToConsilio");
+    IF (running_in_fetcher)
+      Print("Command:UPDATEINDEX 0 0 setstatus\n"); // Send a general UPDATEINDEX command, set index status if done
+  }
+
+  RETURN
+      [ status  := statuscode = 503 ? SearchSleep
+                 : statuscode != 200 ? SearchHTTPError
+                 : SearchOk
+      , code    := indexmanager.browser->GetSocketError() ?? statuscode
+      , content := indexmanager.browser->content
+      , headers := indexmanager.browser->responseheaders
+      ];
+}
+
+/** @short Configure the IndexManager
+    @param indexmgrid The indexmanager to configure
+    @param param What to configure ("all" or "stopwords")
+    @return Result status
+*/
+STRING FUNCTION ConfigureConsilioIndexManager(INTEGER indexmgrid, STRING param)
+{
+  FetcherDebug(ConsilioDebugAll, "Configuring indexmanager " || indexmgrid || ": " || EncodeJava(param));
+
+  // Select the types we're interested in
+  STRING ARRAY types;
+  IF (ToUppercase(param) IN [ "ALL", "STOPWORDS" ])
+    INSERT "stopwords" INTO types AT END;
+
+  IF (Length(types) > 0)
+  {
+    STRING ARRAY dirs := [ GetInstallationRoot() || "etc/lang"
+                         , GetInstallationRoot() || "modules/consilio/data/lang"
+                         ];
+    STRING ARRAY sent;
+    FOREVERY (STRING dir FROM dirs)
+    {
+      FOREVERY (STRING type FROM types)
+      {
+        FOREVERY (RECORD file FROM ReadDiskDirectory(dir, "*_" || type || ".xml"))
+        {
+          IF (file.type = 0 AND ToUppercase(file.name) NOT IN sent)
+          {
+            INSERT ToUppercase(file.name) INTO sent AT END;
+            BLOB data := GetDiskResource(dir || "/" || file.name);
+            FetcherDebug(ConsilioDebugAll, "Sending configuration file " || dir || "/" || file.name || " (" || Length(data) || ")");
+            RECORD response := SendToConsilio(indexmgrid, 0, "/configure", [ [ name := "type", value := type ]
+                                                                           , [ name := "file", binary := TRUE, value := data ]
+                                                                           ], "POST-MULTIPART");
+            IF (response.status != SearchOk)
+              RETURN response.status;
+          }
+        }
+      }
+    }
+  }
+
+  RETURN SearchOk;
+}

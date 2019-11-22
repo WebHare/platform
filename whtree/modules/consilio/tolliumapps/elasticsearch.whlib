@@ -1,0 +1,106 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::system/lib/internal/devtools/json.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+
+PUBLIC STATIC OBJECTTYPE ESMgr EXTEND TolliumScreenBase
+<
+  INTEGER freshcallback;
+
+  MACRO Init(RECORD data)
+  {
+    ^indexmanager->options := SELECT rowkey := id, title := name, address
+                                FROM consilio.indexmanagers
+                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                            ORDER BY ToUppercase(name);
+    this->RefreshIndices();
+  }
+  MACRO OnIndexManagerChange()
+  {
+    this->RefreshIndices();
+  }
+  MACRO RefreshIndices()
+  {
+    //FIXME async but deal with invalidation of earlier answer. cant list support async ongetrows ?
+    //FIXME and list should do auto-refresh in the background on a given interval, or at least make that easy
+
+    RECORD ARRAY indices := SendRawJSONToElasticsearch(^indexmanager->value, "GET", '/_cat/indices?format=json', DEFAULT RECORD).result;
+    //Reflect(indices);
+    ^indices->rows := SELECT rowkey := uuid
+                           , docs := COLUMN "docs.count"
+                           , size := COLUMN "pri.store.size"
+                           , name := COLUMN "index"
+                        FROM EnforceStructure([[ "uuid" := ""
+                                               , "docs.count" := 0
+                                               , "pri.store.size" := ""
+                                               , "index" := ""
+                                               ]], indices);
+
+    IF(this->freshcallback != 0)
+    {
+      UnregisterCallback(this->freshcallback);
+      this->freshcallback := 0;
+    }
+    RegisterTimedCallback(AddTimeToDate(5000, GetCurrentDatetime()), PTR this->TimedRefresh);
+  }
+  MACRO TimedRefresh()
+  {
+    this->freshcallback := 0;
+    this->RefreshIndices();
+  }
+  MACRO DoGetMapping()
+  {
+    RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_mapping`, DEFAULT RECORD);
+    Reflect(GetCell(res.result, ^indices->selection[0].name).mappings);
+  }
+  MACRO DoDelete()
+  {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeleteindices")) != "yes")
+      RETURN;
+
+    //ADDME combine into one command? possible with commas..
+    FOREVERY(RECORD tokill FROM ^indices->selection)
+      SendRawJSONToElasticsearch(^indexmanager->value, "DELETE", `/${EncodeURL(tokill.name)}/`, DEFAULT RECORD);
+
+    this->RefreshIndices();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^indexmanager->options := SELECT rowkey := id, title := name, address
+                                FROM consilio.indexmanagers
+                               WHERE type = whconstant_consilio_indexmanager_elasticsearch
+                            ORDER BY ToUppercase(name);
+    ^indexmanager->SetValueIfValid(data.indexmanager);
+    ^query->value := PrettifyJSON(EncodeJSON(data.query));
+  }
+  MACRO DoRunQuery()
+  {
+    TRY
+    {
+      RECORD query := DecodeJSON(^query->value);
+      IF(NOT RecordExists(query))
+        THROW NEW Exception("Invalid JSON format");
+
+      RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
+      ^result->value := PrettifyJSON(BlobToString(res.content));
+    }
+    CATCH(OBJECT e)
+    {
+      RunExceptionReportDialog(this, e);
+    }
+  }
+>;

@@ -1,0 +1,279 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/ingenico.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
+
+OBJECT pm1;
+STRING pushurl;
+
+MACRO TestIngenicoHash()
+{
+  RECORD ARRAY vars := GetAllVariablesFromURL("http://www.example.net/?pi=Pkpq06SaCudpDm4cG6qDew&returntype=1&orderID=Bongenkamp+81%3B+p%2FC00050990+%2314&currency=EUR&amount=1332%2E02&PM=iDEAL&ACCEPTANCE=0000000000&STATUS=9&CARDNO=NL00RABO0000000000&ED=&CN=Buyer+Name&TRXDATE=05%2F26%2F17&PAYID=3020573638&NCERROR=0&BRAND=iDEAL&IP=212%2E238%2E237%2E85&%5Fps=https%253A%2F%2Fwebhare%2Emoe%2Esf%2Eb%2Dlex%2Ecom&SHASIGN=B19032BCBE74274E9B255A545C403F3AD9E58144");
+  TestEq(TRUE, VerifyIngenicoURL(vars, "xx0ifsfadshej5/uR7=Alm", TRUE));
+
+  vars := GetAllVariablesFromURL("http://www.example.net/?pi=Pkpq06SaCudpDm4cG6qDew&returntype=1&orderID=Bongenkamp+81%3B+p%2FC00050990+%2314&currency=EUR&amount=1332%2E02&PM=iDEAL&ACCEPTANCE=0000000000&STATUS=9&CARDNO=NL00RABO0000000000&ED=&CN=Buyer+Name&TRXDATE=05%2F26%2F17&PAYID=3020573638&NCERROR=0&BRAND=iDEAL&IP=212%2E238%2E237%2E85&%5Fps=https%253A%2F%2Fwebhare%2Emoe%2Esf%2Eb%2Dlex%2Ecom&SHASIGN=4D04DBBA011FCC6DBA7F2F03B70873A00E2782AB");
+  TestEq(TRUE, VerifyIngenicoURL(vars, "xx0ifsfadshej5/uR7=Alm", FALSE));
+
+  vars := GetAllVariablesFromURL("https://www.example.net/?pi=znrG1HBWXUgbq6vicGm2Xw&returntype=1&orderID=DEV%2DIU201711290002&currency=EUR&amount=695&PM=iDEAL&ACCEPTANCE=0000000000&STATUS=9&CARDNO=NL85TEST0000000004&ED=&CN=Buyer+Name&TRXDATE=11%2F29%2F17&PAYID=3028091466&NCERROR=0&BRAND=iDEAL&IP=212%2E238%2E237%2E85&%5Fps=https%253A%2F%2Fwebhare%2Emoe%2Esf%2Ewebhare%2Enl&SHASIGN=C5CA2DB036AA8E7C49D88F60D7A401A15E539C36");
+  TestEq(TRUE, VerifyIngenicoURL(vars, "254tegrhtnjmSEF*U(FJJ(34uwyhejrf", FALSE));
+
+  vars := GetAllVariablesFromURL("https://www.example.net/.wrd/endpoints/psp/ingenico.shtml?orderID=000000000002&currency=EUR&amount=529&PM=iDEAL&ACCEPTANCE=0000000000&STATUS=9&CARDNO=NL85TEST0000000004&ED=&CN=Buyer+Name&TRXDATE=03%2F09%2F18&PAYID=3032535192&PAYIDSUB=0&NCERROR=0&BRAND=iDEAL&IP=212%2E238%2E237%2E85&%5Fps=U6mQzwF5Dv4WikPwx6GCmA&SHASIGN=01CCDEADC0E7437047B6033A30E3F807043DCA7B");
+  TestEq(TRUE, VerifyIngenicoURL(vars, "11$ABAB11$ABAB11$ABAB11$", FALSE));
+}
+
+ASYNC MACRO SetupIngenico()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
+
+  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  topscreen->methods->value := "wrd:ingenico";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
+  TT("paymentextension->pspid")->value := "PSPID";
+  TT("paymentextension->sha1_in")->value := "SHA1IN";
+  TT("paymentextension->sha1_out")->value := "SHA1OUT";
+  TT("paymentextension->methods")->selection := SELECT * FROM TT("paymentextension->methods")->options WHERE ToUppercase(title) IN ["IDEAL","PAYPAL"];
+  TestEq(2, Length(TT("paymentextension->methods")->selection));
+
+  pushurl := TT("paymentextension->directhttpurl")->value;
+  TestEq(TRUE, IsAbsoluteURL(pushurl,FALSE));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
+  TestEq(2,Length(methods));
+}
+
+ASYNC MACRO TestPaymentIngenico()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  pm1 := testfw->wrdschema->^payprov->CreateEntity(
+    [ wrd_title := "Ingenico test"
+    , method := MakePaymentProviderValue("wrd:ingenico", [ methods := ["ideal","creditcard","deletedmethod"]
+                                                         , rebranded := "webhare_testsuite"
+                                                         , pspid := "PSPID"
+                                                         , sha1_in := "SHA1IN"
+                                                         , sha1_out := "SHA1OUT"
+                                                         ])
+    ]);
+
+  RECORD ARRAY methods := paymentapi->ListPaymentOptions(pm1->id);
+  TestEq(2,Length(methods));
+  TestEq("Credit card", methods[0].title);
+  TestEq("iDEAL", methods[1].title);
+  TestEq(0, Length(methods[0].issuers));
+  TestEq(1, Length(methods[1].issuers));
+
+  INTEGER johndoe := testfw->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL","other@example.com");
+  TestEq(TRUE, johndoe!=0, "Unable to locate my test user");
+
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := pm1->id
+                          , paymentoptiontag := methods[1].paymentoptiontag
+                          , issuer := methods[1].issuers[0].rowkey
+                          , billingaddress := [ country := "NL", zip := "7521AM", nr_detail := "296"]
+                          , language := "Nl"
+                          , ingenicotemplate := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/ingenicotemplate.html")
+                          , wrdpersonentity := testfw->wrdschema->^wrd_person->GetEntity(johndoe)
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  //creditcard should not if you try to specify an issuer
+  TestThrowsLike("*does not want an issuer*",      PTR paymentapi->StartPayment(entity->id, 250, CELL[...properrequest, paymentoptiontag := methods[0].paymentoptiontag ]));
+  //or other random options
+  TestThrowsLike("*RANDOMOPTION*",                 PTR paymentapi->StartPayment(entity->id, 250, CELL[...properrequest, paymentoptiontag := methods[0].paymentoptiontag, issuer :="", randomoption := 42 ]));
+
+  /* ADDME deal should accept no issuer and proper issuers
+  paymentapi->PreparePayment(250, [ paymentprovider := pm1->id, paymentoptiontag := methods[1].paymentoptiontag ]);
+  paymentapi->PreparePayment(250, [ paymentprovider := pm1->id, paymentoptiontag := methods[1].paymentoptiontag, issuer := "" ]);
+  paymentapi->PreparePayment(250, [ paymentprovider := pm1->id, paymentoptiontag := methods[1].paymentoptiontag, issuer := methods[1].issuers[0].rowkey ]);
+  */
+
+  //but no random issuers
+  TestThrowsLike("*No such issuer*",      PTR paymentapi->StartPayment(entity->id, 250, CELL[...properrequest, issuer := "BlauweBank" ]));
+  TestThrowsLike("*must be an absolute*", PTR paymentapi->StartPayment(entity->id, 250, CELL[...properrequest, ingenicotemplate := "/mypage.shtml" ]));
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 247.72, properrequest);
+  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq("pending", entity->GetField("DATA").status);
+  //dumpvalue(paymentinstruction,'tree');
+  TestEq("John Doe", (SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="CN"));
+  TestEq("other@example.com", (SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="EMAIL"));
+  TestEq("nl_NL", (SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="LANGUAGE"));
+  TestEq(properrequest.ingenicotemplate, (SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="TP"));
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.ingenicomode","pending");
+  testfw->CommitWork();
+
+  TestEq("pending", entity->GetField("DATA").status);
+
+  TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
+  RECORD status := DecodeJSONBlob(testfw->browser->content);
+  TestEq(entity->id, status.returninfo.paymentid);
+  TestEq("approved", status.payinfo.status);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  RECORD originalpaymentinfo := entity->GetField("DATA");
+  TestEq("NL85TEST0000000004", paymentapi->ExplainPayment(originalpaymentinfo).cardnumber);
+
+  IF(testfw->debug)
+    Print("Final url:" || testfw->browser->href ||"\n");
+
+  //Check the payment in the dialog
+  AWAIT ExpectScreenChange(+1, PTR paymentapi->RunShowPaymentDetailsDialog
+      ( GetTestController()
+      , entity->id));
+  TestEq("9 (Payment requested)", TT("paymentinfo")->contents->^status->value);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  //Forcibly fail transaction
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.ingenicomode","cancelled");
+  testfw->CommitWork();
+
+  paymentapi->ForceRecheckPayment(entity->id);
+  TestEq("failed", entity->GetField("DATA").status);
+
+  //Resucceed fail transaction
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.ingenicomode","accepted");
+  testfw->CommitWork();
+
+  paymentapi->ForceRecheckPayment(entity->id);
+  TestEq("approved", entity->GetField("DATA").status);
+
+  //Test another pyament, which we'll cancel
+  testfw->BeginWork();
+  entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+  paymentinstruction := paymentapi->StartPayment(entity->id, 214.21, properrequest);
+  TestEqLike("000000??????", entity->GetField("DATA").paymentref);
+  TestEq("pending", entity->GetField("DATA").status);
+
+  paymentapi->CancelPendingPayment(entity->id);
+  TestEq("failed", entity->GetField("DATA").status);
+}
+
+MACRO TestPaymentExpiry()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  RECORD ARRAY methods := paymentapi->ListPaymentOptions(pm1->id);
+  INTEGER johndoe := testfw->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL","other@example.com");
+
+  RECORD properrequest := [ paymentprovider := pm1->id
+                          , paymentoptiontag := methods[1].paymentoptiontag
+                          , issuer := methods[1].issuers[0].rowkey
+                          , billingaddress := [ country := "NL", zip := "7521AM", nr_detail := "296"]
+                          , language := "Nl"
+                          , ingenicotemplate := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/ingenicotemplate.html")
+                          , wrdpersonentity := testfw->wrdschema->^wrd_person->GetEntity(johndoe)
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+
+  testfw->BeginWork();
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 249.12, properrequest);
+
+  //antidate a transaction to test expiry
+  testfw->BeginWork();
+  UPDATE wrd.pendingpayments SET creationdate := MakeDate(2018,1,1) WHERE paymententity = entity->id;
+  WriteRegistryKey("webhare_testsuite.tests.ingenicomode","0");
+  testfw->CommitWork();
+
+  TestEq("pending", entity->GetField("DATA").status);
+  PollPaymentStatuses(TRUE, TRUE);
+  TestEq("failed", entity->GetField("DATA").status);
+}
+
+MACRO TestPaymentPush()
+{
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+  RECORD ARRAY methods := paymentapi->ListPaymentOptions(pm1->id);
+  INTEGER johndoe := testfw->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL","other@example.com");
+
+  RECORD properrequest := [ paymentprovider := pm1->id
+                          , paymentoptiontag := methods[1].paymentoptiontag
+                          , issuer := methods[1].issuers[0].rowkey
+                          , billingaddress := [ country := "NL", zip := "7521AM", nr_detail := "296"]
+                          , language := "Nl"
+                          , ingenicotemplate := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.webhare_testsuite/tests/wrd/ingenicotemplate.html")
+                          , wrdpersonentity := testfw->wrdschema->^wrd_person->GetEntity(johndoe)
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+
+  testfw->BeginWork();
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 213.59, properrequest);
+  STRING paramplus := SELECT AS STRING value FROM paymentinstruction.submitinstruction.form.vars WHERE name="PARAMPLUS";
+  TestEq(TRUE, paramplus!="", "We need to have paramplus to get _ps into our fake vars");
+
+  RECORD paydata := entity->GetField("DATA");
+  TestEq("pending", paydata.status);
+
+  //Fake a push
+  RECORD fakepushvars := [ orderid := paydata.paymentref
+                         , currency := "EUR"
+                         , amount := "213.59"
+                         , pm := "PAYPAL"
+                         , acceptane := ""
+                         , status := "9"
+                         , cardno := "XXXXXXXXX1234"
+                         , cn := "B+Buyer"
+                         , trxdate := "03/09/18"
+                         , ncerror := "0"
+                         , brand := "PAYPAL"
+                         , ip := "127.0.0.1"
+                         //, _ps :=
+                         ];
+  FOREVERY(RECORD varrec FROM GetAllVariablesFromURL("http://example.org?" || paramplus))
+    fakepushvars := CellInsert(fakepushvars, varrec.name, varrec.value);
+
+  STRING fakepushurl := UpdateURLVariables(pushurl, fakepushvars);
+  print("Push to, expect fail: " || fakepushurl || "\n");
+  TestEq(FALSE, testfw->browser->GotoWebpage(fakepushurl), "Push should fail without signature");
+
+  RECORD ARRAY varlist := UnpackRecord(fakepushvars);
+  fakepushurl := UpdateURLVariables(fakepushurl, [ shasign := CalculateIngenicoSHA1Hash(varlist, "SHA1OUT", FALSE) ]);
+  print("Push to, expect success: " || fakepushurl || "\n");
+  TestEq(TRUE, testfw->browser->GotoWebpage(fakepushurl), "Push should succeed without signature");
+
+  paydata := entity->GetField("DATA");
+  TestEq("approved", paydata.status);
+}
+
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR TestIngenicoHash
+                 , PTR SetupIngenico
+                 , PTR RunStandardPaymentMethodTests
+                 , PTR TestPaymentIngenico
+                 , PTR TestPaymentExpiry
+                 , PTR TestPaymentPush
+                 ]);

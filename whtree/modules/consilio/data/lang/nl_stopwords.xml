@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Dutch stop word list for WebHare Consilio
+
+In this file a list of common words is specified, which are considered less
+important for search queries. Accents are removed or rewritten by Consilio when
+necessary, but be sure to save this file as UTF-8 if you add accented
+characters.
+If you make changes to this file, be sure to put it in the etc/lang directory
+of your WebHare installation, otherwise it will be overwritten when upgrading or
+reinstalling WebHare.
+
+The words on this list are taken from
+http://snowball.tartarus.org/algorithms/dutch/stop.txt
+-->
+<stopwords xmlns="http://www.webhare.net/xmlns/consilio/stopwords" xml:lang="nl">
+  <word>aan<!--on, upon, to (as dative)--></word>
+  <word>al<!--all, every, each--></word>
+  <word>alles<!--all, everything, anything--></word>
+  <word>als<!--like, such as, when--></word>
+  <word>altijd<!--always--></word>
+  <word>andere<!--other--></word>
+  <word>ben<!--(1) am, (2) 'are' in interrogative second person singular of 'to be'--></word>
+  <word>bij<!--(1) a bee, (2) by, near, at--></word>
+  <word>daar<!--(1) there, (2) because--></word>
+  <word>dan<!--then--></word>
+  <word>dat<!--that, which--></word>
+  <word>de<!--the--></word>
+  <word>der<!--Old Dutch form of 'van der' still found in surnames--></word>
+  <word>deze<!--this--></word>
+  <word>die<!--that, those, who, which--></word>
+  <word>dit<!--this--></word>
+  <word>doch<!--yet, but etc--></word>
+  <word>doen<!--to do, to make--></word>
+  <word>door<!--through by--></word>
+  <word>dus<!--so, consequently--></word>
+  <word>een<!--a, an, one--></word>
+  <word>eens<!--once, one day--></word>
+  <word>en<!--and--></word>
+  <word>er<!--there--></word>
+  <word>ge<!--'thou', still used in Belgium and south Netherlands--></word>
+  <word>geen<!--none--></word>
+  <word>geweest<!--been; past participle of 'be'--></word>
+  <word>haar<!--(1) her, their, them, (2) hair--></word>
+  <word>had<!--had, past tense all persons sing. of 'hebben' (have)--></word>
+  <word>heb<!--present first person sing. of 'to have'--></word>
+  <word>hebben<!--'to have' and various parts thereof--></word>
+  <word>heeft<!--present third person sing. of 'to have'--></word>
+  <word>hem<!--him--></word>
+  <word>het<!--the, it--></word>
+  <word>hier<!--here--></word>
+  <word>hij<!--he--></word>
+  <word>hoe<!--how, why--></word>
+  <word>hun<!--their, them--></word>
+  <word>iemand<!--somebody--></word>
+  <word>iets<!--something, somewhat--></word>
+  <word>ik<!--I, the ego--></word>
+  <word>in<!--in, inside--></word>
+  <word>is<!--is--></word>
+  <word>ja<!--yes, of course--></word>
+  <word>je<!--you--></word>
+  <word>kan<!--noun 'can' and present form of 'to be able'--></word>
+  <word>kon<!--could; past tense of 'to be able'--></word>
+  <word>kunnen<!--to be able--></word>
+  <word>maar<!--but, only--></word>
+  <word>me<!--me--></word>
+  <word>meer<!--(1) more, (2) lake--></word>
+  <word>men<!--people, 'one'--></word>
+  <word>met<!--with, by--></word>
+  <word>mij<!--me--></word>
+  <word>mijn<!--possessive and noun 'mine'--></word>
+  <word>moet<!--noun 'spot/mote' and present form of 'to must'--></word>
+  <word>na<!--after, near--></word>
+  <word>naar<!--(1) unpleasant, unwell etc, (2) towards, (3) as--></word>
+  <word>niet<!--not, nothing, naught--></word>
+  <word>niets<!--nothing--></word>
+  <word>nog<!--yet, still--></word>
+  <word>nu<!--now--></word>
+  <word>of<!--or, whether, if--></word>
+  <word>om<!--round, about, for etc--></word>
+  <word>omdat<!--because--></word>
+  <word>onder<!--under, beneath--></word>
+  <word>ons<!--us/our--></word>
+  <word>ook<!--also, too--></word>
+  <word>op<!--on, upon, at, in, up, used up--></word>
+  <word>over<!--over, across--></word>
+  <word>reeds<!--already--></word>
+  <word>te<!--(1) chez, at etc, (2) to, (3) too--></word>
+  <word>tegen<!--against, towards, at--></word>
+  <word>toch<!--yet, still--></word>
+  <word>toen<!--then, when--></word>
+  <word>tot<!--till, until--></word>
+  <word>u<!--you--></word>
+  <word>uit<!--out of, from--></word>
+  <word>uw<!--your--></word>
+  <word>van<!--of, from--></word>
+  <word>veel<!--much, many--></word>
+  <word>voor<!--(1) before, in front of, (2) furrow--></word>
+  <word>want<!--(1) for, (2) mitten, (3) rigging--></word>
+  <word>waren<!--(1) 'were' (2) to wander, (3) wares, (3)--></word>
+  <word>was<!--(1) was, past tense of all persons sing. of 'zijn' (to be) (2) wax, (3) the washing, (4) rise of river--></word>
+  <word>wat<!--what, something, anything--></word>
+  <word>werd<!--imperfect third person sing. of 'become'--></word>
+  <word>wezen<!--(1) to be, (2) 'been' as in 'been fishing', (3) orphans--></word>
+  <word>wie<!--who--></word>
+  <word>wil<!--(1) present tense of 'want', (2) 'will', noun, (3) fender--></word>
+  <word>worden<!--to become, grow, get--></word>
+  <word>wordt<!--present third person sing. of 'become'--></word>
+  <word>zal<!--'shall', first and third person sing. of verb 'zullen' (will)--></word>
+  <word>ze<!--she, her, they, them--></word>
+  <word>zelf<!--self--></word>
+  <word>zich<!--oneself--></word>
+  <word>zij<!--she, they--></word>
+  <word>zijn<!--(1) to be, being, (2) his, one's, its--></word>
+  <word>zo<!--so, thus, in this way--></word>
+  <word>zonder<!--without--></word>
+  <word>zou<!--should/would, past tense all persons sing. of 'zullen'--></word>
+</stopwords>

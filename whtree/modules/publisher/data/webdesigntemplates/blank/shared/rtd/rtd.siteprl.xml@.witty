@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <rtdtype namespace="http://[domainname]/xmlns/[designname_lc]/defaultrtdtype" allownewwindowlinks="false">
+    <css path="rtd.css" />
+
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" containertag="h1" textstyles="i u" />
+      <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
+      <textstyle tag="HEADING3" containertag="h3" textstyles="i u" />
+      <textstyle tag="NORMAL" textstyles="b i u sub sup a-href strike img" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="" />
+      <tablestyle tag="TABLE" />
+    </blockstyles>
+
+    <widgets>
+      <allowtype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
+      <allowtype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
+      <!-- <allowtype type="http://www.webhare.net/xmlns/publisher/embedhtml" /> -->
+    </widgets>
+
+  </rtdtype>
+
+</siteprofile>

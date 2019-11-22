@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ModalResult EXTEND TolliumScreenBase
+<
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE StringResult EXTEND TolliumScreenBase
+<
+  STRING FUNCTION Submit()
+  {
+    RETURN "positive-result";
+  }
+>;
+
+PUBLIC OBJECTTYPE BooleanResult EXTEND TolliumScreenBase
+<
+  BOOLEAN FUNCTION Submit()
+  {
+    this->__SetScreenResult(TRUE);
+    RETURN FALSE; // Ignored after setting screen result
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    this->__SetScreenResult(FALSE);
+    RETURN FALSE; // Ignored after setting screen result
+  }
+>;

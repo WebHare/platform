@@ -1,0 +1,108 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "wh::datetime.whlib";
+PUBLIC MACRO WebDavBeginMultistatus()
+{
+  AddHTTPHeader("Status", "207",false);
+  AddHTTPHeader("Content-Type", "text/xml",false);
+
+  print("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n");
+  print('<D:multistatus xmlns:D="DAV:">\n');
+//  print('               xmlns:wh="http://www.webhare.net/"\n');
+//  print('               xmlns:b="urn:uuid:c2f41010-65b3-11d1-a29f-00aa00c14882/"\n');
+// FIXME: this namespace decl is out of place here! (no tag open)
+//  print('               xmlns:o="urn:schemas-microsoft-com:office:office">\n');
+}
+
+/**
+ * @short End XML multi status response
+ */
+PUBLIC MACRO WebDavEndMultistatus()
+{
+  print('</D:multistatus>\n');
+}
+
+
+/**
+ * @short Create an WebDAV XML property response
+ * @param item
+ * @record item.name Name
+ * @record item.href WebDav HREF
+ * @record item.iscollection True if this is a collection
+ * @record item.length Length of this item
+ * @record item.creationdate Creation date of this item
+ * @record item.lastmodifieddate Modification date of this item
+   @record item.ishidden True if this item is supposed to be  hidden
+   @record item.isreadonly True if this item is supposed to be read only
+ */
+PUBLIC MACRO WebDavDoProperties(RECORD item)
+{
+  print('<D:response xmlns:lp0="DAV:" xmlns:lp1="http://apache.org/dav/props/"\n');
+  print('            xmlns:b="urn:uuid:c2f41010-65b3-11d1-a29f-00aa00c14882/"\n');
+  print('            xmlns:m="urn:schemas-microsoft-com:"\n');
+  print('>\n');
+  print('  <D:href>' || EncodeValue(item.href) || '</D:href>\n');
+  print('  <D:propstat>\n');
+  print('    <D:prop>\n');
+
+  IF (CellExists(item,"name"))
+    print('      <D:displayname>' || EncodeValue(item.name) || '</D:displayname>\n');
+  IF (CellExists(item,"name"))
+    print('      <D:name>' || EncodeValue(item.name) || '</D:name>\n');
+  IF (CellExists(item,"ishidden"))
+    print('      <D:ishidden>' || (item.ishidden ? 'true' : 'false') || '</D:ishidden>\n');
+  IF (CellExists(item,"isreadonly"))
+    print('      <D:isreadonly>' || (item.isreadonly ? 'true' : 'false') || '</D:isreadonly>\n');
+  IF (CellExists(item,"creationdate") AND item.creationdate!=DEFAULT datetime)
+    Print('      <lp0:creationdate b:dt="dateTime.tz">' || FormatDateTime("%Y-%m-%dT%H:%M:%SZ", item.creationdate) || '</lp0:creationdate>\n');
+  IF (CellExists(item,"lastmodifieddate") AND  item.lastmodifieddate!=DEFAULT datetime)
+    Print('      <lp0:getlastmodified b:dt="dateTime.rfc1123">' || FormatDateTime("%a, %d %b %Y %H:%M:%S GMT", item.lastmodifieddate) || '</lp0:getlastmodified>\n');
+
+  IF (CellExists(item,"lastmodifieddate") AND  item.lastmodifieddate!=DEFAULT datetime)
+    Print('      <m:Win32LastModifiedTime>'|| FormatDateTime("%a, %d %b %Y %H:%M:%S GMT", item.lastmodifieddate) || '</m:Win32LastModifiedTime>\n');
+  IF (CellExists(item,"creationdate") AND item.creationdate!=DEFAULT datetime)
+    Print('      <m:Win32CreationTime b:dt="dateTime.tz">' || FormatDateTime("%Y-%m-%dT%H:%M:%SZ", item.creationdate) || '</m:Win32CreationTime>\n');
+
+//    <d:Win32CreationTime>Tue, 06 Dec 2005 23:42:56 GMT</d:Win32CreationTime>
+//    <d:Win32LastAccessTime>Tue, 06 Dec 2005 23:42:56 GMT</d:Win32LastAccessTime>
+//    <d:Win32LastModifiedTime>Tue, 06 Dec 2005 23:42:56 GMT</d:Win32LastModifiedTime>
+
+
+IF (item.getlock)
+{
+?>
+     <D:supportedlock>
+          <D:lockentry>
+          <D:lockscope><D:exclusive/></D:lockscope>
+          <D:locktype><D:write/></D:locktype>
+          </D:lockentry>
+          <D:lockentry>
+          <D:lockscope><D:shared/></D:lockscope>
+          <D:locktype><D:write/></D:locktype>
+          </D:lockentry>
+          </D:supportedlock>
+      <D:lockdiscovery/>
+<?wh
+}
+
+  IF(item.iscollection)
+  {
+    IF (item.resourcetype)
+      print('      <D:resourcetype><D:collection/></D:resourcetype>\n');
+    IF (item.getcontenttype)
+      print(      '<D:getcontenttype>httpd/unix-directory</D:getcontenttype>\n');
+  }
+  ELSE
+  {
+    IF (item.resourcetype)
+      print('      <D:resourcetype/>\n');
+    IF (item.getcontenttype)
+      print('      <D:getcontenttype>application/octet-stream</D:getcontenttype>\n');
+    IF (CellExists(item,"length"))
+      print('      <D:getcontentlength>' || item.length || '</D:getcontentlength>\n');
+  }
+  print("    </D:prop>\n");
+  print('    <D:status>HTTP/1.1 200 OK</D:status>\n');
+  print("  </D:propstat>\n");
+  print("</D:response>\n");
+}

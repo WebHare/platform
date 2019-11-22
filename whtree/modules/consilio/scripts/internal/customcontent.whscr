@@ -1,0 +1,233 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+
+
+OBJECT contentobject;
+OBJECT trans;
+
+// Open channel to parent
+OBJECT iochan := GetIPCLinkToParent();
+IF (NOT ObjectExists(iochan))
+  THROW NEW Exception("Could not open IPC link to job owner");
+
+RECORD rec := iochan->ReceiveMessage(MAX_DATETIME);
+IF (rec.status != "ok")
+  THROW NEW Exception("Expected a message to be present from IPC parent link at startup");
+
+// Set and check library and contentobject
+TRY
+{
+  contentobject := MakeCustomContentObject(rec.msg);
+  contentobject->PrepareForIndexing();
+}
+CATCH (OBJECT e)
+{
+  iochan->SendReply([ __exception :=
+                        [ type :=   "exception"
+                        , what :=   e->what
+                        , trace :=  e->trace
+                        ]
+                    ], rec.msgid);
+  RETURN;
+}
+iochan->SendReply(
+    [ status := "started"
+    ], rec.msgid);
+
+WHILE (TRUE)
+{
+  WaitForPromise(iochan->AsyncWaitRead(MAX_DATETIME));
+  rec := iochan->ReceiveMessage(DEFAULT DATETIME);
+  IF (rec.status = "timeout")
+    CONTINUE;
+  IF (rec.status != "ok")
+    BREAK;
+
+  DATETIME start := GetCurrentDateTime();
+
+  SWITCH (rec.msg.command)
+  {
+    CASE "gettitle"
+    {
+      iochan->SendReply([ title := contentobject->GetContentSourceTitle()
+                        ], rec.msgid);
+    }
+    CASE "describesource"
+    {
+      iochan->SendReply([ emptysearchrecord := contentobject->GetEmptySearchRecord()
+                        , mapping := contentobject->GetMapping()
+                        , objectlistfields := contentobject->GetObjectListFields()
+                        ], rec.msgid);
+    }
+    CASE "listgroups"
+    {
+      iochan->SendReply(ListGroups(rec.msg.commanddate), rec.msgid);
+    }
+    CASE "listobjects2"
+    {
+      iochan->SendReply(ListObjects2(rec.msg.commanddate, rec.msg.groupid, rec.msg.current_objects), rec.msgid);
+    }
+    CASE "fetchobject"
+    {
+      iochan->SendReply(FetchObject(rec.msg.commanddate, rec.msg.groupid, rec.msg.objectid, rec.msg.options), rec.msgid);
+    }
+    DEFAULT
+    {
+      iochan->SendReply([ status := "error"
+                        , error := "Unknown command '" || rec.msg.command || "'"
+                        ], rec.msgid);
+    }
+  }
+  CollectGarbage();
+}
+
+iochan->Close();
+
+STRING FUNCTION ValidateResult(RECORD result, STRING ARRAY validstatuses)
+{
+  IF(NOT RecordExists(result))
+    RETURN "Invalid result received: got a non-existing record";
+  IF(NOT CellExists(result, "status"))
+    RETURN "Invalid result received: missing cell 'status'";
+  IF(result.status NOT IN [ "error" ] CONCAT validstatuses)
+    RETURN "Invalid result received: status must be one of: " || Detokenize([ "error" ] CONCAT validstatuses,", ") || " but got '" || result.status || "'";
+  IF(result.status = "error" AND NOT CellExists(result, "error"))
+    RETURN "Invalid result received: status was error but the cell 'error' was missing";
+  RETURN "";
+}
+
+RECORD FUNCTION ListGroups(DATETIME commanddate)
+{
+  RECORD result;
+  TRY
+  {
+    result := contentobject->ListGroups(commanddate);
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN
+        [ __exception :=
+              [ type :=   "exception"
+              , what :=   e->what
+              , trace :=  e->trace
+              ]
+        ];
+  }
+
+  STRING checkresult := ValidateResult(result,["result"]);
+  IF(checkresult != "")
+    RETURN [ status := "error", error := checkresult ];
+
+  IF (result.status = "result")
+  {
+    // Remove unwanted cells from the result record
+    result := CleanRecord(result, [ "STATUS", "GROUPS" ]);
+    IF (NOT CellExists(result, "groups"))
+      INSERT CELL groups := DEFAULT RECORD ARRAY INTO result;
+  }
+  ELSE
+  {
+    result.error := "Content object returned error: " || result.error;
+  }
+
+  RETURN result;
+}
+
+RECORD FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+{
+  RECORD result;
+  TRY
+  {
+    result := contentobject->ListObjects2(commanddate, groupid, current_objects);
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN
+        [ __exception :=
+              [ type :=   "exception"
+              , what :=   e->what
+              , trace :=  e->trace
+              ]
+        ];
+  }
+
+  // Check result record
+  STRING checkresult := ValidateResult(result,["result"]);
+  IF(checkresult != "")
+    RETURN [ status := "error", error := checkresult ];
+
+  IF (result.status = "result")
+  {
+    // Remove unwanted cells from the result record
+    result := CleanRecord(result, [ "STATUS", "OBJECTS" ]);
+    IF (NOT CellExists(result, "objects"))
+      INSERT CELL objects := DEFAULT RECORD ARRAY INTO result;
+    ELSE
+    {
+      // FIXME: remove unwanted cells
+      result.objects :=
+          SELECT id :=                STRING(id)
+               , requiredindexdate := CellExists(objects, "REQUIREDINDEXDATE")
+                                          ? objects.requiredindexdate
+                                          : DEFAULT DATETIME
+               , data :=              CellExists(objects, "DATA") AND RecordExists(data)
+                                          ? CleanRecord(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ])
+                                          : DEFAULT RECORD
+            FROM result.objects;
+    }
+  }
+  ELSE
+  {
+    result.error := "Content object returned error: " || result.error;
+  }
+
+  RETURN result;
+}
+
+RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objectid, RECORD options)
+{
+  RECORD result;
+  TRY
+  {
+    contentobject->force := options.force;
+    result := contentobject->FetchObject(commanddate, groupid, objectid);
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN
+        [ __exception :=
+              [ type :=   "exception"
+              , what :=   e->what
+              , trace :=  e->trace
+              ]
+        ];
+  }
+
+  // Check result record
+  STRING checkresult := ValidateResult(result, ["result","notfound"]);
+  IF(checkresult != "")
+    RETURN [ status := "error", error := checkresult ];
+
+  IF (result.status = "result")
+  {
+    // Remove unwanted cells from the result record
+    result := CleanRecord(result, [ "STATUS", "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ]);
+  }
+  ELSE IF (result.status = "error")
+  {
+    result.error := "Content object returned error: " || result.error;
+  }
+
+  RETURN result;
+}
+
+RECORD FUNCTION CleanRecord(RECORD tocheck, STRING ARRAY allowed_fields)
+{
+  allowed_fields := SELECT AS STRING ARRAY ToUppercase(field) FROM ToRecordArray(allowed_fields, "field");
+  STRING ARRAY remove_fields := SELECT AS STRING ARRAY name FROM UnpackRecord(tocheck) WHERE ToUppercase(name) NOT IN allowed_fields;
+  FOREVERY (STRING field FROM remove_fields)
+    tocheck := CellDelete(tocheck, field);
+  RETURN tocheck;
+}

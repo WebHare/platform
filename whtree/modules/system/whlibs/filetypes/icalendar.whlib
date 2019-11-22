@@ -1,0 +1,413 @@
+<?wh
+/** @short iCalendar event encoding/decoding functions
+    @topic file-formats/icalendar
+*/
+/*
+Note:
+- !! make sure you convert the DATETIME to UTC before passing it, otherway times will be wrong (or allday events a day to early)
+- !! in case of allday events often a day with time 00:00 is passed... if you convert this using LocalToUTC you'll potentially move the event to another day.
+     so in case of an allday event it might be better to keep ik in local time
+- 'Google Calendar' only loads if the feed isn't affected by robots.txt
+- 'Google Calendar' may not be able to read from a secure URL (https://)
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internal/filetypes.whlib";
+
+STRING iso8601_date := "%Y%m%d";
+STRING iso8601_datetime := "%Y%m%dT%H%M%SZ";
+
+/* Fold a string longer than 75 octets, as specified in RFC 2445:
+
+   Lines of text SHOULD NOT be longer than 75 octets, excluding the line
+   break. Long content lines SHOULD be split into a multiple line
+   representations using a line "folding" technique. That is, a long
+   line can be split between any two characters by inserting a CRLF
+   immediately followed by a single linear white space character (i.e.,
+   SPACE, US-ASCII decimal 32 or HTAB, US-ASCII decimal 9). Any sequence
+   of CRLF followed immediately by a single linear white space character
+   is ignored (i.e., removed) when processing the content type.
+*/
+STRING FUNCTION FoldString(STRING text)
+{
+  STRING res;
+  WHILE (Length(text) > 75)
+  {
+    INTEGER splitchars := 75;
+    WHILE(NOT IsValidUTF8(Left(text, splitchars)))
+      splitchars := splitchars - 1;
+
+    res := res || Left(text, splitchars) || "\r\n";
+    text := " " || Substring(text, splitchars);
+  }
+  RETURN res || text;
+}
+
+// iCalendar requires CTL (\x00-\x08, \x0A-\x1F, \x7F), ';' and ',' to be escaped
+// See http://www.ietf.org/rfc/rfc2445.txt section 4.3.11
+STRING FUNCTION EncodeICal(STRING str)
+{
+ STRING result;
+ OBJECT parser := NEW StringParser(str);
+
+ STRING encodeset := parser->set_control || "\\,;";
+
+ WHILE (TRUE)
+ {
+   result := result || parser->ParseWhileNotInSet(encodeset);
+   IF (parser->eof)
+     BREAK;
+
+   SWITCH (parser->current)
+   {
+   CASE ",", ";", "\\"
+     {
+       result := result || "\\" || parser->current;
+     }
+   CASE "\n"
+     {
+       result := result || "\\n";
+     }
+   CASE "\r"
+     {
+     }
+   DEFAULT
+     {
+       result := result || " ";
+     }
+   }
+   parser->Next();
+ }
+ RETURN result;
+}
+
+STRING FUNCTION DecodeICal(STRING str)
+{
+ STRING result;
+ OBJECT parser := NEW StringParser(str);
+
+ STRING encodeset := parser->set_control || "\\,;";
+
+ WHILE (TRUE)
+ {
+   result := result || parser->ParseWhileNotInSet("\\");
+   IF (parser->eof)
+     BREAK;
+
+   parser->Next();
+
+   SWITCH (parser->current)
+   {
+   CASE ",", ";", "\\"
+     {
+       result := result || parser->current;
+     }
+   CASE "n", "N"
+     {
+       result := result || "\n";
+     }
+   }
+   parser->Next();
+ }
+ RETURN result;
+}
+
+/* Generate a UID for an event. The RFC says:
+
+   The identifier is RECOMMENDED to be the identical syntax to the
+   [RFC 822] addr-spec. A good method to assure uniqueness is to put the
+   domain name or a domain literal IP address of the host on which the
+   identifier was created on the right hand side of the "@", and on the
+   left hand side, put a combination of the current calendar date and
+   time of day (i.e., formatted in as a DATE-TIME value) along with some
+   other currently unique (perhaps sequential) identifier available on
+   the system (for example, a process id number). Using a date/time
+   value on the left hand side and a domain name or domain literal on
+   the right hand side makes it possible to guarantee uniqueness since
+   no two hosts should be using the same domain name or IP address at
+   the same time.
+
+   Example: The following is an example of this property:
+
+     UID:19960401T080045Z-4000F192713-0052@host1.com
+*/
+INTEGER uidcount;
+
+/** Generates a new UID for use in ICal
+    @return ICal UID
+*/
+PUBLIC STRING FUNCTION GenerateICalUID()
+{
+  // To generate a unique id, the following parameters are used:
+  // - The current daycount and msecondcount
+  // - A counter
+  // - The host name of this system
+  // This will ensure uniqueness, unless two processes on the same system
+  // generate an id for two events within the same millisecond and with equal
+  // counters.
+  DATETIME now := GetCurrentDateTime();
+  uidcount := uidcount + 1;
+
+  RETURN GetDayCount(now) || "-" || GetMsecondCount(now) || "-" || uidcount || "@" || GetSystemHostName(FALSE);
+}
+
+/** Returns a default ICal event
+    @return A ICal event
+    @cell(string) return.uid Persistent, globally unique identifier. An identifier will be generated automatically, but it may be overwritten afterwards
+    @cell(datetime) return.dtstart Start date and time (UTC)
+    @cell(datetime) return.dtend End date and time (UTC)
+    @cell(boolean) return.allday Ignore time, this is an all-day event. NOTE: Not part of the specification, but in HareScript
+                          there is no way to distinguish between a full date and time and only a date as both are
+                          represented using a DATETIME value
+    @cell(string) return.summary Short event title
+    @cell(string) return.description Description of the event
+    @cell(string) return.url URL for the event
+    @cell(string array) return.categories List of categories for the event
+    @cell(string) return.location Location, as string
+    @cell(string) return.organizeremail E-mail address of the organizer
+    @cell(string) return.organizername Name of the organizer (only exported when organizeremail is set)
+    @cell(record array) return.attendees List of attendees
+    @cell(string) return.attendees.name Naam (only exported when the email is set too)
+    @cell(string) return.attendees.email Email
+*/
+PUBLIC RECORD FUNCTION MakeDefaultICalEvent()
+{
+  RETURN [ uid := GenerateICalUID()
+         , dtstart := DEFAULT DATETIME
+         , dtend := DEFAULT DATETIME
+         , allday := FALSE
+         , summary := ""
+         , description := ""
+         , url := ""
+         , categories := DEFAULT STRING ARRAY
+         , location := ""
+         , organizer := "" // For backward compatibility, use organizeremail instead
+         , organizeremail := ""
+         , organizername := ""
+         , attendees := DEFAULT RECORD ARRAY
+         ];
+}
+
+/** Encodes a single ICal event
+    @param event Event to encoded @includecelldef #MakeDefaultICalEvent.return
+    @return Encoded event
+*/
+PUBLIC STRING FUNCTION EncodeICalEvent(RECORD event)
+{
+  IF (NOT CellExists(event, "dtstart") OR event.dtstart = DEFAULT DATETIME)
+    RETURN "";
+
+  BOOLEAN allday := CellExists(event, "allday") AND event.allday;
+
+  STRING format := allday ? iso8601_date : iso8601_datetime;
+
+  STRING ical := "BEGIN:VEVENT\r\n";
+
+  IF (CellExists(event, "uid") AND event.uid != "")
+    ical := ical || FoldString("UID:" || EncodeICal(event.uid)) || "\r\n";
+
+  IF (allday)
+    ical := ical || "DTSTART;VALUE=DATE:" || FormatDateTime(format, event.dtstart) || "\r\n";
+  ELSE
+    ical := ical || "DTSTART:" || FormatDateTime(format, event.dtstart) || "\r\n";
+
+  IF (CellExists(event, "dtend") AND event.dtend != DEFAULT DATETIME)
+  {
+    IF (allday)
+      ical := ical || "DTEND;VALUE=DATE:" || FormatDateTime(format, AddDaysToDate(1, event.dtend)) || "\r\n"; // an 'allday' event lasts up to the start of the day after the last day
+    ELSE
+      ical := ical || "DTEND:" || FormatDateTime(format, event.dtend) || "\r\n";
+  }
+
+  IF (CellExists(event, "summary") AND event.summary != "")
+    ical := ical || FoldString("SUMMARY:" || EncodeICal(event.summary)) || "\r\n";
+
+  IF (CellExists(event, "description") AND event.description != "")
+    ical := ical || FoldString("DESCRIPTION:" || EncodeICal(event.description)) || "\r\n";
+
+  IF (CellExists(event, "url") AND event.url != "")
+    ical := ical || FoldString("URL:" || EncodeICal(event.url)) || "\r\n";
+
+  IF (CellExists(event, "categories") AND Length(event.categories) > 0)
+    ical := ical || FoldString("CATEGORIES:" || EncodeICal(Detokenize(event.categories, ","))) || "\r\n";
+
+  IF (CellExists(event, "location") AND event.location!="")
+    ical := ical || FoldString("LOCATION:" || EncodeICal(event.location)) || "\r\n";
+
+  IF ((CellExists(event, "ORGANIZEREMAIL") AND event.organizeremail != "") OR (CellExists(event, "ORGANIZER") AND event.organizer != ""))
+  {
+    STRING email := (CellExists(event, "ORGANIZEREMAIL") ? event.organizeremail : "") ?? event.organizer;
+    STRING organizer_str := "ORGANIZER";
+    IF (CellExists(event, "ORGANIZERNAME") AND event.organizername != "")
+      organizer_str := organizer_str || ";CN=\"" || EncodeJava(event.organizername) || "\"";
+    organizer_str := organizer_str || ":MAILTO:" || email;
+
+    ical := ical || FoldString(organizer_str) || "\r\n";
+  }
+
+  IF (CellExists(event, "ATTENDEES"))
+  {
+    FOREVERY (RECORD attendee FROM event.attendees)
+    {
+      attendee := MakeReplacedRecord([ email := "", name := "" ], attendee);
+
+      STRING str := "ATTENDEE";
+      IF (attendee.name != "")
+        str := str || ";CN=\"" || EncodeJava(attendee.name) || "\"";
+      str := str || ":MAILTO:" || attendee.email;
+
+      ical := ical || FoldString(str) || "\r\n";
+    }
+  }
+
+
+  RETURN ical || "END:VEVENT\r\n";
+}
+
+/** Decodes an ICal single event
+    @param ical ICal single event
+    @return @includecelldef #MakeDefaultICalEvent.return
+*/
+PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
+{
+  STRING ARRAY lines := Tokenize(ical, "\r\n");
+  WHILE(Length(lines)>0 AND lines[Length(lines)-1] = "")
+    DELETE FROM lines AT Length(lines)-1;
+
+  IF (Length(lines)<2 OR lines[0] != "BEGIN:VEVENT" OR Length(lines) < 3 OR lines[END-1] != "END:VEVENT")
+    RETURN DEFAULT RECORD;
+
+  // Get a default iCalendar event
+  RECORD event := MakeDefaultICalEvent();
+
+  INTEGER i := 0;
+  WHILE (i < Length(lines))
+  {
+    // Unfold folded strings
+    STRING line := lines[i];
+    i := i + 1;
+    WHILE (i < Length(lines) AND Left(lines[i], 1) = " ")
+    {
+      line := line || Right(lines[i], Length(lines[i])-1);
+      i := i + 1;
+    }
+
+    // Split field and value
+    INTEGER sep := SearchSubstring(line, ":");
+    IF (sep < 0)
+      CONTINUE;
+    STRING fld := Left(line, sep);
+    STRING val := DecodeICal(Right(line, Length(line)-sep-1));
+
+    fld := Tokenize(fld,";")[0]; //work around syntax like "DTSART;VALUE=DATE"
+
+    // Update values in the event record
+    SWITCH (fld)
+    {
+      CASE "UID", "SUMMARY", "DESCRIPTION", "URL", "LOCATION"
+      {
+        event := CellUpdate(event, fld, val);
+      }
+      CASE "DTSTART", "DTEND"
+      {
+        event := CellUpdate(event, fld, MakeDateFromText(val));
+        IF(fld = "DTSTART" AND Length(val) <= 8)
+          event.allday := TRUE;
+      }
+      CASE "CATEGORIES"
+      {
+        event := CellUpdate(event, fld, Tokenize(val, ","));
+      }
+    }
+  }
+
+  RETURN event;
+}
+
+/** Creates an ICal calendar file for events
+    @param events ICal events @includecelldef #MakeDefaultICalEvent.return
+    @param calendarsettings Settings
+    @cell calendarsettings.calendarname name of the calendar (keep empty if the iCal document must represent a single appointment or meeting!
+    @cell calendarsettings.method Method (any of "", "publish", "request", "reply", "add", "cancel", "refresh", "counter", "declinecounter").
+    @return ICal calendar file
+*/
+PUBLIC STRING FUNCTION EncodeICalCalendar(RECORD ARRAY events, RECORD calendarsettings DEFAULTSTO DEFAULT RECORD)
+{
+  calendarsettings :=
+    MakeReplacedRecord(
+        [ calendarname := "" // name of the calendar (keep empty if the iCal document must represent a single appointment or meeting!!)
+        , method := ""
+        ], calendarsettings);
+
+  calendarsettings.method := ToUpperCase(calendarsettings.method);
+
+  IF (calendarsettings.method NOT IN ["", "PUBLISH", "REQUEST", "REPLY", "ADD", "CANCEL", "REFRESH", "COUNTER", "DECLINECOUNTER"])
+    THROW NEW Exception("Unsupported iCal METHOD");
+
+  // The VERSION property should be the first property on the calendar. Some calendar clients cannot properly parse the calendar otherwise.
+  STRING ical := "BEGIN:VCALENDAR\r\n"
+              || FoldString("VERSION:2.0") || "\r\n"
+              || FoldString("PRODID:-//WebHare bv//NONSGML WebHare Calendar//EN") || "\r\n";
+
+  IF (calendarsettings.method != "")
+    ical := ical || FoldString("METHOD:" || calendarsettings.method) || "\r\n";
+
+  IF (calendarsettings.calendarname != "")
+    ical := ical || FoldString("X-WR-CALNAME:"||calendarsettings.calendarname) || "\r\n";
+
+  FOREVERY (RECORD event FROM events)
+    ical := ical || EncodeICalEvent(event);
+
+  RETURN ical || "END:VCALENDAR\r\n";
+}
+
+/** Creates an ICal calendar file for events, wrapped as a file record
+    @param filename File name for the wrapped file record
+    @param events ICal events @includecelldef #MakeDefaultICalEvent.return
+    @param calendarsettings Settings
+    @cell calendarsettings.calendarname name of the calendar (keep empty if the iCal document must represent a single appointment or meeting!
+    @cell calendarsettings.method Method (any of "", "publish", "request", "reply", "add", "cancel", "refresh", "counter", "declinecounter").
+    @return Wrapped ICal calendar file
+*/
+PUBLIC RECORD FUNCTION GetWrappedIcalCalendar(STRING filename, RECORD ARRAY events, RECORD calendarsettings DEFAULTSTO DEFAULT RECORD)
+{
+  BLOB ical := StringToblob(EncodeICalCalendar(events, calendarsettings));
+  RETURN [ ...basestoredfile
+         , mimetype  := "text/calendar"
+         , filename  := filename
+         , extension := ".ics"
+         , data      := ical
+         ];
+}
+
+/** Decodes an ICal calendar
+    @param icaldata ICal calendar
+    @return @includecelldef #MakeDefaultICalEvent.return
+*/
+PUBLIC RECORD ARRAY FUNCTION DecodeICalCalendar(STRING icaldata)
+{
+  RECORD ARRAY events;
+  INTEGER pos := 0;
+
+  WHILE (pos < Length(icaldata))
+  {
+    INTEGER eventstart := SearchSubstring(icaldata,"\r\nBEGIN:VEVENT\r\n", pos);
+    IF(eventstart=-1)
+      BREAK;
+
+    INTEGER eventend := SearchSubstring(icaldata, "\r\nEND:VEVENT\r\n", eventstart);
+    IF(eventend=-1)
+      BREAK;
+
+    STRING eventdata := Substring(icaldata, eventstart + 2, eventend - eventstart + 10);
+    RECORD eventrec := DecodeICalEvent(eventdata);
+    IF(RecordExists(eventrec))
+      INSERT eventrec INTO events AT END;
+
+    pos := eventend+12;
+  }
+  RETURN events;
+}

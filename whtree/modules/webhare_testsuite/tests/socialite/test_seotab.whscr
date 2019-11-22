@@ -1,0 +1,86 @@
+<?wh
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+STRING siteprof_with_seotab :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<apply>'
+      || '<to type="all" />'
+      || '<seotab xmlns="http://www.webhare.net/xmlns/socialite" features="canonicalurl" />'
+    || '</apply>'
+    || '<apply>'
+      || '<to type="index" />'
+      || '<robots xmlns="http://www.webhare.net/xmlns/consilio" />'
+      || '<seotab xmlns="http://www.webhare.net/xmlns/socialite" features="robots canonicalurl" />'
+    || '</apply>'
+  || '</siteprofile>';
+
+OBJECT ASYNC FUNCTION TestSEOTab()
+{
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT image := siteroot->OpenByName("bob.jpg");
+  OBJECT seotab;
+
+  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), image->id)->RunModal);
+  seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
+  TestEq(FALSE, ObjectExists(seotab),"seotab should NOT appear on images");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  OBJECT indexhtmldoc := siteroot->OpenByName("index.html");
+  OBJECT statichtmldoc := siteroot->OpenByName("static.html");
+
+  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), statichtmldoc->id)->RunModal);
+  seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
+  TestEq(FALSE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->visible);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+
+  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), indexhtmldoc->id)->RunModal);
+  seotab := SELECT AS OBJECT obj FROM ToRecordArray(TT("maintabs")->pages,'obj') WHERE obj->title = "SEO";
+  TestEq(TRUE, ObjectExists(seotab));
+  TestEq(TRUE, topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->visible);
+
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->value := TRUE;
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noarchive")->value := TRUE;
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(indexhtmldoc->url), indexhtmldoc->url);
+  OBJECT metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq(TRUE, ObjectExists(metarobots));
+  STRING ARRAY toks := Tokenize(Substitute(metarobots->GetAttribute("content")," ",""),',');
+  TestEQ(TRUE, "noindex" IN toks);
+  TestEQ(FALSE, "index" IN toks);
+  TestEQ(TRUE, "noarchive" IN toks);
+
+  AWAIT ExpectScreenChange(+1, PTR CreateWHFSObjectPropsDialog(GetTestController(), indexhtmldoc->id)->RunModal);
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noindex")->value := FALSE;
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "noarchive")->value := FALSE;
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "nofollow")->value := TRUE;
+  topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/socialite/seotab", "canonical")->value := MakeIntExtInternalLink(statichtmldoc->id, "");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  testfw->WaitForPublishCompletion(siteroot->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(indexhtmldoc->url), indexhtmldoc->url);
+  metarobots := testfw->browser->document->QuerySelector("meta[name='robots']");
+  TestEq(TRUE, ObjectExists(metarobots));
+  toks := Tokenize(Substitute(metarobots->GetAttribute("content")," ",""),',');
+  TestEQ(FALSE, "noindex" IN toks);
+  TestEQ(TRUE, "nofollow" IN toks);
+
+  OBJECT canonicalurl := testfw->browser->document->QuerySelector("link[rel='canonical']");
+  TestEq(statichtmldoc->indexurl, canonicalurl->GetAttribute("href"));
+
+  RETURN TRUE;
+}
+
+RunTestframework([ PTR PrepareTestSiteDesignWebsite(siteprof_with_seotab, [ waitpublish := FALSE ])
+                 , PTR TestSEOTab
+                 ],
+                 [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                 ]
+                 ]);

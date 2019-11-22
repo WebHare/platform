@@ -1,0 +1,46 @@
+<?wh
+
+/** @short Testframework helpers for wrd entity
+    @topic testframework/wrd
+*/
+
+/** Dumps the history changes for a specific entity
+    @param entity WRD entity
+    @cell options.format Dump format, defaults to tree:4
+    @cell options.name Name to use in header. Set to empty string for no header
+*/
+PUBLIC MACRO DumpWRDEntityHistory(OBJECT entity, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ format :=       "tree:4"
+      , name :=         `History of '${entity->wrdtype->tag}' entity #${entity->id}`
+      , callerlevel :=  1
+      ], options);
+
+  IF (entity->wrdtype->keephistorydays = 0 AND NOT IsDebugTagEnabled("wrd:forcehistory"))
+    PRINT(`No history is kept for WRD type '${entity->wrdtype->tag}', enable debug tag 'wrd:forcehistory' via 'wh debug' to get history`);
+
+  RECORD ARRAY changes;
+  FOREVERY (RECORD changeset FROM entity->wrdtype->ListChangeSets(entity->id))
+    changes := changes CONCAT entity->wrdtype->GetChanges(changeset.id, [ __debug := TRUE ]);
+
+
+  RECORD caller := GetStackTrace()[options.callerlevel];
+  IF(options.name != "")
+    Print(`${options.name} from ${caller.filename}:${caller.line}:${caller.col} (${caller.func})\n`);
+
+  FOREVERY (RECORD change FROM changes)
+  {
+    IF (#change != 0)
+      PRINT("\n");
+    Print(`Change ${#change + 1}/${LENGTH(changes)}:\n${AnyToString(CELL[ ...change, DELETE __debug ], options.format)}`);
+    IF (CellExists(change.__debug, "stacktrace"))
+    {
+      PRINT(`Stack trace:\n`);
+      FOREVERY (RECORD item FROM change.__debug.stacktrace)
+        PRINT(`${item.filename}:${item.line}:${item.col}: ${item.func}\n`);
+    }
+  }
+
+  Print("\n");
+}

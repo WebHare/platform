@@ -1,0 +1,535 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE VersioningObjectPolicyBase
+<
+  PUBLIC PROPERTY name(GetPolicyName, -);
+  /** Returns the field editing policies for versioned objects
+      @return
+      @cell return.versioned_contenttypes Changes to this fields must be stored in drafts
+      @cell return.versioned_fields Changes to this fields must be stored in drafts
+  */
+  PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ versioned_contenttypes :=   DEFAULT INTEGER ARRAY
+        , versioned_fields :=         [ "published" ]
+        , readonly_fields :=          DEFAULT STRING ARRAY
+        ];
+  }
+
+  STRING FUNCTION GetPolicyName()
+  {
+    RETURN "Base policy";
+  }
+>;
+
+/** Returns all files/folders that are versioned or have versioned children
+    @param ids
+    @return List of ids
+*/
+INTEGER ARRAY FUNCTION GetVersionedObjects(INTEGER ARRAY ids, BOOLEAN ignore_requests)
+{
+  INTEGER ARRAY versioned_objects;
+
+  INTEGER ARRAY worklist := ids;
+  RECORD ARRAY allrecs;
+
+  INTEGER ARRAY allobjects := ids;
+  WHILE (NOT IsDefaultValue(worklist))
+  {
+    RECORD ARRAY recs := SELECT id, parent FROM system.fs_objects WHERE parent IN worklist AND id NOT IN allobjects;
+    worklist := SELECT AS INTEGER ARRAY id FROM recs;
+    allobjects := allobjects CONCAT worklist;
+    allrecs := allrecs CONCAT recs;
+  }
+
+  IF (NOT IsDefaultValue(allobjects))
+  {
+    versioned_objects := GetSortedSet(
+        SELECT AS INTEGER ARRAY live_object
+          FROM system.fs_versionevents
+         WHERE live_object IN allobjects
+           AND (ignore_requests ? eventtype != VersionEventType_Request : TRUE));
+
+    worklist := SELECT AS INTEGER ARRAY parent FROM allrecs WHERE id IN versioned_objects;
+    WHILE (NOT IsDefaultValue(worklist))
+    {
+      versioned_objects := versioned_objects CONCAT worklist;
+      worklist := SELECT AS INTEGER ARRAY parent FROM allrecs WHERE id IN worklist AND parent NOT IN versioned_objects;
+    }
+  }
+
+  RETURN versioned_objects;
+}
+
+MACRO OpenFileInPublisher(OBJECT parentscreen, INTEGER fileid)
+{
+  parentscreen->tolliumcontroller->StartApplication("publisher:app", [ fileid := fileid ], DEFAULT RECORD, [ reusemode := "never"]);
+}
+
+
+STATIC OBJECTTYPE DefaultPolicyVersionedUnpublishedFilePolicy EXTEND VersioningObjectPolicyBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ versioned_contenttypes :=   DEFAULT INTEGER ARRAY
+        , versioned_fields :=         [ "name", "parent", "published" ]
+        , readonly_fields :=          [ "type" ]
+        ];
+  }
+
+  UPDATE STRING FUNCTION GetPolicyName()
+  {
+    RETURN "Default policy for versioned, unpublished files";
+  }
+>;
+
+INTEGER ARRAY FUNCTION GetDefaultPublishedFileVersionedContentTypes()
+{
+  INTEGER ARRAY versioned_contenttypes;
+
+  // For published files, the following contenttypes are versioned:
+  versioned_contenttypes :=
+      [ INTEGER(OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id)
+      ];
+
+  FOREVERY (STRING namespace FROM
+        // Labmicta specific versioned instancedata
+      [ // Versioning tests instancedata
+        "http://www.webhare.net/xmlns/beta/versionedctype"
+      ])
+  {
+    OBJECT typeobj := OpenWHFSType(namespace);
+    IF (ObjectExists(typeobj))
+      INSERT typeobj->id INTO versioned_contenttypes AT END;
+  }
+
+  RETURN versioned_contenttypes;
+}
+
+
+STATIC OBJECTTYPE DefaultPolicyVersionedPublishedFilePolicy EXTEND VersioningObjectPolicyBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    RETURN
+        [ versioned_contenttypes :=   GetDefaultPublishedFileVersionedContentTypes()
+        , versioned_fields :=         [ "name", "parent", "title", "description", "published", "keywords", "ispinned", "data", "indexdoc" ]
+        , readonly_fields :=          [ "type" ]
+        ];
+  }
+
+  UPDATE STRING FUNCTION GetPolicyName()
+  {
+    RETURN "Default policy for versioned, published files";
+  }
+>;
+
+STATIC OBJECTTYPE DefaultPolicyVersionedFolderPolicy EXTEND VersioningObjectPolicyBase
+<
+  UPDATE PUBLIC RECORD FUNCTION GetFields()
+  {
+    /* Default folder policy is to disallow moving and renaming for folders which contain versioned files
+    */
+    RETURN
+        [ versioned_contenttypes :=   DEFAULT INTEGER ARRAY
+        , versioned_fields :=         DEFAULT STRING ARRAY
+        , readonly_fields :=          [ "name", "parent", "type" ]
+        ];
+  }
+
+  UPDATE STRING FUNCTION GetPolicyName()
+  {
+    RETURN "Default policy for versioned folders";
+  }
+>;
+
+
+/** This policy assumes that a file becomes versioned when the 'publish' flag is modified, doesn't encode that by itself
+
+    Files that have a approval request pending have all versioned fields set to readonly
+
+    Folders that contain versioned files are considered 'locked' for name and parent.
+*/
+PUBLIC STATIC OBJECTTYPE VersioningPolicyBase
+<
+  PUBLIC PROPERTY cached_policy(policy_cache, -);
+  RECORD policy_cache;
+
+  MACRO NEW()
+  {
+    this->policy_cache :=
+        [ versioned_published_file :=   NEW DefaultPolicyVersionedPublishedFilePolicy
+        , versioned_unpublished_file := NEW DefaultPolicyVersionedUnpublishedFilePolicy
+        , versioned_folder :=           NEW DefaultPolicyVersionedFolderPolicy
+        , nonversioned_object :=        NEW VersioningObjectPolicyBase
+        ];
+  }
+
+  /** Overrides an object policy. Call this in the constructor of your versioning policy
+      @param name Type of object: One of "versioned_published_file", "versioned_unpublished_file", "versioned_folder", "nonversioned_object"
+      @param objectpolicy Object policy, must extend from VersioningObjectPolicyBase
+  */
+  MACRO OverrideObjectPolicy(STRING name, OBJECT objectpolicy)
+  {
+    IF (NOT CellExists(this->policy_cache, name))
+      THROW NEW Exception("Unknown object policy type '" || name || "'");
+    IF (NOT objectpolicy EXTENDSFROM VersioningObjectPolicyBase)
+      THROW NEW Exception("Object policy object must extend from VersioningObjectPolicyBase");
+
+    this->policy_cache := CellUpdate(this->policy_cache, name, objectpolicy);
+  }
+
+  /** Returns all objects that need to be versioned from a pristine site
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetPossibleVersionedObjects(INTEGER ARRAY test)
+  {
+    // Get list of types
+    INTEGER ARRAY types := SELECT AS INTEGER ARRAY DISTINCT type FROM system.fs_objects WHERE id IN test;
+
+    INTEGER ARRAY allowed_types := this->FilterAllowedFSObjectTypes(types);
+
+    // Only published files that are not links are versioned
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE id IN test
+           AND NOT isfolder
+           AND type IN allowed_types
+           AND IsPublish(published);
+  }
+
+  /** Returns all ids of objects that are currently versioned
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetVersionedObjects(INTEGER ARRAY test)
+  {
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT live_object
+          FROM system.fs_versionevents
+         WHERE live_object IN test;
+  }
+
+  /** Returns pending requests for approval for selected files
+      @param test Ids of files to return the requests for
+      @return
+      @cell return.live_object Id of file with pending request for approval (sorted)
+      @cell return.draft_object Draft for the request
+      @cell return.when Datetime when request was made
+      @cell return.user_authobjectid Authobjectid of user that submitted the request
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetApprovalRequests(INTEGER ARRAY test)
+  {
+    RETURN
+        SELECT live_object
+             , draft_object
+             , when
+             , user_authobjectid :=   user
+          FROM system.fs_versionevents
+         WHERE live_object IN test
+           AND iscurrent
+           AND eventtype = VersionEventType_Request // approval requested
+           AND finished = DEFAULT DATETIME
+      ORDER BY live_object;
+  }
+
+
+  /** Returns all ids of objects have outstanding request for approval
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetApprovalRequestedObjects(INTEGER ARRAY test)
+  {
+    RETURN SELECT AS INTEGER ARRAY live_object FROM this->GetApprovalRequests(test);
+  }
+
+  /// Return the ids of the contenttypes that need to be copied
+  PUBLIC INTEGER ARRAY FUNCTION GetVersionedContentTypes()
+  {
+    RETURN DEFAULT INTEGER ARRAY;
+  }
+
+  /// Returns whether the file already has version events
+  PUBLIC BOOLEAN FUNCTION HasVersionEvents(OBJECT whfsobject)
+  {
+    RETURN NOT IsDefaultValue(this->GetVersionedObjects([ INTEGER(whfsobject->id) ]));
+  }
+
+  /** Returns whether the object has an outstanding aproval request
+  */
+  PUBLIC BOOLEAN FUNCTION HasApprovalRequest(OBJECT whfsobject)
+  {
+    RETURN NOT IsDefaultValue(this->GetApprovalRequests([ INTEGER(whfsobject->id) ]));
+  }
+
+  /** Filters a list of object (file/folder) types, returns only the allowed types
+      @return Filtered list, with disallowed types removed
+  */
+  PUBLIC INTEGER ARRAY FUNCTION FilterAllowedFSObjectTypes(INTEGER ARRAY types)
+  {
+    // Returns the list of types, with the disallowed types removed
+    // Disallowed: internal link, external link, contentlink, dynamic folder types
+    INTEGER ARRAY forbidden_types := [ 18, 19, 20 ] CONCAT GetDynamicExecuteFolderTypes();
+
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM ToRecordArray(types, "ID")
+         WHERE id NOT IN forbidden_types;
+  }
+
+  /** @param fsobjects
+      @cell fsobjects.id Id of the object
+      @cell fsobjects.isfolder Whether the object is a folder
+      @cell fsobjects.published Current publish flags of the object (IsPublish test is used)
+      @param options
+      @cell options.returnpolicyafteraccept Also return the policy that will apply after accepting
+      @return
+      @cell return.policy File policy object
+      @cell return.versioned Whether the item has version events
+      @cell return.draftlocked Whether the item as a pending request for approval
+      @cell return.draftlockedby_authobjectid Authobjectid of the user that submitted the pending request for approval
+      @cell return.policyafteraccept Policy after accepting the pending request for approval. Only present when the
+          'returnpolicyafteraccept' option is TRUE, and only different from 'policy' when draftlocked is TRUE.
+  */
+  PUBLIC RECORD ARRAY FUNCTION EnrichWithObjectPolicy(RECORD ARRAY fsobjects, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ returnpolicyafteraccept :=  FALSE
+        ], options);
+
+    INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM fsobjects WHERE id != 0;
+    INTEGER ARRAY versioned := GetVersionedObjects(ids, FALSE);
+    INTEGER ARRAY haveversiondecisions := GetVersionedObjects(ids, TRUE);
+    RECORD ARRAY locked := this->GetApprovalRequests(ids);
+    OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+    RECORD ARRAY objects :=
+        SELECT TEMPORARY isversioned := id IN versioned
+             , TEMPORARY lockedpos := RecordLowerBound(locked, [ live_object := id ], [ "LIVE_OBJECT" ])
+             , TEMPORARY islocked := lockedpos.found
+             , TEMPORARY haveversiondecision := id IN haveversiondecisions
+             , *
+             , policy :=        haveversiondecision
+                                        ? isfolder
+                                              ? this->policy_cache.versioned_folder
+                                              : IsPublish(published)
+                                                    ? this->policy_cache.versioned_published_file
+                                                    : this->policy_cache.versioned_unpublished_file
+                                        : this->policy_cache.nonversioned_object
+             , versioned :=     isversioned
+             , draftlocked :=   islocked
+             , draftlockedby_authobjectid :=  islocked ? locked[lockedpos.position].user_authobjectid : 0
+          FROM fsobjects;
+
+    IF (options.returnpolicyafteraccept)
+    {
+      // Get draft metadata for locked files (if the draft is published, should follow the policy for published objects)
+      IF (LENGTH(locked) != 0)
+        locked := whfs_draftmetadata->Enrich(locked, "DRAFT_OBJECT", [ "FLAGS" ]);
+
+      // The new file have version decision after accepting
+      objects :=
+          SELECT TEMPORARY lockedpos := NOT isfolder AND draftlocked ? RecordLowerBound(locked, [ live_object := id ], [ "LIVE_OBJECT" ]) : DEFAULT RECORD
+               , *
+               , policyafteraccept := RecordExists(lockedpos) AND lockedpos.found
+                        ? isfolder
+                              ? this->policy_cache.versioned_folder
+                              : ((locked[lockedpos.position].flags BITAND DraftFlag_Publish) != 0)
+                                    ? this->policy_cache.versioned_published_file
+                                    : this->policy_cache.versioned_unpublished_file
+                        : policy
+            FROM objects;
+    }
+
+    RETURN objects;
+  }
+
+  /** @param fsobjects
+      @cell fsobjects.id
+      @return
+      @cell return.id
+      @cell return.has_approval
+      @cell return.approvaldate
+      @cell return.approved_versionnumber
+      @cell return.approved_expirydate
+      @cell return.has_openrequest
+      @cell return.requestdate
+      @cell return.request_versionnumber
+      @cell return.request_expirydate
+  */
+  PUBLIC RECORD ARRAY FUNCTION EnrichWithVersionData(RECORD ARRAY fsobjects)
+  {
+    INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM fsobjects WHERE id != 0;
+
+    RECORD ARRAY approvals :=
+        SELECT id :=                      live_object
+             , has_approval :=            TRUE
+             , approvaldate :=            when
+             , approved_versionnumber :=  versionnumber
+             , approved_expirydate :=     expirydate
+          FROM system.fs_versionevents
+         WHERE live_object IN ids
+           AND eventtype = VersionEventType_AcceptApply
+           AND iscurrent
+      ORDER BY live_object;
+
+    fsobjects := JoinArrays(
+        fsobjects,
+        "ID",
+        approvals,
+        [ has_approval :=             FALSE
+        , approvaldate :=             DEFAULT DATETIME
+        , approved_versionnumber :=   ""
+        , approved_expirydate :=      DEFAULT DATETIME
+        ],
+        [ rightouterjoin := TRUE
+        ]);
+
+    RECORD ARRAY open_requests :=
+        SELECT id :=                      live_object
+             , has_openrequest :=         TRUE
+             , requestdate :=             DEFAULT DATETIME
+             , request_versionnumber :=   versionnumber
+             , request_expirydate :=      expirydate
+          FROM system.fs_versionevents
+         WHERE live_object IN ids
+           AND eventtype = VersionEventType_Request
+           AND iscurrent
+      ORDER BY live_object;
+
+    fsobjects := JoinArrays(
+        fsobjects,
+        "ID",
+        open_requests,
+        [ has_openrequest :=          FALSE
+        , requestdate :=              DEFAULT DATETIME
+        , request_versionnumber :=    ""
+        , request_expirydate :=       DEFAULT DATETIME
+        ],
+        [ rightouterjoin := TRUE
+        ]);
+
+    RETURN fsobjects;
+  }
+
+  /** @short Callback that is run after a draft is accepted
+      @param draftobject The draft object (draftobject->source is the live object's id)
+  */
+  PUBLIC MACRO OnApprovalRequestAccepted(OBJECT draftobject)
+  {
+  }
+
+  PUBLIC RECORD FUNCTION GetHistoryExtension()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  /** Returns the fields to restore
+      @return
+      @cell return.fields
+      @cell return.contenttypes
+  */
+  PUBLIC RECORD FUNCTION GetRestoreFields()
+  {
+    /* The restored fields are the content fields protected for a published file, excluding name, location, publication
+       status and wether the file is an index.
+
+       Using the standard policy field format to ease function reuse.
+    */
+    RECORD fields := this->policy_cache.versioned_published_file->GetFields();
+    STRING ARRAY never_restore := [ "name", "parent", "indexdoc", "published" ];
+
+    RETURN
+        [ versioned_fields :=         ArrayDelete(fields.versioned_fields, never_restore)
+        , readonly_fields :=          ArrayDelete(fields.readonly_fields, never_restore)
+        , versioned_contenttypes :=   fields.versioned_contenttypes
+        ];
+  }
+
+  PUBLIC STRING FUNCTION CalculateNextVersionNumber(STRING actiontype, STRING lastnumber)
+  {
+    // Parse current nr
+    INTEGER lastmajor := ToInteger(Tokenize(lastnumber, ".")[0], 0);
+    INTEGER lastminor := ToInteger(Tokenize(lastnumber||".", ".")[1], 0);
+
+    STRING retval;
+    SWITCH (actiontype)
+    {
+      CASE "request", "denyrequest"
+      {
+        retval := lastmajor || "." || (lastminor + 1);
+      }
+
+      CASE "acceptrequest"
+      {
+        retval := lastmajor + 1 || ".0";
+      }
+
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown versioning action type '${actiontype}'`);
+      }
+    }
+
+    RETURN retval;
+  }
+
+  /** @param data
+      @cell data.sitename
+      @cell data.controller
+      @return
+      @cell return.screentitle
+      @cell return.canreview Signature: BOOLEAN FUNCTION func()
+      @cell return.customlists
+      @cell return.getrestorelocation Override the select restore (or duplicate) to folder select. restoreobj is either
+              a live object or a draft that will be restored. Don't modify it!
+              Signature: RECORD FUNCTON func(OBJECT tolliumscreen, OBJECT restoreobj, RECORD options)
+              Must return a parent and a name
+      @cell return.openfileinpublisher Override opening publisher for a specific file.
+              Signature: MACRO func(OBJECT parentscreen, INTEGER fileid)
+      @cell return.reviewperiodmonths # of months before expiration date that documents are marked as needing review
+      @cell return.warnexpiringdays # of days before expiration date that documents are marked as urgently needing review
+  */
+  PUBLIC RECORD FUNCTION GetReviewAppConfig(RECORD data)
+  {
+    RETURN
+        [ screentitle :=        GetTid("publisher:tolliumapps.versioning.main", data.sitename)
+        , canreview :=          data.controller->tolliumuser->HasRight("system:sysop")
+        , customlists :=        DEFAULT RECORD ARRAY
+        , getrestorelocation := DEFAULT FUNCTION PTR
+        , openfileinapp :=      PTR OpenFileInPublisher
+        , warnexpiringdays :=   14
+        , reviewperiodmonths := 2
+        ];
+  }
+
+  /** Ask the user for the metadata to submit a file for approval
+      @param parentscreen
+      @param file File that will be submitted
+      @param options
+  */
+  PUBLIC RECORD FUNCTION GetSubmitRequestData(OBJECT parentscreen, OBJECT policy, OBJECT file, RECORD options)
+  {
+    OBJECT screen := parentscreen->LoadScreen("publisher:filemgrdialogs.submitchangesforapproval",
+          [ file :=     file
+          , policy :=   policy
+          ]);
+    IF (screen->RunModal() != "ok")
+      RETURN DEFAULT RECORD;
+
+    RETURN
+        [ description :=    screen->description
+        , expirydate :=     MAX_DATETIME
+        ];
+  }
+>;

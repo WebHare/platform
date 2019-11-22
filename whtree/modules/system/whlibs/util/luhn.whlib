@@ -1,0 +1,69 @@
+<?wh
+/** @short Luhn algorithm implementation
+    @long The Luhn algorithm or Luhn formula, also known as the "modulus 10" or "mod 10" algorithm, is a simple checksum
+          formula used to validate a variety of identification numbers [...] The Luhn algorithm will detect any single-digit
+          error, as well as almost all transpositions of adjacent digits. It will not, however, detect transposition of the
+          two-digit sequence 09 to 90 (or vice versa). It will detect 7 of the 10 possible twin errors (it will not detect
+          22 ↔ 55, 33 ↔ 66 or 44 ↔ 77).
+          Source: http://en.wikipedia.org/wiki/Luhn_algorithm
+    @topic util/luhn
+*/
+
+/** @short Calculate the Luhn algorithm check digit
+    @long This function calculates the Luhn check digit for a given value. The input value must be positive. For the value 0,
+          the returned value is 0.
+    @param value The value to calculate the Luhn check digit of
+    @return The Luhn check digit
+*/
+PUBLIC INTEGER FUNCTION CalculateLuhnCheckDigit(INTEGER64 value)
+{
+  IF (value < 0)
+    THROW NEW Exception("Cannot calculate Luhn check digit for negative values");
+
+  STRING data := ToString(value);
+  INTEGER sum;
+  FOR (INTEGER i := 0; i < Length(data); i := i + 1)
+    sum := sum + ToInteger(Substring(data, Length(data) - 1 - i, 1), 0) * (i % 2 = 0 ? 2 : 1);
+  RETURN (sum * 9) % 10;
+}
+
+/** @short Check if the value passes the Luhn algorithm
+    @long This function checks the value according to the Luhn algorithm. The input value must be positive.
+    @param value The value to check
+    @return If the value passes the Luhn algorithm
+*/
+PUBLIC BOOLEAN FUNCTION IsValidLuhnValue(INTEGER64 value)
+{
+    IF (value < 0)
+    THROW NEW Exception("Cannot check Luhn check digit of negative values");
+
+  STRING data := ToString(value);
+  INTEGER sum;
+  FOR (INTEGER i := 0; i < Length(data); i := i + 1)
+    sum := sum + ToInteger(Substring(data, Length(data) - 1 - i, 1), 0) * (i % 2 = 0 ? 1 : 2);
+  RETURN (sum % 10) = 0;
+}
+
+/** @short Calculate and add the Luhn algorithm check digit
+    @long This function calculates the Luhn check digit for a given value, adds it and return the new value. The returned
+          value will pass the Luhn algorithm check. The input value must be positive and 10 * value must be within the
+          INTEGER64 range as the check digit is appended to the value. For the value 0, the returned value is 0.
+    @param value The value to calculate the Luhn check digit of
+    @return The value with the Luhn check digit added
+*/
+PUBLIC INTEGER64 FUNCTION LuhnEncodeValue(INTEGER64 value)
+{
+  RETURN (value * 10) + CalculateLuhnCheckDigit(value);
+}
+
+/** @short Check and return a value using the Luhn algorithm
+    @long This function checks the value according to the Luhn algorithm. If it passes, the check digit is removed from the
+          value and the new value is returned. The input value must be positive. For the value 0, the returned value is 0.
+          If the values doesn't pass the Luhn algorithm check, -1 is returned.
+    @param value The value to check
+    @return The original value without the Luhn check digit, or -1 for invalid values
+*/
+PUBLIC INTEGER64 FUNCTION LuhnDecodeValue(INTEGER64 value)
+{
+  RETURN IsValidLuhnValue(value) ? (value / 10) : -1i64;
+}

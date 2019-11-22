@@ -1,0 +1,356 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/detect.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
+
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  STRING messageid;
+  OBJECT file;
+
+  MACRO Init(RECORD data)
+  {
+    this->GotDirty();
+
+    this->editorvisible->value := this->editor->visible;
+    this->editorenabled->value := this->editor->enabled;
+
+//    this->editor->type := "email";
+    this->editor->value := this->GetMailValue(GetWebhareResource("mod::webhare_testsuite/data/test/emailinit.eml"));
+
+    this->structured->ondirty := PTR this->GotDirty;
+    this->structured->value := GetTestRTD( [ bigstructure := "bigstructure" IN data.params ]);
+
+    IF("bigstructure" IN data.params)
+    {
+      this->rteholder->selectedtab := this->othertab;
+    }
+  }
+
+  MACRO GotDirty()
+  {
+    this->dirty->value := this->structured->dirty ? "YES" : "NO";
+  }
+
+  MACRO OnChangeTab()
+  {
+    ^editorvisible->value := this->GetCurrentRTE()->visible;
+    ^editorenabled->value := this->GetCurrentRTE()->enabled;
+    ^editorreadonly->value := this->GetCurrentRTE()->readonly;
+    ^showcounter->value := this->GetCurrentRTE()->showcounter;
+  }
+
+
+  OBJECT FUNCTION GetCurrentRTE()
+  {
+    IF(this->rteholder->selectedtab = this->othertab)
+      RETURN this->structured;
+    IF(this->rteholder->selectedtab = this->pageedittab)
+      RETURN this->pageedit;
+    RETURN this->editor;
+  }
+
+  MACRO DoOpenHtml()
+  {
+    RECORD file := this->frame->GetUserFile(0, DEFAULT STRING ARRAY);
+    IF (RecordExists(file))
+    {
+      this->editor->type := "html";
+      this->editor->value := [ htmltext := file.data
+                             , embedded := DEFAULT RECORD ARRAY
+                             ];
+      this->messageid := "";
+    }
+  }
+
+  MACRO DoOpenEmail()
+  {
+    RECORD file := this->frame->GetUserFile(0, DEFAULT STRING ARRAY);
+    IF (RecordExists(file))
+    {
+      this->editor->type := "email";
+      this->editor->value := this->GetMailValue(file.data);
+    }
+  }
+
+  MACRO DoReply()
+  {
+    // Parse current editor value as xml document
+    RECORD value := this->editor->value;
+    OBJECT doc := MakeXMLDocument(value.htmltext, "utf-8");
+    IF (ObjectExists(doc))
+    {
+      // Create a new blockquote element
+      OBJECT blockquote := doc->CreateElement("blockquote");
+      IF (this->messageid != "")
+      {
+        STRING id := this->messageid;
+        IF (id LIKE "<*>")
+          id := Substring(id, 1, Length(id) - 2);
+        blockquote->SetAttribute("cite", "mid:" || id);
+      }
+
+      // Add current body contents to blockquote
+      OBJECT body := doc->GetElementsByTagName("body")->Item(0);
+      FOREVERY (OBJECT node FROM body->childnodes->GetCurrentNodes())
+        blockquote->AppendChild(node);
+
+      // Add some intro text to the body and some room to type the reply
+      body->AppendChild(doc->CreateElement("br"));
+      body->AppendChild(doc->CreateElement("br"));
+      body->AppendChild(doc->CreateTextNode("On " || this->tolliumuser->FormatDateTime(GetCurrentDateTime(), "minutes", TRUE, FALSE) || ", " || (this->tolliumuser->realname != "" ? this->tolliumuser->realname : this->tolliumuser->login) || " wrote:"));
+
+      // Add the quoted contents to the body and add an extra paragraph to be able to type after the quote
+      body->AppendChild(blockquote);
+      body->AppendChild(doc->CreateElement("br"));
+
+      value.htmltext := doc->GetDocumentBlob(FALSE);
+      this->editor->value := value;
+    }
+  }
+
+  MACRO DoRewrite()
+  {
+    PRINT("PRE REWRITE\n\n");
+    dumpvalue(this->GetCurrentRTE()->value,'tree');
+    this->GetCurrentRTE()->value := this->GetCurrentRTE()->value;
+    PRINT("POST REWRITE\n\n");
+    dumpvalue(this->GetCurrentRTE()->value,'tree');
+    this->GotDirty();
+  }
+
+  MACRO DoSend()
+  {
+    DATETIME now := GetCurrentDateTime();
+    RECORD value := this->editor->value;
+
+    OBJECT zip := CreateNewArchive("zip");
+    zip->AddFile("index.html", value.htmltext, now);
+    FOREVERY (RECORD embedded FROM value.embedded)
+    {
+      RECORD type := GetWrappedBlobRecord(embedded.data, "");
+      zip->AddFile("attachment " || (#embedded + 1) || "." || type.extension, embedded.data, now);
+    }
+
+    this->frame->SendFileToUser(zip->MakeBlob(), "application/zip", "mail.zip", now);
+  }
+
+  MACRO DoClearFormatting()
+  {
+    this->editor->ClearFormatting();
+  }
+
+  MACRO DoUndirty()
+  {
+    this->structured->dirty := FALSE;
+    this->GotDirty();
+  }
+
+  MACRO DoShowMessage()
+  {
+    this->RunMessageBox("tollium:commondialogs.showmessage", "Keyboard shortcut is working!");
+  }
+
+  RECORD FUNCTION GetMailValue(BLOB eml)
+  {
+    RECORD value;
+    RECORD mimemessage := DecodeMIMEMessage(eml);
+    Print(AnyToString(mimemessage, "tree"));
+    IF (RecordExists(mimemessage))
+    {
+      this->messageid := SELECT AS STRING COLUMN value
+                           FROM mimemessage.headers
+                          WHERE ToUppercase(field) = "MESSAGE-ID";
+      RECORD part := GetEmailPrimaryMIMEPart(mimemessage.data, "text/html");
+      IF (RecordExists(part))
+      {
+        value := [ htmltext := part.data
+                 , embedded := DEFAULT RECORD ARRAY
+                 ];
+        part := GetEmailPrimaryMIMEPart(mimemessage.data, "multipart/related");
+        IF (RecordExists(part))
+          value.embedded := SELECT data
+                                 , mimetype
+                                 , contentid := Substring(contentid, 1, Length(contentid) - 2)
+                                 , width := 0
+                                 , height := 0
+                              FROM part.subparts
+                             WHERE contentid != "";
+      }
+      ELSE
+      {
+        part := GetEmailPrimaryMIMEPart(mimemessage.data, "text/plain");
+        IF (RecordExists(part))
+        {
+          value := [ htmltext := StringToBlob(Substitute(Substitute(BlobToString(part.data, -1), "\n", "<br/>"), "\r", ""))
+                   , embedded := DEFAULT RECORD ARRAY
+                   ];
+        }
+      }
+    }
+    Print('Received e-mail value:\n'||AnyToString(value, "tree"));
+    IF (RecordExists(value))
+      Print('HTML text:\n'||BlobToString(value.htmltext, -1));
+
+    RETURN value;
+  }
+
+  RECORD FUNCTION GetPartWithType(RECORD part, STRING mimetype)
+  {
+    IF (part.mimetype LIKE mimetype || "*")
+      RETURN part;
+
+    FOREVERY (RECORD subpart FROM part.subparts)
+    {
+      RECORD subhtmlpart := this->GetPartWithType(subpart, mimetype);
+      IF (RecordExists(subhtmlpart))
+        RETURN subhtmlpart;
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO ToggleVisible()
+  {
+    this->GetCurrentRTE()->visible := ^editorvisible->value;
+  }
+
+  MACRO ToggleEnabled()
+  {
+    this->GetCurrentRTE()->enabled := ^editorenabled->value;
+  }
+  MACRO ToggleReadOnly()
+  {
+    this->GetCurrentRTE()->readonly := ^editorreadonly->value;
+  }
+
+  MACRO GotShowCounterChange()
+  {
+    this->GetCurrentRTE()->showcounter := ^showcounter->value;
+  }
+
+  MACRO DoEditrawhtml()
+  {
+    RECORD val := this->GetCurrentRTE()->value;
+    OBJECT screen := this->LoadScreen(".editrawhtml");
+    screen->code->value := BlobTostring(val.htmltext, -1) || "\n\n<!--\n" || anytostring(val,'tree') || "-->";
+    IF(screen->RunModal()="ok")
+    {
+      PRINT("NEW TEXT\n" || screen->code->value || "\n");
+      this->GetCurrentRTE()->value.htmltext := StringToBlob(screen->code->value);
+      dumpvalue(this->GetCurrentRTE()->value,'tree');
+    }
+    this->GotDirty();
+  }
+
+  MACRO DoInsertImage()
+  {
+    BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/smallbob.jpg");
+    this->GetCurrentRTE()->InsertImage(smallbobjpg, "smallbob.jpg");
+  }
+
+  MACRO DoInsertObject()
+  {
+    this->GetCurrentRTE()->InsertEmbeddedObject(
+        [ whfstype := "http://www.webhare.net/xmlns/publisher/embedhtml"
+        , html := "<u>inserted</u> object"
+        ]);
+  }
+
+  MACRO DoInsertInlineObject()
+  {
+    this->GetCurrentRTE()->InsertEmbeddedObject(
+        [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
+        , html := "<u>inserted</u> object"
+        ]);
+  }
+
+  MACRO DoInsertTwoCol()
+  {
+    this->GetCurrentRTE()->InsertEmbeddedObject(
+        [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/twocolumns"
+        , rtdleft := this->GetCurrentRTE()->value
+        , rtdright := this->GetCurrentRTE()->value
+        ]);
+  }
+
+  MACRO DoCreateObject()
+  {
+    ABORT("Not implemented");
+  }
+>;
+
+PUBLIC OBJECTTYPE AutoTest1 EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginFeedback()->Finish();
+  }
+>;
+
+PUBLIC OBJECTTYPE AutoTest2 EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->testrte->value := [ htmltext := GetWebhareResource("mod::webhare_testsuite/data/test/rte-structure.html")
+                            , embedded := DEFAULT RECORD ARRAY
+                            ];
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN this->BeginFeedback()->Finish();
+  }
+>;
+PUBLIC OBJECTTYPE TestBlock EXTEND TolliumScreenBase
+<
+  OBJECT rteblock;
+
+  MACRO Init(RECORD data)
+  {
+    this->rteblock := data.block;
+    IF(RecordExists(this->rteblock->data))
+      this->customtext->value := this->rteblock->data.title;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    this->rteblock->data := [ title := this->customtext->value ];
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE AllowFormat EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+//    this->myrte->value := [ htmltext := StringToBlob("<p>Block #1: <b>bold</b></p><p>Block #2: <u><i>italic underline</i></u></p>") ];
+  }
+  MACRO DoEditrawhtml()
+  {
+    RECORD val := this->myrte->value;
+    OBJECT screen := this->LoadScreen(".editrawhtml");
+    IF(RecordExists(val))
+      screen->code->value := BlobTostring(val.htmltext, -1);
+
+    IF(screen->RunModal()="ok")
+    {
+      IF(screen->code->value != "")
+        this->myrte->value := [ htmltext := StringToBlob(screen->code->value) ];
+      ELSE
+        this->myrte->value := DEFAULT RECORD;
+    }
+  }
+>;

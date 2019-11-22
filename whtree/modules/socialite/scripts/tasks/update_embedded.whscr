@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
+
+OpenPrimary();
+
+FOREVERY(RECORD script FROM ListCurrentEmbeddedScripts())
+{
+  TRY
+  {
+    DownloadEmbeddableScript(script.type, script.code);
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    PrintTo(2, `Unable to download script for ${script.type}:${script.code}: ${e->what}\n`);
+    SetConsoleExitCode(1);
+  }
+}

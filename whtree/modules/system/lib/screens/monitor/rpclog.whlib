@@ -1,0 +1,114 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE RPCLog EXTEND MonitorPanelBase
+<
+  MACRO GotRegistryEvents(RECORD ARRAY events)
+  {
+    this->RefreshRPCLogList();
+  }
+
+  MACRO RefreshRPCLogList()
+  {
+    RECORD ARRAY list;
+    FOREVERY (RECORD subnode FROM ReadRegistryNode("system.logging.rpc"))
+    {
+      STRING untiltext;
+      INTEGER logicon;
+      IF (subnode.data.loguntil < GetCurrentDateTime())
+      {
+        untiltext := this->GetTid(".notlogged");
+        logicon := 1;
+      }
+      ELSE IF (subnode.data.loguntil = MAX_DATETIME)
+      {
+        untiltext := this->GetTid(".loggedforever");
+        logicon := 2;
+      }
+      ELSE IF (subnode.data.loguntil > AddDaysToDate(7, GetCurrentDateTime()))
+      {
+        untiltext := this->GetTid(".loggeduntil", this->tolliumuser->FormatDateTime(subnode.data.loguntil, "minutes", TRUE, TRUE));
+        logicon := 2;
+      }
+      ELSE
+      {
+        INTEGER days := GetDateTimeDifference(GetCurrentDateTime(), subnode.data.loguntil).days;
+        untiltext := this->GetTid(".loggeduntilexpires", this->tolliumuser->FormatDateTime(subnode.data.loguntil, "minutes", TRUE, TRUE), ToString(days));
+        logicon := 3;
+      }
+
+      INSERT
+          [ rowkey :=     subnode.subkey
+          , title :=      subnode.subkey
+          , until :=      untiltext
+          , untilicon :=  logicon
+          ] INTO list AT END;
+    }
+    this->logslist->rows := list;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    this->RefreshRPCLogList();
+  }
+
+  MACRO DoEditRPCLog()
+  {
+    this->LoadScreen("system:monitor/rpclog.editrpclogsettings", [ service := this->logslist->value ])->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE EditRPCLogSettings EXTEND TolliumScreenBase
+< STRING logkey;
+
+  MACRO Init(RECORD data)
+  {
+    RECORD settings := GetRPCLogSettings(data.service);
+    this->logkey := settings.keyname;
+
+    IF (settings.loguntil = DEFAULT DATETIME)
+      this->loguntil->value := "not";
+    ELSE IF (settings.loguntil = MAX_DATETIME)
+      this->loguntil->value := "forever";
+    ELSE
+    {
+      this->loguntil->value := "until";
+      this->loguntildate->value := settings.loguntil;
+    }
+
+    this->profile->value := settings.profileuntil > GetCurrentDatetime();
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    IF (this->loguntil->value = "until" AND this->loguntildate->value < GetCurrentDateTime())
+    {
+      work->AddError(this->GetTid(".dateinpast"));
+      RETURN work->Finish();
+    }
+
+    DATETIME until;
+    IF (this->loguntil->value = "forever")
+      until := MAX_DATETIME;
+    ELSE IF (this->loguntil->value = "until")
+      until := this->loguntildate->value;
+
+    WriteRegistryKey(this->logkey, [ ...ReadRegistryKey(this->logkey)
+                                   , loguntil := until
+                                   , profileuntil := this->profile->value ? AddTimeToDate(4*60*1000,GetCurrentDatetime()) : DEFAULT DATETIME
+                                   ]);
+    RETURN work->Finish();
+  }
+>;

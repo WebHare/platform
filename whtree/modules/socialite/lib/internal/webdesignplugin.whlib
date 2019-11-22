@@ -1,0 +1,418 @@
+﻿<?wh
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+PUBLIC OBJECTTYPE OpenGraphPlugin EXTEND WebDesignPluginBase
+<
+  BOOLEAN rendered;
+  RECORD settings;
+
+  PUBLIC PROPERTY ogproperties(settings, SetSettings);
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    STRING type := node->GetAttribute("type");
+    STRING site_name := node->GetAttribute("site_name");
+    STRING admins := node->GetAttribute("admins");
+    STRING image := node->GetAttribute("image");
+    STRING app_id := node->GetAttribute("app_id");
+
+    IF (image != "")
+    {
+      STRING image_uc := ToUpperCase(image);
+
+      // if 'image' is an URL, validate it
+      IF (image_uc LIKE "//*" OR image_uc LIKE "HTTP://*" OR image_uc LIKE "HTTPS://*")
+      {
+        RECORD url := UnpackURL(image);
+        IF (url.scheme IN ["","ftp"] OR url.schemespecificpart = "")
+          THROW NEW Exception("Invalid image URL: '" || image || "'");
+      }
+      ELSE
+      {
+        // it's a path, try to find the image
+        STRING imagepath := siteprofile->ParseFSPath(node, "image");
+        IF(imagepath LIKE "*::*")
+        {
+          image := GetModuleResourceURL(imagepath);
+        }
+        ELSE
+        {
+          OBJECT imageobj := OpenWHFSObjectByPath(imagepath);
+          IF (NOT ObjectExists(imageobj))
+            THROW NEW Exception("Invalid image path: '" || imagepath || "'");
+          ELSE IF (imageobj->url = "")
+            THROW NEW Exception("Image with path '" || imagepath || "' is not published");
+          ELSE // yay, no error
+            image := imageobj->url;
+        }
+      }
+    }
+
+    RETURN [ type := type
+           , site_name := site_name
+           , admins := admins
+           , image := image
+           , app_id := app_id
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->settings := CELL[ ...config
+                          , description := ""
+                          , title := ""
+                          , url := ""
+                          ];
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(MemberExists(webdesign,"RegisterHTMLPrefix")) //this version supports HTML prefixes
+      webdesign->RegisterHTMLPrefix("og", "http://ogp.me/ns#");
+    webdesign->InsertWithCallback(PTR this->PrintOpenGraphNode(webdesign),'dependencies-top');
+  }
+
+  MACRO PrintOpenGraphNode(OBJECT webdesign)
+  {
+    BOOLEAN compact := MemberExists(webdesign,"wittyencoding") AND webdesign->wittyencoding LIKE "*-NI";
+    RECORD usenode := this->settings;
+    IF(NOT compact)
+      Print("\n\n");
+
+    STRING terminal := compact ? ">" : " />\n";
+    STRING usetitle := this->settings.title ?? webdesign->pagetitle;
+    STRING usedescription := this->settings.description ?? webdesign->pagedescription;
+    STRING useurl := this->settings.url ?? webdesign->canonicalurl;
+
+    IF (usetitle != "")
+      Print('<meta property="og:title" content="' || EncodeValue(usetitle) || '"' || terminal);
+
+    IF (usedescription != "")
+      Print('<meta property="og:description" content="' || EncodeValue(usedescription) || '"' || terminal);
+
+    IF (useurl != "")
+      Print('<meta property="og:url" content="' || EncodeValue(useurl) || '"' || terminal);
+
+    STRING type := usenode.type ?? "website";
+    IF (type != "")
+      Print('<meta property="og:type" content="' || EncodeValue(type) || '"' || terminal);
+
+    STRING site_name := usenode.site_name ?? webdesign->targetsite->name;
+    IF (site_name != "")
+      Print('<meta property="og:site_name" content="' || EncodeValue(site_name) || '"' || terminal);
+
+    IF (usenode.image != "")
+      Print('<meta property="og:image" content="' || EncodeValue(usenode.image) || '"' || terminal);
+
+    IF (usenode.admins != "")
+      Print('<meta property="fb:admins" content="' || EncodeValue(usenode.admins) || '"' || terminal);
+
+    IF (usenode.app_id != "")
+      Print('<meta property="fb:app_id" content="' || EncodeValue(usenode.app_id) || '"' || terminal);
+
+    IF(NOT compact)
+      Print("\n\n");
+
+    this->rendered := TRUE;
+  }
+
+  MACRO SetSettings(RECORD props)
+  {
+    IF (this->rendered)
+      THROW NEW Exception("Robots values cannot be updated after the <meta> tags have been rendered");
+    this->settings := MakeUpdatedRecord(this->settings, props);
+  }
+
+>;
+
+
+PUBLIC OBJECTTYPE AnalyticsPlugin EXTEND WebDesignPluginBase
+<
+  PUBLIC STRING type;
+  PUBLIC STRING code;
+  BOOLEAN tracklinks;
+  BOOLEAN sendpageview;
+  RECORD ARRAY datalayerpushes;
+  OBJECT webdesign;
+  RECORD ARRAY universalsets;
+  STRING userid;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ type := node->GetAttribute("type")
+           , code := node->GetAttribute("code")
+           , tracklinks := node->HasAttribute("tracklinks") ? ParseXSBoolean(node->GetAttribute("tracklinks")) : TRUE
+           , sendpageview := node->HasAttribute("sendpageview") ? ParseXSBoolean(node->GetAttribute("sendpageview")) : TRUE
+           ];
+  }
+
+  MACRO ValidateCode(STRING type, STRING code)
+  {
+    IF(type NOT IN [ "tagmanager", "analytics", "universal" ])
+      THROW NEW Exception("Unrecognized analytics type '" || type || "'");
+    IF(type="analytics" AND code NOT LIKE "UA-*-*")
+      THROW NEW Exception("Code '" || code || "' is not a valid Google Analytics code");
+    IF(type="universal" AND code NOT LIKE "UA-*-*")
+      THROW NEW Exception("Code '" || code || "' is not a valid Universal Analytics code");
+    IF(type="tagmanager" AND code NOT LIKE "GTM-*")
+      THROW NEW Exception("Code '" || code || "' is not a valid Google Tag Manager code");
+    }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->webdesign := webdesign;
+
+    IF(config.type="tagmanager") //https://developers.google.com/tag-manager/devguide
+    {
+      //Check the registry for an override
+      STRING usecode := ReadRegistryKey("socialite.localoverrides.tagmanager");
+      IF(usecode = "")//not overridden
+        usecode := config.code;
+
+      this->type := "tagmanager";
+      this->code := usecode;
+      //ADDME set pageCategory & visitorType to the iframe ?
+    }
+    ELSE IF(config.type="analytics")
+    {
+      //Check the registry for an override
+      STRING usecode := ReadRegistryKey("socialite.localoverrides.googleanalytics");
+      IF(usecode = "")//not overridden
+        usecode := config.code;
+
+      this->type := "analytics";
+      this->code := usecode;
+    }
+    ELSE IF(config.type="universal")
+    {
+      //Check the registry for an override
+      STRING usecode := ReadRegistryKey("socialite.localoverrides.universalanalytics");
+      IF(usecode = "")//not overridden
+        usecode := config.code;
+
+      this->type := "universal";
+      this->code := usecode;
+    }
+
+    this->tracklinks := CellExists(config, "tracklinks") ? config.tracklinks : TRUE; //guard against siteprofilerecompile/update issues, tracklinks didn't always exist
+    this->sendpageview := CellExists(config, "sendpageview") ? config.sendpageview : TRUE; //guard against siteprofilerecompile/update issues, sendpageview didn't always exist
+  }
+
+  UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
+  {
+    IF(this->type != "tagmanager")
+      THROW NEW Exception("DatalayerPush is not supported unless the analytics plugin is configured for 'tagmanger' mode");
+
+    INSERT instruction INTO this->datalayerpushes AT END;
+  }
+  UPDATE PUBLIC MACRO SetCustomDimension(INTEGER dimension, STRING value)
+  {
+    IF(this->type != "universal")
+      THROW NEW Exception("SetCustomDimension is not supported unless the analytics plugin is configured for 'universal' mode");
+
+    DELETE FROM this->universalsets WHERE name = "dimension"  || dimension;
+    INSERT [ name := "dimension" || dimension, value := value ] INTO this->universalsets AT END;
+  }
+  UPDATE PUBLIC MACRO SetCustomMetric(INTEGER metric, INTEGER value)
+  {
+    IF(this->type != "universal")
+      THROW NEW Exception("SetCustomMetric is not supported unless the analytics plugin is configured for 'universal' mode");
+
+    DELETE FROM this->universalsets WHERE name = "metric"  || metric;
+    INSERT [ name := "metric" || metric, value := value ] INTO this->universalsets AT END;
+  }
+  UPDATE PUBLIC MACRO SetUserID(STRING userid)
+  {
+    IF(this->type != "universal")
+      THROW NEW Exception("SetUserID is not supported unless the analytics plugin is configured for 'universal' mode");
+    this->userid := userid;
+  }
+
+  MACRO PrintDatalayerPushes()
+  {
+    IF(Length(this->datalayerpushes) = 0 OR this->type != "tagmanager")
+      RETURN;
+
+    STRING pushes := EncodeJSON(this->datalayerpushes);
+    pushes := Substring(pushes, 1, Length(pushes)-2); //Remove the [ and ] wrapping the array
+    Print("<script>\nif(window.dataLayer)dataLayer.push(" || pushes || ")\n</script>\n");
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    STRING script;
+    webdesign->InsertWithCallback(PTR this->DoAnalyticsAndUniversal(webdesign), "dependencies-top");
+
+    /* https://support.google.com/tagmanager/answer/6103696?hl=en
+       - the script part as high as possible in the head, the noscript as high as possible in the body
+       */
+    webdesign->InsertWithCallback(PTR this->DoTagManager_Head(webdesign), "dependencies-top");
+    webdesign->InsertWithCallback(PTR this->DoTagManager_Body(webdesign), "body-top");
+
+    webdesign->InsertWithCallback(PTR this->PrintDatalayerPushes, "body-bottom");
+
+    SWITCH(this->type)
+    {
+      CASE "analytics"
+      {
+        script := "wh.google.analytics-plugin.ga";
+      }
+      CASE "universal"
+      {
+        script := "wh.google.analytics-plugin.universal";
+      }
+      CASE "tagmanager"
+      {
+        script := "wh.google.analytics-plugin.gtm";
+      }
+    }
+
+    IF(NOT webdesign->IsUsingModuleDesign()) //only designfiles uses this, and it breaks last-minute updates of 'type'
+    {
+      RECORD versioninfo := SELECT * FROM webdesign->GetDesignRepositories() WHERE ToUppercase(repository) = "PUBLIC";
+      IF(RecordExists(versioninfo))
+      {
+        IF(versioninfo.version =0 OR versioninfo.version  >= 1748)
+          webdesign->AddDesignLoad("wh.util.trackers");
+        IF(versioninfo.version  > 0 AND versioninfo.version  < 1383)
+          script := "wh.google.analytics-plugin";
+
+        webdesign->AddDesignLoad(script);
+      }
+      ELSE
+      {
+        THROW NEW Exception("Don't know how to include the trackers - no designfiles repository and no AddDesignRequire. If you meant for this design to be module-based, we somehow think we're a site-based design");
+      }
+
+      webdesign->SetJSPluginConfig("socialite:analytics",
+                                   [ code := this->code
+                                   , type := this->type
+                                   , tracklinks := this->tracklinks
+                                   ]);
+    }
+  }
+
+  MACRO DoAnalyticsAndUniversal(OBJECT webdesign)
+  {
+    BOOLEAN compact := MemberExists(webdesign,"wittyencoding") AND webdesign->wittyencoding LIKE "*-NI";
+    SWITCH(this->type)
+    {
+      CASE "analytics"
+      {
+        STRING code := '<script>var _gaq=_gaq||[];'
+                       || "_gaq.push(['_setAccount','" || EncodeJava(this->code) || "']);"
+                       //ADDME _setDomainName
+                       || "_gaq.push(['_trackPageview']);"
+                       || "(function(){"
+                       || "var ga=document.createElement('script');ga.type='text/javascript';ga.async=true;"
+                       || "ga.src=('https:'==document.location.protocol?'https://ssl':'http://www')+'.google-analytics.com/ga.js';"
+                       || "var s=document.getElementsByTagName('script')[0];s.parentNode.insertBefore(ga, s);"
+                       || "})();"
+                       || "</script>" || (compact?'':'\n');
+        Print(code);
+      }
+      CASE "universal"
+      {
+        STRING code := '<script>'
+                       || "(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){"
+                       || "(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),"
+                       || "m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)"
+                       || "})(window,document,'script','//www.google-analytics.com/analytics.js','ga');"
+                       //|| "ga('create', 'UA-12057153-3', 'b-lex.com');" //ADDME domain name?
+                       || "ga('create','" || EncodeJava(this->code) || "');";
+        IF(this->userid!='')
+          code := code || `ga('set','userid',${EncodeJSON(this->userid)});`;
+        FOREVERY(RECORD toset FROM this->universalsets)
+          code := code || `ga('set',${EncodeJSON(toset.name)},${EncodeJSON(toset.value)});`;
+        IF(this->sendpageview)
+          code := code || "ga('send','pageview');";
+        code := code || "</script>" || (compact?'':'\n');
+
+        Print(code);
+      }
+    }
+  }
+
+  MACRO DoTagManager_Head(OBJECT webdesign)
+  {
+    BOOLEAN compact := MemberExists(webdesign,"wittyencoding") AND webdesign->wittyencoding LIKE "*-NI";
+    SWITCH(this->type)
+    {
+      CASE "tagmanager"
+      {
+        STRING code := "<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','" || EncodeJava(this->code)|| "');</script>" || (compact?'':'\n');
+        Print(code);
+      }
+      DEFAULT
+      {
+        RETURN;
+      }
+    }
+  }
+  MACRO DoTagManager_Body(OBJECT webdesign)
+  {
+    BOOLEAN compact := MemberExists(webdesign,"wittyencoding") AND webdesign->wittyencoding LIKE "*-NI";
+    SWITCH(this->type)
+    {
+      CASE "tagmanager"
+      {
+        STRING code := '<noscript><iframe src="//www.googletagmanager.com/ns.html?id=' || EncodeURL(this->code) || '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' || (compact?'':'\n');
+        Print(code);
+      }
+      DEFAULT
+      {
+        RETURN;
+      }
+    }
+  }
+
+  PUBLIC MACRO SetAccountCode(STRING newcode)
+  {
+    //FIXME validate using this->type
+    this->code := newcode;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE AnalyticsExperimentPlugin EXTEND WebDesignPluginBase
+<
+  STRING experimentkey;
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ experimentkey := node->GetAttribute("experimentkey")
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
+  {
+    this->experimentkey := mergedconfiguration.experimentkey;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    IF(this->experimentkey="")
+      RETURN;
+
+    STRING code := "\n<script>function utmx_section(){}function utmx(){}(function(){var\n"
+                || "k='" || EncodeJava(this->experimentkey) || "',d=document,l=d.location,c=d.cookie;\n"
+                || "if(l.search.indexOf('utm_expid='+k)>0)return;\n"
+                || "function f(n){if(c){var i=c.indexOf(n+'=');if(i>-1){var j=c.\n"
+                || "indexOf(';',i);return escape(c.substring(i+n.length+1,j<0?c.\n"
+                || "length:j))}}}var x=f('__utmx'),xx=f('__utmxx'),h=l.hash;d.write(\n"
+                || "'<sc'+'ript src=\"'+'http'+(l.protocol=='https:'?'s://ssl':\n"
+                || "'://www')+'.google-analytics.com/ga_exp.js?'+'utmxkey='+k+\n"
+                || "'&utmx='+(x?x:'')+'&utmxx='+(xx?xx:'')+'&utmxtime='+new Date().\n"
+                || "valueOf()+(h?'&utmxhash='+escape(h.substr(1)):'')+\n"
+                || "'\" type=\"text/javascript\" charset=\"utf-8\"><\/sc'+'ript>')})();\n"
+                || "</script><script>utmx('url','A/B');</script>\n";
+
+    webdesign->InsertHTML(code,"dependencies-top");
+  }
+
+>;

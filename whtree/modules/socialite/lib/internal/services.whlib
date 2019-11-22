@@ -1,0 +1,22 @@
+﻿<?wh
+LOADLIB "mod::system/lib/remoting/whservice.whlib";
+
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/networkapi/facebookv2.whlib";
+
+
+PUBLIC OBJECTTYPE SocialiteServices
+<
+  PUBLIC RECORD FUNCTION DescribeFacebookApp(STRING account, STRING application)
+  {
+    OBJECT app := OpenSocialiteConnection(account, application);
+    IF(NOT ObjectExists(app))
+      THROW NEW Exception("No such socialite application '" || account || ":" || application || "'");
+
+    IF(NOT app EXTENDSFROM FacebookV2Connection)
+      THROW NEW Exception("Socialite application '" || account || ":" || application || "' is not a Facebook application");
+
+    RETURN [ applicationid := app->applicationid
+           ];
+  }
+>;

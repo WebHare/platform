@@ -1,0 +1,305 @@
+﻿<?wh
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+
+LOADLIB "mod::tollium/lib/dragdrop.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC INTEGER ttl_updownsession := 720; //minutes: how long an upload/download session persists (used to be 30, extended as long as RTE/upload fields don't autoextend lifetimes)
+
+PUBLIC INTEGER ARRAY FUNCTION GetExtraUnitRoots(OBJECT user)
+{
+  INTEGER ARRAY extra_roots;
+
+  INTEGER userid := user->id;
+  IF (userid != 0)
+    INSERT GetUnitOfAuthObject(userid) INTO extra_roots AT END;
+
+  RETURN extra_roots;
+}
+
+PUBLIC RECORD FUNCTION EnrichFSObject(RECORD obj)
+{
+  RECORD typeinfo := DescribeContentTypeById(obj.type, [ isfolder := obj.isfolder, mockifmissing := TRUE ]);
+  INSERT CELL candownload := typeinfo.blobiscontent
+            , ispublishable := typeinfo.ispublishable
+         INTO obj;
+
+  //FIXME realign the different icon handlers
+  IF(CellExists(obj,'pvt_iconname'))
+  {
+    IF(obj.pvt_iconname != "")
+      RETURN obj;
+
+    DELETE CELL pvt_iconname FROM obj;
+  }
+
+  IF (obj.id = 1)
+    INSERT CELL pvt_iconname := "tollium:folders/repository" INTO obj;
+  ELSE IF (obj.issite)
+    INSERT CELL pvt_iconname := "tollium:folders/site" INTO obj;
+  ELSE
+    INSERT CELL pvt_iconname := typeinfo.tolliumicon INTO obj;
+  RETURN obj;
+}
+
+/** Returns whether a specific authobject (and thus the authobjects within)
+    are visible for a specific user
+*/
+PUBLIC BOOLEAN FUNCTION IsAuthObjectVisibleFor(INTEGER authobject, OBJECT rightsobj)
+{
+  IF (rightsobj->HasRightOn("system:browseunits", authobject))
+    RETURN TRUE;
+
+  IF (rightsobj->__rightsobjecttype = 1) // user
+  {
+    INTEGER ARRAY extra_roots := GetExtraUnitRoots(rightsobj);
+    WHILE (TRUE)
+    {
+      IF (authobject IN extra_roots)
+        RETURN TRUE;
+
+      IF (authobject = 0)
+        RETURN FALSE;
+
+      authobject := GetUnitOfAuthObject(authobject);
+    }
+  }
+  RETURN FALSE;
+}
+
+/** Returns the ids of all the units that the user may see, but may not see their parents (or don't have parents)
+    @param user User to check
+    @return List of ids of all root viewable units
+*/
+PUBLIC INTEGER ARRAY FUNCTION GetRootViewableUnits(OBJECT user)
+{
+  RETURN GetRootObjectsForRights([ "system:browseunits" ], user, GetExtraUnitRoots(user));
+}
+
+
+
+
+STRING ARRAY typeicons :=
+    [ ""                        // Type 0: n/a
+    , "tollium:users/user"      // Type 1: user
+    , "tollium:users/users"     // Type 2: unit
+    , "tollium:users/mask"    // Type 3: role
+    , "tollium:system/module"   // Type 4: module
+    , "tollium:placeholders/na" // Type 5: database role
+    ];
+
+PUBLIC OBJECTTYPE UnitObjectTypeDescriber EXTEND ObjectTypeDescriber
+< UPDATE PUBLIC RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RECORD data :=
+      SELECT id
+           , name
+           , icon     := type > 0 AND type <= 5 ? typeicons[type] : "tollium:placeholders/na"
+           , parent
+        FROM system.authobjects
+       WHERE id = objectid
+         AND type < 4; // Don't present modules and roles
+
+    RETURN data;
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN GetRootViewableUnits(user);
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetObjectChildren(INTEGER id, OBJECT user)
+  {
+    // Explore only units
+    RETURN
+        SELECT AS INTEGER ARRAY COLUMN id
+          FROM system.authobjects
+         WHERE COLUMN parent = VAR id
+           AND type = 2;
+  }
+
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    RETURN IsAuthObjectVisibleFor(id, user);
+  }
+>;
+
+PUBLIC OBJECTTYPE FSObjectTypeDescriber EXTEND ObjectTypeDescriber
+<
+  BOOLEAN cached_hide_privates;
+  BOOLEAN do_hide_privates;
+  INTEGER ARRAY tohide;
+
+  MACRO NEW()
+  {
+    this->tohide := GetWHFSObjectsToHide(GetEffectiveUser());
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    IF (objectid IN this->tohide)
+      RETURN DEFAULT RECORD;
+
+    RECORD objinfo := SELECT id
+                           , issite := id=parentsite
+                           , name
+                           , sortkey  := (isfolder ? "A" : "B") || ToUppercase(name)
+                           , isfolder
+                           , type
+                        FROM system.fs_objects
+                       WHERE id = objectid AND (isactive OR 10 NOT IN this->tohide);
+
+    IF(NOT RecordExists(objinfo))
+      RETURN DEFAULT RECORD;
+
+    RECORD enriched := EnrichFSObject(objinfo);
+    INSERT CELL icon := enriched.pvt_iconname INTO enriched;
+    RETURN enriched;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
+  {
+    IF(10 NOT IN this->tohide AND RecordExists(SELECT FROM system.fs_objects WHERE fs_objects.id = VAR id AND fs_objects.isactive=FALSE))
+      RETURN FALSE;
+
+    RETURN ObjectTypeDescriber::IsObjectVisibleForUser(id, user);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE webdav_datafoldersdescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+      SELECT id
+           , name     := foldername
+           , icon     := "tollium:folders/shared"
+        FROM system.webdav_datafolders
+       WHERE id = objectid;
+  }
+>;
+
+PUBLIC OBJECTTYPE AccessRulesDescriber EXTEND ObjectTypeDescriber
+< PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM system.access
+         WHERE id = objectid;
+
+    IF (NOT RecordExists(rec))
+      RETURN DEFAULT RECORD;
+
+    // For now, only allow seeing rules where the 'urlaccess' right  makes sense.
+    IF (rec.authtype != 2)
+      RETURN DEFAULT RECORD;
+
+    STRING webserverbaseurl;
+    IF (rec.webserver != 0)
+      webserverbaseurl := SELECT AS STRING baseurl FROM system.webservers WHERE id = rec.webserver;
+    ELSE
+      webserverbaseurl := GetTid("system:rights.access.allwebservers");
+
+    RETURN
+        [ id :=         objectid
+        , name :=       webserverbaseurl || " - " || rec.path
+        , icon :=       "tollium:security/access" // FIXME: better icon
+        ];
+  }
+>;
+
+
+PUBLIC OBJECTTYPE UnitDrag EXTEND DragTypeDescriber
+< UPDATE PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN
+        [ candelete :=  FALSE
+        , wrd_id :=     0
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE UserDrag EXTEND DragTypeDescriber
+< UPDATE PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN
+        [ candelete :=  FALSE
+        , wrd_id :=     0
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE RoleDrag EXTEND DragTypeDescriber
+< UPDATE PUBLIC RECORD FUNCTION GetBaseRecord()
+  {
+    RETURN
+        [ candelete :=  FALSE
+        , wrd_id :=     0
+        ];
+  }
+>;
+
+PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
+{
+  OBJECT trans := OpenPrimary();
+  RECORD ARRAY apps :=
+      [ [ name :=     "system:watchsourcefiles"
+        , cmdline :=  "runscript --workerthreads 3 mod::system/scripts/internal/watchsourcefiles.whscr"
+        ]
+      , [ name :=     "system:managedqueue"
+        , cmdline :=  "runscript mod::system/scripts/internal/managedqueuemgr.whscr"
+        ]
+      , [ name :=     "system:executetasks"
+        , cmdline :=  "runscript mod::system/scripts/internal/executetasks.whscr"
+        , databasemodes := [ "online" ]
+        ]
+      , [ name :=     "system:poststart"
+        , cmdline :=  "runscript mod::system/scripts/internal/post-start.whscr"
+        , runatsoftreset := TRUE
+        ]
+      , [ name :=     "system:precalc"
+        , cmdline :=  `runscript --workerthreads ${ReadRegistryKey("system.precalc.maxjobs") + 2} mod::system/lib/internal/precalc/service.whscr`
+        , databasemodes := [ "online" ]
+        ]
+      , [ name :=     "system:chromeheadlessrunner"
+        , cmdline :=  "runscript mod::system/scripts/internal/chromeheadlessrunner.whscr"
+        ]
+      ];
+
+  IF (NOT ReadRegistryKey("system.backend.development.manualdebugmgr"))
+  {
+    INSERT
+        [ name :=       "system:debugmgr"
+        , cmdline :=    "runscript mod::system/scripts/internal/debugmgr.whscr"
+        ] INTO apps AT END;
+  }
+
+  trans->Close();
+
+  RETURN apps;
+}
+
+PUBLIC INTEGER ARRAY FUNCTION GetWHFSObjectsToHide(OBJECT user)
+{
+  INTEGER ARRAY tohide;
+  IF(NOT ObjectExists(user)) //no effective user here
+    RETURN DEFAULT INTEGER ARRAY;
+
+  RECORD tweaks := [ showwhfsprivate := user->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE)
+                   , showwebharebackend := user->GetRegistryKey("publisher.filemgr.showwebharebackend", FALSE)
+                   ];
+
+  IF(NOT tweaks.showwhfsprivate)
+    tohide := [10,12];
+ IF(NOT tweaks.showwebharebackend)
+   INSERT 16 INTO tohide AT END;
+  RETURN tohide;
+}
+

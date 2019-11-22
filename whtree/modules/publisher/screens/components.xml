@@ -1,0 +1,264 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="components">
+
+  <messageboxes gid=".dialogs">
+    <messagebox name="cannotshowinsecurecontent" icon="warning" buttons="ok" />
+  </messageboxes>
+
+  <fragment name="foldertree" lib="components/foldertree.whlib" gid=".foldertree">
+    <compositions>
+      <eventlistener name="folderlistener" masks="system:whfs.folder.*" onevents="onfoldersignals" groupinterval="1000" />
+    </compositions>
+    <contents>
+      <list name="thelist" ongetpath="OnGetPath" ongetchildren="OnGetChildren" onselect="OnSelectHandler" sortable="false"> <!-- oncelledit="oncelledit" -->
+        <column name="name" type="text" tree="true" tid=".folders" iconname="icon" iconoverlayname="iconoverlay" hintname="pvt_namehint" /> <!-- edittype="textedit"  -->
+        <style name="protected" />
+      </list>
+    </contents>
+  </fragment>
+
+  <fragment name="filelist" lib="components/filelist.whlib" gid=".filelist">
+    <actions>
+      <!-- Other actions -->
+      <action name="filter" onexecute="dofilter" title="" />
+    </actions>
+    <compositions>
+      <eventlistener name="folderlistener" onevents="onfoldersignals" groupinterval="1000" />
+    </compositions>
+    <contents>
+      <panel name="filterpanel" spacers="all" visible="false" borders="top" defaultbutton="filterbutton">
+        <panel name="folderfilter" /> <!-- this panel receives the external filter options -->
+        <line layout="right">
+          <button name="filterbutton" action="filter" />
+        </line>
+      </panel>
+      <panel borders="bottom" spacers="none">
+        <panel name="resultslimitedpanel" layout="left" borders="top" backgroundcolor="#feffde" spacers="left right" visible="false">
+          <text name="resultslimited" title="" wordwrap="true" onclicklink="onshowallresults" />
+        </panel>
+      </panel>
+      <list name="mylist" rowkeytype="integer" highlightname="pvt_highlight" onsortorderchange="gotsortorderchange"> <!-- oncelledit="oncelledit" -->
+        <column name="icon" type="icon" title="" sortkeyname="pvt_name_sort" iconlink="false" />
+        <column name="name" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" iconname="icon" />
+        <column name="name_noicon" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" />
+        <column name="title" type="text" sortkeyname="pvt_title_sort" />
+        <column name="modified" type="text" sortkeyname="pvt_modified_sort" width="13x" storeutc="true" align="right" />
+<!--        <column name="ordering" type="integer" sortkeyname="pvt_ordering_sort" width="5x" align="right"  /> -->
+        <column name="statusicons" type="icons" align="right" minwidth="10x" width="12x" hintname="pvt_statushint" iconlink="true" />
+
+<!--
+        <rowlayout name="onerow">
+          <col coldef="name" />
+          <col coldef="title" />
+          <col coldef="modified" />
+          <col coldef="statusicons" />
+          <row>
+            <cell coldef="name" />
+            <cell coldef="title" />
+            <cell coldef="modified" />
+            <cell coldef="statusicons" />
+          </row>
+        </rowlayout>
+
+        <rowlayout name="tworows">
+          <col coldef="pvt_icon" combinewithnext="true" />
+          <col coldef="name" />
+          <col coldef="modified" />
+          <row>
+            <cell coldef="pvt_icon" rowspan="2" />
+            <cell coldef="name_noicon" />
+            <cell coldef="modified" />
+          </row>
+          <row>
+            <cell coldef="title" />
+            <cell coldef="statusicons" />
+          </row>
+
+          <draglayout cols="name">
+            <row>
+              <cell coldef="name" />
+            </row>
+          </draglayout>
+        </rowlayout>
+      -->
+
+        <style name="protected" />
+      </list>
+    </contents>
+  </fragment>
+
+  <fragment name="thumbnailview" lib="components/thumbnailview.whlib" gid=".thumbnailview">
+    <contents>
+    </contents>
+  </fragment>
+
+  <fragment name="intextlink" lib="screens/components.whlib" gid=".intextlink">
+    <contents>
+      <select name="linktype" type="radio" required="true" title="" onchange="onlinktypechange">
+        <option rowkey="nolink"></option>
+        <option rowkey="external">
+          <textedit name="external" width="1pr" placeholdertid=".externalplaceholder" validationchecks="url-plus-relative" required="true" title="" errorlabeltid=".linktype-external"/>
+        </option>
+        <option rowkey="internal">
+          <p:browseforobject name="internal" required="true" title="" errorlabeltid=".linktype-internal" showclear="false" width="2pr" />
+          <textedit name="append" width="1pr" />
+        </option>
+      </select>
+    </contents>
+  </fragment>
+
+  <fragment name="previewbrowser" lib="components/previewbrowser.whlib" gid=".previewbrowser">
+    <actions>
+      <windowopenaction name="showexternallink" onwindowopen="doshowexternallink" />
+      <windowopenaction name="viewsite" onwindowopen="doviewsite" />
+      <action name="previewrefresh" onexecute="dopreviewrefresh" />
+
+      <action name="submitforapproval" onexecute="dosubmitforapproval" tid="publisher:versioning.submitforapproval" />
+      <action name="canceldraft" onexecute="docanceldraft" tid="publisher:versioning.revertdraft" />
+      <action name="cancelrequest" onexecute="docancelrequest" tid="publisher:versioning.withdrawrequest" />
+    </actions>
+    <compositions>
+      <eventlistener name="previewlistener" onevents="onpreviewupdateevents" />
+      <eventlistener name="versioneventslistener" onevents="onpreviewversionevents" />
+    </compositions>
+    <contents>
+      <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left" borders="bottom">
+        <line layout="tabs-space">
+          <url name="previewurl" title="" width="1pr" />
+          <select name="deviceselect" type="pulldown" title="" onchange="ondevicechange" rowkeytype="string">
+          </select>
+          <buttongroup layout="horizontal" borders="left">
+            <button type="icon" icon="tollium:actions/reload" action="previewrefresh" hinttid=".refreshhint"/>
+          </buttongroup>
+        </line>
+      </panel>
+      <panel name="versioninginfo" backgroundcolor="#FEFFDE" visible="false" spacers="left right" borders="bottom">
+        <line>
+          <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
+          <text name="submitdraft" title="" valuetid="publisher:versioning.submitforapproval" action="submitforapproval" visible="false" />
+          <text name="revertdraft" title="" valuetid="publisher:versioning.revertdraft" action="canceldraft" visible="false" />
+          <text name="withdrawrequest" title="" valuetid="publisher:versioning.withdrawrequest" action="cancelrequest" visible="false" />
+        </line>
+      </panel>
+      <panel name="info" backgroundcolor="#FEFFDE" visible="false" spacers="left" borders="bottom">
+        <line>
+          <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
+        </line>
+      </panel>
+      <panel name="browserpanel" backgroundcolor="#b6b2b2" height="1pr"><!-- Same background color as RTD -->
+        <iframe name="browserframe" height="1pr" oncallback="onbrowserframecallback" />
+      </panel>
+    </contents>
+  </fragment>
+
+  <screen name="previewbrowsercustom" implementation="none" gid=".previewbrowser.custom">
+    <body>
+      <textedit name="width" valuetype="integer" width="10x" public="true" minvalue="0" />
+      <textedit name="height" valuetype="integer" width="10x" public="true" minvalue="0" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <fragment name="managedtagedit" lib="components/managedtagedit.whlib" gid=".managedtagedit">
+    <contents>
+      <tagedit name="tagedit"
+               onvalidatetags="gotvalidatetags">
+        <autosuggest name="autosuggest" suggestobjectname="mod::publisher/lib/components/managedtagedit.whlib#managedtageditautocomplete" />
+      </tagedit>
+    </contents>
+  </fragment>
+
+  <fragment name="browseforobject" lib="components/browseforobject.whlib">
+    <actions>
+      <action name="clearaction" onexecute="doclear" title="" />
+      <action name="browseaction" onexecute="dobrowse" title="" />
+    </actions>
+    <contents>
+      <line>
+        <textedit name="path" enabled="false" />
+        <button name="browse" action="browseaction" title="" icon="tollium:actions/edit" />
+        <button name="clear" action="clearaction" title="" icon="tollium:actions/delete" />
+      </line>
+    </contents>
+  </fragment>
+
+  <fragment name="formcondition" lib="components/formcondition.whlib">
+    <actions>
+      <action name="editaction" onexecute="doedit" title="" />
+      <action name="clearaction" onexecute="doclear" title="" />
+    </actions>
+    <contents>
+      <line>
+        <textedit name="condition" title="" enabled="false" width="1pr" />
+        <button name="edit" action="editaction" title="" icon="tollium:actions/edit" />
+        <button name="clear" action="clearaction" title="" icon="tollium:actions/delete" />
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="editformcondition" lib="components/formcondition.whlib" gid=".formcondition" width="80x">
+    <body name="subconditions">
+      <!-- singleformcondition components are added dynamically -->
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <fragment name="singleformcondition" lib="components/formcondition.whlib" gid=".formcondition">
+    <actions>
+      <action name="addcondition" title="" onexecute="doaddcondition" />
+      <action name="deletecondition" title="" onexecute="dodeletecondition" />
+      <action name="editvaluein" title="" onexecute="doeditvaluein" />
+    </actions>
+    <contents>
+      <line>
+        <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
+        <select name="field" title="" type="pulldown" onchange="onfieldselect" width="1pr" />
+        <inlineblock name="settings_in" title="" width="2pr" visible="false">
+          <line>
+            <text title="" valuetid=".matchtype" />
+            <select name="matchtype" title="" type="pulldown">
+              <option rowkey="in" />
+              <option rowkey="has" />
+              <option rowkey="is" />
+            </select>
+            <textedit name="value_in" title="" enabled="false" width="1pr">
+              <button name="selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
+            </textedit>
+          </line>
+        </inlineblock>
+        <inlineblock name="settings_hasvalue" title="" width="2pr" visible="false">
+          <select name="value_hasvalue" title="" rowkeytype="boolean" type="pulldown">
+            <option rowkey="false" />
+            <option rowkey="true" />
+          </select>
+        </inlineblock>
+        <inlineblock name="settings_sub" title="" width="2pr" visible="false">
+          <text name="settings_suffix" title="" valuetid=".matchtype-suffix" width="1pr" />
+        </inlineblock>
+        <button action="deletecondition" name="deleteconditionbutton" title="" type="icon" icon="tollium:buttonbar/minus" />
+        <button action="addcondition" name="addconditionbutton" title="" type="icon" icon="tollium:buttonbar/plus" />
+      </line>
+      <line>
+        <spacer name="subconditionspacer" width="16px" />
+        <inlineblock name="subconditions" title="" width="1pr">
+          <!-- singleformcondition components are added dynamically -->
+        </inlineblock>
+      </line>
+    </contents>
+  </fragment>
+
+  <screen name="selectvalues" lib="components/formcondition.whlib" gid=".formcondition">
+    <body>
+      <select name="value" title="" type="checkboxlist" height="1pr" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

@@ -1,0 +1,82 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+/** @short Tries to find and return a Vimeo movie id from a string
+    @param text A text containing the URL of the movie, the movie id or starting with <iframe
+    @return The Vimeo movie id if it could be extracted, else an empty string
+*/
+PUBLIC STRING FUNCTION GetVimeoMovieIdByText(STRING text)
+{
+  IF (text = "")
+    RETURN "";
+
+  text := TrimWhiteSpace(ToLowerCase(text));
+  IF (text LIKE "<iframe*")
+  {
+    //add div around incase there is extra html after the iframe
+    OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob('<div>' || text || '</div>'))->GetElementsByTagName("iframe");
+    IF (iframe->Length > 0)
+      text := iframe->Item(0)->GetAttribute('src');
+  }
+
+  IF( text LIKE '//*' ) //if no protocol given then add https: so unpackURL gets a valid url
+    text := 'https:' || text;
+ 
+  RECORD unpacked := UnpackURL(text);
+  IF(unpacked.scheme IN ["http","https"] AND (unpacked.host LIKE '*.vimeo.com' OR unpacked.host LIKE 'vimeo.com'))
+  {
+    //cleanup urlpath
+    INTEGER hashstart := SearchSubstring(unpacked.urlpath,'#');
+    IF(hashstart!=-1)
+      unpacked.urlpath := Left(unpacked.urlpath,hashstart);
+
+    INTEGER paramstart := SearchSubstring(unpacked.urlpath,'?');
+    IF(paramstart!=-1)
+      unpacked.urlpath := Left(unpacked.urlpath,paramstart);
+
+    STRING ARRAY parts := Tokenize(unpacked.urlpath,'/');
+
+    //last part contains the video identifier (if no end slash)
+    //just loop backwards through parts incase there is a trailing slash
+    FOR(INTEGER i := Length(parts) - 1; i >= 0 ; i := i - 1)
+    {  
+      IF(parts[i] != '' AND ToInteger(parts[i],-1) > 0)
+        RETURN parts[i];
+    }
+  }
+
+
+/*
+  IF (text LIKE "http://vimeo.com/*")
+  {
+    RETURN Substring(text, 17, 8);
+  }
+  ELSE IF (text LIKE "https://vimeo.com/*")
+  {
+    RETURN Substring(text, 18, 8);
+  }
+  // at the moment video code is an integer, but you never know what the future may bring, so we'll just return as
+  // a string. Perhaps we need to remove the ToInteger at some time
+  ELSE IF (Length(text) = 8 AND ToInteger(text,-1) > 0)
+  {
+    RETURN text;
+  }
+  ELSE IF (text LIKE "<iframe*")
+  {
+    OBJECT iframe := MakeXMLDocumentFromHTML(StringToBlob(text))->GetElementsByTagName("iframe");
+    STRING src_value;
+    IF (iframe->Length > 0)
+    {
+      src_value := iframe->Item(0)->GetAttribute('src');
+
+      IF (src_value LIKE "http://player.vimeo.com/video/*")
+        RETURN Substring(src_value, 30, 8);
+      ELSE IF (src_value LIKE "//player.vimeo.com/video/*")
+        RETURN Substring(src_value, 25, 8);
+    }
+  }
+*/
+  RETURN "";
+}

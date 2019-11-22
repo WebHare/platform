@@ -1,0 +1,48 @@
+<?wh
+
+// command: deletearchived
+// short: Delete archived output folders
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
+                                                    ]);
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh publisher:archiveoutput [--debug]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+BOOLEAN debug := args.debug OR IsRunningInEditor();
+
+OBJECT trans := OpenPrimary();
+STRING outputbase := GetWebserverBaseOutputFolder();
+STRING archiveto := outputbase || ".archive";
+DATETIME deletecutoff := AddDaysToDate(-7, GetCurrentDatetime());
+
+FOREVERY(RECORD archived FROM ReadDiskDirectory(archiveto,"*"))
+{
+  DATETIME deletiontime := MakeDateFromText(Tokenize(archived.name,'-')[END-1]);
+  IF(deletiontime = DEFAULT DATETIME)
+  {
+    PrintTo(2,`Unrecognized folder name in archive: ${archived.name}\n`);
+    SetConsoleExitCode(1);
+    CONTINUE;
+  }
+  IF(deletiontime > deletecutoff)
+  {
+    IF(debug)
+      Print(`Not yet deleting '${archived.name}\n`);
+    CONTINUE;
+  }
+
+  IF(debug)
+    Print(`Deleting '${archived.name}'\n`);
+  DeleteDiskDirectoryRecursive(archived.path);
+}

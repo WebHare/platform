@@ -1,0 +1,598 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+PUBLIC CONSTANT STRING xmlrecord_namespace := "http://www.webhare.net/xmlns/hs/xmlrecord";
+
+PUBLIC CONSTANT STRING ARRAY html_empty_elements := [
+  "BR", "AREA", "LINK", "IMG", "PARAM", "HR", "INPUT", "COL", "FRAME", "BASE", "META",
+  "BASEFONT", "ISINDEX"
+];
+
+PUBLIC STRING FUNCTION EncodeBlob(BLOB inputblob)
+{
+  RETURN EncodeBase64(BlobToString(inputblob, -1));
+}
+
+// http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-17189187
+/** @topic xml/dom
+    @public
+    @loadlib wh::xml/dom.whlib
+*/
+PUBLIC STATIC OBJECTTYPE XmlDOMException EXTEND Exception
+<
+  // Getters and setters
+  INTEGER pvt_code;
+  PRIVATE INTEGER FUNCTION GetIndexSizeErr()             { RETURN 1; }
+  PRIVATE INTEGER FUNCTION GetDomstringSizeErr()         { RETURN 2; }
+  PRIVATE INTEGER FUNCTION GetHierarchyRequestErr()      { RETURN 3; }
+  PRIVATE INTEGER FUNCTION GetWrongDocumentErr()         { RETURN 4; }
+  PRIVATE INTEGER FUNCTION GetInvalidCharacterErr()      { RETURN 5; } //InvalidCharacterError
+  PRIVATE INTEGER FUNCTION GetNoDataAllowedErr()         { RETURN 6; }
+  PRIVATE INTEGER FUNCTION GetNoModificationAllowedErr() { RETURN 7; }
+  PRIVATE INTEGER FUNCTION GetNotFoundErr()              { RETURN 8; }
+  PRIVATE INTEGER FUNCTION GetNotSupportedErr()          { RETURN 9; }
+  PRIVATE INTEGER FUNCTION GetInuseAttributeErr()        { RETURN 10; }
+  PRIVATE INTEGER FUNCTION GetInvalidStateErr()          { RETURN 11; }
+  PRIVATE INTEGER FUNCTION GetSyntaxErr()                { RETURN 12; }
+  PRIVATE INTEGER FUNCTION GetInvalidModificationErr()   { RETURN 13; }
+  PRIVATE INTEGER FUNCTION GetNamespaceErr()             { RETURN 14; }
+  PRIVATE INTEGER FUNCTION GetInvalidAccessErr()         { RETURN 15; }
+  PRIVATE INTEGER FUNCTION GetValidationErr()            { RETURN 16; }
+  PRIVATE INTEGER FUNCTION GetTypeMismatchErr()          { RETURN 17; }
+
+  // ExceptionCode
+  // (Not really part of DOMException, but introduced here analogous to NodeType within XmlNode)
+  PUBLIC PROPERTY INDEX_SIZE_ERR             (GetIndexSizeErr,-);
+  PUBLIC PROPERTY DOMSTRING_SIZE_ERR         (GetDomstringSizeErr,-);
+  PUBLIC PROPERTY HIERARCHY_REQUEST_ERR      (GetHierarchyRequestErr,-);
+  PUBLIC PROPERTY WRONG_DOCUMENT_ERR         (GetWrongDocumentErr,-);
+  PUBLIC PROPERTY INVALID_CHARACTER_ERR      (GetInvalidCharacterErr,-);
+  PUBLIC PROPERTY NO_DATA_ALLOWED_ERR        (GetNoDataAllowedErr,-);
+  PUBLIC PROPERTY NO_MODIFICATION_ALLOWED_ERR(GetNoModificationAllowedErr,-);
+  PUBLIC PROPERTY NOT_FOUND_ERR              (GetNotFoundErr,-);
+  PUBLIC PROPERTY NOT_SUPPORTED_ERR          (GetNotSupportedErr,-);
+  PUBLIC PROPERTY INUSE_ATTRIBUTE_ERR        (GetInuseAttributeErr,-);
+  PUBLIC PROPERTY INVALID_STATE_ERR          (GetInvalidStateErr,-);
+  PUBLIC PROPERTY SYNTAX_ERR                 (GetSyntaxErr,-);
+  PUBLIC PROPERTY INVALID_MODIFICATION_ERR   (GetInvalidModificationErr,-);
+  PUBLIC PROPERTY NAMESPACE_ERR              (GetNamespaceErr,-);
+  PUBLIC PROPERTY INVALID_ACCESS_ERR         (GetInvalidAccessErr,-);
+  PUBLIC PROPERTY VALIDATION_ERR             (GetValidationErr,-);
+  PUBLIC PROPERTY TYPE_MISMATCH_ERR          (GetTypeMismatchErr,-);
+
+  // DOM
+  PUBLIC PROPERTY code(pvt_code, -);
+
+  // HareScript
+  MACRO NEW(INTEGER code, STRING what)
+  : Exception(what)
+  {
+    this->pvt_code := code;
+  }
+>;
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DOM Objects: Attr
+//
+///////////////////////////////////////////////////////////////////////////////
+
+//https://www.w3.org/TR/domcore/#interface-element
+/** @topic xml/dom
+    @public
+    @loadlib wh::xml/dom.whlib
+*/
+PUBLIC STATIC OBJECTTYPE XmlAttr
+<
+  OBJECT __doc;
+  PUBLIC OBJECT __ownerelement;
+  STRING __namespaceuri;
+  STRING __nodename;
+  PUBLIC STRING __valuestore;
+
+  MACRO NEW(OBJECT node, STRING ns, STRING nodename)
+  {
+    IF(node->nodetype NOT IN [1,9])
+      THROW NEW Exception("No valid document");
+    this->__doc := node->nodetype = 1 ? node->ownerdocument : node;
+    this->__ownerelement := node->nodetype = 1 ? node : DEFAULT OBJECT;
+    this->__namespaceuri:= ns;
+    this->__nodename := nodename;
+  }
+
+  BOOLEAN FUNCTION GetSpecified()
+  {
+    RETURN TRUE;
+  }
+  OBJECT FUNCTION GetNull()
+  {
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC PROPERTY namespaceuri(__namespaceuri, -);
+  PUBLIC PROPERTY prefix(GetPrefix, SetPrefix);
+  PUBLIC PROPERTY localname(GetLocalName, -);
+  PUBLIC PROPERTY name(__nodename, -);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY ownerelement(__ownerelement, -);
+  PUBLIC PROPERTY attributes(GetNull, -);
+
+  STRING FUNCTION GetMyName()
+  {
+    RETURN this->__nodename LIKE "*:*" ? Tokenize(this->__nodename,':')[1] : this->__nodename;
+  }
+
+  STRING FUNCTION GetPrefix()
+  {
+    RETURN this->__nodename LIKE "*:*" ? Tokenize(this->__nodename,':')[0] : "";
+  }
+  MACRO SetPrefix(STRING newprefix)
+  {
+    IF(this->namespaceuri = "http://www.w3.org/2000/xmlns/")
+      THROW NEW XmlDomException(14, "cannot set prefix on a xmlns attribute");
+    IF(newprefix = "xmlns")
+      THROW NEW XmlDomException(14, "cannot set xmlns prefix on an existing attribute");
+    this->__nodename := (newprefix != "" ? newprefix || ":" : "") || this->GetMyName();
+    IF(ObjectExists(this->ownerelement))
+      this->ownerelement->SetAttributeNS(this->namespaceuri, this->nodename, this->value);
+  }
+  STRING FUNCTION GetLocalName()
+  {
+    RETURN this->__namespaceuri = "" ? "" : this->GetMyName();
+  }
+  STRING FUNCTION GetValue()
+  {
+    IF(NOT ObjectExists(this->__ownerelement))
+      RETURN this->__valuestore;
+
+    RETURN this->__ownerelement->GetAttributeNS(this->__namespaceuri, this->GetMyName());
+  }
+  MACRO SetValue(STRING newvalue)
+  {
+    IF(NOT ObjectExists(this->__ownerelement))
+    {
+      this->__valuestore := newvalue;
+      RETURN;
+    }
+    this->__ownerelement->SetAttributeNS(this->__namespaceuri, this->GetMyName(), newvalue);
+  }
+
+  //extensions
+  PUBLIC PROPERTY linenum(this->__ownerelement->linenum, -);
+
+  PUBLIC MACRO Remove()
+  {
+    IF(ObjectExists(this->__ownerelement))
+      this->__ownerelement->RemoveAttributeNS(this->namespaceuri, this->GetMyName());
+  }
+
+  //backwardscompat
+  PUBLIC PROPERTY nodename(__nodename, -);
+  PUBLIC PROPERTY nodevalue(GetValue, SetValue);
+  PUBLIC PROPERTY textcontent(GetValue, SetValue);
+
+  PUBLIC OBJECT FUNCTION CloneNode(BOOLEAN ignored__deep)
+  {
+    RETURN NEW XMLAttr(this->__doc, this->__namespaceuri, this->__nodename);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsSameNode(OBJECT attr)
+  {
+    RETURN attr EXTENDSFROM XmlAttr
+           AND attr->ownerelement->IsSameNode(this->ownerelement)
+           AND attr->namespaceuri = this->namespaceuri
+           AND (attr->namespaceuri != "" ? attr->localname = this->localname : attr->name = this->name);
+  }
+  OBJECT FUNCTION GetDefaultObject()
+  {
+    RETURN DEFAULT OBJECT;
+  }
+  INTEGER FUNCTION GetNodeType()
+  {
+    RETURN 2; //ATTRIBUTE_NODE
+  }
+  PUBLIC PROPERTY previoussibling(GetDefaultObject, -);
+  PUBLIC PROPERTY nextsibling(GetDefaultObject, -);
+  PUBLIC PROPERTY parentnode(GetDefaultObject, -);
+  PUBLIC PROPERTY ownerdocument(__doc, -);
+  PUBLIC PROPERTY nodetype(GetNodeType, -);
+>;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DOM Objects: NodeList
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-536297177
+/** @topic xml/dom
+    @public
+    @loadlib wh::xml/dom.whlib
+*/
+PUBLIC STATIC OBJECTTYPE XmlNodeList
+<
+  // Getters and setters
+  PRIVATE INTEGER FUNCTION GetLength()
+  {
+    THROW NEW Exception("GetLength not overriden");
+  }
+
+  PUBLIC PROPERTY innerxml(GetInnerXML,-);
+  PUBLIC PROPERTY outerxml(GetOuterXML,-);
+  PUBLIC PROPERTY innerhtml(GetInnerHTML,-);
+  PUBLIC PROPERTY outerhtml(GetOuterHTML,-);
+
+  /** @short Concatenate all text and cdata children from this element and any subelements
+   */
+  PUBLIC PROPERTY textcontent(GetTextContent, -);
+
+  /** @short Concatenate all text and cdata children from this element
+      @spec HareScript v2.33.01
+   */
+  PUBLIC PROPERTY childrentext(GetCHildrenText, -); //deprecated. use textcontent!
+
+  // DOM
+  // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-844377136
+  // @return XmlNode
+  /** @param index_ 0-based index of the node to get
+      @return The requested node, or DEFAULT OBJECT if the index is invalid */
+  PUBLIC OBJECT FUNCTION Item(INTEGER index_)
+  {
+    THROW NEW Exception("Item not overriden");
+  }
+
+  /// Returns all items
+  OBJECT ARRAY FUNCTION GetAllItems(BOOLEAN onlyelements)
+  {
+    OBJECT ARRAY output;
+    INTEGER len := this->length;
+    FOR(INTEGER idx := 0; idx < len; idx := idx + 1)
+    {
+      OBJECT el := this->Item(idx);
+      IF(onlyelements AND MemberExists(el,'nodetype') AND el->nodetype != 1) //true element
+        CONTINUE;
+      INSERT el INTO output AT END;
+    }
+    RETURN output;
+  }
+
+  // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-203510337
+  PUBLIC PROPERTY length(GetLength, -);
+
+  PRIVATE STRING FUNCTION GetInnerXML()
+  {
+    STRING result;
+    FOREVERY(OBJECT node FROM this->GetCurrentNodes())
+      result := result || node->outerxml;
+    RETURN result;
+  }
+  PRIVATE STRING FUNCTION GetOuterXML()
+  {
+    RETURN this->GetInnerXML();
+  }
+  PRIVATE STRING FUNCTION GetInnerHTML()
+  {
+    STRING result;
+    FOREVERY(OBJECT node FROM this->GetCurrentNodes())
+      result := result || node->outerhtml;
+    RETURN result;
+  }
+  PRIVATE STRING FUNCTION GetOuterHTML()
+  {
+    RETURN this->GetInnerHTML();
+  }
+
+  // HareScript
+  // Get the current nodelist
+  PUBLIC OBJECT ARRAY FUNCTION GetCurrentNodes()
+  {
+    RETURN this->GetAllItems(FALSE);
+  }
+
+  // Get the elements in the current nodelist
+  PUBLIC OBJECT ARRAY FUNCTION GetCurrentElements()
+  {
+    RETURN this->GetAllItems(TRUE);
+  }
+
+  PRIVATE STRING FUNCTION GetChildrenText()
+  {
+    STRING retval;
+    FOREVERY(OBJECT node FROM this->GetCurrentNodes())
+      retval:=retval||node->childrentext;
+    RETURN retval;
+  }
+
+  STRING FUNCTION GetTextContent()
+  {
+    STRING retval;
+    FOREVERY(OBJECT node FROM this->GetCurrentNodes())
+      retval:=retval||node->textcontent;
+    RETURN retval;
+  }
+
+  /** Remove these nodes from their parent */
+  PUBLIC OBJECT ARRAY FUNCTION Dispose()
+  {
+    OBJECT ARRAY todelete := this->GetCurrentNodes();
+    FOREVERY(OBJECT node FROM todelete)
+      node->Remove();
+    RETURN todelete;
+  }
+>;
+
+PUBLIC OBJECTTYPE StaticXmlNodeList EXTEND XmlNodeList
+<
+  OBJECT ARRAY pvt_nodes;
+
+  MACRO NEW(OBJECT nodelist, OBJECT ARRAY directnodes)
+  {
+    IF(ObjectExists(nodelist))
+      this->pvt_nodes := nodelist->GetCurrentNodes();
+    ELSE
+      this->pvt_nodes := directnodes;
+  }
+
+  UPDATE OBJECT ARRAY FUNCTION GetAllItems(BOOLEAN onlyelements)
+  {
+    RETURN this->pvt_nodes;
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION Item(INTEGER idx)
+  {
+    IF(idx < 0 OR idx >= Length(this->pvt_nodes))
+      RETURN DEFAULT OBJECT;
+    RETURN this->pvt_nodes[idx];
+  }
+
+  UPDATE INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->pvt_nodes);
+  }
+>;
+
+PUBLIC OBJECTTYPE LiveNodeList EXTEND XmlNodeList
+<
+  OBJECT basenode;
+  STRING xpathquery;
+
+  MACRO NEW(OBJECT basenode, STRING xpathquery)
+  {
+    this->basenode := basenode;
+    this->xpathquery := xpathquery;
+  }
+
+  UPDATE OBJECT ARRAY FUNCTION GetAllItems(BOOLEAN onlyelements)
+  {
+    RETURN ExecuteSimpleXpathQuery(this->basenode, this->xpathquery);
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION Item(INTEGER idx)
+  {
+    OBJECT ARRAY items := this->GetAllItems(TRUE);
+    IF(idx < 0 OR idx >= Length(items))
+      RETURN DEFAULT OBJECT;
+    RETURN items[idx];
+  }
+
+  UPDATE INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->GetAllItems(TRUE));
+  }
+>;
+
+OBJECTTYPE XpathResultNodeList EXTEND XmlNodeList
+<
+  RECORD ARRAY resultnodes;
+
+  MACRO NEW(RECORD ARRAY resultnodes)
+  {
+    this->resultnodes := resultnodes;
+  }
+  UPDATE INTEGER FUNCTION GetLength()
+  {
+    RETURN Length(this->resultnodes);
+  }
+  UPDATE PUBLIC OBJECT FUNCTION Item(INTEGER idx)
+  {
+    IF(idx < 0 OR idx >= Length(this->resultnodes))
+      RETURN DEFAULT OBJECT;
+
+    IF(this->resultnodes[idx].attrname = "")
+      RETURN this->resultnodes[idx].node;
+
+    RETURN NEW XmlAttr(this->resultnodes[idx].node, this->resultnodes[idx].attrns, this->resultnodes[idx].attrname); //TODO prefix ??
+  }
+>;
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DOM Objects: XPathQuery
+//
+///////////////////////////////////////////////////////////////////////////////
+
+STRING FUNCTION GetNodeContent(OBJECT node) //this is not the xml_provider.cpp:getnodecontent !
+{
+  IF(node->nodetype = node->Text_Node OR node->nodetype = node->Comment_Node OR node->nodetype = node->Cdata_Section_Node)
+    RETURN node->nodevalue;
+
+  STRING str;
+  FOREVERY(OBJECT child FROM node->childnodes->GetCurrentNodes())
+    IF(child->nodetype = node->Text_Node OR child->nodetype = node->Cdata_Section_Node)
+      str:=str||child->nodevalue;
+  RETURN str;
+}
+
+RECORD FUNCTION __ExecuteXpathQuery(OBJECT doc, STRING query, OBJECT node, OBJECT here, RECORD ARRAY namespaces) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+
+PUBLIC RECORD ARRAY FUNCTION ExecuteXpathQuery(OBJECT doc, STRING query, OBJECT node, OBJECT herenode, RECORD ARRAY namespaces)
+{
+  RECORD res := __ExecuteXpathQuery(doc, query, node, herenode, namespaces);
+  IF(res.errorcode != 0)
+  {
+    STRING ARRAY libxmlerrors :=
+      [ "Number encoding"
+      , "Unfinished literal"
+      , "Start of literal"
+      , "Expected $ for variable reference"
+      , "Undefined variable"
+      , "Invalid predicate"
+      , "Invalid expression"
+      , "Missing closing curly brace"
+      , "Unregistered function"
+      , "Invalid operand"
+      , "Invalid type"
+      , "Invalid number of arguments"
+      , "Invalid context size"
+      , "Invalid context position"
+      , "Memory allocation error"
+      , "Syntax error"
+      , "Resource error"
+      , "Sub resource error"
+      , "Undefined namespace prefix"
+      , "Encoding error"
+      , "Char out of XML range"
+      , "Invalid or incomplete context"
+      , "Stack usage error"
+      , "Forbidden variable"
+      ];
+
+    INTEGER error  := res.errorcode - 1201;
+    STRING errormessage := error >= 0 AND error < Length(libxmlerrors) ? libxmlerrors[error] : `XPath error #${res.errorcode}`;
+    THROW NEW Exception(`XPath error: ${errormessage}`);
+
+  }
+  RETURN res.resultlist;
+}
+
+PUBLIC OBJECT ARRAY FUNCTION ExecuteSimpleXpathQuery(OBJECT startnode, STRING query)
+{
+  BOOLEAN startiselement := startnode->nodetype = 1;
+  RETURN SELECT AS OBJECT ARRAY node
+         FROM ExecuteXpathQuery( startiselement ? startnode->ownerdocument : startnode
+                               , query
+                               , startiselement ? startnode : DEFAULT OBJECT
+                               , DEFAULT OBJECT
+                               , RECORD[]
+                               );
+}
+
+PUBLIC STATIC OBJECTTYPE XmlXPathQuery
+<
+  OBJECT document;
+  RECORD ARRAY namespaces;
+  PUBLIC OBJECT here_node;
+
+  PUBLIC MACRO NEW(OBJECT document)
+  {
+    this->document := document;
+    this->RegisterNamespace("xml","http://www.w3.org/XML/1998/namespace");
+  }
+
+  PRIVATE STRING FUNCTION LookupPrefix(STRING find_ns)
+  {
+    FOREVERY(RECORD ns FROM this->namespaces)
+      IF(ns.uri = find_ns)
+        RETURN ns.prefix;
+    RETURN "";
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __InnerSelectXML(STRING path, OBJECT startnode, BOOLEAN quirks)
+  {
+    OBJECT result := this->ExecuteQuery(path, startnode);
+    //ADDME: Support other result types than XPATH_NODESET
+    IF(NOT ObjectExists(result) OR result->length=0)
+      RETURN DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY rows;
+    FOREVERY(OBJECT child FROM result->GetCurrentNodes())
+    {
+      STRING xml_prefix;
+      IF(child->namespaceuri!="")
+      {
+        xml_prefix := this->LookupPrefix(child->namespaceuri);
+        IF(xml_prefix = "")
+          CONTINUE; //unregistered namespace
+      }
+
+      BOOLEAN isattr := child EXTENDSFROM XmlAttr;
+      RECORD element := [ xml_name := isattr ? child->name : child->nodename
+                        , xml_type := isattr ? 2 : child->nodetype
+                        , xml_ns := quirks AND NOT isattr ? xml_prefix : child->namespaceuri
+                        , xml_content := isattr ? child->value : GetNodeContent(child)
+                        , xml_position := #child+1
+                        , xml_linenum := child->linenum
+                        ];
+
+      IF(NOT isattr AND child->nodetype = child->Element_Node)
+      {
+        INTEGER numattrs := child->attributes->length;
+        FOR(INTEGER i := 0; i < numattrs; i := i + 1)
+        {
+          OBJECT attrnode := child->attributes->item(i);
+          STRING attr_prefix;
+          IF(attrnode->namespaceuri!="")
+          {
+            attr_prefix := this->LookupPrefix(attrnode->namespaceuri);
+            IF(attr_prefix = "")
+              CONTINUE; //unregistered namespace
+          }
+
+          STRING name := (attr_prefix != "" ? attr_prefix || ":" : "") || (attrnode->localname ?? attrnode->name);
+          IF(NOT CellExists(element, name))
+            element := CellInsert(element, name, attrnode->value);
+        }
+      }
+
+      INSERT element INTO rows AT END;
+    }
+    RETURN rows;
+  }
+
+  PUBLIC MACRO RegisterNamespace(STRING prefix, STRING namespaceuri)
+  {
+    INSERT INTO this->namespaces(prefix,uri) VALUES(prefix, namespaceuri) AT 0;
+  }
+
+  /** @short Register all explicit namespaces in the specified list
+      @long This function registers all explicit namespaces (ie, all but the default namespace) from the specified list. This list is usually obtained
+            by taking the GetVisibleNamespaces() from the context where a XPath expression is defined */
+  PUBLIC MACRO RegisterNamespaces(RECORD ARRAY nslist)
+  {
+    FOREVERY(RECORD ns FROM nslist)
+      IF(ns.prefix != "")
+        this->RegisterNamespace(ns.prefix, ns.namespaceuri);
+  }
+
+  PUBLIC OBJECT FUNCTION ExecuteQuery(STRING query, OBJECT node DEFAULTSTO DEFAULT OBJECT)
+  {
+    RECORD ARRAY resultlist := ExecuteXpathQuery(this->document, query, node, this->here_node, this->namespaces);
+    RETURN NEW XpathResultNodeList(resultlist);
+  }
+
+  /** Get a harescript record from a node */
+  PUBLIC RECORD FUNCTION GetHarescriptRecord(STRING node)
+  {
+    OBJECT query := this->ExecuteQuery(node);
+    IF(NOT ObjectExists(query) OR query->length=0 OR query->item(0)->GetAttributeNS(xmlrecord_namespace, "type") != "record")
+      RETURN DEFAULT RECORD;
+
+    RETURN query->item(0)->__INTERNAL_GetHSValue();
+  }
+
+  /** @short Execute an XPATH query on an XML document
+    @param xmldoc XML document to query
+    @param path XPATH query to execute
+    @return A record array containing a record for every node returned by the query, with every attribute in a cell named
+            after the attribute
+    @cell return.xml_name The name of the attribute
+    @cell return.xml_content The contents of the xml node, stripped of any contained tags
+  */
+  PUBLIC RECORD ARRAY FUNCTION SelectXML(STRING path, OBJECT startnode DEFAULTSTO DEFAULT OBJECT)
+  {
+    RETURN this->__InnerSelectXML(path, startnode, FALSE);
+  }
+>;
+
+

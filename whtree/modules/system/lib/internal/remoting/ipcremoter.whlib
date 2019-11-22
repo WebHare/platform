@@ -1,0 +1,226 @@
+﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/internal/remoting/binary_encoding.whlib";
+LOADLIB "mod::system/lib/internal/remoting/objremoter.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE IPCRemoter
+<
+  OBJECT link;
+  OBJECT pvt_remoter;
+  OBJECT codec;
+
+  RECORD ARRAY functions;
+
+  RECORD ARRAY responses;
+
+  PUBLIC FUNCTION PTR OnLinkClosed;
+
+  MACRO NEW(OBJECT link, BOOLEAN is_server)
+  {
+    this->link := link;
+    this->link->userdata := [ cb := RegisterHandleReadCallback(this->link->handle, PTR this->GotLinkSignalled) ];
+    this->pvt_remoter := CreateObjectRemoter(NOT is_server);
+    this->codec := CreateRemotingBinaryCodec(this->pvt_remoter);
+
+    this->pvt_remoter->remotecall := PTR this->GotRemoteMethodCall;
+    this->pvt_remoter->asyncremotecall := PTR this->GotAsyncRemoteMethodCall;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotLinkSignalled()
+  {
+    RECORD rec := this->link->ReceiveMessage(DEFAULT DATETIME);
+
+    IF (rec.status = "timeout")
+      RETURN; // Spurious wake
+
+    IF (rec.status = "gone")
+    {
+      this->HandleLinkGone();
+      RETURN;
+    }
+
+    this->HandleMessage(rec.msg, rec.msgid, rec.replyto);
+  }
+
+  MACRO HandleLinkGone()
+  {
+    IF (this->link->userdata.cb != 0)
+    {
+      UnregisterCallback(this->link->userdata.cb);
+      this->link->userdata.cb := 0;
+    }
+
+    IF (this->OnLinkClosed != DEFAULT FUNCTION PTR)
+      this->OnLinkClosed();
+  }
+
+  MACRO HandleMessage(RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
+  {
+    msg := this->codec->DecodeForRemoting(msg);
+    SWITCH (msg.type)
+    {
+      CASE "functioncall"
+      {
+        TRY
+        {
+          RECORD pos := RecordLowerBound(this->functions, [ name := ToUppercase(msg.name) ], [ "NAME" ]);
+          IF (NOT pos.found)
+            THROW NEW Exception("Could not find function '" || msg.name || "'");
+          ELSE
+          {
+            RECORD res := DoCheckedVarArgsCall(this->functions[pos.position].call, msg.args, msg.name);
+
+            IF (msg.respond)
+            {
+              this->link->SendReply(this->EncodeResponse(res.is_macro, res.result), msgid);
+            }
+          }
+        }
+        CATCH (OBJECT e)
+        {
+          IF (msg.respond)
+            this->link->SendReply(this->EncodeException(e), msg.msgid);
+        }
+      }
+      CASE "methodcall"
+      {
+        TRY
+        {
+          OBJECT obj := this->pvt_remoter->GetRemoteObject(msg.objectid);
+
+          FUNCTION PTR method := GetObjectMethodPtr(obj, msg.methodname);
+          RECORD res := DoCheckedVarArgsCall(method, msg.args, msg.methodname);
+
+          IF (msg.respond)
+            this->link->SendReply(this->EncodeResponse(res.is_macro, res.result), msgid);
+        }
+        CATCH (OBJECT e)
+        {
+          IF (msg.respond)
+            this->link->SendReply(this->EncodeException(e), msg.msgid);
+        }
+      }
+      CASE "exception"
+      {
+        OBJECT e := NEW Exception(msg.what);
+        e->trace := msg.trace;
+        THROW e;
+      }
+      CASE "response"
+      {
+        RECORD rec := [ msgid := replyto, msg := msg ];
+        INSERT rec INTO this->responses AT RecordLowerBound(this->responses, rec, [ "MSGID" ]).position;
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Encoding of stuff
+  //
+
+  RECORD FUNCTION EncodeException(OBJECT e)
+  {
+    RETURN this->codec->EncodeForRemoting(
+          [ type :=           "exception"
+          , what :=           e->what
+          , trace :=          e->trace
+          , encoded :=        e->EncodeForIPC()
+          ]);
+  }
+
+  RECORD FUNCTION EncodeResponse(BOOLEAN is_macro, VARIANT response)
+  {
+    RETURN this->codec->EncodeForRemoting(
+          [ type :=           "response"
+          , have_value :=     NOT is_macro
+          , value :=          response
+          ]);
+  }
+
+  PUBLIC RECORD FUNCTION EncodeMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY args, BOOLEAN respond)
+  {
+    RECORD rec := this->pvt_remoter->GetObjectId(obj);
+    IF (NOT rec.seen)
+      THROW NEW Exception("Calling a method on an unknown remote object");
+
+    RETURN this->codec->EncodeForRemoting(
+          [ type :=       "methodcall"
+          , args :=       args
+          , objectid :=   rec.id
+          , methodname := methodname
+          , respond :=    respond
+          ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Internal calling stuff
+  //
+
+  VARIANT FUNCTION GotRemoteMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY args)
+  {
+    RECORD res := this->link->SendMessage(this->EncodeMethodCall(obj, methodname, args, TRUE));
+    RETURN this->WaitForResponse(res.msgid);
+  }
+
+  MACRO GotAsyncRemoteMethodCall(OBJECT obj, STRING methodname, VARIANT ARRAY args)
+  {
+    this->link->SendMessage(this->EncodeMethodCall(obj, methodname, args, FALSE));
+  }
+
+  VARIANT FUNCTION WaitForResponse(INTEGER64 msgid)
+  {
+    WHILE (TRUE)
+    {
+      WaitUntil([ callbacks := TRUE ], MAX_DATETIME);
+
+      RECORD pos := RecordLowerBound(this->responses, [ msgid := msgid ], [ "MSGID" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      VARIANT result := this->responses[pos.position].msg.value;
+      DELETE FROM this->responses AT pos.position;
+      RETURN result;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO RegisterFunction(STRING name, FUNCTION PTR call)
+  {
+    RECORD rec := [ name := ToUppercase(name), call := call ];
+    INSERT rec INTO this->functions AT RecordLowerBound(this->functions, rec, [ "NAME" ]).position;
+  }
+
+  PUBLIC VARIANT FUNCTION CallFunction(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    RECORD res := this->link->SendMessage(this->codec->EncodeForRemoting(
+        [ type :=       "functioncall"
+        , name :=       name
+        , args :=       args
+        , respond :=    TRUE
+        ]));
+    RETURN this->WaitForResponse(res.msgid);
+  }
+>;
+
+
+
+
+
+

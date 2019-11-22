@@ -1,0 +1,31 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
+
+MACRO TestPDOK_External()
+{
+  testfw->BeginWork();
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "pdok" ]);
+
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [ postbus := FALSE, expectlookupcalls := 2 ]);
+
+  //PDOK does/did not return 'woonplaats' for this address, can't do much about it but at least ensure city xists
+  RECORD checkres := api->CheckAddress([ zip := "4131AH", nr_detail:="38", country := "NL"]);
+  TestEq(TRUE, CellExists(checkres.data,"city"));
+
+  RECORD checkres2 := api->GetAddresses(
+      [ postcode :=     "7521AM"
+      , huisnummer :=   "296"
+      ], 1);
+
+  TestEq(1, LENGTH(checkres2.addresses));
+  TestEqFloat(checkres2.addresses[0].latitude, 52.230, 0.002);
+  TestEqFloat(checkres2.addresses[0].longitude, 6.873, 0.002);
+
+  testfw->RollbackWork();
+}
+
+Runtestframework([ PTR TestPDOK_External
+                 ]);

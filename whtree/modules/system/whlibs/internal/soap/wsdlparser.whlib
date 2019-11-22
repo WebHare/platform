@@ -1,0 +1,577 @@
+﻿<?wh
+
+/** This library contains a parser for a wsdl specification
+*/
+
+LOADLIB "wh::internet/webbrowser.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "wh::internal/soap/wsdlstructures.whlib";
+LOADLIB "wh::internal/soap/domwalker.whlib";
+LOADLIB "wh::xml/validation.whlib";
+
+// Default namespaces
+STRING ns_wsdl := "http://schemas.xmlsoap.org/wsdl/";
+STRING ns_wsp := "http://schemas.xmlsoap.org/ws/2004/09/policy";
+STRING ns_xsd2001 := "http://www.w3.org/2001/XMLSchema";
+
+OBJECT ARRAY registered_binding_interpreters;
+
+//------------------------------------------------------------------------------
+//
+// WSDL parser
+//
+//------------------------------------------------------------------------------
+
+
+OBJECT FUNCTION GetMessageByNameNS(RECORD ARRAY messages, STRING namespace, STRING name)
+{
+  RECORD pos := RecordLowerBound(messages, [ target_namespace := namespace, name := name ], [ "TARGET_NAMESPACE", "NAME" ]);
+  IF (NOT pos.found)
+  {
+    PRINT(AnyToSTring(messages, "boxed"));
+    THROW NEW Exception("Could not locate message {" || namespace || "}" || name);
+  }
+  RETURN messages[pos.position].message;
+}
+
+OBJECT FUNCTION DefaultWSDLImportResolver(STRING location)
+{
+  OBJECT browser := NEW WebBrowser;
+  IF (NOT browser->GotoWebPage(location))
+    THROW NEW Exception(`Could not retrieve imported wsdl at ${location}, code: ${browser->GetHTTPStatusCode()}`);
+
+  IF (NOT ObjectExists(browser->document))
+    THROW NEW Exception(`Imported wsdl at ${location} is not a valid XML document`);
+
+  RETURN browser->document->documentelement;
+}
+
+PUBLIC OBJECT FUNCTION ParseWSDL(OBJECT xsdparser, OBJECT node, STRING filename, OBJECT modifications, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ importresolver :=   PTR DefaultWSDLImportResolver
+      , urlrewrite :=       DEFAULT FUNCTION PTR
+      ], options);
+
+  // We assume the structure of the specification, and in that order
+  // http://www.w3.org/TR/wsdl#_document-s
+
+  OBJECT wsdlspec := NEW WSDLSpecification(xsdparser);
+
+  ParseWSDLInternal(xsdparser,wsdlspec, node, filename, modifications, options);
+  RETURN wsdlspec;
+}
+
+MACRO ParseWSDLInternal(OBJECT xsdparser, OBJECT wsdlspec, OBJECT node, STRING filename, OBJECT modifications, RECORD options)
+{
+  STRING target_namespace := node->GetAttribute("targetNamespace");
+
+  // node is the wsdl:definitions node
+  OBJECT enumchild := GetFirstChildElement(node);
+
+  /* The WSDL spec specificies specific order of the xml elements, in which information is presented before
+     it is processed in the next step. Magento has the wrong order of elements, so we need to order them first.
+  */
+  OBJECT xml_types;
+  OBJECT ARRAY xml_messages;
+  OBJECT ARRAY xml_porttypes;
+  OBJECT ARRAY xml_bindings;
+  OBJECT ARRAY xml_services;
+
+  WHILE (ObjectExists(enumchild))
+  {
+    IF (enumchild->namespaceuri = ns_wsdl)
+    {
+      SWITCH (enumchild->localname)
+      {
+        CASE "documentation"      { /* ignore */ }
+        CASE "import"
+        {
+          STRING location := enumchild->GetAttribute("location");
+          IF (options.urlrewrite != DEFAULT FUNCTION PTR)
+            location := options.urlrewrite(location);
+          OBJECT toimport := options.importresolver(location);
+          IF (NOT ObjectExists(toimport))
+            THROW NEW Exception(`Could not import WSDL from ${location}`);
+          IF (toimport->nodetype = 9) // document
+            toimport := toimport->documentelement;
+
+          IF (toimport->namespaceuri != ns_wsdl OR
+              toimport->localname != "definitions")
+            THROW NEW Exception(`The document to import from ${location} at ${filename}:${enumchild->linenum} is not a valid WSDL document (got rootnode {${toimport->namespaceuri}}:${toimport->localname})`);
+
+          // Recursive parse
+          ParseWSDLInternal(xsdparser, wsdlspec, toimport, location, modifications, options);
+        }
+        CASE "types"              { xml_types := enumchild; }
+        CASE "message"            { INSERT enumchild INTO xml_messages AT END; }
+        CASE "portType"           { INSERT enumchild INTO xml_porttypes AT END; }
+        CASE "binding"            { INSERT enumchild INTO xml_bindings AT END; }
+        CASE "service"            { INSERT enumchild INTO xml_services AT END; }
+        DEFAULT                   { /* ignore unknown wsdl elements */ }
+      }
+    }
+    ELSE
+    {
+      // ADDME: don't ignore any extensibility elements here
+    }
+
+    enumchild := GetNextSiblingElement(enumchild);
+  }
+
+  IF (ObjectExists(xml_types))
+  {
+    OBJECT gchild := GetFirstChildElement(xml_types);
+
+    IF (IsSpecificElement(gchild, ns_wsdl, "documentation"))
+      gchild := GetNextSiblingElement(gchild);
+
+    WHILE (IsSpecificElement(gchild, ns_xsd2001, "schema")) // FIXME: Support 2000/10 schema's as per wsdl spec.
+    {
+      __ParseXSDSchemaNoBuildProps(xsdparser, gchild, filename);
+      gchild := GetNextSiblingElement(gchild);
+    }
+    EnsureXMLNodeNonExisting(gchild);
+  }
+  xsdparser->BuildProperties();
+
+  RECORD ARRAY messages;
+
+  IF (ObjectExists(modifications))
+  {
+    FOREVERY (RECORD msg FROM modifications->extra_messages)
+    {
+      OBJECT message := NEW WSDLMessage(wsdlspec, msg.namespaceuri, msg.name);
+      FOREVERY (RECORD msgpart FROM msg.parts)
+      {
+        OBJECT part := NEW WSDLPart(msgpart.name);
+        IF (CellExists(msgpart, "ELEMENT") AND RecordExists(msgpart.element))
+          part->element := xsdparser->LookupNode(msgpart.element.namespaceuri, msgpart.element.localname, "ELEMENT");
+        ELSE IF (CellExists(msgpart, "TYPE") AND RecordExists(msgpart.type))
+          part->type := xsdparser->LookupNode(msgpart.type.namespaceuri, msgpart.type.localname, "DATATYPE");
+        ELSE THROW NEW Exception("Setting a element or a type is mandatory in a message part");
+
+        INSERT part INTO message->parts AT END;
+      }
+
+      INSERT message INTO wsdlspec->pvt_messages AT END;
+
+      RECORD messagerec :=
+          [ target_namespace :=   msg.namespaceuri
+          , name :=               msg.name
+          , message :=            message
+          ];
+
+      RECORD pos := RecordLowerBound(messages, messagerec, [ "TARGET_NAMESPACE", "NAME" ]);
+      IF (NOT pos.found)
+        INSERT messagerec INTO messages AT pos.position;
+      ELSE
+        THROW NEW Exception("Found two messages with the same name: {" || msg.namespace || "}" || msg.name);
+    }
+  }
+
+  FOREVERY (OBJECT xml_message FROM xml_messages)
+  {
+    STRING name := xml_message->GetAttribute("name");
+    OBJECT message := NEW WSDLMessage(wsdlspec, target_namespace, name);
+
+    OBJECT gchild := GetFirstChildElement(xml_message);
+
+    IF (IsSpecificElement(gchild, ns_wsdl, "documentation"))
+      gchild := GetNextSiblingElement(gchild);
+
+    WHILE (IsSpecificElement(gchild, ns_wsdl, "part"))
+    {
+      STRING childname := gchild->GetAttribute("name");
+      OBJECT part := NEW WSDLPart(childname);
+      IF (gchild->HasAttribute("element"))
+        part->element := xsdparser->LookupNodeFromQName(gchild->GetAttribute("element"), gchild, "ELEMENT");
+      IF (gchild->HasAttribute("type"))
+        part->type := xsdparser->LookupNodeFromQName(gchild->GetAttribute("type"), gchild, "DATATYPE");
+
+      INSERT part INTO message->parts AT END;
+
+      gchild := GetNextSiblingElement(gchild);
+    }
+    EnsureXMLNodeNonExisting(gchild);
+
+    INSERT message INTO wsdlspec->pvt_messages AT END;
+
+    RECORD messagerec :=
+        [ target_namespace :=   target_namespace
+        , name :=               name
+        , message :=            message
+        ];
+
+    RECORD pos := RecordLowerBound(messages, messagerec, [ "TARGET_NAMESPACE", "NAME" ]);
+    IF (NOT pos.found)
+      INSERT messagerec INTO messages AT pos.position;
+    ELSE
+      THROW NEW Exception("Found two messages with the same name: {" || target_namespace || "}" || name);
+  }
+
+  FOREVERY (OBJECT xml_porttype FROM xml_porttypes)
+  {
+    STRING name := xml_porttype->GetAttribute("name");
+    OBJECT porttype := NEW WSDLPortType(wsdlspec, target_namespace, name);
+
+    OBJECT gchild := GetFirstChildElement(xml_porttype);
+    IF (IsSpecificElement(gchild, ns_wsdl, "documentation"))
+      gchild := GetNextSiblingElement(gchild);
+
+    WHILE (IsSpecificElement(gchild, ns_wsdl, "operation"))
+    {
+      STRING childname := gchild->GetAttribute("name");
+      OBJECT operation := NEW WSDLOperation(wsdlspec, target_namespace, childname);
+
+      OBJECT ggchild := GetFirstChildElement(gchild);
+      IF (IsSpecificElement(ggchild, ns_wsdl, "documentation"))
+        ggchild := GetNextSiblingElement(ggchild);
+
+      STRING elt_order;
+
+      IF (IsSpecificElement(ggchild, ns_wsdl, "output"))
+      {
+        RECORD message_name := ResolveQNameFromXMLNode(ggchild->GetAttribute("message"), ggchild);
+        operation->output := [ name := ggchild->GetAttribute("name")
+                             , message := GetMessageByNameNS(messages, message_name.namespaceuri, message_name.localname)
+                             , wsaw_action := ggchild->GetAttributeNS("http://www.w3.org/2006/05/addressing/wsdl", "Action")
+                             ];
+        // ADDME: documentation?
+        ggchild := GetNextSiblingElement(ggchild);
+        elt_order := "O";
+      }
+      IF (IsSpecificElement(ggchild, ns_wsdl, "input"))
+      {
+        RECORD message_name := ResolveQNameFromXMLNode(ggchild->GetAttribute("message"), ggchild);
+        operation->input := [ name := ggchild->GetAttribute("name")
+                            , message := GetMessageByNameNS(messages, message_name.namespaceuri, message_name.localname)
+                            , wsaw_action := ggchild->GetAttributeNS("http://www.w3.org/2006/05/addressing/wsdl", "Action")
+                            ];
+        // ADDME: documentation?
+        ggchild := GetNextSiblingElement(ggchild);
+        elt_order := elt_order || "I";
+      }
+      IF (IsSpecificElement(ggchild, ns_wsdl, "output"))
+      {
+        RECORD message_name := ResolveQNameFromXMLNode(ggchild->GetAttribute("message"), ggchild);
+        operation->output := [ name := ggchild->GetAttribute("name")
+                             , message := GetMessageByNameNS(messages, message_name.namespaceuri, message_name.localname)
+                             , wsaw_action := ggchild->GetAttributeNS("http://www.w3.org/2006/05/addressing/wsdl", "Action")
+                             ];
+        // ADDME: documentation?
+        ggchild := GetNextSiblingElement(ggchild);
+        elt_order := elt_order || "O";
+      }
+      WHILE (IsSpecificElement(ggchild, ns_wsdl, "fault"))
+      {
+        RECORD message_name := ResolveQNameFromXMLNode(ggchild->GetAttribute("message"), ggchild);
+        INSERT [ name := ggchild->GetAttribute("name"), message := GetMessageByNameNS(messages, message_name.namespaceuri, message_name.localname) ] INTO operation->faults AT END;
+        // ADDME: documentation?
+        ggchild := GetNextSiblingElement(ggchild);
+      }
+
+      SWITCH(elt_order)
+      {
+      CASE "I"
+        {
+          IF (operation->input.name = "")
+            operation->input.name := name;
+          operation->transmission_primitive := "one-way";
+        }
+      CASE "IO"
+        {
+          IF (operation->input.name = "")
+            operation->input.name := name ||"Request";
+          IF (operation->output.name = "")
+            operation->output.name := name || "Response";
+          operation->transmission_primitive := "request-response";
+        }
+      CASE "OI"
+        {
+          IF (operation->input.name = "")
+            operation->input.name := name || "Solicit";
+          IF (operation->output.name = "")
+            operation->output.name := name || "Response";
+          operation->transmission_primitive := "solicit-response";
+        }
+      CASE "O"
+        {
+          IF (operation->output.name = "")
+            operation->output.name := name;
+          operation->transmission_primitive := "notification";
+        }
+      }
+
+      EnsureXMLNodeNonExisting(ggchild);
+
+      INSERT operation INTO porttype->operations AT END;
+      gchild := GetNextSiblingElement(gchild);
+    }
+    EnsureXMLNodeNonExisting(gchild);
+
+    INSERT porttype INTO wsdlspec->pvt_porttypes AT END;
+  }
+
+  FOREVERY (OBJECT xml_binding FROM xml_bindings)
+  {
+    STRING name := xml_binding->GetAttribute("name");
+    STRING porttype_qname := xml_binding->GetAttribute("type");
+    RECORD porttype_name := ResolveQNameFromXMLNode(porttype_qname, xml_binding);
+    OBJECT porttype := wsdlspec->GetPortTypeNS(porttype_name.namespaceuri, porttype_name.localname);
+    IF (NOT ObjectExists(porttype))
+      ABORT("Porttype {"||porttype_name.namespaceuri||"}"||porttype_name.localname||" does not exist");
+
+    OBJECT gchild := GetFirstChildElement(xml_binding);
+    IF (IsSpecificElement(gchild, ns_wsdl, "documentation"))
+      gchild := GetNextSiblingElement(gchild);
+    IF (IsSpecificElement(gchild, ns_wsp, "PolicyReference")) //needed to read serviceax
+      gchild := GetNextSiblingElement(gchild);
+
+    OBJECT ARRAY extensibility_elements;
+    IF (ObjectExists(gchild) AND gchild->namespaceuri != ns_wsdl)
+    {
+      INSERT gchild INTO extensibility_elements AT END;
+      gchild := GetNextSiblingElement(gchild);
+    }
+
+    OBJECT interpreter;
+    FOREVERY (OBJECT ext_elt FROM extensibility_elements)
+    {
+      FOREVERY (OBJECT test_interpreter FROM registered_binding_interpreters)
+      {
+        //Print("binding? " || ext_elt->namespaceuri || " " || ext_elt->localname || "\n");
+        IF (test_interpreter->CanHandleBinding(ext_elt->namespaceuri, ext_elt->localname))
+        {
+          interpreter := test_interpreter;
+          BREAK;
+        }
+      }
+
+      IF (ObjectExists(interpreter))
+        BREAK;
+    }
+
+    IF (NOT ObjectExists(interpreter))
+    {
+      STRING ARRAY elts :=
+          SELECT AS STRING ARRAY "{"||obj->namespaceuri||"}"||obj->localname
+            FROM ToRecordArray(extensibility_elements, "OBJ");
+
+      INSERT
+          [ namespaceuri :=             target_namespace
+          , name :=                     name
+          , type :=                     "binding"
+          , msg :=                      "Could not find a relevant binding interpreter for any of the extensibility elements ("||Detokenize(elts, ", ")||")"
+          ] INTO wsdlspec->unparsable_elements AT END;
+    }
+    ELSE
+    {
+      OBJECT binding := interpreter->CreateBinding(wsdlspec, target_namespace, name, porttype, DEFAULT OBJECT, extensibility_elements, options);
+
+      WHILE (IsSpecificElement(gchild, ns_wsdl, "operation"))
+      {
+        STRING operation_name := gchild->GetAttribute("name");
+
+        OBJECT ggchild := GetFirstChildElement(gchild);
+        IF (IsSpecificElement(ggchild, ns_wsdl, "documentation"))
+          ggchild := GetNextSiblingElement(ggchild);
+
+        OBJECT ARRAY op_ext_elts;
+        WHILE (ObjectExists(ggchild) AND ggchild->namespaceuri != ns_wsdl)
+        {
+          INSERT ggchild INTO op_ext_elts AT END;
+          ggchild := GetNextSiblingElement(ggchild);
+        }
+
+        RECORD input, output;
+        RECORD ARRAY faults;
+
+        /* one-way:     input
+           req-resp:    input output faults
+           solicit-resp:output input faults
+           notification:output
+        */
+        IF (IsSpecificElement(ggchild, ns_wsdl, "input"))
+        {
+          input := ParseBindOpMessageElt(ggchild);
+          ggchild := GetNextSiblingElement(ggchild);
+        }
+        IF (IsSpecificElement(ggchild, ns_wsdl, "output"))
+        {
+          output := ParseBindOpMessageElt(ggchild);
+          ggchild := GetNextSiblingElement(ggchild);
+        }
+        IF (IsSpecificElement(ggchild, ns_wsdl, "input"))
+        {
+          input := ParseBindOpMessageElt(ggchild);
+          ggchild := GetNextSiblingElement(ggchild);
+        }
+        WHILE (IsSpecificElement(ggchild, ns_wsdl, "fault"))
+        {
+          INSERT ParseBindOpMessageElt(ggchild) INTO faults AT END;
+          ggchild := GetNextSiblingElement(ggchild);
+        }
+
+        OBJECT ARRAY operations := porttype->GetOperationsByName(operation_name);
+        IF (LENGTH(operations) = 0)
+          ABORT("Could not locate operation '"||operation_name||"' in port type {"||porttype->target_namespace||"}"||porttype->name);
+        ELSE IF (LENGTH(operations) != 1)
+        {
+          //ADDME: differentiate on base of the names of the input/output messages
+          // See http://www.w3.org/TR/wsdl#_bindings
+          ABORT("Operation overloading not yet supported");
+        }
+
+        IF (RecordExists(input) != RecordExists(operations[0]->input))
+          THROW NEW Exception("Cannot bind to operation '" || operations[0]->name || "', because one has input and the other not)");
+        ELSE IF (RecordExists(input))
+        {
+          INSERT CELL message := operations[0]->input.message INTO input;
+          IF (input.name != "" AND operations[0]->input.name != "" AND input.name != operations[0]->input.name)
+            THROW NEW Exception("Cannot bind to operation '" || operations[0]->name || "', because names of the inputs do not agree)");
+          IF (operations[0]->input.name != "")
+            input.name := operations[0]->input.name;
+        }
+
+        IF (RecordExists(output) != RecordExists(operations[0]->output))
+          THROW NEW Exception("Cannot bind to operation '" || operations[0]->name || "', because one has output and the other not)");
+        ELSE IF (RecordExists(output))
+        {
+          INSERT CELL message := operations[0]->output.message INTO output;
+          IF (output.name != "" AND operations[0]->output.name != "" AND output.name != operations[0]->output.name)
+            THROW NEW Exception("Cannot bind to operation '" || operations[0]->name || "', because names of the outputs do not agree)");
+          IF (operations[0]->output.name != "")
+            output.name := operations[0]->output.name;
+        }
+
+        FOREVERY (RECORD f FROM faults)
+        {
+          // FIXME: better error checking
+          RECORD orgfault := SELECT * FROM operations[0]->faults WHERE COLUMN name = f.name;
+          IF (NOT RecordExists(orgfault))
+            THROW NEW Exception("Cannot bind to operation '" || operations[0]->name || "', because fault '"||f.name||"' does not exist)");
+
+          INSERT CELL message := orgfault.message INTO faults[#f];
+        }
+
+        OBJECT bound_op := interpreter->CreateBoundOperation(
+            wsdlspec,
+            binding,
+            operations[0],
+            DEFAULT OBJECT,
+            op_ext_elts,
+            input,
+            output,
+            faults,
+            modifications,
+            options);
+
+        INSERT bound_op INTO binding->operations AT END;
+
+        EnsureXMLNodeNonExisting(ggchild);
+
+        gchild := GetNextSiblingElement(gchild);
+      }
+      EnsureXMLNodeNonExisting(gchild);
+
+      INSERT binding INTO wsdlspec->pvt_bindings AT END;
+    }
+  }
+
+  FOREVERY (OBJECT xml_service FROM xml_services)
+  {
+    STRING name := xml_service->GetAttribute("name");
+
+    OBJECT gchild := GetFirstChildElement(xml_service);
+    IF (IsSpecificElement(gchild, ns_wsdl, "documentation"))
+      gchild := GetNextSiblingElement(gchild);
+
+    OBJECT service := NEW WSDLService(wsdlspec, target_namespace, name);
+
+    WHILE (IsSpecificElement(gchild, ns_wsdl, "port"))
+    {
+      STRING portname := gchild->GetAttribute("name");
+
+      //PRINT("Doing port " || portname || "\n");
+
+      STRING binding_qname := gchild->GetAttribute("binding");
+      RECORD binding_name := ResolveQNameFromXMLNode(binding_qname, gchild);
+
+      // If binding doesn't exist because it is unparsable, ignore it
+      RECORD unparsable :=
+          SELECT *
+            FROM wsdlspec->unparsable_elements
+           WHERE COLUMN type = "binding"
+             AND COLUMN namespaceuri = binding_name.namespaceuri
+             AND COLUMN name = binding_name.localname;
+
+      IF (RecordExists(unparsable))
+      {
+        // Binding wasn't parsable: port isn't also
+        unparsable.type := "port";
+
+        INSERT unparsable INTO wsdlspec->unparsable_elements AT END;
+        gchild := GetNextSiblingElement(gchild);
+        CONTINUE;
+      }
+
+      OBJECT binding := wsdlspec->GetBindingNS(binding_name.namespaceuri, binding_name.localname);
+
+      OBJECT ggchild := GetFirstChildElement(gchild);
+      IF (IsSpecificElement(ggchild, ns_wsdl, "documentation"))
+        ggchild := GetNextSiblingElement(ggchild);
+
+      OBJECT ARRAY ext_elts;
+      WHILE (ObjectExists(ggchild))
+      {
+        INSERT ggchild INTO ext_elts AT END;
+        ggchild := GetNextSiblingElement(ggchild);
+      }
+
+      OBJECT interpreter := binding->interpreter;
+
+      OBJECT port := interpreter->CreatePort(wsdlspec, target_namespace, portname, binding, ext_elts, options);
+
+      FOREVERY (OBJECT bound_op FROM binding->operations)
+      {
+        OBJECT bound_addr_op := interpreter->CreateAddressedBoundOperation(wsdlspec, port, bound_op, options);
+        INSERT bound_addr_op INTO port->pvt_operations AT END;
+      }
+
+      INSERT port INTO service->pvt_ports AT END;
+
+      gchild := GetNextSiblingElement(gchild);
+    }
+    // ADDME: don't ignore any extensibility elements here
+//    EnsureXMLNodeNonExisting(gchild);
+
+    INSERT service INTO wsdlspec->pvt_services AT END;
+  }
+}
+
+
+RECORD FUNCTION ParseBindOpMessageElt(OBJECT node)
+{
+  STRING name := node->GetAttribute("name");
+
+  OBJECT child := GetFirstChildElement(node);
+  IF (IsSpecificElement(child, ns_wsdl, "documentation"))
+    child := GetNextSiblingElement(child);
+
+  OBJECT ARRAY ext_elts;
+  WHILE (ObjectExists(child))
+  {
+    INSERT child INTO ext_elts AT END;
+    child := GetNextSiblingElement(child);
+  }
+
+  RETURN [ name := name, ext_elts := ext_elts, documentation := DEFAULT OBJECT ];
+}
+
+PUBLIC MACRO RegisterWSDLBindingInterpreter(OBJECT interpreter)
+{
+  INSERT interpreter INTO registered_binding_interpreters AT END;
+}
+

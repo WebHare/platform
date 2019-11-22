@@ -1,0 +1,109 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/pages.whlib";
+
+PUBLIC OBJECTTYPE WRDAuthSupport EXTEND WRDAuthSupportBase
+<
+  MACRO NEW(OBJECT plugin) : WRDAuthSupportBase(plugin)
+  {
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetJSUserInfo()
+  {
+    RECORD userinfo := this->plugin->wrdschema->^WRD_PERSON->GetEntityFields(this->plugin->GetLoggedinEntity(), [ "WRD_FULLNAME" ]);
+    RETURN userinfo;
+  }
+>;
+
+PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
+<
+  UPDATE PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
+  {
+    IF(options.isimpersonation)
+      RETURN DEFAULT RECORD;
+    RECORD userinfo := this->plugin->wrdschema->^WRD_PERSON->GetEntityFields(userid, [ "WRD_CONTACT_EMAIL" ]);
+    RETURN userinfo.wrd_contact_email LIKE "logindenied*"
+        ? [ code := "NOACCESS", userinfo := userinfo, _internal := "secret" ]
+        : DEFAULT RECORD;
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
+  {
+    RECORD policy := WRDAuthSupportBase::GetUserEditPolicy(userid, fields, atsubmit);
+    policy.passwordpolicy := "May not start with a 's'";
+    policy.passwordcheck := PTR this->OnCheckPassword;
+    RETURN policy;
+  }
+  BOOLEAN FUNCTION OnCheckPassword(STRING pass)
+  {
+    RETURN pass NOT LIKE "s*";
+  }
+>;
+
+PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
+<
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
+  {
+    OBJECT wrdauthplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+    RECORD data := [ feedbackurl := this->absolutebaseurl
+                   , firstname := GetWebVariable("firstname")
+                   , lastname := GetWebVariable("lastname")
+                   , pwdresetresult := DEFAULT MACRO PTR
+                   ];
+
+    IF(GetWebVariable('pwdreset')='1')
+    {
+      RECORD result := wrdauthplugin->ProcessPasswordResetPost(GetWebVariable("password"), TRUE);
+      INSERT CELL back := this->absolutebaseurl INTO result;
+      data.pwdresetresult := PTR EmbedWittyComponent("pwdresetdone", result);
+    }
+    IF(IsRequestPost() AND GetWebVariable("passwordresetbutton") != "")
+    {
+      INTEGER userid := wrdauthplugin->LookupLogin(GetWebVariable("resetlogin"));
+      IF(userid=0)
+      {
+        RETURN PTR EmbedWittyComponent(this->pagefolder || "wrdauthtest.witty:error", [ error := "No such user", back := this->absolutebaseurl ]);
+      }
+      ELSE
+      {
+        RECORD result := wrdauthplugin->CreatePasswordResetLink("?pwdreset=1", userid);
+        RETURN PTR EmbedWittyComponent(this->pagefolder || "wrdauthtest.witty:pwdreset", result);
+      }
+    }
+
+    IF(IsRequestPost() AND GetWebVariable("detailsbutton") != "")
+    {
+      GetPrimary()->BeginWork();
+
+      wrdauthplugin->wrdschema->GetType("WRD_PERSON")->UpdateEntity(wrdauthplugin->GetLoggedinEntity()
+        , [ wrd_firstname := GetWebVariable("firstname")
+        , wrd_lastname := GetWebVariable("lastname")
+        ]);
+
+      wrdauthplugin->UpdateUserInfo();
+
+      GetPrimary()->CommitWork();
+    }
+    RETURN PTR EmbedWittyComponent(Resolve("wrdauthtest.witty:wrdauthtest"), data);
+  }
+>;
+
+PUBLIC OBJECTTYPE WrdAuthStaticPage EXTEND StaticPageBase
+<
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdeisgn)
+  {
+    EmbedWittyComponent(this->pagefolder || "wrdauthtest.witty:statictest");
+  }
+>;
+
+PUBLIC OBJECT FUNCTION WRDAuthRouter(OBJECT webdesign)
+{
+  OBJECT page := GetWRDAuthPages(webdesign);
+  RETURN page ?? NEW SimpleWebPage(PTR EmbedWittyComponent(Resolve("wrdauthtest.witty:wrdauthrouter"),
+               [ wrdauthrouter := webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(webdesign->baseurl)
+               ]));
+}

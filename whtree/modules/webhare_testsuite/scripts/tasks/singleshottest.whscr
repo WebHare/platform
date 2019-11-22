@@ -1,0 +1,4 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+/* nothing to do or see */
+Print(anytostring(getcurrentdatetime(),'tree'));

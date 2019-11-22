@@ -1,0 +1,1109 @@
+<?wh
+
+/** @topic consilio/api
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
+LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/*
+
+PUBLISHER SEARCH FIELDS
+
+
+
+    RECORD ARRAY mapping := this->defaultmapping CONCAT
+        [ [ name := "name", value := "" ]
+        , [ name := "title", value := "" ]
+        , [ name := "description", value := "" ]
+        , [ name := "keywords", value := "" ]
+        , [ name := "url", value := "", tokenized := FALSE ]
+        , [ name := "whfsid", value := 0 ]
+        , [ name := "whfsparent", value := 0 ]
+        , [ name := "whfsobject", value := "", tokenized := FALSE ]
+
+  whfsobject = file | folder
+
+        , [ name := "whfstype", value := 0 ]
+        , [ name := "whfspath", value := "" ]
+        , [ name := "whfstree", value := "" ]
+        , [ name := "date_creation", value := DEFAULT DATETIME ]
+        , [ name := "date_modification", value := DEFAULT DATETIME ]
+        ];
+
+
+
+*/
+
+/** @short Create a match query
+    @long This query can be used to match a field with a given value. The matching behaviour depends on the matchtype and the
+        type of the value. For INTEGER and STRING values, matchtype "=" means a literal match and matchtype "CONTAINS" means
+        a value match. For INTEGER ARRAY and STRING ARRAY values, matchtype "IN" means that the fields must contain at least
+        one of the values and matchtype "CONTAINS" means that the field must contain all of the values. For DATETIME values,
+        the matchtype can be one of "<", "<=", "=", "=>" or ">" to search for date ranges.
+    @param field The field to search
+    @param matchtype How to match (possible values: 'IN', 'CONTAINS', '<', '<=', '=', '>=', '>')
+    @param value The value to match
+    @return The match query
+*/
+PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for match query");
+
+  STRING ARRAY searchvalue;
+  IF (TypeID(value) = TypeID(INTEGER))
+  {
+    IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER match query`);
+    searchvalue := [ ToString(value) ];
+  }
+  ELSE IF (TypeID(value) = TypeID(STRING))
+  {
+    IF (matchtype NOT IN [ "CONTAINS", "<", "<=", "=", ">=", ">" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for STRING match query`);
+    searchvalue := STRING[ value ];
+  }
+  ELSE IF (TypeID(value) = TypeID(INTEGER ARRAY))
+  {
+    IF (matchtype NOT IN [ "IN", "CONTAINS" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for INTEGER ARRAY match query`);
+    searchvalue := SELECT AS STRING ARRAY ToString(t) FROM ToRecordArray(value, "t");
+    IF (Length(searchvalue) = 1)
+      matchtype := "=";
+  }
+  ELSE IF (TypeID(value) = TypeID(STRING ARRAY))
+  {
+    IF (matchtype NOT IN [ "IN", "CONTAINS" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for STRING ARRAY match query`);
+    searchvalue := value;
+    IF (Length(searchvalue) = 1)
+      matchtype := "=";
+  }
+  ELSE IF (TypeID(value) = TypeID(DATETIME))
+  {
+    IF (matchtype NOT IN [ "<", "<=", "=", ">=", ">" ])
+      THROW NEW Exception(`Invalid match type '${matchtype}' for DATETIME match query`);
+
+    // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
+    IF (field LIKE "*.*@*")
+    {
+      INTEGER dot := SearchSubstring(field, ".") + 1;
+      field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+    }
+    ELSE
+      field := `date_${field}`;
+
+    RETURN
+        CELL[ _type := "date"
+            , field
+            , matchtype
+            , term := value
+            , boost := 1f
+            ];
+  }
+  ELSE
+    THROW NEW Exception(`Invalid value type '${GetTypeName(TypeID(value))}' for match query`);
+
+  IF (Length(searchvalue) > 1)
+  {
+    RETURN [ _type := "boolean"
+           , subqueries :=
+               (SELECT query :=
+                         CELL[ _type := "term"
+                             , field
+                             , term
+                             , boost := 1f
+                             ]
+                     , required := (matchtype = "CONTAINS")
+                     , prohibited := FALSE
+                  FROM ToRecordArray(searchvalue, "term"))
+           , boost := 1f
+           ];
+  }
+  ELSE IF(Length(searchvalue) = 0)
+  {
+    RETURN CQNothing();
+  }
+  ELSE IF (matchtype IN [ "<", "<=", ">=", ">" ])
+  {
+    RETURN
+        CELL[ _type := "range"
+            , field
+            , matchtype
+            , term := searchvalue[0]
+            , boost := 1f
+            ];
+  }
+
+  RETURN
+      CELL[ _type := matchtype = "=" ? "literal" : "term"
+          , field
+          , term := searchvalue[0]
+          , boost := 1f
+          ];
+}
+
+/** Returns a query record that will match results in which a field values lies between the specified range
+    @param field Field name
+    @param lowerterm Lower range value
+    @param includelower Whether to include exact matches of the lower range value
+    @param upperterm Upper range value
+    @param includeupper Whether to include exact matches of the upper range value
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for range query");
+
+  IF (TypeID(lowerterm) != TypeID(upperterm))
+    THROW NEW Exception(`Range query lower term type '${GetTypeName(TypeID(lowerterm))}' not equal to upper term type '${GetTypeName(TypeID(upperterm))}'`);
+
+  STRING lowersearchterm, uppersearchterm;
+  IF (TypeID(lowerterm) = TypeID(INTEGER))
+  {
+    lowersearchterm := ToString(lowerterm);
+    uppersearchterm := ToString(upperterm);
+  }
+  ELSE IF (TypeID(lowerterm) = TypeID(STRING))
+  {
+    lowersearchterm := STRING(lowerterm);
+    uppersearchterm := STRING(upperterm);
+  }
+  ELSE IF (TypeID(lowerterm) = TypeID(DATETIME))
+  {
+    // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
+    IF (field LIKE "*.*@*")
+    {
+      INTEGER dot := SearchSubstring(field, ".") + 1;
+      field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+    }
+    ELSE
+      field := `date_${field}`;
+  }
+  ELSE
+    THROW NEW Exception(`Invalid term type '${GetTypeName(TypeID(lowerterm))}' for range query`);
+
+  RETURN [ _type := "range"
+         , field := field
+         , matchtype := (includelower ? "[" : "{") || (includeupper ? "]" : "}")
+         , lowerterm := lowersearchterm
+         , upperterm := uppersearchterm
+         , boost := 1f
+         ];
+}
+
+/** Returns a query record that will never match anything
+    @return Consilio query record
+*/
+RECORD FUNCTION CQNothing()
+{
+  RETURN [ _type := "nothing"
+         , boost := 1f
+         ];
+}
+
+/** @short Returns a query record that matches all results that have a value for the specified field
+    @param field Field to look at
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQHas(STRING field)
+{
+  IF (field = "")
+    THROW NEW Exception("Query field is required for has query");
+
+  RETURN [ _type := "exists"
+         , field := field
+         , boost := 1f
+         ];
+}
+
+/** @short Returns a query record that matches all results
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQAll()
+{
+  RETURN [ _type := "all"
+         , boost := 1f
+         ];
+}
+
+/** @short Overwrites the boost factor of a query (which defaults to 1.0)
+    @param query Query to adjust the boost factor of
+    @param boost Boost factor
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQBoost(RECORD query, FLOAT boost)
+{
+  query.boost := boost;
+  RETURN query;
+}
+
+/** @short Combine queries using AND
+    @param inputqueries Consilio queries to combine
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQAnd(RECORD ARRAY inputqueries)
+{
+  RETURN CombineSubqueries(inputqueries, TRUE);
+}
+
+/** @short Combine queries using OR
+    @param inputqueries Consilio queries to combine
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQOr(RECORD ARRAY inputqueries)
+{
+  RETURN CombineSubqueries(inputqueries, FALSE);
+}
+
+RECORD FUNCTION CombineSubqueries(RECORD ARRAY subqueries, BOOLEAN required)
+{
+  RECORD resultquery :=
+      [ _type := "boolean"
+      , subqueries := RECORD[]
+      , boost := 1f
+      ];
+  FOREVERY (RECORD query FROM subqueries)
+  {
+    // If the first input query is a boolean query with the requested requirement, just add the other input queries
+    IF (query._type = "boolean")
+    {
+      // If this subquery is a boolean query with the requested requirement, just add its subqueries directly
+      IF (NOT RecordExists(SELECT FROM query.subqueries WHERE COLUMN required != VAR required OR prohibited))
+      {
+        // If this is the first query, replace the query
+        IF (#query = 0)
+          resultquery := query;
+        ELSE
+          resultquery.subqueries := resultquery.subqueries CONCAT query.subqueries;
+      }
+      ELSE
+      {
+        // Move every prohibited subquery a level up
+        resultquery.subqueries := resultquery.subqueries CONCAT SELECT * FROM query.subqueries WHERE prohibited;
+        DELETE FROM query.subqueries WHERE prohibited;
+        // If there are any subqueries left, add the remaining boolean query
+        IF (RecordExists(query.subqueries))
+          INSERT CELL[ query, required, prohibited := FALSE ] INTO resultquery.subqueries AT END;
+      }
+    }
+    ELSE IF(query._type = "nothing")
+    {
+      IF(required)  //In a serie of ANDs, nothing matches a poison.
+      {
+        resultquery.subqueries := RECORD[];
+        RETURN resultquery;
+      }
+      //but for OR queries, just ignore it
+    }
+    ELSE
+    {
+      INSERT CELL[ query, required, prohibited := FALSE ] INTO resultquery.subqueries AT END;
+    }
+  }
+  RETURN resultquery;
+}
+
+/** @short Negate query
+    @param inputquery Consilio query to negate
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
+{
+  IF(inputquery._type = "nothing")
+    RETURN CQAll();
+  ELSE IF(inputquery._type = "all")
+    RETURN CQNothing();
+  RETURN [ _type := "boolean"
+         , subqueries := [ [ query := inputquery
+                           , required := FALSE
+                           , prohibited := TRUE
+                           ]
+                         ]
+         , boost := 1f
+         ];
+}
+
+/** @short Parse a user query
+    @long If searches are saved (the save_searches option for %RunConsilioSearch, or the save_searches property of the
+        SearchObject), this is the query that is saved (not the complete query that is sent to the index manager)
+    @param userquery User query string
+    @cell(string) options.querymode How to combine the toplevel terms, either 'AND' or 'OR' (defaults to 'AND')
+    @cell(record array) options.defaultfields Fields to search for terms without explicit field specification
+    @cell(string) options.defaultfields.field Field name
+    @cell(float) options.defaultfields.boost Boost factor applied when a match is found in this field (defaults to 1.0)
+    @cell(boolean) options.defaultfields.stemmed_fields Set to true to also use stemming when searching for terms in this field
+    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id.
+    @return Consilio query record
+*/
+PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ querymode := "AND"
+      , defaultfields := DEFAULT RECORD ARRAY
+      , thesaurusid := 0
+      ],
+      options,
+      [ enums := [ querymode := [ "AND", "OR" ] ]
+      , discard := [ "defaultrequire" ] //FIXME: If this parameter is removed from all calls to CQParseUserQuery, it can be removed here
+      ]);
+
+  RECORD ARRAY thesaurus;
+  IF (options.thesaurusid != 0)
+    thesaurus := GetIndexThesaurus(options.thesaurusid);
+
+  userquery := TrimWhitespace(userquery);
+  IF(userquery = "") //FIXME validate for other weird stuff that should require us to just discard this
+    RETURN CQNothing();
+
+  RETURN CELL[ _type := "user"
+             , userquery
+             , defaultrequire := options.querymode = "AND" ? require_required : require_allowed
+             , options.defaultfields
+             , thesaurus
+             , boost := 1f
+             ];
+}
+
+/** @short Builds an aggregation query. Only works on ElasticSearch catalogs.
+    @param field Field to aggregate over
+    @param type Aggregation type ('count', 'min', 'max', terms", 'top_hits')
+    @cell options.name Name of the query, to refer to this query (defaults to the used field)
+    @cell options.size Nr of items to keep after ordering (only for aggregation types 'terms' and 'top_hits')
+    @cell options.orderby Field to order over (only for aggregation types 'terms' and 'top_hits')
+    @cell options.orderdesc Whether to reverse the ordering (only for aggregation types 'terms' and 'top_hits')
+    @cell options.query Query to run the aggregation over (defaults to matching all results)
+    @cell options.aggregations Subaggregations (returned by #CQAggregate)
+    @return Consilio aggregation query record
+*/
+PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ name := ""
+      , size := 0
+      , orderby := ""
+      , orderdesc := TRUE
+      , query := DEFAULT RECORD
+      , aggregations := DEFAULT RECORD ARRAY
+      ], options);
+
+  // Make sure either field or name is given
+  IF (field = "" AND type != "count")
+    THROW NEW Exception("Field is required for aggregation");
+  ELSE IF (type = "count" AND options.name = "")
+    THROW NEW Exception("Name option is required for aggregation type 'count'");
+
+  // For top_hits, a size must be given
+  IF (type IN [ "terms", "top_hits" ] AND options.size <= 0)
+    THROW NEW Exception("A non-zero size option is required for aggregation type 'top_hits'");
+
+  RECORD aggregation :=
+      CELL[ _type := type
+          , name := options.name ?? field
+          , field
+          , options.aggregations
+          ];
+  IF (type IN [ "min", "max", "count" ])
+  {
+  }
+  ELSE IF (type IN [ "terms", "top_hits" ])
+  {
+    aggregation := CELL[ ...aggregation, options.size, options.orderby, options.orderdesc ];
+  }
+  ELSE
+    THROW NEW Exception(`Invalid aggregation type '${type}'`);
+
+  RECORD res := CELL[ aggregation ];
+  IF (RecordExists(options.query))
+    INSERT CELL query := options.query INTO res;
+  RETURN res;
+}
+
+RECORD ARRAY FUNCTION Highlight(RECORD ARRAY results, STRING ARRAY fields, STRING class)
+{
+  FOREVERY(STRING opt FROM fields)
+    fields[#opt] := ToUppercase(opt);
+
+  FOREVERY(RECORD res FROM results)
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(res))
+    {
+      IF(TypeID(cellrec.value)!=TypeID(STRING))
+        CONTINUE;
+
+      STRING newval := cellrec.value;
+      IF(cellrec.name IN fields)
+      {
+        //translate the markers to something that will survive EncodeHTML
+        newval := Substitute(newval, "\x1D", '\uF8F0');
+        newval := Substitute(newval, "\x1C", '\uF8F1');
+        newval := EncodeHTML(newval);
+        newval := Substitute(newval, "&#63728;", '<span class="' || EncodeValue(class) || '">');
+        newval := Substitute(newval, "&#63729;", '</span>');
+      }
+      ELSE
+      {
+        newval := Substitute(newval, "\x1D", '');
+        newval := Substitute(newval, "\x1C", '');
+      }
+      res := CellUpdate(res, cellrec.name, newval);
+    }
+    results[#res] := res;
+  }
+  RETURN results;
+}
+
+STRING FUNCTION ValidateIndexTag(STRING indextag)
+{
+  IF(indextag = "" OR indextag NOT LIKE "?*:?*" OR indextag LIKE "*:*:*")
+    THROW NEW Exception(`Invalid indextag '${indextag}'`);
+
+  RETURN indextag;
+}
+
+/** @short Search an index
+    @param indextag Index to search (module:tag)
+    @param query Search query
+    @cell(string) options.language The language to use (defaults to the language returned by %GetTidLanguage)
+    @cell(integer) options.first The first result to return (0-based, defaults to 0)
+    @cell(integer) options.count The number of results to return (-1 for all results, defaults to 100)
+    @cell(boolean) options.save_searches If the search query should be saved for search reports (defaults to `FALSE`)
+    @cell(integer) options.save_searches_site Set an explicit site id to save the query for (by default, Consilio tries to
+        determine the site id by checking if the index contains only one publisher content source or by using
+        %LookupPublisherUrl on the `restrict_url`)
+    @cell(integer) options.summary_length The length of the summary to generate for each result (-1 for default length, 0 to
+        prevent summary generation, defaults to -1)
+    @cell(string) options.highlightclass The CSS class used to highlight found query words in the `highlightfields`
+    @cell(string array) options.highlightfields The fields in which found query words should be highlighted
+    @cell(string) options.summaryfield The name of the field to return the summary in (set to emtpy string to not return the
+        summary, defaults to `"summary"`)
+    @cell(string) options.scorefield The name of the field to return the result score in (set to empty string to not return
+        scores, defaults to `""`)
+    @cell(record) options.mapping The fields in this record will be returned in the search results and updated with the
+        values returned by Consilio (defaults to `DEFAULT RECORD`, which returns all known fields)
+    @cell(string) options.restrict_url For site searches: Only results with a URL starting with this restrict_url are
+        returned
+    @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
+        are not returned
+    @return The search result
+    @cell(integer) return.totalcount The total number of results (not necessarily the number of returned results, if `count`
+        is set to a value >= 0)
+    @cell(record array) return.results The actual results
+    @cell(string array) return.eventmasks Event masks to listen to for changes to this query
+*/
+PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ language := ""
+      , first := 0
+      , count := default_consilio_search_count
+      , save_searches := FALSE
+      , save_searches_site := 0
+      , summary_length := -1
+      , highlightclass := "consilio--highlight"
+      , highlightfields := STRING[]
+      , summaryfield := "summary"
+      , scorefield := ""
+      , mapping := DEFAULT RECORD
+      , restrict_url := ""
+      , exclude_urls := STRING[]
+      , debug := FALSE
+      ], options);
+  indextag := ValidateIndexTag(indextag);
+
+  STRING language := options.language ?? GetTidLanguage();
+  IF(NOT RecordExists(query)
+      OR (CellExists(query, "query") AND query.query._type = "nothing")
+      OR (NOT CellExists(query, "query") AND query._type = "nothing")) //will not return anything
+    RETURN [ totalcount := 0
+           , results := RECORD[]
+           , eventmasks := STRING[]
+           ];
+
+  OBJECT search_obj := OpenSearchObject(language, indextag);
+  IF(Length(options.highlightfields) = 0)
+    search_obj->donthighlight := TRUE; //ADDME allow caller to specify it wants to highlight (either globally or a list of fields?)
+
+  search_obj->save_searches := options.save_searches;
+  IF (options.save_searches)
+    search_obj->session_site := options.save_searches_site;
+  search_obj->summary_length := options.summary_length;
+  search_obj->debug := options.debug;
+  IF (RecordExists(options.mapping))
+  {
+    FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
+      IF(cellrec.name LIKE "_*")
+        THROW NEW Exception("Internal fields may not be requested through mapping"); //TODO perhaps we should allow this? but how to deal with various conflicting settings between this and summaryfield/scorefield ?
+
+    search_obj->empty_result_record := options.mapping;
+  }
+  search_obj->restrict_url := options.restrict_url;
+  search_obj->exclude_urls := options.exclude_urls;
+
+  RECORD results := search_obj->__SearchQuery(query, options.first, options.count, options.scorefield != "");
+  IF(CellExists(results,'results'))
+  {
+    //Translate results to the requested format
+    //(should probablyhave returned proper results in the first place, but wait until we're ready to deprecate older apis)
+    //cant fix it using the mapping, as it's unset before __searchquery
+    IF(options.summaryfield = "")
+    {
+      results.results := SELECT *, DELETE _summary, DELETE summary FROM results.results;
+    }
+    ELSE
+    {
+      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _summary, DELETE summary], options.summaryfield, options.summary_length != 0 ? result._summary : "")
+                             FROM results.results AS result;
+    }
+
+    IF(options.scorefield = "")
+    {
+      results.results := SELECT *, DELETE _score FROM results.results;
+    }
+    ELSE IF(ToUppercase(options.scorefield) != "_SCORE")
+    {
+      results.results := SELECT AS RECORD ARRAY CellInsert(CELL[...result, DELETE _score], options.scorefield, result._score)
+                              FROM results.results AS result;
+    }
+
+    IF(Length(options.highlightfields) != 0)
+      results.results := Highlight(results.results, options.highlightfields, options.highlightclass);
+  }
+
+  INSERT CELL eventmasks := [ "consilio:index." || search_obj->catalogid ] INTO results;
+  RETURN results;
+}
+
+/** Get completion suggestions for a text
+    @param indextag Index to search (module:tag)
+    @param searchtext The text to get suggestions for
+    @cell options.count maximum number of suggestions to return (0 for all matches, defaults to 10)
+    @return List of suggestions
+    @cell(string) return.text The suggestion text
+    @cell(integer) return.num The number of documents which match the suggestion
+*/
+PUBLIC RECORD ARRAY FUNCTION GetConsilioSuggestions(STRING indextag, STRING searchtext, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ count := 10 ], options);
+  indextag := ValidateIndexTag(indextag);
+
+  OBJECT suggest_obj := OpenSuggestObject(indextag);
+
+  // Return all terms starting with "bla"
+  RETURN SELECT num := suggestions.count //rename, 'count' is an annoying column to select, it clashes with the global AND count(*)
+              , text
+           FROM suggest_obj->GetSuggestions(searchtext, options.count) AS suggestions;
+}
+
+/** Content source object
+    @public
+*/
+STATIC OBJECTTYPE ContentSource
+<
+  RECORD contentsource;
+  OBJECT catalog;
+
+  /// @type(integer) Id of this contentsource
+  PUBLIC PROPERTY id(this->contentsource.id, -);
+
+  /// @type(string) Tag of this contentsource
+  PUBLIC PROPERTY tag(this->contentsource.tag, -);
+
+  MACRO NEW(OBJECT catalog, RECORD contentsource)
+  {
+    this->catalog := catalog;
+    this->contentsource := contentsource;
+  }
+
+  /// Marks this content source as an orphan
+  PUBLIC MACRO MarkAsOrphan()
+  {
+    UPDATE consilio.contentsources
+           SET orphansince := GetCurrentDatetime()
+           WHERE id = this->contentsource.id
+                AND orphansince = DEFAULT DATETIME;
+
+    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+  }
+
+  /** Construct the provider for this source
+      @return Contentprovider object
+  */
+  PUBLIC OBJECT FUNCTION OpenProvider()
+  {
+    RECORD cprec := SELECT * FROM GetContentProviders() WHERE name = this->contentsource.contentprovider;
+    IF (NOT RecordExists(cprec))
+      THROW NEW Exception(`Content provider '${this->contentsource.contentprovider}' not found for content source #${this->contentsource.id}`);
+
+    OBJECT cpobj := cprec.createcontentprovider();
+
+    // Decode the source-specific data
+    RECORD source := this->contentsource;
+    RECORD csdata := DecodeHSON(source.data);
+    DELETE CELL data FROM source;
+    INSERT CELL data := csdata INTO source;
+
+    // Add the contentlinksonly flag (in the future this might be made configurable)
+    INSERT CELL contentlinksonly := ReadRegistryKey("consilio.linkchecker.contentlinksonly") INTO source;
+
+    source := CELL[...source
+                  , contentsourceid := this->contentsource.id
+                  , contentsourcetag := this->contentsource.tag
+                  , catalogtag := this->catalog->tag
+                  ];
+    cpobj->Init(source);
+    RETURN cpobj;
+  }
+
+  /// Delete this content source
+  PUBLIC MACRO DeleteSelf()
+  {
+    UPDATE consilio.contentsources
+       SET tag := "$consilio$deleted$" || id
+     WHERE id = this->id;
+    this->contentsource.id := 0; //to be safe
+
+    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove deleted contentsources async
+  }
+>;
+
+/** Catalog object
+    @public
+*/
+STATIC OBJECTTYPE Catalog
+<
+  RECORD catalog;
+
+  /// @type(integer) Id of this catalog
+  PUBLIC PROPERTY id(this->catalog.id,-);
+
+  /// @type(string) Tag of this catalog
+  PUBLIC PROPERTY tag(this->catalog.name,-);
+
+  /// @type(integer) Type of the catalog (0 for managed index, 1 for module index)
+  PUBLIC PROPERTY type(this->catalog.type,-);
+
+  MACRO NEW(RECORD catalog)
+  {
+    this->catalog := catalog;
+  }
+
+  /** List the contentsources in this catalog
+      @return List of contentsources
+      @cell(integer) return.id Id of the contentsource
+      @cell(string) return.tag Tag of the contentsource
+      @cell(string) return.title Title of the contentsource
+      @cell(boolean) return.isorphan Whether the contentsource is an orphan
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ __withdeleted := FALSE ], options);
+    RECORD ARRAY sources :=
+        SELECT id
+             , tag
+             , title
+             , isorphan := orphansince != DEFAULT DATETIME
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id
+               AND (options.__withdeleted OR tag NOT LIKE "$consilio$deleted$*");
+    IF (options.__withdeleted)
+      sources := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM sources;
+    RETURN sources;
+  }
+
+  /** Add a new custom content source to a index
+      @param tag Tag of the new content source
+      @param contentsourceobject Library and name of object that handles indexing (lib#name)
+      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
+      @cell options.discardsummaries Whether to discard summaries
+      @cell options.definedby Use to describe who added this custom content source was added
+      @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
+      @cell options.title Title fot the content source
+  */
+  PUBLIC MACRO AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
+      THROW NEW Exception(`Invalid content source tag '${tag}'`);
+
+    options :=  ValidateOptions(
+        [ maxgroupobjects :=      0
+        , discardsummaries :=     FALSE
+        , definedby :=            "AddCustomContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+        , contentcheckinterval := -1
+        , title := ""
+        ], options);
+
+    IF (RecordExists(SELECT FROM consilio.contentsources WHERE ToUppercase(COLUMN tag) = ToUppercase(VAR tag)))
+      THROW NEW Exception(`A contentsource with tag '${tag}' already exists (note: tags must currently be globally unique!)`);
+
+    STRING ARRAY parts := Tokenize(contentsourceobject, "#");
+    RECORD settings :=
+        [ library :=              parts[0]
+        , contentobject :=        parts[1]
+        , contentcheckinterval := options.contentcheckinterval
+        , lastcontentscheck :=    ""
+        ];
+
+    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+    INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby)
+            VALUES(srcid, this->catalog.id, "consilio:custom", tag, EncodeHSON(settings), options.maxgroupobjects, options.discardsummaries, options.definedby);
+
+    UpdateContentSourceFieldsById(srcid); //this needs to be sync! the index may be filled right away and require the fields
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
+  }
+
+  /** @short Open catalog by tag
+      @param tag Tag of the contentsource
+      @return(object #ContentSource) The content source object
+  */
+  PUBLIC OBJECT FUNCTION OpenContentSource(STRING tag)
+  {
+    RECORD match :=
+        SELECT *
+          FROM consilio.contentsources
+         WHERE indexid = this->catalog.id
+               AND ToUppercase(contentsources.tag) = ToUppercase(VAR tag);
+    IF(RecordExists(match))
+      RETURN NEW ContentSource(this, match);
+    ELSE
+      RETURN DEFAULT OBJECT;
+  }
+
+  /** @short Open catalog by id
+      @param id Id of the contentsource
+      @return(object #ContentSource) The content source object
+  */
+  PUBLIC OBJECT FUNCTION OpenContentSourceById(INTEGER id)
+  {
+    RECORD match := SELECT * FROM consilio.contentsources WHERE contentsources.id = VAR id AND tag NOT LIKE "$consilio$deleted$*";
+    IF(RecordExists(match))
+      RETURN NEW ContentSource(this, match);
+    ELSE
+      RETURN DEFAULT OBJECT;
+  }
+
+  /// Delete this catalog
+  PUBLIC MACRO DeleteSelf()
+  {
+    UPDATE consilio.indices SET name := "$consilio$deleted$" || id WHERE id = this->id;
+    this->catalog.id := 0; //to be safe
+
+    GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+  }
+>;
+
+STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
+<
+  /** Index manager of this catalog
+      @cell id Id of the indexmanager
+      @cell name Name of the indexmanager
+      @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
+  */
+  PUBLIC PROPERTY indexmanager(GetIndexManager,-);
+
+  //have we ensured yet that the index exists?
+  STRING ARRAY ensured;
+
+  RECORD FUNCTION GetIndexManager()
+  {
+    RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
+  }
+
+  /** @short Add objects to this catalog
+      @param objects The objects to add
+      @cell(string) objects.objectid Unique objectid. Reusing this will replace the document in the index+suffix combo
+      @cell(record) objects.documentfields Document fields
+      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
+      @cell(boolean) options.synchronous Wait for the added documents to become visible
+  */
+  PUBLIC MACRO AddObjects(RECORD ARRAY objects, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ suffix := ""
+                                , chunksize := 128
+                                , synchronous := FALSE
+                                ], options);
+    //are these still relevant?
+    // @cell objects.suggestfields
+    // @cell objects.suggestprefixes
+
+    IF(options.suffix NOT IN this->ensured)
+      this->EnsureIndex(CELL[ options.suffix ]);
+
+    objects := SELECT objectid, documentfields FROM objects;
+    FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
+    {
+      AddIndexManagerObjects(this->id, DEFAULT RECORD, "", chunk.docs, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+    }
+  }
+
+
+  /** @short Make sure the (sub)index exists on the index manager
+      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
+      @cell(string) options.fieldgroup Override fieldgroup used to ensure mapping
+      @cell(boolean) options.strict Set strict setting when overriding the field group. defaults to TRUE
+  */
+  PUBLIC MACRO EnsureIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ suffix := ""
+                               , fieldgroup := ""
+                               , strict := TRUE
+                               ], options);
+
+    EnsureIndexManagerIndex(this->id, CELL[ options.suffix, throwonfailure := TRUE  ]);
+
+    RECORD newmapping;
+    IF(options.fieldgroup = "")
+    {
+      STRING indexname := SELECT AS STRING name FROM consilio.indices WHERE indices.id = this->id;
+      newmapping := GetIndexFieldDefinition(indexname);
+    }
+    ELSE
+    {
+      newmapping := GetFieldgroupFieldDefinition(options.fieldgroup, options.strict);
+    }
+
+    //Updating overwrites dynamic_templates, but our prepared mapping may be incomplete, so copy existing dynamic mappings
+    //TODO how to remove a dynamic template?
+    //FIXME lock around these steps! we update dynamic_templates so shouldn't risk racing
+    RECORD currentmapping := GetIndexManagerMapping(this->id, CELL[ options.suffix, throwonfailure := TRUE ]);
+    RECORD finalupdate := PrepareMappingUpdate(newmapping);
+
+    STRING ARRAY newtemplates;
+    FOREVERY(RECORD newtemplate FROM finalupdate.dynamic_templates)
+      INSERT UnpackRecord(newtemplate)[0].name INTO newtemplates AT END;
+
+    FOREVERY(RECORD templ FROM currentmapping.dynamic_templates)
+    {
+      STRING name := UnpackRecord(templ)[0].name;
+      IF(name NOT IN newtemplates)
+        INSERT templ INTO finalupdate.dynamic_templates AT END; //keep existing
+    }
+
+    EnsureIndexManagerMapping(this->id, finalupdate, CELL[ options.suffix, throwonfailure := TRUE ]);
+
+    IF(options.suffix NOT IN this->ensured AND options.fieldgroup = "") //overriding fieldgroup does not count as having guaranteed ensurance
+      INSERT options.suffix INTO this->ensured AT END;
+  }
+
+  /** @short Delete the (sub)index from the index manager
+      @cell(string) options.suffix Set this parameter to only delete the subindex with this suffix
+  */
+  PUBLIC MACRO DeleteIndex(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([suffix := ""], options);
+    RECORD res := DeleteIndexManagerContentSource(this->indexmanager.id, this->id, 0, CELL[ options.suffix ]);
+    IF(res.status != SearchOk)
+      THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
+
+    IF(options.suffix IN this->ensured)
+      DELETE FROM this->ensured AT SearchElement(this->ensured, options.suffix);
+  }
+
+  /** @short List suffixes created in this index
+      @return The suffixes
+      @cell(string) return.suffix Suffix name. Can be empty for the main index*/
+  PUBLIC RECORD ARRAY FUNCTION ListSuffixes()
+  {
+    IF(NOT RecordExists(this->indexmanager))
+      RETURN RECORD[] ; //TODO or should we throw ?
+
+    RETURN ToRecordArray(GetIndexManagerIndexList(this->indexmanager.id, [ indexsuffixes := this->id ]).suffixes, "suffix");
+  }
+>;
+
+
+/** @short List all Consilio catalogs
+    @param options Options
+    @return List of catalogs
+    @cell return.id Catalog id
+    @cell return.tag Catalog tag
+    @cell return.type Catalog type (0: managed catalog, 1: unmanaged catalog)
+    @cell return.indexmanager Index manager
+*/
+PUBLIC RECORD ARRAY FUNCTION ListConsilioCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ __withdeleted := FALSE ], options);
+  RECORD ARRAY catalogs :=
+      SELECT id
+           , tag := name
+           , type
+           , indexmanager
+        FROM consilio.indices
+       WHERE type != 2
+             AND (options.__withdeleted OR name NOT LIKE "$consilio$deleted$*");
+  IF (options.__withdeleted)
+    catalogs := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM catalogs;
+  RETURN catalogs;
+}
+
+/** @short Open catalog by tag
+    @param tag Catalog tag
+    @return(object #Catalog) Catalog object
+*/
+PUBLIC OBJECT FUNCTION OpenConsilioCatalog(STRING tag)
+{
+  RECORD match :=
+      SELECT * FROM consilio.indices
+       WHERE ToUppercase(indices.name) = ToUppercase(tag)
+             AND type != 2
+             AND name NOT LIKE "$consilio$deleted$*";
+  IF(RecordExists(match))
+  {
+    IF (match.type = 1)
+      RETURN NEW UnmanagedCatalog(match);
+    RETURN NEW Catalog(match);
+  }
+  ELSE
+    RETURN DEFAULT OBJECT;
+}
+
+/** @short Open catalog by id
+    @param id Catalog id
+    @return(object #Catalog) Catalog object
+*/
+PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
+{
+  RECORD match :=
+      SELECT * FROM consilio.indices
+       WHERE indices.id = VAR id
+             AND type != 2
+             AND name NOT LIKE "$consilio$deleted$*";
+  IF(RecordExists(match))
+  {
+    IF (match.type = 1)
+      RETURN NEW UnmanagedCatalog(match);
+    RETURN NEW Catalog(match);
+  }
+  ELSE
+    RETURN DEFAULT OBJECT;
+}
+
+RECORD FUNCTION GetCacheableIndexlist(INTEGER indexmanager)
+{
+  RECORD checkindices := GetIndexManagerIndexList(indexmanager);
+  RETURN [ ttl := checkindices.status = SearchOk ? 15 * 60 * 60 * 1000 : 1000
+         , value := checkindices
+         ];
+}
+
+/** @short Create a new Consilio catalog.
+    @param tag The name of the catalog (this name should be unique)
+    @param options Options
+    @cell options.title An optional description for the catalog
+    @cell options.priority (-9 to 9, 0 is the default)
+    @cell options.indexmanager The id of the index manager to use (if not given, the 'Builtin Consilio' index manager is used
+        if available, otherwise an error is returned)
+    @return(object #Catalog) Catalog object
+*/
+PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(tag="" OR tag NOT LIKE "?*:?*" OR tag LIKE "*:*:*")
+    THROW NEW Exception(`Invalid catalog tag '${tag}'`);
+
+  // Index name should be unique
+  IF (RecordExists(SELECT FROM consilio.indices WHERE ToUppercase(COLUMN name) = ToUppercase(VAR tag)))
+    THROW NEW Exception(`Catalog with tag '${tag}' already exists`);
+
+  options := ValidateOptions( [ loglevel := 0
+                              , priority := 0
+                              , indexmanager := 0
+                              , title := ""
+                              ], options, [ optional := ["indexmanager"] ]);
+
+  INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : GetDefaultIndexManager();
+
+  // Figure out currently used indexids - we don't want to accidentally revive old content. This call is pretty slow, hurting some tests, so we'll cache the results
+  RECORD checkindices := GetAdhocCached([checkindices := indexmanager], PTR GetCacheableIndexlist(indexmanager));
+  IF(checkindices.status != SearchOk)
+    THROW NEW Exception(`Unable to retrieve the list of existing catalog ids from index manager #${indexmanager}`);
+
+  // Find an ID free in both database and the actual index
+  INTEGER indexid;
+  WHILE(TRUE)
+  {
+    indexid := MakeAutoNumber(consilio.indices, "id");
+    IF(indexid NOT IN checkindices.indices)
+      BREAK;
+  }
+
+  // Create index
+  INSERT CELL[ id := indexid
+             , name := tag
+             , description := options.title
+             , loglevel := options.loglevel
+             , priority := options.priority
+             , indexmanager
+             ] INTO consilio.indices;
+
+  STRING result := EnsureIndexManagerIndex(indexid);
+  IF(result != SearchOk)
+  {
+    DELETE FROM consilio.indices WHERE id=indexid;
+    THROW NEW Exception("Index creation failed (EnsureIndexManagerIndex failed)");
+  }
+  RETURN NEW Catalog(SELECT * FROM consilio.indices WHERE id=indexid);
+}
+
+/** @short Generate linkcheck report for WRD
+    @cell(integer) options.entity ID of entity to request a linkcheck report for
+    @return A list of links found and their checking status
+    @cell(datetime) return.checked Last check (UTC)
+    @cell(string) return.referrer Name of attribute referring to this field
+    @cell(integer) return.status Status code (use EnrichLinkCheckStatuses to get texts and icons)
+    @cell(string) return.text Text content of the link
+    @cell(string) return.url The link */
+PUBLIC RECORD ARRAY FUNCTION GetWRDLinkCheckReport(RECORD options)
+{
+  options := ValidateOptions([ entity := 0 ], options);
+  RETURN SELECT checked, referrer, status, text, url
+           FROM GetLinksForWRDEntity(options.entity);
+}
+
+STRING FUNCTION MapStatusIcon(INTEGER status)
+{
+  IF (status <= 0)
+    RETURN "tollium:status/unknown";
+  IF (status < 100)
+    RETURN "tollium:status/serious_error";
+  IF (status < 200)
+    RETURN "tollium:status/warning";
+  IF (status < 300)
+    RETURN "tollium:status/positive";
+  IF (status < 400)
+    RETURN "tollium:status/warning";
+  IF (status < 500)
+    RETURN "tollium:status/error";
+  RETURN "tollium:status/abort_error";
+}
+
+/** @short Enrich a linkcheck report with text and icons for statuses
+    @param links List of links to enrich
+    @return The original record array, enriched with statustext and statusicon
+    @cell(string) return.statustext Text explaining the status (using the current GetTid language)
+    @cell(string) return.statusicon Reference to icon to use for this status */
+PUBLIC RECORD ARRAY FUNCTION EnrichLinkCheckStatuses(RECORD ARRAY links)
+{
+  links := SELECT *
+                , statustext := GetStatusText(status)
+                , statusicon := MapStatusIcon(status)
+             FROM links;
+  RETURN links;
+}

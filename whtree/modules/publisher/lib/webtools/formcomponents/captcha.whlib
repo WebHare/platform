@@ -1,0 +1,46 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
+<
+  PUBLIC BOOLEAN value;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN this->value;
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->value := this->form->formcontext->VerifyCaptchaResponse(jsdata);
+  }
+
+  UPDATE PUBLIC MACRO RenderField() //combine our properties with the subfields, and start rendering stuff
+  {
+    IF(NOT this->IsFrontendVisible())
+      RETURN;
+
+    Print(`<wh-form-captcha data-wh-form-name="${EncodeValue(this->field.name)}"></wh-form-captcha>`);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->IsSet() AND this->IsNowRequired() AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
+    {
+      STRING apikey := this->form->formcontext->GetCaptchaAPIKey();
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ apikey ]]);
+    }
+  }
+>;

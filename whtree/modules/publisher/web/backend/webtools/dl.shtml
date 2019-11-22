@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+
+
+//download a webtools formresult attachment
+RECORD dlinfo := DecryptForThisServer("publisher:formupload", GetWebVariable("f"), [ fallback := DEFAULT RECORD ]);
+RECORD attachment;
+
+IF(RecordExists(dlinfo))
+{
+  OpenPrimary();
+  attachment := SELECT *
+                  FROM publisher.formattachments
+                 WHERE formattachments.formresult = dlinfo.formresult
+                       AND formattachments.question = dlinfo.storename;
+
+  IF(RecordExists(attachment))
+  {
+    RECORD meta := SplitBlobSetting(attachment.metadata, attachment.file, 0);
+    IF(meta.hash = dlinfo.hash) //still the same file, so the link is trustworthy
+    {
+      AddHTTPHeader("Content-Type", meta.mimetype, FALSE);
+      AddHTTPHeader("Content-Disposition", "attachment; filename=" || EncodeJava(meta.filename), FALSE);
+      SendWebFile(attachment.file);
+    }
+  }
+}
+AbortWithHTTPError(403);

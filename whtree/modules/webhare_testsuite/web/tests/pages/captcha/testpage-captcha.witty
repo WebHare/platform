@@ -1,0 +1,15 @@
+<div>
+  <form method="post" action="[feedbackurl]">
+    <h1>Google recaptcha</h1>
+    <button type="button" id="trigger_googlerecaptcha" data-recaptchakey="[googlerecaptchakey]">Trigger Google Recaptcha</button><br>
+    <input name="googlerecaptcharesult" id="googlerecaptcha_result" /><br>
+    <button id="submit_googlerecaptcha" type="submit">Submit</button><br>
+    [if googlerecaptchaaccept]Captcha accepted: <span id="googlerecaptcha_accepted">[googlerecaptchaaccept]</span><br>[/if]
+
+    <h1>Webcontext captcha</h1>
+    <button type="button" id="trigger_webcontextcaptcha" data-apikey="[webcontextapikey]">Trigger Webcontext captcha</button><br>
+    <input name="captcharesult" id="webcontextcaptcha_result" /><br>
+    <button id="submit_webcontextcaptcha" type="submit">Submit</button><br>
+    [if webcontextcaptchaaccept]Captcha accepted: <span id="webcontextcaptcha_accepted">[webcontextcaptchaaccept]</span><br>[/if]
+  </form>
+</div>

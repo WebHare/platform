@@ -1,0 +1,404 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+  <textgroup gid="catalog">   <!-- catalog -->
+    <text tid="publisher">Publisher</text>
+    <textgroup gid="blacklist">   <!-- catalog.blacklist -->
+      <text tid="addpattern">Patroon toevoegen</text>
+      <text tid="blacklist">Zwarte lijst</text>
+      <text tid="deletepattern">Patroon verwijderen</text>
+      <text tid="editpattern">Patroon bewerken</text>
+      <text tid="nofollow_icon">Niet volgen</text>
+      <text tid="noindex_icon">Niet indexeren</text>
+      <text tid="nolinkcheck_from_icon">Uitgaande links niet controleren</text>
+      <text tid="nolinkcheck_to_icon">Inkomende links niet controleren</text>
+      <text tid="nopatterns">Er zijn nog geen patronen gedefinieerd</text>
+      <text tid="pattern">URL-patroon</text>
+    </textgroup>
+    <textgroup gid="blacklistpattern">   <!-- catalog.blacklistpattern -->
+      <text tid="options">Opties</text>
+      <text tid="options-nofollow">Uitgaande links niet volgen</text>
+      <text tid="options-noindex">Niet indexeren</text>
+      <text tid="options-nolinkcheck_from">Uitgaande links niet controleren</text>
+      <text tid="options-nolinkcheck_to">Inkomende links niet controleren</text>
+      <text tid="pattern">URL-patroon</text>
+      <text tid="title-edit">URL-patroon bewerken</text>
+      <text tid="title-new">URL-patroon toevoegen</text>
+    </textgroup>
+    <textgroup gid="catalogeditor">   <!-- catalog.catalogeditor -->
+      <text tid="debuglevel">Logniveau catalogus</text>
+      <text tid="debuglevel-0">Alleen fouten</text>
+      <text tid="debuglevel-1">Overgeslagen documenten</text>
+      <text tid="debuglevel-2">Algemene informatie</text>
+      <text tid="debuglevel-3">Alle debuginformatie</text>
+      <text tid="id">Catalogus ID</text>
+      <text tid="indexmanager">Index manager</text>
+      <text tid="indexname">Indexnaam</text>
+      <text tid="invalidindexname">Invalide indexnaam. De naam moet beginnen met een letter en mag alleen bestaan uit de karakters 0-9 en a-z en een liggend streepje (_)</text>
+      <text tid="priority">Prioriteit</text>
+      <text tid="prorityexplain">(-9-9, 0 is standaard, 9 is hoogste prioriteit)</text>
+      <text tid="title-edit">Catalogus '<param p="1"/>' bewerken</text>
+      <text tid="title-new">Nieuwe catalogus</text>
+      <text tid="type">Index inhoud</text>
+      <text tid="type-module">Beheerd in moduledefinitie</text>
+      <text tid="type-standard">Standaardbeheer</text>
+      <text tid="type-unmanaged">Onbeheerd</text>
+    </textgroup>
+    <textgroup gid="catalogpreview">   <!-- catalog.catalogpreview -->
+      <text tid="clickallresults">Klik hier om alle <param p="1"/> resultaten te bekijken.</text>
+      <text tid="error">Er is een fout opgetreden tijdens het zoeken</text>
+      <text tid="id">ID</text>
+      <text tid="noresults">Geen resultaten gevonden</text>
+      <text tid="numresults"><param p="1"/> resultaten gevonden in <param p="2"/> ms</text>
+      <text tid="query">Zoek naar</text>
+      <text tid="score">Score</text>
+      <text tid="search">Zoeken</text>
+      <text tid="title">Voorbeeld van catalogus '<param p="1"/>'</text>
+      <text tid="toomanyresults">Alleen de eerste <param p="1"/> resultaten worden getoond.</text>
+      <text tid="url">URL</text>
+    </textgroup>
+    <textgroup gid="catalogpreviewitem">   <!-- catalog.catalogpreviewitem -->
+      <text tid="otherfields">Overige geïndexeerde velden</text>
+      <text tid="resultfields">Gegenereerde resultaatvelden</text>
+      <text tid="showempty">Toon lege velden</text>
+      <text tid="standardfields">Standaardvelden</text>
+      <text tid="title">Resultaat bekijken</text>
+    </textgroup>
+    <textgroup gid="catalogs">   <!-- catalog.catalogs -->
+      <text tid="about">Over Consilio</text>
+      <text tid="about-copyright">Portions of this product are based on software developed by the Apache Software Foundation (http://www.apache.org/), which is copyright © 2001 The Apache Software Foundation, all rights reserved, and on Snowball, which is copyright © 2001, Dr Martin Porter.</text>
+      <text tid="about-title">Consilio</text>
+      <text tid="addcatalog">Catalogus toevoegen</text>
+      <text tid="addcontentsource">Contentbron toevoegen</text>
+      <text tid="apptitle">Consilio catalogusbeheer</text>
+      <text tid="blacklist">Zwarte lijst</text>
+      <text tid="cannotloadcontentsource">Fout bij laden contentbron <param p="1"/></text>
+      <text tid="catalog">Catalogus</text>
+      <text tid="catalogthesaurus">Synoniemenlijst</text>
+      <text tid="checkcatalog">Check</text>
+      <text tid="definedby">Gedefinieerd door</text>
+      <text tid="deleteitem">Verwijderen</text>
+      <text tid="edititem">Bewerken</text>
+      <text tid="error">Foutmelding</text>
+      <text tid="manageindexmanagers">Beheer index managers</text>
+      <text tid="markcatalogascomplete">Markeer catalogus als bijgewerkt</text>
+      <text tid="name">Naam</text>
+      <text tid="nocatalogs">Er zijn geen catalogi gedefinieerd</text>
+      <text tid="options">Consilio-instellingen</text>
+      <text tid="preview">Voorbeeld</text>
+      <text tid="previewcatalog">Catalogusvoorbeeld</text>
+      <text tid="queryreport">Zoekopdrachten</text>
+      <text tid="rebuildcatalog">Opnieuw opbouwen</text>
+      <text tid="restart">Queuemanager herstarten</text>
+      <text tid="showerrors">Toon foutmeldingen</text>
+      <text tid="size">Grootte</text>
+      <text tid="status">Status</text>
+      <text tid="taggedcontentsourcetitle"><param p="1"/>: <param p="2"/></text>
+      <text tid="title">Catalogusbeheer</text>
+      <text tid="updatecatalog">Nalopen</text>
+    </textgroup>
+    <textgroup gid="contentsourceeditor">   <!-- catalog.contentsourceeditor -->
+      <text tid="contentsource">Type contentbron</text>
+      <text tid="disablesource-description">Schakel deze contentbron uit</text>
+      <text tid="discardsummaries-description">Genereer geen samenvattingen</text>
+      <text tid="generalsettings">Geavanceerde instellingen</text>
+      <text tid="id">Contentbron ID</text>
+      <text tid="maxgroupobjects">Maximum objecten per groep</text>
+      <text tid="maxgroupobjects-description">(Laat leeg voor standaardwaarde)</text>
+      <text tid="selecttype">Type content dat toegevoegd moet worden</text>
+      <text tid="tag">Tag</text>
+      <text tid="title-edit">Contentbron bewerken</text>
+      <text tid="title-new">Nieuwe contentbron</text>
+    </textgroup>
+    <textgroup gid="contentsourceerrors">   <!-- catalog.contentsourceerrors -->
+      <text tid="clear">Verwijder fouten</text>
+      <text tid="close">Sluiten</text>
+      <text tid="coltext">Kolom</text>
+      <text tid="contentsourceerrors">Contentbronfouten</text>
+      <text tid="error">Foutmelding</text>
+      <text tid="errorloc">Actie</text>
+      <text tid="file">Geselecteerd bestand</text>
+      <text tid="func">Functie</text>
+      <text tid="info">Info</text>
+      <text tid="linetext">Regel</text>
+      <text tid="what">Foutmelding</text>
+    </textgroup>
+    <textgroup gid="messages">   <!-- catalog.messages -->
+      <text tid="cannotloadsettings">Het instellingenscherm voor '<param p="1"/>' kan niet geladen worden.</text>
+      <text tid="catalognameexists">Er bestaat al een catalogus met de naam '<param p="1"/>'</text>
+      <text tid="confirmclearerrors">Weet u zeker dat u deze fouten wilt verwijderen?</text>
+      <text tid="confirmdeletecatalog">Weet u zeker dat u catalogus '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmdeletecontentsource">Weet u zeker dat u deze contentbron wilt verwijderen?</text>
+      <text tid="confirmdeleteselection">Weet u zeker dat u de geselecteerde catalogi en bronnen wilt verwijderen?</text>
+      <text tid="confirmpatterndelete">Weet u zeker dat u URL-patroon '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="confirmrebuildcatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
+      <text tid="confirmrestart">Weet u zeker dat u de Queuemanager wilt herstarten?</text>
+      <text tid="confirmupdatecatalog">Weet u zeker dat u '<param p="1"/>' wilt nalopen? De catalogus blijft doorzoekbaar tijdens het nalopen.</text>
+      <text tid="confirmworddelete">Weet u zeker dat u <ifparam p="1" value="">deze woorden<else/>het woord '<param p="1"/>'</ifparam> wilt verwijderen?</text>
+      <text tid="confirmwordgroupdelete">Weet u zeker dat u de geselecteerde woordgroep wilt verwijderen?</text>
+      <text tid="indexmanagerconnectionfailed">Er kan geen verbinding worden gemaakt met Consilio.</text>
+      <text tid="notenoughwordsingroup">Een woordgroep dient minimaal 2 woorden te bevatten.</text>
+      <text tid="searcherror">Er is een fout opgetreden bij het zoeken:<br/><br/><param p="1"/></text>
+      <text tid="sendingcommandfailed">Het commando kon niet naar de queuemanager verstuurd worden.</text>
+      <text tid="updatingsrcfieldsfailed">Er is een fout opgetreden bij het bijwerken van de velden van de contentbron: <param p="1"/></text>
+      <text tid="wordalreadyonlist">Het woord '<param p="1"/>' is al opgenomen in de woordgroep</text>
+      <text tid="wordnotfound">Het woord '<param p="1"/>' kon niet worden gevonden.</text>
+    </textgroup>
+    <textgroup gid="options">   <!-- catalog.options -->
+      <text tid="debuglevel_indexmanager">Logniveau indexmanager</text>
+      <text tid="debuglevel_indexmanager-0">Alleen fouten</text>
+      <text tid="debuglevel_indexmanager-1">Algemene informatie</text>
+      <text tid="debuglevel_indexmanager-2">Alle debuginformatie</text>
+      <text tid="debuglevel_queuemanager">Logniveau queuemanager</text>
+      <text tid="debuglevel_queuemanager-0">Alleen fouten</text>
+      <text tid="debuglevel_queuemanager-1">Overgeslagen documenten</text>
+      <text tid="debuglevel_queuemanager-2">Algemene informatie</text>
+      <text tid="debuglevel_queuemanager-3">Alle debuginformatie</text>
+      <text tid="enablelinkchecker">Linkcontrole ingeschakeld</text>
+      <text tid="maxgroupobjects">Maximum objecten per groep</text>
+      <text tid="maxtasktime">Timeout voor fetcher-taken</text>
+      <text tid="numworkers">Aantal fetcher-processen</text>
+      <text tid="options">Consilio-instellingen</text>
+      <text tid="seconds">seconden</text>
+    </textgroup>
+    <textgroup gid="thesaurus">   <!-- catalog.thesaurus -->
+      <text tid="nowords">Er zijn geen woordgroepen gedefinieerd voor deze catalogus</text>
+      <text tid="thesaurusword">Woord</text>
+      <text tid="thesauruswords">Woordgroep</text>
+      <text tid="title">Synoniemenlijst voor catalogus '<param p="1"/>'</text>
+      <text tid="word">Woord</text>
+      <text tid="wordgroup">Woordgroep</text>
+      <text tid="words">Woorden</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="catalogerrors">   <!-- catalogerrors -->
+    <text tid="errors">Er zijn fouten opgetreden tijdens het indexeren van deze contentbron</text>
+    <text tid="none">Geen fouten</text>
+  </textgroup>
+  <textgroup gid="catalogstatus">   <!-- catalogstatus -->
+    <text tid="beingrebuilt">De catalogus wordt opnieuw opgebouwd, maar is doorzoekbaar</text>
+    <text tid="beingupdated">De catalogus wordt nagelopen, maar is doorzoekbaar</text>
+    <text tid="disabled">De catalogus is tijdelijk uitgeschakeld</text>
+    <text tid="error">Er is een fout opgetreden tijdens het indexeren</text>
+    <text tid="idle">De catalogus is up-to-date en doorzoekbaar</text>
+    <text tid="nocontentsources">Er zijn geen zoekpaden toegewezen aan de catalogus</text>
+    <text tid="unavailable">De catalogus wordt gevuld; tijdelijk kunnen resultaten onvolledig zijn</text>
+  </textgroup>
+  <textgroup gid="contentproviders">   <!-- contentproviders -->
+    <textgroup gid="custom">   <!-- contentproviders.custom -->
+      <text tid="contentcheckinterval">Interval voor nalopen</text>
+      <text tid="contentobject">Indexeringsobject</text>
+      <text tid="lastcontentscheck">Laatst nagelopen</text>
+      <text tid="library">Indexeringsbibliotheek</text>
+      <text tid="minutes">minuten (Laat leeg voor standaardwaarde)</text>
+      <text tid="never">nooit</text>
+      <text tid="providertitle">Database-inhoud</text>
+      <textgroup gid="messages">   <!-- contentproviders.custom.messages -->
+        <text tid="invalidobject">Het object '<param p="1"/>:<param p="2"/>' is geen valide custom content object</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="external">   <!-- contentproviders.external -->
+      <text tid="http_password">Wachtwoord</text>
+      <text tid="http_username">Inlognaam</text>
+      <text tid="lastcontentscheck">Laatst nagelopen</text>
+      <text tid="loginrequired">Voor deze URL moet worden ingelogd</text>
+      <text tid="never">nooit</text>
+      <text tid="providertitle">Externe webserver</text>
+      <text tid="url">URL</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="monitor">   <!-- monitor -->
+    <textgroup gid="queries">   <!-- monitor.queries -->
+      <text tid="catalog">Catalogus</text>
+      <text tid="enableintercept">Aanzetten</text>
+      <text tid="openquery">Openen</text>
+      <text tid="query">Aanvraag</text>
+      <text tid="title">Consilio queries</text>
+      <text tid="when">Datum</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="notifications">   <!-- notifications -->
+    <text tid="catalog_uptodate">Consilio catalogus <ifparam p="1" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
+    <text tid="catalog_uptodate-desc">De catalogus '<param p="1"/>' is <ifparam p="2" value="2">opnieuw opgebouwd<else/>nagelopen</ifparam></text>
+  </textgroup>
+  <textgroup gid="objectprops">   <!-- objectprops -->
+    <textgroup gid="boostwords">   <!-- objectprops.boostwords -->
+      <text tid="words">Aanvullende sleutelwoorden</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="publishersearch">   <!-- publishersearch -->
+    <text tid="linksto">Linkt naar</text>
+  </textgroup>
+  <textgroup gid="report">   <!-- report -->
+    <textgroup gid="linkcheck">   <!-- report.linkcheck -->
+      <text tid="broken_links">kapotte_links</text>
+      <text tid="checked">Gecontroleerd</text>
+      <text tid="csvexport">CSV exporteren</text>
+      <text tid="filedate">Bestandsdatum</text>
+      <text tid="filefolder">Bestandsmap</text>
+      <text tid="fileid">Bestands ID</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="filepath">Bestand</text>
+      <text tid="filetitle">Betandstitel</text>
+      <text tid="fileurl">Bestands URL</text>
+      <text tid="fileview">Bekijk bestand</text>
+      <text tid="linkcheck">Linkcontrole</text>
+      <text tid="nolinks">Er zijn geen kapotte links</text>
+      <text tid="showalllinks">Toon alle links</text>
+      <text tid="status">Statuscode</text>
+      <text tid="statushint">Status</text>
+      <text tid="text">Linktekst</text>
+      <text tid="type">Type</text>
+      <text tid="type_text">Type</text>
+      <text tid="url">URL</text>
+      <textgroup gid="linktype">   <!-- report.linkcheck.linktype -->
+        <text tid="canonical">Canonieke link</text>
+        <text tid="contentlink">Link naar inhoud</text>
+        <text tid="frame">Link naar frame</text>
+        <text tid="hyperlink">Hyperlink</text>
+        <text tid="image">Afbeelding</text>
+        <text tid="link">Algemene link</text>
+        <text tid="script">Link naar script</text>
+        <text tid="stylesheet">Link naar stylesheet</text>
+        <text tid="unknown">Onbekende link</text>
+      </textgroup>
+      <textgroup gid="status">   <!-- report.linkcheck.status -->
+        <text tid="accepted">Accepted</text>
+        <text tid="badgateway">Bad gateway</text>
+        <text tid="badrequest">Bad request</text>
+        <text tid="circularredirection">Circulaire verwijzing</text>
+        <text tid="conflict">Conflict</text>
+        <text tid="connectiontimedout">Timeout tijdens verbinding</text>
+        <text tid="continue">Continue</text>
+        <text tid="couldnotconnect">Kan geen verbinding maken met de server</text>
+        <text tid="created">Created</text>
+        <text tid="expectationfailed">Expectation failed</text>
+        <text tid="forbidden">Geen toegang</text>
+        <text tid="found">Found</text>
+        <text tid="gatewaytimeout">Gateway timeout</text>
+        <text tid="gone">Gone</text>
+        <text tid="httpversionnotsupported">HTTP version not supported</text>
+        <text tid="internallinknonexisting">Het gelinkte bestand bestaat niet meer</text>
+        <text tid="internallinknotpublished">Het gelinkte bestand wordt niet gepubliceerd</text>
+        <text tid="internalservererror">Interne serverfout</text>
+        <text tid="lengthrequired">Length required</text>
+        <text tid="methodnotallowed">Method not allowed</text>
+        <text tid="movedpermanently">Moved permanently</text>
+        <text tid="multiplechoices">Multiple choices</text>
+        <text tid="nocontent">No content</text>
+        <text tid="nohttpconnection">Geen HTTP-verbinding</text>
+        <text tid="nohttpresponse">Geen HTTP-antwoord</text>
+        <text tid="nonauthorativeinformation">No authorative information</text>
+        <text tid="nosecureconnection">Geen beveiligde verbinding</text>
+        <text tid="notacceptable">Not acceptable</text>
+        <text tid="notcheckedyet">Nog niet gecontroleerd</text>
+        <text tid="notfound">Pagina niet gevonden (404)</text>
+        <text tid="notimplemented">Not implemented</text>
+        <text tid="notmodified">Not modified</text>
+        <text tid="ok">OK</text>
+        <text tid="partialcontent">Partial content</text>
+        <text tid="paymentrequired">Payment required</text>
+        <text tid="preconditionfailed">Precondition failed</text>
+        <text tid="proxyauthenticationrequired">Proxy authentication required</text>
+        <text tid="requestcouldnotbesent">Opdracht kon niet worden verzonden</text>
+        <text tid="requestentitytoolarge">Request entity too large</text>
+        <text tid="requestrangenotsatisfiable">Request range not satisfiable</text>
+        <text tid="requesttimeout">Request timeout</text>
+        <text tid="requesturitoolarge">Request-URI too large</text>
+        <text tid="resetcontent">Reset content</text>
+        <text tid="seeother">Verwijzing naar andere pagina</text>
+        <text tid="servernotfound">Server niet gevonden</text>
+        <text tid="serviceunavailable">Server tijdelijk niet beschikbaar</text>
+        <text tid="socketerror">Fout bij verbinden</text>
+        <text tid="switchingprotocols">Switching protocols</text>
+        <text tid="temporaryredirect">Tijdelijke verwijzing</text>
+        <text tid="toomanyredirections">Teveel verwijzingen</text>
+        <text tid="unauthorized">Niet geautoriseerd</text>
+        <text tid="unknown">Onbekende fout</text>
+        <text tid="unsupportedmediatype">Unsupported media type</text>
+        <text tid="useproxy">Use proxy</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="objectreport">   <!-- report.objectreport -->
+      <text tid="nobrokenlinks">Er zijn geen dode links om te tonen</text>
+      <text tid="nolinks">Er zijn geen links om te tonen</text>
+      <text tid="referrer">Vanaf</text>
+      <text tid="showalllinks">Toon alle links</text>
+      <text tid="status">Status</text>
+      <text tid="text">Linktekst</text>
+      <text tid="url">URL</text>
+    </textgroup>
+    <textgroup gid="queries">   <!-- report.queries -->
+      <text tid="csvexport">CSV exporteren</text>
+      <text tid="fromdate">Weergeven vanaf</text>
+      <text tid="options">Resultaten</text>
+      <text tid="options-grouped">Resultaten gegroepeerd weergeven</text>
+      <text tid="optionsbox">Weergaveopties</text>
+      <text tid="pages">Pagina's</text>
+      <text tid="queries">Zoekopdrachten</text>
+      <text tid="query">Zoekopdracht</text>
+      <text tid="refresh">Vernieuwen</text>
+      <text tid="results">Resultaten</text>
+      <text tid="when">Wanneer</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="rights">   <!-- rights -->
+    <text tid="catalogs">Catalogi</text>
+    <text tid="manage">Catalogi beheren</text>
+    <text tid="manage_descr">Catalogi en contentbronnen bewerken</text>
+    <text tid="metadata">Cataloguseigenschappen bewerken</text>
+    <text tid="metadata_descr">Catalogi (maar niet contentbronnen) bekijken en cataloguseigenschappen bewerken</text>
+    <text tid="read">Catalogi bekijken</text>
+    <text tid="read_descr">Catalogi, maar geen contentbronnen, en voorbeeld bekijken</text>
+  </textgroup>
+  <textgroup gid="searcherrors">   <!-- searcherrors -->
+    <text tid="connecterror">Er kon geen verbinding worden gemaakt met de zoekmachine</text>
+    <text tid="error">Er is een onbekende fout opgetreden</text>
+    <text tid="httperror">Er is een fout opgetreden bij de verbinding met de zoekmachine (geen status 'ok' ontvangen)</text>
+    <text tid="indexnotfound">De gevraagde catalogus kon niet worden gevonden</text>
+    <text tid="invalidargument">Ongeldig argument gegeven</text>
+    <text tid="noaccess">Geen toegang tot de gevraagde indexmanager of catalogus</text>
+    <text tid="nototalerror">Geen totaal aantal zoekresultaten ontvangen</text>
+    <text tid="ok">Ok</text>
+    <text tid="senderror">De zoekopdracht kon niet naar de zoekmachine gestuurd worden</text>
+    <text tid="timeouterror">Er is een time-out opgetreden tijdens het wachten op de zoekmachine</text>
+    <text tid="unavailable">De gevraagde catalogus is op het moment niet beschikbaar</text>
+  </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="elasticesearch">   <!-- tolliumapps.elasticesearch -->
+      <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
+      <text tid="docs">Documenten</text>
+      <text tid="esmgr">ElasticSearch beheer</text>
+      <text tid="getmapping">Mappings</text>
+      <text tid="indexmanager">Elasticsearch server</text>
+      <text tid="inspectquery">Inspecteer query</text>
+      <text tid="runquery">Voer query uit</text>
+      <text tid="size">Grootte</text>
+    </textgroup>
+    <textgroup gid="indexmanagers">   <!-- tolliumapps.indexmanagers -->
+      <text tid="address">Adres</text>
+      <text tid="address-builtin">Interne WebHare-verbinding</text>
+      <text tid="confirmdeleteindexmanager">Weet u zeker dat de u de geselecteerde indexmanager wil verwijderen?</text>
+      <text tid="editindexmanager">Index manager</text>
+      <text tid="elasticsearch">Elasticsearch</text>
+      <text tid="general">Algemeen</text>
+      <text tid="indexmanagers">Index managers</text>
+      <text tid="indexmgr-builtin">Ingebouwd (klassieke Consilio)</text>
+      <text tid="indexmgr-elasticsearch">Elasticsearch</text>
+      <text tid="name">Naam</text>
+      <text tid="prefix">Voorvoegsel</text>
+      <text tid="threshold_enabled">Controle schijfgebruik actief</text>
+      <text tid="type">Type</text>
+      <text tid="watermark_flood">Alleen-lezen-modus</text>
+      <text tid="watermark_high">Erg weinig schijfruimte</text>
+      <text tid="watermark_low">Weinig schijfruimte</text>
+      <textgroup gid="messages">   <!-- tolliumapps.indexmanagers.messages -->
+        <text tid="inconsistentwatermarks">Alle drempelwaarden moeten ofwel percentages ofwel absolute byte-waarden zijn</text>
+        <text tid="invalidbytevalue">Het veld '<param p="1"/>' bevat een ongeldige absolute byte-waarde '<param p="2"/>'</text>
+        <text tid="invalidpercentage">Het veld '<param p="1"/>' bevat een ongeldig percentage '<param p="2"/>'</text>
+        <text tid="savesettingserror">Er is een fout opgetreden bij het toepassen van de nieuwe instellingen<ifparam p="1" value=""><else/>:<br/><br/><param p="1"/></ifparam></text>
+        <text tid="valuetoohigh">De waarde van het veld '<param p="1"/>' mag niet hoger zijn dan de waarde van het veld '<param p="2"/>'</text>
+        <text tid="valuetoolow">De waarde van het veld '<param p="1"/>' mag niet lager zijn dan de waarde van het veld '<param p="2"/>'</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

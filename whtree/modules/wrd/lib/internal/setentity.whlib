@@ -1,0 +1,60 @@
+<?wh
+//wrapper to be able to implement legacy createentity/updatefields
+RECORD ARRAY currentupdateerrors;
+MACRO OnLegacyEntityError(RECORD error)
+{
+  INSERT error INTO currentupdateerrors AT END;
+}
+PUBLIC RECORD FUNCTION LegacyUpdateEntity(OBJECT wrdtype, RECORD entitydata, INTEGER entityid, DATETIME updatedat)
+{
+  RECORD ARRAY saveerrors := currentupdateerrors;
+  currentupdateerrors := DEFAULT RECORD ARRAY;
+  TRY
+  {
+    RECORD result := wrdtype->__internal_updentity(entitydata, entityid, FALSE, [ updateat := updatedat, errorcallback := PTR OnLegacyEntityError ]);
+    INSERT CELL errors := currentupdateerrors INTO result;
+    RETURN result;
+  }
+  FINALLY
+  {
+    currentupdateerrors := saveerrors;
+  }
+}
+
+PUBLIC MACRO OnThrowEntityError(RECORD error)
+{
+  IF(CellExists(error,'message'))
+    THROW NEW Exception(error.message);
+
+  SWITCH(error.code)
+  {
+    CASE "NOUPDATE"
+    {
+      THROW NEW Exception("The WRD_ID field cannot be updated");
+    }
+    CASE "INVALIDVALUE"
+    {
+      IF(CellExists(error,'setvalue'))
+        THROW NEW Exception("The value '" || EncodeJava(error.setvalue) || "' is not a valid value for '" || error.tag || "'");
+      ELSE
+        THROW NEW Exception("Setting invalid value for '" || error.tag || "'");
+    }
+    CASE "REQUIRED"
+    {
+      THROW NEW Exception("The field '" || error.tag || "' is required");
+    }
+    CASE "CANNOTPOINTTOSELF"
+    {
+      THROW NEW Exception("The field '" || error.tag || "' cannot point to itself");
+    }
+    CASE "TOOLARGE"
+    {
+      THROW NEW Exception(`The field '${error.tag}' may contain only ${error.maxlength} bytes, trying to pass ${error.triedlength}`);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception("Error '" || error.code || "' for field '" || error.tag || "'");
+    }
+  }
+}
+

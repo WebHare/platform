@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/internal/tasks/geoipdownload.whlib";
+
+RECORD result := UpdateGEOIPDatabases();
+FOREVERY(STRING msg FROM result.messages)
+  Print(`${msg}\n`);
+FOREVERY(STRING error FROM result.errors)
+{
+  SetConsoleExitCode(1);
+  PrintTo(2,`${error}\n`);
+}

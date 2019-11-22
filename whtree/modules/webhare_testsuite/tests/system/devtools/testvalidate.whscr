@@ -1,0 +1,757 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+// inconsistentscreen lacks 'badbutton'
+BLOB inconsistentscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="testgid">
+  <screen name="anycomponent" implementation="none">
+    <body>
+      <textedit name="x" defaultbutton="badbutton" onchange="nosuchhandler" />
+    </body>
+  </screen>
+  <fragment name="TestFragment" gid=".testfragment" implementation="none">
+    <actions>
+      <action name="anyaction" onexecute="invokeaction"/>
+    </actions>
+    <contents>
+      <select name="type" type="radio" title=""> <!-- title here does not prevent rowkeys -->
+        <option rowkey="checkbox" />
+        <option rowkey="RadioGagaButton" />
+      </select>
+      <select name="type2" type="radio" title="Type2"> <!-- this one does NOT generate extra rowkey tids-->
+        <option rowkey="checkbox" />
+        <option rowkey="RadioGagaButton" />
+      </select>
+    </contents>
+  </fragment>
+</screens>
+`);
+
+//badimplementationscreen refers to invalid implementation
+BLOB badimplementationscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="screens.whlib" gid="testgid">
+  <screen name="createscreen" implementation="wrd:nosuchbase">
+    <body>
+    </body>
+  </screen>
+</screens>`);
+
+STRING base_compositionwarning :=
+`  <screen name="testscreen" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" name="mytextedit" required="true" />
+      <textedit composition="row" name="explicitemptycellname" cellname="" />
+    </body>
+  </screen>`;
+
+//composition without cellname is dangerous for most fields refers to invalid implementation
+BLOB compositionwarningscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  ${base_compositionwarning}
+</screens>`);
+
+BLOB compositionwarningscreen_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  ${base_compositionwarning}
+</siteprofile>`);
+
+BLOB badwebrules_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/" match="initial" permissions="TCPIP FULLDB" />
+    </webruleset>
+  </sitesettings>
+</siteprofile>`);
+
+STRING base_customwarning :=
+`  <screen name="testscreen" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <body>
+      <inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />
+    </body>
+  </screen>`;
+
+BLOB customwarningscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  ${base_customwarning}
+</screens>`);
+
+//test option/rowkey tids synthhesis
+BLOB optiontidssynthesis := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="testgid">
+  <screen name="anycomponent" title="" implementation="none">
+    <body>
+      <select cellname="color" composition="parentscope-&gt;row" type="pulldown" tid="widgets.color">
+        <option rowkey="Red and White"/>
+        <option rowkey="blue:Da.Ba-dee"/>
+        <option rowkey="  "/>
+        <option rowkey="__"/>
+      </select>
+    </body>
+  </screen>
+</screens>`);
+
+
+//siteprofile with option tids
+BLOB siteprofoptiontids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <fragment xmlns="http://www.webhare.net/xmlns/tollium/screens" name="widgetsetting_visual" implementation="none">
+    <contents>
+      <select cellname="color" composition="parentscope-&gt;row" type="pulldown" tid="widgets.color">
+        <option rowkey="blue"/>
+      </select>
+      <select cellname="stuff" composition="parentscope-&gt;row" type="pulldown" title="Stuff"> <!-- this should not trigger option rowkey generation -->
+        <option rowkey="stuffed"/>
+      </select>
+    </contents>
+  </fragment>
+</siteprofile>`);
+
+//siteprofile with option tids
+BLOB siteprofoptiontids2 := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <propertyeditor name="contentlistingfolder">
+    <newtab gid="webdesigns.ws2016.contentlisting" tid=".viewmode" xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+      <t:select composition="fsinstance" title="" cellname="ViewMode" type="pulldown">
+        <t:option rowkey="filesAndfolders" />
+      </t:select>
+    </newtab>
+  </propertyeditor>
+</siteprofile>`);
+
+//siteprofile gids
+BLOB siteprofgids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:p="http://www.webhare.net/xmlns/publisher/components" gid="level1">
+  <tabsextension name="te1" gid=".level2" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <newtab gid=".level3" tid=".newtab">
+      <panel gid=".level4">
+        <text name="text" />
+        <text name="text2" tid=".tid2"/>
+      </panel>
+    </newtab>
+  </tabsextension>
+  <widgettype namespace="urn::testwidtget" tid=".widgettype" />
+</siteprofile>`);
+
+
+//wrdschemas are now also sources of tids!
+BLOB wrdschemawithtids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="TESTTYPE">
+    <attributes>
+      <enum tag="ENUMY" title="E-mail" required="1" unique="1" allowedvalues="a b C" gid="wrd.schema"/>
+    </attributes>
+  </object>
+</schemadefinition>`);
+
+BLOB badglobalhandler := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  <screen name="testbadglobalhandler" implementation="none">
+    <body>
+      <select name="pulldown" type="pulldown">
+        <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#NoSuchFunction" />
+        <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler" />
+      </select>
+    </body>
+  </screen>
+</screens>`);
+
+BLOB badplacementxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema elementFormDefault="qualified" xml:lang="en"
+  targetNamespace="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  >
+
+  <xs:element name="downloadaction">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tolliumcomponent placement="downloadaction" lib="components/action.whlib" objecttype="TolliumDownloadAction" />
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
+`);
+
+BLOB moduledefwarning := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta/>
+  <hooking>
+    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions" runmodel="integrated" />
+  </hooking>
+  <backend>
+    <webruleset name="dynamicsendpoint">
+      <webrule path="/" match="initial" permissions="TCPIP FULLDB" />
+    </webruleset>
+  </backend>
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="mutable" primarykey="id">
+      <d:integer name="id" unique="1" nullable="1" />
+    </d:table>
+  </databaseschema>
+</module>`);
+
+BLOB FUNCTION WrapAsScreenBody(STRING innercode)
+{
+  RETURN StringToBlob(`<?xml version="1.0" encoding="UTF-8"?><screens xmlns="http://www.webhare.net/xmlns/tollium/screens"><screen name="createscreen" implementation="none"><body>${innercode}</body></screen></screens>`);
+}
+
+MACRO TestTidsForInconsistentScreen(RECORD validateres)
+{
+  TestEq(RECORD[], SELECT * FROM validateres.tids WHERE resourcename != "mod::system/nosuchscreen.xml");
+  INTEGER screenstart := 3;
+  INTEGER fragmentstart := 8;
+  TestEq( [[ line := screenstart,     tid := "system:testgid.anycomponent" ]
+          ,[ line := screenstart+2,   tid := "system:testgid.x" ]
+          ,[ line := fragmentstart+2, tid := "system:testgid.testfragment.anyaction" ]
+          ,[ line := fragmentstart+6, tid := "system:testgid.testfragment.type-checkbox" ]
+          ,[ line := fragmentstart+7, tid := "system:testgid.testfragment.type-radiogagabutton" ]
+          ], SELECT line,tid FROM validateres.tids ORDER BY line,tid);
+}
+
+MACRO TestBasicValidate()
+{
+  RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml");
+  TestEq(RECORD[],res.errors);
+  Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="system:monitor.mailqueue.title"), "Cannot find system:monitor.mailqueue.title");
+
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
+  TestEq(RECORD[],res.errors);
+  Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.testsite.title"), "Cannot find webhare_testsuite:module.testsite.title");
+
+  //may have to change if we ever error on runmodel, find a new warning then. or if permissions= goes away, we do need to check webrules are validated!
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefwarning ]);
+  TestEq(RECORD[],res.errors);
+  TestEq(3,Length(res.warnings));
+  Testeq([[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
+         ,[ line := 5, message := "The runmodel attribute has been deprecated and should be removed" ]
+         ,[ line := 9, message := "permissions= no longer has any effect and should be removed" ]
+         ], (SELECT line, message FROM res.warnings));
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
+  TestEq(1,Length(res.errors));
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi]")]);
+  TestEq(1,Length(res.tids));
+  TestEq("system:test.hi", res.tids[0].tid);
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid ungroupedtid]")]);
+  TestEq(1, Length(res.errors));
+  TestEq(0, Length(res.tids));
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="test.hi"></div>')]);
+  TestEq(1,Length(res.errors));
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="system:test.hi"></div>')]);
+  TestEq(1,Length(res.tids));
+  TestEq("system:test.hi", res.tids[0].tid);
+
+  res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="~add"></div>')]);
+  TestEq(1,Length(res.tids));
+  TestEq("~add", res.tids[0].tid);
+
+  //test local override and sending in a error
+  STRING data := BlobToString(GetWebhareResource("mod::system/moduledefinition.xml"));
+  data := Substitute(data,'</module>','');
+  res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := StringToBlob(data) ]);
+  //DumpValue(res);
+
+  TestEq(1,Length(res.errors));
+
+  // test proper screen validation with custom docs.
+  //even if the screen on disk doesn't exist, i should still be allowed to validate it
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
+  TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*not expected*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Unrecognized implementation*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 3));
+  TestEq(1, Length(res.errors));
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := compositionwarningscreen ]);
+  TestEq(RECORD[], res.errors);
+  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 8));
+  TestEq(1, Length(res.warnings));
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := customwarningscreen ]);
+  TestEq(RECORD[], res.errors);
+  TestEq([[ line := 5, message := "Warning!" ]], SELECT line,message FROM res.warnings);
+
+  //siteprofiles should also warn about broken screens
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
+  TestEq(RECORD[], res.errors);
+  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml.siteprl" AND line = 8));
+  TestEq(1, Length(res.warnings));
+
+  //siteprofiles should also warn about bad webrules
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := badwebrules_siteprl ]);
+  TestEq(RECORD[], res.errors);
+  TestEq([[ line := 5, message := "permissions= no longer has any effect and should be removed" ]
+         ], (SELECT line, message FROM res.warnings));
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(res.errors), "Unexpected errors!");
+  TestTidsForInconsistentScreen(res);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen, onlytids := TRUE ]);
+  TestTidsForInconsistentScreen(res);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids
+                                                                , onlytids := TRUE
+                                                                ]);
+  TestEq(RECORD[], res.errors);//we got 'missing module module' on tids earlier
+  TestEq([[ attrname := "tid", col := 0, line := 5, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color" ]
+         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color-blue" ]
+         ], res.tids);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
+                                                                , onlytids := TRUE
+                                                                ]);
+  TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
+  TestEq([[ attrname := "tid",    col := 0, line := 4, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode" ]
+         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode-filesandfolders" ]
+         ], res.tids);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := optiontidssynthesis
+                                                                , onlytids := TRUE
+                                                                ]);
+  TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
+  TestEq([[ attrname := "tid",    col := 0, line := 5, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color" ]
+         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-red_and_white" ]
+         ,[ attrname := "rowkey", col := 0, line := 7, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-blue_da_ba-dee" ]
+         ,[ attrname := "rowkey", col := 0, line := 8, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-__" ]
+         ,[ attrname := "rowkey", col := 0, line := 9, resourcename := "mod::system/nosuchscreen.xml", tid := "system:widgets.color-__" ]
+         ], res.tids);
+
+  //We can't detect bad handlers yet as we cannot instantiate during validation
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
+  TestEq(RECORD[],res.errors);
+  TestEq(RECORD[],res.warnings);
+
+  //Test scoped namespace support
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := StringToBlob(
+      `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><contenttype namespace="scope:mediafolder"/></siteprofile>`)
+                                                                ]);
+  TestEq([[ message := "Cannot use \'scope:\' for namespace references in an unscoped site profile - did you mean to set isscoped=true on the <siteprofile> ?" ]], SELECT message FROM res.errors);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := StringToBlob(
+      `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" isscoped="true"><contenttype namespace="scope:mediafolder"/></siteprofile>`)
+                                                                ]);
+  TestEq(RECORD[], res.errors);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
+      `<text tid="module:invalid" />
+       <text tid="invalid" />
+       <text tid="module:group.valid" />`)]);
+
+  TestEq(TRUE,  RecordExists(SELECT FROM res.errors WHERE line=1));
+  TestEq(TRUE,  RecordExists(SELECT FROM res.errors WHERE line=2));
+  TestEq(FALSE, RecordExists(SELECT FROM res.errors WHERE line=3));
+
+  //Test validating against empty library - including anycomponent as the current bug required a library-screen before a non-library screen
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := StringToBlob(
+    `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+        <screen name="anycomponent" library="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib"><body></body></screen>
+        <screen name="nolibscreen"><body></body></screen>
+     </screens>`) ]);
+
+  TestEq(1,Length(res.errors));
+  TestEqLike("No such library*",res.errors[0].message);
+}
+
+MACRO TestTidScan()
+{
+  //Test validation when limitlangauges used for nonprimary language
+  //First some sanity checks that the language files still look the way we need m'
+  TestEq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", GetTIDForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
+  TestEq("IsNLOnly", GetTIDForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
+
+  BLOB nltidscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <screen name="createscreen" implementation="none" tid="aaa.limitlanguage_nl.isnlonly">
+      <body>
+        <text tid="aaa.limitlanguage_nl.nonexisting" />
+        <text tid="~add" />
+      </body>
+    </screen>
+  </screens>`);
+
+  RECORD res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := nltidscreen ]);
+  TestEq([[ attrname := "tid", col := 0, line := 3, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:aaa.limitlanguage_nl.isnlonly" ]
+         ,[ attrname := "tid", col := 0, line := 5, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:aaa.limitlanguage_nl.nonexisting" ]
+         ,[ attrname := "tid", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "~add" ]
+         ], res.tids);
+  TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
+
+  //Illegal GetTid format should not abort validation
+  BLOB illegalgettid := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib";
+GetTid("missing.module"); GetTid("system:has.module");`);
+  res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := illegalgettid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
+  TestEq(1,Length(res.errors));
+  TestEq(1,Length(res.tids));
+
+  BLOB commenttid := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*tid*/"tollium:b.tid"; };`);
+  res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenttid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
+  TestEq([[ tid:="tollium:b.tid" ]], SELECT tid FROM res.tids);
+
+  //Test GetTIDForLanguage
+  FOREVERY(STRING totest FROM [`OBJECT x; GetTIDForLanguage(x->formlanguagecode, "system:has.module");`
+                              ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, "system:has.module");`
+                              ])
+  {
+    BLOB testfile := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib"; ${totest}`);
+    res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := testfile, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
+    TestEq([ "system:has.module" ], (SELECT AS STRING ARRAY tid FROM res.tids), "Failed on GetTidForLanguage test #" || #totest);
+  }
+
+  //Test space -> underscore mapping
+  FOREVERY(STRING totest FROM [`GetTid("system:group.a_b_c");`
+                              ,`GetTid("system:group.a b c");`
+                              ])
+  {
+    BLOB testfile := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib"; ${totest}`);
+    res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := testfile, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
+    TestEq([ "system:group.a_b_c" ], (SELECT AS STRING ARRAY tid FROM res.tids), "Failed on underscore map test #" || #totest);
+  }
+
+
+  BLOB tidxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <xs:schema
+    xmlns="http://www.webhare.net/xmlns/publisher/forms"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://www.webhare.net/xmlns/publisher/forms"
+    elementFormDefault="qualified"
+    xml:lang="en">
+
+    <xs:element name="comp1">
+      <xs:complexType>
+        <xs:annotation>
+          <xs:appinfo>
+            <formcomponent
+              tid="comp.name"
+              />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:complexType>
+    </xs:element>
+
+    <xs:element name="textedit">
+      <xs:complexType>
+        <xs:annotation>
+          <xs:appinfo>
+            <formcomponent
+              tid="publisher:formcomponents.textedit.name"
+              descriptiontid="publisher:formcomponents.textedit.description"
+              />
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>`);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuchschema.xsd", [ overridedata := tidxsd ]);
+  TestEq(2, Length(res.errors));
+  TestEqLike("Invalid fieldobject*", res.errors[0].message);
+  TestEqLike("Invalid fieldobject*", res.errors[1].message);
+  TestEq(3,Length(res.tids));
+  TestEq(["publisher:formcomponents.textedit.description","publisher:formcomponents.textedit.name","webhare_testsuite:comp.name"],SELECT AS STRING ARRAY tid FROM res.tids ORDER BY tid);
+  TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
+
+  res := ValidateSingleFile("mod::webhare_testsuite/tests/publisher/forms/data/testformcomponents.xsd");
+  TestEq([[line := 27, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
+         ], (SELECT *, DELETE resourcename FROM res.tids));
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);
+  TestEq([[line := 12, message := "Invalid placement \'downloadaction\' for element \'downloadaction\'" ]
+         ], (SELECT line,message FROM res.errors));
+
+  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
+  TestEq(RECORD[], res.errors);
+  TestEq([[ line := 7,  attrname := "name" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.radiotest");
+  TestEq(RECORD[], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtexttid");
+  TestEq([[ line := 87,  attrname := "data-wh-gettid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtext-tid");
+  TestEq(1, Length(SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextlabeltid"));
+  TestEq([[ line := 139,  attrname := "pagetid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextpage");
+
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
+  TestEq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.webruleset"));
+
+  res := ValidateSingleFile("mod::webhare_testsuite/data/test.wrdschema.xml", [ overridedata := wrdschemawithtids ]);
+
+  TestEq(RECORD[], res.errors, 'wrdschemawithtids did not validate!');
+  TestEq([[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.a" ]
+         ,[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.b" ]
+         ,[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.c" ]
+         ], SELECT line,attrname,tid FROM res.tids);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/lib/screens/tests/tolliumtids.whlib");
+  TestEq([[ line := 18,  tid := "webhare_testsuite:testtids.screen.screen" ]
+         ,[ line := 26,  tid := "webhare_testsuite:testtids.fragment.fragment" ]
+         ,[ line := 34,  tid := "webhare_testsuite:testtids.tabsextension.tabsextension" ]
+         ], SELECT line,tid FROM res.tids);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/data/test.siteprl.xml", [ overridedata := siteprofgids ]);
+  TestEq([[ line := 4,  tid := "webhare_testsuite:level1.level2.level3.newtab" ]
+         ,[ line := 6,  tid := "webhare_testsuite:level1.level2.level3.level4.text" ]
+         ,[ line := 7,  tid := "webhare_testsuite:level1.level2.level3.level4.tid2" ]
+         ,[ line := 11,  tid := "webhare_testsuite:level1.widgettype" ]
+         ], SELECT line,tid FROM res.tids);
+
+  //verify we don't break old site-based siteprofiles for language handling yet
+  testfw->BeginWork();
+  OBJECT testsiteprl := GetTestsuiteTempFolder()->CreateFile([name := "test.siteprl", typens := "http://www.webhare.net/xmlns/publisher/siteprofilefile", data := siteprofgids ]);
+  testfw->CommitWork();
+  res := ValidateSingleFile(testsiteprl->GetResourceName());
+  TestEq(RECORD[], res.errors);
+  TestEq([[ line := 4,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.newtab" ]
+         ,[ line := 6,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.level4.text" ]
+         ,[ line := 7,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.level4.tid2" ]
+         ,[ line := 11, tid := "site::webhare testsuite site/tmp/test.siteprl:level1.widgettype" ]
+         ], SELECT line,tid FROM res.tids);
+}
+
+MACRO TestValidateSVG()
+{
+  BLOB badsvg := StringToBlob(`<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+   viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
+<style type="text/css">
+  .st0{fill:url(#SVGID_1_);}
+  .st1{display:none;}
+  .st2{display:inline;fill:#4A4A4A;}
+  .st3{display:inline;}
+  .st4{fill:#0592E1;}
+</style>
+<g id="Layer_2">
+
+    <linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="3.8888" y1="35.6112" x2="44.1112" y2="12.3888" gradientTransform="matrix(1 0 0 -1 0 48)">
+    <stop  offset="0" style="stop-color:#FFFFFF"/>
+    <stop  offset="0.7545" style="stop-color:#F5F5F5"/>
+    <stop  offset="0.9973" style="stop-color:#F5F5F5"/>
+  </linearGradient>
+  <polygon class="st0" points="41,41 7,41 7,7 41,7   "/>
+</g>
+<g class="st1">
+  <path class="st2" d="M41,6H7C6,6,6,7,6,7v34c0,0,0,1,1,1h34c1,0,1-1,1-1V7C42,7,42,6,41,6z M40,40H8V8h32V40z"/>
+  <g class="st3">
+    <path id="reuse.svg:checkmark" class="st4" d="M19.6,34c0.4,0.6,1.2,0.8,1.8,0.8l0,0l0,0c0.8,0,1.4-0.4,1.8-1L37,16.4
+      c0.8-1,0.6-2.7-0.4-3.4c-1-0.8-2.7-0.6-3.4,0.4l-12.1,15l-5.6-6.8c-0.6-0.8-2.2-1-3.3-0.2c-1,0.8-1.2,2.4-0.2,3.4L19.6,34z"/>
+  </g>
+</g>
+</svg>`);
+
+  RECORD res := ValidateSingleFile("mod::tollium/web/img/broken.svg", [ overridedata := badsvg ]);
+  TestEq([[ col := 1, line := 1, message := "Hidden layers! (consider `wh fixsvgs`)", resourcename := "mod::tollium/web/img/broken.svg"
+          , source := "unknown", metadata := DEFAULT RECORD
+          ]
+         ], res.errors);
+
+  BLOB badids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <path id="reuse.svg:arrowrightturn" d="M28.896,19.784l-3.631-5.157c-0.104-0.144-0.266-0.231-0.441-0.231c-0.173,0-0.338,0.087-0.439,0.231l-3.632,5.156c-0.119,0.172-0.138,0.397-0.045,0.585c0.094,0.188,0.282,0.307,0.484,0.307h2.012c-0.438,0.765-0.996,1.463-1.674,2.053c-1.582,1.375-3.586,2.032-5.646,1.853c-2.003-0.178-3.835-1.133-5.161-2.69c-0.461-0.541-1.262-0.598-1.788-0.121c-0.526,0.477-0.579,1.304-0.117,1.846c1.759,2.067,4.191,3.336,6.851,3.572c0.298,0.024,0.594,0.038,0.89,0.038c2.417,0,4.736-0.871,6.605-2.497c1.28-1.114,2.255-2.502,2.875-4.053h2.419c0.204,0,0.391-0.119,0.484-0.307C29.033,20.181,29.016,19.955,28.896,19.784z"/>
+  </defs>
+  <g>
+    <use xlink:href="#reuse.svg:arrowrightturn" fill="#ffffff" stroke="#ffffff" stroke-width="0"/>
+  </g>
+</svg>`);
+
+  res := ValidateSingleFile("mod::tollium/web/img/broken.svg", [ overridedata := badids ]);
+  TestEq([[ col := 1, line := 7, message := "Invalid xlink:href references \'#reuse.svg:arrowrightturn\'", resourcename := "mod::tollium/web/img/broken.svg"
+          , source := "unknown", metadata := DEFAULT RECORD
+          ]
+         ], res.errors);
+}
+
+MACRO TestValidateForm()
+{
+  //Test validation like the sourcecode edit does. It shouldn't try to followup on instances when receiving just XML
+  STRING formtext := `<?xml version="1.0" encoding="UTF-8"?>
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+  <form name="webtoolform">
+    <handlers>
+      <mailresultshandler conditionid="NKDqO6fcJ5uBw9fgZ60WeQ" receivers="info@example.net" />
+    </handlers>
+    <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
+      <richtext guid="formcomp:yN8o9yU2syriPxc52Cm0AQ" textid="cvveT8A_rqevOdapoMWCog" title="thanks!"/>
+    </page>
+  </form>
+</formdefinitions>`;
+
+  RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
+  TestEq(RECORD[], validation.errors);
+
+  //Test <select> missing type= which should error out in XML validation phase, not code
+  formtext := `<?xml version="1.0" encoding="UTF-8"?>
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+  <form name="webtoolform">
+    <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
+       <select name="location" required="1" />
+    </page>
+  </form>
+</formdefinitions>`;
+
+  validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
+  TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*select*type*missing*"));
+
+  //Test duplicate names
+  formtext := `<?xml version="1.0" encoding="UTF-8"?>
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+  <form name="webtoolform">
+    <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
+       <select name="location" required="1" type="radio">
+        <option rowkey="1" title="Option 1">
+          <textedit name="location" />
+        </option>
+      </select>
+    </page>
+  </form>
+</formdefinitions>`;
+
+  validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
+  TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*location*unique*"));
+}
+
+MACRO OptionGids()
+{
+  SetTidLanguage("debug");
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/optiongid.optiongid_in_select");
+  TestEq(TRUE, ObjectExists(scr));
+
+  /*
+  RECORD rec :=
+    [ opt1 := (SELECT rowkey, title FROM scr->instructionmodes1->options)
+    , opt2 := (SELECT rowkey, title FROM scr->instructionmodes2->options)
+    , opt3 := (SELECT rowkey, title FROM scr->instructionmodes3->options)
+    , opt4 := (SELECT rowkey, title FROM scr->instructionmodes4->options)
+    , opt5 := (SELECT rowkey, title FROM scr->instructionmodes5->options)
+    ];
+
+  PRINT(AnyToString(rec, "tree"));
+  */
+
+  TestEq([ [ rowkey := "practicum", title := "{webhare_testsuite:optiongid_test.instructionmodes.practicum}" ]
+         , [ rowkey := "project",   title := "{webhare_testsuite:optiongid_test.instructionmodes.project}"   ]
+         ], SELECT rowkey, title FROM scr->instructionmodes1->options);
+
+  TestEq([ [ rowkey := "practicum", title := "{webhare_testsuite:gid_on_body.optiongid_test.instructionmodes.practicum}" ]
+         , [ rowkey := "project",   title := "{webhare_testsuite:gid_on_body.optiongid_test.instructionmodes.project}"   ]
+         ], SELECT rowkey, title FROM scr->instructionmodes2->options);
+
+  TestEq([ [ rowkey := "practicum", title := "{webhare_testsuite:optiongid_test.instructionmodes.practicum}" ]
+         , [ rowkey := "project",   title := "{webhare_testsuite:optiongid_test.instructionmodes.project}"   ]
+         ], SELECT rowkey, title FROM scr->instructionmodes3->options);
+
+  TestEq([ [ rowkey := "practicum", title := "{webhare_testsuite:optiongid_test.instructionmodes.practicum}" ]
+         , [ rowkey := "project",   title := "{webhare_testsuite:optiongid_test.instructionmodes.project}"   ]
+         ], SELECT rowkey, title FROM scr->instructionmodes4->options);
+
+
+
+  // For now (just like titlefromrowkey="") the optiongid feature is only support for dynamically added rows
+  OBJECT scr2 := GetTestController()->LoadScreen("webhare_testsuite:tests/optiongid.optiongid_in_listcolumn");
+
+  scr2->programstarts->rows :=
+      [ [ rowkey := 1
+        , applicationnoneudeadline := "1"
+        , applicationdeadline := "2"
+        , startingmonth := "3"
+        ]
+      , [ rowkey := 2
+        , applicationnoneudeadline := "1"
+        , applicationdeadline := "2"
+        , startingmonth := "3"
+        ]
+      , [ rowkey := 3
+        , applicationnoneudeadline := "1"
+        , applicationdeadline := "2"
+        , startingmonth := "3"
+        ]
+      ];
+  //PRINT(AnyToString(scr2->programstarts->rows, "tree"));
+
+  VARIANT ARRAY exportedrows := scr2->programstarts->Web_RenderRows(scr2->programstarts->rows, TRUE);
+
+  FOREVERY(VARIANT ARRAY row FROM exportedrows) //FIXME row[] testing like this is very dependent on internal presentation... someone reoptimizing sorting will break it again
+  {
+    TestEq("{webhare_testsuite:optiongid_test.month.1}",row[4]);
+    TestEq("{webhare_testsuite:optiongid_test.columns.month.2}",row[6]);
+    TestEq("{webhare_testsuite:optiongid_test.columns.bla.startingmonth-3}", row[8]);
+  }
+
+  STRING formtext := `<?xml version="1.0" encoding="UTF-8"?>
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="webhare_testsuite:formgid">
+  <form name="webtoolform">
+    <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
+       <select name="location" required="1" type="pulldown">
+         <option rowkey="first" />
+         <option rowkey="second" tid=".second-option" />
+         <option rowkey="third" title="This is the third option" />
+       </select>
+    </page>
+  </form>
+</formdefinitions>`;
+
+  RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
+  TestEq("webhare_testsuite:formgid.location", SELECT AS STRING tid FROM validation.tids WHERE tid = "webhare_testsuite:formgid.location");
+  TestEq("webhare_testsuite:formgid.location-first", SELECT AS STRING tid FROM validation.tids WHERE tid = "webhare_testsuite:formgid.location-first");
+  TestEq("webhare_testsuite:formgid.second-option", SELECT AS STRING tid FROM validation.tids WHERE tid = "webhare_testsuite:formgid.second-option");
+}
+
+MACRO TestESLint()
+{
+  RECORD res;
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log(`fail`);")]);
+  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 13, message := "Parsing error: Unexpected character \'`\'", source := "unknown", metadata := DEFAULT RECORD ]], res.errors);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
+  TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon.", source := "unknown", metadata := DEFAULT RECORD ]], res.warnings);
+}
+
+ASYNC MACRO TestLoadScreen()
+{
+  STRING invalidscreen := `<?xml version="1.0" encoding="UTF-8"?>
+  <screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <screen name="firstscreen" implementation="none"><body></body></screen>
+    <screen name="otherscreen" implementation="none" invalidattr="42"><body></body></screen>
+  </screens>`;
+
+  // test loadscreen rejecting these - must see a load error
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline::${invalidscreen}#otherscreen`));
+  TestEqLike("*invalidattr*", tt("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // test xml error not crashing the loader
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline::<badxml>#otherscreen`));
+  TestEqLike("*Premature end*", tt("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(BlobToString(badglobalhandler))}#testbadglobalhandler`));
+  TestEq(2, Length(tt("errors")->rows));
+  TesteqLIke("*NoSuchFunction*was not found*", tt("errors")->rows[0].message);
+  TesteqLIke("*BadFreeOptionsHandler*wrong function signature*", tt("errors")->rows[1].message);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestBasicValidate
+                 , PTR TestValidateSVG
+                 , PTR TestValidateForm
+                 , PTR TestTidScan
+                 , PTR TestESLint
+                 , PTR OptionGids
+                 , PTR TestLoadScreen
+                 ]);

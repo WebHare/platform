@@ -1,0 +1,33 @@
+<?wh
+/** @topic widgets/widgets
+*/
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+/** @short Embedded slideshow widget
+    @long Implements slideshow widget (http://www.webhare.net/xmlns/publisher/widgets/slideshow)
+*/
+PUBLIC OBJECTTYPE SlideshowWidgetBase EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    IF(this->context->IsRTDPReview())
+    {
+      FOREVERY(RECORD slide FROM ArraySlice(this->data.slides,0,4))
+      {
+        STRING link := GetCachedImageLink(slide.image, [ method := "fit", setwidth := 60, setheight := 60 ]);
+        Print(`<img src="${EncodeValue(link)}" alt="${EncodeValue(slide.title)}"/>`);
+      }
+      Print(" " || GetTid("publisher:widgets.slideshowwidget.numslides", ToString(Length(this->data.slides))));
+    }
+    ELSE
+    {
+      //ADDME standard rendering
+    }
+  }
+>;

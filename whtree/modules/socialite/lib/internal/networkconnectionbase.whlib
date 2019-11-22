@@ -1,0 +1,194 @@
+﻿<?wh
+LOADLIB "mod::socialite/lib/internal/support.whlib";
+LOADLIB "wh::crypto.whlib";
+
+INTEGER current_token_version := 1;
+
+PUBLIC OBJECTTYPE NetworkConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN pvt_newpermissionmodel;
+
+  RECORD ARRAY pvt_permissionmap;
+
+  RECORD accesstok;
+
+  STRING pvt_persistentlogintype;
+
+  PUBLIC STRING consumer;
+  PUBLIC STRING secret; //application secret
+
+  PUBLIC INTEGER appid; //used for secure tokens
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY accesstoken(GetAccessToken, SetAccessToken);
+
+  ///Encrypted UFS-encoded access token
+  //PUBLIC PROPERTY securetoken(GetSecureAccessToken, SetSecureEncryptedHandle);
+
+  PUBLIC PROPERTY permissionmap(pvt_permissionmap, -);
+
+  // FIXME: this is always set to TRUE, I assume it can be removed??
+  PUBLIC PROPERTY newpermissionmodel(pvt_newpermissionmodel, -);
+
+  /** Type of persistent login
+      - 'redirect': permissions page redirects back, automatic persistent login allowed
+      - 'code': user needs to copy-paste a code
+      - 'nocode': access token is promoted to authorization token, without code
+  */
+  PUBLIC PROPERTY persistentlogintype(pvt_persistentlogintype, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD ARRAY permissionmap)
+  {
+    this->pvt_permissionmap := permissionmap;
+    this->pvt_persistentlogintype := "redirect";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short Validate access to this api
+      @param funcname userapi name to lookup
+      @param only_if_loggedin If set to true, we only fail if the user is authenticated AND requested the API */
+  MACRO ValidateAPIAccess(STRING funcname, BOOLEAN only_if_loggedin)
+  {
+    /* Not really needed
+
+    IF(NOT RecordExists(this->accesstok))
+    {
+      IF(only_if_loggedin)
+        RETURN;
+      THROW NEW SocialiteException("ACCESSDENIED", "Access to the '" || funcname || "' API is not available unless logged in");
+    }
+
+    INTEGER lookupid := SELECT AS INTEGER id FROM permissionmap WHERE ToUppercase(userapi) = ToUppercase(funcname);
+    RECORD inmap := SELECT * FROM this->permissionmap WHERE id = lookupid;
+    IF(CellExists(this->accesstok, "PERMS") AND (NOT RecordExists(inmap) OR inmap.id NOT IN this->accesstok.perms))
+      THROW NEW SocialiteException("ACCESSDENIED", "Access to the '" || funcname || "' API was not requested");
+    */
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetAccessToken()
+  {
+    RECORD toreturn := this->accesstok;
+    IF (NOT RecordExists(toreturn))
+      RETURN "";
+
+    INSERT CELL v := current_token_version INTO toreturn;
+    RETURN EncodeJSON(toreturn);
+  }
+
+  MACRO SetAccessToken(STRING newaccesstoken)
+  {
+    //Note that accestoken integrates both the oauth token and extra metadata for validation, so we can't move this to oauth whlib currently...
+    RECORD decode;
+    IF (newaccesstoken != "")
+    {
+      decode := DecodeJSON(newaccesstoken);
+      IF (NOT RecordExists(decode))
+        THROW NEW SocialiteException("EXPIRED", "The access token is corrupted");
+      IF(decode.v != current_token_version)
+        THROW NEW SocialiteException("EXPIRED", "This access token is no longer supported");
+
+      DELETE CELL v FROM decode;
+    }
+    this->accesstok := decode;
+    this->ExtUpdatedAccessToken();
+  }
+
+  PUBLIC STRING FUNCTION GetSecureAccessToken()
+  {
+    STRING header := EncodePacket("version:C,appid:L", [version := 1, appid := this->appid ]);
+    STRING basehandle := this->accesstoken;
+    STRING signedhandle := basehandle || GetSHA1Hash(basehandle|| this->secret);
+    STRING encryptedhandle := Encrypt("bf-ecb", this->secret, signedhandle);
+
+    IF (basehandle = "")
+      RETURN "";
+
+    RETURN MyEncodeURLBin64(header || encryptedhandle);
+  }
+
+  PUBLIC BOOLEAN FUNCTION SetSecureEncryptedHandle(STRING encryptedhandle)
+  {
+    STRING signedhandle := Decrypt("bf-ecb", this->secret, encryptedhandle);
+    STRING basehandle := Left(signedhandle, Length(signedhandle)-20);
+
+    IF(Right(signedhandle,20) != GetSHA1Hash(basehandle || this->secret))
+      RETURN FALSE;
+
+    this->accesstoken := basehandle;
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // ExtXXX
+  //
+
+  MACRO ExtUpdatedAccessToken()
+  {
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns the redirect page for oauth apps
+      @param serverurl Host url
+      @return URL that will be redirected to after authentication
+  */
+  PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    THROW NEW Exception("This connection does not support callback url based login");
+  }
+
+  /** @short Retrieve status messages from the logged in user
+      @long This function retrieves eg. 'tweets' for Twitter and 'wall messages' for Facebook.
+      @param downloadmax Maximum number of messages to download (you may not get as much messages as you ask, as networks will also apply their own maximums)
+      @cell(string) return.plaintext The posted status message (in plain text)
+      @cell(datetime) return.creationdate The post date (UTC)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetOwnRecentStatuses(INTEGER downloadmax)
+  {
+    ABORT("Not yet implemented for this network");
+  }
+
+  /// Whether IsAccessTokenValid is implemented for this network
+  PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
+  {
+    RETURN FALSE;
+  }
+
+  /** Checks the currently set access token, and checks whether it still works. Override for every network that returns TRUE
+      on SupportsValidityCheck.
+  */
+  PUBLIC BOOLEAN FUNCTION IsAccessTokenValid()
+  {
+    THROW NEW Exception("Should be overridden");
+  }
+
+  PUBLIC MACRO Close()
+  {
+  }
+>;

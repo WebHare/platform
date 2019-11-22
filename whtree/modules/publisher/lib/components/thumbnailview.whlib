@@ -1,0 +1,788 @@
+﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
+// FIXME: ptc_readaccess and ptc_writeaccess are not used??
+// ADDME: use ipc to update upon changes in the synced folder
+// ADDME: use bulk API for getting the images?
+
+
+PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Table used to show the thumbnails
+  OBJECT pvt_table;
+
+  /// Number of thumbnails on a line
+  INTEGER pvt_linewidth;
+
+  /// WHFS folder that is read
+  INTEGER pvt_folder;
+
+
+  /// List with all file id's
+  PUBLIC PROPERTY files(GetFileIds, SetFileIds);
+
+  /** List of shown files and an image components.
+      @param "0" File id
+      @param id File id
+      @param name File name
+      @param image Image component
+      @param text Text component
+  */
+  RECORD ARRAY pvt_files;
+
+  /** List with
+      @id File id
+      @title
+      @ordering Position within the filelist
+      @tolliumselected Whether the file is selected in the thumbnailview
+  */
+  PUBLIC PROPERTY rows(GetFileRows, -);
+
+  /** If TRUE, files are accepted
+  */
+  PUBLIC BOOLEAN acceptfiles;
+
+  /** If TRUE, folders are accepted
+  */
+  PUBLIC BOOLEAN acceptfolders;
+
+  /** If TRUE, files which aren't published will not be shown
+  */
+  PUBLIC BOOLEAN acceptunpublished;
+
+  STRING ARRAY accepttypedefs; // Namespaces of accepted types
+  INTEGER ARRAY accepttypeids; // Id's of accepted types
+  PUBLIC PROPERTY accepttypes(accepttypedefs, SetAcceptTypes);
+
+  /// Onselect handler
+  PUBLIC FUNCTION PTR onselect;
+
+  /// List of flags
+  STRING ARRAY pvt_flags;
+
+  /// Whether the thumbnails can be reordered (only in sortby='ordering' mode)
+  BOOLEAN pvt_orderable;
+
+  PUBLIC FUNCTION PTR filteritems; // A callback function to filter out items
+
+  // ADDME: list obsolete components, for reuse?
+
+
+  PUBLIC BOOLEAN __test_preinitdone;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /// Number of thumbnails on a line
+  PUBLIC PROPERTY linewidth(pvt_linewidth, SetLineWidth);
+
+  /// Indicates whether only single or multiple selections are allowed
+  PUBLIC PROPERTY selectmode(getSelectMode, setSelectMode);
+
+  /// WHFS folder that is shown
+  PUBLIC PROPERTY folder(pvt_folder, SetFolder);
+
+  /// fileids of the selected files
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC PROPERTY flags(this->pvt_table->flags, -);
+
+  PUBLIC PROPERTY openaction(this->pvt_table->openaction, this->pvt_table->openaction);
+
+  /// Order in which thumbnails are presented. Valid values: 'name', 'ordering'
+  PUBLIC PROPERTY sortby(pvt_sortby, SetSortBy);
+  STRING pvt_sortby;
+
+
+  /** Whether the thumbnails are reorderable in sortby='ordering' mode
+  */
+  PUBLIC PROPERTY orderable(pvt_orderable, SetOrderable);
+
+  PUBLIC PROPERTY selection(GetSelection, -); // FIXME: implement setter
+
+  PROPERTY overlaydragtype(GetOverlayDragType, -);
+
+  // use SetThumbnailWHFS() to change both type & field in one go
+  STRING pvt_thumbnailwhfstype;
+  STRING pvt_thumbnailwhfsfield;
+
+  PUBLIC BOOLEAN sendimagesencoded;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    //this->pvt_sortby := 'ordering';
+    this->invisibletitle := TRUE;
+
+    // Set the default linewidth
+    this->pvt_linewidth := 3;
+
+    this->acceptfiles := TRUE;
+    this->acceptfolders := FALSE;
+  }
+
+
+  MACRO EnsureSubTable()
+  {
+    IF(ObjectExists(this->pvt_table))
+      RETURN;
+
+    // The table can only be marked as sub component when PreInitComponent is called
+    this->pvt_table := this->owner->CreateTolliumComponent("table");
+    this->pvt_table->flags := [ "ptc_readaccess", "ptc_writeaccess", "validcell" ];
+  }
+
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    this->__test_preinitdone := TRUE; //Ugly solution to make this dialog testable
+    this->EnsureSubTable();
+    this->MarkAsSubComponent(this->pvt_table);
+    this->parent->InsertComponentAfter(this->pvt_table, DEFAULT OBJECT, FALSE);
+
+    // Register our local drag type
+    this->owner->RegisterLocalDragType(this->overlaydragtype, DEFAULT STRING ARRAY);
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    FSObjectOverviewBase::StaticInit(def);
+    this->EnsureSubTable();
+
+    this->pvt_table->cellcontextmenu := def.contextmenu;
+    this->pvt_table->onselect := PTR this->OnTableSelect;
+    this->pvt_table->selectmode := def.selectmode;
+
+    this->sortby := "name";//def.sortby;
+    this->orderable := def.orderable;
+
+    this->pvt_table->openaction := def.openaction;
+
+    this->pvt_table->height := "1pr";
+    this->pvt_table->width := "1pr";
+
+    // callbacks
+    this->onselect := def.onselect;
+
+    this->acceptfiles := def.acceptfiles;
+    this->acceptfolders := def.acceptfolders;
+    this->acceptunpublished := def.acceptunpublished;
+
+    this->accepttypes := def.accepttypes;
+  }
+
+  PUBLIC UPDATE OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN this->pvt_table->GetEnableOnComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetLineWidth(INTEGER newlinewidth)
+  {
+    this->pvt_linewidth := newlinewidth;
+    this->RebuildTable();
+  }
+
+  MACRO SetOrderable(BOOLEAN orderable)
+  {
+    this->pvt_orderable := orderable;
+
+    //FIXME: Update draginfo to enable/disable dragging?
+    IF (this->sortby = "ordering" AND orderable)
+    {
+      this->pvt_table->acceptdrops :=
+          [ [ ondrop := PTR this->OnReorderDrop
+            , accepttypes := [ [ type :=              this->overlaydragtype
+                               , sourceflags :=       DEFAULT STRING ARRAY
+                               , targetflags :=       ["validcell"]
+                               , appendchildflags :=  DEFAULT STRING ARRAY
+                               , insertbeforeflags := DEFAULT STRING ARRAY
+                               , frameflags :=        DEFAULT STRING ARRAY
+                               , dropeffects :=       ["move"]
+                               , locations :=         ["ontarget"]
+                               , requiretarget :=     TRUE
+                               , noloops :=           FALSE
+                               ] ]
+            ]
+          ];
+    }
+    ELSE
+    {
+      this->pvt_table->acceptdrops := DEFAULT RECORD ARRAY;
+    }
+    //this->pvt_table->ExtUpdatedComponent(this);
+  }
+
+  PUBLIC MACRO SetThumbnailWHFSType(STRING whfstype, STRING whfsfield)
+  {
+    this->pvt_thumbnailwhfstype := whfstype;
+    this->pvt_thumbnailwhfsfield := whfsfield;
+    this->RebuildTable();
+  }
+
+  MACRO SetFolder(INTEGER newfolder)
+  {
+    this->pvt_folder := newfolder;
+    this->RebuildTable();
+  }
+
+  UPDATE MACRO __SetFolder(INTEGER folderid, RECORD foldersettings)
+  {
+    this->SetFolder(folderid);
+  }
+
+  INTEGER ARRAY FUNCTION GetFileIds()
+  {
+    RETURN SELECT AS INTEGER ARRAY id FROM this->pvt_files;
+  }
+
+  PRIVATE RECORD ARRAY FUNCTION GetFileRows()
+  {
+    INTEGER ARRAY selectedpositions;
+
+    IF (this->selectmode = 'single')
+    {
+      OBJECT selected := this->pvt_table->selection;
+      IF (ObjectExists(selected))
+        selectedpositions := [this->GetFilePos(this->pvt_table->selection)];
+    }
+
+    IF (this->selectmode = 'multiple')
+    {
+      FOREVERY (OBJECT tablecell FROM this->pvt_table->selection)
+        INSERT this->GetFilePos(tablecell) INTO selectedpositions AT END;
+    }
+
+    RETURN SELECT id
+                , title    := name
+                , ordering := #files
+                , tolliumselected := (#files IN selectedpositions)
+                , isfolder := FALSE // we don't support folder yet
+             FROM this->pvt_files AS files;
+  }
+
+  MACRO SetFileIds(INTEGER ARRAY fileids)
+  {
+    RECORD ARRAY rawfiles :=
+        SELECT id
+             , name
+             , type
+             , isfolder
+             , issite          := id = parentsite
+             , published
+             , ordering := 0
+             , ptc_readaccess  := TRUE
+             , ptc_writeaccess := FALSE
+             , tolliumselected := FALSE
+             , pvt_iconname := ""
+          FROM system.fs_objects
+         WHERE id IN fileids
+           AND isactive // not in the trash
+           AND (this->acceptfolders = FALSE ? isfolder = FALSE : TRUE)
+           AND (this->acceptfiles = FALSE ? isfolder = TRUE : TRUE)
+           AND (this->acceptunpublished OR IsPublish(published))
+      ORDER BY id;
+
+    // Ids may be referenced multiple times, and keep them in order
+    RECORD ARRAY newfiles;
+    FOREVERY (INTEGER id FROM fileids)
+    {
+      RECORD pos := RecordLowerBound(rawfiles, [ id := id ], [ "ID" ]);
+      IF (pos.found)
+      {
+        RECORD rec := rawfiles[pos.position];
+        INSERT CELL rowkey := #id + 1 INTO rec;
+        INSERT rec INTO newfiles AT END;
+      }
+    }
+
+    newfiles := this->InternalFilterItems(newfiles);
+
+    this->RebuildTableAndContents(this->FilesToComps(newfiles), FALSE);
+  }
+
+  UPDATE PUBLIC MACRO ShowFSObjects(INTEGER ARRAY fileids)///
+  {
+    this->SetFileIds(fileids);
+  }
+
+  RECORD ARRAY FUNCTION FilesToComps(RECORD ARRAY allfiles)
+  {
+    // if we aren't in 'sync to folder' mode,
+    // we don't need to adhere to the ordering as set on files for that folder
+    IF (this->pvt_folder <= 0)
+      UPDATE allfiles SET ordering := #allfiles;
+
+    SWITCH (this->pvt_sortby)
+    {
+      CASE "name"
+        {
+          allfiles :=
+              SELECT *
+                FROM allfiles;
+        //    ORDER BY ToUppercase(name);
+        }
+      CASE "ordering"
+        {
+          allfiles :=
+              SELECT *
+                FROM allfiles
+            ORDER BY ordering
+                   , ToUppercase(name);
+        }
+    }
+
+    RECORD ARRAY newcomps;
+    FOREVERY (RECORD rec FROM allfiles)
+    {
+      INTEGER pos := #rec >= LENGTH(this->pvt_files) ? -1 : #rec;
+
+      INSERT CELL "0" := rec.id
+                , panel := pos < 0 ? DEFAULT OBJECT : this->pvt_files[pos].panel
+                , image := pos < 0 ? DEFAULT OBJECT : this->pvt_files[pos].image
+                , text  := pos < 0 ? DEFAULT OBJECT : this->pvt_files[pos].text
+             INTO rec;
+
+      INSERT rec INTO newcomps AT END;
+    }
+    RETURN newcomps;
+  }
+
+  MACRO SetAcceptTypes(STRING ARRAY types)
+  {
+    this->accepttypedefs := types;
+    this->accepttypeids := SELECT AS INTEGER ARRAY id FROM ListFSContentTypes() WHERE namespace IN types;
+
+    // Use the invalid typeid -1 if only invalid types were set, so nothing matches
+    IF (Length(types) > 0 AND Length(this->accepttypeids) = 0)
+      INSERT -1 INTO this->accepttypeids AT END;
+  }
+
+
+
+  STRING FUNCTION GetSelectMode()
+  {
+    this->EnsureSubTable();
+    RETURN this->pvt_table->selectmode;
+  }
+
+  MACRO SetSelectMode(STRING selectmode)
+  {
+    this->EnsureSubTable();
+    this->pvt_table->selectmode := selectmode;
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    SWITCH (this->pvt_table->selectmode)
+    {
+      CASE "none"
+        {
+          RETURN 0;
+        }
+      CASE "single"
+        {
+          OBJECT tablecell := this->pvt_table->selection;
+          IF (ObjectExists(tablecell))
+            RETURN this->pvt_files[this->GetFilePos(tablecell)].id;
+          RETURN 0;
+        }
+      CASE "multiple"
+        {
+          INTEGER ARRAY ids;
+
+          FOREVERY (OBJECT tablecell FROM this->pvt_table->selection)
+            INSERT this->pvt_files[this->GetFilePos(tablecell)].id INTO ids AT END;
+
+          RETURN ids;
+        }
+    }
+    RETURN 0;
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    SWITCH (this->pvt_table->selectmode)
+    {
+      CASE "none"
+        {
+          RETURN DEFAULT RECORD;
+        }
+      CASE "single"
+        {
+          OBJECT tablecell := this->pvt_table->selection;
+          IF (ObjectExists(tablecell))
+            RETURN this->pvt_files[this->GetFilePos(tablecell)];
+          RETURN DEFAULT RECORD;
+        }
+      CASE "multiple"
+        {
+          RECORD ARRAY recs;
+
+          FOREVERY (OBJECT tablecell FROM this->pvt_table->selection)
+            INSERT this->pvt_files[this->GetFilePos(tablecell)] INTO recs AT END;
+
+          RETURN recs;
+        }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO SetValue(VARIANT newvalue)
+  {
+    SWITCH (this->pvt_table->selectmode)
+    {
+      CASE "none"
+        {
+          RETURN;
+        }
+      CASE "single"
+        {
+          INTEGER pos := (
+              SELECT AS INTEGER #pos + 1
+                FROM this->pvt_files AS pos
+               WHERE id = INTEGER(newvalue)) - 1;
+
+          this->pvt_table->selection := pos = -1 ? DEFAULT OBJECT : this->GetFileCell(pos);
+        }
+      CASE "multiple"
+        {
+          this->pvt_table->selection :=
+              SELECT AS OBJECT ARRAY this->GetFileCell(#pos)
+                FROM this->pvt_files AS pos
+               WHERE id IN INTEGER ARRAY(newvalue);
+        }
+      }
+  }
+
+
+  MACRO SetSortBy(STRING newsortby)
+  {
+    IF (newsortby = "")
+      newsortby := "name";
+
+    IF (newsortby NOT IN [ "name", "ordering" ])
+      THROW NEW TolliumException(this, "Illegal ordering '" || newsortby || "', allowed are 'name' and 'ordering'");
+
+    this->pvt_sortby := newsortby;
+  }
+
+  STRING FUNCTION GetOverlayDragType()
+  {
+    RETURN "local:tollium.thumbnailview." || this->name || ".thumbnail";
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION InternalFilterItems(RECORD ARRAY items)
+  {
+    BOOLEAN check_types := LENGTH(this->accepttypeids) != 0;
+    items :=
+        SELECT *
+             , enabled :=   NOT check_types OR type IN this->accepttypeids
+          FROM items;
+
+    IF (Length(items) > 0 AND this->filteritems != DEFAULT FUNCTION PTR)
+      items := this->filteritems(items);
+
+    RETURN items;
+  }
+
+  INTEGER FUNCTION GetFilePos(OBJECT tablecell)
+  {
+    RETURN tablecell->row * this->pvt_linewidth + tablecell->col;
+  }
+
+  OBJECT FUNCTION GetFileCell(INTEGER filepos)
+  {
+    RETURN this->pvt_table->GetCell(filepos / this->pvt_linewidth, filepos % this->pvt_linewidth);
+
+  }
+
+  MACRO RebuildTableAndContents(RECORD ARRAY newfiles, BOOLEAN useinternalselected)
+  {
+    VARIANT saved_value := this->value;
+
+    this->pvt_files := newfiles;
+    this->InternalRebuildTable(useinternalselected);
+
+    IF (NOT useinternalselected)
+      this->value := saved_value; // restore selection
+  }
+
+  MACRO RebuildTable()
+  {
+    VARIANT saved_value := this->value; // remember current selection
+
+    // if the thumbnailview is linked to a folder, sync to the foldercontents
+    IF (this->pvt_folder > 0)
+      this->ShowFSObjects(SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = this->pvt_folder);
+
+    this->InternalRebuildTable(FALSE);
+
+    this->value := saved_value; // restore selection
+  }
+
+  /// FIXME: Use bulk APIs for all thumbnail images
+  MACRO InternalRebuildTable(BOOLEAN selectionbyrows)
+  {
+    RECORD ARRAY newcomps := this->pvt_files;
+
+    // check whether to use the default publisher preview type or an override
+    STRING whfs_thumbnail_type := this->pvt_thumbnailwhfstype;
+    STRING whfs_thumbnail_field := this->pvt_thumbnailwhfsfield;
+    IF (whfs_thumbnail_type = "http://www.webhare.net/xmlns/publisher/previewinfo")
+      whfs_thumbnail_type := "";
+    ELSE IF (whfs_thumbnail_field = '') // FIXME: is this fallback still usefull?
+      whfs_thumbnail_field := "thumbnail";
+
+    INTEGER rows := (LENGTH(newcomps) + this->pvt_linewidth - 1) / this->pvt_linewidth;
+
+    this->pvt_table->SetupLinearTable(Length(newcomps), this->pvt_linewidth, TRUE, "132px", "122px");
+
+    OBJECT ARRAY selection;
+
+    STRING imagewidth := "128px";
+    STRING imageheight := "128px";
+    STRING cellheight := "140px";
+
+    RECORD processingmethod := [ method := "fitcanvas"
+                               , setwidth := 128
+                               , setheight := 128
+                               , noforce := TRUE /// Don't reprocess
+                               , format := "image/png" /// Force png to enable transparency
+                               ];
+
+    OBJECT previewtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/previewinfo");
+    newcomps := previewtype->Enrich(newcomps, "ID", [ "PREVIEWIMAGE" ]);
+
+    OBJECT imginfo;
+    IF (whfs_thumbnail_type != "")
+    {
+      imginfo := OpenWHFSType(whfs_thumbnail_type);
+      newcomps := imginfo->Enrich(newcomps, "ID", [ whfs_thumbnail_field ], [ wrapfields := "THUMBNAIL"]);
+    }
+
+    FOREVERY (RECORD rec FROM newcomps)
+    {
+      IF (NOT ObjectExists(rec.image))
+      {
+        newcomps[#rec].panel := this->CreateSubComponent("panel");
+        newcomps[#rec].image := this->CreateSubComponent("image");
+        newcomps[#rec].text := this->CreateSubComponent("text");
+
+        newcomps[#rec].panel->minheight := cellheight;
+
+        newcomps[#rec].image->minwidth  := imagewidth;
+        newcomps[#rec].image->minheight := imageheight;
+
+        // resize instructions for the image (note: only works when using ->SetImage(), value dumps a raw image to the client)
+        newcomps[#rec].image->width  := imagewidth;
+        newcomps[#rec].image->height := imageheight;
+
+        newcomps[#rec].text->width := "128px";
+
+        newcomps[#rec].panel->InsertLinesAfter(
+          [ [ items := [ OBJECT(newcomps[#rec].image) ]
+            , layout := "center"
+            ]
+          ], DEFAULT OBJECT);
+      }
+
+      rec := EnrichFSObject(rec);
+      STRING cacheurl;
+
+      IF (RecordExists(rec.previewimage))
+      {
+        cacheurl := GetCachedImageLink(rec.previewimage, processingmethod);
+        newcomps[#rec].image->SetSrc(cacheurl, 128, 128);
+      }
+      ELSE IF(rec.type = 12)
+      {
+        /// This is an image; just feed it to the imagecache
+        cacheurl := GetCachedFSImageURL("", rec.id, processingmethod);
+        newcomps[#rec].image->SetSrc(cacheurl, 128, 128);
+      }
+      ELSE
+      {
+        /// Lookup the thumbnail data
+        RECORD imagedata;
+        IF (ObjectExists(imginfo))
+          imagedata := GetCell(rec.thumbnail, whfs_thumbnail_field);
+
+        IF (RecordExists(imagedata))
+        {
+          /// Apparently, a thumbmail is available; use it:
+          cacheurl := GetCachedImageLink(imagedata, processingmethod);
+          newcomps[#rec].image->SetSrc(cacheurl, 128, 128);
+        }
+        ELSE
+        {
+          /// No dice; use the type icon
+          newcomps[#rec].image->SetImageSrc(rec.pvt_iconname);
+        }
+      }
+
+/*// This code was a bit of an experiment with data-urls; nice as a proof of concept, sucks for production.
+      IF(this->sendimagesencoded AND cacheurl != "")
+      {
+        /// FIXME: Leverage adhoccache for data-url
+        RECORD image := GetCachedDataFromURL(cacheurl);
+        STRING src := "data:" || image.mimetype || ";base64," || EncodeBase64(BlobToString(image.data));
+        newcomps[#rec].image->SetSrc(src, 128, 128);
+      }
+*/
+
+      newcomps[#rec].image->hint := rec.name;
+      newcomps[#rec].text->value := UCTruncate(rec.name, 16);
+      newcomps[#rec].text->hint := rec.name;
+
+      OBJECT tablecell := this->pvt_table->GetLinearCell(#rec);
+      tablecell->selectable := rec.enabled;
+      tablecell->enabled := rec.enabled;
+      tablecell->interactionenabled := rec.enabled;
+      //IF(NOT rec.enabled)
+       // tablecell->backgroundcolor := "rgba(153, 153, 153, 0.4)";
+      tablecell->flags :=
+          [ ptc_readaccess      := rec.ptc_readaccess
+          , ptc_writeaccess     := rec.ptc_writeaccess
+          , validcell           := TRUE
+          ];
+
+      IF (this->pvt_orderable)
+        tablecell->draginfo := [ type := this->overlaydragtype, data := [ id := rec.id ] ];
+
+      tablecell->panel->InsertLinesAfter(
+        [ [ items := [ OBJECT(newcomps[#rec].panel) ]
+          , layout := "center"
+          ]
+        , [ items := [ OBJECT(newcomps[#rec].text) ]
+          , layout := "center"
+          ]
+        ], DEFAULT OBJECT);
+
+      IF (rec.tolliumselected)
+        INSERT tablecell INTO selection AT END;
+    }
+
+    IF (selectionbyrows)
+      this->pvt_table->selection := selection;
+  }
+
+  MACRO OnTableSelect()
+  {
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  MACRO OnReorderDrop(RECORD dragdata, RECORD target, STRING droplocation, STRING dragmode)
+  {
+//    PRINT("Reorder drop: row: " || row || ", col: " || col || ", mode: " || dragmode || "\n");
+//    PRINT("orderable: " || (this->pvt_orderable ? "yes" : "no") || "\n");
+
+    IF (NOT this->pvt_orderable)
+      RETURN;
+
+    VARIANT saved_value := this->value; // TEST FIXME
+
+    INTEGER movebefore;
+    INTEGER cellno;
+    IF (target.row = -1 OR target.col = -1)
+      movebefore := 0;
+    ELSE
+    {
+      cellno := target.row * this->pvt_linewidth + target.col;
+      movebefore := cellno < LENGTH(this->pvt_files) ? this->pvt_files[cellno].id : 0;
+    }
+
+    INTEGER ARRAY selection := SELECT AS INTEGER ARRAY id
+                                 FROM dragdata.items;
+    INTEGER ARRAY movedids := SELECT AS INTEGER ARRAY id FROM this->pvt_files WHERE id IN selection;
+
+    // if the thumbnailview is linked to a folder, change order in the folderdata
+    IF (this->pvt_folder > 0)
+    {
+      OBJECT work := this->owner->BeginWork();
+      OpenWHFSObject(this->pvt_folder)->ReorderObjectsBefore(movedids, movebefore);
+      work->Finish();
+
+      this->RebuildTable();
+
+      this->value := saved_value;
+    }
+    ELSE
+    {
+      RECORD ARRAY rows := this->rows;
+
+      BOOLEAN movetoend;
+      INTEGER orderpos_at_drop;
+      INTEGER arrpos;
+
+      IF (cellno >= Length(rows))
+        movetoend := TRUE;
+      ELSE
+      {
+        orderpos_at_drop := rows[cellno].ordering;
+        arrpos := SELECT AS INTEGER #rows FROM rows WHERE ordering = orderpos_at_drop;
+      }
+
+      // items to move
+      RECORD ARRAY movethese := SELECT * FROM rows WHERE tolliumselected;
+
+      // deleted selection at their old positions
+      rows := SELECT * FROM rows WHERE NOT tolliumselected;
+
+      // add every item at their new position
+      FOREVERY(RECORD moved FROM movethese)
+      {
+        IF (movetoend)
+          INSERT moved INTO rows AT END;
+        ELSE
+          INSERT moved INTO rows AT arrpos;
+      }
+
+      this->files := SELECT AS INTEGER ARRAY id FROM rows;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC UPDATE MACRO ReloadOverview()
+  {
+    this->RebuildTable();
+  }
+>;

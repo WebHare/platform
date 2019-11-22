@@ -1,0 +1,198 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/users.whlib"
+         gid="monitor">
+
+  <messageboxes>
+    <messagebox name="sureclosewebharelogin" icon="question" buttons="yes no" />
+    <messagebox name="surecancelscheduleddowntime" icon="question" buttons="yes no" />
+  </messageboxes>
+
+
+  <screen name="users" gid=".users" title="">
+    <actions>
+      <action name="kill" shortcut="del" title="">
+        <enableon source="onlineusers" min="1" onexecute="dokillallsessions" checkflags="haveapplications" />
+        <enableon source="apps" min="1" onexecute="dokillsession" />
+      </action>
+      <action name="sendmessagetouser" onexecute="dosendmessagetouser">
+        <enableon source="onlineusers" min="1" onexecute="dosendmessagetouser" checkflags="haveapplications" />
+      </action>
+      <action name="sendglobalmessage" onexecute="dosendglobalmessage" />
+      <action name="openwebharelogin" onexecute="doopenwebharelogin" />
+      <action name="closewebharelogin" onexecute="doclosewebharelogin" />
+      <action name="cancelscheduleddowntime" onexecute="docancelscheduleddowntime" />
+      <action name="scheduledowntime" onexecute="doscheduledowntime" />
+    </actions>
+
+    <menus gid=".menus">
+      <menu name="usercontextmenu">
+        <item action="sendmessagetouser" />
+        <divider />
+        <item action="kill" tid=".killallsessions" />
+      </menu>
+      <menu name="appcontextmenu">
+        <item action="kill" tid=".killsession" />
+      </menu>
+    </menus>
+
+    <body height="1pr">
+      <split type="vertical">
+        <part height="3pr">
+          <grid height="1pr">
+            <col width="1pr" />
+            <col />
+            <row height="1pr">
+              <cell>
+                <list name="onlineusers"
+                      highlightname="isself"
+                      selectmode="single"
+                      borders="right"
+                      onselect="onuserselect"
+                      selectcontextmenu="usercontextmenu"
+                      flags="haveapplications"
+                      height="1pr">
+                  <column name="username" type="text" />
+                  <column name="realname" type="text" />
+                  <column name="logintime" type="datetime" precision="seconds" storeutc="true" width="18x" />
+                  <column name="lastaccess" type="datetime" precision="seconds" storeutc="true" width="18x" />
+                  <column name="ipaddress" type="text" sortkeyname="ipaddress_sort" width="11x" />
+                  <!--column name="typename" type="text" /-->
+                  <column name="appcount" type="text" width="12x" align="right" />
+                  <!-- <column name="appmemory" type="text" width="12x" align="right" /> -->
+                </list>
+              </cell>
+              <cell spacers="left right">
+                <box tid=".messaging" hr="false">
+                  <button action="sendmessagetouser" width="1pr"/>
+                  <button action="sendglobalmessage" width="1pr"/>
+                </box>
+                <box tid=".loginstatus" hr="false">
+                  <text name="loginstatus" title="" />
+                  <line layout="left">
+                    <button action="openwebharelogin" width="1pr" />
+                    <button action="closewebharelogin" width="1pr" />
+                  </line>
+                  <text name="scheduleddowntime" title="" />
+                  <line>
+                    <button action="cancelscheduleddowntime" width="1pr" />
+                    <button action="scheduledowntime" width="1pr" />
+                  </line>
+                </box>
+                <heading tid=".stats" />
+                <text name="total_onlineusers" />
+                <text name="total_appcount" />
+                <text name="total_appmemory" />
+              </cell>
+            </row>
+          </grid>
+        </part>
+        <part height="2pr">
+          <grid height="1pr">
+            <col width="1pr" />
+            <col />
+            <row height="1pr">
+              <cell>
+                <panel spacers="left">
+                  <heading tid=".apps" />
+                </panel>
+
+                <list name="apps"
+                      height="1pr"
+                      selectmode="single"
+                      borders="top right"
+                      onselect="onapplicationselect"
+                      selectcontextmenu="appcontextmenu" >
+                  <column type="text" name="sessionid" tid=".sessionid" width="18x" />
+                  <column type="text" name="ipaddress" tid=".ipaddress" width="11x" />
+                  <!-- <column type="text" name="running" tid=".running" width="4x" /> -->
+                  <column type="text" name="started" tid=".timestarted" width="8x" />
+                  <column type="text" name="lastactive" tid=".lastactive" width="8x" />
+                  <!-- <column type="text" name="lastpoll" tid=".lastpoll" width="8x" /> -->
+                  <!-- <column type="text" name="memusage" tid=".memoryusage" width="11x" align="right" />
+                  <column type="text" name="objects" tid=".objectcount" width="8x" align="right" /> -->
+                  <column type="text" name="app" tid=".application" width="25x" />
+                  <column type="text" name="title" tid=".applicationtitle" />
+                  <!-- <column type="text" name="starturl" tid=".starturl" width="1pr" /> -->
+                  <column type="text" name="browser" />
+                </list>
+              </cell>
+              <cell>
+                <box name="appstats" visible="false" width="28x">
+                  <text name="backingstore" />
+                  <text name="blobstore" />
+                  <text name="heap" />
+                  <text name="stack" />
+                  <text name="instructions" />
+                  <text name="library" visible="false" /><!-- current almost always modules/system/scripts/internal/tolliums.shtml, so not really interesting -->
+                  <text name="objectcount" />
+                </box>
+              </cell>
+            </row>
+          </grid>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="sendmessage"
+          allowresize="true"
+          height="30x"
+          width="100x"
+          minwidth="70x"
+          savestate="size position"
+          gid=".sendmessage">
+    <actions>
+      <action name="applytemplatetotext" onexecute="ontemplatechange" />
+    </actions>
+    <body>
+      <box name="applytemplate" visible="false">
+        <select name="template" type="pulldown" onchange="ontemplatechange" flags="showserverupdate">
+          <option rowkey="none" />
+          <divider />
+          <option rowkey="serverupdate" flags="showserverupdate" selected="true" />
+        </select>
+        <tabs type="server" height="1pr">
+          <tab>
+            <visibleon source="template" checkflags="showserverupdate" min="1" />
+            <box tid=".serverupdate" hr="false">
+
+              <select name="updatelanguage" type="radio" onchange="ontemplatechange" visible="false">
+                <option rowkey="dutch" />
+                <option rowkey="english" />
+                <option rowkey="dutch_and_english" />
+              </select>
+
+              <datetime name="updatewhen" type="datetime" precision="minutes"/>
+              <line>
+                <textedit name="updatetime" valuetype="integer" width="5x" value="5" onchange="ontemplatechange" />
+                <text title="" valuetid=".minutes" />
+              </line>
+              <button tid=".applytemplatetotext" action="applytemplatetotext" />
+            </box>
+          </tab>
+        </tabs>
+      </box>
+      <box tid=".message" height="1pr" vscroll="true" hr="false">
+        <textedit name="title" required="true" maxlength="50" />
+        <textarea name="msg" required="true" height="1pr" maxlength="200" />
+      </box>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+  <screen name="scheduledowntime"
+          gid=".scheduledowntime"
+          >
+    <body>
+      <datetime name="scheduletime" type="datetime" required="true" />
+      <textedit name="estimateddowntime" valuetype="integer" required="true" width="1pr" />
+      <checkbox name="locklogin" visible="false" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

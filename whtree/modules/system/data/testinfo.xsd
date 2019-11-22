@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.webhare.net/xmlns/system/testinfo"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+  targetNamespace="http://www.webhare.net/xmlns/system/testinfo"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition" schemaLocation="mod::system/data/moduledefinition.xsd" />
+
+  <xs:attributeGroup name="RecursiveAttributes">
+    <xs:attribute name="tags">
+      <xs:simpleType>
+        <xs:list itemType="xs:string" />
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="skipautotests" type="xs:boolean" />
+    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="TestShared">
+    <xs:attribute name="name" />
+    <xs:attribute name="flaky" type="xs:boolean" />
+    <xs:attributeGroup ref="RecursiveAttributes" />
+  </xs:attributeGroup>
+
+  <xs:complexType name="GroupBase">
+    <xs:sequence>
+      <xs:element name="param" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="name" use="required" />
+          <xs:attribute name="value" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="group" type="DeeperGroup" />
+        <xs:element name="test">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="arg" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="param" />
+                  <xs:attribute name="value" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="path" /> <!-- FIXME would be cleaner (and allow us to require more) if we replaced this with a <subdir> node instead of overloading <test> -->
+            <xs:attribute name="okifmissing" type="xs:boolean" />
+            <xs:attribute name="xfail" type="xs:boolean" />
+            <xs:attribute name="script" />
+            <xs:attributeGroup ref="TestShared" />
+            <xs:attribute name="runmode">
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="process" />
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="jstest">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="arg" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="param" />
+                  <xs:attribute name="value" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="file" use="required" />
+            <xs:attribute name="exclusive" type="xs:boolean" />
+            <xs:attributeGroup ref="TestShared" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="mochanodetest">
+          <xs:complexType>
+            <xs:attribute name="file" use="required" />
+            <xs:attributeGroup ref="TestShared" />
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+    <xs:attributeGroup ref="RecursiveAttributes" />
+    <xs:attribute name="site" />
+  </xs:complexType>
+
+  <xs:complexType name="DeeperGroup">
+    <xs:complexContent>
+      <xs:extension base="GroupBase">
+        <xs:attribute name="name" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:element name="group">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="GroupBase">
+          <xs:attribute name="ignoremasks" />
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

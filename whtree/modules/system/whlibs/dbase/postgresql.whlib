@@ -1,0 +1,1746 @@
+﻿<?wh
+
+/**
+*/
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internal/transbase.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+
+/*
+
+  /usr/pgsql-11/bin/initdb --auth peer --encoding SQL_ASCII
+*/
+
+
+INTEGER FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_CLOSE(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+RECORD FUNCTION __PGSQL_GETSTATUS(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_SETWORKOPEN(INTEGER trans, BOOLEAN workopen) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+/* The description for known OIDs can be found in
+   https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
+*/
+
+CONSTANT INTEGER OID_BOOL := 16;
+CONSTANT INTEGER OID_BYTEA := 17;
+CONSTANT INTEGER OID_CHAR := 18;
+CONSTANT INTEGER OID_NAME := 19;
+CONSTANT INTEGER OID_TEXT := 25;
+CONSTANT INTEGER OID_INT8 := 20;
+CONSTANT INTEGER OID_INT2 := 21;
+CONSTANT INTEGER OID_INT4 := 23;
+CONSTANT INTEGER OID_REGPROC := 24;
+CONSTANT INTEGER OID_OID := 26;
+CONSTANT INTEGER OID_TID := 27;
+CONSTANT INTEGER OID_XID := 28;
+CONSTANT INTEGER OID_CID := 29;
+CONSTANT INTEGER OID_FLOAT4 := 700;
+CONSTANT INTEGER OID_FLOAT8 := 701;
+CONSTANT INTEGER OID_INT2ARRAY := 1005;
+CONSTANT INTEGER OID_INT4ARRAY := 1007;
+CONSTANT INTEGER OID_TEXTARRAY := 1009;
+CONSTANT INTEGER OID_OIDARRAY := 1028;
+CONSTANT INTEGER OID_BPCHAR := 1042;
+CONSTANT INTEGER OID_VARCHAR := 1043;
+CONSTANT INTEGER OID_TIMESTAMP := 1114;
+CONSTANT INTEGER OID_TIMESTAMPTZ := 1184;
+CONSTANT INTEGER OID_BIT := 1560;
+CONSTANT INTEGER OID_VARBIT := 1562;
+CONSTANT INTEGER OID_NUMERIC := 1700;
+CONSTANT INTEGER OID_ANY := 2276;
+CONSTANT INTEGER OID_ANYARRAY := 2277;
+
+PUBLIC SCHEMA
+< TABLE
+  < INTEGER "attrelid" ///< The table this column belongs to
+  , STRING "attname" ///< The column name
+  , INTEGER "atttypid" ///< pg_type.oid The data type of this column
+  , INTEGER "attstattarget" ///< attstattarget controls the level of detail of statistics accumulated for this column by ANALYZE. A zero value indicates that no statistics should be collected. A negative value says to use the system default statistics target. The exact meaning of positive values is data type-dependent. For scalar data types, attstattarget is both the target number of “most common values” to collect, and the target number of histogram bins to create.
+  , INTEGER "attlen" ///< A copy of pg_type.typlen of this column's type
+  , INTEGER "attnum" ///< The number of the column. Ordinary columns are numbered from 1 up. System columns, such as oid, have (arbitrary) negative numbers.
+  , INTEGER "attndims" ///< Number of dimensions, if the column is an array type; otherwise 0. (Presently, the number of dimensions of an array is not enforced, so any nonzero value effectively means “it's an array”.)
+  , INTEGER "attcacheoff" ///< Always -1 in storage, but when loaded into a row descriptor in memory this might be updated to cache the offset of the attribute within the row
+  , INTEGER "atttypmod" ///< atttypmod records type-specific data supplied at table creation time (for example, the maximum length of a varchar column). It is passed to type-specific input functions and length coercion functions. The value will generally be -1 for types that do not need atttypmod.
+  , BOOLEAN "attbyval" ///< A copy of pg_type.typbyval of this column's type
+  , STRING "attstorage" ///< Normally a copy of pg_type.typstorage of this column's type. For TOAST-able data types, this can be altered after column creation to control storage policy.
+  , STRING "attalign" ///< A copy of pg_type.typalign of this column's type
+  , BOOLEAN "attnotnull" ///< This represents a not-null constraint.
+  , BOOLEAN "atthasdef" ///< This column has a default value, in which case there will be a corresponding entry in the pg_attrdef catalog that actually defines the value.
+  , BOOLEAN "atthasmissing" ///< This column has a value which is used where the column is entirely missing from the row, as happens when a column is added with a non-volatile DEFAULT value after the row is created. The actual value used is stored in the attmissingval column.
+  , STRING "attidentity" ///< If a zero byte (''), then not an identity column. Otherwise, a = generated always, d = generated by default.
+  , BOOLEAN "attisdropped" ///< This column has been dropped and is no longer valid. A dropped column is still physically present in the table, but is ignored by the parser and so cannot be accessed via SQL.
+  , BOOLEAN "attislocal" ///< This column is defined locally in the relation. Note that a column can be locally defined and inherited simultaneously.
+  , INTEGER "attinhcount" ///< The number of direct ancestors this column has. A column with a nonzero number of ancestors cannot be dropped nor renamed.
+  , INTEGER "attcollation" ///< The defined collation of the column, or zero if the column is not of a collatable data type.
+    //attacl  aclitem[]   Column-level access privileges, if any have been granted specifically on this column
+  , STRING ARRAY "attoptions" ///< Attribute-level options, as “keyword=value” strings
+  , STRING ARRAY "attfdwoptions" ///< Attribute-level foreign data wrapper options, as “keyword=value” strings
+  , VARIANT ARRAY "attmissingval" ///< This column has a one element array containing the value used when the column is entirely missing from the row, as happens when the column is added with a non-volatile DEFAULT value after the row is created. The value is only used when atthasmissing is true. If there is no value the column is null.
+  > "pg_attribute"
+, TABLE
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "nspname" ///< Name of the namespace
+  , INTEGER "nspowner" ///< pg_authid.oid Owner of the namespace
+  //, VARIANT "nspacl" ///< Access privileges; see GRANT and REVOKE for details
+  > "pg_namespace"
+, TABLE
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "relname" ///< Name of the table, index, view, etc.
+  , INTEGER "relnamespace" ///< pg_namespace.oid  The OID of the namespace that contains this relation
+  , INTEGER "reltype" ///< The OID of the data type that corresponds to this table's row type, if any (zero for indexes, which have no pg_type entry)
+  , INTEGER "reloftype" ///< For typed tables, the OID of the underlying composite type, zero for all other relations
+  , INTEGER "relowner" ///< Owner of the relation
+  , INTEGER "relam" ///< If this is an index, the access method used (B-tree, hash, etc.)
+  , INTEGER "relfilenode" ///< Name of the on-disk file of this relation; zero means this is a “mapped” relation whose disk file name is determined by low-level state
+  , INTEGER "reltablespace" ///< The tablespace in which this relation is stored. If zero, the database's default tablespace is implied. (Not meaningful if the relation has no on-disk file.)
+  , INTEGER "relpages" ///< Size of the on-disk representation of this table in pages (of size BLCKSZ). This is only an estimate used by the planner. It is updated by VACUUM, ANALYZE, and a few DDL commands such as CREATE INDEX.
+  , FLOAT "reltuples" ///< Number of live rows in the table. This is only an estimate used by the planner. It is updated by VACUUM, ANALYZE, and a few DDL commands such as CREATE INDEX.
+  , INTEGER "relallvisible" ///< Number of pages that are marked all-visible in the table's visibility map. This is only an estimate used by the planner. It is updated by VACUUM, ANALYZE, and a few DDL commands such as CREATE INDEX.
+  , INTEGER "reltoastrelid" ///< OID of the TOAST table associated with this table, 0 if none. The TOAST table stores large attributes “out of line” in a secondary table.
+  , BOOLEAN "relhasindex" ///< True if this is a table and it has (or recently had) any indexes
+  , BOOLEAN "relisshared" ///< True if this table is shared across all databases in the cluster. Only certain system catalogs (such as pg_database) are shared.
+  , STRING "relpersistence" ///< p = permanent table, u = unlogged table, t = temporary table
+  , STRING "relkind" ///< r = ordinary table, i = index, S = sequence, t = TOAST table, v = view, m = materialized view, c = composite type, f = foreign table, p = partitioned table, I = partitioned index
+  , INTEGER "relnatts" ///< Number of user columns in the relation (system columns not counted). There must be this many corresponding entries in pg_attribute. See also pg_attribute.attnum.
+  , INTEGER "relchecks" ///< Number of CHECK constraints on the table; see pg_constraint catalog
+  , BOOLEAN "relhasoids" ///< True if we generate an OID for each row of the relation
+  , BOOLEAN "relhasrules" ///< True if table has (or once had) rules; see pg_rewrite catalog
+  , BOOLEAN "relhastriggers" ///< True if table has (or once had) triggers; see pg_trigger catalog
+  , BOOLEAN "relhassubclass" ///< True if table has (or once had) any inheritance children
+  , BOOLEAN "relrowsecurity" ///< True if table has row level security enabled; see pg_policy catalog
+  , BOOLEAN "relforcerowsecurity" ///< True if row level security (when enabled) will also apply to table owner; see pg_policy catalog
+  , BOOLEAN "relispopulated" ///< True if relation is populated (this is true for all relations other than some materialized views)
+  , STRING "relreplident" ///< Columns used to form “replica identity” for rows: d = default (primary key, if any), n = nothing, f = all columns i = index with indisreplident set, or default
+  , BOOLEAN "relispartition" ///< True if table or index is a partition
+  , INTEGER "relrewrite" ///< For new relations being written during a DDL operation that requires a table rewrite, this contains the OID of the original relation; otherwise 0. That state is only visible internally; this field should never contain anything other than 0 for a user-visible relation.
+  //relfrozenxid  xid   All transaction IDs before this one have been replaced with a permanent (“frozen”) transaction ID in this table. This is used to track whether the table needs to be vacuumed in order to prevent transaction ID wraparound or to allow pg_xact to be shrunk. Zero (InvalidTransactionId) if the relation is not a table.
+  //relminmxid  xid   All multixact IDs before this one have been replaced by a transaction ID in this table. This is used to track whether the table needs to be vacuumed in order to prevent multixact ID wraparound or to allow pg_multixact to be shrunk. Zero (InvalidMultiXactId) if the relation is not a table.
+  //relacl  aclitem[]   Access privileges; see GRANT and REVOKE for details
+  //reloptions  text[]    Access-method-specific options, as “keyword=value” strings
+  //relpartbound  pg_node_tree    If table is a partition (see relispartition), internal representation of the partition bound
+  > "pg_class"
+, TABLE
+  < STRING "schemaname" ///< Name of schema containing table
+  , STRING "tablename" ///< Name of table
+  , STRING "tableowner" ///< Name of table's owner
+  , STRING "tablespace" ///< Name of tablespace containing table (null if default for database)
+  , BOOLEAN "hasindexes" ///< True if table has (or recently had) any indexes
+  , BOOLEAN "hasrules" ///< True if table has (or once had) rules
+  , BOOLEAN "hastriggers" ///< True if table has (or once had) triggers
+  , BOOLEAN "rowsecurity" ///< True if row security is enabled on the table
+  > "pg_tables"
+, TABLE
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "conname" ///< Constraint name (not necessarily unique!)
+  , INTEGER "connamespace" ///< The OID of the namespace that contains this constraint
+  , STRING "contype" ///< c = check constraint, f = foreign key constraint, p = primary key constraint, u = unique constraint, t = constraint trigger, x = exclusion constraint
+  , BOOLEAN "condeferrable" ///< Is the constraint deferrable?
+  , BOOLEAN "condeferred" ///< Is the constraint deferred by default?
+  , BOOLEAN "convalidated" ///< Has the constraint been validated? Currently, can only be false for foreign keys and CHECK constraints
+  , INTEGER "conrelid" ///< The table this constraint is on; 0 if not a table constraint
+  , INTEGER "contypid" ///< The domain this constraint is on; 0 if not a domain constraint
+  , INTEGER "conindid" ///< The index supporting this constraint, if it's a unique, primary key, foreign key, or exclusion constraint; else 0
+  , INTEGER "conparentid" ///< The corresponding constraint in the parent partitioned table, if this is a constraint in a partition; else 0
+  , INTEGER "confrelid" ///< If a foreign key, the referenced table; else 0
+  , STRING "confupdtype" ///< Foreign key update action code: a = no action, r = restrict, c = cascade, n = set null, d = set default
+  , STRING "confdeltype" ///< Foreign key deletion action code: a = no action, r = restrict, c = cascade, n = set null, d = set default
+  , STRING "confmatchtype" ///< Foreign key match type: f = full, p = partial, s = simple
+  , BOOLEAN "conislocal" ///< This constraint is defined locally for the relation. Note that a constraint can be locally defined and inherited simultaneously.
+  , INTEGER "coninhcount" ///< The number of direct inheritance ancestors this constraint has. A constraint with a nonzero number of ancestors cannot be dropped nor renamed.
+  , BOOLEAN "connoinherit" ///< This constraint is defined locally for the relation. It is a non-inheritable constraint.
+  , INTEGER ARRAY "conkey" ///< If a table constraint (including foreign keys, but not constraint triggers), list of the constrained columns
+  , INTEGER ARRAY "confkey" ///< If a foreign key, list of the referenced columns
+    //conpfeqop oid[] pg_operator.oid If a foreign key, list of the equality operators for PK = FK comparisons
+    //conppeqop oid[] pg_operator.oid If a foreign key, list of the equality operators for PK = PK comparisons
+    //conffeqop oid[] pg_operator.oid If a foreign key, list of the equality operators for FK = FK comparisons
+    //conexclop oid[] pg_operator.oid If an exclusion constraint, list of the per-column exclusion operators
+    //conbin  pg_node_tree    If a check constraint, an internal representation of the expression
+  , STRING "consrc" ///<  If a check constraint, a human-readable representation of the expression
+  > "pg_constraint"
+, TABLE
+  < INTEGER "oid" ///< Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "typname" ///< Data type name
+  , INTEGER "typnamespace" ///< The OID of the namespace that contains this type
+  , INTEGER "typowner" ///< Owner of the type
+  , INTEGER "typlen" ///< For a fixed-size type, typlen is the number of bytes in the internal representation of the type. But for a variable-length type, typlen is negative. -1 indicates a “varlena” type (one that has a length word), -2 indicates a null-terminated C string.
+  , BOOLEAN "typbyval" ///< typbyval determines whether internal routines pass a value of this type by value or by reference. typbyval had better be false if typlen is not 1, 2, or 4 (or 8 on machines where Datum is 8 bytes). Variable-length types are always passed by reference. Note that typbyval can be false even if the length would allow pass-by-value.
+  , STRING "typtype" ///< typtype is b for a base type, c for a composite type (e.g., a table's row type), d for a domain, e for an enum type, p for a pseudo-type, or r for a range type. See also typrelid and typbasetype.
+  , STRING "typcategory" ///< typcategory is an arbitrary classification of data types that is used by the parser to determine which implicit casts should be “preferred”. See Table 52.63.
+  , BOOLEAN "typispreferred" ///< True if the type is a preferred cast target within its typcategory
+  , BOOLEAN "typisdefined" ///< True if the type is defined, false if this is a placeholder entry for a not-yet-defined type. When typisdefined is false, nothing except the type name, namespace, and OID can be relied on.
+  , STRING "typdelim" ///< Character that separates two values of this type when parsing array input. Note that the delimiter is associated with the array element data type, not the array data type.
+  , INTEGER "typrelid" ///< If this is a composite type (see typtype), then this column points to the pg_class entry that defines the corresponding table. (For a free-standing composite type, the pg_class entry doesn't really represent a table, but it is needed anyway for the type's pg_attribute entries to link to.) Zero for non-composite types.
+  , INTEGER "typelem" ///< If typelem is not 0 then it identifies another row in pg_type. The current type can then be subscripted like an array yielding values of type typelem. A “true” array type is variable length (typlen = -1), but some fixed-length (typlen > 0) types also have nonzero typelem, for example name and point. If a fixed-length type has a typelem then its internal representation must be some number of values of the typelem data type with no other data. Variable-length array types have a header defined by the array subroutines.
+  , INTEGER "typarray" ///< If typarray is not 0 then it identifies another row in pg_type, which is the “true” array type having this type as element
+  , INTEGER "typinput" ///< Input conversion function (text format)
+  , INTEGER "typoutput" ///< Output conversion function (text format)
+  , INTEGER "typreceive" ///< Input conversion function (binary format), or 0 if none
+  , INTEGER "typsend" ///< Output conversion function (binary format), or 0 if none
+  , INTEGER "typmodin" ///< Type modifier input function, or 0 if type does not support modifiers
+  , INTEGER "typmodout" ///< Type modifier output function, or 0 to use the standard format
+  , INTEGER "typanalyze" ///< Custom ANALYZE function, or 0 to use the standard function
+  , STRING "typalign" /**< typalign is the alignment required when storing a value of this type. It applies to storage on disk as well as most representations of the value inside PostgreSQL. When multiple values are stored consecutively, such as in the representation of a complete row on disk, padding is inserted before a datum of this type so that it begins on the specified boundary. The alignment reference is the beginning of the first datum in the sequence.
+Possible values are:
+- c = char alignment, i.e., no alignment needed.
+- s = short alignment (2 bytes on most machines).
+- i = int alignment (4 bytes on most machines).
+- d = double alignment (8 bytes on many machines, but by no means all).
+Note
+For types used in system tables, it is critical that the size and alignment defined in pg_type agree with the way that the compiler will lay out the column in a structure representing a table row.*/
+  , STRING "typstorage" /**< typstorage tells for varlena types (those with typlen = -1) if the type is prepared for toasting and what the default strategy for attributes of this type should be. Possible values are
+p: Value must always be stored plain.
+e: Value can be stored in a “secondary” relation (if relation has one, see pg_class.reltoastrelid).
+m: Value can be stored compressed inline.
+x: Value can be stored compressed inline or stored in “secondary” storage.
+Note that m columns can also be moved out to secondary storage, but only as a last resort (e and x columns are moved first).*/
+  , BOOLEAN "typnotnull" ///< typnotnull represents a not-null constraint on a type. Used for domains only.
+  , INTEGER "typbasetype" ///< If this is a domain (see typtype), then typbasetype identifies the type that this one is based on. Zero if this type is not a domain.
+  , INTEGER "typtypmod" ///< Domains use typtypmod to record the typmod to be applied to their base type (-1 if base type does not use a typmod). -1 if this type is not a domain.
+  , INTEGER "typndims" ///< typndims is the number of array dimensions for a domain over an array (that is, typbasetype is an array type). Zero for types other than domains over array types.
+  , INTEGER "typcollation" ///< typcollation specifies the collation of the type. If the type does not support collations, this will be zero. A base type that supports collations will have DEFAULT_COLLATION_OID here. A domain over a collatable type can have some other collation OID, if one was specified for the domain.
+//typdefaultbin pg_node_tree If typdefaultbin is not null, it is the nodeToString() representation of a default expression for the type. This is only used for domains.
+  , STRING "typdefault" ///< typdefault is null if the type has no associated default value. If typdefaultbin is not null, typdefault must contain a human-readable version of the default expression represented by typdefaultbin. If typdefaultbin is null and typdefault is not, then typdefault is the external representation of the type's default value, which can be fed to the type's input converter to produce a constant.
+//typacl  aclitem[]   Access privileges; see GRANT and REVOKE for details
+  > "pg_type"
+, TABLE
+  < INTEGER "indexrelid" ///< The OID of the pg_class entry for this index
+  , INTEGER "indrelid" ///< The OID of the pg_class entry for the table this index is for
+  , INTEGER "indnatts" ///< The total number of columns in the index (duplicates pg_class.relnatts); this number includes both key and included attributes
+  , INTEGER "indnkeyatts" ///< The number of key columns in the index, not counting any included columns, which are merely stored and do not participate in the index semantics
+  , BOOLEAN "indisunique" ///< If true, this is a unique index
+  , BOOLEAN "indisprimary" ///< If true, this index represents the primary key of the table (indisunique should always be true when this is true)
+  , BOOLEAN "indisexclusion" ///< If true, this index supports an exclusion constraint
+  , BOOLEAN "indimmediate" ///< If true, the uniqueness check is enforced immediately on insertion (irrelevant if indisunique is not true)
+  , BOOLEAN "indisclustered" ///< If true, the table was last clustered on this index
+  , BOOLEAN "indisvalid" ///< If true, the index is currently valid for queries. False means the index is possibly incomplete: it must still be modified by INSERT/UPDATE operations, but it cannot safely be used for queries. If it is unique, the uniqueness property is not guaranteed true either.
+  , BOOLEAN "indcheckxmin" ///< If true, queries must not use the index until the xmin of this pg_index row is below their TransactionXmin event horizon, because the table may contain broken HOT chains with incompatible rows that they can see
+  , BOOLEAN "indisready" ///< If true, the index is currently ready for inserts. False means the index must be ignored by INSERT/UPDATE operations.
+  , BOOLEAN "indislive" ///< If false, the index is in process of being dropped, and should be ignored for all purposes (including HOT-safety decisions)
+  , BOOLEAN "indisreplident" ///< If true this index has been chosen as “replica identity” using ALTER TABLE ... REPLICA IDENTITY USING INDEX ...
+  , INTEGER ARRAY "indkey" ///< This is an array of indnatts values that indicate which table columns this index indexes. For example a value of 1 3 would mean that the first and the third table columns make up the index entries. Key columns come before non-key (included) columns. A zero in this array indicates that the corresponding index attribute is an expression over the table columns, rather than a simple column reference.
+  , INTEGER ARRAY "indcollation" ///< For each column in the index key (indnkeyatts values), this contains the OID of the collation to use for the index, or zero if the column is not of a collatable data type.
+  , INTEGER ARRAY "indclass" ///< For each column in the index key (indnkeyatts values), this contains the OID of the operator class to use. See pg_opclass for details.
+  , INTEGER ARRAY "indoption" ///< This is an array of indnkeyatts values that store per-column flag bits. The meaning of the bits is defined by the index's access method.
+  //, indexprs  pg_node_tree    Expression trees (in nodeToString() representation) for index attributes that are not simple column references. This is a list with one element for each zero entry in indkey. Null if all index attributes are simple references.
+  //, indpred pg_node_tree    Expression tree (in nodeToString() representation) for partial index predicate. Null if not a partial index.
+  > "pg_index"
+, TABLE
+  < INTEGER "oid"
+  , INTEGER "opcmethod"
+  , STRING "opcname"
+  , INTEGER "opcnamespace"
+  , INTEGER "opcowner"
+  , INTEGER "opcfamily"
+  , INTEGER "opcintype"
+  , BOOLEAN "opcdefault"
+  , INTEGER "opckeytype"
+  > "pg_opclass"
+> postgresql_pg_catalog;
+
+PUBLIC SCHEMA
+< TABLE
+  < STRING "grantee"
+  , STRING "role_name"
+  , STRING "is_grantable"
+  > "administrable_role_authorizations"
+, TABLE
+  < STRING "grantee"
+  , STRING "role_name"
+  , STRING "is_grantable"
+  > "applicable_roles"
+, TABLE
+  < STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "attribute_name"
+  , INTEGER "ordinal_position"
+  , STRING "attribute_default"
+  , STRING "is_nullable"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "attribute_udt_catalog"
+  , STRING "attribute_udt_schema"
+  , STRING "attribute_udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  , STRING "is_derived_reference_attribute"
+  > "attributes"
+, TABLE
+  < STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "character_repertoire"
+  , STRING "form_of_use"
+  , STRING "default_collate_catalog"
+  , STRING "default_collate_schema"
+  , STRING "default_collate_name"
+  > "character_sets"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  > "check_constraint_routine_usage"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "check_clause"
+  > "check_constraints"
+, TABLE
+  < STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  > "collation_character_set_applicability"
+, TABLE
+  < STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , STRING "pad_attribute"
+  > "collations"
+, TABLE
+  < STRING "domain_catalog"
+  , STRING "domain_schema"
+  , STRING "domain_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  > "column_domain_usage"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , STRING "option_name"
+  , STRING "option_value"
+  > "column_options"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "column_privileges"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , INTEGER "ordinal_position"
+  , STRING "column_default"
+  , STRING "is_nullable"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , STRING "domain_catalog"
+  , STRING "domain_schema"
+  , STRING "domain_name"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  , STRING "is_self_referencing"
+  , STRING "is_identity"
+  , STRING "identity_generation"
+  , STRING "identity_start"
+  , STRING "identity_increment"
+  , STRING "identity_maximum"
+  , STRING "identity_minimum"
+  , STRING "identity_cycle"
+  , STRING "is_generated"
+  , STRING "generation_expression"
+  , STRING "is_updatable"
+  > "columns"
+, TABLE
+  < STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  > "column_udt_usage"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  > "constraint_column_usage"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  > "constraint_table_usage"
+, TABLE
+  < STRING "object_catalog"
+  , STRING "object_schema"
+  , STRING "object_name"
+  , STRING "object_type"
+  , STRING "dtd_identifier"
+  > "data_type_privileges"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "domain_catalog"
+  , STRING "domain_schema"
+  , STRING "domain_name"
+  , STRING "is_deferrable"
+  , STRING "initially_deferred"
+  > "domain_constraints"
+, TABLE
+  < STRING "domain_catalog"
+  , STRING "domain_schema"
+  , STRING "domain_name"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "domain_default"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  > "domains"
+, TABLE
+  < STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "domain_catalog"
+  , STRING "domain_schema"
+  , STRING "domain_name"
+  > "domain_udt_usage"
+, TABLE
+  < STRING "object_catalog"
+  , STRING "object_schema"
+  , STRING "object_name"
+  , STRING "object_type"
+  , STRING "collection_type_identifier"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "domain_default"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  > "element_types"
+, TABLE
+  < STRING "role_name"
+  > "enabled_roles"
+, TABLE
+  < STRING "foreign_data_wrapper_catalog"
+  , STRING "foreign_data_wrapper_name"
+  , STRING "option_name"
+  , STRING "option_value"
+  > "foreign_data_wrapper_options"
+, TABLE
+  < STRING "foreign_data_wrapper_catalog"
+  , STRING "foreign_data_wrapper_name"
+  , STRING "authorization_identifier"
+  , STRING "library_name"
+  , STRING "foreign_data_wrapper_language"
+  > "foreign_data_wrappers"
+, TABLE
+  < STRING "foreign_server_catalog"
+  , STRING "foreign_server_name"
+  , STRING "option_name"
+  , STRING "option_value"
+  > "foreign_server_options"
+, TABLE
+  < STRING "foreign_server_catalog"
+  , STRING "foreign_server_name"
+  , STRING "foreign_data_wrapper_catalog"
+  , STRING "foreign_data_wrapper_name"
+  , STRING "foreign_server_type"
+  , STRING "foreign_server_version"
+  , STRING "authorization_identifier"
+  > "foreign_servers"
+, TABLE
+  < STRING "foreign_table_catalog"
+  , STRING "foreign_table_schema"
+  , STRING "foreign_table_name"
+  , STRING "option_name"
+  , STRING "option_value"
+  > "foreign_table_options"
+, TABLE
+  < STRING "foreign_table_catalog"
+  , STRING "foreign_table_schema"
+  , STRING "foreign_table_name"
+  , STRING "foreign_server_catalog"
+  , STRING "foreign_server_name"
+  > "foreign_tables"
+, TABLE
+  < STRING "catalog_name"
+  > "information_schema_catalog_name"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , INTEGER "ordinal_position"
+  , INTEGER "position_in_unique_constraint"
+  > "key_column_usage"
+, TABLE
+  < STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  , INTEGER "ordinal_position"
+  , STRING "parameter_mode"
+  , STRING "is_result"
+  , STRING "as_locator"
+  , STRING "parameter_name"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  , STRING "parameter_default"
+  > "parameters"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "unique_constraint_catalog"
+  , STRING "unique_constraint_schema"
+  , STRING "unique_constraint_name"
+  , STRING "match_option"
+  , STRING "update_rule"
+  , STRING "delete_rule"
+  > "referential_constraints"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "role_column_grants"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  , STRING "routine_catalog"
+  , STRING "routine_schema"
+  , STRING "routine_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "role_routine_grants"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  , STRING "with_hierarchy"
+  > "role_table_grants"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "role_udt_grants"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "object_catalog"
+  , STRING "object_schema"
+  , STRING "object_name"
+  , STRING "object_type"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "role_usage_grants"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  , STRING "routine_catalog"
+  , STRING "routine_schema"
+  , STRING "routine_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "routine_privileges"
+, TABLE
+  < STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  , STRING "routine_catalog"
+  , STRING "routine_schema"
+  , STRING "routine_name"
+  , STRING "routine_type"
+  , STRING "module_catalog"
+  , STRING "module_schema"
+  , STRING "module_name"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "type_udt_catalog"
+  , STRING "type_udt_schema"
+  , STRING "type_udt_name"
+  , STRING "scope_catalog"
+  , STRING "scope_schema"
+  , STRING "scope_name"
+  , INTEGER "maximum_cardinality"
+  , STRING "dtd_identifier"
+  , STRING "routine_body"
+  , STRING "routine_definition"
+  , STRING "external_name"
+  , STRING "external_language"
+  , STRING "parameter_style"
+  , STRING "is_deterministic"
+  , STRING "sql_data_access"
+  , STRING "is_null_call"
+  , STRING "sql_path"
+  , STRING "schema_level_routine"
+  , INTEGER "max_dynamic_result_sets"
+  , STRING "is_user_defined_cast"
+  , STRING "is_implicitly_invocable"
+  , STRING "security_type"
+  , STRING "to_sql_specific_catalog"
+  , STRING "to_sql_specific_schema"
+  , STRING "to_sql_specific_name"
+  , STRING "as_locator"
+  , DATETIME "created"
+  , DATETIME "last_altered"
+  , STRING "new_savepoint_level"
+  , STRING "is_udt_dependent"
+  , STRING "result_cast_from_data_type"
+  , STRING "result_cast_as_locator"
+  , INTEGER "result_cast_char_max_length"
+  , INTEGER "result_cast_char_octet_length"
+  , STRING "result_cast_char_set_catalog"
+  , STRING "result_cast_char_set_schema"
+  , STRING "result_cast_char_set_name"
+  , STRING "result_cast_collation_catalog"
+  , STRING "result_cast_collation_schema"
+  , STRING "result_cast_collation_name"
+  , INTEGER "result_cast_numeric_precision"
+  , INTEGER "result_cast_numeric_precision_radix"
+  , INTEGER "result_cast_numeric_scale"
+  , INTEGER "result_cast_datetime_precision"
+  , STRING "result_cast_interval_type"
+  , INTEGER "result_cast_interval_precision"
+  , STRING "result_cast_type_udt_catalog"
+  , STRING "result_cast_type_udt_schema"
+  , STRING "result_cast_type_udt_name"
+  , STRING "result_cast_scope_catalog"
+  , STRING "result_cast_scope_schema"
+  , STRING "result_cast_scope_name"
+  , INTEGER "result_cast_maximum_cardinality"
+  , STRING "result_cast_dtd_identifier"
+  > "routines"
+, TABLE
+  < STRING "catalog_name"
+  , STRING "schema_name"
+  , STRING "schema_owner"
+  , STRING "default_character_set_catalog"
+  , STRING "default_character_set_schema"
+  , STRING "default_character_set_name"
+  , STRING "sql_path"
+  > "schemata"
+, TABLE
+  < STRING "sequence_catalog"
+  , STRING "sequence_schema"
+  , STRING "sequence_name"
+  , STRING "data_type"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , STRING "start_value"
+  , STRING "minimum_value"
+  , STRING "maximum_value"
+  , STRING "increment"
+  , STRING "cycle_option"
+  > "sequences"
+, TABLE
+  < STRING "feature_id"
+  , STRING "feature_name"
+  , STRING "sub_feature_id"
+  , STRING "sub_feature_name"
+  , STRING "is_supported"
+  , STRING "is_verified_by"
+  , STRING "comments"
+  > "sql_features"
+, TABLE
+  < STRING "implementation_info_id"
+  , STRING "implementation_info_name"
+  , INTEGER "integer_value"
+  , STRING "character_value"
+  , STRING "comments"
+  > "sql_implementation_info"
+, TABLE
+  < STRING "sql_language_source"
+  , STRING "sql_language_year"
+  , STRING "sql_language_conformance"
+  , STRING "sql_language_integrity"
+  , STRING "sql_language_implementation"
+  , STRING "sql_language_binding_style"
+  , STRING "sql_language_programming_language"
+  > "sql_languages"
+, TABLE
+  < STRING "feature_id"
+  , STRING "feature_name"
+  , STRING "is_supported"
+  , STRING "is_verified_by"
+  , STRING "comments"
+  > "sql_packages"
+, TABLE
+  < INTEGER "sizing_id"
+  , STRING "sizing_name"
+  , INTEGER "supported_value"
+  , STRING "comments"
+  > "sql_sizing"
+, TABLE
+  < INTEGER "sizing_id"
+  , STRING "sizing_name"
+  , STRING "profile_id"
+  , INTEGER "required_value"
+  , STRING "comments"
+  > "sql_sizing_profiles"
+, TABLE
+  < STRING "constraint_catalog"
+  , STRING "constraint_schema"
+  , STRING "constraint_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "constraint_type"
+  , STRING "is_deferrable"
+  , STRING "initially_deferred"
+  , STRING "enforced"
+  > "table_constraints"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  , STRING "with_hierarchy"
+  > "table_privileges"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "table_type"
+  , STRING "self_referencing_column_name"
+  , STRING "reference_generation"
+  , STRING "user_defined_type_catalog"
+  , STRING "user_defined_type_schema"
+  , STRING "user_defined_type_name"
+  , STRING "is_insertable_into"
+  , STRING "is_typed"
+  , STRING "commit_action"
+  > "tables"
+, TABLE
+  < STRING "trigger_catalog"
+  , STRING "trigger_schema"
+  , STRING "trigger_name"
+  , STRING "event_object_catalog"
+  , STRING "event_object_schema"
+  , STRING "event_object_table"
+  , STRING "event_object_column"
+  > "triggered_update_columns"
+, TABLE
+  < STRING "trigger_catalog"
+  , STRING "trigger_schema"
+  , STRING "trigger_name"
+  , STRING "event_manipulation"
+  , STRING "event_object_catalog"
+  , STRING "event_object_schema"
+  , STRING "event_object_table"
+  , INTEGER "action_order"
+  , STRING "action_condition"
+  , STRING "action_statement"
+  , STRING "action_orientation"
+  , STRING "action_timing"
+  , STRING "action_reference_old_table"
+  , STRING "action_reference_new_table"
+  , STRING "action_reference_old_row"
+  , STRING "action_reference_new_row"
+  , DATETIME "created"
+  > "triggers"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "udt_catalog"
+  , STRING "udt_schema"
+  , STRING "udt_name"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "udt_privileges"
+, TABLE
+  < STRING "grantor"
+  , STRING "grantee"
+  , STRING "object_catalog"
+  , STRING "object_schema"
+  , STRING "object_name"
+  , STRING "object_type"
+  , STRING "privilege_type"
+  , STRING "is_grantable"
+  > "usage_privileges"
+, TABLE
+  < STRING "user_defined_type_catalog"
+  , STRING "user_defined_type_schema"
+  , STRING "user_defined_type_name"
+  , STRING "user_defined_type_category"
+  , STRING "is_instantiable"
+  , STRING "is_final"
+  , STRING "ordering_form"
+  , STRING "ordering_category"
+  , STRING "ordering_routine_catalog"
+  , STRING "ordering_routine_schema"
+  , STRING "ordering_routine_name"
+  , STRING "reference_type"
+  , STRING "data_type"
+  , INTEGER "character_maximum_length"
+  , INTEGER "character_octet_length"
+  , STRING "character_set_catalog"
+  , STRING "character_set_schema"
+  , STRING "character_set_name"
+  , STRING "collation_catalog"
+  , STRING "collation_schema"
+  , STRING "collation_name"
+  , INTEGER "numeric_precision"
+  , INTEGER "numeric_precision_radix"
+  , INTEGER "numeric_scale"
+  , INTEGER "datetime_precision"
+  , STRING "interval_type"
+  , INTEGER "interval_precision"
+  , STRING "source_dtd_identifier"
+  , STRING "ref_dtd_identifier"
+  > "user_defined_types"
+, TABLE
+  < STRING "authorization_identifier"
+  , STRING "foreign_server_catalog"
+  , STRING "foreign_server_name"
+  , STRING "option_name"
+  , STRING "option_value"
+  > "user_mapping_options"
+, TABLE
+  < STRING "authorization_identifier"
+  , STRING "foreign_server_catalog"
+  , STRING "foreign_server_name"
+  > "user_mappings"
+, TABLE
+  < STRING "view_catalog"
+  , STRING "view_schema"
+  , STRING "view_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "column_name"
+  > "view_column_usage"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "specific_catalog"
+  , STRING "specific_schema"
+  , STRING "specific_name"
+  > "view_routine_usage"
+, TABLE
+  < STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  , STRING "view_definition"
+  , STRING "check_option"
+  , STRING "is_updatable"
+  , STRING "is_insertable_into"
+  , STRING "is_trigger_updatable"
+  , STRING "is_trigger_deletable"
+  , STRING "is_trigger_insertable_into"
+  > "views"
+, TABLE
+  < STRING "view_catalog"
+  , STRING "view_schema"
+  , STRING "view_name"
+  , STRING "table_catalog"
+  , STRING "table_schema"
+  , STRING "table_name"
+  > "view_table_usage"
+> postgresql_information_schema;
+
+
+//*/
+
+STRING FUNCTION MapAction(STRING indata)
+{
+  SWITCH (indata)
+  {
+    CASE "a"  { RETURN "NO ACTION"; }
+    CASE "r"  { RETURN "RESTRICT"; }
+    CASE "c"  { RETURN "CASCADE"; }
+    CASE "n"  { RETURN "SET NULL"; }
+    CASE "d"  { RETURN "SET DEFAULT"; }
+  }
+  RETURN "";
+}
+
+
+OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
+< /** Whether this looks like an autotransaction to the outside world (underlying transaction is always auto)
+  */
+  BOOLEAN pvt_isauto;
+
+  /// Whether error delay is enabled
+  BOOLEAN pvt_delayerrors;
+
+  /// List of delayed errors @includecelldef #__HandleMessage.message
+  RECORD ARRAY delayederrors;
+
+  /// Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
+  STRING pvt_transactionisolationlevel;
+
+  /// Folder where blob files can be found
+  STRING pvt_blobfolder;
+
+  /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
+  PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
+
+  /// @type(string) Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
+  PUBLIC PROPERTY transactionisolationlevel(pvt_transactionisolationlevel, SetTransactionIsolationLevel);
+
+  /// Folder where blob files can be found
+  PUBLIC PROPERTY blobfolder(pvt_blobfolder, -);
+
+  MACRO NEW(INTEGER id, BOOLEAN auto, STRING blobfolder)
+  {
+    this->RegisterTransaction(id);
+    this->pvt_isauto := auto;
+    this->pvt_transactionisolationlevel := "read committed";
+    this->pvt_blobfolder := blobfolder;
+
+    this->SetAllowErrorDelay(TRUE);
+
+    IF(this->pvt_isauto)
+    {
+      IF(__PGSQL_GETWORKOPEN(this->id)) //work=open means we got a marshalled transaction. ADDME prevent closure on our side of such a trans/work
+      {
+        this->pvt_numworks := 1;
+      }
+    }
+    ELSE IF (NOT __PGSQL_GETWORKOPEN(this->id))
+    {
+      // non-auto transaction: automatically open work
+      this->BeginWork();
+    }
+  }
+
+  UPDATE PUBLIC MACRO __ResetTransactionId(INTEGER transid)
+  {
+    BuiltinTransactionBase::__ResetTransactionId(transid);
+    this->pvt_numworks := __PGSQL_GETWORKOPEN(transid) ? 1 : 0;
+  }
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "postgresql";
+  }
+
+  MACRO SetTransactionIsolationLevel(STRING newlevel)
+  {
+    IF (newlevel NOT IN [ "read committed", "repeatable read", "serializable" ])
+      THROW NEW Exception(`Illegal isolation level '${newlevel}', expected one of 'read committed', 'repeatable read', 'serializable'`);
+    IF (this->IsWorkOpen())
+      THROW NEW Exception(`Cannot change tranaction isolation level while work is open`);
+    this->pvt_transactionisolationlevel := newlevel;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN this->pvt_isauto;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN __PGSQL_GETWORKOPEN(this->id);
+  }
+
+  UPDATE MACRO DoBeginWork()
+  {
+    SendPostgreSQLCommand(this->id, `START TRANSACTION ISOLATION LEVEL ${ToUppercase(this->pvt_transactionisolationlevel)} READ WRITE`);
+  }
+
+  UPDATE PUBLIC MACRO DoRollbackWork()
+  {
+    SendPostgreSQLCommand(this->id, "ROLLBACK");
+  }
+
+  UPDATE RECORD ARRAY FUNCTION DoCommitWork()
+  {
+    RETURN SendPostgreSQLCommand(this->id, "COMMIT");
+  }
+
+  UPDATE PUBLIC MACRO Rollback()
+  {
+    IF(this->pvt_isauto)
+      THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
+    BuiltinTransactionBase::Rollback();
+  }
+
+  UPDATE PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
+  {
+    // Change to auto transaction. Close work if open.
+    this->pvt_isauto := TRUE;
+    BuiltinTransactionBase::__CallCommitHandlers(iscommit);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
+  {
+    IF(this->pvt_isauto)
+      THROW NEW Exception("Commit cannot be used on auto transactions, use CommitWork");
+
+    TRY
+    {
+      RECORD ARRAY result := this->CommitWork();
+      RETURN result;
+    }
+    FINALLY
+    {
+      this->Close();
+    }
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->IsWorkOpen())
+    {
+      this->pvt_numworks := 1;
+      this->RollbackWork();
+    }
+
+    __PGSQL_CLOSE(this->id);
+    BuiltinTransactionBase::Close();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN SendPostgreSQLCommand(this->id, query, options);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+
+    RETURN SELECT schema_name :=      nspname
+                , is_system_schema := ToUppercase(nspname) IN [ "DEFINITION_SCHEMA", "INFORMATION_SCHEMA" ] OR ToUppercase(nspname) LIKE "PG_*"
+             FROM catalog.pg_namespace;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+
+    INTEGER namespace_oid :=
+       SELECT AS INTEGER oid
+         FROM catalog.pg_namespace
+        WHERE nspname = schemaname;
+
+    IF (namespace_oid = 0)
+      RETURN RECORD[];
+
+    RECORD ARRAY tables :=
+        SELECT object_id :=   oid
+             , table_name :=  relname
+             , isview :=      relkind IN [ "v", "m" ]
+          FROM catalog.pg_class
+         WHERE relkind IN [ "r", "v", "m" ] // table, view, materialized view
+           AND relnamespace = namespace_oid;
+
+    RECORD ARRAY primary_keys :=
+        SELECT conkey
+             , object_id :=   conrelid
+             , _matchkey :=   conrelid || "\t" || conkey[0]
+          FROM catalog.pg_constraint
+         WHERE conrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables)
+           AND contype = "p"
+           AND LENGTH(conkey) = 1;
+
+    RECORD ARRAY columns :=
+        SELECT attrelid
+             , attnum
+             , primary_key_name := attname
+             , _matchkey :=   attrelid || "\t" || attnum
+          FROM catalog.pg_attribute
+         WHERE attrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables);
+
+    primary_keys := JoinArrays(primary_keys, "_matchkey", columns, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
+    tables := JoinArrays(tables, "object_id", primary_keys, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
+
+    RETURN tables;
+  }
+
+  MACRO SetAllowErrorDelay(BOOLEAN newerrordelay)
+  {
+    this->pvt_delayerrors := newerrordelay;
+    IF (NOT newerrordelay AND RecordExists(this->delayederrors))
+    {
+      RECORD ARRAY errors :=
+          SELECT message :=     error_message
+               , tablename :=   `${schema_name}.${table_name}`
+               , column_name
+            FROM this->delayederrors;
+      this->delayederrors := RECORD[];
+      THROW NEW DatabaseException(errors);
+    }
+    __PGSQL_SETALLOWWRITEERRRORDELAY(this->id, newerrordelay);
+  }
+
+  RECORD FUNCTION GetCacheableQuery(RECORD query)
+  {
+    RETURN
+        [ value :=    SendPostgreSQLCommand(this->id, query.query, query.options)
+        , ttl :=      5 * 60 * 1000
+        ];
+  }
+
+  VARIANT FUNCTION GetDefaultValue(INTEGER atttypid, BOOLEAN atthasdef, VARIANT ARRAY attmissingval)
+  {
+    IF (atthasdef AND LENGTH(attmissingval) != 0)
+      RETURN attmissingval[0];
+    SWITCH (atttypid)
+    {
+      CASE OID_BOOL       { RETURN FALSE; }
+      CASE OID_BYTEA      { RETURN ""; }
+      CASE OID_CHAR       { RETURN ""; }
+      CASE OID_NAME       { RETURN ""; }
+      CASE OID_TEXT       { RETURN ""; }
+      CASE OID_VARCHAR    { RETURN ""; }
+      CASE OID_INT8       { RETURN 0; }
+      CASE OID_INT2       { RETURN 0; }
+      CASE OID_INT4       { RETURN 0; }
+      CASE OID_REGPROC    { RETURN 0; }
+      CASE OID_OID        { RETURN 0; }
+      CASE OID_TID        { RETURN 0; }
+      CASE OID_XID        { RETURN 0; }
+      CASE OID_CID        { RETURN 0; }
+      CASE OID_FLOAT4     { RETURN 0f; }
+      CASE OID_FLOAT8     { RETURN 0f; }
+      CASE OID_INT2ARRAY  { RETURN INTEGER[]; }
+      CASE OID_INT4ARRAY  { RETURN INTEGER[]; }
+      CASE OID_TEXTARRAY  { RETURN STRING[]; }
+      CASE OID_OIDARRAY   { RETURN INTEGER[]; }
+      CASE OID_TIMESTAMP, OID_TIMESTAMPTZ  { RETURN DEFAULT DATETIME; }
+      CASE OID_NUMERIC    { RETURN 0m; }
+      CASE OID_ANY        { RETURN 0; }
+      CASE OID_ANYARRAY   { RETURN VARIANT[]; }
+      DEFAULT
+      {
+        RECORD rec := this->__ExecSQL(`
+            SELECT t.oid, t.typname, t.typbasetype, a.oid AS arrayeltoid
+              FROM pg_catalog.pg_type t
+                   LEFT OUTER JOIN pg_catalog.pg_type a ON a.typarray = t.oid
+             WHERE t.oid = $1`, [ args := VARIANT[ atttypid ] ]);
+
+        IF (rec.typbasetype != 0)
+          RETURN this->GetDefaultValue(rec.typbasetype, atthasdef, attmissingval);
+        IF (rec.typname = "webhare_blob")
+          RETURN DEFAULT BLOB;
+        IF (rec.arrayeltoid != 0)
+        {
+          VARIANT elt := this->GetDefaultValue(rec.arrayeltoid, atthasdef, attmissingval);
+          RETURN RepeatElement(elt, 0);
+        }
+        RETURN [ error := "values of this type cannot be read yet" ];
+      }
+    }
+  }
+
+  STRING FUNCTION EscapeName(STRING name)
+  {
+    RETURN `"${EncodeJava(name)}"`;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+    SCHEMA is LIKE postgresql_information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+
+    INTEGER namespace_oid :=
+       SELECT AS INTEGER oid
+         FROM catalog.pg_namespace
+        WHERE ToUppercase(nspname) = ToUppercase(schemaname);
+
+    INTEGER table_oid :=
+        SELECT AS INTEGER oid
+          FROM catalog.pg_class
+         WHERE relkind IN [ "r", "v", "m" ] // table, view, materialized view
+           AND relnamespace = namespace_oid
+           AND ToUppercase(relname) = ToUppercase(tablename);
+
+    RECORD ARRAY constraints := this->__ExecSQL(
+        `SELECT conrelid
+              , contype
+              , confrelid
+              , conkey
+              , conname
+              , confdeltype
+              , pg_get_constraintdef(oid) AS check_expression
+           FROM pg_catalog.pg_constraint
+         WHERE conrelid = $1
+           AND array_length(conkey, 1) = 1`, [ args := VARIANT[ table_oid ] ]);
+
+    RECORD ARRAY refdtables :=
+        SELECT confrelid :=                 pg_class.oid
+             , referenced_table_name :=     relname
+             , referenced_table_schema :=   nspname
+          FROM catalog.pg_class
+             , catalog.pg_namespace
+         WHERE relnamespace = pg_namespace.oid
+           AND pg_class.oid IN (SELECT AS INTEGER ARRAY DISTINCT confrelid FROM constraints WHERE confrelid != 0);
+
+    constraints := JoinArrays(constraints, "confrelid", refdtables,
+        [ referenced_table_name := ""
+        , referenced_table_schema := ""
+        ],
+        [ rightouterjoin := TRUE
+        ]);
+
+    OBJECT sequence_generator := NEW Regex("^nextval\\((.*)\\)|\\(([^.]*\\.webhare_autonrs_.*)\\(1\\)\\)\\[1\\]$");
+
+    RECORD ARRAY columns :=
+        SELECT TEMPORARY attr_constraints := (SELECT * FROM constraints WHERE constraints.conkey[0] = pg_attribute.attnum)
+             , TEMPORARY foreignkey := (SELECT * FROM attr_constraints WHERE contype = "f")
+             , TEMPORARY check_expression := (SELECT AS STRING COLUMN check_expression FROM attr_constraints WHERE contype = "c")
+             , column_name :=               attname
+             , character_octet_length :=    attlen
+             , character_maximum_length :=  atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? atttypmod - 4 : atttypid IN [ OID_BIT, OID_VARBIT ] ? atttypmod : 0 // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
+             , is_nullable :=               RecordExists(foreignkey) ? attnotnull = FALSE : check_expression = ""
+             , data_type :=                 typname || (atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? `(${atttypmod - 4})` : atttypid IN [ OID_BIT, OID_VARBIT ] ? `(${atttypmod})` : "")
+             , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
+             , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
+             , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
+             , referenced_table_schema :=   RecordExists(foreignkey) ? foreignkey.referenced_table_schema : ""
+          FROM catalog.pg_attribute
+             , catalog.pg_type
+         WHERE attrelid = table_oid
+           AND pg_type.oid = atttypid
+           AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
+
+    RECORD ARRAY is_cols :=
+        SELECT column_name
+             , autonumber_start :=          ToInteger64(identity_minimum, 0)
+             , column_default
+          FROM is.columns
+         WHERE ToUppercase(table_schema) = ToUppercase(schemaname)
+           AND ToUppercase(table_name) = ToUppercase(tablename);
+
+    FOREVERY (RECORD col FROM is_cols)
+    {
+      RECORD ARRAY match := sequence_generator->Exec(col.column_default);
+      IF (RecordExists(match))
+      {
+        STRING sequencename := match[1].value;
+        IF (sequencename = "")
+          sequencename := `'${Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_")}'::regclass`;
+
+        RECORD seq := this->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
+        is_cols[#col].autonumber_start := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
+      }
+    }
+
+    RETURN JoinArrays(columns, "column_name", is_cols, [ autonumber_start := 0i64, column_default := "" ]);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    STRING generator := `(${this->EscapeName(schemaname)}.${this->EscapeName(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
+    RETURN __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE)[0].value;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
+  {
+    SCHEMA is LIKE postgresql_information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+    RETURN RecordExists(SELECT FROM is.schemata WHERE ToUppercase(schema_name) = ToUppercase(schemaname));
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ColumnExists(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    SCHEMA is LIKE postgresql_information_schema;
+    is := BindTransactionToSchema(this->id, "information_schema");
+    RETURN RecordExists(
+        SELECT FROM is.columns
+         WHERE ToUppercase(table_schema) = ToUppercase(schemaname)
+           AND ToUppercase(tablename) = ToUppercase(table_name)
+           AND ToUppercase(column_name) = ToUppercase(columnname));
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
+  {
+    ABORT("IndexExists not supported for PostgreSQL");
+  }
+
+  UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    this->__ExecSQL(`CREATE SCHEMA ${this->EscapeName(schemaname)}`);
+  }
+
+  UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cascade := FALSE ], options);
+    this->__ExecSQL(`DROP SCHEMA ${this->EscapeName(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
+  }
+
+  UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    ABORT(`CreateTable not supported for PostgreSQL`);
+  }
+
+  UPDATE PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablemanip)
+  {
+    ABORT(`AlterTable not supported for PostgreSQL`);
+  }
+
+  UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    this->__ExecSQL(`ALTER TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)} DROP COLUMN ${this->EscapeName(columnname)}`);
+  }
+
+  UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    this->__ExecSQL(`DROP TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)}`);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
+  {
+    ABORT("GetRoleId not supported for PostgreSQL");
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
+  {
+    ABORT("IsRoleEnabled not supported for PostgreSQL");
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
+  {
+    RETURN [ -1 ]; // always privileged
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    STRING table_name := GetBindingFromTable(tbl).tablename;
+    STRING schema_name := "PUBLIC";
+    IF (table_name LIKE "*.*")
+    {
+      schema_name := Tokenize(table_name, ".")[0];
+      table_name := Tokenize(table_name, ".")[1];
+    }
+
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+
+    RECORD ARRAY tablecols :=
+        SELECT TEMPORARY value :=   this->GetDefaultValue(atttypid, atthasdef, attmissingval)
+             , name :=        attname
+             , dbase_name :=  attname
+             , type :=        TypeID(value)
+             , flags :=       atttypid = OID_BYTEA ? 256 : 0 // ColumnFlags::Binary
+             , fase :=        0
+             , ...[ attnotnull OR TypeID(value) = TypeID(BLOB) ? CELL[] : [ nulldefault := value ] ]
+          FROM catalog.pg_attribute
+             , catalog.pg_class
+             , catalog.pg_namespace
+         WHERE pg_class.oid = attrelid
+           AND pg_namespace.oid = pg_class.relnamespace
+           AND ToUppercase(nspname) = ToUppercase(schema_name)
+           AND ToUppercase(relname) = ToUppercase(table_name)
+           AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ] // hide system columns
+      ORDER BY attname;
+
+    RECORD ARRAY retval;
+    FOREVERY (STRING col FROM cols)
+    {
+      RECORD pos := RecordLowerBound(tablecols, [ name := col ], [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        // Not found, try builtin columns (internally translated inside driver)
+        INTEGER builtintype;
+        SWITCH (ToLowercase(`${schema_name}.${table_name}(${col})`))
+        {
+          CASE "system.sites(webroot)"            { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(fullpath)"      { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(highestparent)" { builtintype := TypeID(INTEGER); }
+          CASE "system.fs_objects(indexurl)"      { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(isactive)"      { builtintype := TypeID(BOOLEAN); }
+          CASE "system.fs_objects(publish)"       { builtintype := TypeID(BOOLEAN); }
+          CASE "system.fs_objects(url)"           { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(whfspath)"      { builtintype := TypeID(STRING); }
+          DEFAULT
+          {
+            STRING ARRAY allowed := SELECT AS STRING ARRAY name FROM tablecols;
+            STRING didyoumean := GetBestMatch(col, allowed, [ casesensitive := TRUE ]);
+            THROW NEW Exception(`Could not find column "${EncodeJava(col)}" in table "${schema_name}"."${table_name}"${didyoumean = "" ? "" : `, did you mean "${didyoumean}"?`}`);
+          }
+        }
+
+        INSERT
+            [ name :=         col
+            , dbase_name :=   col
+            , type :=         builtintype
+            , flags :=        0
+            , fase :=         0
+            ] INTO retval AT END;
+      }
+      ELSE
+        INSERT tablecols[pos.position] INTO retval AT END;
+    }
+
+    RETURN retval;
+  }
+>;
+
+PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ astext :=       FALSE
+      , args :=         VARIANT[]
+      , argencodings := STRING[]
+      ], options);
+
+  INTEGER ARRAY encodings;
+  IF (IsValueSet(options.argencodings))
+  {
+    IF (LENGTH(options.argencodings) > LENGTH(options.args))
+      THROW NEW Exception(`More encodings than arguments specified`);
+    FOREVERY (STRING encoding FROM options.argencodings)
+    {
+      IF (encoding = "" OR encoding = "normal")
+        INSERT 0 INTO encodings AT END;
+      ELSE
+      {
+        VARIANT arg := options.args[#encoding];
+        IF (encoding = "binary")
+        {
+          IF (TypeID(arg) != TypeID(STRING) AND TypeID(arg) != TypeID(STRING ARRAY))
+            THROW NEW Exception(`Encoding '${encoding}' is not allowed for argument #${#encoding + 1} of type ${GetTypeName(TypeID(arg))}`);
+          INSERT 1 INTO encodings AT END;
+        }
+        ELSE IF (encoding = "pattern")
+        {
+          IF (TypeID(arg) != TypeID(STRING))
+            THROW NEW Exception(`Encoding '${encoding}' is not allowed for argument #${#encoding + 1} of type ${GetTypeName(TypeID(arg))}`);
+          INSERT 1 INTO encodings AT END;
+        }
+        ELSE
+          THROW NEW Exception(`Encountered unknown encoding '${encoding}'`);
+      }
+    }
+  }
+
+  STRING testquery := TrimWhitespace(NormalizeWhitespace(ToUppercase(query)));
+  IF (testquery NOT LIKE "*;")
+    testquery := testquery || ";";
+
+  OBJECT transobj;
+  BOOLEAN reset_delayerrors;
+  IF ((testquery IN [ "ROLLBACK;", "COMMIT;" ] OR testquery LIKE "ROLLBACK *"  OR testquery LIKE "COMMIT *") AND testquery NOT LIKE "*SAVEPOINT*")
+  {
+    __PGSQL_SETWORKOPEN(trans, FALSE);
+
+    IF (testquery LIKE "COMMIT*") // Commit
+    {
+      transobj := GetTransactionObjectByIdInternal(trans);
+      IF (RecordExists(transobj->delayederrors))
+        testquery := "ROLLBACK;";
+      ELSE IF (NOT transobj->pvt_delayerrors)
+      {
+        // Capture errors, never want to throw from here within a commit
+        reset_delayerrors := TRUE;
+        transobj->pvt_delayerrors := TRUE;
+      }
+    }
+  }
+
+  RECORD ARRAY retval := __PGSQL_EXEC(trans, query, options.args, encodings, options.astext);
+
+  IF (testquery = "BEGIN;" OR testquery LIKE "START TRANSACTION;" OR testquery LIKE "BEGIN *" OR testquery LIKE "START TRANSACTION *")
+    __PGSQL_SETWORKOPEN(trans, TRUE);
+
+  IF (ObjectExists(transobj) AND RecordExists(transobj->delayederrors))
+  {
+    // Assumed that rollback/commit won't return any meaningfull errors
+    retval :=
+        SELECT message :=     error_message
+             , tablename :=   `${schema_name}.${table_name}`
+             , column_name
+          FROM transobj->delayederrors;
+
+    transobj->delayederrors := RECORD[];
+    IF (reset_delayerrors)
+      transobj->pvt_delayerrors := FALSE;
+    RETURN retval;
+  }
+
+  RETURN retval;
+}
+
+STRING FUNCTION CalculateApplicationName()
+{
+  // Use script library, but limit to 63 characters
+  STRING application_name := GetHarescriptLoadedLibraries()[0].liburi;
+  IF (application_name LIKE "direct::*")
+    application_name := SubString(application_name, 8);
+  WHILE (LENGTH(application_name) > 63)
+  {
+    STRING ARRAY parts := Tokenize(application_name, "/");
+    IF (LENGTH(parts) < 3)
+      BREAK;
+    IF (parts[1] = "...")
+      DELETE FROM parts AT 1;
+    parts[1] := "...";
+    application_name := Detokenize(parts, "/");
+  }
+
+  RETURN application_name;
+}
+
+PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
+{
+  transinfo := ValidateOptions(
+      [ dbasefolder :=  MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql")
+      , auto :=         TRUE
+      , user :=         ""
+      , passwd :=       ""
+      , clientname :=   ""
+      , webhare_dbasename := ""
+      ], transinfo);
+
+  IF (NOT transinfo.auto)
+    THROW NEW Exception("Non-auto transactions are not supported for PostgreSQL");
+
+  STRING dbasename := transinfo.webhare_dbasename ?? GetEnvironmentVariable("WEBHARE_DBASENAME");
+  IF (dbasename = "")
+    THROW NEW Exception(`Environment variable WEBHARE_DBASENAME not set`);
+
+  INTEGER transid :=  __PGSQL_CONNECT(
+      [ [ name :=   "dbname"
+        , value :=  dbasename
+        ]
+      , [ name :=   "host"
+        , value :=  transinfo.dbasefolder
+        ]
+      , [ name :=   "webhare:blobfolder" // sets the blob folder in the driver
+        , value :=  transinfo.dbasefolder
+        ]
+      , [ name :=   "application_name"
+        , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
+        ]
+      ]);
+
+  IF(transid<=0)
+    RETURN DEFAULT OBJECT;
+
+  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.dbasefolder);
+
+  RETURN trans;
+}
+
+/** Called by C++ driver when a notice is issued/fatal error is encountered.
+    Please don't throw here, this is called from within libpq functions, and the
+    callers haven't been verified to handle thrown exceptions correctly.
+    Return TRUE for default handling, FALSE to ignore.
+    @param transid Transaction with the notice/error
+    @param message Notice/error message (see https://www.postgresql.org/docs/12/libpq-exec.html#LIBPQ-PQRESULTERRORFIELD for the field contents)
+    @cell(string) message.severity Contents of result field 'PG_DIAG_SEVERITY_NONLOCALIZED': ERROR, FATAL, or PANIC (in an error message), or WARNING, NOTICE, DEBUG, INFO, or LOG (in a notice message).
+    @cell(string) message.sqlstate Contents of result field 'SQLSTATE'
+    @cell(string) message.message_primary Contents of result field 'MESSAGE_PRIMARY'
+    @cell(string) message.message_detail Contents of result field 'MESSAGE_DETAIL'
+    @cell(string) message.message_hint Contents of result field 'MESSAGE_HINT'
+    @cell(string) message.statement_position Contents of result field 'STATEMENT_POSITION'
+    @cell(string) message.internal_position Contents of result field 'INTERNAL_POSITION'
+    @cell(string) message.internal_query Contents of result field 'INTERNAL_QUERY'
+    @cell(string) message.context Contents of result field 'CONTEXT'
+    @cell(string) message.schema_name Contents of result field 'SCHEMA_NAME'
+    @cell(string) message.table_name Contents of result field 'TABLE_NAME'
+    @cell(string) message.column_name Contents of result field 'COLUMN_NAME'
+    @cell(string) message.datatype_name Contents of result field 'DATATYPE_NAME'
+    @cell(string) message.constraint_name Contents of result field 'CONSTRAINT_NAME'
+    @cell(string) message.source_file Contents of result field 'SOURCE_FILE'
+    @cell(string) message.source_line Contents of result field 'SOURCE_LINE'
+    @cell(string) message.source_function Contents of result field 'SOURCE_FUNCTION'
+    @cell(string) message.error_message Result of PQresultErrorMessage
+    @cell(string) message.verbose_error_message Result of PQresultVerboseErrorMessage
+    @return FALSE to swallow the error, TRUE to do normal error handling
+*/
+PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRIBUTES__(SKIPTRACE)
+{
+  OBJECT trans := GetTransactionObjectByIdInternal(transid); // is privileged pointer
+
+  IF (trans->pvt_delayerrors AND message.severity IN [ "ERROR", "FATAL", "PANIC" ])
+  {
+    INSERT message INTO trans->delayederrors AT END;
+    RETURN FALSE;
+  }
+
+  //DumpValue(noticedata);
+  //DumpValue(GetStackTrace());
+
+  RETURN TRUE;
+}
+
+/** @short Bind the PostgreSQL database metadata tables
+    @param trans Transaction to bind these tables to
+*/
+MACRO BindPostgreSQLMetaTables(INTEGER trans)
+{
+  IF(trans != 0)
+  {
+    OBJECT transobj := GetTransactionObjectById(trans);
+    IF(NOT (transobj EXTENDSFROM WHPostgreSQLTransaction))
+      RETURN;
+  }
+
+  postgresql_information_schema := BindTransactionToSchema(trans, "information_schema");
+  postgresql_pg_catalog := BindTransactionToSchema(trans, "pg_catalog");
+}
+
+PUBLIC STRING FUNCTION __GetPostgreSQLBlobRegistrationId(INTEGER trans, BLOB blb)
+{
+  RETURN __PGSQL_GETBLOBINTERNALID(trans, blb);
+}
+
+SetupPrimaryTransactionBinder(PTR BindPostgreSQLMetaTables);

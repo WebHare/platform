@@ -1,0 +1,138 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestLibraryObjects()
+{
+  testfw->BeginWork();
+  /*
+    tempfolder
+    +- somefolder
+    |  +- testfile
+    |  +- other
+    |     +- first
+    |     +- second
+    |     +- third
+    +- testing
+    +- other
+       +- otherfile
+
+    test:
+    - absolute path /tempfolder/somefolder
+    - relative path other
+    testparent:
+    - relative path ../other
+    testparent2:
+    - relative path ../tmp/other
+    testparent3:
+    - relative path ../../../tmp/other
+  */
+  OBJECT somefolder := GetTestsuiteTempFolder()->CreateFolder([name := "somefolder" ]);
+  OBJECT testloc := GetTestsuiteTempFolder()->CreateFile([name := "testing" ]);
+  testfw->CommitWork();
+
+  OBJECT dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  // test: no content yet in somefolder
+  TestEq(0, Length(TT(":LibraryObjects")->options));
+
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
+
+  testfw->BeginWork();
+  OBJECT testfile := somefolder->CreateFile([name := "testfile" ]);
+  OBJECT otherfolder := somefolder->CreateFolder([name := "other" ]);
+  otherfolder->CreateFile([name := "first"]);
+  otherfolder->CreateFile([name := "second"]);
+  otherfolder->CreateFile([name := "third"]);
+
+  GetTestsuiteTempFolder()->CreateFolder([name := "other" ])->CreateFile([name := "otherfile"]);
+  testfw->CommitWork();
+
+  dialog := CreateWHFSObjectPropsDialog(GetTestController(), testloc->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  // test:
+  // - /tempfolder/somefolder/testfile
+  // - /tempfolder/somefolder/other
+  // - /tempfolder/other/otherfile
+  TestEq(3, Length(TT(":LibraryObjects")->options));
+
+  // testparent: no folder /other
+  TT(":ObjectLibrary")->value := "testparent";
+  TestEq(0, Length(TT(":LibraryObjects")->options));
+
+  // testparent2:
+  // - /tempfolder/other/otherfile
+  TT(":ObjectLibrary")->value := "testparent2";
+  TestEq(1, Length(TT(":LibraryObjects")->options));
+
+  // testparent3: cannot go up out of site
+  TestThrows(PTR SetTestparent("testparent3"));
+
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
+
+  dialog := CreateWHFSObjectPropsDialog(GetTestController(), somefolder->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  // test:
+  // - /tempfolder/somefolder/testfile
+  // - /tempfolder/somefolder/other
+  // - /tempfolder/somefolder/other/first
+  // - /tempfolder/somefolder/other/second
+  // - /tempfolder/somefolder/other/third
+  TestEq(5, Length(TT(":LibraryObjects")->options));
+
+  // testparent:
+  // - /tempfolder/other/otherfile
+  TT(":ObjectLibrary")->value := "testparent";
+  TestEq(1, Length(TT(":LibraryObjects")->options));
+
+  // testparent2: no folder /tempfolder/tmp
+  TT(":ObjectLibrary")->value := "testparent2";
+  TestEq(0, Length(TT(":LibraryObjects")->options));
+
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
+
+  dialog := CreateWHFSObjectPropsDialog(GetTestController(), testfile->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  // These are resolved relative to the parent of testfile, so this yields the same results as the somefolder tests above
+  TestEq(5, Length(TT(":LibraryObjects")->options));
+  TT(":ObjectLibrary")->value := "testparent";
+  TestEq(1, Length(TT(":LibraryObjects")->options));
+  TT(":ObjectLibrary")->value := "testparent2";
+  TestEq(0, Length(TT(":LibraryObjects")->options));
+
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
+
+  dialog := CreateWHFSObjectPropsDialog(GetTestController(), otherfolder->id);
+  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
+
+  // test:
+  // - /tempfolder/somefolder/testfile
+  // - /tempfolder/somefolder/other
+  TestEq(2, Length(TT(":LibraryObjects")->options));
+
+  // testparent: this tests against otherfolder itself
+  // - /tempfolder/somefolder/other/first
+  // - /tempfolder/somefolder/other/second
+  // - /tempfolder/somefolder/other/third
+  TT(":ObjectLibrary")->value := "testparent";
+  TestEq(3, Length(TT(":LibraryObjects")->options));
+
+  AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
+}
+
+MACRO SetTestparent(STRING value)
+{
+  TT(":ObjectLibrary")->value := value;
+}
+
+RunTestframework([ PTR TestLibraryObjects
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

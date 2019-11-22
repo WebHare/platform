@@ -1,0 +1,413 @@
+<?wh
+
+LOADLIB "wh::async.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
+
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+
+
+/*  client            controller        process
+
+    ->addsession
+                      create process
+                      register session
+
+    <-addession:id
+
+    ->closessession
+                      set idle timer
+                      timer fires
+                      destroy process
+
+
+    ->addsession
+                      create process
+                      register session
+                                        crashes
+                      destroy process
+    <-sessiondied?
+*/
+
+INTEGER max_starting_wait := 5 * 60 * 1000; // max wait for chrome startup
+INTEGER max_session_length := 15 * 60 * 1000;
+INTEGER max_idle_time := 60 * 1000;
+
+BOOLEAN debug := GetEnvironmentVariable("WEBHARE_DEBUGCHROME") != "";
+BOOLEAN noheadless;
+STRING chromebinary;
+
+STATIC OBJECTTYPE ChromeHeadlessController
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT process;
+
+  OBJECT connector;
+
+  INTEGER port;
+
+  RECORD ARRAY sessions;
+
+  OBJECT idletimer;
+
+  INTEGER connecting;
+
+  OBJECT itr;
+
+  OBJECT processwatcher;
+
+  OBJECT serializer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW()
+  {
+    this->port := GetWebhareConfiguration().baseport + 7;
+    this->serializer := MakeCallSerializer();
+  }
+
+  STRING FUNCTION GetConnectorURL()
+  {
+    RETURN `http://localhost:${this->port}`;
+  }
+
+  ASYNC MACRO WatchProcess(OBJECT itr)
+  {
+    WHILE (TRUE)
+    {
+      RECORD rec := AWAIT itr->Next();
+      IF (rec.done)
+        BREAK;
+
+      IF (debug)
+      {
+        SWITCH (rec.value.type)
+        {
+          CASE "output"   { PRINT(`> ${rec.value.line}\n`); }
+          CASE "error"    { PRINT(`${AnsiCMD("red,bold")}> ${rec.value.line}${AnsiCMD("reset")}\n`); }
+          CASE "close"    { PRINT(`Chrome process closed, exit code ${rec.value.exitcode}\n`); }
+        }
+      }
+
+      IF (rec.value.type = "close")
+        this->process := DEFAULT OBJECT;
+    }
+  }
+
+  ASYNC MACRO EnsureProcess()
+  {
+    IF (ObjectExists(this->process))
+      RETURN;
+
+    // Wait for old process to go away
+    IF(debug AND ObjectExists(this->processwatcher))
+      PRINT("Waiting for any previous chrome process to go away\n");
+    AWAIT this->processwatcher;
+
+    this->idletimer := NEW WaitableTimer;
+
+    STRING executable := chromebinary;
+    IF (NOT RecordExists(GetDiskFileProperties(executable)))
+      THROW NEW Exception("Could not find Google Chrome at the expected location");
+
+    // In non-privileged docker containers, chrome can't run sandboxing (needs namespaces)
+    STRING ARRAY extra_params := GetWebHareVersionInfo().docker ? [ "--no-sandbox" ] : STRING[];
+
+    // ADDME: detect that process died
+    STRING ARRAY args;
+    IF(NOT noheadless)
+      args := args CONCAT ["--headless"];
+
+
+    args := args CONCAT [ `--remote-debugging-port=${this->port}`
+                        , ...extra_params
+                        ];
+
+    this->process := CreateProcess(executable, args, FALSE, FALSE, FALSE, FALSE);
+
+    this->process->Start();
+    IF (debug)
+      PRINT("Started new chrome process\n");
+
+    this->itr := MakeProcessAsyncIterator(this->process);
+    this->processwatcher := this->WatchProcess(this->itr);
+
+    IF (debug)
+      PRINT("Wait for process to start\n");
+
+    this->connector := NEW ChromeConnector(this->GetConnectorURL(), [ debug := debug ]);
+
+    // check 10 times/sec if chrome is online
+    FOR (INTEGER i := 0; i < max_starting_wait / 100; i := i + 1)
+    {
+      TRY
+      {
+        AWAIT this->connector->GetVersion();
+        BREAK;
+      }
+      CATCH
+        AWAIT NEW WaitableTimer(100)->WaitSignalled();
+    }
+
+    this->idletimer->WaitSignalled()->Then(PTR this->GotIdleTimeout);
+
+    IF (debug)
+      PRINT("Process is responding\n");
+  }
+
+  MACRO SessionTimerExpired(RECORD sessrec)
+  {
+    IF (debug)
+      PRINT(`Timer for session ${sessrec.id} expired, closing\n`);
+
+    this->CloseSession(sessrec.id, "timeout");
+  }
+
+  MACRO GotIdleTimeout()
+  {
+    IF (debug)
+      PRINT(`Chrome process idle timeout\n`);
+
+    // Might not be idle anymore, this is an async call after all
+    IF (this->connecting != 0 OR LENGTH(this->sessions) != 0)
+      RETURN;
+
+    this->ResetProcess();
+  }
+
+  ASYNC MACRO ResetProcess()
+  {
+    IF (debug)
+      PRINT(`Killing chrome process\n`);
+
+    FOREVERY (RECORD sess FROM this->sessions)
+    {
+      sess.timer->Reset();
+      sess.__sessionend.reject(NEW Exception("Chrome process was reset"));
+    }
+    this->sessions := RECORD[];
+
+    IF (NOT ObjectExists(this->process))
+      RETURN;
+
+    this->idletimer->Reset();
+
+    // Terminate the process. The processwatcher promise will become fulfilled when it has stopped
+    IF(debug)
+      PRINT(`Requesting chrome process to shut down (sending SIGINT)\n`);
+    this->process->SendInterrupt();
+    this->process := DEFAULT OBJECT;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC ASYNC FUNCTION CreateSession()
+  {
+    AWAIT this->serializer->Call(PTR this->EnsureProcess);
+
+    this->connecting := this->connecting + 1;
+    this->idletimer->Reset();
+
+    TRY
+    {
+      IF (debug)
+        PRINT("Allocating new session\n");
+
+      RECORD sessrec := AWAIT this->serializer->Call(PTR this->connector->NewSession());
+
+      IF (debug)
+        PRINT(`New session: ${sessrec.id}\n`);
+
+      sessrec := CELL
+          [ ...sessrec
+          , __sessionend := CreateDeferredPromise()
+          , timer :=        NEW WaitableTimer(max_session_length)
+          , connectorurl := this->GetConnectorURL()
+          ];
+
+      sessrec.timer->WaitSignalled()->Then(PTR this->SessionTimerExpired(sessrec));
+
+      this->connecting := this->connecting - 1;
+      INSERT sessrec INTO this->sessions AT RecordUpperBound(this->sessions, sessrec, [ "id" ]);
+      RETURN sessrec;
+    }
+    CATCH (OBJECT e)
+    {
+      IF (debug)
+        PRINT(`Got exception while connecting: ${e->what}\n`);
+      LogDebug("system:chromeheadlessrunner", "exception starting session", e->what);
+
+      // connection failure dooms process
+      this->connecting := this->connecting - 1;
+      IF (this->connecting = 0)
+        this->ResetProcess();
+      THROW e;
+    }
+  }
+
+  PUBLIC ASYNC MACRO CloseSession(STRING id, STRING reason)
+  {
+    IF (debug)
+      PRINT(`Closing session ${id}, reason: '${reason}'\n`);
+
+    RECORD pos := RecordLowerBound(this->sessions, CELL[ id ], [ "id" ]);
+    IF (NOT pos.found)
+    {
+      IF (debug)
+        PRINT(`Session ${id} was already closed\n`);
+      RETURN;
+    }
+
+    RECORD sessrec := this->sessions[pos.position];
+    DELETE FROM this->sessions AT pos.position;
+    sessrec.__sessionend.resolve(CELL[ reason ]);
+    sessrec.timer->Reset();
+
+    // Close chrome process after 60 seconds
+    IF (LENGTH(this->sessions) = 0 AND this->connecting = 0)
+    {
+      IF (debug)
+        PRINT(`Last session, init idle timeout\n`);
+
+      this->idletimer->Reset(max_idle_time);
+    }
+
+    AWAIT this->serializer->Call(PTR this->connector->CloseSession(CELL[ id ]));
+
+    IF (debug)
+      PRINT(`Session ${id} removed in chrome\n`);
+  }
+
+  PUBLIC MACRO OnInterrupt()
+  {
+    this->ResetProcess();
+    TerminateScript();
+  }
+>;
+
+/// Service call handler object
+STATIC OBJECTTYPE TestBrowserRunnerControl
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT controller;
+
+  RECORD ARRAY sessions;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT controller)
+  {
+    this->controller := controller;
+    IF (debug)
+      PRINT("Incoming user connection\n");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC ASYNC FUNCTION CreateSession()
+  {
+    IF (debug)
+      PRINT("User: CreateSession\n");
+
+    RECORD session := AWAIT this->controller->CreateSession();
+    INSERT session INTO this->sessions AT RecordUpperBound(this->sessions, session, [ "ID" ]);
+
+    // ADDME: find a way to inform the caller that the session has died
+    RETURN CELL
+        [ session.id
+        , session.devtoolsfrontendurl
+        , session.websocketdebuggerurl
+        , session.connectorurl
+//        , sessionend := session.__sessionend.promise
+        ];
+  }
+
+  PUBLIC MACRO CloseSession(STRING id)
+  {
+    IF (debug)
+      PRINT(`User: CloseSession ${id}\n`);
+
+    RECORD pos := RecordLowerBound(this->sessions, CELL[ id ], [ "ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("No such session");
+    this->controller->CloseSession(id, "user close");
+    DELETE FROM this->sessions AT pos.position;
+  }
+
+  PUBLIC MACRO OnClose()
+  {
+    IF (debug)
+      PRINT("User connection closed\n");
+
+    FOREVERY (RECORD session FROM this->sessions)
+      this->controller->CloseSession(session.id, "user connection closed");
+    this->sessions := RECORD[];
+  }
+>;
+
+/// Construct a new Control object to handle service calls
+OBJECT FUNCTION Constructor(OBJECT controller)
+{
+  RETURN NEW TestBrowserRunnerControl(controller);
+}
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "debug", type := "switch" ]
+                              , [ name := "noheadless", type := "switch" ]
+                              , [ name := "docker", type := "switch" ]
+                              , [ name := "binary", type := "stringopt" ]
+                              ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh run chromeheadlessrunner [ --debug ] [ --noheadless ]\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+debug := debug OR args.debug;
+noheadless := noheadless OR args.noheadless;
+
+IF(args.binary != "")
+{
+  chromebinary := args.binary;
+}
+ELSE
+{
+  chromebinary := GetModuleInstallationRoot("system") || "scripts/internal/engines/chromeheadless.sh";
+}
+
+OpenPrimary();
+
+OBJECT controller := NEW ChromeHeadlessController;
+
+IF(debug)
+  Print("starting service...\n");
+AddInterruptCallback(PTR controller->OnInterrupt);
+RunWebHareService("system:chromeheadlessrunner", PTR Constructor(controller));

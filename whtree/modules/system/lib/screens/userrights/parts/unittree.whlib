@@ -1,0 +1,353 @@
+﻿<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+//LOADLIB "mod::system/lib/screens/userrights/exports.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+
+PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER cbid;
+
+  OBJECT unittoselect;
+
+  STRING pvt_selectright;
+
+  BOOLEAN pvt_canselectroot;
+
+  BOOLEAN pvt_withsearch;
+
+  BOOLEAN have_searchresults;
+
+  INTEGER ARRAY pvt_searchresults;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  PUBLIC FUNCTION PTR onselect;
+
+  /** Currently selected unit object. DEFAULT OBJECT for search results.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  PUBLIC PROPERTY selectright(pvt_selectright, SetSelectRight);
+
+  PUBLIC PROPERTY canselectroot(pvt_canselectroot, SetCanSelectRoot);
+
+  PUBLIC PROPERTY borders(this->unitlist->borders, this->unitlist->borders);
+
+  /** WRD ids of last search result
+  */
+  PUBLIC PROPERTY searchresults(this->pvt_searchresults, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium registration
+  //
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->pvt_canselectroot := TRUE;
+    this->pvt_selectright := "system:browseunits";
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->cbid := RegisterMultiEventCallback("system:rights.change", PTR this->OnUpdateEvent);
+
+    this->ReloadList();
+
+    INTEGER selectid := ObjectExists(this->unittoselect) ? (this->unittoselect->entityid ?? -1) : 0;
+    this->unitlist->value := selectid;
+    INSERT selectid INTO this->unitlist->expanded AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnUnloadComponent()
+  {
+    IF (this->cbid != 0)
+      UnregisterCallback(this->cbid);
+    this->cbid := 0;
+    TolliumFragmentBase::OnUnloadComponent();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  OBJECT FUNCTION GetValue()
+  {
+    IF (NOT RecordExists(this->unitlist->selection))
+      RETURN DEFAULT OBJECT;
+
+    IF (this->unitlist->value = -1)
+      RETURN this->contexts->userapi->GetUnit(0);
+
+    IF (this->unitlist->value = -2) // Search results
+      RETURN DEFAULT OBJECT;
+
+    RETURN this->contexts->userapi->GetUnit(this->unitlist->selection.wrd_id);
+  }
+
+  MACRO SetValue(OBJECT unit)
+  {
+    this->unitlist->value := unit->entityid ?? -1;
+    INSERT unit->entityid INTO this->unitlist->expanded AT END;
+  }
+
+  MACRO SetSelectRight(STRING newright)
+  {
+    IF (newright NOT IN [ "system:manageroles", "system:manageunit", "system:browseunits" ])
+      THROW NEW Exception("Illegal right encountered in selectunit screen: " || newright);
+
+    this->pvt_selectright := newright;
+    this->ReloadList();
+  }
+
+  MACRO SetCanSelectRoot(BOOLEAN newval)
+  {
+    this->pvt_canselectroot := newval;
+    this->ReloadList();
+  }
+
+  MACRO SetWithSearch(BOOLEAN newval)
+  {
+    this->pvt_withsearch := newval;
+    this->searchbox->visible := newval;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnUpdateEvent(STRING event, RECORD ARRAY data)
+  {
+    this->ReloadList();
+  }
+
+  MACRO OnSelectHandler()
+  {
+    IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO ReloadList()
+  {
+    RECORD ARRAY unittree := GetStaticUnitTree(this->contexts->userapi, this->owner->tolliumuser);
+
+    IF (this->have_searchresults)
+      INSERT
+          [ rowkey :=           -2
+          , title :=            GetTid("system:userrights.common.searchresults")
+          , canmanageroles :=   FALSE
+          , canmanageunit :=    FALSE
+          , expanded :=         FALSE
+          , candelete :=        FALSE
+          , isroot :=           TRUE
+          , icon :=             4
+          ] INTO unittree AT END;
+
+    this->unitlist->rows := unittree;
+
+    // Do this after placing the rows in the list, so the rows are flattened.
+    IF (this->pvt_selectright = "system:manageroles")
+    {
+      UPDATE this->unitlist->rows
+         SET canselect := COLUMN canmanageroles
+           , iconoverlay := COLUMN canmanageroles ? iconoverlay : 4;
+    }
+    ELSE IF (this->pvt_selectright = "system:manageunit")
+    {
+      UPDATE this->unitlist->rows
+         SET canselect := COLUMN canmanageunit
+           , iconoverlay := COLUMN canmanageunit ? iconoverlay : 4;
+    }
+
+    IF (NOT this->pvt_canselectroot)
+    {
+      UPDATE this->unitlist->rows
+         SET canselect := FALSE
+           , iconoverlay := 4
+       WHERE rowkey = -1;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Drag amd drop
+  //
+
+  MACRO OnTypedDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    IF(NOT RecordExists(droptarget) OR (droptarget.wrd_id = 0 AND Length(SELECT * FROM dragdata.items WHERE type != "system:unit") != 0))
+    {
+      this->owner->RunMessageBox(".nodroponroot");
+      RETURN;
+    }
+
+    OBJECT work := this->owner->BeginWork();
+    RECORD ARRAY moveactions := SELECT ids := GroupedValues(type="system:unit" ? data.wrd_id : data.id)
+                                     , type
+                                  FROM dragdata.items
+                              GROUP BY type;
+
+    FOREVERY(RECORD tomove FROM moveactions)
+    {
+      OBJECT wrdtype := tomove.type = "system:user" ? this->contexts->userapi->wrdschema->accounttype
+                        : this->contexts->userapi->wrdschema->GetType(tomove.type = "system:role" ? "WHUSER_ROLE" : "WHUSER_UNIT");
+      RECORD updaterec := CellInsert(DEFAULT RECORD, tomove.type = "system:user" ? "whuser_unit" : "wrd_leftentity", droptarget.wrd_id);
+      FOREVERY(INTEGER ent FROM tomove.ids)
+        wrdtype->UpdateEntity(ent, updaterec);
+    }
+    this->contexts->userapi->ResyncToSystemTables();
+    work->Finish();
+    this->ReloadList();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoAddUnit()
+  {
+    OBJECT parent := this->value ?? this->contexts->userapi->GetUnit(0);
+    OBJECT dialog := MakeAddEditUnitDialog(this->owner, DEFAULT OBJECT, parent);
+    IF (dialog->RunModal() = "ok")
+      this->unitlist->value := dialog->unit->entityid;
+  }
+
+  MACRO DoEditUnit()
+  {
+    MakeAddEditUnitDialog(this->owner, this->value, this->contexts->userapi->GetUnitOf(this->value))->RunModal();
+  }
+
+  MACRO DoDeleteUnit()
+  {
+    OBJECT parent := this->contexts->userapi->GetUnitOf(this->value);
+
+    RECORD ARRAY usersbyunit := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WHUSER_UNIT", value := this->value->entityid ] ], this->owner->tolliumuser);
+    RECORD ARRAY rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_LEFTENTITY", value := this->value->entityid ] ], this->owner->tolliumuser);
+
+    IF(Length(usersbyunit CONCAT rolesbyunit) > 0)
+    {
+      // Disallow deletion of non-empty unit:
+      this->owner->RunMessageBox(".deletenonemptyunit");
+      RETURN;
+    }
+
+    IF (MakeDeleteDialog(this->owner, [ this->GetValue() ])->RunModal() = "ok")
+      this->unitlist->value := ObjectExists(parent) ? parent->entityid ?? -1 : -1;
+  }
+
+  MACRO DoExportUsersInUnit()
+  {
+    INTEGER unitid := this->unitlist->selection.wrd_id;
+    OBJECT unittype := this->contexts->userapi->wrdschema->^whuser_unit;
+    INTEGER ARRAY relevantunits := unittype->GetDescendantIDs(unitid);
+    IF(unitid != 0)
+      INSERT unitid INTO relevantunits AT END;
+
+    RECORD outputcolumns := CELL[ "WRD_ID"
+                                , created := "WRD_CREATIONDATE"
+                                , username := this->contexts->userapi->wrdschema->accountlogintag
+                                , fullname := "WRD_TITLE"
+                                , email := this->contexts->userapi->wrdschema->accountemailtag
+                                ];
+
+    RECORD ARRAY columns := [ [ name := "username",   title := GetTid("system:userrights.exports.csvcolumns.username"),   type := "text" ]
+                            , [ name := "fullname",   title := GetTid("system:userrights.exports.csvcolumns.fullname"),   type := "text" ]
+                            , [ name := "email",      title := GetTid("~email"),                                          type := "text" ]
+                            , [ name := "created",    title := GetTid("system:userrights.exports.csvcolumns.created"),    type := "datetime", storeutc := TRUE ]
+                            ];
+
+    IF(RecordExists(this->contexts->userapi->accounttype->GetAttribute("WHUSER_LASTLOGIN")))
+    {
+      INSERT CELL lastlogin := "WHUSER_LASTLOGIN" INTO outputcolumns;
+      INSERT [ name := "lastlogin",  title := GetTid("system:userrights.exports.csvcolumns.lastlogin"),  type := "datetime", storeutc := TRUE ] INTO columns AT END;
+    }
+
+    RECORD ARRAY users := this->contexts->userapi->accounttype->RunQuery(
+        [ outputcolumns := outputcolumns
+        , filters := [ [ field := "WHUSER_UNIT", value := relevantunits ]
+                     ]
+        ]);
+
+    users := SELECT * FROM users ORDER BY username, wrd_id;
+    RunColumnFileExportDialog(this, CELL[ columns, rows := users, exporttitle := unitid = 0 ? GetTid("system:userrights.exports.exportusers")
+                                                                                            : GetTid("system:userrights.exports.exportusersinunit", this->unitlist->selection.title)
+                                                                                            ]);
+  }
+
+  /// Olfert, 05-11-2015: This feature may be reported as crashing, because it was not yet implemented; if the message was "Not implemented", feel free to ignore the issue ;)
+  MACRO DoMoveUnitFromUnitList()
+  {
+    OBJECT screen := this->owner->LoadScreen("system:userrights/dialogs.selectunit", [ selectright := "system:manageunit", canselectroot := TRUE ]);
+    STRING result := screen->RunModal();
+    IF(result = "ok" AND ObjectExists(screen->value))
+    {
+      OBJECT unit := screen->value;
+      IF(this->unitlist->selection.wrd_id = unit->entityid)
+        RETURN;// Not moving a unit to itself
+
+      this->contexts->userapi->UpdateUnit(this->unitlist->selection.wrd_id, [ wrd_leftentity := unit->entityid ]);
+      this->ReloadList();
+    }
+  }
+
+  MACRO DoAddUser()
+  {
+    MakeAddEditUserDialog(this->owner, DEFAULT OBJECT, this->value)->RunModal();
+  }
+
+  MACRO DoAddRole()
+  {
+    MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->value)->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Modify menus and actions to make this fragment usable for a common dialog
+  */
+  PUBLIC MACRO InitForCommonDialog()
+  {
+    this->unitlist->selectcontextmenu := DEFAULT OBJECT;
+    this->unitlist->openaction := DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO DisplaySearchResults(INTEGER ARRAY wrdids)
+  {
+    this->have_searchresults := TRUE;
+    this->pvt_searchresults := wrdids;
+
+    this->ReloadList();
+
+    // Select search results
+    IF (this->unitlist->value != -2)
+      this->unitlist->value := -2;
+    ELSE IF (this->onselect != DEFAULT FUNCTION PTR)
+      this->onselect();
+  }
+>;

@@ -1,0 +1,82 @@
+<?wh
+
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION RunConsilioChecks()
+{
+  RECORD ARRAY messages;
+
+  OBJECT ARRAY promises;
+  INTEGER ARRAY indexmanagers :=
+      SELECT AS INTEGER ARRAY id
+        FROM consilio.indexmanagers;
+  FOREVERY (INTEGER indexmgrid FROM indexmanagers)
+    INSERT CreatePromise(PTR CheckIndexManager(indexmgrid, #1, #2)) INTO promises AT END;
+  OBJECT indexmanagerpromise := CreatePromiseAll(promises);
+
+  RECORD ARRAY brokencontentsources := SELECT contentsources.id
+                                            , indices.name
+                                         FROM consilio.contentsources, consilio.indices
+                                        WHERE contentsources.indexid = indices.id
+                                              AND contentsources.status = 4
+                                              AND indices.name NOT LIKE "$consilio$deleted$*"
+                                              AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+
+  FOREVERY (RECORD source FROM brokencontentsources)
+  {
+    INSERT
+        [ msg := `:Content source #${source.id} (${source.name}) has errors`
+        , jumpto := [ app := "consilio:config", source := source, action := "errors" ]
+        ] INTO messages AT END;
+  }
+
+  INTEGER ARRAY rebuild_catalogs :=
+      SELECT AS INTEGER ARRAY DISTINCT id
+        FROM consilio.indices
+       WHERE rebuild;
+  FOREVERY (INTEGER catalog FROM rebuild_catalogs)
+  {
+    INSERT
+        [ msg := ":Catalog #" || catalog || " should be rebuilt completely"
+        , jumpto := [ app := "consilio:config", catalog := catalog, action := "rebuild" ]
+        ] INTO messages AT END;
+  }
+
+  FOREVERY(STRING msg FROM STRING ARRAY(WaitForPromise(indexmanagerpromise)))
+    IF (msg != "")
+      INSERT [ msg := ":" || msg ] INTO messages AT END;
+
+  RETURN messages;
+}
+
+MACRO CheckIndexManager(INTEGER indexmgrid, MACRO PTR onresolve, MACRO PTR onreject)
+{
+  RECORD result := GetIndexManagerState(indexmgrid);
+  IF (result.status != SearchOk)
+  {
+    onresolve(`Could not connect to index manager #${indexmgrid}: ${result.status}`);
+    RETURN;
+  }
+  ELSE
+  {
+    // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
+    IF ("indexstatus=0" IN result.msg)
+    {
+      // Find the watermark
+      STRING watermark := Substring(SELECT AS STRING msg FROM ToRecordArray(result.msg, "msg") WHERE msg LIKE "disk.watermark=*", 15);
+      // We don't have to show "false" (not threshold active) or "ok" (threshold not triggered)
+      IF (watermark NOT IN [ "", "false", "ok" ])
+      {
+        // Watermark has the form <low|high|flood>=<value>, where value is percentage full, or byte value free
+        STRING ARRAY parts := Tokenize(watermark, "=");
+        onresolve(`Index manager #${indexmgrid} has disk watermark ${parts[0]} (${parts[1] LIKE "*%" ? `> ${parts[1]} in use` : `< ${parts[1]} free`})`);
+        RETURN;
+      }
+    }
+  }
+  onresolve("");
+}

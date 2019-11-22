@@ -1,0 +1,72 @@
+﻿<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+
+INTEGER FUNCTION CalcPixelSize(OBJECT node, STRING attr, INTEGER defaultvalue)
+{
+  IF (NOT node->HasAttribute(attr))
+    RETURN defaultvalue;
+
+  STRING size := node->GetAttribute(attr);
+  IF (size = "0" OR size NOT LIKE "*px")
+    RETURN defaultvalue;
+
+  RETURN ToInteger(Left(size, Length(size) - 2), 0);
+}
+
+/// @short Parse a ImageResizeSettings node
+PUBLIC RECORD FUNCTION ParseImageResizeSettings(OBJECT node, RECORD current DEFAULTSTO DEFAULT RECORD)
+{
+  // Initialize with default image resize method settings
+  current := CELL
+      [ method :=         "none"
+      , setwidth :=       0
+      , setheight :=      0
+      , format :=         ""
+      , bgcolor :=        ""
+      , noforce :=        FALSE
+      , fixorientation := TRUE
+      , ...current
+      ];
+
+  RETURN
+      [ method :=           node->GetAttribute("imageresizemethod") ?? current.method
+      , setwidth :=         CalcPixelSize(node, "imagesetwidth", current.setheight)
+      , setheight :=        CalcPixelSize(node, "imagesetheight", current.setheight)
+      , format :=           node->HasAttribute("imageforcetype") ? node->GetAttribute("imageforcetype") : current.format
+      , bgcolor :=          node->HasAttribute("conversionbackground") ? node->GetAttribute("conversionbackground") : current.bgcolor
+      , noforce :=          node->HasAttribute("preserveifunchanged") ? ParseXSBoolean(node->GetAttribute("preserveifunchanged")) : current.noforce
+      , fixorientation :=   node->HasAttribute("fixorientation") ? ParseXSBoolean(node->GetAttribute("fixorientation")) : current.fixorientation
+      ];
+}
+
+/// @short Parse a ImageEditSettings node
+PUBLIC RECORD FUNCTION ParseImageEditSettings(OBJECT node, RECORD current DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN
+      CELL[ ...ParseImageResizeSettings(node, current)
+          , allowedactions := node->HasAttribute("allowedactions") ? ParseXSList(node->GetAttribute("allowedactions")) : CellExists(current, "allowedactions") ? current.allowedactions : ["all"]
+          , allowedfilters := node->HasAttribute("allowedfilters") ? ParseXSList(node->GetAttribute("allowedactions")) : CellExists(current, "allowedfilters") ? current.allowedactions : ["all"]
+          ];
+}
+
+/** @short Match a system common wildcard list of masks
+    @long Matches case insensitively against a list of masks, with exclusion support (eg any mask of the form "!xxx" excludes that pattern)
+    @param lookfor Value to look for
+    @param masks List of masks (glob masks, prefix with `!` for exclusion)
+    @return Whether the value to look for is matched by the masks
+*/
+PUBLIC BOOLEAN FUNCTION MatchCommonXMLWildcardMasks(STRING lookfor, STRING ARRAY masks)
+{
+  BOOLEAN matchstate := FALSE;
+
+  FOREVERY(STRING mask FROM masks)
+  {
+    IF(matchstate = TRUE AND Left(mask,1) = '!' AND ToUppercase(lookfor) LIKE ToUppercase(Substring(mask,1)))
+      matchstate := FALSE;
+    IF(matchstate = FALSE AND ToUppercase(lookfor) LIKE ToUppercase(mask))
+      matchstate := TRUE;
+  }
+  RETURN matchstate;
+}

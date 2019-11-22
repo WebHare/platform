@@ -1,0 +1,38 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+// command: wrd:clone <source> <target>
+// short: Clone a WRD schema
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+    [ [ name := "dryrun", type := "switch" ]
+    , [ name := "source", type := "param", required := TRUE ]
+    , [ name := "target", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh wrd:clone [ --dryrun  ] source target\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+OBJECT trans := OpenPrimary();
+
+OBJECT srcschema := OpenWRDSchema(cmdargs.source);
+IF(NOT ObjectExists(srcschema))
+  TerminateScriptWithError(`No such schema: ${cmdargs.source}`);
+
+trans->BeginWork();
+
+Print(`Starting copy of '${srcschema->tag}' to '${cmdargs.target}'...\n`);
+srcschema->CopySchemaTo(cmdargs.target);
+
+IF(NOT cmdargs.dryrun)
+  trans->CommitWork();
+
+Print(`Schema '${srcschema->tag}' copied to '${cmdargs.target}' ${cmdargs.dryrun ? " (but not committed)!" : ""}\n`);

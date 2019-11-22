@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
+  <defs>
+    <rect id="maskcanvas" width="32px" height="32px" fill="#ffffff"/>
+    <mask id="rulermask">
+      <use xlink:href="#maskcanvas"/>
+      <rect fill="#000000"/>
+    </mask>
+    <path id="ruler_" d="M13,2H6c0,0-1,0-1,1v26c0,0,0,1,1,1h7c0,0,1,0,1-1V3C14,2,13,2,13,2zM12,28H7v-5h1h1.5c0.2,0,0.5-0.3,0.5-0.5S9.8,22,9.5,22H8H7v-3h1.5C8.8,19,9,18.7,9,18.5S8.8,18,8.5,18H7v-3h2.5c0.2,0,0.5-0.3,0.5-0.5S9.7,14,9.5,14H7v-3h1.5C8.8,11,9,10.7,9,10.5S8.8,10,8.5,10H7V7h2.5c0.2,0,0.5-0.3,0.5-0.5S9.7,6,9.5,6H7V4h5V28z"/>
+  </defs>
+  <g>
+    <use xlink:href="#ruler_" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" style="mask:url(&quot;#rulermask&quot;);"/>
+    <use xlink:href="#ruler_" fill="#4a4a4a" stroke="#4a4a4a" stroke-width="0" transform="rotate(-90) translate(1 -1)" style="transform-origin:16px 16px;"/>
+  </g>
+</svg>

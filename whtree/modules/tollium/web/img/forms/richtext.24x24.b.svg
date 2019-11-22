@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 21.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#12B262;}
+	.st1{fill:#4A4A4A;}
+	.st2{fill:#AAE7F7;}
+	.st3{fill:#00B5F4;}
+</style>
+<g>
+	<rect x="30" y="26" class="st0" width="12" height="10"/>
+	<rect x="6" y="22" class="st1" width="36" height="2"/>
+	<rect x="6" y="26" class="st1" width="21" height="2"/>
+	<rect x="6" y="30" class="st1" width="21" height="2"/>
+	<rect x="6" y="34" class="st1" width="21" height="2"/>
+	<rect x="6" y="38" class="st1" width="36" height="2"/>
+	<polygon class="st2" points="42,36 41,31 38,28 36,31 33,30 30,36 30,26 42,26 	"/>
+</g>
+<g>
+	<rect x="21" y="10" class="st1" width="21" height="2"/>
+	<rect x="21" y="14" class="st1" width="21" height="2"/>
+	<rect x="21" y="18" class="st1" width="21" height="2"/>
+</g>
+<g>
+	<path class="st3" d="M11,16l-1,4H7l4-11h3l4,11h-3l-1-4H11z M14,15l-1-3h-1l-1,3H14z"/>
+</g>
+<circle class="st1" cx="-23" cy="3" r="0"/>
+</svg>

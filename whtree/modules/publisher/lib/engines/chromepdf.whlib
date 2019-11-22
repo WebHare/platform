@@ -1,0 +1,319 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/networking/adhocserver.whlib";
+LOADLIB "mod::system/lib/internal/composer.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
+// All sizes (width, height, margin.top, margin.left, margin.right and margin.bottom) can be specified as either a number of
+// pixels (@96dpi) or string value with a "px", "in", "cm" or "mm" unit.
+// Format can be one of "letter", "legal", "tabloid", "ledger", "a0", "a1", "a2", "a3", "a4", "a5" or "a6". If set to empty
+// without custom width and height specified, "letter" is used.
+// Width and height are only used if they're both valid. If both format and width and height are specified, format is used.
+RECORD defaultsettings :=
+    [ scale := 1m
+    , displayheaderfooter := FALSE
+    , printbackground := TRUE
+    , landscape := FALSE
+    , pageranges := ""
+    , format := "a4"
+    , width := ""
+    , height := ""
+    , margin := DEFAULT RECORD // [ top := "", left := "", right := "", bottom := "" ]
+    ];
+
+PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
+<
+  RECORD options;
+  OBJECT runner;
+  RECORD session;
+  OBJECT connector;
+  OBJECT conn;
+  OBJECT page;
+  RECORD ARRAY embedded_fonts;
+  RECORD ARRAY logevents;
+
+  PUBLIC BLOB htmlversion;
+  PUBLIC STRING errors;
+
+  MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->options := ValidateOptions(CELL[...defaultsettings, debug := FALSE]
+                                    , options
+                                    , [ notypecheck := [ "width", "height" ] ]);
+  }
+
+  UPDATE ASYNC MACRO StartSession()
+  {
+    // reusing the session doesn't work for now
+    AWAIT this->DiscardSession();
+
+    IF (NOT RecordExists(this->session))
+    {
+      IF (NOT ObjectExists(this->runner))
+        this->runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+
+      this->session := AWAIT this->runner->CreateSession();
+      this->connector := NEW ChromeConnector(this->session.connectorurl, [ debug := this->options.debug ]);
+      this->conn := AWAIT this->connector->ConnectToSession(this->session);
+
+      this->page := NEW Page(this->conn);
+      this->page->AddListener("Page.Events.ConsoleRaw", PTR this->AddToLog(#1));
+      this->page->AddListener("Page.Events.ExceptionThrown", PTR this->AddExceptionToLog(#1));
+      AWAIT this->page->Init();
+    }
+  }
+
+  MACRO AddToLog(RECORD evt)
+  {
+    INSERT FormatChromeConsoleEntry(evt) INTO this->logevents AT END;
+  }
+
+  MACRO AddExceptionToLog(RECORD evt)
+  {
+    INSERT FormatChromeExceptionEntry(evt) INTO this->logevents AT END;
+  }
+
+  UPDATE ASYNC MACRO DiscardSession()
+  {
+    IF (RecordExists(this->session))
+    {
+      IF (ObjectExists(this->runner))
+        this->runner->CloseSession(this->session.id);
+      this->session := DEFAULT RECORD;
+    }
+  }
+
+  UPDATE STRING FUNCTION DoAddEmbeddedObject(BLOB data, STRING mimetype, STRING filename, BOOLEAN external)
+  {
+    STRING outname := `embedded${Length(this->embedded_files)+1}${GetExtensionFromPath(filename)}`;
+    INSERT INTO this->embedded_files(contenttype, data, filename, external, href)
+           VALUES(mimetype, data, filename, external, outname)
+           AT END;
+    RETURN outname;
+  }
+
+  MACRO PrepareHTMLVersion()
+  {
+    BLOB htmlversion := this->GenerateHTML().htmlversion; //ADDME can't we combine fontfaces generation for when we actulaly have access to the HTML source
+
+    OBJECT htmldoc := MakeXMLDocumentFromHTML(htmlversion);
+    OBJECT head := htmldoc->GetElement("head,body");
+    OBJECT stylenode := htmldoc->CreateElement("style");
+    head->InsertBefore(stylenode, head->firstchild);
+
+    STRING styleinfo;
+    this->embedded_fonts := RECORD[];
+
+    FOREVERY(RECORD font FROM (SELECT * FROM GfxGetAvailableFonts() ORDER BY family,style))
+    {
+      RECORD css := GfxGetFontCSSCode(font);
+      IF(NOT RecordExists(css))
+        CONTINUE;
+
+      styleinfo := styleinfo || css.csstext;
+      INSERT font INTO this->embedded_fonts AT END;
+    }
+    stylenode->AppendChild(htmldoc->CreateCDATASection(styleinfo));
+
+    htmldoc->documentelement->SetAttribute("class", htmldoc->documentelement->GetAttribute("class") || " wk-chromepdf--pdfbody");
+    htmlversion := NEW HTMLRewriterContext->GenerateHTML(htmldoc);
+
+    this->htmlversion := htmlversion;
+  }
+
+  ASYNC FUNCTION ParsePageOptions()
+  {
+    RECORD options := this->options;
+
+    //Read options from HTML
+    FOREVERY (STRING prop FROM [ "top", "left", "right", "bottom" ])
+    {
+      TRY
+      {
+        STRING val := AWAIT this->page->"$eval"(`meta[name=wh-chromepdf-margin-${prop}]`, `element => { return element.getAttribute("value"); }`);
+        IF (CellExists(options.margin, "prop"))
+          options.margin := CellUpdate(options.margin, prop, val);
+        ELSE
+          options.margin := CellInsert(options.margin, prop, val);
+      }
+      CATCH; // $eval throws if the selector didn't match an element
+    }
+    FOREVERY (STRING prop FROM [ "format", "width", "height" ])
+    {
+      TRY
+      {
+        STRING val := AWAIT this->page->"$eval"(`meta[name=wh-chromepdf-${prop}]`, `element => { return element.getAttribute("value"); }`);
+        options := CellUpdate(options, prop, val);
+      }
+      CATCH; // $eval throws if the selector didn't match an element
+    }
+
+    RETURN options;
+  }
+
+  RECORD ARRAY FUNCTION GetFileList(BLOB data)
+  {
+    IF (Length(data) = 0 AND LengtH(this->htmlversion) = 0)
+      RETURN RECORD[];
+
+    RECORD ARRAY filelist;
+    IF (Length(data) > 0)
+    {
+      // Generate PDF from supplied blob
+      RECORD wrapped := WrapBlob(data, "");
+      filelist := [ [ path := "/.contents"
+                    , headers :=
+                        [ [ field := "Content-Type", value := wrapped.mimetype ] ]
+                    , data := data
+                    ]
+                  ];
+    }
+    ELSE
+    {
+      // Generate PDF from internal htmlversion/embedded_files
+      filelist := [ [ path := "/.contents"
+                    , headers :=
+                        [ [ field := "Content-Type", value := "text/html" ] ]
+                    , data := this->htmlversion
+                    ]
+                  ];
+    }
+    filelist := filelist
+          CONCAT
+          (SELECT path := "/" || href
+                , headers :=
+                    [ [ field := "Content-Type", value := contenttype ] ]
+                , COLUMN data
+             FROM this->embedded_files)
+          CONCAT
+          (SELECT path := "/" || GetNameFromPath(filename)
+                , headers :=
+                    [ [ field := "Content-Type", value := "application/octet-stream" ] ]
+                , data := GetDiskResource(filename)
+             FROM this->embedded_fonts);
+    RETURN filelist;
+  }
+
+  ASYNC FUNCTION GeneratePDFInternal(BLOB data)
+  {
+    RECORD ARRAY filelist := this->GetFileList(data);
+    IF(Length(filelist) = 0)
+      RETURN DEFAULT BLOB;
+
+    OBJECT server := NEW AdHocServer(/*[ logdebug := TRUE ]*/);
+    server->PrecacheFiles(filelist);
+
+    BLOB pdf := AWAIT this->GeneratePDFFromURL(server->baseurl || "/.contents");
+    server->Close();
+    RETURN pdf;
+  }
+
+  PUBLIC ASYNC FUNCTION GeneratePDF()
+  {
+    this->PrepareHTMLVersion();
+    RETURN AWAIT this->GeneratePDFInternal(DEFAULT BLOB);
+  }
+
+  PUBLIC BLOB FUNCTION GenerateSource()
+  {
+    this->PrepareHTMLVersion();
+
+    RECORD ARRAY filelist := this->GetFileList(DEFAULT BLOB);
+    IF(Length(filelist) = 0)
+      RETURN DEFAULT BLOB;
+
+    OBJECT arc := CreateNewArchive("zip");
+    FOREVERY(RECORD file FROM filelist)
+      arc->AddFile(file.path, file.data, DEFAULT DATETIME);
+
+    BLOB result := arc->MakeBlob();
+    arc->Close();
+    RETURN result;
+  }
+
+  PUBLIC ASYNC FUNCTION GeneratePDFFromBlob(BLOB data, RECORD ARRAY embedded_files DEFAULTSTO DEFAULT RECORD ARRAY)
+  {
+    this->embedded_files := embedded_files;
+    RETURN AWAIT this->GeneratePDFInternal(data);
+  }
+
+  ASYNC FUNCTION GotoThePage(STRING url, RECORD options)
+  {
+    AWAIT this->StartSession();
+    IF(CellExists(options,'cookies'))
+      FOREVERY(RECORD cookie FROM options.cookies)
+        AWAIT this->conn->^Network->^setCookie([ name := cookie.name, value := cookie.value, url := ResolveToAbsoluteURL(url,"/"), path := "/" ]);
+
+    AWAIT this->page->Navigate(url); //FIXME  this seems to early to properly apply 'media' changes in ->PDF/->Screenshot... we should initialize with the proper media!
+
+    //FIXME wait for domready or load or something like that before we delay?
+    IF(CellExists(options,'delay'))
+      Sleep(options.delay);
+
+    RETURN CELL[...options, DELETE cookies, DELETE delay];
+  }
+
+  PUBLIC ASYNC FUNCTION GeneratePDFFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER logpos := Length(this->logevents);
+
+    TRY
+    {
+      options := AWAIT this->GotoThePage(url, options);
+
+      RECORD pageoptions := AWAIT this->ParsePageOptions();
+      RETURN AWAIT this->page->PDF(CELL[...pageoptions,...options]);
+    }
+    FINALLY
+    {
+      AWAIT this->DiscardSession();
+    }
+  }
+
+  PUBLIC ASYNC FUNCTION GenerateScreenshotFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER logpos := Length(this->logevents);
+
+    TRY
+    {
+      options := AWAIT this->GotoThePage(url, options);
+
+      RECORD result := AWAIT this->page->Screenshot(CELL[...options, DELETE cutouts]);
+      RECORD ARRAY cutouts;
+      FOREVERY(RECORD cutout FROM options.cutouts)
+      {
+        RECORD rect;
+        OBJECT el := AWAIT this->page->mainFrame->"$"(cutout.selector);
+        IF(ObjectExists(el))
+          rect := AWAIT el->__getBoundingClientRect();
+
+        INSERT CELL[ ...cutout
+                   , found := RecordExists(rect)
+                   , x := RecordExists(rect) ? rect.left : 0
+                   , y := RecordExists(rect) ? rect.top : 0
+                   , width := RecordExists(rect) ? rect.width : 0
+                   , height := RecordExists(rect) ? rect.height : 0
+                   ] INTO cutouts AT END;
+      }
+
+      RETURN CELL[ ...result
+                 , log := ArraySlice(this->logevents, logpos)
+                 , cutouts
+                 ];
+    }
+    FINALLY
+    {
+      AWAIT this->DiscardSession();
+    }
+  }
+>;

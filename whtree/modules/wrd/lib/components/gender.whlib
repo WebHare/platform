@@ -1,0 +1,44 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Gender EXTEND TolliumFragmentBase
+< // ----------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(this->gender->value, this->gender->value);
+  UPDATE PUBLIC PROPERTY required(this->gender->required, this->gender->required);
+
+  // ----------------------------------------------------------------------------
+  //
+  // Constructor & init
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    this->invisibletitle := TRUE;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD data)
+  {
+    TolliumFragmentBase::StaticInit(data);
+    this->title := data.title;
+    this->gender->required := data.required;
+  }
+
+  // ----------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  UPDATE MACRO SetTitle(STRING title)
+  {
+    TolliumFragmentBase::SetTitle(title);
+    this->gender->title := title;
+  }
+>;

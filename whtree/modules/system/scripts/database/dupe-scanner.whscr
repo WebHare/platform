@@ -1,0 +1,90 @@
+﻿<?wh
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+INTEGER FUNCTION __WHDBDCOpen(INTEGER trans, STRING tablename, STRING ARRAY columns, BOOLEAN allcolumns, BOOLEAN for_updating) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+BOOLEAN FUNCTION __WHDBDCNextRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __WHDBDCGetRow(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCUpdate(INTEGER qid, RECORD rec) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCDelete(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCClose(INTEGER qid) __ATTRIBUTES__(EXTERNAL);
+MACRO __WHDBDCInsert(INTEGER trans, STRING tablename, RECORD rec) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+OBJECT trans := OpenPrimary([fallbacktorecoverymode := TRUE]);
+
+RECORD ARRAY tables;
+FOREVERY(RECORD s FROM trans->GetSchemaListing())
+  FOREVERY(RECORD t FROM trans->GetTableListing(s.schema_name))
+    INSERT [ table_schema := s.schema_name
+           , table_name := t.table_name
+           , primary_key_name := t.primary_key_name
+           ] INTO tables AT END;
+
+tables := SELECT * FROM tables ORDER BY table_schema || " " || table_name;
+
+STRING ARRAY badtables;
+
+FOREVERY (RECORD t FROM tables)
+{
+  IF (t.primary_key_name = "")
+    CONTINUE;
+
+  STRING qname := t.table_schema || "." || t.table_name;
+
+  STRING head := qname || " (key " || t.primary_key_name || ") ... ";
+  IF(Length(head)<60)
+    head := head || RepeatText(" ",60-Length(head));
+  PRINT(head);
+  FlushOutputBuffer();
+
+  RECORD ARRAY data;
+  INTEGER count := 0;
+  INTEGER qid := __WHDBDCOpen(trans->id, qname, [ "" || t.primary_key_name ], FALSE, FALSE);
+  WHILE (__WHDBDCNextRow(qid))
+  {
+    IF(count%2000 = 0)
+    {
+      Print(right("           " || count,9) || repeattext("\b",9));
+      FlushOutputBuffer();
+    }
+
+    count := count + 1;
+    RECORD r := __WHDBDCGetRow(qid);
+    INSERT [ pkey := GetCell(r, t.primary_key_name) ] INTO data AT END;
+
+
+  }
+  __WHDBDCClose(qid);
+
+  PRINT("sorting...    ");
+  FlushOutputBuffer();
+
+  data := SELECT pkey FROM data ORDER BY pkey;
+
+  RECORD lastkey;
+  BOOLEAN anydupe;
+  FOREVERY (RECORD r FROM data)
+  {
+    IF (RecordExists(lastkey) AND lastkey.pkey = r.pkey)
+    {
+      IF(NOT anydupe)
+        Print("\nDupes: [ ");
+      ELSE
+        Print(", ");
+
+      Print(''||r.pkey);
+      FlushOutputBuffer();
+      anydupe:=true;
+    }
+    lastkey := r;
+  }
+  IF(anydupe)
+    INSERT qname INTO badtables AT END;
+  Print(anydupe ? " ]\n" : "ok!\n");
+  FlushOutputBuffer();
+}
+
+IF(Length(badtables)=0)
+  Print("all tables are ok, no duplicates\n");
+ELSE
+  Print("Tables with duplicates: " || Detokenize(badtables,", ") || "\n");

@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+      // Export options
+    [ [ name := "formname",       type := "stringopt" ]
+    , [ name := "overwrite",      type := "switch" ]
+    , [ name := "exportid",       type := "stringopt" ]
+      // Import options
+    , [ name := "basepath",       type := "stringopt" ]
+    , [ name := "ignoreexisting", type := "switch" ]
+      // Export/import file
+    , [ name := "datafile",       type := "param" ]
+    ]);
+IF (NOT RecordExists(args) OR (args.exportid = "" AND args.datafile = ""))
+{
+  Print(`Usage:
+  formresults_export [--formname <formname>] [--overwrite] --exportid <form id to export> [<exportfile>]
+  formresults_export [--basepath <absolute whfspath>] [--ignoreexisting] <importfile>\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+INTEGER formid := ToInteger(args.exportid, 0);
+IF (formid > 0)
+{
+  Print(`Exporting results for form with id ${formid}...\n`);
+  RECORD result := ExportFormResults(formid, CELL[ formname := args.formname ?? "webtoolform" ]);
+  IF (NOT RecordExists(result))
+    TerminateScriptWithError(`There are no results to export for form with id ${formid}`);
+
+  STRING path := args.datafile ?? result.filename;
+  IF (path NOT LIKE "/*")
+    path := MergePath(GetCurrentPath(), path);
+  StoreDiskFile(path, result.data, CELL[ args.overwrite ]);
+  Print(`Results exported to ${path}\n`);
+}
+ELSE
+{
+  STRING path := args.datafile;
+  IF (path NOT LIKE "/*")
+    path := MergePath(GetCurrentPath(), path);
+  Print(`Importing results for form from ${path}...\n`);
+  BLOB results := GetDiskResource(path);
+  GetPrimary()->BeginWork();
+  RECORD status := ImportFormResults(results, CELL[ args.ignoreexisting, args.basepath ]);
+  IF (status.success)
+  {
+    GetPrimary()->CommitWork();
+    Print(`Imported ${status.numresults} results for form with id ${status.formid}`);
+    IF (Length(status.messages) > 0)
+      Print(", with these messages:\n- " || Detokenize(status.messages, "\n- "));
+    Print("\n");
+  }
+  ELSE
+  {
+    GetPrimary()->RollbackWork();
+    Print(`Error while importing results: ${status.error}\n`);
+  }
+}

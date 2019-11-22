@@ -1,0 +1,22 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+STRING FUNCTION FixupName(STRING inname)
+{
+  inname := ToUppercase(inname);
+  IF(inname LIKE "*.DOC" OR inname LIKE "*.RTD") RETURN Left(inname,Length(inname)-4);
+  IF(inname LIKE "*.DOCX" ) RETURN Left(inname,Length(inname)-5);
+  RETURN inname;
+}
+
+OBJECT trans := OpenPrimary();
+
+RECORD ARRAY namegroups := SELECT names := GroupedValues(name), parent FROM system.fs_objects WHERE isactive=TRUE AND (publish OR isfolder) GROUP BY parent;
+FOREVERY(RECORD namegroup FROM namegroups)
+{
+  STRING ARRAY duplicatenames := SELECT AS STRING ARRAY ToLowercase(Detokenize(GroupedValues(name),",")) FROM ToRecordArray(namegroup.names,"name") GROUP BY FixupName(name) HAVING COUNT(*)>1;
+  IF(Length(duplicatenames) > 0)
+  {
+    Print(namegroup.parent || ": " || (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = namegroup.parent) || " " || Detokenize(duplicatenames," ") || "\n");
+  }
+}

@@ -1,0 +1,257 @@
+﻿<?wh
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::publisher/lib/tagmanager.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
+
+PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  OBJECT tagmanager;
+
+  //setting from tagsource (legacy style)
+  BOOLEAN tagsource_allowcreate;
+
+  STRING pvt_taglibrary;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables& properties
+  //
+
+  //autocreate setting from node
+  PUBLIC BOOLEAN autocreate;
+
+  /// Title of the component
+  UPDATE PUBLIC PROPERTY title(this->tagedit->title, this->tagedit->title);
+
+  /// Value (list of tag fsobjectids)
+  UPDATE PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Whether to allow multiple tags to be chosen
+  PUBLIC PROPERTY allowmultiple(this->tagedit->allowmultiple, this->tagedit->allowmultiple);
+
+  /// Tag library to use
+  PUBLIC PROPERTY taglibrary(pvt_taglibrary, SetTagLibrary);
+
+  /// Placeholder text to show when no tags have been chosen
+  PUBLIC PROPERTY placeholder(this->tagedit->placeholder, this->tagedit->placeholder);
+
+  /// Called when list of tags has changed
+  PUBLIC PROPERTY onchange(this->tagedit->onchange, this->tagedit->onchange);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Tollium init & stuff
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->title := def.title;
+    this->allowmultiple := def.allowmultiple;
+    this->placeholder := def.placeholder;
+    //this->onchange := def.onchange;
+    this->tagedit->width := def.width;
+    this->tagedit->height := def.height;
+    this->autocreate := def.autocreate;
+    this->pvt_taglibrary := def.taglibrary;
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    TolliumFragmentBase::PreInitComponent();
+    this->tagedit->dirtylistener := this->dirtylistener;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    TolliumFragmentBase::PostInitComponent();
+    IF (NOT ObjectExists(this->tagmanager))
+      this->InitFromComposition();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER ARRAY FUNCTION GetValue()
+  {
+    IF (NOT ObjectExists(this->tagmanager))
+      this->InitFromComposition();
+
+    RETURN SELECT AS INTEGER ARRAY id FROM this->ProcessValue(this->tagedit->value, TRUE);
+  }
+
+  MACRO SetValue(INTEGER ARRAY newvalue)
+  {
+    IF (NOT ObjectExists(this->tagmanager))
+      this->InitFromComposition();
+
+    this->tagedit->value := this->tagmanager->GetTagNamesByIDs(newvalue);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  RECORD ARRAY FUNCTION ProcessValue(STRING ARRAY intags, BOOLEAN autocreate)
+  {
+    RECORD ARRAY filtered;
+    IF(NOT (this->tagsource_allowcreate OR this->autocreate))
+      autocreate := FALSE;
+
+    IF(autocreate)
+      GetPrimary()->PushWork();
+
+    IF (ObjectExists(this->tagmanager))
+    {
+      FOREVERY (STRING tag FROM intags)
+      {
+        OBJECT tagobj := this->tagmanager->GetTag(tag);
+        IF(NOT ObjectExists(tagobj))
+        {
+          IF(NOT autocreate)
+            CONTINUE;
+
+          tagobj := this->tagmanager->CreateTag(tag);
+        }
+        INSERT [ id := tagobj->id, tag := tagobj->tag ] INTO filtered AT END;
+      }
+    }
+    IF (autocreate)
+      GetPrimary()->PopWork();
+
+    RETURN filtered;
+  }
+
+  STRING ARRAY FUNCTION GotValidateTags(STRING ARRAY tags)
+  {
+    RECORD ARRAY processed := this->ProcessValue(tags, TRUE);
+    RETURN SELECT AS STRING ARRAY tag FROM processed;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetTagLibrary(STRING libraryname)
+  {
+    IF(this->pvt_taglibrary = libraryname)
+      RETURN;
+
+    this->pvt_taglibrary := libraryname;
+    this->InitFromComposition();
+  }
+
+  MACRO InitFromComposition()
+  {
+    IF(this->pvt_taglibrary != "")
+    {
+      //'modern' usage.
+      OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+      IF(NOT ObjectExists(applytester))
+        THROW NEW TolliumException(this, "Unable to load the TagManager: No applytester available");
+
+      INTEGER ARRAY roots := applytester->GetLibrary(this->pvt_taglibrary);
+      IF(Length(roots)=0)
+        THROW NEW TolliumException(this, `Unable to load the TagManager: Library '${this->pvt_taglibrary}' has no existing paths`);
+      this->tagmanager := OpenSimpleTagManager(OpenWHFSObject(roots[0]));
+      this->autosuggest->data := [ roots := roots ];
+    }
+    ELSE
+    {
+      //FIXME old approach - remove or generate warnings
+      OBJECT whfsinstance := GetWHFSInstanceComposition(this);
+      IF (NOT ObjectExists(whfsinstance) OR whfsinstance != this->composition)
+        THROW NEW TolliumException(this,"This component can only be used with a WHFSInstance composition (consider switching to taglibrary=)");
+
+      IF (this->cellname = "")
+        THROW NEW TolliumException(this,"This component cannot be used without a cellname (consider switching to taglibrary=)");
+
+      INTEGER baseobject :=whfsinstance->GetBaseForObjectLists();
+      IF(baseobject = 0)
+        THROW NEW TolliumException(this,`Composition '${whfsinstance->GetComponentIdentification()}' did not supply a usable base object for finding the tag source (consider switching to taglibrary=).`);
+
+      RECORD repos := GetApplyTesterForObject(whfsinstance->GetBaseForObjectLists())->GetTagSourceForFSMember(whfsinstance->typens, this->cellname);
+      IF (NOT repos.success)
+        THROW NEW TolliumException(this, "Unable to load the TagManager: Invalid or missing instance data (consider switching to taglibrary=)");
+
+      this->autosuggest->data := repos.data;
+
+      OBJECT tagfolder := OpenWHFSObjectByPath(repos.data.tagfolder);
+      IF(NOT ObjectExists(tagfolder) OR NOT tagfolder->isfolder)
+        THROW NEW TolliumException(this, "Unable to load the TagManager: Missing tag folder '" || repos.data.tagfolder || "' (consider switching to taglibrary=)");
+
+      this->tagmanager := __INTERNAL_OpenLegacyTagManager(tagfolder, repos.data.repository);
+      //started logging warnings on 19aug2017, track 'm down!
+      LogWarning("managedtagedit", "Old style tag manager used", [ cellname := this->cellname, folder := repos.data.tagfolder, repository := repos.data.repository ]);
+      this->tagsource_allowcreate := repos.data.allowcreate;
+    }
+  }
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
+  {
+    IF(this->pvt_taglibrary="")
+      this->InitFromComposition();
+  }
+
+  ///Set the folder where we should gather and store tags
+  PUBLIC MACRO SetTagFolder(INTEGER folderid)
+  {
+    this->tagmanager := OpenSimpleTagManager(OpenWHFSObject(folderid));
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ManagedTagEditAutoComplete EXTEND TolliumAutoSuggestBase
+<
+  OBJECT tagmanager;
+
+  MACRO NEW(RECORD data)
+  {
+    IF (RecordExists(data))
+    {
+      IF(CellExists(data,'roots')) //ADDME support multiple folders
+        this->tagmanager := __INTERNAL_OpenLegacyTagManager(OpenWHFSObject(data.roots[0]), "");
+      ELSE
+        this->tagmanager := __INTERNAL_OpenLegacyTagManager(OpenWHFSObjectByPath(data.tagfolder), data.repository);
+    }
+  }
+
+  PUBLIC UPDATE RECORD ARRAY FUNCTION Lookup(STRING curtext)
+  {
+    RECORD ARRAY words;
+
+    IF (ObjectExists(this->tagmanager))
+    {
+      words :=
+          SELECT value
+               , title :=   value
+            FROM ToRecordArray(this->tagmanager->ListTags(), "VALUE")
+           WHERE ToUppercase(value) LIKE ToUppercase(curtext || "*");
+    }
+
+    RETURN words;
+  }
+>;

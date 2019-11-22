@@ -1,0 +1,86 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+STRING apispec := "mod::webhare_testsuite/tests/wh/webserver/remoting/restapi/restapi.xml";
+
+MACRO TestReturnFormat(BOOLEAN jsonbody)
+{
+  STRING rooturl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.webhare_testsuite/restapi/");
+  OBJECT resttester := testfw->MakeRestAPITester(apispec, rooturl, [ jsonbody := jsonbody ]);
+  RECORD result := resttester->Invoke("GET", "/testtypes", DEFAULT RECORD);
+  Testeq("2018-08-07T11:14:00.000Z", result.dt);
+  TestEqFloat(999999999999999, result.i64, 0.00000000001);
+  TestEq("This is a B(l)ob", DecodeBase64(result.bob));
+
+  result := resttester->Invoke("GET", "/testtypes", [ dt := MakeDatetime(2017,1,2,3,4,5), i64 := 1234567890123456i64, bob := StringToBlob("Hi Bob!")]);
+  Testeq("2017-01-02T03:04:05.000Z", result.dt);
+  TesteqFloat(1234567890123456, result.i64, 0.0000000000001);
+  TestEq("Hi Bob!", DecodeBase64(result.bob));
+
+  result := resttester->Invoke("POST", "/testtypes", [ dt := MakeDatetime(2017,1,2,3,4,5), i64 := 1234567890123456i64, bob := StringToBlob("Hi Bob!") ]);
+  Testeq("2017-01-02T03:04:05.000Z", result.dt);
+  TesteqFloat(1234567890123456, result.i64, 0.0000000000001);
+  TestEq("Hi Bob!", DecodeBase64(result.bob));
+  TestEqLike(jsonbody ? "application/json" : "application/x-www-form-urlencoded*", result.incomingcontenttype);
+
+  result := resttester->Invoke("POST", "/testemptyrecord",  DEFAULT RECORD);
+  TestEq(42, result.answer);
+
+  result := resttester->Invoke("POST", "/testrecord",  [rec := [ dt := MakeDatetime(2017,1,2,3,4,5), i64 := 1234567890123456i64, bob := StringToBlob("Hi Bob!"), intarray := [1,2,3]  ]], [ returnrequest := TRUE ]);
+  Testeq("2017-01-02T03:04:05.000Z", result.dt);
+  TesteqFloat(1234567890123456, result.i64, 0.0000000000001);
+  TestEq("Hi Bob!", DecodeBase64(result.bob));
+  TestEq([1,2,3], result.intarray);
+
+  IF(jsonbody)
+  {
+    RECORD verifybody := DecodeJSONBLOB(result.__request.body);
+    TestEq(TRUE, CellExists(verifybody,'rec'));
+    TestEq(TRUE, TYPEID(verifybody.rec) = TYPEID(RECORD));
+    TestEq(TRUE, CellExists(verifybody.rec, 'intarray'));
+  }
+
+  result := resttester->Invoke("POST", "/testrecords", [ rec := [[ dt := MakeDatetime(2017,1,2,3,4,5), i64 := 1234567890123456i64, bob := StringToBlob("Hi Bob!") ]]]);
+  Testeq("2017-01-02T03:04:05.000Z", result.recs[0].dt);
+  TesteqFloat(1234567890123456, result.recs[0].i64, 0.0000000000001);
+  TestEq("Hi Bob!", DecodeBase64(result.recs[0].bob));
+
+  result := resttester->Invoke("GET", "/testtypes?i64=1234567890123456.123123123", DEFAULT RECORD);
+  TesteqFloat(1234567890123456, result.i64, 0.0000000000001);
+
+  //test corner cases
+  result := resttester->Invoke("GET", "/testtypes?i64=-1", DEFAULT RECORD);
+  Testeq(-1, result.i64);
+  result := resttester->Invoke("GET", "/testtypes?i64=-1.", DEFAULT RECORD);
+  Testeq(-1, result.i64);
+  result := resttester->Invoke("GET", "/testtypes?i64=-1.0", DEFAULT RECORD);
+  Testeq(-1, result.i64);
+
+  TestThrowsLike("*Cannot cast*i64*", PTR resttester->Invoke("GET", "/testtypes?i64=-1:0", DEFAULT RECORD));
+
+  //test passthrough
+  result := resttester->Invoke("POST", "/testrecord", [ rec := [ user_field := "I AM A COOL USER", norequire := TRUE ]]);
+  TestEq("I AM A COOL USER", result.user_field);
+  result := resttester->Invoke("POST", "/testrecords", [ rec := [[ user_field := "I AM A COOL USER", norequire := TRUE ]]]);
+  TestEq("I AM A COOL USER", result.recs[0].user_field);
+
+  TestThrowsLike("*undocumented*SYSTEM_FIELD*", PTR resttester->Invoke("POST", "/testrecord", [ rec := [system_field := "I AM A COOL USER" ]]));
+
+  result := resttester->Invoke("POST", "/testrecord", [ rec := [ ping := "Pong", norequire := TRUE ]]);
+  TestEq("Pong", result.pong);
+
+  result := resttester->Invoke("POST", "/testrecords", [ rec := [[ ping := "Pong", norequire := TRUE ]]]);
+  TestEq("Pong", result.recs[0].pong);
+
+  TestThrowsLike("*undocumented*ONLY_OUT*", PTR resttester->Invoke("POST", "/testrecords", [ rec := [[ only_in := "OnlyIn", norequire := TRUE ]]]));
+}
+
+RunTestFramework([ PTR TestReturnFormat(TRUE)
+                 , PTR TestReturnFormat(FALSE)
+                 ]);

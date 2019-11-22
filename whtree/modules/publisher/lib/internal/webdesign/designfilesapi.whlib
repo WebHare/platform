@@ -1,0 +1,402 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/depresolver.whlib";
+
+OBJECT centraldepresolver;
+
+RECORD FUNCTION SplitURLQueryHash(STRING url)
+{
+  STRING query_part;
+  STRING fragment_part;
+
+  INTEGER fragment_pos := SearchSubstring(url,'#');
+  IF(fragment_pos!=-1)
+  {
+    fragment_part := Substring(url, fragment_pos, Length(url));
+    url := Left(url,fragment_pos);
+  }
+
+  INTEGER query_pos := SearchSubstring(url,'?');
+  IF(query_pos!=-1)
+  {
+    query_part := Substring(url, query_pos, Length(url));
+    url := Left(url, query_pos);
+  }
+  RETURN [ path := url
+         , query := query_part
+         , fragment := fragment_part
+         ];
+}
+
+PUBLIC OBJECTTYPE DesignfilesDepResolver
+<
+  RECORD ARRAY addheaders;
+  RECORD inclinfo;
+  INTEGER headerseqnr;
+  RECORD settings;
+  OBJECT depservice;
+
+  PUBLIC STRING baseurl;
+  ///Optional scope within which to make the URL relative ("", "protocol" or "root")
+  PUBLIC STRING relativelinksscope;
+
+  PUBLIC STRING designrooturl;
+  BOOLEAN went;
+
+  PUBLIC PROPERTY suppresstimestamps(this->settings.suppresstimestamps, this->settings.suppresstimestamps);
+
+  MACRO NEW()
+  {
+    this->settings := [ fsobjectid := 0
+                      , repositories:=DEFAULT RECORD ARRAY
+                      , addloads := DEFAULT RECORD ARRAY
+                      , adduses:=DEFAULT RECORD ARRAY
+                      , flags := [GetDtapStage()]
+                      , basefile:=""
+                      , relativelinksscope := ""
+                      , suppresstimestamps := FALSE
+                      ];
+  }
+
+  MACRO Go()
+  {
+    IF(this->went)
+      RETURN;
+
+    this->PrepareDepResolver();
+    this->settings.relativelinksscope := this->relativelinksscope;
+    this->depservice->CalculateDependencies(this->settings.adduses, this->settings.addloads, this->settings.flags, this->settings.relativelinksscope);
+    this->went := TRUE;
+  }
+
+  /** @short get includes (.js/.css etc) which will be published in the document
+             (This function exposes a subset of the headers, for the moment it is used to make a manifest for cachines js & css for offline use)
+  */
+  PUBLIC RECORD ARRAY FUNCTION __GetHeaderIncludes()
+  {
+    RECORD headers := this->GetHeaders();
+    RETURN SELECT type, url FROM headers.includes;
+  }
+
+  RECORD FUNCTION GetHeaders()
+  {
+    this->Go();
+    RECORD toinclude := this->depservice->GetFilesToInclude();
+
+    RETURN [ sourcefolders := toinclude.sourcefolders
+           , includes := (SELECT url, media, moddate, type, domid FROM toinclude.includes)
+           , deps := toinclude.deps
+           , designroot := toinclude.designroot
+           , sourceeventmasks := toinclude.sourceeventmasks
+           ];
+  }
+
+  RECORD FUNCTION GetCacheableBaseHeaders()
+  {
+    RECORD result := this->GetHeaders();
+    STRING ARRAY eventmasks := [ "blexdev_designfiles:resetdependencies" ] CONCAT result.sourceeventmasks;
+    FOREVERY(INTEGER sourcefolder FROM result.sourcefolders)
+      INSERT "system:whfs.folder." || sourcefolder INTO eventmasks AT END;
+
+    RETURN [ ttl := 10*60*1000
+           , value := [includes := result.includes
+                      ,deps := result.deps
+                      ,eventmasks := eventmasks
+                      ,designroot := result.designroot
+                      ]
+           , eventmasks := eventmasks
+           ];
+  }
+
+  RECORD FUNCTION GetCacheableTemplateHeaders(STRING baseurl, STRING designrooturl)
+  {
+    //we have a 'longer' cache of the generalized headers, and a short cache for relative-rewritten headers
+    RECORD result := GetAdhocCached( [ type := "baseheaders"
+                                     , settings := this->settings
+                                     ], PTR this->GetCacheableBaseHeaders());
+//ABORT(result.includes);
+//ABORT(designrooturl);
+    STRING headers;
+    BOOLEAN can_rewrite_designurls := (designrooturl LIKE "//*" OR IsAbsoluteURL(designrooturl, FALSE)) AND ResolveToAbsoluteURL("//example.com/a/b/c","/x") = "//example.com/x"; //feature test - ADDME remove when integrating
+//ABORT(can_rewrite_designurls);
+
+    FOREVERY(RECORD include FROM result.includes)
+    {
+      STRING cachedefeat;
+      IF (include.moddate != DEFAULT DATETIME AND NOT this->suppresstimestamps)
+      {
+        include.url := AddVariableToURL(include.url, "c", EncodeUFS(EncodePacket("x:h",[x:=include.moddate])));
+      }
+
+      IF(designrooturl != "")
+      {
+        IF(result.designroot != "" AND include.url LIKE result.designroot || "*")
+          include.url := designrooturl || Substring(include.url, Length(result.designroot));
+        ELSE IF(include.url LIKE "/.publisher/df/*" AND can_rewrite_designurls)
+          include.url := ResolveToAbsoluteURL(designrooturl, include.url);
+        ELSE IF(include.url LIKE "/.publisher/cd/*" AND can_rewrite_designurls)
+          include.url := ResolveToAbsoluteURL(designrooturl, include.url);
+      }
+
+      IF(baseurl!="" AND IsAbsoluteURL(include.url, FALSE))
+      {
+        include.url := MakeRelativeLinkFromURL(baseurl, include.url, this->relativelinksscope);
+        //are we linking from https to http ?
+        IF(baseurl LIKE "https:*" AND include.url LIKE "http:*") //this is never going to work properly, make it protocol-relative
+          include.url := Substring(include.url, 5);
+      }
+
+      IF(include.type="js")
+      {
+        headers := headers || '\n<script src="' || EncodeValue(include.url) || '"';
+        IF(include.domid != "")
+          headers := headers || ' id="' || EncodeJava(include.domid) || '"';
+//        IF (include.url LIKE "*//*")
+//          headers := headers || ' crossorigin="anonymous"';
+        headers := headers || '></script>';
+      }
+      ELSE IF(include.type="css")
+      {
+        headers := headers || '\n<link rel="stylesheet" href="' || EncodeValue(include.url) || '"';
+        IF(include.media != "")
+          headers := headers || ' media="print"';
+
+        IF(include.domid != "")
+          headers := headers || ' id="' || EncodeJava(include.domid) || '"';
+        headers :=  headers || '/>';
+      }
+    }
+
+    RETURN [ ttl := 15 * 60 * 1000
+           , value := [headers := headers
+                      ,deps := result.deps
+                      ]
+           , eventmasks := result.eventmasks
+           ];
+  }
+
+  PUBLIC MACRO AddRepository(STRING server, STRING repositoryname, INTEGER localoverride, STRING rewriteroot DEFAULTSTO "")
+  {
+    IF(ObjectExists(this->depservice))
+      THROW NEW Exception("Adding a repository after preparing repositorylist");
+    INSERT [ server := server, repository := repositoryname, uuid := "", localversion := localoverride, rewriteroot := rewriteroot ] INTO this->settings.repositories AT END;
+  }
+  PUBLIC INTEGER FUNCTION AddHeader(STRING code, BOOLEAN atend)
+  {
+    IF(this->went)
+      THROW NEW Exception("Adding a header after generating headers");
+    this->headerseqnr := this->headerseqnr + 1;
+    INSERT [ id := this->headerseqnr, code := code, atend := atend ] INTO this->addheaders AT END;
+    RETURN this->headerseqnr;
+  }
+  PUBLIC MACRO AddLoad(STRING require, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(this->went)
+      THROW NEW Exception("Adding a dependency after generating headers");
+    INSERT [ name := ToUppercase(require)
+           , url := CellExists(options,'url') ? options.url : ''
+           ] INTO this->settings.addloads AT END;
+  }
+  PUBLIC MACRO Addrequire(STRING require) //DEPRECATED
+  {
+    IF(this->went)
+      THROW NEW Exception("Adding a dependency after generating headers");
+    this->addLoad(require);
+  }
+  PUBLIC MACRO AddUseAbsolute(STRING require, STRING sourcelocation DEFAULTSTO "<unspecified source location>")
+  {
+    IF(this->went)
+      THROW NEW Exception("Adding a dependency after generating headers");
+    INSERT [ require := require, fromwhere := sourcelocation ] INTO this->settings.adduses AT END;
+  }
+  PUBLIC MACRO AddModuleAsset(STRING assetpath)
+  {
+    IF(this->went)
+      THROW NEW Exception("Adding a dependency after generating headers");
+    IF(assetpath NOT LIKE "*:*")
+      THROW NEW Exception("Module resource asset paths must be of the form <module>:<path>");
+    this->AddLoad(assetpath);
+  }
+  PUBLIC MACRO RemoveHeader(INTEGER seqnr)
+  {
+    IF(this->went)
+      THROW NEW Exception("Removing a header after generating headers");
+    DELETE FROM this->addheaders WHERE id = seqnr;
+  }
+  PUBLIC MACRO SetIncludesForPublishing(INTEGER fsobjectid, STRING basefile DEFAULTSTO "")
+  {
+    IF(ObjectExists(this->depservice))
+      THROW NEW exception("Too late to change preparation settings, depresolver already initialized");
+
+    this->settings.fsobjectid := fsobjectid;
+    this->settings.basefile := basefile;
+  }
+  MACRO PrepareDepResolver()
+  {
+    IF(NOT ObjectExists(this->depservice))
+      this->depservice := NEW DepResolver(this->settings.fsobjectid, this->settings.basefile, this->settings.repositories);
+  }
+  MACRO EnsureInclInfo()
+  {
+    this->inclinfo := GetAdhocCached( [ type := "templateheaders"
+                                      , settings := this->settings
+                                      , baseurl := this->baseurl
+                                      , designrooturl := this->designrooturl
+                                      ], PTR this->GetCacheableTemplateHeaders(this->baseurl, this->designrooturl));
+  }
+  RECORD FUNCTION GetCacheableRepositories()
+  {
+    //FIXME Ensure repositories is flushed if designfolder is modiefied
+    this->PrepareDepResolver();
+    RETURN [ ttl := 10*60*1000
+           , value := this->depservice->GetRepositories()
+           , eventmasks := [ "blexdev_designfiles:resetdependencies", "system:whfs.folder." || this->settings.fsobjectid ]
+           ];
+  }
+  RECORD FUNCTION GetCacheableRepositoryNameAndVersions()
+  {
+    //FIXME Ensure repositories is flushed if designfolder is modiefied
+    this->PrepareDepResolver();
+    RETURN [ ttl := 10*60*1000
+           , value := this->depservice->GetRepositoryNameAndVersions()
+           , eventmasks := [ "blexdev_designfiles:resetdependencies", "system:whfs.folder." || this->settings.fsobjectid ]
+           ];
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetRepositories()
+  {
+    RETURN GetAdhocCached( [ type := "repositories", basefile := this->settings.basefile, fsobjectid := this->settings.fsobjectid, repositories := this->settings.repositories ], PTR this->GetCacheableRepositories);
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetRepositoryNameAndVersions()
+  {
+    RETURN GetAdhocCached( [ type := "repositorynameandversions", basefile := this->settings.basefile, fsobjectid := this->settings.fsobjectid, repositories := this->settings.repositories ], PTR this->GetCacheableRepositoryNameAndVersions);
+  }
+  PUBLIC MACRO PrintHeaders()
+  {
+    //discover and generate the proper headers for the given object.
+    FOREVERY(RECORD prepend FROM (SELECT * FROM this->addheaders WHERE addheaders.atend = FALSE ORDER BY id DESC))
+      Print(prepend.code);
+
+    this->EnsureInclInfo();
+    Print(this->inclinfo.headers);
+
+    FOREVERY(RECORD append FROM (SELECT * FROM this->addheaders WHERE addheaders.atend = TRUE))
+      Print(append.code);
+  }
+  /** @short Get the URL to the root of an installed dependency
+      @param dependency Dependency name (eg framework.mootoools.core)
+      @param siteroot Root of the current site */
+  PUBLIC STRING FUNCTION GetDependencyRootURL(STRING dependency)
+  {
+    IF(dependency LIKE "*:*")
+      THROW NEW Exception("Module dependencies can't be resolved through GetDependencyRootURL"); //mostly because these currently refer directly to a file, not a folder. what to do?
+
+    this->EnsureInclInfo();
+    RECORD asset := SELECT * FROM this->inclinfo.deps WHERE ToUppercase(name) = ToUppercase(dependency);
+    IF(NOT RecordExists(asset))
+      THROW NEW Exception("No such dependency '" || dependency || "'");
+
+    RETURN asset.rooturl;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __GenerateOutputFiles(INTEGER outputmode_js, INTEGER outputmode_css)
+  {
+    this->Go();
+    RETURN this->depservice->GenerateOutputFiles(outputmode_js, outputmode_css);
+  }
+
+  // Used by titanium designfiles module generator script (which reorders some incluced files before concatenating)
+  PUBLIC RECORD FUNCTION __GetFilesToInclude()
+  {
+    this->Go();
+    RETURN this->depservice->GetFilesToInclude();
+  }
+>;
+
+PUBLIC INTEGER FUNCTION AddTemplateHeader(STRING code, BOOLEAN atend)
+{
+  IF(NOT ObjectExists(centraldepresolver))
+    centraldepresolver := NEW DesignfilesDepResolver;
+  RETURN centraldepresolver->AddHeader(code,atend);
+}
+PUBLIC MACRO RemoveTemplateHeader(INTEGER seqnr)
+{
+  IF(NOT ObjectExists(centraldepresolver))
+    centraldepresolver := NEW DesignfilesDepResolver;
+  centraldepresolver->RemoveHeader(seqnr);
+}
+
+PUBLIC MACRO SetupCentralResolver(INTEGER fsobjectid, STRING baseurl) //FIXME not using baseurl, remove?
+{
+  IF(NOT ObjectExists(centraldepresolver))
+  {
+    centraldepresolver := NEW DesignfilesDepResolver;
+    centraldepresolver->baseurl := baseurl;
+    centraldepresolver->SetIncludesForPublishing(fsobjectid);
+   }
+}
+
+PUBLIC MACRO PrintTemplateHeaders(INTEGER fsobjectid, STRING baseurl DEFAULTSTO "") //ADDME probably should be first parameter and not a default in final version, to match adhoccache style
+{
+  SetupCentralResolver(fsobjectid, baseurl);
+  centraldepresolver->PrintHeaders();
+}
+
+//NOTE: Autodiscovery of files may perhaps be removed someday, as <webdesign> doesn't need it.
+//FIXME: Consider not porting fsobjectid discovery when integrating into webhare
+PUBLIC OBJECT FUNCTION CreateDependencyResolver(INTEGER fsobjectid, STRING basefile DEFAULTSTO "")
+{
+  OBJECT solver := NEW DesignfilesDepResolver;
+  solver->SetIncludesForPublishing(fsobjectid, basefile);
+  RETURN solver;
+}
+
+/** @short Get the URL to the root of an installed dependency
+    @param dependency Dependency name (eg framework.mootoools.core)
+    @param siteroot Root of the current site */
+PUBLIC STRING FUNCTION GetDependencyRootURL(INTEGER fsobjectid, STRING dependency, STRING baseurl DEFAULTSTO "")
+{
+  IF(dependency LIKE "*:*")
+    THROW NEW Exception("Module dependencies can't be resolved through GetDependencyRootURL"); //mostly because these currently refer directly to a file, not a folder. what to do?
+
+  SetupCentralResolver(fsobjectid, baseurl);
+  RETURN centraldepresolver->GetDependencyRootURL(dependency);
+}
+
+PUBLIC OBJECT FUNCTION GetInternalDepsolver(BOOLEAN mootools15)
+{
+  OBJECT publicdesignfiles;
+  OBJECT depsolver := NEW DesignfilesDepResolver;
+  depsolver->SetFlags(mootools15 ? [ "debug", "mootools15" ] : [ "debug" ]);
+
+  STRING rootoverride;
+  STRING designfilespath := ReadRegistryKey("system.backend.development.designfiles");
+  IF (designfilespath != "")
+  {
+    OBJECT folder := OpenWHFSObjectByPath(designfilespath);
+    IF (NOT ObjectExists(folder))
+      THROW NEW Exception("Unable to find '"|| designfilespath || "'");
+
+    publicdesignfiles := OpenSite(folder->parentsite);
+    rootoverride := "/.tollium/df/";
+  }
+  ELSE
+    publicdesignfiles := OpenSiteByName("Designfiles Public");
+
+
+  depsolver->AddRepository(
+          "https://designfiles.b-lex.com",
+          "public",
+          ObjectExists(publicdesignfiles) ? publicdesignfiles->root : 0,
+          rootoverride);
+  depsolver->baseurl := GetRequestURL();
+  IF(ObjectExists(publicdesignfiles))
+    depsolver->designrooturl := Substitute(publicdesignfiles->webroot, "http:", "");
+  RETURN depsolver;
+}
+

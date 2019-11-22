@@ -1,0 +1,56 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+TABLE
+< INTEGER id
+, STRING val
+> table1;
+
+TABLE table2 LIKE table1;
+
+MACRO TestLocking()
+{
+  OBJECT trans1 := GetPrimary();
+  OBJECT trans2 := __StartWHPostgreSQLTransaction([ auto := TRUE ]);
+
+  table1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.locktest");
+  table2 := BindTransactionToTable(trans2->id, "webhare_testsuite_testschema.locktest");
+
+
+  trans1->BeginWork();
+
+  // Cleanup
+  IF (trans1->SchemaExists("webhare_testsuite_testschema"))
+    trans1->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+  trans1->CreateSchema("webhare_testsuite_testschema", "", "");
+
+  __LegacyCreateTable(trans1, "webhare_testsuite_testschema", "locktest",
+      [ primarykey :=   "id"
+      , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 100 ]
+                        , [ column_name := "val", data_type :=  "VARCHAR", character_octet_length := 256 ]
+                        ]
+      ]);
+
+  INSERT [ id := 1, val := "1" ] INTO table1;
+  INSERT [ id := 2, val := "2" ] INTO table1;
+
+  trans1->CommitWork();
+
+  // Updating independent records with unoptimizable wheres shouldn't interfere
+  trans1->BeginWork();
+  trans2->BeginWork();
+  UPDATE table1 SET val := "2b" WHERE id + 1 = 3;
+  UPDATE table2 SET val := "1b" WHERE id + 1 = 2;
+  trans1->CommitWork();
+  trans2->CommitWork();
+}
+
+RunTestframework([ PTR TestLocking ]);

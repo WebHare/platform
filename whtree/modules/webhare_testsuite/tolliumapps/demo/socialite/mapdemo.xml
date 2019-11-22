@@ -1,0 +1,279 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:socialite="http://www.webhare.net/xmlns/socialite/components"
+         library="mapdemo.whlib"
+         gid="tolliumapps.mapdemo"
+         >
+
+  <messageboxes>
+  </messageboxes>
+
+  <screen name="maps"
+          title="Google Maps"
+          allowresize="true" savestate="size"
+          menubar="menubar"
+          icon="tollium:filemgr/site"
+          >
+
+    <actions>
+      <action name="search" onexecute="dosearch" />
+      <action name="searchroute" onexecute="dosearchroute" />
+      <action name="showroute" onexecute="doshowroute" />
+      <action name="editroute" onexecute="doeditroute" />
+      <action name="clear" onexecute="doclear" />
+      <action name="addmarker" onexecute="doaddmarker" />
+      <action name="zoomout" onexecute="dozoomout" />
+      <action name="zoomin" onexecute="dozoomin" />
+
+      <action name="addmarkercontext" onexecute="doaddmarkercontext" />
+      <action name="deletemarkercontext" onexecute="dodeletemarkercontext">
+        <enableon source="map" min="1" checkflags="ismarker" />
+      </action>
+      <action name="findaddresscontext" onexecute="dofindaddresscontext">
+        <enableon source="map" min="1" checkflags="ismarker canfindaddress" />
+      </action>
+
+      <action name="importgpx" onexecute="doimportgpx" title="Import GPX" />
+      <action name="saveasgpx" onexecute="@notimplemented" title="Save as GPX" />
+
+      <action name="deleteitem" onexecute="dodeleteitem" title="Delete" />
+
+      <action name="centeronitem" onexecute="docenteronitem" />
+
+      <action name="printmap" onexecute="doprintmap" />
+    </actions>
+
+    <menus>
+      <menu name="mapcontextmenu">
+        <item action="addmarkercontext" title="Plaats hier een pin" />
+      </menu>
+      <menu name="overlaycontextmenu">
+        <item action="findaddresscontext" title="Zoek adres van pin" disablemode="hidden" />
+        <item action="deletemarkercontext" title="Verwijder pin" disablemode="hidden" />
+      </menu>
+      <menu name="addtomap">
+        <item action="addmarker" title="Punt toevoegen..." />
+      </menu>
+      <menu name="menubar">
+        <item tid="tollium:common.menu.file">
+          <item action="importgpx" />
+          <item action="saveasgpx" />
+          <item action="printmap" />
+        </item>
+      </menu>
+      <menu name="mapcontents_context">
+        <item action="deleteitem" />
+      </menu>
+      <menu name="mapcontents_newcontext">
+      </menu>
+    </menus>
+
+    <toolbar>
+      <button menu="addtomap" icon="tollium:actions/add"        tid="tollium:common.actions.add" />
+<!--
+      <button action="delete"       icon="tollium:actions/delete"     tid="tollium:common.actions.delete" />
+      <button action="properties"   icon="tollium:actions/properties" tid="tollium:common.actions.properties" />
+      <divider/>
+      <button action="refresh"      icon="tollium:actions/reload"/>
+      <divider/>
+      <button action="preview"      icon="tollium:filemgr/previewsite" />
+      <divider/>
+      <button action="sendtweet"      icon="tollium:social_media/twitter" />
+-->
+    </toolbar>
+
+    <body layout="left">
+      <line>
+        <textedit name="query" title="Zoek naar" defaultbutton="searchbutton" width="1pr" />
+        <button name="searchbutton" action="search" title="Zoeken" />
+        <select name="type" title="" type="pulldown" onchange="ontypechange">
+          <option rowkey="map" tid=".m" hinttid=".m-hint" />
+          <option rowkey="satellite" tid=".k" hinttid=".k-hint" />
+          <option rowkey="hybrid" tid=".h" hinttid=".h-hint" />
+          <option rowkey="physical" tid=".p" hinttid=".p-hint" />
+        </select>
+        <checkbox name="clusteroverlays" title="" label="Cluster" onchange="onclusteroverlayschange" />
+      </line>
+
+      <split type="horizontal">
+        <part width="46x">
+
+          <tabs height="1pr">
+            <tab title="Inhoud">
+              <panel height="1pr">
+                <list name="mapcontents"
+                      selectmode="multiple"
+                      rowselect="true"
+                      onselect="doshowitem"
+                      openaction="centeronitem"
+                      height="1pr"
+                      selectcontextmenu="mapcontents_context"
+                      newcontextmenu="mapcontents_newcontext"
+                      >
+                  <column name="type"  type="icon" />
+                  <column name="title" type="text" />
+                  <column name="points" type="text" align="right" />
+                </list>
+              </panel>
+
+              <button name="clearbutton" action="clear" title="Leegmaken" />
+            </tab>
+            <tab title="Route">
+              <textedit name="routeorigin" title="From" value="Enschede" defaultbutton="routebutton" width="1pr" />
+              <textedit name="routedestination" title="To" value="Amsterdam" defaultbutton="routebutton" width="1pr" />
+              <select name="travelmode" type="pulldown" title="">
+                <option rowkey="driving" title="Auto" />
+                <option rowkey="walking" title="Lopen" />
+                <option rowkey="bicycling" title="Fietsen" />
+              </select>
+
+              <box title="Vermijden">
+                <select name="avoid" title="" type="checkbox"><!-- orientation="horizontal" -->
+                  <option rowkey="highways" title="Snelwegen" />
+                  <option rowkey="tolls" title="Tolwegen" />
+                </select>
+              </box>
+
+              <line>
+                <button name="routebutton" action="searchroute" title="Zoeken" />
+                <button action="showroute" title="Tonen" />
+                <button action="editroute" title="Verbergen" />
+              </line>
+            </tab>
+          </tabs>
+        </part>
+        <part width="1pr">
+          <panel width="1pr" height="1pr">
+            <socialite:map name="map" width="1pr" height="1pr"
+                        center="-307.769831,726.872775" zoom="17"
+                        showcontrols="false"
+                        clusteroverlays="false"
+                        clusteredicon="cluster"
+                        flags="ismarker isshape canfindaddress"
+                        newcontextmenu="mapcontextmenu"
+                        selectcontextmenu="overlaycontextmenu"
+                        onclick="onmapclick"
+                        onmove="onmapmove"
+                        onzoom="onmapzoom"
+                        onselect="onmapselect"
+                        onmoveoverlay="onmapdragoverlay"
+                        ondirections="ondirections">
+              <socialite:icon name="result" icon="socialite:markers/pin_green" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+              <socialite:icon name="address" icon="socialite:markers/pin_blue" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+              <socialite:icon name="unknown" icon="socialite:markers/pin_gray" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+              <socialite:icon name="added" icon="socialite:markers/pin_red" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+              <socialite:icon name="cluster" icon="socialite:markers/pin_purple" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+              <socialite:icon name="directions" icon="socialite:markers/pin_yellow" shadow="socialite:markers/pin_shadow" anchor_x="15" anchor_y="42" label_x="24" label_y="8" popup_x="24" popup_y="5" />
+            </socialite:map>
+          </panel>
+        </part>
+      </split>
+
+      <grid>
+        <col width="3pr" />
+        <col width="1pr" />
+        <col width="1pr" />
+        <col width="1pr" />
+        <row>
+          <cell>
+            <line>
+              <text title="Zoomlevel" labelfor="zoom" />
+              <button icon="tollium:actions/up" type="icon" action="zoomout" />
+              <slider name="zoom" title="" min="0" max="20" step="1" updatecomponent="zoomlevel" onchange="onzoomchange" width="1pr" />
+              <text name="zoomlevel" title="" value="00" />
+              <button icon="tollium:actions/down" type="icon" action="zoomin" />
+            </line>
+          </cell>
+          <cell />
+          <cell>
+            <text name="lat" title="Latitude" value="" width="1pr" selectable="true" />
+          </cell>
+          <cell>
+            <text name="lng" title="Longitude" value="" width="1pr" selectable="true" />
+          </cell>
+        </row>
+      </grid>
+    </body>
+
+  </screen>
+
+  <screen name="clear" title="Leegmaken" implementation="none" allpublic="true">
+    <body>
+      <select title="Leegmaken" name="toclear" type="checkbox">
+        <option rowkey="result" title="Zoekresultaten" />
+        <option rowkey="unknown" title="Geplaatste pinnen" />
+        <option rowkey="address" title="Opgezochte pinnen" />
+        <option rowkey="" title="Niet gevonden pinnen" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <!-- If not too many, stretch the lists up to 5 items.
+       When more, use a checkboxlist to limit the height.
+  -->
+  <screen name="import_gpx"
+          tid=".frametitle"
+          >
+    <body>
+      <panel name="trackspanel" layout="left">
+        <text title="" valuetid=".tracks" bold="true" />
+        <select name="tracks"
+                type="checkbox"
+                title=""
+                >
+        </select>
+      </panel>
+
+      <panel name="routespanel" layout="left">
+      <text title="" valuetid=".routes" bold="true" />
+        <select name="routes"
+                type="checkbox"
+                title=""
+                >
+        </select>
+      </panel>
+
+      <panel name="waypointspanel" layout="left">
+        <text title="" valuetid=".waypoints" bold="true" />
+        <select name="waypoints"
+                type="checkbox"
+                title=""
+                >
+        </select>
+      </panel>
+
+<!--
+      <panel>
+        <text tid=".tracks" />
+        <select name="tracks3"
+                type="checkboxlist"
+                >
+          <option rowkey="1" title="test" />
+          <option rowkey="2" title="another test" />
+        </select>
+      </panel>
+
+      <panel>
+        <text tid=".tracks" />
+        <panel>
+          <list name="tracks2"
+                selectmode="none"
+                columnheaders="false"
+                >
+            <column name="title"  type="text"    width="1pr" checkboxname="selected" />
+            <column name="points" type="integer" width="8x" align="right" />
+          </list>
+        </panel>
+      </panel>
+-->
+
+      <panel>
+        <defaultformbuttons buttons="ok cancel" />
+      </panel>
+
+    </body>
+  </screen>
+
+</screens>

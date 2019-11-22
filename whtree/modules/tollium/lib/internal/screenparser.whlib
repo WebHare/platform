@@ -1,0 +1,2244 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/commonxml.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/validation/xml.whlib";
+
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+//FIXME Make globals locals to PageParser
+OBJECT curpageparser;
+
+STRING FUNCTION GetScopedName(STRING localname)
+{
+  RETURN (curpageparser->tolliumscopes[0].scope!="" ? curpageparser->tolliumscopes[0].scope || "!": "") || localname;
+}
+
+STRING FUNCTION FixupReferringName(STRING findname)
+{
+  findname := Substitute(findname,"->","!");
+  STRING ARRAY lookforname;
+  FOREVERY(STRING part FROM tokenize(ToUppercase(findname),'!'))
+  {
+    IF(part="PARENTSCOPE")
+    {
+      IF(Length(lookforname)>0)
+        DELETE FROM lookforname AT END-1;
+      ELSE
+        RETURN "";
+    }
+    ELSE
+    {
+      INSERT part INTO lookforname AT END;
+    }
+  }
+  RETURN Detokenize(lookforname,"!");
+}
+
+RECORD FUNCTION ParseMapping(OBJECT mappingnode, STRING outputtype)
+{
+  RECORD mapping := [ sourcetype := mappingnode->GetAttribute("sourcetype")
+                    , mapvalues := DEFAULT RECORD ARRAY
+                    , istid := outputtype = "text"
+                    ];
+
+  FOREVERY(OBJECT mapvalue FROM mappingnode->GetElementsByTagNameNS(ns_screens, "mapvalue")->GetCurrentElements())
+  {
+    VARIANT invalue, result;
+
+    IF(mapping.sourcetype = "boolean")
+      invalue := ParseXSBoolean(mapvalue->GetAttribute("value"));
+    ELSE IF(mapping.sourcetype = "string")
+      invalue := mapvalue->GetAttribute("value");
+    ELSE
+      THROW NEW Exception("Unsupported source type '" || mapping.sourcetype || "' for mapping");
+
+    IF(mapping.istid)
+      result := curpageparser->ParseTP(mapvalue, "result");
+    ELSE IF(outputtype IN ["integer","icon"])
+      result := ParseXSInt(mapvalue->GetAttribute("result"));
+    ELSE
+      THROW NEW Exception("Unsupported output type '" || outputtype || "' specified for listcolumn mapping");
+
+    INSERT [ value := invalue, result := result ] INTO mapping.mapvalues AT END;
+  }
+  RETURN mapping;
+}
+
+// List of reserved names (ADDME  add a longer list of Fragment reserved names)
+STRING ARRAY reserved_names :=
+  [ "BEGINFEEDBACK"
+  , "BEGINUNVALIDATEDFEEDBACK"
+  , "BEGINUNVALIDATEDWORK"
+  , "BEGINWORK"
+  , "BEGINLOCKEDUNVALIDATEDWORK"
+  , "BEGINLOCKEDWORK"
+  , "CANCEL"
+  , "CREATECUSTOMCOMPONENT"
+  , "CREATETOLLIUMCOMPONENT"
+  , "DEBUG"
+  , "DOLOADCOMPONENTS"
+  , "FRAGCOUNT"
+  , "GAVEPUBLIC"
+  , "GETFRAMEMODULE"
+  , "GETFRAMEPAGEFILE"
+  , "GETTID"
+  , "INIT"
+  , "LOADSCREEN"
+  , "LOADTOLLIUMBODYFRAGMENT"
+  , "PARENTSCOPE"
+  , "PVT_TOLLIUMFRAMEPREINITS"
+  , "PVT_TOLLIUMFRAMEINITRUN"
+  , "PVT_TOLLIUMRESULT"
+  , "PVT_VISIBLE"
+  , "RUNMESSAGEBOX"
+  , "RUNMODAL"
+  , "SUBMIT"
+  ];
+
+STATIC OBJECTTYPE PageParser
+<
+  PUBLIC RECORD ARRAY bb_levels;
+
+  PUBLIC RECORD ARRAY tolliumscopes;
+  RECORD ARRAY seennames;
+  PUBLIC STRING resourcename;
+
+  PUBLIC RECORD finalpage; //A global variable holding all screen so far
+  INTEGER anoncounter;
+
+  MACRO NEW(STRING resourcename, STRING topgid, BOOLEAN allpublic, STRING scope, STRING objectname)
+  {
+    this->resourcename := resourcename;
+    STRING modulename := __GetModuleBaseFromResourceName(resourcename); //the siteprofile supporting version
+    // Make sure the topgid is fully qualified with the modulename
+    IF (topgid != "" AND topgid NOT LIKE "*:*")
+    {
+      topgid := modulename || ":" || topgid;
+    }
+
+    /* Build the top-level screen record */
+    this->finalpage :=
+        [ objtype        := ""
+        , name           := objectname
+
+        , formobjects    := DEFAULT RECORD ARRAY
+        , allpublic      := allpublic
+        , errors         := DEFAULT RECORD ARRAY
+        , warnings       := DEFAULT RECORD ARRAY
+        , implementation := ns_screens || "#lib"
+
+        , rootnode       := DEFAULT RECORD
+        , files          := DEFAULT RECORD ARRAY
+        , resourcename   := resourcename
+        ];
+
+    this->bb_levels := [ [ linesettings := [ layout := "form"
+                                           ]
+                         , gid := topgid
+                         //, formpos := -1
+                         ]
+                      ];
+
+    this->tolliumscopes := [ [ module := modulename
+                             //, pagefile := pagefile
+                             , scope := scope
+                             , parent := ""
+                             , resourcename  := resourcename
+                             //, scope := scope = "" ? "frame" : scope
+                             ] ]; //FIXME both nameprefix&scope might be redundant!
+  }
+
+  PUBLIC STRING FUNCTION CreateAnonymousName()
+  {
+    this->anoncounter := this->anoncounter + 1;
+    RETURN "tollium_s$" || this->anoncounter;
+  }
+
+  MACRO AddFiles(RECORD ARRAY files)
+  {
+    FOREVERY (RECORD file FROM files)
+    {
+      RECORD pos := RecordLowerBound(this->finalpage.files, file, [ "PATH" ]);
+      IF (NOT pos.found)
+        INSERT file INTO this->finalpage.files AT pos.position;
+    }
+  }
+
+  PUBLIC STRING FUNCTION ReadImplementationAttribute(OBJECT node)
+  {
+    STRING invalue := node->GetAttribute("implementation");
+    RECORD res := node->LookupQualifiedName(invalue);
+    STRING retval := RecordExists(res) ? res.namespaceuri || "#" || res.localname : "";
+
+    //map 'old' names which don't realize we want real QNames now
+    SWITCH(invalue)
+    {
+      CASE "" //default
+      {
+        IF(node->localname IN ["screen","fragment"])
+          RETURN "http://www.webhare.net/xmlns/tollium/screens#lib";
+        RETURN "http://www.webhare.net/xmlns/tollium/screens#none";
+      }
+      CASE "none"
+      {
+        IF(retval != "http://www.webhare.net/xmlns/tollium/screens#none")
+          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#none - please fix");
+        RETURN "http://www.webhare.net/xmlns/tollium/screens#none";
+      }
+      CASE "lib"
+      {
+        IF(retval != "http://www.webhare.net/xmlns/tollium/screens#lib")
+          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#lib - please fix");
+        RETURN "http://www.webhare.net/xmlns/tollium/screens#lib";
+      }
+      CASE "rowedit"
+      {
+        IF(retval != "http://www.webhare.net/xmlns/tollium/screens#rowedit")
+          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/tollium/screens#rowedit - please fix");
+        RETURN "http://www.webhare.net/xmlns/tollium/screens#rowedit";
+      }
+      CASE "wrd:entityedit"
+      {
+        IF(retval != "http://www.webhare.net/xmlns/wrd/components#entityedit")
+          this->AddWarning(node->linenum, "The implementation '" || retval || "' did not resolve to http://www.webhare.net/xmlns/wrd/components#entityedit - please fix");
+        RETURN "http://www.webhare.net/xmlns/wrd/components#entityedit";
+      }
+      DEFAULT
+      {
+        RETURN retval;
+      }
+    }
+  }
+
+  PUBLIC STRING FUNCTION ParseGid(OBJECT el, STRING cellname)
+  {
+    RETURN ParseXMLGid(this->GetCurrentModule(), this->bb_levels[0].gid, el, cellname);
+  }
+
+  PUBLIC STRING FUNCTION GetCurrentModule()
+  {
+    RETURN this->tolliumscopes[0].module;
+  }
+
+  PUBLIC STRING FUNCTION GetCurrentResourceName()
+  {
+    RETURN this->tolliumscopes[0].resourcename;
+  }
+
+  PUBLIC STRING FUNCTION GetCurrentGid()
+  {
+    RETURN this->bb_levels[0].gid;
+  }
+
+  /** Parse a specific textpointer from a node. Captures used tids.
+      @param type Type of textpointer to get (name of attribute in which normally text would reside, like 'title', 'hint', etc')
+      @return String with the fully qualified tid, or a title prefixed with ':'. GetTID will recognize this and remove the : instead of resolving it as a tid.
+   */
+  PUBLIC STRING FUNCTION ParseTP(OBJECT el, STRING type)
+  {
+    RETURN ParseXMLTidPtr(this->GetCurrentModule(), this->GetCurrentGid(), el, type);
+  }
+
+  /** Given a component node and its component info, assign a name to the component that it will result in.
+      Also makes sure given names are unique in their scope.
+      @param element XML node
+      @param compinfo Component definition (from LookupComponent)
+      @return
+      @cell return.givenname Given name for the component (name in attribute 'name'). Empty if the node is transparent.
+      @cell return.fullname Full name (with scope and all) for the component (empty if the node is transparent)
+  */
+  PUBLIC RECORD FUNCTION AssignXMLNodeName(OBJECT element, RECORD compinfo)
+  {
+    BOOLEAN istransparentnode := compinfo.objtype = "" AND compinfo.fragment="";
+
+    // Transparent nodes must not have names - they are thrown away during parsing, should not clutter the namespace
+    IF (istransparentnode)
+      RETURN [ givenname := "", fullname := "" ];
+
+    BOOLEAN isframe := element->namespaceuri = ns_screens AND element->localname = "screen";
+
+    STRING givenname;
+    IF (isframe)
+    {
+      // A screen is always registered as 'frame'!
+      givenname := "frame";
+    }
+    ELSE
+    {
+      givenname := element->GetAttribute("name");
+      IF (givenname != "") //ADDME perhaps use the check below on all componentrefs?   FIXME; fragments require stricter checks..
+      {
+        STRING uname := ToUppercase(givenname);
+        IF (uname LIKE "TOLLIUM*" OR uname IN reserved_names)
+          curpageparser->AddError(element->linenum, "Name '"||givenname||"' cannot be used as a component name");
+      }
+    }
+
+    // Calculate the full, scoped name
+    STRING fullname := GetScopedName(givenname != "" ? givenname : curpageparser->CreateAnonymousName());
+
+    // Check whether that name is unique (and register it to detect further duplicates)
+    RECORD seennamespos := RecordLowerBound(this->seennames, [ name := fullname ], [ "NAME" ]);
+    IF (seennamespos.found)
+    {
+      IF (givenname != "")
+        curpageparser->AddError(element->linenum, "A component with name '"||givenname||"' was already defined on line "||this->seennames[seennamespos.position].line);
+      ELSE
+        ABORT("Component with anonymous name caused double registration (calling AssignXMLNodeName twice on the same node?)");
+    }
+    ELSE
+      INSERT [ name := fullname, line := element->linenum ] INTO this->seennames AT seennamespos.position;
+
+    RETURN
+        [ fullname :=   fullname
+        , givenname :=  givenname
+        ];
+  }
+
+  /** Parses an XML node, using predetermined component info
+      @param element XML node to parse
+      @param compinfo Information about the component described by element
+      @return Component fields data
+  */
+  PUBLIC RECORD FUNCTION StartXMLNode(OBJECT element, RECORD compinfo)
+  {
+    RECORD nameinfo := this->AssignXMLNodeName(element, compinfo);
+    RETURN this->StartXMLNodeWithName(element, compinfo, nameinfo, "");
+  }
+
+  /** Parses an XML node, determines itself which component it is.
+      @param element XML node to parse
+      @return Component fields data
+  */
+  PUBLIC RECORD FUNCTION StartXMLNode2(OBJECT element)
+  {
+    RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+    IF(NOT RecordExists(compinfo))
+      RETURN DEFAULT RECORD;
+
+    RECORD item := this->StartXMLNode(element, compinfo);
+    RETURN item;
+  }
+
+  /** Parses an XML node
+      @param element XML node to parse
+      @param compinfo Information about the component described by element
+      @param nameinfo Name of the new component
+      @cell nameinfo.givenname
+      @cell nameinfo.fullname
+      @param hijackchildrento If children components are present, set this component as their parent (used by fragment
+          contentpanels. The lines from the returned component fields must be transplanted manually to the contentpanel, though!)
+      @return Component fields data
+  */
+  RECORD FUNCTION StartXMLNodeWithName(OBJECT element, RECORD compinfo, RECORD nameinfo, STRING hijackchildrento) //transparentnode: not actually inserted into formobjects
+  {
+    //FIXME only process the gid if ParseXMLFields lists it among the fields (or make it 'global' like 'name')
+    BOOLEAN hack_isframe := element->namespaceuri = ns_screens AND element->localname = "screen";
+
+    RECORD currentscope := this->tolliumscopes[0];
+    STRING localgid := this->ParseGid(element, "gid"); //Open the new gid... we already need it for any local XML fields
+
+    BOOLEAN transparentnode := compinfo.objtype = "" AND compinfo.fragment="";
+
+    RECORD formobjectsinfo;
+    STRING elementtype := (element->namespaceuri != ns_screens ? element->namespaceuri || "#" : "") || element->localname;
+    IF(NOT transparentnode) //this item _should_ have a name?
+    {
+      RECORD newscope := this->tolliumscopes[0];
+      newscope.parent := hijackchildrento ?? nameinfo.fullname;
+      INSERT newscope INTO this->tolliumscopes AT 0;
+
+      formobjectsinfo := [ objtype := compinfo.objtype
+                         , data := DEFAULT RECORD
+                         , ispublic := this->finalpage.allpublic OR hack_isframe
+                         , localname := nameinfo.givenname
+                         , fullname  := nameinfo.fullname
+                         , isfragment := FALSE
+                         , iscontentpanel := FALSE
+                         , isbodypart := compinfo.placement IN ["block", "inline", "optionsource"]
+                         , fragmentgid := ""
+                         , elementtype := elementtype
+                         ];
+    }
+
+    RECORD linesettings := this->bb_levels[0].linesettings;
+    IF(element->HasAttribute("layout"))
+      linesettings.layout := element->GetAttribute("layout");
+
+    INSERT [ linesettings := linesettings
+           , gid := localgid
+           , localname := nameinfo.givenname
+           //, formpos := transparentnode ? -1 : Length(this->finalpage.formobjects)-1
+           ] INTO this->bb_levels AT 0;
+
+    RECORD item := ParseXMLFields(element, compinfo);
+    this->ValidateNodeXMLFields(element, item);
+
+    DELETE CELL name, gid, layout FROM item;
+
+    INSERT CELL name := nameinfo.fullname INTO item;
+    INSERT CELL gid := localgid INTO item;
+    INSERT CELL layout := this->bb_levels[0].linesettings.layout INTO item;
+
+    INSERT CELL line := element->linenum INTO currentscope;
+    INSERT CELL col := 0 INTO currentscope;
+    INSERT CELL tolliumscope := currentscope INTO item;
+    INSERT CELL elementtype := elementtype INTO item; //FIXME double storage, but they're not both consistently available :/
+
+    INSERT CELL __formobjectsinfo := formobjectsinfo INTO item;
+
+    RETURN item;
+  }
+
+  MACRO ValidateNodeXMLFields(OBJECT el, RECORD item)
+  {
+    IF(CellExists(item,'composition') AND CellExists(item,'cellname') AND item.composition != "")
+    {
+      IF(NOT el->HasAttribute("cellname")) //note that explicitly setting an empty cellname is allowed to shut up the warnoing
+      {
+        this->AddWarning(el->linenum, "Specifying composition without a cellname is probably incorrect");
+      }
+    }
+  }
+
+  PUBLIC MACRO FinishXMLNode(RECORD item)
+  {
+    RECORD curlevel := this->bb_levels[0];
+    DELETE FROM this->bb_levels AT 0;
+
+    IF(RecordExists(item.__formobjectsinfo)) //not transparent!
+    {
+      IF(item.name != "frame")  //frames dont need to specify public, but FinishXMLNode handles <screen> so need to except...
+      {
+        IF(NOT CellExists(item,"public"))
+          this->AddError(item.tolliumscope.line, "Missing attribute 'public' for component '" || item.name || "'");
+        ELSE IF(item."public")
+          item.__formobjectsinfo.ispublic := TRUE;
+      }
+
+      item.__formobjectsinfo.data := item;
+      INSERT item.__formobjectsinfo INTO this->finalpage.formobjects AT END;
+      DELETE FROM this->tolliumscopes AT 0;
+    }
+  }
+
+  RECORD FUNCTION GetParsedFragmentRef(OBJECT curnode, STRING fragmentref, BOOLEAN isincludefragment)
+  {
+    //Print("1: " || fragmentref || "\n");
+    IF (isincludefragment) // Get fragment reference from <includefragment> node - parse it manually.
+      fragmentref := MakeAbsoluteScreenReference(curpageparser->resourcename, curnode->GetAttribute("fragment"));
+
+    OBJECT fragment := curpageparser->LookupElement("fragment", fragmentref);
+    IF(NOT ObjectExists(fragment))
+    {
+      this->AddError(curnode->linenum, "No such fragment '" || fragmentref || "'");
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN
+        [ fragment :=           fragment
+        , fragmentref :=        fragmentref
+        ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION IncludeFragment(OBJECT curnode, STRING placement, BOOLEAN isincludefragment, RECORD compinfo)
+  {
+    // Assign a name to the fragment
+    RECORD nameinfo := this->AssignXMLNodeName(curnode, compinfo);
+
+    // Lookup the fragment definition
+    RECORD fragmentdata := this->GetParsedFragmentRef(curnode, compinfo.fragment, isincludefragment);
+    IF (NOT RecordExists(fragmentdata))
+      RETURN DEFAULT RECORD ARRAY;
+
+    // Go parse the fragment
+    RECORD ARRAY fragmentlines;
+
+    // Setup the scope && gid lookups for parsing
+    RECORD newscope := this->tolliumscopes[0];
+    newscope.scope := nameinfo.fullname;
+    newscope.module := __GetModuleBaseFromResourceName(fragmentdata.fragmentref);
+    newscope.resourcename := fragmentdata.fragmentref;
+    //newscope.pagefile := fragmentdata.parsedref.screenfile;
+    INSERT newscope INTO this->tolliumscopes AT 0;
+
+    INSERT this->bb_levels[0] INTO this->bb_levels AT 0;
+    this->bb_levels[0].gid := fragmentdata.fragment->ownerdocument->documentelement->HasAttribute("gid") ? this->ParseGid(fragmentdata.fragment->ownerdocument->documentelement, "gid") : "";
+
+    // Parse the fragment node
+    RECORD frag := this->StartXMLNode2(fragmentdata.fragment);
+    IF(RecordExists(frag)) //ADDME support fragments with just inline elements?
+    {
+      //FIXME we should probably require fragments that want to contain lines themselves, declare a contnetpanel
+
+      //We will be returning the fragment's lines as our result
+      fragmentlines := frag.contents[0].lines;
+//dumpvalue(fragmentlines,'tree:3');
+
+      IF(Length(fragmentlines)>1 AND placement="inline") //ADDME if this is was a component, we should have compared against the _declared_ placement, not the actual. Currently, a component with multiple <lines>, used in a block component, can probably get away with being "inline" in components.xsd
+        this->AddError(curnode->linenum, "Fragment '" || fragmentdata.fragmentref || "' was expected to be inline, but expanded to multiple lines");
+
+      //Add the fragment component itself on its first line. it'll be invisible but we need to ensure it's a panel child
+      IF(Length(fragmentlines)>0)
+        INSERT nameinfo.fullname INTO fragmentlines[0].items AT 0;
+      ELSE
+        fragmentlines := [[ linesettings := curpageparser->bb_levels[0].linesettings
+                          , items := [ STRING(nameinfo.fullname) ]
+                         ]];
+
+      //FIXME if a fragment doesn't add anything, we should still make it a child, but not cause a line break
+    }
+    this->FinishXMLNode(frag);
+
+    // Reset the scope && gid to their originals
+    DELETE FROM this->bb_levels AT 0;
+    DELETE FROM this->tolliumscopes AT 0;
+
+    //Setup objtype on the component. They need to point to the objtype on the original fragment
+    STRING objtype;
+    IF(compinfo.objtype != "" AND NOT isincludefragment)
+    {
+      objtype := compinfo.objtype;
+    }
+    ELSE
+    {
+      IF (this->ReadImplementationAttribute(fragmentdata.fragment) != ns_screens || "#none")
+        objtype := GetLibraryPath(fragmentdata.fragmentref, fragmentdata.fragment) || "#" || fragmentdata.fragment->GetAttribute("name");
+
+      IF (objtype="") //although we set a component for <includefragment> (to prevent it from becoming transparent) this won't affect true components using fragments
+        objtype := "module::tollium/screenbase.whlib#TolliumFragmentBase";
+    }
+
+    // Handle contentpanels
+    STRING findcomponent;
+    IF (fragmentdata.fragment->HasAttribute("contentpanel"))
+    {
+      findcomponent := nameinfo.fullname || "!" || fragmentdata.fragment->GetAttribute("contentpanel");
+      INTEGER panelpos := (SELECT AS INTEGER #formobjects + 1 FROM this->finalpage.formobjects WHERE ToUppercase(fullname)=ToUppercase(findcomponent))-1;
+      IF(panelpos=-1)
+      {
+        this->AddError(curnode->linenum, "Content panel component '" || fragmentdata.fragment->GetAttribute("contentpanel") || "' was not found inside the fragment");
+      }
+      ELSE
+      {
+        // Mark as contentpanel - it must be initialized AFTER the staticinit of the fragment.
+        this->finalpage.formobjects[panelpos].iscontentpanel := TRUE;
+      }
+    }
+
+    // Parse the contents of the component node too (lines and extra stuff). Hijack childcomponents, set their parent to the contentpanel if parent
+    // (does not place them in the lines of the contentpanel, though!)
+    RECORD item := this->StartXMLNodeWithName(curnode, compinfo, nameinfo, findcomponent);
+
+    //FIXME hacky...
+    item.__formobjectsinfo.objtype := objtype;
+    item.__formobjectsinfo.isfragment := TRUE;
+    item.__formobjectsinfo.fragmentgid := RecordExists(frag) ? frag.gid : "";
+
+    // we need this to be able to mark the subcomponents
+    INSERT CELL __fragmentlines := fragmentlines INTO item;
+
+    // For contentpanels, transplant the parsed lines into the contentpanel. The parent has already been set alright at parsing time.
+    IF (findcomponent != "")
+    {
+      INTEGER panelpos := (SELECT AS INTEGER #formobjects + 1 FROM this->finalpage.formobjects WHERE ToUppercase(fullname)=ToUppercase(findcomponent))-1;
+      IF (panelpos != -1)
+      {
+        this->finalpage.formobjects[panelpos].data.lines := item.lines;
+        item.lines := DEFAULT RECORD ARRAY;
+      }
+    }
+
+    this->FinishXMLNode(item);
+
+    RETURN fragmentlines;
+  }
+
+  PUBLIC OBJECT FUNCTION LookupElement(STRING elementtag, STRING elementref)
+  {
+    OBJECT screensdoc;
+    //RECORD parsedscreenref := ParseScreenRef(fragmentref);
+
+    //FIXME share with other screen opening code, it must be somewhere...
+    //FIXME optimize opening current screen? or is the cache sufficient ?
+    RECORD screensdocinfo := RetrieveCachedValidatedScreen(GetResourceNameFromScreenPath(elementref));
+
+    this->AddFiles(screensdocinfo.files);
+
+//      RETURN DEFAULT OBJECT; //FIXME how to report that it's the referred doc that's broken ?
+
+    // search for and return the fragment we need from the screens document
+    screensdoc := screensdocinfo.doc;
+    OBJECT elements := screensdoc->GetElementsByTagNameNS(ns_screens, elementtag);
+    STRING elementname := GetScreenNameFromScreenPath(elementref);
+    FOREVERY(OBJECT xsd_element FROM elements->GetCurrentElements())
+      IF(ToUppercase(xsd_element->GetAttribute("name")) = ToUppercase(elementname))
+        RETURN xsd_element;
+
+    RETURN DEFAULT OBJECT;
+  }
+
+  PUBLIC RECORD FUNCTION LookupComponent(OBJECT element, BOOLEAN fatal)
+  {
+    TRY
+    {
+      RECORD def := GetComponentDefinition(element->namespaceuri, element->localname);
+      this->AddFiles(def.files);
+      RETURN def;
+    }
+    CATCH(OBJECT e)
+    {
+      IF(fatal)
+        this->AddError(element->linenum, e->what);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  PUBLIC MACRO AddError(INTEGER line, STRING error)
+  {
+    INSERT INTO this->finalpage.errors(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
+  }
+  PUBLIC MACRO AddWarning(INTEGER line, STRING error)
+  {
+    INSERT INTO this->finalpage.warnings(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
+  }
+
+  /** Given a list of components, calculate the ordering. Form parts before forms, fragments after their components,
+      but before their contentpanel.
+      @param objrefs List of components to process
+      @cell objrefs.fullname Full name of the component
+      @cell objrefs.iscontentpanel Whether the component is the contentpanel of a fragment
+      @cell objrefs.item Data to return for this component
+      @param prefixstart Number of chars to ignore of fullname when searching for first '!'
+  */
+  RECORD ARRAY FUNCTION OrderChildren(RECORD ARRAY objrefs, INTEGER prefixstart)
+  {
+    /* Given
+         a
+         a!stuff
+         a!contentpanel (contentpanel = true)
+         b
+         c
+         b!stuff
+       group to
+         localname: a
+           subs: a!stuff, a, a!contentpanel
+         localname: b
+           subs: b!stuff, b
+         localname: c
+
+      Group on most-parent component name, keep ordered on first occurrence of that name.
+      Order subcomponents on contentpanel last, then number of '!', desc.
+      Has effect of first subcomponents, then fragment, then contentpanel
+    */
+
+    RECORD ARRAY parentnames :=
+        SELECT parentname :=      Any(Left(fullname, SearchSubString(fullname || "!", "!", prefixstart)))
+             , subs :=           (SELECT fullname
+                                       , iscontentpanel
+                                       , item
+                                    FROM GroupedValues(objrefs)
+                                ORDER BY iscontentpanel
+                                       , Length(tokenize(fullname,'!')) DESC)
+
+          FROM objrefs
+      GROUP BY Left(fullname, SearchSubString(fullname || "!", "!", prefixstart))
+      ORDER BY Any(#objrefs);
+
+    // Recursively process the children
+    RECORD ARRAY items;
+    FOREVERY (RECORD rec FROM parentnames)
+    {
+      IF (LENGTH(rec.subs) <= 1)
+        items := items CONCAT rec.subs;
+      ELSE
+        items := items CONCAT this->OrderChildren(rec.subs, LENGTH(rec.parentname) + 1);
+    }
+
+    RETURN items;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GroupObjectsByParent(RECORD currentobject, RECORD ARRAY informobjects, STRING parentscope)
+  {
+    RECORD ARRAY retval := [ currentobject ];
+    RECORD ARRAY children;
+
+    RECORD pos := RecordLowerBound(informobjects, [ parentscope := currentobject.fullname ], [ "PARENTSCOPE" ]);
+    IF (pos.found)
+      children := informobjects[pos.position].objects;
+
+    // More than 1 child? Make sure ordering is correct
+    IF (LENGTH(children) > 1)
+    {
+      RECORD ARRAY objrefs := SELECT parentscope := currentobject.fullname, fullname, iscontentpanel, item := children FROM children;
+      children := SELECT AS RECORD ARRAY item FROM this->OrderChildren(objrefs, 0);
+    }
+
+    FOREVERY(RECORD child FROM children)
+      retval := retval CONCAT this->GroupObjectsByParent(child, informobjects, currentobject.fullname);
+
+    RETURN retval;
+  }
+
+  PUBLIC RECORD FUNCTION GetFinalPage()
+  {
+    /* Create initialization order:
+       - parents should be initialized before their own component
+       - fragment parts (those included by the fragment, not any content) should be initalized before their fragment
+    */
+    IF (Length(this->finalpage.errors) > 0)
+      THROW NEW RetrieveResourceException(this->resourcename, "", this->finalpage.errors);
+
+    //dumpvalue((select parent := data.tolliumscope.parent, * from this->finalpage.formobjects),'boxed');
+    IF(RecordExists(SELECT FROM this->finalpage.formobjects WHERE fullname="frame")) //it'a s screen
+    {
+      //reparent objects to the frame to ensure compositions etc stay in the init order
+      UPDATE this->finalpage.formobjects
+             SET data := CellUpdate(data, "tolliumscope", CellUpdate(data.tolliumscope, "parent", "frame"))
+                 WHERE NOT isbodypart AND data.tolliumscope.parent != "";
+    }
+    //dumpvalue((select parent := data.tolliumscope.parent, * from this->finalpage.formobjects),'boxed');
+
+    // Make sure the frame object are first in the list of objects
+    this->finalpage.formobjects :=
+        SELECT *
+          FROM this->finalpage.formobjects
+      ORDER BY localname != "frame";
+
+    RECORD ARRAY informobjects := this->finalpage.formobjects;
+    this->finalpage.formobjects := DEFAULT RECORD ARRAY;
+
+    RECORD ARRAY grouped_informobjects :=
+        SELECT parentscope := Any(data.tolliumscope.parent)
+             , objects :=     GroupedValues(informobjects)
+          FROM informobjects
+      GROUP BY data.tolliumscope.parent
+      ORDER BY Any(data.tolliumscope.parent);
+
+    RECORD pos := RecordLowerBound(grouped_informobjects, [ parentscope := "" ], [ "PARENTSCOPE" ]);
+    IF (pos.found)
+      FOREVERY (RECORD root FROM grouped_informobjects[pos.position].objects)
+        this->finalpage.formobjects := this->finalpage.formobjects CONCAT this->GroupObjectsByParent(root, grouped_informobjects, "");
+
+    IF(Length(informobjects) != Length(this->finalpage.formobjects))
+    {
+      dumpvalue( (select parent := data.tolliumscope.parent,* from informobjects),'boxed');
+      dumpvalue( (select parent := data.tolliumscope.parent,* from this->finalpage.formobjects),'boxed');
+      ABORT("Length(informobjects) != Length(this->finalpage.formobjects)");
+    }
+
+    RETURN this->finalpage;
+  }
+
+  VARIANT FUNCTION ParseColumnValue(STRING type, STRING val)
+  {
+    SWITCH (type)
+    {
+    CASE "text", "email"
+      {
+        RETURN val;
+      }
+    CASE "icon", "integer"
+      {
+        INTEGER retval := ToInteger(val, 0);
+        IF (retval != ToInteger(val, -1))
+          THROW NEW Exception("Value '" || EncodeJava(val) || "' is not a valid integer");
+        RETURN retval;
+      }
+    CASE "date"
+      {
+        DATETIME retval := MakeDateFromText(val);
+        IF (val != "" AND retval = DEFAULT DATETIME)
+          THROW NEW Exception("Value '" || EncodeJava(val) || "' is not a valid datetime");
+        RETURN val;
+      }
+    CASE "integer64"
+      {
+        INTEGER64 retval := ToInteger64(val, 0);
+        IF (retval != ToInteger64(val, -1))
+          THROW NEW Exception("Value '" || EncodeJava(val) || "' is not a valid integer64");
+        RETURN retval;
+      }
+    CASE "money"
+      {
+        MONEY retval := ToMoney(val, 0);
+        IF (retval != ToMoney(val, -1))
+          THROW NEW Exception("Value '" || EncodeJava(val) || "' is not a valid money");
+        RETURN retval;
+      }
+    CASE "blobrecord"
+      {
+        THROW NEW Exception("For columns of type 'blobrecord', emptyvalue is not allowed");
+      }
+    CASE "time"
+      {
+        THROW NEW Exception("For columns of type 'time', emptyvalue is not implemented");
+      }
+    DEFAULT
+      {
+        THROW NEW Exception("Illegal column type '"||type||"'");
+      }
+    }
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION ParseListColumns(OBJECT nodeset)
+  {
+    RECORD ARRAY cols;
+
+    STRING savegid := this->bb_levels[0].gid;
+
+    //ADDME we can probably clean this all up a bit by treating columns as scoped real components
+    FOREVERY(OBJECT col FROM nodeset->GetCurrentElements())
+    {
+      //WARNING: Be careful when adding extra cells to read here. Custom column parsers may not actually place your new cells into 'colinfo' (eg it crashed the addition of emptyvalue earlier)
+
+      RECORD customcoltype := GetComponentDefinition(col->namespaceuri, col->localname);
+      IF(customcoltype.placement != "listcolumn") //FIXME PROPERLY validate placement, don't just ignore
+        THROW NEW Exception("Element '" || col->localname || "' cannot be placed here"); //ADDME move placement checks into curpageparser lookupcomponent...
+
+      //RECORD colinfo := this->StartXMLNode2(col);
+
+      this->bb_levels[0].gid := curpageparser->ParseGid(col,"gid");
+
+      RECORD colinfo := ParseXMLFields(col, customcoltype);
+      IF(CellExists(colinfo,"gid"))
+      {
+        colinfo.gid := this->bb_levels[0].gid;
+        IF(col->HasAttribute("gid") AND NOT col->HasAttribute("titlefromrowkey"))
+          curpageparser->Addwarning(col->linenum, "This column defines a 'gid', but does not set the titlefromrowkey attribute. Future versions of WebHare will not perform automatic gid-base titlefromrowkey translations");
+      }
+
+      //dumpvalue(colinfo.title,'boxed');
+      INSERT CELL tolliumscope := curpageparser->tolliumscopes[0] INTO colinfo;
+      INSERT CELL line := col->linenum INTO colinfo.tolliumscope;
+      INSERT CELL col := 0 INTO colinfo.tolliumscope;
+      INSERT CELL emptyvalueisset := col->HasAttribute("emptyvalue") INTO colinfo;
+
+      RECORD mapping;
+      OBJECT mappingnode := col->GetElementsByTagNameNS(ns_screens,"mapping")->Item(0);
+      IF(ObjectExists(mappingnode))
+        mapping := ParseMapping(mappingnode, colinfo.type);
+
+      VARIANT emptyvalue;
+      IF (colinfo.emptyvalueisset)
+        emptyvalue := this->ParseColumnValue(colinfo.type, colinfo.emptyvalue);
+      ELSE
+        emptyvalue := "";
+
+      DELETE CELL emptyvalue FROM colinfo;
+      INSERT CELL emptyvalue := emptyvalue INTO colinfo;
+
+      INSERT CELL mapping := mapping INTO colinfo;
+      INSERT CELL objtype := customcoltype.objtype INTO colinfo;
+      INSERT colinfo INTO cols AT END;
+
+      this->bb_levels[0].gid := savegid;
+    }
+
+    RETURN cols;
+  }
+
+  PUBLIC RECORD FUNCTION ParseXMLGrid(OBJECT nodeset)
+  {
+    RECORD ARRAY rows, cols, directcells;
+
+    FOREVERY(OBJECT rownode FROM nodeset->GetCurrentElements())
+      SWITCH(rownode->localname)
+      {
+        CASE "col"
+        {
+          INSERT [ width:= rownode->GetAttribute("width")
+                 , minwidth := rownode->GetAttribute("minwidth")
+                 ] INTO cols AT END;
+        }
+        CASE "row"
+        {
+          IF(Length(directcells)>0)
+          {
+            curpageparser->AddError(rownode->linenum,"Cannot mix <row> with <cell>s at the top level");
+            CONTINUE;
+          }
+
+          RECORD ARRAY cells;
+
+          FOR(OBJECT cellnode := rownode->firstchild; ObjectExists(cellnode); cellnode := cellnode->nextsibling)
+            IF(cellnode->nodetype = XmlElementNode) //It has to be a cell
+            {
+              STRING panel := ParseXMLPanel(cellnode);
+              INSERT INTO cells(name, colspan, rowspan, background, valign, width, minwidth)
+                          VALUES(panel, ReadIntAttr(cellnode, "colspan", 1), ReadIntAttr(cellnode, "rowspan", 1), "", ReadStringAttr(cellnode, "valign", "none"), "", "")
+                          AT END;
+            }
+
+          INSERT INTO rows(cells, height, minheight)
+                      VALUES(cells, rownode->GetAttribute("height"), rownode->GetAttribute("minheight"))
+                      AT END;
+        }
+        CASE "cell"
+        {
+          IF(Length(rows)>0)
+          {
+            curpageparser->AddError(rownode->linenum,"Cannot mix <row> with <cell>s at the top level");
+            CONTINUE;
+          }
+
+          STRING panel := ParseXMLPanel(rownode);
+          INSERT INTO directcells(name, colspan, rowspan, background, valign, width, minwidth)
+                      VALUES(panel, ReadIntAttr(rownode, "colspan", 1), ReadIntAttr(rownode, "rowspan", 1), "", ReadStringAttr(rownode, "valign", "none"), rownode->GetAttribute("width"), rownode->GetAttribute("minwidth"))
+                      AT END;
+        }
+      }
+
+    IF(Length(directcells) > 0)
+      rows := [[ cells := directcells, height := "1pr", minheight := "" ]];
+
+    FOREVERY(RECORD row FROM rows)
+      WHILE(Length(row.cells) > Length(cols))
+      {
+        INSERT [ width := row.cells[Length(cols)].width, minwidth := row.cells[Length(cols)].minwidth ] INTO cols AT END;
+      }
+
+    RETURN [ rows := rows
+           , cols := cols
+           ];
+  }
+
+>;
+
+BOOLEAN FUNCTION ReadBoolAttr(OBJECT el, STRING attrname, BOOLEAN defaultvalue)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN ParseXSBoolean(el->GetAttribute(attrname));
+  ELSE
+    RETURN defaultvalue;
+}
+
+STRING FUNCTION ReadStringAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN el->GetAttribute(attrname);
+  ELSE
+    RETURN defaultvalue;
+}
+STRING FUNCTION ReadComponentAttr(OBJECT el, STRING attrname)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN FixupReferringName(GetScopedName(el->GetAttribute(attrname)));
+  ELSE
+    RETURN "";
+}
+STRING ARRAY FUNCTION ReadStringListAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+{
+  RETURN ParseXSList(el->HasAttribute(attrname) ? el->GetAttribute(attrname) : defaultvalue);
+}
+RECORD FUNCTION ReadAcceptDropsAttr(OBJECT el, INTEGER ARRAY ondrop_signature)
+{
+  RECORD acceptdrops :=
+      [ ondrop := ReadHandlerAttr(el, "ondrop", ondrop_signature)
+      , accepttypes := DEFAULT RECORD ARRAY
+      , acceptmultiple := ReadBoolAttr(el, "acceptmultiple", TRUE)
+      , line := el->linenum
+      , col := 0
+      , tolliumscope := MakeMergedRecord(curpageparser->tolliumscopes[0], [ line := el->linenum, col := 0 ])
+      ];
+
+  RECORD imgsize := ParseImgSize(el);
+  FOREVERY(OBJECT accepttype FROM el->childnodes->GetCurrentElements())
+  {
+    IF(accepttype->localname="accepttype")
+    {
+      STRING ARRAY dropeffects := Tokenize(ReadStringAttr(accepttype, "dropeffects", "move"), " ");
+      INSERT
+          [ type :=            ReadStringAttr(accepttype, "type", "")
+          , imageaction :=     ""
+          , imgsize :=         DEFAULT RECORD
+          , sourceflags :=     ReadStringListAttr(accepttype, "sourceflags", "")
+          , targetflags :=     ReadStringListAttr(accepttype, "targetflags", "")
+          , frameflags :=      ReadStringListAttr(accepttype, "frameflags", "")
+          , insertbeforeflags := ReadStringListAttr(accepttype, "insertbeforeflags", "")
+          , appendchildflags := ReadStringListAttr(accepttype, "appendchildflags", "")
+          , locations :=       ReadStringListAttr(accepttype, "locations", "ontarget")
+          , requiretarget :=   ReadBoolAttr  (accepttype, "requiretarget", FALSE)
+          , dropeffects :=     dropeffects
+          , noloops :=         ReadBoolAttr  (accepttype, "noloops", FALSE)
+          , line :=            el->linenum
+          , col :=             0
+          , tolliumscope :=    MakeMergedRecord(curpageparser->tolliumscopes[0], [ line := el->linenum, col := 0 ])
+          ] INTO acceptdrops.accepttypes AT END;
+    }
+    ELSE IF (accepttype->localname="acceptfile")
+    {
+      STRING imageaction := ReadStringAttr(accepttype, "imageactiontype", "upload");
+      INSERT
+          [ type :=            "file"
+          , imageaction :=     imageaction
+          , imgsize :=         imageaction = "edit" ? imgsize : DEFAULT RECORD
+          , sourceflags :=     ""
+          , targetflags :=     ReadStringListAttr(accepttype, "targetflags", "")
+          , frameflags :=      ReadStringListAttr(accepttype, "frameflags", "")
+          , insertbeforeflags := ReadStringListAttr(accepttype, "insertbeforeflags", "")
+          , appendchildflags := ReadStringListAttr(accepttype, "appendchildflags", "")
+          , locations :=       ReadStringListAttr(accepttype, "locations", "ontarget")
+          , requiretarget :=   ReadBoolAttr  (accepttype, "requiretarget", FALSE)
+          , dropeffects :=     [ "copy","move" ] //FIXME chrome op mac required "move" in this list too?
+          , noloops :=         FALSE
+          , line :=            el->linenum
+          , col :=             0
+          , tolliumscope :=    MakeMergedRecord(curpageparser->tolliumscopes[0], [ line := el->linenum, col := 0 ])
+          ] INTO acceptdrops.accepttypes AT END;
+    }
+  }
+  RETURN acceptdrops;
+}
+INTEGER FUNCTION ReadIntAttr(OBJECT el, STRING attrname, INTEGER defaultvalue)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN ToInteger(el->GetAttribute(attrname), defaultvalue);
+  ELSE
+    RETURN defaultvalue;
+}
+MONEY FUNCTION ReadMoneyAttr(OBJECT el, STRING attrname, MONEY defaultvalue)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN ToMoney(el->GetAttribute(attrname), defaultvalue);
+  ELSE
+    RETURN defaultvalue;
+}
+FLOAT FUNCTION ReadFloatAttr(OBJECT el, STRING attrname, FLOAT defaultvalue)
+{
+  IF(el->HasAttribute(attrname))
+    RETURN ToFloat(el->GetAttribute(attrname), defaultvalue);
+  ELSE
+    RETURN defaultvalue;
+}
+
+STRING FUNCTION ReadNameAttr(OBJECT el)
+{
+  IF(el->HasAttribute("name"))
+  {
+    STRING name := el->GetAttribute("name");
+
+    STRING uname := ToUppercase(name);
+    IF (uname LIKE "TOLLIUM*" OR uname IN reserved_names)
+      curpageparser->AddError(el->linenum, "Name '"||name||"' cannot be used as a component name");
+
+    RETURN name;
+  }
+  ELSE
+    RETURN curpageparser->CreateAnonymousName();
+}
+STRING FUNCTION ReadIconAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+{
+  IF (el->HasAttribute(attrname))
+    RETURN ParseIconPointer(curpageparser->GetCurrentModule(), el->GetAttribute(attrname));
+  ELSE
+    RETURN defaultvalue;
+}
+STRING FUNCTION ReadGid(OBJECT el, STRING currentmodule, STRING gidsofar)
+{
+  IF(NOT el->HasAttribute('gid'))
+    RETURN gidsofar;
+
+  STRING gid := ReadStringAttr(el, 'gid', "");
+  IF(Left(gid,1)=".")
+    RETURN gidsofar || gid;
+  IF(gid != "" AND gid NOT LIKE "*:*")
+    RETURN currentmodule || ":" || gid;
+  RETURN gid;
+}
+
+RECORD FUNCTION ReadBordersSpacersAttr(OBJECT el, STRING cellname)
+{
+  RETURN ParseBordersSpacers(el->GetAttribute(cellname));
+}
+
+RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY callback_signature)
+{
+  STRING handlername := ReadStringAttr(element, fieldname, '');
+  IF (handlername = '')
+    RETURN DEFAULT RECORD;
+
+  IF(handlername LIKE "*#*")
+    handlername := MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), handlername);
+  ELSE
+    handlername := FixupReferringName(GetScopedName(handlername));
+
+  INTEGER callback_rettype := callback_signature[0];
+  DELETE FROM callback_signature AT 0;
+
+  RETURN [ name       := handlername // handlername defined in screen
+         , req_retval := callback_rettype   // expected returnvalue type
+         , req_args   := callback_signature // types of expected arguments
+         ];
+}
+
+// -----------------------------------------------------------------------------
+//
+//   Other helper functions
+//
+
+/* Get the TID the element would be based on in case it would have no title.
+   This TID can be used as prefix for <option>'s
+*/
+STRING FUNCTION ParseTidPointer(STRING module, OBJECT el, STRING type, STRING gid)
+{
+  STRING tid := el->GetAttribute(type||"tid");
+  IF(tid!="")
+  {
+    IF(Left(tid,1)='.')
+      tid := gid||tid;
+    RETURN tid;
+  }
+
+  IF(gid!="" AND el->HasAttribute("cellname") AND type="")
+  {
+    STRING name := el->GetAttribute("cellname");
+    name := Substring(name,  SearchLastSubstring(name,'.')+1, 256);
+    RETURN gid||'.'||name;
+  }
+
+  IF(gid!="" AND el->HasAttribute("name") AND type="")
+  {
+    STRING name := el->GetAttribute("name");
+    name := Substring(name,  SearchLastSubstring(name,'.')+1, 256);
+    RETURN gid||'.'||name;
+  }
+
+  RETURN '';
+}
+
+// -----------------------------------------------------------------------------
+//
+//   parsers
+//
+
+PUBLIC RECORD FUNCTION GetMessageBox(STRING name)
+{
+  //Locate the messageboxes node
+  RECORD docinfo := RetrieveCachedXMLResource(GetResourceNameFromScreenPath(name));
+  STRING dialogname := GetScreenNameFromScreenPath(name);
+  OBJECT dialognode := docinfo.doc->GetElementsByTagNameNS(ns_screens, "messageboxes")->item(0);
+  IF(NOT ObjectExists(Dialognode))
+    RETURN DEFAULT RECORD;
+
+  STRING module := GetModuleNameFromScreenPath(name);
+
+  FOREVERY (OBJECT node FROM dialognode->childnodes->GetCurrentElements())
+    IF(node->localname="messagebox" AND node->GetAttribute("name")=dialogname)
+      RETURN GetMessageBoxFromNode(node, module);
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION GetMessageBoxFromNode(OBJECT node, STRING module)
+{
+  STRING gid := ReadGid(node, module, ReadGid(node->parentnode, module, ReadGid(node->parentnode->parentnode, module, "")));
+
+  RECORD ARRAY buttons;
+  FOREVERY (OBJECT button FROM node->childnodes->GetCurrentElements())
+    IF(button->localname="button")
+      INSERT [ name          := ReadStringAttr(button, "tolliumresult", "")
+             , tp            := ParseXMLTIDPtr(module, gid, button, "title")
+             , icon          := ""
+             , isdefault     := ReadBoolAttr(button, "isdefault", FALSE)
+             , tolliumresult := ReadStringAttr(button, "tolliumresult", "")
+             , menu          := ""
+             , action        := ""
+             , hinttp        := DEFAULT RECORD
+             , disablemode   := "grayed"
+            ] INTO buttons AT END;
+
+  STRING msgicon := "information";
+  IF (node->HasAttribute("icon"))
+  {
+    msgicon := node->GetAttribute("icon");
+    IF (msgicon NOT IN ["", "error", "information", "question", "unrecoverable", "warning"])
+      msgicon := "information";
+  }
+
+  STRING dontshowagain := TrimWhitespace(ReadStringAttr(node, "dontshowagain", ""));
+  STRING ARRAY defaultbuttons := node->HasAttribute("buttons") ? ParseXSList(node->GetAttribute("buttons")) : DEFAULT STRING ARRAY;
+  STRING defaultbutton;
+  IF(node->HasAttribute("default"))
+    defaultbutton := node->GetAttribute("default");
+  ELSE IF("ok" IN defaultbuttons)
+    defaultbutton := "ok";
+  ELSE IF("close" IN defaultbuttons)
+    defaultbutton := "close";
+
+  RETURN [ msgdef            := ParseXMLTIDPtr(module, gid, node, "title")
+         , msg               := ""
+         , icon              := msgicon
+         , dontshowagain     := dontshowagain != "" ? Tokenize(dontshowagain, " ") : DEFAULT STRING ARRAY
+         , dontshowagaintext := ""
+         , defaultbuttons    := defaultbuttons
+         // Add default buttons (ok, cancel, etc.)
+//                 , buttondefs        := node->HasAttribute("buttons") ? GetDefaultFormButtons(node->GetAttribute("buttons"), node->linenum, node->GetAttribute("default"), TRUE) : DEFAULT RECORD ARRAY
+         , defaultbutton     := defaultbutton
+         , buttons           := buttons
+         ];
+}
+
+
+RECORD ARRAY FUNCTION ParseListRows(OBJECT nodeset, RECORD ARRAY cols, STRING rowkeytype, STRING rowiconname, STRING ARRAY flags)
+{
+  RECORD ARRAY resultrows;
+  FOREVERY(OBJECT node FROM nodeset->GetCurrentElements())
+    INSERT ReadListRow(node, cols, rowkeytype, rowiconname, flags) INTO resultrows AT END;
+  RETURN resultrows;
+}
+
+RECORD FUNCTION ReadListRow(OBJECT row, RECORD ARRAY cols, STRING rowkeytype, STRING rowiconname, STRING ARRAY flags)
+{
+  RECORD rowdata := [ subnodes        := DEFAULT RECORD ARRAY
+                    , expanded        := ReadBoolAttr(row, "expanded", false)
+                    , tolliuminitial  := ReadBoolAttr(row, "selected", false)
+                    , style           := ReadStringAttr(row, "style", "")
+                    ];
+
+  IF(row->HasAttribute("rowkey"))
+  {
+    STRING rowkeyval := row->GetAttribute("rowkey");
+    IF(rowkeytype="boolean")
+      INSERT CELL rowkey := rowkeyval IN ["true","1"] INTO rowdata;
+    ELSE IF(rowkeytype="integer")
+      INSERT CELL rowkey := ToInteger(rowkeyval,0) INTO rowdata;
+    ELSE
+      INSERT CELL rowkey := rowkeyval INTO rowdata;
+  }
+
+  FOREVERY(OBJECT element FROM row->childnodes->GetCurrentElements())
+  {
+    IF(element->localname = "row")
+    {
+      INSERT ReadListRow(element, cols, rowkeytype, rowiconname, flags) INTO rowdata.subnodes AT END;
+    }
+    ELSE IF(element->localname = "element")
+    {
+      RECORD coldescr;
+      STRING colname := element->GetAttribute('name');
+
+      IF(colname="")
+        curpageparser->AddError(element->linenum, "Missing column name");
+
+      coldescr:= SELECT * FROM cols WHERE ToUppercase(iconname) = ToUppercase(colname)
+                                                  OR ToUppercase(selecticonname) = ToUppercase(colname)
+                                                  OR ToUppercase(iconoverlayname) = ToUppercase(colname);
+      IF(RecordExists(coldescr) OR ToUppercase(colname) = ToUppercase(rowiconname))
+      {
+        rowdata := CellInsert(rowdata, colname, ToInteger(element->GetAttribute('data'),0));
+        CONTINUE;
+      }
+
+      coldescr:= SELECT * FROM cols WHERE ToUppercase(checkboxname) = ToUppercase(colname)
+                                       OR ToUppercase(checkboxvisible) = ToUppercase(colname);
+      IF(RecordExists(coldescr))
+      {
+        rowdata := CellInsert(rowdata, colname, ReadBoolAttr(element, "data", false));
+        CONTINUE;
+      }
+
+      BOOLEAN match;
+      FOREVERY(STRING flag FROM flags)
+        IF(ToUppercase(colname) = ToUppercase(flag))
+        {
+          rowdata := CellInsert(rowdata, colname, ReadBoolAttr(element, "data", false));
+          match:=TRUE;
+        }
+
+      IF(match)
+        CONTINUE;
+
+      coldescr:= SELECT * FROM cols WHERE ToUppercase(hintname) = ToUppercase(colname);
+      IF(RecordExists(coldescr))
+      {
+        rowdata := CellInsert(rowdata, colname, element->GetAttribute('data'));
+        CONTINUE;
+      }
+
+      coldescr := SELECT * FROM cols WHERE ToUppercase(name) = ToUppercase(colname) OR ToUppercase(collapsedname) = ToUppercase(colname);
+      IF(NOT RecordExists(coldescr))
+      {
+        curpageparser->AddError(element->linenum, "No such column '" || colname || "'");
+      }
+      ELSE
+      {
+        IF(coldescr.type="integer" OR coldescr.type="icon")
+        {
+          rowdata := CellInsert(rowdata, colname, ToInteger(element->GetAttribute('data'),0));
+        }
+        ELSE IF(coldescr.type IN ["date","datetime"])
+        {
+          rowdata := CellInsert(rowdata, colname, MakeDateFromText(element->GetAttribute('data')));
+        }
+        ELSE IF(element->HasAttribute('tid'))
+          rowdata := CellInsert(rowdata, colname, curpageparser->ParseTP(element, "title"));
+        ELSE
+        {
+          STRING data := element->GetAttribute('data');
+          IF(data!='')
+            data := ':' || data;
+          rowdata := CellInsert(rowdata, colname, data);
+        }
+      }
+    }
+    ELSE
+    {
+      curpageparser->AddError(row->linenum, "Unrecognized element '" || row->nodename || "' inside list");
+    }
+  }
+  RETURN rowdata;
+}
+RECORD ARRAY FUNCTION ParseListStyles(OBJECT nodeset)
+{
+  RECORD ARRAY styles;
+  FOREVERY(OBJECT node FROM nodeset->GetCurrentElements())
+  {
+    INSERT [ name := ReadStringAttr(node, "name", "")
+           , bold := ReadBoolAttr(node, "bold", FALSE)
+           , italic := ReadBoolAttr(node, "italic", FALSE)
+           , backgroundcolor := GetValidColor(ReadStringAttr(node, "backgroundcolor", ""))
+           , textcolor := GetValidColor(ReadStringAttr(node, "textcolor", ""))
+           ] INTO styles AT END;
+  }
+  RETURN styles;
+}
+
+RECORD FUNCTION ParseListRowLayoutRow(OBJECT childnode)
+{
+  RECORD layoutrow := [ cells := DEFAULT RECORD ARRAY
+                      ];
+
+  //ADDME: Check spanned rows and cols
+  FOR (OBJECT rowcell := childnode->firstchild; ObjectExists(rowcell); rowcell := rowcell->nextsibling)
+  {
+    IF (rowcell->localname = "cell")
+    {
+      RECORD layoutcell :=  [ coldef := rowcell->GetAttribute("coldef")
+                            , colspan := ReadIntAttr(rowcell, "colspan", 1)
+                            , rowspan := ReadIntAttr(rowcell, "rowspan", 1)
+                            ];
+      /* FIXME
+      IF (NOT RecordExists(SELECT FROM cols WHERE ToUppercase(name) = ToUppercase(layoutcell.coldef)))
+        curpageparser->AddError(rowcell->linenum, "coldef referring to non-existing column '" || layoutcell.coldef || "'");
+      */
+
+      INSERT layoutcell INTO layoutrow.cells AT END;
+    }
+  }
+
+  RETURN layoutrow;
+}
+
+RECORD ARRAY FUNCTION ParseListRowLayouts(OBJECT layoutnodeset)
+{
+  RECORD ARRAY rowlayouts;
+  FOREVERY(OBJECT layout FROM layoutnodeset->GetCurrentElements())
+  {
+    RECORD rowlayout := [ name := layout->GetAttribute("name")
+                        , columns := DEFAULT RECORD ARRAY
+                        , rows := DEFAULT RECORD ARRAY
+                        , dragcolumns := DEFAULT STRING ARRAY
+                        , dragrows := DEFAULT RECORD ARRAY
+                        ];
+    FOR (OBJECT childnode := layout->firstchild; ObjectExists(childnode); childnode := childnode->nextsibling)
+    {
+      SWITCH (childnode->localname)
+      {
+        CASE "col"
+        {
+          RECORD layoutcol := [ coldef := childnode->GetAttribute("coldef")
+                              , combinewithnext := ReadBoolAttr(childnode, "combinewithnext", FALSE)
+                              ];
+          /* FIXME
+          IF (NOT RecordExists(SELECT FROM cols WHERE ToUppercase(name) = ToUppercase(layoutcol.coldef)))
+            curpageparser->AddError(childnode->linenum, "coldef referring to non-existing column '" || layoutcol.coldef || "'");
+          */
+          INSERT layoutcol INTO rowlayout.columns AT END;
+          INSERT layoutcol.coldef INTO rowlayout.dragcolumns AT END;
+        }
+        CASE "row"
+        {
+          RECORD row := ParseListRowLayoutRow(childnode);
+          INSERT row INTO rowlayout.rows AT END;
+          INSERT row INTO rowlayout.dragrows AT END;
+        }
+        CASE "draglayout"
+        {
+          rowlayout.dragcolumns := ParseXSList(childnode->GetAttribute('cols'));
+          rowlayout.dragrows := DEFAULT RECORD ARRAY;
+
+          FOREVERY (OBJECT subchildnode FROM childnode->childnodes->GetCurrentElements())
+          {
+            SWITCH (subchildnode->localname)
+            {
+              CASE "row"
+              {
+                INSERT ParseListRowLayoutRow(subchildnode) INTO rowlayout.dragrows AT END;
+              }
+            }
+          }
+        }
+      }
+    }
+    INSERT rowlayout INTO rowlayouts AT END;
+  }
+  RETURN rowlayouts;
+}
+
+RECORD FUNCTION ParseActionCondition(OBJECT condition)
+{
+  RECORD src:=
+         [ source         := ReadComponentAttr(condition, "source")
+         , checkflags     := ReadStringAttr(condition, "checkflags", "")
+         , frameflags     := ReadStringAttr(condition, "frameflags", "")
+         , min            := ReadIntAttr(condition, "min", 0)
+         , max            := ReadIntAttr(condition, "max", -1)
+         , selectionmatch := ReadStringAttr(condition, "selectionmatch", "all")
+         , onexecute      := ReadHandlerAttr(condition, "onexecute", [/*MACRO*/0])
+         , onwindowopen   := ReadHandlerAttr(condition, "onwindowopen", [/*MACRO*/0, TypeID(OBJECT)])
+         , ondownload     := ReadHandlerAttr(condition, "ondownload", [/*MACRO*/0, TypeID(OBJECT)])
+         , onupload       := ReadHandlerAttr(condition, "onupload", [/*MACRO*/0, TypeID(RECORD ARRAY)])
+         , requirefocus   := ReadBoolAttr(condition, "requirefocus", FALSE)
+         , requirevisible := ReadBoolAttr(condition, "requirevisible", FALSE)
+         , line           := condition->linenum
+         , col            := 0
+         , tolliumscope   := MakeMergedRecord(curpageparser->tolliumscopes[0], [ line := condition->linenum, col := 0 ])
+         ];
+
+  IF(ToUppercase(src.source)="FRAME")
+    curpageparser->AddError(condition->linenum, "Condition may not refer to 'frame'");
+  RETURN src;
+}
+
+RECORD ARRAY FUNCTION ParseActionConditions(OBJECT nodelist)
+{
+  RECORD ARRAY retval;
+  FOREVERY(OBJECT condition FROM nodelist->GetCurrentElements())
+    INSERT ParseActionCondition(condition) INTO retval AT END;
+  RETURN retval;
+}
+
+RECORD ARRAY FUNCTION ParseLines(OBJECT nodeset)
+{
+  RECORD ARRAY lines;
+  FOREVERY(OBJECT curnode FROM nodeset->GetCurrentElements())
+  {
+    IF(curnode->namespaceuri = ns_screens AND curnode->localname = "lines")
+    {
+      //save currents ettings and reinvoke us
+      RECORD savelayout := curpageparser->bb_levels[0].linesettings;
+      STRING savegid := curpageparser->bb_levels[0].gid;
+      curpageparser->bb_levels[0].gid := curpageparser->ParseGid(curnode, "gid");
+      curpageparser->bb_levels[0].linesettings := ApplyLineSettings(savelayout, curnode);
+      RECORD ARRAY retval := ParseLines(curnode->childnodes);
+      curpageparser->bb_levels[0].linesettings := savelayout;
+      curpageparser->bb_levels[0].gid := savegid;
+      lines := lines CONCAT retval;
+      CONTINUE;
+    }
+
+    /* FIXME: this is a hack to support multiline expanding fragments. it's a bit
+       hard to find a good spot for this without resorting to panels as i want components
+       to be able to add lines to the formlayout. Should probably resort to
+       a more state-machine instead of stack-based parsing for tollium */
+    BOOLEAN isincludefragment := curnode->namespaceuri = ns_screens AND curnode->localname = "includefragment";
+    RECORD compinfo := curpageparser->LookupComponent(curnode, FALSE);
+    //print("4: " || compinfo.fragment || "\n");
+    IF(RecordExists(compinfo) AND (compinfo.fragment != "" OR isincludefragment))
+    {
+      RECORD ARRAY fragmentlines := curpageparser->IncludeFragment(curnode, "block"/*FIXME placement*/, isincludefragment, compinfo);
+      lines := lines CONCAT fragmentlines;
+      CONTINUE;
+    }
+
+    INSERT ParseBodyOrRowNode(curnode, "block"/*FIXME placement*/) INTO lines AT END;
+  }
+
+  RETURN lines;
+}
+
+RECORD FUNCTION ApplyLineSettings(RECORD insettings, OBJECT node)
+{
+  IF(node->HasAttribute("layout"))
+    insettings.layout := node->GetAttribute("layout");
+  RETURN insettings;
+}
+
+RECORD FUNCTION ParseBodyOrRowNode(OBJECT node, STRING placement)
+{
+  RECORD line := [ linesettings := curpageparser->bb_levels[0].linesettings
+                 , items := DEFAULT STRING ARRAY
+                 ];
+
+  STRING fullname := node->namespaceuri || ":" || node->localname;
+  SWITCH(fullname)
+  {
+    CASE "http://www.webhare.net/xmlns/tollium/screens:line"
+    {
+      line.linesettings := ApplyLineSettings(line.linesettings, node);
+      line.items := ParseBodyNodes(node,"inline").lineitems;
+    }
+    DEFAULT
+    {
+
+      line.items := [ ParseBodyNode(node, placement) ];
+    }
+  }
+  RETURN line;
+}
+
+OBJECT FUNCTION GetParserTarget(OBJECT element, RECORD field)
+{
+  OBJECT xpath := element->ownerdocument->CreateXPathQuery();
+  //We can't set the default namespaces for a xpath context, so any target query must explicitly specify namespaces
+  xpath->RegisterNamespaces(field.target_namespaces);
+
+  TRY
+  {
+    RETURN xpath->ExecuteQuery(field.target, element);
+  }
+  CATCH(OBJECT e)
+  {
+    curpageparser->AddError(element->linenum, `Failed to evaluate '${field.target}' for setting '${field.name}': ${e->what}'`);
+    RETURN element->GetElementsByTagNameNS("urn::will-not-exist","will-not-exist"); //return a dummy nodeset
+  }
+}
+
+RECORD ARRAY FUNCTION ParseDividedComponents(OBJECT element, RECORD divider)
+{
+  RECORD ARRAY comps;
+
+  FOREVERY(OBJECT rownode FROM element->GetCurrentElements())
+  {
+    IF(rownode->namespaceuri = divider.namespaceuri AND rownode->localname = divider.localname)
+    {
+      INSERT [ name := "", type := rownode->GetAttribute("type") ] INTO comps AT END;
+      CONTINUE;
+    }
+    INSERT [ name := ParseBodyNode(rownode,/*FIXME placement?*/"block"), type := "" ] INTO comps AT END;
+  }
+  RETURN comps;
+}
+
+VARIANT FUNCTION ParseUsingExtraParser(OBJECT element, RECORD field, RECORD itemsofar)
+{
+  OBJECT nodeset := GetParserTarget(element,field);
+
+  IF(field.parser.namespaceuri = ns_screens)
+  {
+    SWITCH(field.parser.localname)
+    {
+      CASE "enableons"
+      {
+        RETURN ParseActionConditions(nodeset);
+      }
+      CASE "array"
+      {
+        RETURN ParseArray(nodeset);
+      }
+      CASE "childcomponents"
+      {
+        RETURN ParseChildComponents(nodeset, field.adoptfields);
+      }
+      CASE "acceptdrops"
+        {
+          OBJECT acceptdrops := nodeset->Item(0);
+          IF(ObjectExists(acceptdrops))
+            RETURN ReadAcceptDropsAttr(acceptdrops, field.ondrop_signature);
+          ELSE
+            RETURN DEFAULT RECORD;
+        }
+      CASE "listcolumns"
+      {
+        RETURN curpageparser->ParseListColumns(nodeset);
+      }
+      CASE "listrowlayouts"
+      {
+        RETURN ParseListRowLayouts(nodeset);
+      }
+      CASE "liststyles"
+      {
+        RETURN ParseListStyles(nodeset);
+      }
+      CASE "optionsources"
+      {
+        RETURN ParseOptionSources(nodeset
+                                 ,field.rowkeytypefield != '' ? GetCell(itemsofar, field.rowkeytypefield) : ''
+                                 ,field.flagsfield != '' ? GetCell(itemsofar, field.flagsfield) : DEFAULT STRING ARRAY
+                                 ,element);
+      }
+      CASE "linkhandlers"
+      {
+        RETURN ParseLinkHandlers(nodeset);
+      }
+      CASE "listrows"
+      {
+        //FIXME worden we vrolijk van deze aanpak?
+        RETURN ParseListRows(nodeset
+                                   ,GetCell(itemsofar, field.columnsfield)
+                                   ,GetCell(itemsofar, field.rowkeytypefield)
+                                   ,GetCell(itemsofar, field.rowiconnamefield)
+                                   ,GetCell(itemsofar, field.flagsfield));
+      }
+      CASE "lines"
+      {
+        RETURN ParseLines(nodeset);
+      }
+      CASE "grid"
+      {
+        RETURN curpageparser->ParseXMLGrid(nodeset);
+      }
+      CASE "dividedcomponents"
+      {
+        RETURN ParseDividedComponents(nodeset, field.divider);
+      }
+      CASE "rowdatatypes" // for <arrayedit>
+      {
+        RETURN ParseRowDataTypes(nodeset);
+      }
+      CASE "backgroundimages"
+      {
+        RETURN ParseBackgroundImages(nodeset);
+      }
+      CASE "imgsize"
+      {
+        RETURN ParseImgSize(nodeset);
+      }
+      CASE "bodynode"
+      {
+        RETURN nodeset->Length > 0 ? ParseBodyNode(nodeset->Item(0),"inline") : "";
+      }
+      CASE "allowwidgettypes"
+      {
+        RETURN SELECT AS RECORD ARRAY ParseAllowWidgetType(node) FROM ToRecordArray(nodeset->GetCurrentElements(),"node");
+      }
+    }
+  }
+
+  curpageparser->AddError(element->linenum, "Unrecognized parser " || field.parser.namespaceuri|| ":" || field.parser.localname || " defined for this component");
+  RETURN DEFAULT RECORD;
+}
+
+RECORD ARRAY FUNCTION ParseArray(OBJECT nodeset)
+{
+  RECORD ARRAY retval;
+
+  FOREVERY(OBJECT node FROM nodeset->GetCurrentElements())
+  {
+    RECORD compinfo := curpageparser->LookupComponent(node, TRUE);
+    IF(NOT RecordExists(compinfo))
+      CONTINUE;
+
+    RECORD item := ParseXMLFields(node, compinfo);
+    INSERT item INTO retval AT END;
+  }
+  RETURN retval;
+}
+
+RECORD FUNCTION ParseXMLFields(OBJECT element, RECORD compinfo)
+{
+  RECORD item := [ __xml_fields := compinfo.xml_fields ];
+  FOREVERY(RECORD field FROM compinfo.xml_fields)
+  {
+    STRING cellname := CellExists(field, "CELLNAME") ? field.cellname : field.name;
+
+    IF(CellExists(field,'warning') AND element->HasAttribute(cellname))
+      curpageparser->AddWarning(element->linenum, field.warning);
+
+//    IF(cellname = "name" OR cellname="gid" OR cellname="layout")
+//      CONTINUE; //ADDME just eliminate 'global' fields in components.whlib?
+
+    VARIANT storevalue;
+    SWITCH(TypeId(field.defaultvalue))
+    {
+      CASE TypeId(INTEGER)
+      {
+        storevalue := ReadIntAttr(element, cellname, field.defaultvalue);
+      }
+      CASE TypeId(MONEY)
+      {
+        storevalue := ReadMoneyAttr(element, cellname, field.defaultvalue);
+      }
+      CASE TypeId(FLOAT)
+      {
+        storevalue := ReadFloatAttr(element, cellname, field.defaultvalue);
+      }
+      CASE TypeId(BOOLEAN)
+      {
+        storevalue := ReadBoolAttr(element, cellname, field.defaultvalue);
+      }
+      CASE TypeId(STRING)
+      {
+        storevalue := ReadStringAttr(element, cellname, field.defaultvalue);
+      }
+      CASE TypeId(RECORD)
+      {
+        SWITCH(field.recordtype)
+        {
+          CASE "tid"
+          {
+            storevalue := curpageparser->ParseTP(element, cellname);
+          }
+          CASE "tidptr"
+          {
+            storevalue := curpageparser->ParseTP(element, field.basename);
+          }
+          CASE "componentref"
+          {
+            storevalue := ReadComponentAttr(element, cellname);
+          }
+          CASE "iconpointer"
+          {
+            storevalue := ReadIconAttr(element, cellname, field.defaulticon);
+          }
+          CASE "componentreflist"
+          {
+            STRING ARRAY retval;
+            FOREVERY(STRING val FROM ParseXSList(element->GetAttribute(cellname)))
+              INSERT FixupReferringName(GetScopedName(val)) INTO retval AT END;
+            storevalue := retval;
+          }
+          CASE "bordersspacers"
+          {
+            IF(element->HasAttribute(cellname))
+              storevalue := ReadBordersSpacersAttr(element, cellname);
+            ELSE
+              storevalue := field.defaultvalue;
+          }
+          CASE "screenfragmentref"
+          {
+            storevalue := MakeAbsoluteScreenReference(curpageparser->GetCurrentResourceName(), element->GetAttribute(cellname));
+          }
+          CASE "datafileref"
+          {
+            IF(element->HasAttribute(cellname))
+              storevalue := MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), element->GetAttribute(cellname));
+            ELSE
+              storevalue := "";
+          }
+          CASE "datafilerefs"
+          {
+            storevalue := DEFAULT STRING ARRAY;
+            IF(element->HasAttribute(cellname))
+            {
+              FOREVERY(STRING val FROM ParseXSList(element->GetAttribute(cellname)))
+                INSERT MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), val) INTO storevalue AT END;
+            }
+          }
+          CASE "handler"
+          {
+            storevalue := ReadHandlerAttr(element, cellname, field.callback_signature);
+          }
+          CASE "gid"
+          {
+            storevalue := curpageparser->ParseGid(element, cellname);
+          }
+          CASE "optionalgid"
+          {
+            IF(element->HasAttribute(cellname))
+              storevalue := curpageparser->ParseGid(element, cellname);
+            ELSE
+              storevalue := "";
+          }
+          CASE "color"
+          {
+            storevalue := GetValidColor(element->GetAttribute(cellname));
+          }
+          CASE "extraparser"
+          {
+            storevalue := ParseUsingExtraParser(element, field, item);
+          }
+          DEFAULT
+          {
+            THROW NEW Exception(`Unknown record type '${field.recordtype}' for node '${cellname}'`);
+          }
+        }
+      }
+      CASE TypeId(STRING ARRAY)
+      {
+        IF(element->HasAttribute(cellname))
+        {
+          storevalue := ParseXSList(element->GetAttribute(cellname));
+        }
+        ELSE
+        {
+          storevalue := field.defaultvalue;
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unrecognized default value for field '${cellname}'`);
+      }
+    }
+
+    IF(cellname!="") //if empty, noone cared to actually store the list of parsed items
+      item := CellInsert(item, cellname, storevalue);
+  }
+
+  IF(compinfo.validator != "")
+    MakeFunctionPtr(compinfo.validator)(curpageparser, element, CELl[...item, DELETE __xml_fields]);
+
+  RETURN item;
+}
+
+STRING FUNCTION ParseBodyNode(OBJECT element, STRING placement)
+{
+  RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+  IF(NOT RecordExists(compinfo))
+    RETURN "";
+
+  RECORD item := curpageparser->StartXMLNode(element, compinfo);
+  curpageparser->FinishXMLNode(item);
+  RETURN RecordExists(item) ? item.name : "";
+}
+
+RECORD FUNCTION ParseBodyNodes(OBJECT node, STRING placement)
+{
+  STRING ARRAY lineitems, children;
+
+  FOREVERY(OBJECT element FROM node->childnodes->GetCurrentElements())
+  {
+      RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+      IF(NOT RecordExists(compinfo))
+        CONTINUE;
+
+      IF(RecordExists(compinfo) AND compinfo.placement!="inline")
+        THROW NEW Exception("Trying to use a '" || compinfo.placement || "' element '" || compinfo.namespaceuri || ":" || compinfo.name || "' in an inline context");
+
+      /* handle inline placement.
+         FIXME: hacky, and code duplication. and what to do if the item expands to multiple
+         lines anyway?
+         perhaps parsebodyorrownode should return lines too, and the remaining
+         differences handled by something similar to "break_between" panel has */
+      IF(RecordExists(compinfo) AND compinfo.placement="inline" AND compinfo.fragment != "")
+      {
+        RECORD ARRAY fragmentlines := curpageparser->IncludeFragment(element, "inline"/*FIXME placement*/, FALSE, compinfo);
+        IF(Length(fragmentlines)>0)
+        {
+          lineitems := lineitems CONCAT fragmentlines[0].items;
+          INSERT fragmentlines[0].items[0] INTO children AT END;
+        }
+
+        CONTINUE;
+      }
+
+      RECORD item := curpageparser->StartXMLNode(element, compinfo);
+      curpageparser->FinishXMLNode(item);
+      IF(NOT RecordExists(item))
+        CONTINUE;
+      INSERT item.name INTO lineitems AT END;
+      INSERT item.name INTO children AT END;
+  }
+  RETURN [ lineitems := lineitems
+         , children := children
+         ];
+}
+RECORD ARRAY FUNCTION ParseChildComponents(OBJECT nodelist, STRING ARRAY adoptfields)
+{
+  RECORD ARRAY outpanels;
+  FOREVERY(STRING fld FROM adoptfields)
+    adoptfields[#fld] := ToUppercase(fld);
+
+  FOREVERY(OBJECT node FROM nodelist->GetCurrentElements())
+  {
+    //The panel object must appear before its contained elements so that the 'lines' array is up to date for ReplaceElement
+    RECORD item := curpageparser->StartXMLNode2(node);
+    IF(NOT RecordExists(item))
+      CONTINUE;
+
+    //FIXME we could do without adoptfields and just autodetect which fields should go where
+    //FIXME we could simply delete everything not on panel's definition list for safety
+
+    curpageparser->FinishXMLNode(item);
+
+    //give the reprocessor the datatypes for the adopted fields
+    RECORD ARRAY localxmlfields := SELECT * FROM item.__xml_fields WHERE ToUppercase(name) IN adoptfields;
+    INSERT [ defaultvalue := DEFAULT RECORD, name := "component", recordtype := "componentref" ] INTO localxmlfields AT END;
+
+    RECORD outpanel := [ component := item.name
+                       , __xml_fields := localxmlfields
+                       ];
+    FOREVERY(STRING fieldname FROM adoptfields)
+      outpanel := CellInsert(outpanel, fieldname, GetCell(item,fieldname));
+
+    INSERT outpanel INTO outpanels AT END;
+  }
+  RETURN outpanels;
+}
+
+STRING FUNCTION ParseXMLPanel(OBJECT element)
+{
+  //The panel object must appear before its contained elements so that the 'lines' array is up to date for ReplaceElement
+  RECORD item := curpageparser->StartXMLNode2(element);
+  IF(NOT RecordExists(item))
+    RETURN "";
+
+  curpageparser->FinishXMLNode(item);
+  RETURN item.name;
+}
+
+
+STRING ARRAY FUNCTION ParseLinkHandlers(OBJECT nodeset)
+{
+  STRING ARRAY handlers;
+  FOREVERY(OBJECT option FROM nodeset->GetCurrentElements())
+  {
+    STRING bodynode := ParseBodyNode(option, "linkhandler");
+    IF(bodynode != "")
+      INSERT bodynode INTO handlers AT END;
+  }
+  RETURN handlers;
+}
+
+RECORD ARRAY FUNCTION ParseBackgroundImages(OBJECT nodeset)
+{
+  RECORD ARRAY images;
+  FOREVERY(OBJECT bgimage FROM nodeset->GetCurrentElements())
+  {
+    RECORD image := [ src :=      bgimage->GetAttribute("src")
+                    , position := ReadStringListAttr(bgimage, "position", "")
+                    , repeat :=   bgimage->GetAttribute("repeat")
+                    , size :=     bgimage->GetAttribute("size")
+                    ];
+    IF (image.src = "")
+      THROW NEW Exception("Image src attribute must be specified for backgroundimage");
+    INSERT image INTO images AT END;
+  }
+  RETURN images;
+}
+
+RECORD FUNCTION ParseImgSize(OBJECT node)
+{
+  IF (node EXTENDSFROM XmlNodeList)
+  {
+    IF (node->length = 0)
+      RETURN DEFAULT RECORD;
+    node := node->Item(0);
+  }
+
+  RECORD imgsize;
+
+  // Update default imgsize settings with preset
+  STRING usepreset := node->GetAttribute("useimgsizepreset");
+  IF (usepreset != "")
+  {
+    STRING presetref := MakeAbsoluteScreenReference(curpageparser->resourcename, usepreset);
+    OBJECT preset := curpageparser->LookupElement("imgsizepreset", presetref);
+    IF(NOT ObjectExists(preset))
+      THROW NEW Exception("Cannot find imgeditpreset '" || usepreset || "'");
+
+    imgsize := ParseImageEditSettings(preset, imgsize);
+  }
+
+  // Update preset imgsize settings with attributes
+  RETURN ParseImageEditSettings(node, imgsize);
+}
+
+/** @short parse <rowdatatype> elements for <arrayedit>
+*/
+RECORD ARRAY FUNCTION ParseRowDataTypes(OBJECT nodeset)
+{
+  RECORD ARRAY editscreens;
+
+  FOREVERY(OBJECT editscreen FROM nodeset->GetCurrentElements())
+  {
+    STRING localscreenname := ReadStringAttr(editscreen, "screen", "");
+    STRING absscreenname;
+    IF (localscreenname != "") // FIXME: MakeAbsoluteScreenRef should return "" when getting "", we shouldn't need to check
+      absscreenname := MakeAbsoluteScreenReference(curpageparser->resourcename, localscreenname);
+
+    RECORD rec :=
+      [ type   := ReadStringAttr(editscreen, "type", "")
+      , screen := absscreenname
+      , tp     := curpageparser->ParseTP(editscreen, "title")
+      ];
+
+    INSERT rec INTO editscreens AT END;
+  }
+
+  RETURN editscreens;
+}
+
+//Convert spaces and tid separators in a rowkey to underscores, and normalize to lowercase
+STRING FUNCTION FixupSynthesizedTid(STRING inrowkey)
+{
+  inrowkey := Substitute(inrowkey, ' ', '_');
+  inrowkey := Substitute(inrowkey, ':', '_');
+  inrowkey := Substitute(inrowkey, '.', '_');
+  RETURN ToLowercase(inrowkey);
+}
+
+/* @short to get optionsources for <select> and <combobox>
+   @param element XML node of the parent item
+   @param item    parsed information on the parentitem (like title, dimensions)
+   @param rowkeytype
+   @return optionsources
+*/
+RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRING ARRAY flags, OBJECT element) /* FIXME sure we want to pass along element? */
+{
+  RECORD ARRAY options;
+
+  // read tid (ignoring title this time) of our parentelement.
+  // we can use this in the automatic tid generation as prefix (for the rowkey) to create a tid
+  // in case an option doen't have any title or tid yet.
+
+  STRING gid := curpageparser->GetCurrentGid();
+  STRING parentitemtid := ParseXMLTIDPtr(curpageparser->GetCurrentModule(), gid, element, "title");
+  STRING optiongid;
+
+  IF(parentitemtid IN ["",":"] AND (element->HasAttribute("name") OR element->HasAttribute("cellname")) AND gid != "")
+  { //automatic tid from parent's name + currentgid
+    RECORD tryparenttid := GetXMLTidFromName(curpageparser->GetCurrentModule(), gid, element);
+    IF(RecordExists(tryparenttid))
+      parentitemtid := tryparenttid.tid;
+  }
+
+  IF (element->HasAttribute("optiongid"))
+    optiongid := curpageparser->ParseGid(element, "optiongid");
+
+  FOREVERY(OBJECT option FROM nodeset->GetCurrentElements())
+  {
+    STRING fullname := option->namespaceuri || ":" || option->localname;
+
+    IF (fullname = "http://www.webhare.net/xmlns/tollium/screens:option")
+    {
+      STRING rowkeyval := option->GetAttribute("rowkey");
+      RECORD subitem :=
+        [ tp               := curpageparser->ParseTP(option, "title")
+        , hinttp           := curpageparser->ParseTP(option, "hint")
+        , tolliuminitial   := ReadBoolAttr(option, "selected", FALSE)
+        , enabled          := ReadBoolAttr(option, "enabled", TRUE)
+        , icon             := ReadIconAttr(option, "icon", "")
+        , hint             := ReadStringAttr(option, "hint", "")
+        , enablecomponents := ParseXSList(option->GetAttribute("enablecomponents"))
+        , invalidselection := ReadBoolAttr(option, "invalidselection", FALSE)
+        , lineitems        := DEFAULT STRING ARRAY
+        , children         := DEFAULT STRING ARRAY
+        ];
+
+      // FIXME: have a generic handler to do this??
+      FOREVERY(STRING val FROM subitem.enablecomponents)
+        subitem.enablecomponents[#val] := FixupReferringName(GetScopedName(val));
+
+      IF(NOT option->HasAttribute("title") AND subitem.tp = "" AND rowkeyval!="" AND (parentitemtid != '' OR optiongid != ''))
+      {
+        IF (optiongid != '')
+        {
+          // when using an optiongid we implicitely use tid's within the specified group as title
+          subitem.tp := ParseXMLTidDirectly(option, optiongid || "." || FixupSynthesizedTid(rowkeyval), "rowkey");
+        }
+        ELSE IF(parentitemtid NOT LIKE ":*") //don't use simple texts as a tid base
+        {
+          // when using titlefromrowkey="true", the tid used as title will be 'gid.tid-rowkey'
+          subitem.tp := ParseXMLTidDirectly(option, parentitemtid || "-" || FixupSynthesizedTid(rowkeyval), "rowkey");
+        }
+      }
+
+      IF(rowkeytype="boolean")
+        INSERT CELL rowkey := rowkeyval IN ["true","1"] INTO subitem;
+      ELSE IF(rowkeytype="integer")
+        INSERT CELL rowkey := ToInteger(rowkeyval,0) INTO subitem;
+      ELSE
+        INSERT CELL rowkey := rowkeyval INTO subitem;
+
+      STRING ARRAY optionflags := ParseXSLIst(ToUppercase(option->GetAttribute("flags")));
+      FOREVERY(STRING flag FROM flags) //FIXME do not insert flagnames as plain cells, risking name conflicts
+        subitem := CellInsert(subitem, flag, ToUppercase(flag) IN optionflags);
+
+      IF (ObjectExists(option->firstchild))
+      {
+        RECORD parsedcontents := ParseBodyNodes(option, "inline");
+        subitem.lineitems := parsedcontents.lineitems;
+        subitem.children := parsedcontents.children;
+      }
+
+      INSERT [ type := "option", item := subitem ] INTO options AT END;
+    }
+    ELSE IF (fullname = "http://www.webhare.net/xmlns/tollium/screens:divider")
+    {
+      INSERT [ type := "divider" ] INTO options AT END;
+    }
+    ELSE
+    {
+      INSERT [ type := "optionsource"
+             , name := ParseBodyNode(option, "optionsource")
+             ] INTO options AT END;
+    }
+  }
+  RETURN options;
+}
+
+/** Get the node with the specified type and name
+    @param screensdoc Element whose child nodes must be looked at
+    @param type Type of element ('screen', 'fragment')
+    @param pagename Name of element (searched for in attribute 'name')
+    @return Node is returned if found.
+*/
+OBJECT FUNCTION GetPageByName(OBJECT screensdoc, STRING type, STRING pagename)
+{
+  FOR(OBJECT node := screensdoc->documentelement->firstchild; ObjectExists(node); node := node->nextsibling)
+    IF(node->localname=type AND node->GetAttribute("name")=pagename)
+      RETURN node;
+
+  RETURN DEFAULT OBJECT;
+}
+
+PUBLIC RECORD FUNCTION ParseAllowWidgetType(OBJECT typenode)
+{
+  RETURN [ type := typenode->GetAttribute("type")
+         , inherit := typenode->HasAttribute("inherit") ? ParseXSBoolean(typenode->GetAttribute("inherit")) : TRUE
+         ];
+}
+
+PUBLIC RECORD FUNCTION ParseXMLPageNode(STRING resourcename, STRING scope, OBJECT element)
+{
+  STRING initialgid := element->ownerdocument->documentelement->GetAttribute("gid");
+
+  //FIXME rebuild intermediate gid levels
+  OBJECT saveparser := curpageparser;
+  TRY
+  {
+    curpageparser := NEW PageParser(resourcename, initialgid, FALSE, scope, element->GetAttribute("name"));
+    curpageparser->finalpage.rootnode := curpageparser->StartXMLNode2(element);
+    IF(RecordExists(curpageparser->finalpage.rootnode))
+      curpageparser->FinishXMLNode(curpageparser->finalpage.rootnode);
+
+    RETURN curpageparser->GetFinalPage();
+  }
+  FINALLY
+  {
+    curpageparser := saveparser;
+  }
+}
+
+PUBLIC RECORD FUNCTION ParseXMLSingleNode(STRING resourcename, STRING selector, OBJECT screendoc, STRING scope)
+{
+  OBJECT fragment := screendoc->GetEvaluatedElement(DEFAULT OBJECT, selector);
+  IF(NOT ObjectExists(fragment))
+    RETURN DEFAULT RECORD;
+
+  RETURN ParseXMLPageNode(resourcename, scope, fragment);
+}
+
+PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, OBJECT screendoc, STRING pagetype, STRING initialgid)
+{
+  OBJECT screen := screendoc->GetEvaluatedElement(DEFAULT OBJECT, selector);
+  IF(NOT ObjectExists(screen))
+    RETURN DEFAULT RECORD;
+
+  RETURN ParseFoundXMLPage(resourcename, screen, pagetype, initialgid);
+}
+
+PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STRING pagetype, STRING initialgid)
+{
+  IF (pagetype NOT IN [ "fragment", "screen" ])
+    THROW NEW Exception("Illegal page type '" || pagetype || "'");
+
+  STRING scope := pagetype = "screen" ? "" : pagetype;
+
+  OBJECT saveparser := curpageparser;
+  TRY
+  {
+    curpageparser := NEW PageParser(resourcename, initialgid, ReadBoolAttr(screen, "allpublic", FALSE), scope, screen->GetAttribute('name'));
+    curpageparser->finalpage.implementation := curpageparser->ReadImplementationAttribute(screen);
+
+    IF(curpageparser->finalpage.implementation = ns_screens || "#lib")
+    {
+      curpageparser->finalpage.objtype := GetLibraryPath(resourcename, screen) || "#" || screen->GetAttribute("name");
+    }
+    ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#rowedit")
+    {
+      curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#TolliumRowEditScreenBase";
+    }
+    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/publisher/components#widgetextension") //FIXME deprecate this. rarely used anyway
+    {
+      curpageparser->finalpage.objtype := "TolliumTabsExtensionBase";
+    }
+    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/publisher/components#widgetedit")
+    {
+      curpageparser->finalpage.objtype := "mod::publisher/lib/screenbase.whlib#WidgetEditScreenBase";
+    }
+    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/wrd/components#entityedit")
+    {
+      curpageparser->finalpage.objtype := "mod::wrd/lib/screenbase.whlib#WRDEntityEditScreenBase";
+    }
+    ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#none")
+    {
+      curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#" ||
+          (screen->localname IN ["propertyeditor","tabsextension"] ? "TolliumTabsExtensionBase"
+           : screen->localname = "fragment" ? "TolliumFragmentBase" : "TolliumScreenBase");
+    }
+    ELSE
+    {
+      curpageparser->AddError(screen->linenum, `Unrecognized implementation '${curpageparser->finalpage.implementation}'`);
+    }
+
+    RECORD frame := curpageparser->StartXMLNode2(screen);
+    IF(NOT RecordExists(frame))
+      RETURN curpageparser->GetFinalPage();
+
+    frame.name := "frame";
+    curpageparser->finalpage.rootnode := frame;
+
+    curpageparser->FinishXMLNode(frame);
+
+    RETURN curpageparser->GetFinalPage();
+  }
+  FINALLY
+  {
+    curpageparser := saveparser;
+  }
+}
+
+PUBLIC RECORD FUNCTION GetCacheableParsedPage(STRING resourcename, STRING selector, STRING type)
+{
+  RECORD docinfo := RetrieveCachedValidatedScreen(resourcename);
+
+  STRING gid := docinfo.doc->documentelement->GetAttribute("gid");
+  RECORD parsedpage := ParseXMLPage(resourcename, selector, docinfo.doc, type, gid);
+  IF(NOT RecordExists(parsedpage))
+    THROW NEW Exception(`No screen ${selector} found in ${resourcename}`);
+
+  parsedpage.files := parsedpage.files CONCAT docinfo.files;
+
+  RETURN
+      [ ttl :=        60 * 60 * 1000
+      , value :=      parsedpage
+      , eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM parsedpage.files)
+      ];
+}
+
+STRING ARRAY alreadyvalidated;
+PUBLIC RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
+{
+  RECORD screen := RetrieveCachedXMLResource(resourcename);
+  IF(NOT IsDtapLive() AND resourcename NOT IN alreadyvalidated)
+  {
+    INSERT resourcename INTO alreadyvalidated AT END; //prevent loops and duplicate validates
+    //we can't use standard validation APIs here, it would validate _all_ the screens and we won't care about the -other- screens failing deep validation during development
+    //so we just do the XSD part here
+    RECORD typeinfo := DetermineXMLFileValidationType(screen.doc, resourcename);
+    IF(RecordExists(typeinfo))
+    {
+      RECORD screensschema := __RetrieveCachedXMLSchema(typeinfo.schemalocation);
+      RECORD ARRAY errors := SELECT message, line, col := 0, resourcename := resourcename
+                               FROM SimplifyXMLValidationErrors(screensschema.doc->ValidateDocument(screen.doc), screen.doc->documentelement);
+      IF(Length(errors) > 0)
+          THROW NEW RetrieveResourceException(resourcename, "", errors);
+    }
+  }
+  RETURN screen;
+}
+

@@ -1,0 +1,245 @@
+﻿<?wh
+/** @topic siteprofiles/api */
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib" EXPORT DescribeContentTypeById;
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject;
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC STRING FUNCTION __CalcSiteProfileTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN html)
+{
+  RECORD cache := SELECT * FROM tidcachepersite WHERE site=siteid;
+  IF(NOT RecordExists(cache))
+  {
+    cache := [ site := siteid, siteprofs := GetTidSources(siteid) ];
+    INSERT cache INTO tidcachepersite AT END;
+  }
+  FOREVERY(OBJECT siteprof FROM cache.siteprofs)
+  {
+    OBJECT nodeptr := siteprof->GetLanguageNodePtr(langcode, tid, FALSE);
+    IF(ObjectExists(nodeptr))
+      RETURN siteprof->EvaluateLanguageNodePtr(nodeptr, p1, p2, p3, p4, html);
+  }
+  STRING text := __shortfailtid ? Substring(tid,SearchLastSubstring(tid,'.')) : "(cannot find text: " || tid || ")";
+  IF(html)
+    text := EncodeHTML(text);
+  RETURN text;
+}
+///@private deprecated
+PUBLIC STRING FUNCTION GetSiteProfileTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") __ATTRIBUTES__(DEPRECATED "Siteprofile languages are deprecated")
+{
+  RETURN __CalcSiteProfileTid(siteid, langcode, tid, p1, p2, p3, p4, FALSE);
+}
+///@private deprecated
+PUBLIC STRING FUNCTION GetSiteProfileHTMLTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") __ATTRIBUTES__(DEPRECATED "Siteprofile languages are deprecated")
+{
+  RETURN __CalcSiteProfileTid(siteid, langcode, tid, p1, p2, p3, p4, TRUE);
+}
+
+/** @short Open site profile by name
+    @long This is the preferred API, as it supports all siteprofile names including those originating from modules
+*/
+PUBLIC OBJECT FUNCTION OpenSiteProfile(STRING name)
+{
+  RETURN NEW SiteProfileObject(0,name);
+}
+/** @short Open site profile by whfs object id
+*/
+PUBLIC OBJECT FUNCTION OpenSiteProfileById(INTEGER objectid)
+{
+  RETURN NEW SiteProfileObject(objectid,"");
+}
+
+
+/** @short Open and prepare a webdesign
+    @param objectid Target object for which we're opening the webdesign
+    @return The webdesign, or a DEFAULT OBJECT if no webdesign applies to the specified object id */
+PUBLIC OBJECT FUNCTION GetWebDesign(INTEGER objectid)
+{
+  OBJECT applytester := GetApplyTesterForObject(objectid);
+  IF (NOT ObjectExists(applytester))
+    RETURN DEFAULT OBJECT;
+
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF(NOT RecordExists(webdesigninfo))
+    RETURN DEFAULT OBJECT;
+
+  RETURN InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+}
+
+/** @short Get only the plugin loader for a specific url */
+PUBLIC OBJECT FUNCTION GetWebContextForURL(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+{
+  RECORD urlinfo := LookupPublisherURL(url, clientwebserver);
+  IF(urlinfo.folder = 0) //Not sure how to handle this, but we have no way to figure out your plugins. Give up
+    THROW NEW Exception(`Cannot resolve the URL '${url}' to a published folder`);
+
+  OBJECT wdpr := NEW WebContext;
+  wdpr->baseurl := url;
+
+  INTEGER objid := urlinfo.file ?? urlinfo.folder;
+  OBJECT applytester := GetApplyTesterForObject(objid);
+  wdpr->__SetObjectId(objid, applytester);
+  wdpr->__SetAvailablePlugins(applytester->GetWebDesignPlugins());
+  RETURN wdpr;
+}
+
+/// Get the webdesign for a URL
+PUBLIC OBJECT FUNCTION GetWebDesignForURL(STRING url)
+{
+  RECORD urlinfo := LookupPublisherURL(url);
+  IF(urlinfo.folder = 0) //Not sure how to handle this, but we have no way to figure out your plugins. Give up
+    THROW NEW Exception(`Cannot resolve the URL '${url}' to a published folder`);
+
+  STRING resolvedurlpath;
+  INTEGER objid := urlinfo.file ?? urlinfo.folder;
+  IF (objid != 0)
+  {
+    STRING resolvedurl := SELECT AS STRING COLUMN objecturl FROM system.fs_objects WHERE id = objid;
+    resolvedurlpath := resolvedurl = "" ? "" : UnpackURL(resolvedurl).urlpath;
+  }
+
+  RECORD savepageinfo := __pageinfo;
+  __pageinfo := __SplitBaseAndSubUrl(url, resolvedurlpath);
+
+  TRY
+  {
+    OBJECT webdesign := GetWebDesign(urlinfo.file ?? urlinfo.folder);
+    RETURN webdesign;
+  }
+  FINALLY
+  {
+    __pageinfo := savepageinfo;
+  }
+}
+
+/** @short Get only the plugin loader for a webdesign */
+PUBLIC OBJECT FUNCTION __GetWebContextForApplyTester(OBJECT applytester, INTEGER objid)
+{
+  OBJECT wdpr := NEW WebContext;
+
+  wdpr->__SetObjectId(objid, applytester);
+  wdpr->__SetAvailablePlugins(applytester->GetWebDesignPlugins());
+  IF(objid != 0)
+    wdpr->baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id=objid;
+  RETURN wdpr;
+}
+
+/** @short Get only the plugin loader for a webdesign */
+PUBLIC OBJECT FUNCTION GetWebContext(INTEGER objid)
+{
+  OBJECT applytester := GetApplyTesterForObject(objid);
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("Unable to locate the webdesign for #" || objid);
+
+  RETURN __GetWebContextForApplyTester(applytester, objid);
+}
+
+/** @short Get the language code for the specified objet, as specified by <sitelanguage> in the site profile */
+PUBLIC STRING FUNCTION GetSiteLanguage(INTEGER objectid)
+{
+  RETURN GetApplyTesterForObject(objectid)->GetSiteLanguage();
+}
+
+/** @short List sites using a site profile
+    @param siteprofileid Site profile id to check
+    @return An integer array of sites using the site profile */
+PUBLIC INTEGER ARRAY FUNCTION GetSitesUsingSiteProfile(INTEGER siteprofileid)
+{
+  OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+  RECORD ARRAY allsites := SELECT id, root FROM system.sites;
+
+  //set up a list of (siteid,fileid) pair referring to all the site roots
+  INTEGER ARRAY sitelist;
+  FOREVERY(RECORD setting FROM sitesettingstype->GetBulkData((SELECT AS INTEGER ARRAY root FROM allsites), ["siteprofiles"]))
+    IF(siteprofileid IN setting.siteprofiles)
+      INSERT allsites[#setting].id INTO sitelist AT END;
+
+  RETURN sitelist;
+}
+
+/** @short Gather custom siteprofile settings for an object */
+PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileSettings(STRING ns, STRING localname, INTEGER fsobjectid)
+{
+  OBJECT applytester := GetApplyTesterForObject(fsobjectid);
+  IF(NOT ObjectExists(applytester))
+    RETURN DEFAULT RECORD ARRAY;
+  RETURN applytester->GetCustomSettings(ns,localname);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileGlobalSettings(STRING ns, STRING localname)
+{
+  RECORD csp := GetcachedSiteProfiles();
+  RECORD ARRAY retval;
+
+  RECORD ARRAY siteprofiles;
+
+  FOREVERY(RECORD globalsetting FROM csp.globalsettings)
+    IF(globalsetting.ns = ns AND globalsetting.localname = localname)
+    {
+      RECORD pos := RecordLowerBound(siteprofiles, globalsetting, [ "SITEPROFILE" ]);
+      IF (NOT pos.found)
+        INSERT CELL[ ...globalsetting, siteprof := OpenSiteProfile(globalsetting.siteprofile) ] INTO siteprofiles AT pos.position;
+
+      OBJECT siteprof := siteprofiles[pos.position].siteprof;
+      OBJECT ARRAY elements := siteprof->xmldoc->documentelement->childnodes->GetCurrentElements();
+      IF(globalsetting.idx >= Length(elements))
+        CONTINUE;
+
+      INSERT [ siteprofile := siteprof, node := elements[globalsetting.idx], siteids := globalsetting.siteids, allsites := globalsetting.allsites ] INTO retval AT END;
+    }
+  RETURN retval;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
+{
+  RECORD ARRAY sitedesigns;
+  RECORD ARRAY mods := GetWebHareModules();
+
+  FOREVERY(RECORD mod FROM mods)
+    FOREVERY(RECORD design FROM mod.webdesigns)
+    {
+      IF(design.istemplate != gettemplates)
+        CONTINUE;
+
+      INSERT [ title := design.title ?? mod.name || ":" || design.name
+             , rowkey := mod.name || ":" || design.name
+             , siteprofiles := design.siteprofile != "" ? STRING[design.siteprofile] : STRING[]
+             , designroot := design.designroot
+             ] INTO sitedesigns AT END;
+    }
+
+  FOREVERY(RECORD mod FROM mods)
+    FOREVERY(RECORD adddesign FROM mod.addtowebdesigns)
+    {
+      INTEGER match := (SELECT AS INTEGER #sitedesigns + 1 FROM sitedesigns WHERE rowkey = adddesign.webdesign) - 1;
+      IF(match >= 0)
+        sitedesigns[match].siteprofiles := sitedesigns[match].siteprofiles CONCAT STRING[adddesign.siteprofile];
+    }
+
+  RETURN sitedesigns;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAvailableWebFeatures()
+{
+  RECORD ARRAY webfeatures;
+  FOREVERY(RECORD mod FROM GetWebHareModules())
+    FOREVERY(RECORD design FROM mod.webfeatures)
+    {
+      INSERT [ title := design.title ?? mod.name || ":" || design.name
+             , rowkey := mod.name || ":" || design.name
+             , siteprofile := design.siteprofile
+             , webdesignmasks := design.webdesignmasks ?? ["*"]
+             ] INTO webfeatures AT END;
+    }
+
+  RETURN webfeatures;
+}
+

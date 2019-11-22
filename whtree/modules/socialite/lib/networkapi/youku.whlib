@@ -1,0 +1,211 @@
+﻿<?wh
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+
+LOADLIB "mod::socialite/lib/internal/oauth.whlib";
+
+
+RECORD ARRAY oauth_scopes := DEFAULT RECORD ARRAY;
+
+
+PUBLIC STATIC OBJECTTYPE YoukuConnection EXTEND OauthNetworkConnection
+< STRING apiurl_feeds;
+
+  MACRO NEW()
+  : OauthNetworkConnection("2.0", oauth_scopes)
+  {
+    this->pvt_newpermissionmodel := TRUE;
+    this->SetMode("youku");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  /// Returns the redirect page for web-based logins
+  UPDATE PUBLIC STRING FUNCTION GetCallbackURL(STRING serverurl)
+  {
+    RETURN ResolveToAbsoluteURL(serverurl, "/tollium_todd.res/socialite/callbacks/youku.shtml");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short do a GET request with the given variables
+      @param url to use for the GET request
+      @param variables to send with the request
+      @result
+  */
+  RECORD FUNCTION SendRequest(STRING url, RECORD ARRAY variables)
+  {
+    this->browser->timeout := 8 * 1000;
+
+    FOREVERY (RECORD variable FROM variables)
+      url := AddVariableToUrl(url, variable.name, variable.value);
+
+    this->browser->GotoWebPage(url);
+
+    RETURN [ document := this->browser->document
+           , content  := this->browser->content
+           , jsondata := DecodeJSONBlob(this->browser->content)
+           ];
+  }
+
+  RECORD FUNCTION ParseVideoEntry(RECORD entry)
+  {
+    RETURN
+        [ id :=           entry.id
+        , title :=        entry.title
+        , link :=         entry.link
+        , thumbnail :=    entry.thumbnail
+        , duration :=     INTEGER(ToMoney(entry.duration, 0)+0.49)
+        , category :=     entry.category
+        , published :=    MakeDateFromText(Substitute(entry.published, " ", "T") || "Z")
+        , description :=  CellExists(entry,"description") ? entry.description : ""
+        , player :=       entry.player
+        , public_type :=  entry.public_type
+        , copyright_type := entry.copyright_type
+        , user :=         [ id :=     entry.user.id
+                          , name :=   entry.user.name
+                          , link :=   entry.user.link
+                          ]
+        , operation_limit := entry.operation_limit
+        , streamtypes :=  entry.streamtypes
+        ];
+  }
+
+  RECORD FUNCTION ParseVideoSearchEntry(RECORD entry)
+  {
+    RETURN
+        [ id :=           entry.id
+        , title :=        entry.title
+        , link :=         entry.link
+        , thumbnail :=    entry.thumbnail
+        , duration :=     INTEGER(ToMoney(entry.duration, 0)+0.49)
+        , category :=     entry.category
+        , published :=    MakeDateFromText(Substitute(entry.published, " ", "T") || "Z")
+        , public_type :=  entry.public_type
+        , user :=         [ id :=     entry.user.id
+                          , name :=   entry.user.name
+                          , link :=   entry.user.link
+                          ]
+        , operation_limit := entry.operation_limit
+        , streamtypes :=  entry.streamtypes
+        ];
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API functions
+  //
+
+  /** Returns an URI the client needs to be redirected to. The client can then authorize the
+      app, and will be redirected to the youku redirect page. The redirect url must
+      then be passed to FinishLogin
+      @param callbackurl Custom callback url, will be ignored when the callback host is set in the app settings
+      @param scopes List of required scopes
+      @param options
+      @cell(string) options.approval_prompt 'auto'/'force' (default: auto)
+      @cell(string) options.access_type Must be 'offline' if present (if present and not equal to 'offline', no refresh token will be generated)
+      @cell(string) options.state State string
+      @return Login data
+      @cell(string) sessiontoken Session token (must be given to FinishLogin)
+      @cell(string) authorize_uri URI to show to the user
+  */
+  PUBLIC RECORD FUNCTION StartLogin(STRING callbackurl, STRING ARRAY scopes, STRING state, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    STRING url := "https://openapi.youku.com/v2/oauth2/authorize";
+    IF (CellExists(options, "STATE"))
+      url := AddVariableToUrl(url, "state", options.state);
+
+    // Youtube wants the callbackurl specified EXACTLY, so we can't use srhid - use state as replacement
+    IF (GetVariableFromURL(callbackurl, "srhid") != "")
+    {
+      url := ReplaceVariableInUrl(url, "state", "__socialite_srhid:" || GetVariableFromURL(callbackurl, "srhid"));
+      callbackurl := DeleteVariableFromURL(callbackurl, "srhid");
+    }
+
+    RETURN this->GetV2AuthorizationCodeURI(url, scopes, callbackurl);
+  }
+
+  /** Finish the login sequence, using the uri that facebook redirected to after login
+      @param sessiontoken Sessiontoken returned by StartLogin
+      @param returned_uri URI that facebook redirected the user to
+      @return Undef
+  */
+  PUBLIC RECORD FUNCTION FinishLogin(STRING sessiontoken, STRING returned_uri)
+  {
+    IF (GetVariableFromURL(returned_uri, "error") != "")
+      THROW NEW Exception("Authentication failed: " || GetVariableFromURL(returned_uri, "error") || " - " || GetVariableFromURL(returned_uri, "error_description"));
+
+    STRING code := GetVariableFromURL(returned_uri, "code");
+
+    RECORD res := this->DoV2AccessTokenRequest("https://openapi.youku.com/v2/oauth2/token", sessiontoken, code);
+
+    RETURN res;
+  }
+
+  /** Refresh the access token if not valid for minvalidseconds.
+      A new youtube access token is valid for 1 hour. Please set minvalidseconds somewhat (much) lower to avoid excessive refreshing.
+      @param minvalidseconds Refresh the access token if not valid for this many seconds.
+      @return Whether the access token was refreshed (if used from a persistent session, please store it using UpdateStoredAccessToken.)
+  */
+  PUBLIC BOOLEAN FUNCTION RefreshTokenIfNeeded(INTEGER minvalidseconds)
+  {
+    RETURN this->DoV2RefreshTokenIfNeeded("https://openapi.youku.com/v2/oauth2/token", minvalidseconds);
+  }
+
+  /** Refresh access token for a persistent session if not valid for minvalidseconds. Locked, so only one refresh call can be
+      in flight per session. A youtube access token is valid for 1 hour. Please set minvalidseconds somewhat (much)
+      lower to avoid excessive refreshing. Throws on failure to refresh. Requires the primary webhare transaction to be an
+      autotransaction, and no work may be open.
+      @param minvalidseconds Refresh the access token if not valid for this many seconds.
+  */
+  PUBLIC MACRO RefreshPersistentSessionIfNeeded(INTEGER minvalidseconds)
+  {
+    this->DoV2RefreshPersistentSessionIfNeeded("https://openapi.youku.com/v2/oauth2/token", minvalidseconds);
+  }
+
+  //
+  PUBLIC RECORD FUNCTION Videos_ShowBasic_ById(STRING video_id, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD rec := this->SendRequest("https://openapi.youku.com/v2/videos/show_basic.json",
+        [ [ name := "video_id", value := video_id ]
+        ]);
+
+    IF (CellExists(rec.jsondata, "ERROR") AND rec.jsondata.error.code = 120020001) // Video does not exist
+      RETURN DEFAULT RECORD;
+
+    RETURN this->ParseVideoEntry(rec.jsondata);
+  }
+
+  PUBLIC RECORD FUNCTION Videos_ShowBasic_ByURL(STRING video_url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD rec := this->SendRequest("https://openapi.youku.com/v2/videos/show_basic.json",
+        [ [ name := "video_url", value := video_url ]
+        ]);
+
+    IF (CellExists(rec.jsondata, "ERROR") AND rec.jsondata.error.code = 120020001) // Video does not exist
+      RETURN DEFAULT RECORD;
+
+    RETURN this->ParseVideoEntry(rec.jsondata);
+  }
+
+  //http://open.youku.com/docs/api_searches.html#searches-video-by-keyword
+  PUBLIC RECORD FUNCTION Searches_Video_ByKeyword(STRING keywords, INTEGER numresults)
+  {
+    RECORD rec := this->SendRequest("https://openapi.youku.com/v2/searches/video/by_keyword.json",
+        [ [ name := "keyword", value := keywords ]
+        , [ name := "period", value := "history" ]
+        , [ name := "count", value := ToString(numresults) ]
+        ]);
+    IF(NOT CelLExists(rec.jsondata,'videos'))
+      RETURN [ videos := DEFAULT RECORD ARRAY ];
+    RETURN [ videos := SELECT AS RECORD ARRAY this->ParseVideoSearchEntry(videos) FROM RECORD ARRAY(rec.jsondata.videos) AS videos ];
+  }
+>;

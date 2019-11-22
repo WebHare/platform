@@ -1,0 +1,34 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/testfw/testpage.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
+
+MACRO RunBody(OBJECT testcontext)
+{
+  OBJECT context := GetWebContext(OpenTestsuiteSite()->id);
+  STRING useurl := IsWHDebugOptionSet("nsc") ? "mock" : GetRequestURL();
+  LoadWittyLibrary(Resolve("testpage-captcha.witty"),"HTML")->Run(
+    [ feedbackurl := GetRequestURL()
+
+    , googlerecaptchakey := GetRecaptchaPublicKey(useurl)
+    , googlerecaptchaaccept := IsRequestPost() ? VerifyRecaptchaResponse(useurl, GetWebVariable("googlerecaptcharesult")) ? "YES":"NO": ""
+
+    , webcontextapikey := context->GetCaptchaAPIKey()
+    , webcontextcaptchaaccept := IsRequestPost() ? context->VerifyCaptchaResponse(GetWebVariable("captcharesult")) ? "YES":"NO": ""
+    ]);
+}
+
+ProcessWHDebugVariablesUnchecked();
+OpenPrimary();
+InvokeTestPage(PTR RunBody, [ jsfile := "testpage-captcha.es"
+                             ]);

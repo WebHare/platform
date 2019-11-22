@@ -1,0 +1,610 @@
+﻿<?wh
+/** @short Task scheduler
+    @long An API to control the built-in WebHare task scheduler, a component of the system module that allows you to invoke scripts at a specific time, repeated intervals, and/or at startup
+    @topic modules/tasks
+*/
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+
+
+/** Base class to implement managed tasks
+*/
+PUBLIC OBJECTTYPE ManagedTaskBase
+<
+  BOOLEAN didresolution;
+  PUBLIC RECORD __taskmeta;
+
+  /** @private Internal use only
+  */
+  PUBLIC RECORD pvt_resolution;
+
+  /// Whether debugging is enabled for this task
+  PUBLIC BOOLEAN debug;
+
+  /** If set, mutex to lock in the work that is opened around ExecuteTask
+  */
+  PUBLIC STRING mutex;
+
+  /** Returns the task metadata
+      @return Task metadata
+  */
+  PUBLIC RECORD FUNCTION GetTaskMetadata()
+  {
+    RETURN this->__taskmeta;
+  }
+
+  /** Override PrepareTask with your task preparation code code. This function is called without work, and can be used to do long I/O.
+      Result data can be stored in the current object.
+      Throw exceptions if something fails and you want to be restarted. No database work is opened when this function runs
+      @param data Task data
+  */
+  PUBLIC MACRO PrepareTask(RECORD data)
+  {
+  }
+
+  /** Override RunTask with your task code. This function is run with open work, so keep I/O to a minimum (use PrepareTask instead).
+      Throw exceptions if something fails and you want to be restarted, and use ResolveByRestart for a graceful continuation later
+      @param data Task data
+  */
+  PUBLIC MACRO RunTask(RECORD data)
+  {
+    THROW NEW Exception("The task did not override ManagedTaskBase::RunTask");
+  }
+
+  /** Request for this task to be restarted. Tasks that try to prevent doing
+      too much work and blocking the task queue should do this
+      @param when When to restart the task. It is rounded up to the minimum restart interval, so you can pass DEFAULT DATETIME if it doesn't matter when you're restarted
+      @cell options.newdata New task data
+      @cell options.auxdata Auxilliary data cells. This will be merged with the task data when passed to the task, but stored separately to avoid the 4K limit
+  */
+  MACRO ResolveByRestart(DATETIME when, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ newdata := DEFAULT RECORD
+                               , auxdata := DEFAULT RECORD
+                               ], options);
+
+    IF(RecordExists(this->pvt_resolution))
+      THROW NEW Exception("A resolution was already selected for this task");
+
+    this->pvt_resolution := [ type := "restart", when := when, options := options ];
+  }
+
+  /** Report that this task has successfully completed.
+      @param result Completion data to report/store */
+  MACRO ResolveByCompletion(RECORD result)
+  {
+    IF(RecordExists(this->pvt_resolution))
+      THROW NEW Exception("A resolution was already selected for this task");
+
+    this->pvt_resolution := [ type := "finished", result := result ];
+  }
+
+  /** Report that this task has failed temporarily. It will be requeued and excessive failed tasks will generate an error in monitoring
+      @param retval More information about the failure
+      @param error Human readable error
+      @cell options.nextretry If set, the next time to retry this task.
+  */
+  MACRO ResolveByTemporaryFailure(RECORD retval, STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(RecordExists(this->pvt_resolution))
+      THROW NEW Exception("A resolution was already selected for this task");
+
+    options := ValidateOptions(
+          [ nextretry :=   MAX_DATETIME
+          ], options);
+
+    this->pvt_resolution := CELL[ type := "failedtemporarily", result := retval, error, options.nextretry ];
+  }
+
+  /** Report that this task has definitely failed. It will not be requeued and excessive failed tasks will generate an error in monitoring
+      @param retval More information about the failure
+      @param error Human readable error */
+  MACRO ResolveByFailure(RECORD retval, STRING error)
+  {
+    IF(RecordExists(this->pvt_resolution))
+      THROW NEW Exception("A resolution was already selected for this task");
+
+    this->pvt_resolution := [ type := "failed", result := retval, error := error ];
+  }
+
+  /** Report that this task has been cancelled. It will not be requeued but will not generate errors in monitoring
+      @param retval More information about the cancellation
+      @param error Human readable error/cancellation reason */
+  MACRO ResolveByCancellation(RECORD retval, STRING error)
+  {
+    IF(RecordExists(this->pvt_resolution))
+      THROW NEW Exception("A resolution was already selected for this task");
+
+    this->pvt_resolution := [ type := "cancelled", result := retval, error := error ];
+  }
+>;
+
+/** @private deprecated
+*/
+PUBLIC MACRO SchedulePredefinedSingleShotTask(STRING module, STRING name, DATETIME nexttime) __ATTRIBUTES__(DEPRECATED "Switch to ScheduleTimedTask (but make sure you have work open or use PushWork/PopWork!)")
+{
+  GetPrimary()->PushWork();
+  ScheduleTimedTask(`${module}:${name}`, [ when := nexttime ]);
+  GetPrimary()->PopWork();
+}
+
+/** @short Schedule a timed task to run
+    @long The task will be run at the specified time, or if not set, as soon as possible. If another request is made to
+          run the task even earlier, or if the tasks 'runat' causes it to run, this request will be ignored (ie you cannot
+          request multiple runs of a task by repeatedly calling this function)
+    @param taskname module:tag of the task
+    @cell(datetime) options.when When to run the task (if not set, asap)
+    @cell(boolean) options.allowmissing Don't fail if the task isn't registered (yet)
+*/
+PUBLIC MACRO ScheduleTimedTask(STRING taskname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ when := DEFAULT DATETIME
+                             , allowmissing := FALSE
+                             ], options);
+
+  IF(taskname NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid task name '${taskname}'`);
+
+  //FIXME throw if task is unknown
+  RECORD taskinfo := SELECT FROM system_internal.tasks WHERE tasks.tag = VAR Substitute(taskname,':','.');
+  IF(NOT RecordExists(taskinfo))
+  {
+    IF(options.allowmissing)
+      RETURN;
+    THROW NEW Exception(`No such timed task '${taskname}' registered`);
+  }
+
+  //Could consider not setting up tasks if the task is already planned.. but how to fix the race that the task might be scheduling before WE commit?
+
+  GetTaskFinishHandler()->ScheduleTask(taskname, options.when);
+}
+
+/** @short Retry all pending managed tasks of a specific type now
+    @param taskids Ids of tasks to retry
+    */
+PUBLIC MACRO RetryPendingManagedTasksByIds(INTEGER ARRAY taskids)
+{
+  DATETIME now := GetCurrentDatetime();
+
+  RECORD ARRAY flushtasks := SELECT id, tasktype
+                               FROM system.managedtasks
+                              WHERE nextattempt > now AND finished = DEFAULT DATETIME AND id IN taskids;
+  IF(Length(flushtasks)>0)
+  {
+    STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM flushtasks;
+    UPDATE system.managedtasks SET nextattempt := now WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
+    GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
+    FOREVERY(STRING tasktype FROM seentasktypes)
+      GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
+  }
+}
+
+/** @short Retry all pending managed tasks of a specific type now
+    @param mask Tasktype to fire (mask)
+    */
+PUBLIC MACRO RetryPendingManagedTasks(STRING mask)
+{
+  DATETIME now := GetCurrentDatetime();
+
+  RECORD ARRAY flushtasks := SELECT id, tasktype
+                               FROM system.managedtasks
+                              WHERE nextattempt > now AND finished = DEFAULT DATETIME AND ToUppercase(tasktype) LIKE ToUppercase(mask);
+  IF(Length(flushtasks)>0)
+  {
+    STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM flushtasks;
+    UPDATE system.managedtasks SET nextattempt := now WHERE id IN (SELECT AS INTEGER ARRAY id FROM flushtasks);
+    GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
+    FOREVERY(STRING tasktype FROM seentasktypes)
+      GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
+  }
+}
+
+/** Describes a managed task
+    @param taskid Id of the managed task
+    @return Managed task info
+    @cell return.creationdate Creation date of the task
+    @cell return.nextattempt Next time the task will be run
+    @cell return.tasktype Type of the task (format: modulename:tasktypename)
+    @cell return.finished Datetime when the task was marked as finished
+    @cell(string) return.lasterrors If not empty, errors the task returned
+    @cell(string) return.stacktrace HSON-encoded stack trace with errors
+    @cell return.retval Return value of the task
+    @cell(record) return.data Task data
+    @cell(record) return.metadata Metadata of this task
+    @cell(integer) return.failures Number of failures
+*/
+PUBLIC RECORD FUNCTION DescribeManagedTask(INTEGER taskid)
+{
+  RECORD taskinfo := SELECT * FROM system_internal.managedtasks WHERE id = taskid;
+  IF(NOT RecordExists(taskinfo))
+    RETURN DEFAULT RECORD;
+
+  RECORD data := DecodeHSON(taskinfo.taskdata);
+  IF(Length(taskinfo.auxdata) > 0)
+    data := CELL[...data, ...DecodeHSONBlob(taskinfo.auxdata)];
+
+  RETURN [ creationdate := taskinfo.creationdate
+         , nextattempt := taskinfo.nextattempt
+         , tasktype := taskinfo.tasktype
+         , finished := taskinfo.finished
+         , lasterrors := taskinfo.lasterrors
+         , stacktrace := taskinfo.stacktrace
+         , failures := taskinfo.failures
+         , retval := taskinfo.shortretval = "" ? DEFAULT RECORD : taskinfo.shortretval="long" ? DecodeHSONBlob(taskinfo.longretval) : DecodeHSON(taskinfo.shortretval)
+         , data := data
+         , metadata := RepackRecord(SELECT name := metakey
+                                         , value := DecodeHSON(metavalue)
+                                      FROM system.managedtasksmeta
+                                     WHERE managedtasksmeta.task = taskid)
+         ];
+}
+
+/** Sets metadata of a managed task
+    @param taskid Managed task id
+    @param metadatakey Key to update
+    @param metadatavalue New value to set
+*/
+PUBLIC MACRO SetManagedTaskMetadata(INTEGER taskid, STRING metadatakey, VARIANT metadatavalue)
+{
+  DELETE FROM system.managedtasksmeta WHERE task = taskid AND ToUppercase(metakey) = ToUppercase(metadatakey);
+  INSERT [ task := taskid
+         , metakey := ToUppercase(metadatakey)
+         , metavalue := EncodeHSON(metadatavalue)
+         ] INTO system.managedtasksmeta;
+}
+
+/** Look up managed tasks
+    @param type Type of the task (wildcards accepted)
+    @param searchparameters Search parameters
+    @cell(datetime) searchparameters.createdafter Only return taskscreated on or after this date
+    @cell(boolean) searchparameters.unfinished Only return unfinished tasks
+    @return List of tasks
+    @cell return.id Id of the task
+    @cell return.creationdate Creationdate of this task
+    @cell return.tasktype Type of the task
+*/
+PUBLIC RECORD ARRAY FUNCTION LookupManagedTasks(STRING type, RECORD searchparameters DEFAULTSTO DEFAULT RECORD)
+{
+  searchparameters := ValidateOptions([ createdafter := DEFAULT DATETIME
+                                      , unfinished := FALSE
+                                      ], searchparameters, [ title := "searchparameters"] );
+
+  RECORD ARRAY matches := SELECT id, creationdate, tasktype
+                            FROM system.managedtasks
+                           WHERE tasktype LIKE type
+                                 AND creationdate >= searchparameters.createdafter
+                                 AND (searchparameters.unfinished ? finished = DEFAULT DATETIME : TRUE);
+  RETURN matches;
+}
+
+/** Waits until a managed task is finished, returns its result. Throws if the task has failed.
+    @param taskid Id of the task
+    @param maxwait Wait until this time
+    @cell(boolean) options.acceptcancel Don't throw if the task is cancelled
+    @cell(boolean) options.accepttempfailure Don't throw if the task is temporarily failed but will still retry
+    @cell(boolean) options.accepttimeout In case of timeout, just return a dafeult record
+    @return Task result
+*/
+PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwait, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ acceptcancel := FALSE
+                             , accepttempfailure := FALSE
+                             , accepttimeout := FALSE
+                             ], options);
+  IF(GetPrimary()->IsWorkOpen())
+    THROW NEW Exception("Cannot wait for task completion whilst inside work");
+
+  OBJECT eventmgr := NEW EventManager;
+  eventmgr->RegisterInterest("system:managedtasks.any." || taskid);
+  TRY
+  {
+    WHILE(TRUE)
+    {
+      RECORD taskinfo := SELECT * FROM system.managedtasks WHERE id = taskid;
+      IF(NOT RecordExists(taskinfo))
+        THROW NEW Exception("No such task #" || taskid);
+
+      BOOLEAN taskdone := taskinfo.finished != DEFAULT DATETIME;
+      IF(taskinfo.lasterrors != "") //something is up
+      {
+        IF(taskinfo.iscancelled)
+        {
+          IF(NOT options.acceptcancel)
+            THROW NEW Exception(`Task #${taskid} has been cancelled: ${taskinfo.lasterrors}`);
+        }
+        ELSE IF(taskdone OR NOT options.accepttempfailure)
+        {
+          OBJECT e := NEW Exception(`Task #${taskid} has${ taskdone ? " permanently" : ""} failed: ${taskinfo.lasterrors}`);
+          IF (taskinfo.stacktrace != "")
+            e->trace := DecodeHSON(taskinfo.stacktrace);
+          THROW e;
+        }
+      }
+
+      IF(taskdone) //it's done
+        RETURN taskinfo.shortretval = "" ? DEFAULT RECORD : taskinfo.shortretval="long" ? DecodeHSONBlob(taskinfo.longretval) : DecodeHSON(taskinfo.shortretval);
+
+      IF(GetCurrentDatetime() > maxwait)
+      {
+        IF(options.accepttimeout)
+          RETURN DEFAULT RECORD;
+        ELSE
+          THROW NEW Exception("Timeout waiting for completion of task #" || taskid);
+      }
+
+      eventmgr->ReceiveEvent(maxwait);
+    }
+  }
+  FINALLY
+  {
+    eventmgr->Close();
+  }
+}
+
+MACRO ScheduleBroadcastUpdatedTaskIds(STRING tasktype, INTEGER ARRAY taskids)
+{
+  IF (LENGTH(taskids) < 5)
+  {
+    FOREVERY (INTEGER id FROM taskids)
+    {
+      GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
+      GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", DEFAULT RECORD);
+    }
+  }
+  ELSE
+  {
+    GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
+    GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", DEFAULT RECORD);
+  }
+}
+
+
+/** @short Schedule multiple managed tasks
+    @long Allows you to schedule multiple managed tasks, as long as they share the same options. This allows the database
+          to share the auxdata blobs, eg when scheduling an outgoing mail task with multiple receivers.
+    @param tasktype Type of the task (module:tasktype as definied in a moduledefinition)
+    @param taskdatas Task data records (as specified by the task). The data must fit in 4K of HSON data
+    @cell(record) options.auxdata Auxilliary data cells. This will be merged with the task data when passed to the task, but stored separately to avoid the 4K limit
+    @cell(integer array) options.taskids Pre-set task ids
+    @cell(string) options.priority Override the default task priority for this task type. Allowed values: '', 'background', 'normal', 'interactive', 'update', 'updateinteractive'.
+    @return ID of the scheduled tasks, in the taskdatas order */
+PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY taskdatas, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ auxdata := DEFAULT RECORD
+      , taskids := INTEGER[]
+      , priority := ""
+      ], options,
+      [ enums := [ priority := [ "", "background", "normal", "interactive", "update", "updateinteractive" ] ]
+      ]);
+
+  RECORD taskinfo := GetTaskTypeSettings(tasktype, FALSE);
+  BLOB auxdata;
+  IF(RecordExists(options.auxdata))
+    auxdata := EncodeHSONBlob(options.auxdata);
+
+  DATETIME now := GetCurrentDatetime();
+
+  INTEGER ARRAY taskids;
+  FOREVERY(RECORD taskdata FROM taskdatas)
+  {
+    INTEGER taskid := #taskdata < Length(options.taskids) ? options.taskids[#taskdata] : MakeAutonumber(system.managedtasks,"id");
+    INSERT [ id := taskid
+           , creationdate := now
+           , nextattempt := now
+           , tasktype := tasktype
+           , taskdata := EncodeHSON(taskdata)
+           , auxdata := auxdata
+           , workertype := taskinfo.workertype
+           , priority := options.priority = "" ? taskinfo.priority : ParseManagedTaskPriority(options.priority)
+           ] INTO system.managedtasks;
+    INSERT taskid INTO taskids AT END;
+  }
+
+  ScheduleBroadcastUpdatedTaskIds(tasktype, taskids);
+
+  RETURN taskids;
+}
+
+/** @short Reschedule multiple finished managed tasks
+    @param taskids Ids of tasks to reschedule
+    @return Ids of the new tasks
+*/
+PUBLIC INTEGER ARRAY FUNCTION RescheduleManagedTasks(INTEGER ARRAY taskids)
+{
+  OBJECT trans := GetPrimary();
+
+  DATETIME now := GetCurrentDatetime();
+
+  INTEGER ARRAY newtaskids;
+  RECORD ARRAY torequeue := SELECT id, tasktype, taskdata, finished, auxdata FROM system.managedtasks WHERE id IN taskids;
+  FOREVERY(RECORD toreq FROM torequeue)
+  {
+    IF(toreq.finished = DEFAULT DATETIME)
+      THROW NEW Exception("Trying to requeue task #" || toreq.id || " which is not finished yet");
+
+    INTEGER taskid := MakeAutonumber(system.managedtasks,"id");
+    INSERT CELL [ ...toreq
+                , id := taskid
+                , creationdate := now
+                , nextattempt := now
+                , finished := DEFAULT DATETIME
+                ] INTO system.managedtasks;
+    INSERT taskid INTO newtaskids AT END;
+  }
+
+  trans->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
+  FOREVERY(STRING tasktype FROM SELECT AS STRING ARRAY DISTINCT torequeue.tasktype FROM torequeue)
+    trans->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", DEFAULT RECORD);
+
+  RETURN newtaskids;
+}
+
+ASYNC MACRO StopCancelledTasks(RECORD defer, BOOLEAN iscommit)
+{
+  IF (iscommit)
+  {
+    OBJECT taskservice;
+    TRY
+    {
+      taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
+      AWAIT taskservice->StopCancelledTasks();
+      defer.resolve(TRUE);
+    }
+    CATCH (OBJECT e)
+    {
+      defer.reject(e);
+    }
+    FINALLY
+    {
+      IF (ObjectExists(taskservice))
+        taskservice->CloseService();
+    }
+  }
+  ELSE
+    defer.resolve(FALSE);
+}
+
+/** @short Cancel managed tasks
+    @long Schedules cancellation of the specified managed tasks. The actual cancellation won't take place until the current transaction is committed
+    @param taskids Ids of the tasks that must be cancelled
+    @return Promise that resolves when the cancellation has committed, the tasks have been cancelled and running tasks were terminated.
+*/
+PUBLIC OBJECT FUNCTION CancelManagedTasks(INTEGER ARRAY taskids)
+{
+  STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE id IN taskids;
+  UPDATE system.managedtasks SET iscancelled := TRUE
+                               , finished := GetCurrentDatetime()
+                               , lasterrors := "Cancelled by CancelManagedTasks"
+                           WHERE id IN taskids;
+
+  GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
+  FOREVERY(STRING tasktype FROM seentasktypes)
+    GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
+
+  RECORD defer := CreateDeferredPromise();
+  GetPrimary()->RegisterCommitHandler("", PTR StopCancelledTasks(defer, #1));
+  RETURN defer.promise;
+}
+
+/** @short Delete managed tasks
+    @long Deletes and schedules cancellation of the specified managed tasks. The actual cancellation won't take place until the current transaction is committed
+    @param taskids Ids of the tasks that must be deleted
+    @return Promise that resolves when the deletion has been committed and the tasks have been cancelled
+*/
+PUBLIC OBJECT FUNCTION DeleteManagedTasks(INTEGER ARRAY taskids)
+{
+  STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE id IN taskids;
+  DELETE FROM system.managedtasks WHERE id IN taskids;
+
+  GetPrimary()->BroadcastOnCommit("system:managedtasks.any.changes", DEFAULT RECORD);
+  FOREVERY(STRING tasktype FROM seentasktypes)
+    GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".changes", DEFAULT RECORD);
+
+  RECORD defer := CreateDeferredPromise();
+  GetPrimary()->RegisterCommitHandler("", PTR StopCancelledTasks(defer, #1));
+  RETURN defer.promise;
+}
+
+/** @short Schedule a managed task if this transaction commits
+    @long A managed task, once scheduled, will always attempt to complete, and is restarted when it or the task manager fails.
+          Managed tasks are often used for 'after effects' which can take a lot of time, eg the actual deletion of a WRD schema.
+          A managed task will be attempted even if the script that queued it exits before
+          the task starts. If work is open, the task will be queued as soon as the current work is committed, and will not
+          be queued if the work is rolled back.
+    @param tasktype Type of the task to schedule (eq: wrd:deleteschemas) - refers to to the servicemanager:managedtask in the moduledefinition
+    @param taskdata Task data, as specified by the task. The data must fit in 4K of HSON data
+    @cell options.auxdata Auxilliary data cells. This will be merged with the task data when passed to the task, but stored separately to avoid the 4K limit
+    @return id of this task. This id is a database id and can be used by later scripts
+*/
+PUBLIC INTEGER FUNCTION ScheduleManagedTask(STRING tasktype, RECORD taskdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ auxdata := DEFAULT RECORD, taskid := 0, priority := "" ], options);
+  options := CELL[...options, taskids := options.taskid != 0 ? INTEGER[options.taskid] : INTEGER[], DELETE taskid ];
+  RETURN ScheduleManagedTasks(tasktype, [taskdata], options)[0];
+}
+
+OBJECT ASYNC FUNCTION HandleEphemeralTasks(OBJECT trans, BOOLEAN iscommit)
+{
+  RECORD ARRAY tohandle := trans->__scheduledephemeraltasks;
+  trans->__scheduledephemeraltasks := DEFAULT RECORD ARRAY;
+
+  IF(NOT iscommit)
+  {
+    FOREVERY(RECORD task FROM tohandle)
+      task.reject(NEW Exception("The transaction in which this task was queued did not commit"));
+    RETURN DEFAULT RECORD;
+  }
+
+  // Open the task service
+  OBJECT taskservice;
+  TRY
+    taskservice := AWAIT OpenWebHareService("system:managedqueuemgr", -1);
+  CATCH (OBJECT e)
+  {
+    FOREVERY(RECORD task FROM tohandle)
+      task.reject(e);
+    RETURN DEFAULT RECORD;
+  }
+
+  FOREVERY(RECORD task FROM tohandle)
+  {
+    RECORD data := task.taskdata;
+    IF(CellExists(task.options,'AUXDATA'))
+    {
+      data := CELL[...data, ...task.options.auxdata];
+      DELETE CELL auxdata FROM task.options;
+    }
+
+    taskservice->RunEphemeralTask(task.tasktype, data, task.workertype, task.priority, task.options)->Then(task.resolve, task.reject);
+  }
+
+  CreatePromiseAllSettled(SELECT AS OBJECT ARRAY promise FROM tohandle)->Then(PTR taskservice->CloseService());
+
+  RETURN DEFAULT RECORD;
+}
+
+
+/** @short Schedule an ephemeral task if this transaction commits
+    @long An ephemeral task may be lost if the current script, the task itself or the task manager fails or ends
+          Ephemeral tasks are often used when work needs to be done asynchronously, but the current script still needs
+          the results. If the current script goes away, it's assumed that the task can go away and will not have any
+          side effects.
+    @param tasktype Type of the task to schedule - refers to to the servicemanager:ephemeraltask in the moduledefinition
+    @param taskdata Data for the task
+    @cell(record) options.auxdata Auxilliary data cells. This will be merged with the task data when passed to the task, but stored separately to avoid the 4K limit
+    @cell(string) options.priority Override the default task priority for this task type. Allowed values: '', 'background', 'normal', 'interactive', 'update', 'updateinteractive'.
+    @cell(string) options.persistentcachekey Key for the persistent cache of the task (available via `taskcontext.persistentcache`)
+    @return Promise that will complete when the task is done, and returns the tasks value or an exception if the task failed
+*/
+PUBLIC OBJECT FUNCTION ScheduleEphemeralTask(STRING tasktype, RECORD taskdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ auxdata := DEFAULT RECORD
+      , priority := ""
+      , persistentcachekey := ""
+      ], options,
+      [ enums := [ priority := [ "", "background", "normal", "interactive", "update", "updateinteractive" ] ]
+      ]);
+
+  RECORD taskinfo := GetTaskTypeSettings(tasktype, TRUE);
+  INTEGER priority := options.priority = "" ? taskinfo.priority : ParseManagedTaskPriority(options.priority);
+  DELETE CELL priority FROM options;
+
+  RECORD promise := CreateDeferredPromise();
+  INSERT CELL[ tasktype, taskdata, taskinfo.workertype, options, promise.promise, promise.resolve, promise.reject, priority ]
+         INTO GetPrimary()->__scheduledephemeraltasks AT END;
+
+  IF(GetPrimary()->IsWorkOpen())
+    GetPrimary()->RegisterCommitHandler("system:handleephemeraltasks", PTR HandleEphemeralTasks(GetPrimary(), #1));
+  ELSE
+    HandleEphemeralTasks(GetPrimary(), TRUE);
+
+  RETURN promise.promise;
+}

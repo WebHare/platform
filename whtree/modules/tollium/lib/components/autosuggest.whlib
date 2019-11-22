@@ -1,0 +1,84 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+/** @short Component return autosuggest data
+*/
+PUBLIC STATIC OBJECTTYPE TolliumAutoSuggestComponent EXTEND TolliumComponentBase
+< /// Name of the TolliumAUtoSUggestBase-derived object
+  PUBLIC STRING suggestobjectname;
+  /// Autcomplete data
+  PUBLIC PROPERTY data(pvt_data, SetData);
+
+  RECORD pvt_data;
+
+  RECORD job;
+
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    this->suggestobjectname := def.suggestobjectname;
+  }
+
+  PUBLIC ASYNC FUNCTION Lookup(STRING text)
+  {
+    IF(NOT RecordExists(this->job))
+      this->LaunchLookupScript();
+    IF(NOT ObjectExists(this->job.job))
+      RETURN RECORD[]; //too bad, no data available if the script crashed
+
+    RECORD response := this->job.job->ipclink->DoRequest([ text := text ]);
+    IF (response.status = "gone")
+    {
+      OBJECT dialog := CreateHarescriptErrorsDialog(this->owner, this->job.job->GetErrors());
+      this->job.job->Close();
+      dialog->RunModal();
+      this->job.job := DEFAULT OBJECT;
+      RETURN RECORD[];
+    }
+    RETURN response.msg.results;
+  }
+
+  MACRO SetData(RECORD newdata)
+  {
+    this->pvt_data := newdata;
+    this->StopJob();
+  }
+
+  PUBLIC MACRO StopJob()
+  {
+    IF(RecordExists(this->job) AND ObjectExists(this->job.job))
+      this->job.job->Close();
+    this->job := DEFAULT RECORD;
+  }
+
+  MACRO LaunchLookupScript()
+  {
+    RECORD taskdata := CELL[ this->data
+                           , this->suggestobjectname
+                           ];
+
+    this->job := CreateJob("mod::tollium/scripts/internal/autosuggestjob.whscr");
+    IF(NOT ObjectExists(this->job.job))
+    {
+      OBJECT dialog := CreateHarescriptErrorsDialog(this->owner, this->job.errors);
+      dialog->Runmodal();
+      RETURN;
+    }
+    this->job.job->Start();
+    this->job.job->ipclink->SendMessage(CELL[ this->suggestobjectname
+                                            , this->data
+                                            , tidlanguage := GetTidLanguage()
+                                            , effectiveuser := GetEffectiveUser()->GetUserMarshallInfo()
+                                            ]);
+  }
+
+>;

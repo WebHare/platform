@@ -1,0 +1,7 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_address.whscr" tags="address" />
+  <test script="test_providers.whscr" tags="address" />
+  <test script="test_pdok.whscr" tags="external address" />
+  <test script="test_postcodeapi_nu.whscr" tags="external address" ifenvironset="TESTFW_POSTCODENU_APIKEY" />
+  <test script="test_webservices.whscr" tags="external address" />
+</group>

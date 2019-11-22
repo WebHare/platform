@@ -1,0 +1,574 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+
+LOADLIB "mod::system/lib/internal/appserverbase.whlib";
+
+// Test connection
+
+PUBLIC OBJECTTYPE TestConnection EXTEND AppServerConnectionBase
+  < PUBLIC STRING indata;
+    PUBLIC STRING outdata;
+    PUBLIC STRING ARRAY pending;
+    PUBLIC STRING ARRAY p_outdata;
+    PUBLIC BOOLEAN support_binary;
+    PUBLIC BOOLEAN closed;
+    PUBLIC RECORD expect;
+    PUBLIC STRING ARRAY script;
+    PUBLIC RECORD ARRAY expect_trace;
+
+    PUBLIC UPDATE RECORD FUNCTION GetOptions()
+    {
+      RETURN [ has_binary_expect := this->support_binary ];
+    }
+
+    PUBLIC UPDATE MACRO ExpectLine(INTEGER size)
+    {
+      IF (RecordExists(this->expect))
+        ABORT("Expect line called while data was already expected");
+      IF (this->closed)
+        ABORT("Calling expectBinaryData connection is closed");
+      this->expect := [ type := "T", size := size ];
+      this->expect_trace := GetStackTrace();
+    }
+
+    PUBLIC UPDATE MACRO ExpectBinaryData(INTEGER size)
+    {
+      IF (NOT this->support_binary)
+        ABORT("Calling expectBinaryData while that was explicitly NOT SUPPORTED!");
+      IF (this->closed)
+        ABORT("Calling expectBinaryData connection is closed");
+
+      IF (RecordExists(this->expect))
+        ABORT("Expect binary called while data was already expected");
+      this->expect := [ type := "B", size := size ];
+      this->expect_trace := GetStackTrace();
+    }
+
+    PUBLIC UPDATE MACRO SendData(STRING data)
+    {
+      INSERT data INTO this->pending AT END;
+    }
+
+    PUBLIC UPDATE MACRO SetTimer(INTEGER timeout)
+    {
+      // NOOP. For now.
+    }
+
+    PUBLIC UPDATE MACRO Disconnect(INTEGER grace_timeout)
+    {
+      this->closed := TRUE;
+    }
+
+    PUBLIC UPDATE RECORD FUNCTION GetConnectionData()
+    {
+      RETURN [ remote_ip := "1.2.3.4", remote_port := 5, local_ip := "127.0.0.1", local_port := 6 ];
+    }
+
+    PUBLIC UPDATE MACRO Run()
+    {
+      STRING unprocessed_sends := Detokenize(this->pending, "");
+      this->p_outdata := this->p_outdata CONCAT this->pending;
+      this->outdata := this->outdata || Detokenize(this->pending, "");
+      this->pending := DEFAULT STRING ARRAY;
+
+      STRING actual_comm;
+
+      FOREVERY (STRING scriptline FROM this->script)
+      {
+        STRING cmd := LEFT(scriptline, 1);
+        BOOLEAN is_binary := SubString(scriptline, 1, 1) = "B";
+        STRING data := SubString(scriptline, is_binary ? 2 : 1, LENGTH(scriptline));
+        IF (LEFT(data, 2) != ": " OR cmd NOT IN ["C", "S", "Q"])
+          ABORT("Wrong line syntax (must be 'C: data', 'CB: binarydata', 'S: data-likemask', 'SB: data', 'Q:'");
+        data := SubString(data, 2);
+
+        SWITCH (cmd || (is_binary ? "B": ""))
+        {
+        CASE "C"
+          {
+            IF (NOT RecordExists(this->expect))
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Clients sends data, but server is not waiting for it!");
+            }
+            IF (this->expect.type != "T")
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              PRINT("Relevant trace:\n"||AnyToString(this->expect_trace, "boxed"));
+              ABORT("Clients sends line-data, but server is waiting for binary data!");
+            }
+            RECORD copy := this->expect;
+            this->expect := DEFAULT RECORD;
+
+            actual_comm := actual_comm || scriptline || "\n";
+            this->OnLineReceive(LEFT(data, copy.size), LENGTH(data) <= copy.size);
+          }
+        CASE "CB"
+          {
+            IF (NOT RecordExists(this->expect))
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Clients sends data, but server is not waiting for it!");
+            }
+            IF (this->expect.type != "B")
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              PRINT("Relevant trace:\n"||AnyToString(this->expect_trace, "boxed"));
+              ABORT("Clients sends binary-data, but server is waiting for line data!");
+            }
+            RECORD copy := this->expect;
+            this->expect := DEFAULT RECORD;
+
+            IF (copy.size != LENGTH(data))
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Server wants other amount than client is sending (server wants "||copy.size||", client sends "||LENGTH(data)||")");
+            }
+
+            actual_comm := actual_comm || EncodeJava(scriptline) || "\n";
+            this->OnBinaryDataReceive(LEFT(data, copy.size));
+          }
+        CASE "S"
+          {
+            INTEGER pos := SearchSubString(unprocessed_sends, "\r\n");
+            IF (pos = -1)
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Want a line from the server, but it hasn't sent it yet");
+            }
+
+            STRING line := LEFT(unprocessed_sends, pos);
+            unprocessed_sends := SubString(unprocessed_sends, pos + 2, LENGTH(unprocessed_sends));
+
+            actual_comm := actual_comm  || "S: " || EncodeJava(line) || "\n";
+            IF (ToUppercase(line) NOT LIKE ToUppercase(data))
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Line sent by the server doesn't match mask. Wanted something like '"||data||"', got: '"||EncodeJava(line)||"'");
+            }
+          }
+        CASE "SB"
+          {
+            INTEGER mlen := LENGTH(data);
+            IF (LENGTH(unprocessed_sends) < mlen)
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Want binary data from the server, but it hasn't sent enough yet (wanted " || mlen || " bytes, got " || LENGTH(unprocessed_sends) || " bytes)");
+            }
+
+            STRING line := LEFT(unprocessed_sends, mlen);
+            unprocessed_sends := SubString(unprocessed_sends, mlen, LENGTH(unprocessed_sends));
+
+            actual_comm := actual_comm  || "S: " || EncodeJava(line) || "\n";
+            IF (line != data)
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Binary data sent by the server doesn't match mask. Wanted: '"||EncodeJava(data)||"', got: '"||EncodeJava(line)||"'");
+            }
+          }
+        CASE "Q"
+          {
+            IF (NOT this->closed)
+            {
+              PRINT("Error!. Script:\n"||Detokenize(this->script, "\n")||"\n\nGot:\n"||actual_comm);
+              ABORT("Expected the connection to be closed by server, but it wasn't");
+            }
+          }
+        }
+
+        unprocessed_sends := unprocessed_sends || Detokenize(this->pending, "");
+        this->p_outdata := this->p_outdata CONCAT this->pending;
+        this->outdata := this->outdata || Detokenize(this->pending, "");
+        this->pending := DEFAULT STRING ARRAY;
+      }
+    }
+
+    PUBLIC MACRO NEW(BOOLEAN allow_binary)
+    {
+      this->support_binary := allow_binary;
+    }
+
+    PUBLIC PROPERTY left_data(indata, -);
+    PUBLIC PROPERTY all_result(outdata, -);
+    PUBLIC PROPERTY chunked_result(p_outdata, -);
+  >;
+
+PUBLIC STATIC OBJECTTYPE SocketConnection EXTEND AppServerConnectionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_socket;
+
+
+  STRING pvt_inbuf;
+
+
+  RECORD expect;
+
+
+  RECORD ARRAY expect_trace;
+
+
+  DATETIME pvt_nexttimeout;
+
+
+  BOOLEAN pvt_closed;
+
+
+  BOOLEAN pvt_debugmode;
+
+
+  STRING pvt_debugprefix;
+
+
+  OBJECT pvt_appserver_emulator;
+
+
+//  INTEGER timeout;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  PUBLIC PROPERTY socket(pvt_socket, -);
+
+
+  PUBLIC PROPERTY nexttimeout(pvt_nexttimeout, -);
+
+
+  PUBLIC PROPERTY closed(pvt_closed, -);
+
+
+  PUBLIC PROPERTY debugmode(pvt_debugmode, pvt_debugmode);
+
+
+  PUBLIC PROPERTY debugprefix(pvt_debugprefix, pvt_debugprefix);
+
+
+  PUBLIC PROPERTY appserver_emulator(pvt_appserver_emulator, pvt_appserver_emulator);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER socket)
+  {
+    this->pvt_socket := socket;
+    this->pvt_nexttimeout := MAX_DATETIME;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC UPDATE RECORD FUNCTION GetOptions()
+  {
+    RETURN [ has_binary_expect := TRUE ];
+  }
+
+  PUBLIC UPDATE MACRO ExpectLine(INTEGER size)
+  {
+    IF (RecordExists(this->expect))
+      ABORT("Expect line called while data was already expected");
+    IF (this->pvt_closed)
+      ABORT("Calling expectBinaryData connection is closed");
+    this->expect := [ type := "T", size := size ];
+    this->expect_trace := GetStackTrace();
+  }
+
+  PUBLIC UPDATE MACRO ExpectBinaryData(INTEGER size)
+  {
+    IF (this->pvt_closed)
+      ABORT("Calling expectBinaryData connection is closed");
+
+    IF (RecordExists(this->expect))
+      ABORT("Expect binary called while data was already expected");
+    this->expect := [ type := "B", size := size ];
+    this->expect_trace := GetStackTrace();
+  }
+
+  PUBLIC UPDATE MACRO SendData(STRING data)
+  {
+    IF (this->pvt_debugmode)
+    {
+      STRING xdata := data;
+      PRINT(this->pvt_debugprefix || " S: " || EncodeJava(xdata) || "\n");
+    }
+
+    IF (this->pvt_socket != 0)
+      PrintTo(this->pvt_socket, data);
+  }
+
+  PUBLIC UPDATE MACRO SetTimer(INTEGER timeout)
+  {
+    this->pvt_nexttimeout := AddTimeToDate(timeout * 1000, GetCurrentDateTime());
+  }
+
+  PUBLIC UPDATE MACRO Disconnect(INTEGER grace_timeout)
+  {
+    this->pvt_closed := TRUE;
+    CloseSocket(this->pvt_socket);
+    this->pvt_socket := 0;
+  }
+
+  PUBLIC UPDATE RECORD FUNCTION GetConnectionData()
+  {
+    RETURN
+        [ remote_ip :=  GetRemoteSocketIP(this->pvt_socket)
+        , remote_port :=GetRemoteSocketPort(this->pvt_socket)
+        , local_ip :=   GetLocalSocketIP(this->pvt_socket)
+        , local_port := GetLocalSocketPort(this->pvt_socket)
+        ];
+  }
+
+  PUBLIC BOOLEAN FUNCTION OnSocketSignalled()
+  {
+    STRING incoming := ReadFromSocket(this->pvt_socket);
+    IF (incoming = "" AND GetLastSocketError(this->pvt_socket) < 0)
+    {
+      this->Disconnect(0);
+      RETURN FALSE;
+    }
+
+    this->pvt_inbuf := this->pvt_inbuf || incoming;
+//    PRINT("Inbuf now: " || this->pvt_inbuf || "\n" || AnyToString(this->expect, "boxed"));
+
+    WHILE (this->pvt_inbuf != "")
+    {
+      IF (NOT RecordExists(this->expect))
+        RETURN TRUE;
+
+      SWITCH (this->expect.type)
+      {
+      CASE "T"
+        {
+          INTEGER pos := SearchSubString(this->pvt_inbuf, "\n");
+          INTEGER fpos := pos > this->expect.size ? this->expect.size : pos;
+
+          IF (fpos = -1)
+            RETURN TRUE;
+
+          STRING line := LEFT(this->pvt_inbuf, fpos);
+          this->pvt_inbuf := SubString(this->pvt_inbuf, pos = fpos ? pos + 1 : fpos);
+
+          IF (pos = fpos)
+          {
+            STRING ending := RIGHT(line, 2);
+            IF (ending = "\r\n")
+              line := LEFT(line, LENGTH(line) - 2);
+            ELSE
+              line := LEFT(line, LENGTH(line) - 1);
+          }
+
+          this->expect := DEFAULT RECORD;
+          IF (this->pvt_debugmode)
+            PRINT(this->pvt_debugprefix || " C: " || EncodeJava(line) || "\n");
+          this->OnLineReceive(line, pos = fpos);
+        }
+      CASE "B"
+        {
+          IF (LENGTH(this->pvt_inbuf) < this->expect.size)
+            RETURN TRUE;
+
+          STRING data := LEFT(this->pvt_inbuf, this->expect.size);
+          this->pvt_inbuf := SubString(this->pvt_inbuf, this->expect.size);
+
+          this->expect := DEFAULT RECORD;
+          IF (this->pvt_debugmode)
+            PRINT(this->pvt_debugprefix || " CB: " || LENGTH(data) || " bytes\n");
+          this->OnBinaryDataReceive(data);
+        }
+      }
+
+      IF (NOT this->pvt_closed AND NOT RecordExists(this->expect))
+        ABORT("Callback function called, but no expect was set");
+    }
+
+    RETURN NOT this->pvt_closed;
+  }
+
+  PUBLIC BOOLEAN FUNCTION OnSocketTimeout()
+  {
+    this->pvt_nexttimeout := MAX_DATETIME;
+    IF (this->OnTimerExpire != DEFAULT FUNCTION PTR)
+      this->OnTimerExpire();
+
+    RETURN NOT this->pvt_closed;
+  }
+
+  PUBLIC UPDATE MACRO Run()
+  {
+    IF (ObjectExists(this->pvt_appserver_emulator))
+    {
+//      pvt_appserver_emulator->RunLoop();
+    }
+    ELSE
+    {
+      WHILE (this->pvt_socket != 0)
+      {
+        INTEGER handle := WaitForMultipleUntil([ this->pvt_socket ], DEFAULT INTEGER ARRAY, this->pvt_nexttimeout);
+
+        IF (handle = this->pvt_socket)
+          this->OnSocketSignalled();
+        ELSE
+          this->OnSocketTimeout();
+      }
+    }
+  }
+>;
+
+
+STATIC OBJECTTYPE AppserverEmulator
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC STRING host;
+
+
+  PUBLIC INTEGER port;
+
+
+  PUBLIC BOOLEAN secure;
+
+
+  PUBLIC FUNCTION PTR onnewconnection;
+
+
+  PUBLIC BOOLEAN debugmode;
+
+
+  INTEGER listen_socket;
+
+
+  INTEGER counter;
+
+
+  OBJECT ARRAY connections;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  PUBLIC MACRO Init()
+  {
+    this->listen_socket := CreateTCPSocket();
+
+    IF (NOT BindSocket(this->listen_socket, this->host, this->port))
+      ABORT("Could not bind socket to " || this->host || ":" || this->port);
+
+    IF (NOT ListenOnTCPSocket(this->listen_socket))
+      ABORT("Could not listen on socket for " || this->host || ":" || this->port);
+  }
+
+  PUBLIC MACRO Run()
+  {
+    IF (this->listen_socket = 0)
+      this->Init();
+
+//    PRINT("Listen socket handle: " || this->listen_socket || "\n");
+
+    this->RunLoop();
+  }
+
+  MACRO RemoveConn(OBJECT o)
+  {
+    INTEGER pos := SearchElement(this->connections, o);
+    IF (pos != -1)
+      DELETE FROM this->connections AT pos;
+  }
+
+  MACRO RunLoop()
+  {
+    WHILE (TRUE)
+    {
+      INTEGER ARRAY handles := [ this->listen_socket ];
+      DATETIME waituntil := MAX_DATETIME;
+
+      FOREVERY (OBJECT conn FROM this->connections)
+      {
+        IF (conn->nexttimeout < waituntil)
+          waituntil := conn->nexttimeout;
+
+        INSERT conn->socket INTO handles AT END;
+      }
+
+      INTEGER handle := WaitForMultipleUntil(handles, DEFAULT INTEGER ARRAY, waituntil);
+//      PRINT("Got handle: " || handle || "\n");
+
+      IF (handle = -1)
+      {
+        DATETIME now := GetCurrentDateTime();
+
+        FOREVERY (OBJECT conn FROM this->connections)
+          IF (conn->nexttimeout <= now)
+          {
+            IF (NOT conn->OnSocketTimeout())
+              this->RemoveConn(conn);
+          }
+      }
+      ELSE IF (handle = this->listen_socket)
+      {
+        INTEGER s := AcceptOnTCPSocket(this->listen_socket);
+        IF (s > 0)
+        {
+          this->counter := this->counter + 1;
+
+          IF (this->secure)
+            SetSecureConnection(s, FALSE);
+
+          OBJECT o := NEW SocketConnection(s);
+          o->debugmode := this->debugmode;
+          o->debugprefix := RIGHT("000" || this->counter, 4);
+          o->appserver_emulator := PRIVATE this;
+
+//          PRINT("New connection, handle: " || s || "\n");
+          INSERT o INTO this->connections AT END;
+
+          this->onnewconnection(o);
+
+          IF (o->closed)
+            this->RemoveConn(o);
+        }
+      }
+      ELSE
+      {
+        FOREVERY (OBJECT conn FROM this->connections)
+        {
+          IF (handle = conn->socket)
+          {
+            IF (NOT conn->OnSocketSignalled())
+              this->RemoveConn(conn);
+            BREAK;
+          }
+        }
+      }
+    }
+  }
+>;
+
+
+/** @param onnewconnection MACRO PTR (OBJECT< SocketConnection > conn
+*/
+PUBLIC OBJECT FUNCTION MakeAppserverEmulator(STRING host, INTEGER port, FUNCTION PTR onnewconnection)
+{
+  OBJECT o := NEW AppserverEmulator;
+  o->host := host;
+  o->port := port;
+  o->onnewconnection := onnewconnection;
+  RETURN o;
+}

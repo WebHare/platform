@@ -1,0 +1,533 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+
+
+PUBLIC CONSTANT INTEGER debuglevel_none := 0;
+PUBLIC CONSTANT INTEGER debuglevel_error := 1;
+PUBLIC CONSTANT INTEGER debuglevel_queue := 2;
+PUBLIC CONSTANT INTEGER debuglevel_comm := 3;
+PUBLIC CONSTANT INTEGER debuglevel_task := 4;
+PUBLIC CONSTANT INTEGER debuglevel_all := 5;
+
+
+PUBLIC INTEGER64 FUNCTION GetTimestamp()
+{
+  RETURN GetUnixTimestampMsecs(GetCurrentDateTime());
+}
+
+STATIC OBJECTTYPE PersistentQueueBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING tasktype;
+  INTEGER debuglevel;
+  BOOLEAN debugprint;
+  OBJECT commandport;
+  BOOLEAN shuttingdown;
+  RECORD ARRAY queue;
+  INTEGER64 nexttaskid;
+  INTEGER queueflushinterval;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(STRING tasktype, RECORD options)
+  {
+    options := ValidateOptions(
+        [ debuglevel := debuglevel_none
+        , queueflushinterval := 5 * 1000
+        , debugprint := FALSE
+        ], options, [ passthrough := TRUE ]);
+
+    this->debuglevel := options.debuglevel;
+    this->debugprint := options.debugprint;
+    this->queueflushinterval := options.queueflushinterval;
+
+    //FIXME: Check if there's no other PersistentQueue for this tasktype!
+    this->tasktype := tasktype;
+
+    IF (this->debuglevel >= debuglevel_comm)
+      this->DebugLog(`  Creating IPC port ${command_portname || this->tasktype}`);
+    this->commandport := CreateGlobalIPCPort(`${command_portname || this->tasktype}`);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO Run()
+  {
+    WaitForPromise(this->RunAsync());
+  }
+
+  PUBLIC ASYNC MACRO RunAsync()
+  {
+    IF (NOT this->ReadPersistentQueue())
+      this->RebuildPersistentQueue();
+
+    BOOLEAN haveflushed;
+    WHILE (NOT this->shuttingdown)
+    {
+      // Handle next queue task
+      this->ScheduleNextTask();
+
+      IF (this->debuglevel >= debuglevel_comm)
+        this->DebugLog("* Waiting for incoming data" || (RecordExists(this->queue) ? " or task result" : ""));
+
+      DATETIME waituntil := haveflushed ? AddTimeToDate(this->queueflushinterval, GetCurrentDateTime()) : MAX_DATETIME;
+      INTEGER handle := AWAIT __INTERNAL_AsyncWaitHandleReadSignalled(this->commandport->handle, waituntil);
+      IF (handle >= 0)
+      {
+        // Process the incoming data
+        this->ProcessHandle(handle);
+      }
+      haveflushed := this->WritePersistentQueue(FALSE);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Implement persisting functionality
+  //
+
+  BOOLEAN FUNCTION ReadPersistentQueue()
+  {
+    THROW NEW Exception("ReadPersistentQueue should be overridden in subclasses");
+  }
+
+  MACRO RebuildPersistentQueue()
+  {
+  }
+
+  BOOLEAN FUNCTION WritePersistentQueue(BOOLEAN force)
+  {
+    THROW NEW Exception("WritePersistentQueue should be overridden in subclasses");
+  }
+
+  MACRO WritePersistentPos()
+  {
+    THROW NEW Exception("WritePersistentPos should be overridden in subclasses");
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO DebugLog(STRING message, VARIANT ARRAY ...args)
+  {
+    IF (this->debugprint)
+      Print(message || "\n");
+    CallMacroPtrVA(PTR LogDebug, VARIANT[ "system:persistentqueue", this->tasktype, message, ...args ]);
+  }
+
+  MACRO ProcessHandle(INTEGER handle)
+  {
+    IF (handle = this->commandport->handle)
+    {
+      // Read command from handle
+      IF (this->debuglevel >= debuglevel_comm)
+        this->DebugLog("  Incoming command port connection");
+      // Accept a new link on the command port
+      OBJECT link := this->commandport->Accept(DEFAULT DATETIME);
+      // If we got a link, add it to the list of command links to wait for
+      IF (ObjectExists(link))
+      {
+        RECORD res := link->ReceiveMessage(AddTimeToDate(500, GetCurrentDateTime()));
+        IF (RecordExists(res) AND res.status = "ok")
+        {
+          IF (this->debuglevel >= debuglevel_comm)
+            this->DebugLog(`  Received command`);
+          this->ProcessCommand(res.msg, link, res.msgid);
+        }
+        ELSE IF (this->debuglevel >= debuglevel_error)
+          this->DebugLog("! Did not receive command");
+        link->Close();
+      }
+    }
+    ELSE IF (handle = 0)
+    {
+      // Connection to global port closed
+      this->Shutdown();
+    }
+  }
+
+  MACRO ProcessCommand(RECORD data, OBJECT ipc_conn, INTEGER64 ipc_msgid)
+  {
+    IF (this->debuglevel >= debuglevel_all)
+      this->DebugLog("  Processing command", data.action, CELL[...data, DELETE action]);
+    SWITCH (data.action)
+    {
+      CASE "SHUTDOWN"
+      {
+        IF (this->debuglevel >= debuglevel_all)
+          this->DebugLog("# Shutdown request received");
+        IF (ObjectExists(ipc_conn))
+          ipc_conn->SendReply([ status := "ok" ], ipc_msgid);
+        this->Shutdown();
+      }
+      CASE "SCHEDULE"
+      {
+        this->PushTask(data.task, DEFAULT RECORD);
+        ipc_conn->SendReply([ status := "queued" ], ipc_msgid);
+      }
+      CASE "SCHEDULEMULTIPLE"
+      {
+        FOREVERY (RECORD task FROM data.task.tasks)
+          this->PushTask(task, DEFAULT RECORD);
+        ipc_conn->SendReply([ status := "queued" ], ipc_msgid);
+      }
+      CASE "DONE"
+      {
+        IF (this->debuglevel >= debuglevel_all)
+          this->DebugLog("  Ready to schedule next task");
+        // We don't have to do anything here, merely handling this command advances the central WHILE loop
+      }
+      DEFAULT
+      {
+        IF (this->debuglevel >= debuglevel_error)
+          this->DebugLog(`! Unrecognized command '${data.action}'`);
+      }
+    }
+  }
+
+  MACRO ScheduleNextTask()
+  {
+    RECORD task := PickFirst(this->queue);
+    IF (RecordExists(task) AND task.scheduledat = 0i64)
+    {
+      task := CELL[ ...task, idx := 0 ];
+      IF (this->debuglevel >= debuglevel_queue)
+        this->DebugLog(`> ${Length(task.errors) > 0 ? "Rescheduling" : "Scheduling"} task with id ${task.id}: ${EncodeHSON(task.task)}`);
+      this->queue[0].scheduledat := GetTimestamp();
+      RunInSeparatePrimary(PTR this->ScheduleTaskRunner(task));
+      this->WritePersistentPos();
+    }
+  }
+
+  MACRO ScheduleTaskRunner(RECORD task)
+  {
+    this->queue[task.idx].promise := ScheduleEphemeralTask(this->tasktype, CELL[ debug := this->debuglevel > debuglevel_task, task.task ])->then(PTR this->ProcessTaskResult(task.id, #1), PTR this->ProcessTaskError(task.id, #1));
+  }
+
+  MACRO ProcessTaskResult(INTEGER64 taskid, RECORD result)
+  {
+    RECORD task := this->GetTask(taskid);
+    IF (RecordExists(task))
+    {
+      IF (this->debuglevel >= debuglevel_queue)
+        this->DebugLog(`< Have result for task with id ${taskid}: ${EncodeHSON(result)}${Length(task.errors) > 0 ? ` (${Length(task.errors)} errors)` : ""}`);
+      this->queue[task.idx].resultat := GetTimestamp();
+      IF (CellExists(result, "_runtime"))
+        this->queue[task.idx].runtime := result._runtime;
+      this->PopTask(taskid);
+    }
+    OBJECT link := ConnectToGlobalIPCPort(`${command_portname || this->tasktype}`);
+    IF (ObjectExists(link))
+      link->SendMessage([ action := "DONE" ]);
+  }
+
+  MACRO ProcessTaskError(INTEGER64 taskid, OBJECT error)
+  {
+    RECORD task := this->GetTask(taskid);
+    IF (RecordExists(task))
+    {
+      IF (this->debuglevel >= debuglevel_error)
+        this->DebugLog(`! Error for task with id ${taskid}: ${error->what} (#${Length(this->queue[task.idx].errors)}), queued for ${task.scheduledat - task.queuedat}ms, run for ${GetTimestamp() - task.scheduledat}ms`);
+      INSERT error->what INTO this->queue[task.idx].errors AT END;
+
+      //Push it to the end!
+      this->queue[task.idx].scheduledat := 0i64;
+      INSERT this->queue[task.idx] INTO this->queue AT END;
+      DELETE FROM this->queue AT task.idx;
+    }
+    OBJECT link := ConnectToGlobalIPCPort(`${command_portname || this->tasktype}`);
+    IF (ObjectExists(link))
+      link->SendMessage([ action := "DONE" ]);
+  }
+
+  RECORD FUNCTION GetTask(INTEGER64 taskid)
+  {
+    RETURN SELECT *, idx := #queue FROM this->queue WHERE id = taskid;
+  }
+
+  MACRO PushTask(RECORD task, RECORD pos)
+  {
+    this->nexttaskid := this->nexttaskid + 1;
+    INSERT CELL
+        [ task
+        , id := this->nexttaskid
+        , pos
+        , promise := DEFAULT OBJECT
+        , errors := STRING[]
+        , queuedat := GetTimestamp()
+        , scheduledat := 0i64
+        , resultat := 0i64
+        , runtime := 0i64
+        ] INTO this->queue AT END;
+    IF (this->debuglevel >= debuglevel_queue)
+      this->DebugLog(`+ Queued new task with id ${this->nexttaskid}: ${EncodeHSON(task)} (Queue length: ${Length(this->queue)})`);
+  }
+
+  MACRO PopTask(INTEGER64 taskid)
+  {
+    RECORD task := this->GetTask(taskid);
+    IF (RecordExists(task))
+    {
+      DELETE FROM this->queue AT task.idx;
+
+      this->WritePersistentPos();
+    }
+    IF (this->debuglevel >= debuglevel_queue)
+      this->DebugLog(`- Dequeued task with id ${taskid}, queued for ${task.scheduledat - task.queuedat}ms, run for ${task.resultat - task.scheduledat}ms${task.runtime > 0 ? ` (own time ${task.runtime}ms)`: ""} (Queue length: ${Length(this->queue)})`);
+  }
+
+  MACRO Shutdown()
+  {
+    this->shuttingdown := TRUE;
+    this->WritePersistentQueue(TRUE);
+
+    RECORD task := SELECT * FROM this->queue WHERE ObjectExists(promise);
+    IF (RecordExists(task))
+    {
+      IF (this->debuglevel >= debuglevel_queue)
+      {
+        IF (task.scheduledat > 0)
+          this->DebugLog(`  Cancelling task with id ${task.id}, queued for ${task.scheduledat - task.queuedat}ms, run for ${GetTimestamp() - task.scheduledat}ms`);
+        ELSE
+          this->DebugLog(`  Cancelling task with id ${task.id}, queued for ${GetTimestamp() - task.queuedat}ms`);
+      }
+      //FIXME: This doesn't do anything (yet?); the task handler should listen to promise cancellation and cancel the task
+      task.promise->Cancel();
+    }
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE PersistentDiskQueue EXTEND PersistentQueueBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  BOOLEAN keepstorage;
+  STRING queueroot;
+  RECORD curpos; // [ STRING file, INTEGER64 offset ] pointing to the current/next task
+  STRING curfile; // Current queue file we're writing to
+  DATETIME curfilestamp;
+
+  DATETIME lastqueueflush;
+  DATETIME lastposflush;
+
+  INTEGER posflushinterval;
+  INTEGER filerotationinterval;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW(STRING tasktype, RECORD options DEFAULTSTO DEFAULT RECORD) : PersistentQueueBase(tasktype, options)
+  {
+    options := ValidateOptions(
+        [ keepstorage := FALSE
+        , posflushinterval := 1 * 1000
+        , filerotationinterval := 60 * 60 * 1000
+        ], options, [ passthrough := TRUE ]);
+    this->keepstorage := options.keepstorage;
+    this->posflushinterval := options.posflushinterval;
+    this->filerotationinterval := options.filerotationinterval;
+
+    this->queueroot := GetModuleStorageRoot("system") || "persistentqueues/" || Substitute(this->tasktype, ":", "/") || "/";
+    // Sanity check to prevent DeleteDiskDirectoryRecursive from inadversely deleting files
+    IF (this->queueroot NOT LIKE "/*")
+      THROW NEW Exception(`Invalid queue root '${this->queueroot}'`);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Implement persisting functionality
+  //
+
+  UPDATE BOOLEAN FUNCTION ReadPersistentQueue()
+  {
+    CreateDiskDirectoryRecursive(this->queueroot, TRUE);
+    /* Queue on disk:
+       - queue-<timestamp> -> HSON-encoded queue items
+       - pos -> HSON-encoded queue position [ STRING file, INTEGER64 taskoffset ]
+    */
+    // First, check if there is a 'pos' file
+    RECORD pos;
+    TRY
+      pos := DecodeHSONBlob(GetDiskResource(this->queueroot || "pos"));
+    CATCH; // Don't really care about losing our position within the queue
+    //ADDME: Maybe make this configurable? E.g. if queue items cannot be run twice safely
+
+    // Iterate over all the queue files
+    STRING firstfile;
+    FOREVERY (RECORD queuefile FROM ReadDiskDirectory(this->queueroot, "queue-*"))
+    {
+      // If this is an old queue file, it can be deleted
+      IF (RecordExists(pos) AND queuefile.name < pos.file)
+      {
+        IF (NOT this->keepstorage)
+          DeleteDiskFile(this->queueroot || queuefile.name);
+        CONTINUE;
+      }
+      firstfile := queuefile.name;
+
+      // Read the queue file line by line
+      STRING ARRAY lines;
+      TRY
+        lines := Tokenize(BlobToString(GetDiskResource(this->queueroot || queuefile.name)), "\n");
+      CATCH (OBJECT e)
+      {
+        IF (this->debuglevel >= debuglevel_error)
+          this->DebugLog(`Error while reading queue file '${queuefile.name}': ${e->what}`);
+        // The current queue files could not be read, so we'll start over
+        //ADDME: Keep the old queue files?
+        DeleteDiskDirectoryRecursive(this->queueroot);
+        CreateDiskDirectoryRecursive(this->queueroot, TRUE);
+        this->queue := RECORD[];
+        this->WritePersistentPos();
+        RETURN FALSE;
+      }
+      INTEGER64 curoffset;
+      FOREVERY (STRING line FROM lines)
+      {
+        IF (line = "")
+          BREAK; // This is the last line of this file
+
+        // If there was no position file, or if there was and it didn't point to this file, or if it did and we're at or
+        // past the stored offset, add the queue item
+        IF (NOT RecordExists(pos) OR queuefile.name != pos.file OR curoffset >= pos.taskoffset)
+        {
+          //FIXME: What to do when decoding fails?
+          RECORD task := DecodeHSON(line);
+          IF (RecordExists(task))
+            this->PushTask(task, [ file := queuefile.name, taskoffset := curoffset + Length(line) + 1 ]);
+
+          // Initialize the current position
+          IF (NOT RecordExists(this->curpos))
+          {
+            // If there was a position file and it pointed to this file, store the stored position
+            IF (RecordExists(pos) AND queuefile.name = pos.file)
+              this->curpos := pos;
+            // If there wasn't a position file, store the current position
+            ELSE IF (NOT RecordExists(pos))
+              this->curpos := [ file := queuefile.name, taskoffset := curoffset ];
+          }
+        }
+        curoffset := curoffset + Length(line) + 1;
+      }
+    }
+    // If the pos pointed to the end of a file (i.e. nothing was queued), we no longer need the file (WritePersistentPos
+    // would delete the pos file, which would requeue this file after a restart)
+    IF (firstfile != "" AND NOT RecordExists(this->queue) AND NOT this->keepstorage)
+      DeleteDiskFile(this->queueroot || firstfile);
+    ELSE
+    {
+      this->curfile := firstfile;
+      this->curfilestamp := MakeDateFromText(ToUppercase(Substring(this->curfile, 6)));
+    }
+    this->WritePersistentPos();
+    RETURN TRUE;
+  }
+
+  UPDATE BOOLEAN FUNCTION WritePersistentQueue(BOOLEAN force)
+  {
+    /*ADDME: Delete old queue files
+    IF (NOT this->keepstorage)
+    {
+      DeleteDiskFile(this->queueroot || "pos");
+      DeleteDiskFile(this->queueroot || this->curpos.file);
+    }*/
+
+    // Anything to flush?
+    RECORD ARRAY toflush := SELECT *, idx := #queue FROM this->queue WHERE NOT RecordExists(pos) ORDER BY id;
+    IF (NOT RecordExists(toflush))
+      RETURN FALSE;
+
+    // Are we there yet?
+    IF (NOT force AND AddTimeToDate(this->queueflushinterval, this->lastqueueflush) > GetCurrentDateTime())
+      RETURN FALSE;
+    this->lastqueueflush := GetCurrentDateTime();
+
+    IF (AddTimeToDate(this->filerotationinterval, this->curfilestamp) < this->lastqueueflush)
+    {
+      this->curfilestamp := this->lastqueueflush;
+      this->curfile := "queue-" || ToLowercase(FormatISO8601DateTime(this->curfilestamp, "", "", "", FALSE));
+
+      IF (this->debuglevel >= debuglevel_queue)
+        this->DebugLog(`Writing ${Length(toflush)} queue items to new disk file '${this->curfile}'`);
+    }
+    ELSE IF (this->debuglevel >= debuglevel_queue)
+      this->DebugLog(`Appending ${Length(toflush)} queue items to current disk file '${this->curfile}'`);
+
+    INTEGER stream := OpenDiskFile(this->queueroot || this->curfile, TRUE);
+    IF (stream = 0)
+      stream := CreateDiskFile(this->queueroot || this->curfile, FALSE, TRUE);
+    ELSE
+      SetFilePointer(stream, GetFilelength(stream));
+
+    FOREVERY (RECORD task FROM toflush)
+    {
+      this->queue[task.idx].pos := [ file := this->curfile, taskoffset := GetFilelength(stream) ];
+      PrintTo(stream, EncodeHSON(task.task) || "\n");
+    }
+
+    CloseDiskFile(stream);
+
+    this->WritePersistentPos(force);
+
+    RETURN TRUE;
+  }
+
+  UPDATE MACRO WritePersistentPos(BOOLEAN force DEFAULTSTO FALSE)
+  {
+    // Are we there yet?
+    IF (NOT force AND AddTimeToDate(this->posflushinterval, this->lastposflush) > GetCurrentDateTime())
+      RETURN;
+    this->lastposflush := GetCurrentDateTime();
+
+    IF (RecordExists(this->queue))
+    {
+      IF (RecordExists(this->queue[0].pos))
+        this->curpos := this->queue[0].pos;
+    }
+    ELSE IF (this->curfile != "")
+    {
+      INTEGER handle := OpenDiskFile(this->queueroot || this->curfile, FALSE);
+      IF (handle != 0)
+        this->curpos := [ file := this->curfile, taskoffset := GetFileLength(handle) ];
+      CloseDiskFile(handle);
+    }
+    IF (RecordExists(this->curpos))
+      StoreDiskFile(this->queueroot || "pos", EncodeHSONBlob(this->curpos), [ overwrite := TRUE ]);
+    ELSE IF (NOT this->keepstorage)
+      DeleteDiskFile(this->queueroot || "pos");
+  }
+>;

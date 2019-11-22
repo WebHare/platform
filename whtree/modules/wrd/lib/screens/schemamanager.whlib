@@ -1,0 +1,440 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/dialogs.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+
+RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck)
+{
+  RETURN [[ rowkey := 0, title := "" ]]
+         CONCAT
+         SELECT rowkey := id, title := tag || " (" || title || ")"
+           FROM suitableattributes
+          WHERE id != 0 AND GetCell(suitableattributes,fieldtocheck);
+}
+
+
+// -----------------------------------------------------------------------------
+//
+// SchemaManager
+//
+
+PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< OBJECT pvt_selected_schema;
+
+  PUBLIC INTEGER value;
+
+  PUBLIC MACRO Init(RECORD data)
+  {
+    this->ResetList();
+
+    IF(data.curschema = 0)
+      data.curschema := this->tolliumuser->GetRegistryKey("wrd.lastopenedaccount",0);
+    IF(data.curschema != 0)
+      this->schemas->SetValueIfValid([INTEGER(data.curschema)]);
+
+    this->frame->flags.right_schemacreate := this->tolliumuser->HasRight("wrd:createschema");
+    this->frame->flags.right_superuser := this->tolliumuser->HasRight("system:sysop");
+  }
+
+  MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    this->OnImport(WrapBlob(dragdata.items[0].data, dragdata.items[0].filename));
+  }
+
+  MACRO GotSchemaListUpdate(RECORD ARRAY events)
+  {
+    this->ResetList();
+  }
+
+  MACRO ResetList()
+  {
+    RECORD ARRAY rows :=
+        SELECT rowkey := id
+             , right_metadata :=  this->tolliumuser->HasRightOn("wrd:metadata", id)
+             , *
+             , isprotected :=     protected
+             , protected :=       protected ? 1 : 0
+             , usermgmt :=        usermgmt ? 2 : 0
+          FROM ListWRDSchemas([user := this->tolliumuser]);
+
+    this->schemas->rows := rows;
+  }
+
+  PUBLIC MACRO DoOpenSchema()
+  {
+    this->value := this->schemas->value[0];
+    this->tolliumuser->SetRegistryKey("wrd.lastopenedaccount", this->value);
+    this->tolliumresult := "ok";
+  }
+
+  MACRO DoAddSchema()
+  {
+    OBJECT dialog := this->LoadScreen(".newschema");
+    IF (dialog->RunModal() = "ok")
+      this->schemas->value := [ INTEGER(dialog->schemaid) ];
+  }
+
+  MACRO DoEditSchema()
+  {
+    this->RunScreen("#schemaprops", DEFAULT RECORD, [ contexts := [ wrdschema := OpenWRDSchemaById(this->schemas->value[0]) ] ]);
+    this->ResetList();
+  }
+
+  MACRO DoDelSchema()
+  {
+    RECORD ARRAY tokill := this->schemas->selection;
+    FOREVERY(RECORD sch FROM tokill)
+    {
+      IF(sch.isprotected)
+      {
+        OBJECT work := this->BeginWork();
+        work->AddError(GetTid("wrd:browser.messages.schema_protected_delete", sch.tag));
+        work->Finish();
+        RETURN;
+      }
+    }
+
+    IF ((Length(tokill) = 1 ? this->RunMessageBox(".deleteschema", tokill[0].tag) : this->RunMessageBox(".deleteschemas")) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      FOREVERY(RECORD kill FROM tokill)
+        OpenWRDSchemaById(kill.rowkey)->DeleteSelf();
+      work->Finish();
+    }
+  }
+
+  MACRO OnImport(RECORD infile)
+  {
+    OBJECT screen := this->LoadScreen(".importschema", [ infile := infile ]);
+    screen->RunModal();
+    this->schemas->value := [ INTEGER(screen->schemaid) ];
+  }
+
+  MACRO DoSynchronize()
+  {
+    this->RunScreen("#synchronizeschema", DEFAULT RECORD, [ contexts := [ wrdschema := OpenWRDSchemaById(this->schemas->value[0]) ] ]);
+  }
+>;
+
+// -----------------------------------------------------------------------------
+//
+// New schema
+//
+
+PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER schemaid;
+
+  MACRO Init(RECORD data)
+  {
+  }
+
+  PUBLIC MACRO SuggestName(STRING name)
+  {
+    //ADDME unique-ify name?
+    this->name->value := name;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    OBJECT duplicate := OpenWRDSchema(this->name->value);
+    IF (ObjectExists(duplicate))
+      work->AddError(GetTid("wrd:schemamanager.errors.duplicateschema", this->name->value));
+
+    INTEGER newschemaid;
+    IF(NOT work->HasFailed())
+    {
+      OBJECT wrdschema := CreateWRDSchema(this->name->value, [ description := this->description->value
+                                                             , creationsource := "Created by " || this->contexts->user->login
+                                                             ]);
+      newschemaid := wrdschema->id;
+
+      IF (NOT this->tolliumuser->HasRightOn("wrd:metadata", newschemaid))
+        this->tolliumuser->GrantRightToOn("wrd:metadata", this->tolliumuser, newschemaid, TRUE);
+    }
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    this->schemaid := newschemaid;
+    RETURN TRUE;
+  }
+>;
+
+// -----------------------------------------------------------------------------
+//
+// Update schema properties
+//
+
+PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
+<
+  RECORD origpaymentapiconfig;
+  STRING orignextordernr;
+
+  MACRO Init(RECORD data)
+  {
+    IF(NOT this->tolliumuser->HasRightOn("wrd:metadata", this->contexts->wrdschema->id))
+      THROW NEW Exception("You do not have metadata rights to this schema");
+
+    ^accounttype->options := [[ rowkey := 0, title := "" ]]
+                                  CONCAT
+                                  SELECT rowkey := id, title := tag
+                                    FROM this->contexts->wrdschema->ListTypes()
+                                   WHERE Length(GetSuitableAccountAttributes(this->contexts->wrdschema->GetTypeById(id)))>0
+                                ORDER BY tag;
+
+    ^wrdschema->value := SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationsource, creationdate
+                           FROM wrd.schemas
+                          WHERE id = this->contexts->wrdschema->id;
+
+    this->origpaymentapiconfig := GetPaymentAPIConfig(this->contexts->wrdschema);
+    ^paymentapiconfig->value := this->origpaymentapiconfig;
+
+    this->orignextordernr := GetPaymentAPINextOrderNr(this->contexts->wrdschema);
+    ^nextordernr->value := this->orignextordernr;
+
+    ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop");
+
+    ^validationsettings->value := this->contexts->wrdschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD]);
+  }
+
+  MACRO OnAccountTypeChange()
+  {
+    RECORD ARRAY attrs;
+    OBJECT curtype := this->contexts->wrdschema->GetTypeById(^accounttype->value);
+    IF(ObjectExists(curtype))
+      attrs := GetSuitableAccountAttributes(curtype);
+
+    ^accountlogin->options := GenerateAccountOptions(attrs, "allowforlogin");
+    ^accountemail->options := GenerateAccountOptions(attrs, "allowforemail");
+    ^accountpassword->options := GenerateAccountOptions(attrs, "allowforpassword");
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+
+    RECORD schemarec := ^wrdschema->value;
+
+    OBJECT duplicate := OpenWRDSchema(schemarec.name);
+    IF (ObjectExists(duplicate) AND duplicate->id != this->contexts->wrdschema->id)
+      work->AddError(GetTid("wrd:schemamanager.errors.duplicateschema", schemarec.name));
+
+    IF (^usermgmt->value AND NOT this->tolliumuser->HasRight("system:sysop"))
+      work->AddError(GetTid("wrd:schemamanager.errors.needsysoptoenableusermgmt"));
+
+    IF(NOT work->HasFailed())
+    {
+      SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
+      this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationsource, DELETE creationdate]);
+    }
+
+    RECORD paymentapiupdates;
+    IF(this->origpaymentapiconfig.ordernrformat != ^paymentapiconfig->value.ordernrformat)
+      INSERT CELL ordernrformat := ^paymentapiconfig->value.ordernrformat INTO paymentapiupdates;
+
+    IF(RecordExists(paymentapiupdates))
+      UpdatePaymentAPIConfig(this->contexts->wrdschema, paymentapiupdates);
+
+    BOOLEAN success := work->Finish();
+    IF(success AND this->orignextordernr != ^nextordernr->value)
+      SetPaymentAPINextOrderNr(this->contexts->wrdschema, ^nextordernr->value);
+
+    RETURN success;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE ImportSchema EXTEND TolliumScreenBase
+<
+  PUBLIC INTEGER schemaid;
+  RECORD infile;
+
+  MACRO Init(RECORD data)
+  {
+    this->infile := data.infile;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT screen := CreateProgressDialog(this,
+                                          "module::wrd/internal/tollium-bgtasks.whlib",
+                                          "ImportArchive",
+                                          [ data := this->infile.data
+                                          , userid := this->tolliumuser->authobjectid //FIXME is this safe to transfer this way?  should send auth object
+                                          , ignoremissingreferences := this->ignoremissingreferences->value
+                                          ]);
+    IF(screen->RunModal() != "ok") //cancelled (FIXME what happens if _we_ get a cancel but the background task completed anyway?)
+      RETURN TRUE;
+
+    this->schemaid := screen->result.schemaid;
+
+    SWITCH(screen->result.status)
+    {
+      CASE "renamed"
+      {
+        this->RunMessageBox(".import_schema_replaced", screen->result.schemaname, screen->result.renamedschemaname);
+      }
+      CASE "protected"
+      {
+        this->RunMessageBox(".import_schema_protected", screen->result.schemaname);
+      }
+      CASE "cannotreplace"
+      {
+        this->RunMessageBox(".import_schema_norights", screen->result.schemaname);
+      }
+      CASE "ok"
+      {
+        //fine
+      }
+      DEFAULT
+      {
+        this->RunMessageBox(".import_schema_errors", Detokenize(screen->result.errors,"\n"));
+      }
+    }
+    RETURN TRUE;
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (NOT this->tolliumuser->HasRight("system:sysop"))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    ^syncpoints->eventmasks := this->contexts->wrdschema->GetSettingsEventMasks();
+    ^syncpoints->AddAction(this->GetTid(".synchronize"), PTR this->DoSynchronize);
+  }
+
+  RECORD ARRAY FUNCTION OnGetSyncpoints()
+  {
+    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
+
+    data := CELL[ syncpoints := RECORD[], ...data ];
+
+    RETURN
+        SELECT rowkey  :=             id
+             , peer
+             , remotewrdschema :=     syncpoints.remotewrdschematag
+             , data :=                syncpoints
+          FROM data.syncpoints;
+  }
+
+  MACRO DoSynchronize()
+  {
+    RECORD tosync := ^syncpoints->selection;
+
+    OBJECT peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "wrd:read" ] ]);
+    IF (NOT ObjectExists(peer))
+      RETURN;
+
+    RECORD marshallinfo := peer->GetMarshallableInfo();
+
+    OBJECT screen := CreateProgressDialog(this,
+                                          "module::wrd/internal/tollium-bgtasks.whlib",
+                                          "SyncSchema",
+                                          [ wrdschema :=        this->contexts->wrdschema->id
+                                          , peerinfo :=         peer->GetMarshallableInfo()
+                                          , syncpoint :=        tosync.data
+                                          ]);
+
+    IF(screen->RunModal() = "ok")
+    {
+      this->RunSimpleScreen("info", this->GetTid(".synccompleted"));
+      this->tolliumresult := "ok";
+      RETURN;
+    }
+  }
+
+  MACRO OnEditSyncpoint(RECORD row)
+  {
+    this->RunScreen("#editschemasyncpoint", row);
+  }
+
+  MACRO OnDeleteSyncpoint(RECORD row)
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".verifydisconnectsyncedschema")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+
+    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
+    data := CELL[ syncpoints := RECORD[], ...data ];
+    DELETE FROM data.syncpoints WHERE id = ^syncpoints->value;
+    this->contexts->wrdschema->SetSchemaSetting("wrd:syncpoints", data);
+
+    work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
+<
+  RECORD initdata;
+
+  MACRO Init(RECORD data)
+  {
+    this->initdata := data;
+
+    IF (CellExists(this->initdata, "PEER"))
+    {
+      ^peer->value := this->initdata.peer;
+      ^remotewrdschema->value := this->initdata.remotewrdschema;
+    }
+    ELSE //adding
+    {
+      ^remotewrdschema->value := this->contexts->wrdschema->tag;
+    }
+  }
+
+  STRING FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (^peer->value = "")
+      work->AddError(this->GetTid(".pleaseselectapeer"));
+    IF (work->HasFailed())
+    {
+      work->Finish();
+      RETURN "";
+    }
+
+    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
+    data := CELL[ syncpoints := RECORD[], ...data ];
+
+    IF (CellExists(this->initdata, "SYNCPOINTID")) //editing
+      DELETE FROM data.syncpoints WHERE id = this->initdata.syncpointid;
+
+    STRING newid := GenerateUFS128BitId();
+    INSERT
+        [ id :=                 newid
+        , peer :=               ^peer->value
+        , remotewrdschematag := ^remotewrdschema->value
+        ] INTO data.syncpoints AT END;
+    this->contexts->wrdschema->SetSchemaSetting("wrd:syncpoints", data);
+
+    RETURN work->Finish() ? `${this->contexts->wrdschema->id}-${newid}` : "";
+  }
+
+  MACRO DoSelectPeer()
+  {
+    OBJECT selectedpeer := RunConnectRemoteWebHareDialog(this);
+    IF(ObjectExists(selectedpeer))
+      ^peer->value := selectedpeer->url;
+  }
+>;

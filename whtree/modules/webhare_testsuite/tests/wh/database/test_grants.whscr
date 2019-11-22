@@ -1,0 +1,305 @@
+<?wh
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::os.whlib";
+
+INTEGER testsequencenumber := 0;
+INTEGER runonly := 0;
+
+BOOLEAN FUNCTION RunTest(STRING testname)
+{
+  testsequencenumber := testsequencenumber + 1;
+  IF (runonly != 0 AND testsequencenumber != runonly)
+    RETURN false;
+
+  PRINT("Running test " || testsequencenumber || ": " || testname || "\n");
+  RETURN true;
+}
+
+MACRO WaitForIndex(INTEGER transid)
+{
+  SendWHDBCommand(transid,"WAIT INDEX");
+}
+
+INTEGER FUNCTION OpenTestTrans()
+{
+  INTEGER tr := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  __BindWHDBMetaTables(tr);
+  RETURN tr;
+}
+
+MACRO TestCommitSuccess(INTEGER transid)
+{
+  RECORD ARRAY errors := CommitWHDBTransaction(transid);
+  IF(Length(errors)>0)
+  {
+    FOREVERY(RECORD err FROM errors)
+    {
+      PRINT(err.message||"\n");
+    }
+    ABORT("Unexpected commit errors");
+  }
+}
+
+MACRO TestCommitFailure(INTEGER transid)
+{
+  IF(Length(CommitWHDBTransaction(transid))=0)
+    ABORT("Unexpected commit success");
+}
+
+STRING ARRAY args := GetConsoleArguments();
+IF (Length(args)=1)
+  runonly := ToInteger(args[0],-1);
+
+INTEGER test_fp_trans;
+
+// Needed cleanup
+{
+  test_fp_trans := OpenTestTrans();
+  RECORD ARRAY existing := SELECT schema_name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME LIKE "DBTEST_*";
+  FOREVERY (RECORD t FROM existing)
+    SendWHDBCommand(test_fp_trans,"DROP SCHEMA " || t.schema_name);
+
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Basic privilege granting"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_b");
+
+  // Grant a privilege to A (by system, works always)
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant that privilege from A to B (fails, no grant option)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_b GRANTED BY dbtest_1.role_a");
+  TestCommitFailure(test_fp_trans);
+
+  // Grant another privilege from A to B (fails, not granted at all)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT INSERT ON SCHEMA dbtest_1 TO dbtest_1.role_b GRANTED BY dbtest_1.role_a");
+  TestCommitFailure(test_fp_trans);
+
+  // Grant a privilege to A but now with grant option (by system, works always)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant that privilege from A to B (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_b GRANTED BY dbtest_1.role_a");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant another privilege from A to B (fails, not granted at all)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT INSERT ON SCHEMA dbtest_1 TO dbtest_1.role_b GRANTED BY dbtest_1.role_a");
+  TestCommitFailure(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Basic role granting"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_b");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_c");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_d");
+  TestCommitSuccess(test_fp_trans);
+
+  // Test if cycles are allowed
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_b TO dbtest_1.role_c GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_c TO dbtest_1.role_a GRANTED BY _SYSTEM");
+  TestCommitFailure(test_fp_trans);
+
+  // Grant granted roles (fails, no admin option)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c GRANTED BY dbtest_1.role_b");
+  TestCommitFailure(test_fp_trans);
+
+  // Grant granted roles (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b WITH ADMIN OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c GRANTED BY dbtest_1.role_b");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant your own role to somebody (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_b TO dbtest_1.role_c GRANTED BY dbtest_1.role_b");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant role already granted to yourself to yourself (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c GRANTED BY dbtest_1.role_c");
+  TestCommitSuccess(test_fp_trans);
+
+  // Grant granted roles to make sure no admin option is given (fails, no admin option)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_b TO dbtest_1.role_d GRANTED BY dbtest_1.role_c");
+  TestCommitFailure(test_fp_trans);
+
+  // Upgrade a grant to admin (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_b TO dbtest_1.role_c WITH ADMIN OPTION GRANTED BY dbtest_1.role_b");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_b TO dbtest_1.role_d GRANTED BY dbtest_1.role_c");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Basic privilege revoking"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_b");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_c");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_d");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_e");
+
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY _SYSTEM");
+//FIXME: SELECT not regrantable by role_a?
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_b WITH GRANT OPTION GRANTED BY dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_e WITH GRANT OPTION GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke privilege from A, see if transitive revoke works
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT ON SCHEMA dbtest_1 FROM dbtest_1.role_b GRANTED BY dbtest_1.role_a");
+  TestCommitSuccess(test_fp_trans);
+
+  // See if B can still grant
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_c WITH GRANT OPTION GRANTED BY dbtest_1.role_b");
+  TestCommitFailure(test_fp_trans);
+
+  //See if grant via multiple paths is handled correctly
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_b WITH GRANT OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_c WITH GRANT OPTION GRANTED BY dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_c WITH GRANT OPTION GRANTED BY dbtest_1.role_b");
+  SendWHDBCommand(test_fp_trans,"REVOKE SELECT ON SCHEMA dbtest_1 FROM dbtest_1.role_a GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_d WITH GRANT OPTION GRANTED BY dbtest_1.role_c");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke grant option from grant to b; will kill grants of b->c, c->d
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE GRANT OPTION FOR SELECT ON SCHEMA dbtest_1 FROM dbtest_1.role_b GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // So a grant from d->a will fail
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY dbtest_1.role_d");
+  TestCommitFailure(test_fp_trans);
+
+  // This grant must still exist.
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY dbtest_1.role_e");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}
+
+IF (RunTest("Basic role revoking"))
+{
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"CREATE SCHEMA dbtest_1 AUTHORIZATION _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_a");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_b");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_c");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_d");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_e");
+  SendWHDBCommand(test_fp_trans,"CREATE ROLE dbtest_1.role_f");
+
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_f WITH GRANT OPTION GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Test granting without grant option available (must fail)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_d GRANTED BY dbtest_1.role_b");
+  TestCommitFailure(test_fp_trans);
+
+  // Grant with admin option available (must succeed)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b WITH ADMIN OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c GRANTED BY dbtest_1.role_b");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke admin option from a (must also erase grant of a to c by b)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE ADMIN OPTION FOR dbtest_1.role_a FROM dbtest_1.role_b GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // Try to revoke grant of a to c by b, must fail, it is already revoked.
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE dbtest_1.role_a FROM dbtest_1.role_c GRANTED BY dbtest_1.role_b");
+  TestCommitFailure(test_fp_trans);
+
+  // Test grant via multiple paths
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_b WITH ADMIN OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_c WITH ADMIN OPTION GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_d WITH ADMIN OPTION GRANTED BY dbtest_1.role_b");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_d WITH ADMIN OPTION GRANTED BY dbtest_1.role_c");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke role from B, see if transitive revoke works
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE dbtest_1.role_a FROM dbtest_1.role_b GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+
+  // See if D can still grant A (ok)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_e WITH ADMIN OPTION GRANTED BY dbtest_1.role_d");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke that last one
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE dbtest_1.role_a FROM dbtest_1.role_e GRANTED BY dbtest_1.role_d");
+  TestCommitSuccess(test_fp_trans);
+
+  // Revoke a->c from system, and try to grant a to e by d (fail)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE dbtest_1.role_a FROM dbtest_1.role_c GRANTED BY _SYSTEM");
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_e WITH ADMIN OPTION GRANTED BY dbtest_1.role_d");
+  TestCommitFailure(test_fp_trans);
+
+  // Again, in two steps this time (fail)
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"REVOKE dbtest_1.role_a FROM dbtest_1.role_c GRANTED BY _SYSTEM");
+  TestCommitSuccess(test_fp_trans);
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT dbtest_1.role_a TO dbtest_1.role_e WITH ADMIN OPTION GRANTED BY dbtest_1.role_d");
+  TestCommitFailure(test_fp_trans);
+
+  // This grant must still exist.
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"GRANT SELECT ON SCHEMA dbtest_1 TO dbtest_1.role_a WITH GRANT OPTION GRANTED BY dbtest_1.role_f");
+  TestCommitSuccess(test_fp_trans);
+
+  test_fp_trans := OpenTestTrans();
+  SendWHDBCommand(test_fp_trans,"DROP SCHEMA dbtest_1");
+  TestCommitSuccess(test_fp_trans);
+}

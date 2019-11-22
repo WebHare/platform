@@ -1,0 +1,25 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+
+// Current blit api version
+PUBLIC INTEGER blitapiversion := 1;
+
+// Minimal server api
+PUBLIC INTEGER min_server_api := 1;
+
+
+PUBLIC STRING FUNCTION GetBlitFileHash(BLOB data)
+{
+  RETURN "f-" || EncodeUFS(GetHashForBlob(data, "SHA-1"));
+}
+
+PUBLIC STRING FUNCTION GetBlitFolderHash(RECORD ARRAY children)
+{
+  STRING ARRAY childlines :=
+      SELECT AS STRING ARRAY "name:" || name || "\thash:" || hash || "\n"
+        FROM children
+    ORDER BY name;
+
+  RETURN "d-" || EncodeUFS(GetHashForString(Detokenize(childlines, ""), "SHA-1"));
+}

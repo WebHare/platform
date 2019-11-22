@@ -1,0 +1,83 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/modulemanager.whlib";
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+MACRO TestSchemadefs()
+{
+  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+  {
+    // Get the schema definition of an existing schema
+    RECORD schemadef := GetSchemaModuleDefinition(GetPrimary(), modulename);
+    IF (NOT RecordExists(schemadef))
+      CONTINUE;
+
+    // Create a xml definition from it
+    STRING s := GenerateDatabaseSchemaXMLFromSchemaDef(schemadef);
+
+    OBJECT doc := MakeXMLDocument(StringToBlob(`<container xmlns="http://www.webhare.net/xmlns/system/moduledefinition">${s}</container>`));
+    OBJECT dbschema := doc->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements()[0];
+
+    // Parse it back into a schema definition record
+    RECORD parsed := ParseWHDBSchemaSpec(modulename, dbschema);
+
+    // Apply on the existing schema
+    RECORD cmd := GenerateDependentSQLCommands([ parsed ], GetPrimary());
+
+    // No change commands should be emitted
+    TestEQ(0, LENGTH(cmd.commands));
+
+    IF (GetPrimary()->type = "postgresql")
+    {
+      RECORD sysdef := GetModuleDatabaseSchema(modulename);
+      RECORD pdef := GetPostgreSQLDatabaseSchemaDef(GetPrimary(), modulename);
+
+      // Check if the column definitions are equivalent
+      FOREVERY (RECORD t FROM sysdef.tables)
+      {
+        RECORD pt := SELECT * FROM pdef.tables WHERE name = t.name;
+        IF (NOT RecordExists(pt))
+          ABORT(`not found table ${t.name}\n`);
+        TestEQ(t.primarykey, pt.primarykey);
+
+        FOREVERY (RECORD c FROM t.cols)
+        {
+          IF (c.internalcolumnname != "")
+            CONTINUE;
+          RECORD pc := SELECT * FROM pt.cols WHERE name = c.name;
+          IF (NOT RecordExists(pc))
+            ABORT(`not found col ${t.name}.${c.name}\n`);
+
+          IF (c.dbtype = "BYTEA") // length of bytea not set in postgresql
+            DELETE CELL maxlength FROM c;
+
+          // noupdate isn't set in postgresql
+          DELETE CELL documentation, location, noupdate FROM c;
+          DELETE CELL noupdate FROM pc;
+          IF (EncodeHSON(c) != EncodeHSON(pc))
+          {
+            PRINT(`Diff in ${t.name}.${c.name}:\n`);
+            PRINT(SimpleTextDiff(AnyToString(c, "tree"), AnyToString(pc, "tree"), [ color := TRUE, header := FALSE ]));
+            DumpValue(t.cols[#c], [ name := "def col" ]);
+            DumpValue((SELECT * FROM pt.cols WHERE name = c.name), [ name := "readout col" ]);
+          }
+
+          TestEQ(EncodeHSON(c), EncodeHSON(pc));
+        }
+      }
+    }
+  }
+}
+
+RunTestFramework([ PTR TestSchemadefs
+                 ]);

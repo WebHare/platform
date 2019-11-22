@@ -1,0 +1,128 @@
+<?wh
+/// @short Further record optimizer correctness tests
+
+/*****************************************
+ *
+ * Does the record optimizer optmize too much?
+ *****************************************/
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "test::testdata_recordoptimizer_loadlib.whlib";
+
+RECORD FUNCTION recordid(RECORD a) { RETURN a; }
+
+MACRO BasicTest()
+{
+  OpenTest("TestRecordOptimizer: BasicTest");
+
+  RECORD a;
+  INSERT CELL name:="test" INTO a;
+  TestEqualString(1, a.name, "test");
+
+  RECORD b := a;
+  TestEqualString(2, b.name, "test");
+
+  RECORD c := recordid(a);
+  TestEqualString(3, c.name, "test");
+
+  RECORD ARRAY d; INSERT c INTO d AT END;
+  TestEqualString(4, d[0].name, "test");
+
+  RECORD ARRAY e; INSERT c INTO e AT END;
+  TestEqualString(5, e.name, "test");
+
+  RECORD f;
+  INSERT CELL nested := c INTO f;
+  TestEqualString(6, f.nested.name, "test");
+
+  CloseTest("TestRecordOptimizer: BasicTest");
+}
+
+RECORD global1;
+RECORD global2;
+RECORD global3;
+RECORD ARRAY global4;
+RECORD ARRAY global5;
+RECORD global6;
+
+MACRO GlobalTest_1()
+{
+  INSERT CELL name := "test" INTO global1;
+  global2 := global1;
+  global3 := recordid(global2);
+  INSERT global3 INTO global4 AT END;
+  INSERT global3 INTO global5 AT END;
+  INSERT CELL nested := global3 INTO global6;
+}
+
+MACRO GlobalTest_2()
+{
+  TestEqualString(1, global1.name, "test");
+  TestEqualString(2, global2.name, "test");
+  TestEqualString(3, global3.name, "test");
+  TestEqualString(4, global4[0].name, "test");
+  TestEqualString(5, global5.name, "test");
+  TestEqualString(6, global6.nested.name, "test");
+}
+
+MACRO GlobalTest()
+{
+  OpenTest("TestRecordOptimizer: BasicTest");
+
+  GlobalTest_1();
+  GlobalTest_2();
+
+  CloseTest("TestRecordOptimizer: BasicTest");
+}
+
+RECORD FUNCTION ReturnTestFunc()
+{
+  RECORD a;
+  INSERT CELL name := "test" INTO a;
+  RETURN a;
+}
+
+MACRO ReturnTest()
+{
+  OpenTest("TestRecordOptimizer: ReturnTest");
+
+  TestEqualString(1, ReturnTestFunc().name, "test");
+
+  CloseTest("TestRecordOptimizer: ReturnTest");
+}
+
+MACRO LoadlibTest()
+{
+  OpenTest("TestRecordOptimizer: LoadlibTest");
+
+  TestEqualString(1, public1.name, "test");
+  TestEqualString(2, public2.name, "test");
+  TestEqualString(3, public2[0].name, "test");
+  TestEqualString(4, public3.nested.name, "test");
+
+  CloseTest("TestRecordOptimizer: LoadlibTest");
+}
+
+MACRO ConcatTest()
+{
+  OpenTest("TestRecordOptimizer: ConcatTest");
+
+  RECORD ARRAY A;
+  RECORD C;
+  INSERT CELL id := 7 INTO C;
+  INSERT C INTO A AT 0;
+
+  RECORD ARRAY B := A CONCAT [[ xkey := 8 ]];
+
+  TestEqualInteger(1, B[0].id, 7);
+  TestEqualInteger(2, B[1].xkey, 8);
+
+  CloseTest("TestRecordOptimizer: ConcatTest");
+}
+
+PRINT("\n === Running TestRecordOptimizer\n");
+BasicTest();
+GlobalTest();
+ReturnTest();
+LoadlibTest();
+ConcatTest();

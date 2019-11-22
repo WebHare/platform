@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.webhare.net/xmlns/consilio/components"
+  targetNamespace="http://www.webhare.net/xmlns/consilio/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:pattern value=".+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="autosuggest">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="autosuggest" lib="components/autosuggest.whlib" objecttype="ConsilioAutoSuggestComponent" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:NamedComponent" />
+      <xs:attribute name="catalog" type="NonEmptyString" />
+      <xs:attribute name="matches" default="active">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value=""/>
+            <xs:enumeration value="active"/>
+            <xs:enumeration value="fast"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="count" type="xs:integer" default="10" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

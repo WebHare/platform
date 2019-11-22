@@ -1,0 +1,669 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+RECORD ARRAY capturedmessages;
+
+MACRO PrintAnalyzerIssue(STRING class, STRING msg)
+{
+  IF(class NOT IN ["LOG","QUEUE","DEBUG"])
+    THROW NEW Exception(`Invalid msg class '${class}'`);
+  Print(`${class}\t${msg}\n`);
+}
+MACRO CaptureMessage(STRING class, STRING msg)
+{
+  PrintAnalyzerIssue(class, msg);
+  INSERT CELL[ class, msg ] INTO capturedmessages AT END;
+}
+
+PUBLIC MACRO PTR onanalyzerissue := PTR PrintAnalyzerIssue;
+
+PUBLIC MACRO RequeueSubItem(INTEGER folderid, RECORD subitem)
+{
+  onanalyzerissue("QUEUE", subitem.id || "\t" || folderid || "\t" || subitem.lastpublishtime  || "\t" || subitem.template || "\t" || subitem.profile || "\t" || GetErrorFromPublished(subitem.published));
+}
+
+INTEGER FUNCTION GetFileContentType(INTEGER type, INTEGER filelinkid)
+{
+  IF(type=20) /* content link*/
+    RETURN SELECT AS INTEGER fs_objects.type FROM system.fs_objects WHERE id = filelinkid;
+
+  RETURN type;
+}
+
+STRING FUNCTION ToFSCase(BOOLEAN lowercase, STRING text)
+{
+  RETURN lowercase ? ToLowercase(text) : text;
+}
+
+BOOLEAN FUNCTION CheckFolderSanity(RECORD folder, RECORD ARRAY subfolders, RECORD ARRAY subfiles, STRING ARRAY indexdocnames)
+{
+  //Create a sorted array of names, then look for nondistinct values
+  STRING ARRAY allnames := SELECT AS STRING ARRAY ToUppercase(name) FROM (subfolders CONCAT subfiles) ORDER BY ToUppercase(name);
+  FOREVERY(STRING name FROM allnames)
+    IF(#name>0 AND name = allnames[#name-1])
+    {
+      onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): two items named " || name);
+      RETURN FALSE;
+    }
+
+  //Convert indexdocnames to uppercase
+  FOREVERY(STRING idx FROM indexdocnames)
+    indexdocnames[#idx]:=ToUppercase(idx);
+
+  //Any folders with the name of an index?
+  RECORD badfolder := SELECT * FROM subfolders WHERE ToUppercase(name) IN indexdocnames;
+  IF(RecordExists(badfolder))
+  {
+    onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || ") contains a folder with the name of an index:" || badfolder.name);
+    RETURN FALSE;
+  }
+
+  //Number of indices
+  STRING ARRAY indices := SELECT AS STRING ARRAY name FROM subfiles WHERE ToUppercase(name) IN indexdocnames;
+  IF(Length(indices)>1)
+  {
+    onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || ") contains multiple files (" || Detokenize(indices,',') || ") named after an index file");
+    RETURN FALSE;
+  }
+  RETURN TRUE;
+}
+
+BOOLEAN FUNCTION IsIndexName(STRING filename, STRING ARRAY indexdocnames)
+{
+  FOREVERY(STRING name FROM indexdocnames)
+    IF(ToUppercase(name)=ToUppercase(filename))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+
+RECORD ARRAY FUNCTION GetFolderSubs(BOOLEAN lowercase, INTEGER folderid)
+{
+  RECORD ARRAY subs := SELECT name
+                            , id
+                            , published
+                            , sourcetype := type
+                            , template
+                            , profile
+                            , lastpublishtime
+                            , onoutput := FALSE
+                            , forcerepublish := FALSE
+                            , isindex := FALSE
+                            , ondiskname := ToFSCase(TRUE, TestFlagFromPublished(published, PublishedFlag_StripExtension) ? GetBasenameFromPath(name) : name)
+                            , isfolder
+                            , filelink
+                            , whfspath
+                         FROM system.fs_objects
+                        WHERE parent=folderid;
+
+  subs := SELECT *, contenttype := sourcetype = 20 ? GetFileContentType(sourcetype,filelink) : sourcetype FROM subs;
+  subs := EnrichWithTable(subs, "CONTENTTYPE", system.fs_types, [ isdynamicexecution := "isdynamicexecution" ], [ rightouterjoin := TRUE ]);
+  RETURN subs;
+}
+
+BOOLEAN FUNCTION RenameDiskPath(STRING oldpath, STRING newpath)
+{
+  onanalyzerissue("LOG", "Upper/lowercase differs: " || oldpath || " => " || newpath);
+  //Our file: output follows input
+  IF (NOT MoveDiskPath(oldpath, newpath))
+  {
+    onanalyzerissue("LOG", "Unable to fix upper/lowercase for " || oldpath);
+    RETURN FALSE;
+  }
+  ELSE
+  {
+    IF (RecordExists(GetDiskFileProperties(oldpath)) AND NOT RecordExists(GetDiskFileProperties(newpath))) //The ORIGINAL still exists! (but protect against case insensitive filesystems)
+    {
+      onanalyzerissue("LOG", "File system prevents upper/lowercase fixing, working around for " || newpath);
+      //The file was not actually renamed (e.g. upper/lower case on Samba connection), so force rename
+      IF (NOT (MoveDiskPath(oldpath, oldpath||'$') AND MoveDiskPath(oldpath||'$', newpath)))
+      {
+        onanalyzerissue("LOG", "Unable to fix upper/lowercase for " || oldpath);
+        RETURN FALSE;
+      }
+    }
+  }
+  RETURN TRUE;
+}
+
+MACRO RemoveDiskItem(STRING itemurl, STRING itempath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
+{
+  RECORD props := GetDiskFileProperties(itempath);
+  IF (NOT RecordExists(props))
+    RETURN;
+  ELSE IF (props.type = 0) // File
+    RemoveDiskFile(itemurl, itempath, pushevents, IsIndexname(GetNameFromPath(itemurl), indexdocnames));
+  ELSE IF (props.type = 1) // Folder
+    RemoveDiskDirectory(itemurl || "/", itempath, pushevents, indexdocnames);
+}
+
+MACRO RemoveDiskFile(STRING fileurl, STRING filepath, BOOLEAN pushevents, BOOLEAN isindex)
+{
+  //onanalyzerissue("LOG", "RemoveDiskFile '"||filepath);
+  DeleteDiskFile(filepath);
+  IF (pushevents)
+  {
+    IF (isindex)
+      fileurl := GetDirectoryFromPath(fileurl);
+    //onanalyzerissue("LOG", "BroadcastURLEvent '"||fileurl||"' deleted);
+    BroadcastURLEvent(0, fileurl, FALSE);
+  }
+}
+
+MACRO RemoveDiskDirectory(STRING folderurl, STRING folderpath, BOOLEAN pushevents, STRING ARRAY indexdocnames)
+{
+  //onanalyzerissue("LOG", "RemoveDiskDirectory '"||folderpath);
+  FOREVERY (RECORD entry FROM ReadDiskDirectory(folderpath, "*"))
+  {
+    IF (entry.name = "." OR entry.name="..") // Skip current & parent directories
+      CONTINUE;
+
+    IF (entry.type = 0) // File
+    {
+      // Remove the file
+      RemoveDiskFile(folderurl || entry.name, folderpath || "/" || entry.name, pushevents, IsIndexName(entry.name, indexdocnames));
+    }
+    ELSE IF (entry.type = 1) // Folder
+    {
+      // Recursively remove subdirectory
+      RemoveDiskDirectory(folderurl || entry.name || "/", folderpath || "/" || entry.name, pushevents, indexdocnames);
+    }
+    ELSE IF (entry.type = 2) // Link
+    {
+      // Remove the link directly
+      DeleteDiskFile(folderpath || "/" || entry.name);
+    }
+  }
+  // The directory should be empty by now, remove it
+  DeleteDiskDirectoryRecursive(folderpath);
+}
+
+MACRO ValidateFolder(RECORD site, RECORD folder)
+{
+  IF (site.locked)
+    RETURN; //We never analyze the output of unpublished sites
+
+  RECORD ARRAY outputs := GetOutputs(folder.id, folder.fullpath);
+  FOREVERY(RECORD output FROM outputs)
+    ValidateFolderForOutput(site, folder, output);
+}
+
+MACRO ValidateFolderForOutput(RECORD site, RECORD folder, RECORD output)
+{
+  STRING outputpath := output.outputfolder;
+  IF(NOT IsPathAbsolute(outputpath)) //dangerous to use non absolute paths (it is probably caused by moving databases between Linux and Windows)
+  {
+    onanalyzerissue("LOG", "Folder " || folder.id || " (" || folder.whfspath || ") has a non-absolute output path " || outputpath || " and will be skipped");
+    RETURN;
+  }
+
+  // Check if push events should be broadcast for deleted urls
+  BOOLEAN pushevents := GetURLEventsSettings(folder.id).enabled;
+
+  //ADDME Cache this, link with siteprofiles reset
+  INTEGER ARRAY valid_subdir_types := SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE ispublishedassubdir;
+
+  IF(site.root=folder.id)
+  {
+    //Verify the site output root itself
+    STRING outputbase := GetDirectoryFromPath(outputpath);
+    STRING foldername := ToFSCase(TRUE, GetNameFromPath(outputpath));
+
+    IF(foldername != "")
+    {
+      RECORD siterootinfo := SELECT * FROM ReadDiskDirectory(outputbase,"*") WHERE ToUppercase(name) = ToUppercase(foldername);
+      IF(RecordExists(siterootinfo) AND siterootinfo.name != foldername)
+        RenameDiskPath(outputpath, outputbase||foldername);
+    }
+
+    //Set/Repair productionurl setting
+    IF(GetDtapStage() = "production")
+    {
+      OBJECT sitetype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+      RECORD sitesettings := sitetype->GetInstanceData(site.id);
+      IF(site.webroot != "" AND site.webroot != sitesettings.productionurl)
+      {
+        sitetype->SetInstanceData(site.id, [ productionurl := site.webroot ]);
+      }
+    }
+  }
+
+  RECORD ARRAY subitems := GetFolderSubs(TRUE, folder.id);
+  RECORD ARRAY subitems_folders := SELECT * FROM subitems WHERE isfolder;
+  RECORD ARRAY subitems_files := SELECT * FROM subitems WHERE NOT isfolder;
+
+  //Create a list of files on the output directory
+  RECORD ARRAY outputfiles := ReadDiskDirectory(outputpath, "*");
+
+  RECORD subitem_index;
+
+  //Do some basic sanity checks
+  IF (NOT CheckFolderSanity(folder, subitems_folders, subitems_files, output.defaultpages))
+    RETURN;
+
+  //Does this folder have an indexdoc?
+  IF (folder.indexdoc != 0)
+  {
+    subitem_index := SELECT * FROM subitems_files WHERE id = folder.indexdoc;
+    IF (NOT RecordExists(subitem_index))
+    {
+      onanalyzerissue("LOG", "Folder #" || folder.id || " has file #" || folder.indexdoc || " as index, which is not in that folder. Fixing.");
+      UPDATE system.fs_objects SET indexdoc := 0 WHERE id=folder.id;
+    }
+  }
+  ELSE
+  {
+    subitem_index := SELECT * FROM subitems_files WHERE IsIndexName(COLUMN name, output.defaultpages);
+    IF (RecordExists(subitem_index))
+    {
+      onanalyzerissue("LOG", "Folder " || folder.id || " has file #" || subitem_index.id || " named after the index file. Making it the index document.");
+      UPDATE system.fs_objects SET indexdoc := subitem_index.id WHERE fs_objects.id = folder.id;
+      //Force republishing of the file
+      UPDATE subitems_files SET forcerepublish := TRUE WHERE COLUMN id=subitem_index.id;
+    }
+  }
+
+  IF (RecordExists(subitem_index))
+    UPDATE subitems_files SET isindex := TRUE WHERE id = subitem_index.id;
+
+  //Scan output
+  BOOLEAN had_index_file := FALSE;
+  STRING folder_indexname;
+  FOREVERY (RECORD outputitem FROM outputfiles)
+  {
+    STRING thispath := outputitem.path;
+
+    IF (outputitem.name LIKE "$$$*") //it's a temporary directory
+    {
+      // If it is over an hour old, it must be a dead publication, so just kill it
+      IF (outputitem.modified < AddTimeToDate(-(1000*60*60), GetcurrentDatetime()))
+      {
+        onanalyzerissue("LOG", "Deleting stale temp file " || thispath);
+        RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+      }
+      CONTINUE;
+    }
+
+    //Is it the capturesubpaths marker?
+    IF (outputitem.name = "^^useindex")
+    {
+      //TODO decide whether it should actually be here - study the index.shtml ? but as the index.shtml won't be there if this file is still incorrectly lingering around.. no real issue
+      CONTINUE;
+    }
+
+    //Is it a publication subdirectory?
+    IF (outputitem.name LIKE '^*')
+    {
+      //find its associated file
+      STRING associated_name := Substring(outputitem.name,1,255);
+      BOOLEAN output_is_index := IsIndexName(associated_name, output.defaultpages);
+      RECORD associated_file :=
+          SELECT *
+            FROM subitems_files
+           WHERE (output_is_index
+                        ? isindex
+                        : ToUppercase(COLUMN name) = ToUppercase(associated_name) AND contenttype NOT IN valid_subdir_types)
+             AND IsPublish(COLUMN published);
+
+      IF (RecordExists(associated_file))
+      {
+        //Verify case
+        STRING proper_outputname := "^" || associated_file.ondiskname;
+
+        IF(outputitem.name != proper_outputname)
+        {
+          IF(RecordExists(SELECT FROM outputfiles WHERE name = proper_outputname))
+          {
+            onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry with mis-cased name " || thispath || " because the properly named version also exists");
+            RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+            CONTINUE;
+          }
+          ELSE
+          {
+            onanalyzerissue("LOG", `Folder #${folder.id} (${folder.whfspath}): Renamed folder ${thispath} because the proper outputname ('${proper_outputname}') is different, republishing children`);
+            RenameDiskPath(outputpath || "/" || outputitem.name, outputpath || "/" || proper_outputname);
+            UPDATE subitems_files SET forcerepublish := TRUE WHERE COLUMN id=associated_file.id;
+          }
+        }
+
+        CONTINUE; //This is a recognized subdir, leave it alone
+      }
+    }
+
+    // Is this a compressed version of a file?
+    IF (outputitem.name LIKE "*.gz")
+    {
+      // Is the associated name an index? If so, the associated file is the index file.
+      STRING associated_name := Left(outputitem.name, LENGTH(outputitem.name) - 3);
+      BOOLEAN output_is_index := IsIndexName(associated_name, output.defaultpages);
+      RECORD associated_file :=
+          SELECT *
+            FROM subitems_files
+           WHERE (output_is_index
+                        ? isindex
+                        : ToUppercase(COLUMN name) = ToUppercase(associated_name) AND contenttype NOT IN valid_subdir_types)
+             AND IsPublish(COLUMN published);
+
+      IF (RecordExists(associated_file))
+      {
+        // Calculate the name of the output file of the associated file
+        STRING proper_outputname;
+        IF (output_is_index)
+        {
+          // For the index, get the name of the first matching index file in th output dir, append .gz
+          proper_outputname :=
+              SELECT AS STRING ToFSCase(TRUE, name)
+                FROM outputfiles
+               WHERE IsIndexName(name, output.defaultpages);
+
+          IF (proper_outputname != "")
+            proper_outputname := proper_outputname || ".gz";
+        }
+        ELSE
+          proper_outputname := associated_file.ondiskname || ".gz";
+
+        IF (proper_outputname = "")
+        {
+          // No index file found. Missing index file will trigger republish, so don't have anything to do here
+          onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting compressed file for missing index file");
+          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+        }
+        ELSE IF (outputitem.name != proper_outputname)
+        {
+          // Improperly named compressed file, just delete
+          onanalyzerissue("LOG", "Folder #" || folder.id || ", file #" || associated_file.id || " (" || folder.whfspath || associated_file.name || "): Deleting improperly named compressed file (got " || EncodeJava(outputitem.name) || ", wanted " || EncodeJava(proper_outputname));
+          RemoveDiskItem(folder.url || outputitem.name, thispath, pushevents, output.defaultpages);
+        }
+        CONTINUE; //This is a recognized compressed file version, leave it alone
+      }
+
+      // Fallthrough: handle the .gz file as if it was a normal published file
+    }
+
+    //Detecting which subitem refers to the file, and whether its case is correct, is tricky because of index docs
+    RECORD matching_subitem;
+    STRING matching_indexname;
+    BOOLEAN match_is_folder;
+    STRING proper_outputname;
+    BOOLEAN is_index;
+
+    //Pick the first case-insenstive match, but prefer a case-sensitive match to any insensitive match
+    FOREVERY(STRING indexdocname FROM output.defaultpages)
+      IF (outputitem.name = indexdocname
+          OR (matching_indexname="" AND ToUppercase(outputitem.name) = ToUppercase(indexdocname)))
+    {
+      matching_indexname := indexdocname;
+    }
+
+    IF (matching_indexname != "") //One of the indexes?
+    {
+      is_index := TRUE;
+      IF (had_index_file)
+      {
+        //Duplicate index file!
+        onanalyzerissue("DEBUG", "Duplicate index file on output in folder #"||folder.id||" - republishing the index");
+        UPDATE subitems_files SET forcerepublish := TRUE WHERE COLUMN id=subitem_index.id;
+      }
+      ELSE
+      {
+        had_index_file := TRUE;
+      }
+
+      //Case: folder has an indexdoc. This file must then be the indexdoc
+      matching_subitem := subitem_index;
+      proper_outputname := ToFSCase(TRUE, matching_indexname);
+      folder_indexname := matching_indexname;
+    }
+    ELSE
+    {
+      matching_subitem := SELECT * FROM subitems_files
+                                   WHERE ToUppercase(ondiskname) = ToUppercase(outputitem.name)
+                                         AND (outputitem.type=1 OR COLUMN id!=folder.indexdoc); //Ignore indexdoc first _files_
+
+      IF(NOT RecordExists(matching_subitem))
+      {
+        match_is_folder := TRUE;
+        matching_subitem := SELECT * FROM subitems_folders
+                                    WHERE ToUppercase(ondiskname) = ToUppercase(outputitem.name);
+      }
+      IF (RecordExists(matching_subitem))
+      {
+        proper_outputname := matching_subitem.ondiskname;
+        //onanalyzerissue("DEBUG", thispath || " matches " || matching_subitem.name);
+      }
+
+    }
+
+    IF (NOT RecordExists(matching_subitem))
+    {
+      //FIXME: If this folder contains a subsite, recreate the foreign folder
+
+      //ADDME: Start logging this as a NOTE whenever webhare learns to immediately delete removed and unscheduled files
+      //       or perhaps a move/delete in a file or folder should just trigger a fast-rescan of that folder?
+      onanalyzerissue("DEBUG", "Folder #" || folder.id || " (" || folder.whfspath || "): Deleting directory entry not (any longer?) in site " || thispath);
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      CONTINUE;
+    }
+
+    BOOLEAN case_ok := outputitem.name = proper_outputname;
+
+    //We have the file in 'matching_subitem'
+    IF (match_is_folder AND matching_subitem.sourcetype=1)/*foreign*/
+    {
+      IF(NOT case_ok)
+      {
+        /* FIXME: This code isn't safe, it may fail if a foreign folder contains a site. fix the dbase to allow it,then re-enable
+        DEBUGPRINT("Case differs for foreign folder " << output.CurrentPath() << ", fixing it");
+
+        //Try to lock the folder first...
+        Database::RecordId recid = subtrans->LockRecord(WHPub::TFolders::TableId,search->second.rec);
+        if (recid != search->second.rec)
+        {
+                DEBUGPRINT("FIXME: Must chase the new version of the updated folder");
+                continue; //FIXME: Should unlock as well!
+        }
+        //Foreign folder: input follows output
+        Database::WritableRecord newrec;
+        newrec.SetString(WHPub::TFolders::Name,output.CurrentFile());
+        subtrans->FinishRecordStructure(newrec,WHPub::TFolders::TableId,search->second.rec);
+        }
+        */
+      }
+
+      //Also, ignore the folder
+      UPDATE subitems_folders SET onoutput := TRUE WHERE ondiskname = matching_subitem.ondiskname;
+      CONTINUE;
+    }
+
+    IF (outputitem.type NOT IN [0,1]) //not a file, not a dir, not protected by Foreign
+    {
+      onanalyzerissue("LOG", "Deleting odd directory entry " || thispath);
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      CONTINUE;
+    }
+
+    //The object exists in both db and on disk, and isn't foreign
+    IF (NOT case_ok)
+    {
+      //Is this a left-over dir on a case-sensitive file system? (eg: the correctly cased version also exist?)
+      IF (RecordExists(SELECT FROM outputfiles WHERE name = matching_subitem.ondiskname))
+      {
+        onanalyzerissue("LOG", "Removing name with duplicate name but different case: " || thispath);
+        RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+        CONTINUE;
+      }
+      ELSE
+        onanalyzerissue("LOG", `Renaming file with different case: ${thispath} (proper name: '${proper_outputname}'), and queue for republish`);
+
+      STRING correctpath := outputpath || "/" || proper_outputname;
+      RenameDiskPath(thispath, correctpath);
+      UPDATE subitems_files SET forcerepublish := TRUE WHERE COLUMN id=matching_subitem.id;
+    }
+
+    BOOLEAN must_be_folder := match_is_folder
+                              OR (matching_subitem.contenttype IN valid_subdir_types AND NOT is_index);
+    IF (outputitem.type != (must_be_folder ? 1 : 0))
+    {
+      IF (must_be_folder)
+        onanalyzerissue("LOG", "Deleting file " || thispath || " which should have been a folder");
+      ELSE
+        onanalyzerissue("LOG", "Deleting folder " || thispath || " which should have been a file");
+
+      RemoveDiskItem(folder.url || (is_index ? "" : outputitem.name), thispath, pushevents, output.defaultpages);
+      CONTINUE;
+    }
+
+    IF(must_be_folder AND NOT matching_subitem.isfolder AND matching_subitem.isdynamicexecution)
+    {
+      IF(NOT RecordExists(ReadDiskDirectory(outputitem.path, "index.shtml")))
+      {
+        onanalyzerissue("LOG", "Republishing " || matching_subitem.whfspath || " as it doesn't contain the expected index.shtml (dynamicexecution!)");
+        ScheduleFileRepublish(matching_subitem.id);
+      }
+    }
+    ELSE IF(is_index AND matching_subitem.isdynamicexecution AND outputitem.name != "index.shtml")
+    {
+      onanalyzerissue("LOG", "Republishing " || matching_subitem.whfspath || " as it's not named index.shtml for its indexdoc (dynamicexecution!)");
+      ScheduleFileRepublish(matching_subitem.id);
+    }
+
+    //Item existed, mark it
+    IF(match_is_folder)
+      UPDATE subitems_folders SET onoutput := TRUE WHERE ondiskname=matching_subitem.ondiskname;
+    ELSE
+      UPDATE subitems_files SET onoutput := TRUE WHERE ondiskname=matching_subitem.ondiskname;
+    CONTINUE;
+  }
+
+  //Look for unpublished files and restore them
+  FOREVERY (RECORD item FROM subitems_folders)
+  {
+    //Is it a folder that doesn't exist on the output side?
+    IF (item.onoutput = FALSE)
+    {
+      IF(CreateDiskDirectoryRecursive(outputpath || "/" || item.ondiskname, TRUE))
+        onanalyzerissue("DEBUG", "Folder #" || folder.id || " (" || folder.whfspath || "): Created missing folder '" || item.ondiskname || "'");
+      ELSE
+        onanalyzerissue("LOG", "Folder #" || folder.id || " (" || folder.whfspath || "): Unable to create missing folder '" || item.ondiskname || "'");
+      CONTINUE;
+    }
+  }
+
+  FOREVERY (RECORD item FROM subitems_files)
+  {
+    //If the file has I/O errors, just reschedule it (without bothering to set it to 'Published')
+    IF (GetErrorFromPublished(item.published)>=1001 AND GetErrorFromPublished(item.published)<=2000)
+    {
+      onanalyzerissue("DEBUG", "Re-adding I/O erred file #" || item.id || ":" || item.name);
+      RequeueSubItem(folder.id,item);
+      CONTINUE;
+    }
+
+    BOOLEAN republish := item.forcerepublish;
+
+    IF (NOT republish AND item.onoutput = FALSE AND GetOncePublishedFromPublished(item.published))
+    {
+      onanalyzerissue("DEBUG", "Folder #" || folder.id || ": Cannot find output of file #" || item.id || ":" || item.name || " (" || item.ondiskname || ") on disk, must republish it");
+      republish := TRUE;
+    }
+
+    //Is the file incorrectly marked as already-published?
+    IF (republish)
+    {
+      //Chose PubPrio_SubFolderRepub here, because if this happens there might be more and we don't want to clog the republishing..
+      //Don't bother the database with it, just requeue
+      item.published := ConvertToWillPublish(item.published, TRUE, FALSE, PubPrio_FolderRepub);
+      RequeueSubItem(folder.id, item);
+      CONTINUE;
+    }
+
+    IF (GetErrorFromPublished(item.published)=112) //site was locked error
+    {
+      onanalyzerissue("DEBUG", "Republishing file " || item.id || " because it was dequeued earlier because of a locked site");
+      ScheduleFileRepublish(item.id);
+      CONTINUE;
+    }
+
+    //Does the file exist while it shouldn't be?
+    IF (item.onoutput AND NOT IsPublish(item.published))
+    {
+      /*
+      DEBUGPRINT("Deleting unpublished but still existing file "
+                 << Blex::MergePath(analyzestate.fullpath, itr->first));
+      */
+      RemoveDiskItem(folder.url || item.ondiskname, outputpath || "/" || item.ondiskname, pushevents, output.defaultpages);
+      // If this is the index document, delete the index file as well
+      IF (item.isindex)
+        RemoveDiskFile(folder.url, outputpath || "/" || folder_indexname, pushevents, TRUE);
+      CONTINUE;
+    }
+
+    //Ensure that the file is really in the queue
+    IF (GetErrorFromPublished(item.published)>=1 AND GetErrorFromPublished(item.published)<=100)
+    {
+      RequeueSubItem(folder.id,item);
+      CONTINUE;
+    }
+  }
+
+  IF(folder.id = site.root) //it's a site root
+  {
+    //Verify the case of the site root folder is okay
+    IF(site.outputfolder != "/")
+    {
+      STRING parentfolder := GetDirectoryFromPath(outputpath);
+      STRING myfoldername := GetNameFromPath(outputpath);
+      STRING properfoldername := ToFSCase(TRUE, myfoldername);
+
+      RECORD ARRAY sitefolders := SELECT * FROM ReadDiskDirectory(parentfolder,"*") WHERE ToUppercase(name)=TOUppercase(myfoldername);
+      IF(Length(sitefolders)=1 AND properfoldername != sitefolders[0].name)
+        RenameDiskPath(parentfolder || sitefolders[0].name, parentfolder || properfoldername);
+    }
+  }
+}
+
+PUBLIC MACRO ScanSingleFolder(INTEGER folderid)
+{
+  RECORD folder := SELECT * FROM system.fs_objects WHERE id = folderid AND isfolder AND isactive;
+  IF (NOT RecordExists(folder))
+    RETURN;
+
+  IF(folder.parent != 0 AND NOT RecordExists(SELECT FROM system.fs_objects WHERE id=folder.parent AND isfolder = TRUE))
+  {
+    //Unconnected folder?!
+    STRING newname := "folder-" || folder.id;
+    onanalyzerissue("LOG", "Moving unconnected directory '" || folder.name || "' to lost&found as folder '" || newname || "'");
+    UPDATE system.fs_objects SET name := newname, parent := 6/*lost&found*/ WHERE id=folderid;
+  }
+  ELSE IF (folder.type != 1) //don't scan foreigns
+  {
+    RECORD site := SELECT * FROM system.sites WHERE id = folder.parentsite;
+    IF(RecordExists(site))
+      ValidateFolder(site,folder);
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION ScanSingleFolderForTestFW(INTEGER folderid)
+{
+  MACRO PTR saved := onanalyzerissue;
+  TRY
+  {
+    capturedmessages := RECORD[];
+    onanalyzerissue := PTR CaptureMessage;
+    ScanSingleFolder(folderid);
+    RETURN SELECT * FROM capturedmessages ORDER BY class,msg;
+  }
+  FINALLY
+  {
+    onanalyzerissue := saved;
+  }
+}

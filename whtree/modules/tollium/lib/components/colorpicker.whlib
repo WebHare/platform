@@ -1,0 +1,309 @@
+<?wh
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+STRING ARRAY colors_16 := [ "#000000", "#c0c0c0", "#808080", "#ffffff"
+                          , "#800000", "#ff0000", "#800080", "#ff00ff"
+                          , "#008000", "#00ff00", "#808000", "#ffff00"
+                          , "#000080", "#0000ff", "#008080", "#00ffff"
+                          ];
+
+STRING ARRAY colors_375 := [ "#fbefef", "#fbf2ef", "#fbf5ef", "#fbf8ef", "#fbfbef", "#f8fbef", "#f5fbef", "#f2fbef", "#effbef", "#effbf2", "#effbf5", "#effbf8", "#effbfb", "#eff8fb", "#eff5fb", "#eff2fb", "#efeffb", "#f2effb", "#f5effb", "#f8effb", "#fbeffb", "#fbeff8", "#fbeff5", "#fbeff2", "#ffffff"
+                           , "#f8e0e0", "#f8e6e0", "#f8ece0", "#f7f2e0", "#f7f8e0", "#f1f8e0", "#ecf8e0", "#e6f8e0", "#e0f8e0", "#e0f8e6", "#e0f8ec", "#e0f8f1", "#e0f8f7", "#e0f2f7", "#e0ecf8", "#e0e6f8", "#e0e0f8", "#e6e0f8", "#ece0f8", "#f2e0f7", "#f8e0f7", "#f8e0f1", "#f8e0ec", "#f8e0e6", "#fafafa"
+                           , "#f6cece", "#f6d8ce", "#f6e3ce", "#f5ecce", "#f5f6ce", "#ecf6ce", "#e3f6ce", "#d8f6ce", "#cef6ce", "#cef6d8", "#cef6e3", "#cef6ec", "#cef6f5", "#ceecf5", "#cee3f6", "#ced8f6", "#cecef6", "#d8cef6", "#e3cef6", "#eccef5", "#f6cef5", "#f6ceec", "#f6cee3", "#f6ced8", "#f2f2f2"
+                           , "#f5a9a9", "#f5bca9", "#f5d0a9", "#f3e2a9", "#f2f5a9", "#e1f5a9", "#d0f5a9", "#bcf5a9", "#a9f5a9", "#a9f5bc", "#a9f5d0", "#a9f5e1", "#a9f5f2", "#a9e2f3", "#a9d0f5", "#a9bcf5", "#a9a9f5", "#bca9f5", "#d0a9f5", "#e2a9f3", "#f5a9f2", "#f5a9e1", "#f5a9d0", "#f5a9bc", "#e6e6e6"
+                           , "#f78181", "#f79f81", "#f7be81", "#f5da81", "#f3f781", "#d8f781", "#bef781", "#9ff781", "#81f781", "#81f79f", "#81f7be", "#81f7d8", "#81f7f3", "#81daf5", "#81bef7", "#819ff7", "#8181f7", "#9f81f7", "#be81f7", "#da81f5", "#f781f3", "#f781d8", "#f781be", "#f7819f", "#d8d8d8"
+                           , "#fa5858", "#fa8258", "#faac58", "#f7d358", "#f4fa58", "#d0fa58", "#acfa58", "#82fa58", "#58fa58", "#58fa82", "#58faac", "#58fad0", "#58faf4", "#58d3f7", "#58acfa", "#5882fa", "#5858fa", "#8258fa", "#ac58fa", "#d358f7", "#fa58f4", "#fa58d0", "#fa58ac", "#fa5882", "#bdbdbd"
+                           , "#fe2e2e", "#fe642e", "#fe9a2e", "#facc2e", "#f7fe2e", "#c8fe2e", "#9afe2e", "#64fe2e", "#2efe2e", "#2efe64", "#2efe9a", "#2efec8", "#2efef7", "#2eccfa", "#2e9afe", "#2e64fe", "#2e2efe", "#642efe", "#9a2efe", "#cc2efa", "#fe2ef7", "#fe2ec8", "#fe2e9a", "#fe2e64", "#a4a4a4"
+                           , "#ff0000", "#ff4000", "#ff8000", "#ffbf00", "#ffff00", "#bfff00", "#80ff00", "#40ff00", "#00ff00", "#00ff40", "#00ff80", "#00ffbf", "#00ffff", "#00bfff", "#0080ff", "#0040ff", "#0000ff", "#4000ff", "#8000ff", "#bf00ff", "#ff00ff", "#ff00bf", "#ff0080", "#ff0040", "#848484"
+                           , "#df0101", "#df3a01", "#df7401", "#dba901", "#d7df01", "#a5df00", "#74df00", "#3adf00", "#01df01", "#01df3a", "#01df74", "#01dfa5", "#01dfd7", "#01a9db", "#0174df", "#013adf", "#0101df", "#3a01df", "#7401df", "#a901db", "#df01d7", "#df01a5", "#df0174", "#df013a", "#6e6e6e"
+                           , "#b40404", "#b43104", "#b45f04", "#b18904", "#aeb404", "#86b404", "#5fb404", "#31b404", "#04b404", "#04b431", "#04b45f", "#04b486", "#04b4ae", "#0489b1", "#045fb4", "#0431b4", "#0404b4", "#3104b4", "#5f04b4", "#8904b1", "#b404ae", "#b40486", "#b4045f", "#b40431", "#585858"
+                           , "#8a0808", "#8a2908", "#8a4b08", "#886a08", "#868a08", "#688a08", "#4b8a08", "#298a08", "#088a08", "#088a29", "#088a4b", "#088a68", "#088a85", "#086a87", "#084b8a", "#08298a", "#08088a", "#29088a", "#4b088a", "#6a0888", "#8a0886", "#8a0868", "#8a084b", "#8a0829", "#424242"
+                           , "#610b0b", "#61210b", "#61380b", "#5f4c0b", "#5e610b", "#4b610b", "#38610b", "#21610b", "#0b610b", "#0b6121", "#0b6138", "#0b614b", "#0b615e", "#0b4c5f", "#0b3861", "#0b2161", "#0b0b61", "#210b61", "#380b61", "#4c0b5f", "#610b5e", "#610b4b", "#610b38", "#610b21", "#2e2e2e"
+                           , "#3b0b0b", "#3b170b", "#3b240b", "#3a2f0b", "#393b0b", "#2e3b0b", "#243b0b", "#173b0b", "#0b3b0b", "#0b3b17", "#0b3b24", "#0b3b2e", "#0b3b39", "#0b2f3a", "#0b243b", "#0b173b", "#0b0b3b", "#170b3b", "#240b3b", "#2f0b3a", "#3b0b39", "#3b0b2e", "#3b0b24", "#3b0b17", "#1c1c1c"
+                           , "#2a0a0a", "#2a120a", "#2a1b0a", "#29220a", "#292a0a", "#222a0a", "#1b2a0a", "#122a0a", "#0a2a0a", "#0a2a12", "#0a2a1b", "#0a2a22", "#0a2a29", "#0a2229", "#0a1b2a", "#0a122a", "#0a0a2a", "#120a2a", "#1b0a2a", "#220a29", "#2a0a29", "#2a0a22", "#2a0a1b", "#2a0a12", "#151515"
+                           , "#190707", "#190b07", "#191007", "#181407", "#181907", "#141907", "#101907", "#0b1907", "#071907", "#07190b", "#071910", "#071914", "#071918", "#071418", "#071019", "#070b19", "#070719", "#0b0719", "#100719", "#140718", "#190718", "#190714", "#190710", "#19070b", "#000000"
+                           ];
+
+
+/////////////////////////////////////////////////////////////////////
+// The color picker component
+
+PUBLIC OBJECTTYPE ColorEdit EXTEND TolliumFragmentBase
+<
+  PUBLIC FUNCTION PTR onchange;
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY type(pvt_type, SetType);
+  PUBLIC BOOLEAN showedit;
+
+  STRING pvt_value;
+  STRING pvt_type;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    this->onchange := description.onchange;
+    this->type := description.type;
+    this->showedit := description.showedit;
+  }
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN this->pvt_value;
+  }
+
+  MACRO SetValue(STRING color)
+  {
+    BOOLEAN changed;
+    TRY
+    {
+      INTEGER value := GfxCreateColorFromCSS(color);
+      changed := color != this->pvt_value;
+      this->pvt_value := color;
+    }
+    CATCH (OBJECT e)
+    {
+      this->pvt_value := "";
+    }
+    this->UpdateComponentState();
+    IF (changed AND this->onchange != DEFAULT FUNCTION PTR)
+      this->onchange();
+  }
+
+  MACRO SetType(STRING type)
+  {
+    IF (ToLowercase(type) NOT IN [ "sliders_rgb", "colors_16", "colors_375" ])
+      THROW NEW TolliumException(this, "Unknown color edit type '" || this->type || "'");
+    this->pvt_type := ToLowercase(type);
+  }
+
+  UPDATE MACRO PreInitComponent()
+  {
+    this->preview->title := this->title;
+    this->UpdateComponentState();
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel != "" ? this->errorlabel : this->title;
+    IF(this->required AND this->value = "")
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+  }
+
+  MACRO UpdateComponentState()
+  {
+    IF (ObjectExists(this->preview))
+    {
+      IF (this->value != "")
+        this->preview->SetImageSrc("tollium:colors/" || this->value);
+      ELSE
+        this->preview->value := DEFAULT RECORD;
+    }
+    this->clearaction->enabled := this->value != "";
+  }
+
+  MACRO SelectColor()
+  {
+    RECORD options := [ type := this->type
+                      , showedit := this->showedit
+                      ];
+    OBJECT dialog := this->owner->LoadScreen("tollium:components/colorpicker.colorpicker", options);
+    dialog->value := this->value;
+    IF (dialog->RunModal() = "ok")
+      this->value := dialog->value;
+  }
+
+  MACRO ClearColor()
+  {
+    this->value := "";
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN newenabled)
+  {
+    IF (this->pvt_enabled = newenabled)
+      RETURN;
+
+    this->pvt_enabled := newenabled;
+    this->ExtUpdatedEnabled();
+
+    ^selectaction->enabled := newenabled;
+    ^clearaction->enabled := newenabled;
+  }
+>;
+
+
+/////////////////////////////////////////////////////////////////////
+// The color picker screen
+
+PUBLIC OBJECTTYPE ColorPicker EXTEND TolliumScreenBase
+< STRING type;
+  OBJECT ARRAY components;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  BOOLEAN showedit;
+
+  MACRO Init(RECORD data)
+  {
+    this->type := data.type;
+    this->showedit := data.showedit;
+    this->RebuildScreen();
+  }
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN this->color->value;
+  }
+
+  MACRO SetValue(STRING value)
+  {
+    this->color->value := value;
+  }
+
+  MACRO RebuildScreen()
+  {
+    SWITCH (this->type)
+    {
+      CASE "sliders_rgb"
+      {
+      }
+      CASE "colors_16"
+      {
+        this->colors_16_table->SetupLinearTable(16, 4, TRUE, "32px", "32px");
+        this->colors_16_table->SetRowGroupScrollable(0, FALSE);
+
+        FOREVERY (STRING color FROM colors_16)
+        {
+          OBJECT colorcell := this->colors_16_table->GetLinearCell(#color);
+          colorcell->backgroundcolor := color;
+          colorcell->selectable := TRUE;
+        }
+      }
+      CASE "colors_375"
+      {
+        this->colors_375_table->SetupLinearTable(375, 25, TRUE, "16px", "16px");
+        this->colors_375_table->SetRowGroupScrollable(0, FALSE);
+
+        FOREVERY (STRING color FROM colors_375)
+        {
+          OBJECT colorcell := this->colors_375_table->GetLinearCell(#color);
+          colorcell->backgroundcolor := color;
+          colorcell->selectable := TRUE;
+        }
+      }
+      DEFAULT
+      {
+        THROW NEW TolliumException(this, "Unknown color picker type '" || this->type || "'");
+      }
+    }
+
+    this->sliders_rgb->visible := this->type = "sliders_rgb";
+    this->colors_16->visible := this->type = "colors_16";
+    this->colors_375->visible := this->type = "colors_375";
+
+    this->color->visible := this->showedit;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work;
+    IF (this->showedit)
+    {
+      work := this->BeginWork();
+    }
+    ELSE
+    {
+      work := this->BeginUnvalidatedWork();
+      IF (this->color->value = "")
+        work->AddError(GetTid("tollium:components.colorpicker.messages.nocolorselected"));
+    }
+    RETURN work->Finish();
+  }
+
+  MACRO RGBCompChanged()
+  {
+    STRING r := Right("0" || ToString(MoneyToInteger(this->rslider->value), 16), 2);
+    STRING g := Right("0" || ToString(MoneyToInteger(this->gslider->value), 16), 2);
+    STRING b := Right("0" || ToString(MoneyToInteger(this->bslider->value), 16), 2);
+    this->color->value := "#" || ToLowercase(r || g || b);
+  }
+
+  MACRO ColorSelected()
+  {
+    SWITCH (this->type)
+    {
+      CASE "colors_16"
+      {
+        INTEGER num := ObjectExists(this->colors_16_table->selection) ? this->colors_16_table->selection->num : 0;
+        this->color->value := num >= 0 ? colors_16[num] : "";
+      }
+      CASE "colors_375"
+      {
+        INTEGER num := ObjectExists(this->colors_375_table->selection) ? this->colors_375_table->selection->num : 0;
+        this->color->value := num >= 0 ? colors_375[num] : "";
+      }
+    }
+  }
+
+  MACRO ColorSubmitted()
+  {
+    // Color will already be selected, so just close the dialog
+    this->tolliumresult := "ok";
+  }
+
+  MACRO ValueChanged()
+  {
+    SWITCH (this->type)
+    {
+      CASE "sliders_rgb"
+      {
+        IF (this->value LIKE "#??????")
+        {
+          INTEGER r := ToInteger(Substring(this->value, 1, 2), -1, 16);
+          INTEGER g := ToInteger(Substring(this->value, 3, 2), -1, 16);
+          INTEGER b := ToInteger(Substring(this->value, 5, 2), -1, 16);
+
+          IF (r >= 0 AND g >= 0 AND b >= 0)
+          {
+            this->rslider->value := r;
+            this->gslider->value := g;
+            this->bslider->value := b;
+
+            this->preview->SetImageSrc("tollium:colors/" || this->value);
+          }
+        }
+        ELSE IF (this->value = "")
+        {
+          this->preview->value := DEFAULT RECORD;
+        }
+      }
+      CASE "colors_16"
+      {
+        INTEGER num := SearchElement(colors_16, this->value);
+        IF (num >= 0)
+          this->colors_16_table->selection := this->colors_16_table->GetLinearCell(num);
+        ELSE
+          this->colors_16_table->selection := DEFAULT OBJECT;
+      }
+      CASE "colors_375"
+      {
+        INTEGER num := SearchElement(colors_375, this->value);
+        IF (num >= 0)
+          this->colors_375_table->selection := this->colors_375_table->GetLinearCell(num);
+        ELSE
+          this->colors_375_table->selection := DEFAULT OBJECT;
+      }
+    }
+  }
+>;

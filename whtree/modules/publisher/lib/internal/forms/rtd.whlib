@@ -1,0 +1,29 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/embedvideo.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC OBJECTTYPE EmbedVideoForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    this->formidprefix := "embedvideo_" || GenerateUFS128BitId();
+  }
+  PUBLIC RECORD FUNCTION Submit(RECORD data)
+  {
+    OBJECT work := this->BeginWork([database := FALSE]);
+    RECORD video;
+    IF(NOT work->HasFailed())
+    {
+      video := GuessEmbeddedVideoFromCode(this->videourl->value);
+      IF(NOT RecordExists(video))
+        work->AddErrorFor(this->videourl, GetTid("publisher:site.rtd.embedvideo.unrecognized"));
+    }
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    //TODO shortcircuit submission, just store and process in RTD immediately
+    RETURN [ video := video ];
+  }
+>;

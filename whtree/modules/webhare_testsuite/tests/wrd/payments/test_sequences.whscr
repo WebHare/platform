@@ -1,0 +1,92 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+MACRO TestSequenceNumbers()
+{
+  TestEQ("000000000001", GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test1", [ mutex := "wrd:test" ]));
+  TestEQ("000000000002", GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test1", [ mutex := "wrd:test" ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test1",
+      [ mutex :=        "wrd:test"
+      , minnumber :=    10
+      , nrformat :=     "%08n"
+      ]);
+
+  TestEQ("00000011", GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test1", [ mutex := "wrd:test" ]));
+
+  TestEQ("000000000001", GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test" ]));
+
+  STRING datestr := FormatDateTime("%Y%m%d", GetRoundedDateTime(UTCToLocal(GetCurrentdatetime(), "CET"), 86400 * 1000));
+  TestEQ(`${datestr}00001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n", peek := TRUE ]));
+  TestEQ(`${datestr}00001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+  TestEQ(`${datestr}00002`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n", peek := TRUE ]));
+  TestEQ(`${datestr}00002`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+  TestEQ(`${datestr}00003`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2",
+      [ mutex :=        "wrd:test"
+      , minnumber :=    20
+      , mindate :=      GetCurrentdatetime()
+      ]);
+
+  TestEQ(`${datestr}00021`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2",
+      [ mutex :=        "wrd:test"
+      , minnumber :=    30
+      , mindate :=      AddDaysToDate(-1, GetCurrentDatetime()) // may fail around daylight savings changes
+      ]);
+
+  TestEQ(`${datestr}00022`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+
+  RECORD state := GetWRDSchemaSetting(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ fallback := DEFAULT RECORD ]);
+
+  state.lastordernumber := 30i64;
+  state.lastorderdate := AddDaysToDate(-1, GetRoundedDateTime(UTCToLocal(GetCurrentdatetime(), "CET"), 86400 * 1000));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2",
+      [ mutex :=        "wrd:test"
+      , minnumber :=    40
+      , mindate :=      GetCurrentDatetime() // may fail around daylight savings changes
+      ]);
+
+  TestEQ(`${datestr}00041`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%05n" ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2",
+      [ mutex :=        "wrd:test"
+      , mindate :=      MakeDate(2012,1,1)
+      ]);
+
+  TestEQ(`2012-0001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%Y-%04n", now := MakeDate(2012,1,1) ]));
+  TestEQ(`2012-0002`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%Y-%04n", now := MakeDate(2012,1,2) ]));
+  TestEQ(`2013-0001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%Y-%04n", now := MakeDate(2013,1,1) ]));
+
+  TestEQ(`2013-0001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:newseq", [ mutex := "wrd:test", nrformat := "%Y-%04n", now := MakeDate(2013,1,1) ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%Y-%04n" ]);
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2",
+      [ mutex :=        "wrd:test"
+      , next :=         "2013-0005"
+      ]);
+  TestEQ(`2013-0005`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,1), peek := TRUE ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "%d%04n", next := "201301010006" ]);
+  TestEQ(`201301010006`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,1), peek := TRUE ]));
+
+  UpdateWRDSequenceParameters(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", nrformat := "TCP%d%04n" ]);
+  TestEQ(`TCP201301010006`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,1)  ]));
+  TestEQ(`TCP201301010007`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,1)  ]));
+  TestEQ(`CUL201301010008`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,1), nrformat := "CUL%d%04n" ]));
+  TestEQ(`CUL201301020001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,2), nrformat := "CUL%d%04n" ]));
+  TestEQ(`TCP201301030001`, GetWRDSequenceNext(testfw->GetWRDSchema()->id, "webhare_testsuite:test2", [ mutex := "wrd:test", now := MakeDate(2013,1,3), nrformat := "TCP%d%04n" ]));
+}
+
+
+RunTestframework([ PTR TestSequenceNumbers
+                 ], [ wrdauth := FALSE ]);

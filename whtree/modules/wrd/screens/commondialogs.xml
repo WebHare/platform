@@ -1,0 +1,278 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="../lib/screens/commondialogs.whlib"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+
+  <messageboxes gid="commondialogs.messages">
+    <messagebox name="delete_entity" buttons="yes no" />
+    <messagebox name="entity_in_use" buttons="ok" />
+    <messagebox name="no_email_column" buttons="ok" />
+
+    <messagebox name="addressverify_ok"                 icon="information" buttons="ok" />
+    <messagebox name="addressverify_not_enough_data"    icon="error"       buttons="ok" />
+    <messagebox name="addressverify_zip_not_found"      icon="error"       buttons="ok" />
+    <messagebox name="addressverify_address_not_found"  icon="error"       buttons="ok" />
+    <messagebox name="addressverify_invalid_nr_detail"  icon="error"       buttons="ok" />
+    <messagebox name="addressverify_invalid_zip"        icon="error"       buttons="ok" />
+    <messagebox name="addressverify_lookup_failed"      icon="error"       buttons="ok" />
+    <messagebox name="addressverify_incomplete"         icon="warning"     buttons="ok" />
+  </messageboxes>
+
+  <screen name="entities" allpublic="true" allowresize="true" savestate="position size" minwidth="550px" minheight="450px" flags="can_search_free">
+    <actions gid="entities.actions">
+      <action name="ok" onexecute="submit" tid="tollium:common.actions.ok" />
+      <action name="cancelaction" onexecute="cancel" tid="tollium:common.actions.cancel" />
+      <action name="close" onexecute="cancel" tid="tollium:common.actions.close" />
+      <action name="add" onexecute="doadd" />
+      <action name="edit" onexecute="doedit" >
+        <enableon source="ents" min="1" max="1" />
+      </action>
+      <action name="del" onexecute="dodel">
+        <enableon source="ents" min="1" max="1" />
+      </action>
+      <action name="searchfree" frameflags="can_search_free"  onexecute="dosearchfree" />
+    </actions>
+
+    <menus>
+      <menu name="modify">
+        <item action="edit" />
+        <item action="del" />
+      </menu>
+
+      <menu name="emptyspace">
+        <item action="add" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="eventlistener" onevent="onevent" />
+    </compositions>
+
+    <body>
+      <panel name="freesearchbox" visible="false" public="true"> <!-- made public for now, clear up API between the various entities users later -->
+        <wrd:quickfilter name="quickfilter" onsearch="onquickfiltersearch" />
+      </panel>
+
+      <grid width="1pr" height="1pr" >
+        <col width="1pr"/>
+        <col />
+        <row height="1pr">
+          <cell height="1pr">
+            <list width="1pr"
+                  height="1pr"
+                  name="ents"
+                  openaction="edit"
+                  selectmode="single"
+                  selectcontextmenu="modify"
+                  newcontextmenu="emptyspace"
+                  />
+          </cell>
+          <cell>
+            <panel name="addeditdel">
+              <button action="add" width="1pr" />
+              <button action="edit" width="1pr" />
+              <button action="del" width="1pr" />
+            </panel>
+          </cell>
+        </row>
+      </grid>
+    </body>
+    <footer>
+      <line layout="right">
+        <button name="okbutton" action="ok" />
+        <button name="cancelbutton" action="cancelaction" />
+        <button name="closebutton" action="close" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="editentity" tid="editentity.title" allpublic="true">
+
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body gid="editentity" name="body">
+      <!-- Al dit uitgecommente was een poging voor een standaard edit entity scherm, die op basis van type mooie tabbladen
+           aanmaakte enzo.
+
+      <tabs name="tabs">
+        <tab name="basefields">
+          <panel name="general" layout="form" box="true" />
+        </tab>
+        <tab name="availability">
+          <panel name="lifetime" layout="form" box="true">
+            <wrd:field entity="entity" field="wrd_creationdate" />
+            <select type="radio" name="limittype">
+              <option rowkey="nolimit" selected="1" tid="editentity.nolimit" />
+              <option rowkey="limit" tid="editentity.limit" />
+            </select>
+            <datetime type="datetime" precision="minutes" name="ends_at" />
+          </panel>
+        </tab>
+      </tabs>
+      -->
+      <panel height="1pr">
+        <panel name="general" />
+        <box name="lifetime">
+          <datetime composition="entity" precision="seconds" name="wrd_creationdate" cellname="wrd_creationdate" required="true" type="datetime" storeutc="true" />
+          <datetime composition="entity" precision="seconds" name="wrd_limitdate" cellname="wrd_limitdate" emptyvalue="max_datetime" type="datetime" storeutc="true" />
+        </box>
+      </panel>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="resultgrid" gid="commondialogs.resultgrid" width="300x" height="40x" flags="canemail" allpublic="true">
+    <actions gid="wrd:commondialogs.actions">
+      <action name="email_results"  onexecute="DoEmail" icon="tollium:mailclient/new_message" frameflags="canemail" />
+
+      <action name="export_results" onexecute="DoExport" icon="tollium:actions/export" />
+      <action name="run" onexecute="DoRun" hint="" />
+      <action name="exportdirect" onexecute="DoExportDirect" hint="" />
+    </actions>
+
+    <toolbar>
+      <button action="email_results"  name="emailbutton" />
+      <button action="export_results" />
+    </toolbar>
+
+    <body>
+      <panel name="parameters">
+        <grid>
+          <col />
+          <col width="1pr" />
+          <row>
+            <cell>
+              <panel name="fields" layout="form" />
+            </cell>
+            <cell>
+              <panel name="top" height="1pr" />
+              <panel name="bottom" layout="right">
+                <button action="exportdirect"  tid="commondialogs.resultgrid.exportdirect" hint="" />
+                <button name="runbutton" action="run" tid="commondialogs.resultgrid.execute" hint="" />
+              </panel>
+            </cell>
+          </row>
+        </grid>
+      </panel>
+      <panel height="1pr" >
+        <list name="results" height="1pr" />
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="resultexport" gid="wrd:commondialogs.resultexport" implementation="none" allpublic="true">
+    <body layout="form">
+      <select public="true" type="pulldown" name="separator">
+        <option rowkey="semicolon" selected="1" tid=".semicolon"/>
+        <option rowkey="comma" tid=".comma"/>
+        <option rowkey="tab" tid=".tab" />
+      </select>
+      <select public="true" type="pulldown" name="charset">
+        <option rowkey="ISO-8859-1" selected="1" title="ISO-8859-1" />
+        <option rowkey="UTF-8" title="UTF-8"/>
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+
+  </screen>
+
+  <screen name="verificationresult" gid="wrd:commondialogs.verificationresult" tid=".pagetitle" allpublic="true" implementation="none">
+    <body layout="form">
+      <grid>
+        <col />
+        <col />
+        <row>
+          <cell>
+            <box tid=".original" minwidth="40x">
+              <text name="original" title="" />
+            </box>
+          </cell>
+          <cell>
+            <box tid=".returned" minwidth="40x">
+              <text name="returned" title="" />
+            </box>
+          </cell>
+        </row>
+      </grid>
+      <box tid=".problems">
+        <text name="problems_street" title="" valuetid=".no_street_match" />
+        <text name="problems_city"   title="" valuetid=".no_city_match" />
+      </box>
+    </body>
+    <footer>
+      <line layout="right">
+        <button tid=".correct" tolliumresult="overwrite" />
+        <button tid="tollium:common.actions.cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="editaddress" gid="wrd:commondialogs.editaddress" tid=".pagetitle">
+    <actions>
+      <action name="checkverify" title="" onexecute="docheckverify" />
+    </actions>
+    <body>
+      <panel name="addresspanel" width="80x" height="20x"> <!-- ADDME: Remove/reduce width/height when we have resizing dialogs (guess we have little choice) -->
+        <select type="pulldown" name="country" onchange="oncountrychange" />
+        <wrd:countryfields name="countryfields" />
+      </panel>
+    </body>
+    <footer>
+      <line layout="right">
+        <button name="btn_verify" action="checkverify" />
+        <button tid="tollium:common.actions.ok" tolliumresult="ok" isdefault="true"/>
+        <button tid="tollium:common.actions.cancel" tolliumresult="cancel" />
+      </line>
+    </footer>
+  </screen>
+
+  <screen name="auditlog"
+          allowresize="true"
+          tid=".title"
+          gid="wrd:commondialogs.auditlog"
+          width="100x"
+          height="25x"
+          savestate="position size">
+    <actions>
+      <action name="refresh" onexecute="dorefresh" />
+      <action name="showevent" title="" onexecute="doshowevent" />
+    </actions>
+    <body height="1pr">
+      <line>
+        <datetime name="fromdate" type="datetime" storeutc="true" />
+        <datetime name="todate" type="datetime" storeutc="true" />
+        <spacer />
+        <button action="refresh" />
+      </line>
+      <line layout="left">
+        <checkbox name="show_success" title="" labeltid=".show_success" value="true" onchange="dorefresh" />
+        <checkbox name="show_warning" title="" labeltid=".show_warning" value="true" onchange="dorefresh" />
+        <checkbox name="show_failure" title="" labeltid=".show_failure" value="true" onchange="dorefresh" />
+        <checkbox name="show_other" title="" labeltid=".show_other" value="true" onchange="dorefresh" />
+      </line>
+      <list
+          name="events"
+          openaction="showevent"
+          icons="tollium:status/positive tollium:status/warning tollium:status/serious_error"
+          width="1pr" height="1pr"
+          ongetrows="ongetevents"
+          selectmode="single">
+        <column name="wrd_creationdate" type="datetime" precision="seconds" storeutc="true" width="20x" />
+        <column name="status" type="icon" />
+        <column name="wrdaudit_type" type="text"/>
+        <column name="wrdaudit_account" type="text" />
+        <column name="wrdaudit_login" type="text" />
+      </list>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+</screens>

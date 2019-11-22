@@ -1,0 +1,347 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+
+
+MACRO RollbackOpenWork(OBJECT e)
+{
+  IF (GetPrimary()->IsWorkOpen())
+    GetPrimary()->RollbackWork();
+
+  IF (e EXTENDSFROM TestFailException)
+    THROW e;
+}
+
+
+MACRO TestWriteAccess()
+{
+  OBJECT site := testfw->GetTestSite();
+
+  DATETIME now := GetCurrentDateTime();
+
+  // Insert folder with invalid name
+  TRY
+  {
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            site->id
+       , name :=              " invalid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          TRUE
+       ] INTO system.fs_objects;
+
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Rename folder with invalid name
+  TRY
+  {
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            site->id
+       , name :=              "valid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          TRUE
+       ] INTO system.fs_objects;
+
+    UPDATE system.fs_objects
+       SET name := " invalid name"
+     WHERE parent = site->id AND name = "valid name";
+
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  IF (GetDatabaseType() != "whdb")
+  {
+    // Insert file with invalid name
+    TRY
+    {
+      testfw->BeginWork();
+      INSERT CELL
+         [ parent :=            site->id
+         , name :=              " invalid name"
+         , creationdate :=      now
+         , modificationdate :=  now
+         , isfolder :=          FALSE
+         ] INTO system.fs_objects;
+
+      TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+    }
+    CATCH (OBJECT e)
+      RollbackOpenWork(e);
+
+    // Update file with invalid name
+    TRY
+    {
+      testfw->BeginWork();
+      INSERT CELL
+         [ parent :=            site->id
+         , name :=              "valid name"
+         , creationdate :=      now
+         , modificationdate :=  now
+         , isfolder :=          FALSE
+         ] INTO system.fs_objects;
+
+      UPDATE system.fs_objects
+         SET name := " invalid name"
+       WHERE parent = site->id AND name = "valid name";
+
+      TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+    }
+    CATCH (OBJECT e)
+      RollbackOpenWork(e);
+  }
+
+  // Test valid names with non-ascii stuff
+  testfw->BeginWork();
+  INSERT CELL
+     [ parent :=            site->id
+     , name :=              "valid filenamë\u00CC\u0088.jpg"
+     , creationdate :=      now
+     , modificationdate :=  now
+     , isfolder :=          FALSE
+     ] INTO system.fs_objects;
+  INSERT CELL
+     [ parent :=            site->id
+     , name :=              "valid foldernamë\u00CC\u0088.jpg"
+     , creationdate :=      now
+     , modificationdate :=  now
+     , isfolder :=          TRUE
+     ] INTO system.fs_objects;
+
+  TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) = 0);
+  DumpValue(SELECT * FROM system.fs_objects WHERE parent = site->id);
+
+  OBJECT site2 := testfw->GetTestSite("webhare_testsuite.site2");
+  testfw->BeginWork();
+
+  // Move outputfolder of site2 into site1
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "foreignfolder/sub/"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Create a foreign folder, move the site into that
+  testfw->BeginWork();
+  OBJECT foreignfolderparent := site->rootobject->CreateFolder([ name := "foreignfolderparent" ]);
+  OBJECT foreignfolder := foreignfolderparent->CreateFolder([ name := "foreignfolder", type := 1 ]);
+  testfw->CommitWork();
+
+  // Create a folder inside a foreignfolder
+  TRY
+  {
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            foreignfolder->id
+       , name :=              "valid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          TRUE
+       ] INTO system.fs_objects;
+
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Move a folder inside a foreignfolder
+  TRY
+  {
+    testfw->BeginWork();
+    OBJECT testfolder := foreignfolderparent->CreateFolder([ name := "valid name" ]);
+    UPDATE system.fs_objects
+       SET parent := foreignfolder->id
+     WHERE id = testfolder->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Create a file inside a foreignfolder
+  TRY
+  {
+    testfw->BeginWork();
+    INSERT CELL
+       [ parent :=            foreignfolder->id
+       , name :=              "valid name"
+       , creationdate :=      now
+       , modificationdate :=  now
+       , isfolder :=          FALSE
+       ] INTO system.fs_objects;
+
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Move a file inside a foreignfolder
+  TRY
+  {
+    testfw->BeginWork();
+    OBJECT testfolder := foreignfolderparent->CreateFile([ name := "valid name" ]);
+    UPDATE system.fs_objects
+       SET parent := foreignfolder->id
+     WHERE id = testfolder->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Move a site into a site outside of a foreign folder
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "outsideforeignfolder/"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Illegal outputfolder, not ending starting with slash
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "foreignfolderparent/foreignfolder/sub"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Illegal outputfolder, redundand parts pt 1
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "foreignfolderparent/foreignfolder//sub/"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Illegal outputfolder, redundand parts pt 2
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "foreignfolderparent/foreignfolder/./sub/"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Illegal outputfolder, redundand parts pt 3
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.sites
+       SET outputfolder :=  site->outputfolder || "foreignfolderparent/foreignfolder/../sub/"
+     WHERE id = site2->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+
+  // Move a site into the foreign folder
+  testfw->BeginWork();
+  UPDATE system.sites
+     SET outputfolder :=  site->outputfolder || "foreignfolderparent/foreignfolder/sub/"
+   WHERE id = site2->id;
+  testfw->CommitWork();
+
+  // Rename the foreignfolder parent
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.fs_objects SET name := "renamed" WHERE id = foreignfolderparent->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Move the foreign folder
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.fs_objects SET parent := site->id WHERE id = foreignfolder->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // Delete the foreign folder
+  TRY
+  {
+    testfw->BeginWork();
+    DELETE FROM system.fs_objects WHERE id = foreignfolder->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // No circular parent relations pt 1
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.fs_objects SET parent := foreignfolder->id WHERE id = foreignfolder->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // No circular parent relations pt 2
+  TRY
+  {
+    testfw->BeginWork();
+    UPDATE system.fs_objects SET parent := foreignfolder->id WHERE id = foreignfolderparent->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+
+  // No too deep parents
+  TRY
+  {
+    INTEGER parent := site->id;
+    testfw->BeginWork();
+    FOR (INTEGER i := 0; i < 30; i := i + 1)
+    {
+      INTEGER id := MakeAutoNumber(system.fs_objects, "id");
+      INSERT CELL[ id, parent, name := "deep", creationdate := now, modificationdate := now, isfolder := TRUE ] INTO system.fs_objects;
+      parent := id;
+    }
+    UPDATE system.fs_objects SET parent := foreignfolder->id WHERE id = foreignfolderparent->id;
+    TestEQ(TRUE, LENGTH(testfw->CommitWorkReturnErrors()) > 0);
+  }
+  CATCH (OBJECT e)
+    RollbackOpenWork(e);
+}
+
+RunTestframework(
+    [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE ])
+    , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
+    , PTR TestWriteAccess
+    ]);

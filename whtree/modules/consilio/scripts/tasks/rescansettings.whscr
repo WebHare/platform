@@ -1,0 +1,8 @@
+<?wh
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+RescanWHFSConsilioLinks();
+trans->CommitWork();

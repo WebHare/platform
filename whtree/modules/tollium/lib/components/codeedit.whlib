@@ -1,0 +1,279 @@
+﻿<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+/////////////////////////////////////////////////////////////////////
+// CodeEdit
+
+PUBLIC OBJECTTYPE TolliumCodeEdit EXTEND TolliumComponentBase
+<
+  STRING pvt_type;
+  STRING pvt_contents;
+  RECORD ARRAY pvt_markers;
+  INTEGER pvt_line;
+  INTEGER pvt_col;
+  STRING pvt_selection;
+  INTEGER pvt_topline;
+
+  PUBLIC PROPERTY type(GetType, SetType);
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY markers(pvt_markers, SetMarkers);
+  PUBLIC PROPERTY line(pvt_line, -);
+  PUBLIC PROPERTY col(pvt_col, -);
+  PUBLIC PROPERTY selection(pvt_selection, -);
+  PUBLIC PROPERTY topline(pvt_topline, -);
+
+  /// Called when clicked on gutter. Signature: MACRO ongutterclick(INTEGER line)
+  PUBLIC FUNCTION PTR ongutterclick;
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+
+    this->type := "javascript";
+    this->readonly := FALSE;
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "codeedit";
+    this->formfieldtype := "string";
+    this->pvt_line := 1;
+    this->pvt_col := 1;
+    this->pvt_topline := 1;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumComponentBase::StaticInit(def);
+    this->pvt_type     := def.type;
+    this->pvt_readonly := def.readonly;
+    this->pvt_contents := def.value;
+    this->errorlabel   := def.errorlabel;
+    this->ongutterclick := def.ongutterclick;
+  }
+
+  UPDATE RECORD FUNCTION GetExtraDirtyFlags()
+  {
+    RETURN
+        [ content := FALSE
+        , type := FALSE
+        , enabled  := FALSE
+        , required := FALSE
+        , actions := DEFAULT RECORD ARRAY
+        , markers := FALSE
+        ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender()
+  {
+    IF (this->dirtyflags.fully)
+    {
+      IF(this->readonly)
+      {
+        this->TolliumWebReadOnly(this->pvt_contents, TRUE);
+        RETURN;
+      }
+
+      RECORD compinfo := [ readonly :=  this->readonly
+                         , required :=  this->required
+
+                         , value :=     this->pvt_contents
+                         , hint :=      this->hint
+
+                         , actions :=   this->dirtyflags.actions
+
+                         , markers :=   this->pvt_markers
+                         ];
+      this->owner->tolliumcontroller->SendComponent(this, compinfo);
+    }
+    ELSE
+    {
+      IF (this->dirtyflags.content)
+        this->ToddUpdate([type:="value", value := this->pvt_contents]);
+
+//      IF (this->dirtyflags.type)
+//        this->ToddUpdate([type:="type", value := this->pvt_type]);
+
+      IF (this->dirtyflags.enabled)
+        this->ToddUpdate([type:="enabled", value := this->enabled]);
+
+      IF (this->dirtyflags.required)
+        this->ToddUpdate([type:="required", value := this->required]);
+
+      IF (this->dirtyflags.markers)
+        this->ToddUpdate([type:="markers", value := this->markers]);
+    }
+
+    IF (Length(this->dirtyflags.actions)>0)
+      this->ToddUpdate([type:="actions", value := this->dirtyflags.actions]);
+
+    TolliumComponentBase::TolliumWebRender();
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  {
+    // We want form updates when we're disabled, so overide this
+    RETURN this->isnowvisible AND NOT this->readonly;
+  }
+
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD indata)
+  {
+    // We've overridden IsUpdateable to remove this->enabled, but don't update the value when disabled
+    IF (indata.enabled AND this->enabled)
+      this->SetInternalValue(indata.value);
+    this->pvt_line := indata.line;
+    this->pvt_col := indata.col;
+    this->pvt_selection := indata.selection;
+    this->pvt_topline := indata.topline;
+  }
+
+  STRING FUNCTION GetValue()
+  {
+    RETURN this->pvt_contents;
+  }
+
+  MACRO SetInternalValue(STRING contents)
+  {
+    contents := Substitute(contents, "\r\n", "\n");
+    this->pvt_contents := contents;
+  }
+
+  MACRO SetValue(STRING contents)
+  {
+    this->SetInternalValue(contents);
+    this->ExtUpdatedContent();
+  }
+
+  STRING FUNCTION GetType()
+  {
+    RETURN this->pvt_type;
+  }
+
+  MACRO SetType(STRING type)
+  {
+    BOOLEAN supportedtype := (type IN ['text','c','cpp','css','java','javascript','harescript','html','php','xml','sql']);
+
+    IF (NOT supportedtype)
+      ABORT('Unsupported type ('||type||') selected for CodeEdit component.');
+
+    this->pvt_type := type;
+
+    this->ExtUpdatedType();
+  }
+
+  // don't regenerate this component upon changing required
+  UPDATE MACRO SetRequired(BOOLEAN new_required)
+  {
+    IF (this->pvt_required = new_required)
+      RETURN;
+
+    this->pvt_required := new_required;
+    this->ExtUpdatedRequired();
+  }
+
+  MACRO SetMarkers(RECORD ARRAY markers)
+  {
+    this->pvt_markers :=
+        SELECT line
+             , type
+             , color
+          FROM markers
+      ORDER BY line;
+
+    this->SetDirtyFlags([ markers := TRUE ]);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value)
+  {
+    RETURN TypeID(value) = TypeID(STRING);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    IF(NOT this->enabled) //nothing to check on inactive fields
+      RETURN;
+
+    STRING fieldtitle := this->errorlabel; // block elements don't have a this->title;
+    IF(this->required AND this->pvt_contents="")
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+  }
+
+  UPDATE PUBLIC MACRO TolliumDispatchEvent(STRING type, RECORD data)
+  {
+    TolliumComponentBase::TolliumDispatchEvent(type, data);
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
+  {
+    RETURN "1pr";
+  }
+  UPDATE PUBLIC STRING FUNCTION GetDefaultHeight()
+  {
+    RETURN "8x";
+  }
+
+  PUBLIC MACRO GotoLine(INTEGER linenum)
+  {
+    this->EnsureFilledDirtyFlags();
+
+    this->pvt_line := linenum;
+    INSERT [ action := "gotoline", linenum := linenum ]
+           INTO this->dirtyflags.actions AT END;
+  }
+
+  PUBLIC MACRO GotoTopLine(INTEGER linenum)
+  {
+    this->EnsureFilledDirtyFlags();
+
+    this->pvt_topline := linenum;
+    INSERT [ action := "gototopline", linenum := linenum ]
+           INTO this->dirtyflags.actions AT END;
+  }
+
+
+  MACRO ExtUpdatedContent()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.content := TRUE;
+  }
+
+  MACRO ExtUpdatedType()
+  {
+    // Type isn't supported by js code
+//    this->EnsureFilledDirtyFlags();
+//    this->dirtyflags.type := TRUE;
+  }
+
+  UPDATE MACRO ExtUpdatedEnabled()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.enabled := TRUE;
+  }
+
+  MACRO ExtUpdatedRequired()
+  {
+    this->ExtUpdateComponent(this);
+  }
+
+  UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
+  {
+  }
+
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH (type)
+    {
+      CASE "gutterclick"
+      {
+        IF (this->ongutterclick != DEFAULT FUNCTION PTR)
+          this->ongutterclick(msgdata.line);
+      }
+      DEFAULT
+      {
+        TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+      }
+    }
+  }
+
+>;
+
+

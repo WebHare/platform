@@ -1,0 +1,88 @@
+﻿<?wh
+LOADLIB "mod::system/lib/database.whlib";
+
+PUBLIC SCHEMA
+  < TABLE
+    < INTEGER "id"
+    , STRING "title"
+    , STRING "tag"
+    ; KEY id
+    > accounts
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "account"
+    , STRING "title"
+    , STRING "tag"
+    , STRING "type"
+    , STRING "remarks"
+    , BOOLEAN "logrpc"
+    ; KEY id
+    > applications
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "application"
+    , STRING "tag"
+    , STRING "value"
+    ; KEY id
+    > applicationkeys
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "application"
+    , STRING "title"
+    , STRING "tag"
+    , STRING "authorizationremark"
+    , BOOLEAN "persistent"
+    , BOOLEAN "authorized"
+    , DATETIME "authorizedat"
+    , DATETIME "verifiedat"
+    , STRING "requestpermissions"
+    , STRING "accesstoken"
+    , STRING "userid"
+    , STRING "methods"
+    , BOOLEAN "expirationwarning"
+    ; KEY id
+    > sessions
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "session" NULL := 0
+    , STRING "query"
+    , DATETIME "created"
+    , DATETIME "lastupdateattempt"
+    , DATETIME "lastupdate"
+    , DATETIME "lastrequest"
+    , STRING "format"
+    , INTEGER maxnum
+    , STRING lasterror
+    , BLOB baseinfo
+    , STRING baseinfohash
+    ; KEY id
+    > "feeds"
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "feed" NULL := 0
+    , DATETIME "created"
+    , STRING "data"
+    , BLOB "longdata"
+    , STRING "messageid"
+    , BOOLEAN "publish"
+    ; KEY id
+    > "feedentries"
+  , TABLE
+    < INTEGER "id"
+    , STRING "domain"
+    , STRING "apikey"
+    , INTEGER keytype
+    , STRING privatekey
+    , DATETIME creationdate
+    , STRING comment
+    , INTEGER scopetype
+    ; KEY id
+    > google_apikeys
+  > socialite;
+
+MACRO BindSocialiteTables(INTEGER transaction)
+{
+  socialite := BindTransactionToSchema(transaction, "socialite");
+}
+
+SetupPrimaryTransactionBinder(PTR BindSocialiteTables);

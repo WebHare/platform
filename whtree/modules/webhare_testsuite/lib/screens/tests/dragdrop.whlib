@@ -1,0 +1,251 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE FrameTest EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    this->DoOpenSubwindow();
+    this->DoOpenSubwindow();
+  }
+
+  MACRO DoOpenSubwindow()
+  {
+    OBJECT wtest := this->LoadScreen (".subwindow");
+    wtest->frame->title := this->frame->title || ".sub";
+    wtest->RunModal();
+  }
+>;
+
+PUBLIC OBJECTTYPE ListTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RegisterLocalDragType("local:type1", [ "canmove" ]);
+    this->RegisterLocalDragType("local:type2", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:type3", DEFAULT STRING ARRAY);
+    this->RegisterLocalDragType("local:type4", DEFAULT STRING ARRAY);
+
+    this->source->rows :=
+        [ [ rowkey :=   1
+          , title := "Row 1: type1"
+          , draginfo :=
+                [ type := "local:type1"
+                , data :=
+                    [ r := 1
+                    , text := "r1"
+                    , canmove := TRUE
+                    ]
+                ]
+          ]
+        , [ rowkey :=   2
+          , title := "Row 2: type1 nomove"
+          , draginfo :=
+                [ type := "local:type1"
+                , data :=
+                    [ r := 2
+                    , text := "r2"
+                    , canmove := FALSE
+                    ]
+                ]
+          ]
+        , [ rowkey :=   3
+          , title := "Row 3 nodrag"
+          ]
+        , [ rowkey :=   4
+          , title := "Row 4 type2"
+          , draginfo :=
+                [ type := "local:type2"
+                , data :=
+                    [ r := 4
+                    , text := "r2"
+                    , canmove := FALSE
+                    ]
+                ]
+          ]
+        ];
+
+    this->target->rows :=
+        [ [ rowkey := "T1"
+          , title := "Row 1: Can add"
+          , canadd := TRUE
+          , canlink := FALSE
+          ]
+        , [ rowkey := "T2"
+          , title := "Row 2: Can't add"
+          , canadd := FALSE
+          , canlink := FALSE
+          ]
+        , [ rowkey := "T3"
+          , title := "Row 3: Can only link type2"
+          , canadd := FALSE
+          , canlink := TRUE
+          ]
+        ];
+
+    this->tree->rows :=
+        [ [ rowkey := "R1"
+          , title :=  "R1"
+          , draginfo := [ type := "local:type3", data := [ r := "R1" ] ]
+          , expanded := TRUE
+          , subnodes :=
+              [ [ rowkey := "R1.1"
+                , title := "R1.1"
+                , draginfo := [ type := "local:type3", data := [ r := "R1.1" ] ]
+                , expanded := TRUE
+                , caninsertbefore := TRUE
+                , canappendchild := TRUE
+                ]
+              , [ rowkey := "R1.2"
+                , title := "R1.2"
+                , draginfo := [ type := "local:type3", data := [ r := "R1.2" ] ]
+                , expanded := TRUE
+                , subnodes :=
+                    [ [ rowkey := "R1.2.1"
+                      , title := "R1.2.1"
+                      , draginfo := [ type := "local:type3", data := [ r := "R1.2.1" ] ]
+                      , expanded := TRUE
+                      , caninsertbefore := TRUE
+                      , canappendchild := TRUE
+                      ]
+                    ]
+                , caninsertbefore := TRUE
+                , canappendchild := TRUE
+                ]
+              ]
+          , caninsertbefore := TRUE
+          , canappendchild := TRUE
+          ]
+        , [ rowkey := "R2"
+          , title :=  "R2"
+          , draginfo := [ type := "local:type3", data := [ r := "R2" ] ]
+          , expanded := TRUE
+          , subnodes :=
+              [ [ rowkey := "R2.1"
+                , title := "R2.1"
+                , draginfo := [ type := "local:type3", data := [ r := "R2.1" ] ]
+                , expanded := TRUE
+                , caninsertbefore := TRUE
+                , canappendchild := FALSE
+                ]
+              ]
+          , caninsertbefore := TRUE
+          , canappendchild := FALSE
+          ]
+        , [ rowkey := "R3"
+          , title :=  "R3"
+          , draginfo := [ type := "local:type2", data := [ r := "R3" ] ]
+          , expanded := TRUE
+          , subnodes :=
+              [ [ rowkey := "R3.1"
+                , title := "R3.1"
+                , draginfo := [ type := "local:type2", data := [ r := "R3.1" ] ]
+                , expanded := TRUE
+                , caninsertbefore := TRUE
+                , canappendchild := FALSE
+                ]
+              ]
+          , caninsertbefore := FALSE
+          , canappendchild := TRUE
+          ]
+        , [ rowkey := "R4"
+          , title :=  "R4"
+          , draginfo := [ type := "local:type4", data := [ r := "R4" ] ]
+          , expanded := TRUE
+          , subnodes := DEFAULT RECORD ARRAY
+          , caninsertbefore := FALSE
+          , canappendchild := TRUE
+          ]
+        ];
+  }
+
+  MACRO OnDropOnTarget(RECORD dropdata, RECORD target, STRING dropaction, STRING dropeffect)
+  {
+    this->log->value := TrimWhitespace(this->log->value || "\n" ||
+      Detokenize((SELECT AS STRING ARRAY data.r||"" FROM dropdata.items), ",") || " " || (RecordExists(target)?target.rowkey||"":"n/a") || " " || dropaction || " " || dropeffect);
+  }
+
+  MACRO OnDropOnTree(RECORD dropdata, RECORD target, STRING dropaction, STRING dropeffect)
+  {
+    this->log->value := TrimWhitespace(this->log->value || "\n" ||
+      Detokenize((SELECT AS STRING ARRAY data.r||"" FROM dropdata.items), ",") || " " || (RecordExists(target)?target.rowkey||"":"n/a") || " " || dropaction || " " || dropeffect);
+  }
+
+  MACRO DoAddRows()
+  {
+    this->tree->value := "S19";
+    IF (this->tree->value = "S19")
+      RETURN;
+
+    FOR (INTEGER i := 5; i < 20; i := i + 1)
+    {
+      INSERT
+          [ rowkey :=     "S" || i
+          , title :=      "S" || Right("0" || i, 2)
+          , expanded :=   FALSE
+          , subnodes :=   DEFAULT RECORD ARRAY
+          , caninsertbefore := FALSE
+          , canappendchild := TRUE
+          ] INTO this->tree->rows AT END;
+    }
+
+    this->tree->value := "S19";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MultiTest EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->RegisterLocalDragType("local:type1", DEFAULT STRING ARRAY);
+
+    ^ctable->SetupTable([ 1 ], [ 1 ]);
+    ^ctable->GetCell(0, 0)->panel->borders := [ top :=  TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+
+    ^clist->rows :=
+        [ [ rowkey := 1
+          , title := "Draggable"
+          , draginfo :=
+                [ type :=     "local:type1"
+                , data :=     [ source := "list" ]
+                ]
+          ]
+        ];
+  }
+
+  MACRO OnListDrop(RECORD dropdata, RECORD target, STRING dropaction, STRING dropeffect)
+  {
+    ^log->value := TrimWhitespace(^log->value || `\nlist ${dropeffect}-${dropdata.items[0].type}`);
+    FOREVERY (RECORD rec FROM dropdata.items)
+      IF (rec.type = "file")
+        ^log->value := `${^log->value} ${EncodeJava(rec.filename)} ${rec.mimetype} '${EncodeJava(UCTruncate(BlobToString(rec.data), 16))}'`;
+  }
+
+  MACRO OnTableDrop(RECORD dropdata, RECORD target, STRING dropaction, STRING dropeffect)
+  {
+    ^log->value := TrimWhitespace(^log->value || `\ntable ${dropeffect}-${dropdata.items[0].type}`);
+    FOREVERY (RECORD rec FROM dropdata.items)
+      IF (rec.type = "file")
+        ^log->value := `${^log->value} ${EncodeJava(rec.filename)} ${rec.mimetype} '${EncodeJava(UCTruncate(BlobToString(rec.data), 16))}'`;
+  }
+
+  MACRO OnPanelDrop(RECORD dropdata, STRING dropeffect)
+  {
+    ^log->value := TrimWhitespace(^log->value || `\npanel ${dropeffect}-${dropdata.items[0].type}`);
+    FOREVERY (RECORD rec FROM dropdata.items)
+      IF (rec.type = "file")
+        ^log->value := `${^log->value} ${EncodeJava(rec.filename)} ${rec.mimetype} '${EncodeJava(UCTruncate(BlobToString(rec.data), 16))}'`;
+  }
+>;
+
+PUBLIC OBJECTTYPE SubScreen EXTEND TolliumScreenBase
+<
+  MACRO Init()
+  {
+    this->toppart->contents := this->LoadScreen(".listtest");
+    this->bottompart->contents := this->LoadScreen(".listtest");
+  }
+>;

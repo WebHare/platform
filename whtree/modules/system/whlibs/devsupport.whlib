@@ -1,0 +1,550 @@
+﻿<?wh
+/** @short Developers support
+    @long A collection of functions to support HareScript developers, eg. to print debug data or profile functions.
+          This library also contains the DocGenerator calls, which allows you to use HareScript to document
+          your own HareScript libraries.
+    @topic harescript-language/devsupport */
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
+PUBLIC RECORD FUNCTION __INTERNAL_DEBUGCOPYOBJECTTORECORD(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
+PUBLIC RECORD ARRAY FUNCTION __INTERNAL_DEBUGGETOBJECTWEB(BOOLEAN include_unreferenced) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __INTERNAL_DEBUGGETBLOBREFERENCES(BOOLEAN include_unreferenced) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __INTERNAL_GetRawFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __INTERNAL_GetVMStatistics() __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_LIBDUMP(STRING libname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC RECORD FUNCTION __HS_ERRORSBYGROUPID(STRING groupid) __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO __HS_INTERNAL_REGISTERLOADEDRESOURCE(STRING resourcename) __ATTRIBUTES__(EXTERNAL);
+
+STRING profilingportname := "system:profiles";
+
+/* This library contains support code for debugging purposes */
+
+/** @short Start function profile counting */
+PUBLIC MACRO EnableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short End function profile counting */
+PUBLIC MACRO DisableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Resets function profile */
+PUBLIC MACRO ResetFunctionProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Start function profile counting */
+PUBLIC MACRO EnableMemoryProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short End function profile counting */
+PUBLIC MACRO DisableMemoryProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Resets function profile */
+PUBLIC MACRO ResetMemoryProfile() __ATTRIBUTES__(EXTERNAL);
+
+/** @short Get total profile statistics
+    @return A record array with information about all called functions
+    @cell(string) return.name Name of the called function
+    @cell return.callcount Number of calls
+    @cell(money) return.totaltime A float containing the total time spent in this functions, in milliseconds
+    @cell(money) return.selftime A float containing the time spent in this functions alone (not in called functions), in milliseconds */
+PUBLIC RECORD ARRAY FUNCTION GetFunctionProfileData()
+{
+  RECORD rawprofile := __INTERNAL_GetRawFunctionProfile();
+  RECORD ARRAY locations := rawprofile.locations;
+
+  RECORD ARRAY profile :=
+      SELECT name :=      locations[location - 1].func
+           , callcount := SUM(callcount)
+           , totaltime := FloatToMoney(SUM(totaltime_callee_nr)*1000)
+           , selftime  := FloatToMoney(SUM(selftime)*1000)
+        FROM rawprofile.items
+    GROUP BY location;
+
+  profile :=
+      SELECT *
+        FROM profile
+    ORDER BY totaltime DESC;
+
+  RETURN profile;
+}
+
+/** Returns function profile data
+    @return Profile data per function
+    @private Should not be used directly anymore
+*/
+PUBLIC RECORD ARRAY FUNCTION DEBUG_GetFunctionProfileData()
+{
+  RECORD profile := __INTERNAL_GetRawFunctionProfile();
+  RECORD ARRAY locations := profile.locations;
+
+  RECORD ARRAY aggregates :=
+      SELECT parentlocation :=  location
+           , location :=        0
+           , callcount :=       SUM(callcount)
+           , totaltime := SUM(totaltime_callee_nr)
+           , selftime  := SUM(selftime)
+        FROM profile.items
+    GROUP BY location;
+
+  RETURN
+      SELECT TEMPORARY parent := parentlocation = 0 ? "" : locations[parentlocation - 1].func
+           , TEMPORARY name := location = 0 ? "*" : locations[location - 1].func
+           , parent :=        parent
+           , name :=          name
+           , callcount
+           , totaltime :=     totaltime * 1000
+           , selftime :=      selftime * 1000
+           , avg_totaltime := totaltime * 1000 / callcount
+           , avg_selftime :=  selftime * 1000 / callcount
+        FROM profile.items CONCAT aggregates
+    ORDER BY parent, name;
+//  RETURN aggregates;
+}
+
+/** Returns function profile data
+    @return Profile data per function
+    @private Should not be used directly anymore
+*/
+PUBLIC RECORD ARRAY FUNCTION DEBUG_GetReverseFunctionProfileData()
+{
+  RECORD profile := __INTERNAL_GetRawFunctionProfile();
+  RECORD ARRAY locations := profile.locations;
+
+  RECORD ARRAY aggregates :=
+      SELECT location
+           , parentlocation :=  -1
+           , callcount :=       SUM(callcount)
+           , totaltime :=       SUM(totaltime_callee_nr)
+           , selftime  :=       SUM(selftime)
+        FROM profile.items
+    GROUP BY location;
+
+  RETURN
+      SELECT TEMPORARY parent := parentlocation <= 0 ? parentlocation = 0 ? "" : "*" : locations[parentlocation - 1].func
+           , TEMPORARY name := locations[location - 1].func
+           , parent := parent
+           , name := name
+           , callcount
+           , totaltime := totaltime * 1000
+           , selftime := selftime * 1000
+           , avg_totaltime := totaltime * 1000 / callcount
+           , avg_selftime := selftime * 1000 / callcount
+        FROM profile.items CONCAT aggregates
+    ORDER BY name, parent;
+}
+
+/** @short   Returns the name of the object type of an object
+    @long    GetObjectTypeName returns the name of the last objecttype this object type was extended with
+             (or the type of the object itself if it wasn't extended at all)
+             For empty or non-existing objects, an empty string is returned.
+    @param   obj Object to return the name for
+    @return  Returns the name of the object type this object was last extended with
+    @example
+OBJECTTYPE <
+  INTEGER FUNCTION CallMe() > otype;
+
+// This prints 'OTYPE'
+PRINT(GetObjectTypeName(NEW otype));
+*/
+PUBLIC STRING FUNCTION GetObjectTypeName(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short   Returns all the names an object has been created/extended with
+    @long    GetObjectExtendNames returns the names of all base objecttypes of this object.
+    @param   obj Object to return the objecttype names for
+    @return  Returns the names of all object type this object was created/extended with
+    @example
+OBJECTTYPE < > base;
+
+OBJECTTYPE EXTEND base <
+  INTEGER FUNCTION CallMe() > otype;
+
+// This prints 'BASE OTYPE'
+PRINT(Detokenize(GetObjectExtendNames(NEW otype), ' '));
+*/
+
+PUBLIC STRING ARRAY FUNCTION GetObjectExtendNames(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
+
+/** Build the message text for an HareScript errror or warning
+    @param iserror TRUE for errors, FALSE for warnings
+    @param code Error/warning code
+    @param param1 First parameter for the message
+    @param param2 Second parameter for the message
+    @return Readable error message
+*/
+PUBLIC STRING FUNCTION GetHareScriptMessageText(BOOLEAN iserror, INTEGER code, STRING param1, STRING param2) __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO __HS_INTERNAL_ReportFunctionProfile(STRING source, STRING command, DATETIME start, RECORD extradata)
+{
+  OBJECT link := ConnectToIPCPort(profilingportname) ?? ConnectToGlobalIPCPort(profilingportname);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  IF (start = DEFAULT DATETIME)
+    start := GetCurrentDateTime();
+
+  link->SendMessage(
+      [ task :=                     "addprofile"
+      , source :=                   source
+      , start :=                    start
+      , command :=                  command
+      , authenticationrecord :=     GetAuthenticationRecord()
+      , extradata :=                extradata
+      , rawdata :=                  __INTERNAL_GetRawFunctionProfile()
+      , type :=                     "functionprofile"
+      ]);
+
+  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
+  link->Close();
+}
+
+RECORD FUNCTION __INTERNAL_GETCALLTREESTATS() __ATTRIBUTES__(EXTERNAL);
+
+PUBLIC MACRO __HS_INTERNAL_ReportMemoryProfile(STRING source, STRING command, DATETIME start, RECORD extradata)
+{
+  RECORD rawdata := __INTERNAL_GetCallTreeStats();
+
+  OBJECT link := ConnectToIPCPort(profilingportname) ?? ConnectToGlobalIPCPort(profilingportname);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  IF (start = DEFAULT DATETIME)
+    start := GetCurrentDateTime();
+
+  link->SendMessage(
+      [ task :=                     "addprofile"
+      , source :=                   source
+      , start :=                    start
+      , command :=                  command
+      , authenticationrecord :=     GetAuthenticationRecord()
+      , extradata :=                extradata
+      , rawdata :=                  rawdata
+      , type :=                     "memoryprofile"
+      ]);
+
+  link->Close();
+}
+
+/** Describes a function pointer
+    @param v Function pointer to describe
+    @return Description of the function pointer
+    @cell(integer) return.returntype Variable type of the return value, 0 for a MACRO
+    @cell(record array) return.params List of parameters
+    @cell(integer) return.params.type Type nr of the paramater
+    @cell(boolean) return.params.has_default TRUE if the parameter has a default value (and can be omitted)
+    @cell(integer) return.excessargstype Type of the extra arguments must have if the function accepts a variable number of arguments.
+    @cell(string) return.name Name name of the called function
+    @cell(string) return.library Library of the called function
+*/
+PUBLIC RECORD FUNCTION GetRawFunctionPtrSignature(FUNCTION PTR v)
+{
+  RECORD x := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(v);
+
+  RECORD ARRAY params;
+
+  IF(CellExists(x, "parameters"))
+  {
+    FOREVERY (RECORD rec FROM x.parameters)
+    {
+      IF (rec.source = 0)
+        CONTINUE;
+
+      INTEGER paramnr := rec.source > 0 ? rec.source - 1 : -rec.source - 1;
+      WHILE (LENGTH(params) <= paramnr)
+        INSERT [ type := 0, has_default := FALSE ] INTO params AT END;
+
+      params[paramnr].type := rec.type;
+      params[paramnr].has_default := rec.source < 0;
+    }
+  }
+
+  STRING funcname := Tokenize(x."function",':')[0];
+  funcname := Substitute(funcname,'#','::');
+
+  RETURN
+      [ returntype :=     CellExists(x, "returntype")? (x.returntype = 2 ? 0 : x.returntype) : -1
+      , params :=         params
+      , excessargstype := CellExists(x, "excessargstype")? x.excessargstype : -1
+      , name :=           funcname
+      , library :=        x.library
+      ];
+}
+
+/** Describes the signature of a function ptr
+    @param v Function ptr
+    @param callname Name to use for the function call
+    @return Signature string
+*/
+PUBLIC STRING FUNCTION GetFunctionPtrSignatureString(FUNCTION PTR v, STRING callname)
+{
+  RECORD data := GetRawFunctionPtrSignature(v);
+
+  callname := callname ?? data.name;
+
+  STRING ARRAY params;
+  FOREVERY (RECORD rec FROM data.params)
+    INSERT GetTypeName(rec.type) || " param"||#rec+1 INTO params AT END;
+
+  IF (data.excessargstype != 0)
+    INSERT GetTypeName(data.excessargstype) || " varargs"  INTO params AT END;
+
+  RETURN (data.returntype = 0 ? "MACRO " : GetTypeName(data.returntype) || " FUNCTION ") ||
+     (callname = "" ? "function_ptr" : callname) || "(" ||
+     Detokenize(params, ", ") || ")" || (data.excessargstype = 0 ? "" : " __ATTRIBUTES__(VARARG)");
+}
+
+
+DATETIME profilingstart;
+STRING profilingsource, profilingcommand;
+
+/** Start function profiling in the current script, and report it
+    automatically when the script ends
+    @param forsource Source name to report with the profiledata
+    @param forcommand Command string to report with the profiledata
+*/
+PUBLIC MACRO SetupFunctionProfiling(STRING forsource, STRING forcommand)
+{
+  IF(profilingstart != DEFAULT DATETIME)
+    THROW NEW Exception("Duplicate SetupFunctionProfiling call");
+
+  profilingsource := forsource;
+  profilingcommand := forcommand;
+
+  profilingstart := GetCurrentDateTime();
+  Enablefunctionprofile();
+}
+
+PUBLIC MACRO __DestroyProfiling() __ATTRIBUTES__(DEINITMACRO)
+{
+  IF(profilingstart = DEFAULT DATETIME)
+    RETURN;
+
+  disablefunctionprofile();
+  __HS_INTERNAL_ReportFunctionProfile(profilingsource, profilingcommand, profilingstart, DEFAULT RECORD);
+
+  profilingstart := DEFAULT DATETIME;
+}
+
+/** Returns the current line number
+    @return The current line number
+*/
+PUBLIC INTEGER FUNCTION __Line()
+{
+  RETURN GetStackTrace()[1].line;
+}
+
+/** Returns the current file
+    @return The current file
+*/
+PUBLIC STRING FUNCTION __File()
+{
+  RETURN GetStackTrace()[1].filename;
+}
+
+/** Returns the current function
+    @return The current function
+*/
+PUBLIC STRING FUNCTION __Function()
+{
+  RETURN GetStackTrace()[1].func;
+}
+
+PUBLIC MACRO __PrintDebugInfo(VARIANT info)
+{
+  STRING infostring := AnyToString(info, 'tree');
+  STRING typename := GetTypeName(TypeID(info));
+
+  IF(SearchSubstring(Substring(infostring, 0, Length(infostring) - 1), "\n", 0) != -1)
+    infostring := "\n" || infostring;
+  ELSE IF(typename != "STRING")
+    infostring := typename || " " || infostring;
+  ELSE
+    infostring := info || "\n";
+
+  PRINT("At " || GetStackTrace()[1].filename || "(" || GetStackTrace()[1].line || "," || GetStackTrace()[1].col || ") (" || GetStackTrace()[1].func || ")\nDebug info: " || infostring || "\n");
+}
+
+PUBLIC MACRO __SetProfilingPortname(STRING newportname)
+{
+  profilingportname := newportname;
+}
+
+/** Returns a list of all libraries directly loaded by this script (for the initial load, or by functions as MakeFunctionPtr)
+    @return List of all libraries
+    @cell return.liburi Library resource name
+    @cell return.outofdate If the library has been changed since it was loaded into this script
+    @cell return.compile_id Current compile id of the library
+*/
+PUBLIC RECORD ARRAY FUNCTION GetHarescriptLoadedLibraries()
+{
+  RECORD info := __HS_INTERNAL_GetLibrariesInfo(TRUE);
+  IF (RecordExists(info.errors))
+    THROW NEW HarescriptErrorException(info.errors);
+  RETURN info.libraries;
+}
+
+/** Returns a list of all libraries referenced in this script
+    @return List of all libraries
+    @cell return.liburi Library resource name
+    @cell return.outofdate If the library has been changed since it was loaded into this script
+    @cell return.compile_id Current compile id of the library
+*/
+PUBLIC RECORD ARRAY FUNCTION GetAllUsedHarescriptLibraries()
+{
+  RECORD info := __HS_INTERNAL_GetLibrariesInfo(FALSE);
+  IF (RecordExists(info.errors))
+    THROW NEW HarescriptErrorException(info.errors);
+  RETURN info.libraries;
+}
+
+/** Returns whether a loaded script file or loadlib has been changed since it was loaded
+    @return TRUE when the any loaded script is now out of date
+*/
+PUBLIC BOOLEAN FUNCTION IsScriptOutOfDate()
+{
+  TRY
+  {
+    FOREVERY (RECORD rec FROM GetHarescriptLoadedLibraries())
+      IF (rec.outofdate)
+        RETURN TRUE;
+  }
+  CATCH // Compilation errors mean the library has changed
+    RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+/** Sends the current function profile data to the profiling monitor
+    @param source Source for profile (eg. script identifier)
+    @param command More info about location / parameters
+    @cell options.start Start time
+*/
+PUBLIC MACRO ReportFunctionProfile(STRING source, STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  DATETIME start := CellExists(options, "START") ? options.start : DEFAULT DATETIME;
+  __HS_INTERNAL_ReportFunctionProfile(source, command, start, options);
+}
+
+/** Sends the current memory profile data to the profiling monitor
+    @param source Source for profile (eg. script identifier)
+    @param command More info about location / parameters
+    @cell options.start Start time
+*/
+PUBLIC MACRO ReportMemoryProfile(STRING source, STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  DATETIME start := CellExists(options, "START") ? options.start : DEFAULT DATETIME;
+  __HS_INTERNAL_ReportMemoryProfile(source, command, start, options);
+}
+
+/** Sends a snapshot with memory usage to the profiling monitor
+    @param source Source for profile (eg. script identifier)
+    @param command More info about location / parameters
+    @cell options.start Start time
+*/
+PUBLIC MACRO ReportMemorySnapshot(STRING source, STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT link := ConnectToIPCPort(profilingportname) ?? ConnectToGlobalIPCPort(profilingportname);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  DATETIME start := CellExists(options, "START") ? options.start : GetCurrentDateTime();
+  link->SendMessage(
+      [ task :=                     "addprofile"
+      , source :=                   source
+      , start :=                    start
+      , command :=                  command
+      , authenticationrecord :=     GetAuthenticationRecord()
+      , extradata :=                options
+      , rawdata :=                  [ items := __INTERNAL_DEBUGGETOBJECTWEB(FALSE) ]
+      , type :=                     "memorysnapshot"
+      ]);
+
+  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
+  link->Close();
+}
+
+/** Sends a snapshot with memory usage to the profiling monitor
+    @param source Source for profile (eg. script identifier)
+    @param command More info about location / parameters
+    @cell options.start Start time
+*/
+PUBLIC MACRO ReportBlobReferences(STRING source, STRING command, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT link := ConnectToIPCPort(profilingportname) ?? ConnectToGlobalIPCPort(profilingportname);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  DATETIME start := CellExists(options, "START") ? options.start : GetCurrentDateTime();
+  link->SendMessage(
+      [ task :=                     "addprofile"
+      , source :=                   source
+      , start :=                    start
+      , command :=                  command
+      , authenticationrecord :=     GetAuthenticationRecord()
+      , extradata :=                options
+      , rawdata :=                  __INTERNAL_DEBUGGETBLOBREFERENCES(FALSE)
+      , type :=                     "blobreferences"
+      ]);
+
+  //BroadcastEvent("blex_alpha:profilemonitor.addedprofile", DEFAULT RECORD);
+  link->Close();
+}
+
+
+RECORD FUNCTION GetPosition(RECORD ARRAY sourcemap, INTEGER codeptr)
+{
+  INTEGER pos := RecordUpperBound(sourcemap, [ codeptr := codeptr ], ["CODEPTR"]);
+  RECORD res := pos = 0 ? [ line := 0, col := 0 ] : sourcemap[pos-1];
+  RETURN res;
+
+}
+
+/** Returns the functions defined in a library from the compiled version
+    @param resourcename Resource name for the library
+    @return List of functions defined in the library
+    @cell return.functions The functions defined in the library */
+PUBLIC RECORD FUNCTION DescribeCompiledLibrary(STRING resourcename)
+{
+  RECORD info := __HS_LIBDUMP(resourcename);
+  IF(NOT info.success)
+    RETURN DEFAULT RECORD;
+
+  RECORD ARRAY sourcemap := SELECT * FROM info.sourcemap ORDER BY codeptr;
+  RECORD ARRAY funcs := SELECT mangledname := name
+                             , ispublic
+                             , isdeprecated
+                             , isdeprecatedwhy := deprecated
+                             , name := name = ":INITFUNCTION:::" ? "Main HareScript code" : Tokenize(name,':')[0]
+                             , line
+                             , col
+                          FROM info.funcs
+                         WHERE importfrom = ""; //strip imports from funcs
+
+  RECORD result := [ functions := funcs ];
+  RETURN result;
+}
+
+/** Returns information about a library
+    @param liburi Resourcename of the library
+    @return Information about the library
+    @cell(boolean) return.outofdate Whether the library is out of date
+    @cell(boolean) return.loaded Whether the library is loaded in the current script
+    @cell(boolean) return.loadable Whether the library can be loaded safely in the current context
+    @cell(boolean) return.valid Whether resource compiles (if not, errors contains an error)
+    @cell(datetime) return.compile_id Compile ID
+    @cell(record array) return.errors List of errors
+    @cell(integer) return.errors.code Error code
+    @cell(integer) return.errors.line Line number for the error
+    @cell(integer) return.errors.col Column number for the error
+    @cell(string) return.errors.filename Filename for the error
+    @cell(string) return.errors.func Function where the error occurred
+    @cell(string) return.errors.message Error message
+    @cell(string) return.errors.param1 First parameter for the error message
+    @cell(string) return.errors.param2 Second parameter for the error message
+    @cell(boolean) return.errors.iserror Whether this is a error
+    @cell(boolean) return.errors.istrace Whether this is a trace
+    @cell(boolean) return.errors.iswarning Whether this is a warning
+*/
+PUBLIC RECORD FUNCTION GetHarescriptLibraryInfo(STRING liburi) __ATTRIBUTES__(EXTERNAL);

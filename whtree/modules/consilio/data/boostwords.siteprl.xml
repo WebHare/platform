@@ -1,0 +1,19 @@
+<siteprofile
+   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <!--ADDME: We might want to turn this into a webfeature in the future, but now while we're testing this -->
+
+  <tabsextension name="boostwords" gid="objectprops.boostwords" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <insert position="settings" where="atend">
+      <tagedit composition="contentdata" cellname="words" separator=" " width="1pr" />
+    </insert>
+  </tabsextension>
+
+  <apply>
+    <to type="file" />
+    <extendproperties extension="#boostwords" contenttype="http://www.webhare.net/xmlns/consilio/boostwords" />
+  </apply>
+
+</siteprofile>

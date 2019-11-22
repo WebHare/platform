@@ -1,0 +1,221 @@
+﻿<?wh
+PUBLIC CONSTANT RECORD testdata :=
+  [ internet :=
+    [ testemail :=
+      [ [ valid := TRUE,  email := "arnold@example.nl" ]
+      , [ valid := FALSE, email := "arnold@example.nl@example.com" ]
+      , [ valid := FALSE, email := "@example.com" ]
+      , [ valid := FALSE, email := "arnold@example" ]
+      , [ valid := TRUE,  email := "arnold@example.nl." ]
+      , [ valid := FALSE, email := "arnold@example." ]
+      , [ valid := FALSE, email := " arnold@example." ]
+      , [ valid := FALSE, email := '"rob hulswit"@example.nl' ]
+      , [ valid := TRUE,  email := '"rob\\ hul.swit"@example.nl' ]
+      , [ valid := FALSE, email := '"rob hul.swit"@example.nl' ]
+      , [ valid := FALSE, email := '"robhul\u0080.swit"@example.nl' ]
+      , [ valid := FALSE, email := '"robhul\u0080swit@example.nl' ]
+      , [ valid := FALSE, email := '"robh\nulswit@example.nl' ]
+      , [ valid := FALSE, email := '"robh\\\nulswit@example.nl' ]
+
+      , [ valid := TRUE,  email := '"Tester, M." <marge@example.nl>' ]
+      , [ valid := TRUE,  email := 'Rob (de wizard) "Test\\"er" <rob@example.nl>' ]
+      , [ valid := FALSE, email := 'Rob ( :( ) "Tester" <rob@example.nl>' ]
+      , [ valid := TRUE,  email := 'Rob (((x))) "Tester" <rob@example.nl>' ]
+      , [ valid := FALSE, email := 'Rob ((x))) "Tester" <rob@example.nl>' ]
+      , [ valid := FALSE, email := 'Rob (((x)) "Tester" <rob@example.nl>' ]
+
+      , [ valid := FALSE, email := 'ULFT. a_driever@example.com' ]
+
+      , [ valid := FALSE, email := '\u00E9 <rob@example.nl>' ]
+      , [ valid := FALSE, email := '"\u00E9" <rob@example.nl>' ]
+      , [ valid := FALSE, email := '\u00E9 <rob@example.nl>' ]
+      , [ valid := FALSE, email := '<r\u00E9b@example.nl>' ]
+      , [ valid := FALSE, email := '<rob@b-l\u00E9x.nl>' ]
+      , [ valid := FALSE, email := 'r\u00E9b@example.nl' ]
+      , [ valid := FALSE, email := 'rob@b-l\u00E9x.nl' ]
+
+      , [ valid := TRUE,  email := '=?ISO-8859-1?Q?a?= <arnold@example.net>' ]
+      , [ valid := TRUE,  email := '=?ISO-8859-1?Q?Gim=E9nez?= <arnold@example.net>' ]
+      , [ valid := FALSE, email := '=?ISO-8859-1?Q?G.Gim=E9nez?= <arnold@example.net>' ]
+      ]
+
+    , testlinks :=
+      [ absrel :=
+          [   // ABSOLUTE URL                                     BASE URL                                 RELATIVE URL             BEST RELATIVE URL
+            [ abs := "http://testurl2/",                          base := "http://testurl/",               rel := "http://testurl2/", bestrel := "//testurl2/" ]
+          , [ abs := "ftp://testurl2/",                           base := "http://testurl/", rel := "ftp://testurl2/" ]
+          , [ abs := "https://testurl2/",                         base := "http://testurl/", rel := "https://testurl2/" ]
+          , [ abs := "http://testurl/",                           base := "http://testurl/",               rel := "",               bestrel := "./" ]
+          , [ abs := "http://testurl/abc",                        base := "http://testurl/",               rel := "abc" ]
+          , [ abs := "http://testurl/abc",                        base := "http://testurl/",               rel := "/abc",           bestrel := "abc" ]
+          , [ abs := "http://testurl/abc/",                       base := "http://testurl/",               rel := "abc/" ]
+          , [ abs := "http://testurl/abc/",                       base := "http://testurl/def",            rel := "/abc/",          bestrel := "abc/" ]
+          , [ abs := "http://testurl/def/abc/",                   base := "http://testurl/def/",           rel := "abc/" ]
+
+          , [ abs := "http://testurl/def/abc/",                   base := "http://testurl/def/ghi/",       rel := "../abc/" ]
+          , [ abs := "http://testurl/abc/",                       base := "http://testurl/def/",           rel := "../abc/" ]
+          , [ abs := "http://testurl/abc",                        base := "http://testurl/def/",           rel := "../abc" ]
+          , [ abs := "http://testurl/abc/",                       base := "http://testurl/def",            rel := "abc/" ]
+          , [ abs := "http://testurl/abc/",                       base := "http://testurl/def/ghi",        rel := "../abc/" ]
+          , [ abs := "http://testurl/def/..abc/",                 base := "http://testurl/def/ghi",        rel := "..abc/" ]
+          , [ abs := "http://testurl/def/..abc",                  base := "http://testurl/def/ghi",        rel := "..abc" ]
+          , [ abs := "http://testurl/def/",                       base := "http://testurl/def/ghi/vk",     rel := "../abc/../",     bestrel := "../" ]
+          , [ abs := "http://testurl/def/",                       base := "http://testurl/def/ghi/vk",     rel := "../abc/..",      bestrel := "../" ]
+          , [ abs := "http://testurl/",                           base := "http://testurl/def/ghi/vk",     rel := "../abc/../..",   bestrel := "../../" ]
+          , [ abs := "http://testurl/",                           base := "http://testurl/def/ghi/vk",     rel := "../abc/../../",  bestrel := "../../" ]
+          , [ abs := "http://testurl/def/ghi/vk/",                base := "http://testurl/def/ghi/vk/",    rel := "",               bestrel := "./" ]
+          , [ abs := "http://testurl/def/ghi/vk",                 base := "http://testurl/def/ghi/vk",     rel := "",               bestrel := "vk" ]
+          , [ abs := "http://testurl/def/ghi?test=1",             base := "http://testurl/def/ghi",        rel := "?test=1" ]
+          , [ abs := "http://testurl/def/ghi#test=1",             base := "http://testurl/def/ghi",        rel := "#test=1" ]
+          , [ abs := "http://testurl/def/ghi?test=1",             base := "http://testurl/def/ghi?test=5", rel := "?test=1" ]
+          , [ abs := "http://testurl/def/ghi?test=5#test=1",      base := "http://testurl/def/ghi?test=5", rel := "#test=1" ]
+          , [ abs := "http://testurl/def/ghi?test=5",             base := "http://testurl/def/ghi?test=5", rel := "",               bestrel := "?test=5" ] //3986 5.2.2 specifies the query stays (base path and query are copied), but to be browser-safe (old IE) we better keep the query
+          , [ abs := "http://testurl/def/ghi?test=1",             base := "http://testurl/def/ghi#test=5", rel := "?test=1" ]
+          , [ abs := "http://testurl/def/ghi",                    base := "http://testurl/def/ghi#test=5", rel := "",               bestrel := "ghi" ] //3986 5.2.2 we always blindly copy any specified fragment
+          , [ abs := "http://testurl/def/ghi#test=1",             base := "http://testurl/def/ghi#test=5", rel := "#test=1" ]
+          , [ abs := "http://testurl/def/ghi/andre.shtml?test=8", base := "http://testurl/def/ghi/andre.shtml", rel := "?test=8" ]
+          , [ abs := "http://testurl/def/ghi/andre.shtml?test=8", base := "http://testurl/def/ghi/andre.shtml?abc=16", rel := "?test=8" ]
+          , [ abs := "http://testurl/def/ghi/andre.shtml",        base := "http://testurl/def/ghi/andre.shtml?abc=16#test=5", rel := "andre.shtml" ]
+          , [ abs := "mailto:test@example.com",                     base := "http://testurl/def/ghi", rel := "mailto:test@example.com" ]
+          , [ abs := "https://testurl2:80/",                      base := "http://testurl/", rel := "https://testurl2:80/" ]
+
+              //RFC3986 5.4 examples
+              //        ABSOLUTE URL                                 BASE URL                         RELATIVE URL     BEST RELATIVE URL
+          , [ abs := "g:h",                                       base := "http://a/b/c/d;p?q",            rel := "g:h" ]
+          , [ abs := "http://a/b/c/g",                            base := "http://a/b/c/d;p?q",            rel := "g" ]
+          , [ abs := "http://a/b/c/g",                            base := "http://a/b/c/d;p?q",            rel := "./g",           bestrel := "g" ]
+          , [ abs := "http://a/b/c/g/",                           base := "http://a/b/c/d;p?q",            rel := "g/" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q",            rel := "/g",            bestrel := "../../g" ]
+          , [ abs := "http://g",                                  base := "http://a/b/c/d;p?q",            rel := "//g" ]
+          , [ abs := "http://a/b/c/d;p?y",                        base := "http://a/b/c/d;p?q",            rel := "?y" ]
+          , [ abs := "http://a/b/c/g?y",                          base := "http://a/b/c/d;p?q", rel := "g?y" ]
+          , [ abs := "http://a/b/c/d;p?q#s",                      base := "http://a/b/c/d;p?q", rel := "#s" ]
+          , [ abs := "http://a/b/c/g#s",                          base := "http://a/b/c/d;p?q", rel := "g#s" ]
+          , [ abs := "http://a/b/c/g?y#s",                        base := "http://a/b/c/d;p?q", rel := "g?y#s" ]
+          , [ abs := "http://a/b/c/;x",                           base := "http://a/b/c/d;p?q", rel := ";x" ]
+          , [ abs := "http://a/b/c/g;x",                          base := "http://a/b/c/d;p?q", rel := "g;x" ]
+          , [ abs := "http://a/b/c/g;x?y#s",                      base := "http://a/b/c/d;p?q", rel := "g;x?y#s" ]
+          , [ abs := "http://a/b/c/d;p?q",                        base := "http://a/b/c/d;p?q",            rel := "",              bestrel := "?q" ]
+          , [ abs := "http://a/b/c/",                             base := "http://a/b/c/d;p?q",            rel := ".",             bestrel := "./" ]
+          , [ abs := "http://a/b/c/",                             base := "http://a/b/c/d;p?q",            rel := "./" ]
+          , [ abs := "http://a/b/",                               base := "http://a/b/c/d;p?q",            rel := "..",            bestrel := "../" ]
+          , [ abs := "http://a/b/",                               base := "http://a/b/c/d;p?q",            rel := "../" ]
+          , [ abs := "http://a/b/g",                              base := "http://a/b/c/d;p?q", rel := "../g" ]
+          , [ abs := "http://a/",                                 base := "http://a/b/c/d;p?q",            rel := "../..",         bestrel := "../../" ]
+          , [ abs := "http://a/",                                 base := "http://a/b/c/d;p?q", rel := "../../" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q", rel := "../../g" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q",            rel := "../../../g",    bestrel := "../../g" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q",            rel := "../../../../g", bestrel := "../../g" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q",            rel := "/./g",          bestrel := "../../g" ]
+          , [ abs := "http://a/g",                                base := "http://a/b/c/d;p?q",            rel := "/../g",         bestrel := "../../g" ]
+          , [ abs := "http://a/b/c/g.",                           base := "http://a/b/c/d;p?q", rel := "g." ]
+          , [ abs := "http://a/b/c/.g",                           base := "http://a/b/c/d;p?q", rel := ".g" ]
+          , [ abs := "http://a/b/c/g..",                          base := "http://a/b/c/d;p?q", rel := "g.." ]
+          , [ abs := "http://a/b/c/..g",                          base := "http://a/b/c/d;p?q", rel := "..g" ]
+          , [ abs := "http://a/b/g",                              base := "http://a/b/c/d;p?q",            rel := "./../g",        bestrel := "../g" ]
+          , [ abs := "http://a/b/c/g/",                           base := "http://a/b/c/d;p?q",            rel := "./g/.",         bestrel := "g/" ]
+          , [ abs := "http://a/b/c/g/h",                          base := "http://a/b/c/d;p?q",            rel := "g/./h",         bestrel := "g/h" ]
+          , [ abs := "http://a/b/c/h",                            base := "http://a/b/c/d;p?q",            rel := "g/../h",        bestrel := "h" ]
+          , [ abs := "http://a/b/c/g;x=1/y",                      base := "http://a/b/c/d;p?q",            rel := "g;x=1/./y",     bestrel := "g;x=1/y" ]
+          , [ abs := "http://a/b/c/y",                            base := "http://a/b/c/d;p?q",            rel := "g;x=1/../y",    bestrel := "y" ]
+          , [ abs := "http://a/b/c/g?y/./x",                      base := "http://a/b/c/d;p?q", rel := "g?y/./x" ]
+          , [ abs := "http://a/b/c/g?y/../x",                     base := "http://a/b/c/d;p?q", rel := "g?y/../x" ]
+          , [ abs := "http://a/b/c/g#s/./x",                      base := "http://a/b/c/d;p?q", rel := "g#s/./x" ]
+          , [ abs := "http://a/b/c/g#s/../x",                     base := "http://a/b/c/d;p?q", rel := "g#s/../x" ]
+
+            //Our own // examples
+            //        ABSOLUTE URL                                                                                            BASE URL                         RELATIVE URL        BEST RELATIVE URL
+          , [ abs := "//example.com/a/b/c",                       base := "//example.com/x",    rel := "a/b/c" ]
+          , [ abs := "//example.com/a/b/c",                       base := "//example.com/x/",   rel := "../a/b/c" ]
+          ]
+      , resolvetoabsolute :=
+          [ [ expect := "http:g",                                 base := "http://a/b/c/d;p?q", url := "http:g" ]
+          , [ expect := "http://receive.autobytel.nl/blabla",     base := "http://receive.autobytel.nl?wsdl", url := "/blabla" ]
+          ]
+      , makerelativelink :=
+          [ [ expect := "dottwente.2013.css",                                     base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css" ]
+          , [ expect := "/repository/dottwente.2013.css",                         base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "root" ]
+          , [ expect := "//sites.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "protocol" ]
+
+          , [ expect := "//webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css" ]
+          , [ expect := "//webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "root" ]
+          , [ expect := "//webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "http://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "protocol" ]
+
+          , [ expect := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css" ]
+          , [ expect := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "root" ]
+          , [ expect := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", base := "http://sites.moe.sf.b-lex.com/repository/dottwente.2013.css", url := "https://webhare.moe.sf.b-lex.com/repository/dottwente.2013.css", mode := "protocol" ]
+          ]
+      , unpackurl :=
+          [ [ expect := "scheme", url := "scheme:scheme-specific-part", part := "scheme" ]
+          , [ expect := "scheme-specific-part", url := "scheme:scheme-specific-part", part := "schemespecificpart" ]
+          , [ expect := "scheme", url := "SCHEME:scheme-specific-part", part := "scheme" ] //RFC1738 2.1 Treat uppercase as equivalent to lowercase: implement by lowercasing the scheme
+          , [ expect := "user", url := "scheme://user:password@host:12345/url-path", part := "user" ]
+          , [ expect := "password", url := "scheme://user:password@host:12345/url-path", part := "password" ]
+          , [ expect := "host", url := "scheme://user:password@host:12345/url-path", part := "host" ]
+          , [ expect := 12345, url := "scheme://user:password@host:12345/url-path", part := "port" ]
+          , [ expect := "url-path", url := "scheme://user:password@host:12345/url-path", part := "urlpath" ]
+          , [ expect := "", url := "scheme://user@host:12345/url-path", part := "password" ] //pwd is optional
+          , [ expect := "", url := "scheme://host:12345/url-path", part := "user" ] //so is user
+          , [ expect := 0, url := "scheme://host/url-path", part := "port" ] //and port
+          , [ expect := 0, url := "scheme://user:password@host/url-path", part := "port" ]
+          , [ expect := "url-path", url := "scheme://host/url-path", part := "urlpath" ] //RFC1738  3.1 the '/' is NOT part of the url-path
+          , [ expect := "", url := "scheme://host/", part := "urlpath" ]
+          , [ expect := "/url-path", url := "scheme://host//url-path", part := "urlpath" ]
+          , [ expect := "", url := "scheme://host", part := "urlpath" ] //test faulty URL tolerance
+          , [ expect := 12345, url := "scheme://host:12345", part := "port" ]
+          , [ expect := "", url := "scheme://host:12345", part := "urlpath" ]
+          , [ expect := "test?type=typecode", url := "ftp://host:12345/test?type=typecode", part := "urlpath" ]  //Variables are part of the urlpath
+          , [ expect := "test&type=typecode", url := "http://host:12345/test&type=typecode", part := "urlpath" ]  //Variables are part of the urlpath
+            //There are no username, host, password, port and urlpath in a non-internet path
+          , [ expect := "", url := "scheme:user:password@host:12345/url-path", part := "user" ]
+          , [ expect := "", url := "scheme:user:password@host:12345/url-path", part := "password" ]
+          , [ expect := "", url := "scheme:user:password@host:12345/url-path", part := "host" ]
+          , [ expect := 0, url := "scheme:user:password@host:12345/url-path", part := "port" ]
+          , [ expect := "", url := "scheme:user:password@host:12345/url-path", part := "urlpath" ]
+
+          , [ expect := "smtp.b-lex.com", url := "smtp://arnold%40b-lex.nl:secret@smtp.b-lex.com", part := "host" ]
+
+            //We ONLY decode the parts we understand: scheme, user, password, host, port. We do NOT decode schemespecificpart of urlpath
+          , [ expect := "ascheme", url := "%41scheme:user%41:%41password@host%41:%312345/url%41-path%20", part := "scheme" ]
+          , [ expect := "user%41:%41password@host%41:%312345/url%41-path%20", url := "%41scheme:user%41:%41password@host%41:%312345/url%41-path%20", part := "schemespecificpart" ]
+          , [ expect := "userA", url := "%41scheme://user%41:%41password@host%41:%312345/url%41-path%20", part := "user" ]
+          , [ expect := "Apassword", url := "%41scheme://user%41:%41password@host%41:%312345/url%41-path%20", part := "password" ]
+          , [ expect := "hostA", url := "%41scheme://user%41:%41password@host%41:%312345/url%41-path%20", part := "host" ]
+          , [ expect := 12345, url := "%41scheme://user%41:%41password@host%41:%312345/url%41-path%20", part := "port" ]
+          , [ expect := "url%41-path%20", url := "%41scheme://user%41:%41password@host%41:%312345/url%41-path%20", part := "urlpath" ]
+            //Don't get confused by @s
+          , [ expect := "", url := "scheme://host:12345/url@path", part := "user" ]
+          , [ expect := "host", url := "scheme://host:12345/url@path", part := "host" ]
+          , [ expect := 12345, url := "scheme://host:12345/url@path", part := "port" ]
+          , [ expect := "url@path", url := "scheme://host:12345/url@path", part := "urlpath" ]
+
+            //RFC3986 based tests
+          , [ expect := "2001:db8::7", url := "ldap://[2001:db8::7]/c=GB?objectClass?one", part := "host" ]
+          , [ expect := 389, url := "ldap://[2001:db8::7]/c=GB?objectClass?one", part := "port" ]
+          , [ expect := "c=GB?objectClass?one", url := "ldap://[2001:db8::7]/c=GB?objectClass?one", part := "urlpath" ]
+          , [ expect := "2001:db8::7", url := "ldap://[2001:db8::7]:500/c=GB?objectClass?one", part := "host" ]
+          , [ expect := 500, url := "ldap://[2001:db8::7]:500/c=GB?objectClass?one", part := "port" ]
+          , [ expect := "c=GB?objectClass?one", url := "ldap://[2001:db8::7]:500/c=GB?objectClass?one", part := "urlpath" ]
+
+            //Survive incorrect but correctable urls such as http://receive.autobytel.nl?wsdl
+          , [ expect := "receive.autobytel.nl", url := "http://receive.autobytel.nl?wsdl", part := "host" ]
+          , [ expect := "?wsdl", url := "http://receive.autobytel.nl?wsdl", part := "urlpath" ]
+
+          ]
+      , unpackrepack :=
+          [ [ url := "http://testurl/?mmyvar=blaat&testvar=test#fragment" ]
+          , [ url := "ldap://[2001:db8::7]/c=GB?objectClass?one" ]
+          , [ url := "scheme://host:12345/url@path" ]
+          , [ url := "http://host:12345/test&type=typecode" ]
+          , [ url := "ftp://host:12345/test?type=typecode" ]
+          , [ url := "scheme:scheme-specific-part" ]
+          , [ url := "scheme://user:password@host:12345/url-path" ]
+          , [ url := "scheme://user@host:12345/url-path" ]
+          , [ url := "scheme://host:12345/url-path" ]
+          , [ url := "scheme://host/url-path" ]
+          , [ url := "http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test" ]
+          , [ url := "http://http%3A%2F%2Fwebhare.moe.btc.b-lex.com%2F:http%3A%2F%2Fwebhare.moe.btc.b-lex.com%2F@webhare.moe.btc.b-lex.com/wh_services/system/admin" ]
+          ]
+      ]
+    ]
+  ];

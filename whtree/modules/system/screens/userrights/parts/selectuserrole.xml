@@ -1,0 +1,36 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:todd="http://www.webhare.net/xmlns/tollium/todd/components"
+         xmlns:system="http://www.webhare.net/xmlns/system/components">
+
+  <!-- select user and/or roles -->
+  <fragment name="selectuserrole" lib="screens/userrights/parts/selectuserrole.whlib" gid="userrights.commondialogs.rights">
+
+    <actions gid="userrights.actions">
+      <action name="search" onexecute="dosearch" tid=".searchsimple" />
+    </actions>
+
+    <contents>
+      <line layout="left">
+        <text name="explanation_text" title="" visible="false" />
+      </line>
+      <box name="userbox" height="1pr" tid=".selectuserrole" hr="false">
+        <split type="horizontal" gid="userrights.commondialogs.columns">
+          <part width="1pr">
+            <includefragment name="unittree" fragment="userrights/parts/unittree.unittree" />
+            <panel name="searchbox" spacers="right">
+              <line>
+                <textedit name="searchfor" width="1pr" title="" defaultbutton="searchbutton" />
+                <button name="searchbutton" action="search" tid="userrights.actions.searchsimple" />
+              </line>
+            </panel>
+
+          </part>
+          <part width="2pr">
+            <includefragment name="unitcontents" fragment="userrights/parts/unitcontents.unitcontents" />
+          </part>
+        </split>
+      </box>
+    </contents>
+  </fragment>
+
+</screens>

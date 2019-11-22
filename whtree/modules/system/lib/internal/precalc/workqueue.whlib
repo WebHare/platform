@@ -1,0 +1,373 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/precalc/support.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE PrecalcWorkScheduler
+<
+  BOOLEAN debug;
+  BOOLEAN profile;
+
+  RECORD ARRAY activeitems;
+
+  /// Max nr of jobs at a time
+  INTEGER max_jobs;
+
+  /// Max nr of non-interactive jobs at a time
+  INTEGER max_noninteractive;
+
+  /** Priority queue. Sorted on priority, id
+      @cell(integer) priority Item priority. Lower priority runs first, priority <= 0 is considered interactive and can be run on additional worker threads
+      @cell(string) id Item id
+      @cell(string) hash Item hash
+      @cell(function ptr) allowstart Call to allow starting this item, call with function ptr to
+         function to be called after the item finishes processing. Eg allowstart(PTR itemdone);
+  */
+  RECORD ARRAY priorityqueue;
+
+  /// Number of running jobs with interactive priority (<=0)
+  INTEGER running_interactive;
+
+  /// Number of running jobs with noninteractive priority (>0)
+  INTEGER running_noninteractive;
+
+  /// Counter for first-come, first-serve scheduling
+  INTEGER64 itemcounter;
+
+  MACRO NEW(RECORD options)
+  {
+    this->debug := options.debug;
+    this->profile := options.profile;
+
+    FOREVERY (STRING mask FROM GetRegistryKeyEventMasks([ "system.precalc.maxjobs", "system.precalc.maxnoninteractivejobs" ]))
+      RegisterEventCallback(mask, PTR this->ReadConfig);
+    this->ReadConfig();
+  }
+
+  /** Read configuration from the registry
+      @param event Event name (for update event callback)
+      @param data Event data (for update event callback)
+  */
+  MACRO ReadConfig(STRING event DEFAULTSTO "", RECORD data DEFAULTSTO DEFAULT RECORD)
+  {
+    this->max_jobs := ReadRegistryKey("system.precalc.maxjobs");
+    this->max_noninteractive := ReadRegistryKey("system.precalc.maxnoninteractivejobs");
+    IF (this->max_noninteractive > this->max_jobs)
+      this->max_noninteractive := this->max_jobs;
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Read config, max_jobs: ${this->max_jobs}, max_noninteractive: ${this->max_noninteractive}\n`);
+  }
+
+  PUBLIC RECORD FUNCTION LookupItem(STRING hash)
+  {
+    RECORD pos := RecordLowerBound(this->activeitems, CELL[ hash ], [ "HASH" ]);
+    IF (pos.found)
+    {
+      RECORD rec := this->activeitems[pos.position];
+      RETURN CELL[ rec.timedpromise, finalpromise := rec.defer.promise, rec.hash, rec.priority ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION ScheduleItem(STRING hash, RECORD keydata, STRING func, RECORD options)
+  {
+    options := ValidateOptions(
+        [ onsuccess :=    DEFAULT FUNCTION PTR
+        , onerror :=      DEFAULT FUNCTION PTR
+        , oncancel :=     DEFAULT FUNCTION PTR
+        , ondiscard :=    DEFAULT FUNCTION PTR
+        , timeout :=      -1
+        , extradata :=    DEFAULT RECORD
+        , priority :=     100 // lower priority gets run first
+        ], options);
+
+    IF (this->debug)
+      PRINT(`${TimeStamp()}  Scheduling item ${hash}\n`);
+
+    RECORD pos := RecordLowerBound(this->activeitems, CELL[ hash ], [ "HASH" ]);
+    IF (pos.found)
+      THROW NEW Exception("Already scheduled");
+
+    RECORD defer := CreateDeferredPromise();
+    OBJECT timedpromise := defer.promise;
+    IF (options.timeout >= 0)
+      timedpromise := CreatePromiseRace([ timedpromise, Delay(options.timeout, PTR ThrowTimeout) ]);
+
+    RECORD scheduledefer := CreateDeferredPromise();
+
+    this->itemcounter := this->itemcounter + 1;
+    RECORD queuedata :=
+        CELL[ hash
+            , id :=                 this->itemcounter
+            , func
+            , keydata
+            , defer
+            , timedpromise
+            , options.onsuccess
+            , options.onerror
+            , options.oncancel
+            , options.ondiscard
+            , options.extradata
+            , options.priority
+            , canceltokensource :=  NEW CancellationTokenSource
+            , runpermission :=      scheduledefer.promise
+            ];
+
+    INSERT queuedata INTO this->activeitems AT pos.position;
+    INSERT CELL
+        [ queuedata.priority
+        , queuedata.id
+        , queuedata.hash
+        , allowstart := scheduledefer.resolve
+        ] INTO this->priorityqueue AT RecordUpperBound(this->priorityqueue, queuedata, [ "PRIORITY", "ID" ]);
+
+    // Check immediately the item can run
+    this->ScheduleItems();
+
+    // Start the processing of the item (async function, won't throw)
+    this->RunFunc(queuedata);
+
+    RETURN CELL[ timedpromise, finalpromise := defer.promise ];
+  }
+
+  /** Updates the priority of an item on the activeitems queue
+      @param hash Hash if the item
+      @param newpriority New priority for the item
+  */
+  PUBLIC MACRO SetItemPriority(STRING hash, INTEGER newpriority)
+  {
+    RECORD pos := RecordLowerBound(this->activeitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found) // don't mind if it doesn't exist
+      RETURN;
+
+    // Delete with old priority still in activeitems record
+    RECORD rec := this->DeletePriorityQueueItem(this->activeitems[pos.position]);
+    IF (RecordExists(rec))
+    {
+      // Reuse the old queue record, for the 'allowstart' function ptr
+      rec.priority := newpriority;
+      INSERT rec INTO this->priorityqueue AT RecordUpperBound(this->priorityqueue, rec, [ "PRIORITY", "ID" ]);
+    }
+
+    this->activeitems[pos.position].priority := newpriority;
+    this->ScheduleItems();
+  }
+
+  /** Updates the priority of an item on the activeitems queue
+      @param queuedata Data of the item with which it was registered on the priority queue
+      @return If found on the priority queue, contents of the priority queue item
+  */
+  RECORD FUNCTION DeletePriorityQueueItem(RECORD queuedata)
+  {
+    RECORD ppos := RecordLowerBound(this->priorityqueue, queuedata, [ "PRIORITY", "ID" ]);
+    RECORD retval;
+    IF (ppos.found)
+    {
+      retval := this->priorityqueue[ppos.position];
+      DELETE FROM this->priorityqueue AT ppos.position;
+    }
+    RETURN retval;
+  }
+
+  /** Check if there is room for more items to start running their jobs
+  */
+  MACRO ScheduleItems()
+  {
+    WHILE (LENGTH(this->priorityqueue) > 0)
+    {
+      RECORD rec := this->priorityqueue[0];
+
+      IF (rec.priority <= 0)
+      {
+        IF (this->running_interactive + this->running_noninteractive >= this->max_jobs)
+          BREAK;
+        this->running_interactive := this->running_interactive + 1;
+      }
+      ELSE
+      {
+        IF (this->running_noninteractive >= this->max_noninteractive)
+          BREAK;
+        this->running_noninteractive := this->running_noninteractive + 1;
+      }
+
+      this->priorityqueue[0].allowstart(PTR this->HandledItem(rec.priority));
+      DELETE FROM this->priorityqueue AT 0;
+    }
+  }
+
+  /** Job is done running, administrate that and check for the next runnable job
+  */
+  MACRO HandledItem(INTEGER priority)
+  {
+    IF (priority <= 0)
+      this->running_interactive := this->running_interactive - 1;
+    ELSE
+      this->running_noninteractive := this->running_noninteractive - 1;
+    this->ScheduleItems();
+  }
+
+  MACRO DeleteWorkQueueItemInternal(STRING hash)
+  {
+    RECORD pos := RecordLowerBound(this->activeitems, CELL[ hash ], [ "HASH" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Could not find item");
+
+    this->DeletePriorityQueueItem(this->activeitems[pos.position]);
+    DELETE FROM this->activeitems AT pos.position;
+  }
+
+  ASYNC MACRO RunFunc(RECORD queuedata)
+  {
+    RECORD funcdata := ParseFuncRef(queuedata.func);
+
+    FUNCTION PTR ondone := AWAIT queuedata.runpermission;
+
+    BOOLEAN deleted;
+    BOOLEAN donecallback;
+    TRY
+    {
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Waiting for run permission for ${queuedata.hash}\n`);
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Running ${queuedata.hash} in job\n`);
+
+      RECORD funcres := AWAIT AsyncCallFunctionFromJob(
+            "mod::system/lib/internal/precalc/runner.whlib",
+            "RUNCALCULATIONFUNCTION",
+            funcdata.library,
+            funcdata.func,
+            queuedata.keydata,
+            CELL[ this->profile ]);
+
+      IF (CellExists(funcres, "__EXCEPTION"))
+        ThrowReceivedException(funcres.__exception);
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Done running ${queuedata.hash} in job, normal result\n`);
+
+      VARIANT retval := funcres.value;
+      deleted := TRUE;
+      donecallback := TRUE;
+
+      IF (queuedata.canceltokensource->canceltoken->IsCancelled())
+      {
+        IF (this->debug)
+          PRINT(`${TimeStamp()}  Run ${queuedata.hash} was cancelled\n`);
+
+        IF (queuedata.oncancel != DEFAULT FUNCTION PTR)
+          queuedata.oncancel(queuedata);
+      }
+      ELSE
+      {
+        this->DeleteWorkQueueItemInternal(queuedata.hash);
+
+        IF (queuedata.onsuccess != DEFAULT FUNCTION PTR)
+          queuedata.onsuccess(queuedata, retval);
+      }
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Resolve promise for ${queuedata.hash}\n`);
+      queuedata.defer.resolve(retval);
+    }
+    CATCH (OBJECT< PrecalcDiscardQueryException > e)
+    {
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Run ${queuedata.hash} discarded its query (${e->what})\n`);
+
+      IF (NOT deleted)
+        this->DeleteWorkQueueItemInternal(queuedata.hash);
+
+      IF (queuedata.ondiscard != DEFAULT FUNCTION PTR)
+        queuedata.ondiscard(queuedata, e);
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Reject promise for ${queuedata.hash}\n`);
+      queuedata.defer.reject(e);
+    }
+    CATCH (OBJECT e)
+    {
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Run ${queuedata.hash} returned exception (${e->what})\n`);
+
+      LogHarescriptException(e);
+
+      IF (queuedata.canceltokensource->canceltoken->IsCancelled())
+      {
+        IF (this->debug)
+          PRINT(`${TimeStamp()}  Run ${queuedata.hash} was cancelled\n`);
+
+        IF (queuedata.oncancel != DEFAULT FUNCTION PTR)
+          queuedata.oncancel(queuedata);
+      }
+      ELSE
+      {
+        IF (NOT deleted)
+          this->DeleteWorkQueueItemInternal(queuedata.hash);
+
+        IF (queuedata.onerror != DEFAULT FUNCTION PTR)
+          queuedata.onerror(queuedata, e);
+      }
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Reject promise for ${queuedata.hash}\n`);
+      queuedata.defer.reject(e);
+    }
+
+    // mark the item as done, the next can start
+    ondone();
+  }
+
+  PUBLIC MACRO CancelForModule(STRING module)
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Cancelling queued items for module ${module}\n`);
+
+    FOR (INTEGER i := 0; i < LENGTH(this->activeitems);)
+    {
+      IF (this->activeitems[i].func NOT LIKE `mod*::${module}/*`)
+      {
+        i := i + 1;
+        CONTINUE;
+      }
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Cancel ${this->activeitems[i].hash}\n`);
+
+      this->activeitems[i].canceltokensource->Cancel();
+      this->DeletePriorityQueueItem(this->activeitems[i]);
+      DELETE FROM this->activeitems AT i;
+    }
+  }
+
+  PUBLIC MACRO CancelCacheItem(STRING hash)
+  {
+    IF (this->debug)
+      PRINT(`${TimeStamp()} Cancelling item ${hash}\n`);
+
+    FOR (INTEGER i := 0; i < LENGTH(this->activeitems);)
+    {
+      IF (this->activeitems[i].hash != hash)
+      {
+        i := i + 1;
+        CONTINUE;
+      }
+
+      IF (this->debug)
+        PRINT(`${TimeStamp()}  Cancel ${this->activeitems[i].hash}\n`);
+
+      this->activeitems[i].canceltokensource->Cancel();
+      this->DeletePriorityQueueItem(this->activeitems[i]);
+      DELETE FROM this->activeitems AT i;
+    }
+  }
+>;

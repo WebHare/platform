@@ -1,0 +1,742 @@
+﻿<?wh
+/** @private OpenSimpleTagManager()->GetTagsInfo should be exposed as a cachable api elsewhere */
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+STATIC OBJECTTYPE TagManagerTag
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Tag root folder - private reference
+  OBJECT pvt_tagmanager;
+
+  /// WHFS tag file of the tag (may be DEFAULT OBJECT after remove from repo!)
+  OBJECT pvt_tagfile;
+
+  /// Tag
+  STRING pvt_tag;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  PUBLIC PROPERTY id(GetId, -);
+
+  PUBLIC PROPERTY tag(pvt_tag, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT tagmanager, OBJECT tagfile)
+  {
+    this->pvt_tagmanager := tagmanager;
+    this->pvt_tagfile := tagfile;
+    this->pvt_tag := tagfile->title;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  INTEGER FUNCTION GetId()
+  {
+    RETURN ObjectExists(this->pvt_tagfile) ? this->pvt_tagfile->id : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION CheckFile(BOOLEAN allow_non_existing, BOOLEAN recreate)
+  {
+    IF (NOT ObjectExists(this->pvt_tagfile))
+    {
+      IF (NOT allow_non_existing)
+        THROW NEW Exception("Cannot use a deleted tag");
+
+      IF (NOT recreate)
+        RETURN FALSE;
+
+      OBJECT newtag := this->pvt_tagmanager->CreateTag(this->pvt_tag);
+      this->pvt_tagfile := OpenWHFSObject(newtag->id);
+      this->pvt_tag := newtag->tag;
+    }
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Deletes a tag
+  */
+  PUBLIC MACRO DeleteSelf()
+  {
+    IF (NOT this->CheckFile(TRUE, FALSE))
+    {
+      IF (this->pvt_tag = "")
+        THROW NEW Exception("Cannot delete an already deleted tag");
+      RETURN;
+    }
+
+    FOREVERY (RECORD repodata FROM this->pvt_tagmanager->GetAllRepositoryData())
+      this->RemoveFromRepository(repodata.id);
+
+     IF(ObjectExists(this->pvt_tagfile))
+     {
+       this->pvt_tagfile->RecycleSelf();
+       this->pvt_tagfile := DEFAULT OBJECT;
+     }
+
+    this->pvt_tag := DEFAULT STRING;
+  }
+
+  /** Removes this tag from the standard taginfo of a file
+  */
+  PUBLIC MACRO AddToWHFSObject(INTEGER whfsid)
+  {
+    this->CheckFile(FALSE, FALSE);
+
+    RECORD data := this->pvt_tagmanager->whfstype_taginfo->GetInstanceData(whfsid);
+    data.tags := SELECT AS INTEGER ARRAY id FROM ToRecordArray(data.tags, "ID") WHERE id != this->pvt_tagfile->id;
+    this->pvt_tagmanager->whfstype_taginfo->SetInstanceData(whfsid, data);
+  }
+
+  /** Removes this tag from the standard taginfo of a file
+  */
+  PUBLIC MACRO RemoveFromWHFSObject(INTEGER whfsid)
+  {
+    IF (NOT this->CheckFile(TRUE, FALSE))
+      RETURN;
+
+    RECORD data := this->pvt_tagmanager->whfstype_taginfo->GetInstanceData(whfsid);
+    data.tags := SELECT AS INTEGER ARRAY id FROM ToRecordArray(data.tags, "ID") WHERE id != this->pvt_tagfile->id;
+    this->pvt_tagmanager->whfstype_taginfo->SetInstanceData(whfsid, data);
+  }
+
+  PUBLIC MACRO AddToRepository(INTEGER repoid)
+  {
+    this->CheckFile(TRUE, TRUE);
+
+    RECORD repodata := this->pvt_tagmanager->whfstype_tagrepofile->GetInstanceData(repoid);
+    IF (this->pvt_tagfile->id NOT IN repodata.tags)
+    {
+      INSERT this->pvt_tagfile->id INTO repodata.tags AT END;
+      this->pvt_tagmanager->whfstype_tagrepofile->SetInstanceData(repoid, repodata);
+    }
+
+    RECORD tagdata := this->pvt_tagmanager->whfstype_tagfile->GetInstanceData(this->pvt_tagfile->id);
+    IF (repoid NOT IN tagdata.belongstorepos)
+    {
+      INSERT repoid INTO tagdata.belongstorepos AT END;
+      this->pvt_tagmanager->whfstype_tagfile->SetInstanceData(this->pvt_tagfile->id, tagdata);
+    }
+  }
+
+  PUBLIC MACRO RemoveFromRepository(INTEGER repoid)
+  {
+    IF (NOT this->CheckFile(TRUE, FALSE))
+      RETURN;
+
+    INTEGER ARRAY deleted := this->pvt_tagmanager->ClearTagsForRepo(repoid, this->pvt_tagfile->id);
+    IF (this->pvt_tagfile->id IN deleted)
+      this->pvt_tagfile := DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO RenameTo(STRING newname)
+  {
+    STRING newfilename := this->pvt_tagmanager->GetTagFileName(newname);
+    OpenWHFSObject(this->id)->UpdateMetadata([name := newfilename, title := newname ]);
+  }
+
+  //FIXME remove this function. it merges tags without warning but TIO_BASE still relies on it
+  PUBLIC MACRO __UpdateTagName(STRING newname)
+  {
+    STRING newfilename := this->pvt_tagmanager->GetTagFileName(newname);
+    STRING filename := this->pvt_tagmanager->GetTagFileName(this->tag);
+    IF(RecordExists(SELECT * FROM system.fs_objects WHERE name = newfilename AND parent = this->pvt_tagmanager->tagfolder->id AND id != this->id))
+    {
+      // Use existing and update WHFSRefs
+      OBJECT existing := this->pvt_tagmanager->OpenTagFile(SELECT AS STRING name FROM system.fs_objects WHERE name = filename AND parent = this->pvt_tagmanager->tagfolder->id);
+      INTEGER ARRAY appliedto := this->pvt_tagmanager->GetOccurrencesForTag(this->id);
+      FOREVERY(INTEGER id FROM appliedto)
+      {
+        this->RemoveFromWHFSObject(id);
+        existing->AddToWHFSObject(id);
+      }
+      this->DeleteSelf();
+    }
+    ELSE
+      UPDATE system.fs_objects SET name := newfilename, title := newname WHERE id = this->id;
+  }
+
+>;
+
+STATIC OBJECTTYPE TagManager
+< // ---------------------------------------------------------------------------
+  //
+  // Private variables
+  //
+
+  /// Tag root folder
+  OBJECT pvt_tagfolder;
+
+  /// Current repository file
+  OBJECT pvt_repofile;
+
+  /// Whether to allow only the opening of tag files from the currently selected repository
+  BOOLEAN pvt_confine;
+
+  /// WHFS type of http://www.webhare.net/xmlns/publisher/tagfile
+  OBJECT whfstype_tagfile;
+
+  /// WHFS type id of http://www.webhare.net/xmlns/publisher/tagfolder
+  OBJECT whfstype_tagfolder;
+
+  /// WHFS type id of http://www.webhare.net/xmlns/publisher/tagrepository
+  OBJECT whfstype_tagrepofile;
+
+  /// WHFS type id of http://www.webhare.net/xmlns/publisher/taginfo
+  OBJECT whfstype_taginfo;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables & properties
+  //
+
+  /// Current selected tag folder
+  PUBLIC PROPERTY tagfolder(pvt_tagfolder,-);
+
+  /// Name of current selected repository
+  PUBLIC PROPERTY repository(GetRepositoryName, -);
+
+  /// Id of current selected repository
+  PUBLIC PROPERTY repositoryid(GetRepositoryId, -);
+
+  /// ???
+  PUBLIC PROPERTY confinetocurrentrepo(pvt_confine, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT basefolder, STRING reponame, BOOLEAN confine DEFAULTSTO TRUE)
+  {
+    this->pvt_tagfolder := basefolder;
+    this->pvt_confine := confine;
+
+    // Register the file type IDs:
+    this->whfstype_tagfile := OpenWHFSType("http://www.webhare.net/xmlns/publisher/tagfile");
+    this->whfstype_tagfolder := OpenWHFSType("http://www.webhare.net/xmlns/publisher/tagfolder");
+    this->whfstype_tagrepofile := OpenWHFSType("http://www.webhare.net/xmlns/publisher/tagrepository");
+    this->whfstype_taginfo := OpenWHFSType("http://www.webhare.net/xmlns/publisher/taginfo");
+
+    IF(NOT ObjectExists(this->pvt_tagfolder))
+      THROW NEW Exception("Invalid tag folder");
+
+    //this->pvt_ns := "http://www.webhare.net/xmlns/publisher/taginfo";
+
+    this->SelectRepositoryByName(reponame);
+
+    IF(reponame != "" AND NOT ObjectExists(this->pvt_repofile))
+      THROW NEW Exception("Invalid tag repository");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  STRING FUNCTION GetRepositoryName()
+  {
+    RETURN ObjectExists(this->pvt_repofile) ? this->pvt_repofile->name : "";
+  }
+
+  INTEGER FUNCTION GetRepositoryId()
+  {
+    RETURN ObjectExists(this->pvt_repofile) ? this->pvt_repofile->id : 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** Remove tags from a repository (and delete those tags that don't belong to any repository anymore)
+      @cell repoid
+      @cell tagid Tag to remove (0 to remove all)
+      @return Ids of deleted tags
+  */
+  INTEGER ARRAY FUNCTION ClearTagsForRepo(INTEGER repoid, INTEGER tagid)
+  {
+    INTEGER ARRAY whfsids := this->whfstype_tagrepofile->GetInstanceData(repoid).tags;
+    INTEGER ARRAY keep_whfsids;
+    INTEGER ARRAY deleted;
+
+    FOREVERY(INTEGER whfsid FROM whfsids)
+    {
+      IF (tagid != 0 AND whfsid != tagid)
+      {
+        INSERT whfsid INTO keep_whfsids AT END;
+        CONTINUE;
+      }
+
+      RECORD tagdata := this->whfstype_tagfile->GetInstanceData(whfsid);
+
+      INTEGER ARRAY newids;
+      FOREVERY(INTEGER id FROM tagdata.belongstorepos)
+        IF(id != repoid)
+          INSERT id INTO newids AT END;
+
+      tagdata.belongstorepos := newids;
+      this->whfstype_tagfile->SetInstanceData(whfsid, tagdata);
+
+      IF (LENGTH(newids) = 0)
+      {
+        INSERT whfsid INTO deleted AT END;
+        OpenWHFSObject(whfsid)->RecycleSelf();
+      }
+    }
+
+    this->whfstype_tagrepofile->SetInstanceData(repoid, [ tags := keep_whfsids ]);
+    RETURN deleted;
+  }
+
+  STRING FUNCTION GetTagFileName(STRING tagname)
+  {
+    RETURN EncodeBase16(GetSHA1Hash(ToLowerCase(tagname)));// Lowercase and encode it
+  }
+
+  STRING FUNCTION GetRepoFileName(STRING reponame)
+  {
+    RETURN EncodeBase16(GetSHA1Hash("repository:" || ToLowerCase(reponame)));// Lowercase and encode it
+  }
+
+  OBJECT FUNCTION OpenTagFile(STRING filename)
+  {
+    OBJECT file := this->pvt_tagfolder->OpenByName(filename);
+    IF(NOT ObjectExists(file))
+      RETURN DEFAULT OBJECT;
+
+    IF (ObjectExists(this->pvt_repofile) AND this->confinetocurrentrepo)
+    {
+      INTEGER ARRAY inrepos := this->whfstype_tagfile->GetInstanceData(file->id).belongstorepos;
+      IF(this->pvt_repofile->id NOT IN inrepos)
+        RETURN DEFAULT OBJECT;
+    }
+
+    RETURN NEW TagManagerTag(PRIVATE this, file);
+  }
+
+  RECORD ARRAY FUNCTION GetObjectsUsingTags(INTEGER ARRAY all_tags, INTEGER ARRAY objfilter)
+  {
+    RETURN
+        SELECT fsobject :=      fs_instances.fs_object
+             , tagid :=         fs_settings.fs_object
+//             , membername :=    fs_members.name
+          FROM system.fs_settings
+             , system.fs_instances
+             , system.fs_objects
+//             , system.fs_members
+         WHERE fs_settings.fs_instance = fs_instances.id
+           AND fs_objects.id = fs_instances.fs_object
+           AND fs_objects.isactive = TRUE
+           AND fs_settings.fs_object IN all_tags
+//           AND fs_settings.fs_member = fs_members.id
+           AND (LENGTH(objfilter) != 0 ? fs_instances.fs_object IN objfilter : TRUE)
+           AND fs_objects.type NOT IN [ INTEGER(this->whfstype_tagrepofile->id) ]
+      GROUP BY fs_instances.fs_object, fs_settings.fs_object;//, fs_members.name;
+  }
+
+  INTEGER ARRAY FUNCTION GetAllFSObjectsRecursive(INTEGER ARRAY parents)
+  {
+    INTEGER ARRAY curr :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent IN parents;
+
+    IF (LENGTH(curr) != 0)
+      curr := this->GetAllFSObjectsRecursive(curr);
+
+    RETURN parents CONCAT curr;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Select a new tag folder by path
+  */
+  PUBLIC MACRO SelectTagFolderByPath(STRING path)
+  {
+    OBJECT folder := OpenWHFSObjectByPath(path);
+    IF(NOT ObjectExists(folder))
+      THROW NEW Exception("Invalid tag folder '" || path || "' specified: No such folder exists");
+
+    this->SelectTagFolder(folder);
+  }
+
+  /** Select a new tag folder
+  */
+  PUBLIC MACRO SelectTagFolder(OBJECT folder)
+  {
+    this->pvt_tagfolder := folder;
+    this->pvt_repofile := DEFAULT OBJECT;
+  }
+
+  /** Change currently selected repository. Looks the name up in whfs releative to the tag root folder
+  */
+  PUBLIC MACRO SelectRepositoryByName(STRING name)
+  {
+    IF (name != "")
+    {
+      INTEGER repoid := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = this->pvt_tagfolder->id AND type = this->whfstype_tagrepofile->id AND COLUMN name = VAR name;
+      IF(repoid = 0)
+        THROW NEW Exception("Failed to open tag repository '" || name || "': No such repository exists");
+
+      this->pvt_repofile := OpenWHFSObject(repoid);
+    }
+    ELSE
+      this->pvt_repofile := DEFAULT OBJECT;
+  }
+
+  /** Create a new tag repository in the current tag folder, and automatically select it.
+  */
+  PUBLIC INTEGER FUNCTION CreateRepository(STRING name, STRING title DEFAULTSTO "")
+  {
+    OBJECT folder := this->pvt_tagfolder->CreateFile([name := name, title := title, type := this->whfstype_tagrepofile->id ]);
+    this->SelectRepositoryByName(name);
+
+    RETURN folder->id;
+  }
+
+  /** Delete a tag repository from the current tag folder
+  */
+  PUBLIC MACRO DeleteRepository(STRING name)
+  {
+    OBJECT repo := this->pvt_tagfolder->OpenByName(name);
+    IF (NOT ObjectExists(repo))
+      THROW NEW Exception("Failed to open tag repository '" || name || "': No such repository exists");
+
+    this->ClearTagsForRepo(repo->id, 0);
+    repo->RecycleSelf();
+  }
+
+  /** Remove all tags from a repository (deleting tags only in that repository)
+  */
+  PUBLIC MACRO TruncateRepository(STRING name)
+  {
+    OBJECT repo := this->pvt_tagfolder->OpenByName(name);
+    IF (NOT ObjectExists(repo))
+      THROW NEW Exception("Failed to open tag repository '" || name || "': No such repository exists");
+
+    this->ClearTagsForRepo(repo->id, 0);
+  }
+
+  /** Get the list of all repositories in the selected tag folder
+  */
+  PUBLIC STRING ARRAY FUNCTION ListAllRepositories()
+  {
+    RETURN
+        SELECT AS STRING ARRAY name
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND type = this->whfstype_tagrepofile->id
+      ORDER BY ToUppercase(name);
+  }
+
+  /** Get metadata of all repositories in the selected tag folder
+      @return
+      @cell return.id
+      @cell return.name
+      @cell return.title
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllRepositoryData()
+  {
+    RETURN
+        SELECT id
+             , name
+             , title
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND type = this->whfstype_tagrepofile->id
+      ORDER BY ToUppercase(name);
+  }
+
+  /** Create a new tag (if selected, in the current repository)
+  */
+  PUBLIC OBJECT FUNCTION CreateTag(STRING tag)
+  {
+    IF(NOT ObjectExists(this->pvt_tagfolder))
+      THROW NEW Exception("No tag folder set");
+
+    // Normalize
+    tag := TrimWhitespace(tag);// First step toward normalization; this one will also be the actual tag content
+    IF(tag = "")// Prevent empty files
+      THROW NEW Exception("Cannot create empty tags");
+
+    STRING filename := this->GetTagFileName(tag);
+    OBJECT file := this->pvt_tagfolder->OpenByName(filename);
+    IF (NOT ObjectExists(file))
+      file := this->pvt_tagfolder->CreateFile([name := filename, title := tag, publish := FALSE, type := this->whfstype_tagfile->id ]);
+
+    OBJECT tagobj := NEW TagManagerTag(PRIVATE this, file);
+    IF (ObjectExists(this->pvt_repofile))
+      tagobj->AddToRepository(this->pvt_repofile->id);
+
+    RETURN tagobj;
+  }
+
+  /** Open a tag by name
+  */
+  PUBLIC OBJECT FUNCTION GetTag(STRING tag)
+  {
+    IF(NOT ObjectExists(this->pvt_tagfolder))
+      THROW NEW Exception("No tag folder set");
+
+    RETURN this->OpenTagFile(this->GetTagFileName(tag));
+  }
+
+  /** Open a tag by WHFS id
+  */
+  PUBLIC OBJECT FUNCTION GetTagByID(INTEGER whfsid)
+  {
+    IF(NOT ObjectExists(this->pvt_tagfolder))
+      THROW NEW Exception("No tag folder set");
+
+    RETURN this->OpenTagFile(SELECT AS STRING name FROM system.fs_objects WHERE id = whfsid);
+  }
+
+  /** Get metadata for the tag with the given ID
+      @param tagid The ID of the tag to get info for
+  */
+  PUBLIC RECORD FUNCTION GetTagInfo(INTEGER tagid)
+  {
+    RETURN
+        SELECT id
+             , tag    := title
+             , name
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+               AND id = tagid;
+  }
+
+  /** Get metadata for all tag IDs supplied
+      @param ids The IDs of the tags to get info for
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetTagsInfo(INTEGER ARRAY ids)
+  {
+    RETURN
+        SELECT id
+             , tag    := title
+             , name
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+               AND id IN ids;
+  }
+
+  /** Map a list of tag whfs ids to their names
+  */
+  PUBLIC STRING ARRAY FUNCTION GetTagNamesByIDs(INTEGER ARRAY ids)
+  {
+    RETURN
+        SELECT AS STRING ARRAY title
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND type = this->whfstype_tagfile->id
+           AND id IN ids
+      ORDER BY ToUppercase(title);
+  }
+
+  /** Map a list of tag names to their whfs ids
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetTagIDsByNames(STRING ARRAY tags)
+  {
+    INTEGER ARRAY out;
+    FOREVERY (STRING tag FROM tags)
+    {
+      INTEGER tagid :=
+          SELECT AS INTEGER id
+            FROM system.fs_objects
+           WHERE parent = this->pvt_tagfolder->id
+             AND type = this->whfstype_tagfile->id
+             AND name = this->GetTagFileName(tag)
+             AND isactive;
+
+      IF (tagid != 0)
+        INSERT tagid INTO out AT END;
+    }
+
+    RETURN out;
+  }
+
+  /** Make sure the all tags in the selected tag repository have a backlink to that repository
+      @param name Name of the tag repository to fix
+  */
+  PUBLIC MACRO FixupRelationsForRepo(STRING name)
+  {
+    INTEGER repoid := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = this->pvt_tagfolder->id AND type = this->whfstype_tagrepofile->id AND COLUMN name = VAR name;
+    IF(repoid = 0)
+      THROW NEW Exception("Failed to open tag repository '" || name || "': No such repository exists");
+
+    INTEGER ARRAY tagfiles := this->whfstype_tagrepofile->GetInstanceData(repoid).tags;
+    FOREVERY(INTEGER id FROM tagfiles)
+    {
+      OBJECT file := OpenWHFSObject(id);
+      INTEGER ARRAY associatedrepos := this->whfstype_tagfile->GetInstanceData(id).belongstorepos;
+      IF(repoid IN associatedrepos)
+        CONTINUE;
+
+      INSERT repoid INTO associatedrepos AT END;
+      this->whfstype_tagfile->SetInstanceData(id, [ belongstorepos := associatedrepos ]);
+    }
+  }
+
+  /** Get metadata for all tags in the current repository (or all tags, when no repository is selected)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllTagData()
+  {
+    INTEGER ARRAY repo_tags;
+    IF (ObjectExists(this->pvt_repofile))
+      repo_tags := this->whfstype_tagrepofile->GetInstanceData(this->pvt_repofile->id).tags;
+
+    RETURN
+        SELECT id
+             , tag :=   title
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND (ObjectExists(this->pvt_repofile) ? id IN repo_tags : TRUE)
+      ORDER BY ToUppercase(title);
+  }
+
+  /** Get id of all tags in the current repository (or all tags, when no repository is selected)
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetAllTagIDs()
+  {
+    INTEGER ARRAY repo_tags;
+    IF (ObjectExists(this->pvt_repofile))
+      repo_tags := this->whfstype_tagrepofile->GetInstanceData(this->pvt_repofile->id).tags;
+
+    RETURN
+        SELECT AS INTEGER ARRAY id
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND (ObjectExists(this->pvt_repofile) ? id IN repo_tags : TRUE)
+      ORDER BY ToUppercase(title);
+  }
+
+  /** Get all tags in the current repository (or all tags, when no repository is selected)
+  */
+  PUBLIC STRING ARRAY FUNCTION ListTags()
+  {
+    INTEGER ARRAY repo_tags;
+    IF (ObjectExists(this->pvt_repofile))
+      repo_tags := this->whfstype_tagrepofile->GetInstanceData(this->pvt_repofile->id).tags;
+
+    RETURN
+        SELECT AS STRING ARRAY title
+          FROM system.fs_objects
+         WHERE parent = this->pvt_tagfolder->id
+           AND (ObjectExists(this->pvt_repofile) ? id IN repo_tags : TRUE)
+      ORDER BY ToUppercase(title);
+  }
+
+  /** Get the tags from default storage (taginfo)
+  */
+  PUBLIC STRING ARRAY FUNCTION GetWHFSObjectTags(INTEGER whfsobjectid)
+  {
+    RETURN this->GetTagNamesByIDs(this->whfstype_taginfo->GetInstanceData(whfsobjectid).tags);
+  }
+
+  /** Store tags to default storage (taginfo)
+  */
+  PUBLIC MACRO SetWHFSObjectTags(INTEGER whfsobjectid, STRING ARRAY tags)
+  {
+    this->whfstype_taginfo->SetInstanceData(whfsobjectid, [ tags := this->GetTagIDsByNames(tags) ]);
+  }
+
+  /** Counts the occurences of a specific tag
+  */
+  PUBLIC INTEGER FUNCTION CountOccurrencesForTag(INTEGER tagid)
+  {
+    RETURN LENGTH(SELECT AS INTEGER ARRAY DISTINCT fsobject FROM this->GetObjectsUsingTags([ tagid ], DEFAULT INTEGER ARRAY));
+  }
+
+  /** Returns the occurences of a specific tag
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetOccurrencesForTag(INTEGER tagid)
+  {
+    RETURN SELECT AS INTEGER ARRAY DISTINCT fsobject FROM this->GetObjectsUsingTags([ tagid ], DEFAULT INTEGER ARRAY);
+  }
+
+  /** Returns the usage stats for all tags in a repository (uses taginfo field, returns files in the same site as the tag folder
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetUsageStatsForRepository()
+  {
+    INTEGER ARRAY allsiteobjs := this->GetAllFSObjectsRecursive([ INTEGER(this->pvt_tagfolder->highestparentobject->id) ]);
+
+    RECORD ARRAY alltags :=
+        SELECT *
+          FROM this->GetAllTagData()
+      ORDER BY id;
+
+    RECORD ARRAY alldata := this->GetObjectsUsingTags((SELECT AS INTEGER ARRAY id FROM alltags), allsiteobjs);
+
+    // ADDME: bulk lookup of tags afterwards
+    RECORD ARRAY counts :=
+        SELECT tag :=         alltags[RecordLowerBound(alltags, [ id := tagid ], [ "ID" ]).position].tag
+             , tagid
+             , occurences :=  COUNT(*)
+          FROM alldata
+      GROUP BY tagid;
+
+    RETURN
+        SELECT *
+          FROM counts
+      ORDER BY occurences DESC, ToUppercase(tag) ASC;
+  }
+
+>;
+
+PUBLIC OBJECT FUNCTION __INTERNAL_OpenLegacyTagManager(OBJECT folder, STRING name)
+{
+  RETURN NEW TagManager(folder, name);
+}
+
+/** Open a tagmanager without repositories
+*/
+PUBLIC OBJECT FUNCTION OpenSimpleTagManager(OBJECT folder)
+{
+  RETURN NEW TagManager(folder, "");
+}
+
+/** Open a full-fledged tagmanager
+*/
+PUBLIC OBJECT FUNCTION OpenTagManager(OBJECT folder, STRING name) __ATTRIBUTES__(DEPRECATED "This API might be removed in the future, we recommend OpenSimpleTagManager")
+{
+  RETURN NEW TagManager(folder, name);
+}
+
+PUBLIC OBJECT FUNCTION CreateTagFolder(OBJECT rootfolder, STRING foldername, STRING initialreponame)
+{
+  OBJECT folder := rootfolder->CreateFolder([ name := foldername, title := "Tag repositories and tags", ispinned := TRUE, type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/tagfolder")->id ]);
+  OBJECT mgr := NEW TagManager(folder, "");
+  IF (initialreponame != "")
+    mgr->CreateRepository(initialreponame);
+  RETURN mgr;
+}
+

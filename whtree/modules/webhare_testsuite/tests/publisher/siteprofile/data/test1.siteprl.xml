@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <apply><to type="file" foldertype="http://www.webhare.net/xmlns/publisher/normalfolder" /></apply>
+  <apply>
+    <to type="all" />
+    <blub xmlns="http://www.webhare.net/xmlns/webhare_testsuite/blub" blubber="2" />
+  </apply>
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test1" />
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test1" />
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/test1folder" />
+
+  <applysiteprofile path="nosuchfile-1.siteprl.xml" />
+  <applysiteprofile path="nosuchfile-2.siteprl.xml" />
+  <applysiteprofile path="test2.siteprl.xml" />
+  <validationerror />
+</siteprofile>

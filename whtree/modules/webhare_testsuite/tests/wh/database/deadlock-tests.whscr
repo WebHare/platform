@@ -1,0 +1,229 @@
+<?wh // Testscript
+
+LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+
+ClientStart(2);
+
+TABLE <INTEGER intdata, STRING strdata, BOOLEAN booldata> beta_modifytests;
+INTEGER test_fp_trans;
+INTEGER cursorid;
+
+RECORD ARRAY update_recs;
+BOOLEAN FUNCTION TestRecord(RECORD testr)
+{
+  INSERT testr INTO update_recs AT END;
+  RETURN TRUE;
+}
+
+//--------------------------------------------------------------------------------
+// Test 1; deadlock by circular locks
+
+IF (clientid = 0)
+{
+  // Put standard record into beta_modifytests, commit and open new trans
+  SectionStart(1);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+
+  __BindWHDBMetaTables(test_fp_trans);
+  IF (WHDBColumnExists("beta_modifytests","intdata"))
+    SendWHDBCommand(test_fp_trans, "DROP TABLE beta_modifytests");
+  SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+
+  beta_modifytests :=BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  DELETE FROM beta_modifytests;
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (1, "a", TRUE);
+  INSERT INTO beta_modifytests(intdata, strdata, booldata) VALUES (2, "b", FALSE);
+
+  RECORD ARRAY errors := CommitWHDBTransaction(test_fp_trans);
+  IF (LENGTH(errors)!=0)
+  {
+    PrintRecordArrayTo(0, errors, "boxed");
+    Abort("Commit errors test 1");
+  }
+
+  test_fp_trans := OpenTransaction("~webhare", "", "hang1");
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  SectionEnd(1);
+}
+
+IF (clientid = 0)
+{
+  // Update record 1 by client 0
+  SectionStart(2);
+
+  UPDATE beta_modifytests SET strdata := "c" WHERE intdata = 1;
+
+  SectionEnd(2);
+}
+
+IF (clientid = 1)
+{
+  SectionStart(3);
+
+  // Update record 2 by client 1
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+
+  UPDATE beta_modifytests SET strdata := "d" WHERE intdata = 2;
+
+  SectionEnd(3);
+}
+
+IF (clientid = 0)
+{
+  // Update record 1 by client 0
+  SectionStart(4);
+
+  UpcomingHang("hang1"); // Signal upcoming hang
+  UPDATE beta_modifytests SET booldata := TRUE WHERE intdata = 2;
+
+  IF (LENGTH(GetWHDBTransactionErrors(test_fp_trans)) != 0)
+    Abort("Unexpected lock failure in test 1");
+
+  SectionEnd(4);
+}
+
+IF (clientid = 1)
+{
+  SectionStart(5);
+
+  // Update record 2 by client 1 -> causes deadlock!
+  UPDATE beta_modifytests SET booldata := FALSE WHERE intdata = 1;
+
+  IF (LENGTH(GetWHDBTransactionErrors(test_fp_trans)) = 0)
+    Abort("Unexpected missing deadlock in test 1");
+
+  // This commit should fail
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=1)
+    Abort("Unexpected commit success test 1");
+
+  SectionEnd(5);
+}
+
+IF (clientid = 0)
+{
+  SectionStart(6);
+
+  IF (LENGTH(CommitWHDBTransaction(test_fp_trans))!=0)
+    Abort("Commit errors test 1");
+
+  SectionEnd(6);
+}
+
+//--------------------------------------------------------------------------------
+// Test 2; visibility of updated/deleted records when continuing in read-only mode after deadlock
+
+INTEGER trans_1, trans_2;
+TABLE table_1 LIKE beta_modifytests;
+TABLE table_2 LIKE beta_modifytests;
+
+IF (clientid = 0)
+{
+  SectionStart(7);
+
+  test_fp_trans := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  SendWHDBCommand(test_fp_trans, "DROP TABLE beta_modifytests CASCADE");
+  SendWHDBCommand(test_fp_trans, "CREATE TABLE beta_modifytests(intdata INTEGER, strdata VARCHAR(1024), booldata BOOLEAN) ");
+  beta_modifytests := BindTransactionToTable (test_fp_trans, "beta_modifytests");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (1, "A");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (2, "B");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (3, "C");
+  INSERT INTO beta_modifytests(intdata, strdata) VALUES (4, "D");
+  CommitWHDBTransaction(test_fp_trans);
+
+  trans_1 := __avoiddepwarning_StartWHDBTransaction([user := "~webhare", password := "", auto := FALSE]);
+  table_1 := BindTransactionToTable (trans_1, "beta_modifytests");
+
+  // Used for building a deadlock
+  UPDATE table_1 SET strdata := "A0" WHERE intdata = 1;
+
+  // Updated data that must remain
+  UPDATE table_1 SET strdata := "C0" WHERE intdata = 3;
+  DELETE FROM table_1 WHERE intdata = 4;
+
+  SectionEnd(7);
+}
+
+IF (clientid = 1)
+{
+  SectionStart(8);
+
+  trans_2 := OpenTransaction("~webhare", "", "hang2");
+  table_2 := BindTransactionToTable (trans_2, "beta_modifytests");
+
+  // Prepare for deadlock
+  UPDATE table_2 SET strdata := "B1" WHERE intdata = 2;
+
+  UpcomingHang("hang2"); // Signal upcoming hang
+  UPDATE table_2 SET strdata := "A1" WHERE intdata = 1;
+
+  SectionEnd(8);
+}
+
+IF (clientid = 0)
+{
+  SectionStart(9);
+
+  // Make sure client 1 has stopped
+  Sleep(500);
+
+  // Cause deadlock: now we continue in read-only mode
+  UPDATE table_1 SET strdata := "B0" WHERE intdata = 2;
+
+  //PrintRecordArrayTo(0, (SELECT * FROM table_1), "boxed");
+
+  SectionEnd(9);
+}
+
+IF (clientid = 1)
+{
+  SectionStart(10);
+
+  // Update the records (will cause client 0 expirer to be overwritten)
+  UPDATE table_2 SET strdata := "C1" WHERE intdata = 3;
+  UPDATE table_2 SET strdata := "D1" WHERE intdata = 4;
+
+  CommitWHDBTransaction(trans_2);
+
+  SectionEnd(10);
+}
+
+IF (clientid = 0)
+{
+  SectionStart(11);
+
+  RECORD ARRAY contents := SELECT intdata, strdata FROM table_1 ORDER BY intdata;
+
+  TestEqualRecordArrays([[intdata:=1,strdata:="A0"],[intdata:=2,strdata:="B"],[intdata:=3,strdata:="C0"]], contents);
+
+  UPDATE table_1 SET strdata:="B02" WHERE intdata = 2;
+  contents := SELECT intdata, strdata FROM table_1 ORDER BY intdata;
+
+  // No change must have taken place.
+  TestEqualRecordArrays([[intdata:=1,strdata:="A0"],[intdata:=2,strdata:="B"],[intdata:=3,strdata:="C0"]], contents);
+
+  __BindWHDBMetaTables(trans_1);
+  IF (NOT WHDBColumnExists("beta_modifytests", "intdata"))
+    Abort("Could not find beta_modifytests(intdata) while it is selectable? WHAT?");
+
+  // Dropping table; expect silent failure
+  SendWHDBCommand(trans_1, "DROP TABLE beta_modifytests CASCADE");
+
+  IF (NOT WHDBColumnExists("beta_modifytests", "intdata"))
+    Abort("beta_modifytests was dropped, while transaction is readonly...");
+
+  // See if C0 or D0 are visible (they shouldn't)
+//  PrintRecordArrayTo(0, (SELECT * FROM table_1), "boxed");
+
+  RECORD ARRAY errors := CommitWHDBTransaction(trans_1);
+  IF (LENGTH(errors) = 0)
+    ABORT("Unexpected commit success: expected deadlock error");
+
+  SectionEnd(11);
+}
+
+TestEnd(12);

@@ -1,0 +1,500 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+
+STRING module_ns := "http://www.webhare.net/xmlns/system/moduledefinition";
+
+RECORD ARRAY FUNCTION GetSchemaDefs(STRING module, STRING resname, OBJECT xmldoc, STRING type, STRING baseelement, STRING elementname)
+{
+  OBJECT basesection := xmldoc->documentelement->GetChildElementsByTagNameNS(module_ns, baseelement)->Item(0);
+  IF(NOT ObjectExists(basesection))
+    RETURN RECORD [];
+
+  RECORD ARRAY schemadefs;
+  FOREVERY(OBJECT node FROM basesection->GetChildElementsByTagNameNS(module_ns, elementname)->GetCurrentElements())
+  {
+    INSERT CELL[ type
+               , module
+               , resourcename := MakeLegacyAbsoluteResourcePath(resname, node->GetAttribute("xmlschema"), "data")
+               , namespace := node->GetAttribute("namespace")
+               , skipdocumentation := ParseXSBoolean(node->GetAttribute("skipdocumentation"))
+               ] INTO schemadefs AT END;
+  }
+  RETURN schemadefs;
+}
+
+RECORD FUNCTION GetCachableComponentSourceList()
+{
+  RECORD ARRAY sources;
+  STRING ARRAY eventmasks := [ "system:modulesupdate" ];
+
+  FOREVERY (STRING mod FROM __SYSTEM_GETINSTALLEDMODULENAMES())
+  {
+    STRING resname := `mod::${mod}/moduledefinition.xml`;
+    RECORD res := RetrieveWebhareResource(resname, [allowmissing := TRUE]);
+    IF(NOT RecordExists(res))
+      CONTINUE;
+
+    eventmasks := eventmasks CONCAT GetResourceEventMasks([resname]); //TODO we can just wait for system:moduleupdate instead of all individual oodueldefs ?
+
+    OBJECT xmldoc := MakeXMLDocument(res.data);
+    sources := sources CONCAT GetSchemaDefs(mod, resname, xmldoc, "tolliumcomponents", "tollium", "components")
+                       CONCAT GetSchemaDefs(mod, resname, xmldoc, "formcomponents", "publisher", "formcomponents");
+  }
+
+  RETURN
+      [ eventmasks :=   GetSortedSet(eventmasks)
+      , value :=        sources
+      ];
+}
+
+/** Returns the list of sources for components
+    @param gettype Type of components ('tolliumcomponents' / 'formcomponents')
+    @return List of components sources
+    @cell return.type Type of components ('tolliumcomponents' / 'formcomponents')
+    @cell return.module Module
+    @cell return.resourcename Resource name
+    @cell return.namespace Namespace of the components in this resource
+    @cell return.skipdocumentation If TRUE, don't document these components
+*/
+PUBLIC RECORD ARRAY FUNCTION GetComponentSources(STRING gettype)
+{
+  RECORD ARRAY sourcelist := GetAdhocCached([ type := "componentsourcelist" ], PTR GetCachableComponentSourceList);
+  RETURN SELECT * FROM sourcelist WHERE type = gettype;
+}
+
+PUBLIC STRING FUNCTION GetComponentDefinitions(STRING gettype, STRING getnamespace)
+{
+  RECORD match := SELECT * FROM GetComponentSources(gettype) WHERE namespace = getnamespace;
+  RETURN RecordExists(match) ? match.resourcename : "";
+}
+
+PUBLIC BLOB FUNCTION GenerateBuiltinXSD(STRING uri) //ADDME module definitions should be the system's module problem, not ours
+{
+  STRING ARRAY skipns := SELECT AS STRING ARRAY value FROM GetAllVariablesFromUrl(uri) WHERE name="skipns";
+  STRING type := GetVariableFromURL(uri,'type');
+  STRING customxsd :=
+      '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="" elementFormDefault="qualified" xml:lang="en">';
+
+  STRING ARRAY seenns;
+  //FIXME softreset or something should warn about duplicata namespaces, but we can't handle it here because missing 'allcomponents' breaking is too devastating for webhare
+  FOREVERY (RECORD rec FROM GetComponentSources(type))
+    IF(rec.resourcename != "" AND rec.namespace NOT IN skipns AND rec.namespace NOT IN seenns)
+    {
+      INSERT rec.namespace INTO seenns AT END;
+      customxsd := customxsd || `<xs:import namespace="${EncodeValue(rec.namespace)}" schemaLocation="${EncodeValue(rec.resourcename)}"/>`;
+    }
+
+  customxsd := customxsd || '</xs:schema>';
+
+  RETURN StringToBlob(customxsd);
+}
+
+PUBLIC BLOB FUNCTION CanonicalizeWebhareSchemaLocations(BLOB data)
+{
+  OBJECT xmldoc := MakeXMLDocument(data);
+  BOOLEAN regenerate;
+
+  OBJECT ARRAY schemalocations := xmldoc->GetElements("import[schemaLocation]");
+  FOREVERY(OBJECT loc FROM schemalocations)
+  {
+    STRING inputname := loc->GetAttribute("schemaLocation");
+    STRING outputname := Tokenize(inputname,'::')[0] IN ["mod","module","moduleroot","modulescript","moduledata"] ? __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("",inputname) : inputname;
+    IF(outputname = "tollium-dynamic::allcomponents.xsd")
+      outputname := "x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents";
+
+    IF(inputname != outputname)
+    {
+      loc->SetAttribute("schemaLocation", outputname);
+      regenerate := TRUE;
+    }
+  }
+
+  IF(regenerate)
+    RETURN xmldoc->GetDocumentBlob(FALSE,"UTF-8");
+  RETURN data;
+}
+
+
+PUBLIC STRING FUNCTION GetDefaultIncludeFromScreenPath(STRING resname)
+{
+  IF(resname NOT LIKE "mod::*.xml")
+    THROW NEW Exception("Cannot decode screen path '" || resname || "'");
+
+  STRING name := Substring(resname, 5); //remove modt::
+  STRING modname := Tokenize(name,'/')[0];
+  RETURN "module::" || modname || Substring(name, Length(modname), Length(name) - Length(modname) - 4) || ".whlib";
+}
+
+/** Retrieve a WebHare resource, returning data, path and modification date
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+    @param resourcepath Resource path
+    @cell(boolean) options.allowmissing If set to TRUE, don't throw if the resource doesn't exist but return a DEFAULT RECORD
+    @return Record describing the WebHare resource. Throws a %RetrieveResourceException when the resources doesn't exist (returns
+      DEFAULT RECORD when allowmissing is set to TRUE)
+    @cell(blob) return.data The data
+    @cell(string) return.path Path of the requested resource */
+PUBLIC RECORD FUNCTION RetrieveWebHareResource(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ allowmissing := FALSE ], options);
+  TRY
+  {
+    IF(resourcepath lIKE "x-webhare-builtin-xsd:*")
+    {
+      RETURN [ data := GenerateBuiltinXSD(resourcepath)
+             , path := resourcepath
+             ];
+    }
+
+    IF(resourcepath NOT LIKE "*::*") //definately not a webhare resource
+      THROW NEW RetrieveResourceException(resourcepath, "Illegal path for HareScript resource", DEFAULT RECORD ARRAY);
+
+    //Is this a database path? these must go through a special service to make sure we read the global-visible version, not a local transaction version
+    IF(resourcepath LIKE "site::*" OR resourcepath LIKE "whfs::*")
+    {
+      RETURN RunInSeparatePrimary(PTR LookupGlobalResourceByPath(0, resourcepath, resourcepath));
+    }
+    RETURN LookupGlobalResourceByPath(0, resourcepath, resourcepath);
+  }
+  CATCH(OBJECT<RetrieveResourceException> e)
+  {
+    IF(options.allowmissing)
+      RETURN DEFAULT RECORD;
+    THROW;
+  }
+}
+
+//FIXME make private
+PUBLIC STRING ARRAY FUNCTION GetWebhareResourceEventMasks(STRING inpath)
+{
+  IF (inpath LIKE "x-webhare-builtin-xsd:*")
+    RETURN STRING[];
+
+  STRING ARRAY results;
+  STRING modulepath := GetDiskPathForAsset(inpath, inpath, TRUE);
+  IF (modulepath != "")
+  {
+    // Events for the wh:: namespaces are broadcasted as mod::system/whlibs/...
+    IF (modulepath LIKE "wh::*")
+      modulepath := "mod::system/whlibs/" || SubString(modulepath, 4);
+
+    modulepath := "system:modulefolder." || modulepath;
+    INTEGER idx := SearchLastSubstring(modulepath, "/");
+    IF (idx = -1)
+      RETURN DEFAULT STRING ARRAY;
+
+    modulepath := Left(modulepath, idx + 1);
+    INSERT modulepath INTO results AT END;
+    RETURN results;
+  }
+
+  RECORD rec := LookupGlobalResourceByPath(0, inpath, inpath, TRUE);
+  IF (RecordExists(rec) AND CellExists(rec,'info'))
+  {
+    INTEGER folder := rec.info.isfolder ? rec.info.id : rec.info.parent;
+    INSERT "system:whfs.folder." || folder INTO results AT END;
+  }
+
+  RETURN results;
+}
+
+/** Returns the events that will be sent when a WebHare resource is modified
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+    @param inpaths The resources to monitor
+    @return Event names
+*/
+PUBLIC STRING ARRAY FUNCTION GetResourceEventMasks(STRING ARRAY inpaths)
+{
+  STRING ARRAY masks;
+  FOREVERY(STRING path FROM inpaths)
+  {
+    /* ignore exceptions from GetWebhareResourceEventMasks - its embedded GetDiskPathForAsset can throw, but generally noone
+       is prepared to deal with exceptions at such a point, nor do they really care (in fact, if they're passing eg a
+       nonexisting module to getdiskpathforasset which would throw, they probably instead want to wait for this module
+       to reapper in their event masks*/
+    TRY
+    {
+      FOREVERY(STRING mask FROM GetWebhareResourceEventMasks(path))
+        IF(mask NOT IN masks)
+          INSERT mask INTO masks AT END;
+    }
+    CATCH ;
+  }
+
+  RETURN masks;
+}
+
+PUBLIC RECORD FUNCTION OpenXMLDoc(STRING path, BOOLEAN _isschema)
+{
+  RECORD fileinfo := RetrieveWebHareResource(path);
+  RECORD doc := GetAdhocCached([ _isschema := _isschema
+                               , path := path
+                               ], PTR GetCacheableXMLDoc(_isschema, path));
+
+  RETURN [ doc := doc.doc
+         , path := path
+         , files := doc.files
+         ];
+}
+
+PUBLIC RECORD FUNCTION WebHareDynamicLoader(STRING url, STRING id)
+{
+  IF(url LIKE "moduleroot::*" OR url LIKE "moduledata::*")
+    url := MakeAbsoluteResourcePath("", url);
+  IF(url LIKE "mod::*")
+  {
+    RECORD res := RetrieveWebhareResource(url);
+    RETURN [ success := TRUE, data := CanonicalizeWebhareSchemaLocations(res.data) ];
+  }
+  RETURN [ success := FALSE ];
+}
+
+RECORD FUNCTION GetCacheableXMLDoc(BOOLEAN _isschema, STRING resourcepath)
+{
+  RECORD ARRAY files;
+  RECORD res := RetrieveWebhareResource(resourcepath);
+
+  // Not in cache: read from file and parse it
+  BLOB data := res.data;
+  files := [ [ path := resourcepath ] ];
+
+  OBJECT doc;
+  IF (_isschema)
+  {
+    OBJECT domimpl := NEW XMLDomImplementation;
+    data := CanonicalizeWebhareSchemaLocations(data);
+    domimpl->RegisterEntityLoader(PTR WebHareDynamicLoader(#1, #2));
+    doc := domimpl->MakeXMLSchema(data, "", TRUE);
+
+    files := files CONCAT doc->referencedfiles;
+  }
+  ELSE
+  {
+    doc := MakeXMLDocument(data, "", TRUE);
+  }
+
+  IF(ObjectExists(doc))
+  {
+    RECORD ARRAY errors := doc->GetParseErrors();
+    IF(Length(errors)>0)
+      THROW NEW RetrieveResourceException(resourcepath, "", (SELECT *, resourcename := resourcepath FROM errors));
+  }
+
+  RETURN [ ttl := 60 * 60 * 1000
+         , value := [ doc := ObjectExists(doc) AND ObjectExists(doc->documentelement) ? doc : DEFAULT OBJECT
+                    , files := files
+                    ]
+         , eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM files)
+         ];
+}
+
+/** Returns whether a resource path is an absolute path
+    @param base Resource path to test
+    @return TRUE if the resource path is an absolute path
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+*/
+PUBLIC BOOLEAN FUNCTION IsAbsoluteResourcePath(STRING base)
+{
+  IF(base LIKE "x-webhare-builtin-xsd:*") //this is a bit of a hack, but '::' doesn't pass the valid URI check... so....
+    RETURN TRUE;
+
+  RETURN base LIKE "?*::?*"
+         AND Tokenize(base,'::')[0] IN ["mod","module","moduleroot","moduledata","modulescript"
+                                       ,"inline","inline-base64","site","whfs","direct","wh","test","whres"
+                                       ];
+}
+
+PUBLIC STRING FUNCTION MakeLegacyAbsoluteResourcePath(STRING base, STRING subpath, STRING legacypath)
+{
+  IF(IsAbsoluteResourcePath(subpath))
+    RETURN subpath;
+
+  //Try the legacypath first, because errors should mention the primary name (ADDME log warning?)
+  STRING trypath := "mod::" || GetModuleNameFromResourcePath(base) || "/" || legacypath || "/" || subpath;
+  IF(RecordExists(RetrieveWebHareResource(trypath, [ allowmissing := TRUE])))
+    RETURN trypath;
+
+  RETURN MakeAbsoluteResourcePath(base,subpath);
+}
+
+/** Resolves a (relative) resource path relative to a base path
+    @param base Base resource path
+    @param subpath Resource path to resolve
+    @return Resolved resource path
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+*/
+PUBLIC STRING FUNCTION MakeAbsoluteResourcePath(STRING base, STRING subpath)
+{
+  IF(subpath LIKE "inline::*" OR subpath LIKE "inline-base64::*" OR subpath LIKE 'x-webhare-builtin-xsd:*')
+    RETURN subpath; //__HS_INTERNAL_RESOLVEABSOLUTELIBRARY cannot (yet) handle this!
+  IF(IsAbsoluteResourcePath(subpath))
+    RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", subpath);
+
+  //ADDME shift more work to __HS_INTERNAL_RESOLVEABSOLUTELIBRARY - it should be able to completely implement us?
+  IF(base="")
+    THROW NEW Exception("Cannot make an absolute resource path for '" || subpath || "' if invoked without a base path");
+  IF(NOT IsAbsoluteResourcePath(base))
+    THROW NEW Exception("Cannot make an absolute resource path if our base path '" || base || "' is not absolute");
+  IF(subpath="")
+    RETURN subpath;
+
+  STRING append;
+  INTEGER hashpos := SearchSubstring(subpath, '#');
+  IF(hashpos >= 0)
+  {
+    append := Substring(subpath, hashpos);
+    subpath := Left(subpath, hashpos);
+  }
+
+  // Get the base part we want to protect ("wh::"" or "mod::<modulename>/")
+  STRING basepart;
+  IF (base LIKE "wh::*" OR base LIKE "whres::*")
+    basepart := Left(base, SearchSubstring(base, ":") + 2);
+  ELSE
+    basepart := Left(base || "/", SearchSubstring(base || "/", "/") + 1);
+
+  // Ensure the base path starts with '/', strip the last non-directory component
+  STRING path := "/" || Substring(base, LENGTH(basepart));
+  IF (path NOT LIKE "*/")
+    path := Left(path, SearchLastSubstring(path, "/") + 1);
+
+  // Merge the relative path (if starting with '/', merge to '/')
+  IF (subpath != '.')
+  {
+    STRING mergeroot := subpath LIKE "/*" ? "/" : path;
+    path := MergePath(mergeroot, subpath);
+    IF (subpath LIKE "*..*" AND MergePath("/canary" || mergeroot, subpath) != "/canary" || path)
+      THROW NEW Exception(`Cannot resolve an absolute resource path for '${subpath}' that tries to escape from the base folder of '${base}'`);
+
+    // MergePath eats the last '/' from subpath, add it if needed
+    IF (subpath LIKE "*/" AND path NOT LIKE "*/")
+      path := path || "/";
+  }
+
+  // Ignore the starting slash from path
+  RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", basepart || SubString(path, 1) || append);
+}
+
+/** Returns the module name from a resource path
+    @param path Resource path (eg mod::system/lib/resources.whlib)
+    @return Module name
+    @topic modules/resources
+    @public
+    @loadlib mod::system/lib/resources.whlib
+*/
+PUBLIC STRING FUNCTION GetModuleNameFromResourcePath(STRING path)
+{
+  IF(path NOT LIKE "mod::*/*" AND path NOT LIKE "moduleroot::*/*" AND path NOT LIKE "module::*/*" AND path NOT LIKE "moduledata::*/*")
+    RETURN "";
+  RETURN Tokenize(Tokenize(path, '::')[1],'/')[0];
+}
+
+PUBLIC OBJECT FUNCTION GetWebhareXMLDOMImplementation()
+{
+  OBJECT domimpl := NEW XMLDOMImplementation;
+  domimpl->RegisterEntityLoader(PTR WebHareDynamicLoader(#1,#2));
+  RETURN domimpl;
+}
+
+PUBLIC STRING FUNCTION MakeAbsoluteScreenReference(STRING baseresource, STRING screenref)
+{
+  IF(screenref = "")
+    RETURN "";
+
+  IF(baseresource LIKE "moduledata::*" OR baseresource LIKE "module::*")
+    THROW NEW Exception("Invalid prefix '" || baseresource || "' - a screen context should use moduleroot:: resource names");
+
+  IF(screenref LIKE "*::*") //absolute - we need an early return because MakeAbsoluteResourcePath does not accept empty baseresources
+    RETURN MakeAbsoluteResourcePath("", screenref);
+
+  //this is a relative screenref. fix it!
+  IF(screenref LIKE "*:*.*")
+  {
+    STRING module := Tokenize(screenref,':')[0];
+    STRING screenname := Tokenize(screenref,':')[1];
+    STRING filepath := Tokenize(screenname,'.')[0];
+    STRING fileremainder := Tokenize(screenname,'.')[1];
+    RETURN "mod::" || module || "/screens/" || filepath || ".xml#" || fileremainder;
+  }
+
+  IF(screenref NOT LIKE "./*" AND screenref NOT LIKE "../*")
+  {
+    IF(screenref LIKE ".*" OR screenref LIKE "#*") //relative to current resource. baseresource is eg modulescreens::publisher/a/b/c
+    {
+      IF(baseresource="")
+        THROW NEW Exception("Cannot interpret screenref '" || screenref || "' without a baseresource");
+      RETURN MakeAbsoluteResourcePath("", Tokenize(baseresource,'#')[0] || "#" || Substring(screenref,1));
+    }
+
+    IF(screenref LIKE "*.*" AND screenref NOT LIKE "*#*") //assume a "x.y" link
+    {
+      IF(baseresource="")
+        THROW NEW Exception("Cannot interpret screenref '" || screenref || "' without a baseresource");
+      STRING filepath := Tokenize(screenref,'.')[0];
+      STRING fileremainder := Tokenize(screenref,'.')[1];
+      RETURN "mod::" || GetModuleNameFromResourcePath(baseresource) || "/screens/" || filepath || ".xml#" || fileremainder;
+    }
+  }
+
+  IF(screenref NOT LIKE "*#*")
+    THROW NEW Exception("Invalid screen reference '" || screenref || "'");
+
+  RETURN MakeAbsoluteResourcePath(baseresource, screenref);
+}
+
+STRING FUNCTION GetFilenamePath(STRING filename)
+{
+  RETURN (filename LIKE "*::*" ? GetDiskPathForAsset(filename, "", FALSE) : "") ?? filename;
+}
+
+/** Format HareScript errors just like runscript would
+    @param hserrors Errors to format (may include a stack trace)
+    @return Formatted errors as text, terminated by a newline. Empty string if there were no errors*/
+PUBLIC STRING FUNCTION FormatHarescriptErrors(RECORD ARRAY hserrors)
+{
+  STRING text;
+  RECORD ARRAY messages := SELECT * FROM hserrors WHERE code >= 0;
+  RECORD ARRAY trace := SELECT * FROM hserrors WHERE code < 0;
+
+  FOREVERY(RECORD msg FROM messages)
+  {
+    text := `${text}${GetFilenamePath(msg.filename)}:${msg.line}:${msg.col}: ${GetHareScriptMessageText(msg.iserror, msg.code, msg.param1, msg.param2)}\n`;
+  }
+  IF(Length(trace)>0)
+  {
+    text := text || "\n" || FormatHarescriptStackTrace(trace);
+  }
+  RETURN text;
+}
+
+/** Format a HareScript stack trace just like runscript would
+    @param trace Trace to format
+    @return Formatted stack trace */
+PUBLIC STRING FUNCTION FormatHarescriptStackTrace(RECORD ARRAY trace)
+{
+  STRING text;
+
+  FOREVERY(RECORD msg FROM trace)
+    text := `${text}${GetFilenamePath(msg.filename)}:${msg.line}:${msg.col}: Called from ${msg.func}\n`;
+
+  RETURN text;
+}
+

@@ -1,0 +1,24 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/networking/smb.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "server", type := "param", required := true ]
+    , [ name := "share", type := "param", required := true ]
+    , [ name := "path", type := "param", required := true ]
+    , [ name := "user", type := "stringopt" ]
+    , [ name := "password", type := "stringopt" ]
+    , [ name := "d", type := "switch" ]
+    ]);
+
+OBJECT conn := MakeSmbConnection(args.server, args.user, args.password);
+IF(args.d)
+  conn->debug := TRUE;
+
+BLOB data := conn->Getfile(args.share, args.path);
+STRING outputname := GetNameFromPath(args.path);
+STRING outputpath := MergePath(GetCurrentPath(), outputname);
+StoreDiskFile(outputpath, data);
+Print(`Downloaded '${outputname}' as '${outputpath}'\n`);

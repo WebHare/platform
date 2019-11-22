@@ -1,0 +1,147 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="settings.whlib"
+         xmlns:s="http://www.webhare.net/xmlns/system/components"
+         gid="tolliumapps.config.settings">
+
+  <screen name="settings" minwidth="450px">
+    <actions>
+      <windowopenaction name="registergeonames" onwindowopen="doregistergeonames" />
+    </actions>
+    <compositions>
+      <radiogroup name="displaytype"/>
+      <s:registrynode name="modulemgr" node="system.modulemgr" />
+      <s:registrynode name="tweaks" node="system.webserver.global" />
+      <s:registrynode name="tasks" node="system.tasks" />
+      <s:registrynode name="smtp" node="system.services.smtp" />
+      <s:registrynode name="geonames" node="system.services.geonames" />
+      <s:registrynode name="proxy" node="system.webserver.global.proxyservers" />
+      <s:registrynode name="security" node="system.webserver.security" />
+      <s:registrynode name="wrdglobalconfig" node="wrd.globalconfig" />
+    </compositions>
+    <body height="1pr" spacers="none">
+      <tabs name="tabs">
+        <tab tid=".branding">
+          <grid>
+            <col/>
+            <col width="1pr"/>
+            <row>
+              <cell>
+                <radiobutton group="displaytype" rowkey="displayname" enablecomponents="displayname" labeltid=".displayname"/>
+              </cell>
+              <cell>
+                <textedit name="displayname" title="" width="1pr" errorlabeltid=".displayname"/>
+              </cell>
+            </row>
+            <row>
+              <cell>
+                <radiobutton group="displaytype" rowkey="displayimage" enablecomponents="displayimage" labeltid=".displayimage"/>
+              </cell>
+              <cell>
+                <imgedit name="displayimage" title="" width="1pr" height="5gr" errorlabeltid=".displayimage" required="true"/>
+              </cell>
+            </row>
+          </grid>
+          <heading tid=".dashboardbackground"/>
+          <imgedit name="dashboardbackground" title="" width="1pr" height="7gr" allowedactions="all refpoint" />
+        </tab>
+        <tab tid=".login">
+          <heading tid=".logindialog"/>
+          <textedit name="infotitle" tid=".infotitle" width="1pr" />
+          <textarea name="infotext" tid=".infotext" width="1pr" />
+          <heading tid=".dashboardbackground"/>
+          <line layout="left">
+            <imgedit name="loginbackground" width="1pr" height="1pr" allowedactions="all refpoint" title=""/>
+          </line>
+        </tab>
+        <tab tid=".server">
+          <heading tid=".identity"/>
+          <select name="webhareurl" type="pulldown" rowkeytype="integer" />
+          <textedit name="servername" required="true" />
+          <select name="servertype" type="pulldown">
+            <option rowkey="production" />
+            <option rowkey="acceptance" />
+            <option rowkey="test" />
+            <option rowkey="development" />
+          </select>
+          <heading tid=".harescript"/>
+          <line>
+            <textedit composition="tweaks" cellname="scripttimeout" valuetype="integer" width="8x" tid=".scripttimeout" />
+            <text title="" valuetid="~units.seconds"/>
+          </line>
+          <line>
+            <textedit composition="tweaks" cellname="historyseconds" valuetype="integer" width="8x"  tid=".processhistory" /> <!-- title="Nr of seconds to keep process history" /-->
+            <text title="" valuetid="~units.seconds"/>
+          </line>
+          <heading tid=".geonames"/>
+          <line layout="left">
+            <text title="" valuetid=".geonamesinfo" wordwrap="true" />
+          </line>
+          <textedit composition="geonames" cellname="accountname" />
+          <line layout="left">
+            <text title="" valuetid=".registergeonames" action="registergeonames" wordwrap="true" />
+          </line>
+        </tab>
+        <tab tid=".security">
+          <line layout="left">
+            <checkbox name="allowpasswordreset" title="" labeltid=".allowpasswordreset" />
+          </line>
+          <line layout="left">
+            <checkbox composition="security" cellname="autodenyipv6" title="" labeltid=".autodenyipv6" /> <!-- "Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" /-->
+          </line>
+          <textedit name="checkipallowmask" width="1pr" />
+          <line>
+            <textedit composition="security" cellname="fullaccessips" tid=".fullaccessips" /><!-- title="List of IP addresses that bypass access rule login requirements, comma-separated" /-->
+            <text title="" valuetid=".commaexplain"/>
+          </line>
+          <heading tid="~advanced" />
+          <line>
+            <textedit composition="proxy" cellname="trustxforwardedfor" width="1pr" tid=".trustxforwarded" /> <!--"A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" / -->
+            <text title="" valuetid=".commaexplain"/>
+          </line>
+          <textedit composition="security" cellname="ciphersuite" tid=".overrideopenssl" width="1pr" /> <!-- title="Override OpenSSL ciphersuite list for webserver listening ports" /-->
+          <heading tid=".securitykeys"/>
+          <textedit composition="security" cellname="cachesecret" width="1pr"/> <!-- title="Secret key used to sign image cache URLs" / -->
+          <textedit composition="security" cellname="cookiesecret" width="1pr"/> <!-- title="Secret key used to encrypt/sign cookies" / -->
+          <textedit composition="security" cellname="elasticsecret" width="1pr"/> <!-- title="Secret key used for Elasticsearch" / -->
+        </tab>
+        <tab tid=".archiving">
+          <line>
+            <textedit composition="modulemgr" cellname="archivedays" valuetype="integer" width="6x" />
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <heading tid=".logfiles" />
+          <line>
+            <textedit composition="tweaks" cellname="accesslogdays" valuetype="integer" tid=".accesslog" width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <line>
+            <textedit composition="tweaks" cellname="errorlogdays" valuetype="integer" tid=".errorlog"  width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <line>
+            <textedit composition="tweaks" cellname="usagelogdays" valuetype="integer" tid=".usagelog"  width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <line>
+            <textedit composition="wrdglobalconfig" cellname="keepauditlogdays" valuetype="integer" tid=".wrdauditlogdays"  width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <heading tid=".tasks" />
+          <line>
+            <textedit composition="tasks" cellname="finishedretention" valuetype="integer" tid=".tasksfinishedretention"  width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <line>
+            <textedit composition="smtp" cellname="mailretention" valuetype="integer" width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+        </tab>
+      </tabs>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel"/>
+    </footer>
+  </screen>
+
+
+</screens>

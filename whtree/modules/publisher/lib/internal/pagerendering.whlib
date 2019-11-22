@@ -1,0 +1,231 @@
+<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/remoting/support.whlib";
+LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+
+RECORD FUNCTION InvokeWebpageFunctionWCS(INTEGER fileid, OBJECT pageobject, STRING method, VARIANT ARRAY args)
+{
+  MACRO PTR func := GetObjectMethodPtr(pageobject, "WCS_" || method);
+  OBJECT wdpr := NEW WebContext;
+  OBJECT applytester := GetApplyTesterForObject(fileid);
+  wdpr->__SetObjectId(fileid, applytester);
+  wdpr->__SetAvailablePlugins(applytester->GetWebDesignPlugins());
+  wdpr->baseurl := GetRequestURL();
+
+  IF(NOT (pageobject EXTENDSFROM WebPageBase))
+  {
+    INSERT wdpr INTO args AT 0;
+  }
+
+  RETURN DoCheckedVarArgsCall(func, args, method);
+}
+
+RECORD FUNCTION InvokeWebpageFunctionWDS(INTEGER fileid, OBJECT pageobject, STRING method, VARIANT ARRAY args)
+{
+  MACRO PTR func := GetObjectMethodPtr(pageobject, "WDS_" || method);
+  OBJECT webdesign;
+  IF(NOT (pageobject EXTENDSFROM WebPageBase))
+  {
+    webdesign := GetWebDesign(fileid);
+    IF(NOT ObjectExists(webdesign))
+      THROW NEW Exception("Unable to locate the <webdesign> for fsobject #" || fileid);
+
+    INSERT webdesign INTO args AT 0;
+    pageobject->PrepareForRendering(webdesign);
+  }
+  ELSE
+  {
+    webdesign := pageobject->webdesign;
+  }
+
+  RECORD pageconfig := webdesign->__GetFinalPageConfig(DEFAULT FUNCTION PTR);
+  RETURN webdesign->pagewitty->CallWithScope(PTR DoCheckedVarArgsCall(func, args, method), pageconfig);
+}
+
+MACRO SetupWebDesignForWebPageBase(INTEGER fileid, INTEGER contentobjectid)
+{
+  OBJECT applytester := GetApplyTesterForObject(fileid);
+  IF (NOT ObjectExists(applytester))
+    THROW NEW Exception("No such fsobject #" || fileid);
+
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF(NOT RecordExists(webdesigninfo))
+    THROW NEW Exception("Unable to locate the <webdesign> for fsobject #" || fileid);
+
+  INSERT CELL webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, contentobjectid != 0 AND contentobjectid != fileid ? OpenWHFSObject(contentobjectid) : DEFAULT OBJECT, DEFAULT OBJECT, FALSE) INTO __pageinfo;
+  __pageinfo.webdesign->__is_newstyle_pageobject := TRUE;
+}
+
+OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servicecall, INTEGER contentobjectid)
+{
+  SetupWebDesignForWebPageBase(fileid, contentobjectid);
+
+  OBJECT pageobject := MakeFunctionPTR(redirectinfo.routerfunction, TYPEID(OBJECT), [TYPEID(OBJECT)])(__pageinfo.webdesign);
+  IF(NOT ObjectExists(pageobject))
+    AbortWithHTTPError(404);
+  IF(NOT (pageobject EXTENDSFROM WebPageBase))
+    THROW NEW Exception("Pages returned by a routerfunction should derive from WebPageBase");
+
+  __pageinfo.webdesign->__PostPreparePage(pageobject, servicecall);
+  RETURN pageobject;
+}
+
+BOOLEAN FUNCTION ValidateLibrary(STRING libname)
+{
+  RECORD libstatus := GetHarescriptLibraryInfo(libname);
+  IF(Length(libstatus.errors) = 0)
+    RETURN TRUE;
+
+  // This route doesn't set status 500, do it manually here. GenerateHTTPErrorPage expects it set.
+  AddHTTPHeader("Status", "500 Internal server error", FALSE);
+  LogHarescriptErrors(libstatus.errors);
+  GenerateHTTPErrorPage(500, [ allerrors := libstatus.errors, groupid := GetCurrentGroupId() ]
+                       );
+  RETURN FALSE;
+}
+
+PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid)
+{
+  //Validate both libraries
+  IF(redirectinfo.startlibrary != "" AND NOT ValidateLibrary(redirectinfo.startlibrary))
+    RETURN DEFAULT OBJECT;
+  IF(redirectinfo.webpagelibrary != "" AND redirectinfo.webpagelibrary != redirectinfo.startlibrary AND NOT ValidateLibrary(redirectinfo.webpagelibrary))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT pageobject;
+  MACRO PTR pagemacro;
+  BOOLEAN isjsonrpc := IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),";")[0] = "application/json";
+
+  INSERT CELL pagefolder := GetDirectoryFromPath(redirectinfo.webpagelibrary ?? redirectinfo.startlibrary) INTO __pageinfo; //FIXME we have Resolve, don't use pagefolder, deprecate it!
+
+  IF(redirectinfo.routerfunction != "")
+  {
+    pageobject := ExecuteRouter(fileid, redirectinfo, isjsonrpc, contentobjectid);
+  }
+  ELSE IF(redirectinfo.startlibrary="" AND redirectinfo.webpagelibrary="")
+  {
+  }
+  ELSE IF(redirectinfo.startmacro != "" AND NOT isjsonrpc) //startmacro takes precedence over webpageobjectname
+  {
+    pagemacro := MakeFunctionPTR(redirectinfo.startlibrary, redirectinfo.startmacro, 0, DEFAULT INTEGER ARRAY);
+  }
+  ELSE IF(redirectinfo.webpageobjectname != "")
+  {
+    //we need to invoke SetupWebDesignForWebPageBase for WebPageBase but it's a waste of time for DynamicPageBase.. so delay it
+    INSERT CELL __instantiatedesign := PTR SetupWebDesignForWebPageBase(fileid, contentobjectid) INTO __pageinfo;
+    pageobject := MakeObject(redirectinfo.webpagelibrary, redirectinfo.webpageobjectname);
+
+    IF(pageobject EXTENDSFROM WebPageBase) //modern
+    {
+      __pageinfo.webdesign->__PostPreparePage(pageobject, isjsonrpc);
+    }
+    ELSE IF(NOT pageobject EXTENDSFROM DynamicPageBase)
+      THROW NEW Exception(`The specified object '${redirectinfo.webpageobjectname}' does not derive from DynamicPageBase or WebPageBase`);
+
+  }
+  ELSE //autodetect
+  {
+    TRY
+    {
+      pageobject := MakeObject(redirectinfo.webpagelibrary, "DynamicPage");
+      IF(NOT pageobject EXTENDSFROM DynamicPageBase)
+        THROW NEW Exception("The object 'DynamicPage' does not derive from DynamicPageBase");
+    }
+    CATCH(OBJECT page_exception)
+    {
+      IF (ToUppercase(page_exception->what) NOT LIKE "THERE WAS NO PUBLIC OBJECTTYPE 'DYNAMICPAGE' *")
+        THROW;
+
+      TRY
+      {
+        pagemacro := MakeFunctionPTR(redirectinfo.startlibrary, "RunDynamicPage", 0, DEFAULT INTEGER ARRAY);
+      }
+      CATCH (OBJECT macro_exception)
+      {
+        IF(ToUppercase(macro_exception->what) NOT LIKE "FUNCTION 'RUNDYNAMICPAGE' WAS NOT FOUND IN LIBRARY *")
+          THROW;
+        THROW NEW Exception("<webdesign> shtml files must declare a PUBLIC OBJECTTYPE DynamicPage or PUBLIC MACRO RunDynamicPage");
+      }
+    }
+  }
+
+  IF (isjsonrpc)
+  {
+    IF(NOT ObjectExists(pageobject))
+      THROW NEW Exception("JSON/RPC calls are only permitted to dynamic pages using an object derived from DynamicPageBase");
+
+    OBJECT transport := GetTransportFromRequest(DEFAULT BLOB, "application/json", FALSE);
+    RECORD reqdata := transport->DecodeRequest(GetRequestBody(),"");
+    RECORD encoded_result;
+
+    TRY
+    {
+      RECORD rpcresult;
+      STRING method := ToUppercase(reqdata.functionname);
+
+      IF(GetMemberType(pageobject, "WCS_" || method) = "FUNCTION")
+      {
+        rpcresult := InvokeWebpageFunctionWCS(fileid, pageobject, method, reqdata.args);
+      }
+      ELSE IF(GetMemberType(pageobject, "WDS_" || method) = "FUNCTION")
+      {
+        rpcresult := InvokeWebpageFunctionWDS(fileid, pageobject, method, reqdata.args);
+      }
+
+      IF(RecordExists(rpcresult))
+        encoded_result := transport->EncodeResponse(rpcresult.is_macro, rpcresult.result, GetCurrentGroupId(), reqdata.requesttoken);
+      ELSE
+        encoded_result := transport->EncodeMissingFunction(method, reqdata.requesttoken);
+    }
+    CATCH (OBJECT e)
+    {
+      IF (e NOT EXTENDSFROM RPCInvalidArgsException)
+        LogHarescriptException(e);
+
+      encoded_result := transport->EncodeException(e, reqdata.requesttoken);
+    }
+
+    FOREVERY (RECORD header FROM encoded_result.headers)
+      AddHTTPHeader(header.field, header.value, FALSE);
+
+    SendWebFile(encoded_result.data); //clears any earlier printed data (debug leaks?) and sends the blob
+    RETURN pageobject;
+  }
+
+  IF(ObjectExists(pageobject) AND NOT MemberExists(pageobject, "__is_newstyle_pagebase"))
+  {
+    pageobject->RunPageForWHFSId(fileid);
+    RETURN pageobject;
+  }
+  ELSE IF(pagemacro != DEFAULT MACRO PTR)
+  {
+    pagemacro();
+    RETURN DEFAULT OBJECT;
+  }
+  ELSE IF (CellExists(__pageinfo, "webdesign") AND ObjectExists(__pageinfo.webdesign))
+  {
+    __pageinfo.webdesign->RunPage();
+    RETURN pageobject;
+  }
+  ELSE
+  {
+    // Possibly a prepublished page, just run it
+    OBJECT webdesign := GetWebDesign(fileid);
+    webdesign->RunPage();
+    RETURN DEFAULT OBJECT;
+  }
+}
+

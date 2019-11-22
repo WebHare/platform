@@ -1,0 +1,147 @@
+﻿<?wh
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+BOOLEAN showdebuglog;// := TRUE;
+
+PUBLIC OBJECTTYPE DBContent EXTEND CustomContentBase
+< // ---------------------------------------------------------------------------
+  //
+  // CustomContentBase API
+  //
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RECORD ARRAY mapping := this->defaultmapping CONCAT
+        [ [ name := "_body",         suggested := TRUE ]
+        , [ name := "initialfilter", value := "", tokenized := FALSE ]
+        , [ name := "date_adate",    value := DEFAULT DATETIME ]
+        ];
+    RETURN mapping;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForIndexing()
+  {
+    OpenPrimary();
+    IF (showdebuglog)
+      LogDebug("DBContent", "PrepareForIndexing");
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
+  {
+    RECORD result :=
+        [ status := "result"
+        , groups :=
+              SELECT DISTINCT id := groupid
+                FROM webhare_testsuite.consilio_index
+        ];
+    IF (showdebuglog)
+      LogDebug("DBContent", "ListGroups", indexdate, result);
+    RETURN result;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ListObjects(DATETIME indexdate, STRING groupid)
+  {
+    RECORD ARRAY objects :=
+        SELECT *
+          FROM webhare_testsuite.consilio_index
+          WHERE COLUMN groupid = VAR groupid;
+
+    RECORD result;
+    IF (RecordExists(SELECT FROM objects WHERE spiderfrom != 0))
+    {
+      // Group with spidering: no requiredindexdates!
+      result :=
+          [ status := "result"
+          , objects :=
+                SELECT id :=                  objectid
+                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
+                  FROM objects
+                 WHERE spiderfrom = 0
+          ];
+    }
+    ELSE
+    {
+      result :=
+          [ status := "result"
+          , objects :=
+                SELECT id :=                  objectid
+                     , requiredindexdate :=   grouprequiredindexdate
+                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
+                  FROM objects
+          ];
+    }
+    IF (showdebuglog)
+      LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
+    RETURN result;
+  }
+
+
+  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME indexdate, STRING groupid, STRING objectid)
+  {
+    IF (objectid LIKE "*fromlist*")
+    {
+      RECORD retval := this->FetchObjectFromObjectList(indexdate, groupid, objectid);
+      IF (CellExists(retval, "DOCUMENT_FIELDS"))
+        retval.document_fields.datafrom := "fetchfromlist-" || retval.document_fields.datafrom;
+      RETURN retval;
+    }
+
+    RECORD rec :=
+        SELECT *
+          FROM webhare_testsuite.consilio_index
+         WHERE COLUMN groupid = VAR groupid
+               AND COLUMN objectid = VAR objectid;
+
+    IF(NOT RecordExists(rec))
+    {
+      RECORD result :=
+          [ status := "notfound"
+          , error := "beta object " || EncodeJava(groupid) || ":" || EncodeJava(objectid) || " not found"
+          ];
+      IF (showdebuglog)
+        LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+      RETURN result;
+    }
+
+    IF (rec.text = "THROW")
+      THROW NEW Exception("THROWN");
+    IF (rec.text = "CRASH")
+      THROW NEW Exception("BETATEST-CRASH");
+    IF (rec.text = "ABORT")
+      ABORT("ABORT");
+
+    RECORD result :=
+        [ status :=              "result"
+        , ...this->GetObjectData(rec, "fetch")
+        ];
+
+    IF (showdebuglog)
+      LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+    RETURN result;
+  }
+
+  RECORD FUNCTION GetObjectData(RECORD rec, STRING datafrom)
+  {
+    RETURN
+        [ document_body :=       rec.text
+        , document_fields :=
+              [ date_adate :=    rec.adate
+              , initialfilter := "obj://" || rec.groupid || "/" || rec.objectid
+              , indexed_by :=    ToString(this->contentsourceid)
+              , datafrom :=      datafrom
+              ]
+        , indexdate :=           rec.indexdate
+        , requiredindexdate :=   rec.objectrequiredindexdate
+        , objects :=             (SELECT id := consilio_index.objectid
+                                       , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(consilio_index, "fetch-list") ] : CELL[])
+                                    FROM webhare_testsuite.consilio_index
+                                   WHERE spiderfrom = rec.id)
+        ];
+  }
+>;

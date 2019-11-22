@@ -1,0 +1,10 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+//Cleanup the physical tmp
+STRING tmpfolder := GetTempDir();
+RECORD ARRAY toooldfiles := SELECT * FROM ReadDiskDirectory(tmpfolder,"*") WHERE modified < AddDaysToDate(-2, GetCurrentDatetime());
+FOREVERY(RECORD file FROM toooldfiles)
+  DeleteDiskDirectoryRecursive(file.path);
+

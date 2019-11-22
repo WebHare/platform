@@ -1,0 +1,105 @@
+<?wh
+
+
+/** Genering reordering functions
+    @param reorderrows Rows to reorder, ordered by current ordering
+    @param rowkeycell Cell with the key 'tomove' and 'insertbefore' refer to.
+    @param tomove Key of row / list of keys of rows to move
+    @param whereto Where to move to ('begin', 'end', 'up', 'down', 'position')
+    @param options
+    @cell options.positionkey key of row to move to in move mode 'position'
+    @cell options.coalesce Coalesce all moved rows into one block (defaults to TRUE)
+    @cell options.outputname Cell to place the new ordering in (default: 'wrd_ordering')
+    @cell options.rowkeyname Name of field containing the insertion key, defaults to 'rowkey'
+    @return Reordered rows
+    @cell return.wrd_ordering New ordering
+*/
+PUBLIC RECORD ARRAY FUNCTION ReorderRows(RECORD ARRAY reorderrows, VARIANT tomove, STRING whereto, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ positionkey :=  0
+      , rowkeyname :=   "rowkey"
+      , coalesce :=     TRUE
+      , outputname :=   "ordering"
+      ], options,
+      [ notypecheck :=  [ "positionkey" ]
+      , optional :=     [ "positionkey" ]
+      ]);
+
+  IF (whereto NOT IN [ "up", "down", "begin", "end", "position" ])
+    THROW NEW Exception(`Illegal value ${whereto} for 'whereto' parameter`);
+
+  IF (NOT IsTypeidArray(TypeID(tomove)))
+    tomove := RepeatElement(tomove, 1);
+
+  reorderrows :=
+      SELECT rowkey :=    GetCell(reorderrows, options.rowkeyname)
+           , data :=      reorderrows
+           , ordering :=  0
+           , orgpos :=    #reorderrows
+        FROM reorderrows;
+
+  INTEGER splitposition, diff;
+  IF (whereto IN [ "up", "down" ])
+  {
+    splitposition := SELECT AS INTEGER #reorderrows FROM reorderrows WHERE rowkey IN tomove;
+    diff := whereto = "up" ? -1 : 1;
+  }
+  ELSE IF (whereto = "begin")
+    splitposition := 0;
+  ELSE IF (whereto = "end")
+    splitposition := LENGTH(reorderrows);
+  ELSE // whereto = position. positionkey not found: insert at end
+  {
+    IF (NOT CellExists(options, "positionkey"))
+      THROW NEW Exception("Option 'positionkey' is required for move to position");
+
+    RECORD rec := SELECT pos := #reorderrows FROM reorderrows WHERE rowkey = options.positionkey;
+    splitposition := RecordExists(rec) ? rec.pos : LENGTH(reorderrows);
+  }
+
+  INTEGER maxinsertpos := LENGTH(reorderrows);
+  IF (NOT options.coalesce)
+  {
+    // for coalescing, make sure we don't set the insertposition past the point we won't have enough non-moved rows to fill the gaps
+    INTEGER beginmove := SELECT AS INTEGER #reorderrows FROM reorderrows WHERE rowkey IN tomove;
+    INTEGER endmove := SELECT AS INTEGER #reorderrows FROM reorderrows WHERE rowkey IN tomove ORDER BY #reorderrows DESC;
+
+    INTEGER moved := endmove - beginmove + 1;
+    maxinsertpos := maxinsertpos - moved;
+  }
+
+  // Calculate the number of non-moved rows before the moved rows are inserted
+  INTEGER insertpos := LENGTH(SELECT * FROM ArraySlice(reorderrows, 0, splitposition) WHERE rowkey NOT IN tomove) + diff;
+
+  // Don't go outside the min-max, so non-coalesced selections are kept intact
+  IF (insertpos > maxinsertpos)
+    insertpos := maxinsertpos;
+  ELSE IF (insertpos < 0)
+    insertpos := 0;
+
+  INTEGER current := 2;
+  BOOLEAN have_first_moved;
+  FOREVERY (RECORD row FROM reorderrows)
+  {
+    IF (row.rowkey IN tomove)
+    {
+      reorderrows[#row].ordering := insertpos * 2 + 1;
+      have_first_moved := TRUE;
+    }
+    ELSE
+    {
+      reorderrows[#row].ordering := current;
+      current := current + 2;
+      IF (NOT options.coalesce AND have_first_moved)
+        insertpos := insertpos + 1;
+
+    }
+  }
+
+  // reorder the rows, and set the new ordering.
+  reorderrows := SELECT * FROM reorderrows ORDER BY ordering, orgpos;
+
+  // Insert the output column, return in original ordering
+  RETURN SELECT ...data, ...CellInsert(DEFAULT RECORD, options.outputname, #reorderrows + 1) FROM reorderrows ORDER BY orgpos;
+}

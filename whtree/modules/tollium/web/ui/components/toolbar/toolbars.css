@@ -1,0 +1,21 @@
+.wh-holder
+{
+  -webkit-box-sizing: border-box;
+  box-sizing:border-box;
+}
+.wh-toolbar
+{
+}
+.wh-toolbar > *
+{
+  display:none;
+}
+.wh-toolbar > *.open
+{
+  display: block;
+}
+.wh-toolbar-panel > *,
+.wh-toolbar-modalholder > *
+{
+  display: inline-block;
+}

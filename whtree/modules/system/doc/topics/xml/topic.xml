@@ -1,0 +1,6 @@
+<topic xmlns="http://www.webhare.net/xmlns/dev/topic"
+       title="XML">
+  <section name="dom" title="XML DOM and parsing" />
+  <section name="schema" title="XML Schema (XSD) parsing and validation" />
+  <section name="signature" title="XML Signature processing" />
+</topic>

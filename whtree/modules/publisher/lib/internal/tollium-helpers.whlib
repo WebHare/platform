@@ -1,0 +1,806 @@
+﻿<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/support.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+PUBLIC OBJECTTYPE PropertyEditorException EXTEND Exception
+<
+  PUBLIC STRING propertyeditor;
+  PUBLIC STRING siteprofile;
+
+  MACRO NEW(STRING siteprofile, STRING propertyeditor, STRING what)
+  : Exception(what)
+  {
+    this->siteprofile := siteprofile;
+    this->propertyeditor := propertyeditor;
+  }
+>;
+
+
+PUBLIC BOOLEAN FUNCTION IsObjectHiddenForMe(OBJECT user, INTEGER objid)
+{
+  IF(objid IN GetWHFSObjectsToHide(user))
+    RETURN TRUE;
+  IF(user->HasRight("system:supervisor"))
+    RETURN FALSE;
+  INTEGER objtype := SELECT AS INTEGER type FROM system.fs_objects WHERE id=objid;
+  RETURN objtype IN GetCachedSiteProfiles().hiddenfoldertypes;
+}
+STRING FUNCTION CombineOutputFolder(STRING diskfolder, STRING outputfolder, STRING innersite1rootfullpath)
+{
+  RETURN CollapsePath(diskfolder || "/" || outputfolder || "/" || innersite1rootfullpath) || "/";
+}
+
+//Which sites are contained inside the specified folderlist ?
+RECORD ARRAY FUNCTION ContainedOutputs(INTEGER ARRAY folderlist)
+{
+  //Grab the full output folder of every to-be-deleted folder
+  RECORD ARRAY folders := SELECT folderid := fs_objects.id
+                               , diskfolder := webservers.diskfolder
+                               , siteoutputfolder := sites.outputfolder
+                               , fullpath := fs_objects.fullpath
+                               , type := webservers.type
+                            FROM system.fs_objects, system.sites, system.webservers
+                           WHERE fs_objects.id IN folderlist
+                                 AND fs_objects.parentsite = sites.id
+                                 AND sites.outputweb = webservers.id;
+
+  folders := EnrichWebserversWithOutputFolder(folders);
+  folders := SELECT *
+                  , containingfolder := CombineOutputFolder(outputfolder, siteoutputfolder, fullpath)
+               FROM folders
+              WHERE outputfolder != "";
+
+  RECORD ARRAY siteoutputlist := SELECT base := folders.folderid
+                                      , root := sites.root
+                                      , name := sites.name
+                                      , webservers.type
+                                      , webservers.diskfolder
+                                      , folders.containingfolder
+                                      , siteoutputfolder := sites.outputfolder
+                                   FROM system.sites, system.webservers, folders
+                                  WHERE sites.outputweb = webservers.id
+                                        AND sites.root NOT IN folderlist;
+
+  siteoutputlist := EnrichWebserversWithOutputFolder(siteoutputlist);
+  siteoutputlist := SELECT *
+                      FROM siteoutputlist
+                     WHERE siteoutputlist.outputfolder != ""
+                           //webserver should cover this folder
+                           AND ToUppercase(CombineOutputFolder(siteoutputlist.outputfolder, siteoutputfolder, "")) LIKE ToUppercase(siteoutputlist.containingfolder || "*")
+                           ;
+  RETURN SELECT base
+              , root
+              , name
+           FROM siteoutputlist;
+}
+
+
+PUBLIC OBJECTTYPE ObjectDeletedException EXTEND Exception
+< PUBLIC INTEGER objectid;
+  MACRO NEW(INTEGER objectid, STRING message)
+  : Exception(message)
+  {
+    this->objectid := objectid;
+  }
+>;
+
+PUBLIC MACRO DoFSDownload(OBJECT frame, OBJECT fileobj, OBJECT downloadhandler)
+{
+  RECORD props :=
+      [ name :=   fileobj->name
+      , data :=   fileobj->data
+      ];
+
+  // Versioned site, and we have a draft?
+  OBJECT policy := GetVersioningPolicyForFileObject(fileobj);
+  IF (ObjectExists(policy))
+  {
+    OBJECT draft := GetPublicDraft(fileobj->id);
+    IF (ObjectExists(draft))
+    {
+      // There is a draft. See if the 'data' field is versioned for this file. If so, send that one
+      OBJECT filepolicy := policy->EnrichWithObjectPolicy([ [ id := fileobj->id, isfolder := FALSE, published := fileobj->published ]])[0].policy;
+      RECORD fields := filepolicy->Getfields();
+      IF ("data" IN fields.versioned_fields)
+        props.data := draft->fsobject->data;
+
+      // Do not get the 'name' field from the draft
+    }
+  }
+
+  RECORD fileprops := ScanBlob(props.data, props.name);
+  downloadhandler->SendFile(props.data, fileprops.mimetype, props.name);
+}
+
+/** Modifies fields in a live file/draft, based om which fields are versioned. Changes to non-versioned fields
+    are written to the live file, changes to versioned fields to the draft.
+    @param work
+    @param sitepolicy
+    @param file WHFS file/folder
+    @param updates List of updates (specifying publish/published is not allowed in this record)
+    @param options
+    @cell(function ptr) options.modifypublished Callback that is called with the current published status in the draft
+        (or live file if there is no draft). The returned integer is used as new published value
+    @return Update mode
+      'locked': updating a protected field in a draft submitted for approval
+      'readonly': updating a readonly field
+      'live': all updates were for non-versioned fields
+      'draft': one ore more updates updated versioned fields, the draft has been updated/created
+*/
+PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, RECORD updates, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+        [ modifypublished :=    DEFAULT FUNCTION PTR
+        , contenttype_updates := DEFAULT RECORD ARRAY
+        ], options);
+
+  RECORD draftmetadata;
+
+  // Extract modificationdate and modifiedby from updates, apply them
+  RECORD global_updates;
+  IF (CellExists(updates, "MODIFICATIONDATE"))
+    INSERT CELL modificationdate := updates.modificationdate INTO global_updates;
+  IF (CellExists(updates, "MODIFIEDBY"))
+    INSERT CELL modifiedby := updates.modifiedby INTO global_updates;
+  DELETE CELL modificationdate, modifiedby FROM updates;
+
+  IF (CellExists(updates, "PUBLISHED"))
+    THROW NEW Exception("Cannot update metadata field 'published' directly");
+
+  INTEGER new_published := -1;
+
+  // Calculate the new published flag
+  OBJECT publicdraft;
+  IF (ObjectExists(sitepolicy))
+    publicdraft := GetPublicDraft(file->id);
+
+  IF (options.modifypublished != DEFAULT FUNCTION PTR)
+  {
+    INTEGER published := file->published;
+    IF (ObjectExists(publicdraft))
+    {
+      draftmetadata := draftmetadata ?? publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+      IF ((draftmetadata.flags BITAND DraftFlag_Publish) = 0)
+        published := ConvertToWontPublish(published);
+      ELSE
+        published := ConvertToWillPublish(published, FALSE, TRUE, PubPrio_DirectEdit);
+    }
+
+    new_published := options.modifypublished(published);
+    IF (new_published = -1)
+      ABORT("Illegal published value returned");
+  }
+
+  RECORD live_updates, draft_updates;
+  RECORD ARRAY live_contenttype_updates, draft_contenttype_updates;
+  IF (ObjectExists(sitepolicy))
+  {
+    // Get policy to apply for changes.
+    RECORD policydata := sitepolicy->EnrichWithObjectPolicy(
+        [ [ id :=           file->id
+          , isfolder :=     file->isfolder
+          , published :=    file->published
+          ]
+        ])[0];
+
+    IF (policydata.draftlocked)
+      RETURN "locked";
+
+    OBJECT filepolicy := policydata.policy;
+
+    // Segment all data into updates for the live version and the draft
+    RECORD fields := filepolicy->GetFields();
+    FOREVERY (RECORD rec FROM UnpackRecord(updates))
+    {
+      STRING lfield := ToLowercase(rec.name);
+      IF (lfield IN fields.readonly_fields)
+        RETURN "readonly";
+      IF (lfield IN fields.versioned_fields)
+        draft_updates := CellInsert(draft_updates, rec.name, rec.value);
+      ELSE
+        live_updates := CellInsert(live_updates, rec.name, rec.value);
+    }
+
+    FOREVERY (RECORD rec FROM options.contenttype_updates)
+    {
+      OBJECT type := OpenWHFSType(rec.whfstype);
+      IF (type->id IN fields.versioned_contenttypes)
+        INSERT rec INTO draft_contenttype_updates AT END;
+      ELSE
+        INSERT rec INTO live_contenttype_updates AT END;
+    }
+  }
+  ELSE
+  {
+    IF (new_published != -1)
+      INSERT CELL published := new_published INTO updates;
+
+    live_updates := updates;
+    live_contenttype_updates := options.contenttype_updates;
+  }
+
+  STRING mode := "live";
+  BOOLEAN changed_draftmetadata;
+  IF (RecordExists(draft_updates) OR LENGTH(draft_contenttype_updates) != 0)
+  {
+    // Ensure the draft exists
+    publicdraft := publicdraft ?? CreateDraft(file, TRUE);
+
+    // Update name, parent in draftmetadata
+    draftmetadata := draftmetadata ?? publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+    draftmetadata := MakeReplacedRecord(draftmetadata, draft_updates);
+
+    DELETE CELL name, parent FROM draft_updates;
+    changed_draftmetadata := TRUE;
+
+    publicdraft->fsobject->UpdateMetadata(MakeMergedRecord(draft_updates, global_updates));
+
+    FOREVERY (RECORD rec FROM draft_contenttype_updates)
+    {
+      OBJECT type := OpenWHFSType(rec.whfstype);
+      DELETE CELL whfstype FROM rec;
+      type->SetInstanceData(publicdraft->fsobject->id, rec);
+    }
+
+    mode := "draft";
+  }
+
+  IF (RecordExists(live_updates) OR LENGTH(live_contenttype_updates) != 0)
+  {
+    file->UpdateMetadata(MakeMergedRecord(live_updates, global_updates));
+
+    FOREVERY (RECORD rec FROM live_contenttype_updates)
+    {
+      OBJECT type := OpenWHFSType(rec.whfstype);
+      DELETE CELL whfstype FROM rec;
+      type->SetInstanceData(file->id, rec);
+    }
+
+    RunEditFileHooks(__FindFile(file->id), file->id);
+  }
+
+  // Will the published status change in a versioned site?
+  IF (ObjectExists(sitepolicy) AND new_published != -1 AND IsPublish(file->published) != IsPublish(new_published))
+  {
+    // Ensure a public draft draft exists
+    publicdraft := publicdraft ?? CreateDraft(file, TRUE);
+
+    draftmetadata := draftmetadata ?? publicdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+    draftmetadata.flags := IsPublish(new_published)
+        ? draftmetadata.flags BITOR DraftFlag_Publish
+        : draftmetadata.flags BITAND BITNEG DraftFlag_Publish;
+
+    changed_draftmetadata := TRUE;
+
+    mode := "draft";
+  }
+
+  IF (changed_draftmetadata)
+    publicdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftmetadata);
+
+  RETURN mode;
+}
+
+/** Ask the user for metadata to submit a file for approval
+    @param tolliumscreen
+    @param file
+    @param options
+    @cell options.policy Policy for when no file is specified
+    @return Request metadata, use SubmitApprovalRequestFromMetadata
+*/
+
+PUBLIC RECORD FUNCTION GetSubmitRequestApprovalMetadata(OBJECT tolliumscreen, OBJECT file, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ policy :=   DEFAULT OBJECT
+      ], options);
+
+  IF (ObjectExists(file) AND ObjectExists(options.policy))
+    THROW NEW Exception("Specifying policy is only allowed when file is not known");
+
+  OBJECT policy := ObjectExists(file) ? GetVersioningPolicyForFileObject(file) : options.policy;
+  IF (NOT ObjectExists(policy))
+    THROW NEW Exception("Could not determine versioning policy");
+
+  RECORD metadata := policy->GetSubmitRequestData(tolliumscreen, policy, file, DEFAULT RECORD);
+  IF (NOT RecordExists(metadata))
+    RETURN DEFAULT RECORD;
+
+  metadata := ValidateOptions(
+      [ description :=  ""
+      , expirydate :=   MAX_DATETIME
+      , userobject :=   tolliumscreen->tolliumuser
+      ], metadata);
+
+  RETURN metadata;
+}
+
+PUBLIC MACRO SubmitApprovalRequestFromMetadata(OBJECT work, OBJECT file, RECORD metadata)
+{
+  OBJECT policy := GetVersioningPolicyForFileObject(file);
+  OBJECT draft := GetPublicDraft(file->id);
+
+  IF (NOT ObjectExists(draft))
+    RETURN; // FIXME: add error to work
+
+  file->Refresh();
+  RECORD enriched := policy->EnrichWithObjectPolicy([ [ id := file->id, isfolder := file->isfolder, published := file->published ]])[0];
+  IF (enriched.draftlocked)
+    RETURN; // FIXME: add error to work
+
+  SubmitApprovalRequestForDraft(draft,
+      [ userobject :=   metadata.userobject
+      , message :=      metadata.description
+      , expirydate :=   metadata.expirydate
+      ]);
+}
+
+/** @param tolliumscreen
+    @param sitepolicy
+    @param draftobject
+    @param options
+    @cell options.updates Fields to overwrite (eg parent and name to combine with undelete)
+*/
+PUBLIC BOOLEAN FUNCTION HandleVersionRestore(OBJECT tolliumscreen, OBJECT sitepolicy, OBJECT draftobject, RECORD options)
+{
+  options := ValidateOptions(
+      [ updates :=          DEFAULT RECORD
+      , modifypublished :=  DEFAULT FUNCTION PTR
+      ], options);
+
+  RECORD approval;
+  BOOLEAN need_approval;
+  WHILE (TRUE)
+  {
+    IF (need_approval)
+    {
+      OBJECT source := OpenWHFSObject(draftobject->source);
+      approval := GetSubmitRequestApprovalMetadata(tolliumscreen, source);
+      IF (NOT RecordExists(approval))
+        RETURN FALSE;
+    }
+
+    OBJECT work := tolliumscreen->BeginUnvalidatedWork();
+
+    RECORD restorefields := sitepolicy->GetRestoreFields();
+
+    OBJECT source := OpenWHFSObject(draftobject->source);
+    OBJECT whfs_draftmetadata := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+
+    // Get the draft source data, overwrite with draftmetadata contenttype data
+    RECORD draft_data := SELECT *, flags := 0 FROM system.fs_objects WHERE id = draftobject->id;
+    draft_data := MakeReplacedRecord(draft_data, whfs_draftmetadata->GetInstanceData(draftobject->id));
+
+    BOOLEAN indexdoc_versioned, isindex;
+
+    // Copy all versioned fields
+    RECORD updates, parentupdates;
+    FOREVERY (STRING field FROM restorefields.versioned_fields)
+    {
+      IF (ToLowercase(field) IN [ "published", "indexdoc", "name", "parent" ])
+        THROW NEW Exception("Cannot restore 'published', 'indexdoc', 'parent' or 'name' fields");
+
+      updates := CellInsert(updates, field, GetCell(draft_data, field));
+    }
+
+    RECORD ARRAY contenttype_updates;
+    FOREVERY (INTEGER typenr FROM restorefields.versioned_contenttypes)
+    {
+      OBJECT whfstype := OpenWHFSTypeById(typenr);
+      RECORD rec := whfstype->GetInstanceData(draftobject->id);
+      INSERT CELL whfstype := whfstype->namespace INTO rec;
+      INSERT rec INTO contenttype_updates AT END;
+    }
+
+    STRING mode := UpdateMetadataForPolicy(sitepolicy, source, updates, [ contenttype_updates := contenttype_updates, modifypublished := options.modifypublished ]);
+
+    SWITCH (mode)
+    {
+      CASE "locked"   { work->AddError(GetTid("publisher:versioning.draftislockedforapproval")); }
+      CASE "readonly" { work->AddError(GetTid("publisher:versioning.draftisreadonly")); }
+      CASE "draft"
+      {
+        IF (NOT RecordExists(approval))
+        {
+          need_approval := TRUE;
+          work->Cancel();
+          CONTINUE;
+        }
+        SubmitApprovalRequestFromMetadata(work, source, approval);
+      }
+    }
+
+    BOOLEAN result := work->Finish();
+    IF (result AND mode != "draft")
+      tolliumscreen->RunMessageBox("publisher:filemgrdialogs.restoredtoliveversion");
+
+    RETURN result;
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION AnalyzeContents(INTEGER ARRAY objids)
+{
+  //DB-level check, find any sites contained in the to-be-deleted objects
+  RECORD ARRAY conflictsites := GetContainedSites(objids);
+
+  //Check if the deleted folders do not contain any sites (unless it's an entire-site deletion)
+  RECORD ARRAY conflictoutputs := ContainedOutputs(objids);
+
+  IF(Length(conflictsites)=0 AND Length(conflictoutputs)=0)
+    RETURN DEFAULT RECORD ARRAY;
+
+  //Return only the directories the user may access
+
+  OBJECT user := GetEffectiveUser();
+  BOOLEAN fullreadaccess := NOT ObjectExists(user) OR user->HasRightOn("system:fs_browse", 0);
+
+  RECORD ARRAY retval;
+  FOREVERY(RECORD conflictsite FROM conflictsites)
+  {
+    INSERT [ id := conflictsite.base /* the original offending folder */
+           , isfatal := FALSE
+           , errorcode := "CONTAINSSITEROOT"
+           , errordata := fullreadaccess OR user->HasRightOn("system:fs_browse", conflictsite.root) ? conflictsite.name : ""
+           ] INTO retval AT END;
+  }
+  FOREVERY(RECORD conflict FROM conflictoutputs)
+  {
+    INSERT [ id := conflict.base /* the original offending folder */
+           , isfatal := TRUE
+           , errorcode := "CONTAINSSITEOUTPUT"
+           , errordata := fullreadaccess OR user->HasRightOn("system:fs_browse", conflict.root) ? conflict.name : ""
+           ] INTO retval AT END;
+  }
+
+  RETURN retval;
+}
+
+PUBLIC STRING FUNCTION GetPublicationErrorMsg(INTEGER published, STRING errordata)
+{
+  INTEGER errorcode := GetErrorFromPublished(published);
+  SWITCH(errorcode) //spelling out all gettids for the language editor's sake
+  {
+    CASE 101 { RETURN GetTid("publisher:publicationstatus.errors.hserror"); }
+    CASE 102 { RETURN GetTid("publisher:publicationstatus.errors.abort"); }
+    CASE 105 { RETURN GetTid("publisher:publicationstatus.errors.encrypted"); }
+    CASE 106 { RETURN GetTid("publisher:publicationstatus.errors.nofirstpage"); }
+    CASE 107 { RETURN errordata = "" ? GetTid("publisher:publicationstatus.errors.notemplate") : GetTid("publisher:publicationstatus.errors.templatenotfound", errordata); }
+    CASE 108 { RETURN GetTid("publisher:publicationstatus.errors.noparts"); }
+    CASE 109 { RETURN GetTid("publisher:publicationstatus.errors.noprofile"); }
+    CASE 112 { RETURN GetTid("publisher:publicationstatus.errors.sitelocked"); }
+    CASE 113 { RETURN GetTid("publisher:publicationstatus.errors.corruptedprofile"); }
+    CASE 114 { RETURN GetTid("publisher:publicationstatus.errors.templatehasbeendeleted"); }
+    CASE 115 { RETURN GetTid("publisher:publicationstatus.errors.conflictingfile", errordata); }
+
+    CASE 2001 { RETURN GetTid("publisher:publicationstatus.errors.unknowntype"); }
+    /*CASE 3001 { RETURN GetTid("publisher:publicationstatus.errors.internalerror"); }*/
+  }
+  IF(errorcode >= 1001 AND errorcode <= 2000)
+    RETURN GetTid("publisher:publicationstatus.errors.ioerror");
+  IF(errorcode >= 2002 AND errorcode <= 3000)
+    RETURN GetTid("publisher:publicationstatus.errors.unsupportedtype", errordata);
+
+  RETURN GetTid("publisher:publicationstatus.errors.internalerror", errordata);
+}
+
+/** @param validuntil Validity of the link
+    @param password Password to protect the preview with. Keep empty
+    @param baseobj Base object to show (live version)
+    @param toview Exact version to view (eg a draft). Leave 0 to show base version
+    @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
+PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview)
+{
+  RETURN GetPreviewLink(baseobj, CELL[ validuntil, password, version := toview ]);
+}
+
+PUBLIC STRING FUNCTION CreateWidgetPreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview)
+{
+  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = baseobj;
+  IF(baseurl="")
+    RETURN "";
+
+  RECORD viewdata := [ id := toview, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = toview), v := validuntil, p := password, t := "w" ];
+  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
+  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
+}
+
+PUBLIC STRING FUNCTION CreateInstancePreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview, INTEGER instanceid)
+{
+  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = baseobj;
+  IF(baseurl="")
+    RETURN "";
+
+  RECORD viewdata := [ id := toview, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = toview), v := validuntil, p := password, t := "w", i := instanceid ];
+  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
+  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
+}
+
+
+PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit)
+{
+  // Lookup embeddedobjecttype directly
+  RECORD typedef := LookupContentTypes(whfstype);
+  IF(NOT RecordExists(typedef))
+    THROW NEW Exception(`Unable to find the object editor for widget type '${whfstype}'`);
+  IF(NOT typedef.isembeddedobjecttype)
+    THROW NEW Exception(`The type '${whfstype}' is not registered as a widget type`);
+
+  IF(ObjectExists(applytester))
+  {
+    RECORD settings := GetRTDSettingsForApplyTester(applytester);
+    IF(settings.namespace != "")
+      typedef := applytester->GetUpdatedWidget(typedef);
+
+    IF (NOT ObjectExists(fsbaseobject))
+      fsbaseobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
+  }
+
+  /* no editor configured - don't overwrite existing data (ie keep ...value) in case this
+     is a mistake, but we always return something (no default record) as there is no way
+     to cancel editting if there is nothing to edit
+
+     when adding, return a initialized whfs instance but no furhter data, so we appear to be an OK
+     when editing, return default record, as an editor shouldd never be invoked for an editor-less widget, so just appear to be a Cancel*/
+  IF(NOT RecordExists(typedef.editor))
+  {
+    IF(NOT isedit)
+      RETURN CELL[ ...value, whfstype ];
+
+    parent->RunSimpleScreen("info", GetTid("publisher:filemanager.main.messageboxes.cannoteditthiswidget"));
+    RETURN DEFAULT RECORD;
+  }
+
+  IF(typedef.editor.type="function")
+  {
+    MACRO PTR editor := MakeFunctionPTR(typedef.editor.functionname, TypeID(RECORD), [ TYPEID(OBJECT), TYPEID(RECORD) ]);
+    value := editor(parent, value);
+    RETURN RecordExists(value) ? CELL[ ...value, whfstype ] : DEFAULT RECORD;
+  }
+
+  RECORD ARRAY appcontexts;
+  IF(ObjectExists(applytester))
+    INSERT [ name := "publisher:applytester", context := applytester ] INTO appcontexts AT END;
+
+  IF(typedef.editor.type="screen")
+  {
+    OBJECT screen := parent->LoadScreen(typedef.editor.screen, [ value := value
+                                                               , whfstype :=whfstype
+                                                               , __typedef := typedef
+                                                               ], [ appcontexts := appcontexts
+                                                                  ]);
+    IF(screen->RunModal()!="ok")
+      RETURN DEFAULT RECORD;
+
+    RETURN CELL[ ...screen->value, whfstype ];
+  }
+
+  IF(ObjectExists(rte) AND MemberExists(rte, "__this_is_tolliumrichdocument"))
+  {
+    OBJECT context := NEW RichDocumentContext;
+    context->rtdtypeinfo := rte->rtdtypeinfo; // get the RTD settings
+    DELETE FROM context->rtdtypeinfo.allowedobjects WHERE NOT inherit;
+
+    INSERT [ name := "tollium:richdocumentcontext", context := context ] INTO appcontexts AT END;
+  }
+
+  OBJECT dialog := parent->LoadScreen("publisher:commondialogs/embeddedobjects.editor",
+        [ whfstype := whfstype
+        , typedef := typedef
+        , fsbaseobject := fsbaseobject
+        , rte := rte
+        , value := value
+        ], [ appcontexts := appcontexts
+           ]);
+
+  IF(NOT ObjectExists(dialog))
+  {
+    // screen building might given errors like 'Attribute 'composition' refers to non-existing object '..'
+    RETURN DEFAULT RECORD;
+  }
+
+  IF(dialog->RunModal() = "ok")
+    RETURN CELL[ ...dialog->value, whfstype ];
+
+  RETURN DEFAULT RECORD; // cancelled
+}
+
+PUBLIC MACRO AddCopyMoveExceptionToWork(OBJECT work, OBJECT e, OBJECT destfolder)
+{
+  Print("CopyMoveException: " || e->errortag || "\n");
+  SWITCH(e->errortag)
+  {
+    CASE "NOCREATERIGHTS"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.nocreaterights", e->errorobject->name));
+    }
+    CASE "DESTINATIONSITELOCKED"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.destinationsitelocked", e->errorobject->name));
+    }
+    CASE "NODELETERIGHTS"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.nodeleterights", e->errorobject->name));
+    }
+    CASE "RECURSIVE"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.cannotmovetosubfolder", e->errorobject->name, destfolder->name));
+    }
+    //ADDME: No error, but a confirmation?
+    CASE "EXISTS"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.objectexists", e->errorobject->name, destfolder->name));
+    }
+    //ADDME: Maybe moving files to the root should be prevented by the interface
+    CASE "NOFILESTOROOT"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.cannotmovefilestoroot", e->errorobject->name));
+    }
+    CASE "SITEINSITE"
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.cannotmovesiteinsite", e->errorobject->name, destfolder->name));
+    }
+
+    CASE "NOMOVEOUTVERSIONEDSITE" // Cannot move versioned objects out of their site
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.nomoveoutversionedsite", e->errorobject->name, destfolder->name));
+    }
+    CASE "TOOMANYOBJECTSTOVERSIONEDSITE" // Can only manipulate one object at a time within a versioned site
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.toomanyobjectsatatimeinversionedsite", e->errorobject->name, destfolder->name));
+    }
+    CASE "NOTALLOWEDTYPEINVERSIONEDSITE" // Objects of this type are not allowed in a versioned site
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.notallowedtypeinversionedsite", e->errorobject->name, destfolder->name));
+    }
+    CASE "VERSIONEDMOVEDISALLOWED" // This object cannot be moved at the moved due to versioning constraints
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.versionedmovedisallowed", e->errorobject->name, destfolder->name));
+    }
+    CASE "NOTALLOWEDOPERATIONINVERSIONEDSITE" // This operation is not allowed within a versioned site
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.versionedmovedisallowed", e->errorobject->name, destfolder->name));
+    }
+    CASE "NOINDEXHTMLINVERSIONEDFOLDERWITHINDEX" // This operation is not allowed within a versioned site
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.noindexhtmlinversionedfolderwithindex", e->errorobject->name, destfolder->name));
+    }
+    CASE "NOVERSIONEDOVERWRITE" // Cannot overwite versioned files with copy/move/archive unpack
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.noversionedoverwrite", e->errorobject->name, destfolder->name));
+    }
+    DEFAULT
+    {
+      work->AddError(GetTid("publisher:filemanager.main.messageboxes.unknownerror", e->errorobject->name, destfolder->name));
+    }
+  }
+}
+
+PUBLIC STRING FUNCTION GetVersioningDraftWarning(OBJECT fsobject)
+{
+  RECORD lastevent := GetLastVersionEvent(fsobject->id);
+  IF (RecordExists(lastevent) AND lastevent.eventtype = VersionEventType_FinalDenial AND lastevent.when > fsobject->modificationdate)
+    RETURN "justdenied";
+
+  RETURN "normal";
+}
+
+PUBLIC OBJECT FUNCTION __CreateHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
+{
+  OBJECT dialog;
+  RECORD ARRAY faultypropeditors;
+  WHILE (TRUE)
+  {
+    TRY
+    {
+      dialog := parent->LoadScreen(dialogname, CELL[...data, faultypropeditors ]);
+      BREAK;
+    }
+    CATCH (OBJECT<PropertyEditorException> e)
+    {
+      LogHarescriptException(e);
+      // Exception is thrown when propertyeditor could not be loaded/initialized, try to create the dialog without this
+      // propertyeditor
+      RECORD fault := [ name := e->propertyeditor
+                      , siteprofile := e->siteprofile
+                      , error := e->what
+                      ];
+      Print("Property editor exception:\n" || AnyToString(fault,'boxed'));
+      INSERT fault INTO faultypropeditors AT END;
+    }
+    // Don't catch unknown exceptions
+  }
+  RETURN dialog;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagecode, BOOLEAN showdevelopertypes, BOOLEAN showall)
+{
+  RECORD csp := GetCachedSiteProfiles();
+
+  /* Select applicable folder types. We select at least the currently selected type.
+     The 'standard' list and any added custom types are subject to the 'remove_folders' list */
+  RECORD ARRAY folderTypes := SELECT id
+                                   , title := foldertype.title
+                                   , namespace
+                                   , tolliumicon := foldertype.tolliumicon
+                                   , isdevelopertype := foldertype.isdevelopertype
+                                   , __visible := FALSE
+                                FROM csp.contenttypes
+                               WHERE RecordExists(foldertype);
+
+  IF(showall)
+    UPDATE foldertypes SET __visible := TRUE;
+  ELSE FOREVERY (RECORD apply FROM applytester->__GetAppliesForcell("MODIFYFOLDERTYPES"))
+  {
+    FOREVERY(RECORD mod FROM apply.modifyfoldertypes)
+      UPDATE foldertypes SET __visible := mod.isallow WHERE namespace LIKE mod.typedef;
+  }
+
+  IF(NOT applytester->__Deprecated_GetObjInfo().isfake)
+    UPDATE foldertypes SET __visible := TRUE WHERE id = applytester->__Deprecated_GetObjInfo().obj.type;
+
+  /* Select applicable folder types. We select at least the currently selected type.
+     The 'standard' list and any added custom types are subject to the 'remove_folders' list */
+  foldertypes := SELECT * FROM foldertypes
+                               WHERE __visible=TRUE AND (showdevelopertypes OR isdevelopertype=FALSE)
+                               ORDER BY /*id < 1000 DESC, id < 1000 ? id : 0*/id != 0, ToUppercase(title);
+  RETURN foldertypes;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecode, BOOLEAN showdevelopertypes, BOOLEAN showall, BOOLEAN isnew)
+{
+  RECORD csp := GetCachedSiteProfiles();
+
+  /* Select applicable file types. We select at least the currently selected type.
+     The 'standard' list and any added custom types are subject to the 'remove_files' list */
+  RECORD ARRAY fileTypes := SELECT id
+                                 , title := filetype.title
+                                 , namespace
+                                 , tolliumicon := filetype.tolliumicon
+                                 , isdevelopertype := filetype.isdevelopertype
+                                 , requirescontent := filetype.requirescontent
+                                 , __visible := FALSE
+                              FROM csp.contenttypes
+                             WHERE RecordExists(filetype);
+
+  IF(showall)
+    UPDATE filetypes SET __visible := TRUE;
+  ELSE FOREVERY (RECORD apply FROM applytester->__GetAppliesForcell("MODIFYFILETYPES"))
+  {
+    FOREVERY(RECORD mod FROM apply.modifyfiletypes)
+      UPDATE filetypes SET __visible := mod.isallow WHERE namespace LIKE mod.typedef;
+  }
+
+  IF(NOT applytester->__Deprecated_GetObjInfo().isfake)
+    UPDATE filetypes SET __visible := TRUE WHERE id = applytester->__Deprecated_GetObjInfo().obj.type;
+
+  IF(isnew AND NOT showall) //if New, remove filetypes that require content
+    DELETE FROM filetypes WHERE requirescontent=TRUE;
+
+  filetypes := SELECT * FROM filetypes
+                               WHERE __visible=TRUE AND (showdevelopertypes OR isdevelopertype=FALSE)
+                               ORDER BY /*id < 1000 DESC, id < 1000 ? id : 0*/id != 0, ToUppercase(title);
+  RETURN filetypes;
+}
+

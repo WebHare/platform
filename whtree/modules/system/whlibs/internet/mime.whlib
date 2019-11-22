@@ -1,0 +1,1478 @@
+﻿<?wh
+/** @short MIME and RFC822
+    @long A collection of functions to aid the parsing of MIME and RFC822 messages
+    @topic internet/email
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+INTEGER FUNCTION __CreateMimeDecoder(STRING toptype, STRING topencoding, STRING topdescription, STRING topdisposition, STRING topcontentid, STRING defaultcontenttype, INTEGER sent_data_offset, INTEGER part_start_offset, INTEGER body_start_offset) __ATTRIBUTES__(EXTERNAL);
+
+/** @short This function generates a likely unique message id
+    @param hostname Hostname, if available. If left empty, the system will take the local hostname if available
+    @return The message id, wrapped in '<' and '>' characters*/
+PUBLIC STRING FUNCTION CreateNewMessageId(STRING hostname)
+{
+  RETURN `<${GenerateUFS128BitId()}@${hostname ?? GetSystemHostName(FALSE)}>`;
+}
+
+/** @short Set up a MIME message decoder
+    @param headers Original MIME message headers (they are scanned for Content-Type, Content-Encoding etc)
+    @param defaultcontenttype Default content type to assign to parts without their own type
+    @param text_start Position of the first byte that will be sent to the decoder
+    @return ID for the decoder, use the function PrintTo to feed data to the decoder
+    @see PrintTo
+*/
+PUBLIC INTEGER FUNCTION CreateMimeDecoder(RECORD ARRAY headers, STRING defaultcontenttype)
+{
+  RETURN CreateMimeDecoderInternal(headers, defaultcontenttype, 0, 0, 0);
+}
+
+INTEGER FUNCTION CreateMimeDecoderInternal(RECORD ARRAY headers, STRING defaultcontenttype, INTEGER data_ofs, INTEGER part_ofs, INTEGER body_ofs)
+{
+  STRING contenttype := GetMIMEHeader(headers,"Content-Type");
+  STRING contentencoding := GetMIMEHeader(headers,"Content-Transfer-Encoding");
+  STRING contentdescription := GetMIMEHeader(headers,"Content-Description");
+  STRING contentdisposition := GetMIMEHeader(headers,"Content-Disposition");
+  STRING contentid := GetMIMEHeader(headers,"Content-ID");
+  RETURN __CreateMimeDecoder(contenttype, contentencoding, contentdescription, contentdisposition, contentid, defaultcontenttype, data_ofs, part_ofs, body_ofs);
+}
+
+PUBLIC RECORD FUNCTION FinishMimeData(INTEGER mimeid) __ATTRIBUTES__(EXTERNAL);
+
+
+
+/** @short This function will decode a string with encoded words
+    @long This function decodes MIME encoded words of a string (which looks like =?ISO-8859-1?Q?a?=) as documented in RFC 2047
+    @param value String with encoded words
+    @return String with the encoded words decoded
+*/
+PUBLIC STRING FUNCTION DecodeMimeEncodedWords(STRING value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+
+/** @short This function will encode a word when necessary to (=?...?=)
+    @param value String with the word to encode
+    @return Encoded word
+*/
+PUBLIC STRING FUNCTION EncodeMIMEWords(STRING value) __ATTRIBUTES__(EXTERNAL);
+
+
+
+INTEGER FUNCTION GetMaxUsedId(RECORD mailpart)
+{
+  INTEGER maxid := mailpart.id;
+  FOREVERY (RECORD subpart FROM mailpart.subparts)
+  {
+    INTEGER submax := GetMaxUsedId(subpart);
+    IF (submax > maxid)
+      maxid := submax;
+  }
+  RETURN maxid;
+}
+
+RECORD ARRAY FUNCTION GetParts(RECORD mailpart, RECORD parent, INTEGER nextid)
+{
+  RECORD thisrec := [ id := nextid
+                    , level := RecordExists(parent) ? parent.level + 1 : 1
+                    , parent := RecordExists(parent) ? parent.id : 0
+                    , mimetype := mailpart.mimetype = "" ? "text/plain" : mailpart.mimetype
+                    , description := mailpart.description
+                    , contentid := mailpart.contentid
+                    , data := mailpart.data
+                    , attachmentid := CellExists(mailpart,"id") ? mailpart.id : 0
+                    ];
+
+  RECORD ARRAY returnvalue := [thisrec];
+  FOREVERY(RECORD subpart FROM mailpart.subparts)
+  {
+    returnvalue := returnvalue CONCAT GetParts(subpart, thisrec, nextid + 1);
+    nextid := returnvalue[Length(returnvalue)-1].id;
+  }
+  RETURN returnvalue;
+}
+
+
+
+PUBLIC OBJECTTYPE RFC2822Parser EXTEND StringParser
+  < PUBLIC MACRO SkipFWS()
+    {
+      this->ParseWhileInSet(" \t\r\n");
+    }
+
+    PUBLIC MACRO SkipCFWS()
+    {
+      WHILE (NOT this->eof)
+      {
+        this->SkipFWS();
+        IF (this->current != "(")
+          BREAK;
+        this->SkipComment();
+      }
+    }
+
+    PUBLIC MACRO SkipComment()
+    {
+      IF (this->TryParse("("))
+      {
+        WHILE (NOT this->eof)
+        {
+          this->ParseWhileNotInSet("\\()");
+          SWITCH (this->current)
+          {
+          CASE "(" { this->SkipComment(); }
+          CASE ")" { this->Next(); RETURN; }
+          CASE "\\" { this->Next(); this->Next(); }
+          }
+        }
+      }
+    }
+  >;
+
+STRING FUNCTION TrimCWS(STRING a)
+{
+  INTEGER bpos := 0;
+  WHILE (SubString(a, bpos, 1) IN [ ' ', '\r', '\n'])
+    bpos := bpos + 1;
+  INTEGER epos := LENGTH(a);
+  WHILE (epos > bpos AND SubString(a, epos - 1, 1) IN [ ' ', '\r', '\n'])
+    epos := epos - 1;
+
+  RETURN SubString(a, bpos, epos - bpos);
+}
+
+
+/** Tokenizes an email address list
+    Parsed forms : 'norton, andy <andy@norton.com>'
+                   'andy(de rogue) <(Dit \)is a (nested) comment with a ',')andy@[10.8.3.5]>'
+                   'andy@norton.com'
+                   'andy@norton.com (Norton, Andy)'
+    @param list List of addresses
+    @param keep_groups If FALSE, all group data is discarded, and only address entries are returned
+    @return List of parsed addresses (and groups, if they are kept
+    @cell return.type Type of entry ('GROUP' or 'ADDRESS')
+    @cell return.name Name of the entry
+    @cell return.original Original address (all data)
+    @cell return.entries Sub-entries of a group (only type GROUP)
+    @cell return.email The e-mail address (only type ADDRESS)
+    @cell return.mailbox_local Mailbox name (with comments removed) (only type ADDRESS)
+    @cell return.mailbox_domain Domain (with comments removed) (only type ADDRESS)
+    @cell return.route Source route (only type ADDRESS)
+*/
+PUBLIC RECORD ARRAY FUNCTION TokenizeEmailAddressList(STRING list, BOOLEAN keep_groups)
+{
+// FIXME: wh::internet/mime.whlib TokenizeEmailAddresses(STRING AddressList)
+// also does something like this function (this one is better though)
+
+  OBJECT o := NEW StringParser(list);
+
+  RECORD ARRAY retvals;
+  RECORD ARRAY group_stack;
+
+  IF (keep_groups)
+    group_stack := [ [ type    := "GROUP"
+                     , name    := "root"
+                     , entries := DEFAULT RECORD ARRAY
+                   ] ];
+
+  WHILE (NOT o->eof)
+  {
+    STRING original;
+    BOOLEAN last_group_entry := FALSE;
+
+    WHILE (NOT o->eof)
+    {
+      original := original || o->ParseWhileNotInSet("\",;[(:");
+      SWITCH (o->current)
+      {
+      CASE "(" // Parse comment: FIXME: check in standard, are there escaped )'s?
+        {
+          INTEGER cnt := 1;
+          original := original || o->current;
+          o->Next();
+          WHILE (NOT o->eof AND cnt > 0)
+          {
+            original := original || o->ParseWhileNotInSet("()\\");
+            IF (o->TryParse("\\")) // Escaped character (take the next character literally)
+            {
+              original := original || "\\" || o->current;
+              o->Next();
+            }
+            IF (o->TryParse(")")) // End of this comment
+            {
+              original := original || ")";
+              cnt := cnt - 1;
+            }
+            ELSE IF (o->TryParse("(")) // Nested comment
+            {
+              original := original || "(";
+              cnt := cnt + 1;
+            }
+          }
+        }
+      CASE "\"" // Parse quoted string, including ws
+        {
+          original := original || o->current;
+          o->Next();
+          WHILE (NOT o->eof)
+          {
+            original := original || o->ParseWhileNotInSet("\\\"");
+            IF (o->TryParse("\\"))
+            {
+              original := original || "\\" || o->current;
+              o->Next();
+            }
+            IF (o->TryParse("\""))
+            {
+              original := original || "\"";
+              BREAK;
+            }
+          }
+        }
+      CASE "["
+        {
+          // user@[...ip-address...] format
+          original := original || o->ParseWhileNotInSet("]");
+        }
+      CASE ":"
+        {
+          // ':' indicates group startage. original now contains display-name of the group
+          IF (keep_groups)
+          {
+            original := TrimCWS(original);
+            INSERT [ type     := "GROUP"
+                   , name     := original
+                   , original := original
+                   , entries  := DEFAULT RECORD ARRAY
+                   ] INTO group_stack AT END;
+          }
+
+          // Prepare for parsing address list
+          original := "";
+          o->Next();
+        }
+      CASE ";"
+        {
+          // Group end. This is the end of an address
+          IF (keep_groups)
+            last_group_entry := TRUE;
+          o->Next();
+          BREAK;
+        }
+      CASE ","
+        {
+          // Entry separator
+          o->Next();
+          BREAK;
+        }
+      }
+    }
+
+    OBJECT parser := NEW RFC2822Parser;
+    parser->Reset(original);
+    parser->SkipCFWS();
+
+    IF (NOT parser->eof)
+    {
+      // There is an address here (some stuff without whitespace)
+      RECORD rec := SplitEmailName(original);
+
+      // Insert original string and entry type into the parts
+      INSERT CELL original := TrimCWS(original) INTO rec;
+      INSERT CELL type := "ADDRESS" INTO rec;
+
+      // Insert at the end of the current group (or entry list if ignoring groups)
+      IF (keep_groups)
+        INSERT rec INTO group_stack[LENGTH(group_stack) - 1].entries AT END;
+      ELSE
+        INSERT rec INTO retvals AT END;
+    }
+    IF (last_group_entry)
+    {
+      // This group has ended. Append it to the parent group.
+      IF (LENGTH(group_stack) > 1)
+      {
+        INSERT group_stack[LENGTH(group_stack) - 1] INTO
+          group_stack[LENGTH(group_stack) - 2].entries AT END;
+        DELETE FROM group_stack AT LENGTH(group_stack) - 1;
+      }
+    }
+  }
+  IF (keep_groups)
+  {
+    // Compensate for missing group terminators, terminate them ourselves
+    WHILE (LENGTH(group_stack) != 1)
+    {
+      INSERT group_stack[LENGTH(group_stack) - 1] INTO
+        group_stack[LENGTH(group_stack) - 2].entries AT END;
+      DELETE FROM group_stack AT LENGTH(group_stack) - 1;
+    }
+
+    // Return the entries, not the root group
+    RETURN group_stack[0].entries;
+  }
+  ELSE
+    RETURN retvals;
+}
+
+STRING FUNCTION RemoveRFC822Quotes(OBJECT parser, STRING data)
+{
+  STRING result;
+
+  parser->Reset(data);
+  WHILE (NOT parser->eof)
+  {
+    IF (parser->current = '"')
+    {
+      parser->Next();
+      WHILE (NOT parser->eof AND NOT parser->TryParse('"'))
+      {
+        result := result || parser->ParseWhileNotInSet("\\\"");
+        IF (parser->current = '\\')
+        {
+          parser->Next();
+          result := result || parser->current;
+          parser->Next();
+        }
+      }
+    }
+    ELSE
+    {
+      result := result || parser->ParseWhileNotInSet('"');
+    }
+  }
+
+  RETURN result;
+}
+
+/** @short Generate a full email address containing name and email
+    @long This function generates a full email address from the name and email address.
+          With no name specified it will be just return the email address,
+          If no email was specified it will return an empty string.
+    @param name An optional name for the address
+    @param email The email address
+    @cell(boolean) options.quote If true, force the name to be quoted
+    @signature STRING FUNCTION MakeEmailAddress(STRING name, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
+    @return A string with the full email address, or an empty string if no email was specified
+    @example
+// Returns '"Jane Doe" <j.doe@example.net>'
+STRING addr := MakeEmailAddress("Jane Doe", "j.doe@example.net", TRUE);
+
+// Returns '<j.doe@example.net>'
+STRING addr := MakeEmailAddress("", "j.doe@example.net", FALSE);
+
+// Returns ""
+STRING addr := MakeEmailAddress("Jane Doe", "", TRUE);
+*/
+PUBLIC STRING FUNCTION MakeEmailAddress(STRING name, STRING email, VARIANT options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(TYPEID(options) = TYPEID(BOOLEAN))
+    options := [ quote := options ];
+
+  options := ValidateOptions( [ quote := FALSE ], options);
+
+  STRING newaddress;
+
+  email := TrimWhitespace(email);
+  name := TrimWhitespace(name);
+
+  STRING mimeencoded := EncodeMIMEWords(name);
+  IF (mimeencoded LIKE "=?*?=")
+    name := mimeencoded;
+  ELSE
+  {
+    // Quote any text that is not alpha, digit or simple whitespace.
+    OBJECT parser := NEW StringParser(name);
+    parser->ParseWhileInSet(parser->set_alpha || parser->set_digit || " \t");
+    IF (NOT parser->eof)
+    {
+      name := SubStitute(name, "\\", "\\\\");
+      name := SubStitute(name, "\"", "\\\"");
+      options.quote := TRUE;
+    }
+  }
+
+  STRING quote := options.quote ? '"' : '';
+
+  IF (email != "")
+  {
+    IF (name != "")
+      newaddress := quote || name || quote || ' <' || email || '>';
+    ELSE
+      newaddress := '<' || email || '>';
+  }
+
+  RETURN newaddress;
+}
+
+
+/** @short Split an email receiver or sender into email address and full name parts
+    @long This function splits parameters to From, To etc headers, such as Jane Doe <j.doe@example.net>,
+          into the separate name and address parts
+    @param address Email and name combination to split
+    @return A record with the split address and name parts
+    @cell return.email The e-mail address
+    @cell return.name The name (if found)
+    @cell return.mailbox_local Mailbox name (with comments removed)
+    @cell return.mailbox_domain Domain (with comments removed)
+    @cell return.route Source route
+*/
+PUBLIC RECORD FUNCTION SplitEmailName(STRING address)
+{
+  /*
+    Parsed forms : 'norton, andy <andy@norton.com>'
+                   'andy@norton.com'
+                   'andy@norton.com (Norton, Andy)'
+  */
+
+  STRING name;
+  OBJECT parser := NEW RFC2822Parser;
+
+  INTEGER close_pos := SearchLastSubString(address, ">");
+  IF (close_pos != -1)
+  {
+    INTEGER start_email := SearchLastSubString(address, "<", close_pos);
+
+    name    := RemoveRFC822Quotes(parser, TrimCWS(LEFT(address, start_email)));
+    address := TrimWhiteSpace(SubString(address, start_email + 1, close_pos - start_email - 1));
+  }
+  ELSE
+  {
+    // See if we can extract a name
+    IF (RIGHT(address, 1) = ")")
+    {
+      INTEGER start_name := SearchLastSubString(address, " (");
+
+      name    := TrimCWS(SubString(address, start_name + 2, LENGTH(address) - start_name - 3));
+      address := TrimCWS(LEFT(address, start_name));
+    }
+  }
+
+  address := TrimCWS(address);
+
+  // And now, the big email-interpreter.
+  parser->Reset(address);
+
+  // Make a folded address by removing all comments and whitespaces
+  parser->SkipCFWS();
+  STRING folded_address;
+  WHILE (NOT parser->eof)
+  {
+    // FIXME: this doesn't take "-quoted stuff into account
+    folded_address := folded_address || parser->ParseWhileNotInSet(" \t\r\n(\\");
+    if (parser->current = "\\")
+    {
+      parser->Next();
+      folded_address := folded_address || parser->current;
+      parser->Next();
+    }
+    parser->SkipCFWS();
+  }
+
+  // FIXME: make better decomposer, something like mtpserver.whlib's ParsePath()
+  // One that also handles @ within quotes.
+
+  INTEGER atpos := SearchSubString(folded_address, "@");
+  IF (atpos = -1)
+    atpos := LENGTH(folded_address);
+
+  RETURN [ name           := DecodeMimeEncodedWords(name)
+         , email          := address
+         , mailbox_local  := RemoveRFC822Quotes(parser, LEFT(folded_address, atpos))
+         , mailbox_domain := SubString(folded_address, atpos + 1, LENGTH(folded_address))
+         , route          := DEFAULT STRING ARRAY
+         ];
+}
+
+PUBLIC STRING FUNCTION PrettyFormatEmailAddress(STRING address)
+{
+  RECORD split := SplitEmailName(address);
+  RETURN MakeEmailAddress(split.name, split.email, FALSE);
+}
+
+PUBLIC STRING ARRAY FUNCTION PrettyFormatEmailAddresses(STRING ARRAY addresses)
+{
+  FOREVERY (STRING address FROM addresses)
+    addresses[#address] := PrettyFormatEmailAddress(address);
+  RETURN addresses;
+}
+
+/** @short Tokenize email addresses
+    @long  This function returns a string array of email addresses
+           when given an RFC 822 email compliant string containing an address list
+    @param addresslist List of addresses to split
+    @return An array with email address strings (suitable for splitting by SplitEmailName)
+*/
+PUBLIC STRING ARRAY FUNCTION TokenizeEmailAddresses(STRING AddressList)
+{
+  RETURN SELECT AS STRING ARRAY original
+           FROM TokenizeEmailAddressList(AddressList, FALSE);
+}
+
+/** @short Re-tokenize a list of email addresses
+    @long  This function returns a string array of email addresses
+           when given an array of RFC 822 email compliant strings containing an address list.
+    @param addresslist List of addresses to split
+    @return An array with email address strings (suitable for splitting by SplitEmailName)
+*/
+PUBLIC STRING ARRAY FUNCTION RetokenizeEmailAddresses(STRING ARRAY addresslists)
+{
+  STRING ARRAY result;
+  FOREVERY (STRING addresslist FROM addresslists)
+    result := result CONCAT TokenizeEmailAddresses(addresslist);
+  RETURN result;
+}
+
+
+
+/** @short This function will decode an 8 bit message
+    @param charset Charset of the encoded message
+    @param message Encoded message
+    @return String with encoded data decoded */
+STRING FUNCTION Decode8Bit(STRING charset, STRING message)
+{
+  // FIXME: Add support for other encodings then ISO-8859-1
+  STRING newmessage;
+  FOR (INTEGER i := 0; i < Length(message); i := i + 1)
+  {
+    INTEGER charcode := GetByteValue(SubString(message, i, 1));
+    IF (charcode > 127)
+      newmessage := newmessage || UCToString(charcode);
+    ELSE
+      newmessage := newmessage || ByteToString(charcode);
+  }
+  RETURN newmessage;
+}
+
+
+
+/** @short This function will decode an 8 bit message
+    @param charset Charset of the encoded message
+    @param message Encoded message
+    @return String with encoded data decoded */
+STRING FUNCTION Encode8Bit(STRING charset, STRING message)
+{
+  // FIXME: Add support for other encodings then ISO-8859-1
+  STRING newmessage;
+  FOR (INTEGER i := 0; i < Length(message); i := i + 1)
+  {
+    INTEGER charcode := GetByteValue(SubString(message, i, 1));
+    IF (charcode > 127)
+      newmessage := newmessage || UCToString(charcode);
+    ELSE
+      newmessage := newmessage || ByteToString(charcode);
+  }
+  RETURN newmessage;
+}
+
+
+
+/** @short This function will create a new boundary
+    @param lastpart Integer that will be attached to boundary (this way the boundary is not only depedent on datetime)
+    @return String with created boundary */
+STRING FUNCTION CreateNewBoundary(INTEGER lastpart)
+{
+  STRING boundary := "Message-Boundary-";
+
+  // First part contains date and time info
+  DATETIME currentdate := GetCurrentDateTime();
+  boundary := boundary || "-" || GetDayCount(currentdate);
+  boundary := boundary || "-" || GetMsecondCount(currentdate);
+  boundary := boundary || "-" || lastpart;
+
+  RETURN "=_-_" || Substitute(EncodeBase64(boundary),"=","") || "-b_";
+}
+
+
+
+MACRO MIMEEncodeMultiPart(STRING mimetype, RECORD msgpart, MACRO PTR receivefunction)
+{
+  STRING newboundary := CreateNewBoundary(msgpart.id);
+  receivefunction("Content-Type: " || mimetype || ";");
+  receivefunction('  boundary="' || newboundary || '"');
+  receivefunction("");
+  MIMEEncodeMsgParts(msgpart.SubParts, newboundary, receivefunction);
+}
+
+//MIMEEncodeMessage expects an encoded msgpart.data
+MACRO MIMEEncodeMessage(STRING mimetype, RECORD msgpart, MACRO PTR receivefunction)
+{
+  receivefunction("Content-Type: " || msgpart.mimetype);
+  receivefunction("");
+/*
+  IF (NOT CellExists(msgpart, "SUBMESSAGE"))
+    ABORT(AnyToString(msgpart, "boxed"));
+
+  IF (CellExists(msgpart.submessage, "HEADERS"))
+    SendMIMEHeaderTo(msgpart.submessage.headers, receivefunction);
+  MIMEEncodePartTo(msgpart.submessage, receivefunction);
+*/
+
+  //ADDME: Optimize with a smarter line-by-line reader.
+  STRING ARRAY data := Tokenize(BlobToString(msgpart.data,2000000000),"\n");
+  FOREVERY(STRING line FROM data)
+  {
+    IF (Right(line,1)="\r")
+      line:=Left(line,length(line)-1);
+    receivefunction(line);
+  }
+}
+
+
+
+MACRO MIMEEncodeText(STRING mimetype, RECORD msgpart, MACRO PTR receivefunction)
+{
+  //ADDME: Do it in chunks....
+  //ADDME: Do this all in C code...
+
+  STRING textdata := BlobToString(msgpart.data, -1);
+
+  //Can we downgrade the character set?
+  STRING text_charset := GetMIMEHeaderParameter(msgpart.mimetype, "charset");
+  IF (ToUppercase(mimetype) = "TEXT/PLAIN" AND ToUppercase(text_charset) = "UTF-8")
+  {
+    //Yes! recode it..
+    STRING best_charset := GetBestCharacterset(textdata);
+    IF (ToUppercase(best_charset) != "UNICODE") //we can create a better coding..
+    {
+      textdata := EncodeCharset(textdata,best_charset);
+      text_charset := best_charset;
+      msgpart.mimetype := "text/plain; charset=\"" || EncodeJava(best_charset) || "\"; format=flowed";
+    }
+  }
+
+  //Reformat and split text
+  STRING ARRAY textlines := Tokenize(textdata,"\n");
+  INTEGER maxlinelength;
+  FOREVERY(STRING line FROM textlines)
+  {
+    textlines[#line] := Substitute(line,"\r","");
+    IF (Length(line) > maxlinelength)
+      maxlinelength := Length(line);
+  }
+
+  receivefunction("Content-Type: " || msgpart.mimetype);
+
+  IF (maxlinelength > 74 OR ToUppercase(text_charset) != "US-ASCII")
+  {
+    //We MUST use quoted-printable to render this text
+    receivefunction("Content-Transfer-Encoding: Quoted-Printable");
+    receivefunction("");
+    MIMEEncodeQP(textlines, receivefunction);
+  }
+  ELSE
+  {
+    //We CAN Render the text 7-bit
+    receivefunction("Content-Transfer-Encoding: 7bit");
+    receivefunction("");
+    FOREVERY(STRING line FROM textlines)
+      receivefunction(line);
+  }
+}
+
+
+
+MACRO MIMEEncodeAny(STRING mimetype, RECORD msgpart, MACRO PTR receivefunction)
+{
+  receivefunction("Content-Type: " || msgpart.mimetype); //just print the FULL mimetype..
+
+  // FIXME: For non-text stuff, do this in chunks!
+  // Decode the e-mail (BLOB) to a string
+  STRING textdata := BlobToString(msgpart.data, -1);
+
+  receivefunction("Content-Transfer-Encoding: base64");
+  IF (CellExists(msgpart, "contentid") AND msgpart.contentid != "")
+    receivefunction("Content-ID: " || msgpart.contentid);
+  IF (CellExists(msgpart, "contentdisposition") AND msgpart.contentdisposition != "")
+    receivefunction("Content-Disposition: " || msgpart.contentdisposition);
+  receivefunction("");
+  MIMEEncodeBase64(textdata, receivefunction);
+}
+
+
+
+/** @short This function will encode a mime body
+    @param data Data to encode
+    @param encoding String encoding method to use (7bit, 8bit, base64, binary or quoted-printable)
+    @param maxlength Maximum line length (use 0 if no limit)
+    @return String with the decoded mime body */
+PUBLIC MACRO MIMEEncodeQP(STRING ARRAY lines, MACRO PTR receivefunction)
+{
+  FOREVERY (STRING line FROM lines)
+    FOREVERY (STRING s FROM Tokenize(EncodeQP(line), "\r\n"))
+      receivefunction(s);
+}
+
+
+
+/** @short This function will decode a header value */
+STRING ARRAY FUNCTION DecodeHeaderValue(STRING value)
+{
+  STRING ARRAY headervalues;
+  STRING ARRAY parts := Tokenize(value, ";");
+  FOREVERY (STRING part FROM parts)
+    INSERT TrimWhitespace(part) INTO headervalues AT END;
+  RETURN headervalues;
+}
+
+
+
+STRING ARRAY __temp_encoded_data;
+MACRO ReceiveEncodedLine(STRING encodedline)
+{
+  INSERT encodedline INTO __temp_encoded_data AT END;
+}
+
+STRING FUNCTION GetMIMEPartContentType(STRING contenttype, STRING filename)
+{
+  STRING ctype := contenttype != "" ? contenttype : "application/octet-stream";
+  IF (filename != "")
+    ctype := ctype || '; name="' || EncodeJava(GetNameFromPath(filename)) || '"';
+  RETURN ctype;
+}
+
+STRING FUNCTION GetMIMEPartContentDisposition(STRING filename, BOOLEAN inline)
+{
+  IF (inline AND filename != "")
+    RETURN 'inline; filename="' || EncodeJava(GetNameFromPath(filename)) || '"';
+  RETURN "";
+}
+
+/* @short Pre-encode a single MIME part for a given file
+    @long This function creates a MIME part for a file to be sent
+          in an e-mail. After calling this function, any changes
+          to the file properties like filename or contenttype
+          will not be used when sending the MIME part.
+    @param contentid Content-Id
+    @param contenttype Mime-Type
+    @param description Content-Description
+    @param data BLOB with file contents
+    @param filename Name of the file
+    @param inline This is an inline file (e.g. image in an HTML mailing)
+    @return A MIME record for use in MIME mailings */
+
+//ADDME: Shouldn't have a function passing separate headers, replace with record array getting
+PUBLIC RECORD FUNCTION PreEncodeMIMEPart(STRING contentid
+                                        ,STRING mimetype
+                                        ,STRING description
+                                        ,BLOB data
+                                        ,STRING filename
+                                        ,BOOLEAN inline)
+{
+  RECORD mimepart := [ id := 0
+                     , contentid := contentid
+                     , contentdisposition := GetMIMEPartContentDisposition(filename, inline)
+                     , mimetype := GetMIMEPartContentType(mimetype, filename)
+                     , description := description
+                     , data := data
+                     , subparts := DEFAULT RECORD ARRAY
+                     , filename := filename
+                     ];
+
+  __temp_encoded_data := DEFAULT STRING ARRAY;
+  MIMEEncodePartTo(mimepart, PTR ReceiveEncodedLine);
+  INSERT CELL encoded_data := __temp_encoded_data INTO mimepart;
+  RETURN mimepart;
+}
+
+MACRO MIMEEncodePartTo (RECORD msgpart, MACRO PTR receivefunction)
+{
+  // If the part is already encoded, just send it
+  IF (CellExists(msgpart, "encoded_data") AND Length(msgpart.encoded_data)>0)
+  {
+    FOREVERY (STRING line FROM msgpart.encoded_data)
+      receivefunction(line);
+
+    RETURN;
+  }
+
+  // Find out if this is a multipart message
+  STRING mimetype := GetMIMEHeaderParameter(msgpart.mimetype,"");
+
+  // Add description when necessary
+  IF (CellExists(msgpart, "DESCRIPTION") AND msgpart.description != "")
+  {
+    receivefunction("Content-Description: " || msgpart.description); //FIXME: Words encoding!
+  }
+  IF (ToUppercase(mimetype) LIKE "MULTIPART/*")
+    MIMEEncodeMultiPart(mimetype,msgpart,receivefunction);
+  ELSE IF (ToUppercase(mimetype) LIKE "MESSAGE/*")
+    MIMEEncodeMessage(mimetype,msgpart,receivefunction);
+  ELSE IF (ToUppercase(mimetype) LIKE "TEXT/*")
+    MimeEncodeText(mimetype,msgpart,receivefunction);
+  ELSE
+    MimeEncodeAny(mimetype,msgpart,receivefunction);
+}
+
+
+
+MACRO MIMEEncodeMsgParts(RECORD ARRAY msgparts, STRING boundary, MACRO PTR receivefunction)
+{
+  FOREVERY (RECORD msgpart FROM msgparts)
+  {
+    //receivefunction("");
+    receivefunction("--"||boundary);
+    MIMEEncodePartTo(msgpart, receivefunction);
+  }
+  //receivefunction("");
+  receivefunction("--"||boundary||"--");
+}
+
+
+/** @short This function will encode a mime body
+    @param data Data to encode
+    @return String with the decoded mime body */
+MACRO MIMEEncodeBase64(STRING data, MACRO PTR receivefunction)
+{
+  //ADDME: Move this to C - way too slow for many megabytes
+  INTEGER datasize := Length(data);
+  FOR (INTEGER pos := 0; pos < datasize; pos := pos + 57) //57 bytes fit on a Base64 line
+    receivefunction(EncodeBase64(Substring(data,pos,57) ));
+}
+
+
+/** @short Decode a RFC822/MIME structured field */
+STRING FUNCTION DecodeStructuredField(STRING field)
+{
+  RETURN TrimWhitespace(DecodeMIMEEncodedWords(field));
+}
+
+
+
+
+/** @short Decode a mime header
+    @param headerstring String with the mime header
+    @return Record Array with the decoded mime header
+    @cell return.field Name of the field
+    @cell return.value Value of the field, with any encoded words still intact
+*/
+PUBLIC RECORD ARRAY FUNCTION DecodeMIMEHeader(STRING headerstring)
+{
+  RECORD ARRAY finalheaders;
+
+  FOREVERY(STRING header FROM Tokenize(headerstring, "\n"))
+  {
+    IF(Right(header,1)='\r')
+      header:=Left(header,Length(header)-1);
+
+    IF(header="")
+      BREAK; //end of headers
+
+    IF(header LIKE " *" OR header LIKE "\t*") //continued header
+    {
+      //Strip initial whitespace
+      header := TrimWhitespace(header);
+
+      IF(Length(finalheaders)>=1) //Append to last line
+        finalheaders[Length(finalheaders)-1].value := finalheaders[Length(finalheaders)-1].value || ' ' || header;
+      CONTINUE;
+    }
+
+    INTEGER colonpos := SearchSubString(header, ":");
+    STRING field := TrimWhitespace(Left(header, colonpos));
+    STRING value := TrimWhitespace(Substring(header, colonpos+1, Length(header)));
+    INSERT INTO finalheaders(field,value) VALUES(field,value) AT END;
+  }
+
+  RETURN
+      SELECT field
+           , value := DecodeMIMEEncodedWords(value)
+        FROM finalheaders;
+}
+
+
+PUBLIC STRING FUNCTION GetMIMEHeaderStringFromBlob(BLOB message)
+{
+  INTEGER rawstream := OpenBlobAsFile(message);
+  STRING header;
+
+  INTEGER header_end;
+
+  WHILE (TRUE)
+  {
+    IF (IsAtEndOfStream(rawstream))
+    {
+      header_end := LENGTH(header);
+      BREAK;
+    }
+
+    STRING more := ReadFrom(rawstream, 4096);
+
+    INTEGER oldpos := LENGTH(header) - 3;
+    header := header || more;
+
+    header_end := SearchSubstring(header, "\r\n\r\n", oldpos);
+    IF (header_end != -1)
+    {
+      header_end := header_end + 4;
+      BREAK;
+    }
+  }
+  CloseBlobFile(rawstream);
+
+  RETURN LEFT(header, header_end);
+}
+
+
+/** @short Decode a mime header from a message blob
+    @param message to get the headers from
+    @return Record Array with the decoded mime header
+    @cell return.field Name of the field
+    @cell return.value Value of the field, with any encoded words still intact
+*/
+PUBLIC RECORD ARRAY FUNCTION DecodeMIMEHeaderFromBlob(BLOB message)
+{
+  RETURN DecodeMIMEHeader(GetMIMEHeaderStringFromBlob(message));
+}
+
+
+/** @short Encode a header in MIME format
+    @param header Array with the mime headers
+    @cell header.field Name of the field
+    @cell header.value Value of the field
+    @param receivefunction Function that receives the MIME headers line by line, without a \r\n termination */
+PUBLIC MACRO SendMIMEHeaderTo(RECORD ARRAY headers, MACRO PTR receivefunction, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ rawheaders := FALSE ], options);
+  // FIXME: Check if the lines do not exceed 1000 characters or 76 characters when using encoded words
+  FOREVERY (RECORD header_ FROM headers)
+  {
+    STRING value := header_.value;
+
+    //Encodable email address headers  (ADDME: complete the list, see RFC2047 and freinds)
+    //Also do BCC for saving drafts
+    IF (ToUppercase(header_.field) IN ["TO","BCC","CC","FROM","ERRORS-TO","REPLY-TO"] AND NOT options.rawheaders)
+    {
+      STRING finallist;
+      FOREVERY(STRING add FROM TokenizeEmailAddresses(value))
+      {
+        RECORD split := SplitEmailName(add);
+        IF (split.email="")
+          CONTINUE;
+
+        STRING name := (split.name!="" ? '"' || EncodeJava(EncodeMIMEWords(split.name)) || '" ' : '');
+
+        add := name = "" ? '<' || split.email || '>' : (name || '<' || split.email || '>');
+        finallist := (finallist="" ? "" : finallist || ", ") || add;
+      }
+      IF(finallist!="")
+        receivefunction(header_.field || ": " || finallist);
+    }
+    //Encodable headers (ADDME: complete the list) - we cannot just encode any header
+    ELSE IF (ToUppercase(header_.field) IN ["SUBJECT","X-WEBHARE-ORIGIN"] AND NOT options.rawheaders)
+    {
+      receivefunction(header_.field || ": " || EncodeMIMEWords(value));
+    }
+    ELSE
+    {
+      receivefunction(header_.field || ": " || value);
+    }
+  }
+}
+
+
+/** @short Encode a message in MIME format
+    @param header Array with the mime headers
+    @cell header.field Name of the field
+    @cell header.value Value of the field
+    @param toppart Top MIME message part
+    @param receivefunction Function that receives the MIME headers line by line, without a \r\n termination
+    @cell options.rawheaders If true, keep the headers as is (don't try to rewrite To, Subject, etc...) */
+PUBLIC MACRO SendMIMEMessageTo(RECORD ARRAY headers, RECORD toppart, MACRO PTR receivefunction, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ rawheaders := FALSE ], options);
+  DELETE FROM headers WHERE ToUppercase(field) IN ["CONTENT-TYPE","CONTENT-TRANSFER-ENCODING","CONTENT-DESCRIPTION","CONTENT-DISPOSITION","CONTENT-ID"];
+  SendMIMEHeaderTo(headers, receivefunction, [ rawheaders := options.rawheaders ]);
+  IF(RecordExists(toppart))
+    MIMEEncodePartTo(toppart, receivefunction);
+}
+
+
+
+MACRO LineToStream(INTEGER streamid, STRING line)
+{
+  PrintTo(streamid,line);
+  PrintTo(streamid,"\r\n");
+}
+
+
+
+/** @short Encode a message in MIME format
+    @param headers Array with the mime headers
+    @cell headers.field Name of the field
+    @cell headers.value Value of the field
+    @param toppart Top MIME message part
+    @return A blob containinng the complete MIME message */
+PUBLIC BLOB FUNCTION EncodeMIMEMessage(RECORD ARRAY headers, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  INTEGER finalstream := CreateStream();
+  SendMIMEMessageTo(headers, toppart, PTR LineToStream(finalstream, #1), options);
+  RETURN MakeBlobFromStream(finalstream);
+}
+
+
+
+PUBLIC RECORD ARRAY FUNCTION SquashEmailMimeData(RECORD email)
+{
+  RETURN GetParts(email,DEFAULT RECORD, 1);
+}
+
+
+
+PUBLIC RECORD FUNCTION DecodeMIMEMessage(BLOB message)
+{
+  RETURN DecodeMIMEMessageInternal(message, 0);
+}
+
+RECORD FUNCTION DecodeSubMessages(RECORD data)
+{
+  IF (ToUppercase(data.mimetype) LIKE "MESSAGE/RFC822*")
+  {
+    RECORD msg := DecodeMIMEMessageInternal(data.data, data.ofs_bodystart);
+    INSERT CELL headers := msg.headers INTO data;
+    INSERT CELL toppart := msg.data INTO data;
+  }
+
+  IF (CellExists(data, "SUBPARTS"))
+    FOREVERY (RECORD rec FROM data.subparts)
+      data.subparts[#rec] := DecodeSubMessages(rec);
+
+  RETURN data;
+}
+
+RECORD FUNCTION DecodeMIMEMessageInternal(BLOB message, INTEGER ofs)
+{
+  RECORD email := [headers := DEFAULT RECORD ARRAY, data := DEFAULT RECORD ];
+
+  INTEGER blobfile := openblobasfile(message);
+  STRING ARRAY headerlines;
+  STRING inline;
+
+  //Grab the header first!
+  WHILE(TRUE)
+  {
+    inline := ReadLineFrom(blobfile, 2048, TRUE);
+    IF(inline="")
+      BREAK; //so much for the header
+    INSERT inline INTO headerlines AT END;
+  }
+  RECORD ARRAY headers := DecodeMIMEHeader(Detokenize(headerlines,"\r\n"));
+
+  INTEGER text_start := INTEGER(GetFilePointer(blobfile));
+  CloseBlobFile(blobfile);
+
+  INTEGER decoder := CreateMimeDecoderInternal(headers, "text/plain", ofs + text_start, ofs, ofs + text_start);
+  //ADDME A mime decoder accepting blobs would be more efficient
+  SendBlobTo(decoder, MakeSlicedBlob(message, text_start, Length(message)));
+  RECORD decoded := FinishMimeData(decoder);
+
+  email.headers := headers;
+  email.data := DecodeSubMessages(decoded);
+  email := AddEmailHeaders(email);
+
+  CloseBlobFile(blobfile);
+
+  //INSERT CELL mimeparts := SquashEmailMimeData(decoded) INTO email;
+
+  RETURN email;
+}
+
+
+
+/** @short This function will get the first occurance of a field from a MIME header
+    @param header Record Array with the header (use DecodeHeader to get the it)
+    @param field_ String with the field to search for
+    @return String with the value belonging to the field, or an empty string if the
+                   requested header could not be found
+    @see DecodeHeader, MimeHeaderExists
+*/
+PUBLIC STRING FUNCTION GetMIMEHeader(RECORD ARRAY header, STRING field_)
+{
+  RECORD headerrec := SELECT * FROM header WHERE ToUppercase(field) = ToUppercase(field_);
+  RETURN RecordExists(headerrec) ? headerrec.value : "";
+}
+
+
+
+/** @short This function reterns whether a particular field exists in the MIME header
+    @param header Record Array with the header (use DecodeHeader to get the it)
+    @param field_ String with the field to search for
+    @bool Whether the field exists
+    @see DecodeHeader, GetMIMEHeader
+*/
+PUBLIC BOOLEAN FUNCTION MIMEHeaderExists(RECORD ARRAY header, STRING field_)
+{
+  RECORD headerrec := SELECT * FROM header WHERE ToUppercase(field) = ToUppercase(field_);
+  RETURN RecordExists(headerrec);
+}
+
+
+
+/** @short This function will get all occurances of a field from a MIME header
+    @long These occurances can be situated on several lines or separated by ;
+    @param header Record Array with the header (use DecodeHeader to get it)
+    @param field_ String with the field to search for
+    @return String with the value belonging to field
+*/
+PUBLIC STRING ARRAY FUNCTION __internal_CombineMIMEHeaders(RECORD ARRAY header, STRING field_)
+{
+  RECORD ARRAY headerrecs := SELECT * FROM header WHERE ToUppercase(field) = ToUppercase(field_);
+  STRING ARRAY headervalues;
+  FOREVERY (RECORD headerrec FROM headerrecs)
+  {
+    STRING ARRAY theseheaders := DecodeHeaderValue(headerrec.value);
+    FOREVERY (STRING thisheader FROM theseheaders)
+      INSERT thisheader INTO headervalues AT END;
+  }
+  RETURN headervalues;
+}
+
+
+
+
+/** @short This function will get a parameter from a MIME header (like "attachment; filename=image.jpg")
+    @param data Field to decode
+    @param keyword Keyword to look up, or empty to get the main field
+    @return String with the value belonging to field, with any mime words decoded
+*/
+PUBLIC STRING FUNCTION GetMIMEHeaderParameter(STRING data, STRING keyword)
+{
+  INTEGER datastart;
+  IF (keyword != "")
+  {
+    datastart := SearchSubString(ToUppercase(data), ToUppercase(keyword) || "=");
+    IF (datastart = -1)
+      RETURN ""; //not found
+    datastart := datastart + Length(keyword) + 1;
+  }
+
+  //FIXME: This code improperly handles a semicolon appearing INSIDE the field! (FIXME: Use the BLEX function which already takes care of this)
+  INTEGER keywordend := SearchSubString(Right(data, Length(data) - datastart), ";");
+  IF (keywordend < 0)
+  {
+    keywordend := Length(data) - datastart;
+  }
+  data := SubString(data, datastart, keywordend);
+  IF (Left(data,1) = '"' AND Right(data,1) = '"') //ADDME: Proper decoding?!
+  {
+    data := SubString(data, 1, Length(data) - 2);
+  }
+  RETURN data;
+}
+
+
+
+/** @short This function will encode a multipart message
+    @param multipartdata Record Array consisting of
+    @cell multipartdata.header Record Array with header of this part
+    @cell multipartdata.data String with data of this part
+    @return
+    @cell(string) return.boundary The outer boundary
+    @cell(blob) return.data Multipart data
+*/
+PUBLIC RECORD FUNCTION __internal_ComposeMIMEMultiPartData(RECORD ARRAY multipartdata)
+{
+  RECORD ARRAY parts;
+  INTEGER streamid := Createstream();
+
+  STRING boundary := CreateNewBoundary(streamid * length(multipartdata));
+
+  FOREVERY (RECORD multipartrec FROM multipartdata)
+  {
+    // Start of this part
+    PrintTo(streamid, "--" || boundary || "\r\n");
+    SendMIMEHeaderTo(multipartrec.header, PTR LineToStream(streamid,#1));
+    PrintTo(streamid, "\r\n"); //required empty line between header and data.
+    IF(TYpeID(multipartrec.data)=TypeID(BLOB))
+    {
+      INSERT [ data := MakeBlobFromStream(streamid) ] INTO parts AT END;
+      INSERT [ data := multipartrec.data ] INTO parts AT END;
+      streamid := Createstream();
+    }
+    ELSE
+      PrintTo(streamid, multipartrec.data);
+    PrintTo(streamid, "\r\n");
+  }
+  // End of the multipartdata
+  PrintTo(streamid,"--" || boundary || "--\r\n");
+
+  INSERT [ data := MakeBlobFromStream(streamid) ] INTO parts AT END;
+
+  RETURN
+      [ boundary :=   boundary
+      , data :=       MakeComposedBlob(parts)
+      ];
+}
+
+
+/** @short Adds email MIME headers to an email
+    @long This function adds decoded Sender, Tos, ReplyTo, Bcc, Ccs, Subject, Date
+          headers based on the original headers field in an email
+    @param origemail The record to which the headers are added
+    @return The updated email record with MIME decoded headers
+    @cell return.sender The sender of the email
+    @cell return.tos The adresses to which the email was sent
+    @cell return.ccs The adresses that received a Carbon Copy
+    @cell return.bccs The adresses that received a Blind Carbon Copy
+    @cell return.replyto The adress to which should be replied
+    @cell return.subject The subject of the message
+    @cell return.date The date of the message
+    @cell return.inreplyto The in reply to field
+    @cell return.contenttype The content type of the email
+*/
+PUBLIC RECORD FUNCTION AddEmailHeaders(RECORD origemail)  /* FIXME: Deprecate and clean this? A version that works with just the HEADERS record array would sometimes be better*/
+{
+  INSERT CELL sender := GetMIMEHeader(origemail.headers,"FROM")
+         INTO origemail;
+  INSERT CELL tos := GetMIMEHeader(origemail.headers,"TO")
+         INTO origemail;
+  INSERT CELL ccs := GetMIMEHeader(origemail.headers,"CC")
+         INTO origemail;
+  INSERT CELL bccs := GetMIMEHeader(origemail.headers,"BCC")
+         INTO origemail;
+  INSERT CELL replyto := GetMIMEHeader(origemail.headers,"REPLY-TO")
+         INTO origemail;
+  INSERT CELL subject := GetMIMEHeader(origemail.headers,"SUBJECT")
+         INTO origemail;
+  INSERT CELL date := MakeDateFromText(GetMIMEHeader(origemail.headers,"DATE"))
+         INTO origemail;
+  INSERT CELL inreplyto := GetMIMEHeader(origemail.headers,"IN-REPLY-TO")
+         INTO origemail;
+
+  STRING msgcontenttype := DecodeCharset(GetMIMEHeader(origemail.headers,"CONTENT-TYPE"),"CP1252");
+  INSERT CELL contenttype := msgcontenttype!="" ? msgcontenttype : "text/plain"
+         INTO origemail;
+  RETURN origemail;
+}
+
+
+/** @short Add attachments to a mail record
+    @param toppart Top-level part of the MIME message to add the attachments to
+    @param attachments record array with the attachments (STRING name, STRING data, STRING contenttype)
+    @param type Top-level type (multipart/mixed or multipart/alternative)
+    @return A record of the new Top-level MIME part
+*/
+RECORD FUNCTION AddAttachmentsToMailInternal(RECORD toppart, RECORD ARRAY attachments, STRING type)
+{
+  IF (Length(attachments) = 0)
+    RETURN toppart;
+
+  // Make sure id's aren't reused
+  INTEGER nextid := GetMaxUsedId(toppart) + 1;
+
+  IF (ToUpperCase(toppart.mimetype) != ToUpperCase(type))
+  {
+    toppart := [ ID := nextid
+               , mimetype := type
+               , description := ""
+               , data := DEFAULT BLOB
+               , subparts := [ toppart ]
+               , contentid := ""
+               ];
+    nextid := nextid + 1;
+  }
+
+  FOREVERY (RECORD attach FROM attachments)
+  {
+    STRING ctype := CellExists(attach,"contenttype") AND attach.contenttype != "" ? attach.contenttype : "application/octet-stream";
+    IF (CellExists(attach,"name") AND attach.name != "")
+      ctype := ctype || '; name="' || EncodeJava(GetNameFromPath(attach.name)) || '"';
+
+    INSERT INTO toppart.subparts(id, mimetype, contentid, description, contentdisposition, data, encoded_data, subparts)
+           VALUES(nextid, ctype, "", "",
+           CellExists(attach, "CONTENTDISPOSITION") ? attach.contentdisposition : "",
+           attach.data,
+           CellExists(attach, "ENCODED_DATA") ? attach.encoded_data : DEFAULT STRING ARRAY,
+           DEFAULT RECORD ARRAY)
+           AT END;
+
+    nextid := nextid + 1;
+  }
+
+  RETURN toppart;
+}
+
+/** @short Add attachments to a mail record
+    @param toppart Top-level part of the MIME message to add the attachments to
+    @param attachments record array with the attachments (STRING name, STRING data, STRING contenttype)
+    @return A record of the new Top-level MIME part
+*/
+PUBLIC RECORD FUNCTION AddAttachmentsToMail(RECORD toppart, RECORD ARRAY attachments)
+{
+  RETURN AddAttachmentsToMailInternal(toppart, attachments, "multipart/mixed");
+}
+PUBLIC RECORD FUNCTION __AddAlternativesToMail(RECORD toppart, RECORD ARRAY attachments)
+{
+  RETURN AddAttachmentsToMailInternal(toppart, attachments, "multipart/alternative");
+}
+
+
+/** @short Create a top part for a MIME mailing
+    @param plainmail Plain/text part
+    @param htmlmail HTML part
+    @param mail_images Embedded objects
+    @cell mail_images.filename Original filename
+    @cell mail_images.contentid Content id (without the 'cid:' namespace prefix)
+    @cell mail_images.contenttype Content type
+    @cell mail_images.data Object data
+    @return A top-level MIME part for an embedded mailing. Ids 2 up to 6+length(embedded) will be used as
+            the IDs in the toppart record and its contained objects
+*/
+PUBLIC RECORD FUNCTION CreateMIMEMailingTopPart(BLOB plainmail, BLOB htmlmail, RECORD ARRAY mail_images)
+{
+  RECORD htmlversion;
+  RECORD plaintextversion;
+
+  IF (length(htmlmail)>0)
+  {
+    htmlversion :=  [ ID := 3
+                     , mimetype := "text/html; charset=UTF-8"
+                     , description := ""
+                     , data := htmlmail
+                     , subparts := DEFAULT RECORD ARRAY
+                     , filename := "mailing.html"
+                     , contentid := ""
+                     ];
+
+    IF (Length(mail_images) > 0)
+    {
+      htmlversion :=  [ ID := 4
+                       , mimetype := "multipart/related"
+                       , description := ""
+                       , data := DEFAULT BLOB
+                       , subparts := [ htmlversion ]
+                       , filename := ""
+                       , contentid := ""
+                       ];
+
+      FOREVERY(RECORD image FROM mail_images)
+      {
+        INSERT INTO htmlversion.subparts(id, contentid, contentdisposition, mimetype, description, data, encoded_data, subparts, filename)
+               VALUES(6 + #image, image.contentid,
+                      'inline; filename="' || EncodeJava(GetNameFromPath(image.filename)) || '"',
+                      image.contenttype || '; name="' || EncodeJava(GetNameFromPath(image.filename)) || '"', "", image.data,
+                      CellExists(image, "encoded_data") ? image.encoded_data : DEFAULT STRING ARRAY,
+                      DEFAULT RECORD ARRAY, image.filename)
+               AT END;
+      }
+    }
+  }
+  IF (NOT RecordExists(htmlversion) OR Length(plainmail)>0)
+  {
+    plaintextversion :=  [ ID := 2
+                         , mimetype := "text/plain; charset=UTF-8; format=flowed"
+                         , description := ""
+                         , data := plainmail
+                         , subparts := DEFAULT RECORD ARRAY
+                         , filename := "mailing.txt"
+                         , contentid := ""
+                         ];
+  }
+
+  RECORD toppart;
+
+  //Two versions? merge them as alternatives
+  IF (RecordExists(plaintextversion) AND RecordExists(htmlversion))
+  {
+    toppart := [ ID := 5
+                , mimetype := "multipart/alternative"
+                , description := ""
+                , data := StringToBlob("This is a multipart message in MIME format.")
+                , subparts := [ plaintextversion, htmlversion ]
+                , contentid := ""
+                ];
+  }
+  ELSE IF (RecordExists(htmlversion))
+    toppart := htmlversion;
+  ELSE
+    toppart := plaintextversion;
+
+  RETURN toppart;
+}
+
+/** @short Generate a filename for an attachment
+ */
+PUBLIC STRING FUNCTION GetFilenameForMIMEPart(RECORD attachment)
+{
+  STRING filename := GetMIMEHeader(attachment.parameters, "name");
+
+  IF (filename = "" AND CellExists(attachment, "DISPOSITION"))
+    filename := GetMIMEHeaderParameter(attachment.disposition, "filename");
+
+  IF (filename != "")
+    RETURN GetNameFromPath(filename);
+
+  STRING mimetype := ToUpperCase(attachment.mimetype);
+
+  IF (mimetype LIKE "TEXT/*")
+  {
+    IF (mimetype LIKE "TEXT/HTML*")
+      RETURN "attachment.html";
+
+    RETURN "attachment.txt";
+  }
+
+  IF (mimetype LIKE "IMAGE/*")
+  {
+    IF (mimetype LIKE "IMAGE/GIF*")
+      RETURN "attachment.gif";
+
+    IF (mimetype LIKE "IMAGE/JPEG*")
+      RETURN "attachment.jpg";
+
+    IF (mimetype LIKE "IMAGE/PNG*")
+      RETURN "attachment.png";
+
+    RETURN "image.bin";
+  }
+
+  IF (mimetype LIKE "MESSAGE/*")
+  {
+    IF (mimetype LIKE "MESSAGE/RFC822*")
+      RETURN "attachment.eml";
+
+    IF (mimetype LIKE "MESSAGE/DELIVERY-STATUS*")
+      RETURN "error.txt";
+  }
+
+  RETURN "attachment.bin";
+}
+
+// Searches for a part that is supposed to be displayed
+PUBLIC RECORD FUNCTION GetEmailPrimaryMIMEPart(RECORD bodystruct, STRING mimetype)
+{
+  // There is no part..
+  IF (NOT RecordExists(bodystruct))
+    RETURN DEFAULT RECORD;
+
+  // Is it this part?
+  IF (ToUpperCase(bodystruct.mimetype) LIKE ToUppercase(mimetype) || '*')
+    RETURN bodystruct;
+
+  // Is our part somewhere in this multipart?
+  IF (ToUpperCase(bodystruct.mimetype) LIKE 'MULTIPART/ALTERNATIVE*' OR
+      ToUpperCase(bodystruct.mimetype) LIKE 'MULTIPART/RELATED*')
+  {
+    FOREVERY (RECORD subpart FROM bodystruct.subparts)
+    {
+      RECORD searchpart := GetEmailPrimaryMIMEPart(subpart, mimetype);
+
+      IF (RecordExists(searchpart))
+        RETURN searchpart;
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  // Only check the first part of the multipart
+  IF (ToUpperCase(bodystruct.mimetype) LIKE 'MULTIPART/*' AND Length(bodystruct.subparts) > 0)
+    RETURN GetEmailPrimaryMIMEPart(bodystruct.subparts[0], mimetype);
+
+  // Nothing found..
+  RETURN DEFAULT RECORD;
+}

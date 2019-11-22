@@ -1,0 +1,85 @@
+<?wh // Testscript for unique constraint
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+TABLE <INTEGER intdata, STRING strdata> beta_uniquetest1;
+TABLE <INTEGER intdata, STRING strdata> beta_uniquetest2;
+
+
+
+OBJECT trans1;
+OBJECT trans2;
+
+// -- Dropping test table if it exists
+trans1 := OpenPrimary();
+
+trans1->BeginWork();
+trans1->allowerrordelay := TRUE;
+trans1->throwoncommiterror := TRUE;
+
+IF (trans1->SchemaExists("webhare_testsuite_testschema"))
+  trans1->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+trans1->CreateSchema("webhare_testsuite_testschema", "", "");
+
+__LegacyCreateTable(trans1, "webhare_testsuite_testschema", "beta_uniquetest1",
+    [ cols :=         [ [ column_name := "intdata",   data_type := "INTEGER", isunique := TRUE ]
+                      , [ column_name := "strdata",  data_type := "VARCHAR", isunique := TRUE, character_octet_length := 1024 ]
+                      ]
+    ]);
+
+beta_uniquetest1 := BindTransactionToTable(trans1->id, "webhare_testsuite_testschema.beta_uniquetest1");
+trans1->CommitWork();
+
+trans2 := GetDatabaseType() = "whdb"
+    ?  GetTransactionObjectById(__avoiddepwarning_StartWHDBTransaction([ user := "~webhare", password := "", auto := TRUE ]))
+    : __StartWHPostgreSQLTransaction([ auto := TRUE ]);
+
+beta_uniquetest2 := BindTransactionToTable(trans2->id, "webhare_testsuite_testschema.beta_uniquetest1");
+
+// -- Inserting unique values
+trans1->BeginWork();
+INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (1, "a");
+INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (2, "b");
+trans1->CommitWork();
+
+// -- Inserting duplicate (int) value
+trans1->BeginWork();
+INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (2, "c");
+TestThrows(PTR trans1->CommitWork());
+
+// -- Inserting duplicate (string) value
+trans1->BeginWork();
+INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (3, "b");
+TestThrows(PTR trans1->CommitWork());
+
+// -- Inserting duplicate value that was committed during a parallel transactions
+trans1->BeginWork();
+trans2->BeginWork();
+INSERT INTO beta_uniquetest2(intdata, strdata) VALUES (3, "c");
+trans2->CommitWork();
+INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (3, "c");
+TestThrows(PTR trans1->CommitWork());
+
+// -- Inserting duplicate value that was deleted during a parallel transactions (not allowed on PostgreSQL)
+IF (GetDatabaseType() = "whdb")
+{
+  trans1->BeginWork();
+  INSERT INTO beta_uniquetest1(intdata, strdata) VALUES (3, "c");
+  trans2->BeginWork();
+  DELETE FROM beta_uniquetest2 WHERE intdata = 3;
+  trans2->CommitWork();
+  trans1->CommitWork();
+}
+
+// -- Dropping test table
+trans1->BeginWork();
+trans1->DropSchema("webhare_testsuite_testschema", [ cascade := TRUE ]);
+trans1->CommitWork();

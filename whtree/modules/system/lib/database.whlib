@@ -1,0 +1,790 @@
+﻿<?wh
+/** @short WebHare Database access
+    @long Table definitions and binding functions for the system module. If a primary
+          transaction is available, this library will automatically bind all tables
+          to this transaction.
+    @topic database/webharedb
+*/
+LOADLIB "wh::dbase/transaction.whlib" EXPORT
+    GetPrimaryWebhareTransaction,
+    GetPrimaryWebhareTransactionObject,
+    SetPrimaryWebhareTransaction,
+    SetupPrimaryTransactionBinder,
+    DatabaseException;
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseReadonly;
+LOADLIB "wh::internal/transservices.whlib";
+
+LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
+
+OBJECT bareservicecontext;
+
+/** System database schema
+    @schemadef system
+*/
+PUBLIC SCHEMA
+  < TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "parent" NULL := 0
+    , DATETIME "creationdate"
+    , DATETIME "deletiondate"
+    , INTEGER "type"
+    , STRING "guid"
+    ; KEY id
+    > authobjects
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "role" NULL := 0
+    , INTEGER "grantee" NULL := 0
+    , INTEGER "grantor" NULL := 0
+    , DATETIME "creationdate"
+    , STRING "comment"
+    , STRING "grantordata"
+    ; KEY id
+    > rolegrants
+  , TABLE
+    < INTEGER "id"
+    , STRING "mimetype"
+    , STRING "extension"
+    , INTEGER "parsetype"
+    , BOOLEAN "forcedispositionattachment"
+    ; KEY id
+    > mimetypes
+  , TABLE
+    < INTEGER "id"
+    , STRING "ip"
+    , INTEGER "port"
+    , BOOLEAN "virtualhost"
+    , INTEGER "keypair" NULL := 0
+    , STRING "description"
+    ; KEY id
+    > ports
+  , TABLE
+    < INTEGER "id"
+    , STRING "url"
+    , STRING "password"
+    , STRING "description"
+    , STRING "proxy_ips"
+    , STRING "status"
+    , STRING "reverseaddress"
+    , DATETIME "lastregistration"
+    , BLOB "registrationresultdata"
+    , STRING "lasterror"
+    , STRING "hostswhitelist"
+    ; KEY id
+    > proxies
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "type"
+    , STRING "diskfolder"
+    , STRING "baseurl"
+    , STRING "outputextension"
+    , INTEGER "port" NULL := 0
+    , INTEGER parent NULL := 0
+    , STRING title
+    , DATETIME "lastseen"
+    , DATETIME "lastcheck"
+    , STRING "lastcheckerror"
+    , INTEGER "stricttransportsecurity"
+    ; KEY id
+    > webservers
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , STRING "path"
+    , STRING "description"
+    , BOOLEAN "disablecaching"
+    , INTEGER "matchtype"
+    , STRING "errorpath"
+    , INTEGER "authtype"
+    , BOOLEAN "authrequirement"
+    , INTEGER "hostingsrc"
+    , STRING "hostingpath"
+    , BOOLEAN "authlist"
+    , STRING "authscript"
+    , INTEGER 'redirectcode'
+    , BOOLEAN fixcase
+    , INTEGER maxage
+    , INTEGER applysource NULL := 0
+    , BOOLEAN disabled
+    ; KEY id
+    > access
+  , TABLE
+    < INTEGER "accessid" NULL := 0
+    , STRING "mask"
+    , BOOLEAN "is_allow"
+    > access_ips
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , STRING "hostname"
+    , BOOLEAN "explicit"
+    , DATETIME "lastseen"
+    , DATETIME "lastcheck"
+    , STRING "lastcheckerror"
+    ; KEY id
+    > webservers_aliases
+  , TABLE
+    < INTEGER "accessid" NULL := 0
+    , STRING "username"
+    , STRING "userpassword"
+    , STRING "description"
+    > access_externalusers
+  , TABLE
+    < INTEGER 'id'
+    , DATETIME creationdate
+    , DATETIME nextattempt
+    , DATETIME finished
+    , STRING tasktype
+    , INTEGER workertype
+    , STRING taskdata
+    , BLOB auxdata
+    , STRING lasterrors
+    , STRING stacktrace
+    , STRING shortretval
+    , BLOB longretval
+    , INTEGER iterations
+    , BOOLEAN "iscancelled"
+    , INTEGER "priority"
+    ; KEY id
+    > managedtasks
+  , TABLE
+    < INTEGER id
+    , INTEGER task NULL := 0
+    , STRING metakey
+    , STRING metavalue
+    ; KEY id
+    > managedtasksmeta
+  , TABLE
+    < INTEGER "id"
+    , STRING "tag"
+    , STRING "mask"
+    , STRING "sendermask"
+    , STRING "serverurl"
+    , INTEGER "ordering"
+    , STRING "outgoingmailaddress"
+    , BOOLEAN "outgoingaddressrewrite"
+    , STRING "description"
+    , STRING "originmask"
+    , INTEGER "ruletype"
+    , INTEGER "suggestionfuzz"
+    ; KEY id
+    > mailqueue_route
+  , TABLE
+    < INTEGER "id"
+    , STRING "foldername"
+    , STRING "diskfolder"
+    , BOOLEAN "forcelowercase"
+    ; KEY id
+    > webdav_datafolders
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "namehash" __ATTRIBUTES__(BINARY)
+    , STRING "nodehash" __ATTRIBUTES__(BINARY)
+    , STRING "data"
+    , BLOB "blobdata"
+    , DATETIME "modificationdate"
+    ; KEY id
+    > flatregistry
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , DATETIME "modificationdate"
+    ; KEY id
+    > modules
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "tablename"
+    , STRING "storagetable"
+    , INTEGER "module" NULL := 0
+    , STRING "primarykey"
+    , STRING "parentfield"
+    , STRING "describer"
+    , STRING "icon"
+    ; KEY id
+    > module_objecttypes
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "objtype" NULL := 0
+    , INTEGER "module" NULL := 0
+    ; KEY id
+    > module_rights
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "right" NULL := 0
+    , INTEGER "impliedby" NULL := 0
+    , STRING "fieldname"
+    ; KEY id
+    > module_impliedbys
+
+   , TABLE
+    < BLOB "data"
+    , BOOLEAN "publish" __ATTRIBUTES__(READONLY)
+    , BOOLEAN "requireprofile"
+    , BOOLEAN "requireprofileinsubfolders"
+    , BOOLEAN "requiretemplate"
+    , BOOLEAN "requiretemplateinsubfolders"
+    , DATETIME "creationdate"
+    , DATETIME "modificationdate"
+    , INTEGER "modifiedby" NULL := 0
+    , INTEGER "filelink" NULL := 0
+    , INTEGER "highestparent" AS "parentsite" __ATTRIBUTES__(READONLY)
+    , INTEGER "indexdoc" NULL := 0
+    , DATETIME "firstpublishdate"
+    , DATETIME "lastpublishdate"
+    , INTEGER "lastpublishsize"
+    , INTEGER "lastpublishtime"
+    , INTEGER "ordering"
+    , INTEGER "parent" NULL := 0
+    , INTEGER "highestparent" __ATTRIBUTES__(READONLY)
+    , INTEGER "profile" NULL := 0
+    , INTEGER "published"
+    , INTEGER "template" NULL := 0
+    , INTEGER "type" NULL := 0
+    , BOOLEAN "isfolder"
+    //, INTEGER "parent_inside_site" __ATTRIBUTES__(READONLY) //TODO cleanup in moduledefinition.xml and C++ code
+    , STRING "description"
+    , STRING "errordata"
+    , STRING "externallink"
+    , STRING "fullpath" __ATTRIBUTES__(READONLY)
+    , STRING "whfspath" __ATTRIBUTES__(READONLY)
+    , STRING "indexurl" __ATTRIBUTES__(READONLY)
+    , STRING "indexurl" AS "link" __ATTRIBUTES__(READONLY)
+    , STRING "keywords"
+    , STRING "name"
+    , STRING "title"
+    , STRING "url" __ATTRIBUTES__(READONLY)
+    , STRING "url" AS "objecturl" __ATTRIBUTES__(READONLY)
+    , INTEGER "id"
+    , BOOLEAN "isactive" __ATTRIBUTES__(READONLY)
+    , BOOLEAN "ispinned"
+    , STRING "scandata"
+    ; KEY id
+    > fs_objects
+
+    , TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "name"
+    , STRING "description"
+    , INTEGER "outputweb" NULL := 0
+    , STRING "outputfolder"
+    , STRING "lockreason"
+    , BOOLEAN "locked"
+    , INTEGER "id" AS "root" NULL := 0 __ATTRIBUTES__(READONLY)
+    , STRING "cdnbaseurl"
+    , STRING "webroot" __ATTRIBUTES__(READONLY)
+    , STRING "versioningpolicy"
+    ; KEY id
+    > sites
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "namespace"
+    , BOOLEAN "isfoldertype"
+    , BOOLEAN "isfiletype"
+    , BOOLEAN "cloneoncopy"
+    , BOOLEAN "orphan"
+    , BOOLEAN "isacceptableindex"
+    , BOOLEAN "needstemplate"
+    , BOOLEAN "needsprofile"
+    , BOOLEAN "ispublishedassubdir"
+    , BOOLEAN "isdynamicexecution"
+    , BOOLEAN "ispublishable"
+    , BOOLEAN "generatepreview"
+    , BOOLEAN "capturesubpaths"
+    , STRING "previewlibrary"
+    , STRING "previewobjectname"
+    , STRING "searchprovider"
+    ; KEY id
+    > fs_types
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , INTEGER "fs_type" NULL := 0
+    , INTEGER "type"
+    , BOOLEAN "publish"
+    , BOOLEAN "orphan"
+    , INTEGER "parent" NULL := 0
+    ; KEY id
+    > fs_members
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_instance" NULL := 0
+    , INTEGER "fs_member" NULL := 0
+    , STRING "setting"
+    , BLOB "blobdata"
+    , INTEGER "fs_object" NULL := 0
+    , INTEGER "parent" NULL := 0
+    , INTEGER "instancetype" NULL := 0
+    , INTEGER "ordering"
+    ; KEY id
+    > fs_settings
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_type" NULL := 0
+    , INTEGER "fs_object" NULL := 0
+    ; KEY id
+    > fs_instances
+  , TABLE
+    < INTEGER id
+    , INTEGER fs_object NULL := 0
+    , INTEGER user NULL := 0
+    , INTEGER type
+    , DATETIME when
+    , INTEGER currentparent NULL := 0
+    , STRING currentname
+    ; KEY id
+    > fs_history
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "fs_site" NULL := 0
+    , DATETIME "when"
+    , INTEGER "live_object" NULL := 0
+    , INTEGER "draft_object" NULL := 0
+    , INTEGER "user" NULL := 0
+    , STRING "comment"
+    , STRING "tag"
+    , INTEGER "eventtype"
+    , BOOLEAN "iscurrent"
+    , INTEGER "ordering"
+    , STRING "orgfullpath"
+    , STRING "orgurl"
+    , STRING "newfullpath"
+    , STRING "newurl"
+    , BOOLEAN "isdelete"
+    , INTEGER "newflags"
+    , DATETIME "finished"
+    , INTEGER "previousrequest" NULL := 0
+    , STRING "versionnumber"
+    , DATETIME "expirydate"
+    ; KEY id
+    > fs_versionevents
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "module" NULL := 0
+    , STRING "name"
+    , STRING "descriptiontid"
+    , BOOLEAN "defaultenabled"
+    ; KEY id
+    > towl_notifications
+
+  , TABLE
+    < INTEGER id
+    , INTEGER owner NULL := 0
+    , STRING pathhash __ATTRIBUTES__(BINARY)
+    , STRING path
+    , DATETIME created
+    , INTEGER type
+    , BLOB data
+    ; KEY id
+    > webdav_diversions
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "webserver" NULL := 0
+    , DATETIME "time"
+    , INTEGER "hits"
+    , INTEGER "serverfails"
+    , INTEGER "clientfails"
+    , INTEGER "highpagetime"
+    , INTEGER "failips"
+    , INTEGER64 "download"
+    , INTEGER64 "upload"
+    , INTEGER64 "sumpagetime"
+    ; KEY id
+    > "webservers_usage"
+
+  , TABLE
+    < INTEGER 'id'
+    , DATETIME 'created'
+    , DATETIME 'lastuse'
+    , STRING 'designfolder'
+    , STRING 'entrypoint'
+    , STRING 'bundleconfig'
+    , STRING 'outputtag'
+    ; KEY id
+    > assetpacks
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "hash"
+    , STRING "func"
+    , STRING "state"
+    , STRING "keydatahsonstr"
+    , BLOB "keydatahsonblob"
+    , STRING "valuehsonstr"
+    , BLOB "valuehsonblob"
+    , STRING "settingshsonstr"
+    , DATETIME "lastuse"
+    ; KEY id
+    > precalccache
+
+  > system;
+
+// Generation of system table bindings, for rightsmgmt.
+PUBLIC INTEGER __system_binding_gen;
+
+OBJECT __system_binding_trans;
+
+/** @short Bind system tables
+    @long Bind all the tables owned by the system module (eg users, system_units, and all other system_ modules)
+    @param transaction ID of the transaction to which the tables should be bound */
+MACRO BindSystemTables(INTEGER transaction)
+{
+  system := BindTransactionToSchema(transaction, "system");
+  IF(transaction=0)
+  {
+    __system_binding_trans := DEFAULT OBJECT;
+    RETURN;
+  }
+  __system_binding_gen := __system_binding_gen + 1;
+  __system_binding_trans := GetTransactionObjectById(transaction);
+}
+
+SetupPrimaryTransactionBinder(PTR BindSystemTables);
+
+
+OBJECTTYPE WebHareTransactionExtension
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Function ptr to call a service (magic to work around missing functions with variable nr of parameters)
+  FUNCTION PTR callelevatedservice;
+
+
+  /// Function ptr to execute service (for short-circuiting calls within the elevated weblet)
+  FUNCTION PTR pvt_executeservicecall;
+
+
+  PUBLIC RECORD ARRAY __scheduledephemeraltasks;
+
+  OBJECT pvt_servicecontext;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** Whether this transaction is running in elevated mode
+  */
+  //PUBLIC PROPERTY is_elevated(pvt_is_elevated, -);
+
+  PUBLIC PROPERTY servicecontext(GetServiceContext,- );
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+  MACRO NEW()
+  {
+  }
+
+  OBJECT FUNCTION GetServiceContext()
+  {
+    IF (NOT ObjectExists(this->pvt_servicecontext))
+      this->pvt_servicecontext := MakeObject("mod::system/lib/internal/dbase/localservice.whlib", "LocalServiceContext", this);
+    RETURN this->pvt_servicecontext;
+  }
+
+  ///@private Deprecated
+  PUBLIC OBJECT FUNCTION OpenService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+  {
+    RETURN this->servicecontext->OpenService(servicename, arguments);
+  }
+
+  UPDATE OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
+  {
+    RETURN OpenLockManager()->TryLockMutex(mutexname, max_wait);
+  }
+  UPDATE OBJECT FUNCTION __DoLockMutex(STRING mutexname)
+  {
+    // ADDME bit misplaced (doesn't have anything to do with service elevations), but easiest place to add this function
+    RETURN OpenLockManager()->LockMutex(mutexname);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Schedule a task
+      @long Schedule a task that at the specified time, if this transaction commits. If no 'when' is specified, schedules the task at
+            transaction commit. If the task is already scheduled at an earlier time, nothing changes.
+      @param name Taskname (module:tag)
+      @param when When to schedule the task (DEFAULT DATETIME to schedule it 'now') */
+  PUBLIC MACRO ScheduleTask(STRING name, DATETIME when) //FIXME users should start switching to ScheduleTimedTask (and manage work themselves) once 4.27 is generally available
+  {
+    BOOLEAN havetrans := this->IsWorkOpen();
+    IF(havetrans)
+      this->PushWork();
+    ELSE
+      this->BeginWork();
+
+    TRY
+    {
+      MakeFunctionPtr("mod::system/lib/tasks.whlib#ScheduleTimedTask")(name,CELL[when]);
+    }
+    FINALLY (OBJECT e)
+    {
+      IF(havetrans)
+        this->PopWork(); //ideally we'd undo only OUR changes. fortunately ScheduleTimedTask doesn't do anything irreversible before tHROW
+      ELSE IF(ObjectExists(e))
+        this->RollbackWork();
+      ELSE
+        this->CommitWork();
+    }
+  }
+>;
+
+///@private Setting effective user is pretty low-level stuff, normal code shouldn't do it
+PUBLIC MACRO __SetEffectiveUser(OBJECT userobj)
+{
+  IF(ObjectExists(userobj) AND userobj->authobjectid < 0)
+    THROW NEW Exception("Invalid effective user (has authobject #" || userobj->authobjectid || ")");
+
+  effectiveuser := userobj;
+}
+
+///@private
+PUBLIC OBJECT FUNCTION OpenWebhareTransaction(STRING user, STRING password) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary and BeginWork/CommitWork")
+{
+  RETURN StartWebhareTransaction([ user := user, passwd := password, auto := FALSE ]);
+}
+
+///@private
+PUBLIC OBJECT FUNCTION OpenWebhareAutoTransaction(STRING user, STRING password) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary")
+{
+  RETURN StartWebhareTransaction([ user := user, passwd := password, auto := TRUE ]);
+}
+
+///@private
+PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRECATED "Switch to OpenPrimary")
+{
+  RECORD whinfo := __SYSTEM_WHCOREPARAMETERS();
+
+  STRING dbtype := GetDatabaseType();
+  OBJECT transobject;
+  SWITCH (dbtype)
+  {
+    CASE "whdb"
+    {
+      INTEGER transid := __avoiddepwarning_StartWHDBTransaction(data);
+      transobject := GetTransactionObjectById(transid);
+    }
+    CASE "postgresql"
+    {
+      transobject := __StartWHPostgreSQLTransaction(data);
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown database type '${dbtype}'`);
+    }
+  }
+
+  IF (ObjectExists(transobject))
+  {
+    // DoLockMutex is implemented by WebHareTransactionExtension
+    EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(transobject) BY WebHareTransactionExtension;
+  }
+
+  RETURN transobject;
+}
+
+PUBLIC OBJECT FUNCTION __INTERNAL_GetSystemSchemaBinding()
+{
+  RETURN __system_binding_trans;
+}
+
+///@private
+PUBLIC OBJECT FUNCTION OpenLocalService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG, DEPRECATED "Switch to direct access or RunInSeparatePrimary")
+{
+  RETURN __OpenLocalService(servicename, arguments);
+}
+
+PUBLIC OBJECT FUNCTION __OpenLocalService(STRING servicename, VARIANT ARRAY arguments DEFAULTSTO DEFAULT VARIANT ARRAY)
+{
+  IF(NOT ObjectExists(bareservicecontext))
+    bareservicecontext := MakeObject("mod::system/lib/internal/dbase/localservice.whlib", "LocalServiceContext", DEFAULT OBJECT);
+
+  RECORD serviceinfo := bareservicecontext->GetServiceInfo(servicename);
+  IF(NOT serviceinfo.success)
+    THROW NEW Exception(serviceinfo.msg);
+
+  OBJECT context;
+  IF(serviceinfo.withtransaction)
+  {
+    IF(NOT HavePrimaryTransaction())
+      THROW NEW Exception("OpenLocalService requires a primary WebHare transaction");
+    context := GetPrimary()->servicecontext;
+  }
+  ELSE
+  {
+    context := bareservicecontext;
+  }
+  RETURN context->OpenService(servicename, arguments);
+}
+
+/** Opens the primary database connection
+    @long The primary database connection (or transaction) is used to bind all global database schemas to
+    @return Primary transction object. Throws upon error.
+*/
+PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
+{
+  options := ValidateOptions( [ clientname := ""
+                              , recoverymode := FALSE
+                              , clustermode := FALSE
+                              , fallbacktorecoverymode := FALSE
+                              , waituntil := DEFAULT DATETIME
+                              ], options);
+
+  IF (GetPrimaryWebhareTransaction() != 0)
+    THROW NEW Exception("A primary transaction has already been opened");
+
+  RECORD transopts :=
+      [ user := options.clustermode
+                    ? "~cluster"
+                    : options.recoverymode
+                          ? "~recovery"
+                          : "~webhare"
+      , passwd := ""
+      , auto := TRUE
+      ];
+
+  IF(options.clientname != "")
+    INSERT CELL clientname := options.clientname INTO transopts;
+
+  OBJECT trans;
+  WHILE(TRUE)
+  {
+    TRY
+    {
+      trans := StartWebhareTransaction(transopts);
+      IF (NOT ObjectExists(trans) AND options.fallbacktorecoverymode AND NOT options.recoverymode)
+      {
+        transopts.user := "~recovery";
+        trans := StartWebhareTransaction(transopts);
+      }
+    }
+    CATCH(OBJECT e)
+    {
+
+    }
+    IF (ObjectExists(trans))
+      BREAK;
+
+    IF (NOT ObjectExists(trans) AND options.waituntil < GetCurrentDatetime())
+      THROW NEW Exception("The primary transaction could not be opened - is the database available?");
+
+    Sleep(100);
+  }
+
+  SetPrimaryWebhareTransaction(trans->id);
+  trans->throwoncommiterror := TRUE;
+  RETURN trans;
+}
+
+
+/** Do we have a primary transaction? */
+PUBLIC BOOLEAN FUNCTION HavePrimaryTransaction()
+{
+  RETURN GetPrimaryWebhareTransaction() != 0;
+}
+
+/** @short Run a function in a separate transaction
+    @param func Function to invoke
+    @cell options.work If true, open and commit work (unless the function throws)
+    @return Return value of the function */
+PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ work := FALSE ], options);
+  OBJECT savetrans;
+  IF(HavePrimaryTransaction())
+  {
+    savetrans := GetPrimary();
+    SetPrimaryWebhareTransaction(0);
+  }
+
+  OBJECT mytrans;
+  TRY
+  {
+    mytrans := OpenPrimary();
+    IF(options.work)
+      mytrans->BeginWork();
+
+    VARIANT res;
+    IF(__INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE(func) NOT IN [0,2])
+    {
+      res := func();
+    }
+    ELSE
+    {
+      func();
+      res := TRUE;
+    }
+    IF(options.work)
+      mytrans->CommitWork();
+    RETURN res;
+  }
+  FINALLY
+  {
+    IF(ObjectExists(mytrans))
+      mytrans->Close();
+    IF(ObjectExists(savetrans))
+      SetPrimaryWebhareTransaction(savetrans->id);
+  }
+}
+
+/** Returns current primary transaction
+    @return Current primary transaction. Throws if there is no primary transaction.
+*/
+PUBLIC OBJECT FUNCTION GetPrimary()
+{
+  OBJECT primary := GetPrimaryWebhareTransactionObject();
+  IF (NOT ObjectExists(primary))
+    THROW NEW Exception("No primary transaction is currently opened");
+  RETURN primary;
+}
+/** Return the WebHare user id under which we're accessing the system
+    @return User authobject id, or 0 if no effective user set*/
+PUBLIC INTEGER FUNCTION GetEffectiveUserId()
+{
+  RETURN ObjectExists(effectiveuser) ? effectiveuser->authobjectid : 0;
+}
+/** Return the WebHare user object under which we're accessing the system
+    @return User object, or DEFAULT OBJECT if not set */
+PUBLIC OBJECT FUNCTION GetEffectiveUser()
+{
+  RETURN effectiveuser;
+}
+
+PUBLIC STRING FUNCTION __GetSiteNameForObjectId(INTEGER objid)
+{
+  OBJECT trans;
+  IF(NOT HavePrimaryTransaction())
+    trans := OpenPrimary();
+
+  STRING name := SELECT AS STRING sites.name
+                   FROM system.sites, system.fs_objects
+                  WHERE sites.id = fs_objects.parentsite
+                          AND fs_objects.id = objid;
+  IF(ObjectExists(trans))
+    trans->Close();
+  RETURN name;
+}
+

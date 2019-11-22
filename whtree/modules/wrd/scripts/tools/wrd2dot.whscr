@@ -1,0 +1,76 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
+LOADLIB "mod::wrd/lib/internal/wrd2dot.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "e",         type := "switch" ]
+                                                     , [ name := "i",         type := "switch" ]
+                                                     , [ name := "d",         type := "switch" ]
+                                                     , [ name := "t",         type := "switch" ]
+                                                     , [ name := "s",         type := "switch" ]
+                                                     , [ name := "o",         type := "stringopt" ]
+                                                     , [ name := "w",         type := "switch" ]
+                                                     , [ name := "wrdschema", type := "param",     required := TRUE ]
+                                                     ]);
+IF (NOT RecordExists(args))
+{//     "                                                                                " <-- 80 chars
+  Print("NAME\n");
+  Print("     wrd2dot -- draw a dot format representation of a wrd schema\n");
+  Print("\n");
+  Print("SYNOPSIS\n");
+  Print("     wrd2dot [-deist] [-o file] wrdschema\n");
+  Print("\n");
+  Print("DESCRIPTION\n");
+  Print("     The wrd2dot utility can be used to create a graphical representation of a\n");
+  Print("     wrd schema. The output uses the dot language format. If no output file is\n");
+  Print("     given, the output is written to standard out.\n");
+  Print("\n");
+  Print("     -d      Show type and attribute descriptions.\n");
+  Print("\n");
+  Print("     -e      Show domain value entities.\n");
+  Print("\n");
+  Print("     -i      Show type, attribute and entity id's.\n");
+  Print("\n");
+  //ADDME: Not implemented yet
+  //Print("     -s      Show standard type attributes.\n");
+  //Print("\n");
+  Print("     -t      Show titles in default language.\n");
+  Print("\n");
+  Print("     -w      Show dom value entities without tags.\n");
+  Print("\n");
+  Print("     -o file\n");
+  Print("             File path to write the output to.\n");
+  Print("\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+OBJECT trans := OpenPrimary();
+
+OBJECT wrdschema := OpenWRDSchemaByName(args.wrdschema);
+IF (NOT ObjectExists(wrdschema))
+{
+  Print("WRD schema '" || args.wrdschema || "' not found\n");
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+INTEGER outfile := 0;
+IF (args.o != "")
+{
+  outfile := CreateDiskFile(args.o, FALSE, TRUE);
+  IF (outfile = 0)
+  {
+    Print("Could not create file '" || args.o || "'\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+  SetDiskFileLength(outfile, 0);
+}
+
+SendBlobTo(outfile, MakeDotFromWRDSchema(wrdschema, args.t, args.i, args.d, args.e, args.w, args.s));
+
+IF (outfile != 0)
+  CloseDiskFile(outfile);

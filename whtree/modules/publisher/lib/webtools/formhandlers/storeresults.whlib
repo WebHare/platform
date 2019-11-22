@@ -1,0 +1,157 @@
+<?wh
+/** @short Standard form handlers
+    @topic forms/standardhandlers
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
+
+LOADLIB "mod::publisher/lib/analytics.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+
+PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
+<
+  PUBLIC RECORD FUNCTION Submit(OBJECT form, RECORD extradata, RECORD options)
+  {
+    RECORD result :=
+        [ result := DEFAULT RECORD
+        , errors := DEFAULT RECORD ARRAY
+        , warnings := DEFAULT RECORD ARRAY
+        ];
+
+    // If existingguid is filled, this result is replacing the existing result
+    options := ValidateOptions([ guid := ""
+                               , idfieldvalue := ""
+                               , isedit := FALSE
+                               , ispending := FALSE
+                               , isconfirm := FALSE
+                               ], options);
+
+    RECORD storerow := [ __formmeta := [ setfields := STRING[] ]
+                       ];
+    RECORD ARRAY attachments;
+
+    RECORD ARRAY formfields := form->ListFields();
+    FOREVERY(RECORD field FROM formfields)
+    {
+      STRING storename := ToUppercase(field.guid);
+      IF(storename = "")
+        THROW NEW Exception(`Field '${field.name}' has no GUID!`);
+      IF(field.obj->IsNowSettable())
+        INSERT storename INTO storerow.__formmeta.setfields AT END;
+
+      RECORD tostorage := field.obj->GetStorageValue();
+      IF(NOT RecordExists(tostorage))
+        CONTINUE;
+
+      storerow := CellInsert(storerow, storename, tostorage.result);
+      attachments := attachments
+                     CONCAT
+                     SELECT metadata := JoinBlobSetting(attachments).rawdata
+                          , file := data
+                          , question := field.guid ?? field.name
+                       FROM tostorage.attachments;
+    }
+
+    IF(RecordExists(form->pagedata))
+      INSERT CELL pagedata := form->pagedata INTO storerow;
+
+    // Store encoded results as blob if too large for string field
+    RECORD store := PrepareAnyForDatabase(storerow);
+    OBJECT formobject := OpenWHFSObject(form->__form.webtoolformid);
+
+    // Check if we have a logged in WRD user
+    OBJECT wrdauthplugin := form->GetWRDAuthPlugin();
+    STRING wrdguid;
+    IF (ObjectExists(wrdauthplugin) AND wrdauthplugin->IsLoggedIn())
+      wrdguid := wrdauthplugin->GetLoggedinEntityFields([ "WRD_GUID" ]).wrd_guid;
+
+    // Other user properties
+    STRING ipaddress, countrycode, useragent;
+    IF(IsRequest())
+    {
+      ipaddress := GetClientAssumedIP();
+      countrycode := GetClientGeoIPCountry();
+      useragent := GetWebHeader("User-agent");
+    }
+    ELSE
+    {
+      useragent := GetResourceNameFromDiskPath(GetStackTrace()[END-1].filename);
+    }
+
+    //First get hte old result.. .so we don't see our new result when scanning for the old one
+    INTEGER oldresultid;
+    IF (options.isedit)
+      oldresultid := SELECT AS INTEGER id
+                       FROM publisher.formresults
+                      WHERE formresults.form_fsobject = (ObjectExists(formobject) ? formobject->id : 0)
+                            AND formresults.guid = options.guid
+                            AND formresults.form_name = form->__form.name
+                            AND status = (options.isconfirm ? 5/*pending*/ : 1/*final result*/);
+
+    // Store the results
+    INTEGER newresultid := MakeAutonumber(publisher.formresults, "id");
+    INSERT CELL guid := options.guid INTO result.result;
+    INTEGER form_fsobject := ObjectExists(formobject) ? formobject->id : 0;
+    RECORD days := GetFormResultsExpirationDays(form_fsobject);
+    DATETIME when := GetCurrentDateTime();
+
+    // If these results replace existing results, update the existing results record (before inserting the new one)
+    IF (options.isedit)
+    {
+      IF (oldresultid != 0)
+      {
+        UPDATE publisher.formresults
+           SET status := options.isconfirm ? 6/*confirmed*/ : 4/*cancelled/deleted*/
+             , replacedby := newresultid
+             , modified := GetCurrentDateTime()
+             , guid := GenerateUFS128BitId()
+         WHERE id = oldresultid;
+      }
+      ELSE
+      {
+        THROW NEW Exception("Cannot find result to replace");
+      }
+    }
+
+    INSERT
+        CELL[ id            := newresultid
+            , status        := options.ispending ? 5/*pending*/ : 1/*final result*/
+            , form_fsobject
+            , form_name     := form->__form.name
+            , result.result.guid
+            , url           := Left(form->formurl, 1024)
+            , when
+            , expiration    := AddDaysToDate(days.storeresults, when)
+            , deletion      := AddDaysToDate(days.processresults, when)
+            , ipaddress
+            , useragent     := Left(useragent, 512)
+            , ipcountrycode := countrycode
+            , results       := store.stringpart
+            , blobresults   := store.blobpart
+            , idfield       := options.idfieldvalue
+            , wrdguid       := wrdguid != "" ? DecodeWRDGUID(wrdguid) : ""
+            , languagecode  := Tolowercase(form->formlanguagecode)
+            ]
+      INTO publisher.formresults;
+
+    FOREVERY(RECORD attachment FROM attachments)
+      INSERT CELL[...attachment, formresult := newresultid ] INTO publisher.formattachments;
+
+    // Broadcast an event on successful commit, so the results list can be updated
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${ObjectExists(formobject) ? formobject->id : 0}.${form->__form.name}`, DEFAULT RECORD);
+
+    RETURN result;
+  }
+>;

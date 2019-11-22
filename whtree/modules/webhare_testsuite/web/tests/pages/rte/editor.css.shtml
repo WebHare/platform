@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+OBJECT css := MakeCSSStyleSheet(GetDiskResource(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/pages/rte/editor.css"));
+css->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
+
+AddHTTPHeader("Content-Type", "text/css", FALSE);
+SendWebFile(css->GetDocumentBlob(FALSE));

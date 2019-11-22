@@ -1,0 +1,45 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+/* Test dealing with an assetpackmgr if compilation breaks */
+
+DATETIME teststart := GetCurrentDatetime();
+
+MACRO TestCrashJson()
+{
+  testfw->FlushTasks([ "webhare_testsuite:aftercompile" ]);
+  TestEq(TRUE, ReadRegistryKey("webhare_testsuite.tests.lastaftercompile") > teststart, "aftercompile task was NOT invoked");
+
+  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  TestEq(TRUE, testfw->browser->GotoWebPage(siteroot->url || "dynfolder/"), testfw->browser->href);
+
+  OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  RECORD extracted := ExtractBundleOutputTag(testfw->browser->document);
+  WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
+  WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
+  RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
+
+// Module not found: Error: Cannot resolve 'file' or 'directory' /opt/whdata/installedmodules/webhare_testsuite_tests/webhare_testsuite_temp/webdesigns/testdesign/js/testdesign in /opt/whdata/tmp
+  //print( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign\n" );
+  //DumpValue(ReadDiskDirectory( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign", "*"),'boxed');
+  //DumpValue(ReadDiskDirectory( GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign/js", "*"),'boxed');
+  TestEq(FALSE, status.haserrors, "Could not compile valid bundle " || extracted.outputtag || "\n" || status.stats);
+
+  //Now kill the package.json
+  StoreDiskFile(GetModuleinstallationroot("webhare_testsuite_temp") || "webdesigns/testdesign/package.json", StringToBlob("This is not a JSON file"), [ overwrite := TRUE ]);
+  WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
+  WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
+
+  status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
+  TestEqLike("Package.json*not valid JSON", status.errors, "Wrong errors for bundle " || extracted.outputtag);
+}
+
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("publisher:blank", [istemplate := TRUE, witherrors := FALSE, withcontent := TRUE, waitpublish := TRUE])
+                 , PTR EnsureValidTestModuleWebDesignWebsiteBUndle
+                 , PTR TestCrashJson
+                 ]);

@@ -1,0 +1,465 @@
+<?wh
+/** @short Standard form components
+    @topic forms/standardcomponents
+*/
+
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/mailer.whlib";
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
+
+PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING textvalue;
+
+  /// Text representation of the value that should be given back when the inputted text is empty
+  STRING emptyvalue;
+
+  /// If the empty value is defined
+  BOOLEAN emptyvalueisset;
+
+  /// Trim whitespace on incoming data?
+  BOOLEAN trimwhitespace;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Validation checks
+  PUBLIC STRING ARRAY validationchecks;
+
+  /// Placeholder (shown if no text entered)
+  PUBLIC STRING placeholder;
+
+  /// Type of the value. One of "boolean", "integer", "money", "float", "string"
+  PUBLIC STRING valuetype;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    this->trimwhitespace := CellExists(field,'trimwhitespace') ? field.trimwhitespace : TRUE;
+    this->valuetype := "string";
+    this->validationchecks := CellExists(field,'validationchecks') ? field.validationchecks : STRING[];
+    IF(CellExists(field,'placeholder')) //dynamic fields don't supply this attribute
+      this->placeholder := GetTid(field.placeholder);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getter & setters
+  //
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN MapValueType(this->valuetype, this->textvalue, this->emptyvalue);
+  }
+
+  MACRO SetValue(VARIANT newval)
+  {
+    this->textvalue := UnmapValueType(this->valuetype, newval, this->emptyvalue, this->emptyvalueisset);
+    this->form->__SendFormMessage(this->field.name, 'value', this->textvalue);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
+  {
+    RECORD base := CELL[ ...this->GetBaseRenderData()
+                       , type := "textedit"
+                       , value := ""
+                       , validationchecks := this->validationchecks
+                       , placeholder := this->placeholder
+                       ];
+
+    IF(this->textvalue != this->emptyvalue OR NOT this->emptyvalueisset)
+      base.value := this->textvalue;
+
+    RETURN base;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
+  {
+    RETURN NOT IsDefaultValue(this->value);
+  }
+
+  MACRO SetVal(STRING indata)
+  {
+    IF(this->trimwhitespace)
+      indata := trimwhitespace(indata);
+    this->value := MapValueType(this->valuetype, indata, this->emptyvalue);
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->SetVal(jsdata);
+  }
+
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  {
+    FormFieldBase::ValidateValue(work);
+
+    IF(this->IsSet())
+    {
+      STRING err := ValidateInput(this->textvalue, this->title, this->validationchecks);
+      IF(err != "")
+      {
+        work->AddErrorFor(this, err);
+        RETURN;
+      }
+
+      IF(this->IsNowSettable())
+      {
+        RECORD ARRAY emailstocheck := this->GetMailsToCheck(this->textvalue);
+        IF(Length(emailstocheck) > 0)
+        {
+          FOREVERY(RECORD tocheck FROM emailstocheck)
+          {
+            RECORD correction := GetEmailAutocorrection(tocheck.email);
+            IF(NOT RecordExists(correction))
+              CONTINUE;
+
+            IF(correction.blocked)
+            {
+              STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
+              work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.email_baddomain", domain));
+              RETURN;
+            }
+
+            IF(correction.force)
+              emailstocheck[#tocheck].email := correction.suggestion;
+          }
+          this->textvalue := Detokenize((SELECT AS STRING ARRAY email FROM emailstocheck),", ");
+        }
+      }
+    }
+  }
+
+  PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING val) //TODO we've started shipping a faster RPC call, we can remove this call when we expect no more old JS code to call on us
+  {
+    RECORD ARRAY emailstocheck := this->GetMailsToCheck(val);
+    FOREVERY(RECORD tocheck FROM emailstocheck)
+    {
+      RECORD correction := GetEmailAutocorrection(tocheck.email);
+      IF(RecordExists(correction))
+      {
+        IF(correction.blocked)
+        {
+          STRING domain := '@' || ToLowercase(Tokenize(tocheck.email,'@')[1]);
+          RETURN [ blocked := GetTid("publisher:site.forms.commonerrors.email_baddomain", domain) ?? "blocked"
+                 ];
+        }
+        IF(correction.force) //TODO work properly with multiple emails, but these don't get passed to the RPC anyway (we only get triggered for type=email)
+        {
+          RETURN [ force := correction.suggestion ];
+        }
+        RETURN [ suggestion := correction.suggestion ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD ARRAY FUNCTION GetMailsToCheck(STRING sourcevalue)
+  {
+    RECORD ARRAY emailstocheck;
+    IF("email" IN this->validationchecks OR "email-maysendfrom" IN this->validationchecks OR "email-maysendto" IN this->validationchecks)
+      INSERT SplitEmailName(sourcevalue) INTO emailstocheck AT END;
+    ELSE IF("emails" IN this->validationchecks OR "emails-maysendto" IN this->validationchecks)
+      emailstocheck := TokenizeEmailAddressList(sourcevalue, FALSE);
+
+    RETURN emailstocheck;
+  }
+
+  VARIANT FUNCTION GetFieldProperty(STRING name, VARIANT defaultvalue)
+  {
+    IF (CellExists(this->field, name))
+      RETURN GetCell(this->field, name);
+    RETURN defaultvalue;
+  }
+
+  MACRO SetFieldProperty(STRING name, VARIANT value)
+  {
+    IF (IsDefaultValue(value))
+      this->field := CellDelete(this->field, name);
+    ELSE IF (CellExists(this->field, name))
+      this->field := CellUpdate(this->field, name, value);
+    ELSE
+      this->field := CellInsert(this->field, name, value);
+  }
+>;
+
+
+PUBLIC OBJECTTYPE FormNumericTextEdit EXTEND FormComponentExtensionBase
+<
+  STRING valuetype;
+
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->valuetype := this->node->GetAttribute("valuetype");
+
+    IF (this->node->HasAttribute("min"))
+      this->minvalue->value := ParseXSInt(this->node->GetAttribute("min"));
+    ELSE IF(this->existing)
+      this->minvalue->value := this->minvalue->emptyvalue;
+    IF (this->node->HasAttribute("max"))
+      this->maxvalue->value := ParseXSInt(this->node->GetAttribute("max"));
+    ELSE IF(this->existing)
+      this->maxvalue->value := this->maxvalue->emptyvalue;
+    IF (this->node->HasAttribute("emptyvalue"))
+      this->emptyvalue->value := ParseXSInt(this->node->GetAttribute("emptyvalue"));
+    ELSE IF (this->existing)
+      this->emptyvalue->value := this->emptyvalue->emptyvalue;
+    ELSE
+      this->emptyvalue->value := 0; // Initialize emptyvalue to 0 for new components
+    this->emptyvalue->visible := this->contexts->formcomponentapi->showadvanced;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF (this->valuetype IN [ "integer" ])
+        this->node->SetAttribute("valuetype", this->valuetype);
+      ELSE
+        this->node->RemoveAttribute("valuetype");
+
+      IF (this->minvalue->value != this->minvalue->emptyvalue)
+        this->node->SetAttribute("min", ToString(this->minvalue->value));
+      ELSE
+        this->node->RemoveAttribute("min");
+      IF (this->maxvalue->value != this->maxvalue->emptyvalue)
+        this->node->SetAttribute("max", ToString(this->maxvalue->value));
+      ELSE
+        this->node->RemoveAttribute("max");
+      IF (this->emptyvalue->value != this->emptyvalue->emptyvalue)
+        this->node->SetAttribute("emptyvalue", ToString(this->emptyvalue->value));
+      ELSE
+        this->node->RemoveAttribute("emptyvalue");
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE FormTextEdit EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->maxlength->value := ToInteger(this->node->GetAttribute("maxlength"), 0);
+    IF (this->maxlength->value < 0)
+      this->maxlength->value := 0;
+    this->usemaxlength->value := this->maxlength->value > 0;
+
+    this->validationchecks->value := this->node->GetAttribute("validationchecks");
+
+    this->maxlengthoptions->visible := this->contexts->formcomponentapi->showadvanced OR this->usemaxlength->value;
+    this->validationchecks->visible := this->contexts->formcomponentapi->showadvanced;
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      this->node->RemoveAttribute("valuetype");
+
+      IF (this->usemaxlength->value AND this->maxlength->value > 0)
+        this->node->SetAttribute("maxlength", ToString(this->maxlength->value));
+      ELSE
+        this->node->RemoveAttribute("maxlength");
+      IF (this->validationchecks->value != "")
+        this->node->SetAttribute("validationchecks", this->validationchecks->value);
+      ELSE
+        this->node->RemoveAttribute("validationchecks");
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  RECORD range;
+  INSERT CELL password := FALSE
+            , valuetype := node->GetAttribute("valuetype") ?? "string"
+         INTO fielddef;
+
+  IF(node->HasAttribute("minlength"))
+    INSERT CELL minlength := ToInteger(node->GetAttribute("minlength"),0) INTO fielddef;
+  INSERT CELL maxlength := ToInteger(node->GetAttribute("maxlength"),0) INTO fielddef;
+  INSERT CELL value := parsecontext.parsexmltidptr(node, "value") INTO fielddef;
+  INSERT CELL emptyvalue := parsecontext.parsexmltidptr(node, "emptyvalue") INTO fielddef;
+  INSERT CELL emptyvalueisset := node->HasAttribute("emptyvalue") INTO fielddef;
+  INSERT CELL trimwhitespace := node->HasAttribute("trimwhitespace") ? ParseXSBoolean(node->GetAttribute("trimwhitespace")) : TRUE INTO fielddef;
+
+  IF(node->HasAttribute("validationchecks"))
+  {
+    INSERT CELL validationchecks := ParseXSList(node->GetAttribute("validationchecks")) INTO fielddef;
+    INSERT CELL checks := fielddef.validationchecks INTO fielddef;
+  }
+  ELSE
+  {
+    INSERT CELL validationchecks := DEFAULT STRING ARRAY INTO fielddef;
+  }
+
+  IF(node->HasAttribute("min"))
+  {
+    IF(fielddef.valuetype != "integer")
+      THROW NEW Exception("min= only supported for textedits of valuetype integer");
+    INSERT CELL min := ToInteger(node->GetAttribute("min"),0) INTO range;
+  }
+  IF(node->HasAttribute("max"))
+  {
+    IF(fielddef.valuetype != "integer")
+      THROW NEW Exception("max= only supported for textedits of valuetype integer");
+    INSERT CELL max := ToInteger(node->GetAttribute("max"),0) INTO range;
+  }
+
+  IF(node->HasAttribute("decimals"))
+    INSERT CELL decimals := ParseXSInt(node->GetAttribute("decimals")) INTO fielddef;
+
+  INSERT CELL placeholder := parsecontext.parsexmltidptr(node, "placeholder")
+            , prefix := parsecontext.parsexmltidptr(node, "prefix")
+            , suffix := parsecontext.parsexmltidptr(node, "suffix")
+            , range := range
+            INTO fielddef;
+  RETURN fielddef;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(OBJECT node)
+{
+  IF (NOT ObjectExists(node))
+    RETURN [ "string" ];
+
+  STRING ARRAY validationchecks := node->GetAttribute("validationchecks") != ""
+      ? Tokenize(node->GetAttribute("validationchecks"), " ")
+      : DEFAULT STRING ARRAY;
+  IF ("email" IN validationchecks)
+    RETURN [ "email", "string" ];
+  IF ("emails" IN validationchecks)
+    RETURN [ "emailarray", "stringarray" ];
+
+  RETURN node->HasAttribute("valuetype") ? STRING[ node->GetAttribute("valuetype") ] : [ "string" ];
+}
+
+PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY maxlength(GetMaxLength, SetMaxLength);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    IF(field.isstatic)
+    {
+      this->valuetype := field.valuetype;
+      this->emptyvalue := GetTid(field.emptyvalue);
+      this->emptyvalueisset := field.emptyvalueisset;
+      this->UpdateFromJS(GetTid(field.value));
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  INTEGER FUNCTION GetMaxLength()
+  {
+    RETURN this->GetFieldProperty("maxlength", 0);
+  }
+
+  MACRO SetMaxLength(INTEGER maxlength)
+  {
+    this->SetFieldProperty("maxlength", maxlength);
+  }
+>;
+
+PUBLIC OBJECTTYPE NumericTextEditField EXTEND TextEditFieldBase
+< // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY min(GetMin, SetMin);
+  PUBLIC PROPERTY max(GetMax, SetMax);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : TextEditFieldBase(form, parent, field)
+  {
+    IF(field.isstatic)
+    {
+      this->valuetype := field.valuetype;
+      this->emptyvalue := GetTid(field.emptyvalue) ?? "0";
+      this->emptyvalueisset := field.emptyvalueisset;
+      this->UpdateFromJS(GetTid(field.value));
+    }
+    ELSE IF(CellExists(field,'valuetype')) //dynamic creation
+    {
+      this->valuetype := field.valuetype;
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  INTEGER FUNCTION GetMin()
+  {
+    RETURN this->GetFieldProperty("min", 0);
+  }
+
+  MACRO SetMin(INTEGER min)
+  {
+    this->SetFieldProperty("min", min);
+  }
+
+  INTEGER FUNCTION GetMax()
+  {
+    RETURN this->GetFieldProperty("max", 0);
+  }
+
+  MACRO SetMax(INTEGER max)
+  {
+    this->SetFieldProperty("max", max);
+  }
+>;

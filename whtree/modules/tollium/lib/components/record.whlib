@@ -1,0 +1,29 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+PUBLIC OBJECTTYPE TolliumRecord EXTEND TolliumCompositionBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+ /* nice idea but doesn't work for ADD situations. will probably have to specify cells and types separately
+  ///Cells to save between calls
+  PUBLIC STRING ARRAY savecells;
+
+  ///Storage of saved cells
+  PUBLIC RECORD savecellstorage;
+*/
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin
+  //
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+>;

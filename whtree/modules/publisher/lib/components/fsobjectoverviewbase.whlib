@@ -1,0 +1,517 @@
+﻿<?wh
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+
+LOADLIB "mod::publisher/lib/internal/files.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT TolliumFragmentBase;
+LOADLIB "mod::tollium/lib/componentbase.whlib" EXPORT TolliumComponentBase;
+
+OBJECT hooks;
+
+PUBLIC STRING FUNCTION GetDisplayModDate(OBJECT tolliumuser, DATETIME modified, DATETIME local_now, STRING timezone)
+{
+  DATETIME modified_local := UTCToLocal(modified, timezone);
+  INTEGER day := GetDayCount(modified_local);
+  INTEGER today := GetDayCount(local_now);
+
+  IF (day = today)
+    RETURN tolliumuser->FormatTime(modified_local, "minutes", FALSE);
+  ELSE IF (day < today - 6)
+    RETURN tolliumuser->FormatDate(modified_local, FALSE, TRUE);
+  ELSE IF (day = today - 1)
+    RETURN GetTid("publisher:components.filelist.yesterday");
+  ELSE
+    RETURN FormatDateTime("%A", modified_local, tolliumuser->language);
+}
+
+RECORD ARRAY FUNCTION GetVersionedObjectRecycleBin(OBJECT tolliumuser, RECORD ARRAY objects)
+{
+  INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects WHERE parent = 18;
+
+  RECORD ARRAY versionevents :=
+        SELECT id :=              live_object
+             , name :=            GetNameFromPath(orgfullpath)
+             , site :=            fs_site
+          FROM system.fs_versionevents
+         WHERE iscurrent
+           AND isdelete
+           AND eventtype = VersionEventType_AcceptApply
+           AND live_object IN ids
+      ORDER BY live_object;
+
+  INTEGER ARRAY sites := SELECT AS INTEGER ARRAY DISTINCT site FROM versionevents;
+  INTEGER ARRAY canrestoresites := tolliumuser->HasRightOnMultiple("system:fs_fullaccess", sites);
+  INTEGER ARRAY found_ids := SELECT AS INTEGER ARRAY id FROM versionevents;
+
+  objects :=
+      SELECT TEMPORARY rec := versionevents[RecordLowerBound(versionevents, objects, [ "ID" ]).position]
+           , *
+           , name :=        rec.name
+           , canrestore :=  rec.site IN canrestoresites
+        FROM objects
+       WHERE id IN found_ids;
+
+  RETURN objects;
+}
+
+
+PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRAY objects, BOOLEAN hidden_too, STRING contentmode)
+{
+  // ADDME: is it possible to (cheaply) determine if the parentfolder is 12 (webhare-modules) to properly hide them?
+/*
+  objects := SELECT objects.*
+                  , fs_objects.parent
+               FROM objects, system.fs_objects
+              WHERE objects.id=fs_objects.id
+                    AND fs_objects.id IN (SELECT AS INTEGER ARRAY id FROM objects);
+/*
+  INTEGER ARRAY uniqueparents := SELECT AS INTEGER ARRAY DISTINCT parent FROM objects ;
+  INTEGER ARRAY writableparents;
+  FOREVERY(INTEGER id FROM uniqueparents)
+    IF(tolliumuser->HasRightOn("system:fs_fullaccess", id))
+      INSERT id INTO writableparents AT END;
+
+/*  objects := SELECT objects.*
+                  , parent
+               FROM objects, system.fs_objects
+
+  RECORD ARRAY parentinfo := SELECT id
+                                  , writable := tolliumuser->HasRightOn("system:fs_fullaccess", id)
+
+                  //, pvt_parentwriteall := (fs_objects.parent != parentfolder.id ? tolliumuser->HasRightOn("system:fs_fullaccess", parent) : parentwriteaccess)
+*/
+  IF(contentmode = "recyclebin")
+  {
+    RECORD ARRAY org_objects := objects;
+
+    RECORD ARRAY recycleinfo := SELECT fs_object, currentname, currentparent
+                                  FROM system.fs_history
+                                 WHERE fs_object IN (SELECT AS INTEGER ARRAY id FROM objects)
+                                       AND type = 0;
+
+    BOOLEAN canrestoreall := tolliumuser->HasRightOn("system:fs_fullaccess", 0);
+    INTEGER ARRAY canrestoreparents;
+    IF(NOT canrestoreall)
+    {
+      RECORD ARRAY uniqueparents := SELECT DISTINCT currentparent FROM recycleinfo;
+      canrestoreparents := SELECT AS INTEGER ARRAY currentparent FROM uniqueparents WHERE tolliumuser->HasRightOn("system:fs_fullaccess", currentparent);
+    }
+
+    objects := SELECT objects.*
+                    , name := recycleinfo.currentname
+                    , canrestore := VAR canrestoreall OR recycleinfo.currentparent IN canrestoreparents
+                 FROM objects, recycleinfo
+                WHERE objects.id = recycleinfo.fs_object;
+
+    objects := objects CONCAT GetVersionedObjectRecycleBin(tolliumuser, org_objects);
+  }
+  ELSE
+  {
+    objects := SELECT *
+                    , canrestore := FALSE
+                 FROM objects;
+  }
+
+  INTEGER ARRAY sitecandidates := SELECT AS INTEGER ARRAY id FROM objects WHERE isfolder;
+  RECORD ARRAY sitelist := SELECT id, locked FROM system.sites WHERE sites.id IN sitecandidates ORDER BY id;
+
+  //note: lastpublishdate is only needed by filemgr 'fake' publish statuses
+  RECORD ARRAY fsdata := SELECT id, parent, parentsite, published, isactive, ordering, ispinned, lastpublishdate
+                           FROM system.fs_objects
+                          WHERE id IN (SELECT AS INTEGER ARRAY id FROM objects)
+                       ORDER BY id;
+
+  // Add access fields and filter out hidden objects
+  RECORD csp := GetCachedSiteProfiles();
+  objects := SELECT TEMPORARY fsdatapos := RecordLowerBound(fsdata, objects, [ "ID"])
+                  , *
+                  , __fsdata := fsdatapos.found ? fsdata[fsdatapos.position] : DEFAULT RECORD
+               FROM objects
+              WHERE hidden_too OR (type NOT IN csp.hiddenfoldertypes);
+
+  objects := SELECT TEMPORARY sitepos := RecordLowerBound(sitelist, objects, [ "ID" ])
+                  , TEMPORARY islockedsite := sitepos.found AND sitelist[sitepos.position].locked
+                  , id
+                  , name
+                  , title
+                  , filterscreen
+                  , canwrite
+                  , canadd :=       isfolder AND type != 1 AND canwrite AND NOT islockedsite
+                  , candelete :=    RecordExists(__fsdata) ? __fsdata.parent != 18 AND candelete : candelete // can't delete from versioning archive
+                  , issite :=       sitepos.found
+                  , islockedsite := islockedsite
+                  , iswithinsite := (RecordExists(__fsdata) AND __fsdata.parentsite != 0)
+                  , published :=    RecordExists(__fsdata) ? __fsdata.published : 0
+                  , parentsite :=   RecordExists(__fsdata) ? __fsdata.parentsite : CellExists(objects, 'parentsite') ? objects.parentsite : 0
+                  , isactive :=     RecordExists(__fsdata) ? __fsdata.isactive : CellExists(objects, "ISACTIVE") ? isactive : TRUE
+                  , ordering :=     RecordExists(__fsdata) ? __fsdata.ordering : 0
+                  , isfolder
+                  , ispinned :=     RecordExists(__fsdata) ? __fsdata.ispinned : TRUE
+                  , lastpublishdate := RecordExists(__fsdata) ? __fsdata.lastpublishdate : DEFAULT DATETIME
+                  , isversionarchive := RecordExists(__fsdata) ? __fsdata.parent = 18 : FALSE
+                  , type
+                  , modificationdate
+                  , creationdate
+                  , canrestore
+                  , objects.contentmode
+                  , isvirtual :=    id <= 0
+                  , pvt_iconname
+                  , modulekey
+               FROM objects;
+
+  // Add tollium-specific extra fields (e.g. icons)
+  objects := SELECT AS RECORD ARRAY (EnrichFSObject(objects)) FROM objects;
+
+  // Add drag info
+  RETURN
+      SELECT *
+           , draginfo := id > 0
+                ? [ type :=     isfolder ? "system:whfsfolder" : "system:whfsfile"
+                  , data :=
+                        [ filename :=     name
+                        , mimetype :=     "application/octet-stream"
+                        , id :=           id
+                        , canmove :=      candelete //ADDME OR canrestore  - reenable tihs as soon as we've got time to test it.
+                        , candownload :=  candownload
+                        , isactive :=     isactive
+                        ]
+                  ]
+                : DEFAULT RECORD
+        FROM objects;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetInnerObjectListing(OBJECT tolliumuser, INTEGER parentfolder, BOOLEAN showfolders, BOOLEAN showexternal, BOOLEAN showfiles, BOOLEAN listspecificobjects, INTEGER ARRAY getobjects, STRING contentmode)
+{
+  IF(NOT showfolders AND NOT showfiles)
+    RETURN DEFAULT RECORD ARRAY;
+
+  BOOLEAN parentfullaccess;
+  BOOLEAN showlimitedroots;
+
+  IF(NOT listspecificobjects AND parentfolder = 0 AND NOT tolliumuser->HasRightOn("system:fs_browse",0)) //limited publisher view
+  {
+    // parentfolder = 0 and user doesn't have browse rights on root. Show the roots the user has rights on.
+    listspecificobjects := TRUE;
+    getobjects := SELECT AS INTEGER ARRAY id
+                    FROM tolliumuser->GetObjectsChildren("system:fs_objects", 0, FALSE);
+    showlimitedroots := TRUE; //if we're showing a rightslimited list, never show recyclebin etc
+  }
+
+  INTEGER ARRAY tohide := GetWHFSObjectsToHide(tolliumuser);
+  RECORD ARRAY objects := SELECT id
+                               , parent
+                               , name
+                               , title
+                               , ispinned
+                               , isfolder
+                               , type
+                               , modificationdate
+                               , creationdate
+                               , filterscreen := ""
+                               , pvt_iconname := ""
+                               , modulekey := ""
+                            FROM system.fs_objects
+                           WHERE (listspecificobjects ? id IN getobjects : parent = parentfolder)
+                                 AND (showfolders = TRUE AND showfiles = FALSE ? isfolder = TRUE : TRUE)
+                                 AND (showfolders = FALSE AND showfiles = TRUE ? isfolder = FALSE : TRUE)
+                                 AND (showexternal = FALSE ? type != 1 : TRUE )
+                                 AND (showlimitedroots ? isactive = TRUE : TRUE)
+                                 AND id NOT IN tohide;
+
+  IF(showlimitedroots)
+    objects := GetUniqueNamesForRoots(objects);
+
+  //Now figure out canwrite & candelete.
+  INTEGER ARRAY writableparents;
+  IF(contentmode != "recyclebin")
+    writableparents := SELECT AS INTEGER ARRAY parent FROM (SELECT DISTINCT parent FROM objects) WHERE tolliumuser->HasRightOn("system:fs_fullaccess", parent);
+
+  objects := SELECT *
+                  , canwrite := parent IN writableparents
+                  , candelete := parent IN writableparents AND NOT ispinned
+                  , DELETE ispinned
+               FROM objects;
+
+  IF(contentmode != "recyclebin")
+  {
+    INTEGER ARRAY unwriteableobjects := SELECT AS INTEGER ARRAY id FROM objects WHERE NOT canwrite;
+    IF(Length(unwriteableobjects) > 0)
+    {
+      //After parent-level checks, some objects are still readonly. But we might have had direct access to them, so query that...
+      INTEGER ARRAY writableobjects := tolliumuser->HasRightOnMultiple("system:fs_fullaccess", unwriteableobjects);
+      IF(Length(writableobjects) > 0)
+        UPDATE objects SET canwrite := TRUE WHERE id IN writableobjects;
+    }
+  }
+
+  IF (listspecificobjects)
+    objects := SELECT * FROM objects ORDER BY SearchElement(getobjects, id);
+
+  RETURN objects;
+}
+
+PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
+<
+  STRING ARRAY defaultflags; // Default flags, which are always available
+  STRING  pvt_virtualfilter;
+
+  PUBLIC PROPERTY virtualfilter(pvt_virtualfilter, SetVirtualFilter);
+
+  MACRO NEW()
+  {
+    //this->invisibletitle := TRUE;
+    this->defaultflags := [ "isactive", "isroot", "islockedsite", "issite", "isfolder"
+                          , "candownload", "canwrite", "candelete", "canadd", "canrestore"
+                          , "selectable", "isvirtual"
+                          ];
+  }
+
+  MACRO ReloadOverview()
+  {
+  }
+
+  MACRO SetVirtualFilter(STRING virtualfilter)
+  {
+    IF (virtualfilter = this->pvt_virtualfilter)
+      RETURN;
+
+    this->pvt_virtualfilter := virtualfilter;
+    this->ReloadOverview();
+  }
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+    this->pvt_virtualfilter := def.virtualfilter;
+  }
+
+  PUBLIC MACRO ShowFolder(INTEGER folderid)
+  {
+    //FIXME set proper folder GetFolderSettings
+    OBJECT applytester := folderid > 0 ? GetApplyTesterForObject(folderid) : DEFAULT OBJECT;
+    this->__SetFolder(folderid, ObjectExists(applytester) ? applytester->GetFolderSettings() : GetDefaultFolderSettings());
+  }
+
+  RECORD ARRAY FUNCTION GenerateRootItems()
+  {
+    RECORD ARRAY rootitems;
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->owner->tolliumuser, 'filemgrextensions'))
+      FOREVERY(RECORD addroot FROM ext.addrootitems)
+      {
+        IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
+          CONTINUE;
+
+        INSERT [ id               := addroot.contentmode = "webhareroot" ? 0 : -1000000 - Length(rootitems)
+               , contentmode      := addroot.contentmode
+               , name             := GetTid(addroot.title)
+               , isfolder         := TRUE
+               , filterscreen     := addroot.filterscreen
+               , pvt_iconname     := addroot.icon
+               , type             := 0
+               , title            := ""
+               , canwrite         := addroot.contentmode = "webhareroot" ? this->owner->tolliumuser->HasRightOn("system:fs_fullaccess", 0) : FALSE
+               , candelete        := FALSE
+               , creationdate     := DEFAULT DATETIME
+               , modificationdate := DEFAULT DATETIME
+               , modulekey        := addroot.modulekey
+               //, ispinned     := FALSE
+               //, parentsite   := 0
+               //, isversionarchive
+               //, extension := MakeObject(addroot.library, addroot.objectname, -1)
+               ] INTO rootitems AT END;
+      }
+
+    BOOLEAN hidden_too := this->owner->tolliumuser->HasRight("system:supervisor");
+    rootitems := EnrichObjectListing(this->owner->tolliumuser, rootitems, hidden_too, "");
+
+    RETURN rootitems;
+  }
+
+  RECORD ARRAY FUNCTION GetObjectListing(INTEGER parentfolderid, BOOLEAN showfolders, BOOLEAN showexternal, BOOLEAN showfiles, BOOLEAN hidden_too, STRING contentmode, BOOLEAN specificobjects, INTEGER ARRAY specificobjectids)
+  {
+    IF(parentfolderid < 0 )
+      THROW NEW Exception("GetObjectListing does not support internal folder #" || parentfolderid);
+
+    RECORD ARRAY baselist := SELECT *
+                                  , extension := DEFAULT OBJECT
+                                  , contentmode := ""
+                                  , tag := ""
+                                  , filterscreen := ""
+                               FROM GetInnerObjectListing(this->owner->tolliumuser, parentfolderid, showfolders, showexternal, showfiles, specificobjects, specificobjectids, contentmode);
+
+    RETURN EnrichObjectListing(this->owner->tolliumuser, baselist, hidden_too, contentmode);
+  }
+
+  PUBLIC BOOLEAN FUNCTION OnCellEdit(RECORD row, STRING columnname, STRING newvalue)
+  {
+    newvalue := TrimWhitespace(newvalue);
+    IF(GetCell(row,columnname) = newvalue)
+      RETURN FALSE;
+
+    OBJECT work := this->owner->BeginWork();
+    RECORD oldfile := SELECT * FROM system.fs_objects WHERE id=row.rowkey;
+    IF(NOT RecordExists(oldfile) OR NOT oldfile.isactive OR NOT this->owner->tolliumuser->HasRightOn("system:fs_fullaccess", row.rowkey))
+      RETURN FALSE;
+
+    RECORD upd;
+    IF(columnname = "name")
+    {
+      IF(oldfile.ispinned)
+      {
+        work->AddError(GetTid("publisher:components.errors.renamepinned"));
+      }
+      ELSE IF(NOT IsValidWHFSName(newvalue, FALSE))
+      {
+        work->AddError(GetTid("publisher:common.errors.illegalfilename", newvalue));
+      }
+      ELSE
+      {
+        INTEGER conflictid := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = oldfile.parent AND id != row.rowkey AND ToUppercase(name) = ToUppercase(newvalue);
+        IF(conflictid != 0)
+        {
+          STRING parentname := SELECT AS STRING name FROM system.fs_objects WHERE id = oldfile.parent;
+          BOOLEAN hiddenforme := IsObjectHiddenForMe(this->owner->tolliumuser, conflictid);
+          IF(hiddenforme)
+            work->AddError(GetTid("publisher:common.errors.hiddenfolderexists", newvalue, parentname));
+          ELSE
+            work->AddError(GetTid("publisher:common.errors.fileorfolderexists", newvalue, parentname));
+        }
+      }
+      INSERT CELL name := newvalue INTO upd;
+    }
+    ELSE IF(columnname="title")
+    {
+      IF(Length(newvalue)>=256)
+      {
+        work->AddError(GetTid("tollium:common.errors.too_long", GetTid("tollium:common.labels.title")));
+      }
+      INSERT CELL title := newvalue INTO upd;
+    }
+
+    IF(NOT work->HasFailed())
+    {
+      OpenWHFSObject(row.rowkey)->UpdateMetadata(upd);
+      RunEditFileHooks(oldfile, oldfile.id);
+    }
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    this->ReloadOverview();
+    RETURN TRUE;
+  }
+>;
+
+/// List an arbitrary list of FSObjects
+PUBLIC OBJECTTYPE FSContentsOverviewBase EXTEND FSObjectOverviewBase
+<
+  /// Properties that sould always be available:
+  // groupfolders
+  // hideexternal
+  // hidefiles
+  // hidefolders
+  // rows - readonly
+  //
+
+  /// The foldertree to whose selection we are listening
+  OBJECT pvt_foldertree;
+
+  PUBLIC PROPERTY foldertree(pvt_foldertree, SetFoldertree);
+
+  PUBLIC UPDATE MACRO StaticInit(RECORD def)
+  {
+    FSObjectOverviewBase::StaticInit(def);
+    IF(ObjectExists(def.foldertree))
+      this->foldertree := def.foldertree;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    FSObjectOverviewBase::PostInitComponent();
+  }
+
+  /** @short Should empty the contents of the listing.
+  */
+  PUBLIC MACRO ClearContents()
+  {
+    this->ShowFSObjects(DEFAULT INTEGER ARRAY);
+  }
+
+  /** @short Should reload the contents of the listing.
+  */
+  UPDATE PUBLIC MACRO ReloadOverview()
+  {
+    ABORT("ReloadOverview must be overwritten");
+  }
+
+  /** @short Apply a filtered set of results to the list.
+      @param(RECORD ARRAY) The output of the filter callback.
+  */
+  PUBLIC MACRO SetFilterResult(RECORD ARRAY filterresult)
+  {
+    ABORT("SetFilterResult must be overwritten");
+  }
+
+  /** @short Sets the FolderTree object that should be followed, if any.
+      @param(OBJECT) newfollow The new FolderTree object to follow (DEFAULT OBJECT for none).
+  */
+  PUBLIC MACRO SetFoldertree(OBJECT newfollow)
+  {
+    IF(this->pvt_foldertree = newfollow)
+      RETURN;
+
+    IF(this->pvt_foldertree != DEFAULT OBJECT)
+    {
+      this->pvt_foldertree->__RemoveFilelistListener(this);
+      this->pvt_foldertree := DEFAULT OBJECT;
+    }
+    IF(newfollow != DEFAULT OBJECT)
+    {
+      IF(NOT newfollow EXTENDSFROM FSObjectOverviewBase)/// Was in fact FolderTree, but that objecttype is undefined within this scope, and would cause recursive loadlibs
+        THROW NEW Exception("The <filelist> " || this->name || " only supports following a <foldertree>");
+      newfollow->__AddFilelistListener(this);
+      this->pvt_foldertree := newfollow;
+      this->__FolderTreeChanged();
+    }
+  }
+
+  /** @short Shows an arbitrary listing of WHFSObjects based on the array of IDs given.
+      @param(INTEGER ARRAY) fileids The WHFSIDs of the objects to show
+  */
+  PUBLIC MACRO ShowFSObjects(INTEGER ARRAY fileids)
+  {
+    ABORT("ShowFSObjects must be overwritten");
+  }
+
+  /** @short Should update the list when the FolderTree selection has changed; used in conjunction with SetFoldertree.
+  */
+  PUBLIC MACRO __FolderTreeChanged()
+  {
+    RECORD sel := ObjectExists(this->foldertree) ? this->foldertree->selection : DEFAULT RECORD;
+    IF(NOT RecordExists(this->foldertree->selection))
+    {
+      this->ClearContents();
+      RETURN;
+    }
+    this->__SetFolder(sel.id, this->foldertree->GetFolderSettings());
+  }
+
+  /** @short Sets the list contents to the given folder and applies the given extension, if any.
+      @param(INTEGER) folderid The WHFSID of the folder to list the contents for
+      @param(OBJECT) extension The extension object to apply for this folder, if any (DEFAULT OBJECT for none).
+  */
+  MACRO __SetFolder(INTEGER folderid, RECORD foldersettings)
+  {
+    ABORT("__SetFolder must be overwritten");
+  }
+>;

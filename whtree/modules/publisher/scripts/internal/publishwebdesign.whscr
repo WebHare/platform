@@ -1,0 +1,162 @@
+<?wh
+LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/common-v2.whlib";
+
+OBJECT uplink := publishingbackendlink;
+STRING ARRAY pageloadlibs;
+RECORD publishfile := file;
+RECORD publishfolder := folder;
+RECORD publishsite := site;
+BOOLEAN did_output_rename;
+BOOLEAN opened_firstpage;
+INTEGER outputid;
+
+MACRO SwitchToIndexSHTML()
+{
+  IF(did_output_rename)
+    RETURN;
+  did_output_rename := TRUE;
+
+  //Verify some corner cases making this impossible
+  IF(NOT (separate_first_page OR firstmustbeindex) AND ToUppercase(file.name) NOT LIKE "*.SHTML")
+    THROW NEW Exception("This file needs to have an extension ending in 'shtml' to support dynamic code in webpages");
+}
+
+MACRO AddLoadlibToOutput(STRING libname)
+{
+  IF(opened_firstpage)
+    THROW NEW Exception("Too late to add libraries - first page already open");
+
+  SwitchToindexSHTML();
+
+  IF(libname IN pageloadlibs)
+    RETURN;
+  IF((separate_first_page OR firstmustbeindex) AND firstpagename="index.html")
+  {
+    firstpagename := "index.shtml";
+  }
+  ELSE IF(firstpagename NOT LIKE "*.shtml")
+  {
+    THROW NEW Exception("This file requires to be published with a '.shtml' extension");
+  }
+
+  INSERT libname INTO pageloadlibs AT END;
+}
+
+MACRO AddHarescriptCode(STRING code)
+{
+  PrintTrustedCodeTo(outputid, code);
+}
+
+OBJECT applytester := GetApplyTesterForObject(file.id);
+IF(NOT ObjectExists(applytester))
+  THROW NEW Exception("Unable to locate the webdesign for #" || publishfile.id);
+
+RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+IF(NOT RecordExists(webdesigninfo))
+  THROW NEW Exception("Unable to locate the webdesign for #" || publishfile.id);
+
+PUBLISHER_SetCaptureSubPaths(webdesigninfo.renderinfo.capturesubpaths);
+
+IF(webdesigninfo.renderinfo.issystemredirect)
+{
+  CreateSystemRedirect();
+  RETURN;
+}
+
+//Destroy any contact with the publication engine, to intercept attempts to access 'old' state
+file := DEFAULT RECORD;
+folder := DEFAULT RECORD;
+site := DEFAULT RECORD;
+cached_publish_info.istemplaterun := FALSE;
+contentfile := DEFAULT RECORD;
+contentfolder := DEFAULT RECORD;
+contentsite := DEFAULT RECORD;
+
+
+__publishwebdesign_callbacks := [ addloadlib := PTR AddLoadlibToOutput
+                                , addcode := PTR AddHarescriptCode
+                                ];
+
+//Now get to work. GetWebDesign actually loads user code, but we should have done enough to disrupt any usage of template-v2 by now.
+OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+IF(NOT ObjectExists(webdesign))
+  THROW NEW Exception("Unable to locate the webdesign for #" || publishfile.id);
+
+/* FIXME and ADDME
+   - support multipage publication, if static
+   - alternatively
+     - block word content if published dynamically, support image statically
+     - background-convert word content to RTD
+   - support database output
+*/
+
+opened_firstpage := TRUE;
+
+MACRO CreateSystemRedirect()
+{
+  SwitchToIndexSHTML();
+  INTEGER redirectoutputid := OpenOutputFile("index.shtml",FALSE);
+  PrintTrustedCodeTo(redirectoutputid, "<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
+  PUBLISHER_CloseOutput(redirectoutputid);
+}
+
+//ADDME Set unique/generated names on followup pages
+
+//when set to shtml, rename followup pages too
+IF(did_output_rename)
+  UPDATE webdesign->__staticpages SET name := Left(name,Length(name)-5) || ".shtml" WHERE name LIKE "*.html" AND #__staticpages > 0;
+
+FOREVERY(RECORD page FROM webdesign->__staticpages)
+{
+  STRING pagename := #page = 0 ? firstpagename : page.name;
+
+  outputid := OpenOutputFile(pagename, FALSE);
+
+  RedirectOutputTo(outputid);
+
+  IF(Length(pageloadlibs) > 0 AND #page = 0)
+  {
+    STRING code := '<?wh ';
+    FOREVERY(STRING loadlibpath FROM pageloadlibs)
+      code := code || 'LOADLIB "' || EncodeJava(loadlibpath) || '";';
+    code := code || '?>';
+    PrintTrustedCodeTo(outputid, code);
+  }
+
+  IF(page.preparepage != DEFAULT MACRO PTR)
+    page.preparepage();
+
+  webdesign->__truecontentbody := page.runbody;
+  webdesign->RunPage();
+  webdesign->__truecontentbody := DEFAULT MACRO PTR;
+
+  RedirectOutputTo(0);
+  PUBLISHER_CloseOutput(outputid);
+}
+
+webdesign->RunAfterStaticPage();
+IF(ObjectExists(webdesign->pageobject))
+  webdesign->pageobject->RunAfterRendering(webdesign);
+
+FOREVERY(RECORD dbfile FROM dbfiles)
+{
+  outputid := OpenDBOutputFile(dbfile.filename);
+  RedirectOutputTo(outputid);
+  dbfile.callback();
+  RedirectOutputTo(0);
+  PUBLISHER_CloseOutput(outputid);
+}
+
+RECORD ARRAY checkablelinks;
+IF(ObjectExists(webdesign->pageobject))
+  checkablelinks := webdesign->pageobject->GetCheckableLinks();
+webdesign->Close();
+
+uplink->DoRequest(
+    [ type := "SETONPUBLISH"
+    , preppedonpublish := (SELECT ns, data FROM preppedonpublish)
+    , checkablelinks := checkablelinks
+    ]);

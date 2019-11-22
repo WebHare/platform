@@ -1,0 +1,156 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::socialite/lib/api.whlib";
+LOADLIB "mod::socialite/lib/database.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE feeds EXTEND TolliumScreenBase
+<
+  INTEGER sessionid;
+
+  MACRO Init(RECORD data)
+  {
+    this->sessionid := data.sessionid;
+    this->RefreshFeeds();
+
+    this->frame->RegisterAppEventListener("socialite:feedsupdate", PTR this->OnFeedsUpdate);
+  }
+
+  MACRO OnFeedsUpdate(RECORD data)
+  {
+    this->RefreshFeeds();
+  }
+
+  MACRO RefreshFeeds()
+  {
+    RECORD ARRAY messages_per_feed := SELECT feed, num := COUNT(*)
+                                        FROM socialite.feeds, socialite.feedentries
+                                       WHERE feeds.id = feedentries.feed
+                                             AND feeds.session = this->sessionid
+                                    GROUP BY feedentries.feed;
+
+    this->feeds->rows := SELECT rowkey := id
+                              , query
+                              , lastupdate
+                              , numentries := (SELECT AS INTEGER num FROM messages_per_feed WHERE messages_per_feed.feed = feeds.id)
+                              , statusicon := lastupdate != lastupdateattempt ? 1/*warning*/ : 2/*ok*/
+                           FROM socialite.feeds
+                          WHERE session = this->sessionid;
+  }
+
+  MACRO DoEditItem()
+  {
+    OBJECT screen := this->LoadScreen(".feed", [ id := this->feeds->value[0] ]);
+    IF(screen->RunModal() = "ok")
+      this->RefreshFeeds();
+  }
+
+  MACRO DoDeleteItem()
+  {
+    IF(this->RunMessageBox(".confirmdeletefeed") != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DELETE FROM socialite.feeds WHERE id IN this->feeds->value;
+    work->Finish();
+    this->RefreshFeeds();
+  }
+>;
+
+PUBLIC OBJECTTYPE Feed EXTEND TolliumScreenBase
+< INTEGER feedid;
+  OBJECT netapp;
+  STRING format;
+
+  MACRO Init(RECORD data)
+  {
+    this->feedid := data.id;
+
+    RECORD feedinfo := SELECT sessions.id, sessions.application, feeds.format
+                           FROM socialite.sessions, socialite.feeds
+                          WHERE sessions.id = feeds.session
+                                AND feeds.id = this->feedid;
+    this->netapp := OpenSocialiteConnectionById(feedinfo.application);
+    this->netapp->OpenPersistentSession(feedinfo.id);
+    this->format := feedinfo.format;
+
+    this->RefreshFeedEntries();
+  }
+
+  MACRO RefreshFeedEntries()
+  {
+    RECORD ARRAY entries := SELECT id
+                                 , created
+                                 , messageid
+                                 , publish
+                                 , data := DecodeHSON(data != "" ? data : BlobToString(longdata,-1))
+                              FROM socialite.feedentries
+                             WHERE feedentries.feed = this->feedid;
+
+    entries := this->netapp->DecodeFeedItems(this->format, entries);
+
+    entries := SELECT *
+                    , rowkey := id
+                    , statusicon := publish ? 2 : 1
+                    , message := CellExists(data, "text") ? data.text : ""
+                 FROM entries;
+
+    this->feedentries->rows := entries;
+  }
+
+  MACRO DoEditItem()
+  {
+    OBJECT screen := this->LoadScreen(".feedentry", [ id := this->feedentries->value[0], data := this->feedentries->selection[0].data ]);
+    IF(screen->RunModal() = "ok")
+      this->RefreshFeedEntries();
+  }
+
+  MACRO SetSelectionPublish(BOOLEAN enablepublish)
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE socialite.feedentries SET publish := enablepublish WHERE id IN this->feedentries->value;
+    work->Finish();
+
+    this->RefreshFeedEntries();
+  }
+
+  MACRO DoHideItem()
+  {
+    this->SetSelectionPublish(FALSE);
+  }
+  MACRO DoUnhideItem()
+  {
+    this->SetSelectionPublish(TRUE);
+  }
+>;
+
+PUBLIC OBJECTTYPE FeedEntry EXTEND TolliumScreenBase
+<
+  INTEGER entryid;
+  RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->entryid := data.id;
+    this->data := data.data;
+    this->RefreshEntry();
+  }
+
+  MACRO RefreshEntry()
+  {
+    this->rawentry->value := AnyToString(this->data,'tree');
+    this->publish->value := SELECT AS BOOLEAN publish FROM socialite.feedentries WHERE id=this->entryid;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE socialite.feedentries SET publish := this->publish->value WHERE id=this->entryid;
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    BroadcastEvent("socialite:feedsupdate",DEFAULT RECORD);
+    RETURN TRUE;
+  }
+>;

@@ -1,0 +1,34 @@
+<?wh
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+STRING FUNCTION GetMyCustomNodes(INTEGER obj)
+{
+  STRING ARRAY result;
+  FOREVERY(RECORD node FROM GetCustomSiteProfileSettings("urn:xyz", "test", obj))
+    INSERT node.node->getattribute("data") INTO result AT END;
+  RETURN Detokenize(result,',');
+}
+
+MACRO TestRules()
+{
+  testfw->BeginWork();
+
+  OBJECT applytest1 := GetTestsuiteTempFolder()->CreateFolder([name:="applytest1"]);
+  IF(testfw->debug)
+    Print("applytest1 = " || applytest1->whfspath || "\n");
+  TestEq("pathmask-applytest1,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
+
+  OBJECT applytest1sub := applytest1->CreateFolder([name:="sub"]);
+  TestEq("parentregex-tmp-applytest1,siteregex-webharetestsuitesuite", GetMyCustomNodes(applytest1sub->id));
+
+  //Now test some rules applied through our main siteprofile
+  OBJECT throughglobalsiteprofile := GetTestsuiteTempFolder()->CreateFolder([name:="applytest-throughglobal"]);
+  TestEq("applytest-throughglobal,applytest-throughglobal-next,applytest-throughglobal-next2,parentmask-tmp,parentregex-tmp", GetMyCustomNodes(throughglobalsiteprofile->id));
+
+  testfw->CommitWork();
+}
+
+RunTestFramework( [ PTR TestRules
+                  ]);

@@ -1,0 +1,21 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/webtools/poll.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+PUBLIC RECORD FUNCTION TESTINVOKE_RESETTESTPOLL()
+{
+  OBJECT trans := OpenPrimary();
+  trans->BeginWork();
+
+  OBJECT testsite := OpenTestsuiteSite();
+  OBJECT pollfile := testsite->OpenByPath("webtools/polltest");
+  OpenPoll(pollfile->id)->ResetVotes();
+
+  trans->CommitWork();
+
+  RETURN [ pollurl := CreateWidgetPreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", pollfile->id, pollfile->id) ];
+
+}

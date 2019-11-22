@@ -1,0 +1,1215 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+
+
+LOADLIB "mod::publisher/lib/internal/blit/api.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
+LOADLIB "mod::publisher/lib/internal/blit/whfsintegration.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "module::blitserver/database.whlib";
+LOADLIB "module::blitserver/internal/repository.whlib";
+
+//__webbrowser_debugall := TRUE;
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "setup", type := "stringopt" ] ]);
+IF (NOT RecordExists(args) OR args.setup NOT IN [ "", "updatetest" ])
+{
+  // Use setup to prepare a conflict to update (in /webhare_testsuite.testfolder/webhare_testsuite.site/wc_local_theirs)
+  PRINT("Syntax: runscript testapi.whscr [ --setup=updatetest ]\n\n");
+  RETURN;
+}
+
+MACRO Cleanup()
+{
+  testfw->BeginWork();
+
+  DELETE
+    FROM blitserver.repositories
+   WHERE name LIKE "betatest_*";
+
+  testfw->CommitWork();
+}
+
+// Expect here is what happens if we apply the changes from parent->remote to local
+RECORD ARRAY file_tests :=
+    [ // Caserename
+      [ name :=     "caserename-01-A" // update with remote name
+      , parent :=   "file:1",      parent_name := "caserename-01-a"
+      , remote :=   "file:1",      remote_name := "caserename-01-A"
+      , local :=    "file:1",      local_name := "caserename-01-a"
+      , expect :=   "update"
+      ]
+    , [ name :=     "caserename-02-A" // update with remote name, keep local data
+      , parent :=   "file:1",      parent_name := "caserename-02-a"
+      , remote :=   "file:1",      remote_name := "caserename-02-A"
+      , local :=    "file:2",      local_name := "caserename-02-a"
+      , expect :=   "update"
+      ]
+    , [ name :=     "caserename-03-A" // Keep local name, update with remote data
+      , parent :=   "file:1",      parent_name := "caserename-03-a"
+      , remote :=   "file:2",      remote_name := "caserename-03-a"
+      , local :=    "file:1",      local_name := "caserename-03-A"
+      , expect :=   "update"
+      ]
+    , [ name :=     "caserename-04-Aa"
+      , parent :=   "file:1",      parent_name := "caserename-04-aa"
+      , remote :=   "file:1",      remote_name := "caserename-04-aA"
+      , local :=    "file:1",      local_name := "caserename-04-Aa"
+      , expect :=   "data-conflict"
+      , conflicts := [ "name" ]
+      ]
+    , [ name :=     "caserename-05-Aa"
+      , parent :=   "file:1",      parent_name := "caserename-05-aa"
+      , remote :=   "file:2",      remote_name := "caserename-05-aA"
+      , local :=    "file:3",      local_name := "caserename-05-Aa"
+      , expect :=   "data-conflict"
+      , conflicts := [ "name", "data" ]
+      ]
+
+    , [ name :=     "caserename-10-A" // merge keep name
+      , parent :=   "folder:1",      parent_name := "caserename-10-a"
+      , remote :=   "folder:2",      remote_name := "caserename-10-a"
+      , local :=    "folder:3",      local_name := "caserename-10-A"
+      , expect :=   "merge"
+      ]
+    , [ name :=     "caserename-11-A" // merge-rename
+      , parent :=   "folder:1",      parent_name := "caserename-11-a"
+      , remote :=   "folder:2",      remote_name := "caserename-11-A"
+      , local :=    "folder:3",      local_name := "caserename-11-a"
+      , expect :=   "update-metadata"
+      ]
+    , [ name :=     "caserename-12-Aa" // merge-nameconflict
+      , parent :=   "folder:1",      parent_name := "caserename-12-aa"
+      , remote :=   "folder:2",      remote_name := "caserename-12-aA"
+      , local :=    "folder:3",      local_name := "caserename-12-Aa"
+      , expect :=   "merge-nameconflict"
+      , conflicts := [ "name" ]
+      ]
+
+      // Files
+    , [ name :=     "file00"
+      , parent :=   ""
+      , remote :=   ""
+      , local :=    ""
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "file01"
+      , parent :=   ""
+      , remote :=   ""
+      , local :=    "1"
+      , expect :=   "keep"
+      ]
+    , [ name :=     "file02"
+      , parent :=   ""
+      , remote :=   "1"
+      , local :=    ""
+      , expect :=   "add"
+      ]
+    , [ name :=     "file03"
+      , parent :=   ""
+      , remote :=   "1"
+      , local :=    "1"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "file04"
+      , parent :=   ""
+      , remote :=   "1"
+      , local :=    "2"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+    , [ name :=     "file05"
+      , parent :=   "1"
+      , remote :=   ""
+      , local :=    ""
+      , expect :=   "keep"
+      ]
+    , [ name :=     "file06"
+      , parent :=   "1"
+      , remote :=   ""
+      , local :=    "1"
+      , expect :=   "delete"
+      ]
+    , [ name :=     "file07"
+      , parent :=   "1"
+      , remote :=   "1"
+      , local :=    ""
+      , expect :=   "staydeleted"
+      ]
+    , [ name :=     "file08"
+      , parent :=   "1"
+      , remote :=   "1"
+      , local :=    "22"
+      , expect :=   "keep"
+      ]
+    , [ name :=     "file09"
+      , parent :=   "1"
+      , remote :=   "22"
+      , local :=    ""
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "file10"
+      , parent :=   "1"
+      , remote :=   "22"
+      , local :=    "1"
+      , expect :=   "update"
+      ]
+    , [ name :=     "file11"
+      , parent :=   "1"
+      , remote :=   "22"
+      , local :=    "22"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "file12"
+      , parent :=   "1"
+      , remote :=   "22"
+      , local :=    "333"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+    , [ name :=     "file13" // no merge!
+      , parent :=   "binary:1"
+      , remote :=   "binary:22"
+      , local :=    "binary:333"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+
+    , [ name :=     "folder1"
+      , parent :=   "folder:1"
+      , remote :=   "folder:1"
+      , local :=    "folder:1"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "folder2"
+      , parent :=   "folder:1"
+      , remote :=   "folder:22"
+      , local :=    "folder:22"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "folder3" // deeper conflict
+      , parent :=   "folder:1"
+      , remote :=   "folder:22"
+      , local :=    "folder:333"
+      , expect :=   "merge"
+      , dataexpect := "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+    , [ name :=     "folder4"
+      , parent :=   "folder:1"
+      , remote :=   ""
+      , local :=    "folder:22"
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "folder5"
+      , parent :=   "folder:1"
+      , remote :=   "folder:22"
+      , local :=    ""
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "folder6" // deeper conflict
+      , parent :=   ""
+      , remote :=   "folder:1"
+      , local :=    "folder:22"
+      , expect :=   "merge"
+      , dataexpect := "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+
+      // Instance data
+    , [ name :=     "instance-a-1"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "unmodified"
+        // No modification to local file, so no expect_i to test
+      ]
+    , [ name :=     "instance-a-2"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "replace" ] ]
+      ]
+    , [ name :=     "instance-a-3"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "keep"
+        // No modification to local file, so no expect_i to test
+      ]
+    , [ name :=     "instance-a-4"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   ""
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "delete" ] ]
+      ]
+    , [ name :=     "instance-a-5"
+      , parent :=   "1",        parent_i :=   ""
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    ""
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "add" ] ]
+      ]
+    , [ name :=     "instance-a-6"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    "i3"
+      , expect :=   "data-conflict"
+      , conflicts :=  [ "instance" ]
+      ]
+    , [ name :=     "instance-a-7"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   ""
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "data-conflict"
+      , conflicts :=  [ "instance" ]
+      ]
+    , [ name :=     "instance-a-8"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    ""
+      , expect :=   "data-conflict"
+      , conflicts :=  [ "instance" ]
+      ]
+    , [ name :=     "instance-a-9"
+      , parent :=   "1",        parent_i :=   ""
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "data-conflict"
+      , conflicts :=  [ "instance" ]
+      ]
+
+    , [ name :=     "instance-b-1"
+      , parent :=   "1",        parent_i :=   "i1", parent_i2 :=  "j1"
+      , remote :=   "1",        remote_i :=   "i2", remote_i2 :=  "j1"
+      , local :=    "1",        local_i :=    "i1", local_i2 :=   "j1"
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "replace" ], [ typens := "test2", status := "unmodified" ] ]
+      ]
+    , [ name :=     "instance-b-2"
+      , parent :=   "1",        parent_i :=   "i1", parent_i2 :=  "j1"
+      , remote :=   "1",        remote_i :=   "i2", remote_i2 :=  "j1"
+      , local :=    "1",        local_i :=    "i1", local_i2 :=   "j2"
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "replace" ], [ typens := "test2", status := "keep" ] ]
+      ]
+    , [ name :=     "instance-b-3"
+      , parent :=   "1",        parent_i :=   "i1", parent_i2 :=  "j1"
+      , remote :=   "1",        remote_i :=   "i2", remote_i2 :=  ""
+      , local :=    "1",        local_i :=    "i1", local_i2 :=   "j1"
+      , expect :=   "update"
+      , expect_i := [ [ typens := "test", status := "replace" ], [ typens := "test2", status := "delete" ] ]
+      ]
+
+      // Diff3 merged stuff
+    , [ name :=     "merge01"
+      , parent :=   "1a\n-\n2a\n"
+      , remote :=   "1b\n-\n2a\n"
+      , local :=    "1a\n-\n2b\n"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+    , [ name :=     "merge02"
+      , parent :=   "1\r\n-\r\n2\r\n"
+      , remote :=   "1a\n-\n2\n"
+      , local :=    "1\n-\n2b\r\n"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+
+      // metadata (title, description, etc)
+    , [ name :=     "metadata-a-1"
+      , parent :=   "1",      parent_title := "1"
+      , remote :=   "1",      remote_title := "1"
+      , local :=    "1",      local_title := "1"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "metadata-a-2"
+      , parent :=   "1",      parent_title := "1"
+      , remote :=   "1",      remote_title := "2"
+      , local :=    "1",      local_title := "1"
+      , expect :=   "update"
+      ]
+    , [ name :=     "metadata-a-3"
+      , parent :=   "1",      parent_title := "1"
+      , remote :=   "1",      remote_title := "1"
+      , local :=    "1",      local_title := "2"
+      , expect :=   "keep"
+      ]
+    , [ name :=     "metadata-a-4"
+      , parent :=   ""
+      , remote :=   "1",      remote_title := "1"
+      , local :=    "1",      local_title := "2"
+      , expect :=   "data-conflict"
+      , conflicts := [ "basedata" ]
+      ]
+    , [ name :=     "metadata-a-5"
+      , parent :=   "1",      parent_title := "1"
+      , remote :=   "1",      remote_title := "2"
+      , local :=    "1",      local_title := "3"
+      , expect :=   "data-conflict"
+      , conflicts := [ "basedata" ]
+      ]
+    , [ name :=     "metadata-a-6"
+      , parent :=   "1",      parent_title := "1"
+      , remote :=   "2",      remote_title := "2"
+      , local :=    "3",      local_title := "3"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data", "basedata" ]
+      ]
+    , [ name :=     "metadata-a-7" // conflict over whole basedata, but not for individual fields
+      , parent :=   "1",      parent_title := "1",  parent_description := "1"
+      , remote :=   "1",      remote_title := "2",  remote_description := "1"
+      , local :=    "1",      local_title := "1",   local_description := "2"
+      , expect :=   "update"
+      ]
+    , [ name :=     "metadata-folder-8"
+      , parent :=   "folder:1",      parent_title := "1"
+      , remote :=   "folder:2",      remote_title := "2"
+      , local :=    "folder:3",      local_title := "3"
+      , expect :=   "data-conflict"
+      , conflicts := [ "basedata" ]
+      ]
+
+    , [ name :=     "multi-conflict-1"
+      , parent :=   "file:1",      parent_title := "t1",  parent_description := "d3", parent_i := "i-1", parent_i2 := "i2-3"
+      , remote :=   "file:2",      remote_title := "t2",  remote_description := "d2", remote_i := "i-2", remote_i2 := "i2-2"
+      , local :=    "file:3",      local_title := "t3",   local_description := "d1",  local_i :=  "i-3", local_i2 := "i2-1"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data", "basedata", "instance" ]
+      ]
+
+      // Not very harmful type changes
+    , [ name :=     "type-a-1"
+      , parent :=   "folder:1"
+      , remote :=   "folder:1"
+      , local :=    "22"
+      , expect :=   "keep"
+      ]
+    , [ name :=     "type-a-2"
+      , parent :=   "folder:1"
+      , remote :=   "22"
+      , local :=    "folder:1"
+      , expect :=   "replace"
+      ]
+    , [ name :=     "type-a-3"
+      , parent :=   "1"
+      , remote :=   "folder:22"
+      , local :=    "1"
+      , expect :=   "replace"
+      ]
+    , [ name :=     "type-a-4"
+      , parent :=   "1"
+      , remote :=   "folder:22"
+      , local :=    "1"
+      , expect :=   "replace"
+      ]
+
+      // Conflicts with type changes
+    , [ name :=     "type-b-1"
+      , parent :=   "folder:1"
+      , remote :=   "1"
+      , local :=    "folder:22"
+      , expect :=   "type-conflict"
+      ]
+    , [ name :=     "type-b-2"
+      , parent :=   "folder:1"
+      , remote :=   "folder:22"
+      , local :=    "333"
+      , expect :=   "type-conflict"
+      ]
+    , [ name :=     "type-b-3"
+      , parent :=   "1"
+      , remote :=   "folder:22"
+      , local :=    "333"
+      , expect :=   "type-conflict"
+      ]
+    , [ name :=     "type-b-4"
+      , parent :=   "1"
+      , remote :=   "folder:22"
+      , local :=    "333"
+      , expect :=   "type-conflict"
+      ]
+    , [ name :=     "type-b-5" // deeper conflict
+      , parent :=   "1"
+      , remote :=   "folder:1"
+      , local :=    "folder:22"
+      , expect :=   "merge"
+      , dataexpect := "data-conflict"
+      , conflicts := [ "type" ]
+      ]
+    , [ name :=     "type-b-6"
+      , parent :=   "folder:1"
+      , remote :=   "1"
+      , local :=    "22"
+      , expect :=   "data-conflict"
+      , conflicts := [ "data" ]
+      ]
+
+      // Conflicts with type changes & deleted stuff
+    , [ name :=     "type-c-1"
+      , parent :=   "1"
+      , remote :=   "folder:1"
+      , local :=    ""
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "type-c-2"
+      , parent :=   "folder:1"
+      , remote :=   "1"
+      , local :=    ""
+      , expect :=   "existence-conflict"
+      ]
+
+      //*/
+    ];
+
+FOREVERY (RECORD rec FROM file_tests)
+{
+  FOREVERY (STRING t FROM [ "PARENT_", "LOCAL_", "REMOTE_" ])
+    FOREVERY (STRING s FROM [ "I", "I2", "TITLE", "DESCRIPTION" ])
+      IF (NOT CellExists(rec, t||s))
+        rec := CellInsert(rec, t||s, "");
+  IF (NOT CellExists(rec, "CONFLICTS"))
+    INSERT CELL conflicts := DEFAULT STRING ARRAY INTO rec;
+  file_tests[#rec] := rec;
+}
+
+
+OBJECT FUNCTION CreateObject(OBJECT root, RECORD rec, STRING type)
+{
+  STRING name := CellExists(rec, type || "_NAME") ? GetCell(rec, type || "_NAME") : rec.name;
+  STRING contents := GetCell(rec, type);
+  STRING instancedata := CellExists(rec, type || "_I") ? GetCell(rec, type || "_I") : "";
+  STRING instancedata2 := CellExists(rec, type || "_I2") ? GetCell(rec, type || "_I2") : "";
+  STRING title := CellExists(rec, type || "_TITLE") ? GetCell(rec, type || "_TITLE") : "";
+  STRING description := CellExists(rec, type || "_DESCRIPTION") ? GetCell(rec, type || "_DESCRIPTION") : "";
+
+  IF (CellExists(rec, "EXPECT") AND rec.expect = "data-conflict")
+  {
+    IF (NOT CellExists(rec, "CONFLICTS"))
+      ABORT(rec); // Require cell conflicts
+    FOREVERY (STRING type FROM rec.conflicts)
+      IF (type NOT IN [ "data", "name", "basedata", "instance" ])
+        ABORT("Unknown data conflict type " || type);
+  }
+
+  IF (contents = "")
+    RETURN DEFAULT OBJECT;
+  ELSE
+  {
+    IF (contents NOT LIKE "*binary:*") // Make sure it is a diffable type
+    {
+      IF (contents LIKE "folder:*")
+        contents := "folder:<?wh\n\n" || SubString(contents, 7);
+      ELSE
+        contents := "<?wh\n\n" || contents;
+    }
+    contents := TrimWhitespace(contents) || "\n";
+  }
+
+  OBJECT retval;
+  IF (contents LIKE "folder:*")
+  {
+//    PRINT("Create folder " || name || " for " || type || "\n" || AnyToString(rec, "boxed"));
+    retval := root->CreateFolder([ name := name, title := title, description := description ]);
+    retval->CreateFile([ name := "file-" || rec.name, data := StringToBlob(contents) ]);
+  }
+  ELSE
+    retval := root->CreateFile([ name := name, data := StringToBlob(contents), title := title, description := description ]);
+
+  IF (instancedata != "")
+  {
+    OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
+    betatype->SetInstanceData(retval->id, [ stringtest := instancedata ] );
+  }
+  IF (instancedata2 != "")
+  {
+    OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test2");
+    betatype->SetInstanceData(retval->id, [ stringtest := instancedata2 ] );
+  }
+  RETURN retval;
+}
+
+OBJECT ARRAY FUNCTION CreateObjects(OBJECT root, RECORD ARRAY recs, STRING type)
+{
+  // Remove all old children
+  DELETE FROM system.fs_objects WHERE parent = root->id;
+
+  OBJECT ARRAY retval;
+  FOREVERY (RECORD rec FROM recs)
+  {
+    OBJECT obj := CreateObject(root, rec, type);
+    IF (ObjectExists(obj))
+      INSERT obj INTO retval AT END;
+  }
+  RETURN retval;
+}
+
+MACRO TestSingleFileMerge()
+{
+  RECORD port := testfw->GetLocalhostWebinterface();
+
+  testfw->StartTrans("~webhare",TRUE);
+
+  testfw->BeginWork();
+  testfw->GetUserObject("sysop")->GrantRightTo("system:sysop", testfw->GetUserObject("testuser"), TRUE);
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+  OBJECT testsite := testfw->GetTestSite();
+  testfw->CommitWork();
+
+  testfw->RefreshWebserverConfig();
+
+  OBJECT repo_local_obj := CreateRepository("betatest_singlefilemerge", FALSE, "", testfw->GetUserObject("testuser"));
+  STRING repository_uuid := repo_local_obj->GetStatus().repository_uuid;
+
+  OBJECT browser := NEW WebBrowser;
+  OBJECT repo := OpenRemoteRepository(
+      port.baseurl,
+      repository_uuid,
+      browser,
+      [ username := testfw->GetUserLogin("testuser")
+      , password := testfw->GetUserPassword("testuser")
+      ]);
+
+  RECORD wc_remote := CheckoutWorkingCopy(
+      repo,
+      testsite->rootobject,
+      "wc_remote",
+      testsite->rootobject->url,
+      DEFAULT RECORD);
+
+  testfw->BeginWork();
+
+  //RECORD CheckoutWorkingCopy(testsite->rootobject, "wc", STRING repositoryurl, STRING repositoryuuid, RECORD options)
+
+  // Ignore stuff like profile and template
+  OBJECT inclusionsettings_type := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings");
+  inclusionsettings_type->SetInstanceData(wc_remote.folder->id,
+      [ settings :=
+          [ [ fsobject :=   wc_remote.folder->id
+            , self :=       "partial"
+            , recursive :=  "full"
+            , basefields := [ "TITLE", "DESCRIPTION", "TEMPLATE", "PROFILE" ]
+              // need template & profile those to make sure they stay 0 (as wc_remote will have due to full checkout of empty folder)
+            ]
+          ]
+      ]);
+
+  // Parent
+  CreateObjects(wc_remote.folder, file_tests, "parent");
+  testfw->CommitWork();
+
+//  PRINT("parent\n" || AnyToString((SELECT name FROM system.fs_objects WHERE parent = wc_remote.folder->id), "boxed"));
+
+  OBJECT committer := NEW BlitCommitter(repo, wc_remote.folder);
+  committer->comment := "Parent commit";
+  RECORD commit_1 := committer->Commit();
+  TestEQ([ status := "ok", allcommitted := TRUE, version := 2 ], commit_1);
+  TestEQ([ status := "nochange" ], committer->Commit());
+
+  // Checkout parent
+  RECORD wc_local_ref := CheckoutWorkingCopy(repo, testsite->rootobject, "wc_local_ref", testsite->rootobject->url, DEFAULT RECORD);
+  RECORD wc_local_theirs := CheckoutWorkingCopy(repo, testsite->rootobject, "wc_local_theirs", testsite->rootobject->url, DEFAULT RECORD);
+  RECORD wc_local_mine := CheckoutWorkingCopy(repo, testsite->rootobject, "wc_local_mine", testsite->rootobject->url, DEFAULT RECORD);
+
+  testfw->BeginWork();
+  CreateObjects(wc_remote.folder, file_tests, "remote");
+  CreateObjects(wc_local_theirs.folder, file_tests, "local");
+  CreateObjects(wc_local_mine.folder, file_tests, "local");
+  testfw->CommitWork();
+
+  committer->RefreshModificationList();
+  committer->comment := "Remote commit";
+  RECORD commit_2 := committer->Commit();
+  TestEQ([ status := "ok", allcommitted := TRUE, version := 3 ], commit_2);
+
+  IF (args.setup = "updatetest")
+  {
+    PRINT("Setup finished, now test blit 'update' at " || wc_local_theirs.folder->whfspath || "\n");
+    TerminateScript();
+  }
+
+  OBJECT updater_theirs := NEW BlitUpdater(repo, wc_local_theirs.folder);
+/*
+  PRINT("Expect results:\n" || AnyToString(
+    (SELECT rowkey :=     "path-" || name
+          , status :=     expect
+       FROM file_tests
+      WHERE expect NOT IN [ "keep", "unmodified", "staydeleted" ]), "boxed"));
+
+  PRINT("Update results:\n" || AnyToString(
+    (SELECT rowkey
+          , status
+       FROM updater_theirs->modifications // mine will be the same
+      WHERE LENGTH(path) = 1), "boxed"));
+//*/
+
+  TestEQ(
+    (SELECT rowkey :=     "path-" || name
+          , status :=     expect
+       FROM file_tests
+      WHERE expect NOT IN [ "keep", "unmodified", "staydeleted" ]),
+    (SELECT rowkey
+          , status
+       FROM updater_theirs->modifications // mine will be the same
+      WHERE LENGTH(path) = 1));
+
+  TestEQ(
+    (SELECT rowkey :=     "path-" || name
+          , dconflict :=  "data" IN conflicts
+          , nconflict :=  "name" IN conflicts
+          , bconflict :=  "basedata" IN conflicts
+          , mconflict :=  "instance" IN conflicts
+       FROM file_tests
+      WHERE expect = "data-conflict"),
+    (SELECT rowkey
+          , dconflict :=  RecordExists(obj.dconflict)
+          , nconflict :=  RecordExists(obj.nconflict)
+          , bconflict :=  RecordExists(obj.bconflict)
+          , mconflict :=  RecordExists(obj.mconflict)
+       FROM updater_theirs->modifications // mine will be the same
+      WHERE status = "data-conflict"
+        AND LENGTH(path) = 1));
+
+  RECORD ARRAY i_expect :=
+      SELECT rowkey :=    "path-" || name
+           , instances :=   (SELECT AS STRING ARRAY status || ":" || "http://www.webhare.net/xmlns/beta/" || typens FROM expect_i)
+        FROM file_tests
+       WHERE CellExists(file_tests, "EXPECT_I") ? LENGTH(expect_i) != 0 : FALSE;
+
+  TestEQ(i_expect,
+      SELECT rowkey
+           , instances :=   (SELECT AS STRING ARRAY status || ":" || typens FROM obj.instances)
+        FROM updater_theirs->modifications
+       WHERE rowkey IN (SELECT AS STRING ARRAY rowkey FROM i_expect));
+
+
+  // Also create updater for mine
+  OBJECT updater_mine := NEW BlitUpdater(repo, wc_local_mine.folder);
+
+  FOREVERY (RECORD rec FROM updater_theirs->modifications)
+  {
+    IF (rec.status NOT LIKE "*conflict")
+      CONTINUE;
+
+    IF (RecordExists(rec.obj.tconflict))
+    {
+      updater_theirs->ResolveTypeConflictSimple(rec.rowkey, "theirs");
+      updater_mine->ResolveTypeConflictSimple(rec.rowkey, "mine");
+    }
+    ELSE
+    {
+      IF (RecordExists(rec.obj.dconflict))
+      {
+        updater_theirs->ResolveDataConflictSimple(rec.rowkey, "theirs");
+        updater_mine->ResolveDataConflictSimple(rec.rowkey, "mine");
+      }
+      IF (RecordExists(rec.obj.nconflict))
+      {
+        updater_theirs->ResolveNameConflictSimple(rec.rowkey, "theirs");
+        updater_mine->ResolveNameConflictSimple(rec.rowkey, "mine");
+      }
+      IF (RecordExists(rec.obj.bconflict))
+      {
+        updater_theirs->ResolveBaseDataConflictSimple(rec.rowkey, "theirs");
+        updater_mine->ResolveBaseDataConflictSimple(rec.rowkey, "mine");
+      }
+      IF (RecordExists(rec.obj.mconflict))
+      {
+        updater_theirs->ResolveInstanceConflictSimple(rec.rowkey, "*", "theirs");
+        updater_mine->ResolveInstanceConflictSimple(rec.rowkey, "*", "mine");
+      }
+    }
+  }
+
+//  PRINT("X124\n" || AnyToString(updater_theirs->modifications, "boxed"));
+
+  // Calc results for mine vs theirs resolves
+  /*RECORD ARRAY resolved_filedata_old :=
+      SELECT name
+           , theirs :=    (expect = "merge" ? dataexpect : expect) LIKE "*conflict"
+                              ? remote
+                              : expect IN [ "keep", "staydeleted", "unmodified" ]
+                                    ? local
+                                    : remote
+           , mine :=      (expect = "merge" ? dataexpect : expect) LIKE "*conflict"
+                              ? local
+                              : expect IN [ "keep", "staydeleted", "unmodified" ]
+                                    ? local
+                                    : remote
+        FROM file_tests;*/
+
+  // Calc results for mine vs theirs resolves
+  RECORD ARRAY resolved_filedata :=
+      SELECT name
+           , theirs :=              CalcResolveresult(file_tests, "", "theirs")
+           , theirs_name :=         CalcResolveresult(file_tests, "name", "theirs")
+           , theirs_title :=        CalcResolveresult(file_tests, "title", "theirs")
+           , theirs_description :=  CalcResolveresult(file_tests, "description", "theirs")
+           , theirs_i :=            CalcResolveresult(file_tests, "i", "theirs")
+           , theirs_i2 :=           CalcResolveresult(file_tests, "i2", "theirs")
+           , mine :=                CalcResolveresult(file_tests, "", "mine")
+           , mine_name :=           CalcResolveresult(file_tests, "name", "mine")
+           , mine_title :=          CalcResolveresult(file_tests, "title", "mine")
+           , mine_description :=    CalcResolveresult(file_tests, "description", "mine")
+           , mine_i :=              CalcResolveresult(file_tests, "i", "mine")
+           , mine_i2 :=             CalcResolveresult(file_tests, "i2", "mine")
+        FROM file_tests;
+
+  // Resolve conflict with 'theirs' as universal solution
+  updater_theirs->Execute();
+
+  // Reinit wc_remote with the state after 'theirs' resolve
+  testfw->BeginWork();
+  CreateObjects(wc_remote.folder, resolved_filedata, "theirs");
+  testfw->CommitWork();
+
+  // Make remote equal to our expectation, and check if there are no modifications vs head
+  committer->RefreshModificationList();
+  committer->comment := "Theirs reference commit";
+  RECORD commit_3 := committer->Commit();
+  TestEQ([ status := "ok", allcommitted := TRUE, version := 4 ], commit_3);
+
+  // See if the updater reports any modifications
+  updater_theirs := NEW BlitUpdater(repo, wc_local_theirs.folder);
+
+  TestEQ(DEFAULT RECORD ARRAY, updater_theirs->modifications);
+
+//  PRINT("Unresolved mine update tree\n" || updater_mine->moddtree->ShortDump() || AnyToString(updater_mine->moddtree->root, "tree"));
+
+  // Resolve conflict with 'mine' as universal solution
+  updater_mine->Execute();
+
+  // Make remote equal to our expectation, and check if there are no modifications vs head
+  testfw->BeginWork();
+  CreateObjects(wc_remote.folder, resolved_filedata, "mine");
+  testfw->CommitWork();
+
+  //PRINT("Remote:\n" || CreateWHFSDescriptionTree(wc_remote.folder)->ShortDump());
+  //PRINT("Local:\n" || CreateWHFSDescriptionTree(wc_local_mine.folder)->ShortDump());
+
+  committer->RefreshModificationList();
+  committer->comment := "Mine reference commit";
+  RECORD commit_4 := committer->Commit();
+  TestEQ([ status := "ok", allcommitted := TRUE, version := 5 ], commit_4);
+
+
+  updater_mine := NEW BlitUpdater(repo, wc_local_mine.folder);
+  TestEQ(DEFAULT RECORD ARRAY, updater_mine->modifications);
+
+
+  testfw->BeginWork();
+
+  testfw->RollbackWork();
+  testfw->EndTrans();
+}
+
+STRING FUNCTION CalcResolveresult(RECORD rec, STRING type, STRING resolve)
+{
+  STRING orgtype := type;
+  IF (type != "")
+    type := "_" || type;
+  STRING parent := CellExists(rec, "PARENT" || type) ? GetCell(rec, "PARENT" || type) : GetCell(rec, orgtype);
+  STRING remote := CellExists(rec, "REMOTE" || type) ? GetCell(rec, "REMOTE" || type) : GetCell(rec, orgtype);
+  STRING local := CellExists(rec, "LOCAL" || type) ? GetCell(rec, "LOCAL" || type) : GetCell(rec, orgtype);
+
+  IF (remote = local OR parent = remote)
+    RETURN local;
+  IF (parent = local)
+    RETURN remote;
+  // local != remote, parent != remote, parent != local
+  RETURN resolve = "theirs" ? remote : local;
+}
+
+// Expect here is what happens if we apply the changes from parent->remote to local
+RECORD ARRAY file_instance_tests :=
+    [ [ name :=     "instance-1"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "unmodified"
+      ]
+    , [ name :=     "instance-2"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "replace"
+      ]
+    , [ name :=     "instance-3"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "keep"
+      ]
+    , [ name :=     "instance-4"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   ""
+      , local :=    "1",        local_i :=    "i1"
+      , expect :=   "delete"
+      ]
+    , [ name :=     "instance-5"
+      , parent :=   "1",        parent_i :=   ""
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    ""
+      , expect :=   "add"
+      ]
+    , [ name :=     "instance-6"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    "i3"
+      , expect :=   "data-conflict"
+      , conflicts := [ "instance" ]
+      ]
+    , [ name :=     "instance-7"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   ""
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "instance-8"
+      , parent :=   "1",        parent_i :=   "i1"
+      , remote :=   "1",        remote_i :=   "i2"
+      , local :=    "1",        local_i :=    ""
+      , expect :=   "existence-conflict"
+      ]
+    , [ name :=     "instance-9"
+      , parent :=   "1",        parent_i :=   ""
+      , remote :=   "1",        remote_i :=   "i1"
+      , local :=    "1",        local_i :=    "i2"
+      , expect :=   "existence-conflict"
+      , conflicts := [ "instance" ]
+      ]
+    ];
+
+
+MACRO TestInstanceData()
+{
+  testfw->StartTrans("~webhare",TRUE);
+
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  OBJECT testsite := testfw->GetTestSite();
+
+  // Ignore stuff like profile and template
+  OBJECT inclusionsettings_type := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings");
+  inclusionsettings_type->SetInstanceData(testsite->rootobject->id,
+      [ settings :=
+          [ [ fsobject :=   testsite->rootobject->id
+            , self :=       "partial"
+            , recursive :=  "full"
+            , basefields := [ "TITLE", "DESCRIPTION" ]
+            ]
+          ]
+      ]);
+
+  // Remote
+  OBJECT ARRAY objs := CreateObjects(testsite->rootobject, file_instance_tests, "parent");
+
+  OBJECT tree_parent := CreateWHFSDescriptionTree(testsite->rootobject);
+  OBJECT rtree_parent := tree_parent->BuildRepositoryTree();
+
+  FOREVERY (OBJECT obj FROM objs)
+    obj->DeleteSelf();
+
+  // Remote
+  objs := CreateObjects(testsite->rootobject, file_instance_tests, "remote");
+
+  OBJECT tree_remote := CreateWHFSDescriptionTree(testsite->rootobject);
+  OBJECT rtree_remote := tree_remote->BuildRepositoryTree();
+
+  FOREVERY (OBJECT obj FROM objs)
+    obj->DeleteSelf();
+
+  // Local
+  objs := CreateObjects(testsite->rootobject, file_instance_tests, "local");
+
+  OBJECT tree_local := CreateWHFSDescriptionTree(testsite->rootobject);
+  OBJECT rtree_local := tree_local->BuildRepositoryTree();
+
+  FOREVERY (OBJECT obj FROM objs)
+    obj->DeleteSelf();
+
+//  PRINT(AnyToString(rtree_parent, "tree"));
+
+  //PRINT("Parent\n" || rtree_parent->ShortDump());
+  //PRINT("Local\n" || rtree_local->ShortDump());
+  //PRINT("Remote\n" || rtree_remote->ShortDump());
+
+  OBJECT x := RepositoryTreeDiff3(rtree_local, rtree_parent, rtree_remote);
+  //PRINT("Repository diff tree:\n" || x->ShortDump());
+
+  OBJECT y := GenerateWHFSDescriptionDiffTree(x);
+  //PRINT("WHFS diff tree:\n" || AnyToString(y->root, "tree"));
+
+  TestEQ(
+     (SELECT status :=    expect LIKE "*-conflict" ? "data-conflict" : "update"
+           , istatus :=   expect
+           , name
+        FROM file_instance_tests
+       WHERE expect NOT IN [ "unmodified", "keep", "staydeleted" ]),
+     (SELECT status
+           , name
+           , istatus := instances[0].status
+        FROM y->root.children));
+
+  testfw->RollbackWork();
+  testfw->EndTrans();
+}
+
+STRING testsiteprofile :=
+  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/embedtest">'
+      || '<member name="i" type="integer" />'
+      || '<member name="aninstance" type="instance" />'
+      || '<member name="arichdoc" type="richdocument" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/embedtest2">'
+      || '<member name="s" type="string" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/embedtest3">'
+      || '<member name="t" type="string" />'
+    || '</contenttype>'
+    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/filetype1">'
+    || '</contenttype>'
+    || '<filetype typedef="http://www.webhare.net/xmlns/beta/filetype1" blobiscontent="false">'
+    || '</filetype>'
+  || '</siteprofile>';
+
+MACRO TestStoredTypes()
+{
+  /* Test storing of whfstype descriptions in tree, so restoring will work without the
+     types being known on the updated system
+  */
+
+  // Pain point: instances (MUST be enumerated too)
+  //             folder types
+
+  testfw->StartTrans("~webhare",TRUE);
+
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  OBJECT testsite := testfw->GetTestSite();
+
+  INTEGER ARRAY deletetypes :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_types
+       WHERE namespace IN
+                [ "http://www.webhare.net/xmlns/beta/embedtest"
+                , "http://www.webhare.net/xmlns/beta/embedtest2"
+                , "http://www.webhare.net/xmlns/beta/embedtest3"
+                , "http://www.webhare.net/xmlns/beta/filetype1"
+                ];
+  DELETE FROM system.fs_objects WHERE type IN deletetypes;
+  DELETE FROM system.fs_types WHERE id IN deletetypes;
+  GetWHFSCommitHandler()->FSTypesChanged();
+
+  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
+
+  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
+  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  OBJECT testhtml := testsite->rootobject->CreateFile(
+      [ name:="test.html", data := StringToBlob("<html><title>Testfile</title></html>")
+      , publish := true
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/beta/filetype1")->id
+      ]);
+
+  testhtml->SetInstanceData("http://www.webhare.net/xmlns/beta/embedtest",
+      [ i := 1
+      , aninstance :=
+            [ whfstype := "http://www.webhare.net/xmlns/beta/embedtest2"
+            , s := "2"
+            ]
+      , arichdoc :=
+            [ htmltext :=   StringToBlob("<html><body>yeey</body></html>")
+            , links :=      DEFAULT RECORD ARRAY
+            , embedded :=   DEFAULT RECORD ARRAY
+            , instances :=  [ [ instanceid := "iid-1"
+                              , data :=
+                                    [ whfstype := "http://www.webhare.net/xmlns/beta/embedtest3"
+                                    , t := "3"
+                                    ]
+                              ]
+                            ]
+            ]
+      ]);
+
+  OBJECT testjs := testsite->rootobject->CreateFile(
+      [ name:="test.js", data := StringToBlob("alert('yeey');")
+      , publish := true
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/javascriptfile")->id
+      ]);
+
+  testfw->CommitWork();
+
+  // Remote
+  OBJECT tree_remote := CreateWHFSDescriptionTree(testsite->rootobject);
+  OBJECT rtree_remote := tree_remote->BuildRepositoryTree();
+
+  testfw->BeginWork();
+  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  siteprof->DeleteSelf();
+  testhtml->DeleteSelf();
+
+  DELETE FROM system.fs_types WHERE namespace = "http://www.webhare.net/xmlns/beta/embedtest";
+  DELETE FROM system.fs_types WHERE namespace = "http://www.webhare.net/xmlns/beta/embedtest2";
+  DELETE FROM system.fs_types WHERE namespace = "http://www.webhare.net/xmlns/beta/embedtest3";
+  DELETE FROM system.fs_types WHERE namespace = "http://www.webhare.net/xmlns/beta/filetype1";
+  GetWHFSCommitHandler()->FSTypesChanged();
+
+  testfw->CommitWork();
+
+  // Remote
+  OBJECT tree_local := CreateWHFSDescriptionTree(testsite->rootobject);
+  OBJECT rtree_local := tree_local->BuildRepositoryTree();
+
+
+  // Generate diff tree that reinstates the original
+  OBJECT rdifftree := RepositoryTreeDiff3(rtree_local, rtree_local, rtree_remote);
+  OBJECT difftree := GenerateWHFSDescriptionDiffTree(rdifftree);
+  //PRINT("WHFS diff tree:\n" || AnyToString(y->root, "tree"));
+
+  testfw->BeginWork();
+  difftree->Apply(testsite->rootobject);
+  testfw->CommitWork();
+
+  TestEQMembers( [ i := 1
+          , aninstance :=
+                [ whfstype := "http://www.webhare.net/xmlns/beta/embedtest2"
+                , s := "2"
+                ]
+          , arichdoc :=
+                [ htmltext :=   StringToBlob("<html><body>yeey</body></html>")
+                , links :=      DEFAULT RECORD ARRAY
+                , embedded :=   DEFAULT RECORD ARRAY
+                , instances :=  [ [ instanceid := "iid-1"
+                                  , data :=
+                                        [ whfstype := "http://www.webhare.net/xmlns/beta/embedtest3"
+                                        , t := "3"
+                                        ]
+                                  ]
+                                ]
+                ]
+
+          ], testsite->rootobject->OpenByPath("test.html")->GetInstanceData("http://www.webhare.net/xmlns/beta/embedtest"), "*,-WHFSSETTINGID,-WHFSFILEID");
+
+  TestEQ("http://www.webhare.net/xmlns/beta/filetype1", testsite->rootobject->OpenByPath("test.html")->typens);
+  TestEQ("http://www.webhare.net/xmlns/publisher/javascriptfile", testsite->rootobject->OpenByPath("test.js")->typens);
+
+  // When deleting file with a standard type, the folder's metadata may not be modified
+
+  //PRINT("WHFS diff tree:\n" || AnyToString(y->root, "tree"));
+
+  testfw->BeginWork();
+  testsite->rootobject->OpenByPath("test.js")->RecycleSelf();
+
+  tree_local := CreateWHFSDescriptionTree(testsite->rootobject);
+  rtree_local := tree_local->BuildRepositoryTree();
+
+  rdifftree := RepositoryTreeDiff3(rtree_local, rtree_local, rtree_remote);
+  difftree := GenerateWHFSDescriptionDiffTree(rdifftree);
+
+  TestEQ("merge", (SELECT AS STRING status
+                     FROM difftree->GetAllTreeObjects()
+                    WHERE LENGTH(path) = 0), "Adding/removing a file of a standard file types (id<1000) should not mark the folder as modified");
+
+  testfw->RollbackWork();
+
+  testfw->EndTrans();
+}
+
+MACRO TestTypeChangeAndDelete()
+{
+  testfw->StartTrans("~webhare",TRUE);
+
+  testfw->BeginWork();
+  testfw->SetupTestWebsite(DEFAULT BLOB);
+
+  OBJECT testsite := testfw->GetTestSite();
+
+  OBJECT testfolder := testsite->rootobject->CreateFolder([ name := "repo" ]);
+
+  // File outside repo that will be deleted before applying update
+  OBJECT deleted_file := testsite->rootobject->CreateFile([ name := "deleted" ]);
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+
+  // File outside repo that will already be deleted at time of tree creation
+  OBJECT deleted_file2 := testsite->rootobject->CreateFile([ name := "deleted2" ]);
+
+  testfolder->CreateFolder([ name:="external", type := 0 ])->CreateFile([ name := "index.html" ]);
+  OBJECT folder := testfolder->CreateFolder([ name:= "container" ]);
+
+  // Internal file (linked by indexdoc) that will be deleted at time of tree creation
+  folder->CreateFile([ name := "index.html" ])->RecycleSelf();
+  folder->CreateFile([ name := "link", filelink := deleted_file->id ]);
+  folder->CreateFile([ name := "link2", filelink := deleted_file2->id ]);
+
+  deleted_file2->RecycleSelf();
+
+  OBJECT tree_remote := CreateWHFSDescriptionTree(testfolder);
+  OBJECT rtree_remote := tree_remote->BuildRepositoryTree();
+
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+
+  deleted_file->RecycleSelf();
+
+  // change type from external -> normal with child
+  testfolder->CreateFolder([ name:="external", type := 1 ]);
+
+  OBJECT tree_local := CreateWHFSDescriptionTree(testfolder);
+  OBJECT rtree_local := tree_local->BuildRepositoryTree();
+
+  // Generate diff tree that reinstates the (non-committed) original
+  OBJECT rdifftree := RepositoryTreeDiff3(rtree_local, rtree_local, rtree_remote);
+  OBJECT difftree := GenerateWHFSDescriptionDiffTree(rdifftree);
+  //PRINT("WHFS diff tree:\n" || AnyToString(y->root, "tree"));
+
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  TestThrows(PTR difftree->Apply(testfolder));
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+  RECORD applyresult := difftree->Apply(testfolder, [ ignoremissingrefs := TRUE ]);
+  testfw->CommitWork();
+
+  TestEQ([ missing_references := [ "site::webhare_testsuite.site/deleted" ] ], applyresult);
+
+  testfw->EndTrans();
+}
+
+Runtestframework( [ PTR Cleanup
+                  , PTR TestSingleFileMerge
+                  , PTR TestInstanceData
+                  , PTR TestStoredTypes
+                  , PTR TestTypeChangeAndDelete
+                  ], [ testusers := [[ login := "testuser" ]
+                                    ,[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]
+                  );

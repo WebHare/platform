@@ -1,0 +1,407 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internal/jobs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/precalc/cache.whlib";
+LOADLIB "mod::system/lib/internal/precalc/support.whlib";
+LOADLIB "mod::system/lib/internal/precalc/workqueue.whlib";
+
+
+RECORD args;
+
+OBJECT controller;
+
+STATIC OBJECTTYPE PrecalcController
+<
+  RECORD ARRAY workqueue;
+
+  OBJECT workscheduler;
+  OBJECT cache;
+
+  MACRO NEW()
+  {
+    this->workscheduler := NEW PrecalcWorkScheduler(CELL[ debug := args.debug, args.profile ]);
+    this->cache := NEW PersistentPrecalcCache(args.debug);
+    this->cache->onstatechange := PTR this->GotStateChange;
+
+    RegisterEventCallback("system:softreset", PTR this->GotCacheReset);
+    RegisterEventCallback("system:clearcaches", PTR this->GotCacheReset);
+    RegisterMultiEventCallback("system:modulefolder.mod::*", PTR this->GotFileChanged);
+  }
+
+  PUBLIC MACRO Setup()
+  {
+    this->cache->Init();
+  }
+
+  PUBLIC MACRO OnInterrupt()
+  {
+    IF (args.debug)
+      PRINT(`${TimeStamp()}  Cancelling event loop\n`);
+    CancelEventLoop();
+  }
+
+  MACRO GotCacheReset(STRING event, RECORD data)
+  {
+    BOOLEAN harddeleteall := CellExists(data, "CLEARPRECALCCACHE") AND TypeID(data.clearprecalccache) = TypeID(BOOLEAN) AND data.clearprecalccache;
+
+    IF (harddeleteall)
+      this->DeleteFromModule("*");
+    ELSE
+      this->cache->SoftExpireAll();
+  }
+
+  // For changed files, expire everything from the module
+  MACRO GotFileChanged(STRING event, RECORD ARRAY data)
+  {
+    STRING module := Tokenize(Tokenize(event, "::")[1], "/")[0];
+
+    IF (args.debug)
+      PRINT(`${TimeStamp()} File in module ${module} changed, expiring cache for that module\n`);
+
+    this->workscheduler->CancelForModule(module);
+    this->cache->ExpireForModule(module);
+  }
+
+  MACRO GotPrecalcCacheClear(STRING event, RECORD data)
+  {
+    this->DeleteFromModule("*");
+  }
+
+  MACRO GotStateChange(STRING hash, RECORD olditem, RECORD newitem)
+  {
+    IF (args.debug)
+      PRINT(`${TimeStamp()} State change for ${hash}, ${olditem.state} -> ${newitem.state}\n`);
+
+    IF (newitem.state = "discarded")
+    {
+      this->cache->DeleteCacheItem(hash);
+      RETURN;
+    }
+
+    // Not going to do anything when state is valid
+    IF (newitem.state IN [ "valid", "crashed" ])
+      RETURN;
+
+    INTEGER newpriority := newitem.state = "expired" ? 1 : 2; // first expired items, then softexpired items
+
+    // INV: state IN ["softexpired", "expired" ]
+    RECORD rec := this->workscheduler->LookupItem(hash);
+    IF (NOT RecordExists(rec))
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  Scheduling ${hash}\n`);
+
+      // should be in queue!
+      this->workscheduler->ScheduleItem(
+          hash,
+          newitem.keydata,
+          newitem.func,
+          [ timeout :=    newitem.liverefreshtimeout
+          , onsuccess :=  PTR this->ProcessData
+          , onerror :=    PTR this->ProcessCrash
+          , oncancel :=   PTR this->ProcessCancel
+          , ondiscard :=  PTR this->ProcessDiscard
+          , priority :=   newpriority
+          ]);
+    }
+    ELSE IF (rec.priority > newpriority)
+      this->workscheduler->SetItemPriority(hash, newpriority);
+  }
+
+  PUBLIC ASYNC FUNCTION GetPrecalculatedData(RECORD keydata, STRING func, RECORD options)
+  {
+    options := ValidateOptions(
+        [ waitforrefresh :=   FALSE
+        ], options);
+
+    STRING hash := EncodeUFS(GetVariableHash([ ...keydata, __calculatationfunc := func ]));
+    IF (args.debug)
+      PRINT(`${TimeStamp()} Hash ${hash} for\n${AnyToString(CELL[ keydata, func ], "tree")}`);
+
+    // Last use (in hours)
+
+    RECORD cacherec := this->cache->LookupItem(hash);
+    IF (args.debug)
+      PRINT(`${TimeStamp()} GPD for ${hash}, got cache: ${RecordExists(cacherec) ? cacherec.state : "n/a"}, waitforrefresh: ${options.waitforrefresh ? "yes" : "no"}\n`);
+    IF (RecordExists(cacherec))
+    {
+      DATETIME lastuse := GetRoundedDateTime(GetCurrentDateTime(), cacherec.lastuseroundfactor);
+      IF (cacherec.lastuse != lastuse)
+        this->cache->UpdateCacheItem(hash, CELL[ lastuse ]);
+
+      BOOLEAN canreturn := options.waitforrefresh
+          ? cacherec.state = "valid" // when requiring live version, we require a valid version (not soft expired, not crashed)
+          : cacherec.state != "expired"; // otherwise, any non-expired data will do
+
+      IF (canreturn)
+      {
+        IF (TypeID(cacherec.value) = TypeID(RECORD) AND CellExists(cacherec.value, "__EXCEPTION"))
+          THROW DecodeReceivedException(cacherec.value.__exception);
+        RETURN cacherec.value;
+      }
+    }
+
+    INTEGER priority := 0; // interactive priority
+
+    RECORD rec := this->workscheduler->LookupItem(hash);
+    IF (args.debug)
+      PRINT(`${TimeStamp()}  lookup in scheduler: ${RecordExists(rec) ? "running" : "-"}\n`);
+    IF (NOT RecordExists(rec))
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  scheduling ${hash}\n`);
+      rec := this->workscheduler->ScheduleItem(
+                  hash,
+                  keydata,
+                  func,
+                  CELL[ timeout :=    RecordExists(cacherec) ? cacherec.liverefreshtimeout : -1
+                      , onsuccess :=  PTR this->ProcessData
+                      , onerror :=    PTR this->ProcessCrash
+                      , oncancel :=   PTR this->ProcessCancel
+                      , ondiscard :=  PTR this->ProcessDiscard
+                      , extradata :=  [ lastuse := GetCurrentDateTime() ]
+                      , priority
+                      ]);
+    }
+    ELSE IF (rec.priority > priority)
+      this->workscheduler->SetItemPriority(hash, priority);
+
+    TRY
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  awaiting ${hash}\n`);
+      VARIANT result := AWAIT (options.waitforrefresh ? rec.finalpromise : rec.timedpromise);
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  done ${hash}\n`);
+      RETURN result.value;
+    }
+    CATCH (OBJECT e)
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  failed calc of ${hash}, returning stale value\n`);
+      IF (RecordExists(cacherec))
+      {
+        IF (TypeID(cacherec.value) = TypeID(RECORD) AND CellExists(cacherec.value, "__EXCEPTION"))
+          THROW DecodeReceivedException(cacherec.value.__exception);
+        RETURN cacherec.value;
+      }
+      THROW e;
+    }
+  }
+
+  MACRO ProcessData(RECORD queuedata, RECORD value)
+  {
+    IF (args.debug)
+      PRINT(`${TimeStamp()}  Process data for ${queuedata.hash}\n`);
+
+    BOOLEAN has_softexpires := CellExists(value, "SOFTEXPIRES");
+    BOOLEAN has_softttl := CellExists(value, "SOFTTTL");
+    IF (has_softexpires AND has_softttl)
+      THROW NEW Exception("Both 'softttl' and 'softexpires' provided by ${queuedata.func}.");
+
+    BOOLEAN has_expires := CellExists(value, "EXPIRES");
+    BOOLEAN has_ttl := CellExists(value, "TTL");
+    IF (has_expires AND has_ttl)
+      THROW NEW Exception(`Both 'ttl' and 'expires' provided by ${queuedata.func}.`);
+
+    value := ValidateOptions(
+        CELL[ value :=                  DEFAULT RECORD
+            , softexpires :=            MAX_DATETIME
+            , softttl :=                0
+            , eventmasks :=             DEFAULT STRING ARRAY
+            , softeventmasks :=         DEFAULT STRING ARRAY
+            , expires :=                MAX_DATETIME
+            , ttl :=                    0
+            , precalcdefaults.liverefreshtimeout
+            , precalcdefaults.crashretry
+            , precalcdefaults.discardunusedtimeout
+            , precalcdefaults.lastuseroundfactor
+            ],
+        value,
+        [ notypecheck :=        [ "SOFTTTL", "TTL", "CRASHRETRY", "LIVEREFRESHTIMEOUT", "DISCARDUNUSEDTIMEOUT", "LASTUSEROUNDFACTOR" ]
+        , title := "cacheable response"
+        ]);
+
+    IF (queuedata.canceltokensource->canceltoken->IsCancelled())
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  Not storing data, request was cancelled\n`);
+
+      RETURN;
+    }
+
+    DATETIME now := GetCurrentDateTime();
+    value :=
+        CELL[ ...value
+            , softexpires :=            has_softttl ? AddTimeToDate(ParseDuration(value.softttl), now) : value.softexpires
+            , expires :=                has_ttl ? AddTimeToDate(ParseDuration(value.ttl), now) : value.softexpires
+            , DELETE ttl
+            , DELETE softttl
+            , state :=                  "valid"
+            , queuedata.func
+            , queuedata.keydata
+            , lastcrash :=              DEFAULT DATETIME
+            , liverefreshtimeout :=     ParseDuration(value.liverefreshtimeout)
+            , crashretry :=             ParseDuration(value.crashretry)
+            , discardunusedtimeout :=   ParseDuration(value.discardunusedtimeout)
+            , lastuseroundfactor :=     ParseDuration(value.lastuseroundfactor)
+            ];
+
+    IF (CellExists(queuedata.extradata, "LASTUSE"))
+      INSERT CELL lastuse := GetRoundedDateTime(queuedata.extradata.lastuse, value.lastuseroundfactor) INTO value;
+
+    RECORD rec := this->cache->LookupItem(queuedata.hash);
+    IF (RecordExists(rec))
+      this->cache->UpdateCacheItem(queuedata.hash, value);
+    ELSE
+      this->cache->StoreCacheItem(CELL[ ...value, queuedata.hash ]);
+  }
+
+  MACRO ProcessCrash(RECORD queuedata, OBJECT e)
+  {
+    IF (args.debug)
+      PRINT(`${TimeStamp()}  Process crash for ${queuedata.hash} (${e->what})\n`);
+
+    IF (queuedata.canceltokensource->canceltoken->IsCancelled())
+    {
+      IF (args.debug)
+        PRINT(`${TimeStamp()}  Not storing crash, request was cancelled\n`);
+      RETURN;
+    }
+
+    RECORD lastuse;
+    RECORD cacherec := this->cache->LookupItem(queuedata.hash);
+    IF (NOT RecordExists(cacherec))
+    {
+      IF (CellExists(queuedata.extradata, "LASTUSE"))
+        lastuse := CELL[ lastuse := GetRoundedDateTime(queuedata.extradata.lastuse, precalcdefaults.lastuseroundfactor) ];
+
+      // Store a crash on first calculation for 60 seconds
+      this->cache->StoreCacheItem(
+          CELL[ queuedata.hash
+              , softexpires :=    AddTimeToDate(60000, GetCurrentDateTime())
+              , queuedata.func
+              , queuedata.keydata
+              , value :=          [ __exception := e->EncodeForIPC() ]
+              , ...lastuse
+              , state :=          "crashed"
+              , lastcrash :=      GetCurrentDateTime()
+              ]);
+    }
+    ELSE
+    {
+      IF (CellExists(queuedata.extradata, "LASTUSE"))
+        lastuse := CELL[ lastuse := GetRoundedDateTime(queuedata.extradata.lastuse, cacherec.lastuseroundfactor) ];
+
+      this->cache->UpdateCacheItem(
+          queuedata.hash,
+          CELL[ lastcrash :=      GetCurrentDateTime()
+              , state :=          "crashed"
+              , ...lastuse
+              ]);
+    }
+  }
+
+  MACRO ProcessCancel(RECORD queuedata)
+  {
+    RECORD cacherec := this->cache->LookupItem(queuedata.hash);
+    IF (RecordExists(cacherec))
+      this->GotStateChange(cacherec.hash, cacherec, cacherec);
+  }
+
+  MACRO ProcessDiscard(RECORD queuedata, OBJECT discardexception)
+  {
+    RECORD cacherec := this->cache->LookupItem(queuedata.hash);
+    IF (RecordExists(cacherec))
+    {
+      this->cache->UpdateCacheItem(
+          queuedata.hash,
+          CELL[ state :=          "discarded"
+              ]);
+    }
+  }
+
+  PUBLIC MACRO DeleteFromModule(STRING module)
+  {
+    this->workscheduler->CancelForModule(module);
+    this->cache->DeleteForModule(module);
+  }
+
+  PUBLIC MACRO DeleteCacheItem(STRING hash)
+  {
+    this->workscheduler->CancelCacheItem(hash);
+    this->cache->DeleteCacheItem(hash);
+  }
+
+  PUBLIC RECORD FUNCTION DescribePrecalculatedData(RECORD keydata, STRING func)
+  {
+    STRING hash := EncodeUFS(GetVariableHash([ ...keydata, __calculatationfunc := func ]));
+
+    RECORD queuerec := this->workscheduler->LookupItem(hash);
+    RECORD cacherec :=
+        [ state :=            "n/a"
+        , lastuse :=          DEFAULT DATETIME
+        , lastcrash :=        DEFAULT DATETIME
+        , ...this->cache->LookupItem(hash)
+        ];
+
+    RETURN
+        CELL[ calculating :=    RecordExists(queuerec)
+            , cachestate :=     cacherec.state
+            , cacherec.lastuse
+            , cacherec.lastcrash
+            ];
+  }
+
+>;
+
+
+OBJECTTYPE PrecalcServiceFrontend
+<
+  PUBLIC OBJECT FUNCTION GetPrecalculatedData(RECORD keydata, STRING func, RECORD options)
+  {
+    RETURN controller->GetPrecalculatedData(keydata, func, options);
+  }
+
+  PUBLIC RECORD FUNCTION DescribePrecalculatedData(RECORD keydata, STRING func)
+  {
+    RETURN controller->DescribePrecalculatedData(keydata, func);
+  }
+
+  PUBLIC RECORD FUNCTION DeleteFromModule(STRING module)
+  {
+    controller->DeleteFromModule(module);
+    RETURN DEFAULT RECORD;
+  }
+  PUBLIC RECORD FUNCTION DeleteCacheItem(STRING module)
+  {
+    controller->DeleteCacheItem(module);
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+OBJECT FUNCTION Constructor()
+{
+  RETURN NEW PrecalcServiceFrontend;
+}
+
+args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    , [ name := "profile", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  ABORT("Invalid argument specification");
+
+OpenPrimary();
+controller := NEW PrecalcController;
+AddInterruptCallback(PTR controller->OnInterrupt);
+controller->Setup();
+RunWebHareService("system:precalc", PTR Constructor);
