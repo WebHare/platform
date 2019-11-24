@@ -7,5 +7,10 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
-pstree $PID
-exit 0
+if ! which pstree >/dev/null 2>&1 ; then
+  echo "pstree does not appear to be installed"
+  echo "Try: brew install pstree"
+  exit 1
+fi
+
+exec pstree $PID
