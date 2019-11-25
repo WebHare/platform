@@ -7,7 +7,6 @@
                  bootstrap
                  events
                  webhare-connect
-                 escrow
                  whdb
                  classnames
                  ">

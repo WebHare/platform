@@ -826,13 +826,6 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 harescript/modules/git/git.o: /usr/local/lib/libgit2.dylib
 endif
 
-#####################################################################
-#
-# Escrow setup
-#
-escrow:
-	VERSION=$(shell (awk -- '/define BLEX_BRANDING_PRODUCT_VERSION / { print $$3 }' < $(SRCDIR)/blex/branding.h) | tr -d \") $(SRCDIR)/addons/create_escrow.sh
-
 ###
 # Aliases for easy building
 #

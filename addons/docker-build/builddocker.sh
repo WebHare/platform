@@ -82,14 +82,10 @@ fi
 popd  >/dev/null 2>&1
 
 # Avoid polluting the build tree, we'll do our work in a private folder
-if [ "$BASE_IS_ESCROW" != "1" ]; then
-  WORKDIR="$WEBHARE_BUILDDIR/docker-build"
-  rm -rf $WORKDIR
-  mkdir -p $WORKDIR
-  cd $WORKDIR
-else
-  cd $DESTDIR
-fi
+WORKDIR="$WEBHARE_BUILDDIR/docker-build"
+rm -rf $WORKDIR
+mkdir -p $WORKDIR
+cd $WORKDIR
 
 getfromfiles()
 {
@@ -112,12 +108,7 @@ SOURCEFILES="
   elasticsearch-oss-7.3.0-linux-x86_64.tar.gz"
 
 for P in $SOURCEFILES; do
-  if [ "$BASE_IS_ESCROW" != "1" ]; then
-    getfromfiles $P
-  elif [ ! -f $P ]; then
-    echo "The escrow build is incomplete - missing $P"
-    exit 1
-  fi
+  getfromfiles $P
 done
 
 
@@ -262,16 +253,6 @@ buildid=$CI_JOB_ID
 docker=1
 buildertag=$BUILDERTAG
 HERE
-
-if [ -n "$WHBUILD_ESCROW" ]; then
-  DESTFILE="$DESTDIR/webhare-escrow-`date +'%Y%m%dT%H%M%S'`.tar.gz"
-  echo "It's all here. Setting up escrow package"
-
-  cp $SOURCEDIR/doc/escrow.md README.md
-  $TAR zcf $DESTFILE .
-  echo "Created $DESTFILE"
-  exit 0
-fi
 
 echo "Docker build args: ${DOCKERBUILDARGS[@]}"
 
