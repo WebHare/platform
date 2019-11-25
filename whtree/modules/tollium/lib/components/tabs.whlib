@@ -522,8 +522,6 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
   PUBLIC RECORD FUNCTION LoadTabsExtension(STRING extension, VARIANT options DEFAULTSTO "")
   {
     //You may load more than one tab, but not invoke any of the later stages while still loading
-    IF(this->runstate NOT IN [ "", "loadedtabs" ] AND NOT IsDtapLive())
-      THROW NEW TolliumException(this, `Extendable tabs contract violation: LoadTabsExtension must be invoked before RunExtensionsPostInit (state=${this->runstate})`);
     this->runstate := "loadedtabs";
 
     STRING subname;
