@@ -1,10 +1,37 @@
 <?wh
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql-blobmgmt.whlib";
+LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "fast", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError(`Syntax: wh run cleanpostgresqlblobs.whscr [ --fast ]\n`);
 
 OBJECT trans := OpenPrimary();
 OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(trans);
+
+IF (args.fast)
+{
+  analyzer->abandoned_upload_secs := 5 * 60; // 5 minutes
+  analyzer->unreferenced_period_secs := 5 * 60; // 5 minutes
+  analyzer->keep_removed_files_secs := 0; // immediate removal
+}
+
 analyzer->UpdateBlobManifest();
+
+IF (args.debug)
+{
+  RECORD manifest := analyzer->ReadBlobManifest();
+  PRINT(`Unreferenced blobs: ${SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced}\n`);
+  PRINT(`Unlinked blob parts: ${SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unlinked}\n`);
+  PRINT(`Uploads: ${LENGTH(manifest.abandoned)}\n`);
+}
+
 analyzer->RemoveUnreferencedBlobs();

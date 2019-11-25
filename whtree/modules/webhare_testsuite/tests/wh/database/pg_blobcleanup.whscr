@@ -2,11 +2,12 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql-blobmgmt.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 
@@ -31,6 +32,25 @@ MACRO Setup()
   testfw->CommitWork();
 }
 
+BOOLEAN FUNCTION GetBlobStorageExists(STRING dbid)
+{
+  STRING ARRAY storageids := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ dbid ]);
+
+  STRING ARRAY exists := SELECT AS STRING ARRAY blobpartid FROM GetPrimary()->blobhandler->ListBlobParts();
+
+  BOOLEAN any_missing, any_found;
+  FOREVERY (STRING id FROM storageids)
+    IF (id IN exists)
+      any_found := TRUE;
+    ELSE
+      any_missing := TRUE;
+
+  IF (any_found AND any_missing)
+    THROW NEW Exception(`Found a subset of storage files for blob ${dbid}`);
+
+  RETURN any_found;
+}
+
 MACRO TestBlobCleanup()
 {
   OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(GetPrimary());
@@ -41,7 +61,7 @@ MACRO TestBlobCleanup()
   analyzer->abandoned_upload_secs := 2;
   analyzer->unreferenced_period_secs := 2;
   analyzer->keep_removed_files_secs := 2;
-  analyzer->manifestpath := GenerateTemporaryPathname();
+  analyzer->__debugmanifestpath := GenerateTemporaryPathname();
 
   analyzer->UpdateBlobManifest();
   TestEQ(
@@ -64,6 +84,7 @@ MACRO TestBlobCleanup()
   INSERT CELL[ id := id2, data := data2 ] INTO beta_blobtests;
   INSERT CELL[ id := id3, data := data3 ] INTO beta_blobtests;
   STRING blob_deleted := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data1);
+  STRING blob_deleted_storageid := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ blob_deleted ])[0];
   STRING blob_deletedreinserted := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data2);
   STRING blob_kept := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data3);
   testfw->CommitWork();
@@ -73,7 +94,9 @@ MACRO TestBlobCleanup()
   INTEGER id4 := MakeAutonumber(beta_blobtests, "id");
   INSERT CELL[ id := id4, data := data4 ] INTO beta_blobtests;
   STRING blob_failedupload := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data4);
+  STRING blob_failedupload_storageid := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ blob_failedupload ])[0];
   testfw->RollbackWork();
+
 
   analyzer->__filterids := [ "none", blob_deleted, blob_deletedreinserted, blob_kept, blob_failedupload ];
 
@@ -93,7 +116,7 @@ MACRO TestBlobCleanup()
   // blob_deleted, blob_deletedreinserted should be picked up as unreferenced now
   analyzer->UpdateBlobManifest();
   TestEQMembers(
-      [ unreferenced :=   [ [ ids := [ blob_deleted, blob_deletedreinserted ] ] ]
+      [ unreferenced :=   [ [ ids := GetSortedSet([ blob_deleted, blob_deletedreinserted ]) ] ]
       , unlinked :=       RECORD[]
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
@@ -105,9 +128,9 @@ MACRO TestBlobCleanup()
   // and blob_deleted, blob_deletedreinserted are confirmed as unreferenced
   analyzer->UpdateBlobManifest();
   TestEQMembers(
-      [ unreferenced :=   [ [ ids := [ blob_deleted, blob_deletedreinserted ] ] ]
+      [ unreferenced :=   [ [ ids := GetSortedSet([ blob_deleted, blob_deletedreinserted ]) ] ]
       , unlinked :=       RECORD[]
-      , abandoned :=      STRING[ blob_failedupload ]
+      , abandoned :=      STRING[ blob_failedupload_storageid ]
       ], analyzer->ReadBlobManifest(), "*");
 
   // Re-insert blob_deletedreinserted just before deleting from the blob table
@@ -118,10 +141,9 @@ MACRO TestBlobCleanup()
   // Execute remove, blob_deleted and blob_failedupload are scheduled for file delete
   // blob_deletedreinserted should be skipped due to being referenced again
   analyzer->RemoveUnreferencedBlobs();
-  DumpValue(analyzer->ReadBlobManifest(), "tree");
   TestEQMembers(
       [ unreferenced :=   RECORD[]
-      , unlinked :=       [ [ ids := [ blob_deleted, blob_failedupload ] ] ]
+      , unlinked :=       [ [ blobpartids := GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ]) ] ]
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
 
@@ -132,14 +154,14 @@ MACRO TestBlobCleanup()
   analyzer->UpdateBlobManifest();
   TestEQMembers(
       [ unreferenced :=   RECORD[]
-      , unlinked :=       [ [ ids := [ blob_deleted, blob_failedupload ] ] ]
+      , unlinked :=       [ [ blobpartids := GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ]) ] ]
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
 
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_deleted, 0)) || blob_deleted)));
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_deletedreinserted, 0)) || blob_deletedreinserted)));
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_kept, 0)) || blob_kept)));
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_failedupload, 0)) || blob_failedupload)));
+  TestEQ(TRUE, GetBlobStorageExists(blob_deleted));
+  TestEQ(TRUE, GetBlobStorageExists(blob_deletedreinserted));
+  TestEQ(TRUE, GetBlobStorageExists(blob_kept));
+  TestEQ(TRUE, GetBlobStorageExists(blob_failedupload));
 
   analyzer->RemoveUnreferencedBlobs();
   TestEQMembers(
@@ -148,10 +170,10 @@ MACRO TestBlobCleanup()
       , abandoned :=      STRING[]
       ], analyzer->ReadBlobManifest(), "*");
 
-  TestEQ(FALSE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_deleted, 0)) || blob_deleted)));
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_deletedreinserted, 0)) || blob_deletedreinserted)));
-  TestEQ(TRUE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_kept, 0)) || blob_kept)));
-  TestEQ(FALSE, RecordExists(GetDiskFileProperties(GetBlobDir(GetPrimary()->blobfolder, ToInteger(blob_failedupload, 0)) || blob_failedupload)));
+  TestEQ(FALSE, GetBlobStorageExists(blob_deleted));
+  TestEQ(TRUE, GetBlobStorageExists(blob_deletedreinserted));
+  TestEQ(TRUE, GetBlobStorageExists(blob_kept));
+  TestEQ(FALSE, GetBlobStorageExists(blob_failedupload));
 }
 
 RunTestframework([ PTR Setup

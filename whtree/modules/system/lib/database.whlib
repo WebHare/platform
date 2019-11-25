@@ -19,6 +19,7 @@ LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseReadonly;
 LOADLIB "wh::internal/transservices.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
 
@@ -589,6 +590,8 @@ PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRE
     }
     CASE "postgresql"
     {
+      IF (NOT CellExists(data, "BLOBHANDLER"))
+        INSERT CELL blobhandler := GetDefaultPostgreSQLBlobHandler() INTO data;
       transobject := __StartWHPostgreSQLTransaction(data);
     }
     DEFAULT

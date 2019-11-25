@@ -366,7 +366,8 @@ struct ParamsEncoder
         Blex::SemiStaticPodVector< char, 32768 > alldata;
 
         char *RegisterParameter(OID type, unsigned len);
-        std::string AddParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
+        std::string AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
+        std::string AddParameter(VirtualMachine *vm, std::string_view str, ParamEncoding::Flags flags = ParamEncoding::None);
 
         void Finalize();
 };
@@ -509,7 +510,7 @@ void DumpPacket(unsigned len,void  const *buf)
 }
 #endif
 
-std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags encodingflags)
+std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags encodingflags)
 {
 #ifdef DUMP_BINARY_ENCODING
         PQ_ONLYRAW(unsigned startdatalen = alldata.size();)
@@ -534,27 +535,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                 case VariableTypes::String:
                 {
                         Blex::StringPair str = stackm.GetString(var);
-                        if (encodingflags & ParamEncoding::Pattern)
-                        {
-                                std::string pattern;
-                                for (const char *it = str.begin; it != str.end; ++it)
-                                {
-                                        if (*it == '_' || *it == '%' || *it == '\\')
-                                            pattern.push_back('\\');
-                                        if (*it == '?')
-                                            pattern.push_back('_');
-                                        else if (*it == '*')
-                                            pattern.push_back('%');
-                                        else
-                                            pattern.push_back(*it);
-                                }
-                                std::copy(pattern.begin(), pattern.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, pattern.size()));
-                        }
-                        else
-                        {
-                                std::copy(str.begin, str.end, RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, str.size()));
-                        }
-
+                        return AddParameter(vm, std::string_view(str.begin, str.size()), encodingflags);
                 } break;
                 case VariableTypes::Float:
                 {
@@ -642,12 +623,13 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                                 }
 
                                 PQ_PRINT(" starting harescript registration");
-                                HSVM_OpenFunctionCall(*vm, 3);
+                                HSVM_OpenFunctionCall(*vm, 2);
                                 HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), driver.blobfolder);
-                                HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 2), var);
-                                const HSVM_VariableType args[3] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_Blob };
-                                HSVM_CallFunction(*vm, "mod::system/lib/internal/dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", 0, 3, args);
+                                HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), var);
+                                const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Blob };
+                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", 0, 2, args);
+                                if (!retval || HSVM_TestMustAbort(*vm))
+                                    return "";
                                 HSVM_CloseFunctionCall(*vm);
 
                                 // context doesn't need to be reloaded, we're still talking to the same blob
@@ -655,7 +637,8 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                                     throw VMRuntimeError (Error::DatabaseException, "Database error: WebHare database blob wasn't uploaded correctly");
 
                                 Query blobinsertquery(driver);
-                                blobinsertquery.querystr = "INSERT INTO webhare_internal.blob(id) VALUES(ROW(" + Blex::AnyToString(context->blobid) + "," + Blex::AnyToString(context->bloblength) + "))";
+                                std::string blobparam = blobinsertquery.params.AddParameter(vm, context->blobid);
+                                blobinsertquery.querystr = "INSERT INTO webhare_internal.blob(id) VALUES(ROW(" + blobparam + "," + Blex::AnyToString(context->bloblength) + "))";
                                 driver.ExecQuery(blobinsertquery, driver.allowwriteerrordelay);
                         }
 
@@ -718,7 +701,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
 
                                 for (unsigned i = 0; i < eltcount; ++i)
                                 {
-                                        std::string pid = AddParameter(vm, stackm.ArrayElementGet(var, i), encodingflags);
+                                        std::string pid = AddVariableParameter(vm, stackm.ArrayElementGet(var, i), encodingflags);
                                         if (pid.empty())
                                             return "";
                                         if (pid == "NULL")
@@ -750,6 +733,38 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
 
         return "$" + Blex::AnyToString(lengths.size());
 }
+
+std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, ParamEncoding::Flags encodingflags)
+{
+        if (encodingflags & ParamEncoding::Pattern)
+        {
+                std::string pattern;
+                for (const char *it = str.begin(); it != str.end(); ++it)
+                {
+                        if (*it == '_' || *it == '%' || *it == '\\')
+                            pattern.push_back('\\');
+                        if (*it == '?')
+                            pattern.push_back('_');
+                        else if (*it == '*')
+                            pattern.push_back('%');
+                        else
+                            pattern.push_back(*it);
+                }
+                std::copy(pattern.begin(), pattern.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, pattern.size()));
+        }
+        else
+        {
+                std::copy(str.begin(), str.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, str.size()));
+        }
+
+#ifdef DUMP_BINARY_ENCODING
+        PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a string parameter");
+        PQ_ONLY(DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+#endif
+
+        return "$" + Blex::AnyToString(lengths.size());
+}
+
 
 void ParamsEncoder::Finalize()
 {
@@ -1128,12 +1143,14 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                         bool have_blob = false;
 
-                                        auto decoded = Blex::DecodeUnsignedNumber< uint32_t >(blobid.begin(), blobid.end());
-                                        if (decoded.second == blobid.end())
+                                        // If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
+                                        if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
-                                                std::string resourcepath = "direct::" + driver.GetBlobDiskpath(decoded.first);
+                                                std::string resourcepath = "direct::" + driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
                                                 if (!HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str(), 7))
                                                 {
+                                                        PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
+
                                                         auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
                                                         context->driver = &driver;
                                                         context->blobid = blobid;
@@ -1141,18 +1158,21 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                                         have_blob = true;
                                                 }
+                                                else
+                                                {
+                                                        PQ_PRINT(" blob " << blobid << " not found at " << resourcepath);
+                                                }
                                         }
 
                                         if (!have_blob)
                                         {
-                                                PQ_PRINT(" starting harescript lookup");
-                                                HSVM_OpenFunctionCall(*vm, 4);
+                                                PQ_PRINT(" starting harescript lookup for blob " << blobid);
+                                                HSVM_OpenFunctionCall(*vm, 3);
                                                 HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), driver.blobfolder);
-                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 2), blobid);
-                                                HSVM_Integer64Set(*vm, HSVM_CallParam(*vm, 3), bloblength);
-                                                const HSVM_VariableType args[4] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_String, HSVM_VAR_Integer64 };
-                                                VarId retval = HSVM_CallFunction(*vm, "mod::system/lib/internal/dbase/postgresql.whlib", "__LookupWebharePostgreSQLBlob", HSVM_VAR_Blob, 4, args);
+                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), blobid);
+                                                HSVM_Integer64Set(*vm, HSVM_CallParam(*vm, 2), bloblength);
+                                                const HSVM_VariableType args[3] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_Integer64 };
+                                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__LookupWebharePostgreSQLBlob", HSVM_VAR_Blob, 3, args);
                                                 if (retval && !HSVM_TestMustAbort(*vm))
                                                     HSVM_CopyFrom(*vm, id_set, retval);
                                                 HSVM_CloseFunctionCall(*vm);
@@ -1474,7 +1494,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                             where.append(")");
 
                         where.append(GetOperator(it->condition));
-                        std::string paramref = querydata.query.params.AddParameter(vm, it->value, encodingflags);
+                        std::string paramref = querydata.query.params.AddVariableParameter(vm, it->value, encodingflags);
                         if (paramref.empty())
                             return false;
 
@@ -1500,7 +1520,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 if (!it->casesensitive || use_left)
                                 {
                                         // most text indices are uppercase, so uppercase the stuff.
-                                        // ADDME: if the param is < 264 chars, this is the only query we need
+                                        // ADDME: if the length of the param is < max_indexed_size chars, we don't need the original filter anymore
                                         where.append(" AND ");
                                         where.append(use_left ? "upper(left(" : "upper(");
                                         AddTableAndColumnName(query, it->table, it->column, false, &where);
@@ -1545,7 +1565,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 AddTableAndColumnName(query, it->table1, it->column1, false, &where);
                                 where.append(GetOperator(it->condition));
                                 ParamEncoding::Flags encodingflags = (query.tables[it->table2].typeinfo->columnsdef[it->column2].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
+                                std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
                                 if (paramref.empty())
                                     return false;
                                 where.append(paramref);
@@ -1559,7 +1579,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 AddTableAndColumnName(query, it->table2, it->column2, false, &where);
                                 where.append(GetOperator(SwappedCondition(it->condition)));
                                 ParamEncoding::Flags encodingflags = (query.tables[it->table1].typeinfo->columnsdef[it->column1].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
+                                std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
                                 where.append(paramref);
                                 if (paramref.empty())
                                     return false;
@@ -1694,7 +1714,7 @@ void PGSQLTransactionDriver::ExecuteInsertInternal(DatabaseQuery const &query, V
                                 if (cell)
                                 {
                                         ParamEncoding::Flags encodingflags = (table.typeinfo->columnsdef[idx].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                        std::string paramref = querydata.query.params.AddParameter(vm, cell, encodingflags);
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, cell, encodingflags);
                                         if (paramref.empty())
                                             return;
 
@@ -1846,7 +1866,7 @@ void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfi
                 VarId cell = stackm.RecordCellRefByName(newfields, itr.nameid);
                 if (cell)
                 {
-                        std::string paramref = updatequery.query.params.AddParameter(vm, cell, itr.encodingflags);
+                        std::string paramref = updatequery.query.params.AddVariableParameter(vm, cell, itr.encodingflags);
                         if (paramref.empty())
                             return;
                         updates += " = " + paramref;
@@ -2086,7 +2106,7 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
                             encodingflags = static_cast< ParamEncoding::Flags >(encodingnr);
                 }
 
-                querydata.query.params.AddParameter(vm, stackm.ArrayElementGet(params, i), encodingflags);
+                querydata.query.params.AddVariableParameter(vm, stackm.ArrayElementGet(params, i), encodingflags);
         }
 
         stackm.InitVariable(id_set, VariableTypes::RecordArray);
@@ -2210,12 +2230,6 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         if (len == 0)
         {
                 HSVM_ThrowException(hsvm, "No parameters specified");
-                return;
-        }
-
-        if (blobfolder.empty())
-        {
-                HSVM_ThrowException(hsvm, "No blob folder specified");
                 return;
         }
 

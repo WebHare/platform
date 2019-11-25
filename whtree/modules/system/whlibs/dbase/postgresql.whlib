@@ -28,6 +28,7 @@ MACRO __PGSQL_SETWORKOPEN(INTEGER trans, BOOLEAN workopen) __ATTRIBUTES__(EXTERN
 MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 /* The description for known OIDs can be found in
    https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
@@ -1030,8 +1031,8 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   STRING pvt_transactionisolationlevel;
 
-  /// Folder where blob files can be found
-  STRING pvt_blobfolder;
+  /// Blob handler
+  OBJECT pvt_blobhandler;
 
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
   PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
@@ -1039,15 +1040,15 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// @type(string) Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   PUBLIC PROPERTY transactionisolationlevel(pvt_transactionisolationlevel, SetTransactionIsolationLevel);
 
-  /// Folder where blob files can be found
-  PUBLIC PROPERTY blobfolder(pvt_blobfolder, -);
+  /// Blob handler
+  PUBLIC PROPERTY blobhandler(pvt_blobhandler, -);
 
-  MACRO NEW(INTEGER id, BOOLEAN auto, STRING blobfolder)
+  MACRO NEW(INTEGER id, BOOLEAN auto, OBJECT blobhandler)
   {
     this->RegisterTransaction(id);
     this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
-    this->pvt_blobfolder := blobfolder;
+    this->pvt_blobhandler := blobhandler;
 
     this->SetAllowErrorDelay(TRUE);
 
@@ -1388,7 +1389,10 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
     STRING generator := `(${this->EscapeName(schemaname)}.${this->EscapeName(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
-    RETURN __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE)[0].value;
+    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
+    IF (NOT RecordExists(result))
+      THROW NEW Exception(`No value returned by MakeAutonumber`);
+    RETURN result.value;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
@@ -1647,6 +1651,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , passwd :=       ""
       , clientname :=   ""
       , webhare_dbasename := ""
+      , blobhandler :=  DEFAULT OBJECT
       ], transinfo);
 
   IF (NOT transinfo.auto)
@@ -1656,6 +1661,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (dbasename = "")
     THROW NEW Exception(`Environment variable WEBHARE_DBASENAME not set`);
 
+  RECORD ARRAY params;
+  IF (ObjectExists(transinfo.blobhandler))
+    params := transinfo.blobhandler->GetConnectParams();
+
   INTEGER transid :=  __PGSQL_CONNECT(
       [ [ name :=   "dbname"
         , value :=  dbasename
@@ -1663,18 +1672,27 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , [ name :=   "host"
         , value :=  transinfo.dbasefolder
         ]
-      , [ name :=   "webhare:blobfolder" // sets the blob folder in the driver
-        , value :=  transinfo.dbasefolder
-        ]
       , [ name :=   "application_name"
         , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
         ]
+      , ...params
       ]);
 
   IF(transid<=0)
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.dbasefolder);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.blobhandler);
+
+  IF (IsDebugTagEnabled("postgresql:auto_explain"))
+  {
+    trans->__ExecSQL("LOAD 'auto_explain'");
+    trans->__ExecSQL("SET auto_explain.log_min_duration = 0");
+    trans->__ExecSQL("SET auto_explain.log_analyze = true");
+    trans->__ExecSQL("SET auto_explain.log_level = NOTICE");
+    trans->__ExecSQL("SET auto_explain.log_verbose = true");
+    trans->__ExecSQL("SET auto_explain.log_triggers = true");
+    trans->__ExecSQL("SET auto_explain.log_nested_statements = true");
+  }
 
   RETURN trans;
 }
@@ -1716,10 +1734,43 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
     RETURN FALSE;
   }
 
-  //DumpValue(noticedata);
+  //DumpValue(message);
   //DumpValue(GetStackTrace());
 
   RETURN TRUE;
+}
+
+/** Places a new blob into blob storage, annotates the blob with the location
+    @param transaction PostgreSQL transaction
+    @param blobfolder Blob folder
+    @param data Blob to store
+    @private This function is only called by C++ code, should not be used by user code
+*/
+PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB data)
+{
+  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
+  IF (NOT ObjectExists(blobhandler))
+    THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
+
+  STRING blobid := blobhandler->StoreBlob(data);
+  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
+}
+
+/** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
+    @param transaction Transaction id
+    @param blobfolder Blob folder
+    @param blobid Blob ID
+    @param bloblength Length of the blob
+    @return Looked up blob
+*/
+PUBLIC BLOB FUNCTION __LookupWebharePostgreSQLBlob(INTEGER transaction, STRING blobid, INTEGER64 bloblength)
+{
+  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
+  IF (NOT ObjectExists(blobhandler))
+    THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
+  BLOB data := blobhandler->LookupBlob(blobid, bloblength);
+  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
+  RETURN data;
 }
 
 /** @short Bind the PostgreSQL database metadata tables
