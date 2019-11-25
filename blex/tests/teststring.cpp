@@ -437,6 +437,37 @@ BLEX_TEST_FUNCTION(TestCoding)
         /* 11 */ TestHSON("</script>", "<\\/script>");
 }
 
+std::string TestHTMLEncode(std::string const &in)
+{
+        std::string to;
+        Blex::EncodeHtml(in.begin(),in.end(),std::back_inserter(to));
+        return to;
+}
+
+std::string TestTextNodeEncode(std::string const &in)
+{
+        std::string to;
+        Blex::EncodeTextNode(in.begin(),in.end(),std::back_inserter(to));
+        return to;
+}
+
+BLEX_TEST_FUNCTION(TestHTML)
+{
+        BLEX_TEST_CHECKEQUAL("a&#38;b", TestHTMLEncode("a&b"));
+        BLEX_TEST_CHECKEQUAL("a&#60;b", TestHTMLEncode("a<b"));
+        BLEX_TEST_CHECKEQUAL("a'b", TestHTMLEncode("a'b"));
+        BLEX_TEST_CHECKEQUAL("a&#8364;!", TestHTMLEncode("a\xE2\x82\xAC!"));
+        BLEX_TEST_CHECKEQUAL("ab", TestHTMLEncode("a\xC2\x9D" "b"));
+
+        //encodetextnode: Similar to %EncodeValue, but only encodes '<', '>' and '&'. This suffices for text nodes UTF-8 XML documents
+        BLEX_TEST_CHECKEQUAL("a&amp;b", TestTextNodeEncode("a&b"));
+        BLEX_TEST_CHECKEQUAL("a&lt;b", TestTextNodeEncode("a<b"));
+        BLEX_TEST_CHECKEQUAL("a'b", TestTextNodeEncode("a'b"));
+        BLEX_TEST_CHECKEQUAL("ab", TestTextNodeEncode("a\xC2\x9D" "b"));
+        BLEX_TEST_CHECKEQUAL("a\u20AC!", TestTextNodeEncode("a\xE2\x82\xAC!"));
+}
+
+
 std::string TestJavaEncode(std::string const &in)
 {
         std::string to;

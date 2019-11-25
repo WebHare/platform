@@ -1901,10 +1901,7 @@ PUBLIC STRING FUNCTION EncodeAttributeValue(STRING text)
     @param text Text to encode
     @return Encoded value
 */
-PUBLIC STRING FUNCTION EncodeTextNode(STRING text)
-{
-  RETURN Substitute(Substitute(Substitute(text,'&','&amp;'),'<','&lt;'),'>','&gt;');
-}
+PUBLIC STRING FUNCTION EncodeTextNode(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 /** @short   Encodes a string into a hexadecimal string.
     @long    Certain characters have special significance or can cause dangerous side-effects when used in certain situations, and

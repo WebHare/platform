@@ -2434,6 +2434,7 @@ void InitStrings(BuiltinFunctionsRegistrator &bifreg)
         */
 
         BuiltinFunctionPtr he = HarescriptCodeFunc< Blex::EncodeHtml<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
+        BuiltinFunctionPtr tne = HarescriptCodeFunc< Blex::EncodeTextNode<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr je = HarescriptCodeFunc< Blex::EncodeJava<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr ue = HarescriptCodeFunc< Blex::EncodeUrl<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr ve = HarescriptCodeFunc< Blex::EncodeValue<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
@@ -2462,6 +2463,7 @@ void InitStrings(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEJAVA::S:S",je));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEURL::S:S",ue));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEVALUE::S:S",ve));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODETEXTNODE::S:S",tne));
 }
 
 } // End of namespace Baselibs

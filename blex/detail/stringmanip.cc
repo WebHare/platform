@@ -625,6 +625,14 @@ template <class InputIterator, class OutputIterator> OutputIterator EncodeValue(
         return output;
 }
 
+inline bool IsHTMLUnrepresentableChar(uint32_t curch)
+{
+        return curch == UTF8DecodeMachine::NoChar
+            || curch == UTF8DecodeMachine::InvalidChar
+            || (curch < 32 && curch != 9 && curch != 10 && curch != 13)  //non-space control chars can't be represented in X/HTML
+            || (curch >= 128 && curch <= 159); //C1 control characters are useless too
+}
+
 template <class InputIterator, class OutputIterator> OutputIterator EncodeHtml(InputIterator begin,InputIterator end, OutputIterator output)
 {
         UTF8DecodeMachine decoder;
@@ -632,12 +640,12 @@ template <class InputIterator, class OutputIterator> OutputIterator EncodeHtml(I
         for (;begin!=end;++begin)
         {
                 uint32_t curch = decoder(*begin);
-                if (curch == UTF8DecodeMachine::NoChar || curch == UTF8DecodeMachine::InvalidChar || (curch<32 && curch!=9 && curch!=10 && curch!=13)) //non-space control chars can't be represented in X/HTML
+                if (IsHTMLUnrepresentableChar(curch))
                     continue;
 
-                if (curch>=32 && curch<128 && curch!='&' && curch!='<' && curch!='>')
+                if (curch >= 32 && curch < 128 && curch != '&' && curch != '<' && curch != '>')
                 {
-                        *output++=char(curch);
+                        *output ++= char(curch);
                         continue;
                 }
 
@@ -647,14 +655,57 @@ template <class InputIterator, class OutputIterator> OutputIterator EncodeHtml(I
                 if (curch=='\n')
                 {
                         static const char br_tag[]="<br />";
-                        output=std::copy(br_tag,br_tag+6,output);
+                        output = std::copy(br_tag, br_tag + 6, output);
                         continue;
                 }
 
-                *output++='&';
-                *output++='#';
+                *output ++= '&';
+                *output ++= '#';
                 output = EncodeNumber(curch,10,output);
-                *output++=';';
+                *output ++= ';';
+        }
+        return output;
+}
+
+template <class InputIterator, class OutputIterator> OutputIterator EncodeTextNode(InputIterator begin,InputIterator end, OutputIterator output)
+{
+        UTF8DecodeMachine decoder;
+
+        for (; begin!=end; ++begin)
+        {
+                uint32_t curch = decoder(*begin);
+                if (IsHTMLUnrepresentableChar(curch))
+                    continue;
+
+                if (curch == '&')
+                {
+                        static const char amp[] = "&amp;";
+                        output = std::copy(amp, amp + 5,output);
+                        continue;
+                }
+                if (curch == '<')
+                {
+                        static const char lt[] = "&lt;";
+                        output = std::copy(lt, lt + 4,output);
+                        continue;
+                }
+                if (curch == '>')
+                {
+                        static const char gt[] = "&gt;";
+                        output = std::copy(gt, gt + 4,output);
+                        continue;
+                }
+
+                if (curch < 128)
+                {
+                        *output ++= char(curch);
+                }
+                else
+                {
+                        UTF8Encoder encoder(output);
+                        encoder(curch);
+                        continue;
+                }
         }
         return output;
 }
