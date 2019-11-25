@@ -8,7 +8,7 @@
 - Mark de Jong
 
 ## UI/UX design
-- Wouter van den Berg
+- [Wouter van den Berg](https://gitlab.com/vdberg)
 - Marcel Hein
 
 ## Past developers
@@ -16,8 +16,10 @@ We haven't listed all past developers because we haven't received explicit
 permission from them to be added. If you contributed to WebHare in the past
 please contact us at info@webhare.nl and tell us how you would like to be listed.
 
+- [Wouter Hendriks](https://gitlab.com/webwerf_wouter)
+
 ## Past commit history
-Contributions made before WebHare was released as open source are attributed
+Contributions made before WebHare was released as open source (ie before 25 Nov 2019) are attributed
 to `WebHare bv <info@webhare.nl>` in the commit logs. All changes before the
 open source release have been squashed to protect the identity of individuals
 who may not have given permission for their name to be associated with the code
