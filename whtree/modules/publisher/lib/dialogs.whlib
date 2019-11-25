@@ -413,8 +413,6 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
     }
   }
 
-  //ADDME Move WebDav handling HERE so we objecteditors have a chance at overriding it ? Or make an 'overrideevenwebdav' property?
-
   IF(fileobj->type=29)
   {
     OBJECT editprofilescreen := parentscreen->LoadScreen("publisher:conversionprofile.editor", [fileid:=objectid]);

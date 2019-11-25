@@ -84,7 +84,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   STRING original_title;
   RECORD ARRAY original_menubar;
   STRING current_ordering;
-  BOOLEAN webdav_failed;
   INTEGER lastmovedestination;
   STRING lastsortsettings;
   INTEGER lastpreviewed;
@@ -845,7 +844,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                   , canpublishrecursive :=  isactive AND isfolder AND (parentsite != 0 OR issysop)
                   , canchangetype :=        canwrite AND type != 1 AND NOT ispinned
                   , canmoveto :=            canadd OR contentmode = "recyclebin"
-                  , isoffice :=             type=4
                   , canopen :=              contentmode != "recyclebin" AND (canedit OR isfolder)
                FROM items;
 
@@ -2210,26 +2208,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         , objectid := id
         ],
         FALSE);
-  }
-
-  MACRO DoOpenInOffice(OBJECT openhandler)
-  {
-    IF (NOT this->tolliumcontroller->secure)
-    {
-      this->RunMessageBox(".openinmssofficeonlysecure");
-      RETURN;
-    }
-
-    STRING destpath := this->GetWebdavPathForObject(^filelist->selection.id);
-    IF(destpath="")
-    {
-      openhandler->Cancel();
-      RETURN;
-    }
-    STRING whurl := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/");
-    // https://msdn.microsoft.com/en-us/library/office/dn906146.aspx
-    //FIXME ofv instead of ofe if we have only read access
-    openhandler->SendURL("ms-word:" || EncodeURL("ofe|u|") || whurl || "webdav/publisher" || EncodeURL(destpath));
   }
 
   MACRO DoReportIssues()

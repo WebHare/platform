@@ -23,7 +23,6 @@
     <messagebox name="nositecontext" icon="information" buttons="ok" />
     <messagebox name="foldercontainsnosites" icon="error" buttons="ok" />
     <messagebox name="surerepublishfolderoutsidesite" icon="question" buttons="yes no" />
-    <messagebox name="openinmssofficeonlysecure" icon="error" buttons="ok" />
     <messagebox name="confirmconverttosite" icon="question" buttons="yes no" />
     <messagebox name="sitealreadyexists" tid="commondialogs.errors.objectprops.sitealreadyexists" icon="error" buttons="ok" />
     <messagebox name="confirmconverttofolder" icon="question" buttons="yes no" />
@@ -118,9 +117,6 @@
               onexecute="doopen">
         <enableon source="filelist" checkflags="canopen" min="1" max="1" />
       </action>
-      <windowopenaction name="openinoffice" onwindowopen="doopeninoffice">
-        <enableon source="filelist" checkflags="canopen isoffice" min="1" max="1" frameflags="secureconnection"/>
-      </windowopenaction>
       <!-- FIXME: This function works for folders, but needs to work for a selection of files/folders -->
       <action name="createarchive" ellipsis="true">
         <enableon source="foldertree" min="1" max="1" checkflags="canwrite isfolder" onexecute="docreatearchivefromfoldertree" requirefocus="true" />
@@ -351,7 +347,6 @@
           <item tid=".upload" action="upload" />
           <divider/>
           <item action="open" />
-          <item action="openinoffice" visible="false" />
           <item action="download" tid=".download" />
           <item action="replace" tid=".replace" />
           <divider/>
@@ -485,7 +480,6 @@
         <item action="open" disablemode="hidden" />
         <item action="restore" disablemode="hidden"/>
         <divider/>
-        <item action="openinoffice" disablemode="hidden" visible="false" />
         <item action="download" tid=".download" disablemode="hidden" />
         <item action="replace" tid=".replace" disablemode="hidden" />
         <item action="gotoresult" disablemode="hidden" />
@@ -651,7 +645,7 @@
                                     onsortorderchange="OnSortOrderChange"
                                     height="1pr"
                                     openaction="open"
-                                    flags="iswithinsite isoffice ispublished ispublish isindexed isversioned canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
+                                    flags="iswithinsite ispublished ispublish isindexed isversioned canpublish canpublishrecursive canchangetype canedit isfilelistitem ispinned ordering_first ordering_last issite canopen islinktype issubmittedforapproval"
                                     filteritems="filterlistitems"
                                     showprotected="true"
                                     columnheaders="true"
