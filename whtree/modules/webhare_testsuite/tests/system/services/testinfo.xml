@@ -2,8 +2,8 @@
   <test script="test_keystore.whscr" />
   <test script="test_localservice.whscr" />
   <test script="test_services.whscr" />
-  <test script="test_aws.whscr" tags="external" ifenvironset="TESTFW_AWS_APIKEY TESTFW_AWS_APISECRET" />
-  <test script="test_createsend.whscr" tags="external" ifenvironset="TESTFW_CREATESEND_APIKEY" />
+  <test script="test_aws.whscr" tags="external" ifenvironset="TESTSECRET_AWS_APIKEY TESTSECRET_AWS_APISECRET" />
+  <test script="test_createsend.whscr" tags="external" ifenvironset="TESTSECRET_CREATESEND_APIKEY" />
   <test script="test_taxservices.whscr" tags="external" />
   <test script="test_printer.whscr" />
   <test script="test_analytics.whscr" />

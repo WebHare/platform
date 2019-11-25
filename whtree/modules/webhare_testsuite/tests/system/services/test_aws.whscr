@@ -14,7 +14,7 @@ LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
 
   "build_env":
   {
-    "TESTFW_AWS_APIKEY": "AK...."
+    "TESTSECRET_AWS_APIKEY": "AK...."
   },
 
   We need something like the following policy on the testbucket
@@ -38,16 +38,16 @@ LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
 
 */
 
-STRING apizone := GetEnvironmentVariable("TESTFW_AWS_APIZONE") ?? "eu-west-1";
-STRING apikey := GetEnvironmentVariable("TESTFW_AWS_APIKEY");
-STRING apisecret := GetEnvironmentVariable("TESTFW_AWS_APISECRET");
-STRING bucket := GetEnvironmentVariable("TESTFW_AWS_APIBUCKET") ?? "webhare-ci-test-aws";
+STRING apizone := GetEnvironmentVariable("TESTSECRET_AWS_APIZONE") ?? "eu-west-1";
+STRING apikey := GetEnvironmentVariable("TESTSECRET_AWS_APIKEY");
+STRING apisecret := GetEnvironmentVariable("TESTSECRET_AWS_APISECRET");
+STRING bucket := GetEnvironmentVariable("TESTSECRET_AWS_APIBUCKET") ?? "webhare-ci-test-aws";
 
 MACRO Test_S3()
 {
   //for our CI, apikeys associated with webhare-ci-test-aws
   IF(apikey="" OR apisecret="")
-    THROW NEW Exception("TESTFW_AWS_APIKEY or TESTFW_AWS_APISECRET not set, cannot test S3!");
+    THROW NEW Exception("TESTSECRET_AWS_APIKEY or TESTSECRET_AWS_APISECRET not set, cannot test S3!");
 
   OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
   //DumpValue(s3->listBuckets());
@@ -75,8 +75,8 @@ MACRO Test_S3ListBuckets()
 
      To test this call, uncomment the test and
 
-     export TESTFW_AWS_APIKEY="<API KEY>"
-     export TESTFW_AWS_APISECRET="<API SECRET>"
+     export TESTSECRET_AWS_APIKEY="<API KEY>"
+     export TESTSECRET_AWS_APISECRET="<API SECRET>"
      wh run mod::webhare_testsuite/tests/system/services/test_aws.whscr
      */
   OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
@@ -89,7 +89,7 @@ MACRO Test_S3ListBuckets()
 MACRO Test_SNS()
 {
   IF(apikey="" OR apisecret="")
-    THROW NEW Exception("TESTFW_AWS_APIKEY or TESTFW_AWS_APISECRET not set, cannot test SNS!");
+    THROW NEW Exception("TESTSECRET_AWS_APIKEY or TESTSECRET_AWS_APISECRET not set, cannot test SNS!");
 
   OBJECT sns := NEW AmazonAWSSNSInterface(apizone, apikey, apisecret);
   TestEQ(TRUE, Length(sns->ListTopics()) > 10);

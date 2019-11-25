@@ -146,12 +146,11 @@ if [ -n "$ISMODULETEST" -a -z "$WEBHAREIMAGE" ]; then
 fi
 
 if [ "$WEBHAREIMAGE" == "head" -o "$WEBHAREIMAGE" == "stable" ]; then
-  WEBHAREIMAGE=`curl -s https://build.webhare.org/ci/dockerimage-$WEBHAREIMAGE.txt`
+  WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt`
   if [ -z "$WEBHAREIMAGE" ]; then
     echo "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
     exit 1
   fi
-  WEBHAREIMAGE="$WEBHAREIMAGE"
 elif [ "$WEBHAREIMAGE" == "local" ]; then
   WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
   NOPULL=1
@@ -188,6 +187,7 @@ fi
 echo "Test environment variables:"
 # not listing CI_, lots of noise and usually not really relevant anymore at this point. Just look at the BUILD setup if you want these
 set | egrep '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
+set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
 
 # Cleanup
 TEMPBUILDROOT=

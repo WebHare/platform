@@ -316,7 +316,10 @@ deploydocker:
 updatetestscripts:
   stage: deploy
   only:
-    - master
+    refs:
+      - master
+    variables:
+      - $WHBUILD_BUILDBOTPASSWORD
   except:
     - schedules
     - /^docs\/.*$/

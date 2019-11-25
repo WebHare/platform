@@ -141,6 +141,9 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
   }
 
   InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/devtools/templates/module/", destpath, data);
+  RunModuleHookTarget("system:devtools_modulecreation", [ module := modulename
+                                                        , destpath := destpath
+                                                        ]);
 
   IF(options.aftermodulecreation != DEFAULT MACRO PTR)
     options.aftermodulecreation( [ moduleroot := destpath || "/" ]);

@@ -11,17 +11,17 @@ OBJECT FUNCTION MakeGeoCoder(RECORD options DEFAULTSTO DEFAULT RECORD)
 
 MACRO TestGeoCoder()
 {
-  IF(GetEnvironmentVariable("TESTFW_GOOGLE_APIKEY") = "")
-    THROW NEW Exception("TestGeoCoder requires the TESTFW_GOOGLE_APIKEY envvar to set ");
+  IF(GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY") = "")
+    THROW NEW Exception("TestGeoCoder requires the TESTSECRET_GOOGLE_APIKEY envvar to set ");
 
   testfw->BeginWork();
   DELETE FROM socialite.google_apikeys WHERE domain LIKE "*.testframework.beta.webhare.net";
   INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("backend.testframework.beta.webhare.net", 2, GetEnvironmentVariable("TESTFW_GOOGLE_APIKEY"));
+         VALUES("backend.testframework.beta.webhare.net", 2, GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"));
   INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("any.testframework.beta.webhare.net", 0, GetEnvironmentVariable("TESTFW_GOOGLE_APIKEY"));
+         VALUES("any.testframework.beta.webhare.net", 0, GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"));
   INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("client.testframework.beta.webhare.net", 1, GetEnvironmentVariable("TESTFW_GOOGLE_APIKEY"));
+         VALUES("client.testframework.beta.webhare.net", 1, GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"));
   testfw->CommitWork();
 
   TestThrows(PTR MakeGeoCoder);
@@ -29,7 +29,7 @@ MACRO TestGeoCoder()
   TestThrows(PTR MakeGeoCoder([ requesturl := "client.testframework.beta.webhare.net" ])); //keytype does not match
 
   OBJECT geocoder := MakeGeoCoder([ requesturl := "backend.testframework.beta.webhare.net" ]);
-  TestEq(GetEnvironmentVariable("TESTFW_GOOGLE_APIKEY"), geocoder->apikey);
+  TestEq(GetEnvironmentVariable("TESTSECRET_GOOGLE_APIKEY"), geocoder->apikey);
   OBJECT pos := geocoder->GetLatLng("Enschede, nederland");
   TestEqFloat(pos->lat, 52.2215372, 0.0001);
   TestEqFloat(pos->lng, 6.89366190, 0.0001);

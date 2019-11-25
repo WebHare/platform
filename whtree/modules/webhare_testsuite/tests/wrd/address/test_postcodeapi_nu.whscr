@@ -12,13 +12,13 @@ MACRO TestPostcodeAPiNU_External()
      - sublime: set up a buildenv. Prefs, user settings, eg:
            "build_env":
               {
-                "TESTFW_POSTCODENU_APIKEY": "YUxxxxxxxxxx",
+                "TESTSECRET_POSTCODENU_APIKEY": "YUxxxxxxxxxx",
               },
 
 */
-  STRING apikey := GetEnvironmentVariable("TESTFW_POSTCODENU_APIKEY");
+  STRING apikey := GetEnvironmentVariable("TESTSECRET_POSTCODENU_APIKEY");
   IF(apikey="")
-    THROW NEW Exception("TESTFW_POSTCODENU_APIKEY not set, cannot test postcodeapi.nu!");
+    THROW NEW Exception("TESTSECRET_POSTCODENU_APIKEY not set, cannot test postcodeapi.nu!");
 
   testfw->BeginWork();
   SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "postcodeapi.nu"

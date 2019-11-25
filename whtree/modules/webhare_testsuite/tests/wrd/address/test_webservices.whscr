@@ -117,14 +117,14 @@ MACRO TestWebservicesAPI_External()
    - sublime: set up a buildenv. Prefs, user settings, eg:
          "build_env":
             {
-              "TESTFW_WEBSERVICESNL_USER": "YUxxxxxxxxxx",
+              "TESTSECRET_WEBSERVICESNL_USER": "YUxxxxxxxxxx",
             },
 
 een testuser direct aanmaken: https://testclient.webservices.nl/register
 */
 
-user := GetEnvironmentVariable("TESTFW_WEBSERVICESNL_USER");
-password := GetEnvironmentVariable("TESTFW_WEBSERVICESNL_PASSWORD");
+user := GetEnvironmentVariable("TESTSECRET_WEBSERVICESNL_USER");
+password := GetEnvironmentVariable("TESTSECRET_WEBSERVICESNL_PASSWORD");
 
 MACRO PTR ARRAY tests := [ PTR TestWebservicesAPI
                          , PTR TestLegacyAPI
@@ -132,7 +132,7 @@ MACRO PTR ARRAY tests := [ PTR TestWebservicesAPI
 
 IF(user = "" OR password = "")
 {
-  Print("TESTFW_WEBSERVICESNL_USER and TESTFW_WEBSERVICESNL_PASSWORD not (both) set, skipping some tests\n");
+  Print("TESTSECRET_WEBSERVICESNL_USER and TESTSECRET_WEBSERVICESNL_PASSWORD not (both) set, skipping some tests\n");
 }
 ELSE
 {

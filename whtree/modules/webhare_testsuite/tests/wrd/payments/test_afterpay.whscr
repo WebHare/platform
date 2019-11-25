@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID") = "";
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_AFTERPAY_MERCHANTID") = "";
 
 ASYNC MACRO SetupAfterpay()
 {
@@ -20,9 +20,9 @@ ASYNC MACRO SetupAfterpay()
   AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
   TT("methods")->value := "wrd:afterpay";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT(":Merchant ID")->value := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID");
+  TT(":Merchant ID")->value := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTSECRET_AFTERPAY_MERCHANTID");
   TT(":PortefeuilleID")->value := 1;
-  TT(":Password")->value := offlineonly ? "password" : GetEnvironmentVariable("TESTFW_AFTERPAY_PASSWORD");
+  TT(":Password")->value := offlineonly ? "password" : GetEnvironmentVariable("TESTSECRET_AFTERPAY_PASSWORD");
   TT("paymentextension->testmode")->value := true;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
@@ -40,9 +40,9 @@ ASYNC MACRO SetupAfterpay_BE()
   TestEq(1, Length(TT("providers")->rows));
   TT("providers")->selection := TT("providers")->rows;
   AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider"));
-  TT(":Merchant ID")->value    := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTFW_AFTERPAY_MERCHANTID_BE");
+  TT(":Merchant ID")->value    := offlineonly ? "dummy-id" : GetEnvironmentVariable("TESTSECRET_AFTERPAY_MERCHANTID_BE");
   TT(":PortefeuilleID")->value := 4;
-  TT(":Password")->value       := offlineonly ? "password" : GetEnvironmentVariable("TESTFW_AFTERPAY_PASSWORD_BE");
+  TT(":Password")->value       := offlineonly ? "password" : GetEnvironmentVariable("TESTSECRET_AFTERPAY_PASSWORD_BE");
   TT("paymentextension->afterpaytype")->value := "BE";
   TT("paymentextension->methodtitle")->value := "Afterpay BE";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
@@ -167,7 +167,7 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
 }
 
 IF(offlineonly)
-  Print("*** Mocking some API calls as TESTFW_AFTERPAY_MERCHANTID is not set\n\n");
+  Print("*** Mocking some API calls as TESTSECRET_AFTERPAY_MERCHANTID is not set\n\n");
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR SetupAfterpay
