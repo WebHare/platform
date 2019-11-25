@@ -119,6 +119,14 @@ MACRO DecodeEncodeTest()
   TestEq("<br>", DecodeValue('<br>'));
   TestEq("<br/>", DecodeValue('<br/>'));
 
+  TestEQ("a&#38;b", EncodeHTML("a&b"));
+  TestEQ("ab", EncodeHTML("a\u009Db"));
+  TestEQ("&#60;&#38;&#62;", EncodeHTML("<&>"));
+
+  TestEQ("a&amp;b", EncodeTextNode("a&b"));
+  TestEQ("ab", EncodeTextNode("a\u009Db"));
+  TestEQ("&lt;&amp;&gt;", EncodeTextNode("<&>"));
+
   TestValue("blabla", "blabla");
   TestValue("\nd\t", "&#10;d&#9;");
   TestValue("\004hey\005", "hey", true);
