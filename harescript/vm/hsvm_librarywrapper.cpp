@@ -2,7 +2,6 @@
 
 #include "hsvm_librarywrapper.h"
 #include "errors.h"
-//#include <blex/branding.h>
 
 namespace HareScript
 {

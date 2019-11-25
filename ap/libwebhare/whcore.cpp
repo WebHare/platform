@@ -9,7 +9,6 @@
 #include <harescript/vm/hsvm_events.h>
 
 #include <ap/libwebhare/dbase_client.h>
-#include <blex/branding.h>
 #include <iostream>
 
 ///ADDME perhaps: also fallback to default language/skin if specific skins lacks a specific definition
@@ -46,12 +45,6 @@ namespace WHCore
 bool ValidName(const char *namebegin, const char *nameend,bool slashes_ok)
 {
         return Blex::IsSafeFilePath(namebegin, nameend, slashes_ok) && *namebegin!='^' && *namebegin!='!';
-}
-
-/** Get the current WebHare version */
-std::string GetWHVersion()
-{
-        return BLEX_BRANDING_PRODUCT_FULLNAME;
 }
 
 int StandardErrorWriter(void */*opaque_ptr*/, int numbytes, void const *data, int /*allow_partial*/, int *errorcode)

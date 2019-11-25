@@ -89,9 +89,6 @@ bool BLEXLIB_PUBLIC ValidName(const char *namebegin, const char *nameend,bool sl
 /// stderr writer for harescripts
 int BLEXLIB_PUBLIC StandardErrorWriter(void */*opaque_ptr*/, int numbytes, void const *data, int /*allow_partial*/, int *errorcode);
 
-/** Get the current WebHare version */
-std::string BLEXLIB_PUBLIC GetWHVersion();
-
 class LogConfig
 {
     public:

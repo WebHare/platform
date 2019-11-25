@@ -245,11 +245,10 @@ DOCKERBUILDARGS+=("BUILDERTAG=$BUILDERTAG")
 
 mkdir -p dropins/opt/wh/whtree/modules/system/whres
 cat > dropins/opt/wh/whtree/modules/system/whres/buildinfo << HERE
-hash=$CI_COMMIT_SHA
+committag=$CI_COMMIT_SHA
 builddate=`date +'%Y-%m-%d'`
 buildtime=`date +'%H:%M:%S'`
 branch=$CI_COMMIT_REF_NAME
-buildid=$CI_JOB_ID
 docker=1
 buildertag=$BUILDERTAG
 HERE

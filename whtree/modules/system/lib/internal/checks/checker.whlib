@@ -20,6 +20,36 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
 LOADLIB "mod::system/lib/internal/devtools/node.whlib";
 
+RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
+
+PUBLIC RECORD FUNCTION GetWHVersionInfo()
+{
+  RECORD versioninfo := GetWebhareVersionInfo();
+  BOOLEAN developerbuild;
+  IF(versioninfo.committag = "")
+  {
+    developerbuild := TRUE;
+    RECORD info := GetGitRepoInfo(ResolveToAbsolutePath(GetModuleInstallationRoot("system") || "../../.."), FALSE);
+    IF(RecordExists(info) AND info.status != "error")
+    {
+      versioninfo.branch := `${info.remote_url}:${info.branch}`;
+      versioninfo.committag := info.head_oid;
+    }
+    ELSE
+    {
+      versioninfo.committag := "unknown";
+    }
+  }
+
+  STRING versionname := `WebHare ${versioninfo.version} (`;
+  IF(versioninfo.branch != "" AND versioninfo.branch NOT LIKE "release/*")
+    versionname := versionname || versioninfo.branch || "@";
+  versionname := versionname || Left(versioninfo.committag,7) || ")";
+
+  RETURN CELL [ versionname
+              , built := TrimWhitespace(`${versioninfo.builddate} ${versioninfo.buildtime}`)
+              ];
+}
 
 PUBLIC MACRO DeleteOldSnoozes()
 {

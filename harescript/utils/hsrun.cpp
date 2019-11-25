@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <blex/path.h>
-#include <blex/branding.h>
 #include <blex/getopt.h>
 #include <harescript/compiler/diskfilesystem.h>
 #include <harescript/vm/hsvm_context.h>
@@ -131,7 +130,6 @@ Blex::OptionParser::Option optionlist[] =
 
 void ShowSyntax()
 {
-        std::cout << BLEX_BRANDING_COPYRIGHT "\n\n";
         std::cout << "Syntax: hsrun [-c compilecachedir] [-n namespace...] <scriptname> [scriptargs..]\n";
         std::cout << " --config: Specify configuration file (default: /opt/hsengine/etc/hsengine.xml)\n";
         std::cout << " --showpath: Show file name in error messages\n";

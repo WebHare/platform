@@ -17,8 +17,6 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 
 
-RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
-
 /* FIXME/ADDME
   - consider how rights fit into this. <accessright> support on monitor panels,
     or autoregistration in database and delegate to sysop?
@@ -58,20 +56,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
       ^results->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
       ^snoozes->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
-    }
-
-    this->versioninfo := GetWebhareVersionInfo();
-    IF(this->versioninfo.committag = "")
-    {
-      this->developerbuild := TRUE;
-      RECORD info := GetGitRepoInfo(ResolveToAbsolutePath(GetModuleInstallationRoot("system") || "../../.."), FALSE);
-      IF(RecordExists(info) AND info.status != "error")
-      {
-        this->versioninfo.branch := `${info.remote_url}:${info.branch}`;
-        this->versioninfo.committag := info.head_oid;
-      }
-      ELSE
-        this->versioninfo.committag := "unknown";
     }
 
     this->frame->flags.refreshcontents := FALSE;
@@ -290,24 +274,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     // Setup the page
     //
 
-    STRING buildinfo := `${this->versioninfo.builddate} ${this->versioninfo.buildtime}`;
-    IF (this->developerbuild)
-      buildinfo := buildinfo || `, developer's build: `;
-    ElSE
-      buildinfo := buildinfo || `, `;
-    IF (this->versioninfo.branch != "")
-      buildinfo := buildinfo || `branch ${this->versioninfo.branch}, commit ${Left(this->versioninfo.committag, 10)}`;
-    IF (this->versioninfo.buildid != 0)
-      buildinfo := buildinfo || `, build ${this->versioninfo.buildid}`;
-
-    // Server info
-    RECORD config := GetWebhareConfiguration();
-    ^txtServer->value      := this->versioninfo.fullname
-                              || " ("
-                              || GetDTAPStage()
-                              || (IsRestoredWebHare() ? " / restored" : "")
-                              || ")";
-    ^buildinfo->value      := buildinfo;
+    RECORD versioninfo := GetWHVersionInfo();
+    ^txtServer->value      := versioninfo.versionname || " " || GetDTAPStage() || (IsRestoredWebHare() ? " / restored" : "");
+    ^buildinfo->value      := versioninfo.built;
+    ^buildinfo->visible    := versioninfo.built != "";
     ^txtPlatform->value    := systemdescr;
     ^txtDateTime->value    := this->tolliumuser->FormatDateTime(now, "minutes", TRUE, FALSE);
     ^txtUptime->value      := this->Gettid(".uptimedata",

@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <csignal>
 #include <ap/libwebhare/whcore.h>
+#include <blex/branding.h>
 #include <blex/threads.h>
 #include <blex/path.h>
 #include <blex/pipestream.h>
@@ -398,7 +399,7 @@ void WHService::MainLoop()
         Blex::DateTime nextcompileservercheck = now + Blex::DateTime::Msecs(50);
         Blex::DateTime nextlogflush = now + Blex::DateTime::Seconds(3);
 
-        Log(ServiceManager, "Starting service (" + WHCore::GetWHVersion() + ", " + Blex::GetEnvironVariable("WEBHARE_DISPLAYBUILDINFO") + ")");
+        Log(ServiceManager, "Starting service (" BLEX_BRANDING_PRODUCT_VERSION " " + Blex::GetEnvironVariable("WEBHARE_DISPLAYBUILDINFO") + ")");
 
         ReadKeyConfig();
 
@@ -636,7 +637,6 @@ int UTF8Main(std::vector<std::string> const &args)
                 if (!pidfilepath.empty())
                     UpdatePidFile(pidfilepath, true);
 
-                std::cout << WHCore::GetWHVersion() << " service\n\n";
                 std::cout << "Installation directory: " << whconn->GetWebHareRoot() << "\n";
                 std::cout << "Database location: " << whconn->GetDbaseAddr() << "\n\n";
                 std::cout << "Data directory: " << whconn->GetBaseDataRoot() << "\n\n";
