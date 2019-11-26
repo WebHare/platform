@@ -1,13 +1,25 @@
 # https://docs.gitlab.com/ce/ci/yaml/
+# https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+
+# Note:
+#    GitLab has dind runners, which will be able to run wh builddocker
+#    WebHarebv has shell executors.. which just ignore the images.. which seems to work just as well
+
+image: docker:19.03.1-dind
+
+services:
+  - docker:dind
 
 stages:
   - build
   - test
   - deploy
 
+# if apk is present,
 default:
   before_script:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - ( which apk && apk add bash curl git ) || true    # execute on alpine only
   after_script:
     - docker logout $CI_REGISTRY
     - docker logout
