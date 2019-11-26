@@ -126,7 +126,7 @@ RUN curl https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.0.3/mari
 # Install the microsoft odbc client - https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-2017
 # We cannot add this to the open source version, as it requires EULA acceptance
 ARG WHBUILD_ODBC_SQLSERVER
-RUN if [ "$WHBUILD_ODBC_SQLSERVER" == "1" ]; then \
+RUN if [ -n "$WHBUILD_ODBC_SQLSERVER" ]; then \
       ( curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - ) && \
       ( curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list ) && \
       ACCEPT_EULA=Y install_clean msodbcsql17 mssql-tools ; \
