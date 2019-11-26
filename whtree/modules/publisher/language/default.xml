@@ -1242,7 +1242,6 @@
         <text tid="notallowedtypeinversionedsite">File '<param p="1"/>' can't be added to '<param p="2"/>', because its type is not allowed in a versioned site.</text>
         <text tid="noversionedoverwrite">File '<param p="1"/>' can't be modified, because it has versioning history.</text>
         <text tid="objectexists">A file or folder with the name '<param p="1"/>' already exists in the destination folder '<param p="2"/>'.</text>
-        <text tid="openinmssofficeonlysecure">MS Office documents can only be opened if you've opened WebHare over a secure connection</text>
         <text tid="remainingpublishtime">Estimated time left: <param p="1"/>.</text>
         <text tid="resetordering">Are you sure you want to reset the ordering for this folder?</text>
         <text tid="shortcutoutdated">This shortcut points to a folder that does not exist anymore.</text>
@@ -1258,7 +1257,6 @@
         <text tid="urlnotfound">The requested URL '<param p="1"/>' could not be found, or you do not have sufficient rights to view the accompanying object.</text>
         <text tid="usernotfound">There is no user with user name '<param p="1"/>'.</text>
         <text tid="versionedmovedisallowed">File or folder '<param p="1"/>' cannot be moved due to the versioning policy.</text>
-        <text tid="webdavfailure">The Office application needed to edit the file using WebDAV could not be started.<br/>Maybe you need to enable ActiveX in your browser, add this website to the list of trusted sites or change your browser's security settings.<br/>Please contact your system administrator for more information.<br/><br/>The error message your browser reported was:<br/><param p="1"/><br/><br/>Do you want to disable WebDAV for Office documents for the duration of this session?</text>
       </textgroup>
       <textgroup gid="showmodifications">   <!-- filemanager.main.showmodifications -->
         <text tid="dtfrom">From</text>
@@ -1607,13 +1605,6 @@
       <text tid="template">Template id</text>
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
-    </textgroup>
-    <textgroup gid="webdavfailure">   <!-- filemgrdialogs.webdavfailure -->
-      <text tid="browsererror">Browser error message</text>
-      <text tid="disablequestion">Do you want to disable WebDav for Office documents for the duration of this session?</text>
-      <text tid="failtext">The Office application needed to edit the file using WebDAV could not be started.<br/><br/>You may need to enable ActiveX in your browser, add this website to the list of trusted sites or change your browser's security settings.<br/>Please contact your system administrator for more information.</text>
-      <text tid="manualurl">Manual WebDAV URL</text>
-      <text tid="webdavfailure">WebDAV open failure</text>
     </textgroup>
   </textgroup>
   <textgroup gid="filetypes" limitlanguages="en nl">   <!-- filetypes -->
@@ -2236,7 +2227,6 @@
       <text tid="trashisempty">There are no files or folders in the trash bin.</text>
       <text tid="urlnotfound">The requested URL '<param p="1"/>' could not be found, or you do not have sufficient rights to view the accompanying object.</text>
       <text tid="usernotfound">There is no user with user name '<param p="1"/>'.</text>
-      <text tid="webdavfailure">The Office application needed to edit the file using WebDAV could not be started.<br/>Maybe you need to enable ActiveX in your browser, add this website to the list of trusted sites or change your browser's security settings.<br/>Please contact your system administrator for more information.<br/><br/>The error message your browser reported was:<br/><param p="1"/><br/><br/>Do you want to disable WebDAV for Office documents for the duration of this session?</text>
     </textgroup>
     <textgroup gid="searchhistory">   <!-- main.searchhistory -->
       <text tid="searchhistorybutton">Search</text>

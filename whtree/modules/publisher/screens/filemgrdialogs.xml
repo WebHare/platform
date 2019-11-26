@@ -129,20 +129,6 @@
     </footer>
   </screen>
 
-  <screen name="webdavfailure" gid=".webdavfailure" allpublic="true" implementation="none">
-    <body layout="left">
-      <text valuetid=".failtext" wordwrap="true" />
-      <text tid=".manualurl" />
-      <textedit name="manualurl" title="" enabled="false" width="1pr" />
-      <text tid=".browsererror" />
-      <textarea name="browsererror" title="" enabled="false" />
-      <text valuetid=".disablequestion" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="yes no"/>
-    </footer>
-  </screen>
-
   <screen name="repubmask" gid=".repubmask">
     <body>
       <line>

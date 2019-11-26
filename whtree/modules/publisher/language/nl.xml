@@ -1242,7 +1242,6 @@
         <text tid="notallowedtypeinversionedsite">Bestand '<param p="1"/>' kan niet worden toegevoegd aan '<param p="2"/>', omdat zijn type niet toegestaan is in een website met versiebeheer.</text>
         <text tid="noversionedoverwrite">Bestand '<param p="1"/>' mag niet worden overschreven, omdat het versiegeschiedenis heeft.</text>
         <text tid="objectexists">Er bestaat al een bestand of map met de naam '<param p="1"/>' in de bestemmingsmap '<param p="2"/>'.</text>
-        <text tid="openinmssofficeonlysecure">MS Office documenten kunnen alleen geopend worden indien u WebHare via een beveiligde verbinding heeft geopend</text>
         <text tid="remainingpublishtime">Publicatie duurt nog ongeveer <param p="1"/>.</text>
         <text tid="resetordering">Weet u zeker dat u de volgorde van deze map wilt herstellen?</text>
         <text tid="shortcutoutdated">Deze snelkoppeling verwijst naar een map die niet meer bestaat.</text>
@@ -1258,7 +1257,6 @@
         <text tid="urlnotfound">De gevraagde URL '<param p="1"/>' kon niet worden gevonden, of u heeft geen rechten om het bijbehorende object te bekijken.</text>
         <text tid="usernotfound">Er is geen gebruiker met de gebruikersnaam '<param p="1"/>'.</text>
         <text tid="versionedmovedisallowed">Bestand of folder '<param p="1"/>' mag niet worden verplaatst volgens het versiebeheerbeleid.</text>
-        <text tid="webdavfailure">Het opstarten van de Office applicatie voor het bewerken van het bestand via WebDAV is niet gelukt.<br/>Wellicht dient u ActiveX in uw browser in te schakelen, deze website toe te voegen aan de lijst met vertrouwde websites of de beveiligingsinstellingen van uw browser aan te passen. Neem contact op met uw systeembeheerder voor meer informatie.<br/><br/>De foutmelding zoals door uw browser gemeld was:<br/><param p="1"/><br/><br/>Wilt u WebDAV voor Office documenten uitschakelen voor de duur van deze sessie?</text>
       </textgroup>
       <textgroup gid="showmodifications">   <!-- filemanager.main.showmodifications -->
         <text tid="dtfrom">Vanaf</text>
@@ -1607,13 +1605,6 @@
       <text tid="template">Template id</text>
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
-    </textgroup>
-    <textgroup gid="webdavfailure">   <!-- filemgrdialogs.webdavfailure -->
-      <text tid="browsererror">Browser foutmelding</text>
-      <text tid="disablequestion">Wilt u WebDAV voor Office documenten uitschakelen voor de duur van deze sessie?</text>
-      <text tid="failtext">Het opstarten van de Office applicatie voor het bewerken van het bestand via WebDAV is niet gelukt.<br/><br/>Wellicht dient u ActiveX in uw browser in te schakelen, deze website toe te voegen aan de lijst met vertrouwde websites of de beveiligingsinstellingen van uw browser aan te passen. Neem contact op met uw systeembeheerder voor meer informatie.</text>
-      <text tid="manualurl">Handmatige WebDAV locatie</text>
-      <text tid="webdavfailure">WebDAV foutmelding</text>
     </textgroup>
   </textgroup>
   <textgroup gid="filetypes">   <!-- filetypes -->
@@ -2236,7 +2227,6 @@
       <text tid="trashisempty">Er bevinden zich geen bestanden of mappen in de prullenbak.</text>
       <text tid="urlnotfound">De gevraagde URL '<param p="1"/>' kon niet worden gevonden, of u heeft geen rechten om het bijbehorende object te bekijken.</text>
       <text tid="usernotfound">Er is geen gebruiker met de gebruikersnaam '<param p="1"/>'.</text>
-      <text tid="webdavfailure">Het opstarten van de Office applicatie voor het bewerken van het bestand via WebDAV is niet gelukt.<br/>Wellicht dient u ActiveX in uw browser in te schakelen, deze website toe te voegen aan de lijst met vertrouwde websites of de beveiligingsinstellingen van uw browser aan te passen. Neem contact op met uw systeembeheerder voor meer informatie.<br/><br/>De foutmelding zoals door uw browser gemeld was:<br/><param p="1"/><br/><br/>Wilt u WebDAV voor Office documenten uitschakelen voor de duur van deze sessie?</text>
     </textgroup>
     <textgroup gid="searchhistory">   <!-- main.searchhistory -->
       <text tid="searchhistorybutton">Zoeken</text>
