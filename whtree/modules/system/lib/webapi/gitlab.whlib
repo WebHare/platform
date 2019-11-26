@@ -382,6 +382,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     }
   }
 
+  //https://docs.gitlab.com/ee/api/repository_files.html#create-new-file-in-repository
   PUBLIC MACRO CreateFile(STRING projectpath, STRING branch, STRING filepath, BLOB content, STRING commit_message)
   {
     RECORD ARRAY vars := [[ name := "branch", value := branch ]
@@ -390,6 +391,19 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
                          ,[ name := "encoding", value := "base64"]
                          ];
     this->SendModifyingRequest('POST'
+                               , `projects/${EncodeURLGitlab(projectpath)}/repository/files/${filepath}`
+                               , vars);
+  }
+
+  //https://docs.gitlab.com/ee/api/repository_files.html#update-existing-file-in-repository
+  PUBLIC MACRO UpdateFile(STRING projectpath, STRING branch, STRING filepath, BLOB content, STRING commit_message)
+  {
+    RECORD ARRAY vars := [[ name := "branch", value := branch ]
+                         ,[ name := "content", value := EncodeBase64(BlobToString(content)) ]
+                         ,[ name := "commit_message", value := commit_message]
+                         ,[ name := "encoding", value := "base64"]
+                         ];
+    this->SendModifyingRequest('PUT'
                                , `projects/${EncodeURLGitlab(projectpath)}/repository/files/${filepath}`
                                , vars);
   }
