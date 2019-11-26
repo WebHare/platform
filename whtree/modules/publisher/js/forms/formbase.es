@@ -113,6 +113,9 @@ export default class FormBase
         if (target)
         {
           let name = (control.nodeName == "OPTION" ? dompack.closest(control,"select") : control).name;
+          if(!name) //duplicated node?
+            continue;
+
           let ourcondition = { field: name, matchtype: "IN", value: control.value };
           if(target.dataset.whFormEnabledIf) //append to existing criterium
             ourcondition = { conditions: [ JSON.parse(target.dataset.whFormEnabledIf).c, ourcondition ], matchtype: "AND" };
