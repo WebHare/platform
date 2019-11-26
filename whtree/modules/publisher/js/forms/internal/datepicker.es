@@ -398,7 +398,8 @@ class DatePicker extends Calendar2
                    };
     //TODO limit by supportedlanguages and use gettid("~locale.datetimestrings")
     if(!this.options.language)
-      this.options.language = document.lang ? document.lang.split('-')[0].toLowerCase() : '';
+      this.options.language = document.documentElement.lang ? document.documentElement.lang.split('-')[0].toLowerCase() : '';
+
     this._languagetexts = (langcodes[this.options.language] || langcodes.en).split(';');
 
     //we use the node to store our result, so verify it
