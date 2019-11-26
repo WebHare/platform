@@ -14,6 +14,11 @@ echo "-----------------------------------------------------------------------"
 
 # branch images
 for P in $BRANCH_IMAGES; do
+  # we can't tag an image without pulling it first, even though we really don't care about the image data..
+  if ! $SUDO docker pull $BUILD_IMAGE ; then
+    echo "Pulling $P failed"
+    exit 1
+  fi
   if ! $SUDO docker tag $BUILD_IMAGE $P ; then
     echo "Tagging $P failed"
     exit 1
