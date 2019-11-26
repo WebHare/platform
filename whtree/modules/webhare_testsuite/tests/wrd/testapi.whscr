@@ -389,14 +389,31 @@ MACRO TestTitleAttr()
 {
   testfw->BeginWork();
 
-  OBJECT schemaobj:=  testfw->GetWRDSchema();
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  OBJECT schemaobj2 := OpenWRDSchemaById(testfw->GetWRDSchema()->id);
   OBJECT persontype := schemaobj->^wrd_person;
   TestEq(TRUE, RecordExists(persontype->GetAttribute("WRD_TITLE")));
   TestEq(TRUE, persontype->GetAttribute("WRD_TITLE").isreadonly);
 
+  //Let's test the 'hat' cache while we're at it
   OBJECT customrelationtype := schemaobj->CreateType("CUSTOMTYPE");
+  TestEq(customrelationtype, schemaobj->GetType("customtype"));
   TestEq(customrelationtype, schemaobj->^customtype);
   TestEQ(TRUE, schemaobj->^customtype->isobject);
+  TestEQ(TRUE, schemaobj2->^customtype->isobject);
+
+  INTEGER customrelationtypeid := customrelationtype->id;
+
+  customrelationtype->DeleteSelf();
+  TestEq(FALSE, ObjectExists(schemaobj->GetType("customtype")));
+  TestEq(FALSE, ObjectExists(schemaobj2->GetType("customtype")));
+  TestThrows(PTR GetMember(schemaobj, "^customtype"));
+  TestThrows(PTR GetMember(schemaobj2, "^customtype"));
+
+  customrelationtype := schemaobj->CreateType("CUSTOMTYPE");
+  TestEQ(TRUE, schemaobj->^customtype->isobject);
+  TestEQ(TRUE, schemaobj2->^customtype->isobject);
+  Testeq(FALSE, schemaobj->^customtype->id = customrelationtypeid, "ID reused? cached version probably!");
 
   //In HEAD, we stopped doing this. Please create your own WRD_TITLE attribute and let it materialize or use a translator...
   TestEq(FALSE, RecordExists(customrelationtype->GetAttribute("WRD_TITLE")));
