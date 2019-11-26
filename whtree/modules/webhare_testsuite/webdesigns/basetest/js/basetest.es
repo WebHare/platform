@@ -8,7 +8,7 @@ import * as forms from '@mod-publisher/js/forms';
 import * as geoip from '@mod-publisher/js/analytics/geoip';
 import '@mod-publisher/js/richcontent/all';
 import '@mod-publisher/js/analytics/gtm';
-import '../css/basetest.scss';
+import './components.es';
 require('../css/extra.scss');
 require('./basetest.lang.json');
 require('../pages/formtest/formtest');

@@ -57,7 +57,7 @@
       <select name="selectwithaddendum" title='select with addendum' type="pulldown" rowkeytype="boolean">
         <option rowkey="false" title="Option 1"/>
         <option rowkey="true" title="Option 2," selected="true">
-          <textedit name="checkboxaddendum2" title='especially' placeholder="Type a text" />
+          <textedit name="checkboxaddendum2" title='if other' placeholder="Type a text" />
         </option>
       </select>
       <group name="addressgroup" title="Address field">

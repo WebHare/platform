@@ -1,4 +1,5 @@
 @import "~dompack/components/dialog/mixins";
+@import "~dompack/components/pulldown/mixins";
 @import "~@mod-publisher/js/webtools/pollstyles";
 
 @at-root
@@ -82,4 +83,30 @@ body
 {
   color:#ffffff;
   content:"No consent given. Click to change consent settings";
+}
+
+///////////////////////////////////////////////////
+//
+// Pulldown
+
+.mypulldown
+{
+  @include dompack-pulldown(28px);
+  &__current
+  {
+    display:inline-block;
+  }
+  &__arrow
+  {
+    display:inline-block;
+  }
+  &__arrow:after
+  {
+    content:"v";
+  }
+
+  &__items
+  {
+    background:#ddd;
+  }
 }

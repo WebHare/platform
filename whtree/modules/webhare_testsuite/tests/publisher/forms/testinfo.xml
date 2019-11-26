@@ -8,9 +8,19 @@
   <test script="testformapi.whscr" />
   <test script="testformcustomfile.whscr"/>
   <test script="testformfile-formeditapp.whscr"/>
-  <jstest name="testcore" file="testcore.es" />
+  <jstest name="testcore-plaincomponents" file="testcore.es">
+    <arg value="plaincomponents"/>
+  </jstest>
+  <jstest name="testcore-replacedcomponents" file="testcore.es">
+    <arg value="replacedcomponents"/>
+  </jstest>
   <jstest file="testvalidation.es" />
-  <jstest file="testconditionalfields.es" />
+  <jstest name="testconditionalfields-plaincomponents" file="testconditionalfields.es">
+    <arg value="plaincomponents"/>
+  </jstest>
+  <jstest name="testconditionalfields-replacedcomponents" file="testconditionalfields.es">
+    <arg value="replacedcomponents"/>
+  </jstest>
   <jstest file="testmultipage.es" />
   <jstest file="testdynamic.es" />
   <jstest file="testprops.es" />
