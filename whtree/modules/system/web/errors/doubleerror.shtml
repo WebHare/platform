@@ -1,4 +1,16 @@
-<?wh
-LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body>
+    <?wh
 
-GenerateFallbackHTTPErrorPage(500, DEFAULT RECORD);
+    /* Note - we keep code here to the absolute minimum, if doubleerror.shtml
+       breaks we have no choice but to go to the Debugging page.... */
+
+    LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
+    LOADLIB "mod::system/lib/webserver/errors.whlib";
+    PrintHSErrors(GetRequestErrorInfo().errors);
+    ?>
+  </body>
+</html>

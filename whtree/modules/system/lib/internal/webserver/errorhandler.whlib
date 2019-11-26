@@ -19,11 +19,6 @@ LOADLIB "mod::publisher/lib/urlhistory.whlib";
 
 PUBLIC STRING __errorrequesturl;
 
-STRING FUNCTION FixWhitespaceCollapse(STRING indata) //convert sequences of spaces to space 00a0
-{
-  RETURN Substitute(indata,'  ',' \u00a0');
-}
-
 PUBLIC BOOLEAN FUNCTION IsRobotURLPath(STRING path)
 {
   RETURN path = "autodiscover/autodiscover.xml"
@@ -54,112 +49,13 @@ STRING FUNCTION Fixup(STRING filename)
   RETURN filename;
 }
 
-MACRO PrintHSErrors(RECORD msg, RECORD ARRAY allerrors)
-{
-  //Strip redirect from the stacktrace, it only confuses
-  IF(Length(allerrors)>2 AND allerrors[END-2].filename = "mod::system/lib/internal/webserver/systemredirect.whlib")
-    allerrors := ArraySlice(allerrors, 0, Length(allerrors)-2);
-
-  RECORD fileerrormap;
-  BOOLEAN seenexternal;
-  FOREVERY(RECORD err FROM allerrors)
-  {
-    BOOLEAN isfirstexternal;
-    IF(err.istrace
-       AND NOT seenexternal
-       AND err.filename NOT LIKE "wh::*"
-       AND err.filename NOT LIKE "mod::system/*"
-       AND err.filename NOT LIKE "mod::publisher/*"
-       AND err.filename NOT LIKE "mod::wrd/*"
-       AND err.filename NOT LIKE "mod::tollium/*")
-    {
-      seenexternal:=TRUE;
-      isfirstexternal:=TRUE;
-    }
-
-    INSERT CELL bold := isfirstexternal INTO err;
-    allerrors[#err] := err;
-  }
-
-  RECORD ARRAY errors
-         := SELECT filename := Fixup(filename)
-                 , line
-                 , col
-                 , code
-                 , message
-              FROM allerrors
-             WHERE iserror AND NOT istrace;
-
-  RECORD ARRAY stacktrace
-              := SELECT filename := Fixup(filename)
-                      , line
-                      , col
-                      , code
-                      , func := param1 != "" AND param1 NOT LIKE ":*" ? param1 : ""
-                      , bold
-                   FROM allerrors
-                  WHERE istrace;
-
-  Print('\n<h2>Error:</h2>');
-  Print('\n<ul>');
-  FOREVERY(RECORD error FROM errors)
-  {
-    IF (error.message LIKE "*Custom error message: *+RECORD*" OR error.message LIKE "*Custom error message: *+----*")
-      Print('\n<li><span style="white-space: pre;font-family: monospace">');
-    ELSE
-      Print('\n<li><span>');
-    Print(EncodeHTML(error.filename));
-
-    Print(' ' || error.line || ',' || error.col || ': ');
-    Print(EncodeHTML(FixWhitespaceCollapse(error.message)));
-    Print('</span></li>');
-  }
-  Print('</ul>');
-
-  IF (Length(stacktrace)>0)
-  {
-    Print('\n<h2>Stack trace:</h2>');
-    Print('\n<ul>');
-
-    Forevery(RECORD trace FROM stacktrace)
-    {
-      Print('\n<li>');
-      IF(trace.bold)
-        Print("<b>");
-      Print(EncodeHTML(trace.filename));
-
-      Print(' ' || trace.line || ',' || trace.col);
-      IF (trace.func!="")
-        Print(' (' || EncodeHTML(trace.func) || ')');
-      IF(trace.bold)
-        Print("</b>");
-      Print('</li>');
-    }
-    Print('</ul>');
-  }
-
-}
 PUBLIC MACRO PrintErrorBody(RECORD msg, INTEGER errorcode, RECORD harescriptinfo)
 {
   Print("\n<p>" || EncodeHTML(msg.text) || "</p>");
   Print('\n<div class="wh-errorinfo" style="margin-top:30px; font-size:80%">');
   STRING id_str := CellExists(harescriptinfo,'groupid') ? `ID: ${harescriptinfo.groupid}, ` : "";
   Print("\n<p>" || EncodeHTML(msg.infoformanager) || ` ${id_str}code ${errorcode}, ${FormatDatetime("%Y-%m-%d %H:%M:%S GMT +0000", GetCurrentDatetime())}`);
-
-  STRING htmlid := "wh-errorinfo-full";
-  IF(errorcode = 500)
-  {
-    IF (IsWHDebugOptionSet("etr"))
-    {
-      Print('\n<div id="' || htmlid || '" class="wh-errorinfo">');
-      PrintHSErrors(msg, harescriptinfo.allerrors);
-      Print('</div>');
-    }
-  }
-  ELSE
-  {
-    Print('</p>');
-  }
+  Print('</p>');
   Print('</div>');
 }
 
@@ -209,14 +105,18 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
 {
   harescriptinfo := FixupHarescripterrorInfo(errorcode, harescriptinfo);
 
-  IF (errorcode = 500 AND IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),';')[0] = "application/json")
+  IF(errorcode = 500)
   {
-    TRY
+    IF (IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),';')[0] = "application/json")
     {
-      SendJSONRPCError(harescriptinfo);
-      RETURN;
+      //FIXME why isn't this handler limited to /wh_services/ folders ?
+      TRY
+      {
+        SendJSONRPCError(harescriptinfo);
+        RETURN;
+      }
+      CATCH ; //ignore. try to handle as a 'normal' harescript error, as we aren't talking JSON/RPC apparently
     }
-    CATCH ; //ignore. try to handle as a 'normal' harescript error, as we aren't talking JSON/RPC apparently
   }
 
   STRING url := GetRequestURL();
@@ -234,6 +134,12 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
   IF (NOT HavePrimaryTransaction())
     OpenPrimary();
 
+  IF(errorcode = 500 AND IsWHDebugOptionSet("etr"))
+  {
+    MakeFunctionPtr(Resolve("errorhandler-hserror.whlib#GenerateHarescriptErrorPage"))(harescriptinfo);
+    RETURN;
+  }
+
   RECORD urlinfo := LookupPublisherURL(url);
 
   IF(errorcode = 404 AND GetRequestMethod()="GET")
@@ -249,87 +155,42 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     }
   }
 
-  IF(RecordExists(urlinfo) AND urlinfo.site != 0)
-  {
-    OBJECT applytester := GetApplyTesterForObject(urlinfo.site);
-    IF(NOT ObjectExists(applytester))
-      THROW NEW Exception("Unable to locate the base information for #" || urlinfo.site);
+  //Add extra info if status was added as HTTP/2 cannot pass on status messages
+  IF(harescriptinfo.statusmessage != "")
+    AddHTTPHeader("X-WebHare-Error-Status", harescriptinfo.statuscode || " " || harescriptinfo.statusmessage, TRUE);
 
-    RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
-    IF(RecordExists(webdesigninfo))
+  IF(NOT RecordExists(urlinfo) OR urlinfo.site = 0)
+    RETURN; //cannot handle in design, so let the webserver figure it out
+
+  /* We used to look at the siteroot thinking 'your supportserrors etc better be consistent'
+     but now we think "that's actually completely your problem!" if you make seemingly
+     inconsistent settings */
+  OBJECT applytester := GetApplyTesterForObject(urlinfo.file ?? urlinfo.folder);
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("Unable to locate the base information for #" || urlinfo.site);
+
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+  IF(NOT RecordExists(webdesigninfo))
+    RETURN;
+
+  IF ((errorcode = 0 OR webdesigninfo.supportserrors)
+     AND (webdesigninfo.supportsaccessdenied != FALSE OR errorcode NOT IN [401,403]))
+  {
+    IF (CellExists(harescriptinfo, "resources"))
     {
-      IF ((errorcode = 0 OR webdesigninfo.supportserrors)
-         AND (webdesigninfo.supportsaccessdenied != FALSE OR errorcode NOT IN [401,403]))
-      {
-        IF (CellExists(harescriptinfo, "resources"))
-        {
-          // Register resources from failed script as resources of the error handler too, so
-          // if the error handler fails, we'll report the resources of the original script too
-          FOREVERY (STRING resourcename FROM harescriptinfo.resources)
-            __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
-        }
-
-
-        OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, errorcode, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
-        webdesign->htmlclasses := webdesign->htmlclasses CONCAT [ "wh-errorpage", "wh-errorpage--" || errorcode];
-        webdesign->SetJSPluginConfig("system:errorhandler", CELL[harescriptinfo.statuscode, harescriptinfo.statusmessage]);
-        AddHTTPHeader("X-WebHare-Error-Status", harescriptinfo.statuscode || " " || harescriptinfo.statusmessage, TRUE);
-
-        webdesign->PrepareErrorPage(errorcode, harescriptinfo, url);
-        webdesign->RunPage();
-        RETURN;
-      }
+      // Register resources from failed script as resources of the error handler too, so
+      // if the error handler fails, we'll report the resources of the original script too
+      FOREVERY (STRING resourcename FROM harescriptinfo.resources)
+        __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
     }
-  }
 
-  GenerateFallbackHTTPErrorPage(errorcode, harescriptinfo);
+
+    OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, errorcode, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+    webdesign->htmlclasses := webdesign->htmlclasses CONCAT [ "wh-errorpage", "wh-errorpage--" || errorcode];
+    webdesign->SetJSPluginConfig("system:errorhandler", CELL[harescriptinfo.statuscode, harescriptinfo.statusmessage]);
+
+    webdesign->PrepareErrorPage(errorcode, harescriptinfo, url);
+    webdesign->RunPage();
+    RETURN;
+  }
 }
-
-///Generate an error but avoid invoking webdesign or any other dangerous code that might trigger double (or triple!) failures
-PUBLIC MACRO GenerateFallbackHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
-{
-  harescriptinfo := FixupHarescripterrorInfo(errorcode, harescriptinfo);
-
-  RECORD msg := GetErrorMessages("en", errorcode);
-  Print('<!DOCTYPE html>\n');
-  Print(`<html class="wh-errorpage wh-errorpage--${errorcode}"><head><meta charset="utf-8" />`);
-  Print('<title>' || EncodeHTML(msg.title) || '</title>');
-
-  IF (AreOutputToolsActive() AND CellExists(harescriptinfo, "resources"))
-  {
-    STRING outtoolsurlbase := "/.publisher/common/outputtools/";
-    PRINT('<link href="' || EncodeValue(outtoolsurlbase || "outputtools.css") || '" rel="stylesheet">'
-       || '<script src="' || EncodeValue(outtoolsurlbase || "outputtools.js") || '" id="wh-publisher-outputtools"></script>');
-  }
-
-  Print('</head>');
-  Print('<body>');
-  Print('<h1>' || EncodeHTML(msg.title) || '</h1>');
-  PrintErrorBody(msg, errorcode, harescriptinfo);
-  Print('<hr>');
-
-  IF (AreOutputToolsActive() AND CellExists(harescriptinfo, "resources"))
-  {
-    STRING ARRAY resources := harescriptinfo.resources CONCAT
-        SELECT AS STRING ARRAY filename
-          FROM harescriptinfo.allerrors
-         WHERE filename LIKE "mod::*";
-
-    // Filter out anything inside the builtinmodules
-    resources :=
-        SELECT AS STRING ARRAY DISTINCT uri
-          FROM TorecordArray(resources, "uri")
-         WHERE uri LIKE "mod::*/*"
-           AND SubString(Tokenize(uri, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
-
-    RECORD outputtoolsdata := CELL
-        [ resources :=      GetSortedSet(resources)
-        ];
-
-    Print(`<script type="application/json" id="wh-outputtoolsdata">${EncodeJSON(outputtoolsdata)}</script>`);
-  }
-
-  Print('</body></html>');
-  Print(RepeatText(" ",1024)); //Defeat Chrome/IE 'nice' error pages
-}
-
