@@ -382,7 +382,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     }
   }
 
-  //https://docs.gitlab.com/ee/api/projects.html
+  //https://docs.gitlab.com/ee/api/repository_files.html#create-new-file-in-repository
   PUBLIC MACRO CreateFile(STRING projectpath, STRING branch, STRING filepath, BLOB content, STRING commit_message)
   {
     RECORD ARRAY vars := [[ name := "branch", value := branch ]
