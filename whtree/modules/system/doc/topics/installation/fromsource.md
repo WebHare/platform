@@ -6,7 +6,7 @@ Clone the repository (the examples assume we're extracting to `$HOME/projects`)
 ```bash
 mkdir ~/projects
 cd ~/projects
-git clone git@gitlab.webhare.com:webhare/webhare.git
+git clone git@gitlab.com:webhare/platform.git webhare
 ```
 
 Now setup the `wh` tool by adding this to your `~/.profile` (or equivalent .bashrc of .bash_profile):

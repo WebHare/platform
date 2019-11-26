@@ -79,7 +79,7 @@ with `TESTFW_` or `WEBHARE_` will be set in the CI environment (except for `TEST
 You need to make sure you fully control and trust whatever the URL points to as any shell code in the script it
 points to may be executed by the test runner as well.
 
-This variable can be setup as eg a [GitLab CI/CD environment variable](https://gitlab.webhare.com/help/ci/variables/README#variables).
+This variable can be setup as eg a [GitLab CI/CD environment variable](https://gitlab.com/help/ci/variables/README).
 Please make sure you protect it !
 
 # Tips and tricks
