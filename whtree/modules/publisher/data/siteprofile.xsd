@@ -1670,13 +1670,7 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="prebuiltmasks" type="sc:WildcardMasks">
-      <xs:annotation>
-        <xs:documentation>
-          Masks of prebuilttags to match
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
+    <xs:attribute name="prebuiltmasks" type="sc:WildcardMasks" />
     <xs:attribute name="webfeatures" type="sc:WildcardMasks">
       <xs:annotation>
         <xs:documentation>
