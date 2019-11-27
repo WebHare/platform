@@ -3,6 +3,7 @@ export default class ParsedStructure
   constructor(structure)
   {
     this.blockstyles = [];
+    this.tablecellstyles = [ { tag: "", def: { title: "Normal cell"} } ];
     this.defaultorderedliststyle = null;
     this.defaultunorderedliststyle = null;
     this.defaulttablestyle = null;

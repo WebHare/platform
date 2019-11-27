@@ -5,6 +5,38 @@ import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/do
 import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/snapshots';
 import * as diff from 'diff';
 
+export class RTETester
+{
+  constructor(rte)
+  {
+    if(!rte)
+    {
+      rte = test.getWin().rte;
+      if(!rte)
+        throw new Error("Test window has no RTE"); //TODO allow option
+    }
+    this.rte = rte;
+    this.editor = rte.getEditor();
+  }
+
+  get body()
+  {
+    return this.editor.getContentBodyNode();
+  }
+
+  setSelection(startContainer, startOffset, endContainer, endOffset)
+  {
+    if(!startOffset)
+      startOffset = 0;
+
+    if(!endContainer)
+    {
+      endContainer = startContainer;
+      endOffset = startOffset;
+    }
+    setRTESelection(test.getWin(), this.editor, { startContainer, startOffset, endContainer, endOffset });
+  }
+}
 
 export function getTextChild(node)
 {

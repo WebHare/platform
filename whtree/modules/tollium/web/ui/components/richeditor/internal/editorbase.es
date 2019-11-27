@@ -2055,6 +2055,10 @@ class EditorBase
   {
     return [];
   }
+  getAvailableTableCellStyles(selstate)
+  {
+    return [];
+  }
 
   getActionsForNode(node)
   {
@@ -2261,6 +2265,8 @@ class EditorBase
     var limitblock = this.getBlockAtNode(end_locator.element).contentnode;
 
     var tdparent = domlevel.findParent(anchornode, [ 'td', 'th' ], this.getContentBodyNode());
+    formatting.cellparent = tdparent;
+
     var allow_td_actions = startblock == limitblock && tdparent;
     var tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
     var tableactionstate = tableeditor && tableeditor.getActionState(tdparent);

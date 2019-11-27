@@ -192,16 +192,16 @@ class MenuButton extends SimpleToggleButton
   }
 }
 
-class BlockStyleButton extends ToolbarButtonBase
+class StyleButtonBase extends ToolbarButtonBase
 {
-  constructor(toolbar)
+  constructor(toolbar, button)
   {
     super(toolbar);
     this.owngroup = true;
     this.optionlist = [];
 
     this.node = <span>
-                  { this.select = <select class="wh-rtd__toolbarstyle" on={{change: e => this.selectStyle() }} /> }
+                  { this.select = <select class="wh-rtd__toolbarstyle" data-button={button} on={{change: e => this.selectStyle() }} /> }
                 </span>;
     this.updateStructure();
   }
@@ -209,15 +209,13 @@ class BlockStyleButton extends ToolbarButtonBase
   updateStructure(selstate)
   {
     dompack.empty(this.select);
+    this.optionlist = [];
 
-    let editor = this.toolbar.rte.getEditor();
-    if(!editor)
-      return;
+    let styles = this.getAvailableStyles(selstate);
 
-    var blockstyles = editor.getAvailableBlockStyles(selstate);
-    for (var i=0;i<blockstyles.length;++i)
+    for (var i=0;i<styles.length;++i)
     {
-      var bs = blockstyles[i];
+      var bs = styles[i];
       var title = bs.def.title ? bs.def.title : bs.tag;
       var opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
       //ADDME toolbarcss? but 'style: { cssText: bs.def.toolbarcss' is CSP risky
@@ -236,7 +234,7 @@ class BlockStyleButton extends ToolbarButtonBase
     //FIXME what to do if we have no blockstyle?
     if(selstate)
     {
-      this.optionlist[0].classList.toggle('wh-rtd__toolbaroption--unavailable', true);
+      // this.optionlist[0].classList.toggle('wh-rtd__toolbaroption--unavailable', true);
 
 //      for (var i = 0; i < this.optionlist.length; ++i)
 //      {
@@ -244,9 +242,9 @@ class BlockStyleButton extends ToolbarButtonBase
 //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype != style.listtype)
 //      }
 
-      this.select.value = selstate.blockstyle ? selstate.blockstyle.tag : '$$none$$';
+      this.select.value = this.getCurrentStyle(selstate);
     }
-    this.select.disabled = !(this.available && this.toolbar.rte.isEditable());
+    this.select.disabled = !(this.available && this.toolbar.rte.isEditable() && this.optionlist.length);
   }
 
   selectStyle()
@@ -254,9 +252,60 @@ class BlockStyleButton extends ToolbarButtonBase
     let editor = this.toolbar.rte.getEditor();
     if(editor && this.select.value)
     {
-      editor.setSelectionBlockStyle(this.select.value);
+      this.setStyle(this.select.value)
       editor.takeFocus();
     }
+  }
+}
+
+class TableCellStyleButton extends StyleButtonBase
+{
+  constructor(toolbar)
+  {
+    super(toolbar, "td-class");
+  }
+  getAvailableStyles(selstate)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor && selstate && selstate.cellparent)
+      return editor.getAvailableTableCellStyles(selstate);
+    return [];
+  }
+  getCurrentStyle(selstate)
+  {
+    if(selstate && selstate.cellparent)
+      return '';
+    return null;
+  }
+  setStyle(value)
+  {
+  }
+}
+
+class BlockStyleButton extends StyleButtonBase
+{
+  constructor(toolbar)
+  {
+    super(toolbar, "p-class");
+  }
+  getAvailableStyles(selstate)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(!editor)
+      return [];
+
+    return editor.getAvailableBlockStyles(selstate);
+  }
+
+  getCurrentStyle(selstate)
+  {
+    return selstate && selstate.blockstyle ? selstate.blockstyle.tag : null;
+  }
+  setStyle(value)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor)
+      editor.setSelectionBlockStyle(value);
   }
 }
 
@@ -396,6 +445,7 @@ var supportedbuttons =
   , "action-properties": ToolbarButton
   , "action-clearformatting": ToolbarButton
   , "action-showformatting": ShowFormattingButton
+  , "td-class": TableCellStyleButton
   , "p-class": BlockStyleButton
 
   , "ol": SimpleToggleButton

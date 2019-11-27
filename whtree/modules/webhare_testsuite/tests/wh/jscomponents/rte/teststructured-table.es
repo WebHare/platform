@@ -3,48 +3,53 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
-  [
-    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u'
-    // Wait 5 seconds for the RTE to fully load so the tableeditor has a change to correctly position itself
-    //, waits: [ 'ui', 5000 ] //  { wait:  }
-    }
+  [ "Basic table checks"
+  , async function()
+    {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u');
+
+      const tester = new rtetest.RTETester;
+      tester.setSelection(tester.body.firstChild, 0);
+
+      //outside table, td-class should be disabled
+      test.true(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
+
+      /* The table looks something like this:
+         +-----------------+
+         | mystyle         |
+         +--------+--------+
+         | normal | normal |
+         |        | normal |
+         +--------+--------+
+      */
+      var tables = tester.body.getElementsByTagName('table');
+      test.eq(1, tables.length);
+      var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+      test.eq(2, trs.length);
+
+      var tds = trs[0].getElementsByTagName('td');
+      test.eq(1, tds.length);
+      var ps = tds[0].getElementsByTagName('p');
+      tester.setSelection(ps[0]);
+
+      test.false(test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+
+      test.eq(1, ps.length);
+      test.eq('mystyle', ps[0].className);
+
+      tds = trs[1].getElementsByTagName('td');
+      test.eq(2, tds.length);
+      ps = tds[0].getElementsByTagName('p');
+      test.eq(1, ps.length);
+      test.eq('normal', ps[0].className);
+      ps = tds[1].getElementsByTagName('p');
+      test.eq(2, ps.length);
+      test.eq('normal', ps[0].className);
 
 
-  , { name: 'checktable'
-    , test: function(doc, win)
-      {
-        var rte = win.rte.getEditor();
-
-        /* The table looks something like this:
-           +-----------------+
-           | mystyle         |
-           +--------+--------+
-           | normal | normal |
-           |        | normal |
-           +--------+--------+
-        */
-        var tables = rte.getContentBodyNode().getElementsByTagName('table');
-        test.eq(1, tables.length);
-        var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        test.eq(2, trs.length);
-
-        var tds = trs[0].getElementsByTagName('td');
-        test.eq(1, tds.length);
-        var ps = tds[0].getElementsByTagName('p');
-        test.eq(1, ps.length);
-        test.eq('mystyle', ps[0].className);
-
-        tds = trs[1].getElementsByTagName('td');
-        test.eq(2, tds.length);
-        ps = tds[0].getElementsByTagName('p');
-        test.eq(1, ps.length);
-        test.eq('normal', ps[0].className);
-        ps = tds[1].getElementsByTagName('p');
-        test.eq(2, ps.length);
-        test.eq('normal', ps[0].className);
 
 
-      }
     }
 
   , { name: 'checkresizers'
@@ -103,10 +108,7 @@ test.registerTests(
 
         // The 'table' style should not be available as a selectable style
         var styles = rte.getAvailableBlockStyles();
-        test.eq(0, styles.filter(function(style)
-        {
-          return style.istable;
-        }).length);
+        test.eq(0, styles.filter(style => style.istable).length);
       }
     }
 

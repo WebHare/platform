@@ -86,10 +86,11 @@ export default class StructuredEditor extends EditorBase
 
   getAvailableBlockStyles(selstate)
   {
-    return this.structure.blockstyles.filter(function(style)
-    {
-      return !style.istable;
-    });
+    return this.structure.blockstyles.filter(style => !style.istable);
+  }
+  getAvailableTableCellStyles(selstate)
+  {
+    return this.structure.tablecellstyles;
   }
 
   // ---------------------------------------------------------------------------
