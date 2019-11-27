@@ -691,6 +691,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC MACRO __RunWithContents(MACRO PTR contents, MACRO PTR pagerenderfunc)
   {
     RECORD pageconfig := this->__GetFinalPageConfig(contents);
+    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+      pageconfig := plugin.pluginobj->FinalizeBeforeRendering(this, pageconfig);
 
     this->pvt_startedrendering := TRUE;
     pagerenderfunc(pageconfig);
@@ -1661,6 +1663,12 @@ PUBLIC OBJECTTYPE WebDesignPluginBase
 
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
+  }
+
+  /** FinalizeBeforeRendering is invoked just before actual page rendering, when pageconfig has already been through UpdatePageConfig */
+  PUBLIC RECORD FUNCTION FinalizeBeforeRendering(OBJECT webdesign, RECORD pageconfig)
+  {
+    RETURN pageconfig;
   }
 
   /** Explain which attributes are set for the configuration node (ie, which attributes a later webdesignplugin node overrides.

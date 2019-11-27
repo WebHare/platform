@@ -22,8 +22,8 @@
   <div class="wrdauthtest">
     <fieldset>
       <legend>WRD Auth witty status</legend>
-      isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauthplugin.isloggedin]checked[/if] autocomplete="off"><br>
-      logoutlink: <input readonly id="logoutlink" value="[wrdauthplugin.logoutlink]" style="width:300px" autocomplete="off"><button id="logout" type="button">Logout</button><br/>
+      isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauth.isloggedin]checked[/if] autocomplete="off"><br>
+      logoutlink: <input readonly id="logoutlink" value="[wrdauth.logoutlink]" style="width:300px" autocomplete="off"><button id="logout" type="button">Logout</button><br/>
     </fieldset>
 
     <fieldset>
@@ -87,7 +87,7 @@
 [component wrdauthrouter]
   <div class="wrdauthrouter">
     <p>
-      Logged in: <input disabled id="isloggedin" type="checkbox" [if wrdauthplugin.isloggedin]checked[/if] /><br/>
+      Logged in: <input disabled id="isloggedin" type="checkbox" [if wrdauth.isloggedin]checked[/if] /><br/>
       [if wrdauthrouter.passwordchangelink]<a href="[wrdauthrouter.passwordchangelink]" id="passwordchangelink">Change password</a>[/if]
       [if wrdauthrouter.emailchangelink]<a href="[wrdauthrouter.emailchangelink]" id="emailchangelink">Change email</a>[/if]
     </p>

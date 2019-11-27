@@ -328,6 +328,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     webdesign->SetJSPluginConfig("wrd:auth", config);
   }
 
+  UPDATE PUBLIC RECORD FUNCTION FinalizeBeforeRendering(OBJECT webdesign, RECORD pageconfig)
+  {
+    IF(NOT CellExists(pageconfig, 'wrdauth'))
+      INSERT CELL wrdauth := this->GetWittyData() INTO pageconfig;
+    RETURN pageconfig;
+  }
+
   /** @return Witty data for rendering this plugin
   */
   UPDATE PUBLIC RECORD FUNCTION GetWittyData()
