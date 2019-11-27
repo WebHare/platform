@@ -407,7 +407,7 @@ var supportedbuttons =
   , "table": InsertTableButton
   };
 
-class RTEToolbar
+export default class RTEToolbar
 {
   constructor(rte, element, options)
   {
@@ -416,10 +416,7 @@ class RTEToolbar
         { hidebuttons: []
         //button layout. top level array is rows, consists of groups, and a group is either a single button (p-class) or an array of buttons
         //ADDME: Note, if new buttons are added, we probably need to update tollium (field-)rte.js to hide these in nonstructured mode
-        , layout: [ [ "p-class", ["ul","ol","li-decrease-level","li-increase-level"], ["p-align-left","p-align-right","p-align-center","p-align-justify"], ["action-spellcheck","action-search","action-showformatting","action-properties"]
-                    , ["b","i","u","strike"], ["sub","sup"], ["a-href"], ["img","object-video","object-insert","table","action-symbol"], ["action-clearformatting"]
-                    ]
-                  ]
+        , layout: []
         , compact: false
         , allowtags: null
         , ...options
@@ -566,5 +563,3 @@ class RTEToolbar
     this.UpdateButton(button);
   }
 }
-
-module.exports = RTEToolbar;

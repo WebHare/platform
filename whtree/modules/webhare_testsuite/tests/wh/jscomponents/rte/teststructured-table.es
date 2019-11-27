@@ -4,7 +4,7 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
   [
-    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u'
     // Wait 5 seconds for the RTE to fully load so the tableeditor has a change to correctly position itself
     //, waits: [ 'ui', 5000 ] //  { wait:  }
     }
@@ -42,6 +42,8 @@ test.registerTests(
         ps = tds[1].getElementsByTagName('p');
         test.eq(2, ps.length);
         test.eq('normal', ps[0].className);
+
+
       }
     }
 

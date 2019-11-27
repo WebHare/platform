@@ -19,7 +19,15 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json");
 
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
-class RTE
+export function getDefaultToolbarLayout()
+{
+  return [ [ "p-class", ["ul","ol","li-decrease-level","li-increase-level"], ["p-align-left","p-align-right","p-align-center","p-align-justify"], ["action-spellcheck","action-search","action-showformatting","action-properties"]
+           , ["b","i","u","strike"], ["sub","sup"], ["a-href"], ["img","object-video","object-insert","table","action-symbol"], ["action-clearformatting"]
+           ]
+         ];
+}
+
+export class RTE
 {
   constructor(container, options)
   {
@@ -72,6 +80,7 @@ class RTE
                    , allowundo: true
                    , margins: 'compact'
                    , propertiesaction: false //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
+                   , toolbarlayout: null
                    , ...options
                    };
 
@@ -138,6 +147,7 @@ class RTE
     {
       var toolbaropts = { hidebuttons: this.options.hidebuttons
                         , allowtags: this.options.allowtags
+                        , layout: this.options.toolbarlayout || getDefaultToolbarLayout()
                         };
 
       if(this.options.structure)
@@ -903,5 +913,3 @@ RTE.getForNode = function(node)
 {
   return node.whRTD || null;
 };
-
-module.exports = RTE;

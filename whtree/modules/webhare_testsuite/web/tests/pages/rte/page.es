@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
-var RTE = require('@mod-tollium/web/ui/components/richeditor');
+import { RTE } from '@mod-tollium/web/ui/components/richeditor';
 var richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 require('./page.css');
 require('./menu.scss');
@@ -246,6 +246,7 @@ function initRTE()
       { allowed_objects:  (qS('#rtepart').getAttribute("data-allowedobjects") || '').split(' ')
       };*/
 
+  const params = new URL(location.href).searchParams;
   var rteopts = { pageedit: editor == 'page'
                 , selfedit: editor == 'self'
                 , toolbarnode: document.getElementById('toolbar')
@@ -254,8 +255,14 @@ function initRTE()
                 , htmlclass: "html-class"
                 , bodyclass: "body-class"
                 , allowundo: true
-                , enabled: !location.href.includes('disabled=true')
+                , enabled: params.get("disabled") != "true"
                 };
+
+  if(params.get("toolbarlayout"))
+  {
+    //lines separated by |, groups seperated by /, controls separated by ,
+    rteopts.toolbarlayout = params.get("toolbarlayout").split('|').map(_ => _.split('/').map(_ => _.split(',')));
+  }
 
   if(allowtags)
   {
