@@ -1,6 +1,7 @@
 import * as test from "@mod-tollium/js/testframework";
 var richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
+import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
 function cloneWithLocatorText(node, locators)
 {
@@ -155,7 +156,7 @@ test.registerTests(
 
           rte.setContentsHTML(movetests[i]);
           var locators = richdebug.unstructureDom(win, rte.getContentBodyNode());
-          var range = new domlevel.Range(locators[0], locators[1]);
+          var range = new Range(locators[0], locators[1]);
           range.normalize(rte.getContentBodyNode());
 
           test.true(range.start.equals(locators[2]));
@@ -379,11 +380,11 @@ test.registerTests(
             if (i >= eqranges[a].left && i <= eqranges[a].right)
               rangenr = a;
 
-          var mrange = new domlevel.Range(locators[eqranges[rangenr].left], locators[eqranges[rangenr].right]);
+          var mrange = new Range(locators[eqranges[rangenr].left], locators[eqranges[rangenr].right]);
           var lrangenr = rangenr == 0 ? 0 : rangenr - 1;
-          let lrange = new domlevel.Range(locators[eqranges[lrangenr].left], locators[eqranges[lrangenr].right]);
+          let lrange = new Range(locators[eqranges[lrangenr].left], locators[eqranges[lrangenr].right]);
           var rrangenr = rangenr == eqranges.length - 1 ? eqranges.length - 1 : rangenr + 1;
-          let rrange = new domlevel.Range(locators[eqranges[rrangenr].left], locators[eqranges[rrangenr].right]);
+          let rrange = new Range(locators[eqranges[rrangenr].left], locators[eqranges[rrangenr].right]);
 
           var tfv = locators[i].clone();
           tfv.moveToFirstVisible(rte.getContentBodyNode());
@@ -420,7 +421,7 @@ test.registerTests(
         var locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)c(*5*)"(*6*)</b>(*7*)"(*8*)d(*9*)e(*10*)f(*11*)"(*12*)<u>(*13*)"(*14*)g(*15*)h(*16*)i(*17*)"(*18*)</u>(*19*)</i>', rte.getContentBodyNode(), locators);
 
-        var range = new domlevel.Range(locators[0], locators[7]);
+        var range = new Range(locators[0], locators[7]);
         range.insertBefore(document.createElement('br'), locators);
 
         testEqHTMLEx('<i><br>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)c(*5*)"(*6*)</b>(*7*)"(*8*)d(*9*)e(*10*)f(*11*)"(*12*)<u>(*13*)"(*14*)g(*15*)h(*16*)i(*17*)"(*18*)</u>(*19*)</i>', rte.getContentBodyNode(), locators);
@@ -503,7 +504,7 @@ test.registerTests(
         var locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)x(*3*)"(*4*)<br>(*5*)</b>(*6*)"(*7*)a(*8*)"(*9*)<u>(*10*)"(*11*)b(*12*)"(*13*)</u>(*14*)<br>(*15*)"(*16*)c(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
 
-        var range = new domlevel.Range(locators[1], locators[5]);
+        var range = new Range(locators[1], locators[5]);
         domlevel.moveSimpleRangeTo(range, locators[14], locators, utest.item);
 
         testEqHTMLEx('<i>(*0*)<b>(*1*)</b>"a"<u>"b"</u>"(*2*)x(*3*)"(*4*)<br>(*5*)(*6*)(*7*)(*8*)(*9*)(*10*)(*11*)(*12*)(*13*)(*14*)<br>(*15*)"(*16*)c(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
@@ -515,7 +516,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>(*4*)"(*5*)b(*6*)"(*7*)<br>(*8*)"(*9*)c(*10*)"(*11*)<br>(*12*)"(*13*)d(*14*)"(*15*)<br>(*16*)"(*17*)e(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
 
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[3], locators[11]), locators[15], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[3], locators[11]), locators[15], locators, utest.item);
 
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>"d"<br>(*4*)"(*5*)b(*6*)"(*7*)<br>(*8*)"(*9*)c(*10*)"(*11*)(*12*)(*13*)(*14*)(*15*)<br>(*16*)"(*17*)e(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
@@ -525,7 +526,7 @@ test.registerTests(
         utest = new UndoTest(win);
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>(*4*)"(*5*)b(*6*)"(*7*)<br>(*8*)"(*9*)c(*10*)"(*11*)<br>(*12*)<b>(*13*)</b>(*14*)<br>(*15*)"(*16*)e(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[0], locators[4]), locators[13], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[0], locators[4]), locators[13], locators, utest.item);
 
         testEqHTMLEx('<i>(*0*)"b"<br>"c"<br><b>"(*1*)a(*2*)"(*3*)<br>(*4*)(*5*)(*6*)(*7*)(*8*)(*9*)(*10*)(*11*)(*12*)(*13*)</b>(*14*)<br>(*15*)"(*16*)e(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
@@ -536,7 +537,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>(*4*)<u>(*5*)"(*6*)b(*7*)"(*8*)</u>(*9*)<b>(*10*)"(*11*)x(*12*)"(*13*)<br>(*14*)</b>(*15*)<br>(*16*)"(*17*)c(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
 
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[10], locators[14]), locators[4], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[10], locators[14]), locators[4], locators, utest.item);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>(*4*)(*5*)(*6*)(*7*)(*8*)(*9*)(*10*)"(*11*)x(*12*)"(*13*)<br><u>"b"</u><b>(*14*)</b>(*15*)<br>(*16*)"(*17*)c(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
 
@@ -546,7 +547,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<br>(*4*)"(*5*)b(*6*)"(*7*)<br>(*8*)"(*9*)c(*10*)"(*11*)<br>(*12*)"(*13*)d(*14*)"(*15*)<br>(*16*)"(*17*)e(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
 
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[11], locators[15]), locators[3], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[11], locators[15]), locators[3], locators, utest.item);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)(*4*)(*5*)(*6*)(*7*)(*8*)(*9*)(*10*)(*11*)<br>(*12*)"(*13*)d(*14*)"<br>"b"<br>"c"(*15*)<br>(*16*)"(*17*)e(*18*)"(*19*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
 
@@ -556,7 +557,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)b(*2*)"(*3*)<br>(*4*)"(*5*)c(*6*)"(*7*)<br>(*8*)<b>(*9*)"(*10*)a(*11*)"(*12*)<br>(*13*)</b>(*14*)<br>(*15*)"(*16*)e(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
 
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[9], locators[13]), locators[4], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[9], locators[13]), locators[4], locators, utest.item);
         testEqHTMLEx('<i>(*0*)"(*1*)b(*2*)"(*3*)<br>(*4*)(*5*)(*6*)(*7*)(*8*)(*9*)"(*10*)a(*11*)"(*12*)<br>"c"<br><b>(*13*)</b>(*14*)<br>(*15*)"(*16*)e(*17*)"(*18*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
 
@@ -566,7 +567,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('"(*0*)a(*1*)b(*2*)c(*3*)d(*4*)e(*5*)f(*6*)g(*7*)"', rte.getContentBodyNode(), locators);
 
-        domlevel.moveSimpleRangeTo(new domlevel.Range(locators[4], locators[6]), locators[2], locators, utest.item);
+        domlevel.moveSimpleRangeTo(new Range(locators[4], locators[6]), locators[2], locators, utest.item);
         testEqHTMLEx('"(*0*)a(*1*)b(*2*)(*3*)(*4*)e(*5*)fcd(*6*)g(*7*)"', rte.getContentBodyNode(), locators);
         utest.test();
       }
@@ -583,7 +584,7 @@ test.registerTests(
         var locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<b>(*4*)"(*5*)x(*6*)"(*7*)</b>(*8*)"(*9*)c(*10*)d(*11*)"(*12*)<br>(*13*)</i>', rte.getContentBodyNode(), locators);
 
-        domlevel.removeSimpleRange(new domlevel.Range(locators[3], locators[8]), locators, utest.item);
+        domlevel.removeSimpleRange(new Range(locators[3], locators[8]), locators, utest.item);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)(*4*)(*5*)(*6*)(*7*)(*8*)"(*9*)c(*10*)d(*11*)"(*12*)<br>(*13*)</i>', rte.getContentBodyNode(), locators);
         utest.test();
 
@@ -593,7 +594,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('"(*0*)a(*1*)b(*2*)c(*3*)d(*4*)e(*5*)f(*6*)g(*7*)"', rte.getContentBodyNode(), locators);
 
-        domlevel.removeSimpleRange(new domlevel.Range(locators[3], locators[5]), locators, utest.item);
+        domlevel.removeSimpleRange(new Range(locators[3], locators[5]), locators, utest.item);
         testEqHTMLEx('"(*0*)a(*1*)b(*2*)c(*3*)(*4*)(*5*)f(*6*)g(*7*)"', rte.getContentBodyNode(), locators);
         utest.test();
       }
@@ -725,7 +726,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
 
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)"(*4*)<br>(*5*)"(*6*)b(*7*)"(*8*)</b>(*9*)<br>(*10*)</i>', rte.getContentBodyNode(), locators);
-        var range = new domlevel.Range(locators[1], locators[8]);
+        var range = new Range(locators[1], locators[8]);
 
         newnode = doc.createElement('u');
         domlevel.wrapSimpleRangeInNewNode(range, newnode, locators, utest.item);
@@ -899,7 +900,7 @@ test.registerTests(
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         InitLocatorsId(locators);
         testEqHTMLEx('<ol class="ordered">(*0*)<li>(*1*)"(*2*)a(*3*)"(*4*)<br>(*5*)"(*6*)b(*7*)"(*8*)</li>(*9*)</ol>', rte.getContentBodyNode(), locators);
-        var range = new domlevel.Range(locators[3], locators[3]);
+        var range = new Range(locators[3], locators[3]);
         domlevel.splitDom(rte.getContentBodyNode().firstChild, [ { locator: range.start, toward: 'start' } ], locators, utest.item);
         testEqHTMLEx('<ol class="ordered">(*0*)<li>(*1*)"(*2*)a"</li><li>(*3*)(*4*)<br>(*5*)"(*6*)b(*7*)"(*8*)</li>(*9*)</ol>', rte.getContentBodyNode(), locators);
         utest.test();
@@ -908,7 +909,7 @@ test.registerTests(
         utest = new UndoTest(win);
         locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<ol class="ordered">(*0*)<li>(*1*)"(*2*)a(*3*)"(*4*)<br>(*5*)"(*6*)b(*7*)"(*8*)</li>(*9*)</ol>', rte.getContentBodyNode(), locators);
-        range = new domlevel.Range(locators[6], locators[6]);
+        range = new Range(locators[6], locators[6]);
         domlevel.splitDom(rte.getContentBodyNode().firstChild, [ { locator: range.start, toward: 'start' } ], locators, utest.item);
         testEqHTMLEx('<ol class="ordered">(*0*)<li>(*1*)"(*2*)a(*3*)"(*4*)<br>(*5*)</li><li>"(*6*)b(*7*)"(*8*)</li>(*9*)</ol>', rte.getContentBodyNode(), locators);
         utest.test();
@@ -932,7 +933,7 @@ test.registerTests(
         var locators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)<b>(*1*)<u>(*2*)<u>(*3*)"(*4*)a(*5*)b(*6*)c(*7*)"(*8*)</u>(*9*)"(*10*)d(*11*)e(*12*)"(*13*)</u>(*14*)"(*15*)f(*16*)"(*17*)<u>(*18*)<i>(*19*)"(*20*)g(*21*)h(*22*)"(*23*)</i>(*24*)"(*25*)i(*26*)"(*27*)</u>(*28*)"(*29*)j(*30*)"(*31*)</b>(*32*)"(*33*)k(*34*)"(*35*)</i>', rte.getContentBodyNode(), locators);
 
-        var range = new domlevel.Range(
+        var range = new Range(
             new domlevel.Locator(underlinenodes[1].firstChild, 1),
             new domlevel.Locator(underlinenodes[0].nextSibling));
 
@@ -956,7 +957,7 @@ test.registerTests(
         locators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)"(*3*)<u>(*4*)"(*5*)b(*6*)"(*7*)<b>(*8*)"(*9*)c(*10*)"(*11*)<u>(*12*)"(*13*)d(*14*)e(*15*)f(*16*)"(*17*)</u>(*18*)"(*19*)g(*20*)"(*21*)</b>(*22*)"(*23*)h(*24*)"(*25*)</u>(*26*)"(*27*)i(*28*)"(*29*)</i>', rte.getContentBodyNode(), locators);
 
-        range = new domlevel.Range(
+        range = new Range(
             new domlevel.Locator(underlinenodes[1].firstChild, 1),
             new domlevel.Locator(underlinenodes[1].firstChild, 2));
 
@@ -985,7 +986,7 @@ test.registerTests(
         var locators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)"(*1*)a(*2*)b(*3*)c(*4*)"(*5*)</i>', rte.getContentBodyNode(), locators);
 
-        var range = new domlevel.Range(
+        var range = new Range(
             new domlevel.Locator(textnode, 1),
             new domlevel.Locator(textnode, 2));
 
@@ -1014,7 +1015,7 @@ test.registerTests(
         locators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)d(*9*)"(*10*)</i>', rte.getContentBodyNode(), locators);
 
-        range = new domlevel.Range(new domlevel.Locator(firsttextnode, 1), new domlevel.Locator(secondtextnode, 1));
+        range = new Range(new domlevel.Locator(firsttextnode, 1), new domlevel.Locator(secondtextnode, 1));
         testEqHTMLEx('<i><b>"a(*0*)b"</b>"c(*1*)d"</i>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         domlevel.wrapRange(
@@ -1036,7 +1037,7 @@ test.registerTests(
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<b>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</b>(*15*)</i>', rte.getContentBodyNode(), locators);
 
         domlevel.wrapRange(
-             new domlevel.Range(locators[3], locators[12]),
+             new Range(locators[3], locators[12]),
              function() { return document.createElement('u'); },
              function(node) { return false; }, // may not split at all
              null,
@@ -1054,7 +1055,7 @@ test.registerTests(
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getContentBodyNode(), locators);
 
         domlevel.wrapRange(
-             new domlevel.Range(locators[3], locators[12]),
+             new Range(locators[3], locators[12]),
              function() { return document.createElement('u'); },
              function(node) { return false; }, // may not split at all
              function(node) { return ['sub'].includes(node.nodeName.toLowerCase()); }, // but MUST wrap 'u's
@@ -1157,7 +1158,7 @@ test.registerTests(
 
         var loca = new domlevel.Locator(firsttext, 1);
         var locb = new domlevel.Locator(firsttext, 1);
-        var range = new domlevel.Range(loca, locb);
+        var range = new Range(loca, locb);
 
 //        console.log('pre', domlevel.getStructuredOuterHTML(rte.getContentBodyNode(), range));
         range.splitStartBoundary(null, utest.item);
@@ -1179,7 +1180,7 @@ test.registerTests(
 
         loca = new domlevel.Locator(firsttext, 1);
         locb = new domlevel.Locator(firsttext, 2);
-        range = new domlevel.Range(loca, locb);
+        range = new Range(loca, locb);
 
         range.splitStartBoundary(null, utest.item);
         test.eq(firsttext.nextSibling, range.start.getPointedNode());
@@ -1198,7 +1199,7 @@ test.registerTests(
 
         loca = new domlevel.Locator(firsttext, 1);
         locb = new domlevel.Locator(firsttext, 3);
-        range = new domlevel.Range(loca, locb);
+        range = new Range(loca, locb);
 
         range.splitStartBoundary(null, utest.item);
         test.eq(firsttext.nextSibling, range.start.getPointedNode());
@@ -1217,7 +1218,7 @@ test.registerTests(
 
         loca = new domlevel.Locator(firsttext, 1);
         locb = new domlevel.Locator(italicelement, 1);
-        range = new domlevel.Range(loca, locb);
+        range = new Range(loca, locb);
 
         range.splitStartBoundary(null, utest.item);
 
@@ -1229,7 +1230,7 @@ test.registerTests(
         utest = new UndoTest(win);
         let locators = getAllLocators(win, rte.getContentBodyNode().firstChild);
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)c(*5*)"(*6*)</b>(*7*)"(*8*)d(*9*)e(*10*)f(*11*)"(*12*)</i>', rte.getContentBodyNode(), locators);
-        range = new domlevel.Range(locators[3], locators[4]);
+        range = new Range(locators[3], locators[4]);
         var newnode = document.createElement('br');
 
         range.insertBefore(newnode, locators, utest.item);

@@ -3,6 +3,7 @@ import * as test from "@mod-tollium/js/testframework";
 import { $qS, $qSA } from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
+import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
 var useblockfill = true;
 
@@ -82,7 +83,7 @@ test.registerTests(
           let locators = rtetest.setStructuredContent(win, tests[i]);
           locators[0].check(rte.getContentBodyNode());
           locators[1].check(rte.getContentBodyNode());
-          let range = new domlevel.Range(locators[0], locators[1]);
+          let range = new Range(locators[0], locators[1]);
           rte.selectRange(range);
           range.normalize(rte.getContentBodyNode());
           rtetest.testEqHTMLEx(win, tests[i], rte.getContentBodyNode(), [ locators[0], locators[1], range.start, range.end ]);
@@ -241,13 +242,13 @@ test.registerTests(
         var pastb = new domlevel.Locator(rte.getContentBodyNode().firstChild, 2); // "ab|"<b>...
         var prec = new domlevel.Locator(rte.getContentBodyNode().firstChild.nextSibling.firstChild, 0); // "ab|"<b>"|c...
 
-        rte.selectRange(new domlevel.Range(pastb, pastb));
+        rte.selectRange(new Range(pastb, pastb));
         rtetest.testEqSelHTMLEx(win, '"ab(*0*)(*1*)"<b>"c"</b>');
 
         // Firefox is more liberal with caret placement thatn other browsers, and lets the user place the caret
         // just before the next visible text (instead of always after the last visible text, which all other browsers)
         // do. Need to keep that behaviour, 'cause FF uses the style where the caret is placed for inserting new text.
-        rte.selectRange(new domlevel.Range(prec, prec), { skipnormalize: true });
+        rte.selectRange(new Range(prec, prec), { skipnormalize: true });
         if (browser.getName() === "firefox")
           rtetest.testEqSelHTMLEx(win, '"ab"<b>"(*0*)(*1*)c"</b>');
         else

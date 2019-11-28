@@ -3,6 +3,8 @@ import * as test from './testframework.es';
 import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/snapshots';
+import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
+import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
 
 export class RTETester
@@ -47,7 +49,7 @@ export function getTextChild(node)
 
 export function RunIteratorOnRange2(win,range)
 {
-  var itr = new domlevel.RangeIterator2(range);
+  var itr = new RangeIterator2(range);
   var list = [];
 
   while (!itr.atEnd())
@@ -73,7 +75,7 @@ export function setRTESelection(win, rte, domrange)
     if(!domrange.endOffset)
       domrange.endOffset = domrange.startOffset;
   }
-  rte.selectRange(domlevel.Range.fromDOMRange(domrange));
+  rte.selectRange(Range.fromDOMRange(domrange));
 }
 
 export function getCompStyle(node, prop)
@@ -151,7 +153,7 @@ export function setStructuredContent(win, structuredhtml, options)
   if (locators[0])
   {
     if (locators[1])
-      rte.selectRange(new domlevel.Range(locators[0], locators[1]));
+      rte.selectRange(new Range(locators[0], locators[1]));
     else
       rte.setCursorAtLocator(locators[0]);
   }

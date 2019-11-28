@@ -5,6 +5,7 @@ import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
 import ParsedStructure from "./parsedstructure";
+import Range from './dom/range.es';
 require('./pastecleanup');
 
 var tableeditor = require("./tableeditor");
@@ -61,7 +62,7 @@ export default class StructuredEditor extends EditorBase
       {
         var orgrange = this.getSelectionRange();
         this.undonode.focus();
-        this.undoselectitf.selectRange(domlevel.Range.fromNodeInner(this.undonode));
+        this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
 
         if (browser.getName() == "ie" || browser.getName() == "edge")
         {
@@ -249,7 +250,7 @@ export default class StructuredEditor extends EditorBase
       this.getContentBodyNode().removeChild(nodes[i]);
 
     this.getContentBodyNode().insertBefore(textnode, endnode);
-    this.selectRange(domlevel.Range.fromNodeInner(textnode));
+    this.selectRange(Range.fromNodeInner(textnode));
 
     //console.log('prepaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange(), true));
 
@@ -374,7 +375,7 @@ export default class StructuredEditor extends EditorBase
     let loc = below ? domlevel.Locator.newPointingAfter(sibling) : domlevel.Locator.newPointingTo(sibling);
     let res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
     this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
-    this.selectRange(domlevel.Range.fromLocator(res.contentlocator));
+    this.selectRange(Range.fromLocator(res.contentlocator));
 
     undolock.close();
   }
@@ -664,7 +665,7 @@ export default class StructuredEditor extends EditorBase
         // Create img node, doesn't merge with stuff
         var tempnode = document.createElement("img");
         this.insertNodeAutoSplit(locator, tempnode, preservelocators, undoitem); // Auto-splits textnodes
-        segmentbreakrange = domlevel.Range.fromNodeOuter(tempnode);
+        segmentbreakrange = Range.fromNodeOuter(tempnode);
         //console.log('listinsert, tempnode: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
       }
 
@@ -2043,7 +2044,7 @@ export default class StructuredEditor extends EditorBase
 
     if(debugicc)
       console.log('ICC postinsert, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
-    var range = new domlevel.Range(res, res);
+    var range = new Range(res, res);
     this.checkDomStructure(range, [ locator, res, ...(preservelocators || []) ], undoitem);
     if(debugicc)
       console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
@@ -2135,12 +2136,12 @@ export default class StructuredEditor extends EditorBase
     if (newblockstyle.islist)
     {
       var newli = document.createElement('li');
-      domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeInner(elt), newli, preservelocators.concat(parts).concat(range), undoitem);
+      domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(elt), newli, preservelocators.concat(parts).concat(range), undoitem);
     }
 
     // Extract the new block node, place it in a div
     let rewritecontentnode = document.createElement('div');
-    domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeOuter(elt), rewritecontentnode, preservelocators.concat(parts).concat(range), undoitem);
+    domlevel.wrapSimpleRangeInNewNode(Range.fromNodeOuter(elt), rewritecontentnode, preservelocators.concat(parts).concat(range), undoitem);
 
     // Remove the node, save the position in the insertlocator
     let insertlocator = parts[1].start;
@@ -2215,7 +2216,7 @@ export default class StructuredEditor extends EditorBase
           continue;
 
         ancestor = blockrange.block.islist && blockstyle.islist ? blockrange.block.blockparent : blockrange.block.blockroot;
-        localrange = domlevel.Range.fromNodeInner(blockrange.block.contentnode);
+        localrange = Range.fromNodeInner(blockrange.block.contentnode);
       }
 
       const resultres = this.changeRangeBlockStyle(localrange, ancestor, blockstyle, [ range ], undolock.undoitem);
@@ -2241,7 +2242,7 @@ export default class StructuredEditor extends EditorBase
     var oldcontent = document.createElement('div');
 
     // Use wrap instead of moving firstChild, firefox likes to invent <br>s when moving firstChild's
-    domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeInner(body), oldcontent);
+    domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(body), oldcontent);
     body.removeChild(oldcontent);
 
     var insertlocator = new domlevel.Locator(body);
@@ -2249,7 +2250,7 @@ export default class StructuredEditor extends EditorBase
     this.insertContainerContents(insertlocator, oldcontent, { externalcontent: externalcontent });
 
     // Make sure selection is placed at start of content
-    var range = new domlevel.Range(insertlocator, insertlocator);
+    var range = new Range(insertlocator, insertlocator);
     range.normalize(body);
     this.selectRange(range);
 
@@ -2507,7 +2508,7 @@ export default class StructuredEditor extends EditorBase
           }
         }
 
-        this.selectRange(domlevel.Range.fromLocator(newpos));
+        this.selectRange(Range.fromLocator(newpos));
         undolock.close();
 
         return true;
@@ -2766,7 +2767,7 @@ export default class StructuredEditor extends EditorBase
     // If the current block has lost its style, reset to default block style
     if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode))
     {
-      let localrange = domlevel.Range.fromNodeInner(block.contentnode);
+      let localrange = Range.fromNodeInner(block.contentnode);
       this.changeRangeBlockStyle(localrange, block.blockparent, this.structure.defaultblockstyle, preservelocators.concat([ range ]));
     }
 
@@ -3036,7 +3037,7 @@ export default class StructuredEditor extends EditorBase
                             let loc = new domlevel.Locator(body, "end");
                             res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
                             this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
-                            this.selectRange(domlevel.Range.fromLocator(res.contentlocator));
+                            this.selectRange(Range.fromLocator(res.contentlocator));
 
                             undolock.close();
                           } break;
