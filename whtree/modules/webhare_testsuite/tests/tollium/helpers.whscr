@@ -19,10 +19,11 @@ MACRO TestReorder(STRING expect, STRING org, STRING whereto, RECORD options DEFA
       INSERT rowkey INTO rowkeys AT END;
   }
 
-  RECORD ARRAY newrows :=
-      SELECT *
-        FROM ReorderRows(rows, rowkeys, whereto, options)
-    ORDER BY ordering;
+  RECORD ARRAY newrows := ReorderRows(rows, rowkeys, whereto, options);
+
+  // Resort if the outputname wasn't set to empty
+  IF (NOT CellExists(options, "outputname") OR options.outputname != "")
+     newrows := SELECT * FROM newrows ORDER BY GetCell(newrows, [ outputname := "ordering", ...options ].outputname);
 
   STRING got := Detokenize((SELECT AS STRING ARRAY rowkey FROM newrows), " ");
   TestEQ(expect, got, `Reorder ${org}, mode ${whereto}, options: ${EncodeJSON(options)}`);
@@ -54,11 +55,19 @@ MACRO TestReorderRows()
   TestReorder("b d a c", "a b* c d*", "begin");
   TestReorder("b a d c", "a b* c d*", "begin", [ coalesce := FALSE ]);
   TestReorder("a b c d", "a* b c* d", "begin", [ coalesce := FALSE ]);
+  TestReorder("a b c", "a* b c", "top");
+  TestReorder("b d a c", "a b* c d*", "top");
+  TestReorder("b a d c", "a b* c d*", "top", [ coalesce := FALSE ]);
+  TestReorder("a b c d", "a* b c* d", "top", [ coalesce := FALSE ]);
 
   TestReorder("b c a", "a* b c", "end");
   TestReorder("a c b d", "a b* c d*", "end");
   TestReorder("a b c d", "a b* c d*", "end", [ coalesce := FALSE ]);
   TestReorder("b a d c", "a* b c* d", "end", [ coalesce := FALSE ]);
+  TestReorder("b c a", "a* b c", "bottom");
+  TestReorder("a c b d", "a b* c d*", "bottom");
+  TestReorder("a b c d", "a b* c d*", "bottom", [ coalesce := FALSE ]);
+  TestReorder("b a d c", "a* b c* d", "bottom", [ coalesce := FALSE ]);
 
   TestReorder("a b c", "a* b c", "position", [ positionkey := "a" ]);
   TestReorder("a b c", "a* b c", "position", [ positionkey := "b" ]);
@@ -74,7 +83,13 @@ MACRO TestReorderRows()
   TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "c", coalesce := FALSE ]);
   TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "d", coalesce := FALSE ]);
   TestReorder("a b c d", "a b* c d*", "position", [ positionkey := "", coalesce := FALSE ]);
+
+  // Test with other outputnames, and empty outputname
+  TestReorder("b a d c", "a b* c d*", "up", [ coalesce := FALSE, outputname := "" ]);
+  TestReorder("b a d c", "a b* c d*", "up", [ coalesce := FALSE, outputname := "x17" ]);
+
 }
 
 RunTestFramework([ PTR TestReorderRows
-                 ]);
+                 ],
+                 [ usedatabase := FALSE ]);
