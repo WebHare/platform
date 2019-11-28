@@ -47,7 +47,7 @@ RECORD buildinfo;
     @cell(string) return.buildtime Build time (not set for developer's builds)
     @cell(string) return.committag Git commit tag (not set for developer's builds)
     @cell(string) return.branch Git branch of this build (not set for developer's builds)
-    @cell(boolean) return.docker True if we're running inside sodkcer
+    @cell(boolean) return.docker True if we're running inside docker
 */
 PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
 {
