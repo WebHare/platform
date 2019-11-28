@@ -114,7 +114,7 @@ PUBLIC RECORD richstructure_constants :=
   ];
 
 RECORD textstylewhitelistedattributes :=
-  [ "a-href" := [ "href" ]
+  [ "a-href" := [ "href", "target" ]
   ];
 
 STRING ARRAY inlinenodes :=

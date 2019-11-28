@@ -112,8 +112,8 @@ PUBLIC RECORD ARRAY restructuringtests :=
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image"
-      , input :=          `<p><a href="http://nu.nl/"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" /></a></p>`
-      , expect :=         `<p class="normal"><a href="http://nu.nl/"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></a></p>`
+      , input :=          `<p><a href="http://nu.nl/" target="_blank"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" /></a></p>`
+      , expect :=         `<p class="normal"><a href="http://nu.nl/" target="_blank"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></a></p>`
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image and text"
