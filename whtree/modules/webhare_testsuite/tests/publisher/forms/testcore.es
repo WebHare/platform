@@ -3,13 +3,14 @@ import * as dompack from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
 
-test.registerTests(
-  [ { loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
-    }
+var urlappend = test.getTestArgument(0)=='replacedcomponents' ? '?dompackpulldown=1' : '';
 
-  , { name: 'Study page fields'
-    , test: function()
+test.registerTests(
+  [ 'Study page fields'
+  , { test: async function()
       {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
+
         test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");
 
         let form = test.qS("#coreform");
@@ -429,7 +430,7 @@ test.registerTests(
   , 'Test unlocking disabled fields'
   , async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
       //quickfill fields so we can submit
       test.fill(test.qS('#coretest-agree'), true);
@@ -453,7 +454,7 @@ test.registerTests(
   , "Test URL preload and slow submission"
   , async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
       test.eq("joop@beta.webhare.net", test.qS('[name=email]').value);
       test.eq("", test.qS('[name=text]').value);
       test.true(test.qS('[name="radiotest"][value="5"]').checked);

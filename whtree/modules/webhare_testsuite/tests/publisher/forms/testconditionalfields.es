@@ -1,9 +1,11 @@
 import test from '@mod-system/js/wh/testframework';
 
+var urlappend = test.getTestArgument(0)=='replacedcomponents' ? '?dompackpulldown=1' : '';
+
 test.registerTests(
   [ async function()
     {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
       test.qS('#coretest-radiotestnamelijk').value=''; //empty it for Required testing
 
       let field_namelijk = test.qSA("input[name=radiotestnamelijk]");

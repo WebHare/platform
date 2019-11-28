@@ -1,5 +1,6 @@
 import './formtest.scss';
 import '@mod-publisher/js/forms/themes/neutral';
+import '../../js/components.es'; //ensure their registration runs before forms get initalized
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
 import { RPCFormBase, registerHandler, setupValidator } from '@mod-publisher/js/forms';
@@ -165,7 +166,7 @@ dompack.register(".wh-form__page", page => page.addEventListener("wh:form-pagech
       dompack.qS("#currentpage").textContent = 1+pagenumber;
   }));
 
-if(!location.href.includes('method=htmlonly'))
+function initForms()
 {
   registerHandler('coretest', node => new CoreForm(node));
   registerHandler('globalform', node => new GlobalForm(node));
@@ -181,22 +182,31 @@ if(!location.href.includes('method=htmlonly'))
 
   dompack.register(".wh-form__rtd", node => new RTDField(node, rtdopts));
   dompack.register(".wh-form__imgedit", node => new ImgEditField(node));
+
+  if(location.href.includes('rtd=1') || location.href.includes('array=1') || location.href.includes('method=htmlonly')) //note - the uploadfield should not actually upgrade htmlonly uploads
+    dompack.register(".wh-form__upload", node => new UploadField(node));
+
+  if(location.href.includes("splitdatetime=1"))
+  {
+    dompack.register(".wh-form__date", node =>
+      {
+        let opts;
+        if(node.name == 'weeknumbers')
+          opts = {...opts, weeknumbers: true};
+        node.formtestDateHandler = new DateField(node, opts);
+      });
+    dompack.register(".wh-form__time", node => new TimeField(node));
+  }
 }
 
-if(location.href.includes('rtd=1') || location.href.includes('array=1') || location.href.includes('method=htmlonly')) //note - the uploadfield should not actually upgrade htmlonly uploads
-  dompack.register(".wh-form__upload", node => new UploadField(node));
-
-if(location.href.includes("splitdatetime=1"))
+if(!location.href.includes('method=htmlonly'))
 {
-  dompack.register(".wh-form__date", node =>
-    {
-      let opts;
-      if(node.name == 'weeknumbers')
-        opts = {...opts, weeknumbers: true};
-      node.formtestDateHandler = new DateField(node, opts);
-    });
-  dompack.register(".wh-form__time", node => new TimeField(node));
+  if(location.href.includes("dompackpulldown=1"))
+    dompack.onDomReady(initForms); //delay so pulldowns get a chance to register first, a test requires the pulldowns to have done their DOM duplication before we run
+  else
+    initForms();
 }
+
 
 dompack.register("#datetime_debugging", node => node.addEventListener("click", function()
   {
