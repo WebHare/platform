@@ -65,8 +65,7 @@ MACRO EnsureSoapBindingInterpreterRegistered()
 }
 
 
-//public only for testsoap.whlib
-PUBLIC STATIC OBJECTTYPE __Soap11ServicePortImplementation
+STATIC OBJECTTYPE __Soap11ServicePortImplementation
 < // ---------------------------------------------------------------------------
   //
   // Variables

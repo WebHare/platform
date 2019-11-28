@@ -395,7 +395,7 @@ fi
 
 echo "`date` Created container with id: $CONTAINER"
 
-if [ "$CI_SERVER_HOST" == "gitlab.webhare.com" ]; then # Running on our infra, so predictable paths
+if [[ "$CI_RUNNER_DESCRIPTION" =~ ^.+\.docker$ ]]; then # Running on our infra, so predictable paths
   echo ""
   echo "To access the runner:    SV ssh ${CI_RUNNER_DESCRIPTION/.*}"
   echo "To access the container: SV ssh ${CI_RUNNER_DESCRIPTION/-*} docker exec -ti ${CONTAINER} /bin/bash"
