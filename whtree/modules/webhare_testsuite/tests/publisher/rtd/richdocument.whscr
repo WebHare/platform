@@ -41,54 +41,6 @@ STRING testsiteprofile :=
 
 
 
-MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRING title)
-{
-  OBJECT inputdoc := MakeXMLDocumentFromHTML(StringToBlob(input_text));
-  structure->RestructureRichDocument(inputdoc->body);
-
-  OBJECT expect := MakeXMLDocumentFromHTML(StringToBlob(expect_text));
-  TestEQ(BlobToString(expect->GetDocumentBlob(TRUE)), BlobToString(inputdoc->GetDocumentBlob(TRUE)), title);
-}
-
-
-MACRO StructureTest()
-{
-  FOREVERY (RECORD test FROM restructuringtests)
-  {
-    OBJECT structure := NEW RichDocumentStructure;
-
-    OBJECT doc;
-    IF (test.structure LIKE "<*")
-      doc := MakeXMLDocument(StringToBlob(test.structure));
-    ELSE
-      doc := MakeXMLDocument(GetWebhareResource(test.structure));
-
-    structure->LoadFROMXML(doc->documentelement, doc->documentelement->namespaceuri);
-
-    STRING expect_text := CellExists(test, "EXPECT_HS") ? test.expect_hs : test.expect;
-    DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure");
-
-    // Double restructure should make no changes
-    DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure");
-
-    // Different expect for HS? test the identity conversion too for the js-version
-    IF (CellExists(test, "EXPECT_HS"))
-      DoSingleTest(structure, test.expect, test.expect, test.title || " - hs restructure of js restructure");
-  }
-
-
-  // Test LookupStyle
-
-  OBJECT structure := NEW RichDocumentStructure;
-  structure->LoadFromXML(MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/data//test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
-  RECORD test := structure->LookupStyle("ol", "", TRUE);
-  TestEq("p", test.containertag);
-
-  structure->LoadFROMXML(MakeXMLDocument(StringToBlob(listtest_structure))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
-  test := structure->LookupStyle("ol", "", TRUE);
-  TestEq("ol", test.containertag);
-}
-
 MACRO RichDocumentTest()
 {
   testfw->BeginWork();
@@ -675,8 +627,7 @@ MACRO IntLinktest()
   testfw->CommitWork();
 }
 
-RunTestframework([ PTR StructureTest
-                 , PTR RichdocumentTest
+RunTestframework([ PTR RichdocumentTest
                  , PTR ParserApiTest
                  , PTR RichDocInstanceTest
                  , PTR PublishRichDocTest

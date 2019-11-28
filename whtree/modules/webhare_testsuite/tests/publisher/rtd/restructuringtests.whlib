@@ -1,7 +1,8 @@
 <?wh
-
-
-// RTE restructuring tests, used by harescript and javascript implementations
+/* RTE restructuring tests, used by harescript and javascript implementations
+   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&nocatch=1&mask=wh.jscomponents.rte.teststructured-restructuring
+   To run in WH: wh runtest publisher.rtd.testrestructuring
+*/
 
 /// Test for proper style matching on lists
 PUBLIC STRING listtest_structure :=

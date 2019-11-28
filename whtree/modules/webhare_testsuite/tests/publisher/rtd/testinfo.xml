@@ -4,4 +4,5 @@
   <test script="testrtddoc.whscr" />
   <test script="testrtdpublish.whscr" />
   <test script="test-rtdedit-savepublish.whscr" />
+  <test script="testrestructuring.whscr" />
 </group>
