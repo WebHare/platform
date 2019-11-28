@@ -699,7 +699,7 @@ export default class FormBase
         for(let mergeNode of dompack.qSA(node, '*[data-wh-dont-merge]'))
         {
           mergeNode.dataset.merge = mergeNode.dataset.whDontMerge;
-          delete mergeNode.dataset.whDontMerge;
+          mergeNode.removeAttribute("data-wh-dont-merge");
         }
         merge.run(node, { form: formvalue });
       }
@@ -708,7 +708,7 @@ export default class FormBase
         for(let mergeNode of dompack.qSA(node, '*[data-merge]'))
         {
           mergeNode.dataset.whDontMerge = mergeNode.dataset.merge;
-          delete mergeNode.dataset.merge;
+          mergeNode.removeAttribute("data-merge");
         }
       }
     }
