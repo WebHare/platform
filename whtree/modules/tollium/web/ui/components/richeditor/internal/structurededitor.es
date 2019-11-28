@@ -89,9 +89,9 @@ export default class StructuredEditor extends EditorBase
   {
     return this.structure.blockstyles.filter(style => !style.istable);
   }
-  getAvailableTableCellStyles(selstate)
+  getAvailableCellStyles(selstate)
   {
-    return this.structure.tablecellstyles;
+    return this.structure.cellstyles;
   }
 
   // ---------------------------------------------------------------------------
@@ -1709,6 +1709,7 @@ export default class StructuredEditor extends EditorBase
                                  , nodes: []
                                  , colspan: currentcell ? currentcell.colSpan : 1
                                  , rowspan: currentcell ? currentcell.rowSpan : 1
+                                 , styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
                                  };
 
                   rowitem.nodes.push(cellitem);
@@ -2256,6 +2257,17 @@ export default class StructuredEditor extends EditorBase
 
     this.stateHasChanged();
     this._reprocessEmbeddedAutoElements();
+  }
+
+  setSelectionCellStyle(newstyle)
+  {
+    let range = this.getSelectionRange();
+    let tablecells = range.getElementsByTagName("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
+    let parent = range.getAncestorElement().closest("tr,td");
+
+    for(let applyto of [parent,...tablecells])
+      if(applyto)
+        applyto.className = "wh-rtd__tablecell " + newstyle.toLowerCase();
   }
 
   // ---------------------------------------------------------------------------
@@ -2988,7 +3000,7 @@ export default class StructuredEditor extends EditorBase
           cellnode.colSpan = cellitem.colspan;
         if(cellitem.rowspan > 1)
           cellnode.rowSpan = cellitem.rowspan;
-        cellnode.className = "wh-rtd__tablecell";
+        cellnode.className = "wh-rtd__tablecell" + (cellitem.styletag ? " " + cellitem.styletag : "");
         cellnode.propWhRtdCellitem = cellitem;
         tr.appendChild(cellnode);
 

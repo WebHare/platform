@@ -8,8 +8,8 @@ test.registerTests(
     {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u');
 
-      const tester = new rtetest.RTETester;
-      tester.setSelection(tester.body.firstChild, 0);
+      const rte = new rtetest.RTEDriver;
+      rte.setSelection(rte.body.firstChild, 0);
 
       //outside table, td-class should be disabled
       test.true(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
@@ -22,7 +22,7 @@ test.registerTests(
          |        | normal |
          +--------+--------+
       */
-      var tables = tester.body.getElementsByTagName('table');
+      var tables = rte.body.getElementsByTagName('table');
       test.eq(1, tables.length);
       var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
       test.eq(2, trs.length);
@@ -30,7 +30,7 @@ test.registerTests(
       var tds = trs[0].getElementsByTagName('td');
       test.eq(1, tds.length);
       var ps = tds[0].getElementsByTagName('p');
-      tester.setSelection(ps[0]);
+      rte.setSelection(ps[0]);
 
       test.false(test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
@@ -42,13 +42,33 @@ test.registerTests(
       test.eq(2, tds.length);
       ps = tds[0].getElementsByTagName('p');
       test.eq(1, ps.length);
+
+      rte.setSelection(ps[0]); //select bottomleft cell
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+      test.eq(3, test.qS("select[data-button=td-class]").options.length);
+      test.fill("select[data-button=td-class]", "red");
+
+      test.true(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
+
+
       test.eq('normal', ps[0].className);
       ps = tds[1].getElementsByTagName('p');
       test.eq(2, ps.length);
       test.eq('normal', ps[0].className);
 
+      rte.setSelection(ps[0]); //select bottom right cell
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
 
+      test.fill("select[data-button=td-class]", "blue");
+      test.false(tds[1].classList.contains("red"));
+      test.true(tds[1].classList.contains("blue"));
 
+      rte.setSelection(tds[0].querySelector('p')); //select bottomleft cell
+      test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+      test.fill("select[data-button=td-class]", "");
+      test.true(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
 
     }
 
@@ -118,7 +138,7 @@ test.registerTests(
          var rte=win.rte.getEditor();
          rte.setContentsHTML('<h1 class="heading1">H1</h1>'
                              + '<table class="table"><tbody>'
-                               + '<tr> <td><p class="normal">EOS</p></td> <td><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>'
+                               + '<tr> <td class="red"><p class="normal">EOS</p></td> <td class="blue"><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>'
                                + '<tr> <td valign="top" width="33%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-lnBTa-N_MXn3OmgJWn1P5g">Mission Statement</a></li> <li><a class="ITCTable" href="x-richdoclink:RL-JBJm6G_4uiG2MCK_AncNig" style="margin-top: 0; margin-bottom: 0;">Strategic Plan</a> </li> <li><a href="x-richdoclink:RL-Hg0k03zf3CyLJt04X8FJcw">Who\'s who </a></li> <li><a class="ITCTable" href="x-richdoclink:RL-qcvAUwTbxNNW1v5Sm89a-Q" style="margin-top: 0; margin-bottom: 0;">Internet pages</a></li> <li><a href="x-richdoclink:RL-Yge_CUL0hcDGvjoEhC6WCw">MSc topics EOS 2014/2015</a></li> <li>Posters EOS MSc topics 2015 </li> </ul> <blockquote class="quote" style="margin-top: 0;"> <p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a> <br> -<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br> -<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br> -<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br> -<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p> <p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p> </blockquote><p class="normal"> </p></td> <td valign="top" width="44%"><h2 class="heading2"><b>As of </b> 1 July 2013</h2><p class="normal"> </p><ul class="unordered"> <li>Chair: Prof. Dr. Ir. M.G. <a href="x-richdoclink:RL-gTsQBWJl4JpTRnMZd6zSZw">Vosselman </a></li> <li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. <a href="x-richdoclink:RL-9MWCnpkvLj24KK6MYXkT_Q">Stein</a></li> <li>Portfolio manager Education: J.P.G. <a href="x-richdoclink:RL-scfCzYW37BL4OSucbXQPDA">Bakx</a></li> <li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. <a href="x-richdoclink:RL-a-Ww243zTGe49fM7EMWDvg">Bijker </a></li> <li>Management Assistant : Ms. T.K.A. <a href="x-richdoclink:RL-oXnNjmGVSoKydKQv_asmdQ">Brefeld </a></li> </ul> </td> <td valign="top" width="23%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-2mvQUwmPnR2JS1NWKXP40w" style="margin-bottom: 0">Minutes</a> and other <a href="x-richdoclink:RL-oYM_WaUo8OP-NXHMMx-B9Q">social</a> information for department members only </li> </ul></td> </tr>'
                                + '<tr> <td><p class="normal">1</p>'
                                  + '<table class="table"><tbody><tr><td><p class="normal">2</p></td><td>3</td><td>4</td></tr></tbody></table>'
@@ -128,6 +148,8 @@ test.registerTests(
          let body = rte.getContentBodyNode();
          let trs = body.querySelectorAll('tr');
          test.eq(3, trs.length);
+         test.eq("wh-rtd__tablecell red", trs[0].querySelectorAll("td")[0].className);
+         test.eq("wh-rtd__tablecell blue", trs[0].querySelectorAll("td")[1].className);
 
          rtetest.testEqHTMLEx(win, '<p class="normal">"EOS"</p><p class="normal">"Team "</p><p class="normal">"EOS private pages "</p>', trs[0]);
          rtetest.testEqHTMLEx(win, '<p class="normal">"1"</p><p class="normal">"2"</p><p class="mystyle">"3"</p><p class="mystyle">"4"</p><p class="normal">"9"</p>', trs[2]);

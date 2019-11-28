@@ -1963,7 +1963,7 @@ class EditorBase
   {
     return [];
   }
-  getAvailableTableCellStyles(selstate)
+  getAvailableCellStyles(selstate)
   {
     return [];
   }

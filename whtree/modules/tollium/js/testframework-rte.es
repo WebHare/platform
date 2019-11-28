@@ -7,7 +7,7 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
 
-export class RTETester
+export class RTEDriver
 {
   constructor(rte)
   {

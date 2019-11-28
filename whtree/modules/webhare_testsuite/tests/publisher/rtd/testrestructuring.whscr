@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
@@ -19,6 +20,30 @@ MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRI
   TestEQ(BlobToString(expect->GetDocumentBlob(TRUE)), BlobToString(inputdoc->GetDocumentBlob(TRUE)), title);
 }
 
+STRING FUNCTION GenerateExpectHS(STRING expect_text)
+{
+  //Strip table widths and heights as WebHare can't calculate those
+  OBJECT expectedhtml := MakeXMLDocumentFromHTML(StringToBlob(`<html><body>${expect_text}</body></html>`));
+  FOREVERY(OBJECT stylednode FROM expectedhtml->GetElements("*[style]"))
+  {
+    STRING style := stylednode->GetAttribute("style");
+    style := NEW RegEx("width: [0-9]+px;")->Replace(style, "");
+    style := NEW RegEx("height: [0-9]+px;")->Replace(style, "");
+
+    IF(style != "")
+      stylednode->SetAttribute("style", style);
+    ELSE
+      stylednode->RemoveAttribute("style");
+  }
+
+  //Strip the colgroup, WebHare doesn't bother with those either
+  FOREVERY(OBJECT stylednode FROM expectedhtml->GetElements("colgroup"))
+    stylednode->parentnode->RemoveChild(stylednode);
+
+  expect_text := expectedhtml->body->innerhtml;
+
+  RETURN expect_text;
+}
 
 MACRO StructureTest()
 {
@@ -34,14 +59,16 @@ MACRO StructureTest()
 
     structure->LoadFROMXML(doc->documentelement, doc->documentelement->namespaceuri);
 
-    STRING expect_text := CellExists(test, "EXPECT_HS") ? test.expect_hs : test.expect;
+    STRING expect_text := GenerateExpectHS(test.expect);
+
+
     DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure");
 
     // Double restructure should make no changes
     DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure");
 
     // Different expect for HS? test the identity conversion too for the js-version
-    IF (CellExists(test, "EXPECT_HS"))
+    IF (CellExists(test, "xxEXPECT_HS"))
       DoSingleTest(structure, test.expect, test.expect, test.title || " - hs restructure of js restructure");
   }
 

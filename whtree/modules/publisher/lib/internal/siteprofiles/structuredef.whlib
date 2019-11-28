@@ -139,6 +139,7 @@ OBJECTTYPE ParsedBlock
   PUBLIC STRING type; // normalblock, listitem, etc
   PUBLIC RECORD ARRAY nodes;
   PUBLIC RECORD style; // blockstyle record
+  PUBLIC STRING styletag;
   PUBLIC OBJECT list; // for list and listitem: relevant list
   PUBLIC BOOLEAN gotlist;
   PUBLIC RECORD defaultstyle; // default style in tables
@@ -159,9 +160,10 @@ OBJECTTYPE ParsedBlock
         , surrogate :=  FALSE
         , style :=      DEFAULT RECORD
         , firstdatacell := DEFAULT RECORD
-         , defaultstyle := DEFAULT RECORD
+        , defaultstyle := DEFAULT RECORD
         , colspan :=    0
         , rowspan :=    1
+        , styletag := ""
         ],
         options,
         [ required := [ "type", "style" ]]);
@@ -174,6 +176,7 @@ OBJECTTYPE ParsedBlock
     this->defaultstyle := options.defaultstyle;
     this->colspan := options.colspan;
     this->rowspan := options.rowspan;
+    this->styletag := options.styletag;
   }
 >;
 
@@ -253,7 +256,15 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     this->defaulttablestyle := SELECT * FROM this->structure.blockstyles WHERE type="table";
   }
 
-  /** Parses a sty;e block from an XML node
+  RECORD FUNCTION ReadCellStyle(OBJECT styleblock)
+  {
+    RECORD style := [ tag := ToLowercase(styleblock->GetAttribute("tag"))
+                    , ttle := styleblock->GetAttribute("title")
+                    ];
+    RETURN style;
+  }
+
+  /** Parses a style block from an XML node
   */
   RECORD FUNCTION ReadStyleBlock(OBJECT styleblock, STRING structuredefns)
   {
@@ -273,7 +284,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
     BOOLEAN islegacy := structuredefns = "http://www.webhare.net/xmlns/tollium/richstructure";
-    SWITCH (styleblock->nodename)
+    SWITCH (styleblock->localname)
     {
       CASE "textstyle"
       {
@@ -343,7 +354,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       }
       DEFAULT
       {
-        THROW NEW Exception("Unknown blockstyle type '" || styleblock->nodename || "'");
+        THROW NEW Exception("Unknown blockstyle type '" || styleblock->localname || "'");
       }
     }
 
@@ -569,7 +580,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
           INTEGER colspan := ToInteger(node->GetAttribute("colspan"), 0) ?? 1;
           INTEGER rowspan := ToInteger(node->GetAttribute("rowspan"), 0) ?? 1;
 
-          YIELD CELL[ type := "cell", node, colspan, rowspan, col, row := #row ];
+          YIELD CELL[ type := "cell", node, colspan, rowspan, col, row := #row, styletag := this->GetClassStyleForCell(node) ];
 
           FOR (INTEGER i := 0; i < colspan; i := i + 1)
           {
@@ -881,11 +892,12 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                 CASE "cell"
                 {
                   OBJECT cellitem := NEW ParsedBlock(
-                        [ type :=         "cellitem"
+                    CELL[ type :=         "cellitem"
                         , style :=        DEFAULT RECORD
                         , defaultstyle := defaultcontentstyle
-                        , colspan :=      ToInteger(rec.value.node->GetAttribute("colspan"), 1)
-                        , rowspan :=      ToInteger(rec.value.node->GetAttribute("rowspan"), 1)
+                        , rec.value.colspan
+                        , rec.value.rowspan
+                        , rec.value.styletag
                         ]);
 
                   INSERT cellitem INTO rowitem.nodes AT END;
@@ -1219,11 +1231,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
           cellnode->SetAttribute("scope", col >= parsed.block->firstdatacell.col ? "col" : "row");
         }
 
+        cellnode->SetAttribute("class", "wh-rtd__tablecell" || (cellitem->styletag != "" ? " " || cellitem->styletag : ""));
         IF(cellitem->colspan > 1)
           cellnode->SetAttribute("colspan", ToString(cellitem->colspan));
         IF(cellitem->rowspan > 1)
           cellnode->SetAttribute("rowspan", ToString(cellitem->rowspan));
-        cellnode->SetAttribute("class", "wh-rtd__tablecell");
 
         tr->AppendChild(cellnode);
         FOR (INTEGER colitr := 0; colitr < cellitem->colspan; colitr := colitr + 1)
@@ -1301,13 +1313,22 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                         , blocktypes := DEFAULT RECORD ARRAY
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
+                        , cellstyles := RECORD[]
                         ];
     this->allowedobjects := DEFAULT RECORD ARRAY;
 
     FOREVERY(OBJECT styleblock FROM blockstylenode->childnodes->GetCurrentElements())
     {
-      RECORD style := this->ReadStyleBlock(styleblock, structuredefns);
-      INSERT style INTO structure.blockstyles AT END;
+      IF(styleblock->localname = "cellstyle")
+      {
+        INSERT this->ReadCellStyle(styleblock) INTO structure.cellstyles AT END;
+      }
+      ELSE
+      {
+        //Not really sure why we throw tablestyles and blockstyles on the same list... you can't directly toggle between these!
+        RECORD style := this->ReadStyleBlock(styleblock, structuredefns);
+        INSERT style INTO structure.blockstyles AT END;
+      }
     }
 
     IF(ObjectExists(embeddedobjects))
@@ -1401,6 +1422,16 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     options := ValidateOptions([ fallback := TRUE ], options);
 
     RETURN this->LookupStyle(node->nodename, node->GetAttribute("class"), options.fallback);
+  }
+
+  PUBLIC STRING FUNCTION GetClassStyleForCell(OBJECT node)
+  {
+    STRING ARRAY classtoks := ParseXSList(ToLowercase(node->GetAttribute("class")));
+    FOREVERY(RECORD cellstyle FROM this->structure.cellstyles)
+      IF(cellstyle.tag IN classtoks)
+        RETURN cellstyle.tag;
+
+    RETURN "";
   }
 
   /** Returns the default block style

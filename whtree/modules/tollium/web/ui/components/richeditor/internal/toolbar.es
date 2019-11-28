@@ -258,7 +258,7 @@ class StyleButtonBase extends ToolbarButtonBase
   }
 }
 
-class TableCellStyleButton extends StyleButtonBase
+class CellStyleButton extends StyleButtonBase
 {
   constructor(toolbar)
   {
@@ -268,17 +268,22 @@ class TableCellStyleButton extends StyleButtonBase
   {
     let editor = this.toolbar.rte.getEditor();
     if(editor && selstate && selstate.cellparent)
-      return editor.getAvailableTableCellStyles(selstate);
+      return editor.getAvailableCellStyles(selstate).map(style => ({...style, tag: style.tag.toLowerCase() }));
+
     return [];
   }
   getCurrentStyle(selstate)
   {
-    if(selstate && selstate.cellparent)
-      return '';
+    if(selstate && selstate.cellparent && selstate.cellparent.classList.contains("wh-rtd__tablecell"))
+      return selstate.cellparent.classList[1] || '';
+
     return null;
   }
   setStyle(value)
   {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor)
+      editor.setSelectionCellStyle(value);
   }
 }
 
@@ -445,7 +450,7 @@ var supportedbuttons =
   , "action-properties": ToolbarButton
   , "action-clearformatting": ToolbarButton
   , "action-showformatting": ShowFormattingButton
-  , "td-class": TableCellStyleButton
+  , "td-class": CellStyleButton
   , "p-class": BlockStyleButton
 
   , "ol": SimpleToggleButton
