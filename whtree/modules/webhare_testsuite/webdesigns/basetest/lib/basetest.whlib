@@ -68,7 +68,7 @@ PUBLIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
     {
       //open widget.rtd like it's a simple instance (eg use MakeRTD) and see if it breaks
       OBJECT widgetrtd := this->targetfolder->OpenByName("widget.rtd");
-      wittydata.widget := PTR this->MakeRTD(widgetrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, "mod::webhare_testsuite/data//test/rte-structure.xml")->RenderAllObjects();
+      wittydata.widget := PTR this->MakeRTD(widgetrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, "mod::webhare_testsuite/data/test/rte-structure.xml")->RenderAllObjects();
     }
 
     RETURN wittydata;

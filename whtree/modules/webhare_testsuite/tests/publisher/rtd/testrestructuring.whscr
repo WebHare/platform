@@ -49,7 +49,7 @@ MACRO StructureTest()
   // Test LookupStyle
 
   OBJECT structure := NEW RichDocumentStructure;
-  structure->LoadFromXML(MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/data//test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  structure->LoadFromXML(MakeXMLDocument(GetWebhareResource("mod::webhare_testsuite/data/test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
   RECORD test := structure->LookupStyle("ol", "", TRUE);
   TestEq("p", test.containertag);
 

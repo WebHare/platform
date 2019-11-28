@@ -58,7 +58,7 @@ MACRO ConsilioTest()
                                       || '</tr>'
                                    || '</tbody></table>'
                                  || '</body></html>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);;
 
   richdoctype->SetInstanceData(file_6->id, [data := myrichdoc->ExportAsRecord()]);

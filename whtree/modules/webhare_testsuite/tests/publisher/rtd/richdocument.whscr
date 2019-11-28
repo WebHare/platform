@@ -52,7 +52,7 @@ MACRO RichDocumentTest()
   OBJECT workfolder := siteroot->CreateFolder([name:="richdocument"]);
   OBJECT testfile := workfolder->CreateFile([name:="richtest",publish:=TRUE]);
 
-  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := GetHarescriptResource("mod::webhare_testsuite/data//test/custompage.structure.xml") ]);
+  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml") ]);
 
   OBJECT myrichdoc := NEW EditableRichDocument;
   TestEq(TRUE, ObjectExists(myrichdoc->body));
@@ -174,7 +174,7 @@ MACRO ParserApiTest()
   TestEQ("#6A6E4F", storeddata.embedded[0].dominantcolor);
 
   OBJECT structure := NEW RichDocumentStructure;
-  structure->LoadFromXML(MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/data//test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
+  structure->LoadFromXML(MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
   OBJECT parseddoc := MakeParsedRichDocument(storeddata);
   parseddoc->ApplyStructureDefinition(structure);
 
@@ -258,7 +258,7 @@ MACRO RichDocInstanceTest()
   testfw->BeginWork();
   OBJECT rtdinstance := workfolder->CreateFile([ name := "bob", typens := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]);
   rtdinstance->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest",
-                               [ img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg")
+                               [ img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg")
                                ]);
   RECORD bobdata := rtdinstance->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest");
   testfw->CommitWork();
@@ -276,7 +276,7 @@ MACRO RichDocInstanceTest()
   STRING instanceid := myrichdoc->CreateInstance([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
                                                  , ignored := "xyz" //should be removed by normalization
                                                  , aref := siteroot->id
-                                                 , img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg")
+                                                 , img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg")
                                                  ]);
 
   TestEq([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
@@ -414,7 +414,7 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
                                             || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="160"/></p>'
                                             || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);;
   richdoc->SaveToWHFS(testfile);
   testfw->CommitWork();
@@ -448,7 +448,7 @@ MACRO PublishRichDocImageTest()
   TestEq(160, imgcanvas->width);
   TestEq(120, imgcanvas->height);
 
-  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
+  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
   imgsrc->SetImageSize(160,120);
   TestEq(160, imgsrc->width);
   TestEq(120, imgsrc->height);
@@ -510,7 +510,7 @@ MACRO IntLinktest()
                                  || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
                                  || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
                                  || '</body></html>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  , links := [[ tag := "1234-5678-001", linkref := workfolder->id ]]
                  ]);;
 
