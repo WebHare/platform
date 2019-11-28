@@ -1456,6 +1456,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   PUBLIC MACRO PTR __onscreenchange;
   PUBLIC MACRO PTR __onnoforwardprogress;
   PUBLIC MACRO PTR __onnoactionhandlerfound;
+  PUBLIC MACRO PTR __onnodrophandlerfound;
 
   // ---------------------------------------------------------------------------
   //

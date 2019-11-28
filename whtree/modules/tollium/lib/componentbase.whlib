@@ -1102,6 +1102,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     IF(dropdata.droplocation NOT IN ["ontarget","appendchild","insertbefore","oncell"])
       THROW NEW Exception(`Incorrect drop location '${dropdata.droplocation}'`);
 
+    IF (__debugdragdrop) PRINT(`Verifying drop of type ${dropdata.source}\n`);
+
     // First verify the dragged items
     IF (dropdata.source = "local")
     {
@@ -1126,7 +1128,12 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 //      THROW NEW Exception("File drop not supported yet");
     }
     ELSE
+    {
+      IF (__debugdragdrop) PRINT(`- Unrecognized dropdata source ${dropdata.source}\n`);
+      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+        this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
       RETURN DEFAULT RECORD;
+    }
 
 //    LogDebug("verifydrop", "init");
 
@@ -1134,36 +1141,39 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
     FOREVERY (RECORD item FROM RECORD ARRAY(dropdata.items))
     {
-//      LogDebug("verifydrop", " item " || item.type);
+      IF (__debugdragdrop) PRINT(`- Process item, type: ${item.type}\n`);
       BOOLEAN found := FALSE;
       FOREVERY (RECORD type FROM acceptdrops.accepttypes)
       {
-//        LogDebug("verifydrop", "  at " || type.type);
+        IF (__debugdragdrop) PRINT(`- - test accepttype #${#type}: ${type.type}\n`);
         IF (item.type != type.type)
           CONTINUE;
 
         IF ((dropdata.droplocation = "ontarget" AND "ontarget" NOT IN type.locations)
             OR (dropdata.droplocation IN [ "appendchild", "insertbefore" ] AND "position" NOT IN type.locations))
         {
-//          LogDebug("verifydrop", "  drop location " || dropdata.droplocation || " not allowed (allowed: " || Detokenize(type.locations, ", ") || ")");
+          IF (__debugdragdrop) PRINT(`- - - drop location ${dropdata.droplocation} not allowed (allowed: ${Detokenize(type.locations, ", ")}\n`);
           CONTINUE;
         }
 
         IF (Length(type.frameflags) > 0 AND NOT this->owner->frame->EnabledOn(1, 1, type.frameflags, "all"))
         {
-//          LogDebug("verifydrop", "  fails frameflags [" || Detokenize(type.frameflags, ", ") || "]");
+          IF (__debugdragdrop) PRINT(`- - - fails frameflags [${Detokenize(type.frameflags, ", ")}]\n`);
           CONTINUE;
         }
 
         IF (type.requiretarget AND NOT RecordExists(target))
         {
-//          LogDebug("verifydrop", "  requires a target");
+          IF (__debugdragdrop) PRINT(`- - - no target, but target is required\n`);
           CONTINUE;
         }
 
 //        LogDebug("verifydrop", "  de " || dropdata.dropeffect || " IN " || Detokenize(type.dropeffects, "|"));
         IF (dropdata.dropeffect NOT IN type.dropeffects AND 'all' NOT IN type.dropeffects)
+        {
+          IF (__debugdragdrop) PRINT(`- - - drop effect ${dropdata.dropeffect} not allowed (allowed: ${Detokenize(type.dropeffects, ", ")}\n`);
           CONTINUE;
+        }
 
         SWITCH (dropdata.droplocation)
         {
@@ -1171,7 +1181,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
           {
             IF (RecordExists(target) AND NOT CheckEnabledFlags([ target ], alltargetflags, type.targetflags, 1, 1, "all"))
             {
-//              LogDebug("verifydrop", "  fails targetflags [" || Detokenize(type.targetflags, ", ") || "]");
+              IF (__debugdragdrop) PRINT(`- - - fails targetflags [${Detokenize(type.targetflags, ", ")}]\n`);
               CONTINUE;
             }
           }
@@ -1179,7 +1189,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
           {
             IF (RecordExists(target) AND NOT CheckEnabledFlags([ target ], alltargetflags, type.appendchildflags, 1, 1, "all"))
             {
-//              LogDebug("verifydrop", "  fails appendchildflags [" || Detokenize(type.appendchildflags, ", ") || "]");
+              IF (__debugdragdrop) PRINT(`- - - fails appendchildflags [${Detokenize(type.appendchildflags, ", ")}]\n`);
               CONTINUE;
             }
           }
@@ -1188,7 +1198,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
             // With insertbefore we require a target
             IF (NOT RecordExists(target) OR NOT CheckEnabledFlags([ target ], alltargetflags, type.insertbeforeflags, 1, 1, "all"))
             {
-//              LogDebug("verifydrop", "  fails insertbeforeflags [" || Detokenize(type.insertbeforeflags, ", ") || "]");
+              IF (__debugdragdrop) PRINT(`- - - fails insertbeforeflags [${Detokenize(type.insertbeforeflags, ", ")}]\n`);
               CONTINUE;
             }
           }
@@ -1197,7 +1207,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         // FIXME: use actual flags of type for allowed flags
         IF (item.type != "file" AND NOT CheckEnabledFlags([ RECORD(item.data) ], type.sourceflags, type.sourceflags, 1, 1, "all"))
         {
-//          LogDebug("verifydrop", "  fails sourceflags [" || Detokenize(type.sourceflags, ", ") || "]");
+          IF (__debugdragdrop) PRINT(`- - - fails sourceflags [${Detokenize(type.sourceflags, ", ")}]\n`);
           CONTINUE;
         }
 
@@ -1208,7 +1218,12 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         BREAK;
       }
       IF (NOT found)
+      {
+        IF (__debugdragdrop) PRINT(`- - item not accepted, failing drop\n`);
+        IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+          this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
         RETURN DEFAULT RECORD;
+      }
     }
 
     IF (dropdata.sourcecomp = this
@@ -1216,8 +1231,18 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         AND LENGTH(check_noloops) != 0
         AND this->IsAnyAncestorOf(check_noloops, target))
     {
+      IF (__debugdragdrop) PRINT(`- fails noloops test\n`);
 //      LogDebug("verifydrop", " fails noloops test");
+      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+        this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
       RETURN DEFAULT RECORD;
+    }
+
+    IF (IsDefaultValue(acceptdrops.ondrop))
+    {
+      IF (__debugdragdrop) PRINT(`- no drop handler found\n`);
+      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+        this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
     }
 
     RETURN dropdata;

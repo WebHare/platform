@@ -32,6 +32,8 @@ PUBLIC RECORD __tabsextension_options;
 
 /// Flag to print debug info about failing actionhandler resolves
 PUBLIC BOOLEAN __debugactions;
+/// Flag to print debug info about failing drag'n drop actions
+PUBLIC BOOLEAN __debugdragdrop;
 
 PUBLIC OBJECTTYPE TolliumAppContextSystem
 <
