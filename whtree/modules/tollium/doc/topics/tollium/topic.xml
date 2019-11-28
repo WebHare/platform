@@ -3,4 +3,5 @@
        docorder="applications screens applicationportal">
   <section name="appdev" title="Application development" />
   <section name="dialogs" title="Common dialogs" />
+  <section name="helpers" title="Helper functions" />
 </topic>

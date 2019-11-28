@@ -68,6 +68,9 @@ FUNCTION PTR lastcall;
 //// Wheteher to allow a click to find no relevant action handler
 BOOLEAN allownoactionhandlerfound;
 
+/// Set when no drop handler was found
+BOOLEAN gotnodrophandlerfound;
+
 /** List of currently running calls
     @cell callid
     @cell trace
@@ -182,12 +185,27 @@ MACRO OnNoActionHandlerFound(OBJECT action)
   IF (allownoactionhandlerfound)
     RETURN;
 
+  BOOLEAN old_debugactions := __debugactions;
   __debugactions := TRUE;
   action->ResolveActionHandler(DEFAULT OBJECT);
-  __debugactions := FALSE;
+  __debugactions := old_debugactions;
   THROW NEW Exception(`Terminating because of an action click that could not find an action handler`);
 }
 
+MACRO OnNoDropHandlerFound(OBJECT comp, RECORD data)
+{
+  IF (allownoactionhandlerfound)
+  {
+    gotnodrophandlerfound := TRUE;
+    RETURN;
+  }
+
+  BOOLEAN old_debugdragdrop := __debugdragdrop;
+  __debugdragdrop := TRUE;
+  comp->VerifyDrop(data.acceptdrops, data.dropdata, data.target, data.alltargetflags);
+  __debugdragdrop := old_debugdragdrop;
+  THROW NEW Exception(`Terminating because of a drag 'n drop action that could not find an drop handler`);
+}
 
 BOOLEAN FUNCTION OnSendWebFile(OBJECT screen, RECORD filedata)
 {
@@ -1071,16 +1089,18 @@ RECORD FUNCTION BuildDropMessage(OBJECT sourcecomp, VARIANT selection, OBJECT ta
     @param sourcecomp List component with dragged items
     @param rowkeys Rowkey(s) of dragged items
     @param targetcomp Target list component
-    @cell options.dropeffect Drop effect: one of "move", "link", "copy"
-    @cell options.droplocation Drop location: one of "ontarget", "appendchild", "insertbefore"
+    @cell options.dropeffect Drop effect: one of "move", "link", "copy", defaults to "move"
+    @cell options.droplocation Drop location: one of "ontarget", "appendchild", "insertbefore", defaults to "ontarget". Only allowed when dropping on a list.
     @cell options.target Optional rowkey of target row (if not specified, dropped in empty space)
+    @cell options.allowfailure Allow drop failure
+    @return Whether a drop handler was found and executed
 */
-PUBLIC MACRO ExecuteListDragDrop(OBJECT sourcecomp, VARIANT rowkeys, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC BOOLEAN FUNCTION ExecuteListDragDrop(OBJECT sourcecomp, VARIANT rowkeys, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   IF ("TOLLIUMLIST" NOT IN GetObjectExtendNames(targetcomp))
     THROW NEW Exception(`Target component is not a list`);
 
-  ExecuteDragDrop(sourcecomp, rowkeys, targetcomp, options);
+  RETURN ExecuteDragDrop(sourcecomp, rowkeys, targetcomp, options);
 }
 
 /** Do a drag-drop onto another component
@@ -1092,8 +1112,10 @@ PUBLIC MACRO ExecuteListDragDrop(OBJECT sourcecomp, VARIANT rowkeys, OBJECT targ
     @cell options.target Target to drop onto
                          - Lists: rowkey of target row (if not specified, dropped in empty space)
                          - Tables: table cell to drop on (if not specified, not dropped on a specific cell)
+    @cell options.allowfailure Allow drop failure
+    @return Whether a drop handler was found and executed
 */
-PUBLIC MACRO ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC BOOLEAN FUNCTION ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT targetcomp, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD message;
 
@@ -1104,10 +1126,11 @@ PUBLIC MACRO ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT target
         [ dropeffect :=     "move"
         , target :=         DEFAULT OBJECT
         , files :=          RECORD[]
+        , allowfailure :=   FALSE
         ],
         options);
 
-    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, droplocation := "oncell", DELETE target ]);
+    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, droplocation := "oncell", DELETE target, DELETE allowfailure ]);
 
     IF (ObjectExists(options.target))
     {
@@ -1124,13 +1147,14 @@ PUBLIC MACRO ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT target
         , droplocation :=   "ontarget"
         , target :=         0
         , files :=          RECORD[]
+        , allowfailure :=   FALSE
         ],
         options,
         [ optional :=       [ "TARGET" ]
         , notypecheck :=    [ "TARGET" ]
         ]);
 
-    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, DELETE target ]);
+    message := BuildDropMessage(sourcecomp, selection, targetcomp, CELL[ ...options, DELETE target, DELETE allowfailure ]);
 
     IF (CellExists(options, "TARGET"))
     {
@@ -1143,7 +1167,18 @@ PUBLIC MACRO ExecuteDragDrop(OBJECT sourcecomp, VARIANT selection, OBJECT target
   ELSE
     THROW NEW Exception(`Cannot drop on the target component, it is not a list or a table`);
 
+  BOOLEAN old_allownoactionhandlerfound := allownoactionhandlerfound;
+  BOOLEAN old_gotnodrophandlerfound := gotnodrophandlerfound;
+
+  allownoactionhandlerfound := options.allowfailure;
+  gotnodrophandlerfound := FALSE;
+
   targetcomp->ProcessInboundMessage("acceptdrop", message);
+
+  BOOLEAN retval := NOT gotnodrophandlerfound;
+  allownoactionhandlerfound := old_allownoactionhandlerfound;
+  gotnodrophandlerfound := old_gotnodrophandlerfound;
+  RETURN retval;
 }
 
 MACRO CheckScreensAllClosed()
@@ -1173,6 +1208,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
     controller->__onnoforwardprogress := PTR OnNoForwardProgress;
     controller->__onsendwebfile := PTR OnSendWebFile;
     controller->__onnoactionhandlerfound := PTR OnNoActionHandlerFound;
+    controller->__onnodrophandlerfound := PTR OnNoDropHandlerFound;
 
     IF(NOT ObjectExists(GetEffectiveUser()))
       __SetEffectiveUser(testfw->userapi->GetAnonymousUser());

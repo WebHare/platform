@@ -1306,6 +1306,30 @@ MACRO TestEnrichBulk()
   TestEq("", result[1].test_single_domain); //should be defaulted
   //ABORT(result,'boxed');
 
+  result := wrdperson->Enrich([ [ getid := p1, source := "list" ] ], "GETID", outputcols, [ leftouterjoin := CELL[ source := "leftouterjoin" ], presentfield := "ispresent" ]);
+  TestEQ(
+      [ [ getid := p1, ispresent := "both",   source := "list",           email := "bulk_p1@example.com", firstname := "Person 1" ]
+      , [ getid := p2, ispresent := "right",  source := "leftouterjoin",  email := "bulk_p2@example.com", firstname := "Person 2" ]
+      ], SELECT * FROM result WHERE getid IN [ p1, p2 ] ORDER BY email);
+
+  result := wrdperson->Enrich(RECORD[], "GETID", outputcols, [ leftouterjoin := CELL[ source := "leftouterjoin" ], presentfield := "ispresent" ]);
+  TestEQ(
+      [ [ getid := p1, ispresent := "right",  source := "leftouterjoin",  email := "bulk_p1@example.com", firstname := "Person 1" ]
+      , [ getid := p2, ispresent := "right",  source := "leftouterjoin",  email := "bulk_p2@example.com", firstname := "Person 2" ]
+      ], SELECT * FROM result WHERE getid IN [ p1, p2 ] ORDER BY email);
+
+  result := wrdperson->Enrich([ [ getid := [ p1 ], source := "list" ] ], "GETID[]", outputcols, [ leftouterjoin := CELL[ source := "leftouterjoin" ], presentfield := "ispresent" ]);
+  TestEQ(2, LENGTH(result));
+  TestEQ([ getid := [ [ ispresent := "both",  email := "bulk_p1@example.com", firstname := "Person 1" ] ], source := "list" ], result[0]);
+  TestEQ("leftouterjoin", result[1].source);
+  TestEQ([ [ ispresent := "right",  email := "bulk_p2@example.com", firstname := "Person 2" ] ], SELECT * FROM result[1].getid WHERE email != "");
+
+  result := wrdperson->Enrich(RECORD[], "GETID[]", outputcols, [ leftouterjoin := CELL[ source := "leftouterjoin" ], presentfield := "ispresent" ]);
+  TestEQ(1, LENGTH(result));
+  TestEQ([ [ ispresent := "right",  email := "bulk_p1@example.com", firstname := "Person 1" ]
+         , [ ispresent := "right",  email := "bulk_p2@example.com", firstname := "Person 2" ]
+         ], SELECT * FROM result[0].getid WHERE email != "" ORDER BY email);
+
   testfw->RollbackWork();
 }
 

@@ -1,18 +1,17 @@
 <?wh
 
+/** @topic tollium/helpers */
 
-/** Genering reordering functions
+/** Reorders elements within an array
     @param reorderrows Rows to reorder, ordered by current ordering
-    @param rowkeycell Cell with the key 'tomove' and 'insertbefore' refer to.
-    @param tomove Key of row / list of keys of rows to move
-    @param whereto Where to move to ('begin', 'end', 'up', 'down', 'position')
-    @param options
-    @cell options.positionkey key of row to move to in move mode 'position'
+    @param tomove Rowkey/array of rowkeys of rows to move
+    @param whereto Where to move to ('begin', 'end', 'top', 'bottom', 'position')
+    @cell options.positionkey Rowkey of the row to move to in move mode 'position'
     @cell options.coalesce Coalesce all moved rows into one block (defaults to TRUE)
-    @cell options.outputname Cell to place the new ordering in (default: 'wrd_ordering')
-    @cell options.rowkeyname Name of field containing the insertion key, defaults to 'rowkey'
-    @return Reordered rows
-    @cell return.wrd_ordering New ordering
+    @cell options.outputname Cell to place the new ordering in (default: 'ordering'). Set to empty to reorder the source
+      array.
+    @cell options.rowkeyname Name of field containing the rowkey, defaults to 'rowkey'
+    @return Reordered rows, with the new ordering in the cell named by options.outputname
 */
 PUBLIC RECORD ARRAY FUNCTION ReorderRows(RECORD ARRAY reorderrows, VARIANT tomove, STRING whereto, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -26,7 +25,7 @@ PUBLIC RECORD ARRAY FUNCTION ReorderRows(RECORD ARRAY reorderrows, VARIANT tomov
       , optional :=     [ "positionkey" ]
       ]);
 
-  IF (whereto NOT IN [ "up", "down", "begin", "end", "position" ])
+  IF (whereto NOT IN [ "up", "down", "top", "begin", "bottom", "end", "position" ])
     THROW NEW Exception(`Illegal value ${whereto} for 'whereto' parameter`);
 
   IF (NOT IsTypeidArray(TypeID(tomove)))
@@ -45,9 +44,9 @@ PUBLIC RECORD ARRAY FUNCTION ReorderRows(RECORD ARRAY reorderrows, VARIANT tomov
     splitposition := SELECT AS INTEGER #reorderrows FROM reorderrows WHERE rowkey IN tomove;
     diff := whereto = "up" ? -1 : 1;
   }
-  ELSE IF (whereto = "begin")
+  ELSE IF (whereto = "begin" OR whereto = "top")
     splitposition := 0;
-  ELSE IF (whereto = "end")
+  ELSE IF (whereto = "end" OR whereto = "bottom")
     splitposition := LENGTH(reorderrows);
   ELSE // whereto = position. positionkey not found: insert at end
   {
@@ -99,6 +98,10 @@ PUBLIC RECORD ARRAY FUNCTION ReorderRows(RECORD ARRAY reorderrows, VARIANT tomov
 
   // reorder the rows, and set the new ordering.
   reorderrows := SELECT * FROM reorderrows ORDER BY ordering, orgpos;
+
+  // If no outputname is set, return the reordered original array
+  IF (options.outputname = "")
+    RETURN SELECT AS RECORD ARRAY data FROM reorderrows;
 
   // Insert the output column, return in original ordering
   RETURN SELECT ...data, ...CellInsert(DEFAULT RECORD, options.outputname, #reorderrows + 1) FROM reorderrows ORDER BY orgpos;
