@@ -1470,8 +1470,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param historymode @includecelldef #RunQuery.querydata.historymode
       @return Query result
   */
-  PUBLIC RECORD ARRAY FUNCTION __GetBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, STRING historymode)
+  PUBLIC RECORD ARRAY FUNCTION __GetBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, STRING historymode)
   {
+    IF (IsDefaultvalue(ids)) // ExecuteEnrichment passes a DEFAULT BOOLEAN ARRAY when leftouterjoining an empty array
+      ids := INTEGER[];
     RETURN this->RunQuery([ outputcolumns := outputcolumns
                           , filters := returnall ? DEFAULT RECORD ARRAY : [[ field := "WRD_ID", matchtype := "IN", value := ids ]]
                           , historymode := historymode
