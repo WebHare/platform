@@ -55,7 +55,7 @@ wh builddocker
 ```
 
 ## Building instantclient/OCI
-On OSX, the make scripts expects the instantclient headers and libraries to be in `/usr/local/instantclient/` - just grab them from https://www.oracle.com/technetwork/topics/intel-macsoft-096467.html and extract their contents there
+On macOS, just `brew install InstantClientTap/instantclient/instantclient-sdk` and remake
 
 ## Advanced build options
 `WHBUILD_DEBUG=1` - Use whbuild.debug and build versions with extra debugging

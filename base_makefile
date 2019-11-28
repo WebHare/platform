@@ -36,9 +36,9 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 
-	ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
-	  CPPFLAGS += -I$(WHBUILD_INSTANTCLIENTROOT)/sdk/include
-		GLOBALLDFLAGS += -L$(WHBUILD_INSTANTCLIENTROOT)
+	ifneq (,$(wildcard /usr/local/lib/libocci.dylib))
+		#OCI detected, enable it if WHBUILD_OCI is not yet set
+		WHBUILD_OCI ?= 1
 	endif
 else
 	BUILDSYSTEM ?= gcc
@@ -47,9 +47,10 @@ else
 	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
 	SYSLIBDIRSUFFIX=64
 
-	# FIXME not sure if we're allowed to ship OCI in the default builds. we should probably see if we can build oci completely separately so the buildimage doesn't need the OCI stuff
 	ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
-	  CPPFLAGS += -I/usr/include/oracle/12.1/client64
+		#OCI detected, enable it if WHBUILD_OCI is not yet set
+		WHBUILD_OCI ?= 1
+		CPPFLAGS += -I/usr/include/oracle/12.1/client64
 		GLOBALLDFLAGS += -L/usr/lib/oracle/12.1/client64/lib
 	endif
 
@@ -328,7 +329,7 @@ PCH_HEADERS+=harescript/vm/allincludes.h
 
 PCH_HEADERS+=harescript/compiler/allincludes.h
 
-ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
+ifeq ($(WHBUILD_OCI),1)
 	HS_HS_MODULES += oci
 endif
 
