@@ -41,16 +41,13 @@ RECORD buildinfo;
 
 /** @short Get WebHare version and branding information
     @return A record describing the version
-    @cell(string) return.basename Product base name (eg WebHare Platform)
-    @cell(string) return.fullname Product full name (eg WebHare Platform v4.26.3)
-    @cell(string) return.version Version (eg v4.26.3)
-    @cell(integer) return.versionnum Version as number (eg 42603)
-    @cell(integer) return.revision Legacy SVN revision number (now always 44168)
-    @cell(string) return.builddate Build date (the compiler's __DATE__)
-    @cell(string) return.buildtime Build time (the compiler's __TIME__)
+    @cell(string) return.version Semantic version (eg v4.26.3)
+    @cell(integer) return.versionnum Version as number (eg 42603) - the IFVERSION number which should generally be used for version checks
+    @cell(string) return.builddate Build date (not set for developer's builds)
+    @cell(string) return.buildtime Build time (not set for developer's builds)
     @cell(string) return.committag Git commit tag (not set for developer's builds)
     @cell(string) return.branch Git branch of this build (not set for developer's builds)
-    @cell(string) return.buildid Build id (not set for developer's builds)
+    @cell(boolean) return.docker True if we're running inside docker
 */
 PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
 {
@@ -77,19 +74,14 @@ PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
     }
   }
 
-  RECORD versioninfo := __SYSTEM_WEBHAREVERSION();
-  IF(CellExists(buildinfo, 'BUILDDATE'))
-    versioninfo.builddate := buildinfo.builddate;
-  IF(CellExists(buildinfo, 'BUILDTIME'))
-    versioninfo.buildtime := buildinfo.buildtime;
-  IF(CellExists(buildinfo, 'HASH'))
-    versioninfo.committag := buildinfo.hash;
-
-  INSERT CELL branch := CellExists(buildinfo,'branch') ? buildinfo.branch : ""
-            , docker := CellExists(buildinfo,'docker') ? buildinfo.docker="1" : FALSE
-            , buildid := CellExists(buildinfo,'buildid') ? ToInteger(buildinfo.buildid,0) : 0
-         INTO versioninfo;
-  RETURN versioninfo;
+  RETURN CELL[ ...__SYSTEM_WEBHAREVERSION()
+             , builddate := ""
+             , buildtime := ""
+             , branch := ""
+             , committag := ""
+             , ...buildinfo
+             , docker := CellExists(buildinfo,'docker') ? buildinfo.docker = "1" : FALSE
+             ];
 }
 
 /** @short Is a specific module installed ?
@@ -110,7 +102,7 @@ PUBLIC STRING FUNCTION GetModuleStorageRoot(STRING modulename)
     @return The WebHare version (eg "WebHare Platform v4.26.3") */
 PUBLIC STRING FUNCTION GetWebhareVersion()
 {
-  RETURN __SYSTEM_WEBHAREVERSION().fullname;
+  RETURN "WebHare Platform " || __SYSTEM_WEBHAREVERSION().version;
 }
 /** @short Get the version number of this WebHare installation
     @return The WebHare version number (eg 42603 for version 4.26.3) */

@@ -2,7 +2,7 @@
 # returns version in WHVERSION
 get_whversion()
 {
-  WHVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION / { print $3 }' < ../../blex/branding.h) | tr -d \" | cut -d. -f1,2`
+  WHVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION / { print $3 }' < ../../blex/branding.h) | tr -d \"`
   if [ -z "$WHVERSION" ]; then
     echo "Unable to retrieve version #"
     exit 1

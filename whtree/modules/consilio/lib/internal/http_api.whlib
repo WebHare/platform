@@ -9,18 +9,12 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
-// Construct a user agent string
-STRING whversion := ToString(GetWebhareVersionNumber());
-// whversion is now something like "3xxyy"; make it dotted
-IF (Length(whversion) >= 5)
-  whversion := Substring(whversion, 0, Length(whversion) - 4) || "." || Substring(whversion, Length(whversion) - 4, 2) || "." || Right(whversion, 2);
-
 STRING trustedhost := GetWebhareConfiguration().trustedhost;
 INTEGER trustedport := GetWebhareConfiguration().trustedport;
 
 OBJECT browser;
 browser := NEW WebBrowser();
-browser->useragent := "Consilio/" || whversion || " (WebHare Platform)";
+browser->useragent := `Consilio (${GetWebhareVersion()})`;
 
 // Initialize the user agent string
 PUBLIC MACRO SetUserAgent(STRING name)

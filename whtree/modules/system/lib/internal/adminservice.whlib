@@ -24,7 +24,7 @@ PUBLIC RECORD FUNCTION RPC_Connect()
 {
   RECORD versioninfo := GetWebhareVersionInfo();
   RETURN [ version :=     versioninfo.versionnum
-         , build :=       versioninfo.revision
+         , semver :=      versioninfo.version //full semver is more useful in the future
          , issysop :=     GetEffectiveUser()->HasRight("system:sysop")
          , licenseid :=   ""
          , time :=        GetCurrentDateTime()

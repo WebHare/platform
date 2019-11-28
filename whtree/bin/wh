@@ -387,7 +387,7 @@ setup_webhare_envsettings()
   if [ -f $WEBHARE_DIR/modules/system/whres/buildinfo ]; then
     export WEBHARE_DISPLAYBUILDINFO=$(
       source $WEBHARE_DIR/modules/system/whres/buildinfo
-      echo -n "branch $branch, commit ${hash:0:10}"
+      echo -n "branch $branch, commit ${committag:0:10}"
       if [ -n "$buildid" ]; then
         echo ", build $buildid"
       else

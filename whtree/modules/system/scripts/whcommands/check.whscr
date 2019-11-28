@@ -5,15 +5,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-RECORD vinfo := GetWebhareVersionInfo();
-STRING ARRAY versiontokens;
-IF(vinfo.branch != "" AND vinfo.branch NOT LIKE "release/*")
-  INSERT vinfo.branch INTO versiontokens AT END;
-INSERT vinfo.version INTO versiontokens AT END;
-IF(vinfo.buildid != 0)
-  INSERT "(" || vinfo.buildid || ")" INTO versiontokens AT END;
-
-Print(`WebHare ${Detokenize(versiontokens,' ')}`);
+Print(GetWHVersionInfo().versionname);
 
 RECORD ARRAY messages;
 
