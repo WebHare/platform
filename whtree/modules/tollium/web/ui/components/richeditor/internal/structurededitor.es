@@ -35,10 +35,10 @@ export default class StructuredEditor extends EditorBase
 
     this.actionelements.push( { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
                             , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"table", hasclasses: ["wh-rtd__table"] }
+                            //, { element:"table", hasclasses: ["wh-rtd__table"] } //not needed, we have th and td ?
+                            , { element:"th", hasclasses: ["wh-rtd__tablecell"] }
+                            , { element:"td", hasclasses: ["wh-rtd__tablecell"] }
                             );
-
-//, blockstylescss = ''
 
     this.textstyletags = [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ];
 

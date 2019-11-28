@@ -17,6 +17,13 @@ export class RTEDriver
 {
   constructor(rte)
   {
+    if(rte && typeof rte == 'string')
+    {
+      let comp = test.compByName(rte);
+      if(comp)
+        rte = comp.propTodd.rte;
+    }
+
     if(!rte)
     {
       rte = test.getWin().rte;
@@ -25,6 +32,16 @@ export class RTEDriver
     }
     this.rte = rte;
     this.editor = rte.getEditor();
+  }
+
+  qS(selector)
+  {
+    return this.rte.qS(selector);
+  }
+
+  qSA(selector)
+  {
+    return this.rte.qSA(selector);
   }
 
   get body()
@@ -43,6 +60,23 @@ export class RTEDriver
       endOffset = startOffset;
     }
     setRTESelection(test.getWin(), this.editor, { startContainer, startOffset, endContainer, endOffset });
+  }
+
+  //execute a property action and get the result
+  async executeProperties()
+  {
+    let propsbutton = test.qS("[data-button=action-properties]");
+    if(!propsbutton)
+      throw new Error("No properties button present!");
+
+    if(propsbutton.classList.contains("disabled"))
+      throw new Error("Properties button is disabled!");
+
+    let result = getNextAction();
+    test.click(propsbutton);
+    return await result;
+    //FIXME throw if propertiesis not enabled
+
   }
 }
 

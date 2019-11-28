@@ -39,13 +39,10 @@ test.registerTests(
         var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         var first_td_p = table.querySelector("td p");
 
-        var rte = rtetest.getRTE(win, 'structured');
-        rtetest.setRTESelection(win, rte.getEditor(),
-                                   { startContainer: first_td_p
-                                   , startOffset: 0
-                                   , endContainer: first_td_p
-                                   , endOffset: 0
-                                   });
+        const rte = new rtetest.RTEDriver('structured');
+
+        // var rte = rtetest.getRTE(win, 'structured');
+        rte.setSelection(first_td_p);
 
         test.click(first_td_p.parentNode, { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));
@@ -201,5 +198,23 @@ test.registerTests(
         test.eq("", nodes[1].scope);
         test.eq("", nodes[2].scope);
       }
+    }
+
+  , "Remove the table"
+  , async function(doc,win)
+    {
+      const rtenode = test.compByName('structured');
+      const driver = new rtetest.RTEDriver('structured');
+      driver.setSelection(driver.qS("td p"));
+      test.click(rtenode.querySelector('[data-button="action-properties"]'));
+      await test.wait('ui');
+
+      test.clickTolliumButton("Remove"); //remove table
+      await test.wait('ui');
+
+      test.clickTolliumButton("Yes"); //confirm it!
+      await test.wait('ui');
+
+      test.false(driver.qS("table"));
     }
   ]);

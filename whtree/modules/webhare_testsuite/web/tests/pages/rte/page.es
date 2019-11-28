@@ -257,6 +257,7 @@ function initRTE()
                 , bodyclass: "body-class"
                 , allowundo: true
                 , enabled: params.get("disabled") != "true"
+                , propertiesaction: true
                 };
 
   if(params.get("toolbarlayout"))

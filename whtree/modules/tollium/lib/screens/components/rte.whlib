@@ -166,29 +166,29 @@ PUBLIC OBJECTTYPE Hyperlink EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
 < /// RTE object
   OBJECT rte;
 
   MACRO Init(RECORD data)
   {
     this->rte := data.rte;
-    this->topheader->value := data.data.datacell.row != 0;
-    this->leftheader->value := data.data.datacell.col != 0;
+    ^topheader->value := data.data.datacell.row != 0;
+    ^leftheader->value := data.data.datacell.col != 0;
 
     IF(RecordExists(this->rte->rtdtypeinfo))
     {
-      this->tablestyle->options := SELECT rowkey := ToLowercase(tag), title := title ?? ToLowercase(tag)
+      ^tablestyle->options := SELECT rowkey := ToLowercase(tag), title := title ?? ToLowercase(tag)
                                      FROM this->rte->rtdtypeinfo.structure.blockstyles
-                                    WHERE type="table"
+                                    WHERE type = "table"
                                  ORDER BY ToUppercase(title);
-      this->tablestyle->SetValueIfValid(data.data.styletag);
-      this->tablestyle->visible := Length(This->tablestyle->options) > 1;
+      ^tablestyle->SetValueIfValid(data.data.tablestyletag);
+      ^tablestyle->visible := Length(^tablestyle->options) > 1;
     }
     ELSE
     {
-      this->tablestyle->options := [[ rowkey := "", title := "" ]];
-      this->tablestyle->visible := FALSE;
+      ^tablestyle->options := [[ rowkey := "", title := "" ]];
+      ^tablestyle->visible := FALSE;
     }
   }
 
@@ -198,10 +198,10 @@ PUBLIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
   {
     RETURN
         [ type :=         "edittable"
-        , datacell :=     [ row := this->topheader->value ? 1 : 0
-                          , col := this->leftheader->value ? 1 : 0
+        , datacell :=     [ row := ^topheader->value ? 1 : 0
+                          , col := ^leftheader->value ? 1 : 0
                           ]
-        , styletag := this->tablestyle->value
+        , tablestyletag := ^tablestyle->value
         ];
   }
 
@@ -210,5 +210,4 @@ PUBLIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
     IF (this->RunMessageBox(".sureremovetable") = "yes")
       this->tolliumresult := "remove";
   }
-
 >;

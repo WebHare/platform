@@ -368,7 +368,7 @@ export default class ObjRTE extends ComponentBase
                     , type: 'table'
                     , datacell: editor.locateFirstDataCell()
                     , numrows: editor.numrows
-                    , numcols: editor.numcols
+                    , numcolumns: editor.numcolumns
                     , styletag: editor.node.classList[0]
                     };
         this.queueMessage('properties', props, true);
@@ -474,12 +474,6 @@ export default class ObjRTE extends ComponentBase
         {
           case "edittable":
           {
-            var editor = TableEditor.getEditorForNode(target);
-            if (editor)
-            {
-              editor.setFirstDataCell(newdata.datacell.row, newdata.datacell.col);
-              editor.setStyleTag(newdata.styletag);
-            }
           } break;
           case "remove":
           {

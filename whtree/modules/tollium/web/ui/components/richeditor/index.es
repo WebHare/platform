@@ -515,6 +515,19 @@ export class RTE
                , target: node.target || ''
                };
       }
+
+      case 'TD':
+      case 'TH':
+      {
+        let tablenode = node.closest('table');
+        var editor = TableEditor.getEditorForNode(tablenode);
+        return { type: 'cell'
+               , tablestyletag: tablenode.classList[0]
+               , datacell: editor.locateFirstDataCell()
+               , numrows: editor.numrows
+               , numcolumns: editor.numcolumns
+               };
+      }
     }
     return null;
   }
@@ -522,6 +535,8 @@ export class RTE
   {
     if(actiontarget.__node && actiontarget.__node.nodeName=='A')
       return this._updateHyperlink(actiontarget.__node, settings);
+    if(actiontarget.__node && (actiontarget.__node.nodeName=='TR' || actiontarget.__node.nodeName=='TD'))
+      return this._updateCell(actiontarget.__node, settings);
     throw new Error("Did not understand action target");
   }
 
@@ -547,6 +562,23 @@ export class RTE
 
     this._checkDirty();
     undolock.close();
+  }
+
+  _updateCell(node, settings)
+  {
+    let table = node.closest('table');
+    if(settings.removetable)
+    {
+      this.getEditor().removeTable(table);
+      return;
+    }
+
+    let editor = TableEditor.getEditorForNode(table);
+    if (editor)
+    {
+      editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
+      editor.setStyleTag(settings.tablestyletag);
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ test.registerTests(
   [ "Basic table checks"
   , async function()
     {
-      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u');
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u/action-properties');
 
       const rte = new rtetest.RTEDriver;
       rte.setSelection(rte.body.firstChild, 0);
@@ -351,6 +351,19 @@ test.registerTests(
 `td-1-1,td-1-1,td-1-1` +   ``,
           Array.from(rte.getContentBodyNode().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
       }
+    }
+
+  , "Remove the table"
+  , async function()
+    {
+      //select a cell
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(driver.qS("td p"));
+
+      let cellaction = await driver.executeProperties();
+      driver.rte.updateTarget(cellaction.detail.actiontarget, { removetable: true });
+
+      test.false(driver.qS("table"));
     }
 
   ]);
