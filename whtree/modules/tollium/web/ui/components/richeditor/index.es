@@ -67,7 +67,6 @@ export class RTE
                    , selfedit: false
                    , pageedit: false
                    //, actionhandler: null
-                   , actionelements: []
                    , cssinstance: null
                    , csslinks:null
                    , csscode:''
@@ -307,13 +306,6 @@ export class RTE
     var editoropts = { log: this.options.log
                      , designmode: false
                      , eventnode: this.container
-                     , actionelements: this.options.actionelements.concat(
-                            [ { element:"img" }
-                            , { element:"a",     hasattributes: ["href"] }
-                            , { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"table", hasclasses: ["wh-rtd__table"] }
-                            ])
                      , breakupnodes: this.options.breakupnodes
                      , editembeddedobjects: this.options.editembeddedobjects
                      , allowundo: this.options.structure && (!!this.options.undoholder || this.options.allowundo)

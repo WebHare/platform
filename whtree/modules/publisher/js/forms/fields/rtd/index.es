@@ -31,9 +31,6 @@ export default class RTDField
       { enabled: true
       , readonly: false
       , backgroundcolor: 'transparent'
-      , actionelements:
-        [ { element:"table", hasclasses: ["wh-rtd__table"] }
-        ]
       , structure: structure
       , allowtags: null//data.allowtags.length ? data.allowtags : null
       , hidebuttons: hidebuttons

@@ -16,6 +16,7 @@ import Range from './dom/range.es';
 
 var editableFix;
 
+
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
   //  HTML values
@@ -342,8 +343,12 @@ class EditorBase
         , imgloadplaceholder: null //image loader GIF image to use (defaults to embedded spinning loader)
         , eventnode: null
         , ...options
-        , actionelements: [...((options && options.actionelements) || []) ] //elements on which we support actions, such as properties
         };
+
+    //elements that respond to action-properties
+    this.actionelements = [ { element:"img" }
+                          , { element:"a",     hasattributes: ["href"] }
+                          ];
 
     //if(this.options.log) console.log('apply saved state');
     //this.stateHasChanged(true);
@@ -1971,9 +1976,8 @@ class EditorBase
   getActionsForNode(node)
   {
     var actions=[];
-    for (var i=0;i<this.options.actionelements.length;++i)
+    for (const act of this.actionelements)
     {
-      var act = this.options.actionelements[i];
       if(act.element != node.nodeName.toLowerCase())
         continue;
       if(act.hasattributes)
@@ -2003,7 +2007,7 @@ class EditorBase
 
   checkActionElements(node, formatting)
   {
-    this.getActionsForNode(node).forEach(function(action)
+    this.getActionsForNode(node).forEach(action =>
     {
       formatting.actionelements.push(action);
       formatting.actiontargets.push(node);

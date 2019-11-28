@@ -83,11 +83,6 @@ export default class ObjRTE extends ComponentBase
       , readonly: data.readonly
       , backgroundcolor: 'transparent'
 
-      , actionelements:
-            [ { element:"table", hasclasses: ["wh-rtd__table"] }
-            ]
-
-      //FIXME
       , language: 'en'//parent.app.lang      // FIXME
       //, log:true
       , allowtags: data.allowtags.length ? data.allowtags : null
@@ -389,7 +384,6 @@ export default class ObjRTE extends ComponentBase
 
   onMsgUpdateProps2(data)
   {
-    console.error(data,this._pendingactiontargets,this._pendingactiontargets[0]);
     let actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
     if(actiontargetidx == -1)
     {

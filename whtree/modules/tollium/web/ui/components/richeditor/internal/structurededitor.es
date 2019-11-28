@@ -33,6 +33,11 @@ export default class StructuredEditor extends EditorBase
 
     super(element, rte, options, undonode);
 
+    this.actionelements.push( { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
+                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
+                            , { element:"table", hasclasses: ["wh-rtd__table"] }
+                            );
+
 //, blockstylescss = ''
 
     this.textstyletags = [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ];
