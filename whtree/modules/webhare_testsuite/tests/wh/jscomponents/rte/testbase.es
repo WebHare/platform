@@ -788,7 +788,7 @@ test.registerTests(
         test.false(win.rte.isDirty());
 
         //Execute a properties action on the RTE, and capture it
-        let propsevent = test.waitForEvent(win, 'wh:richeditor-action', { capture:true, stop: true});
+        let propsevent = rtetest.getNextAction();
         test.click(win.rte.getButtonNode('a-href'));
         let result = await propsevent;
 
@@ -797,7 +797,7 @@ test.registerTests(
         test.eq('hyperlink', targetinfo.type);
         test.eq('http://www.b-lex.nl/', targetinfo.link);
         test.eq('_blank', targetinfo.target);
-        win.rte.updateHyperlink(result.detail.actiontarget, { link: 'http://www.example.net/' });
+        win.rte.updateTarget(result.detail.actiontarget, { link: 'http://www.example.net/' });
         test.true(win.rte.isDirty());
 
         test.eq( true, rte.getSelectionState().hyperlink);
@@ -805,7 +805,7 @@ test.registerTests(
             , win.rte.getValue().toLowerCase());
 
         win.rte.clearDirty();
-        win.rte.updateHyperlink(result.detail.actiontarget, { destroy: true });
+        win.rte.updateTarget(result.detail.actiontarget, { destroy: true });
         test.true(win.rte.isDirty());
 
         test.eq( false, rte.getSelectionState().hyperlink);

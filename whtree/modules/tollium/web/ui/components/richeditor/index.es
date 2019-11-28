@@ -521,30 +521,28 @@ export class RTE
   updateTarget(actiontarget, settings)
   {
     if(actiontarget.__node && actiontarget.__node.nodeName=='A')
-      return this.updateHyperlink(actiontarget, settings);
+      return this._updateHyperlink(actiontarget.__node, settings);
     throw new Error("Did not understand action target");
   }
-  updateHyperlink(actiontarget, settings)
-  {
-    if(actiontarget.__node.nodeName != 'A')
-      throw new Error("Action target is not a hyperlink");
 
+  _updateHyperlink(node, settings)
+  {
     const undolock = this.editrte.getUndoLock();
 
     if(settings.destroy) //get rid of the hyperlink
     {
-      this.editrte.selectNodeOuter(actiontarget.__node);
+      this.editrte.selectNodeOuter(node);
       this.editrte.removeHyperlink();
     }
     else
     {
       if('link' in settings)
-        actiontarget.__node.setAttribute("href",settings.link);
+        node.setAttribute("href",settings.link);
       if('target' in settings)
         if(settings.target)
-          actiontarget.__node.target = settings.target;
+          node.target = settings.target;
         else
-          actiontarget.__node.removeAttribute('target');
+          node.removeAttribute('target');
     }
 
     this._checkDirty();

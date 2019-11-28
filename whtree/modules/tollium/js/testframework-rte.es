@@ -7,6 +7,12 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
 
+//capture the next richeditor-action event
+export function getNextAction()
+{
+  return test.waitForEvent(test.getWin(), 'wh:richeditor-action', { capture:true, stop: true});
+}
+
 export class RTEDriver
 {
   constructor(rte)

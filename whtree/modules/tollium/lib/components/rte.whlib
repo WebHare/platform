@@ -700,6 +700,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
       RETURN;
     }
+    /*  properties2 is an attempt to switch to a JSON protocol from the RichEditor straight into Tollium for setting properties
+        and cutting out all the middleman translations... ie we get a opaque token to complete the atcion (msgdata.actionid)
+        and update the settings in affectednodeinfo.
+    */
     IF(type = "properties2")
     {
       RECORD settings := this->HandlePropertiesRequest2(msgdata.affectednodeinfo);
