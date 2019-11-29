@@ -240,6 +240,9 @@
       <text tid="illegalfilename">'<param p="1"/>' is geen geldige naam voor een map of bestand. Een naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt:<br/>/ \ : * ? " &lt; &gt; |</text>
       <text tid="typecannotbeversioned">Files van type '<param p="1"/>' kunnen niet worden ingediend voor goedkeuring.</text>
     </textgroup>
+    <textgroup gid="fsobjects">   <!-- common.fsobjects -->
+      <text tid="deleted"><param p="1"/> (verwijderd)</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
     <textgroup gid="applyrules">   <!-- commondialogs.applyrules -->
@@ -382,7 +385,6 @@
       <text tid="forcedbyparent">(Geforceerd door bovenliggende map)</text>
       <text tid="forceprofile">Forceer profiel</text>
       <text tid="forcetemplate">Forceer sjabloon</text>
-      <text tid="isdeleted"><param p="1"/> (verwijderd)</text>
       <text tid="link">Link</text>
       <text tid="local">in deze map</text>
       <text tid="lockreason">Reden voor vergrendeling:</text>

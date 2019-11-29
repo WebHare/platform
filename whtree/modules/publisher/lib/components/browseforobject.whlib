@@ -4,6 +4,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
@@ -238,10 +239,24 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
 
   STRING FUNCTION GetPathString()
   {
-    IF (NOT ObjectExists(this->pvt_value) OR IsRecycleOrHistoryWHFSPath(this->pvt_value->whfspath))
+    IF (NOT ObjectExists(this->pvt_value))
       RETURN "";
 
-    IF(this->pvt_value->id  = 0) //webhare root!
+    IF(IsRecycleOrHistoryWHFSPath(this->pvt_value->whfspath))
+    {
+      RECORD historyinfo := SELECT currentname
+                              FROM system_internal.fs_history
+                             WHERE fs_history.type = 0
+                                   AND fs_history.fs_object = this->pvt_value->id
+                          ORDER BY when DESC;
+
+      IF(RecordExists(historyinfo))
+        RETURN GetTid("publisher:common.fsobjects.deleted", historyinfo.currentname);
+
+      RETURN "#" || this->pvt_value->id;
+    }
+
+    IF(this->pvt_value->id = 0) //webhare root!
       RETURN GetTid("publisher:components.foldertree.fsroot");
 
     STRING path := this->pvt_value->fullpath;
