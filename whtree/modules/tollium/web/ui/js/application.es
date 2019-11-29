@@ -1129,6 +1129,7 @@ $todd.BackendApplication = class extends $todd.Application
     }
     catch(err)
     {
+      console.warn("Unable to start the application due to an exception", err);
       initlock.release();
       await runSimpleScreen(this,
                               { text: whintegration.config.dtapstage == 'development'
