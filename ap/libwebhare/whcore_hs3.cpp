@@ -780,11 +780,6 @@ void GetWHCoreParameters(HSVM *vm, HSVM_VariableId id_set)
                 HSVM_VariableId dirvar = HSVM_ArrayAppend(vm, moduledirsvar);
                 HSVM_StringSetSTD(vm, dirvar, webhare.GetModuleDirs()[i]);
         }
-        for(unsigned i=0;i<webhare.GetSubstModuleDirs().size();++i)
-        {
-                HSVM_VariableId dirvar = HSVM_ArrayAppend(vm, moduledirsvar);
-                HSVM_StringSetSTD(vm, dirvar, webhare.GetSubstModuleDirs()[i]);
-        }
         HSVM_VariableId rootdirvar = HSVM_ArrayAppend(vm, moduledirsvar);
         HSVM_StringSetSTD(vm, rootdirvar, Blex::MergePath(webhare.GetWebHareRoot(), "modules") + "/");
 }

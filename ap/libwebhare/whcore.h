@@ -299,7 +299,6 @@ class BLEXLIB_PUBLIC Connection
         {
                 std::string modpath;
                 Blex::DateTime creationdate;
-                bool is_substitute;
         };
 
         typedef std::map<std::string, ModuleData, Blex::StrCaseLess<std::string> > ModuleMap;
@@ -322,35 +321,34 @@ class BLEXLIB_PUBLIC Connection
         /** Get the client name */
         std::string const &GetClientName() const
         { return clientname; }
-        /** Get the installation type (production|test) key */
+
         /** Get the root directory for the WebHare files (root, /dbase,
             /modules, /skins, /web etc) */
         const std::string& GetWebHareRoot() const
-        { return installationroot; }
+        {
+                return installationroot;
+        }
         /** Get the base directory for the WebHare data files (dbase, installedmodules). */
         const std::string& GetBaseDataRoot() const
-        { return basedatadir; }
-        /** Get the var directory. */
-        std::string GetVarRoot() const
-        { return basedatadir; }
+        {
+                return basedatadir;
+        }
+
         /** Get the ephemeral var directory. */
-        std::string GetEphemeralRoot() const
-        { return GetBaseDataRoot() + "ephemeral/" ; }
+        std::string GetEphemeralRoot() const;
+
         /** Get the directory for the WebHare binaries (/bin/) */
-        const std::string& GetBinRoot() const
-        { return webharebinroot; }
-        /** Get the directory for the WebHare loadable libraries (/lib/) */
-        const std::string& GetLibRoot() const
-        { return webharelibroot; }
+        std::string GetBinRoot() const;
+
         /** Get the directory for the WebHare log files (/log/) */
-        const std::string& GetLogRoot() const
-        { return webharelogroot; }
+        std::string GetLogRoot() const;
+
         /** Get the directory for the WebHare tmp files (/tmp/) */
-        const std::string& GetTmpRoot() const
-        { return webharetmproot; }
+        std::string GetTmpRoot() const;
+
         /** Get the directory for the compile cache */
-        const std::string& GetCompileCache() const
-        { return compilecache; }
+        std::string GetCompileCache() const;
+
         /** Get the preload library */
         const std::string& GetPreloadLibrary() const
         { return preloadlibrary; }
@@ -388,7 +386,7 @@ class BLEXLIB_PUBLIC Connection
 
         /** Scan a specific module folder
             @param always_overwrites Always overwrite modules found here (to ensure webhare core modules are never overwritten) */
-        void ScanModuleFolder(ModuleMap *map, std::string const &folder, bool substfolder, bool rootfolder, bool always_overwrites) const;
+        void ScanModuleFolder(ModuleMap *map, std::string const &folder, bool rootfolder, bool always_overwrites) const;
 
         /** Connect to the WH manager to listen for remote events */
         void ConnectToWHManager();
@@ -397,7 +395,6 @@ class BLEXLIB_PUBLIC Connection
         void InitDebugger();
 
         std::vector<std::string> const &GetModuleDirs() const { return moduledirs; }
-        std::vector<std::string> const &GetSubstModuleDirs() const { return substmoduledirs; }
 
         //void Broadcast(std::string const &eventname, uint8_t const *data, unsigned datalen, HareScript::BroadcastMode::Type mode) const;
 
@@ -447,22 +444,12 @@ class BLEXLIB_PUBLIC Connection
         Blex::SocketAddress consilioloc;
         ///Base directory for data (has no default, but if set, modifies the default for data directories)
         std::string basedatadir;
-        ///Directory for the WebHare binaries (/bin)
-        std::string webharebinroot;
-        ///Directory for the WebHare loadable modules (/lib)
-        std::string webharelibroot;
-        ///Directory for the WebHare log files (/log)
-        std::string webharelogroot;
-        ///Directory for the WebHare tmp files (/tmp/)
-        std::string webharetmproot;
         ///Preload library
         std::string preloadlibrary;
         ///Location of the compile cache
         std::string compilecache;
         ///Module storage directories
         std::vector<std::string> moduledirs;
-        ///Substitute module storage directories
-        std::vector<std::string> substmoduledirs;
         ///Use only the shipped fonts?
         bool only_shipped_fonts;
 

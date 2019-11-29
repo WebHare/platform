@@ -442,7 +442,7 @@ WHFileSystem::WHFileSystem(WHCore::Connection &_conn, CompilationPriority::Class
 : HareScript::FileSystem(_conn.GetTmpRoot(), _conn.GetModuleFolder("system") + "whres")
 , dataroot(_conn.GetWebHareRoot())
 , compilecache(_conn.GetCompileCache())
-, dynamicmodulepath(_conn.GetLibRoot())
+, dynamicmodulepath(_conn.GetWebHareRoot() + "lib/")
 , priorityclass(priorityclass)
 , conn(&_conn)
 , allow_direct_compilations(allow_direct_compilations)

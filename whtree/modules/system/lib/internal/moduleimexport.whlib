@@ -111,7 +111,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllModulesAndVersionDirs()
   RECORD config := GetWebHareConfiguration();
   FOREVERY (STRING installdir FROM config.moduledirs)
   {
-    // Skip core modules and substitutes
+    // Skip core modules
     IF (installdir LIKE config.installationroot || "*")
       CONTINUE;
 
@@ -1428,31 +1428,25 @@ PUBLIC MACRO __CreateWebhareModulesManifests(STRING ARRAY list, STRING ARRAY exc
 {
   OBJECT ar := NEW ModuleArchiver;
 
-  STRING ARRAY rootdirs :=
-      [ MergePath(GetWebHareConfiguration().installationroot, "modules")
-      , MergePath(GetWebHareConfiguration().installationroot, "modules/substitutes")
-      ];
+  FOREVERY (RECORD dir FROM ReadDiskDirectory(MergePath(GetWebHareConfiguration().installationroot, "modules"), "*"))
+  {
+    IF (LENGTH(list) != 0 AND dir.name NOT IN list)
+      CONTINUE;
+    IF (dir.name IN exclude)
+      CONTINUE;
 
-  FOREVERY (STRING rootdir FROM rootdirs)
-    FOREVERY (RECORD dir FROM ReadDiskDirectory(rootdir, "*"))
+    IF (RecordExists(GetDiskFileProperties(MergePath(dir.path, "moduledefinition.xml"))))
     {
-      IF (LENGTH(list) != 0 AND dir.name NOT IN list)
-        CONTINUE;
-      IF (dir.name IN exclude)
-        CONTINUE;
+      RECORD ARRAY newfiles := ar->__GetSystemModuleManifestFiles(dir.path || "/", dir.name);
 
-      IF (RecordExists(GetDiskFileProperties(MergePath(dir.path, "moduledefinition.xml"))))
+      FOREVERY (RECORD rec FROM newfiles)
       {
-        RECORD ARRAY newfiles := ar->__GetSystemModuleManifestFiles(dir.path || "/", dir.name);
-
-        FOREVERY (RECORD rec FROM newfiles)
-        {
-          CreateDiskDirectoryRecursive(MergePath(dir.path, GetDirectoryFromPath(rec.fullpath)), TRUE);
-          StoreDiskFile(MergePath(dir.path, rec.fullpath), rec.data, [ overwrite := TRUE ]);
-          SetFileModificationDate(MergePath(dir.path, rec.fullpath), rec.modtime);
-        }
+        CreateDiskDirectoryRecursive(MergePath(dir.path, GetDirectoryFromPath(rec.fullpath)), TRUE);
+        StoreDiskFile(MergePath(dir.path, rec.fullpath), rec.data, [ overwrite := TRUE ]);
+        SetFileModificationDate(MergePath(dir.path, rec.fullpath), rec.modtime);
       }
     }
+  }
 }
 
 PUBLIC RECORD FUNCTION GetAuditLogDataFromManifest(RECORD manifest)
