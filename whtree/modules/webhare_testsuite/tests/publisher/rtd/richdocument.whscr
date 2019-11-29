@@ -284,6 +284,60 @@ MACRO RichDocInstanceTest()
   TestEq(TRUE, RecordExists(res.img));
 }
 
+MACRO PublishRichDocTableTest()
+{
+  testfw->BeginWork();
+
+  OBJECT workfolder := GetTestsuiteTempFolder();
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  OBJECT richdoc := NEW EditableRichDocument;
+
+  RECORD publishres;
+
+  OBJECT testfile := workfolder->CreateFile( [ name := "tabletest.rtd", type := richdoctype->id, publish := TRUE ]);
+
+  richdoc->ImportFromRecord([ htmltext := StringToBlob(
+    `<html>
+      <body>
+        <table class="mytable">
+          <colgroup>
+            <col style="width:100px"/>
+            <col style="width:100px"/>
+            <col style="width:100px"/>
+            <col style="width:100px"/>
+          </colgroup>
+          <tbody>
+            <tr>
+              <td><p clas="normal">This is a normal cell</p></td>
+              <td class="redpill"><p clas="normal">This is a red cell</p></td>
+              <td class="bluepill"><p clas="normal">This is a blue cell</p></td>
+              <td class="greenpill"><p clas="normal">This is a green cell</p></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html`)
+                 ]);
+  richdoc->SaveToWHFS(testfile);
+  testfw->CommitWork();
+
+  richdoc->LoadFromWHFS(testfile);
+  publishres := RunFilePublish(testfile->id, FALSE);
+  //dumpvalue(publishres,'tree');
+  //sendblobto(0,publishres.files[1].data);
+
+  TestEq(2, Length(publishres.files));
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+
+  OBJECT ARRAY cells := doc->GetElements("td");
+  TestEq(4, Length(cells));
+  TestEq("wh-rtd__tablecell", cells[0]->GetAttribute("class"));
+  TestEq("wh-rtd__tablecell redpill", cells[1]->GetAttribute("class"));
+  TestEq("wh-rtd__tablecell bluepill", cells[2]->GetAttribute("class"));
+  TestEq("wh-rtd__tablecell", cells[3]->GetAttribute("class"));
+}
+
 
 MACRO PublishRichDocTest()
 {
@@ -585,6 +639,7 @@ RunTestframework([ PTR RichdocumentTest
                  , PTR ParserApiTest
                  , PTR RichDocInstanceTest
                  , PTR PublishRichDocTest
+                 , PTR PublishRichDocTableTest
                  , PTR PublishRichDocImageTest
                  , PTR IntLinktest
                  , PTR RichdocumentRenderRegressions

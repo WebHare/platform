@@ -200,8 +200,17 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       this->Print(">" || lf);
       FOREVERY(RECORD cellrec FROM row.cells)
       {
+        STRING class := "wh-rtd__tablecell";
+        IF(cellrec.cellstyle != "")
+        {
+          RECORD matchstyle := SELECT * FROM outputobject->document->structure->structure.cellstyles WHERE cellstyles.tag = cellrec.cellstyle;
+          IF(RecordExists(matchstyle))
+            class := class || " " || matchstyle.tag;
+          //Validate
+        }
+
         STRING nodename := (cellrec.isheader?"th":"td");
-        this->Print('<' || nodename || ' class="wh-rtd__tablecell"');
+        this->Print(`<${nodename} class="${EncodeValue(class)}"`);
         IF(cellrec.isheader AND cellrec.scope IN ["row","col"])
           this->Print(' scope="' || cellrec.scope || '"');
         IF(cellrec.colspan>1)
@@ -561,6 +570,7 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
                           , richobjects := DEFAULT OBJECT ARRAY
                           , colspan := ToInteger(cellnode->GetAttribute("colspan"),1)
                           , rowspan := ToInteger(cellnode->GetAttribute("rowspan"),1)
+                          , cellstyle := cellnode->GetAttribute("class")
                           ];
 
         FOREVERY(OBJECT subnode FROM cellnode->childnodes->GetCurrentElements())
