@@ -245,11 +245,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="commondialogs" limitlanguages="en nl">   <!-- commondialogs -->
-    <textgroup gid="applyrules">   <!-- commondialogs.applyrules -->
-      <text tid="applyindex">Apply block</text>
-      <text tid="applyrules">Associated siteprofile &lt;apply&gt; rules</text>
-      <text tid="path">Siteprofile path</text>
-    </textgroup>
     <textgroup gid="browsewhfsobject">   <!-- commondialogs.browsewhfsobject -->
       <text tid="descr-file">Browse to a folder and choose a file from the list of files</text>
       <text tid="descr-filefolder">Browse to a folder and choose a file or folder from the list of files and folders</text>
@@ -267,9 +262,6 @@
         <text tid="list">List</text>
         <text tid="thumbnails">Thumbnails</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="ctypefieldedit">   <!-- commondialogs.ctypefieldedit -->
-      <text tid="ctypefieldedit">Edit</text>
     </textgroup>
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
       <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
@@ -295,26 +287,6 @@
         <text tid="outputfolderused">Site '<param p="1"/>' already uses (an ancestor of) the new output folder.</text>
         <text tid="renamesiteerror">The site could not be renamed.</text>
         <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="grantrights">   <!-- commondialogs.grantrights -->
-      <text tid="rightsbox">Right</text>
-      <text tid="searchfor">Search for</text>
-      <text tid="searchtab">Search</text>
-      <text tid="startsearch">Search</text>
-      <text tid="title">Grant right for '<param p="1"/>'</text>
-      <text tid="unitstab">Browse</text>
-      <textgroup gid="columns">   <!-- commondialogs.grantrights.columns -->
-        <text tid="unitname">Unit</text>
-        <text tid="username">Name</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="history">   <!-- commondialogs.history -->
-      <textgroup gid="history">   <!-- commondialogs.history.history -->
-        <text tid="blame">Author</text>
-        <text tid="date">Date</text>
-        <text tid="download">Download</text>
-        <text tid="history">History</text>
       </textgroup>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
@@ -362,26 +334,13 @@
       <text tid="unpinconfirm">Are you sure you want to remove the object protection?</text>
     </textgroup>
     <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
-      <text tid="access">Access</text>
-      <text tid="accessible">This folder is publicly accessible</text>
-      <text tid="cdnbaseurl">CDN base URL</text>
-      <text tid="closebracket">)</text>
-      <text tid="contentlistingdefault">WebHare's default content listing</text>
-      <text tid="contentlistinglegacy">set using classic interface</text>
       <text tid="created">(Created</text>
       <text tid="data">Value</text>
-      <text tid="deletionuser">Deleted by</text>
-      <text tid="editdbinfo">Edit database information</text>
       <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
       <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
       <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
-      <text tid="error">Error</text>
       <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
       <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
-      <text tid="force_profile_local">Force profile in this folder</text>
-      <text tid="force_profile_recursive">Force profile in subfolders</text>
-      <text tid="force_template_local">Force template in this folder</text>
-      <text tid="force_template_recursive">Force template in subfolders</text>
       <text tid="forcedbyparent">(Forced by parent folder)</text>
       <text tid="forceprofile">Force profile</text>
       <text tid="forcetemplate">Force template</text>
@@ -444,31 +403,6 @@
       <text tid="viewurl">View</text>
       <text tid="webpackinfo">Linked webpacks</text>
       <text tid="whfspath">Site profile</text>
-      <textgroup gid="columns">   <!-- commondialogs.objectprops.columns -->
-        <text tid="name">Name</text>
-        <text tid="nouserswithrightforobject">There are no users or roles assigned.</text>
-        <text tid="path">Given on</text>
-        <text tid="righttitle">Right</text>
-      </textgroup>
-      <textgroup gid="legacy">   <!-- commondialogs.objectprops.legacy -->
-        <text tid="about">This tab shows settings made in the old style Publisher interface. They still have effect, but are deprecated and should be replaced with site profile settings.</text>
-        <text tid="commonfiles">Common files</text>
-        <text tid="contentlistingfile">Content listing file</text>
-        <text tid="filepath">Path</text>
-        <text tid="folderindices">Folder indexes</text>
-        <text tid="folderindices-dontcreate">Don't create an index file in newly created folders</text>
-        <text tid="folderindices-insertcontentlisting">Insert a content listing</text>
-        <text tid="folderindices-makeacopy">Make a copy of</text>
-        <text tid="nositeprofneeded">All legacy settings are cleared</text>
-        <text tid="siteprofilecode">Site profile code</text>
-        <text tid="tab">Legacy settings</text>
-      </textgroup>
-      <textgroup gid="multiple">   <!-- commondialogs.objectprops.multiple -->
-        <text tid="formtitle">Properties</text>
-        <text tid="nr_files">Number of files</text>
-        <text tid="nr_folders">Number of folders</text>
-        <text tid="total_filesize">Total file size</text>
-      </textgroup>
       <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
         <text tid="notasks">No tasks have been scheduled</text>
         <text tid="task">Task</text>
@@ -798,9 +732,6 @@
       <text tid="opts-showforeignfolders">Show foreign folders</text>
       <text tid="opts-showmenubar">Show menu bar</text>
       <text tid="prefs">Preferences</text>
-      <text tid="resetwarnings">Reset all</text>
-      <text tid="resetwarnings-label">Warnings</text>
-      <text tid="showadvanced">Tweaks</text>
       <text tid="showwebharebackend">Show the 'WebHare backend' site</text>
       <text tid="showwhfsprivate">Show the internal WebHare folders</text>
       <text tid="tweaks">Tweaks</text>
@@ -1270,144 +1201,6 @@
         <text tid="showmodifications">Show modifications</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="props">   <!-- filemanager.props -->
-      <textgroup gid="propsshared">   <!-- filemanager.props.propsshared -->
-        <text tid="deleted">Deleted</text>
-        <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
-        <text tid="developers">Developers</text>
-        <text tid="formtitle">General settings</text>
-        <text tid="info">Properties</text>
-        <text tid="linkcheck">Link Check</text>
-        <text tid="maintab">General</text>
-        <text tid="modified">Modified</text>
-        <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
-        <text tid="size">Size</text>
-        <text tid="type">Type</text>
-      </textgroup>
-      <textgroup gid="tab">   <!-- filemanager.props.tab -->
-        <text tid="access">Access</text>
-        <text tid="accessible">This folder is publicly accessible</text>
-        <text tid="contentlistingdefault">WebHare's default content listing</text>
-        <text tid="contentlistinglegacy">set using classic interface</text>
-        <text tid="data">Value</text>
-        <text tid="deletionuser">Deleted by</text>
-        <text tid="editfile-title">Properties of file '<param p="1"/>'</text>
-        <text tid="editfolder-title">Properties of folder '<param p="1"/>'</text>
-        <text tid="editsite-title">Settings for site '<param p="1"/>'</text>
-        <text tid="error">Error</text>
-        <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
-        <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
-        <text tid="force_profile_local">Force profile in this folder</text>
-        <text tid="force_profile_recursive">Force profile in subfolders</text>
-        <text tid="force_template_local">Force template in this folder</text>
-        <text tid="force_template_recursive">Force template in subfolders</text>
-        <text tid="forcedbyparent">(Forced by parent folder)</text>
-        <text tid="forceprofile">Force profile</text>
-        <text tid="forcetemplate">Force template</text>
-        <text tid="isdeleted"><param p="1"/> (deleted)</text>
-        <text tid="local">in this folder</text>
-        <text tid="lockreason">Reason for locking:</text>
-        <text tid="locksite">Lock the site</text>
-        <text tid="makeindex">Use this file as the index document for this folder</text>
-        <text tid="multiple-title">Properties of <param p="1"/> items</text>
-        <text tid="name">Field</text>
-        <text tid="newfile-name">New <param p="1"/></text>
-        <text tid="newfile-title">New file</text>
-        <text tid="newfolder-title">New folder</text>
-        <text tid="newsite">New Site</text>
-        <text tid="newsite-title">New site</text>
-        <text tid="nobrokenlinks">There are no broken links to show</text>
-        <text tid="nolinks">There are no links to show</text>
-        <text tid="noprofile">&lt;No profile&gt;</text>
-        <text tid="notemplate">&lt;No template&gt;</text>
-        <text tid="originallocation">Original location</text>
-        <text tid="outputfolder">Subfolder in output URL</text>
-        <text tid="outputweb">Output URL</text>
-        <text tid="owner">Owner</text>
-        <text tid="path">Path</text>
-        <text tid="pinfile">Protect this file (it may not be renamed or deleted)</text>
-        <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
-        <text tid="profile">Profile</text>
-        <text tid="propeditor">Propertyeditor</text>
-        <text tid="properties">Properties</text>
-        <text tid="publicationsettings">Publication settings</text>
-        <text tid="publish">Publish this file</text>
-        <text tid="publishedurl">URL</text>
-        <text tid="publishtab">Publication</text>
-        <text tid="recursive">in all subfolders</text>
-        <text tid="referrer">Page</text>
-        <text tid="restrictions">Restrictions</text>
-        <text tid="rights">Rights</text>
-        <text tid="showalllinks">Show all links</text>
-        <text tid="showapplyrules">Show &lt;apply&gt; rules</text>
-        <text tid="sitenotpublished">The file is not part of a site or the site is not being published</text>
-        <text tid="siteprofile">Site profile</text>
-        <text tid="siteprofileerrors">The following property editors caused errors</text>
-        <text tid="siteprofiles">Site profiles</text>
-        <text tid="sitetab">Site</text>
-        <text tid="status">Status</text>
-        <text tid="takeownership">Take ownership</text>
-        <text tid="tasksettings">Tasks</text>
-        <text tid="taskstab">Tasks</text>
-        <text tid="template">Template</text>
-        <text tid="text">Link text</text>
-        <text tid="trashnotpublished">Deleted files cannot be published</text>
-        <text tid="typenotpublished">Files of type '<param p="1"/>' cannot be published</text>
-        <text tid="unknown">&lt;Unknown&gt;</text>
-        <text tid="url">URL</text>
-        <text tid="usedcontentlistingfile">Content listing source</text>
-        <text tid="viewurl">View</text>
-        <text tid="webpackinfo">Linked webpacks</text>
-        <textgroup gid="columns">   <!-- filemanager.props.tab.columns -->
-          <text tid="name">Name</text>
-          <text tid="nouserswithrightforobject">There are no users or roles assigned.</text>
-          <text tid="path">Given on</text>
-          <text tid="righttitle">Right</text>
-        </textgroup>
-        <textgroup gid="legacy">   <!-- filemanager.props.tab.legacy -->
-          <text tid="about">This tab shows settings made in the old style Publisher interface. They still have effect, but are deprecated and should be replaced with site profile settings.</text>
-          <text tid="commonfiles">Common files</text>
-          <text tid="contentlistingfile">Content listing file</text>
-          <text tid="filepath">Path</text>
-          <text tid="folderindices">Folder indexes</text>
-          <text tid="folderindices-dontcreate">Don't create an index file in newly created folders</text>
-          <text tid="folderindices-insertcontentlisting">Insert a content listing</text>
-          <text tid="folderindices-makeacopy">Make a copy of</text>
-          <text tid="nositeprofneeded">All legacy settings are cleared</text>
-          <text tid="siteprofilecode">Site profile code</text>
-          <text tid="tab">Legacy settings</text>
-        </textgroup>
-        <textgroup gid="multiple">   <!-- filemanager.props.tab.multiple -->
-          <text tid="formtitle">Properties</text>
-          <text tid="nr_files">Number of files</text>
-          <text tid="nr_folders">Number of folders</text>
-          <text tid="total_filesize">Total file size</text>
-        </textgroup>
-        <textgroup gid="tasks">   <!-- filemanager.props.tab.tasks -->
-          <text tid="notasks">No tasks have been scheduled</text>
-          <text tid="task">Task</text>
-          <text tid="when">Time</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="taskprops">   <!-- filemanager.props.taskprops -->
-        <text tid="addtask">Add task</text>
-        <text tid="edittask">Edit taak</text>
-        <text tid="event">Task</text>
-        <text tid="event-delete">Delete (move to recycle bin)</text>
-        <text tid="event-end">End publication</text>
-        <text tid="event-endrecurse">End publication of all files in this folder and all subfolders</text>
-        <text tid="event-move">Move to</text>
-        <text tid="event-movefolder">Move to folder '<param p="1"/>'</text>
-        <text tid="event-setindexdoc">Set as index document</text>
-        <text tid="event-start">Start publication</text>
-        <text tid="event-startrecurse">Start publication of all files in this folder and all subfolders</text>
-        <text tid="when">Start at</text>
-        <textgroup gid="messages">   <!-- filemanager.props.taskprops.messages -->
-          <text tid="norightstomovetofolder">You have insufficient rights to move files to folder '<param p="1"/>'.</text>
-          <text tid="taskinpast">The date and/or time you specified lies in the past. Tasks can only be scheduled on future dates/times.</text>
-        </textgroup>
-      </textgroup>
-    </textgroup>
     <textgroup gid="recyclebin">   <!-- filemanager.recyclebin -->
       <textgroup gid="filterpanel">   <!-- filemanager.recyclebin.filterpanel -->
         <text tid="searchoptions-searchenddate">Deleted before</text>
@@ -1871,249 +1664,6 @@
       <text tid="noconfirmationlink">You need to add a confirmation link object to the mail contents.</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="iw" limitlanguages="en nl">   <!-- iw -->
-    <text tid="abouttitle">Forum</text>
-    <text tid="pagetitle_add_folder">Add a new forum to folder '<param p="1"/>'</text>
-    <text tid="pagetitle_add_site">Add a new forum to site '<param p="1"/>'</text>
-    <textgroup gid="dialogs">   <!-- iw.dialogs -->
-      <text tid="confirm_posting_delete">Are you sure you want to delete the posting placed on <param p="1"/>?</text>
-    </textgroup>
-    <textgroup gid="forumcwi">   <!-- iw.forumcwi -->
-      <textgroup gid="errors">   <!-- iw.forumcwi.errors -->
-        <text tid="bademail">Please fill in a valid email address</text>
-        <text tid="codemismatch">The verification code was filled in incorrectly. Please try again</text>
-        <text tid="nocode">Please fill in the verification code</text>
-        <text tid="noemail">Please fill in an email address</text>
-        <text tid="noname">Please fill in your name</text>
-        <text tid="noposting">Please fill in a posting</text>
-        <text tid="nosubject">Please fill in a subject</text>
-        <text tid="unavailable">The forum is currently unavailable. We apologize for the inconvenience.</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- iw.forumcwi.messages -->
-        <text tid="add_posting_email_message">A posting has been added to '<param p="1"/>'.&lt;br&gt;&lt;br&gt;The content of this posting is:&lt;br&gt;&lt;br&gt;<param p="2"/></text>
-        <text tid="add_posting_email_subject">Posting added to '<param p="1"/>'</text>
-      </textgroup>
-      <textgroup gid="posting">   <!-- iw.forumcwi.posting -->
-        <text tid="cite"><param p="1"/> wrote:</text>
-        <text tid="code">Verification code</text>
-        <text tid="header">Postings of thread '<param p="1"/>'</text>
-        <text tid="posting">Posting</text>
-        <text tid="unknown_user">Unknown</text>
-      </textgroup>
-      <textgroup gid="threads">   <!-- iw.forumcwi.threads -->
-        <text tid="addposting">Add posting to thread '<param p="1"/>'</text>
-        <text tid="curpage">Pagina <param p="1"/> van <param p="2"/></text>
-        <text tid="delposting">Delete</text>
-        <text tid="editposting">Edit</text>
-        <text tid="header">Threads of topic '<param p="1"/>'</text>
-        <text tid="modifiedon">Modified on <param p="1"/></text>
-        <text tid="nextpage">&gt;&gt;</text>
-        <text tid="postedon">Posted on <param p="1"/></text>
-        <text tid="prevpage">&lt;&lt;</text>
-        <text tid="reply">Reply</text>
-        <text tid="subscribe">Subscribe to this thread</text>
-        <text tid="threadindex">Back to thread index</text>
-        <text tid="unsubscribe">Unsubscribe from this thread</text>
-        <textgroup gid="addposting">   <!-- iw.forumcwi.threads.addposting -->
-          <text tid="blog">New comment</text>
-          <text tid="forum">New posting</text>
-          <text tid="guestbook">New posting</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="topics">   <!-- iw.forumcwi.topics -->
-        <text tid="addthread">New thread</text>
-        <text tid="by">by</text>
-        <text tid="creationtime">Opened on</text>
-        <text tid="description">Description</text>
-        <text tid="lastaddtime">Last contribution</text>
-        <text tid="nummessages">Postings</text>
-        <text tid="numpostings">Number of postings</text>
-        <text tid="numthreads">Number of threads</text>
-        <text tid="pages">Pages</text>
-        <text tid="subject">Subject</text>
-        <text tid="topic">Topic</text>
-        <text tid="topiclist">Back to topic list</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="forumeditor">   <!-- iw.forumeditor -->
-      <textgroup gid="errors">   <!-- iw.forumeditor.errors -->
-        <text tid="invalid_email">The submitted email address '<param p="1"/>' in field '<param p="2"/>' is invalid</text>
-        <text tid="invalid_url">The submitted URL in field '<param p="1"/>' is invalid. Please make sure the URL starts with 'http://'.</text>
-        <text tid="no_email">The field '<param p="1"/>' is required</text>
-        <text tid="wrong_email">The submitted email address in field 'Poster email address' is invalid</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- iw.forumeditor.main -->
-        <text tid="about">About</text>
-        <text tid="addthread">New thread</text>
-        <text tid="addthreadbutton">New thread</text>
-        <text tid="addtopic">Add new topic</text>
-        <text tid="addtopicbutton">New topic</text>
-        <text tid="deletethread">Remove thread</text>
-        <text tid="deletetopic">Delete topic</text>
-        <text tid="deletetopicbutton">Remove topic</text>
-        <text tid="description">Description</text>
-        <text tid="editforum">Edit forum</text>
-        <text tid="editthread">Edit thread</text>
-        <text tid="edittopic">Edit topic</text>
-        <text tid="edittopicbutton">Edit topic</text>
-        <text tid="forumprops">Edit forum settings</text>
-        <text tid="general">General</text>
-        <text tid="last_modification_date">Last modification</text>
-        <text tid="num_postings"><param p="1"/> posting(s)</text>
-        <text tid="num_postings_threads">Number of topics/postings</text>
-        <text tid="num_threads"><param p="1"/> topic(s)</text>
-        <text tid="numpostings">Number of postings</text>
-        <text tid="numthreads">Number of threads</text>
-        <text tid="ordertopics">Re-order topics</text>
-        <text tid="ordertopicsbutton">Re-order topics</text>
-        <text tid="originalposter">Original poster</text>
-        <text tid="showpostings">Manage thread postings</text>
-        <text tid="subject">Subject</text>
-        <text tid="threadtitle">Postings of thread '<param p="1"/>'</text>
-        <text tid="topic">Topic</text>
-        <text tid="topics">Topics</text>
-        <text tid="topictitle">Threads of topic '<param p="1"/>'</text>
-      </textgroup>
-      <textgroup gid="menu">   <!-- iw.forumeditor.menu -->
-        <text tid="about">About Forum</text>
-        <text tid="forummenu">Forum</text>
-        <text tid="forumprops">Edit forum settings</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- iw.forumeditor.messages -->
-        <text tid="deleteposting">Are you sure you want to delete the posting by '<param p="1"/>', placed on <param p="2"/>?</text>
-        <text tid="deletepostingandthread">Are you sure you want to delete the posting by '<param p="1"/>'?<br/>Please note: since this is the last posting of the thread, the thread will be closed and deleted as well.</text>
-        <text tid="deletethread">Are you sure you want to delete thread '<param p="1"/>'?</text>
-        <text tid="deletetopic">Are you sure you want to delete topic '<param p="1"/>'?</text>
-        <text tid="filenotfound">Forum could not be found, this can occur after a copy/move action or unarchiving. Please delete this file and create a new IW forum file. We apologize for the inconvenience.</text>
-        <text tid="subscriptions_will_be_lost">There are still people subscribed to threads within this forum. By disabling the subscribe option, the subscriptions of these persons will be removed automatically. Are you sure you want to continue?</text>
-      </textgroup>
-      <textgroup gid="postings">   <!-- iw.forumeditor.postings -->
-        <text tid="showpostings">Show postings</text>
-        <textgroup gid="actions">   <!-- iw.forumeditor.postings.actions -->
-          <text tid="addposting">New posting</text>
-          <text tid="deleteposting">Delete</text>
-          <text tid="editposting">Edit</text>
-          <text tid="replyposting">Respond</text>
-        </textgroup>
-        <textgroup gid="columns">   <!-- iw.forumeditor.postings.columns -->
-          <text tid="postername">Poster</text>
-          <text tid="posttime">Posted on</text>
-        </textgroup>
-        <textgroup gid="posting">   <!-- iw.forumeditor.postings.posting -->
-          <text tid="email">Poster email address</text>
-          <text tid="formtitle">Posting properties</text>
-          <text tid="formtitle_preview">Posting contents</text>
-          <text tid="formtitle_thread">Thread properties</text>
-          <text tid="inreplytoposting">Reply to</text>
-          <text tid="locked">Closed thread</text>
-          <text tid="locked-false">This thread is not closed - postings can be added</text>
-          <text tid="locked-true">This thread is closed - no postings can be added</text>
-          <text tid="name">Poster name</text>
-          <text tid="pagetitle_add">Add new posting</text>
-          <text tid="pagetitle_edit">Edit posting</text>
-          <text tid="pagetitle_reply">Post a reply</text>
-          <text tid="preview">Posting</text>
-          <text tid="sticky">Always on top</text>
-          <text tid="sticky-false">This topic is always at the bottom</text>
-          <text tid="sticky-true">This topic is always on top</text>
-          <text tid="subject">Topic</text>
-          <text tid="tag">Tag</text>
-          <text tid="text">Posting</text>
-          <text tid="updateposting">Update posting</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="props">   <!-- iw.forumeditor.props -->
-        <text tid="avatarfield">Avatar field</text>
-        <text tid="displaynamefield">Name field</text>
-        <text tid="email_address_admin">Email address administrator</text>
-        <text tid="email_address_sender">Sender address</text>
-        <text tid="email_admin">Email address</text>
-        <text tid="email_admin_desc">Send an email to the administator upon changes</text>
-        <text tid="email_required">Email field required</text>
-        <text tid="email_required_desc">Entering an email address is required</text>
-        <text tid="emailfield">Email field</text>
-        <text tid="forum_general">Forum settings</text>
-        <text tid="forum_url">Forum URL</text>
-        <text tid="forumpanel">Forum settings</text>
-        <text tid="forumprops">Forum settings</text>
-        <text tid="forumtab">Forum</text>
-        <text tid="forumtype">Forum type</text>
-        <text tid="forumtype-1">Comprehensive forum</text>
-        <text tid="forumtype-2">Guestbook</text>
-        <text tid="forumtype-3">Reaction log (blog)</text>
-        <text tid="generalpanel">General settings</text>
-        <text tid="generaltab">General</text>
-        <text tid="postings_perpage">Number of postings per page</text>
-        <text tid="postingspanel">Postings</text>
-        <text tid="requireaccount">Account</text>
-        <text tid="requireaccount-false">Anonymous users may also post messages</text>
-        <text tid="requireaccount-true">An account is required to post messages</text>
-        <text tid="show_email">Show email address</text>
-        <text tid="show_email_desc">Show the email address of users</text>
-        <text tid="showrespondlink">Show "Respond" button</text>
-        <text tid="showrespondlink_desc">Allow the user to quote existing postings</text>
-        <text tid="spamprevent">Spam prevention</text>
-        <text tid="spamprevent-0">No spam security</text>
-        <text tid="spamprevent-1">Simple, invisible security</text>
-        <text tid="spamprevent-2">Demand that the user enters a code</text>
-        <text tid="subscribe_automatically">Subscribe automatically</text>
-        <text tid="subscribe_automatically_desc">Users are subscribed automatically after posting</text>
-        <text tid="subscribe_to_threads">Subscribe to threads</text>
-        <text tid="subscribe_to_threads_desc">Users can subscribe to threads</text>
-        <text tid="subscribe_to_topics">Subscribe to topics</text>
-        <text tid="subscribe_to_topics_desc">Users can subscribe to forum topics</text>
-        <text tid="threads_subscription_email_from">Sender email address</text>
-        <text tid="topicdescriptions">Topic descriptions</text>
-        <text tid="topicdescriptions-false">Only show at thread</text>
-        <text tid="topicdescriptions-true">Also show in overview of threads</text>
-        <text tid="wrdpanel">WRD connections</text>
-      </textgroup>
-      <textgroup gid="thread">   <!-- iw.forumeditor.thread -->
-        <text tid="editthread">Edit thread</text>
-        <text tid="formtitle">Thread properties</text>
-        <text tid="locked">Closed thread</text>
-        <text tid="locked-false">This thread is not closed - postings can be added</text>
-        <text tid="locked-true">This thread is closed - no postings can be added</text>
-        <text tid="pagetitle_add">Add thread to topic '<param p="1"/>'</text>
-        <text tid="pagetitle_edit">Edit thread '<param p="1"/>'</text>
-        <text tid="sticky">Always on top</text>
-        <text tid="sticky-false">This topic is always at the bottom</text>
-        <text tid="sticky-true">This topic is always on top</text>
-        <text tid="subject">Topic</text>
-        <text tid="tag">Tag</text>
-        <textgroup gid="newposting">   <!-- iw.forumeditor.thread.newposting -->
-          <text tid="email">Poster emailaddress</text>
-          <text tid="formtitle">New posting</text>
-          <text tid="name">Poster name</text>
-          <text tid="text">Posting</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="topic">   <!-- iw.forumeditor.topic -->
-        <text tid="description">Description</text>
-        <text tid="formtitle">Topic properties</text>
-        <text tid="forumtopic">Forum topic</text>
-        <text tid="newthreads">New threads</text>
-        <text tid="newthreads-false">Only moderators may start new threads</text>
-        <text tid="newthreads-true">Everyone may start new threads</text>
-        <text tid="pagetitle_add">Add a new topic</text>
-        <text tid="pagetitle_edit">Edit topic '<param p="1"/>'</text>
-        <text tid="subject">Subject</text>
-        <text tid="tag">Tag</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="forumupdate">   <!-- iw.forumupdate -->
-      <text tid="filename">File name</text>
-      <text tid="multiple">This forum consists of multiple topics</text>
-      <text tid="multitopic">Topicmode</text>
-      <text tid="single">This forum consists of a single topic</text>
-      <text tid="unconnected">Unconnected</text>
-      <text tid="wrdtype">WRD user type</text>
-    </textgroup>
-    <textgroup gid="posting">   <!-- iw.posting -->
-      <text tid="content">Content</text>
-      <text tid="posting">Posting</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="main" limitlanguages="en nl">   <!-- main -->
     <text tid="filemanager">Publisher</text>
     <text tid="filemanager_folder"><param p="1"/> - Publisher</text>
@@ -2343,24 +1893,6 @@
         <text tid="webdesign">Webdesign</text>
         <text tid="webdesign-hint">Webdesign (module:designname)</text>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="outputslaves" limitlanguages="en nl">   <!-- outputslaves -->
-    <textgroup gid="dialogs">   <!-- outputslaves.dialogs -->
-      <text tid="confirmdelete">Are you sure you want to delete this secondary output?</text>
-    </textgroup>
-    <textgroup gid="manage">   <!-- outputslaves.manage -->
-      <text tid="folder">Folder</text>
-      <text tid="manage">Manage secondary outputs</text>
-      <text tid="tag">Tag</text>
-      <text tid="url">URL</text>
-    </textgroup>
-    <textgroup gid="slave">   <!-- outputslaves.slave -->
-      <text tid="folder">Folder</text>
-      <text tid="outputfolder">Output folder</text>
-      <text tid="outputweb">Output webserver</text>
-      <text tid="slave">Secondary output</text>
-      <text tid="tag">Tag</text>
     </textgroup>
   </textgroup>
   <textgroup gid="profileeditor" limitlanguages="en nl">   <!-- profileeditor -->
