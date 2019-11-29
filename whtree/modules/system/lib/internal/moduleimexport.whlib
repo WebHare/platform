@@ -776,7 +776,7 @@ PUBLIC STATIC OBJECTTYPE ModuleArchiver
 
 
 /** Moves a module folder from the installedmodules folder to the archive
-    @param modulefoldername Name of the module folder (like module.timestamp)
+    @param modulefolderpath Name of the module folder (like module.timestamp)
     @param obsoletiondate Date of obsoletiondate
     @return Whether the move was successful
 */

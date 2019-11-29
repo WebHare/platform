@@ -8,7 +8,7 @@ LOADLIB "wh::internal/interface.whlib";
     @param inrows Source rows to enrich
     @param idcellname Id cell in rows to enrich (append '[]' if the cell is an array, use wrapfields to insert another cell instead of replacing this cell)
     @param options Options
-    @cell(record) options.leftouterjoin If set, use this record as source row for enrich rows which don't match a source row/
+    @cell(record) options.leftouterjoin If set, use this record as source row for enrich rows which don't match a source row
     @cell(boolean) options.rightouterjoin If FALSE, delete inrows without matching enrichment, otherwise call getdefaultjoinrecord function ptr and use that to enrich the source row.
     @cell(boolean) options.matchcase If TRUE, compare the id cells case insensitive.
     @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name
