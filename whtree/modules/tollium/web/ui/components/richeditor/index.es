@@ -7,7 +7,7 @@ import * as browser from "dompack/extra/browser";
 require('@mod-publisher/js/richcontent/styling.css');
 import StructuredEditor from './internal/structurededitor';
 import * as domlevel from './internal/domlevel';
-var EditorBase = require('./internal/editorbase');
+import FreeEditor from './internal/free-editor';
 var TableEditor = require('./internal/tableeditor');
 import RTEToolbar from './internal/toolbar';
 import './richeditor.scss';
@@ -335,7 +335,7 @@ export class RTE
     {
       editoropts.allowtags = this.options.allowtags;
       editoropts.allowundo = false;
-      editor = new EditorBase(edittarget, this, editoropts);
+      editor = new FreeEditor(edittarget, this, editoropts);
     }
 
     editor.setShowFormatting(this.showformatting);

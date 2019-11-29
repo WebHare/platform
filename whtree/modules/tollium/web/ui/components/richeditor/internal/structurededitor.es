@@ -4,13 +4,14 @@ import * as richdebug from "./richdebug";
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
+import * as lists from './structured/lists.es';
 import ParsedStructure from "./parsedstructure";
 import Range from './dom/range.es';
 require('./pastecleanup');
 
 var tableeditor = require("./tableeditor");
 import * as domlevel from "./domlevel";
-var EditorBase = require('./editorbase');
+import EditorBase from './editorbase';
 var PasteCleanup = require('./pastecleanup');
 
 //debug flags
@@ -2614,7 +2615,7 @@ export default class StructuredEditor extends EditorBase
     var range = this.getSelectionRange();
     const undolock = this.getUndoLock();
 
-    var filtered = this.getLevelActionableListNodes(range).addable;
+    var filtered = lists.getLevelActionableListNodes(range, this.getContentBodyNode()).addable;
 
     //console.log('addlistlevel todo', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), filtered, true));
 
@@ -2670,7 +2671,7 @@ export default class StructuredEditor extends EditorBase
     const undolock = this.getUndoLock();
     var orgrange = range.clone();
 
-    var filtered = this.getLevelActionableListNodes(range).removeable;
+    var filtered = lists.getLevelActionableListNodes(range, this.getContentBodyNode()).removeable;
 
     //console.log('rll pre', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { blocks: filtered, orgrange: orgrange }, true));
 
@@ -3067,5 +3068,17 @@ export default class StructuredEditor extends EditorBase
                           } break;
 
     }
+  }
+
+  //////////////////////////////////////////////////////
+  //
+  // Lists
+  //
+  getAvailableListActions(range)
+  {
+    var listdata = lists.getLevelActionableListNodes(range, this.getContentBodyNode());
+    return { canincrease: listdata.addable.length != 0
+           , candecrease: listdata.removeable.length != 0
+           };
   }
 }

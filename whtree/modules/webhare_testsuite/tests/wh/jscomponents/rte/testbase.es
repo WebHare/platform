@@ -377,12 +377,12 @@ test.registerTests(
             , { html: '<p>"a"<strike>"b(*0*)"</strike>"c"</p>', active: [ 'strike' ] }
             , { html: '<p>"a"<sub>"b(*0*)"</sub>"c"</p>', active: [ 'sub' ] }
             , { html: '<p>"a"<sup>"b(*0*)"</sup>"c"</p>', active: [ 'sup' ] }
-            , { html: '<ol><li>"(*0*)a"</li><ol>', active: [ 'ol' ] }
-            , { html: '<ul><li>"(*0*)a"</li><ul>', active: [ 'ul' ] }
-            , { html: '<ul><li><ol><li>"(*0*)a"</li></ol></li><ul>', active: [ 'ol' ], available: [ 'li-decrease-level' ] }
-            , { html: '<ol><li><ul><li>"(*0*)a"</li></ul></li><ol>', active: [ 'ul' ], available: [ 'li-decrease-level' ]  }
-            , { html: '<ul><li></li><li>"(*0*)a"</li><ul>', active: [ 'ul' ], available: [ 'li-increase-level' ]  }
-            , { html: '<ol><li></li><li>"(*0*)a"</li><ol>', active: [ 'ol' ], available: [ 'li-increase-level' ]  }
+            , { html: '<ol><li>"(*0*)a"</li><ol>', active: [ 'ol' ], available: [ 'li-increase-level', 'li-decrease-level' ] }
+            , { html: '<ul><li>"(*0*)a"</li><ul>', active: [ 'ul' ], available: [ 'li-increase-level', 'li-decrease-level' ]  }
+            , { html: '<ul><li><ol><li>"(*0*)a"</li></ol></li><ul>', active: [ 'ol' ], available: [ 'li-increase-level', 'li-decrease-level' ] }
+            , { html: '<ol><li><ul><li>"(*0*)a"</li></ul></li><ol>', active: [ 'ul' ], available: [ 'li-increase-level', 'li-decrease-level' ]  }
+            , { html: '<ul><li></li><li>"(*0*)a"</li><ul>', active: [ 'ul' ], available: [ 'li-increase-level', 'li-decrease-level' ]  }
+            , { html: '<ol><li></li><li>"(*0*)a"</li><ol>', active: [ 'ol' ], available: [ 'li-increase-level', 'li-decrease-level' ]  }
             , { html: '<p>"a"<a href="http://example.com">"(*0*)b"</a>"c"</p>', active: [ ] }
             , { html: '<p>"a"<a href="http://example.com">"b(*0*)"</a>"c"</p>', active: [ ] }
             , { html: '<p>"a"<a href="http://example.com">"(*0*)b(*1*)"</a>"c"</p>', available: [ 'a-href', 'action-properties' ] }

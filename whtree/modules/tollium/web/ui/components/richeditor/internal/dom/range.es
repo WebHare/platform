@@ -57,6 +57,15 @@ export default class Range
     return Locator.findCommonAncestorElement(this.start, this.end);
   }
 
+  getAncestorClosest(selector, scope)
+  {
+    if(!scope)
+      throw new Error("Scope is required");
+
+    let theclosest = this.getAncestorElement().closest(selector);
+    return scope.contains(theclosest) ? theclosest : null;
+  }
+
   isCollapsed()
   {
     return this.start.equals(this.end);
