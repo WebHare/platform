@@ -299,6 +299,9 @@
       <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
       <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
       <tablestyle tag="MYTABLE" />
+      <tablestyle tag="OTHERTABLE" />
+      <cellstyle tag="REDPILL" title="Red cell"/>
+      <cellstyle tag="BLUEPILL" title="Blue cell"/>
     </blockstyles>
   </rtdtype>
 

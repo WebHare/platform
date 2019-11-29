@@ -208,6 +208,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell blocktypes Blobk types (unused)
       @cell defaultblockstyle Name of default block type
       @cell(string) contentareawidth Content area width
+      @cell(record array) cellstyles Table cell styles
+      @cell(string) cellstyles.tag Tag for this style
+      @cell(string) cellstyles.title Name of this style
   */
   PUBLIC RECORD structure; //FIXME PRIVATE
 
@@ -259,7 +262,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   RECORD FUNCTION ReadCellStyle(OBJECT styleblock)
   {
     RECORD style := [ tag := ToLowercase(styleblock->GetAttribute("tag"))
-                    , ttle := styleblock->GetAttribute("title")
+                    , title := styleblock->GetAttribute("title")
                     ];
     RETURN style;
   }
@@ -1313,13 +1316,13 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                         , blocktypes := DEFAULT RECORD ARRAY
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
-                        , cellstyles := RECORD[]
+                        , cellstyles := RECORD[ [ tag := "", title := "" ] ]
                         ];
     this->allowedobjects := DEFAULT RECORD ARRAY;
 
     FOREVERY(OBJECT styleblock FROM blockstylenode->childnodes->GetCurrentElements())
     {
-      IF(styleblock->localname = "cellstyle")
+      IF(styleblock->localname = "cellstyle" AND structuredefns = "http://www.webhare.net/xmlns/publisher/siteprofile")
       {
         INSERT this->ReadCellStyle(styleblock) INTO structure.cellstyles AT END;
       }

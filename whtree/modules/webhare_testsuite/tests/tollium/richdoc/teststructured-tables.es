@@ -31,74 +31,68 @@ test.registerTests(
       }
     }
 
-      // Test table top header
-  , { name: 'topheader-open-properties-1'
-    , test:function(doc,win)
-      {
-        var rtenode = test.compByName('structured');
-        var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-        var first_td_p = table.querySelector("td p");
+  , "Test table top header"
+  , async function()
+    {
+      const driver = new rtetest.RTEDriver('structured');
+      var rtenode = test.compByName('structured');
+      var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      var first_td_p = table.querySelector("td p");
 
-        const rte = new rtetest.RTEDriver('structured');
+      driver.setSelection(first_td_p);
 
-        // var rte = rtetest.getRTE(win, 'structured');
-        rte.setSelection(first_td_p);
+      test.click(first_td_p.parentNode, { button: 2 });
+      test.click(test.getOpenMenuItem("Properties"));
 
-        test.click(first_td_p.parentNode, { button: 2 });
-        test.click(test.getOpenMenuItem("Properties"));
-      }
-    , waits: [ "ui" ]
-    }
-  , { name: 'topheader-enable'
-    , test:function(doc,win)
-      {
-        test.click(test.qSA('t-text').filter(node=>node.textContent.includes("header row")) [0]);
-        test.clickTolliumButton("OK");
-      }
-    , waits: [ "ui" ]
-    }
-  , { name: 'topheader-test'
-    , test:function(doc,win)
-      {
-        var rtenode = test.compByName('structured');
-        var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      await test.wait('ui');
 
-        test.eq(2,table.querySelectorAll("tr").length);
-        test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
-        test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader").length);
+      test.eq('mytable', test.getCurrentScreen().qSA("select")[0].value);
+      test.fill(test.getCurrentScreen().qSA("select")[0], 'othertable');
 
-        var nodes = table.querySelectorAll("td,th");
-        test.eq("th", nodes[0].nodeName.toLowerCase());
-        test.eq("th", nodes[1].nodeName.toLowerCase());
-        test.eq("td", nodes[2].nodeName.toLowerCase());
-        test.eq("td", nodes[3].nodeName.toLowerCase());
+      test.click(test.qSA('t-text').filter(node=>node.textContent.includes("header row")) [0]);
+      test.eq('', test.getCurrentScreen().qSA("select")[1].value);
+      test.eq('Default cell styling', test.getCurrentScreen().qSA("select")[1].selectedOptions[0].textContent);
+      test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
 
-        test.eq("col", nodes[0].scope);
-        test.eq("col", nodes[1].scope);
-        test.eq("", nodes[2].scope);
+      test.clickTolliumButton("OK");
 
-        test.clickTolliumButton("Rewrite");
-      }
-    , waits: [ "ui" ]
-    }
-  , { name: 'topheader-test-after-rewrite' // See if reparse keep the header structure
-    , test:function(doc,win)
-      {
-        var rtenode = test.compByName('structured');
-        var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-        test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
-        test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader").length);
+      await test.wait('ui');
 
-        var nodes = table.querySelectorAll("td,th");
-        test.eq("th", nodes[0].nodeName.toLowerCase());
-        test.eq("th", nodes[1].nodeName.toLowerCase());
-        test.eq("td", nodes[2].nodeName.toLowerCase());
-        test.eq("td", nodes[3].nodeName.toLowerCase());
+      table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      test.true(table.classList.contains("othertable"));
 
-        test.eq("col", nodes[0].scope);
-        test.eq("col", nodes[1].scope);
-        test.eq("", nodes[2].scope);
-      }
+      test.eq(2,table.querySelectorAll("tr").length);
+      test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
+      test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader").length);
+
+      var nodes = table.querySelectorAll("td,th");
+      test.eq("th", nodes[0].nodeName.toLowerCase());
+      test.true(nodes[0].classList.contains("redpill"));
+      test.eq("th", nodes[1].nodeName.toLowerCase());
+      test.eq("td", nodes[2].nodeName.toLowerCase());
+      test.eq("td", nodes[3].nodeName.toLowerCase());
+
+      test.eq("col", nodes[0].scope);
+      test.eq("col", nodes[1].scope);
+      test.eq("", nodes[2].scope);
+
+      // See if reparse keep the header structure
+      test.clickTolliumButton("Rewrite");
+      await test.wait("ui");
+
+      table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      test.eq(1,table.querySelectorAll(".wh-rtd--hascolheader").length);
+      test.eq(0,table.querySelectorAll(".wh-rtd--hasrowheader").length);
+
+      nodes = table.querySelectorAll("td,th");
+      test.eq("th", nodes[0].nodeName.toLowerCase());
+      test.eq("th", nodes[1].nodeName.toLowerCase());
+      test.eq("td", nodes[2].nodeName.toLowerCase());
+      test.eq("td", nodes[3].nodeName.toLowerCase());
+
+      test.eq("col", nodes[0].scope);
+      test.eq("col", nodes[1].scope);
+      test.eq("", nodes[2].scope);
     }
 
       // Test table left

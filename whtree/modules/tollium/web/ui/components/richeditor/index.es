@@ -523,6 +523,7 @@ export class RTE
         var editor = TableEditor.getEditorForNode(tablenode);
         return { type: 'cell'
                , tablestyletag: tablenode.classList[0]
+               , cellstyletag: node.classList[1] || ''
                , datacell: editor.locateFirstDataCell()
                , numrows: editor.numrows
                , numcolumns: editor.numcolumns
@@ -572,6 +573,9 @@ export class RTE
       this.getEditor().removeTable(table);
       return;
     }
+
+    //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
+    this.getEditor().setCellStyle(node, settings.cellstyletag);
 
     let editor = TableEditor.getEditorForNode(table);
     if (editor)

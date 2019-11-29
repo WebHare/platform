@@ -173,23 +173,28 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->rte := data.rte;
+    IF(NOT RecordExists(this->rte->rtdtypeinfo))
+    {
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
     ^topheader->value := data.data.datacell.row != 0;
     ^leftheader->value := data.data.datacell.col != 0;
 
-    IF(RecordExists(this->rte->rtdtypeinfo))
-    {
-      ^tablestyle->options := SELECT rowkey := ToLowercase(tag), title := title ?? ToLowercase(tag)
-                                     FROM this->rte->rtdtypeinfo.structure.blockstyles
-                                    WHERE type = "table"
-                                 ORDER BY ToUppercase(title);
-      ^tablestyle->SetValueIfValid(data.data.tablestyletag);
-      ^tablestyle->visible := Length(^tablestyle->options) > 1;
-    }
-    ELSE
-    {
-      ^tablestyle->options := [[ rowkey := "", title := "" ]];
-      ^tablestyle->visible := FALSE;
-    }
+    ^tablestyle->options := SELECT rowkey := ToLowercase(tag)
+                                 , title := title ?? ToLowercase(tag)
+                                 , tolliumselected := ToLowercase(tag) = data.data.tablestyletag
+                             FROM this->rte->rtdtypeinfo.structure.blockstyles
+                            WHERE type = "table"
+                         ORDER BY ToUppercase(title);
+
+    ^cellstyle->options := SELECT rowkey := tag
+                                , title := tag = "" ? GetTid("tollium:components.rte.normalcell") : (title ?? tag)
+                                , tolliumselected := tag = data.data.cellstyletag
+                             FROM this->rte->rtdtypeinfo.structure.cellstyles
+                         ORDER BY tag="" DESC
+                                , ToUppercase(title ?? tag);
   }
 
   /** Returns action to be executed by RTE when tolliumresult = "ok"
@@ -197,11 +202,11 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
   PUBLIC RECORD FUNCTION GetValue()
   {
     RETURN
-        [ type :=         "edittable"
-        , datacell :=     [ row := ^topheader->value ? 1 : 0
+        [ datacell :=     [ row := ^topheader->value ? 1 : 0
                           , col := ^leftheader->value ? 1 : 0
                           ]
         , tablestyletag := ^tablestyle->value
+        , cellstyletag := ^cellstyle->value
         ];
   }
 

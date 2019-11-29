@@ -2264,6 +2264,10 @@ export default class StructuredEditor extends EditorBase
     this._reprocessEmbeddedAutoElements();
   }
 
+  setCellStyle(cell, newstyle)
+  {
+    cell.className = "wh-rtd__tablecell" + (newstyle ? " " + newstyle : "");
+  }
   setSelectionCellStyle(newstyle)
   {
     let range = this.getSelectionRange();
@@ -2272,7 +2276,7 @@ export default class StructuredEditor extends EditorBase
 
     for(let applyto of [parent,...tablecells])
       if(applyto)
-        applyto.className = "wh-rtd__tablecell " + newstyle.toLowerCase();
+        this.setCellStyle(applyto, newstyle);
   }
 
   // ---------------------------------------------------------------------------

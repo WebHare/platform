@@ -8,8 +8,8 @@ test.registerTests(
     {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u/action-properties');
 
-      const rte = new rtetest.RTEDriver;
-      rte.setSelection(rte.body.firstChild, 0);
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(driver.body.firstChild);
 
       //outside table, td-class should be disabled
       test.true(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
@@ -22,7 +22,7 @@ test.registerTests(
          |        | normal |
          +--------+--------+
       */
-      var tables = rte.body.getElementsByTagName('table');
+      var tables = driver.body.getElementsByTagName('table');
       test.eq(1, tables.length);
       var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
       test.eq(2, trs.length);
@@ -30,7 +30,7 @@ test.registerTests(
       var tds = trs[0].getElementsByTagName('td');
       test.eq(1, tds.length);
       var ps = tds[0].getElementsByTagName('p');
-      rte.setSelection(ps[0]);
+      driver.setSelection(ps[0]);
 
       test.false(test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
@@ -43,7 +43,7 @@ test.registerTests(
       ps = tds[0].getElementsByTagName('p');
       test.eq(1, ps.length);
 
-      rte.setSelection(ps[0]); //select bottomleft cell
+      driver.setSelection(ps[0]); //select bottomleft cell
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
       test.eq(3, test.qS("select[data-button=td-class]").options.length);
       test.fill("select[data-button=td-class]", "red");
@@ -57,19 +57,50 @@ test.registerTests(
       test.eq(2, ps.length);
       test.eq('normal', ps[0].className);
 
-      rte.setSelection(ps[0]); //select bottom right cell
+      driver.setSelection(ps[0]); //select bottom right cell
       test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
 
       test.fill("select[data-button=td-class]", "blue");
       test.false(tds[1].classList.contains("red"));
       test.true(tds[1].classList.contains("blue"));
 
-      rte.setSelection(tds[0].querySelector('p')); //select bottomleft cell
+      driver.setSelection(tds[0].querySelector('p')); //select bottomleft cell
       test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
-      test.fill("select[data-button=td-class]", "");
       test.true(tds[0].classList.contains("red"));
       test.false(tds[0].classList.contains("blue"));
 
+      test.fill("select[data-button=td-class]", "");
+      test.false(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
+
+      //Test editing a cell through the properties action
+      let cellaction = await driver.executeProperties();
+      let targetinfo = driver.rte.getTargetInfo(cellaction.detail.actiontarget);
+
+      //inspect the targetinfo
+      test.eq("cell", targetinfo.type);
+      test.eq(2, targetinfo.numcolumns);
+      test.eq(2, targetinfo.numrows);
+      test.eq(0, targetinfo.datacell.row);
+      test.eq(0, targetinfo.datacell.col);
+      test.eq("table", targetinfo.tablestyletag);
+      test.eq("", targetinfo.cellstyletag);
+
+      //test updating settings
+      targetinfo.datacell.row=1;
+      targetinfo.datacell.col=1;
+      targetinfo.cellstyletag="red";
+      driver.rte.updateTarget(cellaction.detail.actiontarget, targetinfo);
+
+      //reget the bottom left cell
+      let secondrow = driver.qS('table > tbody > tr + tr');
+      test.true(secondrow);
+      test.eq('TH',secondrow.childNodes[0].nodeName);
+      test.eq('TD',secondrow.childNodes[1].nodeName);
+      test.true(secondrow.childNodes[0].classList.contains('red'));
+
+      await test.wait(1); //need to give RTD time to update the <select>
+      test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
     }
 
   , { name: 'checkresizers'
@@ -77,6 +108,7 @@ test.registerTests(
       {
         var rte = win.rte.getEditor();
         var table = rte.getContentBodyNode().getElementsByTagName('table')[0];
+        const driver = new rtetest.RTEDriver;
 
         // Check if all resizers are present
         var resizers = rte.getContentBodyNode().parentNode.querySelectorAll('.wh-tableeditor-resize-col');
@@ -94,16 +126,16 @@ test.registerTests(
         test.true(el.classList.contains('wh-tableeditor-resize-col'), "column and row resizer class 1");
         test.true(el.classList.contains('wh-tableeditor-resize-table'), "column and row resizer class 2");
 
-        el = test.getValidatedElementFromPoint(doc, coords.left + table.getElementsByTagName('tr')[1].getElementsByTagName('td')[0].offsetWidth, coords.top + 10, true);
+        el = test.getValidatedElementFromPoint(doc, coords.left + driver.qS('table tr+tr th').offsetWidth, coords.top + 10, true);
         test.true(el, "column resizer rowspanned");
         test.false(el.classList.contains('wh-tableeditor-resize-col'), "column resizer rowspanned class 1");
         test.false(el.classList.contains('wh-tableeditor-resize-row'), "column resizer rowspanned class 2");
         test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer rowspanned class 3");
 
-        var tryx = coords.left + table.getElementsByTagName('tr')[1].getElementsByTagName('td')[0].offsetWidth;
+        var tryx = coords.left + driver.qS('table tr+tr th').offsetWidth;
         var tryy = coords.bottom - 10;
-        el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
 
+        el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
         test.true(el, "column resizer");
         test.true(el.classList.contains('wh-tableeditor-resize-col'), "column resizer class 1");
         test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer class 2");

@@ -46,7 +46,7 @@ export default class ParsedStructure
 
   parseCellStyles(cellstyles)
   {
-    this.cellstyles = [ { tag: "", def: { title: "Normal cell"} } ];
+    this.cellstyles = [];
     for(let style of cellstyles)
     {
       this.cellstyles.push({ tag: style.tag.toLowerCase()

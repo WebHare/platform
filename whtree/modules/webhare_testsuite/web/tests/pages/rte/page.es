@@ -161,7 +161,10 @@ function getStructure(type)
                                   }
                                 ]
                   , defaultblockstyle: "NORMAL"
-                  , cellstyles: [ {tag: "RED", title: "Red Cell"},{ tag: "BLUE", title: "Blue Cell"}]
+                  , cellstyles: [ { tag: "", title: "Normal cell" }
+                                , { tag: "RED", title: "Red Cell" }
+                                , { tag: "BLUE", title: "Blue Cell" }
+                                ]
                   , contentareawidth: type == 'structured-contentarea' ? "450px" : null
                   };
 

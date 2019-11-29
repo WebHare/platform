@@ -250,9 +250,9 @@ class StyleButtonBase extends ToolbarButtonBase
   selectStyle()
   {
     let editor = this.toolbar.rte.getEditor();
-    if(editor && this.select.value)
+    if(editor)
     {
-      this.setStyle(this.select.value)
+      this.setStyle(this.select.value);
       editor.takeFocus();
     }
   }

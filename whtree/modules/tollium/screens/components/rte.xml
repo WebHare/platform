@@ -113,11 +113,12 @@
 
   </screen>
 
-  <screen name="tableproperties" gid=".tableproperties" minwidth="80x">
+  <screen name="tableproperties" gid=".tableproperties" minwidth="80x" tid=".tableandcellproperties">
     <actions>
       <action name="removetable" onexecute="doremovetable" />
     </actions>
     <body>
+      <heading tid=".tableproperties" />
       <select name="tablestyle" type="pulldown">
       </select>
       <line layout="left">
@@ -126,6 +127,8 @@
       <line layout="left">
         <checkbox name="leftheader" title="" labeltid=".leftheader" />
       </line>
+      <heading tid=".cellproperties" />
+      <select name="cellstyle" type="pulldown" />
     </body>
     <footer>
       <grid>
