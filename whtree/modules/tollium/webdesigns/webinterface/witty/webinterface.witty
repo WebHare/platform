@@ -39,22 +39,12 @@
       {
         visibility: visible;
       }
-      #errors li
-      {
-        font-size:15px;
-        background:rgba(59,59,59,.4);
-      }
     </style>
   </head>
   <body>
     <div class="text">
       WebHare is initializing, please wait<span class="firstdot dot">.</span><span class="dot">.</span><span class="dot">.</span>
     </div>
-    [if errors]
-      <ul id="errors">
-        [forevery errors]<li>[message]</li>[/forevery]
-      </ul>
-    [/if]
     <script>
       var steps=0;
       function showsteps()
