@@ -56,6 +56,7 @@ int StandardErrorWriter(void */*opaque_ptr*/, int numbytes, void const *data, in
 
 void Connection::AddOptions(Blex::OptionParser &optparser)
 {
+        optparser.AddOption(Blex::OptionParser::Option::StringOpt("moduledir"));
         optparser.AddOption(Blex::OptionParser::Option::StringOpt("debuglogfile"));
         optparser.AddOption(Blex::OptionParser::Option::StringOpt("preloadlibrary"));
         optparser.AddOption(Blex::OptionParser::Option::Switch("onlyshippedfonts", false));
@@ -64,6 +65,7 @@ void Connection::AddOptions(Blex::OptionParser &optparser)
 void Connection::PrintGlobalOptions()
 {
         //            --xxxxxxxxxxxxxxxxxxxxxxxxx  ddddddddddddddddddddddddddddddddddddddddddddddd\n
+        std::cerr << "--moduledir <path>           Dynamic modules dir (default: <webhare>/lib)\n";
         std::cerr << "--debuglogfile <path>        Filename to write debugging information to\n";
         std::cerr << "--preloadlibrary <path>      Override the preload library\n";
         std::cerr << "--onlyshippedfonts           Use only font files that ship with WebHare\n";
@@ -109,6 +111,11 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
 
         dbaseptr.reset(new Database::TCPFrontend(GetDbaseAddr(), clientname));
         only_shipped_fonts = options.Switch("onlyshippedfonts");
+
+        if(options.Exists("moduledir"))
+                webharelibroot = AppendSlashWhenMissing(options.StringOpt("moduledir"));
+        if(webharelibroot.empty())
+                webharelibroot = installationroot + "lib/";
 
         if(options.Exists("preloadlibrary"))
         {
@@ -166,6 +173,10 @@ Connection::~Connection()
 std::string Connection::GetBinRoot() const
 {
         return installationroot + "bin/";
+}
+std::string Connection::GetLibRoot() const
+{
+        return webharelibroot;
 }
 std::string Connection::GetEphemeralRoot() const
 {

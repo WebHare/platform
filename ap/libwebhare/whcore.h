@@ -340,6 +340,9 @@ class BLEXLIB_PUBLIC Connection
         /** Get the directory for the WebHare binaries (/bin/) */
         std::string GetBinRoot() const;
 
+        /** Get the directory for the WebHare loadable libraries (/lib/) */
+        std::string GetLibRoot() const;
+
         /** Get the directory for the WebHare log files (/log/) */
         std::string GetLogRoot() const;
 
@@ -444,6 +447,8 @@ class BLEXLIB_PUBLIC Connection
         Blex::SocketAddress consilioloc;
         ///Base directory for data (has no default, but if set, modifies the default for data directories)
         std::string basedatadir;
+        ///Directory for the WebHare loadable modules (/lib) - this is sometimes needed to point DEBUG builds to the DEBUG version of loadable HareScript modules
+        std::string webharelibroot;
         ///Preload library
         std::string preloadlibrary;
         ///Location of the compile cache
