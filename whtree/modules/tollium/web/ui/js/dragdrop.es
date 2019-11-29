@@ -76,7 +76,12 @@ export function fixupDNDEvent(event)
   {
     // Chromium auto-cancels the drag without dragend event when the current *selection* lies in a password field
     const range = document.getSelection();
-    if (range && range.anchorNode && range.baseNode === range.extentNode && range.baseOffset === range.extentOffset && range.anchorNode.querySelector("input[type=password]"))
+    if (range
+        && range.anchorNode
+        && range.baseNode === range.extentNode
+        && range.baseOffset === range.extentOffset
+        && range.anchorNode.nodeType === 1
+        && range.anchorNode.querySelector("input[type=password]"))
     {
       // Just remove the selection, losing selection in a password field shouldn't be that bad when dragging something
       range.removeAllRanges();
