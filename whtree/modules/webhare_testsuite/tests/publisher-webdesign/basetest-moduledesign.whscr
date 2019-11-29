@@ -111,7 +111,6 @@ MACRO TestDynPage()
 
 MACRO TestErrorPages()
 {
-
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
 
   testfw->browser->GotoWebPage(siteroot->url || "bestaatniet");
@@ -129,15 +128,11 @@ MACRO TestErrorPages()
 
   testfw->browser->GotoWebPage(siteroot->url || "compileerror.shtml");
   TestEq(500, testfw->browser->GetHTTPStatusCode());
-  contentdiv := testfw->browser->document->GetElementById("content");
-  TestEq(TRUE, ObjectExists(contentdiv));
-  TestEqLike("*XYZ*", contentdiv->innerxml);
+  TestEqLike("*XYZ*", testfw->browser->document->body->textcontent);
 
   testfw->browser->GotoWebPage(siteroot->url || "exception.shtml");
   TestEq(500, testfw->browser->GetHTTPStatusCode());
-  contentdiv := testfw->browser->document->GetElementById("content");
-  TestEq(TRUE, ObjectExists(contentdiv));
-  TestEqLike("*this is an exception*", contentdiv->innerxml);
+  TestEqLike("*this is an exception*", testfw->browser->document->body->textcontent);
 
 }
 

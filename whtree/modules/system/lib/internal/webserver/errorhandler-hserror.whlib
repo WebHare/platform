@@ -1,0 +1,40 @@
+<?wh
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
+<
+  RECORD harescriptinfo;
+
+  MACRO NEW(RECORD harescriptinfo)
+  {
+    this->harescriptinfo := harescriptinfo;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    STRING ARRAY resources := this->harescriptinfo.resources CONCAT
+        SELECT AS STRING ARRAY filename
+          FROM this->harescriptinfo.allerrors
+         WHERE filename LIKE "mod::*";
+
+    webdesign->__additionalresources := webdesign->__additionalresources CONCAT resources;
+  }
+
+  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
+  {
+    RECORD wittydata := CELL[ ...this->harescriptinfo
+                            , errors := PTR PrintHSErrors(this->harescriptinfo.allerrors)
+                            ];
+    LoadWittylibrary(Resolve("mod::publisher/lib/internal/builtinpages/harescripterror.witty"),"HTML-NI")->Run(wittydata);
+  }
+>;
+
+PUBLIC MACRO GenerateHarescriptErrorPage(RECORD harescriptinfo)
+{
+  NEW HarescriptErrorPage(harescriptinfo)->RunPageForWHFSId(whconstant_whfsid_webharebackend);
+}

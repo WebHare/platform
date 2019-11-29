@@ -92,7 +92,7 @@ BOOLEAN FUNCTION ValidateLibrary(STRING libname)
   // This route doesn't set status 500, do it manually here. GenerateHTTPErrorPage expects it set.
   AddHTTPHeader("Status", "500 Internal server error", FALSE);
   LogHarescriptErrors(libstatus.errors);
-  GenerateHTTPErrorPage(500, [ allerrors := libstatus.errors, groupid := GetCurrentGroupId() ]
+  GenerateHTTPErrorPage(500, [ allerrors := libstatus.errors, groupid := GetCurrentGroupId(), resources := STRING[] ]
                        );
   RETURN FALSE;
 }

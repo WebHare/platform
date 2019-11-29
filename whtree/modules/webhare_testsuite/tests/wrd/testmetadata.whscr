@@ -456,6 +456,40 @@ MACRO TestCreateWithMetadata()
   testfw->RollbackWork();
 }
 
+MACRO TestMetaTypeChange()
+{
+  STRING v1schema := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <attachment tag="WEBSHOP_REVIEW" linkfrom="WRD_PERSON">
+    <attributes>
+    </attributes>
+  </attachment>
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  RECORD res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(v1schema));
+  TestEq(TRUE, res.success);
+  TestEq(TRUE, ObjectExists(testfw->GetWRDSchema()->GetType("WEBSHOP_REVIEW")));
+  TestEQ(TRUE, testfw->GetWRDSchema()->^webshop_review->isattachment);
+
+  STRING v2schema := `
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <object tag="WEBSHOP_REVIEW">
+    <attributes>
+    </attributes>
+  </object>
+</schemadefinition>`;
+
+  res := ApplyWRDSchemaDefinitionFile(testfw->GetWRDSchema(), StringToBlob(v2schema));
+  TestEq(TRUE, res.success);
+  TestEq(TRUE, ObjectExists(testfw->GetWRDSchema()->GetType("WEBSHOP_REVIEW")));
+  // FIXME - TestEQ(TRUE, testfw->GetWRDSchema()->^webshop_review->isobject); - requires the other WRD fixes
+  TestEQ(TRUE, OpenwRDSchemaByID(testfw->GetWRDSchema()->id)->^webshop_review->isobject);
+
+  testfw->RollbackWork();
+}
+
 MACRO TestRename()
 {
   STRING savetag := testfw->GetWRDSchema()->tag;
@@ -635,14 +669,15 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR Setup
                  , PTR ExportXMLMetadata
                  , PTR DomainValuesSync
-                 , PTR TestImportExisting
                  , PTR TestCreate
                  , PTR TestCreateWithMetadata
+                 , PTR TestMetaTypeChange
                  , PTR TestRename
                  , PTR TestAttributePromotion
                  , PTR TestParent
                  , PTR TestAccountSettings
                  , PTR TestMerge
                  , PTR TestConversion
+                 , PTR TestImportExisting //SLOW due to UpdateAllModuleSchemas, so now last
                  ], [ wrdauth := FALSE]);
 

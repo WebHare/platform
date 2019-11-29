@@ -399,6 +399,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="/portal1/requiresysop/*" />
+    <webdesign supportsaccessdenied="true" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="/portal1-domainless/*" />
     <to type="all" pathmask="/staticlogin-domainless/*" />
     <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true"/>

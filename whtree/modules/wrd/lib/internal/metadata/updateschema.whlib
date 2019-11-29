@@ -311,6 +311,44 @@ PUBLIC STRING FUNCTION GetUpdateSchemaLockName(STRING tag)
   RETURN "wrd:updateschema:" || tag;
 }
 
+MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RECORD ARRAY local_types)
+{
+  STRING type_left_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkfrom);
+  STRING type_right_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkto);
+
+  INTEGER type_left := (SELECT AS INTEGER id FROM local_types WHERE tag = type_left_tag);
+  INTEGER type_right := (SELECT AS INTEGER id FROM local_types WHERE tag = type_right_tag);
+
+  SWITCH (data.metatype)
+  {
+  CASE 1
+    {
+      local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
+    }
+  CASE 2
+    {
+      IF (type_left = 0)
+        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+
+      IF (type_right = 0)
+        THROW NEW Exception(`Could not resolve link to '${type_right_tag}' for type '${data.tag}`);
+
+      local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
+    }
+  CASE 3
+    {
+      IF (type_left = 0)
+        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+
+      local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
+    }
+  CASE 4
+    {
+      local_schema->CreateDomain(data.tag, [ title := data.title, description := data.description ]);
+    }
+  }
+}
+
 /** Updates a schema
     @param work Tollium work object
     @param local_schema WRD schema to update
@@ -383,41 +421,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   // Add new types, sorted on depencencies
   FOREVERY (RECORD data FROM SortTypesOnDependencies(diff.right_added))
   {
-    STRING type_left_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkfrom);
-    STRING type_right_tag := (SELECT AS STRING tag FROM remote_types WHERE id = data.linkto);
-
-    INTEGER type_left := (SELECT AS INTEGER id FROM local_types WHERE tag = type_left_tag);
-    INTEGER type_right := (SELECT AS INTEGER id FROM local_types WHERE tag = type_right_tag);
-
-    SWITCH (data.metatype)
-    {
-    CASE 1
-      {
-        local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
-      }
-    CASE 2
-      {
-        IF (type_left = 0)
-          THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
-
-        IF (type_right = 0)
-          THROW NEW Exception(`Could not resolve link to '${type_right_tag}' for type '${data.tag}`);
-
-        local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
-      }
-    CASE 3
-      {
-        IF (type_left = 0)
-          THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
-
-        local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
-      }
-    CASE 4
-      {
-        local_schema->CreateDomain(data.tag, [ title := data.title, description := data.description ]);
-      }
-    }
-
+    CreateType(local_schema, data, remote_types, local_types);
     local_types := local_schema->ListTypes();
     INSERT data.tag INTO added_types AT END;
   }
@@ -440,8 +444,13 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       IF(NOT RecordExists(SELECT FROM wrd.entities WHERE entities.type IN alltypeids LIMIT 1)
           AND NOT RecordExists(SELECT FROM wrd.types WHERE requiretype_left IN alltypeids)
           AND NOT RecordExists(SELECT FROM wrd.types WHERE requiretype_right IN alltypeids))
-      { //safe to recreate
+      {
+        //safe to recreate
         local_type->DeleteSelf();
+
+        CreateType(local_schema, r.right, remote_types, local_types);
+        local_types := local_schema->ListTypes();
+        INSERT r.right.tag INTO added_types AT END;
         CONTINUE;
       }
       ELSE

@@ -8,7 +8,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
-BOOLEAN debug;
+PUBLIC BOOLEAN __ftpclient_debug;
 RECORD ARRAY connectionsessions;
 
 RECORD ftp_protocol_error := [
@@ -100,7 +100,7 @@ MACRO SaveFTPSession(INTEGER connectionid, RECORD sessionrec)
 
 MACRO SEndCommand(INTEGER connectionid, STRING cmd)
 {
-  IF(debug)
+  IF(__ftpclient_debug)
     Print("FTP OUT: " || cmd || "\n");
   PrintTo(connectionid, cmd || "\r\n");
 }
@@ -123,7 +123,7 @@ RECORD FUNCTION GetFTPResponse(INTEGER connectionid)
     ELSE
       retval := ftp_protocol_error;
 
-    IF(debug)
+    IF(__ftpclient_debug)
     {
       Print("FTP ERROR:\n" || AnyToString(retval,'tree') || '\n');
     }
@@ -151,7 +151,7 @@ RECORD FUNCTION GetFTPResponse(INTEGER connectionid)
   }
 
   response := [code := code, message := message, istimeout := FALSE ];
-  IF(debug)
+  IF(__ftpclient_debug)
     PRINT("FTP RESPONSE: " || code || " " || message ||"\n");
   RETURN response;
 }

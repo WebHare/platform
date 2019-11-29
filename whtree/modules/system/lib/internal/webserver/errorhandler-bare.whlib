@@ -1,0 +1,95 @@
+<?wh
+/* Keep dependencies as LIMITED as possible, ie no webdesign. we want to be able
+   to 'almost always' run!
+*/
+
+STRING FUNCTION FixWhitespaceCollapse(STRING indata) //convert sequences of spaces to space 00a0
+{
+  RETURN Substitute(indata,'  ',' \u00a0');
+}
+
+PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors)
+{
+  //Strip redirect from the stacktrace, it only confuses
+  IF(Length(allerrors)>2 AND allerrors[END-2].filename = "mod::system/lib/internal/webserver/systemredirect.whlib")
+    allerrors := ArraySlice(allerrors, 0, Length(allerrors)-2);
+
+  RECORD fileerrormap;
+  BOOLEAN seenexternal;
+  FOREVERY(RECORD err FROM allerrors)
+  {
+    BOOLEAN isfirstexternal;
+    IF(err.istrace
+       AND NOT seenexternal
+       AND err.filename NOT LIKE "wh::*"
+       AND err.filename NOT LIKE "mod::system/*"
+       AND err.filename NOT LIKE "mod::publisher/*"
+       AND err.filename NOT LIKE "mod::wrd/*"
+       AND err.filename NOT LIKE "mod::tollium/*")
+    {
+      seenexternal:=TRUE;
+      isfirstexternal:=TRUE;
+    }
+
+    INSERT CELL bold := isfirstexternal INTO err;
+    allerrors[#err] := err;
+  }
+
+  RECORD ARRAY errors
+         := SELECT filename
+                 , line
+                 , col
+                 , code
+                 , message
+              FROM allerrors
+             WHERE iserror AND NOT istrace;
+
+  RECORD ARRAY stacktrace
+              := SELECT filename
+                      , line
+                      , col
+                      , code
+                      , func := param1 != "" AND param1 NOT LIKE ":*" ? param1 : ""
+                      , bold
+                   FROM allerrors
+                  WHERE istrace;
+
+  Print('\n<h2>Error:</h2>');
+  Print('\n<ul>');
+  FOREVERY(RECORD error FROM errors)
+  {
+    IF (error.message LIKE "*Custom error message: *+RECORD*" OR error.message LIKE "*Custom error message: *+----*")
+      Print('\n<li><span style="white-space: pre;font-family: monospace">');
+    ELSE
+      Print('\n<li><span>');
+    Print(EncodeHTML(error.filename));
+
+    Print(' ' || error.line || ',' || error.col || ': ');
+    Print(EncodeHTML(FixWhitespaceCollapse(error.message)));
+    Print('</span></li>');
+  }
+  Print('</ul>');
+
+  IF (Length(stacktrace)>0)
+  {
+    Print('\n<h2>Stack trace:</h2>');
+    Print('\n<ul>');
+
+    Forevery(RECORD trace FROM stacktrace)
+    {
+      Print('\n<li>');
+      IF(trace.bold)
+        Print("<b>");
+      Print(EncodeHTML(trace.filename));
+
+      Print(' ' || trace.line || ',' || trace.col);
+      IF (trace.func!="")
+        Print(' (' || EncodeHTML(trace.func) || ')');
+      IF(trace.bold)
+        Print("</b>");
+      Print('</li>');
+    }
+    Print('</ul>');
+  }
+
+}

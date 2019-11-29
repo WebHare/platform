@@ -775,6 +775,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                                , hasconnect := FALSE
                                , goparam := ""
                                , browser := ""
+                               , isloginapp := FALSE
                                ], EnforceStructure([webvars := RECORD[]], options));
 
     this->SetupPortal(webcontext);
