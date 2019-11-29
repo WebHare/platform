@@ -172,7 +172,7 @@ MACRO TestStructuredRTE()
 
   RECORD whrte := scr->testrte->GetWHRTEStructure();
   TestEq("NORMAL", whrte.defaultblockstyle);
-  TestEq(5, Length(whrte.blockstyles));
+  TestEq(6, Length(whrte.blockstyles));
   TestEq("Heading 1", whrte.blockstyles[0].title);
   //FIXME ought to have 'cleaner' css styling
   TestEq("font: bold 16px Verdana;margin: 10px 0;color: #111111;padding:0;margin:0;color: #000000;", whrte.blockstyles[0].toolbarcss);
