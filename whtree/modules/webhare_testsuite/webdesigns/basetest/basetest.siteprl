@@ -381,6 +381,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*/imgtest.rtd"/>
+    <webdesign maxcontentwidth="300px" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="/testpages/dynamicpage" />
     <to type="file" pathmask="/testpages/staticpage" />
     <gtm xmlns="http://www.webhare.net/xmlns/socialite" account="GTM-TN7QQM" integration="selfhosted" />

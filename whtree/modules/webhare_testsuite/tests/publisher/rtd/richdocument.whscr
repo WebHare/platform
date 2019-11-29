@@ -2,6 +2,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
@@ -23,36 +24,21 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::tollium/lib/rtd/doc.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
-
-
-OBJECT testsite;
-
-STRING testsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
-    || '<richdocumenteditor>'
-    || '  <structuredefinition fullpath="/custompage.structure.xml" />'
-    //       <css fullpath="mod::publisher/data/default.structure.css" />
-    || '</richdocumenteditor>'
-    || '</apply>'
-|| '</siteprofile>';
 
 
 
 MACRO RichDocumentTest()
 {
   testfw->BeginWork();
-  OBJECT site := testfw->SetupTestWebdesignWebsite(testsiteprofile);
+  OBJECT site := OpenTestsuiteSite();
   testfw->CommitWork();
 
   testfw->BeginWork();
-  OBJECT siteroot := site->rootobject;
-  OBJECT workfolder := siteroot->CreateFolder([name:="richdocument"]);
+  OBJECT basefolder := GetTestsuiteTempFolder();
+  OBJECT workfolder := basefolder->EnsureFolder([name := "richdocument"]);
   OBJECT testfile := workfolder->CreateFile([name:="richtest",publish:=TRUE]);
-
-  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml") ]);
 
   OBJECT myrichdoc := NEW EditableRichDocument;
   TestEq(TRUE, ObjectExists(myrichdoc->body));
@@ -80,9 +66,6 @@ MACRO RichDocumentTest()
 
   // See if the stuff is stable
   TestEQ( RecurseDeleteSettingIds(orgrec,DEFAULT STRING ARRAY),  RecurseDeleteSettingIds(rec2.richtest, ["HASH","LINK"]));
-
-//  RECORD testrec := betatype->GetInstanceData(testfile->id);
-//  sendblobto(0,testrec.richtest.htmltext);
 
   testfw->CommitWork();
 }
@@ -135,8 +118,8 @@ MACRO ParserApiTest()
 {
   testfw->BeginWork();
 
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
-  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT basefolder := GetTestsuiteTempFolder();
+  OBJECT workfolder := basefolder->OpenByPath("richdocument");
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT parserapitestfile := workfolder->CreateFile([name := "parserapitest", type := richdoctype->id, publish:=FALSE]);
 
@@ -252,20 +235,9 @@ MACRO ParserApiTest()
 MACRO RichDocInstanceTest()
 {
   //FIXME test dat niet geallowede instances weggefilterd worden
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
-  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT site := OpenTestsuiteSite();
+  OBJECT workfolder := GetTestsuiteTempFolder();
 
-  testfw->BeginWork();
-  OBJECT rtdinstance := workfolder->CreateFile([ name := "bob", typens := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" ]);
-  rtdinstance->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest",
-                               [ img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg")
-                               ]);
-  RECORD bobdata := rtdinstance->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest");
-  testfw->CommitWork();
-
-  TestEQLike("*preview*Stringdata*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest", stringdata := "Stringdata", aref:=siteroot->id ], siteroot))));
-  TestEQLike("*preview*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"  ], siteroot))));
-  TestEQLike("*<img*", BlobToString(GetPrintedAsBlob(PTR RenderAdhocWidget([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" , img := bobdata.img ], siteroot, [ webdesign := GetWebDesign(siteroot->id) ]))));
 
   OBJECT myrichdoc := NEW EditableRichDocument;
   myrichdoc->ImportFromHTML(StringToBlob('<html><head></head><body>'
@@ -275,13 +247,13 @@ MACRO RichDocInstanceTest()
 
   STRING instanceid := myrichdoc->CreateInstance([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
                                                  , ignored := "xyz" //should be removed by normalization
-                                                 , aref := siteroot->id
+                                                 , aref := site->id
                                                  , img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg")
                                                  ]);
 
   TestEq([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
          , stringdata := ""
-         , aref := siteroot->id
+         , aref := site->id
          ], CellDelete(myrichdoc->GetInstance(instanceid),'img'));
   TestEq(TRUE, RecordExists(myrichdoc->GetInstance(instanceid).img));
 
@@ -307,7 +279,7 @@ MACRO RichDocInstanceTest()
   RECORD res := restoreddoc->GetInstance(instanceid);
   TestEqMembers([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
                 , stringdata := "MyString"
-                , aref := siteroot->id
+                , aref := site->id
                 ], res, "*");
   TestEq(TRUE, RecordExists(res.img));
 }
@@ -317,14 +289,7 @@ MACRO PublishRichDocTest()
 {
   testfw->BeginWork();
 
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
-  /* ADDME wanted to do this here, but we're triggering race conditions by the dual site profile compilation
-  OBJECT structurefile := siteroot->CreateFile([name:="custompage.structure.xml", data := testfw->GetModuleTestBlob("publisher","testdata/custompage.structure.xml") ]);
-  OBJECT siteprof      := siteroot->CreateFile([name:="richdoctest.siteprl", data := StringToBlob(testsiteprofile)]);
-  TestEq(TRUE, testfw->GetTestsite()->AssignSiteProfile(siteprof->id));
-  */
-
-  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT workfolder := GetTestsuiteTempFolder();
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT emptyfile := workfolder->CreateFile( [ name := "empty.rtd", type := richdoctype->id, publish := TRUE ]);
   testfw->CommitWork();
@@ -349,14 +314,11 @@ MACRO PublishRichDocTest()
 
   //Load up a document
   testfw->BeginWork();
-  OBJECT testfile := workfolder->OpenByPath("serialized.rtd");
-  testfile->UpdateMetadata([ publish := TRUE ]);
-  testfile->CopyTo(workfolder, "serialized-prepublished.rtd");
-
-  OBJECT serializedfile := workfolder->OpenByPath("serialized-prepublished.rtd");
+  OBJECT serializedfile := workfolder->OpenByPath("serialized.rtd");
+  serializedfile->UpdateMetadata([ publish := TRUE ]);
   testfw->CommitWork();
 
-  publishres := RunFilePublish(testfile->id, FALSE);
+  publishres := RunFilePublish(serializedfile->id, FALSE);
 
   doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
   content := doc->GetElementById("content");
@@ -371,7 +333,7 @@ MACRO PublishRichDocTest()
 
   OBJECT h1 := content->GetChildElementsByTagName("*")->item(0);
   TestEq("h1", h1->nodename);
-  TestEq("Ik ben een ", h1->firstchild->nodevalue);
+  TestEq("Ik ben een heading 1", h1->textcontent);
 
   //Bold should be stripped, as we don't  permit <b> in a H2
   OBJECT h2 := content->GetChildElementsByTagName("*")->item(1);
@@ -381,21 +343,13 @@ MACRO PublishRichDocTest()
   OBJECT blockcomponent := content->GetChildElementsByTagName("*")->item(2);
   TestEq("blink", blockcomponent->nodename);
   TestEq("MyString", blockcomponent->firstchild->nodevalue);
-
-  publishres := RunFilePublish(serializedfile->id, FALSE);
-  IF(NOT publishres.success) dumpvalue(publishres,'tree');
-  TestEq(TRUE, publishres.success);
-
-//  SendBlobTO(0,publishres.dbfiles[0].data.data);
-//  sendblobto(0,publishres.files[1].data);  dumpvalue(publishres,'tree');
 }
 
 MACRO PublishRichDocImageTest()
 {
   testfw->BeginWork();
 
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
-  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT workfolder := GetTestsuiteTempFolder();
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
 
   OBJECT richdoc := NEW EditableRichDocument;
@@ -441,7 +395,7 @@ MACRO PublishRichDocImageTest()
   TestEq(TRUE, imgtags[0]->GetAttribute("src") LIKE "/*"); //site relative URL
 
   OBJECT browser := NEW WebBrowser;
-  browser->GotoWebPage(ResolveToAbsoluteURL(siteroot->url, imgtags[0]->GetAttribute("src")));
+  browser->GotoWebPage(ResolveToAbsoluteURL(testfile->url, imgtags[0]->GetAttribute("src")));
 
   TestEq("image/jpeg", browser->contenttype);
   OBJECT imgcanvas := CreateCanvasFromBlob(browser->content);
@@ -491,10 +445,10 @@ MACRO IntLinktest()
 {
   testfw->BeginWork();
 
-  OBJECT siteroot := testfw->GetTestsite()->rootobject;
-  OBJECT workfolder := siteroot->OpenByPath("richdocument");
+  OBJECT basefolder := GetTestsuiteTempFolder();
+  OBJECT workfolder := basefolder->OpenByPath("richdocument");
   OBJECT testfile := workfolder->OpenByPath("richtest");
-  OBJECT testextralink := siteroot->CreateFile( [ name := "testextralink", publish := TRUE ]);
+  OBJECT testextralink := basefolder->CreateFile( [ name := "testextralink", publish := TRUE ]);
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT parserapitestfile := workfolder->OpenByPath("parserapitest");
 
@@ -580,7 +534,7 @@ MACRO IntLinktest()
 
   //Delete testfile to prove it was a WHFSREF in the database (ie, SET DEFAULT was triggered)
   Sleep(100); // Wait a little for delayed publications
-  testfw->WaitForPublishCompletion(siteroot->id); //make sure publication doesn't block our delete
+  testfw->WaitForPublishCompletion(basefolder->id); //make sure publication doesn't block our delete
 
   testfw->BeginWork();
   testfile->DeleteSelf(); // file needs to be deleted, so links to it are deleted from instance data
@@ -595,17 +549,17 @@ MACRO IntLinktest()
   testfw->CommitWork();
   testfw->BeginWork();
 
-  testextralink := siteroot->CreateFile( [ name := "testextralink", publish := FALSE ]);
+  testextralink := basefolder->CreateFile( [ name := "testextralink", publish := FALSE ]);
 
   OBJECT imp := NEW ArchiveImporter;
   imp->AddInput(arc);
-  imp->Import(siteroot->id);
+  imp->Import(basefolder->id);
 
-  workfolder := siteroot->OpenByPath("richdocument");
+  workfolder := basefolder->OpenByPath("richdocument");
   testfile := workfolder->OpenByPath("richtest");
   parserapitestfile := workfolder->OpenByPath("parserapitest");
 
-  testfile2 := siteroot->OpenByPath("richdocument/richtest2");
+  testfile2 := basefolder->OpenByPath("richdocument/richtest2");
   myrichdoc := NEW PublishableRichDocument;
   myrichdoc->ImportFromRecord(richdoctype->GetInstanceData(testfile2->id).data);
 
