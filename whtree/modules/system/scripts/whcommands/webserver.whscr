@@ -7,6 +7,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
@@ -44,10 +45,10 @@ MACRO AddPort(STRING ARRAY params)
     keypairid := keypair->id;
   }
 
-  IF(RecordExists(SELECT FROM system.ports WHERE port = VAR portnumber))
+  IF(RecordExists(SELECT FROM system_internal.ports WHERE port = VAR portnumber))
     TerminateScriptWithError(`That port number is already in use`); //TODO better conflict detection, check webhare app?
 
-  INSERT INTO system.ports(port, virtualhost, keypair, description)
+  INSERT INTO system_internal.ports(port, virtualhost, keypair, description)
          VALUES(portnumber, subargs.virtual, keypairid, "Created using 'wh webserver addport'");
 
   GetPrimary()->CommitWork();
@@ -76,7 +77,7 @@ MACRO AddBackend(STRING ARRAY params)
   INTEGER webserver_port_id;
   IF(unpacked.port NOT IN [80, 443]) //80 and 443 are auto-offered by nginx, but anything else requires a port;
   {
-    RECORD ARRAY matchport := SELECT * FROM system.ports WHERE port = unpacked.port;
+    RECORD ARRAY matchport := SELECT * FROM system_internal.ports WHERE port = unpacked.port;
     IF(Length(matchport) = 0)
       THROW NEW Exception(`Port ${unpacked.port} isn't opened`);
     IF(Length(matchport) > 1) //should probably allow users to specify exact port number
@@ -85,11 +86,11 @@ MACRO AddBackend(STRING ARRAY params)
     webserver_port_id := matchport[0].id;
   }
 
-  INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
-  INSERT INTO system.webservers(id, port, type, baseurl, outputextension)
+  INTEGER webserverid := MakeAutoNumber(system_internal.webservers,"id");
+  INSERT INTO system_internal.webservers(id, port, type, baseurl, outputextension)
          VALUES (webserverid, webserver_port_id, 1, subargs.url, '.html');
 
-  BOOLEAN have_interface := RecordExists(SELECT FROM system.webservers WHERE type = 1);
+  BOOLEAN have_interface := RecordExists(SELECT FROM system_internal.webservers WHERE type = 1);
   IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0)
   {
     OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
@@ -100,6 +101,46 @@ MACRO AddBackend(STRING ARRAY params)
   ReloadWebhareConfig(TRUE, FALSE);
 
   //TODO warn if the new interface would be inaccessible (missing port + missing proxies)
+}
+
+MACRO ListWebservers(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "aliases", type := "switch"  ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver list [--aliases]\n");
+    TerminateScriptWithError("");
+  }
+
+  RECORD ARRAY webservers := SELECT baseurl, type, id
+                               FROM system_internal.webservers
+                              WHERE type IN [0,1]
+                           ORDER BY type=1 DESC
+                                  , ToLowercase(UnpackURL(baseurl).host)
+                                  , ToLowercase(baseurl);
+
+  IF(Length(webservers) = 0)
+    TerminateScriptWithError("No webservers configured");
+
+  RECORD ARRAY aliases;
+  IF(subargs.aliases)
+    aliases := SELECT webserver,hostname,explicit
+                FROM system_internal.webservers_aliases;
+
+  FOREVERY(RECORD webserver FROM webservers)
+  {
+    INTEGER pad := subargs.aliases ? 12 : 9;
+    Print(`- ${Left(webserver.type = 0 ? "output      " : "backend     ", pad)}${webserver.baseurl}\n`);
+    IF(subargs.aliases)
+    {
+      RECORD ARRAY myaliases := SELECT * FROM aliases WHERE aliases.webserver = VAR webserver.id ORDER BY ToLowercase(hostname);
+      FOREVERY(RECORD alias FROM myaliases)
+        Print(`  - ${alias.explicit ? "alias     " : "redirect  "}${RepeatText(" ", Length(UnpackURL(webserver.baseurl).scheme)+3)}${alias.hostname}\n`);
+    }
+  }
 }
 
 MACRO Reset(STRING ARRAY params)
@@ -119,21 +160,21 @@ MACRO Reset(STRING ARRAY params)
     TerminateScriptWithError("Resetting a non-restored WebHare requires the use of --force");
 
   GetPrimary()->BeginWork();
-  IF(RecordExists(SELECT FROM system.proxies))
+  IF(RecordExists(SELECT FROM system_internal.proxies))
   {
     Print("Deleted the following proxy configuration (without deregistration):\n");
     Print(EncodeJSON(GetWebhareProxies()) || "\n");
   }
-  DELETE FROM system.proxies;
+  DELETE FROM system_internal.proxies;
 
-  IF(RecordExists(SELECT FROM system.ports))
+  IF(RecordExists(SELECT FROM system_internal.ports))
   {
-    RECORD ARRAY cascaded_webservers := SELECT * FROM system.webservers WHERE port != 0 ORDER BY baseurl, port;
-    DELETE FROM system.webservers WHERE port != 0;
+    RECORD ARRAY cascaded_webservers := SELECT * FROM system_internal.webservers WHERE port != 0 ORDER BY baseurl, port;
+    DELETE FROM system_internal.webservers WHERE port != 0;
 
     Print("Deleted the following webserver ports:\n");
-    DumpValue((SELECT * FROM system.ports ORDER BY port, ip), [ format := "boxed", name := ""]);
-    DELETE FROM system.ports;
+    DumpValue((SELECT * FROM system_internal.ports ORDER BY port, ip), [ format := "boxed", name := ""]);
+    DELETE FROM system_internal.ports;
 
     IF(Length(cascaded_webservers) > 0)
     {
@@ -201,7 +242,7 @@ MACRO RewriteHosts(STRING ARRAY params)
   RECORD ARRAY newwebservers := SELECT id
                                      , oldurl := baseurl
                                      , newurl := RewriteBaseURL(baseurl, subargs.newhost)
-                                  FROM system.webservers
+                                  FROM system_internal.webservers
                                  WHERE type IN [ 0, 1 ] //only output and interface, not groups
                                        AND ToUppercase(UnpackURL(baseurl).host) NOT LIKE ToUppercase("*." || subargs.newhost)
                               ORDER BY ToUppercase(UnpackURL(baseurl).host), id;
@@ -209,19 +250,19 @@ MACRO RewriteHosts(STRING ARRAY params)
   RECORD ARRAY newaliases := SELECT id
                                   , oldhost := hostname
                                   , newhost := RewriteAlias(hostname, subargs.newhost)
-                               FROM system.webservers_aliases
+                               FROM system_internal.webservers_aliases
                               WHERE ToUppercase(hostname) NOT LIKE ToUppercase("*." || subargs.newhost)
                            ORDER BY ToUppercase(hostname), id;
 
   FOREVERY(RECORD webserver FROM newwebservers)
   {
     Print(`Webserver ${webserver.id}: ${webserver.oldurl} => ${webserver.newurl}\n`);
-    UPDATE system.webservers SET baseurl := webserver.newurl WHERE id = webserver.id;
+    UPDATE system_internal.webservers SET baseurl := webserver.newurl WHERE id = webserver.id;
   }
   FOREVERY(RECORD alias FROM newaliases)
   {
     Print(`Alias ${alias.id}: ${alias.oldhost} => ${alias.newhost}\n`);
-    UPDATE system.webservers_aliases SET hostname := alias.newhost WHERE id = alias.id;
+    UPDATE system_internal.webservers_aliases SET hostname := alias.newhost WHERE id = alias.id;
   }
   IF(NOT subargs.keepcdns)
   {
@@ -266,6 +307,10 @@ MACRO Main()
     {
       AddBackend(cmdargs.params);
     }
+    CASE "list"
+    {
+      ListWebservers(cmdargs.params);
+    }
     CASE "reset"
     {
       Reset(cmdargs.params);
@@ -279,6 +324,7 @@ MACRO Main()
       Print("Syntax: wh webserver <command>\n");
       Print("  addport [--virtual] <port>: Create the specified port (binding)\n");
       Print("  addbackend <webserver>:     Add a backend webserver\n");
+      Print("  list:                       List available webservers\n");
       Print("  reset [--dryrun] [--force]: Reset proxies and listening ports\n");
       Print("  rewritehosts <newhost>:     Rewrite all webserver URL hostnames under a new host\n");
       TerminateScriptWithError("");
