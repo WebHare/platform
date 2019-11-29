@@ -43,6 +43,13 @@
         </option>
         <option rowkey="blue" title="Blue" />
       </select>
+      <select name="pulldown3test" title="Pulldown2test" type="pulldown" placeholder="Select"> <!-- placeholders broke earlier due to JS handler iisues -->
+        <option rowkey="red" title="Red" />
+        <option rowkey="green" title="Green">
+          <textedit name="shade2" title="Shade of green" />
+        </option>
+        <option rowkey="blue" title="Blue" />
+      </select>
       <select name="disabledpulldowntest" tid=".disabledpulldown" type="pulldown" enabled="false">
         <option rowkey="cant" title="Can't" />
         <option rowkey="touch" title="Touch" selected="true" />
