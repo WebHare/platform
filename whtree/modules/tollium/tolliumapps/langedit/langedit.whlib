@@ -619,8 +619,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoMoveMissingFrom()
   {
-    this->RunScreen("#movemissingfrom", [ targetgroup := ^texts->selection.textgroup->GetFullGid() ]);
-    this->RefreshAllNodes();
+    IF(this->RunScreen("#movemissingfrom", [ targetgroup := ^texts->selection.textgroup->GetFullGid() ]) = "ok")
+      this->RefreshAllNodes();
   }
 
   PUBLIC MACRO DoExport()
