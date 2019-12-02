@@ -1135,6 +1135,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 }
 
                 apply := CellUpdate(apply, node->localname, data);
+                this->AddWarning(node, "<contentlisting> is only supported by template-v2.whlib designs and will be removed in the future");
                 CONTINUE;
               }
               CASE "defaultsettings"
