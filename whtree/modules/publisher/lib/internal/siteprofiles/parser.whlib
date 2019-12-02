@@ -875,7 +875,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , defaultsettings := DEFAULT RECORD ARRAY
                       , disablelegacysitesettings := FALSE
                       , disabletemplateprofile := FALSE
-                      , enabledrafts := FALSE
                       , extendproperties := DEFAULT RECORD ARRAY
                       , folderindex := DEFAULT RECORD
                       , setlibrary := DEFAULT RECORD ARRAY
@@ -884,12 +883,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , plugins := DEFAULT RECORD ARRAY
                       , republishes := DEFAULT RECORD ARRAY
                       , scheduletasknows := DEFAULT RECORD ARRAY
-                      , setdynamictemplate := DEFAULT RECORD
                       , setobjecteditor := DEFAULT RECORD
                       , setwidget := DEFAULT RECORD ARRAY
                       , sitelanguage := DEFAULT RECORD
                       , tagsources := DEFAULT RECORD ARRAY
-                      , template := DEFAULT RECORD
                       , typemappings := DEFAULT RECORD ARRAY
                       , uploadtypemapping := DEFAULT RECORD ARRAY
                       , urlevents := DEFAULT RECORD
@@ -911,7 +908,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
       FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())
       {
-        IF(node->localname IN ["bodyrenderer","sitelanguage","folderindex","template", "contentlisting", "setdynamictemplate", "rtddoc"
+        IF(node->localname IN ["bodyrenderer","sitelanguage","folderindex", "contentlisting", "rtddoc"
                               ,"setobjecteditor"])
         {
           IF(node->localname IN seenuniques)
@@ -1126,7 +1123,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 apply.rtddoc := data;
                 CONTINUE;
               }
-              CASE "template", "contentlisting", "setdynamictemplate"
+              CASE "contentlisting"
               {
                 RECORD data := [ fullpath := node->GetAttribute("fullpath")
                                , site := node->GetAttribute("site")
@@ -1193,11 +1190,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 plugin.combine := FALSE;
 
                 INSERT plugin INTO apply.plugins AT END;
-                CONTINUE;
-              }
-              CASE "enabledrafts"
-              {
-                apply.enabledrafts := TRUE;
                 CONTINUE;
               }
               CASE "setlibrary"
