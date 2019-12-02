@@ -4,7 +4,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-OBJECT ASYNC FUNCTION TestThumbnailBrowse()
+ASYNC MACRO TestThumbnailBrowse()
 {
   OBJECT browse := CreateBrowseForWHFSObjectDialog(GetTestController());
   browse->acceptfiles := TRUE;
@@ -34,11 +34,34 @@ OBJECT ASYNC FUNCTION TestThumbnailBrowse()
   AWAIT ExpectScreenChange(+1, PTR browse->RunSelectfileDialog());
   TestEq("testpages", TT("folders")->selection.name);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
-
-  RETURN TRUE;
 }
 
-OBJECT ASYNC FUNCTION TestBrowseForObjectArray()
+ASYNC MACRO TestBrowseForObject()
+{
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([ name := "deleteme.txt" ]);
+  testfw->CommitWork();
+
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/publisher/components:browseforobject" ]);
+  scr->comp->value := testfile->id;
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("WebHare testsuite site:/tmp/deleteme.txt", scr->comp->^path->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+
+  testfw->BeginWork();
+  testfile->RecycleSelf();
+  testfw->CommitWork();
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/publisher/components:browseforobject" ]);
+  scr->comp->value := testfile->id;
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("deleteme.txt (deleted)", scr->comp->^path->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+ASYNC MACRO TestBrowseForObjectArray()
 {
   OBJECT imgeditfile := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg");
   // ?app=webhare_testsuite:component(http://www.webhare.net/xmlns/publisher/components:browseforobjectarray)
@@ -56,12 +79,11 @@ OBJECT ASYNC FUNCTION TestBrowseForObjectArray()
 
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->TolliumClick());
   TestEq([INTEGER(imgeditfile->id)], scr->comp->value);
-
-  RETURN TRUE;
 }
 
 RunTestFramework(
     [ PTR TestThumbnailBrowse
+    , PTR TestBrowseForObject
     , PTR TestBrowseForObjectArray
     ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]
                       ]

@@ -1221,7 +1221,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     IF(retval="")
       retval := fullpath;
     IF(NOT isactive)
-      retval := this->GetTid(".isdeleted", retval);
+      retval := GetTid("publisher:common.fsobjects.deleted", retval);
     RETURN retval;
   }
 

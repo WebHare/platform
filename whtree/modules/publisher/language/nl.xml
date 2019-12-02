@@ -240,13 +240,11 @@
       <text tid="illegalfilename">'<param p="1"/>' is geen geldige naam voor een map of bestand. Een naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt:<br/>/ \ : * ? " &lt; &gt; |</text>
       <text tid="typecannotbeversioned">Files van type '<param p="1"/>' kunnen niet worden ingediend voor goedkeuring.</text>
     </textgroup>
+    <textgroup gid="fsobjects">   <!-- common.fsobjects -->
+      <text tid="deleted"><param p="1"/> (verwijderd)</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
-    <textgroup gid="applyrules">   <!-- commondialogs.applyrules -->
-      <text tid="applyindex">Blok toepassen</text>
-      <text tid="applyrules">Gekoppelde siteprofiel &lt;apply&gt; regels</text>
-      <text tid="path">Siteprofiel pad</text>
-    </textgroup>
     <textgroup gid="browsewhfsobject">   <!-- commondialogs.browsewhfsobject -->
       <text tid="descr-file">Blader naar een map en kies een bestand uit de lijst van bestanden</text>
       <text tid="descr-filefolder">Blader naar een map en kies een bestand of map uit de lijst van bestanden en mappen</text>
@@ -264,9 +262,6 @@
         <text tid="list">Lijst</text>
         <text tid="thumbnails">Verkleiningen</text>
       </textgroup>
-    </textgroup>
-    <textgroup gid="ctypefieldedit">   <!-- commondialogs.ctypefieldedit -->
-      <text tid="ctypefieldedit">Bewerken</text>
     </textgroup>
     <textgroup gid="embeddedobject">   <!-- commondialogs.embeddedobject -->
       <textgroup gid="choosetype">   <!-- commondialogs.embeddedobject.choosetype -->
@@ -292,26 +287,6 @@
         <text tid="outputfolderused">Site '<param p="1"/>' gebruikt al (een voorouder van) de nieuwe uitvoermap.</text>
         <text tid="renamesiteerror">De site kon niet hernoemd worden.</text>
         <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="grantrights">   <!-- commondialogs.grantrights -->
-      <text tid="rightsbox">Recht</text>
-      <text tid="searchfor">Zoek naar</text>
-      <text tid="searchtab">Zoeken</text>
-      <text tid="startsearch">Zoek</text>
-      <text tid="title">Ken een recht toe voor '<param p="1"/>'</text>
-      <text tid="unitstab">Bladeren</text>
-      <textgroup gid="columns">   <!-- commondialogs.grantrights.columns -->
-        <text tid="unitname">Eenheid</text>
-        <text tid="username">Naam</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="history">   <!-- commondialogs.history -->
-      <textgroup gid="history">   <!-- commondialogs.history.history -->
-        <text tid="blame">Auteur</text>
-        <text tid="date">Datum</text>
-        <text tid="download">Download</text>
-        <text tid="history">Geschiedenis</text>
       </textgroup>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
@@ -359,30 +334,16 @@
       <text tid="unpinconfirm">Weet u zeker dat u de bescherming op dit object wilt opheffen?</text>
     </textgroup>
     <textgroup gid="objectprops">   <!-- commondialogs.objectprops -->
-      <text tid="access">Toegang</text>
-      <text tid="accessible">Deze map is publiek toegankelijk</text>
-      <text tid="cdnbaseurl">CDN basis URL</text>
-      <text tid="closebracket">)</text>
-      <text tid="contentlistingdefault">Standaard WebHare contentopsomming</text>
-      <text tid="contentlistinglegacy">ingesteld via klassieke interface</text>
       <text tid="created">(Aangemaakt</text>
       <text tid="data">Waarde</text>
-      <text tid="deletionuser">Verwijderd door</text>
-      <text tid="editdbinfo">Verander databasegegevens</text>
       <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
       <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
       <text tid="editsite-title">Eigenschappen van site '<param p="1"/>'</text>
-      <text tid="error">Foutmelding</text>
       <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
       <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-      <text tid="force_profile_local">Forceer profiel in deze map</text>
-      <text tid="force_profile_recursive">Forceer profiel in submappen</text>
-      <text tid="force_template_local">Forceer sjabloon in deze map</text>
-      <text tid="force_template_recursive">Forceer sjabloon in submappen</text>
       <text tid="forcedbyparent">(Geforceerd door bovenliggende map)</text>
       <text tid="forceprofile">Forceer profiel</text>
       <text tid="forcetemplate">Forceer sjabloon</text>
-      <text tid="isdeleted"><param p="1"/> (verwijderd)</text>
       <text tid="link">Link</text>
       <text tid="local">in deze map</text>
       <text tid="lockreason">Reden voor vergrendeling:</text>
@@ -438,35 +399,9 @@
       <text tid="type">Type</text>
       <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
       <text tid="unknown">&lt;Onbekend&gt;</text>
-      <text tid="usedcontentlistingfile">Bronbestand contentopsomming</text>
       <text tid="viewurl">Bekijken</text>
       <text tid="webpackinfo">Gekoppelde webpacks</text>
       <text tid="whfspath">Siteprofiel</text>
-      <textgroup gid="columns">   <!-- commondialogs.objectprops.columns -->
-        <text tid="name">Naam</text>
-        <text tid="nouserswithrightforobject">Er zijn geen gebruikers of rollen ingesteld.</text>
-        <text tid="path">Gegeven op</text>
-        <text tid="righttitle">Recht</text>
-      </textgroup>
-      <textgroup gid="legacy">   <!-- commondialogs.objectprops.legacy -->
-        <text tid="about">Deze tab toont de instellingen die in de oude Publisher interface gemaakt zijn. Ze hebben nog steeds effect, maar zouden vervangen moeten worden door siteprofiel instellingen.</text>
-        <text tid="commonfiles">Algemene bestanden</text>
-        <text tid="contentlistingfile">Bestand voor contentopsommingen</text>
-        <text tid="filepath">Pad</text>
-        <text tid="folderindices">Index in mappen</text>
-        <text tid="folderindices-dontcreate">Plaats geen indexbestand in nieuw aangemaakte mappen</text>
-        <text tid="folderindices-insertcontentlisting">Plaats een contentopsomming</text>
-        <text tid="folderindices-makeacopy">Plaats een kopie van</text>
-        <text tid="nositeprofneeded">Alle legacy settings zijn opgeschoond.</text>
-        <text tid="siteprofilecode">Siteprofiel code</text>
-        <text tid="tab">Legacy instellingen</text>
-      </textgroup>
-      <textgroup gid="multiple">   <!-- commondialogs.objectprops.multiple -->
-        <text tid="formtitle">Eigenschappen</text>
-        <text tid="nr_files">Aantal bestanden</text>
-        <text tid="nr_folders">Aantal mappen</text>
-        <text tid="total_filesize">Totale grootte bestanden</text>
-      </textgroup>
       <textgroup gid="tasks">   <!-- commondialogs.objectprops.tasks -->
         <text tid="notasks">Er zijn geen taken ingesteld</text>
         <text tid="task">Taak</text>
@@ -796,9 +731,6 @@
       <text tid="opts-showforeignfolders">Toon externe mappen</text>
       <text tid="opts-showmenubar">Toon menubalk</text>
       <text tid="prefs">Voorkeuren</text>
-      <text tid="resetwarnings">Opnieuw instellen</text>
-      <text tid="resetwarnings-label">Waarschuwingen</text>
-      <text tid="showadvanced">Tweaks</text>
       <text tid="showwebharebackend">Toon de 'WebHare backend' site</text>
       <text tid="showwhfsprivate">Toon de interne WebHare folders</text>
       <text tid="tweaks">Tweaks</text>
@@ -963,7 +895,6 @@
         <text tid="type">Type</text>
         <text tid="typetitle">Typenaam</text>
         <text tid="unknownuser">Onbekende gebruiker</text>
-        <text tid="usedcontentlistingfile">Bronbestand contentopsomming</text>
         <text tid="user">Eigenaar</text>
         <text tid="when">Datum</text>
       </textgroup>
@@ -1266,144 +1197,6 @@
         <text tid="refresh">Verversen</text>
         <text tid="refreshbutton">Verversen</text>
         <text tid="showmodifications">Toon wijzigingen</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="props">   <!-- filemanager.props -->
-      <textgroup gid="propsshared">   <!-- filemanager.props.propsshared -->
-        <text tid="deleted">Verwijderd</text>
-        <text tid="deletedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
-        <text tid="developers">Ontwikkelaars</text>
-        <text tid="formtitle">Algemene instellingen</text>
-        <text tid="info">Eigenschappen</text>
-        <text tid="linkcheck">Linkcontrole</text>
-        <text tid="maintab">Algemeen</text>
-        <text tid="modified">Gewijzigd</text>
-        <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> door <param p="2"/></ifparam></text>
-        <text tid="size">Grootte</text>
-        <text tid="type">Type</text>
-      </textgroup>
-      <textgroup gid="tab">   <!-- filemanager.props.tab -->
-        <text tid="access">Toegang</text>
-        <text tid="accessible">Deze map is publiek toegankelijk</text>
-        <text tid="contentlistingdefault">Standaard WebHare contentopsomming</text>
-        <text tid="contentlistinglegacy">ingesteld via klassieke interface</text>
-        <text tid="data">Waarde</text>
-        <text tid="deletionuser">Verwijderd door</text>
-        <text tid="editfile-title">Eigenschappen van bestand '<param p="1"/>'</text>
-        <text tid="editfolder-title">Eigenschappen van map '<param p="1"/>'</text>
-        <text tid="editsite-title">Instellingen voor site '<param p="1"/>'</text>
-        <text tid="error">Foutmelding</text>
-        <text tid="fileispinned">Dit bestand is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-        <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
-        <text tid="force_profile_local">Forceer profiel in deze map</text>
-        <text tid="force_profile_recursive">Forceer profiel in submappen</text>
-        <text tid="force_template_local">Forceer sjabloon in deze map</text>
-        <text tid="force_template_recursive">Forceer sjabloon in submappen</text>
-        <text tid="forcedbyparent">(Geforceerd door bovenliggende map)</text>
-        <text tid="forceprofile">Forceer profiel</text>
-        <text tid="forcetemplate">Forceer sjabloon</text>
-        <text tid="isdeleted"><param p="1"/> (verwijderd)</text>
-        <text tid="local">in deze map</text>
-        <text tid="lockreason">Reden voor vergrendeling:</text>
-        <text tid="locksite">Vergrendel de site</text>
-        <text tid="makeindex">Dit bestand is het indexdocument in deze map</text>
-        <text tid="multiple-title">Eigenschappen van <param p="1"/> onderdelen</text>
-        <text tid="name">Veld</text>
-        <text tid="newfile-name">Nieuw <param p="1"/></text>
-        <text tid="newfile-title">Nieuw bestand</text>
-        <text tid="newfolder-title">Nieuwe map</text>
-        <text tid="newsite">Nieuwe website</text>
-        <text tid="newsite-title">Nieuwe website</text>
-        <text tid="nobrokenlinks">Er zijn geen dode links om te tonen</text>
-        <text tid="nolinks">Er zijn geen links om te tonen</text>
-        <text tid="noprofile">&lt;Geen profiel&gt;</text>
-        <text tid="notemplate">&lt;Geen sjabloon&gt;</text>
-        <text tid="originallocation">Oorspronkelijke locatie</text>
-        <text tid="outputfolder">Submap in uitvoer-URL</text>
-        <text tid="outputweb">Uitvoer-URL</text>
-        <text tid="owner">Eigenaar</text>
-        <text tid="path">Pad</text>
-        <text tid="pinfile">Bescherm dit bestand (verbied hernoemen en verwijderen)</text>
-        <text tid="pinfolder">Bescherm deze map (verbied hernoemen en verwijderen)</text>
-        <text tid="profile">Profiel</text>
-        <text tid="propeditor">Propertyeditor</text>
-        <text tid="properties">Eigenschappen</text>
-        <text tid="publicationsettings">Publicatie-instellingen</text>
-        <text tid="publish">Publiceer dit bestand</text>
-        <text tid="publishedurl">URL</text>
-        <text tid="publishtab">Publicatie</text>
-        <text tid="recursive">in alle submappen</text>
-        <text tid="referrer">Pagina</text>
-        <text tid="restrictions">Beperkingen</text>
-        <text tid="rights">Rechten</text>
-        <text tid="showalllinks">Toon alle links</text>
-        <text tid="showapplyrules">Toon &lt;apply&gt; regels</text>
-        <text tid="sitenotpublished">Het bestand bevindt zich niet in een site of de site wordt niet gepubliceerd</text>
-        <text tid="siteprofile">Siteprofiel</text>
-        <text tid="siteprofileerrors">De volgende propertyeditors hebben fouten veroorzaakt</text>
-        <text tid="siteprofiles">Site profielen</text>
-        <text tid="sitetab">Site</text>
-        <text tid="status">Status</text>
-        <text tid="takeownership">Neem eigendom over</text>
-        <text tid="tasksettings">Taken</text>
-        <text tid="taskstab">Taken</text>
-        <text tid="template">Sjabloon</text>
-        <text tid="text">Linktekst</text>
-        <text tid="trashnotpublished">Verwijderde bestanden kunnen niet worden gepubliceerd</text>
-        <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
-        <text tid="unknown">&lt;Onbekend&gt;</text>
-        <text tid="url">URL</text>
-        <text tid="usedcontentlistingfile">Bronbestand contentopsomming</text>
-        <text tid="viewurl">Bekijken</text>
-        <text tid="webpackinfo">Gekoppelde webpacks</text>
-        <textgroup gid="columns">   <!-- filemanager.props.tab.columns -->
-          <text tid="name">Naam</text>
-          <text tid="nouserswithrightforobject">Er zijn geen gebruikers of rollen ingesteld.</text>
-          <text tid="path">Gegeven op</text>
-          <text tid="righttitle">Recht</text>
-        </textgroup>
-        <textgroup gid="legacy">   <!-- filemanager.props.tab.legacy -->
-          <text tid="about">Deze tab toont de instellingen die in de oude Publisher interface gemaakt zijn. Ze hebben nog steeds effect, maar zouden vervangen moeten worden door siteprofiel instellingen.</text>
-          <text tid="commonfiles">Algemene bestanden</text>
-          <text tid="contentlistingfile">Bestand voor contentopsommingen</text>
-          <text tid="filepath">Pad</text>
-          <text tid="folderindices">Index in mappen</text>
-          <text tid="folderindices-dontcreate">Plaats geen indexbestand in nieuw aangemaakte mappen</text>
-          <text tid="folderindices-insertcontentlisting">Plaats een contentopsomming</text>
-          <text tid="folderindices-makeacopy">Plaats een kopie van</text>
-          <text tid="nositeprofneeded">Alle legacy settings zijn opgeschoond.</text>
-          <text tid="siteprofilecode">Siteprofiel code</text>
-          <text tid="tab">Legacy instellingen</text>
-        </textgroup>
-        <textgroup gid="multiple">   <!-- filemanager.props.tab.multiple -->
-          <text tid="formtitle">Eigenschappen</text>
-          <text tid="nr_files">Aantal bestanden</text>
-          <text tid="nr_folders">Aantal mappen</text>
-          <text tid="total_filesize">Totale grootte bestanden</text>
-        </textgroup>
-        <textgroup gid="tasks">   <!-- filemanager.props.tab.tasks -->
-          <text tid="notasks">Er zijn geen taken ingesteld</text>
-          <text tid="task">Taak</text>
-          <text tid="when">Tijdstip</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="taskprops">   <!-- filemanager.props.taskprops -->
-        <text tid="addtask">Voeg taak toe</text>
-        <text tid="edittask">Bewerk taak</text>
-        <text tid="event">Taak</text>
-        <text tid="event-delete">Verwijderen (verplaats naar prullenbak)</text>
-        <text tid="event-end">Beëindig publicatie</text>
-        <text tid="event-endrecurse">Beëindig publicatie van alle bestanden in deze map en alle submappen</text>
-        <text tid="event-move">Verplaats naar</text>
-        <text tid="event-movefolder">Verplaats naar map '<param p="1"/>'</text>
-        <text tid="event-setindexdoc">Maak indexbestand</text>
-        <text tid="event-start">Start publicatie</text>
-        <text tid="event-startrecurse">Start publicatie van alle bestanden in deze map en alle submappen</text>
-        <text tid="when">Start op</text>
-        <textgroup gid="messages">   <!-- filemanager.props.taskprops.messages -->
-          <text tid="norightstomovetofolder">U heeft onvoldoende rechten om bestanden te verplaatsen naar map '<param p="1"/>'.</text>
-          <text tid="taskinpast">De door u ingevoerde tijd/datum ligt in het verleden. U kunt alleen toekomstige taken inplannen.</text>
-        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="recyclebin">   <!-- filemanager.recyclebin -->
@@ -1869,249 +1662,6 @@
       <text tid="noconfirmationlink">U moet een bevestigingslink aan de berichtinhoud toevoegen.</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="iw">   <!-- iw -->
-    <text tid="abouttitle">Forum</text>
-    <text tid="pagetitle_add_folder">Voeg een nieuw forum toe aan map '<param p="1"/>'</text>
-    <text tid="pagetitle_add_site">Voeg een nieuw forum toe aan site '<param p="1"/>'</text>
-    <textgroup gid="dialogs">   <!-- iw.dialogs -->
-      <text tid="confirm_posting_delete">Weet u zeker dat u het bericht geplaatst op <param p="1"/> wilt verwijderen?</text>
-    </textgroup>
-    <textgroup gid="forumcwi">   <!-- iw.forumcwi -->
-      <textgroup gid="errors">   <!-- iw.forumcwi.errors -->
-        <text tid="bademail">Vul a.u.b. een geldig e-mailadres in</text>
-        <text tid="codemismatch">De verificatiecode was incorrect ingevuld. Probeert u het a.u.b. opnieuw</text>
-        <text tid="nocode">Vul a.u.b. de verificatiecode in</text>
-        <text tid="noemail">Vul a.u.b. een e-mailadres in</text>
-        <text tid="noname">Vul a.u.b. uw naam in</text>
-        <text tid="noposting">Vul a.u.b. een bericht in</text>
-        <text tid="nosubject">Vul a.u.b. een onderwerp in</text>
-        <text tid="unavailable">Het forum is momenteel niet beschikbaar. Onze excuses voor het ongemak.</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- iw.forumcwi.messages -->
-        <text tid="add_posting_email_message">Er is een bericht toegevoegd aan '<param p="1"/>'.&lt;br&gt;&lt;br&gt;De inhoud van dit bericht is:&lt;br&gt;&lt;br&gt;<param p="2"/></text>
-        <text tid="add_posting_email_subject">Bericht toegevoegd aan '<param p="1"/>'</text>
-      </textgroup>
-      <textgroup gid="posting">   <!-- iw.forumcwi.posting -->
-        <text tid="cite"><param p="1"/> schreef:</text>
-        <text tid="code">Verificatiecode</text>
-        <text tid="header">Berichten van discussie '<param p="1"/>'</text>
-        <text tid="posting">Bericht</text>
-        <text tid="unknown_user">Onbekend</text>
-      </textgroup>
-      <textgroup gid="threads">   <!-- iw.forumcwi.threads -->
-        <text tid="addposting">Voeg bericht toe aan discussie '<param p="1"/>'</text>
-        <text tid="curpage">Pagina <param p="1"/> van <param p="2"/></text>
-        <text tid="delposting">Verwijder</text>
-        <text tid="editposting">Wijzig</text>
-        <text tid="header">Discussies van onderwerp '<param p="1"/>'</text>
-        <text tid="modifiedon">Gewijzigd op <param p="1"/></text>
-        <text tid="nextpage">&gt;&gt;</text>
-        <text tid="postedon">Geplaatst op <param p="1"/></text>
-        <text tid="prevpage">&lt;&lt;</text>
-        <text tid="reply">Reageer</text>
-        <text tid="subscribe">Abonneren op deze discussie</text>
-        <text tid="threadindex">Terug naar discussies</text>
-        <text tid="unsubscribe">Verwijder abonnement op deze discussie</text>
-        <textgroup gid="addposting">   <!-- iw.forumcwi.threads.addposting -->
-          <text tid="blog">Plaats reactie</text>
-          <text tid="forum">Nieuw bericht</text>
-          <text tid="guestbook">Nieuw bericht</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="topics">   <!-- iw.forumcwi.topics -->
-        <text tid="addthread">Nieuwe discussie</text>
-        <text tid="by">door</text>
-        <text tid="creationtime">Geopend op</text>
-        <text tid="description">Onderwerp</text>
-        <text tid="lastaddtime">Laatste bijdrage</text>
-        <text tid="nummessages">Berichten</text>
-        <text tid="numpostings">Aantal berichten</text>
-        <text tid="numthreads">Discussies</text>
-        <text tid="pages">Pagina's</text>
-        <text tid="subject">Discussie</text>
-        <text tid="topic">Onderwerp</text>
-        <text tid="topiclist">Terug naar onderwerpen</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="forumeditor">   <!-- iw.forumeditor -->
-      <textgroup gid="errors">   <!-- iw.forumeditor.errors -->
-        <text tid="invalid_email">Het ingevulde e-mailadres '<param p="1"/>' in veld '<param p="2"/>' is onjuist</text>
-        <text tid="invalid_url">De ingevulde URL in veld '<param p="1"/>' is onjuist. Denkt u er a.u.b. om dat een URL in elk geval met 'http://' begint.</text>
-        <text tid="no_email">Het veld '<param p="1"/>' is verplicht</text>
-        <text tid="wrong_email">Het e-mailadres ingevuld in veld 'E-mailadres poster' is onjuist ingevuld</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- iw.forumeditor.main -->
-        <text tid="about">Over</text>
-        <text tid="addthread">Nieuwe discussie</text>
-        <text tid="addthreadbutton">Nieuwe discussie</text>
-        <text tid="addtopic">Voeg nieuw onderwerp toe</text>
-        <text tid="addtopicbutton">Nieuw onderwerp</text>
-        <text tid="deletethread">Verwijder discussie</text>
-        <text tid="deletetopic">Verwijder onderwerp</text>
-        <text tid="deletetopicbutton">Verwijder onderwerp</text>
-        <text tid="description">Omschrijving</text>
-        <text tid="editforum">Wijzig forum</text>
-        <text tid="editthread">Wijzig discussie</text>
-        <text tid="edittopic">Wijzig onderwerp</text>
-        <text tid="edittopicbutton">Wijzig onderwerp</text>
-        <text tid="forumprops">Bewerk foruminstellinen</text>
-        <text tid="general">Algemeen</text>
-        <text tid="last_modification_date">Laatste wijziging</text>
-        <text tid="num_postings"><param p="1"/> bericht(en)</text>
-        <text tid="num_postings_threads">Aantal discussies/berichten</text>
-        <text tid="num_threads"><param p="1"/> discussie(s)</text>
-        <text tid="numpostings">Aantal berichten</text>
-        <text tid="numthreads">Aantal discussies</text>
-        <text tid="ordertopics">Herorder onderwerpen</text>
-        <text tid="ordertopicsbutton">Herorder onderwerpen</text>
-        <text tid="originalposter">Originele poster</text>
-        <text tid="showpostings">Beheer discussieberichten</text>
-        <text tid="subject">Onderwerp</text>
-        <text tid="threadtitle">Berichten van discussie '<param p="1"/>'</text>
-        <text tid="topic">Onderwerp</text>
-        <text tid="topics">Onderwerpen</text>
-        <text tid="topictitle">Discussies van onderwerp '<param p="1"/>'</text>
-      </textgroup>
-      <textgroup gid="menu">   <!-- iw.forumeditor.menu -->
-        <text tid="about">Over Forum</text>
-        <text tid="forummenu">Forum</text>
-        <text tid="forumprops">Bewerk foruminstellingen</text>
-      </textgroup>
-      <textgroup gid="messages">   <!-- iw.forumeditor.messages -->
-        <text tid="deleteposting">Weet u zeker dat u het bericht geplaatst door '<param p="1"/>' op <param p="2"/> wilt verwijderen?</text>
-        <text tid="deletepostingandthread">Weet u zeker dat u het bericht geplaatst door '<param p="1"/>' wilt verwijderen?<br/>Denkt u er a.u.b. aan dat aangezien dit het laatste bericht is, de discussie wordt afgesloten en verwijderd.</text>
-        <text tid="deletethread">Weet u zeker dat u discussie '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletetopic">Weet u zeker dat u onderwerp '<param p="1"/>' wilt verwijderen?</text>
-        <text tid="filenotfound">Forum kan niet gevonden worden, dit kan gebeuren na een kopieer/verplaats actie of the uitpakken van een archief. Verwijder a.u.b. dit bestand en maak een nieuwe forumbestand aan. Wij verontschuldigen ons voor het ongemak.</text>
-        <text tid="subscriptions_will_be_lost">Er zijn nog personen geabonneerd op discussies binnen dit forum. Door het uitzetten van de abonneeroptie zullen de inschrijvingen van deze personen worden verwijderd. Weet u zeker dat u hiermee door wilt gaan?</text>
-      </textgroup>
-      <textgroup gid="postings">   <!-- iw.forumeditor.postings -->
-        <text tid="showpostings">Laat berichten zien</text>
-        <textgroup gid="actions">   <!-- iw.forumeditor.postings.actions -->
-          <text tid="addposting">Nieuw bericht</text>
-          <text tid="deleteposting">Verwijderen</text>
-          <text tid="editposting">Bewerk</text>
-          <text tid="replyposting">Reageer</text>
-        </textgroup>
-        <textgroup gid="columns">   <!-- iw.forumeditor.postings.columns -->
-          <text tid="postername">Poster</text>
-          <text tid="posttime">Geplaatst op</text>
-        </textgroup>
-        <textgroup gid="posting">   <!-- iw.forumeditor.postings.posting -->
-          <text tid="email">E-mailadres poster</text>
-          <text tid="formtitle">Berichteigenschappen</text>
-          <text tid="formtitle_preview">Inhoud bericht</text>
-          <text tid="formtitle_thread">Discussie-eigenschappen</text>
-          <text tid="inreplytoposting">Reactie op</text>
-          <text tid="locked">Gesloten discussie</text>
-          <text tid="locked-false">Deze discussie is niet gesloten - er kunnen berichten toegevoegd worden</text>
-          <text tid="locked-true">Deze discussie is gesloten - er kunnen geen berichten toegevoegd worden</text>
-          <text tid="name">Naam poster</text>
-          <text tid="pagetitle_add">Voeg nieuw bericht toe</text>
-          <text tid="pagetitle_edit">Bewerk bericht</text>
-          <text tid="pagetitle_reply">Plaats een reactie</text>
-          <text tid="preview">Bericht</text>
-          <text tid="sticky">Altijd bovenaan</text>
-          <text tid="sticky-false">Dit onderwerp staat niet altijd bovenaan</text>
-          <text tid="sticky-true">Dit onderwerp staat altijd bovenaan ('sticky')</text>
-          <text tid="subject">Onderwerp</text>
-          <text tid="tag">Tag</text>
-          <text tid="text">Bericht</text>
-          <text tid="updateposting">Update bericht</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="props">   <!-- iw.forumeditor.props -->
-        <text tid="avatarfield">Avatarveld</text>
-        <text tid="displaynamefield">Naamveld</text>
-        <text tid="email_address_admin">E-mailadres beheerder</text>
-        <text tid="email_address_sender">Afzenderadres</text>
-        <text tid="email_admin">E-mail beheerder</text>
-        <text tid="email_admin_desc">Stuur een e-mailtje naar de beheerder bij veranderingen</text>
-        <text tid="email_required">E-mailveld verplicht</text>
-        <text tid="email_required_desc">Het invullen van een e-mailadres is verplicht</text>
-        <text tid="emailfield">E-mailveld</text>
-        <text tid="forum_general">Foruminstellingen</text>
-        <text tid="forum_url">URL van forum</text>
-        <text tid="forumpanel">Foruminstellingen</text>
-        <text tid="forumprops">Foruminstellingen</text>
-        <text tid="forumtab">Forum</text>
-        <text tid="forumtype">Forumtype</text>
-        <text tid="forumtype-1">Uitgebreid forum</text>
-        <text tid="forumtype-2">Gastenboek</text>
-        <text tid="forumtype-3">Reactielog (blog)</text>
-        <text tid="generalpanel">Algemene instellingen</text>
-        <text tid="generaltab">Algemeen</text>
-        <text tid="postings_perpage">Aantal berichten per pagina</text>
-        <text tid="postingspanel">Berichten</text>
-        <text tid="requireaccount">Account</text>
-        <text tid="requireaccount-false">Anonieme gebruikers mogen ook berichten plaatsen</text>
-        <text tid="requireaccount-true">Een account is verplicht om berichten te kunnen plaatsen</text>
-        <text tid="show_email">Toon e-mailadres</text>
-        <text tid="show_email_desc">Laat het e-mailadres van gebruikers zien</text>
-        <text tid="showrespondlink">Toon "Reageer" knop</text>
-        <text tid="showrespondlink_desc">De gebruiker kan bestaande berichten 'quoten'</text>
-        <text tid="spamprevent">Spampreventie</text>
-        <text tid="spamprevent-0">Geen beveiliging tegen spam</text>
-        <text tid="spamprevent-1">Eenvoudige, onzichtbare beveiliging</text>
-        <text tid="spamprevent-2">Eisen dat de gebruiker een code overneemt</text>
-        <text tid="subscribe_automatically">Automatisch abonneren</text>
-        <text tid="subscribe_automatically_desc">Gebruikers abonneren zich automatisch na een reactie</text>
-        <text tid="subscribe_to_threads">Abonneren op discussies</text>
-        <text tid="subscribe_to_threads_desc">Gebruikers kunnen zich abonneren op discussies</text>
-        <text tid="subscribe_to_topics">Abonneren op onderwerpen</text>
-        <text tid="subscribe_to_topics_desc">Gebruikers kunnen zich abonneren op forum onderwerpen</text>
-        <text tid="threads_subscription_email_from">E-mailadres van afzender</text>
-        <text tid="topicdescriptions">Discussie-omschrijvingen</text>
-        <text tid="topicdescriptions-false">Alleen bij de discussie zelf tonen</text>
-        <text tid="topicdescriptions-true">Ook tonen in overzicht van discussies</text>
-        <text tid="wrdpanel">WRD koppelingen</text>
-      </textgroup>
-      <textgroup gid="thread">   <!-- iw.forumeditor.thread -->
-        <text tid="editthread">Bewerk discussie</text>
-        <text tid="formtitle">Discussie-eigenschappen</text>
-        <text tid="locked">Gesloten discussie</text>
-        <text tid="locked-false">Deze discussie is niet gesloten - er kunnen berichten toegevoegd worden</text>
-        <text tid="locked-true">Deze discussie is gesloten - er kunnen geen berichten toegevoegd worden</text>
-        <text tid="pagetitle_add">Voeg discussie toe aan onderwerp '<param p="1"/>'</text>
-        <text tid="pagetitle_edit">Bewerk discussie '<param p="1"/>'</text>
-        <text tid="sticky">Altijd bovenaan</text>
-        <text tid="sticky-false">Dit onderwerp staat niet altijd bovenaan</text>
-        <text tid="sticky-true">Dit onderwerp staat altijd bovenaan</text>
-        <text tid="subject">Onderwerp</text>
-        <text tid="tag">Tag</text>
-        <textgroup gid="newposting">   <!-- iw.forumeditor.thread.newposting -->
-          <text tid="email">E-mailadres poster</text>
-          <text tid="formtitle">Nieuw bericht</text>
-          <text tid="name">Naam poster</text>
-          <text tid="text">Bericht</text>
-        </textgroup>
-      </textgroup>
-      <textgroup gid="topic">   <!-- iw.forumeditor.topic -->
-        <text tid="description">Omschrijving</text>
-        <text tid="formtitle">Forumeigenschappen</text>
-        <text tid="forumtopic">Forumonderwerp</text>
-        <text tid="newthreads">Nieuwe discussies</text>
-        <text tid="newthreads-false">Alleen moderators mogen nieuwe discussies openen</text>
-        <text tid="newthreads-true">Iedereen mag nieuwe discussies beginnen</text>
-        <text tid="pagetitle_add">Voeg forumonderwerp toe aan forum '<param p="1"/>'</text>
-        <text tid="pagetitle_edit">Bewerk forumonderwerp '<param p="1"/>'</text>
-        <text tid="subject">Onderwerp</text>
-        <text tid="tag">Tag</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="forumupdate">   <!-- iw.forumupdate -->
-      <text tid="filename">Bestandsnaam</text>
-      <text tid="multiple">Dit forum bestaat uit meerdere onderwerpen</text>
-      <text tid="multitopic">Onderwerpmode</text>
-      <text tid="single">Dit forum bestaat uit een enkel onderwerp</text>
-      <text tid="unconnected">Ongekoppeld</text>
-      <text tid="wrdtype">WRD gebruikerstype</text>
-    </textgroup>
-    <textgroup gid="posting">   <!-- iw.posting -->
-      <text tid="content">Inhoud bericht</text>
-      <text tid="posting">Bericht</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="main">   <!-- main -->
     <text tid="filemanager">Publisher</text>
     <text tid="filemanager_folder"><param p="1"/> - Publisher</text>
@@ -2341,24 +1891,6 @@
         <text tid="webdesign">Webdesign</text>
         <text tid="webdesign-hint">Webdesign (module:designnaam)</text>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="outputslaves">   <!-- outputslaves -->
-    <textgroup gid="dialogs">   <!-- outputslaves.dialogs -->
-      <text tid="confirmdelete">Weet u zeker dat u deze secundaire uitvoer wilt verwijderen?</text>
-    </textgroup>
-    <textgroup gid="manage">   <!-- outputslaves.manage -->
-      <text tid="folder">Map</text>
-      <text tid="manage">Beheer secundaire uitvoer</text>
-      <text tid="tag">Tag</text>
-      <text tid="url">URL</text>
-    </textgroup>
-    <textgroup gid="slave">   <!-- outputslaves.slave -->
-      <text tid="folder">Map</text>
-      <text tid="outputfolder">Uitvoermap</text>
-      <text tid="outputweb">Uitvoer webserver</text>
-      <text tid="slave">Secundaire uitvoer</text>
-      <text tid="tag">Tag</text>
     </textgroup>
   </textgroup>
   <textgroup gid="profileeditor">   <!-- profileeditor -->
