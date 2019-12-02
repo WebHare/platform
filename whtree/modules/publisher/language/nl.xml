@@ -399,7 +399,6 @@
       <text tid="type">Type</text>
       <text tid="typenotpublished">Bestanden van het type '<param p="1"/>' kunnen niet gepubliceerd worden</text>
       <text tid="unknown">&lt;Onbekend&gt;</text>
-      <text tid="usedcontentlistingfile">Bronbestand contentopsomming</text>
       <text tid="viewurl">Bekijken</text>
       <text tid="webpackinfo">Gekoppelde webpacks</text>
       <text tid="whfspath">Siteprofiel</text>
@@ -896,7 +895,6 @@
         <text tid="type">Type</text>
         <text tid="typetitle">Typenaam</text>
         <text tid="unknownuser">Onbekende gebruiker</text>
-        <text tid="usedcontentlistingfile">Bronbestand contentopsomming</text>
         <text tid="user">Eigenaar</text>
         <text tid="when">Datum</text>
       </textgroup>

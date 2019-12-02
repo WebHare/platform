@@ -55,8 +55,6 @@
               <column name="data" type="text" />
             </list>
           </panel>
-           <text name="usedcontentlistingfile" />
-
         </tab>
         <tab name="draftcontenttypes" layout="left" tid="commondialogs.propsshared.drafts">
           <split type="horizontal" splitter="transparent">

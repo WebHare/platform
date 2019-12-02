@@ -10,6 +10,8 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -526,7 +528,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
   INTEGER fsobjid;
   OBJECT fsobj;
   OBJECT applytester;
-  RECORD parentsite;
   RECORD ARRAY cachedapplyrules;
   STRING currentapplyfile;
 
@@ -583,10 +584,11 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
   MACRO FillDBInfo(OBJECT comp, OBJECT myfsobj, INTEGER versionid)
   {
     RECORD fsobj;
+    RECORD siterecord;
     IF (ObjectExists(myfsobj))
     {
       fsobj := SELECT * FROM system.fs_objects WHERE id = myfsobj->id;
-      this->parentsite := SELECT * FROM system.sites WHERE id = myfsobj->id;
+      siterecord := SELECT * FROM system.sites WHERE id = myfsobj->id;
     }
     IF(NOT RecordExists(fsobj))
     {
@@ -604,13 +606,13 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
             ]
       ];
 
-    IF (RecordExists(this->parentsite))
+    IF (RecordExists(siterecord))
     {
       INSERT CELL[ ...dbinfo_baserow
                  , rowkey := "sites"
                  , name := "system.sites"
-                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, CellDelete(this->parentsite, "id"), "sites.", FALSE, FALSE)
-                 , data := ToString(this->parentsite.id)
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, CellDelete(siterecord, "id"), "sites.", FALSE, FALSE)
+                 , data := ToString(myfsobj->id)
                  , type := "table row"
                  ] INTO outrows AT END;
     }
@@ -660,25 +662,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
   MACRO RefreshDBInfo()
   {
     this->FillDBInfo(^dbinfo, this->fsobj, 0);
-
-    //ADDME show if 'isnew' too, _if_ we'd add a content listing when creating?
-    IF(RecordExists(this->parentsite)
-       AND ( (this->fsobj->isfolder
-              AND RecordExists(SELECT FROM system.fs_objects AS files, system.fs_objects AS folders
-                                WHERE folders.id=this->fsobj->id AND folders.indexdoc=files.id AND files.type=24)
-             )
-           OR (NOT this->fsobj->isfolder)
-           )
-      )
-    {
-      INTEGER cl := this->applytester->GetSitePlaceHolder();
-      IF(cl != 0)
-        ^usedcontentlistingfile->value := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = cl;
-      ELSE
-        ^usedcontentlistingfile->value := GetTid("publisher:commondialogs.objectprops.contentlistingdefault");
-    }
-    ELSE
-      ^usedcontentlistingfile->visible := FALSE;
   }
 
   MACRO DoEditDBInfo(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)

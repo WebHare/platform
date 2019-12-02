@@ -399,7 +399,6 @@
       <text tid="type">Type</text>
       <text tid="typenotpublished">Files of type '<param p="1"/>' cannot be published</text>
       <text tid="unknown">&lt;Unknown&gt;</text>
-      <text tid="usedcontentlistingfile">Content listing source</text>
       <text tid="viewurl">View</text>
       <text tid="webpackinfo">Linked webpacks</text>
       <text tid="whfspath">Site profile</text>
@@ -896,7 +895,6 @@
         <text tid="type">Type</text>
         <text tid="typetitle">Type name</text>
         <text tid="unknownuser">Unknown user</text>
-        <text tid="usedcontentlistingfile">Content listing source</text>
         <text tid="user">Owner</text>
         <text tid="when">Date</text>
       </textgroup>
