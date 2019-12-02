@@ -737,7 +737,11 @@ ASYNC MACRO TestLoadScreen()
 
   // test xml error not crashing the loader
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline::<badxml>#otherscreen`));
-  TestEqLike("*Premature end*", tt("errors")->rows[0].message);
+  IF(tt("errors")->rows[0].message LIKE "*remature*")
+    TestEqLike("*Premature end*", tt("errors")->rows[0].message);
+  ELSE //since libxml 2.9.10:
+    TestEqLike("EndTag:*not found", tt("errors")->rows[0].message);
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(BlobToString(badglobalhandler))}#testbadglobalhandler`));
