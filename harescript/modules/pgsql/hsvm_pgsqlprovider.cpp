@@ -1554,45 +1554,56 @@ bool PGSQLTransactionDriver::BuildQueryString(
 
                         where.append(")");
 
-                        bool trans_t1 = query.tables[it->table1].ColType(it->column1).flags & ColumnFlags::TranslateNulls && query.tables[it->table1].columns[it->column1].nulldefault;
-                        bool trans_t2 = query.tables[it->table2].ColType(it->column2).flags & ColumnFlags::TranslateNulls && query.tables[it->table2].columns[it->column2].nulldefault;
+                        ColumnFlags::_type t1_flags = query.tables[it->table1].ColType(it->column1).flags;
+                        ColumnFlags::_type t2_flags = query.tables[it->table2].ColType(it->column2).flags;
 
-                        if (trans_t2)
-                        {
-                                where.append(" OR (");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(" IS NULL AND ");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(GetOperator(it->condition));
-                                ParamEncoding::Flags encodingflags = (query.tables[it->table2].typeinfo->columnsdef[it->column2].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
-                                if (paramref.empty())
-                                    return false;
-                                where.append(paramref);
-                                where.append(")");
-                        }
-                        if (trans_t1)
-                        {
-                                where.append(" OR (");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(" IS NULL AND ");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(GetOperator(SwappedCondition(it->condition)));
-                                ParamEncoding::Flags encodingflags = (query.tables[it->table1].typeinfo->columnsdef[it->column1].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
-                                where.append(paramref);
-                                if (paramref.empty())
-                                    return false;
-                                where.append(")");
-                        }
                         if (it->match_double_null)
                         {
-                                where.append(" OR ((");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(" IS NULL) AND (");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(" IS NULL)");
-                                where.append(")");
+                                // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
+                                if (!(t1_flags & ColumnFlags::Key) && !(t2_flags & ColumnFlags::Key))
+                                {
+                                        where.append(" OR ((");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(" IS NULL) AND (");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(" IS NULL)");
+                                        where.append(")");
+                                }
+                        }
+                        else
+                        {
+                                // One column has no null default, or the defaults differ
+                                bool trans_t1 = t1_flags & ColumnFlags::TranslateNulls && query.tables[it->table1].columns[it->column1].nulldefault;
+                                bool trans_t2 = t2_flags & ColumnFlags::TranslateNulls && query.tables[it->table2].columns[it->column2].nulldefault;
+
+                                if (trans_t2)
+                                {
+                                        where.append(" OR (");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(" IS NULL AND ");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(GetOperator(it->condition));
+                                        ParamEncoding::Flags encodingflags = (query.tables[it->table2].typeinfo->columnsdef[it->column2].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
+                                        if (paramref.empty())
+                                            return false;
+                                        where.append(paramref);
+                                        where.append(")");
+                                }
+                                if (trans_t1)
+                                {
+                                        where.append(" OR (");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(" IS NULL AND ");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(GetOperator(SwappedCondition(it->condition)));
+                                        ParamEncoding::Flags encodingflags = (query.tables[it->table1].typeinfo->columnsdef[it->column1].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
+                                        where.append(paramref);
+                                        if (paramref.empty())
+                                            return false;
+                                        where.append(")");
+                                }
                         }
 
                         it->handled = true;
