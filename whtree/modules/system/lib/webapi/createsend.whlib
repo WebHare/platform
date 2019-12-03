@@ -75,13 +75,13 @@ PUBLIC STATIC OBJECTTYPE CreateSendAPI
   /** List clients in your account */
   PUBLIC RECORD ARRAY FUNCTION ListClients()
   {
-    RETURN EnforceStructure([[ clientid := "", name := "" ]], this->RawAPICall("GET","clients"));
+    RETURN SELECT clientid, name FROM EnforceStructure([[ clientid := "", name := "" ]], this->RawAPICall("GET","clients"));
   }
 
   /** List mailinglists for a client */
   PUBLIC RECORD ARRAY FUNCTION ListMailingLists(STRING clientid)
   {
-    RETURN EnforceStructure([[ listid := "", name := "" ]], this->RawAPICall("GET","clients/" || clientid || "/lists"));
+    RETURN SELECT listid, name FROM EnforceStructure([[ listid := "", name := "" ]], this->RawAPICall("GET","clients/" || clientid || "/lists"));
   }
 
   /** Subscribe a user
@@ -145,15 +145,20 @@ PUBLIC STATIC OBJECTTYPE CreateSendAPI
         , consenttotrack := ""
         ], res.response);
 
-    res := CELL[ ...res
+    res := CELL[ res.emailaddress
+               , res.name
+               , res.date
+               , res.state
+               , res.readsemailwith
                , customfields := (SELECT field := COLUMN "key", value FROM res.customfields)
                , consenttotrack := res.consenttotrack = "Yes"
+               , issubscribed := res.state = "Active"
                ];
 
     RETURN res;
   }
 
-  /** Unsubscribe a user frmo a list
+  /** Unsubscribe a user from a list
       @return True if succesfully unsubscribed, false if not on the list*/
   PUBLIC BOOLEAN FUNCTION RemoveSubscriber(STRING listid, STRING emailaddress)
   {

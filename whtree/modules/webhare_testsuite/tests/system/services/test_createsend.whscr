@@ -45,6 +45,7 @@ MACRO Test_CreateSendAPI()
 
   TestEq(TRUE, RecordExists(describeuser));
   TestEq("Active", describeuser.state);
+  TestEq(TRUE, describeuser.issubscribed);
   TestEq("42", SELECT AS STRING value FROM describeuser.customfields WHERE field = "test");
   TestEq(TRUE, describeuser.date >= teststart);
   TestEq(FALSE, describeuser.consenttotrack); //is apparently the default
@@ -64,6 +65,7 @@ MACRO Test_CreateSendAPI()
     Sleep(250);
   }
   TestEq("Unsubscribed", describeuser.state);
+  TestEq(FALSE, describeuser.issubscribed);
 
   //Unsubscribe shouldn't fail I think..
   TestEq(FALSE, csapi->RemoveSubscriber(testlist.listid, randomuser));
