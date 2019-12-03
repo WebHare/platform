@@ -1,0 +1,173 @@
+<?wh
+/** @topic webapis/email */
+
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+
+
+STRING FUNCTION HashMail(STRING email)
+{
+  RETURN EncodeBase16(GetMD5Hash(ToLowercase(email)));
+}
+
+/** mailchimp integration
+    @long
+       Get your API keys at /account/api/ (or under Extra > API keys after logging in)
+
+       API reference: https://mailchimp.com/developer/reference/
+
+*/
+PUBLIC STATIC OBJECTTYPE MailchimpAPI
+<
+  OBJECT browser;
+  STRING apikey;
+  STRING apibase;
+
+  PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+
+  /** @param dc datacenter, eg 'us4'
+      @param apikey API key as received from mailchimp */
+  PUBLIC MACRO NEW(STRING dc, STRING apikey)
+  {
+    this->browser := NEW WebBrowser;
+    IF(IsRPCTrafficLogged("system:webapi.mailchimp"))
+      LogRPCForWebBrowser("system:webapi.mailchimp", "", this->browser);
+
+    this->apikey := apikey;
+    IF(apikey = "")
+      THROW NEW Exception("No API key set");
+
+    IF(dc = "")
+      THROW NEW Exception("No DC (datacenter) set");
+
+    this->apibase := `https://${dc}.api.mailchimp.com/3.0/`;
+    this->browser->SetPassword(this->apibase, "anystring", this->apikey); //username can be any string
+  }
+
+  MACRO ThrowLastRequest()
+  {
+    THROW NEW Exception(`${this->browser->href}: ${this->browser->GetHTTPStatusText()}`);
+  }
+
+  /** Do a lowlevel call straight to the api
+      @cell options.jsonbody JSON Body to pass
+      @cell options.wrapresponse If true, accept non-200 responses and wrap the returned body to return the response */
+  PUBLIC VARIANT FUNCTION RawAPICall(STRING method, STRING endpoint, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ jsonbody := DEFAULT RECORD
+                               , wrapresponse := FALSE
+                               , urlvariables := DEFAULT RECORD
+                               , mapping := DEFAULT RECORD
+                               ], options);
+
+    STRING url := this->apibase || endpoint;
+    url := UpdateURLVariables(url, options.urlvariables);
+
+    BLOB body;
+    IF(RecordExists(options.jsonbody))
+      body := EncodeJSONBlob(options.jsonbody, options.mapping);
+
+    IF(NOT this->browser->SendRawRequest(method, url, RECORD[], body) AND NOT options.wrapresponse)
+      this->ThrowLastRequest();
+
+    IF(options.wrapresponse)
+      RETURN [ statustext := this->browser->GetHTTPStatusText()
+             , status := this->browser->GetHTTPStatusCode()
+             , response := DecodeJSONBlob(this->browser->content)
+             ];
+
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+  /** List mailinglists for a client
+      @return lists
+      @cell(string) lists.listid List ID
+      @cell(string) lists.name List name */
+  PUBLIC RECORD ARRAY FUNCTION ListMailingLists()
+  {
+    RECORD result := this->RawAPICall("GET","lists");
+    RETURN SELECT listid := id, name FROM EnforceStructure([ lists := [[ id := "", name := "" ]]], result).lists;
+  }
+
+  /** Subscribe a user
+      @long Optionally supplies custom data.
+
+            Note that you must create custom fields through the webinterface before you can use them (and you will not
+            get an error when setting a nonexisting custom field)
+
+      @cell(record array) options.customfields Custom fields to add   */
+  PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING name, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    IF(NOT IsValidEmailAddress(email))
+      THROW NEW Exception(`Invalid email address '${email}'`);
+
+    options := ValidateOptions(/*[ resubscribe := FALSE
+                               , */
+                               [customfields := [[ field := "", value := "" ]]
+                               /*, consenttotrack := FALSE
+                               */], options);
+
+    RECORD req := [ email_address := email
+                  , status_if_new := "subscribed"
+                  , merge_fields := RepackRecord(SELECT name := "mergefield_" || #customfields, value FROM options.customfields)
+                  ];
+
+    RECORD res := this->RawAPICall("PUT", `lists/${listid}/members/${HashMail(email)}`,
+      [ jsonbody := req
+      , mapping := RepackRecord(SELECT name := "mergefield_" || #customfields, value := customfields.field FROM options.customfields)
+      ]);
+    //IF(res.status != 201)
+    //  this->ThrowLastRequest();
+
+    RETURN [ success := TRUE ];
+  }
+
+  /** Retrieve user's subscription status */
+  PUBLIC RECORD FUNCTION GetSubscriber(STRING listid, STRING email)
+  {
+    RECORD res := this->RawAPICall("GET", `lists/${listid}/members/${HashMail(email)}`,
+      [ wrapresponse := TRUE
+      ]);
+
+    IF(res.status = 404)
+      RETURN DEFAULT RECORD;
+    IF(res.status != 200)
+       this->ThrowLastRequest();
+
+     res := EnforceStructure(
+      [ email_address := ""
+      , date := DEFAULT DATETIME
+      , status := ""
+      , merge_fields := [ fname := "", lname := "" ]
+      ], res.response);
+
+    RETURN CELL[ emailaddress := res.email_address
+               , res.status
+               , issubscribed := res.status = "subscribed"
+               , customfields := (SELECT field := name, value FROM UnpackRecord(res.merge_fields))
+               ];
+  }
+
+  /** Unsubscribe a user from a list
+      @param emailaddress Email to unsubscribe */
+  PUBLIC MACRO RemoveSubscriber(STRING listid, STRING emailaddress)
+  {
+    RECORD res := this->RawAPICall("PUT", `lists/${listid}/members/${HashMail(emailaddress)}`,
+      [ jsonbody := [status := "unsubscribed"]
+      ]);
+  }
+
+  /** Delete a user permanently from a list - This will make it impossible to re-import the list member.
+      @param emailaddress Email to unsubscribe */
+  PUBLIC MACRO DeleteSubscriberPermanently(STRING listid, STRING emailaddress)
+  {
+    RECORD res := this->RawAPICall("POST", `lists/${listid}/members/${HashMail(emailaddress)}/actions/delete-permanent`,
+      [ jsonbody := [status := "unsubscribed"]
+      ]);
+  }
+>;

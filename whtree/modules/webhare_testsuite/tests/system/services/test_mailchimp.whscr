@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webapi/mailchimp.whlib";
+
+MACRO Test_MailchimpAPI()
+{
+  DATETIME teststart := GetRoundedDatetime(GetCurrentDatetime(), 1000); //round down to second as that's the precision we expect
+
+  OBJECT chimpapi := NEW MailchimpAPI(GetEnvironmentVariable("TESTSECRET_MAILCHIMP_DC"), GetEnvironmentVariable("TESTSECRET_MAILCHIMP_APIKEY"));
+  //chimpapi->debug:=true;
+
+  //Note - to find a list id, see https://mailchimp.com/help/find-audience-id/
+  RECORD ARRAY lists := chimpapi->ListMailingLists();
+  RECORD testlist := SELECT * FROM lists WHERE name = "WebHare bv";
+  TestEq(TRUE, RecordExists(testlist));
+
+  //mailchimp freaks out about example.net
+  STRING randomuser := "sub" || GenerateUFS128BitId() || "@beta.webhare.net";
+
+  //User shouldn't be subscribed yet
+  RECORD describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
+  TestEq(DEFAULT RECORD, describeuser);
+
+  TestThrowsLike("*Invalid email*", PTR chimpapi->AddSubscriber(testlist.listid, "testfw subscriber", "bestaatniet@example"));
+  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, "testfw subscriber", randomuser, [ customfields := [[ field := "FNAME", value := "First" ], [ field := "LNAME", value := "Name" ]]]).success);
+
+  describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
+  TestEq(TRUE, RecordExists(describeuser));
+
+  TestEq("subscribed", describeuser.status);
+  TestEq(TRUE, describeuser.issubscribed);
+  TestEq("First", SELECT AS STRING value FROM describeuser.customfields WHERE field = "FNAME");
+  TestEq("Name", SELECT AS STRING value FROM describeuser.customfields WHERE field = "LNAME");
+
+  chimpapi->RemoveSubscriber(testlist.listid, randomuser);
+
+  describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
+  TestEq("unsubscribed", describeuser.status);
+  TestEq(FALSE, describeuser.issubscribed);
+
+  chimpapi->RemoveSubscriber(testlist.listid, randomuser);
+
+  chimpapi->DeleteSubscriberPermanently(testlist.listid, randomuser);
+
+  TestEq(DEFAULT RECORD, chimpapi->GetSubscriber(testlist.listid, randomuser));
+}
+
+RunTestframework([ PTR Test_MailchimpAPI
+                 ]);
