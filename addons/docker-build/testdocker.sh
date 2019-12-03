@@ -355,7 +355,7 @@ fi
 #######################
 #
 # Create the environment file
-set | egrep '^(TESTFW_|WEBHARE_DEBUG)' > ${TEMPBUILDROOT}/env-file
+set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' > ${TEMPBUILDROOT}/env-file
 
 # Switch to DTAP development - most test refuse to run without this option for safety reasons
 echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
