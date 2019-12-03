@@ -549,9 +549,16 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
             blockstyle := SELECT * FROM this->rtdstructure->structure.blockstyles WHERE toclevel > 0;
         }
 
-        Print(`<${RecordExists(blockstyle) ? blockstyle.containertag : "h2"} class="wh-form__grouptitle ${RecordExists(blockstyle) ? ToLowercase(blockstyle.tag) : ""}">`);
+        STRING containertag := RecordExists(blockstyle) ? blockstyle.containertag : "h2";
+        Print(`<${containertag} class="wh-form__grouptitle ${RecordExists(blockstyle) ? ToLowercase(blockstyle.tag) : ""}">`);
+        IF(this->webdesign->__anchor_experiment AND containertag IN this->webdesign->contentnavstops)
+        {
+          STRING content := TrimWhitespace(DecodeHTML(fielddescription.htmltitle));
+          IF(content != "")
+            Print('<a class="wh-anchor" id="' || EncodeAttributeValue(this->webdesign->__Experimental_GenerateAnAnchor(content)) || '"></a>');
+        }
         Print(fielddescription.htmltitle);
-        Print(`</${RecordExists(blockstyle) ? blockstyle.containertag : "h2"}>`);
+        Print(`</${containertag}>`);
       }
       CASE "array"
       {

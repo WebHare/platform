@@ -96,6 +96,32 @@ MACRO GenerateAnchors()
   TestEq("h1", anchors[0].tagname);
 }
 
+MACRO GenerateAnchorsExperimental()
+{
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT experimentalfile := OpenWHFSObject(testrtdfileid)->CopyTo(testloc,"rtddoc-experimental-anchors.rtd");
+  testfw->CommitWork();
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  RECORD publishres := RunFilePublish(experimentalfile->id, FALSE);
+  TestEq(TRUE, publishres.success);
+
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  OBJECT ARRAY h1s := doc->GetElements("h1");
+  print(doc->outerhtml||'\n\n');
+  TestEq(8, Length(h1s));
+  TestEq("eerste-kop",h1s[0]->QuerySelector("a")->GetAttribute("id"));
+  TestEq('wh-anchor', h1s[0]->QuerySelector("a")->GetAttribute("class"));
+  TestEq("tweedekop",h1s[1]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("eerste-kop-2",h1s[2]->QuerySelector("a")->GetAttribute("id"), "If eerste-kop-2, the embedded richdoc was ignored");
+  TestEq(FALSE,Objectexists(h1s[3]->QuerySelector("a")));
+  TestEq("eerste-kop-3",h1s[4]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("eerste-kop-4",h1s[5]->QuerySelector("a")->GetAttribute("id"));
+  TestEq("tweedekop-2",h1s[6]->QuerySelector("a")->GetAttribute("id"));
+}
+
 MACRO RewriteLinks()
 {
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
@@ -137,6 +163,7 @@ RunTestframework([ PTR PrepIt
                  , PTR VerifyIt
                  , PTR GatherAnchors
                  , PTR GenerateAnchors
+                 , PTR GenerateAnchorsExperimental
                  , PTR RewriteLinks
                  ]);
 

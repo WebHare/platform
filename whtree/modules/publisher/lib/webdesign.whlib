@@ -241,6 +241,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   ///If set, we're rendering a 'standard content page' - a builtin page that expects to be able to simply render <h2>, <p> etc.
   PUBLIC BOOLEAN isstandardcontentpage;
 
+  ///Optin to an experiment where we don't use GetSuggestedAnchorsForFile to solicit anchor definitions
+  PUBLIC BOOLEAN __anchor_experiment;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -461,6 +464,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
   MACRO __PrepareAnchors()
   {
+    IF(this->__anchor_experiment)
+      RETURN;
+
     //FIXME deal with duplicate explicitly suggested anchors.
     OBJECT ARRAY anchors;
     IF(ObjectExists(this->pageobject))
@@ -830,6 +836,22 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->pageobject := pageobject;
     if(NOT isservicecall)
       this->__truecontentbody := this->pageobject->GetPageBody();
+  }
+
+
+  STRING ARRAY __experimental_seenanchors;
+  PUBLIC STRING FUNCTION __Experimental_GenerateAnAnchor(STRING intext)
+  {
+    STRING suggestedbase := GetSafeName(intext, [ utf8 := TRUE, fallback := "anchor" ]);
+    FOR(INTEGER attempt := 1;;attempt := attempt+1)
+    {
+      STRING tryanchor := attempt = 1 ? suggestedbase : suggestedbase || "-" || attempt;
+      IF(tryanchor NOT IN this->__experimental_seenanchors)
+      {
+        INSERT tryanchor INTO this->__experimental_seenanchors AT END;
+        RETURN tryanchor;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1565,6 +1587,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   // @deprecated
   PUBLIC RECORD ARRAY FUNCTION GetContentNav()
   {
+    IF(this->__anchor_experiment)
+      RETURN RECORD[];
+
     RETURN SELECT AS RECORD ARRAY anchor->GetInfo() FROM TorecordArray(this->pvt_anchors,'anchor');
   }
 
@@ -1618,6 +1643,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   ///@private GetSuggestedAnchorsForFile is deprecated - we want to stop doing this preparation phase
   PUBLIC RECORD ARRAY FUNCTION GetSuggestedAnchorsForFile(INTEGER fileid)
   {
+    IF(this->__anchor_experiment)
+      RETURN RECORD[];
     OBJECT infile := OpenWHFSObject(fileid);
     OBJECT rtd := this->OpenRTDFromFile(infile);
     OBJECT ARRAY anchors := rtd->GatherSuggestedAnchors(this);
