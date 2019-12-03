@@ -11,7 +11,7 @@ MACRO Test_CreateSendAPI()
 {
   DATETIME teststart := GetRoundedDatetime(GetCurrentDatetime(), 1000); //round down to second as that's the precision we expect
 
-  OBJECT csapi := NEW CreateSendAPI(GetEnvironmentVariable("TESTFW_CREATESEND_APIKEY"));
+  OBJECT csapi := NEW CreateSendAPI(GetEnvironmentVariable("TESTSECRET_CREATESEND_APIKEY"));
   //csapi->debug:=true;
 
   //Just a simple call to verify we work
