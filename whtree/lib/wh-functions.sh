@@ -87,7 +87,7 @@ list_coremodules()
 {
   local XMODULES
 
-  XMODULES=`( cd ~/projects/webhare/whtree/modules ; ls | grep -v substitutes)`
+  XMODULES=$(cd ~/projects/webhare/whtree/modules ; ls)
   eval $1=\$XMODULES
   return 0
 }

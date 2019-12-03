@@ -56,30 +56,19 @@ int StandardErrorWriter(void */*opaque_ptr*/, int numbytes, void const *data, in
 
 void Connection::AddOptions(Blex::OptionParser &optparser)
 {
-        optparser.AddOption(Blex::OptionParser::Option::StringOpt("bindir"));
-        optparser.AddOption(Blex::OptionParser::Option::StringOpt("logdir"));
         optparser.AddOption(Blex::OptionParser::Option::StringOpt("moduledir"));
-        optparser.AddOption(Blex::OptionParser::Option::StringOpt("compilecache"));
-        optparser.AddOption(Blex::OptionParser::Option::StringOpt("tmpdir"));
         optparser.AddOption(Blex::OptionParser::Option::StringOpt("debuglogfile"));
         optparser.AddOption(Blex::OptionParser::Option::StringOpt("preloadlibrary"));
-        optparser.AddOption(Blex::OptionParser::Option::StringList("prependsearchpath"));
-        optparser.AddOption(Blex::OptionParser::Option::StringList("appendsearchpath"));
         optparser.AddOption(Blex::OptionParser::Option::Switch("onlyshippedfonts", false));
 }
 
 void Connection::PrintGlobalOptions()
 {
         //            --xxxxxxxxxxxxxxxxxxxxxxxxx  ddddddddddddddddddddddddddddddddddddddddddddddd\n
-        std::cerr << "--bindir <path>              Binaries directory (default: <webhare>/bin)\n";
         std::cerr << "--moduledir <path>           Dynamic modules dir (default: <webhare>/lib)\n";
-        std::cerr << "--compilecache <path>        Compile cache storage\n";
-        std::cerr << "--tmpdir <path>              Temporary files storage\n";
         std::cerr << "--debuglogfile <path>        Filename to write debugging information to\n";
-        std::cerr << "--prependsearchpath <path>   Prepend path to module search list (repeatable)\n";
-        std::cerr << "--appendsearchpath <path>    Append path to module search list (repeatable)\n";
-        std::cerr << "--onlyshippedfonts           Use only font files that ship with WebHare\n";
         std::cerr << "--preloadlibrary <path>      Override the preload library\n";
+        std::cerr << "--onlyshippedfonts           Use only font files that ship with WebHare\n";
 }
 
 namespace
@@ -123,39 +112,10 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
         dbaseptr.reset(new Database::TCPFrontend(GetDbaseAddr(), clientname));
         only_shipped_fonts = options.Switch("onlyshippedfonts");
 
-        webharebinroot = options.StringOpt("bindir");
-        if (webharebinroot.empty())
-            webharebinroot.assign(GetWebHareRoot()).append("bin/");
-
         if(options.Exists("moduledir"))
-            webharelibroot = options.StringOpt("moduledir");
-        if (webharelibroot.empty())
-            webharelibroot.assign(GetWebHareRoot()).append("lib/");
-
-        if(options.Exists("logdir"))
-          webharelogroot = options.StringOpt("logdir");
-        if (webharelogroot.empty())
-            webharelogroot.assign(GetBaseDataRoot()).append("log/");
-
-        if(!Blex::GetEnvironVariable("WEBHARE_TEMP").empty())
-            webharetmproot = Blex::GetEnvironVariable("WEBHARE_TEMP");
-        else if(options.Exists("tmpdir"))
-            webharetmproot = options.StringOpt("tmpdir");
-        if (webharetmproot.empty())
-            webharetmproot.assign(GetBaseDataRoot()).append("tmp/");
-
-        //Set up compiler and cache
-        if (options.Exists("compilecache"))
-        {
-                compilecache = options.StringOpt("compilecache");
-                Blex::SetEnvironVariable("WEBHARE_COMPILECACHE", compilecache);
-        }
-        else
-        {
-                compilecache = Blex::GetEnvironVariable("WEBHARE_COMPILECACHE");
-                if(compilecache.empty())
-                        compilecache=GetEphemeralRoot() + "compilecache";
-        }
+                webharelibroot = AppendSlashWhenMissing(options.StringOpt("moduledir"));
+        if(webharelibroot.empty())
+                webharelibroot = installationroot + "lib/";
 
         if(options.Exists("preloadlibrary"))
         {
@@ -176,16 +136,7 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
                     Blex::ErrStream() << "Unable to open debug logfile: " << logfile;
         }
 
-        if(options.Exists("prependsearchpath"))
-        {
-                std::vector<std::string> const &addpaths = options.StringList("prependsearchpath");
-                for(unsigned i=0; i<addpaths.size(); ++i)
-                   moduledirs.push_back(AppendSlashWhenMissing(addpaths[i]));
-        }
-
-        moduledirs.push_back(AppendSlashWhenMissing(Blex::MergePath(GetBaseDataRoot(), "installedmodules")));
-
-        substmoduledirs.push_back(AppendSlashWhenMissing(Blex::MergePath(GetWebHareRoot(), "modules/substitutes")));
+        moduledirs.push_back(basedatadir + "installedmodules/");
 
         std::string env_modulepaths = Blex::GetEnvironVariable("WEBHARE_MODULEPATHS");
         if(!env_modulepaths.empty())
@@ -195,12 +146,6 @@ Connection::Connection(Blex::OptionParser const &options, std::string const &cli
                 for(auto itr = modulepaths.begin(); itr != modulepaths.end(); ++itr)
                   if(!itr->empty())
                     moduledirs.push_back(AppendSlashWhenMissing(*itr));
-        }
-        if(options.Exists("appendsearchpath"))
-        {
-                std::vector<std::string> const &addpaths = options.StringList("appendsearchpath");
-                for(unsigned i=0; i<addpaths.size(); ++i)
-                   moduledirs.push_back(AppendSlashWhenMissing(addpaths[i]));
         }
 
         ReloadPluginConfig();
@@ -225,16 +170,47 @@ Connection::~Connection()
         notificationeventmgr.SetExportCallback(nullptr);
 }
 
-void Connection::ReloadPluginConfig()  const
+std::string Connection::GetBinRoot() const
+{
+        return installationroot + "bin/";
+}
+std::string Connection::GetLibRoot() const
+{
+        return webharelibroot;
+}
+std::string Connection::GetEphemeralRoot() const
+{
+        return basedatadir + "ephemeral/";
+}
+std::string Connection::GetCompileCache() const
+{
+        std::string compilecache = AppendSlashWhenMissing(Blex::GetEnvironVariable("WEBHARE_COMPILECACHE"));
+        if(compilecache.empty())
+                compilecache = basedatadir + "ephemeral/compilecache/";
+
+        return compilecache;
+}
+std::string Connection::GetLogRoot() const
+{
+        return basedatadir + "log/";
+}
+std::string Connection::GetTmpRoot() const
+{
+        std::string tempdir = AppendSlashWhenMissing(Blex::GetEnvironVariable("WEBHARE_TEMP"));
+        if(tempdir.empty())
+                tempdir = basedatadir + "tmp/";
+
+        return tempdir;
+}
+
+void Connection::ReloadPluginConfig() const
 {
         ModuleMap newmodulemap;
 
         for(unsigned modidx = 0; modidx < moduledirs.size(); ++modidx)
-                ScanModuleFolder(&newmodulemap, moduledirs[modidx], false, true, false);
-        for(unsigned modidx = 0; modidx < substmoduledirs.size(); ++modidx)
-                ScanModuleFolder(&newmodulemap, substmoduledirs[modidx], true, true, false);
+                ScanModuleFolder(&newmodulemap, moduledirs[modidx], true, false);
 
-        ScanModuleFolder(&newmodulemap, AppendSlashWhenMissing(Blex::MergePath(GetWebHareRoot(), "modules")), false, true, true);
+        ScanModuleFolder(&newmodulemap, GetWebHareRoot() + "modules/", true, true);
 
         { // swap our new version in
                 LockedConfig::WriteRef lock(moduleconfig);
@@ -242,19 +218,14 @@ void Connection::ReloadPluginConfig()  const
         }
 }
 
-void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, bool substfolder, bool rootfolder, bool always_overwrites) const
+void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, bool rootfolder, bool always_overwrites) const
 {
         MODULESCAN_PRINT("Searching module root " << folder);
         for (Blex::Directory search(folder, "*");search;++search)
         {
                 if (search.GetStatus().IsFile()
                     || search.CurrentFile()[0]=='.'
-                    || Blex::StrCaseLike(search.CurrentFile(),"deleted")
-                    //blacklist these... they tend to conflict
-                    || Blex::StrCaseLike(search.CurrentFile(),"blexdev_designfiles")
-                    || Blex::StrCaseLike(search.CurrentFile(),"blexdev_blit")
-                    || Blex::StrCaseLike(search.CurrentFile(),"blexdev_designfiles.*")
-                    || Blex::StrCaseLike(search.CurrentFile(),"blexdev_blit.*"))
+                    || Blex::StrCaseLike(search.CurrentFile(),"deleted"))
                     continue;
 
                 Blex::DateTime creationdate = Blex::DateTime::FromDate(1970, 1, 1);
@@ -264,8 +235,8 @@ void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, boo
 
                 if (!Blex::PathStatus(mdata.modpath + "moduledefinition.xml").Exists())
                 {
-                        if (rootfolder && search.CurrentFile() != "substitutes")
-                            ScanModuleFolder(map, mdata.modpath, substfolder, false, always_overwrites);
+                        if (rootfolder)
+                            ScanModuleFolder(map, mdata.modpath, false, always_overwrites);
                         else
                             MODULESCAN_PRINT("Skipping folder " << mdata.modpath << ", it has no moduledefinition");
 
@@ -306,31 +277,14 @@ void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, boo
                 }
 
                 mdata.creationdate = creationdate;
-                mdata.is_substitute = substfolder;
 
                 ModuleMap::iterator curpos = map->find(currentfile);
-                if (substfolder && curpos == map->end())
-                {
-                        MODULESCAN_PRINT("Original not present, skip subst folder " << mdata.modpath);
-                        continue;
-                }
 
                 if (curpos != map->end())
                 {
-                        if (curpos->second.is_substitute && !substfolder)
+                        if (always_overwrites || curpos->second.creationdate < mdata.creationdate)
                         {
-                                MODULESCAN_PRINT("Ignore non-substitution module at " << mdata.modpath << ", already have a substitution module");
-                        }
-                        else if (always_overwrites || curpos->second.is_substitute != substfolder || curpos->second.creationdate < mdata.creationdate)
-                        {
-                                if (substfolder)
-                                {
-                                        MODULESCAN_PRINT("Found substitution module at " << mdata.modpath);
-                                }
-                                else
-                                {
-                                        MODULESCAN_PRINT("New module version found at " << mdata.modpath);
-                                }
+                                MODULESCAN_PRINT("New module version found at " << mdata.modpath);
                                 curpos->second = mdata;
                         }
                         else
