@@ -22,21 +22,11 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
   UPDATE PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
   {
     STRING requrl := Tokenize(url,'?')[0];
+
     IF(errorcode IN [404,500] AND UnpackURL(requrl).urlpath = UnpackURL(this->targetsite->webroot).urlpath)
     {
-      RECORD data := [ errors := RECORD[] ];
-
-      TRY
-      {
-        IF(NOT IsDtapLive() AND RecordExists(harescriptinfo))
-          data.errors := SELECT message := filename || ":" || line || ":" || col || ": " || message FROM harescriptinfo.allerrors;
-      }
-      CATCH(OBJECT e)
-      {
-
-      }
-
-      this->pagewitty->RunComponent("rootfailure", data);
+      //A failure to load the interface root may just be an initialization issue
+      this->pagewitty->RunComponent("rootfailure");
       TerminateScript();
     }
     WebDesignBase::PrepareErrorPage(errorcode, harescriptinfo, url);

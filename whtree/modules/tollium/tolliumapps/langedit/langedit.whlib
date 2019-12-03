@@ -32,6 +32,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
         this->requestedmodule := data.target.module;
     }
 
+    IF(this->requestedmodule = "")
+      THROW NEW Exception("The language editor cannot be directly opened (or: specify a module name as parameter)");
+
+    this->frame->title := this->requestedmodule || " - " || this->frame->title;
+
     IF(GetDtapStage() != "development" AND GetModuleInstallationRoot(this->requestedmodule) LIKE GetWebHareConfiguration().installationroot || "modules/*")
       THROW NEW Exception("Cannot edit builtin modules on non-development servers"); //TODO probably should check for docker, not for dtapstage?
 
@@ -619,8 +624,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoMoveMissingFrom()
   {
-    this->RunScreen("#movemissingfrom", [ targetgroup := ^texts->selection.textgroup->GetFullGid() ]);
-    this->RefreshAllNodes();
+    IF(this->RunScreen("#movemissingfrom", [ targetgroup := ^texts->selection.textgroup->GetFullGid() ]) = "ok")
+      this->RefreshAllNodes();
   }
 
   PUBLIC MACRO DoExport()

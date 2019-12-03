@@ -1202,12 +1202,12 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   MACRO SetClass(STRING class)
   {
-    IF(class = this->class)
+    IF(class = this->__class)
       RETURN;
     IF(class NOT IN validlistclasses)
       THROW NEW Exception(`Invalid list class, supported classes are: '${Detokenize(validlistclasses,"', '")}'`);
 
-    this->class := class;
+    this->__class := class;
     this->ExtUpdatedComponent();
   }
 

@@ -173,8 +173,9 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
     OBJECT selectedpage := this->pvt_selected_page;
 
     // The component must maintain the visible tab sheet, or hide itself when not visible tab sheet is available
-    IF (NOT ObjectExists(selectedpage) OR NOT selectedpage->visible)
-      THROW NEW TolliumException(this, "There is no visible tab sheet");
+    // We are disabling this check... it breaks eg exception dialogs trying to explain it. Clientside tabs should handle this situation if needed
+    // IF (NOT ObjectExists(selectedpage) OR NOT selectedpage->visible)
+    //   THROW NEW TolliumException(this, "There is no visible tab sheet");
 
     IF (this->dirtyflags.fully)
     {
