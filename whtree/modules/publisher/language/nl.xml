@@ -873,7 +873,6 @@
         <text tid="denied">Afgekeurd</text>
         <text tid="dynamicexecution">Dynamische uitvoering</text>
         <text tid="dynamicexecution_cached">Gecached</text>
-        <text tid="dynamicexecution_library">Bibliotheekbestand</text>
         <text tid="dynamicexecution_startmacro">Startmacro</text>
         <text tid="dynamicexecution_webpageobjectname">Webpagina objecttype</text>
         <text tid="filescantbehidden">Bestandstypen kunnen niet verborgen worden</text>
