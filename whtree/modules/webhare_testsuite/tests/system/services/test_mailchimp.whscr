@@ -26,8 +26,8 @@ MACRO Test_MailchimpAPI()
   RECORD describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
   TestEq(DEFAULT RECORD, describeuser);
 
-  TestThrowsLike("*Invalid email*", PTR chimpapi->AddSubscriber(testlist.listid, "testfw subscriber", "bestaatniet@example"));
-  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, "testfw subscriber", randomuser, [ customfields := [[ field := "FNAME", value := "First" ], [ field := "LNAME", value := "Name" ]]]).success);
+  TestThrowsLike("*Invalid email*", PTR chimpapi->AddSubscriber(testlist.listid, "bestaatniet@example"));
+  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, randomuser, [ customfields := [[ field := "FNAME", value := "First" ], [ field := "LNAME", value := "Name" ]]]).success);
 
   describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
   TestEq(TRUE, RecordExists(describeuser));

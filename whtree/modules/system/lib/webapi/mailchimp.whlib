@@ -101,7 +101,7 @@ PUBLIC STATIC OBJECTTYPE MailchimpAPI
             get an error when setting a nonexisting custom field)
 
       @cell(record array) options.customfields Custom fields to add   */
-  PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING name, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT IsValidEmailAddress(email))
       THROW NEW Exception(`Invalid email address '${email}'`);
