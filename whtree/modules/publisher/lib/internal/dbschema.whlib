@@ -4,10 +4,13 @@
 
 LOADLIB "mod::system/lib/database.whlib";
 
+
+/** @schemadef publisher
+*/
 PUBLIC SCHEMA
   < TABLE
-    < INTEGER "id"
-    , INTEGER "file"
+    < INTEGER "id" NULL := 0
+    , INTEGER "file" NULL := 0
     , DATETIME "when"
     , INTEGER "event"
     , INTEGER "folder" NULL := 0
@@ -16,8 +19,8 @@ PUBLIC SCHEMA
     > schedule
 
   , TABLE
-    < INTEGER id
-    , INTEGER fsobject
+    < INTEGER id NULL := 0
+    , INTEGER fsobject NULL := 0
     , DATETIME creationdate
     , STRING url
     , STRING urlhash __ATTRIBUTES__(BINARY)
@@ -25,11 +28,11 @@ PUBLIC SCHEMA
     > urlhistory
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "hash"
     , DATETIME "created"
     , DATETIME "lastuse"
-    , INTEGER "designfolder"
+    , INTEGER "designfolder" NULL := 0
     , STRING datahash
     ; KEY id
     > compileddesigns
@@ -40,7 +43,7 @@ PUBLIC SCHEMA
     //  BLIT
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "modificationdate"
     , STRING "hash"
     , STRING "contenttype"
@@ -48,7 +51,7 @@ PUBLIC SCHEMA
     > blithashcache
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "hash"
     , INTEGER "hashhash"
     , BLOB "data"
@@ -62,8 +65,8 @@ PUBLIC SCHEMA
     //  Webtools / Polls
 
   , TABLE
-    < INTEGER  "id"
-    , INTEGER  "poll_fsobject"
+    < INTEGER  "id" NULL := 0
+    , INTEGER  "poll_fsobject" NULL := 0
     , STRING   "guid"
     , INTEGER  "votes"
     , BOOLEAN  "hide"  // not meant to publish and not available to cast votes on
@@ -72,8 +75,8 @@ PUBLIC SCHEMA
     > polloptions
 
   , TABLE
-    < INTEGER  "id"
-    , INTEGER  "poll_fsobject"
+    < INTEGER  "id" NULL := 0
+    , INTEGER  "poll_fsobject" NULL := 0
     , STRING   "ipaddress"
     , STRING   "useragent"
   //, STRING   "userguid"
@@ -82,9 +85,9 @@ PUBLIC SCHEMA
     > pollvoters
 
   , TABLE
-    < INTEGER  "id"
-    , INTEGER  "voter"
-    , INTEGER  "option"
+    < INTEGER  "id" NULL := 0
+    , INTEGER  "voter" NULL := 0
+    , INTEGER  "option" NULL := 0
     ; KEY id
     > pollvotes
 
@@ -94,9 +97,9 @@ PUBLIC SCHEMA
     //  Webtools / Forms
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "status"
-    , INTEGER "form_fsobject"
+    , INTEGER "form_fsobject" NULL := 0
     , STRING "form_name"
     , STRING "guid"
     , INTEGER "replacedby" NULL := 0
@@ -117,8 +120,8 @@ PUBLIC SCHEMA
     > formresults
 
   , TABLE
-    < INTEGER "id"
-    , INTEGER "formresult"
+    < INTEGER "id" NULL := 0
+    , INTEGER "formresult" NULL := 0
     , STRING "question"
     , STRING "metadata"
     , BLOB "file"
@@ -126,14 +129,14 @@ PUBLIC SCHEMA
     > formattachments
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "postertype" NULL := 0
     , STRING "uuid"
     ; KEY id
     > forums
   , TABLE
-    < INTEGER "id"
-    , INTEGER "forum"
+    < INTEGER "id" NULL := 0
+    , INTEGER "forum" NULL := 0
     , INTEGER "parent" NULL := 0
     , STRING "title"
     , STRING "description"
@@ -145,9 +148,9 @@ PUBLIC SCHEMA
     ; KEY id
     > subforums
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "creationdate"
-    , INTEGER "subforum"
+    , INTEGER "subforum" NULL := 0
     , STRING "topic"
     , INTEGER "firstposting" NULL := 0
     , INTEGER "lastposting" NULL := 0
@@ -161,8 +164,8 @@ PUBLIC SCHEMA
     ; KEY id
     > forumtopics
   , TABLE
-    < INTEGER "id"
-    , INTEGER "topic"
+    < INTEGER "id" NULL := 0
+    , INTEGER "topic" NULL := 0
     , INTEGER "inreplyto" NULL := 0
     , DATETIME "creationdate"
     , DATETIME "modificationdate"
@@ -178,8 +181,8 @@ PUBLIC SCHEMA
     ; KEY id
     > forumpostings
   , TABLE
-    < INTEGER "id"
-    , INTEGER "posting"
+    < INTEGER "id" NULL := 0
+    , INTEGER "posting" NULL := 0
     , BLOB "data"
     , BLOB "displayversion"
     , STRING "mimetype"
