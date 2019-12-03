@@ -75,7 +75,7 @@ export class RTEDriver
     let result = getNextAction();
     test.click(propsbutton);
     return await result;
-    //FIXME throw if propertiesis not enabled
+    //FIXME throw if properties button is not enabled
 
   }
 }
