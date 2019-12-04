@@ -12,6 +12,7 @@ LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
@@ -97,9 +98,10 @@ PUBLIC STRING FUNCTION GetWHDBBlobDir(STRING blobroot, INTEGER blobid)
 }
 
 
-STRING dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "dbase");
-STRING postgresql_migrate_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql-migration");
-STRING postgresql_final_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql");
+STRING basedataroot := GetWebHareConfiguration().basedataroot;
+STRING dbasefolder := MergePath(basedataroot, "dbase");
+STRING postgresql_migrate_dbasefolder := MergePath(basedataroot, "postgresql-migration");
+STRING postgresql_final_dbasefolder := MergePath(basedataroot, "postgresql");
 
 IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
   TerminateScriptWithError(`Current database is already set to 'postgresql'`);

@@ -1690,6 +1690,7 @@ STRING FUNCTION CalculateApplicationName()
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
 {
+  // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
       [ dbasefolder :=  MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql")
       , auto :=         TRUE
