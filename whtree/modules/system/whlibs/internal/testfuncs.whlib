@@ -485,7 +485,7 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
       {
         IF(annotation != "")
           Print("\nAnnotation: " || annotation || "\n");
-        ReportError("Expected: '" || EncodeJava(expected) || "'\ngot:      '" || EncodeJava(actual) || "'" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+        ReportError("Expected: '" || EncodeHareScript(expected) || "'\ngot:      '" || EncodeHareScript(actual) || "'" || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
       }
     }
     CASE TypeID(BOOLEAN)
@@ -595,7 +595,7 @@ MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY
 
         VARIANT expectedval := GetCell(expected,curcell.name);
         VARIANT actualval := GetCell(actual,curcell.name);
-        InnerTestEqual(expectedval, actualval, (path=""?"":path||".")||"\""||EncodeJava(curcell.name)||"\"", members, annotation); //ADDME: Make sure record context gets dumped on error!
+        InnerTestEqual(expectedval, actualval, (path=""?"":path||".")||"\""||EncodeHareScript(curcell.name)||"\"", members, annotation); //ADDME: Make sure record context gets dumped on error!
       }
 
       //look if any cells existed in rhs that don't exist in lhs

@@ -747,6 +747,7 @@ template <class InputIterator, class OutputIterator, bool encode_invalid_utf8> O
 
         for (;begin!=end;++begin)
         {
+        retry_parse:
                 uint32_t curch = decoder(*begin);
                 if (encode_invalid_utf8)
                 {
@@ -755,6 +756,10 @@ template <class InputIterator, class OutputIterator, bool encode_invalid_utf8> O
                             continue;
                         if (curch == UTF8DecodeMachine::InvalidChar || curch == 0)
                         {
+                                // Retry parsing the character we just added if it is the 2+ char, and can start a valid character
+                                bool retry_last_char = char_buf_cnt > 1 && (*begin < 128 || *begin >= 192);
+                                if (retry_last_char)
+                                    --char_buf_cnt;
                                 for (auto itr = char_buf; itr < char_buf + char_buf_cnt; ++itr)
                                 {
                                         *output++ = '\\'; //insert it as /tXX
@@ -763,6 +768,9 @@ template <class InputIterator, class OutputIterator, bool encode_invalid_utf8> O
                                         *output++ = blex_stringmanip_SingleByteToHex( (*itr)&0xF );
                                 }
                                 char_buf_cnt = 0;
+
+                                if (retry_last_char)
+                                    goto retry_parse;
                                 continue;
                         }
                         char_buf_cnt = 0;
@@ -862,6 +870,11 @@ template <class InputIterator, class OutputIterator, bool encode_invalid_utf8> O
 template <class InputIterator, class OutputIterator> OutputIterator EncodeJava(InputIterator begin,InputIterator end, OutputIterator output)
 {
         return Detail::EncodeJavaInternal< InputIterator, OutputIterator, false>(begin, end, output, false);
+}
+
+template <class InputIterator, class OutputIterator> OutputIterator EncodeHarescript(InputIterator begin,InputIterator end, OutputIterator output)
+{
+        return Detail::EncodeJavaInternal< InputIterator, OutputIterator, true>(begin, end, output, false);
 }
 
 template <class InputIterator, class OutputIterator> OutputIterator EncodeJSON(InputIterator begin,InputIterator end, OutputIterator output)

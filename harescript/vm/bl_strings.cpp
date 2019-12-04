@@ -2436,6 +2436,7 @@ void InitStrings(BuiltinFunctionsRegistrator &bifreg)
         BuiltinFunctionPtr he = HarescriptCodeFunc< Blex::EncodeHtml<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr tne = HarescriptCodeFunc< Blex::EncodeTextNode<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr je = HarescriptCodeFunc< Blex::EncodeJava<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
+        BuiltinFunctionPtr hae = HarescriptCodeFunc< Blex::EncodeHarescript<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr ue = HarescriptCodeFunc< Blex::EncodeUrl<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr ve = HarescriptCodeFunc< Blex::EncodeValue<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr be = HarescriptCodeFunc< Blex::EncodeBase16<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
@@ -2454,6 +2455,7 @@ void InitStrings(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEUFS::S:S",ufsd));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEHTML::S:S",hd));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEJAVA::S:S",jd));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEHARESCRIPT::S:S",jd)); // same as DecodeJava
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEURL::S:S",ud));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEVALUE::S:S",vd));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEBASE16::S:S",be));
@@ -2464,6 +2466,7 @@ void InitStrings(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEURL::S:S",ue));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEVALUE::S:S",ve));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODETEXTNODE::S:S",tne));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEHARESCRIPT::S:S",hae));
 }
 
 } // End of namespace Baselibs

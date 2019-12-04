@@ -13,7 +13,7 @@ INTEGER FUNCTION ToInteger(STRING str, INTEGER defaultvalue, INTEGER radix DEFAU
 STRING FUNCTION Right(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 RECORD FUNCTION CellInsert(RECORD rec, STRING cellname, VARIANT value) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 INTEGER FUNCTION __HS_TYPEID(VARIANT a) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION EncodeHarescript(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 VARIANT FUNCTION GetCell(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 BOOLEAN FUNCTION CellExists(RECORD rec, STRING cellname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 RECORD ARRAY FUNCTION UnpackRecord(RECORD rec) __ATTRIBUTES__(EXTERNAL);
@@ -203,7 +203,7 @@ PUBLIC OBJECTTYPE ConverterType
           }
           CASE TYPEID(STRING)
           {
-            retval := CellInsert(retval, field.name, "'" || EncodeJava(field.value) || "'");
+            retval := CellInsert(retval, field.name, "'" || EncodeHarescript(field.value) || "'");
           }
           CASE TYPEID(DATETIME)
           {
@@ -221,7 +221,7 @@ PUBLIC OBJECTTYPE ConverterType
             IF (NOT RecordExists(binding))
               retval := CellInsert(retval, field.name, "TABLE(UNBOUND)");
             ELSE
-              retval := CellInsert(retval, field.name, "TABLE("||binding.transaction || ":'" || EncodeJava(binding.tablename)||"')");
+              retval := CellInsert(retval, field.name, "TABLE("||binding.transaction || ":'" || EncodeHarescript(binding.tablename)||"')");
           }
           CASE TYPEID(RECORD)
           {
@@ -333,7 +333,7 @@ PUBLIC OBJECTTYPE ConverterType
             ELSE
             {
               STRING ARRAY ss;
-              FOREVERY (STRING s FROM field.value) INSERT "'" || EncodeJava(s) || "'" INTO ss AT END;
+              FOREVERY (STRING s FROM field.value) INSERT "'" || EncodeHarescript(s) || "'" INTO ss AT END;
               retval := CellInsert(retval, field.name, ss);
             }
           }
@@ -483,7 +483,7 @@ PUBLIC OBJECTTYPE ConverterType
           }
         CASE TYPEID(STRING)
           {
-            retval.text := "'" || EncodeJava(field.value) || "'";
+            retval.text := "'" || EncodeHarescript(field.value) || "'";
           }
         CASE TYPEID(DATETIME)
           {
@@ -505,7 +505,7 @@ PUBLIC OBJECTTYPE ConverterType
             IF (NOT RecordExists(binding))
               retval.text := "TABLE(UNBOUND)";
             ELSE
-              retval.text := "TABLE("||binding.transaction || ":'" || EncodeJava(binding.tablename)||"')";
+              retval.text := "TABLE("||binding.transaction || ":'" || EncodeHarescript(binding.tablename)||"')";
           }
         CASE TYPEID(FUNCTION PTR)
           {

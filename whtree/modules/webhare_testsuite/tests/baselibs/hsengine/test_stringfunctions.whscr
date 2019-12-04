@@ -85,6 +85,12 @@ MACRO TestSharedHTMLValueDecoder(FUNCTION PTR decoder)
   TestEq("\u01E5", decoder('&#485;'));
 }
 
+MACRO TestHareScriptEnDeCode(STRING raw, STRING encoded)
+{
+  TestEQ(encoded, EncodeHareScript(raw), `Raw: ${EncodeHSON(raw)}, encoded: ${EncodeHSON(encoded)}`);
+  TestEQ(raw, DecodeHareScript(encoded), `Raw: ${EncodeHSON(raw)}, encoded: ${EncodeHSON(encoded)}`);
+}
+
 MACRO DecodeEncodeTest()
 {
   OpenTest("TestStringFunctions: DecodeEncodeTest");
@@ -853,6 +859,7 @@ MACRO HsonTest(BOOLEAN viablob)
   TestHSONEnDeCode('hson:i64 5', 5i64, viablob);
   TestHSONEnDeCode('hson:i64 9223372036854775807', 9223372036854775807i64, viablob);
   TestHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd\'efgh", viablob);
+  TestHSONEnDeCode('hson:"Ab\\x80a\\x80\\u00A0"', "Ab\x80a\x80\u00A0", viablob);
   TestHSONEnDeCode('hson:d"20100101"', MakeDate(2010,1,1), viablob);
   TestHSONEnDeCode('hson:d"20100101T151617"', MakeDateTime(2010,1,1,15,16,17), viablob);
   TestHSONEnDeCode('hson:d"20100101T151617.123"', AddTimeToDate(123, MakeDateTime(2010,1,1,15,16,17)), viablob);
@@ -918,6 +925,12 @@ MACRO HsonTest(BOOLEAN viablob)
   TestThrowsLike("*encode*", PTR encoder([ x ]));
   TestThrowsLike("*encode*", PTR encoder(PTR PRINT));
   TestThrowsLike("*encode*", PTR encoder([ PTR PRINT ]));
+
+  TestHareScriptEnDeCode("abc", "abc");
+  TestHareScriptEnDeCode("abc\x80", "abc\\x80"); // invalid UTF-8 at end
+  TestHareScriptEnDeCode("a\x80c", "a\\x80c"); // invalid UTF-8 in middle, followed by valid ASCII
+  TestHareScriptEnDeCode("a\x80\u00A0", "a\\x80\\u00A0"); // invalid UTF-8 in middle, followed by valid unicode
+  TestHareScriptEnDeCode(`\a\b\n\t'"\\`, `\\a\\b\\n\\t\\'\\"\\\\`);
 
   CloseTest("TestStringFunctions: HsonTest");
 }
