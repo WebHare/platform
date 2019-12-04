@@ -190,6 +190,32 @@ PUBLIC SCHEMA
     , INTEGER "type"
     ; KEY id
     > forumattachments
+
+
+    ///////////////////////////////////////////////////////////////
+    //
+    //  Work lists
+
+  , TABLE
+    < INTEGER "id"
+    , STRING "name"
+    , STRING "tag"
+    , INTEGER "owner"
+    , DATETIME "creationdate"
+    ; KEY id
+    > worklists
+
+  , TABLE
+    < INTEGER "id"
+    , INTEGER "listid"
+    , INTEGER "objectid"
+    , DATETIME "creationdate"
+    , STRING "comments"
+    , DATETIME "resolveddate"
+    , INTEGER "resolvedby"
+    ; KEY id
+    > worklistitems
+
   > publisher;
 
 /** @short Bind the publisher and system module tables

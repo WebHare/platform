@@ -1,0 +1,7 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="worklists.whlib"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="filemanager.worklists"
+         >
+
+</screens>

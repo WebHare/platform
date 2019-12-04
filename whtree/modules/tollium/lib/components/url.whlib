@@ -52,7 +52,7 @@ PUBLIC OBJECTTYPE TolliumURL EXTEND TolliumFragmentBase
 
   STRING FUNCTION GetTitle()
   {
-    RETURN ^previeuwrl->title;
+    RETURN ^previewurl->title;
   }
   UPDATE MACRO SetTitle(STRING newtitle)
   {

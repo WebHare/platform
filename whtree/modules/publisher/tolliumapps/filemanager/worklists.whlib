@@ -1,0 +1,239 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/lib/worklists.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT api;
+  RECORD ARRAY worklistcache;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+    this->api := NEW WorkListAPI(this->tolliumuser);
+    this->SyncWorkLists();
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Updates functions
+  //
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
+  {
+    RETURN
+        [ [ name := "custom_resolveddate"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_resolveddate")
+          , type := "datetime"
+          , storeutc := TRUE
+          , precision := "minutes"
+          ]
+        , [ name := "custom_statusicons"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_statusicons")
+          , type := "icons"
+          , align := "right"
+          ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
+  {
+    RETURN
+        [ [ name := "name",                width := "1pr" ]
+        , [ name := "title",               width := "1pr" ]
+        , [ name := "custom_resolveddate", width := "13x" ]
+        , [ name := "custom_statusicons",  width := "2x" ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetMultiRowLayout()
+  {
+    RETURN
+        [ headers :=
+            [ [ name := "icon",                combinewithnext := TRUE,  width := "" ]
+            , [ name := "name",                combinewithnext := FALSE, width := "" ]
+            , [ name := "custom_resolveddate", combinewithnext := FALSE, width := "13x" ]
+            ]
+        , rows :=
+            [ [ cells :=
+                [ [ name := "icon", rowspan := 2 ]
+                , [ name := "name_noicon" ]
+                , [ name := "custom_resolveddate" ]
+                ]
+              ]
+            , [ cells :=
+                [ [ name := "title"]
+                , [ name := "custom_statusicons"]
+                ]
+              ]
+            ]
+        ];
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION OnGetPath(INTEGER childid)
+  {
+    IF (childid = this->rootid)
+      RETURN INTEGER[ this->rootid ];
+
+    this->SyncWorkLists();
+    IF (RecordExists(SELECT FROM this->worklistcache WHERE id = childid))
+      RETURN INTEGER[ this->rootid, childid ];
+
+    RETURN INTEGER[];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasChildren(INTEGER parentid, RECORD options)
+  {
+    IF (parentid != this->rootid)
+      RETURN FALSE;
+
+    this->SyncWorkLists();
+    RETURN RecordExists(this->worklistcache);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnGetChildren(INTEGER parentid, RECORD options)
+  {
+    IF (options.tree)
+    {
+      IF (parentid != this->rootid)
+        RETURN RECORD[];
+
+      this->SyncWorkLists();
+      RETURN this->worklistcache;
+    }
+    ELSE
+    {
+      IF (parentid = this->rootid)
+        RETURN this->worklistcache;
+      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = parentid;
+      RETURN SELECT id := objectid FROM this->api->GetWorkListItems(listid);
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentid, RECORD ARRAY items)
+  {
+    this->SyncWorkLists();
+
+    RECORD ARRAY enrichments;
+
+    // These are the work lists themselves
+    IF (parentid = this->rootid)
+    {
+      enrichments :=
+          SELECT id
+               , custom_listid := listid
+               , custom_itemid := 0
+               , custom_resolveddate := DEFAULT DATETIME
+               , custom_statusicons := INTEGER[]
+               , custom_canresolve := FALSE
+            FROM this->worklistcache;
+    }
+    ELSE
+    {
+      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = parentid;
+
+      enrichments :=
+          SELECT id := objectid
+               , custom_listid := listid
+               , custom_itemid := id
+               , custom_resolveddate := resolveddate
+               , custom_statusicons := INTEGER[ resolveddate != DEFAULT DATETIME ? this->GetListIcon("tollium:status/positive") : this->GetListIcon("tollium:status/new") ]
+               , custom_canresolve := resolveddate = DEFAULT DATETIME
+            FROM this->api->GetWorkListItems(listid);
+    }
+
+    RETURN JoinArrays(items, "id", enrichments,
+        [ custom_listid := 0
+        , custom_itemid := 0
+        , custom_resolveddate := DEFAULT DATETIME
+        , custom_statusicons := INTEGER[]
+        , custom_canresolve := FALSE
+        ], [ rightouterjoin := TRUE ]);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
+  {
+    RETURN [ "custom_canresolve" ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
+  {
+    RETURN
+        [ [ title            := GetTid("publisher:filemanager.worklists.actions.resolveitem")
+          , executehandler   := PTR this->ResolveWorklistItem
+          , addtomenu        := "file"
+          , addtocontextmenu := TRUE
+          , allowmultiple    := TRUE
+          , onlyfiles        := TRUE
+          , checkflags       := [ "custom_canresolve" ]
+          ]
+        ];
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO ResolveWorklistItem(OBJECT screen, RECORD data)
+  {
+    IF (screen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmresolveitems", ToString(Length(data.objectids)))) = "yes")
+    {
+      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = data.parentid;
+      OBJECT work := screen->BeginWork();
+      this->api->ResolveItems(listid, data.objectids);
+      work->Finish();
+    }
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SyncWorkLists()
+  {
+    INTEGER ARRAY curids := SELECT AS INTEGER ARRAY listid FROM this->worklistcache;
+    FOREVERY (RECORD worklist FROM this->api->GetAllWorkLists())
+    {
+      IF (worklist.id NOT IN curids)
+      {
+        RECORD item :=
+            [ id := this->GetNextId()
+            , listid := worklist.id
+            , name := worklist.name
+            , title := ""
+            , isfolder := TRUE
+            , modificationdate := worklist.creationdate
+            , creationdate := worklist.creationdate
+            , canwrite := FALSE
+            , candelete := FALSE
+            , icon := "tollium:forms/checkboxes"
+            ];
+        INSERT item INTO this->worklistcache AT END;
+      }
+      ELSE
+        DELETE FROM curids AT SearchElement(curids, worklist.id);
+    }
+    DELETE FROM this->worklistcache WHERE listid IN curids;
+  }
+>;

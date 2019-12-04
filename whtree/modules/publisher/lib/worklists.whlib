@@ -1,0 +1,133 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WorkListAPI
+<
+  OBJECT tolliumuser;
+
+  MACRO NEW(OBJECT tolliumuser)
+  {
+    this->tolliumuser := tolliumuser;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetAllWorkLists()
+  {
+    RETURN SELECT * FROM publisher.worklists;
+  }
+
+  PUBLIC RECORD FUNCTION GetWorkList(INTEGER worklistid)
+  {
+    RETURN SELECT * FROM publisher.worklists WHERE id = worklistid;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetWorkListItems(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetWorkList(worklistid)))
+      THROW NEW Exception(`No work list with id ${worklistid}`);
+
+    RETURN
+        SELECT id
+             , objectid
+             , comments
+             , resolveddate
+             , resolvedby
+          FROM publisher.worklistitems
+         WHERE listid = worklistid;
+  }
+
+  PUBLIC INTEGER FUNCTION CreateWorkList(RECORD worklist)
+  {
+    worklist := EnforceStructure(
+        [ name := ""
+        , tag := ""
+        ], worklist);
+    IF (worklist.name = "")
+      THROW NEW Exception(`Expected a 'name' for the work list`);
+    IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(name) = ToUppercase(worklist.name)))
+      THROW NEW Exception(`A work list with name '${worklist.name}' already exists`);
+    IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(tag) = ToUppercase(worklist.tag)))
+      THROW NEW Exception(`A work list with tag '${worklist.tag}' already exists`);
+
+    INTEGER listid := MakeAutonumber(publisher.worklists, "id");
+    INSERT INTO publisher.worklists(id, name, tag, owner, creationdate)
+      VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime());
+    RETURN listid;
+  }
+
+  PUBLIC MACRO AddToWorkList(INTEGER worklistid, RECORD ARRAY items, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ existing := "reset"
+        ], options, [ enums := [ existing := [ "reset", "ignore" ] ] ]);
+    items := EnforceStructure(
+        [ [ objectid := 0
+          , comments := ""
+          ]
+        ], items);
+
+    IF (NOT RecordExists(this->GetWorkList(worklistid)))
+      THROW NEW Exception(`No work list with id ${worklistid}`);
+
+    DATETIME now := GetCurrentDateTime();
+    FOREVERY (RECORD item FROM items)
+    {
+      IF (item.objectid = 0)
+        THROW NEW Exception(`Expected an 'objectid' for item #${#item}`);
+
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND objectid = item.objectid;
+      IF (itemid = 0)
+        INSERT INTO publisher.worklistitems(listid, objectid, comments, creationdate)
+          VALUES(worklistid, item.objectid, item.comments, now);
+      ELSE IF (options.existing = "reset")
+        UPDATE publisher.worklistitems
+           SET resolveddate := DEFAULT DATETIME
+             , resolvedby := 0
+             , comments := item.comments
+         WHERE id = itemid;
+    }
+  }
+
+  PUBLIC MACRO ResolveItems(INTEGER worklistid, INTEGER ARRAY objectids)
+  {
+    IF (NOT RecordExists(this->GetWorkList(worklistid)))
+      THROW NEW Exception(`No work list with id ${worklistid}`);
+
+    DATETIME now := GetCurrentDateTime();
+    FOREVERY (INTEGER objectid FROM objectids)
+    {
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND COLUMN objectid = VAR objectid;
+      IF (itemid != 0)
+        UPDATE publisher.worklistitems
+           SET resolveddate := now
+             , resolvedby := this->tolliumuser->authobjectid
+         WHERE id = itemid;
+    }
+  }
+
+  PUBLIC MACRO DeleteFromWorkList(INTEGER worklistid, INTEGER ARRAY objectids)
+  {
+    IF (NOT RecordExists(this->GetWorkList(worklistid)))
+      THROW NEW Exception(`No work list with id ${worklistid}`);
+
+    FOREVERY (INTEGER objectid FROM objectids)
+    {
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND COLUMN objectid = VAR objectid;
+      IF (itemid != 0)
+        DELETE FROM publisher.worklistitems
+         WHERE id = itemid;
+    }
+  }
+
+  PUBLIC MACRO DeleteWorkList(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetWorkList(worklistid)))
+      THROW NEW Exception(`No work list with id ${worklistid}`);
+
+    DELETE FROM publisher.worklists
+     WHERE id = worklistid;
+  }
+>;

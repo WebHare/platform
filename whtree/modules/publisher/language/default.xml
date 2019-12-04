@@ -1315,6 +1315,18 @@
         <text tid="submitchangesyesno">Do you want to submit this change for approval? If so, please enter the description of the changes.</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="worklists">   <!-- filemanager.worklists -->
+      <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="resolveitem">Mark as resolved</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- filemanager.worklists.columns -->
+        <text tid="custom_resolveddate">Resolved</text>
+        <text tid="custom_statusicons">Status</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
+        <text tid="confirmresolveitems">Are you sure you want to mark <ifparam p="1" value="1">this item<else/>these <param p="1"/> items</ifparam> as resolved?</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="filemgrdialogs" limitlanguages="en nl">   <!-- filemgrdialogs -->
     <textgroup gid="createarchive">   <!-- filemgrdialogs.createarchive -->
@@ -2159,6 +2171,7 @@
     <text tid="rootfolder">Root Folder</text>
     <text tid="search">Search</text>
     <text tid="trash">Trash</text>
+    <text tid="worklists">Work lists</text>
     <textgroup gid="types">   <!-- terminology.types -->
       <text tid="normalfolder">Normal folder</text>
       <text tid="unknownfile">Unknown file type</text>

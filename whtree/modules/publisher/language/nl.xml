@@ -1315,6 +1315,18 @@
         <text tid="submitchangesyesno">Wilt u deze wijziging indienen voor goedkeuring? Zo ja, voer a.u.b. een beschrijving van de wijzigingen in.</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="worklists">   <!-- filemanager.worklists -->
+      <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="resolveitem">Als opgelost markeren</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- filemanager.worklists.columns -->
+        <text tid="custom_resolveddate">Opgelost</text>
+        <text tid="custom_statusicons">Status</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
+        <text tid="confirmresolveitems">Weet u zeker dat u <ifparam p="1" value="1">dit onderdeel<else/>deze <param p="1"/> onderdelen</ifparam> als opgelost wilt markeren?</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="filemgrdialogs">   <!-- filemgrdialogs -->
     <textgroup gid="createarchive">   <!-- filemgrdialogs.createarchive -->
@@ -2159,6 +2171,7 @@
     <text tid="rootfolder">Basismap</text>
     <text tid="search">Zoeken</text>
     <text tid="trash">Prullenbak</text>
+    <text tid="worklists">Werklijsten</text>
     <textgroup gid="types">   <!-- terminology.types -->
       <text tid="normalfolder">Standaard map</text>
       <text tid="unknownfile">Onbekend type</text>

@@ -810,6 +810,93 @@
       </d:integer>
     </d:table>
 
+    <d:table name="worklists" primarykey="id">
+      <d:documentation>
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:varchar name="name" nullable="false" maxlength="256">
+        <d:documentation>
+        </d:documentation>
+      </d:varchar>
+
+      <d:varchar name="tag" maxlength="256">
+        <d:documentation>
+        </d:documentation>
+      </d:varchar>
+
+      <d:integer name="owner" references="system.authobjects" ondelete="cascade" nullable="true">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>
+        </d:documentation>
+      </d:datetime>
+
+      <d:index name="uniquename" columns="name(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Work list name must be unique
+        </d:documentation>
+      </d:index>
+
+      <d:index name="uniquetag" columns="tag(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Work list tag must be unique
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <d:table name="worklistitems" primarykey="id">
+      <d:documentation>
+      </d:documentation>
+
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="listid" references=".worklists" ondelete="cascade" nullable="false">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:integer name="objectid" references="system.fs_objects" ondelete="cascade" nullable="false">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:datetime name="creationdate" nullable="false">
+        <d:documentation>
+        </d:documentation>
+      </d:datetime>
+
+      <d:varchar name="comments" maxlength="4096">
+        <d:documentation>
+        </d:documentation>
+      </d:varchar>
+
+      <d:datetime name="resolveddate">
+        <d:documentation>
+        </d:documentation>
+      </d:datetime>
+
+      <d:integer name="resolvedby" references="system.authobjects" ondelete="set default" nullable="true">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+
+      <d:index name="uniqueitem" columns="listid objectid" unique="true">
+        <d:documentation>
+          The WHFS objects within a list must be unique
+        </d:documentation>
+      </d:index>
+    </d:table>
 
     <d:grant permissions="all" schema="wrd" grantee=".webinterface"/>
   </databaseschema>
@@ -876,6 +963,13 @@
     <filemgrextension>
       <accesscheck />
       <addrootitem tid="terminology.search" gotoitemtid="terminology.search" icon="tollium:folders/search" filterscreen="mod::publisher/tolliumapps/filemanager/search.xml#filterpanel" gotoshortcut="ctrl+shift+s" contentmode="searchresults" />
+    </filemgrextension>
+
+    <filemgrextension>
+      <accesscheck>
+        <requireright right="system:supervisor" />
+      </accesscheck>
+      <addrootitem tid="terminology.worklists" gotoitemtid="terminology.worklists" icon="tollium:actions/checklist" contentshandler="mod::publisher/tolliumapps/filemanager/worklists.whlib#WorkListsContents" gotoshortcut="ctrl+shift+w" contentmode="" />
     </filemgrextension>
 
     <filemgrextension>

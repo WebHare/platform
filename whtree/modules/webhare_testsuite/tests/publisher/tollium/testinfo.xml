@@ -5,6 +5,7 @@
   <test script="testfilemgr-upload.whscr"/>
 
   <test script="recyclebin.whscr"/>
+  <test script="worklists.whscr"/>
   <test script="testfoldersettings.whscr"/>
   <test script="rte-workflow.whscr"/>
   <test script="testrte-links.whscr"/>
