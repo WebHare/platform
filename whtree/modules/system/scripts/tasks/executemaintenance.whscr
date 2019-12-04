@@ -67,6 +67,10 @@ MACRO CleanupUsermgmt()
       wrdtype->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM tokill);
   }
   trans->CommitWork();
+
+  trans->BeginWork();
+  FixUnconnectedItems(usermgmtschema);
+  trans->CommitWork();
 }
 
 MACRO CleanupAuthObjects()

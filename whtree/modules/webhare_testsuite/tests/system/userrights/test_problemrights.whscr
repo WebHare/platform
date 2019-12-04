@@ -1,11 +1,20 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+  testfw->userapi->ResyncToSystemTables(); //prevent spurious errors from earlier tests
+  testfw->CommitWork();
+}
 
 MACRO AddRight(RECORD modoptions)
 {
@@ -55,16 +64,57 @@ ASYNC MACRO TestProblemRights()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-MACRO VerifyNoLooseEnds()
+MACRO TestFixUnconnectedItems()
 {
   testfw->BeginWork();
-  testfw->EnsureUserMgmtClean();
+  testfw->EnsureUserMgmtClean(); //make sure all is okay before we start. also verifies no loose ends left above
+
+  OBJECT deletedunit :=      testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_title := "Deletable unit" ]);
+  OBJECT expiredunit :=      testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_title := "Expirable unit" ]);
+
+  OBJECT deletedchildunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_leftentity := deletedunit->id, wrd_title := "Deletable child unit" ]); //note, this unit is okay as units may live in the root!
+  OBJECT expiredchildunit := testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_leftentity := expiredunit->id, wrd_title := "Expirable child unit" ]);
+
+  OBJECT deletedchildrole := testfw->GetWRDSchema()->^whuser_role->CreateEntity([ wrd_leftentity := deletedunit->id, wrd_title := "Deletable child role" ]);
+  OBJECT expiredchildrole := testfw->GetWRDSchema()->^whuser_role->CreateEntity([ wrd_leftentity := expiredunit->id, wrd_title := "Expirable child role" ]);
+
+  OBJECT deletedchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := deletedunit->id, wrd_contact_email := "deletable@beta.webhare.net" ]);
+  OBJECT expiredchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := expiredunit->id, wrd_contact_email := "expirable@beta.webhare.net" ]);
+
+  RECORD ARRAY resync := testfw->userapi->ResyncToSystemTables();
+  IF(Length(resync) != 8)
+  {
+    DumpValue(resync,'boxed');
+    TestEq(8, Length(resync), "Ensure all newobjects are created like real users/units would");
+  }
+
+  deletedunit->DeleteEntity();
+  expiredunit->CloseEntity();
+
+  RECORD ARRAY fixes := FixUnconnectedItems(testfw->GetWRDSchema());
+  IF(Length(fixes) != 4)
+  {
+    DumpValue(fixes,'boxed');
+    TestEq(4, Length(fixes), "Expecting 5 fixes (2 users + 1 role + 1 unit)");
+  }
+
+  INTEGER lostandfound := testfw->GetWRDSchema()->^whuser_unit->Search("WRD_TAG", "WH_LOSTANDFOUND");
+  TestEq(FALSE, deletedchildunit->IsLive());
+  TestEq(lostandfound, expiredchildunit->GetField("WRD_LEFTENTITY"));
+  TestEq(FALSE, deletedchildrole->IsLive());
+  TestEq(lostandfound, expiredchildrole->GetField("WRD_LEFTENTITY"));
+  TestEq(lostandfound, deletedchilduser->GetField("WHUSER_UNIT"));
+  TestEq(lostandfound, expiredchilduser->GetField("WHUSER_UNIT"));
+
   testfw->CommitWork();
+
+  //FIXME: not checking for loose ends anymore, we _know_ the actions above have generated loose ends (deletions) BUT we need incremental changes to prevent that
 }
 
-RunTestFramework([ PTR CreateProblemRight
+RunTestFramework([ PTR Prepare
+                 , PTR CreateProblemRight
                  , PTR TestProblemRights
-                 , PTR VerifyNoLooseEnds
+                 , PTR TestFixUnconnectedItems
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa"]
                                    ]

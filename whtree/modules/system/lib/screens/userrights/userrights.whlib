@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -331,6 +332,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
     this->authapi->ResyncToSystemTables();
+    FixUnconnectedItems(this->contexts->wrdschema);
     work->AddWarning(this->GetTid(".syncedauthobjects"));
     work->Finish();
     this->RefreshApp();

@@ -271,3 +271,37 @@ PUBLIC RECORD ARRAY FUNCTION ResyncAllToSystemTables()
   //PRINT("Sync result\n" || AnyToString((SELECT parent, name, id, guid FROM system_internal.authobjects WHERE type <= 3 ORDER BY parent, name), "boxed"));
   //PRINT(AnyToString((select a.* from system_internal.authobjects as a, system_internal.authobjects as b WHERE a.parent = b.parent And a.name = b.name and a.id != b.id), "boxed"));
 }
+
+
+PUBLIC RECORD ARRAY FUNCTION FixUnconnectedItems(OBJECT usermgmtschema)
+{
+  RECORD ARRAY fixed;
+//Make sure all units, roles and users are in existing units
+  INTEGER ARRAY liveunits := SortArray(usermgmtschema->^whuser_unit->RunQuery([ outputcolumn := "WRD_ID" ]));
+  INTEGER lostandfoundunit;
+
+  FOREVERY(RECORD checktype FROM [[ type := usermgmtschema->^wrd_person,  unitfield := "WHUSER_UNIT", allownull := FALSE ]
+                                 ,[ type := usermgmtschema->^whuser_role, unitfield := "WRD_LEFTENTITY", allownull := FALSE ]
+                                 ,[ type := usermgmtschema->^whuser_unit, unitfield := "WRD_LEFTENTITY", allownull := TRUE ]
+                                 ])
+  {
+    RECORD ARRAY fixlist := checktype.type->RunQuery([ outputcolumns := CELL[ "WRD_ID", unit := checktype.unitfield ]]);
+    IF(checktype.allownull)
+      DELETE FROM fixlist WHERE unit = 0;
+    DELETE FROM fixlist WHERE unit != 0 AND BinaryFind(liveunits, unit) != -1;
+
+    IF(Length(fixlist) = 0)
+      CONTINUE; //it's okay
+
+    IF(lostandfoundunit = 0)
+      lostandfoundunit := usermgmtschema->^whuser_unit->Search("WRD_TAG", "WH_LOSTANDFOUND");
+    IF(lostandfoundunit = 0)
+      lostandfoundunit := usermgmtschema->^whuser_unit->CreateEntity( [ wrd_tag := "WH_LOSTANDFOUND", wrd_title := "Lost & found" ])->id;
+
+    FOREVERY(RECORD tofix FROM fixlist)
+      checktype.type->UpdateEntity(tofix.wrd_id, CellInsert(CELL[], checktype.unitfield, lostandfoundunit));
+
+    fixed := fixed CONCAT SELECT *, type := checktype.type->tag FROM fixlist;
+  }
+  RETURN fixed;
+}
