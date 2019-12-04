@@ -156,7 +156,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
   MACRO DoSelectUnit()
   {
-    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", TRUE);
+    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", FALSE);
     IF (dialog->RunModal() = "ok")
     {
       this->pvt_parent := dialog->value;
