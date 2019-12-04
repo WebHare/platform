@@ -33,7 +33,7 @@
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
 
 
-    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="aftertablecreation" />
+    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
   </servicemanager>
 
   <portal>
