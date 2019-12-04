@@ -286,10 +286,15 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->folderfilter->contents := DEFAULT OBJECT;
     }
 
+    STRING ARRAY eventmasks;
+    IF (folderid >= 0)
+      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
+
     OBJECT cachedlisthandler := this->GetCustomContentsHandler(folderid);
     IF (ObjectExists(cachedlisthandler))
     {
       cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon;
+      eventmasks := eventmasks CONCAT cachedlisthandler->GetEventMasks();
     }
     ELSE
     {
@@ -311,10 +316,6 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->contentslisthandler := cachedlisthandler;
       this->listsetupdirty := TRUE;
     }
-
-    STRING ARRAY eventmasks;
-    IF (folderid >= 0)
-      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
 
     this->folderlistener->masks := eventmasks;
 

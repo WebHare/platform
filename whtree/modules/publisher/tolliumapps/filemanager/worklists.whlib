@@ -39,7 +39,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
   {
     RETURN
-        [ [ name := "custom_resolveddate"
+        [ [ name := "custom_comments"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_comments")
+          , type := "text"
+          ]
+        , [ name := "custom_resolveddate"
           , title := GetTid("publisher:filemanager.worklists.columns.custom_resolveddate")
           , type := "datetime"
           , storeutc := TRUE
@@ -57,7 +61,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   {
     RETURN
         [ [ name := "name",                width := "1pr" ]
-        , [ name := "title",               width := "1pr" ]
+        , [ name := "custom_comments",     width := "1pr" ]
         , [ name := "custom_resolveddate", width := "13x" ]
         , [ name := "custom_statusicons",  width := "2x" ]
         ];
@@ -79,7 +83,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
                 ]
               ]
             , [ cells :=
-                [ [ name := "title"]
+                [ [ name := "custom_comments"]
                 , [ name := "custom_statusicons"]
                 ]
               ]
@@ -127,6 +131,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     }
   }
 
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN [ "publisher:worklist.*" ];
+  }
+
   UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentid, RECORD ARRAY items)
   {
     this->SyncWorkLists();
@@ -140,6 +149,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
           SELECT id
                , custom_listid := listid
                , custom_itemid := 0
+               , custom_comments := ""
                , custom_resolveddate := DEFAULT DATETIME
                , custom_statusicons := INTEGER[]
                , custom_canresolve := FALSE
@@ -153,6 +163,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
           SELECT id := objectid
                , custom_listid := listid
                , custom_itemid := id
+               , custom_comments := comments
                , custom_resolveddate := resolveddate
                , custom_statusicons := INTEGER[ resolveddate != DEFAULT DATETIME ? this->GetListIcon("tollium:status/positive") : this->GetListIcon("tollium:status/new") ]
                , custom_canresolve := resolveddate = DEFAULT DATETIME
@@ -162,6 +173,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     RETURN JoinArrays(items, "id", enrichments,
         [ custom_listid := 0
         , custom_itemid := 0
+        , custom_comments := ""
         , custom_resolveddate := DEFAULT DATETIME
         , custom_statusicons := INTEGER[]
         , custom_canresolve := FALSE

@@ -245,6 +245,14 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
     RETURN RECORD[];
   }
 
+  /** @short Return additional event masks to listen to
+      @return A list of event masks
+  */
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN STRING[];
+  }
+
   /** @short Called to get the WHFS objects for a parent
       @long This function is called by the folder tree if %custom_tree_items is not set to TRUE and by the file list if
           %custom_list_items is not set to TRUE.

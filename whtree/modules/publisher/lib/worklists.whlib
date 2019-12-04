@@ -2,6 +2,8 @@
 
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+
 LOADLIB "mod::publisher/lib/database.whlib";
 
 
@@ -55,6 +57,8 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     INTEGER listid := MakeAutonumber(publisher.worklists, "id");
     INSERT INTO publisher.worklists(id, name, tag, owner, creationdate)
       VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime());
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || listid, [ worklistid := listid ]);
     RETURN listid;
   }
 
@@ -73,6 +77,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       THROW NEW Exception(`No work list with id ${worklistid}`);
 
     DATETIME now := GetCurrentDateTime();
+    INTEGER ARRAY objectids;
     FOREVERY (RECORD item FROM items)
     {
       IF (item.objectid = 0)
@@ -80,15 +85,22 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
       INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND objectid = item.objectid;
       IF (itemid = 0)
+      {
         INSERT INTO publisher.worklistitems(listid, objectid, comments, creationdate)
           VALUES(worklistid, item.objectid, item.comments, now);
+        INSERT item.objectid INTO objectids AT END;
+      }
       ELSE IF (options.existing = "reset")
+      {
         UPDATE publisher.worklistitems
            SET resolveddate := DEFAULT DATETIME
              , resolvedby := 0
              , comments := item.comments
          WHERE id = itemid;
+        INSERT item.objectid INTO objectids AT END;
+      }
     }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
   }
 
   PUBLIC MACRO ResolveItems(INTEGER worklistid, INTEGER ARRAY objectids)
@@ -105,7 +117,10 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
            SET resolveddate := now
              , resolvedby := this->tolliumuser->authobjectid
          WHERE id = itemid;
+      ELSE
+        DELETE FROM objectids AT SearchElement(objectids, objectid);
     }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
   }
 
   PUBLIC MACRO DeleteFromWorkList(INTEGER worklistid, INTEGER ARRAY objectids)
@@ -119,7 +134,10 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
       IF (itemid != 0)
         DELETE FROM publisher.worklistitems
          WHERE id = itemid;
+      ELSE
+        DELETE FROM objectids AT SearchElement(objectids, objectid);
     }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
   }
 
   PUBLIC MACRO DeleteWorkList(INTEGER worklistid)
@@ -129,5 +147,6 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
     DELETE FROM publisher.worklists
      WHERE id = worklistid;
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
   }
 >;

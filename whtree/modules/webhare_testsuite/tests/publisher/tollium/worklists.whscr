@@ -11,8 +11,14 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 
-OBJECT workfile1, workfile2;
+OBJECT api_sysop, api_lisa;
+OBJECT workfile1, workfile2, workfile3;
 INTEGER testworklistid;
+
+BOOLEAN FUNCTION WaitForWorkList(INTEGER worklistid, RECORD event)
+{
+  RETURN event.worklistid = worklistid;
+}
 
 MACRO Setup()
 {
@@ -29,9 +35,13 @@ MACRO Setup()
   workfile2 := testfw->GetTestSite()->rootobject->CreateFile(
       [ name := "workfile2"
       ]);
+  workfile3 := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "workfile3"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
 
   // Let the sysop create a work list
-  OBJECT api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
+  api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
   testworklistid := api_sysop->CreateWorkList([ name := "Test Work List", tag := "webhare_testsuite:testlist" ]);
   api_sysop->AddToWorkList(testworklistid,
       [ [ objectid := workfile1->id, comments := "Work list item 1" ]
@@ -39,7 +49,7 @@ MACRO Setup()
       ]);
 
   // Let lisa reolve the second work list item
-  OBJECT api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
+  api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
   api_lisa->ResolveItems(testworklistid, INTEGER[ workfile2->id ]);
 
   testfw->CommitWork();
@@ -94,6 +104,41 @@ ASYNC MACRO TestWorklist()
   TestEq(TRUE, selection.custom_resolveddate = DEFAULT DATETIME);
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
   selection := TT("filelist")->selection;
+  TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
+
+  // No file 3 yet
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(FALSE, RecordExists(selection));
+
+  // Add another work list item
+  testfw->BeginWork();
+  api_sysop->AddToWorkList(testworklistid,
+      [ [ objectid := workfile3->id, comments := "Another list item" ]
+      ]);
+  OBJECT worklisteventpromise := testfw->AsyncWaitForSpecificEvent("publisher:worklist.*", PTR WaitForWorkList(testworklistid, #1));
+  testfw->CommitWork();
+
+  // The newly added item should automatically appear in the Publisher
+  WaitForPromise(worklisteventpromise);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile3", selection.name);
+  TestEq(TRUE, selection.custom_resolveddate = DEFAULT DATETIME);
+
+  // Resolve the third work list item
+  testfw->BeginWork();
+  api_sysop->ResolveItems(testworklistid, INTEGER[ workfile3->id ]);
+  worklisteventpromise := testfw->AsyncWaitForSpecificEvent("publisher:worklist.*", PTR WaitForWorkList(testworklistid, #1));
+  testfw->CommitWork();
+
+  // The newly added item should automatically appear resolved in the Publisher
+  WaitForPromise(worklisteventpromise);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile3", selection.name);
   TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());

@@ -556,7 +556,16 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     }
     ELSE
     {
-      displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden);
+      OBJECT contentshandler := this->GetCustomContentsHandler(parentfolder.id);
+      IF (ObjectExists(contentshandler))
+      {
+        displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden);
+
+        this->folderlistener->masks := this->folderlistener->masks CONCAT
+            SELECT AS STRING ARRAY mask
+              FROM ToRecordArray(contentshandler->GetEventMasks(), "mask")
+             WHERE mask NOT IN this->folderlistener->masks;
+      }
     }
 
     IF(debugfoldertree) DumpValue(displayfolders,'boxed');
@@ -631,24 +640,27 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     BOOLEAN tested_folder;
     FOREVERY (RECORD event FROM events)
     {
-      FOREVERY (RECORD file FROM event.data.files)
+      IF (event.event LIKE "system:whfs.folder.*")
       {
-        IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
+        FOREVERY (RECORD file FROM event.data.files)
         {
-          IF (this->thelist->GetRowFlatPosition(file.file) != -1)
+          IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
           {
-            this->thelist->ReloadList();
-            RETURN;
+            IF (this->thelist->GetRowFlatPosition(file.file) != -1)
+            {
+              this->thelist->ReloadList();
+              RETURN;
+            }
           }
-        }
-        ELSE IF ("create" IN file.events AND NOT tested_folder)
-        {
-          IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
+          ELSE IF ("create" IN file.events AND NOT tested_folder)
           {
-            this->thelist->ReloadList();
-            RETURN;
+            IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
+            {
+              this->thelist->ReloadList();
+              RETURN;
+            }
+            tested_folder := TRUE;
           }
-          tested_folder := TRUE;
         }
       }
     }
