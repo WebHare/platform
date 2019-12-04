@@ -368,6 +368,7 @@ MACRO TestPaymentPersonEntity()
       , wrd_contact_email := "testfraud@beta.webhare.net"
       , wrd_dateofbirth := MakeDate(1990,1,1)
       , wrd_contact_phone := "+3153050003"
+      , whuser_unit := testfw->testunit
       ]);
 
   OBJECT pde1 := paymentapi->paymenttype->CreateEntity( [ wrd_tag := "PDE1"]);

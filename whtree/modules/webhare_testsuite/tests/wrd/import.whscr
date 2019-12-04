@@ -483,4 +483,4 @@ RunTestFramework([ PTR Deps
                  , PTR TypesImport
                  , PTR PostCheckFIlters
                  , PTR TestSyncWRDType
-                 ], [ wrdauth  := FALSE ]);
+                 ]);

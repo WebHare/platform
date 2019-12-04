@@ -413,6 +413,7 @@ MACRO TestLocalBlobUsage()
                                       ]
                         ]
       , wrd_tag :=      "PERSON1"
+      , whuser_unit :=  testfw->testunit
       ]);
 
   testfw->CommitWork();
@@ -450,5 +451,4 @@ RunTestframework(
     [ testusers :=
           [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
           ]
-    , debug := TRUE
     ]);

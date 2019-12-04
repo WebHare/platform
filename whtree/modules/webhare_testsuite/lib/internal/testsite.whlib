@@ -988,7 +988,7 @@ PUBLIC MACRO DoSetupWRDAuth()
 
 PUBLIC MACRO TestInvoke_SetupAccessRules()
 {
-  RunTestFramework(DEFAULT MACRO PTR ARRAY);
+  RunTestFramework(DEFAULT MACRO PTR ARRAY, [ wrdauth := TRUE ]);
 
   // Add access rule which requires login on portal1 when visiting portal2
   OBJECT testsite := OpenTestsuiteSite();
@@ -1005,6 +1005,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
                                                                      , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
                                                                      , usermgmt := TRUE
                                                                      ]);
+  OBJECT wrdschema2_unit := wrdschema2->^whuser_unit->CreateEntity([wrd_title := "Testunit"]);
 
   wrdschema2->^wrd_authdomain->CreateEntity(
       [ wrd_tag :=                "MYBACKEND2"
@@ -1019,6 +1020,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
       , whuser_password :=        testfw->hashedpasswords.secret
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal2"
+      , whuser_unit :=            wrdschema2_unit->id
       ]);
 
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
@@ -1026,6 +1028,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
       , whuser_password :=        testfw->hashedpasswords.secret
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal1"
+      , whuser_unit :=            testfw->testunit
       ]);
 
   // Add accessrule protecting /portal2/ with login into portal1 schema, via portal1
@@ -1156,6 +1159,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
                                                                         , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
                                                                         , usermgmt := TRUE
                                                                         ]);
+  OBJECT wrdschema_idp_unit := wrdschema_idp->^whuser_unit->CreateEntity([wrd_title := "Testunit"]);
 
   // Create key/cert for IDP
   RECORD keypair_idp := testfw->GenerateKeyPair("idp");
@@ -1164,6 +1168,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
   OBJECT person := wrdschema_idp->GetType("WRD_PERSON")->CreateEntity(
       [ wrd_contact_email :=      "idpaccount@example.com"
       , whuser_password :=        CreateWebharePasswordHash("a")
+      , whuser_unit :=            wrdschema_idp_unit->id
       ]);
 
   //OBJECT dom_idp := wrdschema_idp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
@@ -1239,7 +1244,9 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                              , protectroot := FALSE
                              ], options);
 
-  RECORD testfwoptions := [ testusers := RECORD[] ];
+  RECORD testfwoptions := [ testusers := RECORD[]
+                          , wrdauth := TRUE
+                          ];
   IF(options.createsysop)
     testfwoptions.testusers := [[ login := "sysop", grantrights := ["system:sysop"]]];
 
@@ -1317,6 +1324,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_contact_email := "pietje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2F3A"
     , password := testfw->hashedpasswords.secret
+    , whuser_unit :=            testfw->testunit
     ]);
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
     [ wrd_firstname := "Jantje"
@@ -1324,6 +1332,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_contact_email := "jantje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
     , password := testfw->hashedpasswords.secret
+    , whuser_unit :=            testfw->testunit
     ]);
   testfw->CommitWork();
 
