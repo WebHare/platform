@@ -1,0 +1,23 @@
+<?wh
+/* This script removes 'broken' "FD1" links (which link to the internal XML document of form files) from existing files */
+
+LOADLIB "mod::consilio/lib/database.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+
+OpenPrimary()->BeginWork();
+
+// Get all WHFS settings linking to a faulty "FD1" link
+INTEGER ARRAY settingids :=
+    SELECT AS INTEGER ARRAY objectlinks.system_fs_setting
+      FROM consilio.checked_links AS links
+         , consilio.checked_objectlinks AS objectlinks
+     WHERE links.url LIKE "*FD1"
+           AND objectlinks.link = links.id;
+
+// Check those settings, removing the faulty links
+GetWHFSCommitHandler()->AddLinkCheckedSettings(settingids);
+
+GetPrimary()->CommitWork();

@@ -31,6 +31,9 @@
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" unlessenvironset="WEBHARE_ISRESTORED" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
+
+
+    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
   </servicemanager>
 
   <portal>
