@@ -31,6 +31,19 @@
   font-weight:bold;
 }
 
+table.othertable tr:last-child td:last-child:after
+{
+  content:"(othertable)";
+}
+
+.redpill
+{
+  background:rgba(255,0,0,.1);
+}
+.bluepill
+{
+  background:rgba(0,0,255,.1);
+}
 /* Booby trap to detect un-rewritten inclusions in tollium */
 .t-screen:before
 {

@@ -192,16 +192,16 @@ class MenuButton extends SimpleToggleButton
   }
 }
 
-class BlockStyleButton extends ToolbarButtonBase
+class StyleButtonBase extends ToolbarButtonBase
 {
-  constructor(toolbar)
+  constructor(toolbar, button)
   {
     super(toolbar);
     this.owngroup = true;
     this.optionlist = [];
 
     this.node = <span>
-                  { this.select = <select class="wh-rtd__toolbarstyle" on={{change: e => this.selectStyle() }} /> }
+                  { this.select = <select class="wh-rtd__toolbarstyle" data-button={button} on={{change: e => this.selectStyle() }} /> }
                 </span>;
     this.updateStructure();
   }
@@ -209,15 +209,13 @@ class BlockStyleButton extends ToolbarButtonBase
   updateStructure(selstate)
   {
     dompack.empty(this.select);
+    this.optionlist = [];
 
-    let editor = this.toolbar.rte.getEditor();
-    if(!editor)
-      return;
+    let styles = this.getAvailableStyles(selstate);
 
-    var blockstyles = editor.getAvailableBlockStyles(selstate);
-    for (var i=0;i<blockstyles.length;++i)
+    for (var i=0;i<styles.length;++i)
     {
-      var bs = blockstyles[i];
+      var bs = styles[i];
       var title = bs.def.title ? bs.def.title : bs.tag;
       var opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
       //ADDME toolbarcss? but 'style: { cssText: bs.def.toolbarcss' is CSP risky
@@ -236,7 +234,7 @@ class BlockStyleButton extends ToolbarButtonBase
     //FIXME what to do if we have no blockstyle?
     if(selstate)
     {
-      this.optionlist[0].classList.toggle('wh-rtd__toolbaroption--unavailable', true);
+      // this.optionlist[0].classList.toggle('wh-rtd__toolbaroption--unavailable', true);
 
 //      for (var i = 0; i < this.optionlist.length; ++i)
 //      {
@@ -244,19 +242,75 @@ class BlockStyleButton extends ToolbarButtonBase
 //        this.optionlist[i].classList.toggle('-wh-rtd-unavailable', selstate.blockstyle.listtype != style.listtype)
 //      }
 
-      this.select.value = selstate.blockstyle ? selstate.blockstyle.tag : '$$none$$';
+      this.select.value = this.getCurrentStyle(selstate);
     }
-    this.select.disabled = !(this.available && this.toolbar.rte.isEditable());
+    this.select.disabled = !(this.available && this.toolbar.rte.isEditable() && this.optionlist.length);
   }
 
   selectStyle()
   {
     let editor = this.toolbar.rte.getEditor();
-    if(editor && this.select.value)
+    if(editor)
     {
-      editor.setSelectionBlockStyle(this.select.value);
+      this.setStyle(this.select.value);
       editor.takeFocus();
     }
+  }
+}
+
+class CellStyleButton extends StyleButtonBase
+{
+  constructor(toolbar)
+  {
+    super(toolbar, "td-class");
+  }
+  getAvailableStyles(selstate)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor && selstate && selstate.cellparent)
+      return editor.getAvailableCellStyles(selstate).map(style => ({...style, tag: style.tag.toLowerCase() }));
+
+    return [];
+  }
+  getCurrentStyle(selstate)
+  {
+    if(selstate && selstate.cellparent && selstate.cellparent.classList.contains("wh-rtd__tablecell"))
+      return selstate.cellparent.classList[1] || '';
+
+    return null;
+  }
+  setStyle(value)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor)
+      editor.setSelectionCellStyle(value);
+  }
+}
+
+class BlockStyleButton extends StyleButtonBase
+{
+  constructor(toolbar)
+  {
+    super(toolbar, "p-class");
+  }
+  getAvailableStyles(selstate)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(!editor)
+      return [];
+
+    return editor.getAvailableBlockStyles(selstate);
+  }
+
+  getCurrentStyle(selstate)
+  {
+    return selstate && selstate.blockstyle ? selstate.blockstyle.tag : null;
+  }
+  setStyle(value)
+  {
+    let editor = this.toolbar.rte.getEditor();
+    if(editor)
+      editor.setSelectionBlockStyle(value);
   }
 }
 
@@ -396,6 +450,7 @@ var supportedbuttons =
   , "action-properties": ToolbarButton
   , "action-clearformatting": ToolbarButton
   , "action-showformatting": ShowFormattingButton
+  , "td-class": CellStyleButton
   , "p-class": BlockStyleButton
 
   , "ol": SimpleToggleButton
@@ -407,7 +462,7 @@ var supportedbuttons =
   , "table": InsertTableButton
   };
 
-class RTEToolbar
+export default class RTEToolbar
 {
   constructor(rte, element, options)
   {
@@ -416,10 +471,7 @@ class RTEToolbar
         { hidebuttons: []
         //button layout. top level array is rows, consists of groups, and a group is either a single button (p-class) or an array of buttons
         //ADDME: Note, if new buttons are added, we probably need to update tollium (field-)rte.js to hide these in nonstructured mode
-        , layout: [ [ "p-class", ["ul","ol","li-decrease-level","li-increase-level"], ["p-align-left","p-align-right","p-align-center","p-align-justify"], ["action-spellcheck","action-search","action-showformatting","action-properties"]
-                    , ["b","i","u","strike"], ["sub","sup"], ["a-href"], ["img","object-video","object-insert","table","action-symbol"], ["action-clearformatting"]
-                    ]
-                  ]
+        , layout: []
         , compact: false
         , allowtags: null
         , ...options
@@ -566,5 +618,3 @@ class RTEToolbar
     this.UpdateButton(button);
   }
 }
-
-module.exports = RTEToolbar;

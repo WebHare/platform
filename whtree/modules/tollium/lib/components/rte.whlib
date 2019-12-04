@@ -700,6 +700,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
       RETURN;
     }
+    /*  properties2 is an attempt to switch to a JSON protocol from the RichEditor straight into Tollium for setting properties
+        and cutting out all the middleman translations... ie we get a opaque token to complete the action (msgdata.actionid)
+        and update the settings in affectednodeinfo.
+    */
     IF(type = "properties2")
     {
       RECORD settings := this->HandlePropertiesRequest2(msgdata.affectednodeinfo);
@@ -753,6 +757,20 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         IF(scr->RunModal()="ok")
           RETURN scr->GetData();
       }
+      CASE "cell"
+      {
+        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.tableproperties"
+                                              ,[ rte := this
+                                               , data := data
+                                               ]);
+
+        SWITCH (scr->RunModal())
+        {
+          CASE "remove" { RETURN [ removetable := TRUE ]; }
+          CASE "ok"     { RETURN scr->GetValue(); }
+          DEFAULT       { RETURN DEFAULT RECORD; }
+        }
+      }
       DEFAULT
       {
         Print("Not sure how to handle props request for '" || data.type || "'\n");
@@ -787,19 +805,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       CASE "embeddedobject"
       {
         RETURN this->HandleEmbeddedObjectProperties(data);
-      }
-      CASE "table"
-      {
-        OBJECT scr := this->owner->LoadScreen("tollium:components/rte.tableproperties"
-                                              ,[ rte := this
-                                               , data := data
-                                               ]);
-
-        SWITCH (scr->RunModal())
-        {
-          CASE "remove" { RETURN [ type := "remove" ]; }
-          CASE "ok"     { RETURN scr->GetValue(); }
-        }
       }
       DEFAULT
       {

@@ -3,8 +3,82 @@ import * as test from './testframework.es';
 import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/richdebug';
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/snapshots';
+import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
+import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
 
+//capture the next richeditor-action event
+export function getNextAction()
+{
+  return test.waitForEvent(test.getWin(), 'wh:richeditor-action', { capture:true, stop: true});
+}
+
+export class RTEDriver
+{
+  constructor(rte)
+  {
+    if(rte && typeof rte == 'string')
+    {
+      let comp = test.compByName(rte);
+      if(comp)
+        rte = comp.propTodd.rte;
+    }
+
+    if(!rte)
+    {
+      rte = test.getWin().rte;
+      if(!rte)
+        throw new Error("Test window has no RTE"); //TODO allow option
+    }
+    this.rte = rte;
+    this.editor = rte.getEditor();
+  }
+
+  qS(selector)
+  {
+    return this.rte.qS(selector);
+  }
+
+  qSA(selector)
+  {
+    return this.rte.qSA(selector);
+  }
+
+  get body()
+  {
+    return this.editor.getContentBodyNode();
+  }
+
+  setSelection(startContainer, startOffset, endContainer, endOffset)
+  {
+    if(!startOffset)
+      startOffset = 0;
+
+    if(!endContainer)
+    {
+      endContainer = startContainer;
+      endOffset = startOffset;
+    }
+    setRTESelection(test.getWin(), this.editor, { startContainer, startOffset, endContainer, endOffset });
+  }
+
+  //execute a property action and get the result
+  async executeProperties()
+  {
+    let propsbutton = test.qS("[data-button=action-properties]");
+    if(!propsbutton)
+      throw new Error("No properties button present!");
+
+    if(propsbutton.classList.contains("disabled"))
+      throw new Error("Properties button is disabled!");
+
+    let result = getNextAction();
+    test.click(propsbutton);
+    return await result;
+    //FIXME throw if properties button is not enabled
+
+  }
+}
 
 export function getTextChild(node)
 {
@@ -15,7 +89,7 @@ export function getTextChild(node)
 
 export function RunIteratorOnRange2(win,range)
 {
-  var itr = new domlevel.RangeIterator2(range);
+  var itr = new RangeIterator2(range);
   var list = [];
 
   while (!itr.atEnd())
@@ -41,7 +115,7 @@ export function setRTESelection(win, rte, domrange)
     if(!domrange.endOffset)
       domrange.endOffset = domrange.startOffset;
   }
-  rte.selectRange(domlevel.Range.fromDOMRange(domrange));
+  rte.selectRange(Range.fromDOMRange(domrange));
 }
 
 export function getCompStyle(node, prop)
@@ -119,7 +193,7 @@ export function setStructuredContent(win, structuredhtml, options)
   if (locators[0])
   {
     if (locators[1])
-      rte.selectRange(new domlevel.Range(locators[0], locators[1]));
+      rte.selectRange(new Range(locators[0], locators[1]));
     else
       rte.setCursorAtLocator(locators[0]);
   }

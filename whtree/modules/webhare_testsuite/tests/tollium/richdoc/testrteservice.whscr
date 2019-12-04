@@ -17,8 +17,8 @@ LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 
 
-BLOB bobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/bob.jpg");
-BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/smallbob.jpg");
+BLOB bobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg");
+BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/smallbob.jpg");
 
 MACRO RegisterBlobInWebhareDB(BLOB data)
 {

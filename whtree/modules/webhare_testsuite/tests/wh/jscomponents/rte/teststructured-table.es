@@ -3,46 +3,104 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
-  [
-    { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
-    // Wait 5 seconds for the RTE to fully load so the tableeditor has a change to correctly position itself
-    //, waits: [ 'ui', 5000 ] //  { wait:  }
-    }
+  [ "Basic table checks"
+  , async function()
+    {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u/action-properties');
+
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(driver.body.firstChild);
+
+      //outside table, td-class should be disabled
+      test.true(test.qS("select[data-button=td-class]").disabled, "No TD selected, expecting td-class to be disabled");
+
+      /* The table looks something like this:
+         +-----------------+
+         | mystyle         |
+         +--------+--------+
+         | normal | normal |
+         |        | normal |
+         +--------+--------+
+      */
+      var tables = driver.body.getElementsByTagName('table');
+      test.eq(1, tables.length);
+      var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+      test.eq(2, trs.length);
+
+      var tds = trs[0].getElementsByTagName('td');
+      test.eq(1, tds.length);
+      var ps = tds[0].getElementsByTagName('p');
+      driver.setSelection(ps[0]);
+
+      test.false(test.qS("select[data-button=td-class]").disabled, "In table cell, expecting td-class!");
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+
+      test.eq(1, ps.length);
+      test.eq('mystyle', ps[0].className);
+
+      tds = trs[1].getElementsByTagName('td');
+      test.eq(2, tds.length);
+      ps = tds[0].getElementsByTagName('p');
+      test.eq(1, ps.length);
+
+      driver.setSelection(ps[0]); //select bottomleft cell
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+      test.eq(3, test.qS("select[data-button=td-class]").options.length);
+      test.fill("select[data-button=td-class]", "red");
+
+      test.true(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
 
 
-  , { name: 'checktable'
-    , test: function(doc, win)
-      {
-        var rte = win.rte.getEditor();
+      test.eq('normal', ps[0].className);
+      ps = tds[1].getElementsByTagName('p');
+      test.eq(2, ps.length);
+      test.eq('normal', ps[0].className);
 
-        /* The table looks something like this:
-           +-----------------+
-           | mystyle         |
-           +--------+--------+
-           | normal | normal |
-           |        | normal |
-           +--------+--------+
-        */
-        var tables = rte.getContentBodyNode().getElementsByTagName('table');
-        test.eq(1, tables.length);
-        var trs = tables[0].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        test.eq(2, trs.length);
+      driver.setSelection(ps[0]); //select bottom right cell
+      test.eq("Normal cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
 
-        var tds = trs[0].getElementsByTagName('td');
-        test.eq(1, tds.length);
-        var ps = tds[0].getElementsByTagName('p');
-        test.eq(1, ps.length);
-        test.eq('mystyle', ps[0].className);
+      test.fill("select[data-button=td-class]", "blue");
+      test.false(tds[1].classList.contains("red"));
+      test.true(tds[1].classList.contains("blue"));
 
-        tds = trs[1].getElementsByTagName('td');
-        test.eq(2, tds.length);
-        ps = tds[0].getElementsByTagName('p');
-        test.eq(1, ps.length);
-        test.eq('normal', ps[0].className);
-        ps = tds[1].getElementsByTagName('p');
-        test.eq(2, ps.length);
-        test.eq('normal', ps[0].className);
-      }
+      driver.setSelection(tds[0].querySelector('p')); //select bottomleft cell
+      test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
+      test.true(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
+
+      test.fill("select[data-button=td-class]", "");
+      test.false(tds[0].classList.contains("red"));
+      test.false(tds[0].classList.contains("blue"));
+
+      //Test editing a cell through the properties action
+      let cellaction = await driver.executeProperties();
+      let targetinfo = driver.rte.getTargetInfo(cellaction.detail.actiontarget);
+
+      //inspect the targetinfo
+      test.eq("cell", targetinfo.type);
+      test.eq(2, targetinfo.numcolumns);
+      test.eq(2, targetinfo.numrows);
+      test.eq(0, targetinfo.datacell.row);
+      test.eq(0, targetinfo.datacell.col);
+      test.eq("table", targetinfo.tablestyletag);
+      test.eq("", targetinfo.cellstyletag);
+
+      //test updating settings
+      targetinfo.datacell.row=1;
+      targetinfo.datacell.col=1;
+      targetinfo.cellstyletag="red";
+      driver.rte.updateTarget(cellaction.detail.actiontarget, targetinfo);
+
+      //reget the bottom left cell
+      let secondrow = driver.qS('table > tbody > tr + tr');
+      test.true(secondrow);
+      test.eq('TH',secondrow.childNodes[0].nodeName);
+      test.eq('TD',secondrow.childNodes[1].nodeName);
+      test.true(secondrow.childNodes[0].classList.contains('red'));
+
+      await test.wait(1); //need to give RTD time to update the <select>
+      test.eq("Red Cell", test.qS("select[data-button=td-class]").selectedOptions[0].textContent);
     }
 
   , { name: 'checkresizers'
@@ -50,6 +108,7 @@ test.registerTests(
       {
         var rte = win.rte.getEditor();
         var table = rte.getContentBodyNode().getElementsByTagName('table')[0];
+        const driver = new rtetest.RTEDriver;
 
         // Check if all resizers are present
         var resizers = rte.getContentBodyNode().parentNode.querySelectorAll('.wh-tableeditor-resize-col');
@@ -67,16 +126,16 @@ test.registerTests(
         test.true(el.classList.contains('wh-tableeditor-resize-col'), "column and row resizer class 1");
         test.true(el.classList.contains('wh-tableeditor-resize-table'), "column and row resizer class 2");
 
-        el = test.getValidatedElementFromPoint(doc, coords.left + table.getElementsByTagName('tr')[1].getElementsByTagName('td')[0].offsetWidth, coords.top + 10, true);
+        el = test.getValidatedElementFromPoint(doc, coords.left + driver.qS('table tr+tr th').offsetWidth, coords.top + 10, true);
         test.true(el, "column resizer rowspanned");
         test.false(el.classList.contains('wh-tableeditor-resize-col'), "column resizer rowspanned class 1");
         test.false(el.classList.contains('wh-tableeditor-resize-row'), "column resizer rowspanned class 2");
         test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer rowspanned class 3");
 
-        var tryx = coords.left + table.getElementsByTagName('tr')[1].getElementsByTagName('td')[0].offsetWidth;
+        var tryx = coords.left + driver.qS('table tr+tr th').offsetWidth;
         var tryy = coords.bottom - 10;
-        el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
 
+        el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
         test.true(el, "column resizer");
         test.true(el.classList.contains('wh-tableeditor-resize-col'), "column resizer class 1");
         test.false(el.classList.contains('wh-tableeditor-resize-table'), "column resizer class 2");
@@ -101,10 +160,7 @@ test.registerTests(
 
         // The 'table' style should not be available as a selectable style
         var styles = rte.getAvailableBlockStyles();
-        test.eq(0, styles.filter(function(style)
-        {
-          return style.istable;
-        }).length);
+        test.eq(0, styles.filter(style => style.istable).length);
       }
     }
 
@@ -114,7 +170,7 @@ test.registerTests(
          var rte=win.rte.getEditor();
          rte.setContentsHTML('<h1 class="heading1">H1</h1>'
                              + '<table class="table"><tbody>'
-                               + '<tr> <td><p class="normal">EOS</p></td> <td><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>'
+                               + '<tr> <td class="red"><p class="normal">EOS</p></td> <td class="blue"><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>'
                                + '<tr> <td valign="top" width="33%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-lnBTa-N_MXn3OmgJWn1P5g">Mission Statement</a></li> <li><a class="ITCTable" href="x-richdoclink:RL-JBJm6G_4uiG2MCK_AncNig" style="margin-top: 0; margin-bottom: 0;">Strategic Plan</a> </li> <li><a href="x-richdoclink:RL-Hg0k03zf3CyLJt04X8FJcw">Who\'s who </a></li> <li><a class="ITCTable" href="x-richdoclink:RL-qcvAUwTbxNNW1v5Sm89a-Q" style="margin-top: 0; margin-bottom: 0;">Internet pages</a></li> <li><a href="x-richdoclink:RL-Yge_CUL0hcDGvjoEhC6WCw">MSc topics EOS 2014/2015</a></li> <li>Posters EOS MSc topics 2015 </li> </ul> <blockquote class="quote" style="margin-top: 0;"> <p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a> <br> -<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br> -<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br> -<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br> -<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p> <p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p> </blockquote><p class="normal"> </p></td> <td valign="top" width="44%"><h2 class="heading2"><b>As of </b> 1 July 2013</h2><p class="normal"> </p><ul class="unordered"> <li>Chair: Prof. Dr. Ir. M.G. <a href="x-richdoclink:RL-gTsQBWJl4JpTRnMZd6zSZw">Vosselman </a></li> <li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. <a href="x-richdoclink:RL-9MWCnpkvLj24KK6MYXkT_Q">Stein</a></li> <li>Portfolio manager Education: J.P.G. <a href="x-richdoclink:RL-scfCzYW37BL4OSucbXQPDA">Bakx</a></li> <li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. <a href="x-richdoclink:RL-a-Ww243zTGe49fM7EMWDvg">Bijker </a></li> <li>Management Assistant : Ms. T.K.A. <a href="x-richdoclink:RL-oXnNjmGVSoKydKQv_asmdQ">Brefeld </a></li> </ul> </td> <td valign="top" width="23%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-2mvQUwmPnR2JS1NWKXP40w" style="margin-bottom: 0">Minutes</a> and other <a href="x-richdoclink:RL-oYM_WaUo8OP-NXHMMx-B9Q">social</a> information for department members only </li> </ul></td> </tr>'
                                + '<tr> <td><p class="normal">1</p>'
                                  + '<table class="table"><tbody><tr><td><p class="normal">2</p></td><td>3</td><td>4</td></tr></tbody></table>'
@@ -124,6 +180,8 @@ test.registerTests(
          let body = rte.getContentBodyNode();
          let trs = body.querySelectorAll('tr');
          test.eq(3, trs.length);
+         test.eq("wh-rtd__tablecell red", trs[0].querySelectorAll("td")[0].className);
+         test.eq("wh-rtd__tablecell blue", trs[0].querySelectorAll("td")[1].className);
 
          rtetest.testEqHTMLEx(win, '<p class="normal">"EOS"</p><p class="normal">"Team "</p><p class="normal">"EOS private pages "</p>', trs[0]);
          rtetest.testEqHTMLEx(win, '<p class="normal">"1"</p><p class="normal">"2"</p><p class="mystyle">"3"</p><p class="mystyle">"4"</p><p class="normal">"9"</p>', trs[2]);
@@ -325,6 +383,19 @@ test.registerTests(
 `td-1-1,td-1-1,td-1-1` +   ``,
           Array.from(rte.getContentBodyNode().querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("td,th")).map(td => `${td.nodeName.toLowerCase()}-${td.rowSpan}-${td.colSpan}`).join(",")).join("\n"));
       }
+    }
+
+  , "Remove the table"
+  , async function()
+    {
+      //select a cell
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(driver.qS("td p"));
+
+      let cellaction = await driver.executeProperties();
+      driver.rte.updateTarget(cellaction.detail.actiontarget, { removetable: true });
+
+      test.false(driver.qS("table"));
     }
 
   ]);

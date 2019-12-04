@@ -348,11 +348,17 @@
     <to type="file" pathmask="/testpages/v2videotest.rtd"/>
     <to type="file" pathmask="/testpages/consenttest.rtd"/>
     <to type="folder" pathmask="/" /> <!-- needed to test testpage -->
+    <to type="all" pathmask="*/tmp/tabletest.rtd"/>
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <extendproperties name="rtdtypeprops" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1" renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/tmp/tabletest.rtd"/>
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc" />
   </apply>
 
   <apply>
@@ -378,6 +384,11 @@
     <to type="all" pathmask="*/consenttest.rtd"/>
     <videowidget requireconsent="remarketing" />
     <gtm account="GTM-TN7QQM" launch="manual"/>
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/imgtest.rtd"/>
+    <webdesign maxcontentwidth="300px" />
   </apply>
 
   <apply>

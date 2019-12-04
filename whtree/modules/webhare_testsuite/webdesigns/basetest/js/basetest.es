@@ -9,6 +9,8 @@ import * as geoip from '@mod-publisher/js/analytics/geoip';
 import '@mod-publisher/js/richcontent/all';
 import '@mod-publisher/js/analytics/gtm';
 import './components.es';
+import '@mod-webhare_testsuite/data/test/rte-structure.css';
+
 require('../css/extra.scss');
 require('./basetest.lang.json');
 require('../pages/formtest/formtest');

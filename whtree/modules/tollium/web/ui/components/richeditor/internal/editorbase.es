@@ -12,8 +12,10 @@ import * as domlevel from "./domlevel";
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
+import Range from './dom/range.es';
 
 var editableFix;
+
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
@@ -341,8 +343,12 @@ class EditorBase
         , imgloadplaceholder: null //image loader GIF image to use (defaults to embedded spinning loader)
         , eventnode: null
         , ...options
-        , actionelements: [...((options && options.actionelements) || []) ] //elements on which we support actions, such as properties
         };
+
+    //elements that respond to action-properties
+    this.actionelements = [ { element:"img" }
+                          , { element:"a",     hasattributes: ["href"] }
+                          ];
 
     //if(this.options.log) console.log('apply saved state');
     //this.stateHasChanged(true);
@@ -467,7 +473,7 @@ class EditorBase
       let node = startpath[i];
       if (node.nodeType === 1 && ([ "td", "th" ].includes(node.nodeName.toLowerCase())))
       {
-        range.intersect(domlevel.Range.fromNodeInner(node));
+        range.intersect(Range.fromNodeInner(node));
         changed = true;
         break;
       }
@@ -565,10 +571,10 @@ class EditorBase
         ++loc.offset;
         modified = true;
       }
-      range.assign(domlevel.Range.fromLocator(loc));
+      range.assign(Range.fromLocator(loc));
       this.selectionitf.selectRange(range);
 
-      if (modified && (domlevel.getRangeLogLevel() & 4))
+      if (modified && (Range.getLogLevel() & 4))
         console.log('getSelectionRange native was not legal (contentEditable error). After normalize', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), range.start, range.end);
     }
   }
@@ -589,7 +595,7 @@ class EditorBase
       var range = this.selectionitf.getSelectionRange();
       if (range)
       {
-        if(domlevel.getRangeLogLevel() & 4)
+        if(Range.getLogLevel() & 4)
           console.log('getSelectionRange have native selection (limited to body node)', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), Object.assign({}, range.start), Object.assign({}, range.end));
 
         range.limitToNode(bodynode);
@@ -599,7 +605,7 @@ class EditorBase
           range.normalize(this.getContentBodyNode());
           this.selectionitf.selectRange(range);
 
-          if(domlevel.getRangeLogLevel() & 4)
+          if(Range.getLogLevel() & 4)
             console.log('getSelectionRange native was not legal. After normalize', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), range, true), range.start, range.end);
         }
 
@@ -610,7 +616,7 @@ class EditorBase
       {
         this.currentrange.limitToNode(bodynode);
 
-        if (domlevel.getRangeLogLevel() & 4)
+        if (Range.getLogLevel() & 4)
           console.log('getSelectionRange no native selection, use saved', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
       }
     }
@@ -618,7 +624,7 @@ class EditorBase
     {
       this.currentrange.limitToNode(bodynode);
 
-      if (domlevel.getRangeLogLevel() & 4)
+      if (Range.getLogLevel() & 4)
         console.log('getSelectionRange no focus, use saved', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
@@ -626,8 +632,8 @@ class EditorBase
     {
       // No focus yet, and no saved selection - use default (start of document)
       var locator = new domlevel.Locator(bodynode);
-      this.currentrange = new domlevel.Range(locator, locator);
-      if(domlevel.getRangeLogLevel() & 4)
+      this.currentrange = new Range(locator, locator);
+      if(Range.getLogLevel() & 4)
         console.log('getSelectionRange no saved selection', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
@@ -635,7 +641,7 @@ class EditorBase
     if (!skipnormalize)
     {
       retval.normalize(bodynode, true);
-      if(domlevel.getRangeLogLevel() & 4)
+      if(Range.getLogLevel() & 4)
         console.log('getSelectionRange normalized selection', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), retval, true), retval.start, retval.end);
     }
 
@@ -655,16 +661,16 @@ class EditorBase
     var body = this.getContentBodyNode();
     this.currentrange = range.clone();
 
-    if(domlevel.getRangeLogLevel() & 64)
+    if(Range.getLogLevel() & 64)
       console.log('selectrange before limit', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
     this.currentrange.limitToNode(body);
-    if(domlevel.getRangeLogLevel() & 64)
+    if(Range.getLogLevel() & 64)
       console.log('selectrange after limit', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
 
     if (!options || !options.skipnormalize)
     {
       this.currentrange.normalize(body);
-      if(domlevel.getRangeLogLevel() & 64)
+      if(Range.getLogLevel() & 64)
         console.log('selectrange after normalize', richdebug.getStructuredOuterHTML(body, this.currentrange, true), this.currentrange.start, this.currentrange.end);
     }
 
@@ -675,7 +681,7 @@ class EditorBase
       this.selectionitf.selectRange(this.currentrange);
 
 
-    if(domlevel.getRangeLogLevel() & 64)
+    if(Range.getLogLevel() & 64)
       console.log('EA selectRange', this.connected, richdebug.getStructuredOuterHTML(body, range, false));
 
     this.selectingrange = false;
@@ -686,17 +692,17 @@ class EditorBase
 
   setCursorAtLocator(locator)
   {
-    this.selectRange(new domlevel.Range(locator, locator));
+    this.selectRange(new Range(locator, locator));
   }
 
   selectNodeInner(node)
   {
-    this.selectRange(domlevel.Range.fromNodeInner(node));
+    this.selectRange(Range.fromNodeInner(node));
   }
 
   selectNodeOuter(node)
   {
-    this.selectRange(domlevel.Range.fromNodeOuter(node));
+    this.selectRange(Range.fromNodeOuter(node));
   }
 
   collapseSelection(tostart)
@@ -849,7 +855,7 @@ class EditorBase
 
   SetSelection(newrange)
   {
-    this.selectRange(domlevel.Range.fromDOMRange(newrange));
+    this.selectRange(Range.fromDOMRange(newrange));
   }
 
   SelectAll()
@@ -865,12 +871,12 @@ class EditorBase
   selectNodeContents(node)
   {
     console.warn('selectNodeContents is deprecated, use selectNodeInner!');console.trace();
-    this.selectRange(domlevel.Range.withinNode(node));
+    this.selectRange(Range.withinNode(node));
   }
 
   insertTextAtCursor (text)
   {
-    //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), domlevel.Range.fromDOMRange(this.GetSelectionObject().GetRange())));
+    //console.log('setselt: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), Range.fromDOMRange(this.GetSelectionObject().GetRange())));
 
     var range = this.getSelectionRange();
     if (!range.isCollapsed())
@@ -896,7 +902,7 @@ class EditorBase
     textnode.nodeValue = nodetext;
 
     this.selectRange(
-      new domlevel.Range(
+      new Range(
         new domlevel.Locator(textnode, textoffset),
         new domlevel.Locator(textnode, textoffset + text.length)));
   }
@@ -922,7 +928,7 @@ class EditorBase
     }
     else
     {
-      this.undoselectitf.selectRange(domlevel.Range.fromNodeInner(this.undonode));
+      this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
       this.undonode.ownerDocument.execCommand("InsertHTML", false, this.undopos + "");
     }
 
@@ -1080,99 +1086,6 @@ class EditorBase
 //    console.log('getBlockAtNode res: ', res);
 
     return res;
-  }
-
-  /** Returns all the blocks in a range
-      @param range
-      @return
-      @cell type 'block'/'range'
-      @cell range
-      @cell block
-  */
-  getBlocksInRange(range, withinnerlists)
-  {
-    range = range.clone();
-    //var orgrange = range.clone();
-
-    /* minimize the range, so we're inside a block (when outside a block, the following code
-       range moving can go into embedded objects) */
-    range.descendToLeafNodes(this.getContentBodyNode());
-
-    // Move range to include the whole block (including sublists)
-    range.start.moveToPreviousBlockBoundary(this.getContentBodyNode(), true);
-
-    // If end is placed before all visible content in a block, need to place it before the its block (but after range.start!)
-    if (range.end.movePastLastVisible(this.getContentBodyNode()).type == 'outerblock')
-    {
-      // When <p>...</p><p>(*end*), place the end in the previous block
-      range.end.ascend(this.getContentBodyNode(), false);
-      // Now: <p>...</p>(*end*)<p> or <body>(*end*)<p>
-      // Make sure no content is left between the left block and the end locator
-      range.end.moveToPreviousBlockBoundary(this.getContentBodyNode(), false);
-      // And keep the range valid
-      if (range.end.compare(range.start) < 0)
-        range.end.assign(range.start);
-    }
-    else
-    {
-      range.end.moveToNextBlockBoundary(this.getContentBodyNode(), !withinnerlists);
-    }
-
-    var blocknodes = [];
-
-    // FIXME: use something to limit maxancestor to nearest <body><td><th>
-    //var startblocknode = range.start.element;
-    //var endblocknode = range.end.element;
-
-    var elts = range.getElementsByTagName('*');
-    for (let i = 0; i < elts.length; ++i)
-    {
-      if (!elts[i].isContentEditable || !domlevel.isNodeBlockElement(elts[i]))
-        continue;
-      blocknodes.push(elts[i]);
-    }
-
-    var blocks = [];
-    for (let i = 0; i < blocknodes.length; ++i)
-    {
-      let block = this.getBlockAtNode(blocknodes[i]);
-      if (block.islist && block.contentnode == block.node)
-        continue;
-
-      blocks.push({ type: 'block', block: block });
-    }
-
-    if (range.start.element == range.end.element)
-    {
-      let block = this.getBlockAtNode(range.start.element);
-      if (block.contentnode == block.blockparent) // Non-block enclosed text
-      {
-        if (blocknodes.length == 0)
-        {
-          blocks.push({ type: 'range', range: range });
-        }
-        else
-        {
-          var startrange = range.clone();
-          startrange.end.assign(startrange.start);
-          startrange.end.moveToNextBlockBoundary(this.getContentBodyNode());
-
-          if (!startrange.isCollapsed())
-            blocks.unshift({ type: 'range', range: startrange });
-
-          var endrange = range.clone();
-          endrange.start.assign(startrange.start);
-          endrange.start.moveToPreviousBlockBoundary(this.getContentBodyNode());
-
-          if (!endrange.isCollapsed())
-            blocks.push({ type: 'range', range: endrange});
-        }
-      }
-      else
-        blocks.push({ type: 'block', block: block });
-    }
-
-    return blocks;
   }
 
   /** Updates a path with the next node. All elements that are not a proper ancestor of node are removed, then
@@ -1374,13 +1287,13 @@ class EditorBase
       var restblock = this.getBlockAtNode(locator.getNearestNode());
 
       // restblock.contentnode contains the data. But it might also be the rootblock. Intersect with parts[2] for that!
-      range = domlevel.Range.fromNodeInner(restblock.contentnode);
+      range = Range.fromNodeInner(restblock.contentnode);
       range.intersect(parts[2]);
 
       var res = domlevel.moveSimpleRangeTo(range, insertlocator, parts, undoitem);
 
       // Calculate range to remove
-      range = new domlevel.Range(res.afterlocator, parts[2].end);
+      range = new Range(res.afterlocator, parts[2].end);
       range.start.ascend(root, true, true);
 
       domlevel.removeSimpleRange(range, preservelocators, undoitem);
@@ -1615,7 +1528,7 @@ class EditorBase
       for (var i = path.length-1; i >= 0; --i)
         if (path[i].nodeName.toLowerCase() == 'a')
         {
-          this.selectRange(domlevel.Range.withinNode(path[i]));
+          this.selectRange(Range.withinNode(path[i]));
           break;
         }
 
@@ -2055,13 +1968,16 @@ class EditorBase
   {
     return [];
   }
+  getAvailableCellStyles(selstate)
+  {
+    return [];
+  }
 
   getActionsForNode(node)
   {
     var actions=[];
-    for (var i=0;i<this.options.actionelements.length;++i)
+    for (const act of this.actionelements)
     {
-      var act = this.options.actionelements[i];
       if(act.element != node.nodeName.toLowerCase())
         continue;
       if(act.hasattributes)
@@ -2091,7 +2007,7 @@ class EditorBase
 
   checkActionElements(node, formatting)
   {
-    this.getActionsForNode(node).forEach(function(action)
+    this.getActionsForNode(node).forEach(action =>
     {
       formatting.actionelements.push(action);
       formatting.actiontargets.push(node);
@@ -2100,7 +2016,7 @@ class EditorBase
 
   getFormattingStateForRange(range)
   {
-    if(domlevel.getRangeLogLevel()&16)
+    if(Range.getLogLevel()&16)
       console.log("gFSR received range",range, range.start, range.end);
 
     var formatting = new TextFormattingState();
@@ -2131,7 +2047,7 @@ class EditorBase
 
     var locator = range.start.clone();
 
-    if(domlevel.getRangeLogLevel()&16)
+    if(Range.getLogLevel()&16)
       console.log('selected before ascend', richdebug.getStructuredOuterHTML(range.getAncestorElement(), range));
 
 //    console.log('selected after ascend', richdebug.getStructuredOuterHTML(range.getAncestorElement(), range));
@@ -2205,7 +2121,7 @@ class EditorBase
     for(let curnode = range.getAncestorElement();curnode && curnode != this.bodydiv;curnode=curnode.parentNode)
       relevantnodes.push(curnode);
 
-    if(domlevel.getRangeLogLevel()&16)
+    if(Range.getLogLevel()&16)
       console.log('all gfsfr relevantnodes', relevantnodes);
 
     for (let i = 0; i < relevantnodes.length; ++i)
@@ -2261,6 +2177,8 @@ class EditorBase
     var limitblock = this.getBlockAtNode(end_locator.element).contentnode;
 
     var tdparent = domlevel.findParent(anchornode, [ 'td', 'th' ], this.getContentBodyNode());
+    formatting.cellparent = tdparent;
+
     var allow_td_actions = startblock == limitblock && tdparent;
     var tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
     var tableactionstate = tableeditor && tableeditor.getActionState(tdparent);

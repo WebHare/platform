@@ -4,7 +4,7 @@ import * as dompack from 'dompack';
 //we delay load the RTE, but we still need its styling - we don't have a delayed load for SCSS yet
 import '@mod-tollium/web/ui/components/richeditor/richeditor.scss';
 
-let RTE = null;
+let richeditor;
 
 /** options.onInsertVideo: function(node) - should return a promise resolving to an instance if the insertion is successful, or resolve to null if cancelled. receives the html rteedit node on which we're invoked */
 
@@ -31,9 +31,6 @@ export default class RTDField
       { enabled: true
       , readonly: false
       , backgroundcolor: 'transparent'
-      , actionelements:
-        [ { element:"table", hasclasses: ["wh-rtd__table"] }
-        ]
       , structure: structure
       , allowtags: null//data.allowtags.length ? data.allowtags : null
       , hidebuttons: hidebuttons
@@ -59,12 +56,12 @@ export default class RTDField
   }
   async setupRTE(node, rtdoptions)
   {
-    if(!RTE)
-      RTE = (await System.import('@mod-tollium/web/ui/components/richeditor')).default;
+    if(!richeditor)
+      richeditor = await System.import('@mod-tollium/web/ui/components/richeditor');
 
-    this.rte = new RTE(node, { ...rtdoptions
-                             , enabled: this._getEnabled() //initial enabled state
-                             });
+    this.rte = new richeditor.RTE(node, { ...rtdoptions
+                                        , enabled: this._getEnabled() //initial enabled state
+                                        });
 
     node.addEventListener('wh:form-getvalue', evt => { evt.preventDefault(); evt.detail.deferred.resolve(this.rte.getValue()); });
     node.addEventListener('wh:form-setvalue', evt => { evt.preventDefault(); this.rte.setValue(evt.detail.value); });

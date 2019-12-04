@@ -5,6 +5,7 @@ import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
 import ParsedStructure from "./parsedstructure";
+import Range from './dom/range.es';
 require('./pastecleanup');
 
 var tableeditor = require("./tableeditor");
@@ -32,7 +33,12 @@ export default class StructuredEditor extends EditorBase
 
     super(element, rte, options, undonode);
 
-//, blockstylescss = ''
+    this.actionelements.push( { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
+                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
+                            //, { element:"table", hasclasses: ["wh-rtd__table"] } //not needed, we have th and td ?
+                            , { element:"th", hasclasses: ["wh-rtd__tablecell"] }
+                            , { element:"td", hasclasses: ["wh-rtd__tablecell"] }
+                            );
 
     this.textstyletags = [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ];
 
@@ -61,7 +67,7 @@ export default class StructuredEditor extends EditorBase
       {
         var orgrange = this.getSelectionRange();
         this.undonode.focus();
-        this.undoselectitf.selectRange(domlevel.Range.fromNodeInner(this.undonode));
+        this.undoselectitf.selectRange(Range.fromNodeInner(this.undonode));
 
         if (browser.getName() == "ie" || browser.getName() == "edge")
         {
@@ -86,10 +92,11 @@ export default class StructuredEditor extends EditorBase
 
   getAvailableBlockStyles(selstate)
   {
-    return this.structure.blockstyles.filter(function(style)
-    {
-      return !style.istable;
-    });
+    return this.structure.blockstyles.filter(style => !style.istable);
+  }
+  getAvailableCellStyles(selstate)
+  {
+    return this.structure.cellstyles;
   }
 
   // ---------------------------------------------------------------------------
@@ -248,7 +255,7 @@ export default class StructuredEditor extends EditorBase
       this.getContentBodyNode().removeChild(nodes[i]);
 
     this.getContentBodyNode().insertBefore(textnode, endnode);
-    this.selectRange(domlevel.Range.fromNodeInner(textnode));
+    this.selectRange(Range.fromNodeInner(textnode));
 
     //console.log('prepaste', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), this.getSelectionRange(), true));
 
@@ -373,7 +380,7 @@ export default class StructuredEditor extends EditorBase
     let loc = below ? domlevel.Locator.newPointingAfter(sibling) : domlevel.Locator.newPointingTo(sibling);
     let res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
     this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
-    this.selectRange(domlevel.Range.fromLocator(res.contentlocator));
+    this.selectRange(Range.fromLocator(res.contentlocator));
 
     undolock.close();
   }
@@ -663,7 +670,7 @@ export default class StructuredEditor extends EditorBase
         // Create img node, doesn't merge with stuff
         var tempnode = document.createElement("img");
         this.insertNodeAutoSplit(locator, tempnode, preservelocators, undoitem); // Auto-splits textnodes
-        segmentbreakrange = domlevel.Range.fromNodeOuter(tempnode);
+        segmentbreakrange = Range.fromNodeOuter(tempnode);
         //console.log('listinsert, tempnode: ', richdebug.getStructuredOuterHTML(block.blockroot, { node: block.node, locator: locator }));
       }
 
@@ -1175,6 +1182,99 @@ export default class StructuredEditor extends EditorBase
     return res;
   }
 
+  /** Returns all the blocks in a range
+      @param range
+      @return
+      @cell type 'block'/'range'
+      @cell range
+      @cell block
+  */
+  getBlocksInRange(range, withinnerlists)
+  {
+    range = range.clone();
+    //var orgrange = range.clone();
+
+    /* minimize the range, so we're inside a block (when outside a block, the following code
+       range moving can go into embedded objects) */
+    range.descendToLeafNodes(this.getContentBodyNode());
+
+    // Move range to include the whole block (including sublists)
+    range.start.moveToPreviousBlockBoundary(this.getContentBodyNode(), true);
+
+    // If end is placed before all visible content in a block, need to place it before the its block (but after range.start!)
+    if (range.end.movePastLastVisible(this.getContentBodyNode()).type == 'outerblock')
+    {
+      // When <p>...</p><p>(*end*), place the end in the previous block
+      range.end.ascend(this.getContentBodyNode(), false);
+      // Now: <p>...</p>(*end*)<p> or <body>(*end*)<p>
+      // Make sure no content is left between the left block and the end locator
+      range.end.moveToPreviousBlockBoundary(this.getContentBodyNode(), false);
+      // And keep the range valid
+      if (range.end.compare(range.start) < 0)
+        range.end.assign(range.start);
+    }
+    else
+    {
+      range.end.moveToNextBlockBoundary(this.getContentBodyNode(), !withinnerlists);
+    }
+
+    var blocknodes = [];
+
+    // FIXME: use something to limit maxancestor to nearest <body><td><th>
+    //var startblocknode = range.start.element;
+    //var endblocknode = range.end.element;
+
+    var elts = range.getElementsByTagName('*');
+    for (let i = 0; i < elts.length; ++i)
+    {
+      if (!elts[i].isContentEditable || !domlevel.isNodeBlockElement(elts[i]))
+        continue;
+      blocknodes.push(elts[i]);
+    }
+
+    var blocks = [];
+    for (let i = 0; i < blocknodes.length; ++i)
+    {
+      let block = this.getBlockAtNode(blocknodes[i]);
+      if (block.islist && block.contentnode == block.node)
+        continue;
+
+      blocks.push({ type: 'block', block: block });
+    }
+
+    if (range.start.element == range.end.element)
+    {
+      let block = this.getBlockAtNode(range.start.element);
+      if (block.contentnode == block.blockparent) // Non-block enclosed text
+      {
+        if (blocknodes.length == 0)
+        {
+          blocks.push({ type: 'range', range: range });
+        }
+        else
+        {
+          var startrange = range.clone();
+          startrange.end.assign(startrange.start);
+          startrange.end.moveToNextBlockBoundary(this.getContentBodyNode());
+
+          if (!startrange.isCollapsed())
+            blocks.unshift({ type: 'range', range: startrange });
+
+          var endrange = range.clone();
+          endrange.start.assign(startrange.start);
+          endrange.start.moveToPreviousBlockBoundary(this.getContentBodyNode());
+
+          if (!endrange.isCollapsed())
+            blocks.push({ type: 'range', range: endrange});
+        }
+      }
+      else
+        blocks.push({ type: 'block', block: block });
+    }
+
+    return blocks;
+  }
+
   getFormattingStateForRange(range)
   {
     var state = super.getFormattingStateForRange(range);
@@ -1614,6 +1714,7 @@ export default class StructuredEditor extends EditorBase
                                  , nodes: []
                                  , colspan: currentcell ? currentcell.colSpan : 1
                                  , rowspan: currentcell ? currentcell.rowSpan : 1
+                                 , styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
                                  };
 
                   rowitem.nodes.push(cellitem);
@@ -1949,7 +2050,7 @@ export default class StructuredEditor extends EditorBase
 
     if(debugicc)
       console.log('ICC postinsert, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
-    var range = new domlevel.Range(res, res);
+    var range = new Range(res, res);
     this.checkDomStructure(range, [ locator, res, ...(preservelocators || []) ], undoitem);
     if(debugicc)
       console.log('ICC postcheck, html: ', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator, res: res }));
@@ -2041,12 +2142,12 @@ export default class StructuredEditor extends EditorBase
     if (newblockstyle.islist)
     {
       var newli = document.createElement('li');
-      domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeInner(elt), newli, preservelocators.concat(parts).concat(range), undoitem);
+      domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(elt), newli, preservelocators.concat(parts).concat(range), undoitem);
     }
 
     // Extract the new block node, place it in a div
     let rewritecontentnode = document.createElement('div');
-    domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeOuter(elt), rewritecontentnode, preservelocators.concat(parts).concat(range), undoitem);
+    domlevel.wrapSimpleRangeInNewNode(Range.fromNodeOuter(elt), rewritecontentnode, preservelocators.concat(parts).concat(range), undoitem);
 
     // Remove the node, save the position in the insertlocator
     let insertlocator = parts[1].start;
@@ -2121,7 +2222,7 @@ export default class StructuredEditor extends EditorBase
           continue;
 
         ancestor = blockrange.block.islist && blockstyle.islist ? blockrange.block.blockparent : blockrange.block.blockroot;
-        localrange = domlevel.Range.fromNodeInner(blockrange.block.contentnode);
+        localrange = Range.fromNodeInner(blockrange.block.contentnode);
       }
 
       const resultres = this.changeRangeBlockStyle(localrange, ancestor, blockstyle, [ range ], undolock.undoitem);
@@ -2147,7 +2248,7 @@ export default class StructuredEditor extends EditorBase
     var oldcontent = document.createElement('div');
 
     // Use wrap instead of moving firstChild, firefox likes to invent <br>s when moving firstChild's
-    domlevel.wrapSimpleRangeInNewNode(domlevel.Range.fromNodeInner(body), oldcontent);
+    domlevel.wrapSimpleRangeInNewNode(Range.fromNodeInner(body), oldcontent);
     body.removeChild(oldcontent);
 
     var insertlocator = new domlevel.Locator(body);
@@ -2155,12 +2256,27 @@ export default class StructuredEditor extends EditorBase
     this.insertContainerContents(insertlocator, oldcontent, { externalcontent: externalcontent });
 
     // Make sure selection is placed at start of content
-    var range = new domlevel.Range(insertlocator, insertlocator);
+    var range = new Range(insertlocator, insertlocator);
     range.normalize(body);
     this.selectRange(range);
 
     this.stateHasChanged();
     this._reprocessEmbeddedAutoElements();
+  }
+
+  setCellStyle(cell, newstyle)
+  {
+    cell.className = "wh-rtd__tablecell" + (newstyle ? " " + newstyle : "");
+  }
+  setSelectionCellStyle(newstyle)
+  {
+    let range = this.getSelectionRange();
+    let tablecells = range.getElementsByTagName("tr,td"); //FIXME filter embedded tr/tds (eg preview objects)
+    let parent = range.getAncestorElement().closest("tr,td");
+
+    for(let applyto of [parent,...tablecells])
+      if(applyto)
+        this.setCellStyle(applyto, newstyle);
   }
 
   // ---------------------------------------------------------------------------
@@ -2413,7 +2529,7 @@ export default class StructuredEditor extends EditorBase
           }
         }
 
-        this.selectRange(domlevel.Range.fromLocator(newpos));
+        this.selectRange(Range.fromLocator(newpos));
         undolock.close();
 
         return true;
@@ -2672,7 +2788,7 @@ export default class StructuredEditor extends EditorBase
     // If the current block has lost its style, reset to default block style
     if (block.blockparent != block.contentnode && !block.blockstyle && !domlevel.isEmbeddedObject(block.contentnode))
     {
-      let localrange = domlevel.Range.fromNodeInner(block.contentnode);
+      let localrange = Range.fromNodeInner(block.contentnode);
       this.changeRangeBlockStyle(localrange, block.blockparent, this.structure.defaultblockstyle, preservelocators.concat([ range ]));
     }
 
@@ -2893,7 +3009,7 @@ export default class StructuredEditor extends EditorBase
           cellnode.colSpan = cellitem.colspan;
         if(cellitem.rowspan > 1)
           cellnode.rowSpan = cellitem.rowspan;
-        cellnode.className = "wh-rtd__tablecell";
+        cellnode.className = "wh-rtd__tablecell" + (cellitem.styletag ? " " + cellitem.styletag : "");
         cellnode.propWhRtdCellitem = cellitem;
         tr.appendChild(cellnode);
 
@@ -2942,7 +3058,7 @@ export default class StructuredEditor extends EditorBase
                             let loc = new domlevel.Locator(body, "end");
                             res = this.insertBlockNode(loc, this.structure.defaultblockstyle, false, null, null, null);
                             this.requireVisibleContentInBlockAfterLocator(new domlevel.Locator(res.node), null, null);
-                            this.selectRange(domlevel.Range.fromLocator(res.contentlocator));
+                            this.selectRange(Range.fromLocator(res.contentlocator));
 
                             undolock.close();
                           } break;

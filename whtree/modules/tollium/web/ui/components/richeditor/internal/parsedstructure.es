@@ -2,13 +2,13 @@ export default class ParsedStructure
 {
   constructor(structure)
   {
-    this.blockstyles = [];
     this.defaultorderedliststyle = null;
     this.defaultunorderedliststyle = null;
     this.defaulttablestyle = null;
     this.defaultblockstyle = null;
 
     this.parseBlockStyles(structure.blockstyles);
+    this.parseCellStyles(structure.cellstyles || []);
 
 
     for(var i=0;i<this.blockstyles.length;++i)
@@ -42,6 +42,25 @@ export default class ParsedStructure
     this.defaultblockstyle = this.getBlockStyleByTag(structure.defaultblockstyle);
     if (!this.defaultblockstyle)
       throw Error("Block style named by 'defaultblockstyle' does not exist in structure");
+  }
+
+  parseCellStyles(cellstyles)
+  {
+    this.cellstyles = [];
+    for(let style of cellstyles)
+    {
+      this.cellstyles.push({ tag: style.tag.toLowerCase()
+                           , def: style
+                           });
+    }
+  }
+
+  getClassStyleForCell(cellnode)
+  {
+    for(let style of this.cellstyles)
+      if(style.tag && cellnode.classList && cellnode.classList.contains(style.tag))
+        return style.tag;
+    return '';
   }
 
   parseBlockStyles(inblockstyles)

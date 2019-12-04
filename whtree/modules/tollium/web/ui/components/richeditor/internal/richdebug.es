@@ -1,5 +1,6 @@
 import * as domlevel from "./domlevel";
 import * as texttype from 'dompack/types/text';
+import Range from './dom/range';
 
 function getIndentedLineBreak(indent, incr)
 {
@@ -79,7 +80,7 @@ function getStructuredOuterHTML(node, namedlocators, options)
       if (!max || max.compare(elt) < 0)
         max = elt;
     }
-    var range = new domlevel.Range(min, max);
+    var range = new Range(min, max);
     node = range.getAncestorElement();
   }
 

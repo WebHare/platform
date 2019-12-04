@@ -1,7 +1,8 @@
 <?wh
-
-
-// RTE restructuring tests, used by harescript and javascript implementations
+/* RTE restructuring tests, used by harescript and javascript implementations
+   To run in JS: https://my.webhare.dev/.system/jstests/?site=WebHare%20testsuite%20site&nocatch=1&mask=wh.jscomponents.rte.teststructured-restructuring
+   To run in WH: wh runtest publisher.rtd.testrestructuring
+*/
 
 /// Test for proper style matching on lists
 PUBLIC STRING listtest_structure :=
@@ -20,7 +21,7 @@ PUBLIC STRING listtest_structure :=
 
 /// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
 PUBLIC STRING pages_rte_test_structure :=
-`<richstructure>
+`<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
   <blockstyles defaultstyle="NORMAL">
     <textstyle tag="CONTENTTAB" importfrom="h2.tab" containertag="p">
       <importfrom selector="h2.tab" />
@@ -32,8 +33,10 @@ PUBLIC STRING pages_rte_test_structure :=
     <textstyle tag="ORDERED" title="Genummerde lijst" textstyles="i u b sub sup a-href strike img" containertag="ol" />
     <textstyle tag="UNORDERED" title="Ongenummerde lijst" textstyles="i u" containertag="ul" />
     <tablestyle tag="TABLE" title="Tabel" defaultstyle="MYSTYLE" containertag="table" />
+    <cellstyle tag="blue" title="Blue Cell" />
+    <cellstyle tag="red" title="Red Cell" />
   </blockstyles>
-</richstructure>`;
+</rtdtype>`;
 
 STRING edudex_structure :=
 `<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">
@@ -59,11 +62,11 @@ STRING edudex_structure :=
 
 /// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
 PUBLIC STRING allowallinlines_structure :=
-`<richstructure>
+`<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
   <blockstyles defaultstyle="NORMAL">
     <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike img ins del" containertag="p" />
   </blockstyles>
-</richstructure>`;
+</rtdtype>`;
 
 
 /** tests
@@ -111,8 +114,8 @@ PUBLIC RECORD ARRAY restructuringtests :=
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image"
-      , input :=          `<p><a href="http://nu.nl/"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" /></a></p>`
-      , expect :=         `<p class="normal"><a href="http://nu.nl/"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></a></p>`
+      , input :=          `<p><a href="http://nu.nl/" target="_blank"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" /></a></p>`
+      , expect :=         `<p class="normal"><a href="http://nu.nl/" target="_blank"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></a></p>`
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image and text"
@@ -132,11 +135,12 @@ PUBLIC RECORD ARRAY restructuringtests :=
       , expect :=         `<p class="normal">,abbr,acronym,<b>b</b>,big,cite,code,dfn,<i>em</i>,font,<i>i</i>,kbd,samp,small,<b>strong</b>,<sub>sub</sub>,<sup>sup</sup>,tt,var,a,bdo,label,q,span,</p>`
       ]
 
+//note: 'blue' should win when saying "blue red" or "red blue" because ordering in class= is supposed to be irrelevant - so we look at our own style order
     , [ structure :=      pages_rte_test_structure
       , title :=          "Table refilter"
       , input :=          `<h1 class="heading1">H1</h1>` ||
                           `<table class="table"><tbody>` ||
-                            `<tr> <td><p class="normal">EOS</p></td> <td><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>` ||
+                            `<tr> <td class="wh-rtd__tablecell and some more noise but red"><p class="normal">EOS</p></td> <td class="red blue"><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>` ||
                             `<tr> <td valign="top" width="33%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-lnBTa-N_MXn3OmgJWn1P5g">Mission Statement</a></li> <li><a class="ITCTable" href="x-richdoclink:RL-JBJm6G_4uiG2MCK_AncNig" style="margin-top: 0; margin-bottom: 0;">Strategic Plan</a> </li> <li><a href="x-richdoclink:RL-Hg0k03zf3CyLJt04X8FJcw">Who\`s who </a></li> <li><a class="ITCTable" href="x-richdoclink:RL-qcvAUwTbxNNW1v5Sm89a-Q" style="margin-top: 0; margin-bottom: 0;">Internet pages</a></li> <li><a href="x-richdoclink:RL-Yge_CUL0hcDGvjoEhC6WCw">MSc topics EOS 2014/2015</a></li> <li>Posters EOS MSc topics 2015 </li> </ul> <blockquote class="quote" style="margin-top: 0;"> <p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a> <br> -<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br> -<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br> -<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br> -<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p> <p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p> </blockquote><p class="normal"> </p></td> <td valign="top" width="44%"><h2 class="heading2"><b>As of </b> 1 July 2013</h2><p class="normal"> </p><ul class="unordered"> <li>Chair: Prof. Dr. Ir. M.G. <a href="x-richdoclink:RL-gTsQBWJl4JpTRnMZd6zSZw">Vosselman </a></li> <li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. <a href="x-richdoclink:RL-9MWCnpkvLj24KK6MYXkT_Q">Stein</a></li> <li>Portfolio manager Education: J.P.G. <a href="x-richdoclink:RL-scfCzYW37BL4OSucbXQPDA">Bakx</a></li> <li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. <a href="x-richdoclink:RL-a-Ww243zTGe49fM7EMWDvg">Bijker </a></li> <li>Management Assistant : Ms. T.K.A. <a href="x-richdoclink:RL-oXnNjmGVSoKydKQv_asmdQ">Brefeld </a></li> </ul> </td> <td valign="top" width="23%"><p class="normal"> </p><p class="normal"> </p><ul class="unordered" style="margin-bottom: 0;"> <li><a href="x-richdoclink:RL-2mvQUwmPnR2JS1NWKXP40w" style="margin-bottom: 0">Minutes</a> and other <a href="x-richdoclink:RL-oYM_WaUo8OP-NXHMMx-B9Q">social</a> information for department members only </li> </ul></td> </tr>` ||
                             `<tr> <td><p class="normal">1</p>` ||
                               `<table class="table"><tbody><tr><td><p class="normal">2</p></td><td>3</td><td>4</td></tr></tbody></table>` || //this table gets flattend
@@ -149,8 +153,8 @@ PUBLIC RECORD ARRAY restructuringtests :=
                             `<colgroup class="wh-tableeditor-colgroup"><col style="width: 123px;"><col style="width: 127px;"><col style="width: 132px;"></colgroup>` ||
                             `<tbody>` ||
                               `<tr style="height: 18px;">` ||
-                                `<td class="wh-rtd__tablecell"><p class="normal">EOS</p></td>` ||
-                                `<td class="wh-rtd__tablecell"><p class="normal">Team </p></td>` ||
+                                `<td class="wh-rtd__tablecell red"><p class="normal">EOS</p></td>` ||
+                                `<td class="wh-rtd__tablecell blue"><p class="normal">Team </p></td>` ||
                                 `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages </p></td>` ||
                               `</tr>` ||
                               `<tr style="height: 521px;">` ||

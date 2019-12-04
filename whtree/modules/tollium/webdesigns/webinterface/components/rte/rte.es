@@ -6,7 +6,7 @@ import { getUTF8Length } from "@mod-system/js/internal/utf8";
 
 var $todd = require("@mod-tollium/web/ui/js/support");
 var getTid = require("@mod-tollium/js/gettid").getTid;
-var RTE = require('@mod-tollium/web/ui/components/richeditor');
+import { RTE } from '@mod-tollium/web/ui/components/richeditor';
 var TableEditor = require('@mod-tollium/web/ui/components/richeditor/internal/tableeditor');
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 
@@ -83,11 +83,6 @@ export default class ObjRTE extends ComponentBase
       , readonly: data.readonly
       , backgroundcolor: 'transparent'
 
-      , actionelements:
-            [ { element:"table", hasclasses: ["wh-rtd__table"] }
-            ]
-
-      //FIXME
       , language: 'en'//parent.app.lang      // FIXME
       //, log:true
       , allowtags: data.allowtags.length ? data.allowtags : null
@@ -373,7 +368,7 @@ export default class ObjRTE extends ComponentBase
                     , type: 'table'
                     , datacell: editor.locateFirstDataCell()
                     , numrows: editor.numrows
-                    , numcols: editor.numcols
+                    , numcolumns: editor.numcolumns
                     , styletag: editor.node.classList[0]
                     };
         this.queueMessage('properties', props, true);
@@ -389,7 +384,6 @@ export default class ObjRTE extends ComponentBase
 
   onMsgUpdateProps2(data)
   {
-    console.error(data,this._pendingactiontargets,this._pendingactiontargets[0]);
     let actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
     if(actiontargetidx == -1)
     {
@@ -480,12 +474,6 @@ export default class ObjRTE extends ComponentBase
         {
           case "edittable":
           {
-            var editor = TableEditor.getEditorForNode(target);
-            if (editor)
-            {
-              editor.setFirstDataCell(newdata.datacell.row, newdata.datacell.col);
-              editor.setStyleTag(newdata.styletag);
-            }
           } break;
           case "remove":
           {

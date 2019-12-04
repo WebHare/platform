@@ -682,6 +682,7 @@
     <textgroup gid="rte">   <!-- components.rte -->
       <text tid="externallink">External link</text>
       <text tid="externallink-placeholder">http://www.example.com/example/</text>
+      <text tid="normalcell">Default cell styling</text>
       <text tid="properties">Properties</text>
       <text tid="sureremovetable">Are you sure you want to remove this table?</text>
       <text tid="table_addcolumn_after">Add Column to the Right</text>
@@ -723,8 +724,11 @@
         <text tid="width">Width</text>
       </textgroup>
       <textgroup gid="tableproperties">   <!-- components.rte.tableproperties -->
+        <text tid="cellproperties">Cell properties</text>
+        <text tid="cellstyle">Cell style</text>
         <text tid="leftheader">The left column is a header column</text>
         <text tid="removetable">Remove Table</text>
+        <text tid="tableandcellproperties">Table and cell properties</text>
         <text tid="tableproperties">Table Properties</text>
         <text tid="tablestyle">Table style</text>
         <text tid="topheader">The first row is a header row</text>

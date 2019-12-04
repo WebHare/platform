@@ -168,16 +168,14 @@
     <xyz:test data="applytest-throughglobal" />
   </apply>
 
-  <embeddedobjecttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" isfiletype="true">
-    <member name="stringdata" type="string" />
-    <member name="aref" type="whfsref" />
-    <member name="img" type="file" />
-  </embeddedobjecttype>
-
-  <apply>
-    <to type="all" />
-    <setembeddedobjectrenderer contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest" library="module::webhare_testsuite/rte/testcomp.whlib" objectname="RTDInstanceTestObj" />
-  </apply>
+  <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
+              renderobjectname="mod::webhare_testsuite/lib/rte/testcomp.whlib#RTDInstanceTestObj">
+    <members>
+      <member name="stringdata" type="string" />
+      <member name="aref" type="whfsref" />
+      <member name="img" type="file" />
+    </members>
+  </widgettype>
 
   <!-- Testsite -->
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testsite">
@@ -299,6 +297,9 @@
       <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
       <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
       <tablestyle tag="MYTABLE" />
+      <tablestyle tag="OTHERTABLE" />
+      <cellstyle tag="REDPILL" title="Red cell"/>
+      <cellstyle tag="BLUEPILL" title="Blue cell"/>
     </blockstyles>
   </rtdtype>
 

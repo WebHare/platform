@@ -11,7 +11,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 
 
-BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data//test/smallbob.jpg");
+BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/smallbob.jpg");
 
 //based on actual html-block from pthu site
 RECORD pthuhtml := [ htmltext := StringToBlob('<div><p>Protestantse Theologische Universiteit</p><p><b>PThU</b><br/></p><p>Postbus 5021<br/>8260 GA Kampen<br/>T (088) 3371 600</p><p>&#187; <a href="http://www.pthu.nl/over_pthu/contact.doc/">Contactformulier</a><br/><br/>Bekijk ook onze kanalen op:</p><p><a href="http://www.facebook.com/PThUnl"><img src="cid:imagecid-81400"/><img src="cid:imagecid-81399"/></a></p></div>')
@@ -172,7 +172,7 @@ MACRO TestStructuredRTE()
 
   RECORD whrte := scr->testrte->GetWHRTEStructure();
   TestEq("NORMAL", whrte.defaultblockstyle);
-  TestEq(5, Length(whrte.blockstyles));
+  TestEq(6, Length(whrte.blockstyles));
   TestEq("Heading 1", whrte.blockstyles[0].title);
   //FIXME ought to have 'cleaner' css styling
   TestEq("font: bold 16px Verdana;margin: 10px 0;color: #111111;padding:0;margin:0;color: #000000;", whrte.blockstyles[0].toolbarcss);

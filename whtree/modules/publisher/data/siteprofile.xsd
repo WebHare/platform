@@ -145,6 +145,7 @@
           <xs:sequence>
             <xs:element name="textstyle" type="TextStyle" maxOccurs="unbounded" />
             <xs:element name="tablestyle" type="TableStyle" minOccurs="0" maxOccurs="unbounded" />
+            <xs:element name="cellstyle" type="CellStyle" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attribute name="defaultstyle" type="xs:string" use="required" />
         </xs:complexType>
@@ -302,6 +303,11 @@
         </xs:union>
       </xs:simpleType>
     </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="CellStyle">
+    <xs:attribute name="tag" type="Tag" use="required" />
+    <xs:attribute name="title" type="xs:string" />
   </xs:complexType>
 
   <xs:attributeGroup name="WidgetBaseAttrs">

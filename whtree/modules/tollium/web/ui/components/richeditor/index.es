@@ -19,7 +19,15 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json");
 
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
-class RTE
+export function getDefaultToolbarLayout()
+{
+  return [ [ "p-class", ["ul","ol","li-decrease-level","li-increase-level"], ["p-align-left","p-align-right","p-align-center","p-align-justify"], ["action-spellcheck","action-search","action-showformatting","action-properties"]
+           , ["b","i","u","strike"], ["sub","sup"], ["a-href"], ["img","object-video","object-insert","table","action-symbol"], ["action-clearformatting"]
+           ]
+         ];
+}
+
+export class RTE
 {
   constructor(container, options)
   {
@@ -59,7 +67,6 @@ class RTE
                    , selfedit: false
                    , pageedit: false
                    //, actionhandler: null
-                   , actionelements: []
                    , cssinstance: null
                    , csslinks:null
                    , csscode:''
@@ -72,6 +79,7 @@ class RTE
                    , allowundo: true
                    , margins: 'compact'
                    , propertiesaction: false //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
+                   , toolbarlayout: null
                    , ...options
                    };
 
@@ -138,6 +146,7 @@ class RTE
     {
       var toolbaropts = { hidebuttons: this.options.hidebuttons
                         , allowtags: this.options.allowtags
+                        , layout: this.options.toolbarlayout || getDefaultToolbarLayout()
                         };
 
       if(this.options.structure)
@@ -297,13 +306,6 @@ class RTE
     var editoropts = { log: this.options.log
                      , designmode: false
                      , eventnode: this.container
-                     , actionelements: this.options.actionelements.concat(
-                            [ { element:"img" }
-                            , { element:"a",     hasattributes: ["href"] }
-                            , { element:"div",   hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"span",  hasclasses: ["wh-rtd-embeddedobject"] }
-                            , { element:"table", hasclasses: ["wh-rtd__table"] }
-                            ])
                      , breakupnodes: this.options.breakupnodes
                      , editembeddedobjects: this.options.editembeddedobjects
                      , allowundo: this.options.structure && (!!this.options.undoholder || this.options.allowundo)
@@ -513,40 +515,74 @@ class RTE
                , target: node.target || ''
                };
       }
+
+      case 'TD':
+      case 'TH':
+      {
+        let tablenode = node.closest('table');
+        var editor = TableEditor.getEditorForNode(tablenode);
+        return { type: 'cell'
+               , tablestyletag: tablenode.classList[0]
+               , cellstyletag: node.classList[1] || ''
+               , datacell: editor.locateFirstDataCell()
+               , numrows: editor.numrows
+               , numcolumns: editor.numcolumns
+               };
+      }
     }
     return null;
   }
   updateTarget(actiontarget, settings)
   {
     if(actiontarget.__node && actiontarget.__node.nodeName=='A')
-      return this.updateHyperlink(actiontarget, settings);
+      return this._updateHyperlink(actiontarget.__node, settings);
+    if(actiontarget.__node && (actiontarget.__node.nodeName=='TR' || actiontarget.__node.nodeName=='TD'))
+      return this._updateCell(actiontarget.__node, settings);
     throw new Error("Did not understand action target");
   }
-  updateHyperlink(actiontarget, settings)
-  {
-    if(actiontarget.__node.nodeName != 'A')
-      throw new Error("Action target is not a hyperlink");
 
+  _updateHyperlink(node, settings)
+  {
     const undolock = this.editrte.getUndoLock();
 
     if(settings.destroy) //get rid of the hyperlink
     {
-      this.editrte.selectNodeOuter(actiontarget.__node);
+      this.editrte.selectNodeOuter(node);
       this.editrte.removeHyperlink();
     }
     else
     {
       if('link' in settings)
-        actiontarget.__node.setAttribute("href",settings.link);
+        node.setAttribute("href",settings.link);
       if('target' in settings)
         if(settings.target)
-          actiontarget.__node.target = settings.target;
+          node.target = settings.target;
         else
-          actiontarget.__node.removeAttribute('target');
+          node.removeAttribute('target');
     }
 
     this._checkDirty();
     undolock.close();
+  }
+
+  _updateCell(node, settings)
+  {
+    let table = node.closest('table');
+    if(settings.removetable)
+    {
+      this.getEditor().removeTable(table);
+      return;
+    }
+
+    //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
+    this.getEditor().setCellStyle(node, settings.cellstyletag);
+
+    let editor = TableEditor.getEditorForNode(table);
+    if (editor)
+    {
+      editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
+      editor.setStyleTag(settings.tablestyletag);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -903,5 +939,3 @@ RTE.getForNode = function(node)
 {
   return node.whRTD || null;
 };
-
-module.exports = RTE;
