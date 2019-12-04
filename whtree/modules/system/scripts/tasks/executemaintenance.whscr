@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/userapi.whlib";
