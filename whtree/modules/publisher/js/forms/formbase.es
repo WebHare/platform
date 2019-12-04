@@ -14,6 +14,11 @@ import * as pxl from '@mod-consilio/js/pxl.es';
 const anyinputselector = 'input,select,textarea,*[data-wh-form-name],*[data-wh-form-is-validator]';
 const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
 
+function isNodeCollection(node)
+{
+  // IE11 returns an HTMLCollection for checkbox/radio groups, so check for that instead of e (which is undefined in IE11)
+  return (node instanceof HTMLCollection || (typeof RadioNodeList != "undefined" && node instanceof RadioNodeList));
+}
 function getErrorFields(validationresult)
 {
   return validationresult.failed.map(field => field.name || field.dataset.whFormName || field.dataset.whFormGroupFor || "?").sort().join(" ");
@@ -335,7 +340,7 @@ export default class FormBase
       if(validationresult.valid)
       {
         let result = await this.submit(extradata);
-        if (result.result && result.result.submittype && result.result.submittype != this._getVariableValue("formsubmittype"))
+        if (result.result && result.result.submittype && result.result.submittype != this._getVariableValueForConditions("formsubmittype"))
         {
           this.node.setAttribute("data-wh-form-var-formsubmittype", result.result.submittype);
           this._updateConditions(false);
@@ -723,7 +728,7 @@ export default class FormBase
     return this._matchesConditionRecursive(condition);
   }
 
-  _getVariableValue(fieldname)
+  _getConditionRawValue(fieldname)
   {
     if(this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
@@ -735,11 +740,14 @@ export default class FormBase
       return null;
     }
 
-    // IE11 returns an HTMLCollection for checkbox/radio groups, so check for that instead of RadioNodeList (which is undefined in IE11)
-    if (matchfield instanceof HTMLCollection
-        || (typeof RadioNodeList != "undefined" && matchfield instanceof RadioNodeList))
+    if (isNodeCollection(matchfield))
     {
+      //Can we set this field? Just take the parent of the first node
+      if(!this._isNowSettable(matchfield[0]))
+        return null;
+
       let currentvalue = null;
+
       for (let field of matchfield)
         if (field.checked)
         {
@@ -752,6 +760,12 @@ export default class FormBase
         }
       return currentvalue;
     }
+    else
+    {
+      //Can we set this field?
+      if(!this._isNowSettable(matchfield))
+        return null;
+    }
 
     if (matchfield.type == "checkbox")
       return matchfield.checked ? [ matchfield.value ] : null;
@@ -761,6 +775,54 @@ export default class FormBase
 
     return matchfield.value;
   }
+
+  _getVariableValueForConditions(conditionfield)
+  {
+    let fields = conditionfield.split("$");
+    let currentvalue = this._getConditionRawValue(fields[0]);
+    if(fields.length === 1 || currentvalue === null) //no subs to process
+      return currentvalue;
+
+    // Look for an extrafield match
+    let matchfield = this.elements[fields[0]];
+    if (!matchfield)
+    {
+      console.error(`No match for conditional required field '${conditionfield}'`);
+      return null;
+    }
+
+    if (matchfield.nodeName == "SELECT")
+    {
+      if (Array.isArray(currentvalue))
+      {
+        let selectedvalue = currentvalue;
+        currentvalue = [];
+        for (let val of selectedvalue)
+        {
+          let selected = dompack.qS(matchfield, `option[value="${val}"]`);
+          if(!selected.dataset.__extrafields)
+            return null;
+          let extrafields = JSON.parse(selected.dataset.__extrafields);
+          currentvalue.push(extrafields[fields[1]]);
+        }
+      }
+      else
+      {
+        let selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
+        if(!selected.dataset.__extrafields)
+          return null;
+        let extrafields = JSON.parse(selected.dataset.__extrafields);
+        currentvalue = extrafields[fields[1]];
+      }
+      return currentvalue;
+    }
+    else
+    {
+      console.error("Subfield matching not supported for non-select fields");
+      return null;
+    }
+  }
+
 
   _matchesConditionRecursive(condition)
   {
@@ -783,50 +845,7 @@ export default class FormBase
       return !this._matchesConditionRecursive(condition.condition);
     }
 
-    let field = condition.field.split("$")[0];
-    let currentvalue = this._getVariableValue(field);
-    if (condition.field.indexOf("$") > 0)
-    {
-      // Look for an extrafield match
-      let matchfield = this.elements[field];
-      if (matchfield)
-      {
-        try
-        {
-          if (matchfield.nodeName == "SELECT")
-          {
-            if (Array.isArray(currentvalue))
-            {
-              let selectedvalue = currentvalue;
-              currentvalue = [];
-              for (let val of selectedvalue)
-              {
-                let selected = dompack.qS(matchfield, `option[value="${val}"]`);
-                let extrafields = JSON.parse(selected.dataset.__extrafields);
-                currentvalue.push(extrafields[condition.field.split("$")[1]]);
-              }
-            }
-            else
-            {
-              let selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
-              let extrafields = JSON.parse(selected.dataset.__extrafields);
-              currentvalue = extrafields[condition.field.split("$")[1]];
-            }
-          }
-          else
-          {
-            console.error("Subfield matching not supported for non-select fields");
-            return false;
-          }
-        }
-        catch
-        {
-          currentvalue = null;
-        }
-      }
-      else
-        console.error(`No match for conditional required field '${field}'`);
-    }
+    let currentvalue = this._getVariableValueForConditions(condition.field);
 
     if(condition.matchtype == "HASVALUE")
       return !!currentvalue == !!condition.value;

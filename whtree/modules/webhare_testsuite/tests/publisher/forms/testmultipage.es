@@ -1,10 +1,10 @@
 import test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
-  [ { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1'
-    }
-  , async function()
+  [  async function()
     {
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1`);
+
       let firstpage = test.qS('.wh-form__page');
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.eq(firstpage, test.qS('form.wh-form').propWhFormhandler.getCurrentPage());
@@ -40,12 +40,12 @@ test.registerTests(
       test.eq(1, events.length, "Should be one 'next' page event");
       test.eq(1, events[0].data.dn_formmeta_pagenum);
       test.eq("firstpage", events[0].data.ds_formmeta_pagetitle);
-      test.eq(3, events[0].data.dn_formmeta_targetpagenum);
+      test.eq(4, events[0].data.dn_formmeta_targetpagenum);
       test.eq("Last Page", events[0].data.ds_formmeta_targetpagetitle);
 
-      //test page2 (actually the third because an intermediate is skipped) visibitility
+      //test page2 (actually the FOURTH because an intermediate is skipped) visibitility
       test.eq("Page 2", test.qS('form .wh-form__page--visible h2').textContent);
-      test.eq('3', test.qS('#currentpage').textContent);
+      test.eq('4', test.qS('#currentpage').textContent);
       test.eq("Come on Homer, just one more page!", test.qS('form .wh-form__page--visible p.normal').textContent);
       test.false(test.canClick(test.qS('input[name="email"]')), "'email' field no longer available on page 2");
       test.true(test.canClick(test.qS('input[name="text"]')), "'text' field now available on page 2");
@@ -56,7 +56,7 @@ test.registerTests(
 
       events = test.getPxlLog(/^publisher:formpreviouspage/);
       test.eq(1, events.length, "Should be one 'previous' page event");
-      test.eq(3, events[0].data.dn_formmeta_pagenum);
+      test.eq(4, events[0].data.dn_formmeta_pagenum);
       test.eq("Last Page", events[0].data.ds_formmeta_pagetitle);
 
       //...and back to page2 again
@@ -124,6 +124,16 @@ test.registerTests(
       test.false(test.canClick(test.qS('.wh-form__button--previous')), "'previous' button still not available on page 1");
       test.true(test.canClick(test.qS('.wh-form__button--submit')), "'submit' button now available on page 1");
       test.false(test.canClick(test.qS('.wh-form__button--next')), "'next' button no longer available on page 1");
+
+      //test that a disabled field should be treated as unset. showskipform should remove skipform and effectively treat it as unset
+      test.click('input[name="showskipform"]'); //untoggles the checkbox and disables skipform
+      test.false(test.canClick(test.qS('.wh-form__button--submit')), "Should NOT be showing SUBMIT as skipform might be set but is inaccessible");
+      test.true(test.canClick(test.qS('.wh-form__button--next')), "SHOULD be showing NEXT as skipform might be set but is inaccessible");
+
+      test.click('input[name="showskipform"]'); //reactivate
+      test.true(test.qS('input[name="skipform"]').checked);
+      test.true(test.canClick(test.qS('.wh-form__button--submit')), "SUBMIT should be BACK again!");
+      test.false(test.canClick(test.qS('.wh-form__button--next')), "NEXT should be GONE again!");
 
       // Fill the required fields and submit
       test.fill(test.qS('input[name="firstname"]'), 'Homer');
@@ -381,5 +391,37 @@ test.registerTests(
       await test.wait('ui');
 
       test.true(test.canClick(test.qS('*[data-wh-form-group-for="text3"]')),'test final page is scrolled back too');
+    }
+
+  ,"Test disabled radio buttons not evaluating to a value"
+  , async function()
+    {
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1`);
+      test.fill('input[name="firstname"]', 'Homer');
+      test.fill('input[name="email"]', 'multipage@beta.webhare.net');
+      test.fill('#multipagetest-fillmaybe', true);
+      test.fill('#multipagetest-metabonusquestion-holygrail', true);
+
+      test.click(test.qS('.wh-form__button--next'));
+      await test.wait('ui');
+
+      test.fill('#multipagetest-maybe', "yep!");
+      test.fill('#multipagetest-bonusquestion-answer3', true);
+      test.click(test.qS('.wh-form__button--next'));
+      await test.wait('ui');
+
+      test.true(test.canClick("[data-wh-form-group-for=bonuspagetext]")); //should see the bonus!
+      test.eq('3', test.qS('#currentpage').textContent);
+
+      test.click(test.qS('.wh-form__button--previous'));
+      test.click(test.qS('.wh-form__button--previous'));
+
+      test.eq('1', test.qS('#currentpage').textContent);
+      test.fill('#multipagetest-fillmaybe', false);
+
+      test.click(test.qS('.wh-form__button--next'));
+      await test.wait('ui');
+
+      test.eq('4', test.qS('#currentpage').textContent);
     }
   ]);
