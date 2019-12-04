@@ -30,6 +30,23 @@ BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
+/** Escapes a literal string for direct insertion into a query string
+    @param toencode String to encode
+    @return Encoded string, with quotes
+@example
+STRING a := PostgreSQLEscapeLiteral("encode 'me'"); // returns "'encode''me'''"
+STRING b := PostgreSQLEscapeLiteral("new\nline"); // returns " E'new\nline'"
+*/
+PUBLIC STRING FUNCTION PostgreSQLEscapeLiteral(STRING toencode) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+/** Escapes an indentifier (eg table name) for direct insertion into a query string
+    @param toencode Identifier to encode
+    @return Encoded identifier, with quotes
+@example
+STRING a := PostgreSQLEscapeIdentifier("tablename"); // returns '"tablename"'
+*/
+PUBLIC STRING FUNCTION PostgreSQLEscapeIdentifier(STRING toencode) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
 /* The description for known OIDs can be found in
    https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
 */

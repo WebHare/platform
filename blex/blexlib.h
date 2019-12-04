@@ -469,6 +469,12 @@ struct StringPair
                     return std::string(begin,end);
         }
 
+        /** Convert string_pair to string_view */
+        std::string_view stl_stringview() const
+        {
+                return std::string_view(begin, size());
+        }
+
         /** Get the length of the string */
         std::size_t size() const
         { return end-begin; }

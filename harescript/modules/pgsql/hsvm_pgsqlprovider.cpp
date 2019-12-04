@@ -159,15 +159,72 @@ void PostgreSQLWHBlobData::Unregister()
 
 void AddEscapedName(std::string *str, std::string_view append)
 {
-        // Escape all - name might be reserved
-        str->append("\"");
-        for (char c: append)
+        bool is_simple = true;
+        for (auto c: append)
+            if ((c < '0' || c > '9') && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '$' && c != '_' && c != '"')
+                is_simple = false;
+
+        if (is_simple)
         {
-                if (c == '"' || c == '\\') //escape double quotes and backslashes with a backslash
-                str->push_back('\\');
-                str->push_back(c);
+                str->push_back('"');
+                for (auto c: append)
+                {
+                        if (c == '"')
+                            str->push_back(c);
+                        str->push_back(c);
+                }
+                str->push_back('"');
+                return;
         }
-        str->append("\"");
+
+        str->push_back('U');
+        str->push_back('&');
+        str->push_back('"');
+
+        Blex::UTF8DecodeMachine decoder;
+        uint8_t char_buf[6];
+        unsigned char_buf_cnt = 0;
+
+        for (auto c: append)
+        {
+                uint32_t curch = decoder(c);
+                char_buf[char_buf_cnt++] = c;
+                if (curch ==  Blex::UTF8DecodeMachine::NoChar)
+                    continue;
+                if (curch == Blex::UTF8DecodeMachine::InvalidChar || curch == 0)
+                {
+                        // Just copy invalid UTF-8, the server will catch it
+                        std::copy(char_buf, char_buf + char_buf_cnt, std::back_inserter(*str));
+                        char_buf_cnt = 0;
+                        continue;
+                }
+                char_buf_cnt = 0;
+                if (c >= 32 && c < 127)
+                {
+                        if (c == '\\')
+                            str->push_back(curch);
+                        str->push_back(curch);
+                }
+                else
+                {
+                        char numbuf[14] = "0000000000000"; // 5 padding, 8 room for uint32_t
+                        char *encode_end = Blex::EncodeNumber(curch, 16, numbuf + 5);
+                        if (curch < 65536)
+                        {
+                                str->push_back('\\');
+                                std::copy(encode_end - 4, encode_end, std::back_inserter(*str));
+                        }
+                        else
+                        {
+                                str->push_back('\\');
+                                str->push_back('+');
+                                std::copy(encode_end - 6, encode_end, std::back_inserter(*str));
+                        }
+                }
+        }
+
+        std::copy(char_buf, char_buf + char_buf_cnt, std::back_inserter(*str));
+        str->push_back('"');
 }
 
 void AddEscapedSchemaTable(std::string *str, std::string_view to_add)
@@ -2399,6 +2456,66 @@ void PGSQL_GetUploadedBlobId(HSVM *hsvm, HSVM_VariableId id_set)
             stackm.SetSTLString(id_set, context->blobid);
 }
 
+void PGSQL_EscapeIdentifier(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        VirtualMachine *vm = GetVirtualMachine(hsvm);
+        StackMachine &stackm = vm->GetStackMachine();
+
+        // Don't care about UTF-8 encoding problems, the server will catch them anyway
+        Blex::StringPair str = stackm.GetString(HSVM_Arg(0));
+
+        std::string result;
+        AddEscapedName(&result, str.stl_stringview());
+        stackm.SetSTLString(id_set, result);
+}
+
+void PGSQL_EscapeLiteral(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        VirtualMachine *vm = GetVirtualMachine(hsvm);
+        StackMachine &stackm = vm->GetStackMachine();
+
+        // Don't care about UTF-8 encoding problems, the server will catch them anyway
+        bool have_backslashes = false;
+        Blex::StringPair str = stackm.GetString(HSVM_Arg(0));
+        std::string result;
+        result.reserve(str.size() + 16);
+        result.push_back('\'');
+        for (auto itr = str.begin; itr != str.end; ++itr)
+        {
+                if (*itr == '\'')
+                    result.push_back(*itr);
+                else if (*itr < 32 || *itr == 127)
+                {
+                        switch (*itr)
+                        {
+                        case 8:    /* \b */ result.push_back('\\'); result.push_back('b'); break;
+                        case 12:   /* \f */ result.push_back('\\'); result.push_back('f'); break;
+                        case 10:   /* \n */ result.push_back('\\'); result.push_back('n'); break;
+                        case 13:   /* \r */ result.push_back('\\'); result.push_back('r'); break;
+                        case 9:    /* \t */ result.push_back('\\'); result.push_back('t'); break;
+                        default:        {
+                                                result.push_back('\\');
+                                                result.push_back('x');
+                                                Blex::EncodeBase16(itr, itr + 1, std::back_inserter(result));
+                                        }
+                        }
+                        have_backslashes = true;
+                        continue;
+                }
+                else if (*itr == '\\')
+                {
+                        result.push_back(*itr);
+                        have_backslashes = true;
+                }
+                result.push_back(*itr);
+        }
+        result.push_back('\'');
+        if (have_backslashes)
+            result.insert(0, " E"sv);
+        stackm.SetSTLString(id_set, result);
+}
+
+
 } // End of namespace PGSQL
 } // End of namespace SQLLib
 } // End of namespace HareScript
@@ -2430,6 +2547,8 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN:WH_PGSQL:B:I", PGSQL_GetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
 
         HSVM_RegisterContext(regdata, PostgreSQLWHBlobContextId, NULL, &CreateBlobContext, &DestroyBlobContext);
 
