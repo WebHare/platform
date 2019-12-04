@@ -236,7 +236,8 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     {
       IF (this->column_mode = "unit")
       {
-        usersbyunit := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WHUSER_UNIT", value := unit_entityid ] ], this->owner->tolliumuser);
+        IF(unit_entityid != 0)
+          usersbyunit := GetUsersByFilter(this->owner->tolliumcontroller, [ [ field := "WHUSER_UNIT", value := unit_entityid ] ], this->owner->tolliumuser);
       }
       ELSE
       {
@@ -248,7 +249,10 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     IF (this->pvt_filterontype IN [0, 3])
     {
       IF (this->column_mode = "unit")
-        rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_LEFTENTITY", value := unit_entityid ] ], this->owner->tolliumuser);
+      {
+        IF(unit_entityid != 0)
+          rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_LEFTENTITY", value := unit_entityid ] ], this->owner->tolliumuser);
+      }
       ELSE
       {
         rolesbyunit := GetRolesByFilter(this->owner->tolliumcontroller, [ [ field := "WRD_ID", matchtype := "IN", value := this->selected_objects ] ], this->owner->tolliumuser);
