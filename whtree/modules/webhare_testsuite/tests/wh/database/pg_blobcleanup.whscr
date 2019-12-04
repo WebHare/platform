@@ -13,7 +13,6 @@ LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 TABLE <INTEGER id, BLOB data> beta_blobtests;
 
-
 MACRO Setup()
 {
   TestEQ("postgresql", GetPrimary()->type);
@@ -156,6 +155,7 @@ MACRO TestBlobCleanup()
       , removed_unreferenced := GetSortedSet([ blob_deleted ])
       , unlinked :=             GetSortedSet([ blob_deleted_storageid ])
       , removed :=              STRING[]
+      , removed_old_archived := STRING[]
       ], res);
   TestEQMembers(
       [ unreferenced :=   RECORD[]
@@ -185,6 +185,7 @@ MACRO TestBlobCleanup()
       , removed_unreferenced := STRING[]
       , unlinked :=             STRING[]
       , removed :=              GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ])
+      , removed_old_archived := STRING[]
       ], res);
   TestEQMembers(
       [ unreferenced :=   RECORD[]

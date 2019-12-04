@@ -16,7 +16,7 @@ MACRO TestDiskBlobResolver()
   STRING testdir := GenerateTemporaryPathname();
   TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
 
-  OBJECT resolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir ]);
+  OBJECT resolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 1 ]);
 
   STRING test1id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
   STRING test2id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
@@ -54,6 +54,17 @@ MACRO TestDiskBlobResolver()
 
   TestEQ([ [ name := "webhare:blobfolder", value := testdir ] ], resolver->GetConnectParams());
 
+  resolver->DeleteBlobParts([ test3id ]); // should be moved to archive
+  resolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 0 ]);
+
+  TestEQ([ test3id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE, filterids := [ test3id ] ]));
+  TestEQ([ test2id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
+  resolver->DeleteBlobParts([ test1id ]); // should be deleted directly
+
+  TestEQ(RECORD[], resolver->ListBlobParts());
+  TestEQ(STRING[], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
   DeleteDiskDirectoryRecursive(testdir);
 }
 
@@ -74,7 +85,7 @@ MACRO TestS3BlobResolver()
   STRING testdir := GenerateTemporaryPathname();
   TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
 
-  OBJECT resolver := GetBlobResolverByConfig(CELL
+  RECORD baseconfig := CELL
       [ type := "s3"
       , region :=             region LIKE "http*" ? "minio" : region
       , endpointoverride :=   region LIKE "http*" ? region : ""
@@ -82,6 +93,11 @@ MACRO TestS3BlobResolver()
       , secretkey
       , prefix :=             "ci_test_" || FormatDateTime("%Y%m%dT%H%M%SZ", GetCurrentDateTime()) || "_" || Left(EncodeBase16(DecodeUFS(GenerateUFS128BitId())), 8) || "/"
       , bucket_name
+      ];
+
+  OBJECT resolver := GetBlobResolverByConfig(CELL
+      [ ...baseconfig
+      , keepdeleteddays := 1
       ]);
 
   STRING test1id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
@@ -119,8 +135,20 @@ MACRO TestS3BlobResolver()
 
   TestEQ(RECORD[], resolver->GetConnectParams());
 
-  resolver->DeleteBlobParts([ test1id ]);
-  resolver->DeleteBlobParts([ test3id ]);
+  resolver->DeleteBlobParts([ test3id ]); // should be moved to archive
+  resolver := GetBlobResolverByConfig(CELL
+      [ ...baseconfig
+      , keepdeleteddays := 0
+      ]);
+
+  TestEQ([ test3id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE, filterids := [ test3id ] ]));
+  TestEQ([ test2id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
+  resolver->DeleteBlobParts([ test1id ]); // should be deleted directly
+
+  TestEQ(RECORD[], resolver->ListBlobParts());
+  TestEQ(STRING[], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
   DeleteDiskDirectoryRecursive(testdir);
 }
 
@@ -129,7 +157,7 @@ MACRO TestBlobHandler()
   STRING testdir := GenerateTemporaryPathname();
   TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
 
-  OBJECT xresolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir ]);
+  OBJECT xresolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 1 ]);
   OBJECT handler := NEW WHPostgreSQLBlobHandler(xresolver);
 
   STRING test1 := handler->StoreBlob(StringToBlob("testblob"));
@@ -170,6 +198,17 @@ MACRO TestBlobHandler()
       ], list, "*");
 
   TestEQ([ [ name := "webhare:blobfolder", value := testdir ] ], handler->GetConnectParams());
+
+  TestEQ(STRING[], handler->RemoveOldArchivedBlobParts());
+
+  handler->DeleteBlobParts([ Substring(test1, 4), Substring(test3, 4) ]);
+
+  // Test if blobs were archived, and are deleted when keepdeleteddays is disabled
+  xresolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 0 ]);
+  handler := NEW WHPostgreSQLBlobHandler(xresolver);
+
+  TestEQ(GetSortedSet([ Substring(test1, 4), Substring(test2, 4), Substring(test3, 4) ]), handler->RemoveOldArchivedBlobParts());
+
   DeleteDiskDirectoryRecursive(testdir);
 }
 

@@ -340,6 +340,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         , removed_unreferenced := STRING[]
         , unlinked :=             STRING[]
         , removed :=              STRING[]
+        , removed_old_archived := STRING[]
         ];
 
     OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
@@ -407,6 +408,11 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         DELETE FROM manifest.unlinked AT 0;
         this->StoreBlobManifest(manifest);
       }
+
+      RECORD removeoldoptions := [ dryrun := options.skipdeletes ];
+      IF (IsValueSet(this->__filterids))
+        INSERT CELL filterids := GetSortedSet(this->trans->blobhandler->GetBlobPartIdsFromBlobIds(this->__filterids)) INTO removeoldoptions;
+      retval.removed_old_archived := this->trans->blobhandler->RemoveOldArchivedBlobParts(removeoldoptions);
     }
     FINALLY
       lock->Close();
@@ -416,6 +422,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
     retval.removed_unreferenced := GetSortedSet(retval.removed_unreferenced);
     retval.unlinked := GetSortedSet(retval.unlinked);
     retval.removed := GetSortedSet(retval.removed);
+    retval.removed_old_archived := GetSortedSet(retval.removed_old_archived);
 
     RETURN retval;
   }

@@ -2,6 +2,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -87,6 +88,24 @@ STATIC OBJECTTYPE BlobPartStorageBase
   {
     THROW NEW Exception(`Override this function`);
   }
+
+  /** Remove old archived blob parts that don't need to be kept anymore
+      @cell options.dryrun Just list the ones that would be removed
+      @cell options.filter If present, only remove blobs with these ids
+      @return Removed blob parts
+  */
+  PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    // Call this function for options validation
+    options := ValidateOptions(
+        [ dryrun :=     FALSE
+        , filterids :=  STRING[]
+        ], options,
+        [ optional := [ "filterids" ]
+        ]);
+
+    RETURN STRING[];
+  }
 >;
 
 
@@ -96,11 +115,14 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
 <
   STRING blobfolder;
 
+  INTEGER keepdeleteddays;
+
   /** @param blobfolder Folder where the parts are stored
   */
-  MACRO NEW(STRING blobfolder)
+  MACRO NEW(STRING blobfolder, INTEGER keepdeleteddays)
   {
     this->blobfolder := blobfolder;
+    this->keepdeleteddays := keepdeleteddays;
   }
 
   RECORD FUNCTION GetFilePaths(STRING blobpartid, BOOLEAN createdir)
@@ -158,10 +180,24 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
 
   UPDATE PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
   {
-    FOREVERY (STRING blobpartid FROM blobpartids)
+    IF (this->keepdeleteddays > 0)
     {
-      RECORD paths := this->GetFilePaths(blobpartid, FALSE);
-      DeleteDiskFile(paths.fullpath);
+      DATETIME now := GetCurrentDateTime();
+      STRING archivefolder := MergePath(this->blobfolder, `blob-archive/${FormatDateTime("%Y%m%d", GetCurrentDateTime())}`) || "/";
+      CreateDiskDirectoryRecursive(archivefolder, FALSE);
+      FOREVERY (STRING blobpartid FROM blobpartids)
+      {
+        RECORD paths := this->GetFilePaths(blobpartid, FALSE);
+        MoveDiskPath(paths.fullpath, MergePath(archivefolder, blobpartid));
+      }
+    }
+    ELSE
+    {
+      FOREVERY (STRING blobpartid FROM blobpartids)
+      {
+        RECORD paths := this->GetFilePaths(blobpartid, FALSE);
+        DeleteDiskFile(paths.fullpath);
+      }
     }
   }
 
@@ -215,6 +251,43 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
   UPDATE PUBLIC MACRO StoreBlobManifest(BLOB manifest)
   {
     StoreDiskFile(MergePath(this->blobfolder, "blob/blobmanifest.json"), manifest, [ overwrite := TRUE ]);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    BlobPartStorageBase::RemoveOldArchivedBlobParts(options);
+
+    INTEGER keepdays := this->keepdeleteddays = 0 ? -1 : this->keepdeleteddays;
+    DATETIME keepfromdate := AddDaysToDate(-keepdays, GetRoundedDateTime(GetCurrentDateTime(), 86400 * 1000));
+
+    RECORD ARRAY folders := ReadDiskDirectory(MergePath(this->blobfolder, "blob-archive"), "*");
+    STRING ARRAY deleted;
+    FOREVERY (RECORD folderrec FROM folders)
+    {
+      DATETIME date := MakeDateFromText(folderrec.name || "T000000Z");
+      IF (LENGTH(folderrec.name) != 8 OR date = DEFAULT DATETIME OR date >= keepfromdate)
+        CONTINUE;
+
+      RECORD ARRAY blobparts := ReadDiskDirectory(folderrec.path, "*");
+      BOOLEAN any_skipped;
+      FOREVERY (RECORD blobpart FROM blobparts)
+      {
+        IF (CellExists(options, "filterids") AND blobpart.name NOT IN options.filterids)
+        {
+          any_skipped := TRUE;
+          CONTINUE;
+        }
+
+        INSERT blobpart.name INTO deleted AT END;
+        IF (NOT options.dryrun)
+          DeleteDiskFile(blobpart.path);
+      }
+
+      IF (NOT any_skipped AND NOT options.dryrun)
+        DeleteDiskDirectory(folderrec.path);
+    }
+
+    RETURN GetSortedSet(deleted);
   }
 >;
 
@@ -335,6 +408,24 @@ PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
   {
     this->blobpartstorage->StoreBlobManifest(manifest);
   }
+
+  /** Remove old archive blob parts that don't need to be kept in the archive
+      anymore
+      @cell options.dryrun Just list the ones that would be removed
+      @cell options.filterids If present, only remove blobs with these ids
+      @return Removed blob part ids
+  */
+  PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ dryrun :=     FALSE
+        , filterids :=  STRING[]
+        ], options,
+        [ optional := [ "filterids" ]
+        ]);
+
+    RETURN this->blobpartstorage->RemoveOldArchivedBlobParts(options);
+  }
 >;
 
 /** Returns a configured blob resolver
@@ -351,9 +442,10 @@ PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
       config := ValidateOptions(
           [ type :=             ""
           , blobfolder :=       MergePath(__SYSTEM_WHCOREPARAMETERS().basedataroot, "postgresql")
+          , keepdeleteddays :=  30
           ], config);
 
-      RETURN NEW DiskBlobPartStorage(config.blobfolder);
+      RETURN NEW DiskBlobPartStorage(config.blobfolder, config.keepdeleteddays);
     }
     DEFAULT
     {
