@@ -286,23 +286,31 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->folderfilter->contents := DEFAULT OBJECT;
     }
 
-    OBJECT cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
-    IF(NOT ObjectExists(cachedlisthandler))
+    OBJECT cachedlisthandler := this->GetCustomContentsHandler(folderid);
+    IF (ObjectExists(cachedlisthandler))
     {
-      cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
-      cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon; //we don't want to give away access to the full list object
-      cachedlisthandler->tolliumuser := this->owner->tolliumuser;
-      INSERT [ library := foldersettings.contentslisthandler.library
-             , objectname := foldersettings.contentslisthandler.objectname
-             , handler := cachedlisthandler
-             ] INTO this->listshandlercache AT END;
+      cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon;
+    }
+    ELSE
+    {
+      cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
+      IF(NOT ObjectExists(cachedlisthandler))
+      {
+        __contentlisthandlersetup := [ tolliumuser := this->owner->tolliumuser ];
+        cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
+        __contentlisthandlersetup := DEFAULT RECORD;
+        cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon;
+        INSERT [ library := foldersettings.contentslisthandler.library
+               , objectname := foldersettings.contentslisthandler.objectname
+               , handler := cachedlisthandler
+               ] INTO this->listshandlercache AT END;
+      }
     }
     IF(this->contentslisthandler != cachedlisthandler)
     {
       this->contentslisthandler := cachedlisthandler;
       this->listsetupdirty := TRUE;
     }
-
 
     STRING ARRAY eventmasks;
     IF (folderid >= 0)
@@ -560,6 +568,20 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->mylist->rowlayouts := [rowlayout];
     this->mylist->rowlayout := "rowlayout";
     this->pvt_ordered_column := ordered_column;
+
+    STRING ARRAY flags :=
+        SELECT AS STRING ARRAY DISTINCT flag
+          FROM ToRecordArray(this->mylist->flags, "flag")
+         WHERE flag NOT LIKE "custom_*";
+    IF (this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+    {
+      RECORD ARRAY addedflags := SELECT DISTINCT flag FROM ToRecordArray(this->contentslisthandler->GetAddedFlags(), "flag");
+      STRING illegalflag := SELECT AS STRING flag FROM addedflags WHERE flag NOT LIKE "custom_*";
+      IF (illegalflag != "")
+        THROW NEW Exception(`Illegal added flag '${illegalflag}'`);
+      flags := flags CONCAT SELECT AS STRING ARRAY flag FROM addedflags;
+    }
+    this->mylist->flags := flags;
   }
 
   STRING FUNCTION GetColumnSortTitle(RECORD ARRAY columns, STRING colname)
@@ -680,6 +702,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
                                     FROM system.fs_objects
                                    WHERE id IN this->customcontents;
         files := EnrichObjectListing(DEFAULT OBJECT, fileslist, FALSE, "");
+      }
+      ELSE IF (ObjectExists(this->contentslisthandler) AND this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+      {
+        files := this->GetCustomObjectListing(this->curfolder, FALSE, NOT this->hidefolders, NOT this->hidefiles, showhidden);
       }
     }
 

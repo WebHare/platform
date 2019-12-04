@@ -338,7 +338,7 @@
           <item action="addtostartmenu" />
           <item action="exit" />
         </item>
-        <item tid="tollium:common.menus.file">
+        <item name="filemenu" tid="tollium:common.menus.file">
           <item tid=".new" name="newitemmenu">
             <item tid=".newfile" action="newfile" />
             <item tid=".newfolder" action="newfolder" />
@@ -361,9 +361,10 @@
           </item>
           <!-- schedule tasks -->
           <divider />
+          <item name="insertpos_file" title="" visible="false" />
         </item>
 
-        <item tid="tollium:common.menus.edit">
+        <item name="editmenu" tid="tollium:common.menus.edit">
           <item action="copyto" ellipsis="true" />
           <item action="moveto" ellipsis="true"/>
           <item action="duplicate"  />
@@ -390,6 +391,8 @@
           <item action="manageurlhistory" />
           <item action="ctypes" disablemode="hidden" />
           <item action="inspect" disablemode="hidden" />
+          <divider />
+          <item name="insertpos_edit" title="" visible="false" />
           <divider />
           <item action="delete" />
           <item action="props" />
@@ -458,6 +461,7 @@
           <item action="managewhfsregister" disablemode="hidden" />
           <item action="managefoldersync" />
           <item action="syncfolder" />
+          <item name="insertpos_utilities" title="" visible="false" />
         </item>
         <divider />
         <item action="prefs" />
@@ -500,6 +504,7 @@
         <item action="inspect" disablemode="hidden" />
         <item action="manageurlhistory" disablemode="hidden" />
         <item action="siteproperties" disablemode="hidden" />
+        <item name="insertpos_listselect" title="" visible="false" />
         <divider />
         <item action="delete" disablemode="hidden" />
         <item action="props" disablemode="hidden" />
@@ -522,6 +527,7 @@
         <item action="editfileorfoldertype" disablemode="hidden" ellipsis="true"/>
         <item action="inspect" disablemode="hidden" />
         <item action="siteproperties" disablemode="hidden" />
+        <item name="insertpos_treeselect" title="" visible="false" />
         <divider />
         <item action="delete" disablemode="hidden" />
         <item action="props" disablemode="hidden" />

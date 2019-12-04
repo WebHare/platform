@@ -1986,7 +1986,21 @@
               <xs:documentation>Screen to open</xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="contentmode" type="xs:string" />
+          <xs:attribute name="contentshandler" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Object that provides custom folder tree/file list contents for this root item</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="contentmode">
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="" />
+                <xs:enumeration value="webhareroot" />
+                <xs:enumeration value="recyclebin" />
+                <xs:enumeration value="searchresults" />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
           <xs:attribute name="icon" type="ImageSrc" />
           <xs:attribute name="forvirtualfilters">
             <xs:simpleType>

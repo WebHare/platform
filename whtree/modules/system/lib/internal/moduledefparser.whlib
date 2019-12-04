@@ -1523,6 +1523,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                    , icon              := addrootitem->GetAttribute("icon")
                    , forvirtualfilters := ParseXSList(addrootitem->GetAttribute("forvirtualfilters"))
                    , filterscreen      := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("filterscreen"))
+                   , contentshandler   := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("contentshandler"))
                    , modulekey         := this->moduledef.name || ":" || Length(this->moduledef.filemgrextensions) || "." || Length(extension.addrootitems) //to find this in the shortcut menu
 
                    //, library           := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("library"))

@@ -1,4 +1,5 @@
 <?wh
+/** @topic tollium-components/base */
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
@@ -41,6 +42,9 @@ INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
     RETURN TYPEID(STRING);
 }
 
+/** @short List
+    @long This is a list
+*/
 PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
@@ -190,56 +194,73 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   PUBLIC PROPERTY selection(GetSelection, SetListSelection);
 
 
-  /** @short List of columns in the list. Setting this property clears the current rows, as well as the row layouts
-      @example type Type of the column ('icon', 'text', 'email', 'image', 'time', 'date', 'datetime', 'integer', 'integer64', 'blobrecord', 'money', 'url') (mandatory)
-               title Title of the column
-               selecticonname Name of the row cell in which the id of the column icon is placed that must be shown when the row is selected (instead of the normal icon specified in iconname)
-               iconname Name of the row cell in which the id of the column icon is placed (empty if no icon is present)
-               iconoverlayname Name of the row cell in which the id of the overlay for the column icon is placed (empty if no icon overlay is present)
-               iconlink Whether the icon in this column is clickable for oniconclick (only for columns of type 'icon') (default: FALSE). FIXME: not implemented
-               name Name of the row cell which contains the data for this column. (mandatory)
-               width Preferred with of the column. May be fixed or proportional.
-               minwidth Minimum width of the column, fixed only.
-               storeutc Whether the data/datetime stored in the row is stored as UTC, and must be converted to the users' timezone (default: FALSE).
-               sortkeyname Name of the row cell which contains the value to be used when sorting (default: use the shown value)
-               precision Precision used to show time/datetime. Possible values: 'minutes', 'seconds', 'milliseconds' (optional, default: 'minutes')
-               checkboxname Name of the column that contains the value of the column checkbox for a row. If empty, no checkbox is shown.
-               checkboxenabled Name of the column that specifies whether the column checkbox is enabled in that row. If empty, all checkboxes are enabled.
-               checkboxvisible Name of the column that specifies whether the column checkbox is visible in that row. If empty, all checkboxes are shown.
-               tree TRUE when this column is a tree column. (optional, default: FALSE)
-               align Alignment for this column. Possible values: 'left', 'center', 'right'. (optional, default: 'left')
-               sortable Whether this column is sortable. (optional, default: TRUE)
-               hintname Name of cell containing the hint for a row
-               style Name of style for this row (see property 'styles')
-               show Type of data to show for blobrecord columns. Possible values: 'info', 'filename', 'mimetype', 'filesize'. (optional, default: 'filename')
-               customtype For custom column types, record with reference to translation object type. The object type must extend TolliumListColumnBase (optional)
-               customtype.objtype Library + name of the objecttype
-               customtype.data Data to pass to the object
-               position Position of this column. Columns are shown ordered on the position (optional).
-               edittype Editor type for this column (Currently '' or 'textedit' supported)
-               round Whether to round money values to the specified number of decimals (default: false)
-               decimals Number of decimals to display (default: 0)
-               emptyvalueisset If TRUE, if the displayed column value is equal to the value in emptyvalue, an empty column is displayed (default: false)
-               emptyvalue When emptyvalueisset is TRUE, an empty column is displayed when the column value is equal to this value
+  /** @type(record array) List of columns in the list. Setting this property clears the current rows, as well as the row
+          layouts
+      @cell(string) type Type of the column (`icon`, `text`, `email`, `image`, `time`, `date`, `datetime`, `integer`,
+          `integer64`, `blobrecord`, `money`, `url`) (mandatory)
+      @cell(string) title Title of the column
+      @cell(string) selecticonname Name of the row cell in which the id of the column icon is placed that must be shown when
+          the row is selected (instead of the normal icon specified in iconname)
+      @cell(string) iconname Name of the row cell in which the id of the column icon is placed (empty if no icon is present)
+      @cell(string) iconoverlayname Name of the row cell in which the id of the overlay for the column icon is placed (empty
+          if no icon overlay is present)
+      @cell(string) iconlink Whether the icon in this column is clickable for oniconclick (only for columns of type `icon`)
+          (default: `FALSE`). FIXME: not implemented
+      @cell(string) name Name of the row cell which contains the data for this column. (mandatory)
+      @cell(string) width Preferred with of the column. May be fixed or proportional.
+      @cell(string) minwidth Minimum width of the column, fixed only.
+      @cell(boolean) storeutc Whether the data/datetime stored in the row is stored as UTC, and must be converted to the
+          users' timezone (default: `FALSE`).
+      @cell(string) sortkeyname Name of the row cell which contains the value to be used when sorting (default: use the shown
+          value)
+      @cell(string) precision Precision used to show time/datetime. Possible values: `minutes`, `seconds`, `milliseconds`
+          (optional, default: `minutes`)
+      @cell(string) checkboxname Name of the column that contains the value of the column checkbox for a row. If empty, no
+          checkbox is shown.
+      @cell(string) checkboxenabled Name of the column that specifies whether the column checkbox is enabled in that row.
+          If empty, all checkboxes are enabled.
+      @cell(string) checkboxvisible Name of the column that specifies whether the column checkbox is visible in that row.
+          If empty, all checkboxes are shown.
+      @cell(boolean) tree If `TRUE`, this column is a tree column. (optional, default: `FALSE`)
+      @cell(string) align Alignment for this column. Possible values: `left`, `center`, `right`. (optional, default: `left`)
+      @cell(boolean) sortable Whether this column is sortable. (optional, default: `TRUE`)
+      @cell(string) hintname Name of cell containing the hint for a row
+      @cell(string) style Name of style for this row (see property %styles)
+      @cell(string) show Type of data to show for blobrecord columns. Possible values: `info`, `filename`, `mimetype`,
+          `filesize`. (optional, default: `filename`)
+      @cell(record) customtype For custom column types, record with reference to translation object type. The object type
+          must extend TolliumListColumnBase (optional)
+      @cell(string) customtype.objtype Library + name of the objecttype
+      @cell(string) customtype.data Data to pass to the object
+      @cell(integer) position Position of this column. Columns are shown ordered on the position (optional).
+      @cell(string) edittype Editor type for this column (Currently `` or `textedit` supported)
+      @cell(boolean) round Whether to round money values to the specified number of decimals (default: false)
+      @cell(integer) decimals Number of decimals to display (default: 0)
+      @cell(boolean) emptyvalueisset If `TRUE`, if the displayed column value is equal to the value in emptyvalue, an empty
+          column is displayed (default: false)
+      @cell(boolean) emptyvalue When emptyvalueisset is `TRUE`, an empty column is displayed when the column value is equal
+          to this value
   */
   PUBLIC PROPERTY columns(pvt_columns, SetColumns);
 
 
-  /** Contains the name of the current row layout (empty for default layout). Set to the name
-      of another row layout from rowlayouts to select another row layout
+  /** Contains the name of the current row layout (empty for default layout). Set to the name of another row layout from
+      rowlayouts to select another row layout
   */
   PUBLIC PROPERTY rowlayout(pvt_rowlayout, SetRowLayout);
 
 
-  /** @short List of row layouts
-      @example name Name for this row layout. Mandatory.
-               columns List of columns to use for headers
-               columns.coldef Name of the column
-               rows List of rows
-               rows.cells List of cells in a row.
-               rows.cells.coldef Name of column to show in this cell
-               rows.cells.colspan Colspan for this cell (optional)
-               rows.cells.rowspan Rowspan for this cell (optional)
+  /** @type(record array) List of row layouts
+      @cell(string) name Name for this row layout. Mandatory.
+      @cell(record array) headers List of columns to use for headers
+      @cell(string) headers.name Name of the column to use for this header
+      @cell(boolean) headers.combinewithnext If set to TRUE, this column cannot be used for sorting
+      @cell(string) headers.width Column width
+      @cell(record array) rows List of rows
+      @cell(record array) rows.cells List of cells in a row.
+      @cell(string) rows.cells.name Name of column to show in this cell
+      @cell(integer) rows.cells.colspan Colspan for this cell (optional)
+      @cell(integer) rows.cells.rowspan Rowspan for this cell (optional)
   */
   PUBLIC PROPERTY rowlayouts(pvt_rowlayouts, SetRowLayouts);
 

@@ -4,6 +4,7 @@ LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
+
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
@@ -395,7 +396,11 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     IF(debugfoldertree) { DumpValue(CELL[ongetpath:=rowkey, useroots := this->useroots]); DumpValue(geTStackTrace(),'boxed'); }
 
     INTEGER ARRAY rpath;
-    IF(this->useroots)
+    IF (rowkey < 0)
+    {
+      rpath := this->GetCustomObjectPath(rowkey);
+    }
+    ELSE IF(this->useroots)
     {
       OBJECT target := OpenWHFSObject(rowkey);
       IF(debugfoldertree) DumpValue(CELL[target]);
@@ -507,6 +512,13 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
              AND (showhidden OR (type NOT IN hiddenfoldertypes))
         GROUP BY parent;
     }
+
+    FOREVERY (RECORD customfolder FROM SELECT * FROM displayfolders WHERE id < 0)
+    {
+      IF (this->CustomObjectHasChildren(customfolder.id, TRUE, TRUE, FALSE, showhidden))
+        INSERT customfolder.id INTO expandablefolders AT END;
+    }
+
     RETURN expandablefolders;
   }
 
@@ -541,6 +553,10 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     ELSE IF(parentfolder.id >= 0)
     {
       displayfolders := this->GetObjectListing(parentfolder.id, TRUE, FALSE, FALSE, showhidden, "", FALSE, DEFAULT INTEGER ARRAY);
+    }
+    ELSE
+    {
+      displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden);
     }
 
     IF(debugfoldertree) DumpValue(displayfolders,'boxed');

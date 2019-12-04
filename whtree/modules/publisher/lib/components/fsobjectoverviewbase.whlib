@@ -1,21 +1,24 @@
 ﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
+LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 
-LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT TolliumFragmentBase;
 LOADLIB "mod::tollium/lib/componentbase.whlib" EXPORT TolliumComponentBase;
+LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT TolliumFragmentBase;
+
 
 OBJECT hooks;
 
@@ -265,6 +268,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
 <
   STRING ARRAY defaultflags; // Default flags, which are always available
   STRING  pvt_virtualfilter;
+  RECORD ARRAY contentshandlercache;
 
   PUBLIC PROPERTY virtualfilter(pvt_virtualfilter, SetVirtualFilter);
 
@@ -306,13 +310,16 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
   RECORD ARRAY FUNCTION GenerateRootItems()
   {
     RECORD ARRAY rootitems;
+    INTEGER counter;
     FOREVERY(RECORD ext FROM GetApplicableExtensions(this->owner->tolliumuser, 'filemgrextensions'))
       FOREVERY(RECORD addroot FROM ext.addrootitems)
       {
+        counter := counter + 1;
         IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
           CONTINUE;
 
-        INSERT [ id               := addroot.contentmode = "webhareroot" ? 0 : -1000000 - Length(rootitems)
+        // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
+        INSERT [ id               := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter
                , contentmode      := addroot.contentmode
                , name             := GetTid(addroot.title)
                , isfolder         := TRUE
@@ -351,6 +358,99 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
                                FROM GetInnerObjectListing(this->owner->tolliumuser, parentfolderid, showfolders, showexternal, showfiles, specificobjects, specificobjectids, contentmode);
 
     RETURN EnrichObjectListing(this->owner->tolliumuser, baselist, hidden_too, contentmode);
+  }
+
+  OBJECT FUNCTION GetCustomContentsHandler(INTEGER folderid)
+  {
+    IF (NOT ObjectExists(this->owner->contexts->^__contentshandlercontext))
+      RETURN DEFAULT OBJECT;
+    RETURN this->owner->contexts->^__contentshandlercontext->GetContentsHandler(folderid);
+  }
+
+  BOOLEAN FUNCTION CustomObjectHasChildren(INTEGER parentid, BOOLEAN forfoldertree, BOOLEAN showfolders, BOOLEAN showfiles, BOOLEAN hidden_too)
+  {
+    OBJECT contentshandler := this->GetCustomContentsHandler(parentid);
+    IF (ObjectExists(contentshandler))
+    {
+      RECORD options := CELL
+          [ showhidden := hidden_too
+          ];
+      RETURN contentshandler->HasChildren(parentid, options);
+    }
+    RETURN FALSE;
+  }
+
+  RECORD ARRAY FUNCTION GetCustomObjectListing(INTEGER parentid, BOOLEAN forfoldertree, BOOLEAN showfolders, BOOLEAN showfiles, BOOLEAN hidden_too)
+  {
+    OBJECT contentshandler := this->GetCustomContentsHandler(parentid);
+    IF (NOT ObjectExists(contentshandler))
+      RETURN RECORD[];
+
+    RECORD options := CELL
+        [ tree := forfoldertree
+        , showfolders
+        , showfiles
+        , showhidden := hidden_too
+        ];
+
+    RECORD ARRAY objects := contentshandler->OnGetChildren(parentid, options);
+    INTEGER ARRAY fsobjectids :=
+        SELECT AS INTEGER ARRAY id
+          FROM objects
+         WHERE id > 0
+               AND id NOT IN GetWHFSObjectsToHide(this->owner->tolliumuser);
+    objects :=
+        (SELECT id
+              , name
+              , title
+              , isfolder
+              , modificationdate
+              , creationdate
+              , canwrite
+              , candelete
+              , pvt_iconname := icon
+
+              , parent := parentid
+              , type := 0
+              , filterscreen := ""
+              , modulekey := ""
+              , extension := DEFAULT OBJECT
+              , contentmode := ""
+              , tag := ""
+           FROM objects
+          WHERE id < 0)
+        CONCAT
+        (SELECT id
+               , name
+               , title
+               , isfolder
+               , type
+               , modificationdate
+               , creationdate
+
+               , canwrite := FALSE
+               , candelete := FALSE
+
+               , parent := parentid
+               , filterscreen := ""
+               , pvt_iconname := ""
+               , modulekey := ""
+               , extension := DEFAULT OBJECT
+               , contentmode := ""
+               , tag := ""
+            FROM system.fs_objects
+           WHERE id IN fsobjectids);
+
+    RETURN EnrichObjectListing(this->owner->tolliumuser, objects, hidden_too, "");
+  }
+
+  INTEGER ARRAY FUNCTION GetCustomObjectPath(INTEGER itemid)
+  {
+    OBJECT contentshandler := this->GetCustomContentsHandler(itemid);
+    IF (NOT ObjectExists(contentshandler))
+      RETURN INTEGER[];
+
+    RETURN contentshandler->OnGetPath(itemid);
   }
 
   PUBLIC BOOLEAN FUNCTION OnCellEdit(RECORD row, STRING columnname, STRING newvalue)
