@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
@@ -123,9 +124,9 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
           STRING ARRAY blobids :=
               SELECT AS STRING ARRAY DISTINCT id
                 FROM this->trans->__ExecSQL(
-                        `SELECT ("${EncodeValue(columnrec.column_name)}").id
-                           FROM "${EncodeValue(schemarec.schema_name)}"."${tablerec.table_name}"
-                          WHERE "${EncodeValue(columnrec.column_name)}" IS NOT NULL`);
+                        `SELECT (${PostgreSQLEscapeIdentifier(columnrec.column_name)}).id
+                           FROM ${PostgreSQLEscapeIdentifier(schemarec.schema_name)}.${PostgreSQLEscapeIdentifier(tablerec.table_name)}
+                          WHERE ${PostgreSQLEscapeIdentifier(columnrec.column_name)} IS NOT NULL`);
 
           referenced_blobs := ArrayUnion(referenced_blobs, blobids);
         }

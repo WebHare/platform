@@ -1336,11 +1336,6 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     }
   }
 
-  STRING FUNCTION EscapeName(STRING name)
-  {
-    RETURN `"${EncodeJava(name)}"`;
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
   {
     SCHEMA catalog LIKE postgresql_pg_catalog;
@@ -1424,7 +1419,10 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
       {
         STRING sequencename := match[1].value;
         IF (sequencename = "")
-          sequencename := `'${Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_")}'::regclass`;
+        {
+          // Assume that column_default is escaped so that regclass cast can parse it when encoded as string literal
+          sequencename := `${PostgresqlEscapeLiteral(Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_"))}::regclass`;
+        }
 
         RECORD seq := this->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
         is_cols[#col].autonumber_start := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
@@ -1436,7 +1434,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
-    STRING generator := `(${this->EscapeName(schemaname)}.${this->EscapeName(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
     RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
     IF (NOT RecordExists(result))
       THROW NEW Exception(`No value returned by MakeAutonumber`);
@@ -1468,13 +1466,13 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
   {
-    this->__ExecSQL(`CREATE SCHEMA ${this->EscapeName(schemaname)}`);
+    this->__ExecSQL(`CREATE SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}`);
   }
 
   UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ cascade := FALSE ], options);
-    this->__ExecSQL(`DROP SCHEMA ${this->EscapeName(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
+    this->__ExecSQL(`DROP SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
   }
 
   UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
@@ -1489,12 +1487,12 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
   {
-    this->__ExecSQL(`ALTER TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)} DROP COLUMN ${this->EscapeName(columnname)}`);
+    this->__ExecSQL(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} DROP COLUMN ${PostgreSQLEscapeIdentifier(columnname)}`);
   }
 
   UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
   {
-    this->__ExecSQL(`DROP TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)}`);
+    this->__ExecSQL(`DROP TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}`);
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
@@ -1736,7 +1734,9 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
     trans->__ExecSQL("LOAD 'auto_explain'");
     trans->__ExecSQL("SET auto_explain.log_min_duration = 0");
     trans->__ExecSQL("SET auto_explain.log_analyze = true");
+    trans->__ExecSQL("SET auto_explain.log_timing = true");
     trans->__ExecSQL("SET auto_explain.log_level = NOTICE");
+    trans->__ExecSQL("SET auto_explain.log_format = json");
     trans->__ExecSQL("SET auto_explain.log_verbose = true");
     trans->__ExecSQL("SET auto_explain.log_triggers = true");
     trans->__ExecSQL("SET auto_explain.log_nested_statements = true");
