@@ -6,7 +6,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/webapi/aws/s3.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 /** Blob storage handling for PostgreSQL
@@ -340,7 +339,7 @@ PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
 
 /** Returns a configured blob resolver
     @param config Configuration
-    @cell config.type Type of the resolver ('local-disk', 's3')
+    @cell config.type Type of the resolver ('local-disk')
     @return(object #BlobResolverBase) Blob resolver
 */
 PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)

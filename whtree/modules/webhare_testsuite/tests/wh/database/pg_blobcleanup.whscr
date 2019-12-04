@@ -51,6 +51,16 @@ BOOLEAN FUNCTION GetBlobStorageExists(STRING dbid)
   RETURN any_found;
 }
 
+STATIC OBJECTTYPE ManifestStore
+< RECORD manifest;
+  PUBLIC RECORD FUNCTION GetSetManifest(RECORD newmanifest)
+  {
+    IF (RecordExists(newmanifest))
+      this->manifest := newmanifest;
+    RETURN this->manifest;
+  }
+>;
+
 MACRO TestBlobCleanup()
 {
   OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(GetPrimary());
@@ -61,7 +71,7 @@ MACRO TestBlobCleanup()
   analyzer->abandoned_upload_secs := 2;
   analyzer->unreferenced_period_secs := 2;
   analyzer->keep_removed_files_secs := 2;
-  analyzer->__debugmanifestpath := GenerateTemporaryPathname();
+  analyzer->__debugmanifestaccess := PTR (NEW ManifestStore)->GetSetManifest;
 
   analyzer->UpdateBlobManifest();
   TestEQ(
@@ -140,7 +150,13 @@ MACRO TestBlobCleanup()
 
   // Execute remove, blob_deleted and blob_failedupload are scheduled for file delete
   // blob_deletedreinserted should be skipped due to being referenced again
-  analyzer->RemoveUnreferencedBlobs();
+  RECORD res := analyzer->RemoveUnreferencedBlobs();
+  TestEQ(
+      [ scheduled_abandoned :=  STRING[ blob_failedupload_storageid ]
+      , removed_unreferenced := GetSortedSet([ blob_deleted ])
+      , unlinked :=             GetSortedSet([ blob_deleted_storageid ])
+      , removed :=              STRING[]
+      ], res);
   TestEQMembers(
       [ unreferenced :=   RECORD[]
       , unlinked :=       [ [ blobpartids := GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ]) ] ]
@@ -163,7 +179,13 @@ MACRO TestBlobCleanup()
   TestEQ(TRUE, GetBlobStorageExists(blob_kept));
   TestEQ(TRUE, GetBlobStorageExists(blob_failedupload));
 
-  analyzer->RemoveUnreferencedBlobs();
+  res := analyzer->RemoveUnreferencedBlobs();
+  TestEQ(
+      [ scheduled_abandoned :=  STRING[]
+      , removed_unreferenced := STRING[]
+      , unlinked :=             STRING[]
+      , removed :=              GetSortedSet([ blob_deleted_storageid, blob_failedupload_storageid ])
+      ], res);
   TestEQMembers(
       [ unreferenced :=   RECORD[]
       , unlinked :=       RECORD[]

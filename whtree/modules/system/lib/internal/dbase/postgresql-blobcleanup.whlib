@@ -38,8 +38,8 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   */
   PUBLIC STRING ARRAY __filterids;
 
-  /// Disk path to store the manifest for tests
-  PUBLIC STRING __debugmanifestpath;
+  /// Function ptr to override manifest access. Signature: RECORD FUNCTION func(RECORD newmanifest)
+  PUBLIC FUNCTION PTR __debugmanifestaccess;
 
   /** Creates a new blob analyzer for a PostgreSQL database
       @param trans PostgreSQL transaction
@@ -176,26 +176,26 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   */
   PUBLIC RECORD FUNCTION ReadBlobManifest()
   {
-    BLOB manifest;
-    IF (this->__debugmanifestpath = "")
-      manifest := this->trans->blobhandler->GetBlobManifest();
+    RECORD manifest;
+    IF (IsValueSet(this->__debugmanifestaccess))
+      manifest := this->__debugmanifestaccess(DEFAULT RECORD);
     ELSE
-      manifest := GetDiskResource(this->__debugmanifestpath, [ allowmissing := TRUE ]);
+      manifest := DecodeJSONBlob(this->trans->blobhandler->GetBlobManifest());
 
     RETURN EnforceStructure(
         [ unreferenced :=       [ [ date := "", checked := "", ids := STRING[] ] ]
         , unlinked :=           [ [ date := "", blobpartids := STRING[] ] ]
         , abandoned :=          STRING[]
-        ], DecodeJSONBlob(manifest),
+        ], manifest,
         [ removeunexpected := TRUE ]);
   }
 
   MACRO StoreBlobManifest(RECORD manifest)
   {
-    IF (this->__debugmanifestpath = "")
-      this->trans->blobhandler->StoreBlobManifest(EncodeJSONBlob(manifest));
+    IF (IsValueSet(this->__debugmanifestaccess))
+      this->__debugmanifestaccess(manifest);
     ELSE
-      StoreDiskFile(this->__debugmanifestpath, EncodeJSONBlob(manifest), [ overwrite := TRUE ]);
+      this->trans->blobhandler->StoreBlobManifest(EncodeJSONBlob(manifest));
   }
 
   /** Analyze the disk and database blobs, update the blob manifest with that info
@@ -322,9 +322,26 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
   /** Removes all blobs that have been unreferenced dusing checks twice, at least
       'minunrefmins' minutes apart. Also deletes all blobs files unlinked by these removals
       after 'minunlinkedmins'
+      @cell(boolean) options.skipdeletes If TRUE, don't do real deletes (from the DB or blob part storage)
+      @return Results
+      @cell(string array) return.scheduled_abandoned Blob parts resulting from abandoned uploads
+      @cell(string array) return.removed_unreferenced Database blob ids that were removed from the blob table
+      @cell(string array) return.unlinked Blob parts of the blobs that were removed from the blob table
+      @cell(string array) return.removed Blob parts that were removed
   */
-  PUBLIC MACRO RemoveUnreferencedBlobs()
+  PUBLIC RECORD FUNCTION RemoveUnreferencedBlobs(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(
+        [ skipdeletes :=    FALSE
+        ], options);
+
+    RECORD retval :=
+        [ scheduled_abandoned :=  STRING[]
+        , removed_unreferenced := STRING[]
+        , unlinked :=             STRING[]
+        , removed :=              STRING[]
+        ];
+
     OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
     TRY
     {
@@ -339,8 +356,11 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         IF (IsDefaultValue(manifest.unlinked) OR manifest.unlinked[END-1].date != curdate)
           INSERT [ date := curdate, blobpartids := STRING[] ] INTO manifest.unlinked AT END;
 
+        retval.scheduled_abandoned := manifest.abandoned;
+
         manifest.unlinked[END-1].blobpartids := ArrayUnion(manifest.unlinked[END-1].blobpartids, manifest.abandoned);
         manifest.abandoned := STRING[];
+
         this->StoreBlobManifest(manifest);
       }
 
@@ -353,11 +373,18 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
 
         // Try to delete unreferenced blobs. Any blobs not deleted (and still unreferenced)
         // will be deleted in the following round
-        STRING ARRAY deleted := this->TryDeleteUnreferencedBlobs(rec.ids);
+        STRING ARRAY deleted;
+        IF (NOT options.skipdeletes)
+          deleted := this->TryDeleteUnreferencedBlobs(rec.ids);
+        ELSE
+          deleted := rec.ids;
         DELETE FROM manifest.unreferenced AT 0;
+
+        retval.removed_unreferenced := retval.removed_unreferenced CONCAT deleted;
 
         /// This is dangerous when we start using composed blobs, the parts might still be referenced by other blobs
         STRING ARRAY deleted_blobpartids := this->trans->blobhandler->GetBlobPartIdsFromBlobIds(deleted);
+        retval.unlinked := retval.unlinked CONCAT deleted_blobpartids;
 
         IF (IsDefaultValue(manifest.unlinked) OR manifest.unlinked[END-1].date != curdate)
           INSERT [ date := curdate, blobpartids := STRING[] ] INTO manifest.unlinked AT END;
@@ -373,12 +400,23 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         IF (MakeDateFromText(rec.date) >= deletecutoff)
           BREAK;
 
-        this->DeleteBlobParts(rec.blobpartids);
+        retval.removed := retval.removed CONCAT rec.blobpartids;
+
+        IF (NOT options.skipdeletes)
+          this->DeleteBlobParts(rec.blobpartids);
         DELETE FROM manifest.unlinked AT 0;
         this->StoreBlobManifest(manifest);
       }
     }
     FINALLY
       lock->Close();
+
+    // Sort stuff
+    retval.scheduled_abandoned := GetSortedSet(retval.scheduled_abandoned);
+    retval.removed_unreferenced := GetSortedSet(retval.removed_unreferenced);
+    retval.unlinked := GetSortedSet(retval.unlinked);
+    retval.removed := GetSortedSet(retval.removed);
+
+    RETURN retval;
   }
 >;
