@@ -238,16 +238,47 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   //, indpred pg_node_tree    Expression tree (in nodeToString() representation) for partial index predicate. Null if not a partial index.
   > "pg_index"
 , TABLE
-  < INTEGER "oid"
-  , INTEGER "opcmethod"
-  , STRING "opcname"
-  , INTEGER "opcnamespace"
-  , INTEGER "opcowner"
-  , INTEGER "opcfamily"
-  , INTEGER "opcintype"
-  , BOOLEAN "opcdefault"
-  , INTEGER "opckeytype"
+  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
+  , INTEGER "opcmethod" // Index access method operator class is for
+  , STRING "opcname" // Name of this operator class
+  , INTEGER "opcnamespace" // Namespace of this operator class
+  , INTEGER "opcowner" // Owner of the operator class
+  , INTEGER "opcfamily" // Operator family containing the operator class
+  , INTEGER "opcintype" // Data type that the operator class indexes
+  , BOOLEAN "opcdefault" // True if this operator class is the default for opcintype
+  , INTEGER "opckeytype" // Type of data stored in index, or zero if same as opcintype
   > "pg_opclass"
+, TABLE
+  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "proname" // Name of the function
+  , INTEGER "pronamespace" // The OID of the namespace that contains this function
+  , INTEGER "proowner" // Owner of the function
+  , INTEGER "prolang" // Implementation language or call interface of this function
+  , FLOAT "procost" // Estimated execution cost (in units of cpu_operator_cost); if proretset, this is cost per row returned
+  , FLOAT "prorows" // Estimated number of result rows (zero if not proretset)
+  , INTEGER "provariadic" // Data type of the variadic array parameter's elements, or zero if the function does not have a variadic parameter
+  , INTEGER "protransform" // Calls to this function can be simplified by this other function (see Section 38.10.10)
+  , STRING "prokind" // f for a normal function, p for a procedure, a for an aggregate function, or w for a window function
+  , BOOLEAN "prosecdef" // Function is a security definer (i.e., a “setuid” function)
+  , BOOLEAN "proleakproof"  // The function has no side effects. No information about the arguments is conveyed except via the return value. Any function that might throw an error depending on the values of its arguments is not leak-proof.
+  , BOOLEAN "proisstrict" // Function returns null if any call argument is null. In that case the function won't actually be called at all. Functions that are not “strict” must be prepared to handle null inputs.
+  , BOOLEAN "proretset" // Function returns a set (i.e., multiple values of the specified data type)
+  , STRING "provolatile" // provolatile tells whether the function's result depends only on its input arguments, or is affected by outside factors. It is i for “immutable” functions, which always deliver the same result for the same inputs. It is s for “stable” functions, whose results (for fixed inputs) do not change within a scan. It is v for “volatile” functions, whose results might change at any time. (Use v also for functions with side-effects, so that calls to them cannot get optimized away.)
+  , STRING "proparallel" // proparallel tells whether the function can be safely run in parallel mode. It is s for functions which are safe to run in parallel mode without restriction. It is r for functions which can be run in parallel mode, but their execution is restricted to the parallel group leader; parallel worker processes cannot invoke these functions. It is u for functions which are unsafe in parallel mode; the presence of such a function forces a serial execution plan.
+  , INTEGER "pronargs" // Number of input arguments
+  , INTEGER "pronargdefaults" // Number of arguments that have defaults
+  , INTEGER "prorettype" // Data type of the return value
+  , INTEGER ARRAY "proargtypes" // An array with the data types of the function arguments. This includes only input arguments (including INOUT and VARIADIC arguments), and thus represents the call signature of the function.
+  , INTEGER ARRAY "proallargtypes" // An array with the data types of the function arguments. This includes all arguments (including OUT and INOUT arguments); however, if all the arguments are IN arguments, this field will be null. Note that subscripting is 1-based, whereas for historical reasons proargtypes is subscripted from 0.
+  , STRING ARRAY "proargmodes" // An array with the modes of the function arguments, encoded as i for IN arguments, o for OUT arguments, b for INOUT arguments, v for VARIADIC arguments, t for TABLE arguments. If all the arguments are IN arguments, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  , STRING ARRAY "proargnames" // An array with the names of the function arguments. Arguments without a name are set to empty strings in the array. If none of the arguments have a name, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  //, proargdefaults  pg_node_tree    Expression trees (in nodeToString() representation) for default values. This is a list with pronargdefaults elements, corresponding to the last N input arguments (i.e., the last N proargtypes positions). If none of the arguments have defaults, this field will be null.
+  , INTEGER ARRAY "protrftypes" // Data type OIDs for which to apply transforms.
+  , STRING "prosrc" // This tells the function handler how to invoke the function. It might be the actual source code of the function for interpreted languages, a link symbol, a file name, or just about anything else, depending on the implementation language/call convention.
+  , STRING "probin" // Additional information about how to invoke the function. Again, the interpretation is language-specific.
+  , STRING ARRAY "proconfig" // Function's local settings for run-time configuration variables
+  //, proacl  aclitem[]   Access privileges; see GRANT and REVOKE for details  > pg_proc
+  > "pg_proc"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA

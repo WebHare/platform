@@ -83,6 +83,7 @@ enum class OID
         FLOAT8 = 701,
         INET = 869,
         BYTEAARRAY = 1001,
+        CHARARRAY = 1002,
         INT2ARRAY = 1005,
         INT4ARRAY = 1007,
         INT8ARRAY = 1016,
@@ -1041,6 +1042,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         else
                             stackm.SetSTLString(id_set, ""sv);
                 } break;
+                case OID::CHARARRAY:
                 case OID::INT2ARRAY:
                 case OID::INT2VECTOR:
                 case OID::INT4ARRAY:
@@ -1056,6 +1058,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         VariableTypes::Type vartype;
                         switch (type)
                         {
+                        case OID::CHARARRAY:    elttype = OID::CHAR; vartype = VariableTypes::StringArray; break;
                         case OID::INT2VECTOR:   elttype = OID::INT2; vartype = VariableTypes::IntegerArray; break;
                         case OID::INT2ARRAY:    elttype = OID::INT2; vartype = VariableTypes::IntegerArray; break;
                         case OID::INT4ARRAY:    elttype = OID::INT4; vartype = VariableTypes::IntegerArray; break;
