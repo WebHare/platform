@@ -16,7 +16,7 @@ const submitselector = 'input[type=submit],input[type=image],button[type=submit]
 
 function isNodeCollection(node)
 {
-  // IE11 returns an HTMLCollection for checkbox/radio groups, so check for that instead of e (which is undefined in IE11)
+  // IE11 returns an HTMLCollection for checkbox/radio groups, so check for that instead of RadioNodeList (which is undefined in IE11)
   return (node instanceof HTMLCollection || (typeof RadioNodeList != "undefined" && node instanceof RadioNodeList));
 }
 function getErrorFields(validationresult)
