@@ -170,11 +170,14 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
   }
 
   /** @short Get an icon value for the given name to be displayed in the file list
+      @long This function is only available when adding icons to items in %OnMapItems.
       @param iconname Name of the icon
       @return Icon value for displaying in the file list
   */
   PUBLIC INTEGER FUNCTION GetListIcon(STRING iconname)
   {
+    IF (this->__ongeticon = DEFAULT FUNCTION PTR)
+      RETURN 0;
     RETURN this->__ongeticon(iconname);
   }
 >;

@@ -293,7 +293,6 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     OBJECT cachedlisthandler := this->GetCustomContentsHandler(folderid);
     IF (ObjectExists(cachedlisthandler))
     {
-      cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon;
       eventmasks := eventmasks CONCAT cachedlisthandler->GetEventMasks();
     }
     ELSE
@@ -304,7 +303,6 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
         __contentlisthandlersetup := [ tolliumuser := this->owner->tolliumuser ];
         cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
         __contentlisthandlersetup := DEFAULT RECORD;
-        cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon;
         INSERT [ library := foldersettings.contentslisthandler.library
                , objectname := foldersettings.contentslisthandler.objectname
                , handler := cachedlisthandler
@@ -773,7 +771,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     IF(this->listcontentsremap AND Length(files)>0)
     {
       RECORD ARRAY remapdata := SELECT id, type FROM files; //the other fields should not be relied on
+      FUNCTION PTR curgeticon := this->contentslisthandler->__ongeticon;
+      this->contentslisthandler->__ongeticon := PTR this->mylist->GetIcon;
       remapdata := this->contentslisthandler->OnMapItems(this->curfolder, remapdata);
+      this->contentslisthandler->__ongeticon := curgeticon;
 
       IF(Length(remapdata) != Length(files))
         THROW NEW Exception("The OnMapItems handler changed the number of items (in: " || Length(files) || ", out " || Length(remapdata) || " - perhaps no outer join was used?");
