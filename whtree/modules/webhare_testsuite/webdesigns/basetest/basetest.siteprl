@@ -358,7 +358,7 @@
 
   <apply>
     <to type="all" pathmask="*experimental-anchors*"/>
-    <webdesign objectname="lib/basetest.whlib#ExperimentalAnchorsDesign" />
+    <webdesign library="lib/basetest.whlib" objectname="ExperimentalAnchorsDesign" />
   </apply>
 
   <apply>
