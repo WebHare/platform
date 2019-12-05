@@ -2337,8 +2337,7 @@ void VarMemory::CollectObjects()
         }
 
         // Recycle heap object that point to non-used objects (stack is root, so no sweep needed there). Refcounting will take care of destruction.
-        HeapId id = 0;
-        for (HeapStore::iterator it = heapstore.begin(), end = heapstore.end(); it != end; ++it, ++id)
+        for (HeapStore::iterator it = heapstore.begin(), end = heapstore.end(); it != end; ++it)
         {
                 if (it->type == VariableTypes::Object)
                 {
@@ -2352,6 +2351,7 @@ void VarMemory::CollectObjects()
 
                         // Change type to uninitialized to avoid recursive DestroyObjectElements calls
                         it->type = VariableTypes::Uninitialized;
+                        backing->strongreferences = 0;
                         SharedPool::Allocation buf;
 
                         if (backings.IsShared(var->backed.bufpos))
@@ -2365,6 +2365,24 @@ void VarMemory::CollectObjects()
                         backings.ReleaseReference(buf);
               }
               else if (it->type == VariableTypes::WeakObject)
+              {
+                        VarObject *var = &it->data.object;
+                        if (var->backed.bufpos == SharedPool::AllocationUnused)
+                            continue;
+
+                        ObjectBacking *backing = static_cast< ObjectBacking * >(backings.GetWritePtr(var->backed.bufpos));
+                        if (backing->marked && backing->strongreferences != 0)
+                            continue;
+
+                        SharedPool::Allocation buf = var->backed.bufpos;
+                        var->backed.bufpos = SharedPool::AllocationUnused;
+                        backings.ReleaseReference(buf);
+              }
+        }
+
+        for (StackStore::iterator it = stackstore.begin(), end = stackstore.begin() + stacksize; it != end; ++it)
+        {
+              if (it->type == VariableTypes::WeakObject)
               {
                         VarObject *var = &it->data.object;
                         if (var->backed.bufpos == SharedPool::AllocationUnused)
