@@ -794,6 +794,10 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
 
 std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, ParamEncoding::Flags encodingflags)
 {
+#ifdef DUMP_BINARY_ENCODING
+        PQ_ONLYRAW(unsigned startdatalen = alldata.size();)
+#endif
+
         if (encodingflags & ParamEncoding::Pattern)
         {
                 std::string pattern;
