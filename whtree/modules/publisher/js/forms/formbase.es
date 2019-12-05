@@ -834,43 +834,28 @@ export default class FormBase
     if([ "IN", "HAS", "IS" ].includes(condition.matchtype))
     {
       let matchcase = !condition.options || condition.options.matchcase !== false; // Defaults to true
+      let compareagainst = Array.isArray(condition.value) ? condition.value : condition.value ? [ condition.value ] : [];
 
-      if (Array.isArray(currentvalue))
-      {
-        // If the match is not case-sensitive, the condition value is already uppercased, so we only have to uppercase the
-        // current value(s) when checking
-        if (!matchcase)
-          currentvalue = currentvalue.map(value => value.toUpperCase());
-
-        // The current value and the condition value should (at least) overlap
-        if (!currentvalue.some(value => condition.value.includes(value)))
-          return false;
-
-        // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
-        // that are not selected)
-        if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && condition.value.some(value => !currentvalue.includes(value)))
-          return false;
-
-        // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
-        // not required)
-        if (condition.matchtype == "IS" && currentvalue.some(value => !condition.value.includes(value)))
-          return false;
-
-        return true;
-      }
+      if (!Array.isArray(currentvalue))
+        currentvalue = currentvalue ? [ currentvalue ] : [];
 
       // If the match is not case-sensitive, the condition value is already uppercased, so we only have to uppercase the
       // current value(s) when checking
       if (!matchcase)
-        currentvalue = currentvalue.toUpperCase();
+        currentvalue = currentvalue.map(value => value.toUpperCase());
 
-      // The selected value should be an allowed value
-      if (!condition.value.includes(currentvalue))
+      // The current value and the condition value should (at least) overlap
+      if (!currentvalue.some(value => compareagainst.includes(value)))
         return false;
 
-      // For "HAS" and "IS" conditions, all required values should be selected, so if there is more than one required value,
-      // that's not the case (if we got here, there is only one selected value)
-      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && condition.value.length > 1)
+      // For "HAS" and "IS" conditions, all of the required values should be selected (there shouldn't be required values
+      // that are not selected)
+      if ((condition.matchtype == "HAS" || condition.matchtype == "IS") && compareagainst.some(value => !currentvalue.includes(value)))
+        return false;
+
+      // For an "IS" condition, all of the selected values should be required (there shouldn't be selected values that are
+      // not required)
+      if (condition.matchtype == "IS" && currentvalue.some(value => !compareagainst.includes(value)))
         return false;
 
       return true;

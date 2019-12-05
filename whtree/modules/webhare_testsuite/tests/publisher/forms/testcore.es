@@ -120,6 +120,8 @@ test.registerTests(
         test.fill(field_pulldown2test, "red");
         test.true(field_shadetest.disabled, "shade of green should be disabled again");
 
+        test.true(test.qS('[name=shade2]').disabled, 'should be initially disabled, confused JS code broke that');
+
         let field_pulldowntest_options = field_pulldowntest.querySelectorAll('option');
         test.true(field_pulldowntest_options[0].selected);
         test.true(field_pulldowntest_options[0].disabled);
