@@ -5,7 +5,7 @@
 - [Kris Breuker](https://gitlab.com/krisbreuker)
 - [Arnold Hendriks](https://gitlab.com/arnoldhendriks)
 - [Rob Hulswit](https://gitlab.com/webhare_rob)
-- Mark de Jong
+- [Mark de Jong](https://gitlab.com/markdejong)
 
 ## UI/UX design
 - [Wouter van den Berg](https://gitlab.com/vdberg)
