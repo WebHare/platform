@@ -445,7 +445,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   //Create relative output folders in system.webservers
   BOOLEAN relativeoutputfolders;
 
-  INTEGER betatestunit;
+  INTEGER __betatestunit;
+  PUBLIC PROPERTY testunit(__betatestunit,-);
 
   //PUBLIC OBJECT trans;
   PUBLIC BOOLEAN profile;
@@ -677,7 +678,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /** @short Get the test unit */
   PUBLIC OBJECT FUNCTION GetUnit()
   {
-    RETURN this->betatestunit != 0 ? this->userapi->GetUnit(this->betatestunit) : DEFAULT OBJECT;
+    RETURN this->testunit != 0 ? this->userapi->GetUnit(this->testunit) : DEFAULT OBJECT;
   }
 
   /** @param options
@@ -1051,9 +1052,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     IF(Length(this->credentials) > 0 OR Length(this->roles) > 0)
     {
-      IF(NOT ObjectExists(this->userapi))
-        THROW NEW Exception("userapi (wrdauth) disabled, so cannot create roles");
-      this->betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit" ]);
+      this->__betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit" ]);
     }
 
     IF(Length(this->credentials) > 0)
@@ -1062,7 +1061,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       FOREVERY(RECORD cred FROM this->credentials)
       {
         RECORD newuser := [ wrd_contact_email := cred.login || "@beta.webhare.net"
-                          , whuser_unit := this->betatestunit
+                          , whuser_unit := this->testunit
                           , whuser_password := "PLAIN:" || cred.userpassword
                           , wrd_firstname := ToUppercase(Left(cred.login,1)) || Substring(cred.login,1)
                           , wrd_lastname := "McTestsuite"
@@ -1100,7 +1099,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       FOREVERY(RECORD role FROM this->roles)
       {
         //role.roleid := betatestunit->CreateRole( [ name := role.rolename ]);
-        role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->betatestunit, wrd_title := role.rolename ]);
+        role.wrdid := this->userapi->CreateRole([ wrd_leftentity := this->testunit, wrd_title := role.rolename ]);
         role.roleobj := this->userapi->GetRole(role.wrdid);
         role.authobjectid := role.roleobj->authobjectid;
         this->roles[#role] := role;
