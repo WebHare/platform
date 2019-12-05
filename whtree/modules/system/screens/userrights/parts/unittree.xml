@@ -14,7 +14,7 @@
       </action>
 
       <action name="newuser" hinttid=".newuser-hint" onexecute="doadduser" ellipsis="true">
-        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit" />
+        <enableon source="unitlist" min="1" max="1" checkflags="canmanageunit !isroot" />
       </action>
 
       <action name="exportusersinunit" onexecute="doexportusersinunit"  ellipsis="true">
@@ -56,9 +56,10 @@
             selectmode="single"
             columnheaders="true"
             openaction="edit"
-            flags="canmanageunit canmanageroles candelete isroot"
+            flags="canmanageunit canmanageroles candelete isroot canselect"
             icons="tollium:users/user tollium:users/users tollium:users/mask tollium:actions/search"
             selectcontextmenu="selectcontextmenu"
+            selectableflags="canselect"
             rowkeytype="integer"
             borders="all"
             >
