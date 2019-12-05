@@ -966,9 +966,7 @@
     </filemgrextension>
 
     <filemgrextension>
-      <accesscheck>
-        <requireright right="system:supervisor" />
-      </accesscheck>
+      <accesscheck />
       <addrootitem tid="terminology.worklists" gotoitemtid="terminology.worklists" icon="tollium:actions/checklist" contentshandler="mod::publisher/tolliumapps/filemanager/worklists.whlib#WorkListsContents" gotoshortcut="ctrl+shift+w" contentmode="" />
     </filemgrextension>
 

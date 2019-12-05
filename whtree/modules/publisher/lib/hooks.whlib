@@ -213,6 +213,14 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
     RETURN id;
   }
 
+  /** @short Is the root item currently visible?
+      @return If the root item should be shown in the folder tree
+  */
+  PUBLIC BOOLEAN FUNCTION IsVisible()
+  {
+    RETURN TRUE;
+  }
+
   /** @short Called by the folder tree to check if an item is expandable
       @param parentid The id of the item to check
       @cell(boolean) options.showhidden If hidden item are shown

@@ -663,6 +663,8 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
           }
         }
       }
+      ELSE // Another event from a custom content handler
+        this->thelist->ReloadList();
     }
   }
 

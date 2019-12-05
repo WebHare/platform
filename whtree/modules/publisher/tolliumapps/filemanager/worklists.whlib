@@ -36,6 +36,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   // Updates functions
   //
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsVisible()
+  {
+    RETURN RecordExists(this->api->GetAllWorkLists());
+  }
+
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
   {
     RETURN

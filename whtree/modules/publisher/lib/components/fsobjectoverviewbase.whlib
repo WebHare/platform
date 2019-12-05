@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -318,8 +319,14 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
         IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
           CONTINUE;
 
+        INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;
+
+        OBJECT contentshandler := this->GetCustomContentsHandler(id);
+        IF (ObjectExists(contentshandler) AND NOT contentshandler->IsVisible())
+          CONTINUE;
+
         // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
-        INSERT [ id               := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter
+        INSERT [ id               := id
                , contentmode      := addroot.contentmode
                , name             := GetTid(addroot.title)
                , isfolder         := TRUE
