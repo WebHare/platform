@@ -313,6 +313,7 @@ PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
   STRING FUNCTION ImportBlobInternal(STRING path, BLOB data)
   {
     STRING blobpartid := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+    //'001' is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
     STRING databaseid := EncodeUFS("\x00\x00\x01") || blobpartid;
 
     IF (path = "" OR NOT this->blobpartstorage->TryHardLinkBlobPart(blobpartid, path))
