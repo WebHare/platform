@@ -376,6 +376,7 @@
             <xs:attribute name="objecttype" type="OptionallyQualifiedName" use="optional" />
             <xs:attribute name="showbefore" type="OptionallyQualifiedWildcardedNameList" use="optional" />
             <xs:attribute name="showafter" type="OptionallyQualifiedWildcardedNameList" use="optional" />
+            <xs:attribute name="isrootright" type="xs:boolean" />
           </xs:complexType>
         </xs:element>
         <xs:element name="obsoleteobjecttype">

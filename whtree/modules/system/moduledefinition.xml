@@ -220,7 +220,7 @@
 
     <obsoleteobjecttype name="dumps" table=".adhocdump_dumps" />
 
-    <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*">
+    <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*" isrootright="true">
       <impliedby right="sysop" />
     </right>
     <right name="supervisor" tid="rights.supervisor" descriptiontid="rights.supervisor-descr" showafter="sysop">

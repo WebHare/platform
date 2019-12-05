@@ -877,11 +877,11 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
 
       IF (ibrightid = right_id)
       {
-        IF (rec.name != "system:sysop")
+        IF (NOT rec.isrootright)
         {
           INSERT
               [ module := module.name
-              , message := "Only sysop may be implied by itself"
+              , message := "Only root rights may be implied by themselves"
               ] INTO errors AT END;
           // FIXME: when we have by field impliedbys, this becomes acceptable.
         }

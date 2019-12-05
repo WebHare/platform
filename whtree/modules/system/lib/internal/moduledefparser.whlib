@@ -1049,6 +1049,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                     , description         := this->ParseXMLTidTitle(subchild, "description", subchildgid)
                     , showbefore          := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showbefore")), modulename)
                     , showafter           := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showafter")), modulename)
+                    , isrootright         := ParseXSBoolean(subchild->GetAttribute("isrootright"))
                     , line                := subchild->linenum
                     ];
                 IF (rightrec.objtype = "" AND rightrec.rightsgroup = "")
