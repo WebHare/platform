@@ -1487,6 +1487,53 @@ MACRO TestHat()
   // ADDME: getter/setter validation for normal properties and dynamic resolver
 }
 
+WEAKOBJECT weaktest_weakobj;
+OBJECT weaktest_obj;
+
+OBJECTTYPE weakreftype
+< /// Room for recursive reference to break refcounted collection
+  PUBLIC OBJECT recursiveref;
+>;
+
+MACRO TestGlobalWeakObjUnset()
+{
+  TestEQ(FALSE, ObjectExists(OBJECT(weaktest_weakobj)));
+}
+
+MACRO TestWeakObjects()
+{
+  WEAKOBJECT stack_weakobj;
+
+  // Weakref to object without recursive ref
+  weaktest_obj := NEW weakreftype;
+  weaktest_weakobj := WEAKOBJECT(weaktest_obj);
+  stack_weakobj := weaktest_weakobj;
+  TestEQ(weaktest_obj, OBJECT(weaktest_weakobj));
+  TestEQ(weaktest_obj, OBJECT(stack_weakobj));
+
+  weaktest_obj := DEFAULT OBJECT; // refcount stuff, direct clear of weakobj
+  TestGlobalWeakObjUnset();
+  TestEQ(FALSE, ObjectExists(OBJECT(stack_weakobj)));
+
+  // Weakref to object with recursive ref
+  weaktest_obj := NEW weakreftype;
+  weaktest_obj->recursiveref := weaktest_obj;
+  weaktest_weakobj := WEAKOBJECT(weaktest_obj);
+  stack_weakobj := weaktest_weakobj;
+  TestEQ(weaktest_obj, OBJECT(weaktest_weakobj));
+  TestEQ(weaktest_obj, OBJECT(stack_weakobj));
+
+  weaktest_obj := DEFAULT OBJECT;
+
+  // recursive ref, so explicit collection needed
+  TestEQ(TRUE, ObjectExists(OBJECT(weaktest_weakobj)));
+  TestEQ(TRUE, ObjectExists(OBJECT(stack_weakobj)));
+
+  CollectGarbage();
+  TestGlobalWeakObjUnset(); // in function, because it was already loaded on stack before CollectGarbage()
+  TestEQ(FALSE, ObjectExists(OBJECT(stack_weakobj)));
+}
+
 PRINT("\n === Running TestObjects\n");
 BaseTest();
 InsertMemberTest();
@@ -1509,3 +1556,4 @@ ComplexPropertyTest();
 StaticObjectTypesTest();
 RegressionsTest();
 TestHat();
+TestWeakObjects();
