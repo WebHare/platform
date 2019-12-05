@@ -485,7 +485,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   TestEq(RECORD[], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtexttid");
   TestEq([[ line := 94,  attrname := "data-wh-gettid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtext-tid");
   TestEq(1, Length(SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextlabeltid"));
-  TestEq([[ line := 146,  attrname := "pagetid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextpage");
+  TestEq([[ line := 151,  attrname := "pagetid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextpage");
 
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
   TestEq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.webruleset"));
