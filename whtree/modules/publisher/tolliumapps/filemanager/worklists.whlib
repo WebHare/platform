@@ -131,7 +131,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     {
       IF (parentid = this->rootid)
         RETURN this->worklistcache;
-      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = parentid;
+      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = parentid;
       RETURN SELECT id := objectid FROM this->api->GetWorkListItems(listid);
     }
   }
@@ -152,7 +152,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     {
       enrichments :=
           SELECT id
-               , custom_listid := listid
+               , custom_listid
                , custom_itemid := 0
                , custom_comments := ""
                , custom_resolveddate := DEFAULT DATETIME
@@ -162,7 +162,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     }
     ELSE
     {
-      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = parentid;
+      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = parentid;
 
       enrichments :=
           SELECT id := objectid
@@ -214,7 +214,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   {
     IF (screen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmresolveitems", ToString(Length(data.objectids)))) = "yes")
     {
-      INTEGER listid := SELECT AS INTEGER COLUMN listid FROM this->worklistcache WHERE id = data.parentid;
+      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = data.parentid;
       OBJECT work := screen->BeginWork();
       this->api->ResolveItems(listid, data.objectids);
       work->Finish();
@@ -229,14 +229,14 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
   MACRO SyncWorkLists()
   {
-    INTEGER ARRAY curids := SELECT AS INTEGER ARRAY listid FROM this->worklistcache;
+    INTEGER ARRAY curids := SELECT AS INTEGER ARRAY custom_listid FROM this->worklistcache;
     FOREVERY (RECORD worklist FROM this->api->GetAllWorkLists())
     {
       IF (worklist.id NOT IN curids)
       {
         RECORD item :=
             [ id := this->GetNextId()
-            , listid := worklist.id
+            , custom_listid := worklist.id
             , name := worklist.name
             , title := ""
             , isfolder := TRUE
@@ -244,13 +244,13 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
             , creationdate := worklist.creationdate
             , canwrite := FALSE
             , candelete := FALSE
-            , icon := "tollium:forms/checkboxes"
+            , icon := "tollium:actions/checklist"
             ];
         INSERT item INTO this->worklistcache AT END;
       }
       ELSE
         DELETE FROM curids AT SearchElement(curids, worklist.id);
     }
-    DELETE FROM this->worklistcache WHERE listid IN curids;
+    DELETE FROM this->worklistcache WHERE custom_listid IN curids;
   }
 >;

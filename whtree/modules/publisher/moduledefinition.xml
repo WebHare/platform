@@ -40,6 +40,15 @@
     <right name="pinning" rightsgroup="system:fs" tid="publisher:rights.pinning" descriptiontid="rights.pinning-descr">
       <impliedby right="system:supervisor"/>
     </right>
+
+    <objecttype name="worklists"
+                table=".worklists"
+                tid="rights.worklists"
+                describer="lib/internal/support.whlib#worklistsdescriber" />
+
+    <right name="worklist_resolve" objecttype="worklists" tid="publisher:rights.worklist_resolve" isrootright="true">
+      <impliedby right="worklist_resolve" />
+    </right>
   </rights>
 
   <portal>

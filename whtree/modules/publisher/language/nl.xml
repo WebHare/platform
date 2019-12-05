@@ -2041,6 +2041,8 @@
     <text tid="bulkhistory-descr">Dit recht stelt gebruikers in staat URL-geschiedenis URLs in bulk in te voeren middels een alternatieve interface.</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
+    <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
+    <text tid="worklists">Werklijsten</text>
   </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="objectprops">   <!-- screens.objectprops -->

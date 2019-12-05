@@ -18,18 +18,23 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
   PUBLIC RECORD ARRAY FUNCTION GetAllWorkLists()
   {
-    RETURN SELECT * FROM publisher.worklists;
+    INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
+    RETURN
+        SELECT *
+          FROM publisher.worklists
+         WHERE id IN accessible_worklists
+               OR owner = this->tolliumuser->authobjectid;
   }
 
   PUBLIC RECORD FUNCTION GetWorkList(INTEGER worklistid)
   {
-    RETURN SELECT * FROM publisher.worklists WHERE id = worklistid;
+    RETURN this->GetCheckedWorkList(worklistid, FALSE);
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetWorkListItems(INTEGER worklistid)
   {
-    IF (NOT RecordExists(this->GetWorkList(worklistid)))
-      THROW NEW Exception(`No work list with id ${worklistid}`);
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, FALSE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     RETURN
         SELECT id
@@ -62,6 +67,24 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     RETURN listid;
   }
 
+  PUBLIC MACRO AddWorkListUser(INTEGER worklistid, OBJECT userobject)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    IF (ObjectExists(userobject))
+      userobject->GrantRightToOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+  }
+
+  PUBLIC MACRO RemoveWorkListUser(INTEGER worklistid, OBJECT userobject)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    IF (ObjectExists(userobject))
+      userobject->RevokeRightFromOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+  }
+
   PUBLIC MACRO AddToWorkList(INTEGER worklistid, RECORD ARRAY items, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
@@ -73,8 +96,8 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
           ]
         ], items);
 
-    IF (NOT RecordExists(this->GetWorkList(worklistid)))
-      THROW NEW Exception(`No work list with id ${worklistid}`);
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     DATETIME now := GetCurrentDateTime();
     INTEGER ARRAY objectids;
@@ -105,8 +128,8 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
   PUBLIC MACRO ResolveItems(INTEGER worklistid, INTEGER ARRAY objectids)
   {
-    IF (NOT RecordExists(this->GetWorkList(worklistid)))
-      THROW NEW Exception(`No work list with id ${worklistid}`);
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, FALSE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     DATETIME now := GetCurrentDateTime();
     FOREVERY (INTEGER objectid FROM objectids)
@@ -125,8 +148,8 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
   PUBLIC MACRO DeleteFromWorkList(INTEGER worklistid, INTEGER ARRAY objectids)
   {
-    IF (NOT RecordExists(this->GetWorkList(worklistid)))
-      THROW NEW Exception(`No work list with id ${worklistid}`);
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     FOREVERY (INTEGER objectid FROM objectids)
     {
@@ -142,11 +165,28 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
 
   PUBLIC MACRO DeleteWorkList(INTEGER worklistid)
   {
-    IF (NOT RecordExists(this->GetWorkList(worklistid)))
-      THROW NEW Exception(`No work list with id ${worklistid}`);
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
     DELETE FROM publisher.worklists
      WHERE id = worklistid;
     GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
+  }
+
+  RECORD FUNCTION GetCheckedWorkList(INTEGER worklistid, BOOLEAN editright)
+  {
+    RECORD worklist := SELECT * FROM publisher.worklists WHERE id = worklistid;
+    BOOLEAN hasaccess := editright ? this->HasWorkListEditRight(worklist) : this->HasWorkListResolveRight(worklist);
+    RETURN hasaccess ? worklist : DEFAULT RECORD;
+  }
+
+  BOOLEAN FUNCTION HasWorkListEditRight(RECORD worklist)
+  {
+    RETURN RecordExists(worklist) AND worklist.owner = this->tolliumuser->authobjectid;
+  }
+
+  BOOLEAN FUNCTION HasWorkListResolveRight(RECORD worklist)
+  {
+    RETURN RecordExists(worklist) AND (this->HasWorkListEditRight(worklist) OR this->tolliumuser->HasRightOn("publisher:worklist_resolve", worklist.id));
   }
 >;

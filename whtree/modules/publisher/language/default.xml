@@ -2041,6 +2041,8 @@
     <text tid="bulkhistory-descr">This right allows users to enter URL history entries in bulk using an alternative interface.</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
+    <text tid="worklist_resolve">Handle work list items</text>
+    <text tid="worklists">Work lists</text>
   </textgroup>
   <textgroup gid="screens" limitlanguages="en nl">   <!-- screens -->
     <textgroup gid="objectprops">   <!-- screens.objectprops -->
