@@ -100,11 +100,11 @@ ASYNC MACRO TestResolve()
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile1", selection.name);
-  TestEq(TRUE, selection.custom_resolveddate = DEFAULT DATETIME);
+  TestEq(TRUE, selection.custom_resolveddate = "");
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
   selection := TT("filelist")->selection;
-  TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
+  TestEq(FALSE, selection.custom_resolveddate = "");
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
@@ -147,7 +147,7 @@ ASYNC MACRO TestEvents()
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile1", selection.name);
-  TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
+  TestEq(FALSE, selection.custom_resolveddate = "");
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
 
   // No file 3 yet
@@ -169,7 +169,7 @@ ASYNC MACRO TestEvents()
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile3", selection.name);
-  TestEq(TRUE, selection.custom_resolveddate = DEFAULT DATETIME);
+  TestEq(TRUE, selection.custom_resolveddate = "");
 
   // Resolve the third work list item
   testfw->BeginWork();
@@ -183,7 +183,7 @@ ASYNC MACRO TestEvents()
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile3", selection.name);
-  TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
+  TestEq(FALSE, selection.custom_resolveddate = "");
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
