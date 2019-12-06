@@ -130,9 +130,14 @@
       </richtext>
       <textedit name="firstname" title="First name" required="true" />
       <textedit validationchecks="email" name="email" title="Email" required="true" />
+      <checkbox name="showskipform" title="" label="Show 'skip the entire' form" value="true" />
       <checkbox name="skipform" title="" label="Skip the entire form" /><!-- Skip form, 'next' button should change to 'submit' -->
       <checkbox name="fillmaybe" title="" label="Maybe fill an extra page" /><!-- Show the 'conditional' page -->
       <checkbox name="vertspace" title="" label="I need more vertical space" /><!-- Show the 'vertical space' RTD -->
+      <select type="radio" name="metabonusquestion" title="What is your quest?">
+        <option rowkey="notaquest" title="I'm on no quest" />
+        <option rowkey="holygrail" title="I seek the holy grail" />
+      </select>
       <richtext name="vertspacetext">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -163,7 +168,19 @@
           <textedit name="other" title="" required="true" />
         </option>
       </select>
+      <select type="radio" name="bonusquestion" title="What...is the airspeed velocity of an unladen swallow?">
+        <option rowkey="answer1" title="16 km/h" />
+        <option rowkey="answer2" title="10 mph" />
+        <option rowkey="answer3" title="What do you mean, an African or a European swallow?" />
+      </select>
       <imgedit name="img" title="Image" />
+    </page>
+    <page name="bonuspage">
+      <richtext name="bonuspagetext">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>Well...I don't know...AAAAARRRRRRRRRRRRRRRGGGGGHHHH!!!</p>
+        </body>
+      </richtext>
     </page>
     <page name="lastpage">
       <richtext name="text2">

@@ -615,6 +615,9 @@ PUBLIC STATIC OBJECTTYPE MultipageTestForm EXTEND FormBase
     ^vertspacetext2->visiblecondition := FCIsSet(^vertspace);
     ^vertspacetext3->visiblecondition := FCIsSet(^vertspace);
     ^img->enabledcondition := FCIsSet(^fillmaybe);
+    ^skipform->visiblecondition := FCIsSet(^showskipform);
+    ^bonuspage->visiblecondition := FCMatch(^bonusquestion,"IN",["answer3"]);
+    ^bonusquestion->visiblecondition := FCMatch(^metabonusquestion,"IN",["holygrail"]);
   }
 
   RECORD FUNCTION Submit(RECORD data)
