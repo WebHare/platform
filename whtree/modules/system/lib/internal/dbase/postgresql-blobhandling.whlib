@@ -9,9 +9,6 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
-/** Blob storage handling for PostgreSQL
-*/
-
 /** Base class for blob part storage
 */
 STATIC OBJECTTYPE BlobPartStorageBase
