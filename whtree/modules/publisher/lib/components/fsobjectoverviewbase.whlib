@@ -22,22 +22,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib" EXPORT TolliumFragmentBase;
 
 OBJECT hooks;
 
-PUBLIC STRING FUNCTION GetDisplayModDate(OBJECT tolliumuser, DATETIME modified, DATETIME local_now, STRING timezone)
-{
-  DATETIME modified_local := UTCToLocal(modified, timezone);
-  INTEGER day := GetDayCount(modified_local);
-  INTEGER today := GetDayCount(local_now);
-
-  IF (day = today)
-    RETURN tolliumuser->FormatTime(modified_local, "minutes", FALSE);
-  ELSE IF (day < today - 6)
-    RETURN tolliumuser->FormatDate(modified_local, FALSE, TRUE);
-  ELSE IF (day = today - 1)
-    RETURN GetTid("publisher:components.filelist.yesterday");
-  ELSE
-    RETURN FormatDateTime("%A", modified_local, tolliumuser->language);
-}
-
 RECORD ARRAY FUNCTION GetVersionedObjectRecycleBin(OBJECT tolliumuser, RECORD ARRAY objects)
 {
   INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects WHERE parent = 18;

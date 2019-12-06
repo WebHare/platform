@@ -598,7 +598,6 @@
       <text tid="trash-site">Original site</text>
       <text tid="trash-user">Deleted by</text>
       <text tid="unknown">&lt;Unknown&gt;</text>
-      <text tid="yesterday">Yesterday</text>
     </textgroup>
     <textgroup gid="foldertree">   <!-- components.foldertree -->
       <text tid="empty">There are no folders to display</text>

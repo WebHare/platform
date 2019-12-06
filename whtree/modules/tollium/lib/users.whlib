@@ -717,6 +717,23 @@ PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     RETURN Substring(timespan,2,1000); //strip first comma and space..
   }
 
+  PUBLIC STRING FUNCTION FormatRecentDateTime(DATETIME value, BOOLEAN stored_utc)
+  {
+    IF (stored_utc)
+      value := UTCToLocal(value, this->timezone);
+    INTEGER day := GetDayCount(value);
+    INTEGER today := GetDayCount(UTCToLocal(GetCurrentDateTime(), this->timezone));
+
+    IF (day = today)
+      RETURN this->FormatTime(value, "minutes", FALSE);
+    ELSE IF (day < today - 6)
+      RETURN this->FormatDate(value, FALSE, TRUE);
+    ELSE IF (day = today - 1)
+      RETURN GetTid("~yesterday");
+    ELSE
+      RETURN FormatDateTime("%A", value, this->language);
+  }
+
   /** @short Format a money value partly according to the user's preferences
       @long This function returns a money value as a string. The user's separator
             preference (for both the decimal (for example the ".") and the thousand seperator

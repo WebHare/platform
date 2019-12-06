@@ -598,7 +598,6 @@
       <text tid="trash-site">Oorspronkelijke site</text>
       <text tid="trash-user">Verwijderd door</text>
       <text tid="unknown">&lt;Onbekend&gt;</text>
-      <text tid="yesterday">Gisteren</text>
     </textgroup>
     <textgroup gid="foldertree">   <!-- components.foldertree -->
       <text tid="empty">Er zijn geen mappen om weer te geven</text>

@@ -708,15 +708,11 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       }
     }
 
-    STRING tz := this->owner->tolliumuser->timezone;
-    OBJECT user := this->owner->tolliumuser;
-    DATETIME now_local := UTCToLocal(GetCurrentDateTime(), tz);
-
     files := SELECT *
                   , rowkey := id
                   , name_noicon := name
                   //, modified := modificationdate
-                  , modified := GetDisplayModDate(user, modificationdate, now_local, tz)
+                  , modified := this->owner->tolliumuser->FormatRecentDateTime(modificationdate, TRUE)
                   //, filesize := isfolder OR NOT pvt_blobiscontent ? "" : this->owner->tolliumuser->FormatFileSize(pvt_length_data, 0, FALSE)
                   , pvt_highlight := RecordExists(folder) AND id = folder.indexdoc
                   //, pvt_marker := RecordExists(folder) AND id = folder.indexdoc ? this->mylist->GetIcon("tollium:status/marker") : 0

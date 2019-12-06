@@ -999,6 +999,7 @@
     <text tid="username">Gebruikersnaam</text>
     <text tid="view">Bekijken</text>
     <text tid="yes">Ja</text>
+    <text tid="yesterday">Gisteren</text>
     <text tid="yestoall">Ja op alles</text>
     <textgroup gid="examples">   <!-- tilde.examples -->
       <text tid="email">email@voorbeeld.nl</text>

@@ -1030,6 +1030,7 @@
     <text tid="username">Username</text>
     <text tid="view">View</text>
     <text tid="yes">Yes</text>
+    <text tid="yesterday">Yesterday</text>
     <text tid="yestoall">Yes to All</text>
     <textgroup gid="examples" keepemptyreason="Voorbeeldteksten">   <!-- tilde.examples -->
       <text tid="email">email@example.com</text>
