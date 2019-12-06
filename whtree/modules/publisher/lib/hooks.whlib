@@ -15,9 +15,19 @@ PUBLIC RECORD __contentlisthandlersetup;
     @private
 */
 PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
-<
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
   OBJECT tolliumuser;
   OBJECT contentshandlercache;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
 
   /** @short Initialize the context object and root item contents handlers
       @param tolliumuser The user to initialize the context for
@@ -39,6 +49,12 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
           this->contentshandlercache->Add(id, this->InstantiateHandler(id, addroot.contentshandler));
       }
   }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public API
+  //
 
   /** @short Get the contents handler for a folder
       @param folderid The folder to get the contents handler for
@@ -64,6 +80,12 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
     RETURN SELECT id := fromval, obj := toval FROM this->contentshandlercache->GetAllMappings();
   }
 
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
   OBJECT FUNCTION InstantiateHandler(INTEGER rootitemid, STRING contentshandlername)
   {
     __contentlisthandlersetup := CELL[ rootitemid, this->tolliumuser ];
@@ -79,11 +101,27 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
 /** @short Base object type for extending the publisher's file list
 */
 PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
-<
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
   PUBLIC FUNCTION PTR __ongeticon;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public variables
+  //
 
   /// @type(object %TolliumUser) The current Tollium user
   PUBLIC OBJECT tolliumuser;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
 
   /// @private
   MACRO NEW()
@@ -91,6 +129,12 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
     RECORD setup := ValidateOptions([ tolliumuser := DEFAULT OBJECT ], __contentlisthandlersetup, [ passthrough := TRUE ]);
     this->tolliumuser := setup.tolliumuser;
   }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Overridable methods
+  //
 
   /** @short The name of column to order the list on by default
       @return Column name
@@ -169,12 +213,18 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
     RETURN items;
   }
 
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
   /** @short Get an icon value for the given name to be displayed in the file list
       @long This function is only available when adding icons to items in %OnMapItems.
       @param iconname Name of the icon
       @return Icon value for displaying in the file list
   */
-  PUBLIC INTEGER FUNCTION GetListIcon(STRING iconname)
+  INTEGER FUNCTION GetListIcon(STRING iconname)
   {
     IF (this->__ongeticon = DEFAULT FUNCTION PTR)
       RETURN 0;
@@ -186,32 +236,41 @@ PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
 /** @short Base object for extending the Publisher's functionality
 */
 PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
-<
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
   INTEGER __rootid;
   INTEGER __idcounter;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public properties
+  //
 
   /// The id of the root item for the content handler
   PUBLIC PROPERTY rootid(__rootid, -);
 
-  /** @short Initialize the contents handler
-  */
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /// @private
   MACRO NEW()
   {
     RECORD setup := ValidateOptions([ rootitemid := 0 ], __contentlisthandlersetup, [ passthrough := TRUE ]);
     this->__rootid := setup.rootitemid;
   }
 
-  /** @short Get a new id to use for custom objects
-      @return The new id
-  */
-  INTEGER FUNCTION GetNextId()
-  {
-    this->__idcounter := this->__idcounter + 1;
-    INTEGER id := this->rootid - this->__idcounter;
-    IF (id <= this->rootid - __rootitemidspace)
-      THROW NEW Exception("Maximum number of id's used");
-    RETURN id;
-  }
+
+  //----------------------------------------------------------------------------
+  //
+  // Overridable methods
+  //
 
   /** @short Is the root item currently visible?
       @return If the root item should be shown in the folder tree
@@ -312,5 +371,23 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
   PUBLIC RECORD ARRAY FUNCTION GetActions()
   {
     RETURN RECORD[];
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short Get a new id to use for custom objects
+      @return The new id
+  */
+  INTEGER FUNCTION GetNextId()
+  {
+    this->__idcounter := this->__idcounter + 1;
+    INTEGER id := this->rootid - this->__idcounter;
+    IF (id <= this->rootid - __rootitemidspace)
+      THROW NEW Exception("Maximum number of id's used");
+    RETURN id;
   }
 >;

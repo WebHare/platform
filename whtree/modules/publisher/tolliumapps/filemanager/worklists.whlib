@@ -40,6 +40,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsVisible()
   {
+    // GetAllWorkLists returns all accessible work lists
     RETURN RecordExists(this->api->GetAllWorkLists());
   }
 
@@ -98,49 +99,70 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         ];
   }
 
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    // A mask for events emitted when editing work lists
+    RETURN [ "publisher:worklist.*" ];
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
+  {
+    // Flags to control availability of our actions
+    RETURN [ "custom_canmanageusers", "custom_canresolve" ];
+  }
+
   UPDATE PUBLIC INTEGER ARRAY FUNCTION OnGetPath(INTEGER childid)
   {
+    // If the root id is requested, return just that
     IF (childid = this->rootid)
       RETURN INTEGER[ this->rootid ];
 
+    // Check if one of the work list id's was requested
+    //ADDME: This may not return the desired work list though, as list ids (which are requested here) are independent from
+    //       work list ids
     this->SyncWorkLists();
     IF (RecordExists(SELECT FROM this->worklistcache WHERE id = childid))
       RETURN INTEGER[ this->rootid, childid ];
 
+    // Not the root or a known work list (work list items have WHFS ids and will be shown within the publisher root)
     RETURN INTEGER[];
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasChildren(INTEGER parentid, RECORD options)
   {
+    // Only the root can have children
     IF (parentid != this->rootid)
       RETURN FALSE;
 
+    // Return if there are any (accessible) work lists
     this->SyncWorkLists();
     RETURN RecordExists(this->worklistcache);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION OnGetChildren(INTEGER parentid, RECORD options)
   {
+    // Check if the children for a folder tree item are requested (or for the file list)
     IF (options.tree)
     {
+      // Only the root can have children
       IF (parentid != this->rootid)
         RETURN RECORD[];
 
+      // Return the (accessible) work lists
       this->SyncWorkLists();
       RETURN this->worklistcache;
     }
     ELSE
     {
+      // If the parent is the root, return the work lists
       IF (parentid = this->rootid)
         RETURN this->worklistcache;
-      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = parentid;
-      RETURN SELECT id := objectid FROM this->api->GetWorkListItems(listid);
-    }
-  }
 
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
-  {
-    RETURN [ "publisher:worklist.*" ];
+      // Return the selected work list's items
+      RETURN
+          SELECT id := objectid
+            FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
+    }
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentid, RECORD ARRAY items)
@@ -149,9 +171,9 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
     RECORD ARRAY enrichments;
 
-    // These are the work lists themselves
     IF (parentid = this->rootid)
     {
+      // These are the work lists themselves
       enrichments :=
           SELECT id
                , custom_listid
@@ -165,8 +187,8 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
     }
     ELSE
     {
-      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = parentid;
-
+      // These are work list items
+      INTEGER listid := this->GetWorkListId(parentid);
       enrichments :=
           SELECT id := objectid
                , custom_listid := listid
@@ -179,6 +201,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
             FROM this->api->GetWorkListItems(listid);
     }
 
+    // Enrich the incoming items
     RETURN JoinArrays(items, "id", enrichments,
         [ custom_listid := 0
         , custom_itemid := 0
@@ -188,11 +211,6 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         , custom_canmanageusers := FALSE
         , custom_canresolve := FALSE
         ], [ rightouterjoin := TRUE ]);
-  }
-
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
-  {
-    RETURN [ "custom_canmanageusers", "custom_canresolve" ];
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
@@ -225,17 +243,15 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
 
   MACRO AssignWorkListUsers(OBJECT screen, RECORD data)
   {
-    INTEGER worklistid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = data.objectid;
-    screen->RunScreen(Resolve("worklists.xml#worklistusers"), CELL[ worklistid ]);
+    screen->RunScreen(Resolve("worklists.xml#worklistusers"), CELL[ worklistid := this->GetWorkListId(data.objectid) ]);
   }
 
   MACRO ResolveWorklistItem(OBJECT screen, RECORD data)
   {
     IF (screen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmresolveitems", ToString(Length(data.objectids)))) = "yes")
     {
-      INTEGER listid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = data.parentid;
       OBJECT work := screen->BeginWork();
-      this->api->ResolveItems(listid, data.objectids);
+      this->api->ResolveItems(this->GetWorkListId(data.parentid), data.objectids);
       work->Finish();
     }
   }
@@ -246,6 +262,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   // Helper functions
   //
 
+  // The synced work list maintains the object id <-> work list id mapping
   MACRO SyncWorkLists()
   {
     INTEGER ARRAY curids := SELECT AS INTEGER ARRAY custom_listid FROM this->worklistcache;
@@ -273,6 +290,12 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         DELETE FROM curids AT SearchElement(curids, worklist.id);
     }
     DELETE FROM this->worklistcache WHERE custom_listid IN curids;
+  }
+
+  // Get the work list id from an object id
+  INTEGER FUNCTION GetWorkListId(INTEGER objectid)
+  {
+    RETURN SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = objectid;
   }
 >;
 
