@@ -70,7 +70,7 @@ ASYNC MACRO TestResolve()
 
   // Grant testuser 'lisa' resolve right on the work list
   testfw->BeginWork();
-  api_sysop->AddWorkListUser(testworklistid, testfw->GetUserObject("lisa"));
+  api_sysop->AddWorkListUsers(testworklistid, OBJECT[ testfw->GetUserObject("lisa") ]);
   testfw->CommitWork();
 
   // Open the Publisher
@@ -101,6 +101,7 @@ ASYNC MACRO TestResolve()
   TestEq(TRUE, RecordExists(selection));
   TestEq("workfile1", selection.name);
   TestEq(TRUE, selection.custom_resolveddate = DEFAULT DATETIME);
+  topscreen->frame->focused := TT("filelist");
   AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
   selection := TT("filelist")->selection;
   TestEq(FALSE, selection.custom_resolveddate = DEFAULT DATETIME);
@@ -125,8 +126,14 @@ ASYNC MACRO TestEvents()
   selection := TT("filelist")->selection;
   TestEq(TRUE, RecordExists(selection));
   TestEq("Test Work List", selection.name);
-  // A eork list is not resolvable
+  // A work list is not resolvable
+  topscreen->frame->focused := TT("filelist");
   TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
+
+  // Check if 'lisa' is one of the list users
+  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage users", [ menuitem := TRUE ]));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetUserObject("lisa")->authobjectid ));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 
   // Open the Test Work List, check if it's expanded in the folder tree
   TT("filelist")->openaction->TolliumClick();

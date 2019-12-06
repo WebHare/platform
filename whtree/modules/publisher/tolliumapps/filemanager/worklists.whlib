@@ -6,7 +6,9 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
@@ -157,6 +159,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
                , custom_comments := ""
                , custom_resolveddate := DEFAULT DATETIME
                , custom_statusicons := INTEGER[]
+               , custom_canmanageusers := iseditor
                , custom_canresolve := FALSE
             FROM this->worklistcache;
     }
@@ -171,6 +174,7 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
                , custom_comments := comments
                , custom_resolveddate := resolveddate
                , custom_statusicons := INTEGER[ resolveddate != DEFAULT DATETIME ? this->GetListIcon("tollium:status/positive") : this->GetListIcon("tollium:status/new") ]
+               , custom_canmanageusers := FALSE
                , custom_canresolve := resolveddate = DEFAULT DATETIME
             FROM this->api->GetWorkListItems(listid);
     }
@@ -181,19 +185,28 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         , custom_comments := ""
         , custom_resolveddate := DEFAULT DATETIME
         , custom_statusicons := INTEGER[]
+        , custom_canmanageusers := FALSE
         , custom_canresolve := FALSE
         ], [ rightouterjoin := TRUE ]);
   }
 
   UPDATE PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
   {
-    RETURN [ "custom_canresolve" ];
+    RETURN [ "custom_canmanageusers", "custom_canresolve" ];
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
   {
     RETURN
-        [ [ title            := GetTid("publisher:filemanager.worklists.actions.resolveitem")
+        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageusers")
+          , executehandler   := PTR this->AssignWorkListUsers
+          , addtomenu        := "file"
+          , addtocontextmenu := TRUE
+          , allowmultiple    := FALSE
+          , onlyfolders      := TRUE
+          , checkflags       := [ "custom_canmanageusers" ]
+          ]
+        , [ title            := GetTid("publisher:filemanager.worklists.actions.resolveitem")
           , executehandler   := PTR this->ResolveWorklistItem
           , addtomenu        := "file"
           , addtocontextmenu := TRUE
@@ -209,6 +222,12 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
   //
   // Action handlers
   //
+
+  MACRO AssignWorkListUsers(OBJECT screen, RECORD data)
+  {
+    INTEGER worklistid := SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = data.objectid;
+    screen->RunScreen(Resolve("worklists.xml#worklistusers"), CELL[ worklistid ]);
+  }
 
   MACRO ResolveWorklistItem(OBJECT screen, RECORD data)
   {
@@ -242,8 +261,10 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
             , isfolder := TRUE
             , modificationdate := worklist.creationdate
             , creationdate := worklist.creationdate
+            , iseditor := worklist.iseditor
             , canwrite := FALSE
-            , candelete := FALSE
+            , candelete := worklist.iseditor
+            , custom_canresolve := FALSE
             , icon := "tollium:actions/checklist"
             ];
         INSERT item INTO this->worklistcache AT END;
@@ -252,5 +273,82 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         DELETE FROM curids AT SearchElement(curids, worklist.id);
     }
     DELETE FROM this->worklistcache WHERE custom_listid IN curids;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT api;
+  INTEGER worklistid;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->api := NEW WorkListAPI(this->tolliumuser);
+    this->worklistid := data.worklistid;
+    ^users->value :=
+        SELECT id := user->authobjectid
+             , name := user->realname ?? user->login
+             , email := user->emailaddress
+             , obj := user
+          FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  // This function is only called to add users
+  RECORD ARRAY FUNCTION OnEditUser(RECORD _unused_row)
+  {
+    OBJECT dlg := MakeUserRoleSelectionDialog(this);
+    dlg->selectmode := "multiple";
+    dlg->filterontype := 1; // Users only, no roles
+    IF (dlg->RunModal() = "ok")
+    {
+      RETURN
+          SELECT id := user->authobjectid
+               , name := user->realname ?? user->login
+               , email := user->emailaddress
+               , obj := user
+            FROM ToRecordArray(dlg->value, "user");
+    }
+    RETURN RECORD[];
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD ARRAY curusers :=
+        SELECT id := user->authobjectid
+             , obj := user
+          FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+
+    OBJECT ARRAY addusers;
+    FOREVERY (RECORD user FROM ^users->value)
+    {
+      INTEGER idx := (SELECT AS INTEGER #curusers + 1 FROM curusers WHERE id = user.id) - 1;
+      IF (idx < 0)
+        INSERT user.obj INTO addusers AT END;
+      ELSE
+        DELETE FROM curusers AT idx;
+    }
+    this->api->AddWorkListUsers(this->worklistid, addusers);
+    OBJECT ARRAY delusers := SELECT AS OBJECT ARRAY obj FROM curusers;
+    this->api->RemoveWorkListUsers(this->worklistid, delusers);
+
+    RETURN work->Finish();
   }
 >;

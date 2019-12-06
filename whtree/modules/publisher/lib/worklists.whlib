@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 
@@ -21,6 +22,7 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
     RETURN
         SELECT *
+             , iseditor := owner = this->tolliumuser->authobjectid
           FROM publisher.worklists
          WHERE id IN accessible_worklists
                OR owner = this->tolliumuser->authobjectid;
@@ -67,22 +69,35 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     RETURN listid;
   }
 
-  PUBLIC MACRO AddWorkListUser(INTEGER worklistid, OBJECT userobject)
+  PUBLIC MACRO AddWorkListUsers(INTEGER worklistid, OBJECT ARRAY userobjects)
   {
     IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
       THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
-    IF (ObjectExists(userobject))
+    FOREVERY (OBJECT userobject FROM userobjects)
       userobject->GrantRightToOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
   }
 
-  PUBLIC MACRO RemoveWorkListUser(INTEGER worklistid, OBJECT userobject)
+  PUBLIC OBJECT ARRAY FUNCTION GetWorkListUsers(INTEGER worklistid)
   {
     IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
       THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
 
-    IF (ObjectExists(userobject))
+    INTEGER ARRAY authids := GetGrantedAuthObjects("publisher:worklist_resolve", worklistid);
+    RETURN this->tolliumuser->authapi->GetObjectsByAuthObjectId(authids);
+  }
+
+  PUBLIC MACRO RemoveWorkListUsers(INTEGER worklistid, OBJECT ARRAY userobjects)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    FOREVERY (OBJECT userobject FROM userobjects)
       userobject->RevokeRightFromOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
   }
 
   PUBLIC MACRO AddToWorkList(INTEGER worklistid, RECORD ARRAY items, RECORD options DEFAULTSTO DEFAULT RECORD)

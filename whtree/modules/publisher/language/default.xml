@@ -1316,10 +1316,16 @@
       </textgroup>
     </textgroup>
     <textgroup gid="worklists">   <!-- filemanager.worklists -->
+      <text tid="email">Email address</text>
+      <text tid="name">User</text>
+      <text tid="worklistusers">Work list users</text>
+      <text tid="worklistusers-desc">The following users can mark work list items as resolved:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="manageusers">Manage users</text>
         <text tid="resolveitem">Mark as resolved</text>
       </textgroup>
       <textgroup gid="columns">   <!-- filemanager.worklists.columns -->
+        <text tid="custom_comments">Comments</text>
         <text tid="custom_resolveddate">Resolved</text>
         <text tid="custom_statusicons">Status</text>
       </textgroup>

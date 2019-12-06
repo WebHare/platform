@@ -4,4 +4,17 @@
          gid="filemanager.worklists"
          >
 
+  <screen name="worklistusers" width="60x" height="20x">
+    <body>
+      <text title="" valuetid=".worklistusers-desc" wordwrap="true" width="1pr" />
+      <arrayedit name="users" buttons="add delete" onrowedit="onedituser" height="1pr">
+        <column name="name" type="text" />
+        <column name="email" type="email" />
+      </arrayedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
 </screens>
