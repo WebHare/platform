@@ -553,6 +553,16 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN dofilter, INTEGER ARRAY filter
     IF (pos.found)
       CONTINUE;
 
+    /* For global rights, use a self-reference to make sure the column will
+       be nullable. The object value stored is always 0, so no problems with
+       the contents of that field.
+    */
+    IF (t_table = "")
+    {
+      t_schema := retval.name;
+      t_table := st_table;
+    }
+
     RECORD tablerec :=
         [ name := st_table
         , primarykey := "id"

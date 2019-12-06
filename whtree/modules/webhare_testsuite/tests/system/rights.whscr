@@ -278,8 +278,14 @@ MACRO GrantTest()
 
   testfw->Commit();
 
+  TestEq(FALSE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 0));
+
+  // Make sure references to object 0 can commit
   testfw->StartTrans("limited", FALSE);
   limited_user->GrantRightToOn("webhare_testsuite:objectright2", limited2_user, 0, FALSE);
+  testfw->Commit();
+
+  testfw->StartTrans("limited", FALSE);
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 0));
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 1));
   TestEq(TRUE, limited2_user->HasRightOn("webhare_testsuite:objectright2", 2));
