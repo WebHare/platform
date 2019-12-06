@@ -318,7 +318,7 @@ RECORD FUNCTION GetCachableGlobalDragTypes()
 
     IF (ObjectExists(xmldoc))
     {
-      OBJECT ARRAY elts := xmldoc->GetElementsByTagNameNS(xmlns_moduledef, "dragtype")->GetCurrentElements();
+      OBJECT ARRAY elts := xmldoc->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "dragtype")->GetCurrentElements();
 
       FOREVERY (OBJECT elt FROM elts)
       {
