@@ -134,6 +134,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->editableflags := description.editableflags;
     this->deletableflags := description.deletableflags;
     this->sortable := description.sortable;
+    this->showbuttons := description.showbuttons;
 
     this->list->borders := description.borders;
     this->list->columns := description.columns;
