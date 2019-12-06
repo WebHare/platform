@@ -267,6 +267,25 @@ PUBLIC STATIC OBJECTTYPE WorkListAPI
     GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
   }
 
+  /** @short Remove all resolved items from a work list
+      @param worklistid The work list id
+  */
+  PUBLIC MACRO PurgeWorkListItems(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    INTEGER ARRAY objectids :=
+        SELECT AS INTEGER ARRAY id
+          FROM publisher.worklistitems
+         WHERE listid = worklistid
+               AND resolveddate != DEFAULT DATETIME;
+    DELETE FROM publisher.worklistitems
+     WHERE id IN objectids;
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
+  }
+
 
   //----------------------------------------------------------------------------
   //

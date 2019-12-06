@@ -185,6 +185,17 @@ ASYNC MACRO TestEvents()
   TestEq("workfile3", selection.name);
   TestEq(FALSE, selection.custom_resolveddate = "");
 
+  // Remove all resolved items from the work list
+  testfw->BeginWork();
+  api_sysop->PurgeWorkListItems(testworklistid);
+  worklisteventpromise := testfw->AsyncWaitForSpecificEvent("publisher:worklist.*", PTR WaitForWorkList(testworklistid, #1));
+  testfw->CommitWork();
+
+  // There should now be only one item left
+  WaitForPromise(worklisteventpromise);
+  TestEq(1, Length(TT("filelist")->rows));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 
