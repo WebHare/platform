@@ -357,6 +357,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*experimental-anchors*"/>
+    <webdesign library="lib/basetest.whlib" objectname="ExperimentalAnchorsDesign" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*/tmp/tabletest.rtd"/>
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc" />
   </apply>

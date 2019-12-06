@@ -137,7 +137,17 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         this->Print("<" || blocktag);
         this->print(" class=\"" || EncodeAttributeValue(this->GetClassName(blocknode)) || "\">");
 
-        IF(outputobject->document->generateanchors)
+        IF(ObjectExists(outputobject->document->webdesign)
+           AND outputobject->document->webdesign->__anchor_experiment)
+        {
+          IF(outputobject->blockstyle.containertag IN outputobject->document->webdesign->contentnavstops)
+          {
+            STRING content := TrimWhitespace(blocknode->textcontent);
+            IF(content != "")
+              this->Print('<a class="wh-anchor" id="' || EncodeAttributeValue(outputobject->document->webdesign->__Experimental_GenerateAnAnchor(content)) || '"></a>');
+          }
+        }
+        ELSE IF(outputobject->document->generateanchors)
         {
           STRING blockanchor := outputobject->generatedanchor;
           IF(blockanchor != "")
@@ -808,14 +818,19 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
   RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
   {
     STRING tagname := ToLowercase(richobj->blocknode->tagname);
-    RETURN [ tagname :=   tagname
-           , classname := richobj->blocknode->GetAttribute("class")
-           , type :=      tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
-           , rows :=      RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
-           , richobject := richobj
-           , anchor :=    richobj->GetAnchor()
-           , link :=      richobj->GetAnchorLink()
-           ];
+    RECORD outlinerecord := [ tagname :=   tagname
+                            , classname := richobj->blocknode->GetAttribute("class")
+                            , type :=      tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
+                            , rows :=      RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
+                            , richobject := richobj
+                            ];
+    IF(NOT (ObjectExists(this->webdesign) AND this->webdesign->__anchor_experiment))
+    {
+      INSERT CELL anchor :=    richobj->GetAnchor()
+                , link :=      richobj->GetAnchorLink()
+             INTO outlinerecord;
+    }
+    RETURN outlinerecord;
   }
 
   PUBLIC STRING FUNCTION __GetAnchorLink(STRING anchor)

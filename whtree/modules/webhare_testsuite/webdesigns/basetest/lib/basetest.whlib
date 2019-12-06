@@ -153,6 +153,15 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
   }
 >;
 
+PUBLIC OBJECTTYPE ExperimentalAnchorsDesign EXTEND BaseTestDesign
+<
+  MACRO NEW()
+  {
+    this->__anchor_experiment := TRUE;
+  }
+>;
+
+
 PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
 <
   BOOLEAN didprepare;

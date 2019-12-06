@@ -341,6 +341,14 @@ PUBLIC MACRO FillInForm()
   TestEq(RepeatText("x", 8192), GetCell(lastresult, col_textarea));
 }
 
+MACRO TestFormAnchors()
+{
+  RECORD form := BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, filename := "experimental-anchors", publish := TRUE ]);
+  TestEq(TRUE, testfw->browser->GotoWebPage(form.url));
+  OBJECT anchor := testfw->browser->QS("h1 > a");
+  TestEq(TRUE, ObjectExists(anchor));
+}
+
 ASYNC MACRO TestFormApp()
 {
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
@@ -508,6 +516,7 @@ ASYNC MACRO TestCloseForm()
 
 RunTestframework([ PTR BuildForm
                  , PTR FillInForm
+                 , PTR TestFormAnchors
                  , PTR TestFormApp
                  , PTR TestContentLink
                  , PTR TestCloseForm
