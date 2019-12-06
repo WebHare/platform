@@ -450,6 +450,7 @@ PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
     }
     DEFAULT
     {
+      // OpenPrimary() now swallows exceptions, so use ABORT to break through
       ABORT(`Illegal blob resolver type '${config.type}'`);
     }
   }
