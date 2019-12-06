@@ -8,7 +8,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
-LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/hooks.whlib";
@@ -306,50 +305,6 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
     //FIXME set proper folder GetFolderSettings
     OBJECT applytester := folderid > 0 ? GetApplyTesterForObject(folderid) : DEFAULT OBJECT;
     this->__SetFolder(folderid, ObjectExists(applytester) ? applytester->GetFolderSettings() : GetDefaultFolderSettings());
-  }
-
-  RECORD ARRAY FUNCTION GenerateRootItems()
-  {
-    RECORD ARRAY rootitems;
-    INTEGER counter;
-    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->owner->tolliumuser, 'filemgrextensions'))
-      FOREVERY(RECORD addroot FROM ext.addrootitems)
-      {
-        counter := counter + 1;
-        IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
-          CONTINUE;
-
-        INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;
-
-        OBJECT contentshandler := this->GetCustomContentsHandler(id);
-        IF (ObjectExists(contentshandler) AND NOT contentshandler->IsVisible())
-          CONTINUE;
-
-        // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
-        INSERT [ id               := id
-               , contentmode      := addroot.contentmode
-               , name             := GetTid(addroot.title)
-               , isfolder         := TRUE
-               , filterscreen     := addroot.filterscreen
-               , pvt_iconname     := addroot.icon
-               , type             := 0
-               , title            := ""
-               , canwrite         := addroot.contentmode = "webhareroot" ? this->owner->tolliumuser->HasRightOn("system:fs_fullaccess", 0) : FALSE
-               , candelete        := FALSE
-               , creationdate     := DEFAULT DATETIME
-               , modificationdate := DEFAULT DATETIME
-               , modulekey        := addroot.modulekey
-               //, ispinned     := FALSE
-               //, parentsite   := 0
-               //, isversionarchive
-               //, extension := MakeObject(addroot.library, addroot.objectname, -1)
-               ] INTO rootitems AT END;
-      }
-
-    BOOLEAN hidden_too := this->owner->tolliumuser->HasRight("system:supervisor");
-    rootitems := EnrichObjectListing(this->owner->tolliumuser, rootitems, hidden_too, "");
-
-    RETURN rootitems;
   }
 
   RECORD ARRAY FUNCTION GetObjectListing(INTEGER parentfolderid, BOOLEAN showfolders, BOOLEAN showexternal, BOOLEAN showfiles, BOOLEAN hidden_too, STRING contentmode, BOOLEAN specificobjects, INTEGER ARRAY specificobjectids)
