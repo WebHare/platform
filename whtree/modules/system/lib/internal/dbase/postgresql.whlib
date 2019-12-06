@@ -16,10 +16,10 @@ LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 /** Varchars longer than this length are stored with a LEFT(...) expression
     Keep in sync with query generation in hsvm_pgsqlprovider.cpp!
     (rationale: a index record is max about 2100 bytes long.
-    256 chars are max 1024 bytes (utf-8), so room for 2 max length strings
+    264 chars are max 1056 bytes (utf-8), so room for 2 max length strings
     in the index record)
 */
-CONSTANT INTEGER max_varchar_indexcolsize := 256;
+CONSTANT INTEGER max_varchar_indexcolsize := 264;
 
 STATIC OBJECTTYPE ChangeContext
 < /// Transaction
@@ -49,7 +49,11 @@ STATIC OBJECTTYPE ChangeContext
   */
   PUBLIC MACRO AddCommand(STRING cmd)
   {
-    INSERT [ type := "transop", cmd := PTR this->trans->__ExecSQL(cmd) ] INTO this->commands AT END;
+    INSERT CELL
+        [ type :=     "sql"
+        , cmd
+        , execsql :=  PTR this->trans->__ExecSQL(#1)
+        ] INTO this->commands AT END;
   }
 
   /** Add an error
@@ -310,10 +314,12 @@ SELECT n.nspname AS table_schema
      , i.indoption
      , pg_get_expr(i.indexprs, i.indrelid) as indexprs
      , pg_get_expr(i.indpred, i.indrelid) as indpred
+     , a.amname
   FROM pg_catalog.pg_index i
        JOIN pg_catalog.pg_class ic ON indexrelid = ic.oid
        JOIN pg_catalog.pg_class rc ON indrelid = rc.oid
        JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+       JOIN pg_am a ON a.oid = ic.relam
 `);
 
     RECORD ARRAY allrefdcols := trans->__ExecSQL(`
@@ -406,11 +412,6 @@ PUBLIC MACRO ClearAllPostgreSQLSchemaCaches()
   have_indices:= FALSE;
 }
 
-STRING FUNCTION EscapeName(STRING name)
-{
-  RETURN `"${EncodeJava(name)}"`;
-}
-
 PUBLIC RECORD FUNCTION GeneratePostgreSQLIndependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans)
 {
   OBJECT context := NEW ChangeContext(trans);
@@ -491,7 +492,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
           colrec.sequencename := `${table_schema}.webhare_seq_${table_name}_${colrec.name}`;
 
           // Lowercasing the column name because MakeAutoNumber is called with uppercase column names
-          colrec.autonumbersfuncname := `${EscapeName(table_schema)}.${EscapeName(`webhare_autonrs_${table_name}_${ToLowercase(colrec.name)}`)}`;
+          colrec.autonumbersfuncname := `${PostgreSQLEscapeIdentifier(table_schema)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${table_name}_${ToLowercase(colrec.name)}`)}`;
           colrec.defval := `(${colrec.autonumbersfuncname}(1))[1]`;
           validated_defval := TRUE;
         }
@@ -532,15 +533,15 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     SWITCH (colrec.dbtype)
     {
       CASE "serial"
-         , "bigserial"  { defaultvalue := ``; nullcheck := `((${EscapeName(colrec.name)} <> 0))`; } // already has default by type
+         , "bigserial"  { defaultvalue := ``; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; } // already has default by type
       CASE "integer"
          , "int8"
          , "float"
-         , "numeric"    { defaultvalue := `0`; nullcheck := `((${EscapeName(colrec.name)} <> 0))`; }
-      CASE "varchar"    { defaultvalue := `''::text`; nullcheck := `(((${EscapeName(colrec.name)})::text <> ''::text))`; }
-      CASE "boolean"    { defaultvalue := `false`; nullcheck := `((${EscapeName(colrec.name)} <> false))`; }
-      CASE "bytea"      { defaultvalue := `'\\x'::bytea`; nullcheck := `((${EscapeName(colrec.name)} <> '\\x'::bytea))`; }
-      CASE "timestamp"  { defaultvalue := `'-infinity'::timestamp without time zone`; nullcheck := `((${EscapeName(colrec.name)} <> '-infinity'::timestamp without time zone))`; }
+         , "numeric"    { defaultvalue := `0`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; }
+      CASE "varchar"    { defaultvalue := `''::text`; nullcheck := `(((${PostgreSQLEscapeIdentifier(colrec.name)})::text <> ''::text))`; }
+      CASE "boolean"    { defaultvalue := `false`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> false))`; }
+      CASE "bytea"      { defaultvalue := `'\\x'::bytea`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '\\x'::bytea))`; }
+      CASE "timestamp"  { defaultvalue := `'-infinity'::timestamp without time zone`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '-infinity'::timestamp without time zone))`; }
       CASE "webhare_blob" { defaultvalue := ``; }
       DEFAULT   { ABORT(`No default value for type '${colrec.dbtype}'`); }
     }
@@ -610,7 +611,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
 
 STRING FUNCTION GetColumnBaseDef(RECORD colrec)
 {
-  STRING def := `${EscapeName(colrec.name)} ${colrec.dbtype}`;
+  STRING def := `${PostgreSQLEscapeIdentifier(colrec.name)} ${colrec.dbtype}`;
   IF (colrec.dbtype = "varchar")
     def := def || "(" || colrec.maxlength || ")";
   IF (colrec.isunique)
@@ -626,7 +627,7 @@ STRING FUNCTION GetColumnBaseDef(RECORD colrec)
 
 MACRO DropColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD colrec)
 {
-  STRING def := `ALTER TABLE ${EscapeName(tableschema)}.${EscapeName(tablename)} DROP CONSTRAINT ${EscapeName(colrec.foreignkey_constraint_name)}`;
+  STRING def := `ALTER TABLE ${PostgreSQLEscapeIdentifier(tableschema)}.${PostgreSQLEscapeIdentifier(tablename)} DROP CONSTRAINT ${PostgreSQLEscapeIdentifier(colrec.foreignkey_constraint_name)}`;
   context->AddCommand(def);
 }
 
@@ -635,8 +636,8 @@ MACRO SetColumnFkey(OBJECT context, STRING tableschema, STRING tablename, RECORD
   IF(colrec.references_table="")
     RETURN;
 
-  STRING def := `ALTER TABLE ${EscapeName(tableschema)}.${EscapeName(tablename)} ADD FOREIGN KEY (${EscapeName(colrec.name)})`;
-  def := def || ` REFERENCES ${EscapeName(colrec.references_schema)}.${EscapeName(colrec.references_table)}`;
+  STRING def := `ALTER TABLE ${PostgreSQLEscapeIdentifier(tableschema)}.${PostgreSQLEscapeIdentifier(tablename)} ADD FOREIGN KEY (${PostgreSQLEscapeIdentifier(colrec.name)})`;
+  def := def || ` REFERENCES ${PostgreSQLEscapeIdentifier(colrec.references_schema)}.${PostgreSQLEscapeIdentifier(colrec.references_table)}`;
   def := def || ` ON DELETE ${ToUppercase(colrec.ondelete) ?? "NO ACTION"}`;
   def := def || ` ON UPDATE CASCADE`;
   def := def || ` INITIALLY DEFERRED`;
@@ -666,43 +667,59 @@ BOOLEAN FUNCTION AreExpressionsEquivalent(STRING frompostgresql, STRING canonica
   RETURN frompostgresql = "";
 }
 
+STRING FUNCTION GetIndexColumnExpression(RECORD colrec, RECORD ind)
+{
+  STRING expr := PostgreSQLEscapeIdentifier(colrec.name);
+
+  IF (colrec.dbtype = "varchar")
+  {
+
+    BOOLEAN too_long := colrec.maxlength > max_varchar_indexcolsize;
+    STRING ARRAY conversions;
+    IF (too_long AND NOT ind.is_unique)
+      INSERT `"left"($1, ${max_varchar_indexcolsize})` INTO conversions AT END;
+    IF (ind.is_uppercase)
+      INSERT `upper($1)` INTO conversions AT END;
+    IF (too_long AND ind.is_unique)
+      INSERT `digest($1, 'sha256'::text)` INTO conversions AT END;
+
+    // Make sure that the first )::text follows the column name directly!!
+    // The schemadef parser currently depends on it.
+
+    FOREVERY (STRING conv FROM conversions)
+    {
+      IF (expr NOT LIKE "*)")
+        expr := `(${expr})::text`;
+      expr := Substitute(conv, "$1", expr);
+    }
+  }
+
+  RETURN expr;
+}
+
 STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tablerec, RECORD ind, STRING name)
 {
   // Create the new index
   STRING cmd := "CREATE ";
   IF (ind.is_unique)
     cmd := cmd || "UNIQUE ";
-  cmd := cmd || `INDEX ${EscapeName(name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
-  cmd := cmd || "(";
+  cmd := cmd || `INDEX ${PostgreSQLEscapeIdentifier(name)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
 
+  STRING colpart := "(";
   FOREVERY (RECORD col FROM ind.columns)
   {
     IF (#col != 0)
-      cmd := cmd || ", ";
+      colpart := colpart || ", ";
 
     RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
     IF (NOT RecordExists(colrec))
       THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
-    IF (ind.is_uppercase)
-    {
-      IF (colrec.dbtype = "varchar")
-        IF (colrec.maxlength >= max_varchar_indexcolsize)
-          cmd := cmd || `upper(left((${EscapeName(col.name)})::text, ${max_varchar_indexcolsize}))`;
-        ELSE
-          cmd := cmd || `upper((${EscapeName(col.name)})::text)`;
-      ELSE
-        cmd := cmd || EscapeName(col.name);
-    }
-    ELSE
-    {
-      IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
-        cmd := cmd || `left(${EscapeName(col.name)}::text, ${max_varchar_indexcolsize})`;
-      ELSE
-        cmd := cmd || EscapeName(col.name);
-    }
+    colpart := colpart || GetIndexColumnExpression(colrec, ind);
   }
-  cmd := cmd || ")";
+  colpart := colpart || ")";
+
+  cmd := cmd || colpart;
 
   IF (ind.nonullstores)
   {
@@ -716,9 +733,9 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
         THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
       IF (colrec.dbtype = "webhare_blob" OR colrec.references_table != "")
-        cmd := cmd || `(${EscapeName(col.name)} IS NOT NULL)`;
+        cmd := cmd || `(${PostgreSQLEscapeIdentifier(col.name)} IS NOT NULL)`;
       ELSE
-        cmd := cmd || `${EscapeName(col.name)} <> ${colrec.defval}`;
+        cmd := cmd || `${PostgreSQLEscapeIdentifier(col.name)} <> ${colrec.defval}`;
     }
   }
 
@@ -732,7 +749,7 @@ PUBLIC MACRO RebuildColumnAutonumberConfig(OBJECT context, STRING schemaname, ST
     context->AddCommand(`DROP SEQUENCE IF EXISTS ${col.sequencename}`);
 
   // Wrap at max_integer, but not if the column type is int8
-  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${EscapeName(schemaname)}.${EscapeName(tablename)}.${EscapeName(col.name)}`);
+  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
 
   context->AddCommand(`CREATE OR REPLACE FUNCTION ${col.autonumbersfuncname}(count integer) RETURNS ${col.dbtype}[] VOLATILE LANGUAGE plpgsql AS $$
 DECLARE
@@ -742,14 +759,14 @@ BEGIN
   WHILE coalesce(array_length(retval, 1), 0) < count LOOP
     SELECT array_agg(newkey) INTO sel
       FROM (SELECT nextval('${col.sequencename}'::regclass) AS newkey FROM generate_series(1, count - coalesce(array_length(retval, 1), 0))) AS keys
- LEFT JOIN ${EscapeName(schemaname)}.${EscapeName(tablename)} tbl ON tbl.${EscapeName(col.name)} = keys.newkey
-     WHERE tbl.${EscapeName(col.name)} IS NULL;
+ LEFT JOIN ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} tbl ON tbl.${PostgreSQLEscapeIdentifier(col.name)} = keys.newkey
+     WHERE tbl.${PostgreSQLEscapeIdentifier(col.name)} IS NULL;
     retval := retval || sel;
   END LOOP;
   RETURN retval;
 END;$$`);
 
-  context->AddCommand(`ALTER TABLE ${EscapeName(schemaname)}.${EscapeName(tablename)} ALTER COLUMN ${EscapeName(col.name)} SET DEFAULT ${col.defval}`);
+  context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(col.name)} SET DEFAULT ${col.defval}`);
 }
 
 PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schemaspecs, OBJECT trans, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -802,44 +819,44 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
             }
 
             IF(coldef.nullable != curcol.is_nullable)
-              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
+              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
             IF(coldef.isunique != curcol.is_unique)
-              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)}${coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"}`);
+              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"}`);
 
             IF (NOT AreExpressionsEquivalent(curcol.check_expression, coldef.check = "" ? "" : `CHECK ${coldef.check}`))
             {
               IF (curcol.check_expression != "")
-                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
               IF (coldef.check != "")
-                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ADD CHECK ${coldef.check}`);
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ADD CHECK ${coldef.check}`);
             }
 
             IF (NOT AreExpressionsEquivalent(curcol.column_default, coldef.defval))
             {
               PRINT(`Non eq defaults: '${curcol.column_default}' vs '${coldef.defval}'\n`);
               IF (curcol.column_default != "")
-                context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} DROP DEFAULT`);
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} DROP DEFAULT`);
               IF (coldef.defval != "")
               {
                 IF (coldef.autonumbersfuncname != "")
                   RebuildColumnAutonumberConfig(context, schemaspec.name, tablerec.name, coldef);
                 ELSE
-                  context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} SET DEFAULT ${coldef.defval}`);
+                  context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} SET DEFAULT ${coldef.defval}`);
               }
             }
 
             IF(coldef.dbtype = "varchar" AND coldef.maxlength > curcol.character_maximum_length)
-              context->AddCommand(`ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ALTER COLUMN ${EscapeName(coldef.name)} SET DATA TYPE VARCHAR(${coldef.maxlength})`);
+              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} SET DATA TYPE VARCHAR(${coldef.maxlength})`);
           }
           ELSE
           {
             IF(coldef.name = tablerec.primarykey)
             {
-              context->AddError(`Cannot change the primary column of table ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`);
+              context->AddError(`Cannot change the primary column of table ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`);
               CONTINUE;
             }
 
-            STRING cmd := `ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} ADD COLUMN `;
+            STRING cmd := `ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ADD COLUMN `;
             cmd := cmd || GetColumnBaseDef(coldef);
             IF(coldef.references_table != "")
               INSERT INTO fkeys_to_update(schemaname, tablename,colrec) VALUES(schemaspec.name, tablerec.name, coldef) AT END;
@@ -852,7 +869,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                                       WHERE ToUppercase(obsoletecols.name) = ToUppercase(curcols.column_name);
         FOREVERY(RECORD coldef FROM kill_columns)
         {
-          STRING cmd := `ALTER TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)} DROP COLUMN ${EscapeName(coldef.name)}`;
+          STRING cmd := `ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}`;
           context->AddCommand(cmd);
         }
 
@@ -863,21 +880,21 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
           IF (NOT RecordExists(SELECT FROM triggers WHERE triggername = name))
           {
             context->AddCommand(`
-                CREATE TRIGGER ${EscapeName("webhare_" || tablerec.name || "_writeaccess")}
-                BEFORE INSERT OR UPDATE OR DELETE ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}
+                CREATE TRIGGER ${PostgreSQLEscapeIdentifier("webhare_" || tablerec.name || "_writeaccess")}
+                BEFORE INSERT OR UPDATE OR DELETE ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}
                    FOR EACH ROW
-               EXECUTE FUNCTION ${EscapeName(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
+               EXECUTE FUNCTION ${PostgreSQLEscapeIdentifier(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
           }
           DELETE FROM triggers WHERE triggername = name;
         }
 
         FOREVERY (RECORD trigger FROM triggers)
-          context->AddCommand(`DROP TRIGGER ${EscapeName(trigger.triggername)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`);
+          context->AddCommand(`DROP TRIGGER ${PostgreSQLEscapeIdentifier(trigger.triggername)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`);
       }
       ELSE
       {
         //Create a table creation command
-        STRING cmd := `CREATE TABLE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+        STRING cmd := `CREATE TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
         STRING coldefs;
         FOREVERY(RECORD col FROM tablerec.cols)
         {
@@ -901,15 +918,15 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
         FOREVERY(RECORD col FROM tablerec.cols)
           IF (col.dbtype = "INTEGER" AND col.autonumberstart > 0) // autonumberstart must be handled elsewhere
-            context->AddCommand(`ALTER SEQUENCE ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name || "_" || col.name || "_seq")} START WITH ${col.autonumberstart} RESTART`);
+            context->AddCommand(`ALTER SEQUENCE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name || "_" || col.name || "_seq")} START WITH ${col.autonumberstart} RESTART`);
 
         IF (tablerec.legacy_writeaccessmgr != "")
         {
           context->AddCommand(`
-              CREATE TRIGGER ${EscapeName("webhare_" || tablerec.name || "_writeaccess")}
-              BEFORE INSERT OR UPDATE OR DELETE ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}
+              CREATE TRIGGER ${PostgreSQLEscapeIdentifier("webhare_" || tablerec.name || "_writeaccess")}
+              BEFORE INSERT OR UPDATE OR DELETE ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}
                  FOR EACH ROW
-             EXECUTE FUNCTION ${EscapeName(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
+             EXECUTE FUNCTION ${PostgreSQLEscapeIdentifier(`webhare_trigger_${schemaspec.name}_${tablerec.name}_writeaccess`)}()`);
         }
       }
 
@@ -963,27 +980,26 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
               is_identical := FALSE;
             ELSE
             {
+              STRING method := "btree";
               FOREVERY (RECORD col FROM ind.columns)
               {
                 STRING expr := old_index.cols[#col].indexpr ?? old_index.cols[#col].attname;
 
                 RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
                 IF (NOT RecordExists(colrec))
-                  THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+                  THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
 
-                STRING expect := `${EscapeName(col.name)}`;
-                IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
-                  expect := `"left"((${expect})::text, ${max_varchar_indexcolsize})`;
-                IF (colrec.dbtype = "varchar" AND ind.is_uppercase)
-                  expect := `upper(${expect LIKE "*::text*"?expect:`(${expect})::text`})`;
+                STRING expect := GetIndexColumnExpression(colrec, ind);
 
                 IF (NOT AreExpressionsEquivalent(expr, expect))
+                  is_identical := FALSE;
+                IF (old_index.amname != method)
                   is_identical := FALSE;
               }
             }
             IF (NOT is_identical)
             {
-              STRING cmd := `DROP INDEX ${EscapeName(schemaspec.name)}.${EscapeName(name)}`;
+              STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(name)}`;
               context->AddCommand(cmd);
             }
             ELSE
@@ -1003,7 +1019,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                                       WHERE ToUppercase(obsoleteindices.name) = ToUppercase(current_indices.index_name);
         FOREVERY(RECORD indexdef FROM kill_indices)
         {
-          STRING cmd := `DROP INDEX ${EscapeName(indexdef.name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(indexdef.name)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
           context->AddCommand(cmd);
         }
       }
@@ -1027,7 +1043,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                               GROUP BY index_name;
         FOREVERY(RECORD ind FROM referindices)
         {
-          STRING cmd := `DROP INDEX ${EscapeName(ind.index_name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(ind.index_name)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
           context->AddCommand(cmd);
         }
       }
@@ -1157,7 +1173,10 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
               {
                 STRING sequencename := match[1].value;
                 IF (sequencename = "")
-                  sequencename := `'${Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_")}'::regclass`;
+                {
+                  // Assume that column_default is escaped so that regclass cast can parse it when encoded as string literal
+                  sequencename := `${PostgresqlEscapeLiteral(Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_"))}::regclass`;
+                }
 
                 RECORD seq := trans->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
                 autonumberstart := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
@@ -1228,10 +1247,19 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
         {
           STRING expr := ParsePostgreSQLExpressionList(ind.indexprs)[exprpos];
           exprpos := exprpos + 1;
-          IF (expr NOT LIKE `upper((*)::text)` AND expr NOT LIKE `upper("left"((*)::text, *))` AND expr NOT LIKE `"left"((*)::text, *)`)
+
+          // Assumed that the first )::text is after the column name, see GetIndexColumnExpression
+          IF (expr NOT LIKE `*(*)::text*`)
             THROW NEW Exception(`Could not parse index expression '${expr}'`);
-          INSERT [ name := SubString(expr, 7, LENGTH(expr) - 15), len := 0 ] INTO indexdef.cols AT END;
-          indexdef.is_uppercase := expr LIKE "upper(*)";
+
+          INTEGER postfixpos := SearchSubString(expr, ")::text");
+          INTEGER namestart := SearchLastSubString(expr, "(", postfixpos) + 1;
+          STRING name := SubString(expr, namestart, postfixpos - namestart);
+          IF (name LIKE `"*"`)
+            name := Substring(name, 1, LENGTH(name) - 1);
+
+          INSERT CELL[ name, len := 0 ] INTO indexdef.cols AT END;
+          indexdef.is_uppercase := expr LIKE "upper(*)" OR expr LIKE "*(upper(*)";
         }
       }
 
@@ -1243,138 +1271,3 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
 
   RETURN schemadef;
 }
-
-/** Calculate the path of a blob parent folder
-    @param blobroot Root of the blob folder
-    @param blobid Id of the blob
-    @return Path to the blob storage location
-*/
-PUBLIC STRING FUNCTION GetBlobDir(STRING blobroot, INTEGER blobid)
-{
-  INTEGER mainfolder := blobid BITRSHIFT 24;
-  INTEGER subfolder := (blobid BITRSHIFT 12) BITAND 4095;
-
-  RETURN `${blobroot}/${mainfolder = 0 ? "blob" : `blob-${mainfolder}`}/${subfolder}/`;
-}
-
-/** Creates a new writable blob file in a blob root
-    @return
-    @cell return.fileid File handle of the newly created blob file. Write the blob contents to this handle.
-    @cell return.blobid Id of the blob
-    @cell return.trypath Path of the blob file
-*/
-PUBLIC RECORD FUNCTION AllocateBlobFile(STRING blobroot)
-{
-  /* Lock within this process, nothing to win by running concurrently
-     This will block the job thread when invoked from C++ code (which is
-     usually the case, called by the postgresql driver)
-  */
-  OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:blobfileallocation");
-
-  RECORD cached := LookupAdhocCached(CELL[ "nextblobidstate", blobroot ]);
-  RECORD state := RecordExists(cached) ? cached.value :
-      [ nextid :=     1
-      , freerange :=  0
-      ];
-
-  TRY
-  {
-    WHILE (TRUE)
-    {
-      INTEGER tryid;
-
-      // Shortcut!
-      IF (state.freerange > 0)
-      {
-        state.freerange := state.freerange - 1;
-        state.nextid := state.nextid + 1;
-        tryid := state.nextid - 1;
-      }
-      ELSE
-      {
-        // Go scan blob directories
-        WHILE (TRUE)
-        {
-          STRING blobdir := GetBlobDir(blobroot, state.nextid);
-          INTEGER ARRAY files :=
-              SELECT AS INTEGER ARRAY TEMPORARY id := ToInteger(name, 0)
-                   , id
-                FROM ReadDiskDirectory(blobdir, "*")
-               WHERE ToInteger(name, -1) >= state.nextid
-            ORDER BY id;
-
-          RECORD pos := LowerBound(files, state.nextid);
-          IF (NOT pos.found OR LENGTH(files) - pos.position != 4096 - (state.nextid BITAND 4095))
-          {
-            // There is a gap in the list of files! Find it, use the first element and save the rest
-            RECORD gaprange := __FindFirstGapInSet(files, state.nextid, (state.nextid BITOR 4095) + 1);
-
-            state :=
-                [ nextid :=     gaprange.rangestart + 1
-                , freerange :=  gaprange.rangelimit - gaprange.rangestart - 1
-                ];
-
-            tryid := gaprange.rangestart;
-            BREAK;
-          }
-          ELSE
-          {
-            // Advance to next directory
-            state.nextid := (state.nextid BITOR 4095) + 1;
-          }
-        }
-      }
-
-
-      STRING blobdir := GetBlobDir(blobroot, tryid);
-      IF ((tryid BITAND 4095) = 0 OR tryid = 1) // check if the directory actually exists
-      {
-        IF (NOT CreateDiskDirectoryRecursive(blobdir, TRUE))
-        {
-          RECORD props := GetDiskFileProperties(blobdir);
-          IF (NOT RecordExists(props) OR props.type != 1)
-            ABORT(`Could not create/open blob directory ${blobdir}\n`);
-        }
-      }
-
-      // Open file with create-only, so only 1 of concurrent creates will succeed
-      STRING trypath := MergePath(blobdir, ToString(tryid));
-      INTEGER fileid := CreateDiskFile(trypath, TRUE, TRUE);
-      IF (fileid != 0)
-        RETURN CELL[ fileid, blobid := tryid, trypath ];
-
-      // This id didn't work. Current state is already setup to try the next one, so try again.
-    }
-  }
-  FINALLY
-  {
-    StoreAdhocCached(CELL[ "nextblobidstate", blobroot ], [ ttl := 60 * 60 * 1000, value := state, eventmasks := [ "system:blobstore.idstate" ] ]);
-    lock->Close();
-  }
-}
-
-MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
-
-/** Places a new blob into blob storage, annotates the blob with the location
-    @param transaction PostgreSQL transaction
-    @param blobfolder Blob folder
-    @param data Blob to store
-    @private This function is only called by C++ code, should not be used by user code
-*/
-PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, STRING blobfolder, BLOB data)
-{
-  RECORD allocres := AllocateBlobFile(blobfolder);
-  SendBlobTo(allocres.fileid, data);
-  CloseBlobFile(allocres.fileid);
-
-  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, ToString(allocres.blobid));
-}
-
-/** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
-*/
-PUBLIC BLOB FUNCTION __LookupWebharePostgreSQLBlob(INTEGER transaction, STRING blobfolder, STRING blobid, INTEGER64 bloblength)
-{
-  // For now, no alternative lookup has been defined
-  THROW NEW Exception(`Could not locate blob '${EncodeValue(blobid)}' with length ${bloblength} in the PostgreSQL blob folder`);
-}
-

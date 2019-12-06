@@ -19,6 +19,7 @@ LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseReadonly;
 LOADLIB "wh::internal/transservices.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib";
 
@@ -29,7 +30,7 @@ OBJECT bareservicecontext;
 */
 PUBLIC SCHEMA
   < TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , INTEGER "parent" NULL := 0
     , DATETIME "creationdate"
@@ -39,7 +40,7 @@ PUBLIC SCHEMA
     ; KEY id
     > authobjects
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "role" NULL := 0
     , INTEGER "grantee" NULL := 0
     , INTEGER "grantor" NULL := 0
@@ -49,7 +50,7 @@ PUBLIC SCHEMA
     ; KEY id
     > rolegrants
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "mimetype"
     , STRING "extension"
     , INTEGER "parsetype"
@@ -57,7 +58,7 @@ PUBLIC SCHEMA
     ; KEY id
     > mimetypes
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "ip"
     , INTEGER "port"
     , BOOLEAN "virtualhost"
@@ -66,7 +67,7 @@ PUBLIC SCHEMA
     ; KEY id
     > ports
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "url"
     , STRING "password"
     , STRING "description"
@@ -80,7 +81,7 @@ PUBLIC SCHEMA
     ; KEY id
     > proxies
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "type"
     , STRING "diskfolder"
     , STRING "baseurl"
@@ -95,7 +96,7 @@ PUBLIC SCHEMA
     ; KEY id
     > webservers
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "webserver" NULL := 0
     , STRING "path"
     , STRING "description"
@@ -121,7 +122,7 @@ PUBLIC SCHEMA
     , BOOLEAN "is_allow"
     > access_ips
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "webserver" NULL := 0
     , STRING "hostname"
     , BOOLEAN "explicit"
@@ -137,7 +138,7 @@ PUBLIC SCHEMA
     , STRING "description"
     > access_externalusers
   , TABLE
-    < INTEGER 'id'
+    < INTEGER 'id' NULL := 0
     , DATETIME creationdate
     , DATETIME nextattempt
     , DATETIME finished
@@ -155,14 +156,14 @@ PUBLIC SCHEMA
     ; KEY id
     > managedtasks
   , TABLE
-    < INTEGER id
+    < INTEGER id NULL := 0
     , INTEGER task NULL := 0
     , STRING metakey
     , STRING metavalue
     ; KEY id
     > managedtasksmeta
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "tag"
     , STRING "mask"
     , STRING "sendermask"
@@ -177,7 +178,7 @@ PUBLIC SCHEMA
     ; KEY id
     > mailqueue_route
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "foldername"
     , STRING "diskfolder"
     , BOOLEAN "forcelowercase"
@@ -185,7 +186,7 @@ PUBLIC SCHEMA
     > webdav_datafolders
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "namehash" __ATTRIBUTES__(BINARY)
     , STRING "nodehash" __ATTRIBUTES__(BINARY)
@@ -196,14 +197,14 @@ PUBLIC SCHEMA
     > flatregistry
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , DATETIME "modificationdate"
     ; KEY id
     > modules
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "tablename"
     , STRING "storagetable"
@@ -216,7 +217,7 @@ PUBLIC SCHEMA
     > module_objecttypes
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , INTEGER "objtype" NULL := 0
     , INTEGER "module" NULL := 0
@@ -224,7 +225,7 @@ PUBLIC SCHEMA
     > module_rights
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "right" NULL := 0
     , INTEGER "impliedby" NULL := 0
     , STRING "fieldname"
@@ -269,7 +270,7 @@ PUBLIC SCHEMA
     , STRING "title"
     , STRING "url" __ATTRIBUTES__(READONLY)
     , STRING "url" AS "objecturl" __ATTRIBUTES__(READONLY)
-    , INTEGER "id"
+    , INTEGER "id" NULL := 0
     , BOOLEAN "isactive" __ATTRIBUTES__(READONLY)
     , BOOLEAN "ispinned"
     , STRING "scandata"
@@ -292,7 +293,7 @@ PUBLIC SCHEMA
     > sites
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "namespace"
     , BOOLEAN "isfoldertype"
     , BOOLEAN "isfiletype"
@@ -312,7 +313,7 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_types
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , INTEGER "fs_type" NULL := 0
     , INTEGER "type"
@@ -322,7 +323,7 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_members
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "fs_instance" NULL := 0
     , INTEGER "fs_member" NULL := 0
     , STRING "setting"
@@ -334,13 +335,13 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_settings
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "fs_type" NULL := 0
     , INTEGER "fs_object" NULL := 0
     ; KEY id
     > fs_instances
   , TABLE
-    < INTEGER id
+    < INTEGER id NULL := 0
     , INTEGER fs_object NULL := 0
     , INTEGER user NULL := 0
     , INTEGER type
@@ -350,7 +351,7 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_history
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "fs_site" NULL := 0
     , DATETIME "when"
     , INTEGER "live_object" NULL := 0
@@ -374,7 +375,7 @@ PUBLIC SCHEMA
     ; KEY id
     > fs_versionevents
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "module" NULL := 0
     , STRING "name"
     , STRING "descriptiontid"
@@ -383,7 +384,7 @@ PUBLIC SCHEMA
     > towl_notifications
 
   , TABLE
-    < INTEGER id
+    < INTEGER id NULL := 0
     , INTEGER owner NULL := 0
     , STRING pathhash __ATTRIBUTES__(BINARY)
     , STRING path
@@ -394,7 +395,7 @@ PUBLIC SCHEMA
     > webdav_diversions
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "webserver" NULL := 0
     , DATETIME "time"
     , INTEGER "hits"
@@ -409,7 +410,7 @@ PUBLIC SCHEMA
     > "webservers_usage"
 
   , TABLE
-    < INTEGER 'id'
+    < INTEGER 'id' NULL := 0
     , DATETIME 'created'
     , DATETIME 'lastuse'
     , STRING 'designfolder'
@@ -420,7 +421,7 @@ PUBLIC SCHEMA
     > assetpacks
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "hash"
     , STRING "func"
     , STRING "state"
@@ -589,6 +590,8 @@ PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRE
     }
     CASE "postgresql"
     {
+      IF (NOT CellExists(data, "BLOBHANDLER"))
+        INSERT CELL blobhandler := GetDefaultPostgreSQLBlobHandler() INTO data;
       transobject := __StartWHPostgreSQLTransaction(data);
     }
     DEFAULT

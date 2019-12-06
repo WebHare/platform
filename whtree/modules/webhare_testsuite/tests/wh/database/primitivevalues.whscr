@@ -142,6 +142,35 @@ MACRO TestPrimitiveValues()
       // ADDME: test dynquery!
     }
   }
+
+  trans->BeginWork();
+
+  DELETE FROM testtable;
+
+  INTEGER test_schema_oid := SELECT AS INTEGER oid FROM postgresql_pg_catalog.pg_namespace WHERE nspname = "webhare_testsuite_testschema";
+
+  // Test encoding by PostgreSQLEscapeLiteral and PostgreSQLEscapeIdentifier
+  STRING unicode_stuff;
+  FOR (INTEGER i := 1; i < 512; i := i + 1)
+  {
+    unicode_stuff := UCToString(i);
+
+    GetPrimary()->__ExecSQL(`INSERT INTO webhare_testsuite_testschema.primitives(id, normalvarchar) VALUES ($1, ${PostgreSQLEscapeLiteral(unicode_stuff)})`, [ args := VARIANT[ i ]]);
+    TestEQ(unicode_stuff, SELECT AS STRING normalvarchar FROM testtable WHERE id = i);
+
+    STRING funcname := "encoding_test_" || unicode_stuff;
+    GetPrimary()->__ExecSQL(`CREATE FUNCTION webhare_testsuite_testschema.${PostgreSQLEscapeIdentifier(funcname)}() RETURNS text STRICT IMMUTABLE LANGUAGE plpgsql AS $$ BEGIN RETURN 'retval'; END; $$`);
+    TestEQ(funcname, SELECT AS STRING proname FROM postgresql_pg_catalog.pg_proc WHERE proname LIKE 'encoding_test_*' AND pronamespace = test_schema_oid);
+    GetPrimary()->__ExecSQL(`DROP FUNCTION webhare_testsuite_testschema.${PostgreSQLEscapeIdentifier(funcname)}()`);
+  }
+
+  // Test invalid UTF-8 encoding
+  TestEQ(` E'\\xC0'`, PostgreSQLEscapeLiteral('\xC0'));
+  TestEQ(` E'\\xC0a'`, PostgreSQLEscapeLiteral('\xC0a'));
+  TestEQ(`U&"\xC0"`, PostgreSQLEscapeIdentifier('\xC0'));
+  TestEQ(`U&"\xC0a"`, PostgreSQLEscapeIdentifier('\xC0a'));
+
+  trans->RollbackWork();
 }
 
 

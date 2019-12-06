@@ -4,9 +4,11 @@
 
 LOADLIB "mod::system/lib/database.whlib";
 
+/** @schemadef wrd
+*/
 PUBLIC SCHEMA
   < TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "title"
     , STRING "description"
@@ -23,16 +25,16 @@ PUBLIC SCHEMA
     ; KEY id
     > schemas
   , TABLE
-    < INTEGER "id"
-    , INTEGER "wrd_schema"
+    < INTEGER "id" NULL := 0
+    , INTEGER "wrd_schema" NULL := 0
     , STRING "name"
     , STRING "data"
     , BLOB "blobdata"
     ; KEY id
     > keyvaluestore
   , TABLE
-    < INTEGER "id"
-    , INTEGER "wrd_schema"
+    < INTEGER "id" NULL := 0
+    , INTEGER "wrd_schema" NULL := 0
     , STRING "title"
     , STRING "tag"
     , STRING "description"
@@ -47,10 +49,10 @@ PUBLIC SCHEMA
     ; KEY id
     > types
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "domain" NULL := 0
     , INTEGER "attributetype"
-    , INTEGER "type"
+    , INTEGER "type" NULL := 0
     , STRING "title"
     , STRING "tag"
     , STRING "description"
@@ -64,13 +66,13 @@ PUBLIC SCHEMA
     ; KEY id
     > attrs
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "guid" __ATTRIBUTES__(BINARY)
     , STRING "tag"
     , DATETIME "creationdate"
     , DATETIME "modificationdate"
     , DATETIME "limitdate"
-    , INTEGER "type"
+    , INTEGER "type" NULL := 0
     , INTEGER "leftentity" NULL := 0
     , INTEGER "rightentity" NULL := 0
     , STRING "title"
@@ -88,9 +90,9 @@ PUBLIC SCHEMA
     ; KEY id
     > entities
   , TABLE
-    < INTEGER "id"
-    , INTEGER "entity"
-    , INTEGER "attribute"
+    < INTEGER "id" NULL := 0
+    , INTEGER "entity" NULL := 0
+    , INTEGER "attribute" NULL := 0
     , INTEGER "setting" NULL := 0
     , STRING "rawdata"
     , STRING "unique_rawdata"
@@ -108,7 +110,7 @@ PUBLIC SCHEMA
     > entity_settings_whfslink
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "tag"
     , BLOB "query"
     , INTEGER "wrd_schema" NULL := 0
@@ -116,7 +118,7 @@ PUBLIC SCHEMA
     > storedqueries
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "creationdate"
     , DATETIME "nextcheck"
     , STRING "uuid"
@@ -129,7 +131,7 @@ PUBLIC SCHEMA
     > pendingpayments
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "creationdate"
     , INTEGER "wrdschema" NULL := 0
     , INTEGER "entity" NULL := 0
@@ -142,7 +144,7 @@ PUBLIC SCHEMA
     > auditevents
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "creationdate"
     , INTEGER "wrdschema" NULL := 0
     , INTEGER "entity" NULL := 0
@@ -151,7 +153,7 @@ PUBLIC SCHEMA
     > changesets
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "changeset" NULL := 0
     , DATETIME "creationdate"
     , INTEGER "type" NULL := 0
@@ -167,7 +169,7 @@ PUBLIC SCHEMA
     > changes
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "change" NULL := 0
     , INTEGER "seqnr"
     , BLOB "data"

@@ -868,6 +868,8 @@ STATIC OBJECTTYPE PromiseListBookkeeping
 */
 PUBLIC OBJECT FUNCTION CreatePromiseAll(OBJECT ARRAY promises)
 {
+  IF (IsDefaultValue(promises))
+    RETURN CreateResolvedPromise(VARIANT[]);
   RETURN NEW PromiseListBookkeeping(promises, TRUE, FALSE)->promise;
 }
 

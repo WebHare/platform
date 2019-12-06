@@ -115,6 +115,24 @@ void AstCodePrinter::OutputASTCode(AST::Module *module, Blex::Stream &output, Ty
         stream.reset(NULL);
 }
 
+void AstCodePrinter::PrintIndented(AST::Node *node)
+{
+        if (dynamic_cast< Block * >(node))
+        {
+                for (unsigned i = 0; i != indent; ++i)
+                    stream->WriteString("  ");
+                Visit(node);
+        }
+        else
+        {
+                ++indent;
+                for (unsigned i = 0; i != indent; ++i)
+                    stream->WriteString("  ");
+                Visit(node);
+                --indent;
+        }
+}
+
 void AstCodePrinter::V_ArrayDelete(ArrayDelete *arraydelete, Empty)
 {
         NODENAMEPRINT("ArrayDelete");
@@ -223,21 +241,15 @@ void AstCodePrinter::V_ConditionalStatement(ConditionalStatement *obj, Empty)
         stream->WriteString("IF (");
         Visit(obj->condition);
         stream->WriteString(")\n");
-        ++indent;
-        for (unsigned i = 0; i != indent; ++i)
-          stream->WriteString("  ");
-        Visit(obj->stat_true);
+        PrintIndented(obj->stat_true);
         if (obj->stat_false)
         {
                 stream->WriteString("\n");
-                for (unsigned i = 1; i != indent; ++i)
-                  stream->WriteString("  ");
-                stream->WriteString("ELSE\n");
                 for (unsigned i = 0; i != indent; ++i)
                   stream->WriteString("  ");
-                Visit(obj->stat_false);
+                stream->WriteString("ELSE\n");
+                PrintIndented(obj->stat_false);
         }
-        --indent;
 }
 void AstCodePrinter::V_Constant(Constant *constant, Empty)
 {
@@ -748,44 +760,24 @@ void AstCodePrinter::V_TryCatchStatement(TryCatchStatement *trycatchstatement, E
 {
         NODENAMEPRINT("TryCatchStatement");
         stream->WriteString("TRY\n");
-        for (unsigned i = 0; i != indent; ++i)
-          stream->WriteString("  ");
-//        stream->WriteString("{\n");
-//        ++indent;
-        Visit(trycatchstatement->tryblock);
-//        --indent;
-//        for (unsigned i = 0; i != indent; ++i)
-//          stream->WriteString("  ");
-//        stream->WriteString("}\n");
+        PrintIndented(trycatchstatement->tryblock);
         stream->WriteString("\n");
         for (unsigned i = 0; i != indent; ++i)
           stream->WriteString("  ");
         stream->WriteString("CATCH\n");
-        for (unsigned i = 0; i != indent; ++i)
-          stream->WriteString("  ");
-//        stream->WriteString("{\n");
-//        ++indent;
-        Visit(trycatchstatement->catchblock);
-//        --indent;
-//        for (unsigned i = 0; i != indent; ++i)
-//          stream->WriteString("  ");
-//        stream->WriteString("}");
+        PrintIndented(trycatchstatement->catchblock);
 }
 
 void AstCodePrinter::V_TryFinallyStatement(TryFinallyStatement *tryfinallystatement, Empty)
 {
         NODENAMEPRINT("TryFinallyStatement");
         stream->WriteString("TRY\n");
-        for (unsigned i = 0; i != indent; ++i)
-          stream->WriteString("  ");
-        Visit(tryfinallystatement->tryblock);
+        PrintIndented(tryfinallystatement->tryblock);
         stream->WriteString("\n");
         for (unsigned i = 0; i != indent; ++i)
           stream->WriteString("  ");
         stream->WriteString("FINALLY\n");
-        for (unsigned i = 0; i != indent; ++i)
-          stream->WriteString("  ");
-        Visit(tryfinallystatement->finallyblock);
+        PrintIndented(tryfinallystatement->finallyblock);
 }
 
 void AstCodePrinter::V_TypeInfo(TypeInfo *typeinfo, Empty)

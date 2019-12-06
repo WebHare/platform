@@ -1,19 +1,24 @@
 ﻿<?wh
 
+LOADLIB "wh::async.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
@@ -34,6 +39,24 @@ SCHEMA
   , STRING newdata
   > postgresql_migration_issues
 > webhare_internal;
+
+PUBLIC RECORD ARRAY FUNCTION UpdateMultipleBlobs(RECORD blobconfig, RECORD ARRAY blobs)
+{
+  OBJECT blobresolver := GetBlobResolverByConfig(blobconfig);
+  OBJECT blobhandler := NEW WHPostgreSQLBlobHandler(blobresolver);
+
+  FOREVERY (RECORD rec FROM blobs)
+  {
+    STRING postgresqlid := blobhandler->ImportHardlinkableFile(rec.whdb_file);
+    INSERT CELL postgresqlid := postgresqlid INTO blobs[#rec];
+  }
+
+  RETURN blobs;
+}
+
+IF (IsWithinFunctionRunningJob())
+  RETURN;
+
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "dryrun", type := "switch" ]
@@ -61,9 +84,24 @@ ASYNC MACRO HandleProcess(OBJECT itr)
   }
 }
 
-STRING dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "dbase");
-STRING postgresql_migrate_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql-migration");
-STRING postgresql_final_dbasefolder := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql");
+/** Calculate the path of a whdb blob parent folder
+    @param blobroot Root of the blob folder
+    @param blobid Id of the blob
+    @return Path to the blob storage location
+*/
+PUBLIC STRING FUNCTION GetWHDBBlobDir(STRING blobroot, INTEGER blobid)
+{
+  INTEGER mainfolder := blobid BITRSHIFT 24;
+  INTEGER subfolder := (blobid BITRSHIFT 12) BITAND 4095;
+
+  RETURN `${blobroot}/${mainfolder = 0 ? "blob" : `blob-${mainfolder}`}/${subfolder}/`;
+}
+
+
+STRING basedataroot := GetWebHareConfiguration().basedataroot;
+STRING dbasefolder := MergePath(basedataroot, "dbase");
+STRING postgresql_migrate_dbasefolder := MergePath(basedataroot, "postgresql-migration");
+STRING postgresql_final_dbasefolder := MergePath(basedataroot, "postgresql");
 
 IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
   TerminateScriptWithError(`Current database is already set to 'postgresql'`);
@@ -106,6 +144,22 @@ trans->BeginWork();
 DELETE FROM system.flatregistry WHERE name LIKE "webhare_testsuite.storeddata.*";
 trans->CommitWork();
 
+// Get a blob handler that uses the migration folder for local disk storage
+BLOB blobconfigdatablob := GetDiskResource(MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "etc/blobstorage.config.json"), [ allowmissing := TRUE ]);
+RECORD blobconfig;
+IF (LENGTH(blobconfigdatablob) != 0)
+  blobconfig := DecodeJSONBlob(blobconfigdatablob);
+blobconfig := blobconfig ?? [ type := "local-disk" ];
+IF (blobconfig.type = "local-disk")
+{
+  IF (NOT CellExists(blobconfig, "blobfolder"))
+    INSERT CELL blobfolder := postgresql_migrate_dbasefolder INTO blobconfig;
+  ELSE
+    blobconfig.blobfolder := Substitute(blobconfig.blobfolder, postgresql_final_dbasefolder, postgresql_migrate_dbasefolder);
+}
+
+OBJECT blobresolver := GetBlobResolverByConfig(blobconfig);
+OBJECT blobhandler := NEW WHPostgreSQLBlobHandler(blobresolver);
 
 INTEGER loop;
 FOR (loop := 0; loop < 180; loop := loop + 1)
@@ -115,6 +169,7 @@ FOR (loop := 0; loop < 180; loop := loop + 1)
     postgresql_trans := __StartWHPostgreSQLTransaction(CELL
       [ dbasefolder :=        postgresql_migrate_dbasefolder
       , webhare_dbasename :=  "webhare"
+      , blobhandler
       ]);
     IF (ObjectExists(postgresql_trans))
       BREAK;
@@ -227,7 +282,8 @@ PRINT(`Starting record import\n`);
 
 WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
 
-INTEGER64 lastprogress;
+INTEGER64 lastprogress, curdatatransferred, lastdatatransferred;
+INTEGER64 lastblobsize;
 STRING lastprinted;
 DATETIME lastset;
 MACRO AddProgress(INTEGER64 nr)
@@ -237,31 +293,75 @@ MACRO AddProgress(INTEGER64 nr)
   IF (nr >= 0)
     lastprogress := prevlastprogress + nr;
   ELSE
+  {
     lastprogress := -1;
+    lastdatatransferred := 0;
+    curdatatransferred := 0;
+  }
   STRING newnr := lastprogress >= 0 ? ToString(lastprogress) : "";
   DATETIME now := GetCurrentDateTime();
   IF (lastprogress >= 0 AND nr != 0)
   {
     INTEGER msecs := GetDateTimeDifference(lastset, now).msecs;
     IF (msecs > 0)
-      newnr := newnr || ` ${1000 * nr / msecs}/s`;
+      newnr := newnr || ` ${1000 * nr / msecs}/s ${(curdatatransferred - lastdatatransferred) / 1000 /msecs}mb/s`;
   }
   PRINT(newnr);
   INTEGER overlen := LENGTH(lastprinted) - LENGTH(newnr);
   IF (overlen > 0)
     PRINT(RepeatText(" ", overlen) || RepeatText("\x08", overlen));
   lastprinted := newnr;
+  lastdatatransferred := curdatatransferred;
   lastset := now;
 }
+
 
 BOOLEAN got_invalid_records;
 
 STRING ARRAY createdblobfolders;
-INTEGER ARRAY createdids;
+RECORD ARRAY importedblobs;
+
+ASYNC MACRO UploadAndAddNewBlobs(RECORD ARRAY new_blobs)
+{
+  INTEGER64 totalsize := SELECT AS INTEGER64 SUM(size) FROM new_blobs;
+  DATETIME start := GetCurrentDateTime();
+
+  // For local-disk, don't got async and running jobs
+  RECORD ARRAY data := blobconfig.type = "local-disk"
+      ? UpdateMultipleBlobs(blobconfig, new_blobs)
+      : AWAIT AsyncCallFunctionFromJob(Resolve("#UpdateMultipleBlobs"), blobconfig, SELECT whdb_file FROM new_blobs);
+
+  curdatatransferred := curdatatransferred + totalsize;
+
+  RECORD ARRAY local_importedblobs := importedblobs;
+  importedblobs := RECORD[];
+
+  FOREVERY (RECORD rec FROM new_blobs)
+  {
+    RECORD blobrec := CELL
+        [ rec.whdbid
+        , postgresqlid :=     data[#rec].postgresqlid
+        ];
+
+    FOREVERY (BLOB blb FROM rec.blobs)
+      __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, blb, blobrec.postgresqlid);
+
+    RECORD ipos := RecordLowerBound(local_importedblobs, blobrec, [ "WHDBID" ]);
+    INSERT blobrec INTO local_importedblobs AT ipos.position;
+
+    INSERT [ id := rec.blobs[0] ] INTO webhare_internal."blob";
+  }
+
+  curdatatransferred := curdatatransferred + SELECT AS INTEGER64 SUM(size) FROM new_blobs;
+
+  importedblobs := local_importedblobs;
+}
 
 BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY blobcols, STRING ARRAY varcharcols, RECORD ARRAY records)
 {
   records := SELECT AS RECORD ARRAY tbl FROM records;
+
+  RECORD ARRAY new_blobs;
 
   // Check format of first record
   IF (LENGTH(records) != 0)
@@ -279,46 +379,46 @@ BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY 
       IF (LENGTH(data) = 0)
         CONTINUE;
 
-      INTEGER id := __GetWHDBBlobInternalId(data);
-      IF (id = 0)
+      INTEGER whdbid := __GetWHDBBlobInternalId(data);
+      IF (whdbid = 0)
         ABORT(`No whdb blob id found in blob`);
 
       // Already imported?
-      RECORD ipos := LowerBound(createdids, id);
+      RECORD ipos := RecordLowerBound(importedblobs, CELL[ whdbid ], [ "WHDBID" ]);
       IF (ipos.found)
       {
-        __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, data, ToString(id));
+        __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, data, importedblobs[ipos.position].postgresqlid);
         CONTINUE;
       }
 
-      INSERT id INTO createdids AT ipos.position;
-
-      STRING postgresql_blobdir := GetBlobDir(postgresql_migrate_dbasefolder, id);
-
-      // Directory already created?
-      RECORD pos := LowerBound(createdblobfolders, postgresql_blobdir);
-      IF (NOT pos.found)
+      RECORD npos := RecordLowerBound(new_blobs, CELL[ whdbid ], [ "WHDBID" ]);
+      IF (npos.found)
+        INSERT data INTO new_blobs[npos.position].blobs AT END;
+      ELSE
       {
-        IF (NOT CreateDiskDirectoryRecursive(postgresql_blobdir, TRUE))
-          TerminateScriptWithError(`Could not create blob dir ${postgresql_blobdir}`);
-        INSERT postgresql_blobdir INTO createdblobfolders AT pos.position;
+        INSERT CELL
+            [ whdbid
+            , size := LENGTH64(data)
+            , whdb_file := MergePath(GetWHDBBlobDir(dbasefolder, whdbid), ToString(whdbid))
+            , blobs := [ data ]
+            ] INTO new_blobs AT npos.position;
       }
-
-      STRING whdb_file := MergePath(GetBlobDir(dbasefolder, id), ToString(id));
-      STRING postgresql_file := MergePath(postgresql_blobdir, ToString(id));
-
-      IF (NOT CreateHardLink(postgresql_file, whdb_file))
-      {
-        PRINT(`Could not make a hard link for blob ${id}, origin: ${whdb_file}\n`);
-        IF (NOT RecordExists(GetDiskFileProperties(whdb_file)))
-          PRINT(`Origin file does not exist\n`);
-        PRINT(`Destination: ${postgresql_file}\n`);
-        TerminateScriptWithError(`Could not link create blob file`);
-      }
-
-      __PGSQL_SETUPLOADEDBLOBINTERNALID(postgresql_trans->id, data, ToString(id));
-      INSERT [ id := data ] INTO webhare_internal."blob";
     }
+  }
+
+  IF (blobconfig.type = "local-disk")
+    WaitForPromise(UploadAndAddNewBlobs(new_blobs));
+  ELSE
+  {
+    OBJECT serializer := MakeCallSerializer([ maxconcurrent := 8 ]);
+    OBJECT ARRAY promises;
+    FOR (INTEGER i := 0; i < LENGTH(new_blobs); i := i + 16)
+    {
+      RECORD ARRAY part := ArraySlice(new_blobs, i, 16);
+      INSERT serializer->Call(PTR UploadAndAddNewBlobs, part) INTO promises AT END;
+    }
+
+    WaitForPromise(CreatePromiseAll(promises));
   }
 
   BOOLEAN allvalid := TRUE;
@@ -401,6 +501,39 @@ PRINT(`done\n`);
 PRINT(`Creating indices and foreign keys... `);
 cmd := GeneratePostgreSQLDependentSQLCommands(apply_schemadefs, postgresql_trans);
 ExecuteSQLUpdates(postgresql_trans, cmd.commands);
+PRINT(`done\n`);
+
+/** Renames all system_rights object-tables to the name they will have using PostgreSQL table oids
+*/
+MACRO RenameRightsTables()
+{
+  FOREVERY (RECORD objtype FROM SELECT DISTINCT tablename, storagetable FROM system.module_objecttypes WHERE tablename != "")
+  {
+    STRING obj_tablename := objtype.tablename;
+    STRING storagetable_localname := Tokenize(objtype.storagetable, ".")[1];
+
+    INTEGER dpos := SearchSubString(obj_tablename, ".");
+    STRING t_schema := LEFT(obj_tablename, dpos);
+    IF (t_schema = "")
+      t_schema := "PUBLIC";
+    STRING t_table := SubString(obj_tablename, dpos + 1);
+
+    RECORD tablerec :=
+        SELECT object_id
+             , primary_key_name
+          FROM postgresql_trans->GetTableListing(t_schema)
+         WHERE ToUppercase(table_name) = ToUppercase(t_table);
+
+    IF (NOT RecordExists(tablerec))
+      ABORT("Can't find referenced table '"||objtype.tablename||"' for object type '" || objtype.name || "'");
+
+    STRING new_storagetable_localname := "o_" || tablerec.object_id;
+    postgresql_trans->__ExecSQL(`ALTER TABLE "system_rights".${PostgreSQLEscapeIdentifier(storagetable_localname)} RENAME TO ${PostgreSQLEscapeIdentifier(new_storagetable_localname)}`);
+  }
+}
+
+PRINT(`Renaming rights tables... `);
+RenameRightsTables();
 PRINT(`done\n`);
 
 PRINT("Committing\n");

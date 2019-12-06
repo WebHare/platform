@@ -100,6 +100,9 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         void ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext);
 
+        void EscapeLiteral(VarId id_set, Blex::StringPair to_encode);
+        void EscapeIdentifier(VarId id_set, Blex::StringPair to_encode);
+
         std::string GetBlobDiskpath(int64_t blobid);
 
         std::pair< ConnStatusType, PGTransactionStatusType > GetStatus();

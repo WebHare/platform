@@ -1,57 +1,218 @@
 ﻿<?wh
 
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobhandling.whlib";
 
 
-MACRO TestBlobAlloc()
+MACRO TestDiskBlobResolver()
 {
   STRING testdir := GenerateTemporaryPathname();
   TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
 
-  FOR (INTEGER i := 1; i < 17000; i := i + 1)
-  {
-    RECORD rec := AllocateBlobFile(testdir);
+  OBJECT resolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 1 ]);
 
-    PrintTo(rec.fileid, ToString(i));
-    CloseDiskFile(rec.fileid);
+  STRING test1id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  STRING test2id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  STRING test3id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
 
-    TestEQ(i, rec.blobid);
-    TestEQ(MergePath(GetBlobDir(testdir, i), ToString(i)), rec.trypath);
-  }
+  resolver->WriteBlobPart(test1id, StringToBlob("testblob"));
+  TestEQ(StringToBlob("testblob"), resolver->ReadBlobPart(test1id, 8));
 
-  // Delete random blobs and make sure they are filled in from the start
-  SeedRandomizer(15);
-  INTEGER ARRAY randomids;
-  FOR (INTEGER i := 0; i < 100; i := i + 1)
-    INSERT Random(1, 17000) INTO randomids AT END;
-  randomids := GetSortedSet(randomids);
+  resolver->WriteBlobPart(test2id, StringToBlob("testblob2"));
+  TestEQ(StringToBlob("testblob2"), resolver->ReadBlobPart(test2id, 9));
 
-  FOREVERY (INTEGER i FROM randomids)
-    DeleteDiskFile(MergePath(GetBlobDir(testdir, i), ToString(i)));
+  resolver->DeleteBlobParts([ test2id ]);
+  TestThrows(PTR resolver->ReadBlobPart(test2id, 9));
 
-  BroadcastEvent("system:blobstore.idstate", DEFAULT RECORD);
+  RECORD ARRAY list := SELECT * FROM resolver->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   test1id
+        , size :=         8i64
+        ]
+      ], list, "*");
 
-  FOREVERY (INTEGER i FROM randomids)
-  {
-    RECORD rec := AllocateBlobFile(testdir);
+  StoreDiskFile(MergePath(testdir, "newblob"), StringToBlob("testblob3"));
+  TestEQ(TRUE, resolver->TryHardLinkBlobPart(test3id, MergePath(testdir, "newblob")));
+  TestEQ(StringToBlob("testblob3"), resolver->ReadBlobPart(test3id, 9));
 
-    PrintTo(rec.fileid, ToString(i));
-    CloseDiskFile(rec.fileid);
+  list := SELECT * FROM resolver->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   test1id
+        , size :=         8i64
+        ]
+      , [ blobpartid :=   test3id
+        , size :=         9i64
+        ]
+      ], list, "*");
 
-    TestEQ(i, rec.blobid);
-    TestEQ(MergePath(GetBlobDir(testdir, i), ToString(i)), rec.trypath);
+  TestEQ([ [ name := "webhare:blobfolder", value := testdir ] ], resolver->GetConnectParams());
 
-    IF ((i % 4 ) = 0)
-      BroadcastEvent("system:blobstore.idstate", DEFAULT RECORD);
-  }
+  resolver->DeleteBlobParts([ test3id ]); // should be moved to archive
+  resolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 0 ]);
+
+  TestEQ([ test3id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE, filterids := [ test3id ] ]));
+  TestEQ([ test2id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
+  resolver->DeleteBlobParts([ test1id ]); // should be deleted directly
+
+  TestEQ(RECORD[], resolver->ListBlobParts());
+  TestEQ(STRING[], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
 
   DeleteDiskDirectoryRecursive(testdir);
 }
 
-RunTestframework([ PTR TestBlobAlloc
+MACRO TestS3BlobResolver()
+{
+  STRING region := GetEnvironmentVariable("TESTSECRET_S3STORAGE_REGION");
+  STRING accesskey := GetEnvironmentVariable("TESTSECRET_S3STORAGE_ACCESSKEY");
+  STRING secretkey := GetEnvironmentVariable("TESTSECRET_S3STORAGE_SECRETKEY");
+  STRING bucket_name := GetEnvironmentVariable("TESTSECRET_S3STORAGE_BUCKETNAME");
+
+  IF (region = "" OR accesskey = "" OR secretkey = "" OR bucket_name = "")
+  {
+    IF (region || accesskey || secretkey || bucket_name != "")
+      ABORT(`Not all S3 storage settings configured`);
+    RETURN;
+  }
+
+  STRING testdir := GenerateTemporaryPathname();
+  TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
+
+  RECORD baseconfig := CELL
+      [ type := "s3"
+      , region :=             region LIKE "http*" ? "minio" : region
+      , endpointoverride :=   region LIKE "http*" ? region : ""
+      , accesskey
+      , secretkey
+      , prefix :=             "ci_test_" || FormatDateTime("%Y%m%dT%H%M%SZ", GetCurrentDateTime()) || "_" || Left(EncodeBase16(DecodeUFS(GenerateUFS128BitId())), 8) || "/"
+      , bucket_name
+      ];
+
+  OBJECT resolver := GetBlobResolverByConfig(CELL
+      [ ...baseconfig
+      , keepdeleteddays := 1
+      ]);
+
+  STRING test1id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  STRING test2id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+  STRING test3id := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+
+  resolver->WriteBlobPart(test1id, StringToBlob("testblob"));
+  TestEQ(StringToBlob("testblob"), resolver->ReadBlobPart(test1id, 8));
+
+  resolver->WriteBlobPart(test2id, StringToBlob("testblob2"));
+  TestEQ(StringToBlob("testblob2"), resolver->ReadBlobPart(test2id, 9));
+
+  resolver->DeleteBlobParts([ test2id ]);
+
+  RECORD ARRAY list := SELECT * FROM resolver->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   test1id
+        , size :=         8i64
+        ]
+      ], list, "*");
+
+  StoreDiskFile(MergePath(testdir, "newblob"), StringToBlob("testblob3"));
+  TestEQ(FALSE, resolver->TryHardLinkBlobPart(test3id, MergePath(testdir, "newblob")));
+  resolver->WriteBlobPart(test3id, StringToBlob("testblob3"));
+
+  list := SELECT * FROM resolver->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   test1id
+        , size :=         8i64
+        ]
+      , [ blobpartid :=   test3id
+        , size :=         9i64
+        ]
+      ], list, "*");
+
+  TestEQ(RECORD[], resolver->GetConnectParams());
+
+  resolver->DeleteBlobParts([ test3id ]); // should be moved to archive
+  resolver := GetBlobResolverByConfig(CELL
+      [ ...baseconfig
+      , keepdeleteddays := 0
+      ]);
+
+  TestEQ([ test3id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE, filterids := [ test3id ] ]));
+  TestEQ([ test2id ], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
+  resolver->DeleteBlobParts([ test1id ]); // should be deleted directly
+
+  TestEQ(RECORD[], resolver->ListBlobParts());
+  TestEQ(STRING[], resolver->RemoveOldArchivedBlobParts([ dryrun := FALSE ]));
+
+  DeleteDiskDirectoryRecursive(testdir);
+}
+
+MACRO TestBlobHandler()
+{
+  STRING testdir := GenerateTemporaryPathname();
+  TestEq(TRUE, CreateDiskDirectory(testdir, TRUE));
+
+  OBJECT xresolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 1 ]);
+  OBJECT handler := NEW WHPostgreSQLBlobHandler(xresolver);
+
+  STRING test1 := handler->StoreBlob(StringToBlob("testblob"));
+  TestEQ(StringToBlob("testblob"), handler->LookupBlob(test1, 8));
+
+  STRING test2 := handler->StoreBlob(StringToBlob("testblob2"));
+  TestEQ(StringToBlob("testblob2"), handler->LookupBlob(test2, 9));
+
+  handler->DeleteBlobParts(handler->GetBlobPartIdsFromBlobIds([ test2 ]));
+  TestThrows(PTR handler->LookupBlob(test2, 9));
+
+  RECORD ARRAY list := SELECT * FROM handler->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   Substring(test1, 4)
+        , size :=         8i64
+        ]
+      ], list, "*");
+
+  StoreDiskFile(MergePath(testdir, "newblob"), StringToBlob("testblob3"));
+  STRING test3 := handler->ImportHardlinkableFile(MergePath(testdir, "newblob"));
+  TestEQ(StringToBlob("testblob3"), handler->LookupBlob(test3, 9));
+
+  // Test if really hard linked
+  INTEGER fileid := OpenDiskFile(MergePath(testdir, "newblob"), TRUE);
+  PrintTo(fileid, "T");
+  CloseDiskFile(fileid);
+  TestEQ(StringToBlob("Testblob3"), handler->LookupBlob(test3, 9));
+
+
+  list := SELECT * FROM handler->ListBlobParts() ORDER BY size;
+  TestEQMembers(
+      [ [ blobpartid :=   Substring(test1, 4)
+        , size :=         8i64
+        ]
+      , [ blobpartid :=   Substring(test3, 4)
+        , size :=         9i64
+        ]
+      ], list, "*");
+
+  TestEQ([ [ name := "webhare:blobfolder", value := testdir ] ], handler->GetConnectParams());
+
+  TestEQ(STRING[], handler->RemoveOldArchivedBlobParts());
+
+  handler->DeleteBlobParts([ Substring(test1, 4), Substring(test3, 4) ]);
+
+  // Test if blobs were archived, and are deleted when keepdeleteddays is disabled
+  xresolver := GetBlobResolverByConfig([ type := "local-disk", blobfolder := testdir, keepdeleteddays := 0 ]);
+  handler := NEW WHPostgreSQLBlobHandler(xresolver);
+
+  TestEQ(GetSortedSet([ Substring(test1, 4), Substring(test2, 4), Substring(test3, 4) ]), handler->RemoveOldArchivedBlobParts());
+
+  DeleteDiskDirectoryRecursive(testdir);
+}
+
+RunTestframework([ PTR TestDiskBlobResolver()
+                 , PTR TestS3BlobResolver()
+                 , PTR TestBlobHandler()
                  ], [ usedatabase := FALSE ]);

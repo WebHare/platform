@@ -139,7 +139,10 @@ void DumpTypeInfoColumn(StackMachine &stackm, Marshaller &marshaller, DBTypeInfo
                 if (column.flags & ColumnFlags::InternalFase1) std::cout << " Fase1";
                 if (column.flags & ColumnFlags::InternalFase2) std::cout << " Fase2";
                 if (column.flags & ColumnFlags::InternalUpdates) std::cout << " InternalUpdates";
+                if (column.flags & ColumnFlags::InternalUsedInCondition) std::cout << " InternalUsedInCondition";
                 if (column.flags & ColumnFlags::Key) std::cout << " Key";
+                if (column.flags & ColumnFlags::ReadOnly) std::cout << " ReadOnly";
+                if (column.flags & ColumnFlags::WarnUnindexed) std::cout << " WarnUnindexed";
                 if (column.flags & ColumnFlags::TranslateNulls)
                 {
                         if (!column.null_default.empty())

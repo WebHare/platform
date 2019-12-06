@@ -71,15 +71,16 @@ RECORD ARRAY objecttypes_cache;
 
 /// Table used to check dynamic rights table
 TABLE
-  < INTEGER id
-  , INTEGER grantee
-  , INTEGER grantor
-  , INTEGER "object"
-  , INTEGER "right"
+  < INTEGER id NULL := 0
+  , INTEGER grantee NULL := 0
+  , INTEGER grantor NULL := 0
+  , INTEGER "object" NULL := 0
+  , INTEGER "right" NULL := 0
   , DATETIME creationdate
   , BOOLEAN withgrantoption
   , STRING comment
   , STRING grantordata
+  ; KEY id
   > rights_table;
 
 /// Contains the name of the table that @a rights_table is currently bound to.

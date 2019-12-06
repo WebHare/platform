@@ -10,32 +10,37 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
-
+/** @schemadef system
+*/
 PUBLIC SCHEMA
   < TABLE
     < STRING "fullpath" __ATTRIBUTES__(READONLY)
     , STRING "whfspath" __ATTRIBUTES__(READONLY)
     , INTEGER "highestparent" __ATTRIBUTES__(READONLY)
     , STRING "name"
-    , INTEGER "id"
-    , INTEGER "parent"
+    , INTEGER "id" NULL := 0
+    , INTEGER "parent" NULL := 0
+    ; KEY id
     > fs_objects
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
-    , INTEGER "outputweb"
+    , INTEGER "outputweb" NULL := 0
     , STRING "outputfolder"
-    , INTEGER "id" AS "root" __ATTRIBUTES__(READONLY)
+    , INTEGER "id" AS "root" NULL := 0 __ATTRIBUTES__(READONLY)
+    ; KEY id
     > sites
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "diskfolder"
+    ; KEY id
     > webservers
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "foldername"
     , STRING "diskfolder"
     , BOOLEAN "forcelowercase"
+    ; KEY id
     > webdav_datafolders
   > local_system;
 

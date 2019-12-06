@@ -1827,7 +1827,7 @@ PUBLIC STRING FUNCTION EncodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT
              EncodeJava escapes " (double quote), ' (single quote) and \ (backslash) characters.
     @param   text String to encode
     @return  The encoded string
-    @see     DecodeJava EncodeBase16 EncodeBase64 EncodeHTML EncodeURL EncodeValue
+    @see     DecodeJava EncodeBase16 EncodeBase64 EncodeHTML EncodeURL EncodeValue EncodeHareScript
     @example
 // returns "alert(\'Johnny and Jane\')"
 STRING example1 := EncodeJava("alert('Johnny and Jane')");
@@ -1836,6 +1836,25 @@ STRING example1 := EncodeJava("alert('Johnny and Jane')");
 STRING example2 := EncodeJava("alert('A\n\b')");
 */
 PUBLIC STRING FUNCTION EncodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short   Escapes special characters for use in HareScript strings.
+    @long    Certain characters have special significance in strings, and should be escaped to preserve their meaning.
+             EncodeHareScript returns string with these conversions made.
+
+             EncodeHareScript escapes " (double quote), ' (single quote), \ (backslash) characters, control characters,
+             unicode characters and invalid UTF-8 encoded characters.
+    @param   text String to encode
+    @return  The encoded string
+    @see     DecodeHareScript EncodeJava
+    @example
+// returns "alert(\'Johnny and Jane\')"
+STRING example1 := EncodeJava("alert('Johnny and Jane')");
+
+// returns "alert(\'A\\n\\b\')"
+STRING example2 := EncodeJava("alert('A\n\b')");
+*/
+PUBLIC STRING FUNCTION EncodeHareScript(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 
 /** @short   Converts special characters to hexadecimal encodings.
@@ -2078,7 +2097,7 @@ PUBLIC STRING FUNCTION DecodeHTML(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT
              " (double quotes) and \ (backslashes).
     @param   text String to decode
     @return  The decoded string
-    @see     EncodeJava DecodeBase16 DecodeBase64 DecodeHTML DecodeURL DecodeValue
+    @see     EncodeJava DecodeBase16 DecodeBase64 DecodeHTML DecodeURL DecodeValue DecodeHareScript
     @example
 // returns "alert('Johnny and Jane')"
 STRING example1 := DecodeJava("alert(\'Johnny and Jane\')");
@@ -2087,6 +2106,22 @@ STRING example1 := DecodeJava("alert(\'Johnny and Jane\')");
 STRING example2 := DecodeJava("alert(\'A\\n\\b\')");
 */
 PUBLIC STRING FUNCTION DecodeJava(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short   Converts special characters as used in HareScript.
+    @long    DecodeHareScript converts HareScript encoded strings back to strings without HareScript encoded ' (single quotes),
+             " (double quotes), \ (backslashes), \uXXXX (unicode characters) and \xXX (bytes).
+    @param   text String to decode
+    @return  The decoded string
+    @see     EncodeHareScript DecodeJava
+    @example
+// returns "alert('Johnny and Jane')"
+STRING example1 := DecodeHareScript("alert(\'Johnny and Jane\')");
+
+// returns "alert('A\n\b')"
+STRING example2 := DecodeHareScript("alert(\'A\\n\\b\')");
+*/
+PUBLIC STRING FUNCTION DecodeHareScript(STRING text) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 
 /** @short   Converts hexadecimal encodings to special characters.

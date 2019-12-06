@@ -54,6 +54,11 @@ namespace PGSQL
 
 using namespace std::literals::string_view_literals;
 
+/** VARCHAR columns longer than this size are indexed with left(..., max_size) in WebHare. PostgreSQL needs
+    a filter with left(..., max_size) to be able to match the index.
+*/
+std::string_view max_indexed_size("264"sv); // Keep in sync with constant in dbase/postgresql.whlib!!
+
 // Copied from /usr/include/pgsql/server/catalog/pg_type.h (can't be included due to path issues)
 enum class OID
 {
@@ -78,6 +83,7 @@ enum class OID
         FLOAT8 = 701,
         INET = 869,
         BYTEAARRAY = 1001,
+        CHARARRAY = 1002,
         INT2ARRAY = 1005,
         INT4ARRAY = 1007,
         INT8ARRAY = 1016,
@@ -153,15 +159,72 @@ void PostgreSQLWHBlobData::Unregister()
 
 void AddEscapedName(std::string *str, std::string_view append)
 {
-        // Escape all - name might be reserved
-        str->append("\"");
-        for (char c: append)
+        bool is_simple = true;
+        for (auto c: append)
+            if ((c < '0' || c > '9') && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && c != '$' && c != '_' && c != '"')
+                is_simple = false;
+
+        if (is_simple)
         {
-                if (c == '"' || c == '\\') //escape double quotes and backslashes with a backslash
-                str->push_back('\\');
-                str->push_back(c);
+                str->push_back('"');
+                for (auto c: append)
+                {
+                        if (c == '"')
+                            str->push_back(c);
+                        str->push_back(c);
+                }
+                str->push_back('"');
+                return;
         }
-        str->append("\"");
+
+        str->push_back('U');
+        str->push_back('&');
+        str->push_back('"');
+
+        Blex::UTF8DecodeMachine decoder;
+        uint8_t char_buf[6];
+        unsigned char_buf_cnt = 0;
+
+        for (auto c: append)
+        {
+                uint32_t curch = decoder(c);
+                char_buf[char_buf_cnt++] = c;
+                if (curch ==  Blex::UTF8DecodeMachine::NoChar)
+                    continue;
+                if (curch == Blex::UTF8DecodeMachine::InvalidChar || curch == 0)
+                {
+                        // Just copy invalid UTF-8, the server will catch it
+                        std::copy(char_buf, char_buf + char_buf_cnt, std::back_inserter(*str));
+                        char_buf_cnt = 0;
+                        continue;
+                }
+                char_buf_cnt = 0;
+                if (c >= 32 && c < 127)
+                {
+                        if (c == '\\')
+                            str->push_back(curch);
+                        str->push_back(curch);
+                }
+                else
+                {
+                        char numbuf[14] = "0000000000000"; // 5 padding, 8 room for uint32_t
+                        char *encode_end = Blex::EncodeNumber(curch, 16, numbuf + 5);
+                        if (curch < 65536)
+                        {
+                                str->push_back('\\');
+                                std::copy(encode_end - 4, encode_end, std::back_inserter(*str));
+                        }
+                        else
+                        {
+                                str->push_back('\\');
+                                str->push_back('+');
+                                std::copy(encode_end - 6, encode_end, std::back_inserter(*str));
+                        }
+                }
+        }
+
+        std::copy(char_buf, char_buf + char_buf_cnt, std::back_inserter(*str));
+        str->push_back('"');
 }
 
 void AddEscapedSchemaTable(std::string *str, std::string_view to_add)
@@ -361,7 +424,8 @@ struct ParamsEncoder
         Blex::SemiStaticPodVector< char, 32768 > alldata;
 
         char *RegisterParameter(OID type, unsigned len);
-        std::string AddParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
+        std::string AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
+        std::string AddParameter(VirtualMachine *vm, std::string_view str, ParamEncoding::Flags flags = ParamEncoding::None);
 
         void Finalize();
 };
@@ -504,7 +568,7 @@ void DumpPacket(unsigned len,void  const *buf)
 }
 #endif
 
-std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags encodingflags)
+std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags encodingflags)
 {
 #ifdef DUMP_BINARY_ENCODING
         PQ_ONLYRAW(unsigned startdatalen = alldata.size();)
@@ -529,27 +593,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                 case VariableTypes::String:
                 {
                         Blex::StringPair str = stackm.GetString(var);
-                        if (encodingflags & ParamEncoding::Pattern)
-                        {
-                                std::string pattern;
-                                for (const char *it = str.begin; it != str.end; ++it)
-                                {
-                                        if (*it == '_' || *it == '%' || *it == '\\')
-                                            pattern.push_back('\\');
-                                        if (*it == '?')
-                                            pattern.push_back('_');
-                                        else if (*it == '*')
-                                            pattern.push_back('%');
-                                        else
-                                            pattern.push_back(*it);
-                                }
-                                std::copy(pattern.begin(), pattern.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, pattern.size()));
-                        }
-                        else
-                        {
-                                std::copy(str.begin, str.end, RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, str.size()));
-                        }
-
+                        return AddParameter(vm, std::string_view(str.begin, str.size()), encodingflags);
                 } break;
                 case VariableTypes::Float:
                 {
@@ -637,12 +681,13 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                                 }
 
                                 PQ_PRINT(" starting harescript registration");
-                                HSVM_OpenFunctionCall(*vm, 3);
+                                HSVM_OpenFunctionCall(*vm, 2);
                                 HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), driver.blobfolder);
-                                HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 2), var);
-                                const HSVM_VariableType args[3] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_Blob };
-                                HSVM_CallFunction(*vm, "mod::system/lib/internal/dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", 0, 3, args);
+                                HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), var);
+                                const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Blob };
+                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", 0, 2, args);
+                                if (!retval || HSVM_TestMustAbort(*vm))
+                                    return "";
                                 HSVM_CloseFunctionCall(*vm);
 
                                 // context doesn't need to be reloaded, we're still talking to the same blob
@@ -650,7 +695,8 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
                                     throw VMRuntimeError (Error::DatabaseException, "Database error: WebHare database blob wasn't uploaded correctly");
 
                                 Query blobinsertquery(driver);
-                                blobinsertquery.querystr = "INSERT INTO webhare_internal.blob(id) VALUES(ROW(" + Blex::AnyToString(context->blobid) + "," + Blex::AnyToString(context->bloblength) + "))";
+                                std::string blobparam = blobinsertquery.params.AddParameter(vm, context->blobid);
+                                blobinsertquery.querystr = "INSERT INTO webhare_internal.blob(id) VALUES(ROW(" + blobparam + "," + Blex::AnyToString(context->bloblength) + "))";
                                 driver.ExecQuery(blobinsertquery, driver.allowwriteerrordelay);
                         }
 
@@ -713,7 +759,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
 
                                 for (unsigned i = 0; i < eltcount; ++i)
                                 {
-                                        std::string pid = AddParameter(vm, stackm.ArrayElementGet(var, i), encodingflags);
+                                        std::string pid = AddVariableParameter(vm, stackm.ArrayElementGet(var, i), encodingflags);
                                         if (pid.empty())
                                             return "";
                                         if (pid == "NULL")
@@ -745,6 +791,42 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *vm, VarId var, ParamEnco
 
         return "$" + Blex::AnyToString(lengths.size());
 }
+
+std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, ParamEncoding::Flags encodingflags)
+{
+#ifdef DUMP_BINARY_ENCODING
+        PQ_ONLYRAW(unsigned startdatalen = alldata.size();)
+#endif
+
+        if (encodingflags & ParamEncoding::Pattern)
+        {
+                std::string pattern;
+                for (const char *it = str.begin(); it != str.end(); ++it)
+                {
+                        if (*it == '_' || *it == '%' || *it == '\\')
+                            pattern.push_back('\\');
+                        if (*it == '?')
+                            pattern.push_back('_');
+                        else if (*it == '*')
+                            pattern.push_back('%');
+                        else
+                            pattern.push_back(*it);
+                }
+                std::copy(pattern.begin(), pattern.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, pattern.size()));
+        }
+        else
+        {
+                std::copy(str.begin(), str.end(), RegisterParameter((encodingflags & ParamEncoding::Binary) ? OID::BYTEA : OID::VARCHAR, str.size()));
+        }
+
+#ifdef DUMP_BINARY_ENCODING
+        PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a string parameter");
+        PQ_ONLY(DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+#endif
+
+        return "$" + Blex::AnyToString(lengths.size());
+}
+
 
 void ParamsEncoder::Finalize()
 {
@@ -1021,6 +1103,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         else
                             stackm.SetSTLString(id_set, ""sv);
                 } break;
+                case OID::CHARARRAY:
                 case OID::INT2ARRAY:
                 case OID::INT2VECTOR:
                 case OID::INT4ARRAY:
@@ -1036,6 +1119,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         VariableTypes::Type vartype;
                         switch (type)
                         {
+                        case OID::CHARARRAY:    elttype = OID::CHAR; vartype = VariableTypes::StringArray; break;
                         case OID::INT2VECTOR:   elttype = OID::INT2; vartype = VariableTypes::IntegerArray; break;
                         case OID::INT2ARRAY:    elttype = OID::INT2; vartype = VariableTypes::IntegerArray; break;
                         case OID::INT4ARRAY:    elttype = OID::INT4; vartype = VariableTypes::IntegerArray; break;
@@ -1123,12 +1207,14 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                         bool have_blob = false;
 
-                                        auto decoded = Blex::DecodeUnsignedNumber< uint32_t >(blobid.begin(), blobid.end());
-                                        if (decoded.second == blobid.end())
+                                        // If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
+                                        if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
-                                                std::string resourcepath = "direct::" + driver.GetBlobDiskpath(decoded.first);
+                                                std::string resourcepath = "direct::" + driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
                                                 if (!HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str(), 7))
                                                 {
+                                                        PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
+
                                                         auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
                                                         context->driver = &driver;
                                                         context->blobid = blobid;
@@ -1136,18 +1222,21 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                                         have_blob = true;
                                                 }
+                                                else
+                                                {
+                                                        PQ_PRINT(" blob " << blobid << " not found at " << resourcepath);
+                                                }
                                         }
 
                                         if (!have_blob)
                                         {
-                                                PQ_PRINT(" starting harescript lookup");
-                                                HSVM_OpenFunctionCall(*vm, 4);
+                                                PQ_PRINT(" starting harescript lookup for blob " << blobid);
+                                                HSVM_OpenFunctionCall(*vm, 3);
                                                 HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), driver.blobfolder);
-                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 2), blobid);
-                                                HSVM_Integer64Set(*vm, HSVM_CallParam(*vm, 3), bloblength);
-                                                const HSVM_VariableType args[4] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_String, HSVM_VAR_Integer64 };
-                                                VarId retval = HSVM_CallFunction(*vm, "mod::system/lib/internal/dbase/postgresql.whlib", "__LookupWebharePostgreSQLBlob", HSVM_VAR_Blob, 4, args);
+                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), blobid);
+                                                HSVM_Integer64Set(*vm, HSVM_CallParam(*vm, 2), bloblength);
+                                                const HSVM_VariableType args[3] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_Integer64 };
+                                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__LookupWebharePostgreSQLBlob", HSVM_VAR_Blob, 3, args);
                                                 if (retval && !HSVM_TestMustAbort(*vm))
                                                     HSVM_CopyFrom(*vm, id_set, retval);
                                                 HSVM_CloseFunctionCall(*vm);
@@ -1469,7 +1558,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                             where.append(")");
 
                         where.append(GetOperator(it->condition));
-                        std::string paramref = querydata.query.params.AddParameter(vm, it->value, encodingflags);
+                        std::string paramref = querydata.query.params.AddVariableParameter(vm, it->value, encodingflags);
                         if (paramref.empty())
                             return false;
 
@@ -1488,24 +1577,24 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 && encodingflags == ParamEncoding::None)
                         {
                                 // Special workarounds for indexed fields that have only a part indexed
-                                bool use_left = (query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "unique_rawdata"sv || query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "rawdata"sv)
+                                bool use_left = query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "rawdata"sv
                                         && query.tables[it->table].name == "wrd.entity_settings"sv;
 
                                 // Most string indices are case insensitive, so add a case-insensitive filter too
                                 if (!it->casesensitive || use_left)
                                 {
                                         // most text indices are uppercase, so uppercase the stuff.
-                                        // ADDME: if the param is < 256 chars, this is the only query we need
+                                        // ADDME: if the length of the param is < max_indexed_size chars, we don't need the original filter anymore
                                         where.append(" AND ");
                                         where.append(use_left ? "upper(left(" : "upper(");
                                         AddTableAndColumnName(query, it->table, it->column, false, &where);
-                                        where.append(use_left ? ", 256))" : ")"); // Keep in sync with constant in dbase/postgresql.whlib!!
+                                        where.append(use_left ? ", " + std::string(max_indexed_size) + "))" : ")"); // Keep in sync with constant in dbase/postgresql.whlib!!
 
                                         where.append(GetOperator(it->condition));
 
                                         where.append(use_left ? "upper(left(" : "upper(");
                                         where.append(paramref);
-                                        where.append(use_left ? ", 256))" : ")");
+                                        where.append(use_left ? ", " + std::string(max_indexed_size) + "))" : ")");
                                 }
                         }
 
@@ -1529,45 +1618,56 @@ bool PGSQLTransactionDriver::BuildQueryString(
 
                         where.append(")");
 
-                        bool trans_t1 = query.tables[it->table1].ColType(it->column1).flags & ColumnFlags::TranslateNulls && query.tables[it->table1].columns[it->column1].nulldefault;
-                        bool trans_t2 = query.tables[it->table2].ColType(it->column2).flags & ColumnFlags::TranslateNulls && query.tables[it->table2].columns[it->column2].nulldefault;
+                        ColumnFlags::_type t1_flags = query.tables[it->table1].ColType(it->column1).flags;
+                        ColumnFlags::_type t2_flags = query.tables[it->table2].ColType(it->column2).flags;
 
-                        if (trans_t2)
-                        {
-                                where.append(" OR (");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(" IS NULL AND ");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(GetOperator(it->condition));
-                                ParamEncoding::Flags encodingflags = (query.tables[it->table2].typeinfo->columnsdef[it->column2].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
-                                if (paramref.empty())
-                                    return false;
-                                where.append(paramref);
-                                where.append(")");
-                        }
-                        if (trans_t1)
-                        {
-                                where.append(" OR (");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(" IS NULL AND ");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(GetOperator(SwappedCondition(it->condition)));
-                                ParamEncoding::Flags encodingflags = (query.tables[it->table1].typeinfo->columnsdef[it->column1].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                std::string paramref = querydata.query.params.AddParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
-                                where.append(paramref);
-                                if (paramref.empty())
-                                    return false;
-                                where.append(")");
-                        }
                         if (it->match_double_null)
                         {
-                                where.append(" OR ((");
-                                AddTableAndColumnName(query, it->table1, it->column1, false, &where);
-                                where.append(" IS NULL) AND (");
-                                AddTableAndColumnName(query, it->table2, it->column2, false, &where);
-                                where.append(" IS NULL)");
-                                where.append(")");
+                                // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
+                                if (!(t1_flags & ColumnFlags::Key) && !(t2_flags & ColumnFlags::Key))
+                                {
+                                        where.append(" OR ((");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(" IS NULL) AND (");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(" IS NULL)");
+                                        where.append(")");
+                                }
+                        }
+                        else
+                        {
+                                // One column has no null default, or the defaults differ
+                                bool trans_t1 = t1_flags & ColumnFlags::TranslateNulls && query.tables[it->table1].columns[it->column1].nulldefault;
+                                bool trans_t2 = t2_flags & ColumnFlags::TranslateNulls && query.tables[it->table2].columns[it->column2].nulldefault;
+
+                                if (trans_t2)
+                                {
+                                        where.append(" OR (");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(" IS NULL AND ");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(GetOperator(it->condition));
+                                        ParamEncoding::Flags encodingflags = (query.tables[it->table2].typeinfo->columnsdef[it->column2].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table2].columns[it->column2].nulldefault, encodingflags);
+                                        if (paramref.empty())
+                                            return false;
+                                        where.append(paramref);
+                                        where.append(")");
+                                }
+                                if (trans_t1)
+                                {
+                                        where.append(" OR (");
+                                        AddTableAndColumnName(query, it->table1, it->column1, false, &where);
+                                        where.append(" IS NULL AND ");
+                                        AddTableAndColumnName(query, it->table2, it->column2, false, &where);
+                                        where.append(GetOperator(SwappedCondition(it->condition)));
+                                        ParamEncoding::Flags encodingflags = (query.tables[it->table1].typeinfo->columnsdef[it->column1].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, query.tables[it->table1].columns[it->column1].nulldefault, encodingflags);
+                                        where.append(paramref);
+                                        if (paramref.empty())
+                                            return false;
+                                        where.append(")");
+                                }
                         }
 
                         it->handled = true;
@@ -1689,7 +1789,7 @@ void PGSQLTransactionDriver::ExecuteInsertInternal(DatabaseQuery const &query, V
                                 if (cell)
                                 {
                                         ParamEncoding::Flags encodingflags = (table.typeinfo->columnsdef[idx].flags & ColumnFlags::Binary) ? ParamEncoding::Binary : ParamEncoding::None;
-                                        std::string paramref = querydata.query.params.AddParameter(vm, cell, encodingflags);
+                                        std::string paramref = querydata.query.params.AddVariableParameter(vm, cell, encodingflags);
                                         if (paramref.empty())
                                             return;
 
@@ -1841,7 +1941,7 @@ void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfi
                 VarId cell = stackm.RecordCellRefByName(newfields, itr.nameid);
                 if (cell)
                 {
-                        std::string paramref = updatequery.query.params.AddParameter(vm, cell, itr.encodingflags);
+                        std::string paramref = updatequery.query.params.AddVariableParameter(vm, cell, itr.encodingflags);
                         if (paramref.empty())
                             return;
                         updates += " = " + paramref;
@@ -2081,7 +2181,7 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
                             encodingflags = static_cast< ParamEncoding::Flags >(encodingnr);
                 }
 
-                querydata.query.params.AddParameter(vm, stackm.ArrayElementGet(params, i), encodingflags);
+                querydata.query.params.AddVariableParameter(vm, stackm.ArrayElementGet(params, i), encodingflags);
         }
 
         stackm.InitVariable(id_set, VariableTypes::RecordArray);
@@ -2205,12 +2305,6 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         if (len == 0)
         {
                 HSVM_ThrowException(hsvm, "No parameters specified");
-                return;
-        }
-
-        if (blobfolder.empty())
-        {
-                HSVM_ThrowException(hsvm, "No blob folder specified");
                 return;
         }
 
@@ -2366,6 +2460,66 @@ void PGSQL_GetUploadedBlobId(HSVM *hsvm, HSVM_VariableId id_set)
             stackm.SetSTLString(id_set, context->blobid);
 }
 
+void PGSQL_EscapeIdentifier(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        VirtualMachine *vm = GetVirtualMachine(hsvm);
+        StackMachine &stackm = vm->GetStackMachine();
+
+        // Don't care about UTF-8 encoding problems, the server will catch them anyway
+        Blex::StringPair str = stackm.GetString(HSVM_Arg(0));
+
+        std::string result;
+        AddEscapedName(&result, str.stl_stringview());
+        stackm.SetSTLString(id_set, result);
+}
+
+void PGSQL_EscapeLiteral(HSVM *hsvm, HSVM_VariableId id_set)
+{
+        VirtualMachine *vm = GetVirtualMachine(hsvm);
+        StackMachine &stackm = vm->GetStackMachine();
+
+        // Don't care about UTF-8 encoding problems, the server will catch them anyway
+        bool have_backslashes = false;
+        Blex::StringPair str = stackm.GetString(HSVM_Arg(0));
+        std::string result;
+        result.reserve(str.size() + 16);
+        result.push_back('\'');
+        for (auto itr = str.begin; itr != str.end; ++itr)
+        {
+                if (*itr == '\'')
+                    result.push_back(*itr);
+                else if (*itr < 32 || *itr == 127)
+                {
+                        switch (*itr)
+                        {
+                        case 8:    /* \b */ result.push_back('\\'); result.push_back('b'); break;
+                        case 12:   /* \f */ result.push_back('\\'); result.push_back('f'); break;
+                        case 10:   /* \n */ result.push_back('\\'); result.push_back('n'); break;
+                        case 13:   /* \r */ result.push_back('\\'); result.push_back('r'); break;
+                        case 9:    /* \t */ result.push_back('\\'); result.push_back('t'); break;
+                        default:        {
+                                                result.push_back('\\');
+                                                result.push_back('x');
+                                                Blex::EncodeBase16(itr, itr + 1, std::back_inserter(result));
+                                        }
+                        }
+                        have_backslashes = true;
+                        continue;
+                }
+                else if (*itr == '\\')
+                {
+                        result.push_back(*itr);
+                        have_backslashes = true;
+                }
+                result.push_back(*itr);
+        }
+        result.push_back('\'');
+        if (have_backslashes)
+            result.insert(0, " E"sv);
+        stackm.SetSTLString(id_set, result);
+}
+
+
 } // End of namespace PGSQL
 } // End of namespace SQLLib
 } // End of namespace HareScript
@@ -2397,6 +2551,8 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN:WH_PGSQL:B:I", PGSQL_GetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
 
         HSVM_RegisterContext(regdata, PostgreSQLWHBlobContextId, NULL, &CreateBlobContext, &DestroyBlobContext);
 

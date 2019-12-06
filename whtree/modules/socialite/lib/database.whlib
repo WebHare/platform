@@ -1,16 +1,19 @@
 ﻿<?wh
 LOADLIB "mod::system/lib/database.whlib";
 
+
+/** @schemadef socialite
+*/
 PUBLIC SCHEMA
   < TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "title"
     , STRING "tag"
     ; KEY id
     > accounts
   , TABLE
-    < INTEGER "id"
-    , INTEGER "account"
+    < INTEGER "id" NULL := 0
+    , INTEGER "account" NULL := 0
     , STRING "title"
     , STRING "tag"
     , STRING "type"
@@ -19,15 +22,15 @@ PUBLIC SCHEMA
     ; KEY id
     > applications
   , TABLE
-    < INTEGER "id"
-    , INTEGER "application"
+    < INTEGER "id" NULL := 0
+    , INTEGER "application" NULL := 0
     , STRING "tag"
     , STRING "value"
     ; KEY id
     > applicationkeys
   , TABLE
-    < INTEGER "id"
-    , INTEGER "application"
+    < INTEGER "id" NULL := 0
+    , INTEGER "application" NULL := 0
     , STRING "title"
     , STRING "tag"
     , STRING "authorizationremark"
@@ -43,7 +46,7 @@ PUBLIC SCHEMA
     ; KEY id
     > sessions
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "session" NULL := 0
     , STRING "query"
     , DATETIME "created"
@@ -58,7 +61,7 @@ PUBLIC SCHEMA
     ; KEY id
     > "feeds"
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "feed" NULL := 0
     , DATETIME "created"
     , STRING "data"
@@ -68,7 +71,7 @@ PUBLIC SCHEMA
     ; KEY id
     > "feedentries"
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "domain"
     , STRING "apikey"
     , INTEGER keytype

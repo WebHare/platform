@@ -22,13 +22,21 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 <
   STRING endpoint;
 
-  MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret)
+  MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret, RECORD options DEFAULTSTO DEFAULT RECORD)
   : AmazonAWSInterface(zone, accesskey, accesssecret)
   {
-    IF(NOT CellExists(endpoints_s3, zone))
-      THROW NEW Exception("Invalid S3 zone '" || zone || "'");
+    options := ValidateOptions(
+        [ endpoint :=     ""
+        ], options);
 
-    this->endpoint := GetCell(endpoints_s3,zone);
+    IF (options.endpoint = "")
+    {
+      IF(NOT CellExists(endpoints_s3, zone))
+       THROW NEW Exception("Invalid S3 zone '" || zone || "'");
+      this->endpoint := GetCell(endpoints_s3,zone);
+    }
+    ELSE
+      this->endpoint := options.endpoint;
   }
 
   PUBLIC RECORD ARRAY FUNCTION ListAllBuckets()
@@ -116,9 +124,11 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
         : "";
     FOREVERY(OBJECT content FROM this->browser->document->GetElementsByTagNameNS(ns_s320060301, "Contents")->GetCurrentElements())
     {
+      STRING sizestr := content->GetElementsBytagNameNS(ns_s320060301, "Size")->childrentext;
       RECORD objectrec := [ name := content->GetElementsBytagNameNS(ns_s320060301, "Key")->childrentext
                           , lastmodified := MakeDateFromText(content->GetElementsBytagNameNS(ns_s320060301, "LastModified")->childrentext)
-                          , size := ParseXSInt(content->GetElementsBytagNameNS(ns_s320060301, "Size")->childrentext)
+                          , size := ParseXSInt(sizestr)
+                          , size64 := ParseXSInt64(sizestr)
                           , etag := content->GetElementsBytagNameNS(ns_s320060301, "ETag")->childrentext
                           //ADDME owner id, displayname
                           ];

@@ -3,10 +3,12 @@
 
 LOADLIB "mod::system/lib/database.whlib";
 
-/** @loadlib mod::consilio/lib/internal/dbschema.whlib */
+/** @loadlib mod::consilio/lib/internal/dbschema.whlib
+    @schemadef consilio
+*/
 PUBLIC SCHEMA
   < TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , INTEGER "indexmanager" NULL := 0
     , STRING "name"
     , STRING "description"
@@ -18,11 +20,11 @@ PUBLIC SCHEMA
     ; KEY id
     > indices
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "contentprovider"
     , STRING "data"
     , BOOLEAN "discardsummaries"
-    , INTEGER "indexid"
+    , INTEGER "indexid" NULL := 0
     , INTEGER "maxgroupobjects"
     , STRING "tag"
     , STRING "title"
@@ -34,8 +36,8 @@ PUBLIC SCHEMA
     ; KEY id
     > contentsources
   , TABLE
-    < INTEGER "id"
-    , INTEGER "contentsourceid"
+    < INTEGER "id" NULL := 0
+    , INTEGER "contentsourceid" NULL := 0
     , STRING "name"
     , STRING "defaultvalue"
     , BOOLEAN "tokenized"
@@ -43,7 +45,7 @@ PUBLIC SCHEMA
     ; KEY id
     > contentsourcefields
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , DATETIME "checked"
     , INTEGER "checktime"
     , DATETIME "last_referred"
@@ -54,8 +56,8 @@ PUBLIC SCHEMA
     ; KEY id
     > checked_links
   , TABLE
-    < INTEGER "id"
-    , INTEGER "link"
+    < INTEGER "id" NULL := 0
+    , INTEGER "link" NULL := 0
     , INTEGER "system_fs_setting" NULL := 0
     , STRING "text"
     , STRING "url"
@@ -63,7 +65,7 @@ PUBLIC SCHEMA
     ; KEY id
     > checked_objectlinks
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "server"
     , INTEGER "status"
     , DATETIME "nextcheck"
@@ -71,10 +73,10 @@ PUBLIC SCHEMA
     ; KEY id
     > checked_servers
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "query"
     , DATETIME "when"
-    , INTEGER "indexid"
+    , INTEGER "indexid" NULL := 0
     , INTEGER "pages"
     , STRING "sess"
     , INTEGER "results"
@@ -83,13 +85,13 @@ PUBLIC SCHEMA
     ; KEY id
     > query_results
   , TABLE
-    < INTEGER "id"
-    , INTEGER "query"
+    < INTEGER "id" NULL := 0
+    , INTEGER "query" NULL := 0
     , STRING "url"
     ; KEY id
     > query_clicks
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , INTEGER "type"
     , STRING "address"
@@ -99,14 +101,14 @@ PUBLIC SCHEMA
     ; KEY id
     > indexmanagers
   , TABLE
-    < INTEGER "id"
-    , INTEGER "indexid"
+    < INTEGER "id" NULL := 0
+    , INTEGER "indexid" NULL := 0
     , INTEGER "wordgroup"
     , STRING "word"
     ; KEY id
     > thesaurus
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "pattern"
     , BOOLEAN "nolinkcheck_from"
     , BOOLEAN "nolinkcheck_to"

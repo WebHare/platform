@@ -1,15 +1,18 @@
 <?wh
 LOADLIB "mod::system/lib/database.whlib";
 
+
+/** @schemadef webhare_testsuite
+*/
 PUBLIC SCHEMA
 < TABLE
-  < INTEGER id
+  < INTEGER id NULL := 0
   , INTEGER parent NULL := 0
   , STRING name
   ; KEY id
   > rights_tree
 , TABLE
-  < integer id
+  < integer id NULL := 0
   , STRING groupid
   , STRING objectid
   , STRING text
@@ -21,7 +24,7 @@ PUBLIC SCHEMA
   ; KEY id
   > consilio_index
 , TABLE
-  < INTEGER id
+  < INTEGER id NULL := 0
   , STRING text
   ; KEY id
   > exporttest

@@ -1,10 +1,95 @@
 <?wh
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql-blobmgmt.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
+
+
+RECORD dryrunmanifest;
+RECORD FUNCTION GetSetManifest(RECORD newmanifest)
+{
+  IF (RecordExists(newmanifest))
+    dryrunmanifest := newmanifest;
+  RETURN dryrunmanifest;
+}
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "expeditecleanup", type := "switch" ]
+    , [ name := "dryrun", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError(`Syntax: wh run cleanpostgresqlblobs.whscr [ --debug ] [ --dryrun ] [ --expeditecleanup ]
+Options:
+--debug            Show debug info
+--dryrun           Show the actions that will be taken, but don't execute them
+--expeditecleanup  Remove blobs 5 minutes after first detected as unreferenced,
+                   mark uploads abandoned when 5 minutes after creation no
+                   database record was found. Run twice, 5 minutes aparts to
+                   clean all unreferenced blobs. Dangerous, use only in
+                   emergencies.`);
+
+IF (args.dryrun)
+  args.debug := TRUE;
 
 OBJECT trans := OpenPrimary();
 OBJECT analyzer := NEW PostgreSQLBlobAnalyzer(trans);
+
+IF (args.expeditecleanup)
+{
+  analyzer->abandoned_upload_secs := 5 * 60; // 5 minutes
+  analyzer->unreferenced_period_secs := 5 * 60; // 5 minutes
+  analyzer->keep_removed_files_secs := 0; // immediate removal after unlink from DB
+}
+
+MACRO DumpManifestContents()
+{
+  RECORD manifest := analyzer->ReadBlobManifest();
+  PRINT(`Unreferenced blobs: ${SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced}\n`);
+  IF (IsValueSet(manifest.unreferenced))
+    PRINT(`Next removal of unreferenced blob: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date)))FROM manifest.unreferenced), "", "", "CET")}\n`);
+  PRINT(`Unlinked blob parts: ${SELECT AS INTEGER SUM(LENGTH(blobpartids)) FROM manifest.unlinked}\n`);
+  IF (IsValueSet(manifest.unlinked))
+    PRINT(`Next removal of unlinked blob parts: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date)))FROM manifest.unlinked), "", "", "CET")}\n`);
+  PRINT(`Abandoned uploads: ${LENGTH(manifest.abandoned)}\n`);
+}
+
+IF (args.dryrun)
+{
+  dryrunmanifest := analyzer->ReadBlobManifest();
+  analyzer->__debugmanifestaccess := PTR GetSetManifest;
+}
+
+IF (args.debug)
+{
+  RECORD manifest := analyzer->ReadBlobManifest();
+  PRINT(`Manifest contents before analyze:\n`);
+  DumpManifestContents();
+}
+
+
 analyzer->UpdateBlobManifest();
-analyzer->RemoveUnreferencedBlobs();
+
+IF (args.debug)
+{
+  RECORD manifest := analyzer->ReadBlobManifest();
+  PRINT(`\nManifest contents after analyze:\n`);
+  DumpManifestContents();
+}
+
+RECORD result := analyzer->RemoveUnreferencedBlobs(CELL[ skipdeletes := args.dryrun ]);
+
+IF (args.debug)
+{
+  PRINT(`\nCleanup results:\n`);
+  PRINT(`Marked abandoned uploads for removal: ${LENGTH(result.scheduled_abandoned)}\n`);
+  PRINT(`Removed unreferenced blob records from DB: ${LENGTH(result.removed_unreferenced)}\n`);
+  PRINT(`Removed blob part references from DB: ${LENGTH(result.unlinked)}\n`);
+  PRINT(`Removed blob parts: ${LENGTH(result.removed)}\n`);
+  PRINT(`\nManifest contents after cleanup:\n`);
+  DumpManifestContents();
+}

@@ -76,7 +76,7 @@ if [ ! -d "$PSROOT/db" ]; then
     echo DB create db failed
     exit 1
   fi
-  if ! echo "CREATE USER root;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb"  -c "default_transaction_read_only=off" $WEBHARE_DBASENAME ; then
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;" | $RUNAS $PSBIN/postgres --single -D "$PSROOT/tmp_initdb"  -c "default_transaction_read_only=off" $WEBHARE_DBASENAME ; then
     echo DB create user failed
     exit 1
   fi

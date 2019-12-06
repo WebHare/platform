@@ -28,6 +28,24 @@ MACRO __PGSQL_SETWORKOPEN(INTEGER trans, BOOLEAN workopen) __ATTRIBUTES__(EXTERN
 MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+/** Escapes a literal string for direct insertion into a query string
+    @param toencode String to encode
+    @return Encoded string, with quotes
+@example
+STRING a := PostgreSQLEscapeLiteral("encode 'me'"); // returns "'encode''me'''"
+STRING b := PostgreSQLEscapeLiteral("new\nline"); // returns " E'new\nline'"
+*/
+PUBLIC STRING FUNCTION PostgreSQLEscapeLiteral(STRING toencode) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+
+/** Escapes an indentifier (eg table name) for direct insertion into a query string
+    @param toencode Identifier to encode
+    @return Encoded identifier, with quotes
+@example
+STRING a := PostgreSQLEscapeIdentifier("tablename"); // returns '"tablename"'
+*/
+PUBLIC STRING FUNCTION PostgreSQLEscapeIdentifier(STRING toencode) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 /* The description for known OIDs can be found in
    https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
@@ -237,16 +255,47 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   //, indpred pg_node_tree    Expression tree (in nodeToString() representation) for partial index predicate. Null if not a partial index.
   > "pg_index"
 , TABLE
-  < INTEGER "oid"
-  , INTEGER "opcmethod"
-  , STRING "opcname"
-  , INTEGER "opcnamespace"
-  , INTEGER "opcowner"
-  , INTEGER "opcfamily"
-  , INTEGER "opcintype"
-  , BOOLEAN "opcdefault"
-  , INTEGER "opckeytype"
+  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
+  , INTEGER "opcmethod" // Index access method operator class is for
+  , STRING "opcname" // Name of this operator class
+  , INTEGER "opcnamespace" // Namespace of this operator class
+  , INTEGER "opcowner" // Owner of the operator class
+  , INTEGER "opcfamily" // Operator family containing the operator class
+  , INTEGER "opcintype" // Data type that the operator class indexes
+  , BOOLEAN "opcdefault" // True if this operator class is the default for opcintype
+  , INTEGER "opckeytype" // Type of data stored in index, or zero if same as opcintype
   > "pg_opclass"
+, TABLE
+  < INTEGER "oid" // Row identifier (hidden attribute; must be explicitly selected)
+  , STRING "proname" // Name of the function
+  , INTEGER "pronamespace" // The OID of the namespace that contains this function
+  , INTEGER "proowner" // Owner of the function
+  , INTEGER "prolang" // Implementation language or call interface of this function
+  , FLOAT "procost" // Estimated execution cost (in units of cpu_operator_cost); if proretset, this is cost per row returned
+  , FLOAT "prorows" // Estimated number of result rows (zero if not proretset)
+  , INTEGER "provariadic" // Data type of the variadic array parameter's elements, or zero if the function does not have a variadic parameter
+  , INTEGER "protransform" // Calls to this function can be simplified by this other function (see Section 38.10.10)
+  , STRING "prokind" // f for a normal function, p for a procedure, a for an aggregate function, or w for a window function
+  , BOOLEAN "prosecdef" // Function is a security definer (i.e., a “setuid” function)
+  , BOOLEAN "proleakproof"  // The function has no side effects. No information about the arguments is conveyed except via the return value. Any function that might throw an error depending on the values of its arguments is not leak-proof.
+  , BOOLEAN "proisstrict" // Function returns null if any call argument is null. In that case the function won't actually be called at all. Functions that are not “strict” must be prepared to handle null inputs.
+  , BOOLEAN "proretset" // Function returns a set (i.e., multiple values of the specified data type)
+  , STRING "provolatile" // provolatile tells whether the function's result depends only on its input arguments, or is affected by outside factors. It is i for “immutable” functions, which always deliver the same result for the same inputs. It is s for “stable” functions, whose results (for fixed inputs) do not change within a scan. It is v for “volatile” functions, whose results might change at any time. (Use v also for functions with side-effects, so that calls to them cannot get optimized away.)
+  , STRING "proparallel" // proparallel tells whether the function can be safely run in parallel mode. It is s for functions which are safe to run in parallel mode without restriction. It is r for functions which can be run in parallel mode, but their execution is restricted to the parallel group leader; parallel worker processes cannot invoke these functions. It is u for functions which are unsafe in parallel mode; the presence of such a function forces a serial execution plan.
+  , INTEGER "pronargs" // Number of input arguments
+  , INTEGER "pronargdefaults" // Number of arguments that have defaults
+  , INTEGER "prorettype" // Data type of the return value
+  , INTEGER ARRAY "proargtypes" // An array with the data types of the function arguments. This includes only input arguments (including INOUT and VARIADIC arguments), and thus represents the call signature of the function.
+  , INTEGER ARRAY "proallargtypes" // An array with the data types of the function arguments. This includes all arguments (including OUT and INOUT arguments); however, if all the arguments are IN arguments, this field will be null. Note that subscripting is 1-based, whereas for historical reasons proargtypes is subscripted from 0.
+  , STRING ARRAY "proargmodes" // An array with the modes of the function arguments, encoded as i for IN arguments, o for OUT arguments, b for INOUT arguments, v for VARIADIC arguments, t for TABLE arguments. If all the arguments are IN arguments, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  , STRING ARRAY "proargnames" // An array with the names of the function arguments. Arguments without a name are set to empty strings in the array. If none of the arguments have a name, this field will be null. Note that subscripts correspond to positions of proallargtypes not proargtypes.
+  //, proargdefaults  pg_node_tree    Expression trees (in nodeToString() representation) for default values. This is a list with pronargdefaults elements, corresponding to the last N input arguments (i.e., the last N proargtypes positions). If none of the arguments have defaults, this field will be null.
+  , INTEGER ARRAY "protrftypes" // Data type OIDs for which to apply transforms.
+  , STRING "prosrc" // This tells the function handler how to invoke the function. It might be the actual source code of the function for interpreted languages, a link symbol, a file name, or just about anything else, depending on the implementation language/call convention.
+  , STRING "probin" // Additional information about how to invoke the function. Again, the interpretation is language-specific.
+  , STRING ARRAY "proconfig" // Function's local settings for run-time configuration variables
+  //, proacl  aclitem[]   Access privileges; see GRANT and REVOKE for details  > pg_proc
+  > "pg_proc"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA
@@ -1030,8 +1079,8 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   STRING pvt_transactionisolationlevel;
 
-  /// Folder where blob files can be found
-  STRING pvt_blobfolder;
+  /// Blob handler
+  OBJECT pvt_blobhandler;
 
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
   PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
@@ -1039,15 +1088,15 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// @type(string) Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   PUBLIC PROPERTY transactionisolationlevel(pvt_transactionisolationlevel, SetTransactionIsolationLevel);
 
-  /// Folder where blob files can be found
-  PUBLIC PROPERTY blobfolder(pvt_blobfolder, -);
+  /// Blob handler
+  PUBLIC PROPERTY blobhandler(pvt_blobhandler, -);
 
-  MACRO NEW(INTEGER id, BOOLEAN auto, STRING blobfolder)
+  MACRO NEW(INTEGER id, BOOLEAN auto, OBJECT blobhandler)
   {
     this->RegisterTransaction(id);
     this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
-    this->pvt_blobfolder := blobfolder;
+    this->pvt_blobhandler := blobhandler;
 
     this->SetAllowErrorDelay(TRUE);
 
@@ -1287,11 +1336,6 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     }
   }
 
-  STRING FUNCTION EscapeName(STRING name)
-  {
-    RETURN `"${EncodeJava(name)}"`;
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
   {
     SCHEMA catalog LIKE postgresql_pg_catalog;
@@ -1375,7 +1419,10 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
       {
         STRING sequencename := match[1].value;
         IF (sequencename = "")
-          sequencename := `'${Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_")}'::regclass`;
+        {
+          // Assume that column_default is escaped so that regclass cast can parse it when encoded as string literal
+          sequencename := `${PostgresqlEscapeLiteral(Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_"))}::regclass`;
+        }
 
         RECORD seq := this->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
         is_cols[#col].autonumber_start := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
@@ -1387,8 +1434,11 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
-    STRING generator := `(${this->EscapeName(schemaname)}.${this->EscapeName(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
-    RETURN __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE)[0].value;
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(1))[1]`;
+    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
+    IF (NOT RecordExists(result))
+      THROW NEW Exception(`No value returned by MakeAutonumber`);
+    RETURN result.value;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
@@ -1416,13 +1466,13 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
   {
-    this->__ExecSQL(`CREATE SCHEMA ${this->EscapeName(schemaname)}`);
+    this->__ExecSQL(`CREATE SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}`);
   }
 
   UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ cascade := FALSE ], options);
-    this->__ExecSQL(`DROP SCHEMA ${this->EscapeName(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
+    this->__ExecSQL(`DROP SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
   }
 
   UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
@@ -1437,12 +1487,12 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
   {
-    this->__ExecSQL(`ALTER TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)} DROP COLUMN ${this->EscapeName(columnname)}`);
+    this->__ExecSQL(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} DROP COLUMN ${PostgreSQLEscapeIdentifier(columnname)}`);
   }
 
   UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
   {
-    this->__ExecSQL(`DROP TABLE ${this->EscapeName(schemaname)}.${this->EscapeName(tablename)}`);
+    this->__ExecSQL(`DROP TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}`);
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
@@ -1640,6 +1690,7 @@ STRING FUNCTION CalculateApplicationName()
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
 {
+  // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
       [ dbasefolder :=  MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql")
       , auto :=         TRUE
@@ -1647,6 +1698,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , passwd :=       ""
       , clientname :=   ""
       , webhare_dbasename := ""
+      , blobhandler :=  DEFAULT OBJECT
       ], transinfo);
 
   IF (NOT transinfo.auto)
@@ -1656,6 +1708,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (dbasename = "")
     THROW NEW Exception(`Environment variable WEBHARE_DBASENAME not set`);
 
+  RECORD ARRAY params;
+  IF (ObjectExists(transinfo.blobhandler))
+    params := transinfo.blobhandler->GetConnectParams();
+
   INTEGER transid :=  __PGSQL_CONNECT(
       [ [ name :=   "dbname"
         , value :=  dbasename
@@ -1663,18 +1719,29 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , [ name :=   "host"
         , value :=  transinfo.dbasefolder
         ]
-      , [ name :=   "webhare:blobfolder" // sets the blob folder in the driver
-        , value :=  transinfo.dbasefolder
-        ]
       , [ name :=   "application_name"
         , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
         ]
+      , ...params
       ]);
 
   IF(transid<=0)
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.dbasefolder);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.blobhandler);
+
+  IF (IsDebugTagEnabled("postgresql:auto_explain"))
+  {
+    trans->__ExecSQL("LOAD 'auto_explain'");
+    trans->__ExecSQL("SET auto_explain.log_min_duration = 0");
+    trans->__ExecSQL("SET auto_explain.log_analyze = true");
+    trans->__ExecSQL("SET auto_explain.log_timing = true");
+    trans->__ExecSQL("SET auto_explain.log_level = NOTICE");
+    trans->__ExecSQL("SET auto_explain.log_format = json");
+    trans->__ExecSQL("SET auto_explain.log_verbose = true");
+    trans->__ExecSQL("SET auto_explain.log_triggers = true");
+    trans->__ExecSQL("SET auto_explain.log_nested_statements = true");
+  }
 
   RETURN trans;
 }
@@ -1716,10 +1783,43 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
     RETURN FALSE;
   }
 
-  //DumpValue(noticedata);
+  //DumpValue(message);
   //DumpValue(GetStackTrace());
 
   RETURN TRUE;
+}
+
+/** Places a new blob into blob storage, annotates the blob with the location
+    @param transaction PostgreSQL transaction
+    @param blobfolder Blob folder
+    @param data Blob to store
+    @private This function is only called by C++ code, should not be used by user code
+*/
+PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB data)
+{
+  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
+  IF (NOT ObjectExists(blobhandler))
+    THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
+
+  STRING blobid := blobhandler->StoreBlob(data);
+  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
+}
+
+/** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
+    @param transaction Transaction id
+    @param blobfolder Blob folder
+    @param blobid Blob ID
+    @param bloblength Length of the blob
+    @return Looked up blob
+*/
+PUBLIC BLOB FUNCTION __LookupWebharePostgreSQLBlob(INTEGER transaction, STRING blobid, INTEGER64 bloblength)
+{
+  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
+  IF (NOT ObjectExists(blobhandler))
+    THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
+  BLOB data := blobhandler->LookupBlob(blobid, bloblength);
+  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
+  RETURN data;
 }
 
 /** @short Bind the PostgreSQL database metadata tables

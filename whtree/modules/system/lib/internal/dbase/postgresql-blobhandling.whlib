@@ -1,0 +1,472 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+/** Base class for blob part storage
+*/
+STATIC OBJECTTYPE BlobPartStorageBase
+< /** Stores a blob
+      @param blobpartid Id for the blob part
+      @param data Blob data
+  */
+  PUBLIC MACRO WriteBlobPart(STRING blobpartid, BLOB data)
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** Tries to hard link an existing file into the blob part storage
+      @param blobpartid Storage id for the blob part
+      @param path Path to the blob part file
+      @return Whether the operation was successful
+  */
+  PUBLIC BOOLEAN FUNCTION TryHardLinkBlobPart(STRING blobpartid, STRING path)
+  {
+    RETURN FALSE;
+  }
+
+  /** Create a blob that is read from the storage
+      @param blobpartid Id of the blob part
+      @param len Length of the blob part
+      @return A blob that reads from the blob part storage
+  */
+  PUBLIC BLOB FUNCTION ReadBlobPart(STRING blobpartid, INTEGER64 len)
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** List all stored blob parts
+      @return List of all stored blob parts
+      @cell return.blobpartid Storage id
+      @cell return.moddate Last modification date
+      @cell return.size Size of the blob part
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** Deletes blob parts from storage
+      @param blobpartids Ids of the blob parts to delete
+  */
+  PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** Get the connection parameters for the postgresql database (C++ helper components)
+      @return Connection parameters
+      @cell(string) return.name Parameter name
+      @cell(string) return.value Parameter value
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetConnectParams()
+  {
+    RETURN RECORD[];
+  }
+
+  /** Retrieves the blob manifest, DEFAULT BLOB if not found
+      @return Manifest data
+  */
+  PUBLIC BLOB FUNCTION GetBlobManifest()
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** Stores the blob manifest
+      @param manifest Manifest data
+  */
+  PUBLIC MACRO StoreBlobManifest(BLOB manifest)
+  {
+    THROW NEW Exception(`Override this function`);
+  }
+
+  /** Remove old archived blob parts that don't need to be kept anymore
+      @cell options.dryrun Just list the ones that would be removed
+      @cell options.filter If present, only remove blobs with these ids
+      @return Removed blob parts
+  */
+  PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    // Call this function for options validation
+    options := ValidateOptions(
+        [ dryrun :=     FALSE
+        , filterids :=  STRING[]
+        ], options,
+        [ optional := [ "filterids" ]
+        ]);
+
+    RETURN STRING[];
+  }
+>;
+
+
+/** Blob part storage that stores the parts in a disk folder
+*/
+STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
+<
+  STRING blobfolder;
+
+  INTEGER keepdeleteddays;
+
+  /** @param blobfolder Folder where the parts are stored
+  */
+  MACRO NEW(STRING blobfolder, INTEGER keepdeleteddays)
+  {
+    this->blobfolder := blobfolder;
+    this->keepdeleteddays := keepdeleteddays;
+  }
+
+  RECORD FUNCTION GetFilePaths(STRING blobpartid, BOOLEAN createdir)
+  {
+    STRING dir := MergePath(this->blobfolder, "blob/" || Left(blobpartid, 2)) || "/";
+    IF (createdir AND NOT CreateDiskDirectoryRecursive(dir, FALSE))
+        THROW NEW Exception(`Could not create blob storage directory ${dir}`);
+
+    RETURN [ fullpath := MergePath(dir, blobpartid), temppath := MergePath(this->blobfolder, "tmp/" || blobpartid) ];
+  }
+
+  UPDATE PUBLIC MACRO WriteBlobPart(STRING blobpartid, BLOB data)
+  {
+    RECORD paths := this->GetFilePaths(blobpartid, TRUE);
+
+    INTEGER file := CreateDiskFile(paths.temppath, TRUE, FALSE);
+    IF (file = 0)
+    {
+      STRING tempdir := MergePath(this->blobfolder, "tmp");
+      IF (NOT CreateDiskDirectoryRecursive(tempdir, FALSE))
+        THROW NEW Exception(`Could not create blob temp dir ${tempdir}`);
+      file := CreateDiskFile(paths.temppath, TRUE, FALSE);
+      IF (file = 0)
+        THROW NEW Exception(`Could not create blob temp file ${paths.temppath}`);
+    }
+
+    IF (NOT SendBlobTo(file, data))
+    {
+      CloseDiskFile(file);
+      DeleteDiskFile(paths.temppath);
+      THROW NEW Exception(`Could not create blob temp file ${paths.temppath}, error while reading original blob`);
+    }
+
+    IF (NOT CloseDiskFile(file))
+      THROW NEW Exception(`Error closing blob temp file ${paths.temppath}`);
+
+    IF (NOT MoveDiskPath(paths.temppath, paths.fullpath))
+      THROW NEW Exception(`Error moving blob temp file ${paths.temppath} to ${paths.fullpath}`);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION TryHardLinkBlobPart(STRING blobpartid, STRING path)
+  {
+    RECORD paths := this->GetFilePaths(blobpartid, TRUE);
+    RETURN CreateHardLink(paths.fullpath, path);
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION ReadBlobPart(STRING blobpartid, INTEGER64 len)
+  {
+    RECORD paths := this->GetFilePaths(blobpartid, FALSE);
+    BLOB data := GetDiskResource(paths.fullpath);
+    IF (LENGTH(data) != len)
+      THROW NEW Exception(`Blob ${blobpartid} at ${paths.fullpath} did not have expected length, expected ${len}, found ${LENGTH(data)}`);
+    RETURN data;
+  }
+
+  UPDATE PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
+  {
+    IF (this->keepdeleteddays > 0)
+    {
+      DATETIME now := GetCurrentDateTime();
+      STRING archivefolder := MergePath(this->blobfolder, `blob-archive/${FormatDateTime("%Y%m%d", GetCurrentDateTime())}`) || "/";
+      CreateDiskDirectoryRecursive(archivefolder, FALSE);
+      FOREVERY (STRING blobpartid FROM blobpartids)
+      {
+        RECORD paths := this->GetFilePaths(blobpartid, FALSE);
+        MoveDiskPath(paths.fullpath, MergePath(archivefolder, blobpartid));
+      }
+    }
+    ELSE
+    {
+      FOREVERY (STRING blobpartid FROM blobpartids)
+      {
+        RECORD paths := this->GetFilePaths(blobpartid, FALSE);
+        DeleteDiskFile(paths.fullpath);
+      }
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ filterids :=    STRING[]
+        ], options);
+
+    STRING ARRAY filterids := options.filterids;
+    BOOLEAN have_filter := IsValueSet(filterids);
+
+    RECORD ARRAY retval;
+    FOREVERY (RECORD subfolder FROM ReadDiskDirectory(MergePath(this->blobfolder, "blob"), "*"))
+    {
+      IF (LENGTH(subfolder.name) = 2 AND ToInteger(subfolder.name, -1, 16) >= 0)
+      {
+        FOREVERY (RECORD blobfile FROM ReadDiskDirectory(subfolder.path, "*"))
+        {
+          IF (have_filter AND blobfile.name NOT IN filterids)
+            CONTINUE;
+
+          RECORD blobrec := CELL
+              [ blobpartid :=   blobfile.name
+              , blobfile.modified
+              , size :=         blobfile.size64
+              ];
+
+          RECORD pos := RecordLowerBound(retval, blobrec, [ "BLOBPARTID" ]);
+          INSERT blobrec INTO retval AT pos.position;
+        }
+      }
+    }
+    RETURN retval;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConnectParams()
+  {
+    RETURN
+        [ [ name :=   "webhare:blobfolder" // sets the blob folder in the driver
+          , value :=  this->blobfolder
+          ]
+        ];
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetBlobManifest()
+  {
+    RETURN GetDiskResource(MergePath(this->blobfolder, "blob/blobmanifest.json"), [ allowmissing := TRUE ]);
+  }
+
+  UPDATE PUBLIC MACRO StoreBlobManifest(BLOB manifest)
+  {
+    StoreDiskFile(MergePath(this->blobfolder, "blob/blobmanifest.json"), manifest, [ overwrite := TRUE ]);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    BlobPartStorageBase::RemoveOldArchivedBlobParts(options);
+
+    INTEGER keepdays := this->keepdeleteddays = 0 ? -1 : this->keepdeleteddays;
+    DATETIME keepfromdate := AddDaysToDate(-keepdays, GetRoundedDateTime(GetCurrentDateTime(), 86400 * 1000));
+
+    RECORD ARRAY folders := ReadDiskDirectory(MergePath(this->blobfolder, "blob-archive"), "*");
+    STRING ARRAY deleted;
+    FOREVERY (RECORD folderrec FROM folders)
+    {
+      DATETIME date := MakeDateFromText(folderrec.name || "T000000Z");
+      IF (LENGTH(folderrec.name) != 8 OR date = DEFAULT DATETIME OR date >= keepfromdate)
+        CONTINUE;
+
+      RECORD ARRAY blobparts := ReadDiskDirectory(folderrec.path, "*");
+      BOOLEAN any_skipped;
+      FOREVERY (RECORD blobpart FROM blobparts)
+      {
+        IF (CellExists(options, "filterids") AND blobpart.name NOT IN options.filterids)
+        {
+          any_skipped := TRUE;
+          CONTINUE;
+        }
+
+        INSERT blobpart.name INTO deleted AT END;
+        IF (NOT options.dryrun)
+          DeleteDiskFile(blobpart.path);
+      }
+
+      IF (NOT any_skipped AND NOT options.dryrun)
+        DeleteDiskDirectory(folderrec.path);
+    }
+
+    RETURN GetSortedSet(deleted);
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
+< /** @type(object #BlobPartStorageBase) Blob part storage
+  */
+  OBJECT blobpartstorage;
+
+  /** Create a new PostgreSQL blob handler
+      @param resolver Blob resolver
+  */
+  MACRO NEW(OBJECT blobpartstorage)
+  {
+    this->blobpartstorage := blobpartstorage;
+  }
+
+  /** Imports a blob
+      @param path Path to hardlinkable blob file (if available)
+      @param data Blob data
+      @return Blob database id
+  */
+  STRING FUNCTION ImportBlobInternal(STRING path, BLOB data)
+  {
+    STRING blobpartid := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
+    //'001' is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
+    STRING databaseid := EncodeUFS("\x00\x00\x01") || blobpartid;
+
+    IF (path = "" OR NOT this->blobpartstorage->TryHardLinkBlobPart(blobpartid, path))
+      this->blobpartstorage->WriteBlobPart(blobpartid, data);
+
+    RETURN databaseid;
+  }
+
+  /** Stores a blob, return the id that can be stored in the database for retrieval
+      @param data Blob data
+      @return Id that can be used to retrieve the blob
+  */
+  PUBLIC STRING FUNCTION StoreBlob(BLOB data)
+  {
+    RETURN this->ImportBlobInternal("", data);
+  }
+
+  /** Imports an disk resource that can be hard linked
+      @param path Path to the disk file
+      @return Id that can be used to retrieve the blob
+  */
+  PUBLIC STRING FUNCTION ImportHardlinkableFile(STRING path)
+  {
+    RETURN this->ImportBlobInternal(path, GetDiskResource(path));
+  }
+
+  /** Returns a blob base from the database name
+      @param dbasename Name stored in the database
+      @param len Length of the blob
+      @return Blob
+  */
+  PUBLIC BLOB FUNCTION LookupBlob(STRING dbasename, INTEGER64 len)
+  {
+    STRING blobpartid := SubString(dbasename, 4); // strip off strategy
+
+    // strategy is ignored for now
+    RETURN this->blobpartstorage->ReadBlobPart(blobpartid, len);
+  }
+
+  /** List all stored blob parts
+      @return List of all blob parts
+      @cell(string) return.blobpartid Blob part id
+      @cell(datetime) return.moddate Last modification date
+      @cell(integer64) return.size Size of the blob part
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  {
+    RETURN this->blobpartstorage->ListBlobParts();
+  }
+
+  /** Deletes blob storage
+      @param blobpartids Blob part ids (not database name!)
+  */
+  PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
+  {
+    this->blobpartstorage->DeleteBlobParts(blobpartids);
+  }
+
+  /** Get the connection parameters for the postgresql database (C++ helper components)
+      @return Connection parameters
+      @cell(string) return.name Parameter name
+      @cell(string) return.value Parameter value
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetConnectParams()
+  {
+    RETURN this->blobpartstorage->GetConnectParams();
+  }
+
+  /** Get the storage ids for blob parts that will be used to resolve database blob ids
+      @param dbaseblobids Blob ids from blob record
+      @return Storage ids (that will be retrieved from the blob part storage), can be
+          correlated with ids from #ListBlobParts.
+  */
+  PUBLIC STRING ARRAY FUNCTION GetBlobPartIdsFromBlobIds(STRING ARRAY dbaseblobids)
+  {
+    FOR (INTEGER i := 0, e := LENGTH(dbaseblobids); i < e; i := i + 1)
+      dbaseblobids[i] := SubString(dbaseblobids[i], 4);
+    RETURN dbaseblobids;
+  }
+
+  /** Retrieves the blob manifest, DEFAULT BLOB if not found
+      @return Manifest data
+  */
+  PUBLIC BLOB FUNCTION GetBlobManifest()
+  {
+    RETURN this->blobpartstorage->GetBlobManifest();
+  }
+
+  /** Stores the blob manifest
+      @param manifest Manifest data
+  */
+  PUBLIC MACRO StoreBlobManifest(BLOB manifest)
+  {
+    this->blobpartstorage->StoreBlobManifest(manifest);
+  }
+
+  /** Remove old archive blob parts that don't need to be kept in the archive
+      anymore
+      @cell options.dryrun Just list the ones that would be removed
+      @cell options.filterids If present, only remove blobs with these ids
+      @return Removed blob part ids
+  */
+  PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ dryrun :=     FALSE
+        , filterids :=  STRING[]
+        ], options,
+        [ optional := [ "filterids" ]
+        ]);
+
+    RETURN this->blobpartstorage->RemoveOldArchivedBlobParts(options);
+  }
+>;
+
+/** Returns a configured blob resolver
+    @param config Configuration
+    @cell config.type Type of the resolver ('local-disk')
+    @return(object #BlobResolverBase) Blob resolver
+*/
+PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
+{
+  SWITCH (config.type)
+  {
+    CASE "local-disk"
+    {
+      config := ValidateOptions(
+          [ type :=             ""
+          , blobfolder :=       MergePath(__SYSTEM_WHCOREPARAMETERS().basedataroot, "postgresql")
+          , keepdeleteddays :=  30
+          ], config);
+
+      RETURN NEW DiskBlobPartStorage(config.blobfolder, config.keepdeleteddays);
+    }
+    DEFAULT
+    {
+      // OpenPrimary() now swallows exceptions, so use ABORT to break through
+      ABORT(`Illegal blob resolver type '${config.type}'`);
+    }
+  }
+}
+
+RECORD FUNCTION GetDefaultBlobStorageConfig()
+{
+  BLOB configdatablob := GetDiskResource(MergePath(__SYSTEM_WHCOREPARAMETERS().basedataroot, "etc/blobstorage.config.json"), [ allowmissing := TRUE ]);
+  RECORD config;
+  IF (LENGTH(configdatablob) != 0)
+    config := DecodeJSONBlob(configdatablob);
+  config := config ?? [ type := "local-disk" ];
+
+  // cache for a day,
+  RETURN [ ttl := 24*60*60*1000, value := config ];
+}
+
+PUBLIC OBJECT FUNCTION GetDefaultPostgreSQLBlobHandler()
+{
+  OBJECT resolver := GetBlobResolverByConfig(GetAdhocCached([ type := "defaultblobstorageconfig" ], PTR GetDefaultBlobStorageConfig()));
+  RETURN NEW WHPostgreSQLBlobHandler(resolver);
+}

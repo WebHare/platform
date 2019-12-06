@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 
@@ -8,8 +9,26 @@ LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
 {
+  EnsureExtensions(trans);
   EnsureBlobTable(trans);
   EnsureStoredProcedures(trans);
+}
+
+MACRO EnsureExtensions(OBJECT trans)
+{
+  STRING ARRAY required_extensions :=
+      [ "plpgsql"     // For stored procedures. Should be installed by default
+      , "pgcrypto"    // Needed for digest(...) function, used by unique indexes on long varchars
+      ];
+
+  STRING ARRAY installed := SELECT AS STRING ARRAY extname FROM trans->__ExecSQL(`SELECT * FROM pg_extension`);
+  FOREVERY (STRING ext FROM required_extensions)
+    IF (ext NOT IN installed)
+    {
+      trans->BeginWork();
+      trans->__ExecSQL(`CREATE EXTENSION ${ext}`);
+      trans->CommitWork();
+    }
 }
 
 MACRO EnsureBlobTable(OBJECT trans)
@@ -576,7 +595,7 @@ END;$$`
     CATCH (OBJECT e)
     {
       trans->__ExecSQL(`ROLLBACK TO SAVEPOINT sp`);
-      trans->__ExecSQL(`DROP FUNCTION ${rec.name} CASCADE`); // triggers will be recreated later
+      trans->__ExecSQL(`DROP FUNCTION ${PostgreSQLEscapeIdentifier(rec.name)} CASCADE`); // triggers will be recreated later
       trans->__ExecSQL(rec.code);
     }
   }
