@@ -1615,6 +1615,7 @@
         <xs:element name="filemgrextension" type="FileMgrExtension" />
         <xs:element name="versioningpolicy" type="VersioningPolicy" />
         <xs:element name="indexfield" type="PublisherIndexField" />
+        <xs:element name="searchcontentprovider" />
         <xs:element name="searchfilter" type="SearchFilter" />
         <xs:element name="siteprofile">
           <xs:complexType>
