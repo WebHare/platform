@@ -18,7 +18,6 @@ HSTEST ?= all
 export WHBUILD_SRCDIR=$(abspath $(SRCDIR))
 export WHBUILD_PREFIX=$(abspath $(PREFIX))
 export WHBUILD_BUILDDIR=$(abspath $(shell pwd))
-WHBUILD_INSTANTCLIENTROOT ?= /usr/local/instantclient/
 
 export HSTEST
 
@@ -46,13 +45,6 @@ else
 	# Set LD_LIBRARY_PATH for tests
 	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
 	SYSLIBDIRSUFFIX=64
-
-	ifneq ($(WHBUILD_INSTANTCLIENT_URL),)
-		#OCI detected, enable it if WHBUILD_OCI is not yet set
-		WHBUILD_OCI ?= 1
-		CPPFLAGS += -I/usr/include/oracle/12.1/client64
-		GLOBALLDFLAGS += -L/usr/lib/oracle/12.1/client64/lib
-	endif
 
 	CPPFLAGS += -I/usr/include/postgresql/
 endif

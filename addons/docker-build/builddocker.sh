@@ -87,30 +87,14 @@ rm -rf $WORKDIR
 mkdir -p $WORKDIR
 cd $WORKDIR
 
-getfromfiles()
-{
-  ZOPT=""
-  if [ -f $1 ]; then
-    ZOPT="-z $1"
-  fi
-  if ! curl -fsS https://build.webhare.dev/whbuild/$1 -o $1 $ZOPT ; then
-    sleep 2
-    if ! curl -fsS https://build.webhare.dev/whbuild/$1 -o $1 $ZOPT ; then
-      echo Download of https://build.webhare.dev/whbuild/$1 failed
-      rm $1
-      exit 1
-    fi
-  fi
-}
+if [ -n "$WHBUILDSECRET_INSTANTCLIENT_URL" ]; then
+  echo $WHBUILDSECRET_INSTANTCLIENT_URL > instantclienturl.txt
 
-SOURCEFILES="
-  pdfbox-app-2.0.11.jar
-  elasticsearch-oss-7.3.0-linux-x86_64.tar.gz"
-
-for P in $SOURCEFILES; do
-  getfromfiles $P
-done
-
+  DOCKERBUILDARGS+=(--secret)
+  DOCKERBUILDARGS+=(id=instantclienturl,src=instantclienturl.txt)
+  DOCKERBUILDARGS+=(--build-arg)
+  DOCKERBUILDARGS+=("WHBUILD_OCI=1")
+fi
 
 # select the right tar implementation, we need gnu-tar
 if [ "`uname`" == "Darwin" ]; then
@@ -179,10 +163,6 @@ DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_COMMIT_SHA=$CI_COMMIT_SHA")
 DOCKERBUILDARGS+=(--build-arg)
 DOCKERBUILDARGS+=("CI_PIPELINE_ID=$CI_PIPELINE_ID")
-DOCKERBUILDARGS+=(--build-arg)
-DOCKERBUILDARGS+=("WHBUILD_ODBC_SQLSERVER=$WHBUILD_ODBC_SQLSERVER")
-DOCKERBUILDARGS+=(--build-arg)
-DOCKERBUILDARGS+=("WHBUILD_INSTANTCLIENT_URL=$WHBUILD_INSTANTCLIENT_URL")
 
 if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
