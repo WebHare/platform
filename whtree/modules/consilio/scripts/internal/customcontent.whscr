@@ -2,7 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
-
+LOADLIB "mod::system/lib/cluster.whlib";
 
 OBJECT contentobject;
 OBJECT trans;
@@ -24,6 +24,7 @@ TRY
 }
 CATCH (OBJECT e)
 {
+  LogHarescriptException(e);
   iochan->SendReply([ __exception :=
                         [ type :=   "exception"
                         , what :=   e->what

@@ -1011,6 +1011,11 @@
     <searchfilter name="whfsfolder" tid="filemanager.search.filtertypes.whfsfolder" filterobject="lib/search/searchfilters.whlib#whfsfolderfilter" />
     <searchfilter name="whfstype" tid="filemanager.search.filtertypes.whfstype" filterobject="lib/search/searchfilters.whlib#whfstypefilter" />
 
+    <!-- The fsobject contentprovider simply returns the fs_objects.data member (ie assumes 'blobiscontent') -->
+    <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#BaseSearchProvider" version="1.0.0" />
+    <!-- The rtd contentprovider parses and http://www.webhare.net/xmlns/publisher/richdocumentfile data -->
+    <searchcontentprovider name="rtd" objectname="lib/search/searchproviders.whlib#RichDocumentSearchProvider" version="1.0.0" />
+
     <!-- Publisher search fields for documents with draft support (richdocuments and form files) -->
     <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="hasdraft"/>
     <searchfilter name="hasdraft" tid="filemanager.search.filtertypes.hasdraft" filterobject="lib/internal/consiliocontent.whlib#hasdraftfilter">

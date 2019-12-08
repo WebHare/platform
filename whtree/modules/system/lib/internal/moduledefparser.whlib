@@ -459,21 +459,14 @@ PUBLIC STRING FUNCTION ParseGid(STRING module, STRING gid, OBJECT element)
   RETURN gid;
 }
 
-STRING FUNCTION ParseXMLModuleNamed(STRING module, OBJECT element, STRING attrname)
+PUBLIC STRING FUNCTION QualifyName(STRING qualification, STRING name)
 {
-  STRING name := element->GetAttribute(attrname);
-  IF(name="")
-    RETURN "";
-
-  RETURN name LIKE "*:*" ? name : module || ":" || name;
+  RETURN name = "" ? "" : name LIKE "*:*" ? name : qualification || ":" || name;
 }
 
-STRING FUNCTION QualifyName(STRING qualification, STRING name)
+STRING FUNCTION ParseXMLModuleNamed(STRING module, OBJECT element, STRING attrname)
 {
-  IF (name != "" AND SearchSubstring(name, "*") = -1 AND name NOT LIKE "*:*")
-    name := qualification || ":" || name;
-
-  RETURN name;
+  RETURN QualifyName(module, element->GetAttribute(attrname));
 }
 
 STRING FUNCTION GetTIDPtrFromTid(STRING module, STRING tid)

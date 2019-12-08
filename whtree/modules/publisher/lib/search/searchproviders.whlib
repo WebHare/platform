@@ -2,6 +2,9 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -40,9 +43,16 @@ PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
   {
     IF (NOT ObjectExists(richdocumentfile_type))
       richdocumentfile_type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
     RECORD data := richdocumentfile_type->GetInstanceData(objid);
     IF (NOT RecordExists(data) OR NOT RecordExists(data.data))
       RETURN DEFAULT RECORD ARRAY;
-    RETURN [ WrapBlob(data.data.htmltext, "richdocumentfile.html") ];
+
+    OBJECT applytester := GetApplyTesterForObject(objid);
+    RECORD content := GetRichDocumentIndexableContent(data.data, CELL[applytester]);
+    IF(NOT RecordExists(content))
+      RETURN DEFAULT RECORD ARRAY;
+
+    RETURN [ WrapBlob(content.htmltext, "richdocumentfile.html") ];
   }
 >;

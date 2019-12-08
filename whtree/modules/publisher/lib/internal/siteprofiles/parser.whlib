@@ -342,6 +342,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
     ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
     ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
+    ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
+    ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
     ctype.fstype.isfiletype := TRUE;
 

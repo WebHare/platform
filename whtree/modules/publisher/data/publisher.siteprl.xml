@@ -260,6 +260,7 @@
       ispublishable="true"
       ispublishedassubdir="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -274,6 +275,7 @@
       isacceptableindex="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -288,6 +290,7 @@
       isdevelopertype="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -316,6 +319,7 @@
       isdevelopertype="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -344,6 +348,7 @@
       needsprofile="false"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -423,6 +428,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -486,6 +492,7 @@
       needsprofile="false"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -512,6 +519,7 @@
       needsprofile="false"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -541,6 +549,7 @@
       isacceptableindex="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -556,6 +565,7 @@
       isacceptableindex="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -582,6 +592,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -595,6 +606,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -608,6 +620,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -621,6 +634,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <!-- TODO: remove when blexdev_formsapi goes! -->
@@ -635,6 +649,7 @@
       needsprofile="false"
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -672,6 +687,7 @@
       ispublishedassubdir="true"
       extensions=".rtd"
       searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
+      searchcontentprovider="publisher:rtd"
   />
 
   <filetype
@@ -683,6 +699,7 @@
       requirescontent="true"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype
@@ -711,6 +728,7 @@
       isacceptableindex="false"
       ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
+      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype

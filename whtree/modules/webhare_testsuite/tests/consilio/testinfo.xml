@@ -35,4 +35,6 @@
   <test script="test_moduleindices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
 
   <jstest file="test_pxl.es" />
+  <test name="indextypes" path="indextypes/" />
+
 </group>

@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::money.whlib";
@@ -25,17 +26,78 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 
 OBJECT searchinfotype;
 
-RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type)
+/** looks up a second level named node by qualified name */
+PUBLIC OBJECT FUNCTION LookupModuleDefNamedNode(STRING topnodename, STRING subnodename, STRING qualifiedname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN
-      [ value := SELECT AS STRING COLUMN searchprovider FROM system.fs_types WHERE id = type
-      , eventmasks := [ "system:whfs.types" ] // broadcast after siteprofile recompile (searchproviders may have changed)
-      ];
+  options := ValidateOptions(CELL[ title := `<${subnodename}>`
+                                 , nameattribute := "name"
+                                 ], options);
+
+  STRING ARRAY toks := Tokenize(qualifiedname, ':');
+  IF(Length(toks) != 2)
+    THROW NEW Exception(`Invalid ${options.title} name '${qualifiedname}'`);
+
+  OBJECT moduledef := GetModuleDefinitionXML(toks[0]);
+  IF(NOT ObjectExists(moduledef))
+    THROW NEW Exception(`No such module '${toks[0]}' while looking for ${options.title} '${qualifiedname}'`);
+
+  OBJECT topnode := PickFirst(moduledef->documentelement->ListChildren(whconstant_xmlns_moduledef, topnodename));
+  IF(ObjectExists(topnode))
+    FOREVERY(OBJECT subnode FROM topnode->ListChildren(whconstant_xmlns_moduledef, subnodename))
+      IF(subnode->GetAttribute(options.nameattribute) = toks[1])
+        RETURN subnode;
+
+  THROW NEW Exception(`No such ${options.title} '${toks[1]}' in module '${toks[0]}`);
+}
+
+
+RECORD FUNCTION GetSearchContentProvider(STRING name)
+{
+  OBJECT node := LookupModuleDefNamedNode("publisher", "searchcontentprovider", name, [ title := "searchcontentprovider"]);
+  RETURN [ objectname := MakeAbsoluteResourcePath(`mod::${Tokenize(name,':')[0]}/`, node->GetAttribute("objectname"))
+         , version := node->GetAttribute("version") ?? "unspecified"
+         ];
+}
+
+RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
+{
+  STRING ARRAY eventmasks := [ "system:whfs.types" ]; // broadcast after siteprofile recompile (searchproviders may have changed)
+  RECORD typeinfo := DescribeContentTypeById(type, CELL[ isfolder, mockifmissing := TRUE ]);
+
+
+  /* We need to regenerate whenever for files of this type
+     any of the following changes:
+     - filetype indexversion
+     - searchcontentprovider
+     - searchcontentprovider version */
+
+  RECORD retval := [ typehash :=       EncodeBase16(GetSHA1Hash("whfstype:" || typeinfo.namespace))
+                   , versionhash :=    ""
+                   , searchprovider := ""
+                   ];
+
+  IF(typeinfo.searchcontentprovider != "")
+  {
+    RECORD scp := GetSearchContentProvider(typeinfo.searchcontentprovider);
+    retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || typeinfo.searchcontentprovider || "\t" || typeinfo.indexversion || "\t" || scp.version));
+    retval.searchprovider := scp.objectname;
+  }
+  ELSE
+  {
+    retval.searchprovider := SELECT AS STRING COLUMN searchprovider FROM system.fs_types WHERE id = type;
+    retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || retval.searchprovider || "\t" || typeinfo.indexversion));
+  }
+
+  RETURN CELL[ value := retval
+             , eventmasks
+             ];
 }
 
 RECORD FUNCTION GetSearchInfoUncached(INTEGER objid)
@@ -53,9 +115,9 @@ RECORD FUNCTION GetSearchInfoUncached(INTEGER objid)
 
 RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
 {
-  STRING searchprovider := GetAdhocCached(CELL[ fsobj.type ], PTR GetTypeSearchProviderUncached(fsobj.type));
-  IF(searchprovider="")
-    RETURN RECORD[]; //
+  RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
+  IF(scp.searchprovider = "")
+    RETURN RECORD[]; //no classic searchprovider either
 
   RECORD bodyinfo := GetAdhocCached([ id := fsobj.id ], PTR GetSearchInfoUncached(fsobj.id));
 
@@ -64,8 +126,7 @@ RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
     RETURN SELECT AS RECORD ARRAY body FROM bodyinfo.subfiles;
   }
 
-  STRING ARRAY parts := Tokenize(searchprovider, "#");
-  OBJECT provider := MakeObject(parts[0], parts[1]);
+  OBJECT provider := MakeObject(scp.searchprovider);
 
   RECORD ARRAY subfiles;
   FOREVERY(RECORD subfile FROM provider->GetSearchContents(fsobj.id))
@@ -183,6 +244,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
   {
     RECORD fsrec :=
         SELECT id
+             , isfolder
              , modificationdate
              , type
           FROM system.fs_objects
@@ -269,7 +331,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
         , indexdate := fsobj->modificationdate
         ];
 
-    RECORD ARRAY subfiles := GetSearchSubfiles(CELL[ fsobj->id, fsobj->modificationdate, fsobj->type ], FALSE); //Don't force here, generating subfiles is already forced in ListObjects
+    RECORD ARRAY subfiles := GetSearchSubfiles(CELL[ fsobj->id, fsobj->modificationdate, fsobj->type, fsobj->isfolder ], FALSE); //Don't force here, generating subfiles is already forced in ListObjects
     IF(arrayid < Length(subfiles) AND RecordExists(subfiles[arrayid]))
       INSERT CELL document_body := BlobToString(subfiles[arrayid].data) INTO result;
 
