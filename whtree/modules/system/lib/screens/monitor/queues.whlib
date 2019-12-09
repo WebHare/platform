@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
@@ -7,6 +9,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -273,6 +276,62 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
   }
 
   RECORD ARRAY FUNCTION GetPublisherWorkers()
+  {
+    IF (NOT UseNewPublisher())
+      RETURN this->GetLegacyPublisherWorkers();
+
+    RECORD ARRAY workerlist;
+
+    OBJECT link := ConnectToGlobalIPCPort("system:persistentqueue.publisher:publication");
+    RECORD res;
+    IF (ObjectExists(link))
+    {
+      res := link->SendMessage([ action := "STATE" ]);
+      IF (res.status = "ok")
+        res := link->ReceiveMessage(AddTimeToDate(1000, GetCurrentDatetime()));
+      link->Close();
+    }
+
+    IF (RecordExists(res) AND res.status = "ok")
+    {
+      this->queuelength->value := ToString(LENGTH(res.msg.running) + res.msg.runnable + res.msg.timedwait);
+
+      DATETIME now := GetCurrentDatetime();
+      workerlist :=
+          SELECT TEMPORARY diff := GetDatetimeDifference(date_running, now)
+               , rowkey := "publisher" || #running
+               , name := "publisher " || #running+1
+               , currenttask := DescribeFile(taskdata.id)
+               , currenttaskhint := "#" || taskdata.id
+               , time := this->tolliumuser->FormatTimespan(diff.days, diff.msecs)
+               , starttime := this->tolliumuser->FormatTime(date_running, "seconds", TRUE)
+               , deadline := ""
+            FROM res.msg.running;
+    }
+    ELSE
+      this->queuelength->value := "";
+
+    res := DEFAULT RECORD;
+    link := ConnectToGlobalIPCPort("system:persistentqueue.publisher:outputanalyzer");
+    IF (ObjectExists(link))
+    {
+      res := link->SendMessage([ action := "STATE" ]);
+      IF (res.status = "ok")
+        res := link->ReceiveMessage(AddTimeToDate(1000, GetCurrentDatetime()));
+      link->Close();
+    }
+
+    IF (RecordExists(res) AND res.status = "ok")
+    {
+      this->analyzerqueuelength->value := ToString(LENGTH(res.msg.running) + res.msg.runnable + res.msg.timedwait);
+    }
+    ELSE
+      this->analyzerqueuelength->value := "";
+
+    RETURN workerlist;
+  }
+
+  RECORD ARRAY FUNCTION GetLegacyPublisherWorkers()
   {
     IF (IsDatabaseReadonly())
       RETURN DEFAULT RECORD ARRAY;

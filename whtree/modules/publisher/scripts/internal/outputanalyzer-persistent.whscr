@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
@@ -8,24 +9,39 @@ LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
 STATIC OBJECTTYPE OutputAnalyzerQueue EXTEND PersistentDiskQueue
 <
+  UPDATE STRING FUNCTION GetTaskContentId(RECORD task)
+  {
+    RETURN EncodeHSON(task);
+  }
+
   UPDATE MACRO RebuildPersistentQueue()
   {
     // If the queue could not be restored, rescan all folders
     SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", [ action := "GATHERFOLDERS" ]);
   }
+
+  UPDATE MACRO HandleTaskError(OBJECT item, OBJECT error)
+  {
+    // Try this task again in a minute
+    this->PushTask(item->taskdata, CELL
+        [ item->priority
+        , scheduledate :=   AddTimeToDate(60 * 1000, GetCurrentDateTime())
+        ]);
+  }
 >;
 
-RECORD options := ParseArguments(GetConsoleArguments(),
+RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debuglevel", type := "stringopt" ]
     , [ name := "keepstorage", type := "switch" ]
     , [ name := "debug", type := "switch" ]
     ]);
-IF (NOT RecordExists(options))
+IF (NOT RecordExists(args))
   TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--keepstorage]`);
 
 OBJECT queue := NEW OutputAnalyzerQueue("publisher:outputanalyzer", CELL
-    [ ...options
-    , debuglevel := options.debug ? debuglevel_all : ToInteger(options.debuglevel, debuglevel_none)
-    , debugprint := options.debug
+    [ ...args
+    , debuglevel := ToInteger(args.debuglevel, args.debug ? debuglevel_all : debuglevel_none)
+    , debugprint := args.debug
     ]);
+
 queue->Run();

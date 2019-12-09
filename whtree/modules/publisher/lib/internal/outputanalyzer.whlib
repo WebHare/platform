@@ -79,8 +79,13 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
 
     GetPrimary()->CommitWork();
 
-    FOREVERY (INTEGER folderid FROM allfolders)
-      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", CELL[ action := "SCAN", folderid, recursive := FALSE ]);
+    SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE",
+          [ tasks :=
+                SELECT action :=    "SCAN"
+                     , folderid
+                     , recursive := FALSE
+                  FROM ToRecordArray(allfolders, "folderid")
+          ]);
   }
 
   MACRO ScanFolder(INTEGER folderid, BOOLEAN recursive)
@@ -96,8 +101,15 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
     GetPrimary()->CommitWork();
 
     IF (recursive)
-      FOREVERY(RECORD item FROM (SELECT id FROM system.fs_objects WHERE isfolder AND parent = folderid AND type != 1))
-        SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", CELL[ action := "SCAN", folderid := item.id, recursive := TRUE ]);
+    {
+      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE",
+          [ tasks :=
+                SELECT action :=    "SCAN"
+                     , folderid :=  id
+                     , recursive := TRUE
+                  FROM system.fs_objects WHERE isfolder AND parent = folderid AND type != 1
+          ]);
+    }
   }
 
   MACRO ScanAllFoldersNow()

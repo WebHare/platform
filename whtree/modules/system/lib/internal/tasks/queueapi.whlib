@@ -12,6 +12,7 @@ PUBLIC MACRO SchedulePersistentTask(STRING tasktype, STRING action, RECORD task)
   IF (ObjectExists(link))
   {
     link->SendMessage(CELL[ action, task ]);
+    link->Close();
   }
   ELSE
     THROW NEW Exception(`Could not connect to ${tasktype}`);
