@@ -229,6 +229,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
         {
           to_republish := to_republish CONCAT
             SELECT id
+                 , priority :=    published%100000
               FROM system.fs_objects
              WHERE parent = rec.folder
                AND IsQueuedForPublication(published);
@@ -246,6 +247,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
           IF("rep" IN obj.events)
             INSERT [ id := obj.file
+                   , priority := SELECT AS INTEGER published%100000 FROM system.fs_objects WHERE id = obj.file
                    ] INTO to_republish AT END;
         }
       }

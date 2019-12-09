@@ -45,8 +45,14 @@ PUBLIC STATIC OBJECTTYPE QueueItem
   /// @type(integer) Priority for this item (lower means earlier execution)
   PUBLIC PROPERTY priority(this->pvt_curdata.priority, SetPriority);
 
-  //// Called when the queue item has been marked as finished. Signature: MACRO onfinished(OBJECT item)
+  /// Called when the queue item has been marked as finished. Signature: MACRO onfinished(OBJECT item)
   PUBLIC PROPERTY onfinished(this->pvt_curdata.onfinished, this->pvt_curdata.onfinished);
+
+  /// Time when the item entered the stage 'running'
+  PUBLIC PROPERTY date_running(this->pvt_curdata.date_running, -);
+
+  /// Time when the item entered the stage 'finished'
+  PUBLIC PROPERTY date_finished(this->pvt_curdata.date_finished, -);
 
   /** Constructs a new item
       @param(object #QueueKeeper) queuekeeper Queue keeper
@@ -77,6 +83,8 @@ PUBLIC STATIC OBJECTTYPE QueueItem
         , scheduledate :=   MAX_DATETIME
         , priority :=       0
         , onfinished :=     DEFAULT FUNCTION PTR
+        , date_running :=   DEFAULT DATETIME
+        , date_finished :=  DEFAULT DATETIME
         ];
 
     this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, initialdata);
@@ -127,7 +135,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   RECORD ARRAY running;
 
   /** Queues for scheduled items (with stage 'scheduled')
-      @cell(string) tag Queue tag
+      @cell(string) queuename Queue name
       @cell(record array) runnable Priority queue, sorted on priority, datetime, id. Contains all items in queuestate 'runnable'
       @cell(integer) runnable.priority Priority
       @cell(datetime) runnable.datetime Datetime
@@ -185,6 +193,12 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
       CASE "scheduled"          { newstate.queuestate := newstate.scheduledate <= now ? "runnable" : "timedwait"; }
       DEFAULT                   { THROW NEW Exception(`Illegal item stage '${item->pvt_curdata.stage}'`); }
     }
+
+    IF (newstate.stage = "running" AND IsDefaultValue(newstate.date_running))
+      newstate.date_running := now;
+    IF (newstate.stage = "finished" AND IsDefaultValue(newstate.date_finished))
+      newstate.date_finished := now;
+
     item->pvt_curdata := newstate;
 
     // Insert into new position
@@ -366,6 +380,25 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
       RETURN DEFAULT OBJECT;
 
     RETURN this->queues[pos.position].runnable[0].item;
+  }
+
+  /** Get the current queue state
+      @return Queue state
+      @cell return.running Currently running items
+      @cell return.queues Queues
+      @cell return.queues.tag Tag of the queue
+      @cell return.queues.runnable Number of runnable items (items with queuestate 'runnable')
+      @cell return.queues.timedwait Number of items that are scheduled to run in the future  (items with queuestate 'timedwait')
+  */
+  PUBLIC RECORD FUNCTION GetState()
+  {
+    RETURN
+        [ running :=    (SELECT AS OBJECT ARRAY item FROM this->running)
+        , queues :=     SELECT queuename
+                             , runnable :=    LENGTH(runnable)
+                             , timedwait :=   LENGTH(timedwait)
+                          FROM this->queues
+        ];
   }
 
 >;

@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+
+/** Stores records in a log file
+*/
+PUBLIC STATIC OBJECTTYPE RecordsLogFile
+<
+  STRING filename;
+
+  MACRO NEW(STRING filename)
+  {
+    this->filename := filename;
+  }
+
+  MACRO WriteRecords(INTEGER handle, RECORD ARRAY recs)
+  {
+    FOREVERY (RECORD rec FROM recs)
+      PrintTo(handle, EncodeHSON(rec) || "\n");
+  }
+
+  /** Rewrites the records file with a new set of records
+      @param recs Records to write
+  */
+  PUBLIC MACRO Rewrite(RECORD ARRAY recs)
+  {
+    INTEGER handle := CreateDiskFile(this->filename || ".tmp", FALSE, TRUE);
+    IF (handle = 0)
+      THROW NEW Exception(`Could not records log file ${this->filename}`);
+    SetDiskFilelength(handle, 0);
+
+    this->WriteRecords(handle, recs);
+    CloseDiskFile(handle);
+
+    IF (NOT MoveDiskPath(this->filename || ".tmp", this->filename))
+      THROW NEW Exception(`Could not rename temporary file to records log file ${this->filename}`);
+  }
+
+  /** Appends records.
+      @param recs Records to append
+  */
+  PUBLIC MACRO AppendRecords(RECORD ARRAY recs)
+  {
+    INTEGER handle := OpenDiskFile(this->filename, TRUE);
+    IF (handle = 0)
+    {
+      handle := CreateDiskFile(this->filename, TRUE, TRUE);
+      IF (handle = 0)
+        THROW NEW Exception(`Records log file ${this->filename} does not exist and could not be created`);
+    }
+
+    SetFilePointer(handle, GetFileLength(handle));
+    this->WriteRecords(handle, recs);
+    CloseDiskFile(handle);
+  }
+
+  /** Returns an iterator that returns all records
+      @return Whether the records file was read successfully in its entirity,
+         and contained any records. Throws on decoding failure.
+  */
+  PUBLIC FUNCTION *ReadAllRecords()
+  {
+    INTEGER handle := OpenDiskFile(this->filename, FALSE);
+    IF (handle = 0)
+      RETURN FALSE;
+
+    STRING curstr;
+    WHILE (TRUE)
+    {
+      STRING data := ReadFrom(handle, 4096);
+      IF (data = "") // last hson record is never terminated
+        BREAK;
+      INTEGER lastpos := 0;
+      WHILE (TRUE)
+      {
+        INTEGER nlpos := SearchSubString(data, "\n", lastpos);
+        IF (nlpos = -1)
+        {
+          curstr := curstr || SubString(data, lastpos);
+          BREAK;
+        }
+
+        curstr := curstr || SubString(data, lastpos, nlpos - lastpos);
+        IF (curstr != "")
+        {
+          // Just pass on decoding errors
+          YIELD DecodeHSON(curstr);
+        }
+
+        curstr := "";
+        lastpos := nlpos + 1;
+      }
+    }
+    RETURN curstr = "";
+  }
+>;

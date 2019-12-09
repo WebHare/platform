@@ -5,18 +5,20 @@ LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
 
-RECORD options := ParseArguments(GetConsoleArguments(),
+RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debuglevel", type := "stringopt" ]
     , [ name := "keepstorage", type := "switch" ]
     , [ name := "debug", type := "switch" ]
+    , [ name := "cleanqueue", type := "switch" ]
     ]);
-IF (NOT RecordExists(options))
+IF (NOT RecordExists(args))
   TerminateScriptWithError(`Usage: publications-persistent.whscr [--debuglevel] [--keepstorage]`);
 
 OBJECT queue := NEW PersistentDiskQueue("publisher:publication", CELL
-    [ ...options
-    , debuglevel := options.debug ? debuglevel_all : ToInteger(options.debuglevel, debuglevel_none)
-    , debugprint := options.debug
+    [ ...args
+    , debuglevel := ToInteger(args.debuglevel, args.debug ? debuglevel_all : debuglevel_none)
+    , debugprint := args.debug
+    , args.cleanqueue
     ]);
 
 queue->Run();
