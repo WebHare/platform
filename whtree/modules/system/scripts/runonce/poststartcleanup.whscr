@@ -1,13 +1,19 @@
 <?wh
+//clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "wh::files.whlib";
 
+STRING imgcache := GetWebHareConfiguration().ephemeralroot || "imgcache";
+DeleteDiskDirectoryRecursive(imgcache);
 
 OBJECT trans := OpenPrimary();
 trans->BeginWork();
 
 IF(trans->ColumnExists("SYSTEM","AUTHOBJECTS","ID"))
-  DELETE FROM system.authobjects WHERE type IN [4,5];
+  DELETE FROM system_internal.authobjects WHERE type IN [4,5];
 
 IF(trans->ColumnExists("SYSTEM","FS_OBJECTS","ID"))
 {

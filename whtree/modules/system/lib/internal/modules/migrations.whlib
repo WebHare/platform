@@ -51,44 +51,7 @@ RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
    RETURN scripts;
 }
 
-RECORD ARRAY FUNCTION ParseModuleDefRunonceFromDisk(OBJECT doc)
-{
-  RECORD ARRAY scripts;
-  STRING basepath := `mod::${doc->GetModuleName()}/migrations/`;
-
-  FOREVERY(STRING stage FROM whens)
-  {
-    STRING scanpath := basepath || stage || "/";
-    FOREVERY(RECORD entry FROM ReadWebHareResourceFolder(scanpath))
-    {
-      IF(entry.isfolder OR entry.name NOT LIKE "?*-?*.whscr")
-      {
-        doc->AddError(DEFAULT OBJECT, `Illegal migration entry '${entry.name}' in ${scanpath}`);
-        CONTINUE;
-      }
-
-      STRING dtstring := Tokenize(entry.name,'-')[0];
-      STRING scriptname := Substring(entry.name, Length(dtstring)+1);
-
-      DATETIME dt := MakeDateFromText(dtstring);
-      IF(dt = DEFAULT DATETIME)
-      {
-        doc->AddError(DEFAULT OBJECT, `Did not recognize timestamp '${dtstring}' for '${scriptname}' in ${scanpath}`);
-        CONTINUE;
-      }
-
-      INSERT [ tag := doc->GetModuleName() || ":" || stage || "." || FormatISO8601Datetime(dt,"day","milliseconds","UTC",FALSE) || "." || scriptname
-             , script := entry.resourcepath
-             , when := stage
-             ] INTO scripts AT END;
-    }
-  }
-  RETURN SELECT * FROM scripts ORDER BY tag; //will be automatically when,datetime sorted because of tag's structure
-}
-
 PUBLIC RECORD ARRAY FUNCTION ParseModuleDefRunonce(OBJECT doc)
 {
-  RETURN ParseModuleDefRunonceModuleDef(doc)
-         CONCAT
-         ParseModuleDefRunonceFromDisk(doc);
+  RETURN ParseModuleDefRunonceModuleDef(doc);
 }

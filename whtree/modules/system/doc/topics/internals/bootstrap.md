@@ -65,10 +65,6 @@ For every module group applies their database definitions, and runs the followin
 - `<runonce when="aftertablecreation">`
 - `<runonce when="afterregistryupdate">`
 
-It will also run any scripts in `mod::<module>/migrations/<phase>`, where the phase is one of afterschemacreations, aftertablesbeforerights etc.
-Scripts in this folder should be named with a ISO8601 date followed by a dash, eg `20190926-cleanupmodule.whscr`. The scripts will be executed in
-their date order and we recommend just using the date you added the script.
-
 It will then proceed to recompile all site profiles, and wait for it to complete.
 
 Broadcasts various events so everyone know there has been a softreset. This will trigger the webserver to

@@ -1,5 +1,6 @@
 <?wh
-/* This script removes 'broken' "FD1" links (which link to the internal XML document of form files) from existing files */
+/* This script removes 'broken' "FD1" links (which link to the internal XML document of form files) from existing files
+   Added in 4.27 */
 
 LOADLIB "mod::consilio/lib/database.whlib";
 

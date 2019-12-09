@@ -9,6 +9,20 @@
   </meta>
 
   <servicemanager>
+    <!-- early cleanups that may conflict with schema constraints -->
+    <runonce tag="earlycleanup_20191209" script="scripts/runonce/earlycleanup.whscr" when="afterschemacreation" />
+
+    <!-- update the tag when new mimetypes arrive -->
+    <runonce tag="init_mimetypes_20191209" script="scripts/runonce/initmimetypes.whscr" when="aftertablecreation" />
+
+    <!-- initialize core DB structure and create standard folders -->
+    <runonce tag="initdb_20191209" script="scripts/runonce/initdb.whscr" when="afterregistryupdate" />
+
+    <!-- late cleanups that shouldn't block startup -->
+    <runonce tag="poststartcleanup_20191209" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
+
+    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
+
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
     <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>
@@ -32,8 +46,6 @@
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" unlessenvironset="WEBHARE_ISRESTORED" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
 
-
-    <runonce tag="fixfd1links_20191204" script="scripts/runonce/fixfd1links.whscr" when="poststart" />
   </servicemanager>
 
   <portal>
