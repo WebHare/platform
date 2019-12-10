@@ -72,8 +72,16 @@ MACRO EnsurePrimary()
 }
 
 /** Get a list of errors from today's error log
-    @param options
     @cell(integer) options.count Number of errors to get
+    @return List of notice errors
+    @cell(datetime) return.when Error date
+    @cell(string) return.source Error source
+    @cell(string) return.channel Error channel
+    @cell(string) return.srhid VM group ID
+    @cell(string) return.externalsource External source
+    @cell(string) return.message Message
+    @cell(string) return.encodeddata_raw Encoded error data
+    @cell return.data Decoded error data
 */
 PUBLIC RECORD ARRAY FUNCTION GetLastNoticeErrors(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -182,8 +190,8 @@ STRING FUNCTION ResolveOutputBaseFolder(STRING folder)
 /** Try to translate any path to a mod:: or whfs:: path
     @param anyurl
     @return
-    @cell filepath Path to file on disk (empty for whfs)
-    @cell rootpath Translated url, '' if failed.
+    @cell return.filepath Path to file on disk (empty for whfs)
+    @cell return.rootpath Translated url, '' if failed.
 */
 PUBLIC RECORD FUNCTION TranslateURLToRootPath(STRING anyurl, RECORD options DEFAULTSTO DEFAULT RECORD)
 {

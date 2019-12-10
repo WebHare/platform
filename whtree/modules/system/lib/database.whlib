@@ -586,7 +586,8 @@ PUBLIC OBJECT FUNCTION StartWebhareTransaction(RECORD data) __ATTRIBUTES__(DEPRE
     CASE "whdb"
     {
       INTEGER transid := __avoiddepwarning_StartWHDBTransaction(data);
-      transobject := GetTransactionObjectById(transid);
+      IF (transid != 0)
+        transobject := GetTransactionObjectById(transid);
     }
     CASE "postgresql"
     {
@@ -675,18 +676,11 @@ PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
   OBJECT trans;
   WHILE(TRUE)
   {
-    TRY
+    trans := StartWebhareTransaction(transopts);
+    IF (NOT ObjectExists(trans) AND options.fallbacktorecoverymode AND NOT options.recoverymode)
     {
+      transopts.user := "~recovery";
       trans := StartWebhareTransaction(transopts);
-      IF (NOT ObjectExists(trans) AND options.fallbacktorecoverymode AND NOT options.recoverymode)
-      {
-        transopts.user := "~recovery";
-        trans := StartWebhareTransaction(transopts);
-      }
-    }
-    CATCH(OBJECT e)
-    {
-
     }
     IF (ObjectExists(trans))
       BREAK;

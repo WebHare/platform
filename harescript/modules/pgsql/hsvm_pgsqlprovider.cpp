@@ -2277,6 +2277,8 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
 
         std::string blobfolder;
 
+        PQ_PRINT("PGSQL_Connect");
+
         unsigned len = HSVM_ArrayLength(hsvm, HSVM_Arg(0));
         for (unsigned idx = 0; idx < len; ++idx)
         {
@@ -2287,7 +2289,7 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
 
                 if (name.compare(0, 8, "webhare:"sv) == 0)
                 {
-                        DEBUGPRINT("wh-specific: " << name);
+                        PQ_PRINT(" wh-specific: " << name);
                         if (name == "webhare:blobfolder")
                             blobfolder = value;
                         else
@@ -2324,9 +2326,10 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
 
         if (PQstatus(conn) != CONNECTION_OK)
         {
-                // out of memory here will leak the connection
+                PGPtr< PGconn > connptr(conn);
+
                 std::string errormessage = PQerrorMessage(conn);
-                PQfinish(conn);
+                PQ_PRINT("Connection failed: " << errormessage);
 
                 HSVM_ThrowException(hsvm, ("Connection failed: " + errormessage).c_str());
                 return;

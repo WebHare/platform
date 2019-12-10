@@ -10,6 +10,7 @@ predate the introduction of the Gregorian Calendar." />
   <section name="float" title="Mathematic and floating point utility functions" />
   <section name="money" title="Money type utility functions" />
   <section name="promises" title="Promises and cancellation" />
+  <section name="async" title="Asynchronous programming" />
   <section name="regex" title="Regular expressions" />
   <section name="os" title="Filesystem and process management" />
   <section name="ipc" title="Inter-process communication and jobs" />

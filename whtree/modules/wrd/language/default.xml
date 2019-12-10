@@ -396,7 +396,7 @@
   <textgroup gid="errors">   <!-- errors -->
     <text tid="dateofdeath_before_birth">The date of death cannot be before the date of birth</text>
     <text tid="dateofdeath_in_future">The date of death cannot be in the future</text>
-    <text tid="field_invalidvalue">The value for field '<param p="1"/> is invalid.</text>
+    <text tid="field_invalidvalue">The value for field '<param p="1"/>' is invalid.</text>
     <text tid="field_unique">The submitted value for field '<param p="1"/>' is not unique</text>
     <text tid="limitdate_before_creationdate">The end date of this relation cannot be before the creation date</text>
   </textgroup>
