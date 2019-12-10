@@ -185,9 +185,13 @@ PUBLIC OBJECTTYPE ConverterType
         STRING value;
         SWITCH(TYPEID(field.value))
         {
-          CASE TYPEID(INTEGER), TYPEID(INTEGER64)
+          CASE TYPEID(INTEGER)
           {
             retval := CellInsert(retval, field.name, field.value || "");
+          }
+          CASE TYPEID(INTEGER64)
+          {
+            retval := CellInsert(retval, field.name, field.value || "i64");
           }
           CASE TYPEID(MONEY)
           {
@@ -290,6 +294,17 @@ PUBLIC OBJECTTYPE ConverterType
             {
               STRING ARRAY ss;
               FOREVERY (INTEGER i FROM field.value) INSERT i || "" INTO ss AT END;
+              retval := CellInsert(retval, field.name, ss);
+            }
+          }
+          CASE TYPEID(INTEGER64 ARRAY)
+          {
+            IF (NOT this->multilevel)
+              retval := CellInsert(retval, field.name, "INTEGER64 ARRAY[" || Length(field.value) || "]");
+            ELSE
+            {
+              STRING ARRAY ss;
+              FOREVERY (INTEGER i FROM field.value) INSERT i || "i64" INTO ss AT END;
               retval := CellInsert(retval, field.name, ss);
             }
           }
@@ -467,7 +482,7 @@ PUBLIC OBJECTTYPE ConverterType
           }
         CASE TYPEID(INTEGER64)
           {
-            retval.text := ""||field.value;
+            retval.text := field.value || "i64";
           }
         CASE TYPEID(MONEY)
           {
