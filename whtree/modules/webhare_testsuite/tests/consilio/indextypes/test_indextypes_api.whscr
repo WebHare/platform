@@ -80,8 +80,20 @@ MACRO TestPublisherIndex()
   TestEqLike("*Eerste kop*Tweede kop*", result.results[0].summary);
 }
 
+MACRO TestSearchOverride()
+{
+  //Test overriding the search parameter
+  testfw->BeginWork();
+  testrtd->UpdateMetadata([name := "override-widget-search.rtd"]);
+  testfw->CommitWork();
+
+  OBJECT applytester := GetApplytesterForObject(testrtd->id);
+  RECORD indexable := GetRichDocumentIndexableContent(testdoc, CELL[applytester]);
+  TestEqLike("*This is the level2 search preview*", BlobToString(indexable.htmltext));
+}
 
 RunTestframework(
     [ PTR TestIndexTypeAPIs
     , PTR TestPublisherIndex
+    , PTR TestSearchOverride
     ]);

@@ -26,7 +26,7 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
   ELSE
   {
     RECORD rtdtype := GetRTDSettingsFromType(rtdsettings.rtdtype);
-    OBJECT context := NEW PreviewContext(options.fsobject, options.applytester, rtdtype);
+    OBJECT context := NEW PreviewContext(options.fsobject, options.applytester, rtdtype, TRUE);
 
     htmltext := GetPrintedAsBlob(PTR context->RenderRTD(richdoc));
   }

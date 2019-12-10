@@ -84,7 +84,7 @@ PUBLIC STATIC OBJECTTYPE EmbeddedObjectBase
 
     BLOB structuredef := GetWebHareResource(structuredefpath);
     rtd->ApplyStructureDefinition(LoadClassicStructureDef(structuredef));
-    rtd->previewcontext := NEW PreviewContext(rtd->pvt_baseobject, rtd->pvt_applytester, GetRTDTypeFromClassicStructureDef(rtd->pvt_structure));
+    rtd->previewcontext := NEW PreviewContext(rtd->pvt_baseobject, rtd->pvt_applytester, GetRTDTypeFromClassicStructureDef(rtd->pvt_structure), FALSE);
     RETURN rtd;
   }
 

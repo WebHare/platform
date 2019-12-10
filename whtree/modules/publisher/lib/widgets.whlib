@@ -114,6 +114,13 @@ PUBLIC OBJECTTYPE WidgetBase
       THROW NEW Exception("A widget must override the Render function if it doesn't specify a witty component");
     this->EmbedComponent(this->data);
   }
+
+  /** @short Function invoked when the widget should be rendered for a RTD Search preview. By default the normal preview is used */
+  PUBLIC MACRO RenderSearchPreview()
+  {
+    this->Render();
+  }
+
   /** @short Function invoked when the widget should be rendered inside the webdesign */
   PUBLIC MACRO RenderLive()
   {
@@ -399,7 +406,7 @@ PUBLIC MACRO RenderAdhocWidget(RECORD widgetinstance, OBJECT basefsobject, RECOR
             , whfstype := whfstypename
          INTO widgetinstance;
 
-  OBJECT context := CelLExists(options,'webdesign') ? options.webdesign : CellExists(options,'previewcontext') ? options.previewcontext : NEW PreviewContext(basefsobject, applytester, rtdsettings);
+  OBJECT context := CelLExists(options,'webdesign') ? options.webdesign : CellExists(options,'previewcontext') ? options.previewcontext : NEW PreviewContext(basefsobject, applytester, rtdsettings, FALSE);
   OBJECT embobj := GetEmbeddedObjectRenderer(basefsobject, applytester, rtdtype, widgetinstance, context).widget;
   IF(MemberExists(embobj, "__pvt_widgetsettings")) //Modern widget
   {
