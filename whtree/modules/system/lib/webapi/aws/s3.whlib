@@ -22,6 +22,12 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 <
   STRING endpoint;
 
+  /** Create a new S3 interface
+      @param zone S3 zone
+      @param accesskey Access key
+      @param accesssecret Secret key
+      @cell options.endpoint Endpoint override
+  */
   MACRO NEW(STRING zone, STRING accesskey, STRING accesssecret, RECORD options DEFAULTSTO DEFAULT RECORD)
   : AmazonAWSInterface(zone, accesskey, accesssecret)
   {
@@ -39,6 +45,11 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       this->endpoint := options.endpoint;
   }
 
+  /** List all buckets
+      @return List of buckets
+      @cell return.name Bucket name
+      @cell return.creationdate Bucket creation date
+  */
   PUBLIC RECORD ARRAY FUNCTION ListAllBuckets()
   {
     this->RawAWS4Request("s3","GET",this->endpoint);
@@ -100,6 +111,23 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     THROW NEW Exception("Request failure");
   }
 
+  /** List the contents of a bucket, paginated.
+      @param bucket Bucket name
+      @cell(string) options.delimiter Delimiter
+      @cell(string) options.prefix Return only objects with this prefix
+      @cell(string) options.marker Start listing at this marker (pass 'nextmarker' returned
+          by a previous call)
+      @cell(integer) options.maxkeys Maximum number of objects to return (limited to 1000)
+      @return Bucket contents
+      @cell(record array) return.objects List of objects
+      @cell(string) return.objects.name Object name
+      @cell(datetime) return.objects.lastmodified Last modification of the object
+      @cell(integer) return.objects.size Size of the object
+      @cell(integer64) return.objects.size64 Size of the object
+      @cell(string) return.objects.etag Etag
+      @cell(boolean) return.truncated Whether more objects are present in the bucket
+      @cell(string) return.nextmarker Marker to pass to this function to get the next list of objects
+  */
   PUBLIC RECORD FUNCTION GetBucket(STRING bucket, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ delimiter := "", prefix := "", marker := "", maxkeys := 1000 ], options);
@@ -140,7 +168,11 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
            ];
   }
 
-  //Translates the raw bucket api into a folderlike api
+  /** List the full contents of a bucket
+      @param bucket Bucket name
+      @param path Directory name
+      @return @includecelldef #GetBucket.return.objects
+  */
   PUBLIC RECORD ARRAY FUNCTION GetDirectory(STRING bucket, STRING path)
   {
     IF(path LIKE "/*")
@@ -162,6 +194,12 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     RETURN results;
   }
 
+  /** Get the contents of an object
+      @param bucket Bucket name
+      @param path Path of the object
+      @return Body of object, DEFAULT RECORD if the object does not exist
+      @cell return.body Object contents
+  */
   PUBLIC RECORD FUNCTION GetObject(STRING bucket, STRING path)
   {
     this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
@@ -177,6 +215,16 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     RETURN this->endpoint || bucket || "/" || path;
   }
 
+  /** Stores an object
+      @param bucket Bucket name
+      @param path Path of the object
+      @param data Data for the object
+      @cell options.type Mime-type for the object (determined automatically with %ScanBlob when not set)
+      @return
+      @cell(string) return.etag Etag
+      @cell(string) return.amzid2
+      @cell(string) return.contentmd5 MD5 hash of the data
+  */
   PUBLIC RECORD FUNCTION PutObject(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ type := ""
@@ -197,6 +245,30 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
            ];
   }
 
+  /** Copies an object
+      @param bucket Bucket name
+      @param sourcepath Path of the object to copy
+      @param targetpath Path for the new copy
+      @cell options.sourcebucket Copy the object from this bucket
+      @return
+      @cell(string) return.etag Etag
+  */
+  PUBLIC RECORD FUNCTION CopyObject(STRING bucket, STRING sourcepath, STRING targetpath, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ sourcebucket := "" ], options);
+
+    RECORD ARRAY headers := [[ field := "x-amz-copy-source", value := `${options.sourcebucket ?? bucket}/${sourcepath}` ]
+                            ];
+    this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket, targetpath), CELL[ headers, body := DEFAULT BLOB ]);
+
+    RETURN [ etag := this->browser->GetResponseHeader("ETag")
+           ];
+  }
+
+  /** Deletes an object
+      @param bucket Bucket name
+      @param path Path of the object to delete
+  */
   PUBLIC MACRO DeleteObject(STRING bucket, STRING path)
   {
     this->RawAWS4Request("s3", "DELETE", this->PathToUrl(bucket,path));
