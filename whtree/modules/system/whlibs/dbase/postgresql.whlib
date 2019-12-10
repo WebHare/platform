@@ -1712,18 +1712,30 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
 
-  INTEGER transid :=  __PGSQL_CONNECT(
-      [ [ name :=   "dbname"
-        , value :=  dbasename
-        ]
-      , [ name :=   "host"
-        , value :=  transinfo.dbasefolder
-        ]
-      , [ name :=   "application_name"
-        , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
-        ]
-      , ...params
-      ]);
+  INTEGER transid;
+  TRY
+  {
+    transid :=  __PGSQL_CONNECT(
+        [ [ name :=   "dbname"
+          , value :=  dbasename
+          ]
+        , [ name :=   "host"
+          , value :=  transinfo.dbasefolder
+          ]
+        , [ name :=   "application_name"
+          , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
+          ]
+        , ...params
+        ]);
+  }
+  CATCH (OBJECT e)
+  {
+    IF (e->what LIKE "Connection failed: could not connect to server: *")
+      RETURN DEFAULT OBJECT;
+    IF (e->what LIKE "Connection failed: FATAL:  the database system is starting up*")
+      RETURN DEFAULT OBJECT;
+    THROW;
+  }
 
   IF(transid<=0)
     RETURN DEFAULT OBJECT;
