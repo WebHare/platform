@@ -1,8 +1,12 @@
 <?wh
 
+/** @topic harescript-core/async
+*/
+
 LOADLIB "wh::promise.whlib";
 
-
+/** Base class for waitable condition
+*/
 PUBLIC STATIC OBJECTTYPE WaitableConditionBase
 < // ---------------------------------------------------------------------------
   //
@@ -23,6 +27,7 @@ PUBLIC STATIC OBJECTTYPE WaitableConditionBase
   /// name of this waitable condition, for debugging purposes
   PUBLIC STRING name;
 
+  /// Whether the condition is signalled
   PUBLIC PROPERTY signalled(pvt_signalled, -);
 
   // ---------------------------------------------------------------------------
@@ -54,7 +59,9 @@ PUBLIC STATIC OBJECTTYPE WaitableConditionBase
     return this->wait.promise;
   }
 
-  /// Updates the current signalled status (internal function, for use by derived objects
+  /** Updates the current signalled status (internal function, for use by derived objects
+      @param signalled New signalled status
+  */
   MACRO SetSignalled(BOOLEAN signalled)
   {
     if (this->pvt_signalled = signalled)
@@ -73,13 +80,17 @@ PUBLIC STATIC OBJECTTYPE WaitableConditionBase
   // Public API
   //
 
-  // Returns a promise that be resolved when the status is or becomes signalled
+  /** Returns a promise that be resolved when the status is or becomes signalled
+      @return Promise that resolves to this object when the status is or becomes signalled
+  */
   PUBLIC OBJECT FUNCTION WaitSignalled()
   {
     RETURN this->WaitSignalledInternal(FALSE);
   }
 
-  // Returns a promise that be resolved when the status is or becomes not signalled
+  /** Returns a promise that be resolved when the status is or becomes not signalled
+      @return Promise that resolves to this object when the status is or becomes not signalled
+  */
   PUBLIC OBJECT FUNCTION WaitNotSignalled()
   {
     RETURN this->WaitSignalledInternal(TRUE);
@@ -94,6 +105,8 @@ STATIC OBJECTTYPE PermissionLock
     this->defer := defer;
   }
 
+  /** Close the lock, letting other functions run
+  */
   PUBLIC MACRO Close()
   {
     this->defer.resolve(DEFAULT RECORD);
@@ -107,6 +120,7 @@ ASYNC FUNCTION WaitOnPromise(RECORD startdefer, OBJECT waitlock, OBJECT promise)
 }
 
 /** Helper class that serializes call to functions (optionally coalescing them)
+    @public
 */
 STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
 < // ---------------------------------------------------------------------------
@@ -121,13 +135,13 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
   INTEGER running;
 
   /** List of queued calls
-      @cell func
-      @cell options
-      @cell options.coalescetag
-      @cell args
-      @cell promise
-      @cell resolve
-      @cell reject
+      @cell(function ptr) func Function to call
+      @cell(record) options Options
+      @cell options.coalescetag Coalesce calls with this tag
+      @cell(variant array) args Arguments for the function
+      @cell(object) promise Deferred promise
+      @cell(function ptr) resolve Deferred promise resolve function
+      @cell(function ptr) reject Deferred promise reject function
   */
   RECORD ARRAY queue;
 
@@ -136,6 +150,9 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
   // Constructor
   //
 
+  /** Constructs a new CallSerializer
+      @cell options.maxconcurrent Number functions calls that may run concurrently
+  */
   MACRO NEW(RECORD options)
   {
     options := ValidateOptions(
@@ -151,7 +168,11 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
   // Helper functions
   //
 
-  /// Handle new call
+  /** Handle new call
+      @param data Call data
+      @param args Call arguments
+      @return Promise that will resolve to the function result
+  */
   OBJECT FUNCTION GotCall(RECORD data, VARIANT ARRAY ...args)
   {
     IF (data.options.coalescetag != "")
@@ -214,6 +235,8 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
       @cell options.coalescetag If not empty, coalesce multiple pending calls to one call (if a call is running, a new call is still scheduled). If not empty, the returned function
           does not take any parameters (unless ignoreparameters is set)
       @cell options.ignoreparameters If set, ignore parameters passed to the returned function, and call the passed function without any parameters.
+      @return A function pointer that when called will first wait for a execution slot to become available,
+          will call the wrapped function ptr, and return its result.
   */
   PUBLIC FUNCTION PTR FUNCTION Wrap(FUNCTION PTR func, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -255,6 +278,7 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
   }
 
   /** Get serialized run permission. Returns a running lock, call `Close` on that lock to release it.
+      @return Promise
   */
   PUBLIC OBJECT FUNCTION GetRunPermission()
   {
@@ -273,8 +297,8 @@ STATIC OBJECTTYPE CallSerializer EXTEND WaitableConditionBase
 >;
 
 /** Returns a class that helps with serializing functions
-    @param options
     @cell options.maxconcurrent Maximum number of calls to run concurrently, defaults to 1.
+    @return(object #CallSerializer) Call serializer
 */
 PUBLIC OBJECT FUNCTION MakeCallSerializer(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
