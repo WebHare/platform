@@ -4,6 +4,9 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
@@ -41,6 +44,11 @@ MACRO PublisherSearchTest()
                  , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);
   richdoctype->SetInstanceData(file_5->id, [data := myrichdoc->ExportAsRecord()]);
+
+  //ensure structuredef documents are still (somewhat) indexed (otherwise we'd regress too early on these)
+  OBJECT applytester := GetApplytesterForObject(file_5->id);
+  RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
+  TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
 
   STRING file_5_tree := `${siteroot->parent} ${siteroot->id} ${file_5->id}`;
 
