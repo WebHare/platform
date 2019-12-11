@@ -31,6 +31,16 @@
                     </xs:complexContent>
                   </xs:complexType>
                 </xs:element>
+                <xs:element name="__longkey">
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attributeGroup ref="ReferenceAttributes" />
+                        <xs:attribute name="autonumberstart" type="xs:integer" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
                 <xs:element name="integer64">
                   <xs:complexType>
                     <xs:complexContent>

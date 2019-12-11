@@ -481,7 +481,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
   BOOLEAN validated_defval;
   SWITCH (colrec.dbtype)
   {
-    CASE "integer"
+    CASE "integer", "__longkey"
     {
       IF (colrec.autonumberstart > 0)
       {
@@ -497,7 +497,15 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
           validated_defval := TRUE;
         }
       }
+      IF (colrec.dbtype = "__longkey")
+      {
+        colrec.dbtype := "int8";
+        colrec.check := `(((${PostgreSQLEscapeIdentifier(colrec.name)} >= '-2147483648'::integer) AND (${PostgreSQLEscapeIdentifier(colrec.name)} <= 2147483647)))`;
+      }
+      ELSE
+        colrec.dbtype := "int4";
     }
+    CASE "boolean"      { colrec.dbtype := "bool"; }
     CASE "datetime"     { colrec.dbtype := "timestamp"; }
     CASE "string"       { colrec.dbtype := "varchar"; }
     CASE "integer64"    { colrec.dbtype := "int8"; }
@@ -534,12 +542,12 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     {
       CASE "serial"
          , "bigserial"  { defaultvalue := ``; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; } // already has default by type
-      CASE "integer"
+      CASE "int4"
          , "int8"
          , "float"
          , "numeric"    { defaultvalue := `0`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; }
       CASE "varchar"    { defaultvalue := `''::text`; nullcheck := `(((${PostgreSQLEscapeIdentifier(colrec.name)})::text <> ''::text))`; }
-      CASE "boolean"    { defaultvalue := `false`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> false))`; }
+      CASE "bool"       { defaultvalue := `false`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> false))`; }
       CASE "bytea"      { defaultvalue := `'\\x'::bytea`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '\\x'::bytea))`; }
       CASE "timestamp"  { defaultvalue := `'-infinity'::timestamp without time zone`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> '-infinity'::timestamp without time zone))`; }
       CASE "webhare_blob" { defaultvalue := ``; }
@@ -553,7 +561,19 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     }
 
     IF (NOT colrec.nullable)
-      colrec.check := nullcheck;
+    {
+      IF (colrec.check != "")
+      {
+        // checks are in the form ( expr ). expr is (value op value op value op value)
+        IF (colrec.check NOT LIKE "((*) AND (*))")
+          colrec.check := `(${colrec.check})`;
+        IF (nullcheck NOT LIKE "((*) AND (*))")
+          nullcheck := `(${nullcheck})`;
+        colrec.check := `${Left(colrec.check, LENGTH(colrec.check) - 2)} AND ${SubString(nullcheck, 2)}`;
+      }
+      ELSE
+        colrec.check := nullcheck;
+    }
 
     colrec.nullable := FALSE;
   }
@@ -568,18 +588,18 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     IF (colrec.defval != defaultvalue)
     {
       STRING accepted_defval;
-      IF (colrec.dbtype IN [ "boolean", "integer", "varchar" ])
+      IF (colrec.dbtype IN [ "bool", "int4", "varchar" ])
       {
         SWITCH (colrec.dbtype)
         {
-          CASE "boolean"
+          CASE "bool"
           {
             IF (ToLowercase(colrec.defval) IN [ "true", "false" ])
               accepted_defval := ToLowercase(colrec.defval);
             ELSE
               context->AddError(`Invalid default value ${colrec.defval} for column ${table_schema}.${table_name}.${colrec.name}`);
           }
-          CASE "integer", "int8"
+          CASE "int4", "int8"
           {
             VARIANT decoded := DecodeJSON(colrec.defval);
             IF (TypeID(decoded) IN [ TypeID(INTEGER), TypeID(INTEGER64) ])
@@ -758,7 +778,7 @@ DECLARE
 BEGIN
   WHILE coalesce(array_length(retval, 1), 0) < count LOOP
     SELECT array_agg(newkey) INTO sel
-      FROM (SELECT nextval('${col.sequencename}'::regclass) AS newkey FROM generate_series(1, count - coalesce(array_length(retval, 1), 0))) AS keys
+      FROM (SELECT nextval(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass) AS newkey FROM generate_series(1, count - coalesce(array_length(retval, 1), 0))) AS keys
  LEFT JOIN ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} tbl ON tbl.${PostgreSQLEscapeIdentifier(col.name)} = keys.newkey
      WHERE tbl.${PostgreSQLEscapeIdentifier(col.name)} IS NULL;
     retval := retval || sel;
@@ -818,6 +838,14 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                 INSERT INTO fkeys_to_update(schemaname, tablename, colrec) VALUES(schemaspec.name, tablerec.name, coldef) AT END;
             }
 
+            STRING expect_data_type := coldef.dbtype;
+            IF (expect_data_type = "varchar")
+              expect_data_type := `${expect_data_type}(${coldef.maxlength})`;
+
+            // Convert data types
+            IF (expect_data_type != curcol.data_type)
+              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} TYPE ${expect_data_type}`);
+
             IF(coldef.nullable != curcol.is_nullable)
               context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
             IF(coldef.isunique != curcol.is_unique)
@@ -825,6 +853,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
             IF (NOT AreExpressionsEquivalent(curcol.check_expression, coldef.check = "" ? "" : `CHECK ${coldef.check}`))
             {
+              DumpValue(CELL[ curcol.check_expression, coldef.check ]);
+
               IF (curcol.check_expression != "")
                 context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
               IF (coldef.check != "")
@@ -917,8 +947,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
         }
 
         FOREVERY(RECORD col FROM tablerec.cols)
-          IF (col.dbtype = "INTEGER" AND col.autonumberstart > 0) // autonumberstart must be handled elsewhere
-            context->AddCommand(`ALTER SEQUENCE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name || "_" || col.name || "_seq")} START WITH ${col.autonumberstart} RESTART`);
+          IF (CellExists(col, "autonumberstart") AND col.autonumberstart > 0) // autonumberstart must be handled elsewhere
+            context->AddCommand(`ALTER SEQUENCE ${col.sequencename} START WITH ${col.autonumberstart} RESTART`);
 
         IF (tablerec.legacy_writeaccessmgr != "")
         {
@@ -1118,7 +1148,12 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
       {
         CASE "bool"           { coldef.dbtype := "BOOLEAN"; }
         CASE "int4"           { coldef.dbtype := "INTEGER"; }
-        CASE "int8"           { coldef.dbtype := "INTEGER64"; }
+        CASE "int8"
+        {
+          coldef.dbtype := "INTEGER64";
+          IF (coldef.name = tablerec.primary_key_name OR col.referenced_table_name != "")
+            coldef.dbtype := "__LONGKEY";
+        }
         CASE "float8"         { coldef.dbtype := "FLOAT"; }
         CASE "timestamp"      { coldef.dbtype := "DATETIME"; }
         CASE "numeric"        { coldef.dbtype := "MONEY"; }
@@ -1212,7 +1247,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
 
       IF (coldef.dbtype = "VARCHAR")
         INSERT CELL maxlength := col.character_maximum_length INTO coldef;
-      IF (coldef.dbtype = "INTEGER")
+      IF (coldef.dbtype IN [ "INTEGER", "__LONGKEY" ])
         INSERT CELL autonumberstart := autonumberstart INTO coldef;
 
       INSERT coldef INTO tabledef.cols AT END;

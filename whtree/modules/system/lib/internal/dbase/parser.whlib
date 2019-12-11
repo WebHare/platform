@@ -283,6 +283,20 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
                 CONTINUE;
               }
             }
+            CASE "__longkey"
+            {
+              INTEGER defvalin := ToInteger(col->GetAttribute("default"),0);
+              basecol := [ dbtype := "__LONGKEY"
+                         , autonumberstart := ToInteger(col->GetAttribute("autonumberstart"),0)
+                         , defval := defvalin != 0 ? ToString(defvalin) : ""
+                         ];
+
+              IF(basecol.autonumberstart<0)
+              {
+                INSERT INTO retval.msgs(iserror, code, text, line, col) VALUES(TRUE, 0, "Invalid auto number starting value", col->linenum, 0) AT END;
+                CONTINUE;
+              }
+            }
             CASE "integer64"
             {
               basecol := [ dbtype := "INTEGER64"

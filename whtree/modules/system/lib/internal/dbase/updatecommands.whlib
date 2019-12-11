@@ -117,7 +117,7 @@ RECORD ARRAY FUNCTION ValidateColumns(RECORD ARRAY columns)
         ], rec,
         [ discard :=              [ "documentation", "location" ]
         , enums :=                [ ondelete :=   [ "", "cascade", "set default", "no action" ]
-                                  , dbtype :=     [ "INTEGER", "BOOLEAN", "STRING", "VARCHAR", "INTEGER64", "FLOAT", "DATETIME", "BLOB", "BYTEA", "MONEY" ]
+                                  , dbtype :=     [ "INTEGER", "BOOLEAN", "STRING", "VARCHAR", "INTEGER64", "FLOAT", "DATETIME", "BLOB", "BYTEA", "MONEY", "__LONGKEY" ]
                                   ]
         ]);
   }

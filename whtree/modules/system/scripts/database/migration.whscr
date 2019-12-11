@@ -214,11 +214,13 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
   IF (modulename IN GetInstalledModuleNames())
   {
     RECORD moduledef := GetModuleDatabaseSchema(modulename);
-    STRING ARRAY byteacols;
+    STRING ARRAY byteacols, longkeycols;
     FOREVERY (RECORD tbldef FROM moduledef.tables)
       FOREVERY (RECORD coldef FROM tbldef.cols)
         IF (coldef.dbtype = "BYTEA")
           INSERT `${tbldef.name}.${coldef.name}` INTO byteacols AT END;
+        ELSE IF (coldef.dbtype = "__LONGKEY")
+          INSERT `${tbldef.name}.${coldef.name}` INTO longkeycols AT END;
 
     FOREVERY (RECORD tbldef FROM parsed.tables)
     {
@@ -226,6 +228,8 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
       {
         IF (`${tbldef.name}.${coldef.name}` IN byteacols)
           parsed.tables[#tbldef].cols[#coldef].dbtype := "BYTEA";
+        IF (`${tbldef.name}.${coldef.name}` IN longkeycols)
+          parsed.tables[#tbldef].cols[#coldef].dbtype := "__LONGKEY";
       }
     }
   }
