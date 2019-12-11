@@ -298,17 +298,17 @@
     </d:table>
 
     <d:table name="entity_settings_whfslink" primarykey="id" parentlinkcolumn="id">
-      <d:integer name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
+      <d:__longkey name="id" references=".entity_settings" ondelete="cascade" nullable="0" />
       <d:integer name="fsobject" references="system.fs_objects" ondelete="cascade" nullable="0" />
       <d:integer name="linktype" /> <!-- 0: RTD, 1: instance data, 2: FS object -->
     </d:table>
 
     <d:table name="entity_settings" primarykey="id" parentlinkcolumn="entity">
-      <d:integer name="id" autonumberstart="1">
+      <d:__longkey name="id" autonumberstart="1">
         <d:documentation>
 
         </d:documentation>
-      </d:integer>
+      </d:__longkey>
       <d:integer name="attribute" references=".attrs" nullable="0" ondelete="cascade">
         <d:documentation>
 
@@ -329,11 +329,11 @@
 
         </d:documentation>
       </d:integer>
-      <d:integer name="parentsetting" references=".entity_settings" ondelete="cascade">
+      <d:__longkey name="parentsetting" references=".entity_settings" ondelete="cascade">
         <d:documentation>
 
         </d:documentation>
-      </d:integer>
+      </d:__longkey>
       <d:varchar name="rawdata" maxlength="4096">
         <d:documentation>
 

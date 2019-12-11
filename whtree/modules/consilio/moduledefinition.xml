@@ -287,16 +287,16 @@
 
         </d:documentation>
       </d:integer>
-      <d:integer name="wrd_entity_setting" references="wrd.entity_settings" ondelete="cascade" nullable="1" noupdate="1">
+      <d:__longkey name="wrd_entity_setting" references="wrd.entity_settings" ondelete="cascade" nullable="1" noupdate="1">
         <d:documentation>
 
         </d:documentation>
-      </d:integer>
-      <d:integer name="system_fs_setting" references="system.fs_settings" ondelete="cascade" nullable="1" noupdate="1">
+      </d:__longkey>
+      <d:__longkey name="system_fs_setting" references="system.fs_settings" ondelete="cascade" nullable="1" noupdate="1">
         <d:documentation>
 
         </d:documentation>
-      </d:integer>
+      </d:__longkey>
       <d:varchar name="text" maxlength="90">
         <d:documentation>
 

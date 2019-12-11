@@ -269,6 +269,8 @@ PUBLIC RECORD FUNCTION GenerateWHDBPostupdateSQLCommands(RECORD ARRAY schemaspec
 
 STRING FUNCTION GetColumnBaseDef(RECORD colrec)
 {
+  IF(ToUppercase(colrec.dbtype) = "__LONGKEY")
+    colrec.dbtype := "INTEGER";
   IF(ToUppercase(colrec.dbtype) = "BYTEA")
     colrec.dbtype := "VARCHAR";
   STRING def := EncodeWHDB(colrec.name) || " " || colrec.dbtype;
@@ -467,7 +469,7 @@ PUBLIC RECORD FUNCTION GenerateWHDBDependentSQLCommands(RECORD ARRAY schemaspecs
               AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || (coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"));
             IF(coldef.isunique != curcol."unique")
               AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || (coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"));
-            IF(coldef.dbtype="INTEGER" AND coldef.autonumberstart != curcol.autonumber_start)
+            IF(coldef.dbtype IN [ "INTEGER", "__LONGKEY" ] AND coldef.autonumberstart != curcol.autonumber_start)
               IF(coldef.autonumberstart > 0)
                 AddCommand(trans, "ALTER TABLE " || EncodeWHDB(schemaspec.name) || "." || EncodeWHDB(tablerec.name) || " ALTER COLUMN " || EncodeWHDB(coldef.name) || " SET AUTONUMBER " || coldef.autonumberstart);
               ELSE
@@ -574,7 +576,7 @@ PUBLIC RECORD FUNCTION GenerateWHDBDependentSQLCommands(RECORD ARRAY schemaspecs
                 RECORD old_col := old_index.columns[#col];
                 IF (ToUppercase(col.name) != ToUppercase(old_col.column_name))
                   is_identical := FALSE;
-                ELSE IF (CellExists(col, "length") AND col.length != old_col.column_length)
+                ELSE IF (CellExists(col, "length") AND col.length != 0 AND col.length != old_col.column_length)
                   is_identical := FALSE;
               }
             }
