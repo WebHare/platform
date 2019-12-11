@@ -61,7 +61,7 @@ PUBLIC OBJECTTYPE LegacyTestInfoValidator EXTEND ResourceValidationBase
   UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
   {
     RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.warnings AT END;
+    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.errors AT END;
     RETURN result;
   }
 >;
