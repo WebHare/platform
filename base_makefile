@@ -87,7 +87,7 @@ ifneq ($(DISABLE_PCH),1)
 endif
 
 
-PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0
+PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 aws-cpp-sdk-s3
 CPPFLAGS += -I$(SRCDIR)
 
 PKGCONFIGCFLAGS = $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
