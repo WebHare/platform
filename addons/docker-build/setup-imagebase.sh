@@ -51,6 +51,7 @@ adduser elasticsearch whdata
 adduser postgres whdata
 
 PACKAGES="ccache
+    cmake
     fontconfig
     fonts-open-sans
     letsencrypt
