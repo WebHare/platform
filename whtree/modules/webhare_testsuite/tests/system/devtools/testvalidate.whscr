@@ -176,7 +176,7 @@ BLOB badplacementxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="downloadaction" lib="components/action.whlib" objecttype="TolliumDownloadAction" />
+          <tolliumcomponent placement="downloadaction" objecttype="mod::tollium/lib/components/action.whlib#TolliumDownloadAction" />
         </xs:appinfo>
       </xs:annotation>
     </xs:complexType>

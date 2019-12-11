@@ -8,26 +8,6 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
 <
-  STRING lastlib;
-  RECORD lastlibdescr;
-
-  RECORD FUNCTION GetLibDescription(STRING libname)
-  {
-    IF(this->lastlib != libname)
-    {
-      this->lastlib := libname;
-      IF(libname != "")
-      {
-        this->lastlibdescr := DescribeCompiledLibrary(libname);
-      }
-      ELSE
-      {
-        this->lastlibdescr := DEFAULT RECORD;
-      }
-    }
-    RETURN this->lastlibdescr;
-  }
-
   UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
   {
     RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
@@ -53,20 +33,9 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
           result.warnings := result.warnings CONCAT parsedelement.warnings;
 
           INTEGER elline := parsedelement.rootnode.tolliumscope.line;
-          STRING ARRAY objtoks := Tokenize(parsedelement.objtype,'#');
-          RECORD lib := this->GetLibDescription(objtoks[0]);
-          IF(NOT RecordExists(lib))
-          {
-            INSERT CELL[ resourcename, line := elline, col := 0, message := `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')` ]
-                   INTO result.errors AT END;
+          IF(NOT this->VerifyObjectExistence(doc, elline, parsedelement.objtype))
             CONTINUE;
-          }
-          IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(objtoks[1] || "#NEW")))
-          {
-            INSERT CELL[ resourcename, line := elline, col := 0, message := `Object '${objtoks[1]}' not found in '${objtoks[0]}'` ]
-                   INTO result.errors AT END;
-            CONTINUE;
-          }
+
           //any errors would throw a RetrieveResourceException
 
           //FIXME can all objects be processed by screenbuilder?

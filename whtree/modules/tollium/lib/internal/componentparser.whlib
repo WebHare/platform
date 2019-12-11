@@ -353,6 +353,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
                    , fragment := ""
                    , validator := ""
                    , comment := DEFAULT RECORD
+                   , linenum := 0
                    ];
 
     //Print(elrec.name||"\n");
@@ -378,6 +379,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       elrec.comment := tolliumcompinfo.comment;
 
     OBJECT tolliumcomp := tolliumcompinfo.comp;
+    elrec.linenum := tolliumcomp->linenum;
     elrec.placement := tolliumcomp->GetAttribute("placement");
     elrec.validator := MakeAbsoluteResourcePath(resourcename, tolliumcomp->GetAttribute("validator"));
 
@@ -391,10 +393,9 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     }
     ELSE IF(tolliumcomp->HasAttribute("lib"))
     {
-      STRING lib := tolliumcomp->GetAttribute("lib");
-    //  IF(tolliumcomp->HasAttribute("fragment"))
-    //    THROW NEW Exception("Component cannot set both fragment and lib/objtype: " || element.name || " in " || resourcename || ":" || element.node->source_xml_node->linenum);
+      INSERT CELL[ line := tolliumcomp->linenum, col := 0, resourcename, message := `Using objecttype= with separate lib= is deprecated` ] INTO retval.warnings AT END;
 
+      STRING lib := tolliumcomp->GetAttribute("lib");
       IF(NOT IsAbsoluteResourcePath(lib))
       {
         //Discover the proper module. We can't just take 'module' as the library may have come from an imported schema
@@ -408,8 +409,6 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       elrec.fragment := MakeAbsoluteScreenReference(resourcename, tolliumcomp->GetAttribute("fragment"));
     }
-
-    //print(element.node->type||"\n");
 
     //Tids need special processing
     OBJECT ARRAY attrs := element.node->type_definition->attribute_uses;

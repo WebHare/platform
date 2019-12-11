@@ -2377,7 +2377,7 @@ The full base URL on which this site will be published, calculated by combining 
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/xml.whlib#ModuleDefinitionValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/serverconfig" rootnodes="serverconfig" schemalocation="data/serverconfig.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
-    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xml.whlib#XSDValidator" />
+    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />
     <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="whres::xml/wsdl.xsd" />
     <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />

@@ -14,7 +14,7 @@
   <xs:element name="addtostartmenu">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="menu" lib="internal/portalcomponents.whlib" objecttype="AddToStartMenu" />
+        <s:tolliumcomponent placement="menu" objecttype="/lib/internal/portalcomponents.whlib#AddToStartMenu" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

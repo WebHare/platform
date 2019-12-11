@@ -1003,7 +1003,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Screen">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="screens" lib="components/frame.whlib" objecttype="TolliumFrame" />
+        <tolliumcomponent placement="screens" objecttype="/lib/components/frame.whlib#TolliumFrame" />
         <childcomponents field="actions" target="./s:actions" />
         <childcomponents field="menus" target="./s:menus" />
         <childcomponents field="compositions" target="./s:compositions" />
@@ -1240,7 +1240,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Button">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/button.whlib" objecttype="TolliumButton" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/button.whlib#TolliumButton" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -1328,7 +1328,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ButtonGroup">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/buttongroup.whlib" objecttype="TolliumButtonGroup" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/buttongroup.whlib#TolliumButtonGroup" />
         <childcomponents field="buttons" target="./s:button" />
       </xs:appinfo>
     </xs:annotation>
@@ -1369,7 +1369,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumForward" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumForward" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -1384,7 +1384,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumAction" />
           <!-- FIXME can we decide to parse the sequeence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
           <extraparser field="enableon" type="enableons" target="./s:enableon" />
@@ -1408,7 +1408,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumDownloadAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumDownloadAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
           <extraparser field="enableon" type="enableons" target="./s:enableon" />
@@ -1440,7 +1440,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumUploadAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumUploadAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
           <extraparser field="enableon" type="enableons" target="./s:enableon" />
@@ -1478,7 +1478,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumImageAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumImageAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
           <extraparser field="enableon" type="enableons" target="./s:enableon" />
@@ -1509,7 +1509,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumWindowOpenAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumWindowOpenAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
           <extraparser field="enableon" type="enableons" target="./s:enableon" />
@@ -1536,7 +1536,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumHelpAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumHelpAction" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1574,7 +1574,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" lib="components/action.whlib" objecttype="TolliumCopyAction" />
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumCopyAction" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1800,7 +1800,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="toolbar">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="toolbar" lib="components/toolbar.whlib" objecttype="TolliumToolbar" />
+        <tolliumcomponent placement="toolbar" objecttype="/lib/components/toolbar.whlib#TolliumToolbar" />
         <dividedcomponents field="items" target="./*" divider="s:divider" />
       </xs:appinfo>
     </xs:annotation>
@@ -1836,7 +1836,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Menu">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="menu" lib="components/menuitem.whlib" objecttype="TolliumMenuItem" />
+        <tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuItem" />
         <dividedcomponents field="items" target="./*" divider="s:divider" />
       </xs:appinfo>
     </xs:annotation>
@@ -1852,7 +1852,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="MenuItem">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="menu" lib="components/menuitem.whlib" objecttype="TolliumMenuitem" />
+        <tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuitem" />
 <!--        <dividedcomponents field="items" target="./*" divider="s:divider" /> -->
       </xs:appinfo>
     </xs:annotation>
@@ -1917,7 +1917,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Record">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/record.whlib" objecttype="TolliumRecord" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/record.whlib#TolliumRecord" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:CompositionBase" />
@@ -1927,7 +1927,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RadioGroup">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/radiogroup.whlib" objecttype="TolliumRadioGroup" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/radiogroup.whlib#TolliumRadioGroup" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2298,7 +2298,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TextEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/textedit.whlib" objecttype="TolliumTextEdit" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/textedit.whlib#TolliumTextEdit" />
         <childcomponents field="buttons" target="./s:button" />
         <optionsources field="optionsources" type="optionsources" target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens' or (local-name()!='button')]" />
       </xs:appinfo>
@@ -2340,7 +2340,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Image">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/image.whlib" objecttype="TolliumImage" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/image.whlib#TolliumImage" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2404,7 +2404,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ImageEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/imageedit.whlib" objecttype="TolliumImageEdit" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/imageedit.whlib#TolliumImageEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2535,7 +2535,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CheckBox">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/checkbox.whlib" objecttype="TolliumCheckbox" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/checkbox.whlib#TolliumCheckbox" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2572,7 +2572,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RadioButton">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/radiobutton.whlib" objecttype="TolliumRadioButton" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/radiobutton.whlib#TolliumRadioButton" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2658,7 +2658,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TextArea">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/textarea.whlib" objecttype="TolliumTextArea" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/textarea.whlib#TolliumTextArea" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2790,7 +2790,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RichDocument">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/rte.whlib" objecttype="TolliumRichDocument" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichDocument" />
         <extraparser field="allowwidgettypes" type="allowwidgettypes" target="./s:allowwidgettype" />
       </xs:appinfo>
     </xs:annotation>
@@ -2826,7 +2826,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RichArea">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/rte.whlib" objecttype="TolliumRichArea" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichArea" />
         <extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
       </xs:appinfo>
     </xs:annotation>
@@ -2860,7 +2860,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RTE">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/rte.whlib" objecttype="TolliumRTE" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRTE" />
         <extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
       </xs:appinfo>
     </xs:annotation>
@@ -2961,7 +2961,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Iframe">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/iframe.whlib" objecttype="TolliumIFrame" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/iframe.whlib#TolliumIFrame" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComponentBase" />
@@ -3027,7 +3027,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CodeEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/codeedit.whlib" objecttype="TolliumCodeEdit" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/codeedit.whlib#TolliumCodeEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3144,7 +3144,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Date">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/datetime.whlib" objecttype="TolliumDateTime" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -3176,7 +3176,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="DateTime">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/datetime.whlib" objecttype="TolliumDateTime" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
       </xs:appinfo>
       <xs:documentation s:component="readonly">
         <html:p>If set to true, the value of this component will be shown as normal text instead of a date time field.</html:p>
@@ -3277,7 +3277,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="BrowseServerPath">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/browseserverpath.whlib" objecttype="TolliumBrowseServerPath" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/browseserverpath.whlib#TolliumBrowseServerPath" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3341,7 +3341,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ComboBox">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/combobox.whlib" objecttype="TolliumComboBox" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/combobox.whlib#TolliumComboBox" />
         <optionsources field="optionsources" type="optionsources" target="./*" />
       </xs:appinfo>
     </xs:annotation>
@@ -3368,7 +3368,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/panel.whlib" objecttype="TolliumPanel" />
+        <tolliumcomponent placement="block" objecttype="mod::tollium/lib/components/panel.whlib#TolliumPanel" /> <!-- FIXME shouldnt need abspath but it breaks siteprofilecomponents.xsd NewTab -->
         <extraparser field="visibleon" type="enableons" target="./s:visibleon" />
         <extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
         <extraparser field="lines" type="lines"
@@ -3433,7 +3433,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Split">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/split.whlib" objecttype="TolliumSplit" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/split.whlib#TolliumSplit" />
         <childcomponents field="children" target="./s:part" adoptfields="height width minheight minwidth" />
       </xs:appinfo>
     </xs:annotation>
@@ -3461,7 +3461,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Wizard">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/wizard.whlib" objecttype="TolliumWizard" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/wizard.whlib#TolliumWizard" />
         <childcomponents field="pages" target="./s:page" adoptfields="oninit onnext isfinish" />
       </xs:appinfo>
     </xs:annotation>
@@ -3498,7 +3498,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Tabs">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/tabs.whlib" objecttype="TolliumTabs" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/tabs.whlib#TolliumTabs" />
         <childcomponents field="line" target="./s:line/*" /><!-- Match all elements within <line> -->
         <childcomponents field="pages" target="./s:tab" />
       </xs:appinfo>
@@ -3660,7 +3660,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="block" lib="components/hr.whlib" objecttype="TolliumHR" />
+          <tolliumcomponent placement="block" objecttype="/lib/components/hr.whlib#TolliumHR" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -3830,7 +3830,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Grid">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/grid.whlib" objecttype="TolliumGrid" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/grid.whlib#TolliumGrid" />
         <extraparser field="grid" type="grid" target="./*" />
       </xs:appinfo>
     </xs:annotation>
@@ -3876,7 +3876,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Table">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/table.whlib" objecttype="TolliumTable" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/table.whlib#TolliumTable" />
         <acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
@@ -4033,7 +4033,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Calendar">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/calendar.whlib" objecttype="TolliumCalendar" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/calendar.whlib#TolliumCalendar" />
         <acceptdrops field="acceptdrops" ondrop_arguments="record datetime datetime string" target="./s:acceptdrops" />
         <extraparser field="categories" type="array" target="./s:category" />
       </xs:appinfo>
@@ -4218,7 +4218,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Text">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/text.whlib" objecttype="TolliumText" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/text.whlib#TolliumText" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4272,7 +4272,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Slider">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/slider.whlib" objecttype="TolliumSlider" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/slider.whlib#TolliumSlider" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4312,7 +4312,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TagEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/tagedit.whlib" objecttype="TolliumTagEdit" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/tagedit.whlib#TolliumTagEdit" />
         <optionsources field="optionsources" type="optionsources" target="./*" />
       </xs:appinfo>
     </xs:annotation>
@@ -4380,7 +4380,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Progress">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/progress.whlib" objecttype="TolliumProgress" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/progress.whlib#TolliumProgress" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4392,7 +4392,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Spacer">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/spacer.whlib" objecttype="TolliumSpacer" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/spacer.whlib#TolliumSpacer" />
       </xs:appinfo>
         <xs:documentation>
           <html:p>Creates space between two inline components. Defaults to 1pr width.</html:p>
@@ -4420,7 +4420,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="block" lib="components/defaultformbuttons.whlib" objecttype="TolliumDefaultFormButtons" />
+          <tolliumcomponent placement="block" objecttype="/lib/components/defaultformbuttons.whlib#TolliumDefaultFormButtons" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -4516,7 +4516,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Select">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/select.whlib" objecttype="TolliumSelect" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/select.whlib#TolliumSelect" />
         <optionsources field="optionsources" type="optionsources" target="./*" rowkeytypefield="rowkeytype" flagsfield="flags" />
       </xs:appinfo>
     </xs:annotation>
@@ -4959,7 +4959,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ListEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/listedit.listedit" lib="components/listedit.whlib" objecttype="ListEdit" />
+        <tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ListEdit" />
         <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
         <extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
       </xs:appinfo>
@@ -5028,7 +5028,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ArrayEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/listedit.listedit" lib="components/listedit.whlib" objecttype="ArrayEdit" />
+        <tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ArrayEdit" />
         <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
         <extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
         <extraparser field="rowdatatypes" type="rowdatatypes" target="./s:rowdatatype" />
@@ -5193,7 +5193,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="List">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/list.whlib" objecttype="TolliumList" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/list.whlib#TolliumList" />
         <acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
         <!-- columns matches <s:column> and everything outside our namespace -->
         <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
@@ -5786,7 +5786,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AutoSuggest">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="autosuggest" lib="components/autosuggest.whlib" objecttype="TolliumAutoSuggestComponent" />
+        <tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#TolliumAutoSuggestComponent" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -5837,7 +5837,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="includefragment">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="screenbase.whlib" objecttype="TolliumFragmentBase" />
+        <tolliumcomponent placement="inline" objecttype="/lib/screenbase.whlib#TolliumFragmentBase" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -5934,7 +5934,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="pulldown">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/pulldown.whlib" objecttype="TolliumPulldown" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/pulldown.whlib#TolliumPulldown" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -5973,7 +5973,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="body" type="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" lib="components/panel.whlib" objecttype="TolliumPanel" />
+        <tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -5981,7 +5981,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="footer" type="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" lib="components/panel.whlib" objecttype="TolliumPanel" />
+        <tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6017,7 +6017,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="cell">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="row" lib="components/panel.whlib" objecttype="TolliumPanel" />
+        <tolliumcomponent placement="row" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -6058,7 +6058,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="inlineblock">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" lib="components/inlineblock.whlib" objecttype="TolliumInlineBlock" />
+        <tolliumcomponent placement="inline" objecttype="/lib/components/inlineblock.whlib#TolliumInlineBlock" />
         <extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
         <extraparser field="lines" type="lines"
                       target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens'
@@ -6078,7 +6078,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="countbadge">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" lib="components/countbadge.whlib" objecttype="TolliumCountBadge" />
+        <tolliumcomponent placement="block" objecttype="/lib/components/countbadge.whlib#TolliumCountBadge" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6086,7 +6086,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="proxy" type="Proxy">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="action" lib="componentbase.whlib" objecttype="TolliumProxyComponent" />
+        <tolliumcomponent placement="action" objecttype="/lib/componentbase.whlib#TolliumProxyComponent" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6186,7 +6186,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="EventListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/eventlistener.whlib" objecttype="TolliumEventListener" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/eventlistener.whlib#TolliumEventListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6208,7 +6208,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CallbackListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/callbacklistener.whlib" objecttype="TolliumCallbackListener" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/callbacklistener.whlib#TolliumCallbackListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6232,7 +6232,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="DirtyListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/dirtylistener.whlib" objecttype="TolliumDirtyListener" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/dirtylistener.whlib#TolliumDirtyListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6252,7 +6252,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Proxy">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" lib="components/componentbase.whlib" objecttype="TolliumProxy" />
+        <tolliumcomponent placement="composition" objecttype="/lib/components/componentbase.whlib#TolliumProxy" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComponentBase" />
@@ -6391,7 +6391,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="optionsource" lib="components/diskobjects.whlib" objecttype="DiskObjects" />
+          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/diskobjects.whlib#DiskObjects" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
@@ -6474,7 +6474,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="optionsource" lib="components/optionsource.whlib" objecttype="TolliumOptionSource" />
+          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/optionsource.whlib#TolliumOptionSource" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
@@ -6495,7 +6495,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="rte" lib="components/linkhandlers.whlib" objecttype="TolliumLinkHandlers" />
+          <s:tolliumcomponent placement="rte" objecttype="/lib/components/linkhandlers.whlib#TolliumLinkHandlers" />
           <extraparser field="linkhandlers" type="linkhandlers" target="./*" />
         </xs:appinfo>
       </xs:annotation>

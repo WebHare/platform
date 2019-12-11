@@ -84,7 +84,7 @@
   <xs:element name="map">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" lib="screens/components/map.whlib" objecttype="GoogleMapComponent" />
+        <s:tolliumcomponent placement="block" objecttype="/lib/screens/components/map.whlib#GoogleMapComponent" />
         <s:extraparser field="icons" type="s:array" target="./socialite:icon" />
       </xs:appinfo>
     </xs:annotation>
@@ -174,7 +174,7 @@
   <xs:element name="locationedit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="screens/components/locationedit.whlib" objecttype="GoogleLocationEdit" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/screens/components/locationedit.whlib#GoogleLocationEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
