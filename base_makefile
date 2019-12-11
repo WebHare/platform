@@ -91,7 +91,8 @@ PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 aws-cpp-sdk-
 CPPFLAGS += -I$(SRCDIR)
 
 PKGCONFIGCFLAGS = $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
-CXXFLAGS += $(PKGCONFIGCFLAGS) -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden
+# AWS SDK disables exceptions via pkgconfig cflags, put in extra -fexceptions to re-enable
+CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden
 
 GLOBALLDFLAGS += $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 ifeq ($(WHBUILD_PLATFORM),linux)
