@@ -33,7 +33,7 @@ CMD [ "/opt/container/launch.sh" ]
 RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage1,target=/var/cache/apt \
     --mount=type=cache,id=baseimage2,target=/var/lib/apt \
-    /bin/bash /setup-imagebase.sh
+    /bin/bash /setup-imagebase.sh # 20191211
 
 # Install pdfbox
 RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
@@ -49,6 +49,12 @@ RUN --mount=type=bind,source=/setup-mariaodbc.sh,target=/setup-mariaodbc.sh \
 RUN --mount=type=bind,source=/setup-elasticsearch.sh,target=/setup-elasticsearch.sh \
     --mount=type=cache,id=elasticsearch,target=/tmp/downloads \
     /bin/bash /setup-elasticsearch.sh
+
+# Install AWS C++ API
+RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
+    --mount=type=cache,id=aws,target=/tmp/aws/cache/ \
+    --mount=type=tmpfs,target=/tmp/aws/build/ \
+    /bin/bash /setup-awssdk.sh "1.7.231"
 
 # Add packaging stuff
 COPY whtree-npm/ /opt/wh/whtree/

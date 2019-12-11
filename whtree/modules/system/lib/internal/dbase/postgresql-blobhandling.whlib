@@ -7,6 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
+LOADLIB "mod::system/lib/webapi/aws/s3.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 /** Base class for blob part storage
@@ -289,6 +290,183 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
 >;
 
 
+/** Stores blob in an S3 bucket
+*/
+STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
+<
+  RECORD settings;
+  OBJECT awsapi;
+
+  /** Create a new S3 blob resolver
+      @param settings Settings
+      @cell(string) settings.region S3 region
+      @cell(string) settings.endpointoverride Override for the endpoint
+      @cell(string) settings.accesskey Access key
+      @cell(string) settings.secretkey Secret key
+      @cell(string) settings.prefix Prefix for the object names (MUST end with '/')
+      @cell(string) settings.bucket_name Name of the bucket where the objects are stored
+      @cell(integer) settings.keepdeleteddays Keep deleted blobs for this number of days
+  */
+  MACRO NEW(RECORD settings)
+  {
+    this->settings := ValidateOptions(
+        [ region :=           ""
+        , endpointoverride := ""
+        , accesskey :=        ""
+        , secretkey :=        ""
+        , prefix :=           ""
+        , bucket_name :=      ""
+        , keepdeleteddays :=  30
+        ], settings,
+        [ required  :=  [ "region", "accesskey", "secretkey", "prefix", "bucket_name" ]
+        ]);
+
+    IF (this->settings.prefix = "" OR this->settings.bucket_name = "")
+      THROW NEW Exception(`Prefix and bucket_name are required!`);
+    IF (this->settings.prefix NOT LIKE "*/")
+      THROW NEW Exception(`Prefix MUST end with '/'`);
+    IF (this->settings.endpointoverride != "" AND this->settings.endpointoverride NOT LIKE "http*://*")
+      THROW NEW Exception(`Endpointoverride must specify protocol (http/https)`);
+
+    // Remove leading slashes from prefix
+    IF (this->settings.prefix LIKE "/*")
+      this->settings.prefix := SubString(this->settings.prefix, 1);
+    IF (this->settings.prefix LIKE "*//*")
+      THROW NEW Exception(`Illegal blob storage prefix '${this->settings.prefix}'`);
+
+    this->awsapi := NEW AmazonAWSS3Interface(
+        this->settings.region,
+        this->settings.accesskey,
+        this->settings.secretkey,
+        [ endpoint := this->settings.endpointoverride ]);
+  }
+
+  STRING FUNCTION GetObjectName(STRING blobpartid)
+  {
+    RETURN `${this->settings.prefix}${Left(blobpartid, 2)}/${blobpartid}`;
+  }
+
+  UPDATE PUBLIC MACRO WriteBlobPart(STRING blobpartid, BLOB data)
+  {
+    this->awsapi->PutObject(this->settings.bucket_name, this->GetObjectName(blobpartid), data);
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION ReadBlobPart(STRING blobpartid, INTEGER64 length)
+  {
+    RECORD params := CELL
+        [ object_name :=      this->GetObjectName(blobpartid)
+        , length
+        , ...this->settings
+        , DELETE prefix
+        ];
+
+    IF (this->settings.endpointoverride != "") // force path-style access
+    {
+      params.object_name := `${params.bucket_name}/${params.object_name}`;
+      params.bucket_name := "";
+    }
+
+    RETURN __HS_CREATES3BLOB(params);
+  }
+
+  UPDATE PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
+  {
+    DATETIME now := GetCurrentDateTime();
+    STRING archivebase := `${this->settings.prefix}archive/${FormatDateTime("%Y%m%d", GetCurrentDateTime())}/`;
+    FOREVERY (STRING blobpartid FROM blobpartids)
+    {
+      IF (this->settings.keepdeleteddays > 0)
+      {
+        this->awsapi->CopyObject(this->settings.bucket_name, this->GetObjectName(blobpartid), archivebase || blobpartid);
+      }
+      this->awsapi->DeleteObject(this->settings.bucket_name, this->GetObjectName(blobpartid));
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListBlobParts()
+  {
+    RECORD ARRAY retval;
+
+    STRING marker := "";
+    INTEGER expectlastslash := LENGTH(this->settings.prefix) + 2;
+    WHILE (TRUE)
+    {
+      RECORD res := this->awsapi->GetBucket(this->settings.bucket_name, CELL[ this->settings.prefix, marker ]);
+
+      // Accept only ${prefix}XX/XXYYYYYY
+      retval := retval CONCAT
+          SELECT blobpartid :=    SubString(name, expectlastslash + 1)
+               , modified :=      lastmodified
+               , size :=          size64
+            FROM res.objects
+           WHERE SearchLastSubString(name, "/") = expectlastslash
+             AND SubString(name, expectlastslash - 2, 2) = SubString(name, expectlastslash + 1, 2);
+
+      IF (NOT res.truncated OR res.nextmarker = "")
+        BREAK;
+
+      marker := res.nextmarker;
+    }
+    RETURN SELECT * FROM retval ORDER BY blobpartid;
+  }
+
+  UPDATE PUBLIC BLOB FUNCTION GetBlobManifest()
+  {
+    RECORD rec := this->awsapi->GetObject(this->settings.bucket_name, `${this->settings.prefix}blobmanifest.json`);
+    RETURN RecordExists(rec) ? rec.body : DEFAULT BLOB;
+  }
+
+  UPDATE PUBLIC MACRO StoreBlobManifest(BLOB manifest)
+  {
+    this->awsapi->PutObject(this->settings.bucket_name, `${this->settings.prefix}blobmanifest.json`, manifest);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION RemoveOldArchivedBlobParts(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    BlobPartStorageBase::RemoveOldArchivedBlobParts(options);
+
+    STRING archivefolder := `${this->settings.prefix}archive/`;
+
+    INTEGER keepdays := this->settings.keepdeleteddays = 0 ? -1 : this->settings.keepdeleteddays;
+    DATETIME keepfromdate := AddDaysToDate(-keepdays, GetRoundedDateTime(GetCurrentDateTime(), 86400 * 1000));
+
+    RECORD ARRAY todelete;
+    STRING marker;
+    WHILE (TRUE)
+    {
+      RECORD res := this->awsapi->GetBucket(this->settings.bucket_name, CELL[ prefix := archivefolder, marker ]);
+
+      FOREVERY (RECORD rec FROM res.objects)
+      {
+        STRING ARRAY parts := Tokenize(SubString(rec.name, LENGTH(archivefolder)), "/");
+        DATETIME date := MakeDateFromText(parts[0] || "T000000Z");
+        IF (LENGTH(parts) != 2 OR LENGTH(parts[0]) != 8 OR date = DEFAULT DATETIME OR date >= keepfromdate)
+          CONTINUE;
+
+        IF (CellExists(options, "filterids") AND parts[1] NOT IN options.filterids)
+          CONTINUE;
+
+        INSERT CELL[ blobpartid := parts[1], rec.name ] INTO todelete AT END;
+      }
+      IF (NOT res.truncated OR res.nextmarker = "")
+        BREAK;
+
+      marker := res.nextmarker;
+    }
+
+    IF (NOT options.dryrun)
+    {
+      FOREVERY (RECORD rec FROM todelete)
+        this->awsapi->DeleteObject(this->settings.bucket_name, rec.name);
+    }
+
+    RETURN SELECT AS STRING ARRAY blobpartid FROM todelete ORDER BY blobpartid;
+  }
+>;
+
+BLOB FUNCTION __HS_CREATES3BLOB(RECORD data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+
 PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
 < /** @type(object #BlobPartStorageBase) Blob part storage
   */
@@ -428,7 +606,7 @@ PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
 
 /** Returns a configured blob resolver
     @param config Configuration
-    @cell config.type Type of the resolver ('local-disk')
+    @cell config.type Type of the resolver ('local-disk', 's3')
     @return(object #BlobResolverBase) Blob resolver
 */
 PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
@@ -444,6 +622,10 @@ PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
           ], config);
 
       RETURN NEW DiskBlobPartStorage(config.blobfolder, config.keepdeleteddays);
+    }
+    CASE "s3"
+    {
+      RETURN NEW S3BlobPartStorage(CELL[ ...config, DELETE type ]);
     }
     DEFAULT
     {

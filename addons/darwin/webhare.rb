@@ -20,4 +20,5 @@ class Webhare < Formula
   depends_on "ccache"
   depends_on "elastic/tap/elasticsearch-oss"
   depends_on "postgresql"
+  depends_on "aws-sdk-cpp"
 end
