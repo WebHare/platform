@@ -91,6 +91,8 @@ VARIANT FUNCTION GetColumnDefaultValue(RECORD colinfo)
 {
   IF(colinfo.dbtype="INTEGER")
     RETURN ToInteger(colinfo.defval,0);
+  IF(colinfo.dbtype="__LONGKEY")
+    RETURN ToInteger(colinfo.defval,0);
   IF(colinfo.dbtype="INTEGER64")
     RETURN ToInteger64(colinfo.defval,0);
   IF(colinfo.dbtype="BOOLEAN")
