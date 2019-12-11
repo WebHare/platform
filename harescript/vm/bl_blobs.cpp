@@ -4,15 +4,42 @@
 
 #include <blex/path.h>
 #include <blex/docfile.h>
+#include <blex/unicode.h>
 #include "hsvm_dllinterface_blex.h"
 #include "baselibs.h"
 //#include "hsvm_context.h"
+
+#include <fstream>
+#include <aws/core/Aws.h>
+#include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/utils/logging/AWSLogging.h>
+#include <aws/core/utils/logging/DefaultLogSystem.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/GetObjectRequest.h>
+
+
+#define SHOW_S3
+
+//#define DUMP_BINARY_ENCODING
+
+
+#ifdef SHOW_S3
+ #define S3_PRINT(x) DEBUGPRINT("S3: " << x)
+ #define S3_ONLY(x) DEBUGONLY(x)
+ #define S3_ONLYRAW(x) DEBUGONLYARG(x)
+#else
+ #define S3_PRINT(x) BLEX_NOOP_STATEMENT
+ #define S3_ONLY(x) BLEX_NOOP_STATEMENT
+ #define S3_ONLYRAW(x)
+#endif
+
 
 //---------------------------------------------------------------------------
 //
 // This library adds backend support functions for Blob management
 //
 //---------------------------------------------------------------------------
+
 namespace HareScript {
 namespace Baselibs {
 
@@ -641,6 +668,214 @@ void MakeComposedBlob(VarId id_set, VirtualMachine *vm)
         stackm.SetBlob(id_set, BlobRefPtr(new ComposedBlob(vm, std::move(defs))));
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// S3 blob
+//
+
+class S3Blob : public BlobBase
+{
+    private:
+        class MyOpenedBlob: public OpenedBlobBase< S3Blob >
+        {
+            public:
+                MyOpenedBlob(S3Blob &_blob) : OpenedBlobBase< S3Blob >(_blob) {}
+
+                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
+        };
+
+        unsigned RegisterBlob(BlobRefPtr blobref);
+
+        std::string region;
+        std::string endpointoverride;
+        std::string accesskey;
+        std::string secretkey;
+        std::string bucket_name;
+        std::string object_name;
+
+    public:
+        /** Constructor */
+        S3Blob(VirtualMachine *_vm, std::string region, std::string endpointoverride, std::string accesskey, std::string secretkey, std::string bucket_name, std::string object_name, Blex::FileOffset length);
+
+        ~S3Blob();
+
+        std::unique_ptr< OpenedBlob > OpenBlob();
+        Blex::FileOffset GetCacheableLength();
+        Blex::DateTime GetModTime();
+        std::string GetDescription();
+        Blex::FileOffset length;
+};
+
+S3Blob::S3Blob(VirtualMachine *_vm, std::string _region, std::string _endpointoverride, std::string _accesskey, std::string _secretkey, std::string _bucket_name, std::string _object_name, Blex::FileOffset _length)
+: BlobBase(_vm)
+, region(_region)
+, endpointoverride(_endpointoverride)
+, accesskey(_accesskey)
+, secretkey(_secretkey)
+, bucket_name(_bucket_name)
+, object_name(_object_name)
+, length(_length)
+{
+}
+
+S3Blob::~S3Blob()
+{
+}
+
+std::size_t S3Blob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
+{
+        S3_PRINT("Firing request for " << blob.bucket_name << " " << blob.object_name << " " << startoffset << " " << numbytes << ", len: " << blob.length);
+
+        if (startoffset >= blob.length || !numbytes)
+            return 0;
+        if (numbytes > blob.length)
+            numbytes = blob.length;
+        if (blob.length - numbytes < startoffset)
+            numbytes = blob.length - startoffset;
+
+        Aws::Client::ClientConfiguration clientconfig;
+        if (!blob.region.empty())
+            clientconfig.region = Aws::String(blob.region);
+        if (!blob.endpointoverride.empty())
+            clientconfig.endpointOverride = Aws::String(blob.endpointoverride);
+        Aws::Auth::AWSCredentials credentials(Aws::String(blob.accesskey), Aws::String(blob.secretkey));
+
+        Aws::S3::S3Client s3_client(credentials, clientconfig);
+        Aws::S3::Model::GetObjectRequest object_request;
+        object_request.SetBucket(Aws::String(blob.bucket_name));
+        object_request.SetKey(Aws::String(blob.object_name));
+        object_request.SetRange(Aws::String("bytes=" + Blex::AnyToString(startoffset) + "-" + Blex::AnyToString(startoffset + numbytes - 1)));
+
+        auto res = s3_client.GetObject(object_request);
+        if (res.IsSuccess())
+        {
+                auto &data = res.GetResultWithOwnership().GetBody();
+
+                S3_PRINT("Is success, reading");
+                data.read(static_cast< char * >(buffer), numbytes);
+                std::streamsize readbytes = data.gcount();
+                S3_PRINT("Result: " << readbytes << " bytes read, good: " << data.good() << "bad: " << data.bad() << " fail: " << data.fail());
+                if (data.bad())
+                    return 0;
+                return readbytes;
+        }
+        else
+        {
+                auto error = res.GetError();
+                S3_PRINT("ERROR: " << error.GetExceptionName() << ": " << error.GetMessage());
+                return 0;
+        }
+}
+
+std::unique_ptr< OpenedBlob > S3Blob::OpenBlob()
+{
+        return std::unique_ptr< OpenedBlob >(new MyOpenedBlob(*this));
+}
+
+Blex::DateTime S3Blob::GetModTime()
+{
+        return Blex::DateTime::Invalid();
+}
+
+Blex::FileOffset S3Blob::GetCacheableLength()
+{
+        return length;
+}
+
+std::string S3Blob::GetDescription()
+{
+        return "s3blob(" + region + "," + endpointoverride + "," + bucket_name + "," + object_name + "," + Blex::AnyToString(length) + ")";
+}
+
+class AWSApiData
+{
+        Aws::SDKOptions options;
+        bool initialized;
+    public:
+        ~AWSApiData();
+        void EnsureInitialized();
+};
+
+AWSApiData::~AWSApiData()
+{
+        if (!initialized)
+            return;
+
+        Aws::ShutdownAPI(options);
+        //Aws::Utils::Logging::ShutdownAWSLogging();
+
+        initialized = false;
+}
+
+void AWSApiData::EnsureInitialized()
+{
+        if (initialized)
+            return;
+        initialized = true;
+/*
+        Aws::Utils::Logging::InitializeAWSLogging(
+                Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>(
+                        "RunUnitTests", Aws::Utils::Logging::LogLevel::Trace, "aws_sdk_"));
+*/
+        Aws::InitAPI(options);
+}
+
+typedef Blex::InterlockedData< AWSApiData, Blex::Mutex > LockedAWSApiData;
+
+LockedAWSApiData awsapidata;
+
+
+void CreateS3Blob(VarId id_set, VirtualMachine *vm)
+{
+        LockedAWSApiData::WriteRef(awsapidata)->EnsureInitialized();
+
+        StackMachine &stackm = vm->GetStackMachine();
+
+        stackm.InitVariable(id_set, VariableTypes::Blob);
+
+        std::string region, endpointoverride, accesskey, secretkey, bucket_name, object_name;
+        Blex::FileOffset length;
+
+        VarId var_region = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("REGION"), VariableTypes::String, false);
+        if (var_region)
+            region = stackm.GetSTLString(var_region);
+
+        VarId var_endpointoverride = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("ENDPOINTOVERRIDE"), VariableTypes::String, false);
+        if (var_endpointoverride)
+            endpointoverride = stackm.GetSTLString(var_endpointoverride);
+
+        VarId var_accesskey = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("ACCESSKEY"), VariableTypes::String, true);
+        if (!var_accesskey)
+            return;
+        accesskey = stackm.GetSTLString(var_accesskey);
+
+        VarId var_secretkey = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("SECRETKEY"), VariableTypes::String, true);
+        if (!var_secretkey)
+            return;
+        secretkey = stackm.GetSTLString(var_secretkey);
+
+        VarId var_bucket_name = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("BUCKET_NAME"), VariableTypes::String, false);
+        if (var_bucket_name)
+            bucket_name = stackm.GetSTLString(var_bucket_name);
+
+        VarId var_object_name = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("OBJECT_NAME"), VariableTypes::String, true);
+        if (!var_object_name)
+           return;
+        object_name = stackm.GetSTLString(var_object_name);
+
+        VarId var_length = stackm.RecordCellTypedRefByName(HSVM_Arg(0), stackm.columnnamemapper.GetMapping("LENGTH"), VariableTypes::Integer64, true);
+        if (!var_length)
+           return;
+        length = stackm.GetInteger64(var_length);
+
+        stackm.SetBlob(id_set, BlobRefPtr(new S3Blob(vm, region, endpointoverride, accesskey, secretkey, bucket_name, object_name, length)));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Compression
+//
+
 int CompressStream_IOWriter(void *opaque_ptr, int numbytes, void const *data, int /*partial*/, int *error_result)
 {
         SystemContextData::CompressingStream *str = static_cast<SystemContextData::CompressingStream*>(opaque_ptr);
@@ -944,6 +1179,8 @@ void InitBlob(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETZIPFILEDIRECTORY::RA:I", GetZipFileDirectory));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETZIPFILECOMMENT::S:I", GetZipFileComment));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("UNPACKFILEFROMZIPFILE::X:IS", UnpackFileFromZipFile));
+
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATES3BLOB::X:R", CreateS3Blob));
 }
 
 
