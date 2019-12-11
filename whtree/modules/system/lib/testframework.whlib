@@ -1591,10 +1591,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     options := ValidateOptions([ sitetype := ObjectExists(testsitetype) ? testsitetype->id : 0
                                , sitename := "webhare_testsuite.site"
-                               , isversioned := FALSE
                                , outputpath := "/"
-                               , sitedesign := ""
                                , enableoutput := TRUE
+                               , webfeatures := STRING[]
                                ], options);
 
 
@@ -1604,8 +1603,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := options.sitename, type := options.sitetype ] );
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
-    IF(options.isversioned)
-      newsite->UpdateSiteMetadata([ isversioned := options.isversioned ]);
+    IF(Length(options.webfeatures) != 0)
+    {
+      newsite->UpdateSiteMetadata([ webfeatures := options.webfeatures
+                                  ]);
+    }
 
     IF(options.enableoutput)
     {
@@ -1629,8 +1631,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       IF(NOT newsite->AssignSiteProfile(siteprof->id))
         THROW NEW Exception("Setting up siteprofile for testsite failed");
     }
-    IF(options.sitedesign != "")
-      newsite->SetSiteDesign(options.sitedesign);
 
     RETURN newsite;
   }

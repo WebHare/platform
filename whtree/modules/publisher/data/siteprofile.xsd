@@ -310,6 +310,10 @@
     <xs:attribute name="title" type="xs:string" />
   </xs:complexType>
 
+  <xs:attributeGroup name="IndexTypeAttrs">
+    <xs:attribute name="indexversion" />
+  </xs:attributeGroup>
+
   <xs:attributeGroup name="WidgetBaseAttrs">
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -417,6 +421,7 @@
       </xs:simpleType>
     </xs:attribute>
     <xs:attributeGroup ref="WidgetBaseAttrs" />
+    <xs:attributeGroup ref="IndexTypeAttrs" />
   </xs:complexType>
 
   <xs:complexType name="UploadTypeMapping">
@@ -731,6 +736,7 @@
     <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
     <xs:attribute name="searchprovider" type="s:ScreenFragmentReference" />
+    <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 
   <xs:complexType name="FileType">
@@ -747,6 +753,7 @@
             <xs:list itemType="xs:string" />
           </xs:simpleType>
         </xs:attribute>
+        <xs:attributeGroup ref="IndexTypeAttrs" />
         <xs:attribute name="blobiscontent" type="xs:boolean" use="required" />
         <xs:attribute name="requirescontent" type="xs:boolean" />
         <xs:attribute name="needstemplate" type="xs:boolean" />
@@ -807,6 +814,7 @@
         <xs:attribute name="indextype" type="xs:string" />
         <xs:attribute name="protectindexfile" type="xs:boolean" />
         <xs:attribute name="ishidden" type="xs:boolean" />
+        <xs:attributeGroup ref="IndexTypeAttrs" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>

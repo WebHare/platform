@@ -1130,7 +1130,7 @@ STATIC OBJECTTYPE ApplyRuleTester
   */
   PUBLIC STRING FUNCTION __GetCacheKey()
   {
-    RETURN this->objinfo.obj.type || "-" || this->objinfo.obj.parent || "-" || this->objinfo.obj.id;
+    RETURN EncodeHSON(this->objinfo.obj);
   }
 
   /** Get accounting source to which we allocate hits

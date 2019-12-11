@@ -509,10 +509,10 @@ MACRO EncodingConfusion()
   TestEq("x<br />y", CaptureRun(witty, [ ismaster := TRUE, description := "x\ny",popupid := "",name:="" ], "masterinfo_popup"));
   CloseTesT("EncodingConfusion");
 }
-STRING FUNCTION MyGetTid(STRING indata, STRING p1 DEFAULTSTO "")
+STRING FUNCTION MyGetTid(STRING indata, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "")
 {
   IF(p1!="")
-    RETURN "(" || indata || ":" || p1 || ")";
+    RETURN "(" || indata || ":" || p1 || p2 || ")";
   IF(indata="html")
     RETURN "(h&l)";
   RETURN "(" || indata || ")";
@@ -557,6 +557,10 @@ MACRO WittyGetTid()
   scriptid := ParseWitty("Test: [gettid bla test]!","HTML");
   TestEq(FALSE, scriptid=0);
   TestEq("Test: (bla:test123)!", CaptureWTE(scriptid,[ gettid := PTR MyGetTid, test := "test123" ]));
+
+  scriptid := ParseWitty("Test: [gettid bla test test2]!","HTML");
+  TestEq(FALSE, scriptid=0);
+  TestEq("Test: (bla:test123test456)!", CaptureWTE(scriptid,[ gettid := PTR MyGetTid, test := "test123", test2 := "test456" ]));
 
   scriptid := ParseWitty("Test: [gettid bla.bla test.test]!","HTML");
   TestEq(FALSE, scriptid=0);

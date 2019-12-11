@@ -14,8 +14,7 @@ LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/shortcuts.whlib";
 
-PUBLIC STRING xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
-PUBLIC STRING xmlns_module_manifest := "http://www.webhare.net/module-manifest/";
+PUBLIC CONSTANT STRING xmlns_module_manifest := "http://www.webhare.net/module-manifest/";
 
 PUBLIC CONSTANT INTEGER webrulepriority_before := -1000;
 PUBLIC CONSTANT INTEGER webrulepriority_default := 0;
@@ -548,7 +547,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAppGroups(STRING modulename, OBJECT moddef)
 {
   //one anonymous group to hold ungrouped applications
   RECORD ARRAY groups;
-  OBJECT ARRAY groupnodes := moddef->GetElementsByTagNameNS(xmlns_moduledef, "applicationgroup")->GetCurrentElements();
+  OBJECT ARRAY groupnodes := moddef->GetElementsByTagNameNS(whconstant_xmlns_moduledef, "applicationgroup")->GetCurrentElements();
   FOREVERY(OBJECT grp FROM groupnodes)
   {
     INSERT [ name :=         modulename || ":" || grp->GetAttribute("name")
@@ -562,12 +561,12 @@ PUBLIC RECORD ARRAY FUNCTION GetAppGroups(STRING modulename, OBJECT moddef)
 
 PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT moddef)
 {
-  OBJECT publishernode := moddef->documentelement->GetChildElementsByTagNameNS(xmlns_moduledef, "publisher")->Item(0);
+  OBJECT publishernode := moddef->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "publisher")->Item(0);
   IF(NOT ObjectExists(publishernode))
     RETURN RECORD[];
 
   RECORD ARRAY slots;
-  OBJECT ARRAY slotnodes := publishernode->GetChildElementsByTagNameNS(xmlns_moduledef, "registerslot")->GetCurrentElements();
+  OBJECT ARRAY slotnodes := publishernode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "registerslot")->GetCurrentElements();
   FOREVERY(OBJECT slot FROM slotnodes)
     IF(IsNodeApplicableToThisWebHare(slot))
     {
@@ -618,7 +617,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modul
 {
   RECORD ARRAY designs;
 
-  FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "webfeature")->GetCurrentElements())
+  FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webfeature")->GetCurrentElements())
   {
     IF(NOT IsNodeApplicableToThisWebHare(child))
       CONTINUE;
@@ -1264,7 +1263,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
     RECORD ARRAY designs;
     RECORD ARRAY assetpacks;
 
-    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "webdesign")->GetCurrentElements())
+    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webdesign")->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(child))
         CONTINUE;
@@ -1281,7 +1280,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
       BOOLEAN istemplate := ParseXSBoolean(child->GetAttribute("istemplate"));
       IF(NOT istemplate)
       {
-        FOREVERY (OBJECT assetpacknode FROM child->GetChildElementsByTagNameNS(xmlns_moduledef,"assetpack")->GetCurrentElements())
+        FOREVERY (OBJECT assetpacknode FROM child->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef,"assetpack")->GetCurrentElements())
         {
           STRING assetpackname := modulename || ":" || (assetpacknode->GetAttribute("name") ?? designname);
           IF(RecordExists(SELECT FROM assetpacks WHERE ToUppercase(name) = ToUppercase(assetpackname)))
@@ -1291,7 +1290,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
           }
 
           STRING ARRAY babeltranspile;
-          FOREVERY (OBJECT babeltranspilenode FROM assetpacknode->GetChildElementsByTagNameNS(xmlns_moduledef, "babeltranspile")->GetCurrentElements())
+          FOREVERY (OBJECT babeltranspilenode FROM assetpacknode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "babeltranspile")->GetCurrentElements())
           {
             STRING regex := babeltranspilenode->GetAttribute("regex");
             IF(regex != "")
@@ -1341,7 +1340,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
   {
     STRING modulename := this->moduledef.name;
     RECORD ARRAY addtowebdesigns;
-    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(xmlns_moduledef, "addtowebdesign")->GetCurrentElements())
+    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addtowebdesign")->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(child))
         CONTINUE;
@@ -1378,7 +1377,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                               , addactions := DEFAULT RECORD ARRAY
                               ];
 
-          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addaction")->GetCurrentElements())
+          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addaction")->GetCurrentElements())
           {
             INSERT CELL[ ...this->ParseAddAction(childgid, addaction)
                        ] INTO extension.addactions AT END;
@@ -1499,7 +1498,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                               , addrootitems := DEFAULT RECORD ARRAY
                               ];
 
-          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addaction")->GetCurrentElements())
+          FOREVERY(OBJECT addaction FROM subchild->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addaction")->GetCurrentElements())
           {
             INSERT CELL[ ...this->ParseAddAction(childgid, addaction)
                        , allowmultiple     := ParseXSBoolean(addaction->GetAttribute("allowmultiple"))
@@ -1514,7 +1513,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                        , onlyfiles         := addaction->GetAttribute("objecttype") = "files"
                        ] INTO extension.addactions AT END;
           }
-          FOREVERY(OBJECT addrootitem FROM subchild->GetChildElementsByTagNameNS(xmlns_moduledef, "addrootitem")->GetCurrentElements())
+          FOREVERY(OBJECT addrootitem FROM subchild->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addrootitem")->GetCurrentElements())
           {
             INSERT [ title             := ParseXMLTidPtr(this->moduledef.name, childgid, addrootitem, "title")
                    , gotoitem          := ParseXMLTidPtr(this->moduledef.name, childgid, addrootitem, "gotoitem")

@@ -144,3 +144,6 @@ PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
 
 //valid user-supplied debug tokens
 PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
+
+///moduledef namespace
+PUBLIC CONSTANT STRING whconstant_xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
