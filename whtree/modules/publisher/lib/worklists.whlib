@@ -1,0 +1,301 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+
+
+/** @short An API for Publisher work lists
+*/
+PUBLIC STATIC OBJECTTYPE WorkListAPI
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT tolliumuser;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @short Initialize the API
+      @param tolliumuser The user for which the API is initialized (determines which work lists are visible/editable)
+  */
+  MACRO NEW(OBJECT tolliumuser)
+  {
+    this->tolliumuser := tolliumuser;
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Get a list of all (accessible) work lists
+      @return The work lists the API user has access to
+      @cell(integer) return.id The work list id
+      @cell(string) return.name Name
+      @cell(string) return.tag Optional tag
+      @cell(datetime) return.creationdate The list's creation date
+      @cell(boolean) return.iseditor TRUE if the API user can manage the list, FALSE if the user can only resolve items
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllWorkLists()
+  {
+    INTEGER ARRAY accessible_worklists := this->tolliumuser->GetRootObjectsForRights([ "publisher:worklist_resolve" ]);
+    RETURN
+        SELECT *
+             , iseditor := owner = this->tolliumuser->authobjectid
+             , DELETE owner
+          FROM publisher.worklists
+         WHERE id IN accessible_worklists
+               OR owner = this->tolliumuser->authobjectid;
+  }
+
+  /** @short Create a new work list
+      @param worklist New work list metadata
+      @cell(string) worklist.name The work list name (required)
+      @cell(string) worklist.tag An optional tag for the work list
+      @return The new work list id
+  */
+  PUBLIC INTEGER FUNCTION CreateWorkList(RECORD worklist)
+  {
+    worklist := EnforceStructure(
+        [ name := ""
+        , tag := ""
+        ], worklist);
+    IF (worklist.name = "")
+      THROW NEW Exception(`Expected a 'name' for the work list`);
+    IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(name) = ToUppercase(worklist.name)))
+      THROW NEW Exception(`A work list with name '${worklist.name}' already exists`);
+    IF (RecordExists(SELECT FROM publisher.worklists WHERE ToUppercase(tag) = ToUppercase(worklist.tag)))
+      THROW NEW Exception(`A work list with tag '${worklist.tag}' already exists`);
+
+    INTEGER listid := MakeAutonumber(publisher.worklists, "id");
+    INSERT INTO publisher.worklists(id, name, tag, owner, creationdate)
+      VALUES(listid, worklist.name, worklist.tag, this->tolliumuser->authobjectid, GetCurrentDateTime());
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || listid, [ worklistid := listid ]);
+    RETURN listid;
+  }
+
+  /** @short Get a single work list
+      @param worklistid The work list id
+      @return The requested work list, or a DEFAULT RECORD if the user doesn't have access to the work list
+          @includecelldef %WorkListAPI::GetAllWorkLists.return
+  */
+  PUBLIC RECORD FUNCTION GetWorkList(INTEGER worklistid)
+  {
+    RETURN this->GetCheckedWorkList(worklistid, FALSE);
+  }
+
+  /** @short Delete a work list
+      @param worklistid The work list id
+  */
+  PUBLIC MACRO DeleteWorkList(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    DELETE FROM publisher.worklists
+     WHERE id = worklistid;
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
+  }
+
+  /** @short Add users who can resolve items to the work list
+      @param worklistid The work list id
+      @param userobjects The list of Tollium users to add
+  */
+  PUBLIC MACRO AddWorkListUsers(INTEGER worklistid, OBJECT ARRAY userobjects)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    FOREVERY (OBJECT userobject FROM userobjects)
+      userobject->GrantRightToOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
+  }
+
+  /** @short Get a list of users who can resolve items to the work list
+      @param worklistid The work list id
+      @return The list of Tollium users who have access to the list
+  */
+  PUBLIC OBJECT ARRAY FUNCTION GetWorkListUsers(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    INTEGER ARRAY authids := GetGrantedAuthObjects("publisher:worklist_resolve", worklistid);
+    RETURN this->tolliumuser->authapi->GetObjectsByAuthObjectId(authids);
+  }
+
+  /** @short Revoke the access to the list from users
+      @param worklistid The work list id
+      @param userobjects The list of Tollium users to revoke the access from
+  */
+  PUBLIC MACRO RemoveWorkListUsers(INTEGER worklistid, OBJECT ARRAY userobjects)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    FOREVERY (OBJECT userobject FROM userobjects)
+      userobject->RevokeRightFromOn("publisher:worklist_resolve", userobject, worklistid, FALSE, TRUE);
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid ]);
+  }
+
+  /** @short Get all the items for a work list
+      @param worklistid The work list id
+      @return The work list items
+      @cell(integer) return.id The work list item id
+      @cell(integer) return.objectid The WHFS object this item refers to
+      @cell(string) return.comments Optional comments for this item
+      @cell(datetime) return.resolveddate If not DEFAULT DATETIME, the date/time at which this item was resolved
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetWorkListItems(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, FALSE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    RETURN
+        SELECT id
+             , objectid
+             , comments
+             , resolveddate
+          FROM publisher.worklistitems
+         WHERE listid = worklistid;
+  }
+
+  /** @short Add items to a work list
+      @param worklistid The work list id
+      @param items The items to add
+      @cell(integer) items.id The WHFS object id to add
+      @cell(string) items.comments Optional comments for this item
+      @cell(string) options.existing How to handle items already present on the work list, either "reset" to mark them as
+          unresolved (and update the comments) or "ignore" to leave them, defaults to "reset"
+  */
+  PUBLIC MACRO AddToWorkList(INTEGER worklistid, RECORD ARRAY items, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ existing := "reset"
+        ], options, [ enums := [ existing := [ "reset", "ignore" ] ] ]);
+    items := EnforceStructure(
+        [ [ objectid := 0
+          , comments := ""
+          ]
+        ], items);
+
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    DATETIME now := GetCurrentDateTime();
+    INTEGER ARRAY objectids;
+    FOREVERY (RECORD item FROM items)
+    {
+      IF (item.objectid = 0)
+        THROW NEW Exception(`Expected an 'objectid' for item #${#item}`);
+
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND objectid = item.objectid;
+      IF (itemid = 0)
+      {
+        INSERT INTO publisher.worklistitems(listid, objectid, comments, creationdate)
+          VALUES(worklistid, item.objectid, item.comments, now);
+        INSERT item.objectid INTO objectids AT END;
+      }
+      ELSE IF (options.existing = "reset")
+      {
+        UPDATE publisher.worklistitems
+           SET resolveddate := DEFAULT DATETIME
+             , resolvedby := 0
+             , comments := item.comments
+         WHERE id = itemid;
+        INSERT item.objectid INTO objectids AT END;
+      }
+    }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
+  }
+
+  /** @short Resolve items on a work list
+      @param worklistid The work list id
+      @param objectids The WHFS object ids of the items to mark as resolved
+  */
+  PUBLIC MACRO ResolveItems(INTEGER worklistid, INTEGER ARRAY objectids)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, FALSE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    DATETIME now := GetCurrentDateTime();
+    FOREVERY (INTEGER objectid FROM objectids)
+    {
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND COLUMN objectid = VAR objectid;
+      IF (itemid != 0)
+        UPDATE publisher.worklistitems
+           SET resolveddate := now
+             , resolvedby := this->tolliumuser->authobjectid
+         WHERE id = itemid;
+      ELSE
+        DELETE FROM objectids AT SearchElement(objectids, objectid);
+    }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
+  }
+
+  /** @short Remove items from a work list
+      @param worklistid The work list id
+      @param objectids The WHFS object ids of the items to remove
+  */
+  PUBLIC MACRO DeleteFromWorkList(INTEGER worklistid, INTEGER ARRAY objectids)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    FOREVERY (INTEGER objectid FROM objectids)
+    {
+      INTEGER itemid := SELECT AS INTEGER id FROM publisher.worklistitems WHERE listid = worklistid AND COLUMN objectid = VAR objectid;
+      IF (itemid != 0)
+        DELETE FROM publisher.worklistitems
+         WHERE id = itemid;
+      ELSE
+        DELETE FROM objectids AT SearchElement(objectids, objectid);
+    }
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
+  }
+
+  /** @short Remove all resolved items from a work list
+      @param worklistid The work list id
+  */
+  PUBLIC MACRO PurgeWorkListItems(INTEGER worklistid)
+  {
+    IF (NOT RecordExists(this->GetCheckedWorkList(worklistid, TRUE)))
+      THROW NEW Exception(`No work list with id ${worklistid}, or no access to it`);
+
+    INTEGER ARRAY objectids :=
+        SELECT AS INTEGER ARRAY id
+          FROM publisher.worklistitems
+         WHERE listid = worklistid
+               AND resolveddate != DEFAULT DATETIME;
+    DELETE FROM publisher.worklistitems
+     WHERE id IN objectids;
+
+    GetPrimary()->BroadcastOnCommit("publisher:worklist." || worklistid, CELL[ worklistid, objectids ]);
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetCheckedWorkList(INTEGER worklistid, BOOLEAN editright)
+  {
+    // GetAllWorkLists only returns accessible lists, so we only have to check the edit right
+    RECORD worklist := SELECT * FROM this->GetAllWorkLists() WHERE id = worklistid;
+    RETURN RecordExists(worklist) AND (NOT editright OR worklist.iseditor) ? worklist : DEFAULT RECORD;
+  }
+>;

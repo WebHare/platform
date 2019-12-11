@@ -4,10 +4,12 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT ConvertToWillPublish, ConvertToWontPublish, PubPrio_Scheduled, PubPrio_DirectEdit, PubPrio_FolderRepub,PubPrio_SubfolderRepub;
 
@@ -218,3 +220,16 @@ PUBLIC RECORD FUNCTION __FindSite(INTEGER siteid)
 {
   RETURN SELECT * FROM system.sites WHERE id = siteid;
 }
+
+PUBLIC OBJECTTYPE WorkListsDescriber EXTEND ObjectTypeDescriber
+<
+  PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RETURN
+        SELECT id
+             , name
+             , icon := "tollium:actions/checklist"
+          FROM publisher.worklists
+         WHERE id = objectid;
+  }
+>;

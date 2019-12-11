@@ -1,0 +1,401 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::publisher/lib/hooks.whlib";
+LOADLIB "mod::publisher/lib/worklists.whlib";
+
+LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT api;
+  RECORD ARRAY worklistcache;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+    this->api := NEW WorkListAPI(this->tolliumuser);
+    this->SyncWorkLists();
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Updates functions
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsVisible()
+  {
+    // GetAllWorkLists returns all accessible work lists
+    RETURN RecordExists(this->api->GetAllWorkLists());
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
+  {
+    RETURN
+        [ [ name := "custom_comments"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_comments")
+          , type := "text"
+          ]
+        , [ name := "custom_resolveddate"
+          , sortkeyname := "custom_resolveddate_sort"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_resolveddate")
+          , type := "text"
+          , align := "right"
+          ]
+        , [ name := "custom_statusicons"
+          , title := GetTid("publisher:filemanager.worklists.columns.custom_statusicons")
+          , type := "icons"
+          , align := "right"
+          ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
+  {
+    RETURN
+        [ [ name := "name",                width := "1pr" ]
+        , [ name := "custom_comments",     width := "1pr" ]
+        , [ name := "custom_resolveddate", width := "13x" ]
+        , [ name := "custom_statusicons",  width := "2x" ]
+        ];
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetMultiRowLayout()
+  {
+    RETURN
+        [ headers :=
+            [ [ name := "icon",                combinewithnext := TRUE,  width := "" ]
+            , [ name := "name",                combinewithnext := FALSE, width := "" ]
+            , [ name := "custom_resolveddate", combinewithnext := FALSE, width := "13x" ]
+            ]
+        , rows :=
+            [ [ cells :=
+                [ [ name := "icon", rowspan := 2 ]
+                , [ name := "name_noicon" ]
+                , [ name := "custom_resolveddate" ]
+                ]
+              ]
+            , [ cells :=
+                [ [ name := "custom_comments"]
+                , [ name := "custom_statusicons"]
+                ]
+              ]
+            ]
+        ];
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    // A mask for events emitted when editing work lists
+    RETURN [ "publisher:worklist.*" ];
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
+  {
+    // Flags to control availability of our actions
+    RETURN [ "custom_canmanageusers", "custom_canresolve", "custom_cancleanup" ];
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION OnGetPath(INTEGER childid)
+  {
+    // If the root id is requested, return just that
+    IF (childid = this->rootid)
+      RETURN INTEGER[ this->rootid ];
+
+    // Check if one of the work list id's was requested
+    //ADDME: This may not return the desired work list though, as list ids (which are requested here) are independent from
+    //       work list ids
+    this->SyncWorkLists();
+    IF (RecordExists(SELECT FROM this->worklistcache WHERE id = childid))
+      RETURN INTEGER[ this->rootid, childid ];
+
+    // Not the root or a known work list (work list items have WHFS ids and will be shown within the publisher root)
+    RETURN INTEGER[];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasChildren(INTEGER parentid, RECORD options)
+  {
+    // Only the root can have children
+    IF (parentid != this->rootid)
+      RETURN FALSE;
+
+    // Return if there are any (accessible) work lists
+    this->SyncWorkLists();
+    RETURN RecordExists(this->worklistcache);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnGetChildren(INTEGER parentid, RECORD options)
+  {
+    // Check if the children for a folder tree item are requested (or for the file list)
+    IF (options.tree)
+    {
+      // Only the root can have children
+      IF (parentid != this->rootid)
+        RETURN RECORD[];
+
+      // Return the (accessible) work lists
+      this->SyncWorkLists();
+      RETURN this->worklistcache;
+    }
+    ELSE
+    {
+      // If the parent is the root, return the work lists
+      IF (parentid = this->rootid)
+        RETURN this->worklistcache;
+
+      // Return the selected work list's items
+      RETURN
+          SELECT id := objectid
+            FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentid, RECORD ARRAY items)
+  {
+    this->SyncWorkLists();
+
+    RECORD ARRAY enrichments;
+
+    IF (parentid = this->rootid)
+    {
+      // These are the work lists themselves
+      enrichments :=
+          SELECT id
+               , custom_listid
+               , custom_itemid := 0
+               , custom_comments := ""
+               , custom_resolveddate := ""
+               , custom_resolveddate_sort := DEFAULT DATETIME
+               , custom_statusicons := INTEGER[]
+               , custom_canmanageusers := iseditor
+               , custom_canresolve := FALSE
+               , custom_cancleanup := iseditor
+            FROM this->worklistcache;
+    }
+    ELSE
+    {
+      // These are work list items
+      INTEGER listid := this->GetWorkListId(parentid);
+      enrichments :=
+          SELECT id := objectid
+               , custom_listid := listid
+               , custom_itemid := id
+               , custom_comments := comments
+               , custom_resolveddate := this->tolliumuser->FormatRecentDateTime(resolveddate, TRUE)
+               , custom_resolveddate_sort := resolveddate
+               , custom_statusicons := INTEGER[ resolveddate != DEFAULT DATETIME ? this->GetListIcon("tollium:status/positive") : this->GetListIcon("tollium:status/new") ]
+               , custom_canmanageusers := FALSE
+               , custom_canresolve := resolveddate = DEFAULT DATETIME
+               , custom_cancleanup := FALSE
+            FROM this->api->GetWorkListItems(listid);
+    }
+
+    // Enrich the incoming items
+    RETURN JoinArrays(items, "id", enrichments,
+        [ custom_listid := 0
+        , custom_itemid := 0
+        , custom_comments := ""
+        , custom_resolveddate := ""
+        , custom_resolveddate_sort := DEFAULT DATETIME
+        , custom_statusicons := INTEGER[]
+        , custom_canmanageusers := FALSE
+        , custom_canresolve := FALSE
+        , custom_cancleanup := FALSE
+        ], [ rightouterjoin := TRUE ]);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetActions()
+  {
+    RETURN
+        [ [ title            := GetTid("publisher:filemanager.worklists.actions.manageusers")
+          , executehandler   := PTR this->AssignWorkListUsers
+          , addtomenu        := "file"
+          , addtocontextmenu := TRUE
+          , allowmultiple    := FALSE
+          , onlyfolders      := TRUE
+          , checkflags       := [ "custom_canmanageusers" ]
+          ]
+        , [ title            := GetTid("publisher:filemanager.worklists.actions.resolveitem")
+          , executehandler   := PTR this->ResolveWorklistItem
+          , addtomenu        := "file"
+          , addtocontextmenu := TRUE
+          , allowmultiple    := TRUE
+          , onlyfiles        := TRUE
+          , checkflags       := [ "custom_canresolve" ]
+          ]
+        , [ title            := GetTid("publisher:filemanager.worklists.actions.cleanupresolved")
+          , executehandler   := PTR this->CleanupResolvedItems
+          , addtomenu        := "file"
+          , addtocontextmenu := TRUE
+          , allowmultiple    := FALSE
+          , onlyfolders      := TRUE
+          , checkflags       := [ "custom_cancleanup" ]
+          ]
+        ];
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO AssignWorkListUsers(OBJECT screen, RECORD data)
+  {
+    screen->RunScreen(Resolve("worklists.xml#worklistusers"), CELL[ worklistid := this->GetWorkListId(data.objectid) ]);
+  }
+
+  MACRO ResolveWorklistItem(OBJECT screen, RECORD data)
+  {
+    IF (screen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmresolveitems", ToString(Length(data.objectids)))) = "yes")
+    {
+      OBJECT work := screen->BeginWork();
+      this->api->ResolveItems(this->GetWorkListId(data.parentid), data.objectids);
+      work->Finish();
+    }
+  }
+
+  MACRO CleanupResolvedItems(OBJECT screen, RECORD data)
+  {
+    IF (screen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmcleanupresolved")) = "yes")
+    {
+      OBJECT work := screen->BeginWork();
+      this->api->PurgeWorklistItems(this->GetWorkListId(data.objectid));
+      work->Finish();
+    }
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // The synced work list maintains the object id <-> work list id mapping
+  MACRO SyncWorkLists()
+  {
+    INTEGER ARRAY curids := SELECT AS INTEGER ARRAY custom_listid FROM this->worklistcache;
+    FOREVERY (RECORD worklist FROM this->api->GetAllWorkLists())
+    {
+      IF (worklist.id NOT IN curids)
+      {
+        RECORD item :=
+            [ id := this->GetNextId()
+            , custom_listid := worklist.id
+            , name := worklist.name
+            , title := ""
+            , isfolder := TRUE
+            , modificationdate := worklist.creationdate
+            , creationdate := worklist.creationdate
+            , iseditor := worklist.iseditor
+            , canwrite := FALSE
+            , candelete := worklist.iseditor
+            , custom_canresolve := FALSE
+            , icon := "tollium:actions/checklist"
+            ];
+        INSERT item INTO this->worklistcache AT END;
+      }
+      ELSE
+        DELETE FROM curids AT SearchElement(curids, worklist.id);
+    }
+    DELETE FROM this->worklistcache WHERE custom_listid IN curids;
+  }
+
+  // Get the work list id from an object id
+  INTEGER FUNCTION GetWorkListId(INTEGER objectid)
+  {
+    RETURN SELECT AS INTEGER COLUMN custom_listid FROM this->worklistcache WHERE id = objectid;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT api;
+  INTEGER worklistid;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->api := NEW WorkListAPI(this->tolliumuser);
+    this->worklistid := data.worklistid;
+    ^users->value :=
+        SELECT id := user->authobjectid
+             , name := user->realname ?? user->login
+             , email := user->emailaddress
+             , obj := user
+          FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  // This function is only called to add users
+  RECORD ARRAY FUNCTION OnEditUser(RECORD _unused_row)
+  {
+    OBJECT dlg := MakeUserRoleSelectionDialog(this);
+    dlg->selectmode := "multiple";
+    dlg->filterontype := 1; // Users only, no roles
+    IF (dlg->RunModal() = "ok")
+    {
+      RETURN
+          SELECT id := user->authobjectid
+               , name := user->realname ?? user->login
+               , email := user->emailaddress
+               , obj := user
+            FROM ToRecordArray(dlg->value, "user");
+    }
+    RETURN RECORD[];
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    RECORD ARRAY curusers :=
+        SELECT id := user->authobjectid
+             , obj := user
+          FROM ToRecordArray(this->api->GetWorkListUsers(this->worklistid), "user");
+
+    OBJECT ARRAY addusers;
+    FOREVERY (RECORD user FROM ^users->value)
+    {
+      INTEGER idx := (SELECT AS INTEGER #curusers + 1 FROM curusers WHERE id = user.id) - 1;
+      IF (idx < 0)
+        INSERT user.obj INTO addusers AT END;
+      ELSE
+        DELETE FROM curusers AT idx;
+    }
+    this->api->AddWorkListUsers(this->worklistid, addusers);
+    OBJECT ARRAY delusers := SELECT AS OBJECT ARRAY obj FROM curusers;
+    this->api->RemoveWorkListUsers(this->worklistid, delusers);
+
+    RETURN work->Finish();
+  }
+>;

@@ -193,6 +193,32 @@ PUBLIC SCHEMA
     , INTEGER "type"
     ; KEY id
     > forumattachments
+
+
+    ///////////////////////////////////////////////////////////////
+    //
+    //  Work lists
+
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , STRING "name"
+    , STRING "tag"
+    , INTEGER "owner" NULL := 0
+    , DATETIME "creationdate"
+    ; KEY id
+    > worklists
+
+  , TABLE
+    < INTEGER "id" NULL := 0
+    , INTEGER "listid" NULL := 0
+    , INTEGER "objectid" NULL := 0
+    , DATETIME "creationdate"
+    , STRING "comments"
+    , DATETIME "resolveddate"
+    , INTEGER "resolvedby" NULL := 0
+    ; KEY id
+    > worklistitems
+
   > publisher;
 
 /** @short Bind the publisher and system module tables

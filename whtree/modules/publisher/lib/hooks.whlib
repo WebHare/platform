@@ -1,75 +1,393 @@
 <?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/screenbase.whlib" EXPORT WHFSFilterScreenBase;
 
-PUBLIC OBJECTTYPE ContentsListHandlerBase
-<
-  PUBLIC FUNCTION PTR __ongeticon;
-  PUBLIC OBJECT tolliumuser;
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 
-  INTEGER folderid;
 
-  MACRO NEW()
+PUBLIC CONSTANT INTEGER __rootitemidspace := 1000000;
+
+PUBLIC RECORD __contentlisthandlersetup;
+
+/** @short Contents handler registration context object (accessible in Publisher contexts as `this->contexts->^__contentshandlercontext`)
+    @private
+*/
+PUBLIC STATIC OBJECTTYPE ContentsHandlerContext
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT tolliumuser;
+  OBJECT contentshandlercache;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @short Initialize the context object and root item contents handlers
+      @param tolliumuser The user to initialize the context for
+  */
+  MACRO NEW(OBJECT tolliumuser)
   {
+    this->tolliumuser := tolliumuser;
+    this->contentshandlercache := NEW ValueMapper();
+
+    INTEGER counter;
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->tolliumuser, 'filemgrextensions'))
+      FOREVERY(RECORD addroot FROM ext.addrootitems)
+      {
+        counter := counter + 1;
+        // Keep this method of determining the root ids in sync with FSObjectOverviewBase::GenerateRootItems
+        INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;
+
+        IF (addroot.contentshandler != "")
+          this->contentshandlercache->Add(id, this->InstantiateHandler(id, addroot.contentshandler));
+      }
   }
 
+
+  //----------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Get the contents handler for a folder
+      @param folderid The folder to get the contents handler for
+      @return(object %ContentsHandlerBase) The contents handler object
+  */
+  PUBLIC OBJECT FUNCTION GetContentsHandler(INTEGER folderid)
+  {
+    // Each root item has an id that is a multiple of __rootitemidspace. Ids of subitem of a root item are counting down
+    // towards the next root item, so we can easily calculate the root item id from the subitem id.
+    INTEGER rootitemid := (folderid / __rootitemidspace) * __rootitemidspace;
+    IF (this->contentshandlercache->Has(rootitemid))
+      RETURN this->contentshandlercache->Lookup(rootitemid);
+    RETURN DEFAULT OBJECT;
+  }
+
+  /** @short Get all active contents handlers
+      @return All initialized contents handlers
+      @cell(integer) return.id The root item id
+      @cell(object %ContentsHandlerBase) return.obj The contents handler object
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllContentsHandlers()
+  {
+    RETURN SELECT id := fromval, obj := toval FROM this->contentshandlercache->GetAllMappings();
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  OBJECT FUNCTION InstantiateHandler(INTEGER rootitemid, STRING contentshandlername)
+  {
+    __contentlisthandlersetup := CELL[ rootitemid, this->tolliumuser ];
+    OBJECT contentshandler := MakeObject(contentshandlername);
+    __contentlisthandlersetup := DEFAULT RECORD;
+    IF (contentshandler NOT EXTENDSFROM ContentsHandlerBase)
+      THROW NEW Exception(`Contents handler object '${contentshandlername}' should derive from ContentsHandlerBase`);
+    RETURN contentshandler;
+  }
+>;
+
+
+/** @short Base object type for extending the publisher's file list
+*/
+PUBLIC STATIC OBJECTTYPE ContentsListHandlerBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  PUBLIC FUNCTION PTR __ongeticon;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /// @type(object %TolliumUser) The current Tollium user
+  PUBLIC OBJECT tolliumuser;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /// @private
+  MACRO NEW()
+  {
+    RECORD setup := ValidateOptions([ tolliumuser := DEFAULT OBJECT ], __contentlisthandlersetup, [ passthrough := TRUE ]);
+    this->tolliumuser := setup.tolliumuser;
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Overridable methods
+  //
+
+  /** @short The name of column to order the list on by default
+      @return Column name
+  */
   PUBLIC STRING FUNCTION GetOrderedColumn()
   {
     RETURN "ordering";
   }
 
-  /** @long Provide the definitions of extra columns this handler is  be providing. If empty,
-      the remapping function won't be invoked. Names must start with 'custom_'.
-      Add a 'sorttitle' for columns that can be sorted on */
+  /** @short Provide extra columns that can be displayed
+      @long Provide the definitions of extra columns this handler is providing. If empty, the remapping function %OnMapItems
+          won't be invoked. Names must start with `custom_`. Add a `sorttitle` for columns that can be sorted on.
+      @return Column definitions @includecelldef %TolliumList::columns */
   PUBLIC RECORD ARRAY FUNCTION GetAddedColumns()
   {
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  /** The layout ordering of the one-row design. Should include 'name', 'title', 'modified' and 'statusicons' on the positions where you want to keep them, if any.
-     May not return anything but these four or 'custom_' columns.  */
+  /** @short Provide the single-row layout
+      @long The layout ordering of the one-row design. Should include `name`, `title`, `modified` and `statusicons` on the
+          positions where you want to keep them, if any. May not return anything but these four or `custom_` columns.
+      @return The row layout
+      @cell(string) return.name Name of the column to use for this header
+      @cell(string) return.width Column width
+  */
   PUBLIC RECORD ARRAY FUNCTION GetOneRowLayout()
   {
-    RETURN [ [ name := "name",        width := "1pr" ]
-           , [ name := "title",       width := "1pr" ]
-           , [ name := "modified",    width := "13x" ]
-           , [ name := "statusicons", width := "2x" ]
-           ];
+    RETURN
+        [ [ name := "name",        width := "1pr" ]
+        , [ name := "title",       width := "1pr" ]
+        , [ name := "modified",    width := "13x" ]
+        , [ name := "statusicons", width := "2x" ]
+        ];
   }
 
-  /** Provide the multirow layout.
-      @cell return.headers - The header sto show
-      @cell return.headers.name
-      @cell return.headers.combinewithnext
-      @cell return.rows - The row layout */
+  /** @short Provide the multirow layout
+      @return The row layout @includecelldef %TolliumList::columns
+  */
   PUBLIC RECORD FUNCTION GetMultiRowLayout()
   {
-    RETURN [ headers := [ [ name := "icon", combinewithnext := TRUE,  width := "" ]
-                        , [ name := "name", combinewithnext := FALSE, width := "" ]
-                        , [ name := "modified", combinewithnext := FALSE, width := "13x" ]
-                        ]
-           , rows := [[ cells := [[ name := "icon", rowspan := 2 ]
-                                 ,[ name := "name_noicon" ]
-                                 ,[ name := "modified" ]
-                                 ]
-                      ]
-                     ,[ cells := [[ name := "title"]
-                                 ,[ name := "statusicons"]
-                                 ]
-                      ]
-                     ]
-           ];
+    RETURN
+        [ headers :=
+            [ [ name := "icon",     combinewithnext := TRUE,  width := "" ]
+            , [ name := "name",     combinewithnext := FALSE, width := "" ]
+            , [ name := "modified", combinewithnext := FALSE, width := "13x" ]
+            ]
+        , rows :=
+            [ [ cells :=
+                [ [ name := "icon", rowspan := 2 ]
+                , [ name := "name_noicon" ]
+                , [ name := "modified" ]
+                ]
+              ]
+            , [ cells :=
+                [ [ name := "title"]
+                , [ name := "statusicons"]
+                ]
+              ]
+            ]
+        ];
   }
 
-  /** Only invoked if GetAddedColumns provided extra columns. Receives 'id' and 'parent' of files, should add 'custom_' columns
-      Standard fields (such as name, title) can never be modified, as that would break future 'click to edit' support
-      This function should not remove or reorder items. Make sure to use right outer joins in Enrich calls */
+  /** @short Enrich items with extra columns
+      @long Only invoked if GetAddedColumns provided extra columns. Receives `id` and `type` of files, should add `custom_`
+          columns as specified in %GetAddedColumns. Standard fields (such as `name`, `title`) can never be modified, as that
+          would break future 'click to edit' support. This function should not remove or reorder items. Make sure to use
+          right outer joins in Enrich calls, so as to not 'lose' rows.
+      @param parentfolder The id of the containing folder
+      @param items The rows to enrich
+      @cell(integer) items.id The file or folder id
+      @cell(integer) items.type The id of the  file or folder's type
+      @return The enriched rows
+  */
   PUBLIC RECORD ARRAY FUNCTION OnMapItems(INTEGER parentfolder, RECORD ARRAY items)
   {
     RETURN items;
   }
 
-  PUBLIC INTEGER FUNCTION GetListIcon(STRING iconname)
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short Get an icon value for the given name to be displayed in the file list
+      @long This function is only available when adding icons to items in %OnMapItems.
+      @param iconname Name of the icon
+      @return Icon value for displaying in the file list
+  */
+  INTEGER FUNCTION GetListIcon(STRING iconname)
   {
+    IF (this->__ongeticon = DEFAULT FUNCTION PTR)
+      RETURN 0;
     RETURN this->__ongeticon(iconname);
+  }
+>;
+
+
+/** @short Base object for extending the Publisher's functionality
+*/
+PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER __rootid;
+  INTEGER __idcounter;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /// The id of the root item for the content handler
+  PUBLIC PROPERTY rootid(__rootid, -);
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /// @private
+  MACRO NEW()
+  {
+    RECORD setup := ValidateOptions([ rootitemid := 0 ], __contentlisthandlersetup, [ passthrough := TRUE ]);
+    this->__rootid := setup.rootitemid;
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Overridable methods
+  //
+
+  /** @short Is the root item currently visible?
+      @return If the root item should be shown in the folder tree
+  */
+  PUBLIC BOOLEAN FUNCTION IsVisible()
+  {
+    RETURN TRUE;
+  }
+
+  /** @short Called by the folder tree to check if an item is expandable
+      @param parentid The id of the item to check
+      @cell(boolean) options.showhidden If hidden item are shown
+      @return If the item has subitems
+  */
+  PUBLIC BOOLEAN FUNCTION HasChildren(INTEGER parentid, RECORD options)
+  {
+    RETURN FALSE;
+  }
+
+  /** @short Called to get the items for a parent
+      @long This function is called to get the child items for a parent. WHFS objects can be returned by returning records
+          with just a positive %return.id (other fields are ignored) and custom objects can be returned by returning full
+          records.
+      @param parentid The id of the folder to get the subitems for
+      @cell(boolean) options.tree If this function is called by the folder tree (TRUE) or file list (FALSE)
+      @cell(boolean) options.showfolders If folder items are shown
+      @cell(boolean) options.showfiles If file items are shown
+      @cell(boolean) options.showhidden If hidden items are shown
+      @return The custom items
+      @cell(integer) return.id The item's id (a custom id as returned by %GetNextId, or a positive WHFS object id)
+      @cell(string) return.name The name to show in the folder tree or file list
+      @cell(string) return.title The title to show in the file list
+      @cell(boolean) return.isfolder If this is a folder item or a file item
+      @cell(datetime) return.modificationdate Modification date
+      @cell(datetime) return.creationdate Creation date
+      @cell(boolean) return.canwrite If this item is writable
+      @cell(boolean) return.candelete If this item is deletable
+      @cell(string) return.icon Name of the icon to show for this item
+  */
+  PUBLIC RECORD ARRAY FUNCTION OnGetChildren(INTEGER parentid, RECORD options)
+  {
+    RETURN RECORD[];
+  }
+
+  /** @short Return additional event masks to listen to
+      @return A list of event masks
+  */
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN STRING[];
+  }
+
+  /** @short Called to get the WHFS objects for a parent
+      @long This function is called by the folder tree if %custom_tree_items is not set to TRUE and by the file list if
+          %custom_list_items is not set to TRUE.
+      @param parentid The id of the folder to get the subitems for
+      @param options @includecelldef %ContentsHandlerBase::OnGetCustomChildren.options
+      @return The id's of the WHFS objects to show
+  */
+
+  /** @short Get the parent id's of an item
+      @param childid The id of the item to get the parent items for
+      @return The id's of the item's parent items, starting with the root id and including the item's id itself
+  */
+  PUBLIC INTEGER ARRAY FUNCTION OnGetPath(INTEGER childid)
+  {
+    RETURN INTEGER[];
+  }
+
+  /** @short Add extra flags for use as check flags in actions returned by %GetActions
+      @return The extra flags, which should be prefixed with `custom_`
+  */
+  PUBLIC STRING ARRAY FUNCTION GetAddedFlags()
+  {
+    RETURN STRING[];
+  }
+
+  /** @short Get custom actions
+      @return The actions to add to the interface
+      @cell(string) return.title Action title to display in menus
+      @cell(function ptr) return.executehandler Function that has to be executed for this action
+      @cell(function ptr) return.windowopenhandler Function that has to be executed if this action opens a new browser window
+      @cell(string) return.addtomenu The menu to add to (one of `file`, `edit` or `utilities`)
+      @cell(boolean) return.addtocontextmenu If the action should also be added to the folder tree's/file list's contextual
+          menus (with disablemode hidden)
+      @cell(boolean) return.allowmultiple If a selection of multiple items is allowed
+      @cell(boolean) return.onlydevelopers If this action should only be shown to developers
+      @cell(boolean) return.requiresselection Set to FALSE if this action should be available when no files or folders are
+          selected
+      @cell(boolean) return.onlyinsidesite If this action is only available within websites
+      @cell(boolean) return.onlyoutsidesite If this action is only available outside of websites
+      @cell(boolean) return.onlyfullaccess If this action is only available if the user has full access to the Publisher
+      @cell(boolean) return.onlywritable If this action is only available on writable objects
+      @cell(boolean) return.onlyfolders If this action is only available for folders
+      @cell(boolean) return.onlyfiles If this action is only available for files
+      @cell(string array) return.checkflags Additional flags that are checked on the selection (as provided by %GetAddedFlags)
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetActions()
+  {
+    RETURN RECORD[];
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  /** @short Get a new id to use for custom objects
+      @return The new id
+  */
+  INTEGER FUNCTION GetNextId()
+  {
+    this->__idcounter := this->__idcounter + 1;
+    INTEGER id := this->rootid - this->__idcounter;
+    IF (id <= this->rootid - __rootitemidspace)
+      THROW NEW Exception("Maximum number of id's used");
+    RETURN id;
   }
 >;

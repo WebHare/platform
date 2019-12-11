@@ -1048,6 +1048,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                     , description         := this->ParseXMLTidTitle(subchild, "description", subchildgid)
                     , showbefore          := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showbefore")), modulename)
                     , showafter           := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showafter")), modulename)
+                    , isrootright         := ParseXSBoolean(subchild->GetAttribute("isrootright"))
                     , line                := subchild->linenum
                     ];
                 IF (rightrec.objtype = "" AND rightrec.rightsgroup = "")
@@ -1522,6 +1523,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                    , icon              := addrootitem->GetAttribute("icon")
                    , forvirtualfilters := ParseXSList(addrootitem->GetAttribute("forvirtualfilters"))
                    , filterscreen      := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("filterscreen"))
+                   , contentshandler   := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("contentshandler"))
                    , modulekey         := this->moduledef.name || ":" || Length(this->moduledef.filemgrextensions) || "." || Length(extension.addrootitems) //to find this in the shortcut menu
 
                    //, library           := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("library"))

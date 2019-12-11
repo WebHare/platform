@@ -13,6 +13,7 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -260,29 +261,33 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     }
   }
 
-  MACRO WrapExecuteFromFolderTree(MACRO PTR handler, BOOLEAN multiple)
-  {
-    IF(multiple)
-      handler([INTEGER(^foldertree->value)]);
-    ELSE
-      handler(^foldertree->value);
-
-    ^foldertree->ReloadOverview();
-    ^filelist->ReloadOverview();
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Helper functions
   //
 
 
+  MACRO WrapExecuteFromFolderTree(MACRO PTR handler, BOOLEAN multiple)
+  {
+    RECORD data := [ parentid := RecordExists(^foldertree->selection) ? ^foldertree->selection.parent : 0 ];
+    IF (multiple)
+      data := CELL[ ...data, objectids := INTEGER[ ^foldertree->value ] ];
+    ELSE
+      data := CELL[ ...data, objectid := ^foldertree->value ];
+    handler(data);
+
+    ^foldertree->ReloadOverview();
+    ^filelist->ReloadOverview();
+  }
+
   MACRO WrapExecuteFromFileList(MACRO PTR handler, BOOLEAN multiple)
   {
-    IF(multiple)
-      handler(^filelist->value);
+    RECORD data := [ parentid := ^foldertree->value ];
+    IF (multiple)
+      data := CELL[ ...data, objectids := ^filelist->value ];
     ELSE
-      handler((^filelist->value CONCAT [0])[0]); // Default to 0 when no selection
+      data := CELL[ ...data, objectid := [ ...^filelist->value, 0][0] ];// Default to 0 when no selection
+    handler(data);
 
     ^foldertree->ReloadOverview();
     ^filelist->ReloadOverview();
@@ -290,21 +295,26 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO WrapWindowOpenFromFolderTree(MACRO PTR handler, BOOLEAN multiple, OBJECT openhandler)
   {
-    IF(multiple)
-      handler(openhandler, [INTEGER(^foldertree->value)]);
+    RECORD data := [ parentid := RecordExists(^foldertree->selection) ? ^foldertree->selection.parent : 0 ];
+    IF (multiple)
+      data := CELL[ ...data, objectids := INTEGER[ ^foldertree->value ] ];
     ELSE
-      handler(openhandler, ^foldertree->value);
+      data := CELL[ ...data, objectid := ^foldertree->value ];
+
+    handler(openhandler, data);
   }
 
   MACRO WrapWindowOpenFromFileList(MACRO PTR handler, BOOLEAN multiple, OBJECT openhandler)
   {
-    IF(multiple)
-      handler(openhandler, ^filelist->value);
+    RECORD data := [ parentid := ^foldertree->value ];
+    IF (multiple)
+      data := CELL[ ...data, objectids := ^filelist->value ];
     ELSE
-      handler(openhandler, ^filelist->value[0]);
+      data := CELL[ ...data, objectid := [ ...^filelist->value, 0][0] ];// Default to 0 when no selection
+    handler(openhandler, data);
   }
 
-  RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu)
+  RECORD ARRAY FUNCTION ConstructMenuItems(RECORD ARRAY items, OBJECT receivingmenu, BOOLEAN addtocontextmenu)
   {
     FOREVERY(RECORD newmenuitem FROM items)
     {
@@ -319,6 +329,8 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         requireflags := requireflags CONCAT ["isfolder"];
       IF(newmenuitem.onlywritable)
         requireflags := requireflags CONCAT ["canwrite"];
+      IF (CellExists(newmenuitem, "checkflags"))
+        requireflags := requireflags CONCAT newmenuitem.checkflags;
 
       STRING actioncell;
       MACRO PTR folderactionptr;
@@ -364,9 +376,31 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       }
       items[#newmenuitem] := newmenuitem;
 
+      INTEGER insertpos := SELECT AS INTEGER #items FROM receivingmenu->items WHERE NOT isdivider AND menuitem->name LIKE "insertpos_*";
       INSERT [ menuitem := newmenuitem.__menuitem
              , isdivider := FALSE
-             ] INTO receivingmenu->items AT END;
+             ] INTO receivingmenu->items AT insertpos;
+
+      IF (addtocontextmenu)
+      {
+        OBJECT menuitemobj := this->CreateTolliumComponent("menuitem");
+        menuitemobj->title := newmenuitem.__menuitem->title;
+        menuitemobj->action := newmenuitem.__menuitem->action;
+        menuitemobj->disablemode := "hidden";
+        insertpos := SELECT AS INTEGER #items FROM ^listselectmenu->items WHERE NOT isdivider AND menuitem->name LIKE "insertpos_*";
+        INSERT [ menuitem := menuitemobj
+               , isdivider := FALSE
+               ] INTO ^listselectmenu->items AT insertpos;
+
+        menuitemobj := this->CreateTolliumComponent("menuitem");
+        menuitemobj->title := newmenuitem.__menuitem->title;
+        menuitemobj->action := newmenuitem.__menuitem->action;
+        menuitemobj->disablemode := "hidden";
+        insertpos := SELECT AS INTEGER #items FROM ^foldertreeselect->items WHERE NOT isdivider AND menuitem->name LIKE "insertpos_*";
+        INSERT [ menuitem := newmenuitem.__menuitem
+               , isdivider := FALSE
+               ] INTO ^foldertreeselect->items AT insertpos;
+      }
     }
 
     RETURN items;
@@ -384,6 +418,13 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     {
       this->frame->title := treefolder.id = 0 ? this->original_title : treefolder.name;
       ^restore_menu->visible := treefolder.id = -1 /*trash*/ OR (treefolder.id > 0 AND NOT treefolder.isactive);
+
+      OBJECT contentshandler := this->contexts->^__contentshandlercontext->GetContentsHandler(treefolder.id);
+      RECORD frameflags := this->frame->flags;
+      FOREVERY (RECORD flag FROM UnpackRecord(frameflags))
+        IF (flag.name LIKE "CONTENTSHANDLER_*")
+          frameflags := CellUpdate(frameflags, flag.name, ObjectExists(contentshandler) AND ToInteger(Substring(flag.name, 16), 0) = contentshandler->rootid);
+      this->frame->flags := frameflags;
     }
     ELSE
     {
@@ -467,9 +508,8 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO SetupFilemgrExtensions() //Setup the module-based extensions
   {
-    this->extensions := [ newmenuitems := DEFAULT RECORD ARRAY
-                        , actionsmenuitems := DEFAULT RECORD ARRAY
-                        ];
+    this->contexts->^__contentshandlercontext := NEW ContentsHandlerContext(this->tolliumuser);
+    this->extensions := [ actionsmenuitems := DEFAULT RECORD ARRAY ];
 
     INTEGER insertpos := SELECT AS INTEGER #items FROM ^gotomenu->items WHERE isdivider;
 
@@ -480,16 +520,16 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         IF(action.windowopenmacro != "")
         {
           action.onwindowopen := action.requiresselection ? PTR this->ExecuteFilemgrWOExtension(action, #1, #2)
-                                                          : PTR this->ExecuteFilemgrWOExtension(action, #1, 0);
+                                                          : PTR this->ExecuteFilemgrWOExtension(action, #1, DEFAULT RECORD);
         }
         ELSE
         {
           action.onexecute := action.requiresselection ? PTR this->ExecuteFilemgrExtension(action, #1)
-                                                       : PTR this->ExecuteFilemgrExtension(action, 0);
+                                                       : PTR this->ExecuteFilemgrExtension(action, DEFAULT RECORD);
         }
         this->extensions.actionsmenuitems := this->extensions.actionsmenuitems
                                              CONCAT
-                                             this->ConstructMenuItems([action], ^utilitiesmenu);
+                                             this->ConstructMenuItems([action], ^utilitiesmenu, FALSE);
       }
       FOREVERY(RECORD addroot FROM ext.addrootitems)
       {
@@ -511,29 +551,101 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         insertpos := insertpos + 1;
       }
     }
+
+    FOREVERY (RECORD handler FROM this->contexts->^__contentshandlercontext->GetAllContentsHandlers())
+    {
+      STRING handler_frameflag := `contentshandler_${handler.id}`;
+      this->frame->flags := CellInsert(this->frame->flags, handler_frameflag, FALSE);
+
+      FOREVERY (RECORD action FROM handler.obj->GetActions())
+      {
+        action := ValidateOptions(
+            [ title             := ""
+            , executehandler    := DEFAULT MACRO PTR
+            , windowopenhandler := DEFAULT MACRO PTR
+            , addtomenu         := ""
+            , addtocontextmenu  := FALSE
+            , allowmultiple     := FALSE
+            , onlydevelopers    := FALSE
+            , requiresselection := TRUE
+            , onlyinsidesite    := FALSE
+            , onlyoutsidesite   := FALSE
+            , onlyfullaccess    := FALSE
+            , onlywritable      := FALSE
+            , onlyfolders       := FALSE
+            , onlyfiles         := FALSE
+            , checkflags        := STRING[]
+            ], action);
+
+        OBJECT actionobj;
+        IF (action.windowopenhandler != DEFAULT MACRO PTR)
+          actionobj := this->CreateTolliumComponent("windowopenaction");
+        ELSE IF (action.executehandler != DEFAULT MACRO PTR)
+          actionobj := this->CreateTolliumComponent("action");
+        ELSE
+          THROW NEW Exception(`ContentsHandler action without 'executehandler' or 'windowopenhandler'`);
+        actionobj->title := action.title;
+        actionobj->frameflags := [ handler_frameflag ];
+
+        OBJECT menuitemobj := this->CreateTolliumComponent("menuitem");
+        menuitemobj->title := actionobj->title;
+        menuitemobj->action := actionobj;
+
+        action := CELL
+            [ ...action
+            , __action     := actionobj
+            , __menuitem   := menuitemobj
+            , onwindowopen := DEFAULT MACRO PTR
+            , onexecute    := DEFAULT MACRO PTR
+            ];
+
+        IF (action.windowopenhandler != DEFAULT MACRO PTR)
+        {
+          action.onwindowopen := action.requiresselection
+              ? PTR this->ExecuteFilemgrWOExtension(action, #1, #2)
+              : PTR this->ExecuteFilemgrWOExtension(action, #1, 0);
+        }
+        ELSE IF (action.executehandler != DEFAULT MACRO PTR)
+        {
+          action.onexecute := action.requiresselection
+              ? PTR this->ExecuteFilemgrExtension(action, #1)
+              : PTR this->ExecuteFilemgrExtension(action, 0);
+        }
+
+        OBJECT menu;
+        SWITCH (action.addtomenu)
+        {
+          CASE "file"    { menu := ^filemenu; }
+          CASE "edit"    { menu := ^editmenu; }
+          CASE "actions" { menu := ^utilitiesmenu; }
+          DEFAULT        { THROW NEW Exception(`Invalid 'addtomenu' value '${action.addtomenu}'`); }
+        }
+        this->extensions.actionsmenuitems :=
+            this->extensions.actionsmenuitems
+            CONCAT
+            this->ConstructMenuItems([action], menu, action.addtocontextmenu);
+      }
+    }
   }
 
-  MACRO ExecuteFilemgrWOExtension(RECORD action, OBJECT openhandler, VARIANT selection)
+  MACRO ExecuteFilemgrWOExtension(RECORD action, OBJECT openhandler, RECORD data)
   {
-    RECORD data;
-    IF(action.requiresselection)
-      IF(action.allowmultiple)
-        data := [ objectids := selection ];
-      ELSE
-        data := [ objectid := selection ];
+    IF (NOT action.requiresselection)
+      data := DEFAULT RECORD;
 
-    MakeFunctionPtr(action.windowopenmacro)(this, openhandler, data);
+    IF (CellExists(action, "windowopenhandler"))
+      action.windowopenhandler(this, openhandler, data);
+    ELSE
+      MakeFunctionPtr(action.windowopenmacro)(this, openhandler, data);
   }
-  MACRO ExecuteFilemgrExtension(RECORD action, VARIANT selection)
+  MACRO ExecuteFilemgrExtension(RECORD action, RECORD data)
   {
-    RECORD data;
-    IF(action.requiresselection)
-      IF(action.allowmultiple)
-        data := [ objectids := selection ];
-      ELSE
-        data := [ objectid := selection ];
+    IF (NOT action.requiresselection)
+      data := DEFAULT RECORD;
 
-    IF(action.screen != "")
+    IF (CellExists(action, "executehandler"))
+      action.executehandler(this, data);
+    ELSE IF(action.screen != "")
       this->RunScreen(action.screen, data);
     ELSE IF(action.startmacro != "")
       MakeFunctionPtr(action.startmacro)(this, data);
@@ -570,7 +682,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       ^filelist->ReloadOverview();
     }
 
-    this->UpdateExtensionVisibility(this->extensions.newmenuitems);
     ^previewbrowserpart->visible := ^togglepreviewitem->checked;
     ^utilitiesmenu->visible := this->UpdateExtensionVisibility(this->extensions.actionsmenuitems) OR this->frame->flags.issupervisor;
 

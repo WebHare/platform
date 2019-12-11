@@ -286,27 +286,34 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->folderfilter->contents := DEFAULT OBJECT;
     }
 
-    OBJECT cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
-    IF(NOT ObjectExists(cachedlisthandler))
+    STRING ARRAY eventmasks;
+    IF (folderid >= 0)
+      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
+
+    OBJECT cachedlisthandler := this->GetCustomContentsHandler(folderid);
+    IF (ObjectExists(cachedlisthandler))
     {
-      cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
-      cachedlisthandler->__ongeticon := PTR this->mylist->GetIcon; //we don't want to give away access to the full list object
-      cachedlisthandler->tolliumuser := this->owner->tolliumuser;
-      INSERT [ library := foldersettings.contentslisthandler.library
-             , objectname := foldersettings.contentslisthandler.objectname
-             , handler := cachedlisthandler
-             ] INTO this->listshandlercache AT END;
+      eventmasks := eventmasks CONCAT cachedlisthandler->GetEventMasks();
+    }
+    ELSE
+    {
+      cachedlisthandler := SELECT AS OBJECT handler FROM this->listshandlercache WHERE library = foldersettings.contentslisthandler.library AND objectname = foldersettings.contentslisthandler.objectname;
+      IF(NOT ObjectExists(cachedlisthandler))
+      {
+        __contentlisthandlersetup := [ tolliumuser := this->owner->tolliumuser ];
+        cachedlisthandler := MakeObject(foldersettings.contentslisthandler.library, foldersettings.contentslisthandler.objectname);
+        __contentlisthandlersetup := DEFAULT RECORD;
+        INSERT [ library := foldersettings.contentslisthandler.library
+               , objectname := foldersettings.contentslisthandler.objectname
+               , handler := cachedlisthandler
+               ] INTO this->listshandlercache AT END;
+      }
     }
     IF(this->contentslisthandler != cachedlisthandler)
     {
       this->contentslisthandler := cachedlisthandler;
       this->listsetupdirty := TRUE;
     }
-
-
-    STRING ARRAY eventmasks;
-    IF (folderid >= 0)
-      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
 
     this->folderlistener->masks := eventmasks;
 
@@ -560,6 +567,20 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->mylist->rowlayouts := [rowlayout];
     this->mylist->rowlayout := "rowlayout";
     this->pvt_ordered_column := ordered_column;
+
+    STRING ARRAY flags :=
+        SELECT AS STRING ARRAY DISTINCT flag
+          FROM ToRecordArray(this->mylist->flags, "flag")
+         WHERE flag NOT LIKE "custom_*";
+    IF (this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+    {
+      RECORD ARRAY addedflags := SELECT DISTINCT flag FROM ToRecordArray(this->contentslisthandler->GetAddedFlags(), "flag");
+      STRING illegalflag := SELECT AS STRING flag FROM addedflags WHERE flag NOT LIKE "custom_*";
+      IF (illegalflag != "")
+        THROW NEW Exception(`Illegal added flag '${illegalflag}'`);
+      flags := flags CONCAT SELECT AS STRING ARRAY flag FROM addedflags;
+    }
+    this->mylist->flags := flags;
   }
 
   STRING FUNCTION GetColumnSortTitle(RECORD ARRAY columns, STRING colname)
@@ -681,17 +702,17 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
                                    WHERE id IN this->customcontents;
         files := EnrichObjectListing(DEFAULT OBJECT, fileslist, FALSE, "");
       }
+      ELSE IF (ObjectExists(this->contentslisthandler) AND this->contentslisthandler EXTENDSFROM ContentsHandlerBase)
+      {
+        files := this->GetCustomObjectListing(this->curfolder, FALSE, NOT this->hidefolders, NOT this->hidefiles, showhidden);
+      }
     }
-
-    STRING tz := this->owner->tolliumuser->timezone;
-    OBJECT user := this->owner->tolliumuser;
-    DATETIME now_local := UTCToLocal(GetCurrentDateTime(), tz);
 
     files := SELECT *
                   , rowkey := id
                   , name_noicon := name
                   //, modified := modificationdate
-                  , modified := GetDisplayModDate(user, modificationdate, now_local, tz)
+                  , modified := this->owner->tolliumuser->FormatRecentDateTime(modificationdate, TRUE)
                   //, filesize := isfolder OR NOT pvt_blobiscontent ? "" : this->owner->tolliumuser->FormatFileSize(pvt_length_data, 0, FALSE)
                   , pvt_highlight := RecordExists(folder) AND id = folder.indexdoc
                   //, pvt_marker := RecordExists(folder) AND id = folder.indexdoc ? this->mylist->GetIcon("tollium:status/marker") : 0
@@ -746,7 +767,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     IF(this->listcontentsremap AND Length(files)>0)
     {
       RECORD ARRAY remapdata := SELECT id, type FROM files; //the other fields should not be relied on
+      FUNCTION PTR curgeticon := this->contentslisthandler->__ongeticon;
+      this->contentslisthandler->__ongeticon := PTR this->mylist->GetIcon;
       remapdata := this->contentslisthandler->OnMapItems(this->curfolder, remapdata);
+      this->contentslisthandler->__ongeticon := curgeticon;
 
       IF(Length(remapdata) != Length(files))
         THROW NEW Exception("The OnMapItems handler changed the number of items (in: " || Length(files) || ", out " || Length(remapdata) || " - perhaps no outer join was used?");

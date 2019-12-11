@@ -1,12 +1,20 @@
 ﻿<?wh
+
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/support.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
+
 
 BOOLEAN debugfoldertree;
 
@@ -41,6 +49,8 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
   RECORD foldersettings;
 
   OBJECT ARRAY listeners;
+
+  RECORD ARRAY customhandler_flags;
 
   // ---------------------------------------------------------------------------
   //
@@ -395,7 +405,11 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     IF(debugfoldertree) { DumpValue(CELL[ongetpath:=rowkey, useroots := this->useroots]); DumpValue(geTStackTrace(),'boxed'); }
 
     INTEGER ARRAY rpath;
-    IF(this->useroots)
+    IF (rowkey < 0)
+    {
+      rpath := this->GetCustomObjectPath(rowkey);
+    }
+    ELSE IF(this->useroots)
     {
       OBJECT target := OpenWHFSObject(rowkey);
       IF(debugfoldertree) DumpValue(CELL[target]);
@@ -507,6 +521,13 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
              AND (showhidden OR (type NOT IN hiddenfoldertypes))
         GROUP BY parent;
     }
+
+    FOREVERY (RECORD customfolder FROM SELECT * FROM displayfolders WHERE id < 0)
+    {
+      IF (this->CustomObjectHasChildren(customfolder.id, TRUE, TRUE, FALSE, showhidden))
+        INSERT customfolder.id INTO expandablefolders AT END;
+    }
+
     RETURN expandablefolders;
   }
 
@@ -527,6 +548,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
        - childobjects of a folder, depending on folder id + extension
     */
 
+    INTEGER customhandlerid;
     IF (showparents)
     {
       //ADDME: het idee was (maar kan dus cleaner) dat als entrypoint NULL is, je de root moet openen. Beter is om entrypoint een NOT NULL in de database te geven en altijd te updaten bij het deleten van een map
@@ -542,6 +564,21 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     {
       displayfolders := this->GetObjectListing(parentfolder.id, TRUE, FALSE, FALSE, showhidden, "", FALSE, DEFAULT INTEGER ARRAY);
     }
+    ELSE
+    {
+      OBJECT contentshandler := this->GetCustomContentsHandler(parentfolder.id);
+      IF (ObjectExists(contentshandler))
+      {
+        customhandlerid := parentfolder.id;
+        displayfolders := this->GetCustomObjectListing(parentfolder.id, TRUE, TRUE, FALSE, showhidden);
+        displayfolders := contentshandler->OnMapItems(parentfolder.id, displayfolders);
+
+        this->folderlistener->masks := this->folderlistener->masks CONCAT
+            SELECT AS STRING ARRAY mask
+              FROM ToRecordArray(contentshandler->GetEventMasks(), "mask")
+             WHERE mask NOT IN this->folderlistener->masks;
+      }
+    }
 
     IF(debugfoldertree) DumpValue(displayfolders,'boxed');
     displayfolders := SELECT * FROM displayfolders ORDER BY NormalizeText(name, this->owner->tolliumuser->language);
@@ -549,6 +586,13 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     IF(showparents AND NOT this->useroots) //Custom root items are always placed AFTER the properly sorted items
       displayfolders := displayfolders CONCAT this->GenerateRootItems();
     IF(debugfoldertree) DumpValue(displayfolders,'boxed');
+
+    // Add all missing custom flags to all items
+    RECORD customflags;
+    FOREVERY (RECORD customflag FROM SELECT flag FROM this->customhandler_flags WHERE handlerid != customhandlerid)
+      customflags := CellInsert(customflags, customflag.flag, FALSE);
+    IF (RecordExists(customflags))
+      displayfolders := JoinArrays(displayfolders, "id", RECORD[], customflags, [ rightouterjoin := TRUE ]);
 
     INTEGER ARRAY expandablefolders := this->GetExpandableFolders(displayfolders, showhidden);
 
@@ -604,6 +648,72 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     RETURN rows;
   }
 
+  RECORD ARRAY FUNCTION GenerateRootItems()
+  {
+    STRING ARRAY flags :=
+        SELECT AS STRING ARRAY DISTINCT flag
+          FROM ToRecordArray(this->thelist->flags, "flag")
+         WHERE flag NOT LIKE "custom_*";
+
+    RECORD ARRAY rootitems;
+    INTEGER counter;
+    FOREVERY(RECORD ext FROM GetApplicableExtensions(this->owner->tolliumuser, 'filemgrextensions'))
+      FOREVERY(RECORD addroot FROM ext.addrootitems)
+      {
+        counter := counter + 1;
+        IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
+          CONTINUE;
+
+        // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
+        INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;
+
+        OBJECT contentshandler := this->GetCustomContentsHandler(id);
+        IF (ObjectExists(contentshandler))
+        {
+          IF (NOT contentshandler->IsVisible())
+            CONTINUE;
+
+          IF (contentshandler EXTENDSFROM ContentsHandlerBase)
+          {
+            RECORD ARRAY addedflags := SELECT DISTINCT flag, handlerid := id FROM ToRecordArray(contentshandler->GetAddedFlags(), "flag");
+            STRING illegalflag := SELECT AS STRING flag FROM addedflags WHERE flag NOT LIKE "custom_*";
+            IF (illegalflag != "")
+              THROW NEW Exception(`Illegal added flag '${illegalflag}'`);
+
+            DELETE FROM this->customhandler_flags WHERE handlerid = id;
+            this->customhandler_flags := this->customhandler_flags CONCAT addedflags;
+
+            flags := flags CONCAT SELECT AS STRING ARRAY flag FROM addedflags;
+          }
+        }
+
+        INSERT [ id               := id
+               , contentmode      := addroot.contentmode
+               , name             := GetTid(addroot.title)
+               , isfolder         := TRUE
+               , filterscreen     := addroot.filterscreen
+               , pvt_iconname     := addroot.icon
+               , type             := 0
+               , title            := ""
+               , canwrite         := addroot.contentmode = "webhareroot" ? this->owner->tolliumuser->HasRightOn("system:fs_fullaccess", 0) : FALSE
+               , candelete        := FALSE
+               , creationdate     := DEFAULT DATETIME
+               , modificationdate := DEFAULT DATETIME
+               , modulekey        := addroot.modulekey
+               //, ispinned     := FALSE
+               //, parentsite   := 0
+               //, isversionarchive
+               //, extension := MakeObject(addroot.library, addroot.objectname, -1)
+               ] INTO rootitems AT END;
+      }
+
+    BOOLEAN hidden_too := this->owner->tolliumuser->HasRight("system:supervisor");
+    rootitems := EnrichObjectListing(this->owner->tolliumuser, rootitems, hidden_too, "");
+
+    this->thelist->flags := flags;
+    RETURN rootitems;
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Callbacks
@@ -615,26 +725,31 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     BOOLEAN tested_folder;
     FOREVERY (RECORD event FROM events)
     {
-      FOREVERY (RECORD file FROM event.data.files)
+      IF (event.event LIKE "system:whfs.folder.*")
       {
-        IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
+        FOREVERY (RECORD file FROM event.data.files)
         {
-          IF (this->thelist->GetRowFlatPosition(file.file) != -1)
+          IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
           {
-            this->thelist->ReloadList();
-            RETURN;
+            IF (this->thelist->GetRowFlatPosition(file.file) != -1)
+            {
+              this->thelist->ReloadList();
+              RETURN;
+            }
           }
-        }
-        ELSE IF ("create" IN file.events AND NOT tested_folder)
-        {
-          IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
+          ELSE IF ("create" IN file.events AND NOT tested_folder)
           {
-            this->thelist->ReloadList();
-            RETURN;
+            IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
+            {
+              this->thelist->ReloadList();
+              RETURN;
+            }
+            tested_folder := TRUE;
           }
-          tested_folder := TRUE;
         }
       }
+      ELSE // Another event from a custom content handler
+        this->thelist->ReloadList();
     }
   }
 

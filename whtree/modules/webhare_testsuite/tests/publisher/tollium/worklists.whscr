@@ -1,0 +1,202 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/worklists.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+OBJECT api_sysop, api_lisa;
+OBJECT workfile1, workfile2, workfile3;
+INTEGER testworklistid;
+
+BOOLEAN FUNCTION WaitForWorkList(INTEGER worklistid, RECORD event)
+{
+  RETURN event.worklistid = worklistid;
+}
+
+MACRO Setup()
+{
+  testfw->BeginWork();
+
+  testfw->SetupTestWebdesignWebsite("");
+
+  api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
+  api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
+
+  testfw->SetTestUser("sysop");
+  workfile1 := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "workfile1"
+      , title := "This is the first worklist file"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+  workfile2 := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "workfile2"
+      ]);
+  workfile3 := testfw->GetTestSite()->rootobject->CreateFile(
+      [ name := "workfile3"
+      , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      ]);
+
+  // Grant testuser 'lisa' browse right on the test website
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE);
+
+  // Let the sysop create a work list
+  testworklistid := api_sysop->CreateWorkList([ name := "Test Work List", tag := "webhare_testsuite:testlist" ]);
+  api_sysop->AddToWorkList(testworklistid,
+      [ [ objectid := workfile1->id, comments := "Work list item 1" ]
+      , [ objectid := workfile2->id, comments := "Do some stuff for item 2" ]
+      ]);
+
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestResolve()
+{
+  testfw->SetTestUser("lisa");
+
+  // Open the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
+
+  // The user 'lisa' has no work lists or 'resolve' rights
+  TestEq(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Work lists"));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  // Grant testuser 'lisa' resolve right on the work list
+  testfw->BeginWork();
+  api_sysop->AddWorkListUsers(testworklistid, OBJECT[ testfw->GetUserObject("lisa") ]);
+  testfw->CommitWork();
+
+  // Open the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
+
+  // The user 'lisa' can now see the work lists
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "Work lists";
+  RECORD selection := TT("foldertree")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("Work lists", selection.name);
+  TestEq(TRUE, selection.expandable);
+  // The main 'Work lists' item is not resolvable
+  TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
+
+  // Expand the 'Work lists' to reveal the 'Test Work List' and select that
+  selection := SELECT *, __idx := #rows FROM TT("foldertree")->rows WHERE rowkey = selection.rowkey;
+  INSERT selection.rowkey INTO TT("foldertree")->expanded AT END;
+  TT("foldertree")->selection := TT("foldertree")->rows[selection.__idx + 1];
+
+  // Check if both workfiles are shown in the file list
+  TestEq(2, Length(TT("filelist")->rows));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
+
+  // Resolve the first work list item
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile1", selection.name);
+  TestEq(TRUE, selection.custom_resolveddate = "");
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE ]), [ messagemask := "*mark this item as resolved*" ]);
+  selection := TT("filelist")->selection;
+  TestEq(FALSE, selection.custom_resolveddate = "");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+ASYNC MACRO TestEvents()
+{
+  testfw->SetTestUser("sysop");
+
+  // Open the work lists view in the Publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Work lists"], target := DEFAULT RECORD ]));
+
+  RECORD selection := TT("foldertree")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("Work lists", selection.name);
+  TestEq(TRUE, selection.expandable);
+
+  // The 'Test Work List' should be visible in the file list
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("Test Work List", selection.name);
+  // A work list is not resolvable
+  topscreen->frame->focused := TT("filelist");
+  TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
+
+  // Check if 'lisa' is one of the list users
+  AWAIT ExpectScreenChange(+1, PTR TTClick("filemenu->:Manage users", [ menuitem := TRUE ]));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("users")->rows WHERE id = testfw->GetUserObject("lisa")->authobjectid ));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  // Open the Test Work List, check if it's expanded in the folder tree
+  TT("filelist")->openaction->TolliumClick();
+  selection := TT("foldertree")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("Test Work List", selection.name);
+  TestEq(FALSE, selection.expandable);
+
+  // The first work list item cannot be resolved (again)
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile1->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile1", selection.name);
+  TestEq(FALSE, selection.custom_resolveddate = "");
+  TestEq(FALSE, TTClick("filemenu->:Mark as resolved", [ menuitem := TRUE, allowfailure := TRUE ]));
+
+  // No file 3 yet
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(FALSE, RecordExists(selection));
+
+  // Add another work list item
+  testfw->BeginWork();
+  api_sysop->AddToWorkList(testworklistid,
+      [ [ objectid := workfile3->id, comments := "Another list item" ]
+      ]);
+  OBJECT worklisteventpromise := testfw->AsyncWaitForSpecificEvent("publisher:worklist.*", PTR WaitForWorkList(testworklistid, #1));
+  testfw->CommitWork();
+
+  // The newly added item should automatically appear in the Publisher
+  WaitForPromise(worklisteventpromise);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile3", selection.name);
+  TestEq(TRUE, selection.custom_resolveddate = "");
+
+  // Resolve the third work list item
+  testfw->BeginWork();
+  api_lisa->ResolveItems(testworklistid, INTEGER[ workfile3->id ]);
+  worklisteventpromise := testfw->AsyncWaitForSpecificEvent("publisher:worklist.*", PTR WaitForWorkList(testworklistid, #1));
+  testfw->CommitWork();
+
+  // The newly added item should automatically appear resolved in the Publisher
+  WaitForPromise(worklisteventpromise);
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE id = workfile3->id AND custom_listid = testworklistid;
+  selection := TT("filelist")->selection;
+  TestEq(TRUE, RecordExists(selection));
+  TestEq("workfile3", selection.name);
+  TestEq(FALSE, selection.custom_resolveddate = "");
+
+  // Remove all resolved items from the work list, there should be one item left
+  topscreen->frame->focused := TT("foldertree");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("filemenu->:Delete resolved items", [ menuitem := TRUE ]), [ messagemask := "*delete all resolved items*" ]);
+  TestEq(1, Length(TT("filelist")->rows));
+  TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestFrameworK([ PTR Setup
+                 , PTR TestResolve
+                 , PTR TestEvents
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);

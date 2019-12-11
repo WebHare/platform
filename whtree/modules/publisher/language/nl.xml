@@ -598,7 +598,6 @@
       <text tid="trash-site">Oorspronkelijke site</text>
       <text tid="trash-user">Verwijderd door</text>
       <text tid="unknown">&lt;Onbekend&gt;</text>
-      <text tid="yesterday">Gisteren</text>
     </textgroup>
     <textgroup gid="foldertree">   <!-- components.foldertree -->
       <text tid="empty">Er zijn geen mappen om weer te geven</text>
@@ -1315,6 +1314,26 @@
         <text tid="submitchangesyesno">Wilt u deze wijziging indienen voor goedkeuring? Zo ja, voer a.u.b. een beschrijving van de wijzigingen in.</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="worklists">   <!-- filemanager.worklists -->
+      <text tid="email">E-mailadres</text>
+      <text tid="name">Gebruiker</text>
+      <text tid="worklistusers">Gebruikers werklijst</text>
+      <text tid="worklistusers-desc">De volgende gebruikers kunnen werklijstonderdelen als opgelost markeren:</text>
+      <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="cleanupresolved">Opgeloste onderdelen verwijderen</text>
+        <text tid="manageusers">Gebruikers beheren</text>
+        <text tid="resolveitem">Als opgelost markeren</text>
+      </textgroup>
+      <textgroup gid="columns">   <!-- filemanager.worklists.columns -->
+        <text tid="custom_comments">Opmerkingen</text>
+        <text tid="custom_resolveddate">Opgelost</text>
+        <text tid="custom_statusicons">Status</text>
+      </textgroup>
+      <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
+        <text tid="confirmcleanupresolved">Weet u zeker dat u alle opgeloste onderdelen wilt verwijderen?</text>
+        <text tid="confirmresolveitems">Weet u zeker dat u <ifparam p="1" value="1">dit onderdeel<else/>deze <param p="1"/> onderdelen</ifparam> als opgelost wilt markeren?</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="filemgrdialogs">   <!-- filemgrdialogs -->
     <textgroup gid="createarchive">   <!-- filemgrdialogs.createarchive -->
@@ -2029,6 +2048,8 @@
     <text tid="bulkhistory-descr">Dit recht stelt gebruikers in staat URL-geschiedenis URLs in bulk in te voeren middels een alternatieve interface.</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
+    <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
+    <text tid="worklists">Werklijsten</text>
   </textgroup>
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="objectprops">   <!-- screens.objectprops -->
@@ -2159,6 +2180,7 @@
     <text tid="rootfolder">Basismap</text>
     <text tid="search">Zoeken</text>
     <text tid="trash">Prullenbak</text>
+    <text tid="worklists">Werklijsten</text>
     <textgroup gid="types">   <!-- terminology.types -->
       <text tid="normalfolder">Standaard map</text>
       <text tid="unknownfile">Onbekend type</text>
