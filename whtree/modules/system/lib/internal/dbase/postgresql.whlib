@@ -853,7 +853,6 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
             IF (NOT AreExpressionsEquivalent(curcol.check_expression, coldef.check = "" ? "" : `CHECK ${coldef.check}`))
             {
-              DumpValue(CELL[ curcol.check_expression, coldef.check ]);
 
               IF (curcol.check_expression != "")
                 context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
