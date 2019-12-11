@@ -821,82 +821,96 @@
 
     <d:table name="worklists" primarykey="id">
       <d:documentation>
+        A work list containing work list items
       </d:documentation>
 
       <d:integer name="id" autonumberstart="1">
         <d:documentation>
+          The work list id
         </d:documentation>
       </d:integer>
 
       <d:varchar name="name" nullable="false" maxlength="256">
         <d:documentation>
+          The unique work list name, which is shown in the interface
         </d:documentation>
       </d:varchar>
 
       <d:varchar name="tag" maxlength="256">
         <d:documentation>
+          A tag to identify the work list
         </d:documentation>
       </d:varchar>
 
       <d:integer name="owner" references="system.authobjects" ondelete="cascade" nullable="true">
         <d:documentation>
+          The work list owner
         </d:documentation>
       </d:integer>
 
       <d:datetime name="creationdate" nullable="false">
         <d:documentation>
+          The work list creation date
         </d:documentation>
       </d:datetime>
 
       <d:index name="uniquename" columns="name(32)" unique="true" uppercase="true">
         <d:documentation>
-          Work list name must be unique
+          Work list names must be unique
         </d:documentation>
       </d:index>
 
       <d:index name="uniquetag" columns="tag(32)" unique="true" uppercase="true">
         <d:documentation>
-          Work list tag must be unique
+          Work list tags must be unique
         </d:documentation>
       </d:index>
     </d:table>
 
     <d:table name="worklistitems" primarykey="id">
       <d:documentation>
+        An item on a work list (reference to a WHFS object)
       </d:documentation>
 
       <d:integer name="id" autonumberstart="1">
         <d:documentation>
+          The work list item id
         </d:documentation>
       </d:integer>
 
       <d:integer name="listid" references=".worklists" ondelete="cascade" nullable="false">
         <d:documentation>
+          The list this item belongs to
         </d:documentation>
       </d:integer>
 
       <d:integer name="objectid" references="system.fs_objects" ondelete="cascade" nullable="false">
         <d:documentation>
+          The WHFS object this item referes to
         </d:documentation>
       </d:integer>
 
       <d:datetime name="creationdate" nullable="false">
         <d:documentation>
+          The work list item creation date
         </d:documentation>
       </d:datetime>
 
       <d:varchar name="comments" maxlength="4096">
         <d:documentation>
+          Comments or instructions for this item
         </d:documentation>
       </d:varchar>
 
       <d:datetime name="resolveddate">
         <d:documentation>
+          When this item was resolved (DEFAULT DATETIME for unresolved items)
         </d:documentation>
       </d:datetime>
 
       <d:integer name="resolvedby" references="system.authobjects" ondelete="set default" nullable="true">
         <d:documentation>
+          The user that resolved the item
         </d:documentation>
       </d:integer>
 

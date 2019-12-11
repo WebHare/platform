@@ -197,22 +197,22 @@ PUBLIC SCHEMA
     //  Work lists
 
   , TABLE
-    < INTEGER "id"
+    < INTEGER "id" NULL := 0
     , STRING "name"
     , STRING "tag"
-    , INTEGER "owner"
+    , INTEGER "owner" NULL := 0
     , DATETIME "creationdate"
     ; KEY id
     > worklists
 
   , TABLE
-    < INTEGER "id"
-    , INTEGER "listid"
-    , INTEGER "objectid"
+    < INTEGER "id" NULL := 0
+    , INTEGER "listid" NULL := 0
+    , INTEGER "objectid" NULL := 0
     , DATETIME "creationdate"
     , STRING "comments"
     , DATETIME "resolveddate"
-    , INTEGER "resolvedby"
+    , INTEGER "resolvedby" NULL := 0
     ; KEY id
     > worklistitems
 
