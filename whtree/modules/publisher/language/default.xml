@@ -1320,6 +1320,7 @@
       <text tid="worklistusers">Work list users</text>
       <text tid="worklistusers-desc">The following users can mark work list items as resolved:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="cleanupresolved">Delete resolved items</text>
         <text tid="manageusers">Manage users</text>
         <text tid="resolveitem">Mark as resolved</text>
       </textgroup>
@@ -1329,6 +1330,7 @@
         <text tid="custom_statusicons">Status</text>
       </textgroup>
       <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
+        <text tid="confirmcleanupresolved">Are you sure you want to delete all resolved items?</text>
         <text tid="confirmresolveitems">Are you sure you want to mark <ifparam p="1" value="1">this item<else/>these <param p="1"/> items</ifparam> as resolved?</text>
       </textgroup>
     </textgroup>

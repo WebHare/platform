@@ -1320,6 +1320,7 @@
       <text tid="worklistusers">Gebruikers werklijst</text>
       <text tid="worklistusers-desc">De volgende gebruikers kunnen werklijstonderdelen als opgelost markeren:</text>
       <textgroup gid="actions">   <!-- filemanager.worklists.actions -->
+        <text tid="cleanupresolved">Opgeloste onderdelen verwijderen</text>
         <text tid="manageusers">Gebruikers beheren</text>
         <text tid="resolveitem">Als opgelost markeren</text>
       </textgroup>
@@ -1329,6 +1330,7 @@
         <text tid="custom_statusicons">Status</text>
       </textgroup>
       <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
+        <text tid="confirmcleanupresolved">Weet u zeker dat u alle opgeloste onderdelen wilt verwijderen?</text>
         <text tid="confirmresolveitems">Weet u zeker dat u <ifparam p="1" value="1">dit onderdeel<else/>deze <param p="1"/> onderdelen</ifparam> als opgelost wilt markeren?</text>
       </textgroup>
     </textgroup>
