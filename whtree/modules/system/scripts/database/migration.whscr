@@ -164,22 +164,17 @@ OBJECT blobhandler := NEW WHPostgreSQLBlobHandler(blobresolver);
 INTEGER loop;
 FOR (loop := 0; loop < 180; loop := loop + 1)
 {
-  TRY
-  {
-    postgresql_trans := __StartWHPostgreSQLTransaction(CELL
-      [ dbasefolder :=        postgresql_migrate_dbasefolder
-      , webhare_dbasename :=  "webhare"
-      , blobhandler
-      ]);
-    IF (ObjectExists(postgresql_trans))
-      BREAK;
-  }
-  CATCH (OBJECT e)
-  {
-    IF ((loop % 10) = 0)
-      PRINT(`Waiting for PostgreSQL server to start\n`);
-    WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
-  }
+  postgresql_trans := __StartWHPostgreSQLTransaction(CELL
+    [ dbasefolder :=        postgresql_migrate_dbasefolder
+    , webhare_dbasename :=  "webhare"
+    , blobhandler
+    ]);
+  IF (ObjectExists(postgresql_trans))
+    BREAK;
+
+  IF ((loop % 10) = 0)
+    PRINT(`Waiting for PostgreSQL server to start\n`);
+  WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
 }
 
 // Throw on errors during commit, so we don't need to check all commits
@@ -214,22 +209,25 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
   IF (modulename IN GetInstalledModuleNames())
   {
     RECORD moduledef := GetModuleDatabaseSchema(modulename);
-    STRING ARRAY byteacols, longkeycols;
-    FOREVERY (RECORD tbldef FROM moduledef.tables)
-      FOREVERY (RECORD coldef FROM tbldef.cols)
-        IF (coldef.dbtype = "BYTEA")
-          INSERT `${tbldef.name}.${coldef.name}` INTO byteacols AT END;
-        ELSE IF (coldef.dbtype = "__LONGKEY")
-          INSERT `${tbldef.name}.${coldef.name}` INTO longkeycols AT END;
-
-    FOREVERY (RECORD tbldef FROM parsed.tables)
+    IF (RecordExists(moduledef))
     {
-      FOREVERY (RECORD coldef FROM tbldef.cols)
+      STRING ARRAY byteacols, longkeycols;
+      FOREVERY (RECORD tbldef FROM moduledef.tables)
+        FOREVERY (RECORD coldef FROM tbldef.cols)
+          IF (coldef.dbtype = "BYTEA")
+            INSERT `${tbldef.name}.${coldef.name}` INTO byteacols AT END;
+          ELSE IF (coldef.dbtype = "__LONGKEY")
+            INSERT `${tbldef.name}.${coldef.name}` INTO longkeycols AT END;
+
+      FOREVERY (RECORD tbldef FROM parsed.tables)
       {
-        IF (`${tbldef.name}.${coldef.name}` IN byteacols)
-          parsed.tables[#tbldef].cols[#coldef].dbtype := "BYTEA";
-        IF (`${tbldef.name}.${coldef.name}` IN longkeycols)
-          parsed.tables[#tbldef].cols[#coldef].dbtype := "__LONGKEY";
+        FOREVERY (RECORD coldef FROM tbldef.cols)
+        {
+          IF (`${tbldef.name}.${coldef.name}` IN byteacols)
+            parsed.tables[#tbldef].cols[#coldef].dbtype := "BYTEA";
+          IF (`${tbldef.name}.${coldef.name}` IN longkeycols)
+            parsed.tables[#tbldef].cols[#coldef].dbtype := "__LONGKEY";
+        }
       }
     }
   }

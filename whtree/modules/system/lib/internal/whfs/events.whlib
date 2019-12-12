@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
-LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
@@ -198,7 +198,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     }
 
     RECORD ARRAY to_reindex;
-    RECORD ARRAY to_republish;
+    INTEGER ARRAY to_republish_ids;
+    INTEGER ARRAY to_republish_parents;
 
     FOREVERY (RECORD rec FROM this->items)
     {
@@ -226,14 +227,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
               ] INTO to_reindex AT END;
 
         IF ("fullrep" IN data.events)
-        {
-          to_republish := to_republish CONCAT
-            SELECT id
-                 , priority :=    published%100000
-              FROM system.fs_objects
-             WHERE parent = rec.folder
-               AND IsQueuedForPublication(published);
-        }
+          INSERT rec.folder INTO to_republish_parents AT END;
 
         FOREVERY (RECORD obj FROM data.files)
         {
@@ -246,11 +240,32 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
                 ] INTO to_reindex AT END;
 
           IF("rep" IN obj.events)
-            INSERT [ id := obj.file
-                   , priority := SELECT AS INTEGER published%100000 FROM system.fs_objects WHERE id = obj.file
-                   ] INTO to_republish AT END;
+            INSERT obj.file INTO to_republish_ids AT END;
         }
       }
+    }
+
+    RECORD ARRAY to_republish;
+    IF (IsValueSet(to_republish_parents))
+    {
+      to_republish := to_republish CONCAT
+        SELECT id
+             , priority :=    published%100000
+             , lastpublishtime
+          FROM system.fs_objects
+         WHERE parent IN to_republish_parents
+           AND IsQueuedForPublication(published);
+    }
+
+    IF (IsValueSet(to_republish_ids))
+    {
+      to_republish := to_republish CONCAT
+        SELECT id
+             , priority :=    published%100000
+             , lastpublishtime
+          FROM system.fs_objects
+         WHERE id IN to_republish_ids
+           AND IsQueuedForPublication(published);
     }
 
     FOREVERY(INTEGER site FROM GetSortedSet(sites))
@@ -258,7 +273,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF(Length(to_republish) > 0 AND UseNewPublisher())
     {
-      SchedulePersistentTask("publisher:publication", "SCHEDULEMULTIPLE", [ tasks := to_republish ]);
+      OBJECT service := WaitForPromise(OpenWebHareService("publisher:publication"));
+      WaitForPromise(service->ScheduleMultiple(to_republish));
+      service->CloseService();
     }
 
     IF(Length(this->completions)>0)
@@ -280,7 +297,12 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     }
 
     IF (Length(this->analyzertasks) > 0 AND UseNewPublisher())
-      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
+    {
+      OBJECT service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+      WaitForPromise(service->ScheduleMultiple(this->analyzertasks));
+      service->CloseService();
+      //SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
+    }
 
     IF (Length(to_reindex) > 0)
     {

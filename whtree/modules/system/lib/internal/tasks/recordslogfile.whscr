@@ -20,6 +20,13 @@ PUBLIC STATIC OBJECTTYPE RecordsLogFile
       PrintTo(handle, EncodeHSON(rec) || "\n");
   }
 
+  /** Clears the log
+  */
+  PUBLIC MACRO ClearLog()
+  {
+    DeleteDiskFile(this->filename);
+  }
+
   /** Rewrites the records file with a new set of records
       @param recs Records to write
   */

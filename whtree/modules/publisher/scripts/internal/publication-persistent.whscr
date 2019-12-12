@@ -1,24 +1,168 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debuglevel", type := "stringopt" ]
-    , [ name := "keepstorage", type := "switch" ]
     , [ name := "debug", type := "switch" ]
-    , [ name := "cleanqueue", type := "switch" ]
+    , [ name := "resetqueue", type := "switch" ]
     ]);
 IF (NOT RecordExists(args))
-  TerminateScriptWithError(`Usage: publications-persistent.whscr [--debuglevel] [--keepstorage]`);
+  TerminateScriptWithError(`Usage: publications-persistent.whscr [--debuglevel] [--resetqueue]`);
 
-OBJECT queue := NEW PersistentDiskQueue("publisher:publication", CELL
+PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
+<
+  MACRO NEW(STRING tasktype, RECORD options)
+  : PersistentDiskQueue(tasktype, options)
+  {
+    FOREVERY (STRING event FROM
+        [ "system:softreset"
+        , "system:clearcaches"
+        , "system:modulesupdate"
+        , ...GetRegistryKeyEventMasks([ "publisher.publication.numworkers" ])
+        ])
+    {
+      RegisterMultiEventCallback(event, PTR this->GotConfigUpdate);
+    }
+
+    this->GotConfigUpdate("", RECORD[]);
+  }
+
+  MACRO GotConfigUpdate(STRING event, RECORD ARRAY data)
+  {
+    INTEGER runners := RunInSeparatePrimary(PTR ReadRegistryKey("publisher.publication.numworkers"));
+    this->SetSchedulingInfo(
+        [ concurrenttasks :=    Min[]([ 4, runners ]) // only 4 runners available
+        ]);
+  }
+
+  UPDATE STRING FUNCTION GetTaskContentId(RECORD task)
+  {
+    // Ignore lastpublishtime
+    RETURN `${task.id}`;
+  }
+
+  UPDATE MACRO ImportStats(RECORD stats)
+  {
+    stats := EnforceStructure(
+        [ times :=      [ [ items := 0i64, totaltime := 0i64 ] ]
+        , items :=      0i64
+        , totaltime :=  0i64
+        ], stats);
+
+    stats.times := SELECT * FROM stats.times WHERE items > 0 AND totaltime > 0;
+    stats.items := SELECT AS INTEGER64 SUM(COLUMN items) FROM stats.times;
+    stats.totaltime := SELECT AS INTEGER64 SUM(COLUMN totaltime) FROM stats.times;
+
+    PersistentDiskQueue::ImportStats(stats);
+  }
+
+  UPDATE MACRO HandleFinishedItemStats(OBJECT item)
+  {
+    IF (IsDefaultValue(this->stats.times) OR this->stats.times[END-1].items >= 20)
+      INSERT [ items := 0i64, totaltime := 0i64 ] INTO this->stats.times AT END;
+
+    INTEGER64 time := GetDateTimeDifference(item->date_running, item->date_finished).msecs;
+
+    this->stats.times[END-1].items := this->stats.times[END-1].items + 1;
+    this->stats.times[END-1].totaltime := this->stats.times[END-1].totaltime + time;
+    this->stats.items := this->stats.items + 1;
+    this->stats.totaltime := this->stats.totaltime + time;
+
+    WHILE (LENGTH(this->stats.times) > 50)
+    {
+      this->stats.items := this->stats.items - this->stats.times[0].items;
+      this->stats.totaltime := this->stats.totaltime - this->stats.times[0].totaltime;
+      DELETE FROM this->stats.times AT 0;
+    }
+
+    IF (this->stats.times[END-1].items = 20)
+      this->WriteUpdatedStats();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PublisherQueueController EXTEND PersistentQueueControllerBase
+<
+
+  UPDATE PUBLIC RECORD FUNCTION ScheduleMultiple(RECORD ARRAY tasks)
+  {
+    tasks := EnforceStructure([ [ id := 0, priority := 20, lastpublishtime := 0i64 ] ], tasks);
+    RETURN PersistentQueueControllerBase::ScheduleMultiple(tasks);
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION GetState()
+  {
+    RECORD state := this->queue->GetState();
+    INTEGER64 avgtime := state.stats.items = 0i64 ? 0i64 : state.stats.totaltime / state.stats.items;
+
+    INTEGER64 totaltime;
+    FOREVERY (OBJECT obj FROM state.running CONCAT state.runnable CONCAT state.timedwait)
+      totaltime := totaltime + (obj->taskdata.lastpublishtime ?? avgtime);
+
+    INTEGER64 runners := this->queue->schedulinginfo.concurrenttasks;
+
+    RETURN CELL
+        [ status :=     "ok"
+        , running :=    (SELECT AS RECORD ARRAY CELL[ item->taskdata, item->date_running ] FROM ToRecordArray(state.running, "ITEM"))
+        , runnable :=   LENGTH(state.runnable)
+        , timedwait :=  LENGTH(state.timedwait)
+        , expectedtimetocompletion := totaltime / runners
+        ];
+  }
+
+  PUBLIC INTEGER64 FUNCTION GetExpectedTimeToCompletion(INTEGER fileid)
+  {
+    RECORD state := this->queue->GetState();
+    INTEGER64 avgtime := state.stats.items = 0i64 ? 0i64 : state.stats.totaltime / state.stats.items;
+
+    DATETIME now := GetCurrentDateTime();
+    INTEGER64 runners := this->queue->schedulinginfo.concurrenttasks;
+
+    INTEGER64 totaltime;
+    FOREVERY (OBJECT item FROM state.running)
+    {
+      INTEGER64 historictime := item->taskdata.lastpublishtime ?? avgtime;
+      INTEGER64 runningtime := GetDateTimeDifference(item->date_running, now).msecs;
+      INTEGER64 expecttime := historictime > runningtime ? historictime - runningtime : 2000i64;
+
+      IF (item->taskdata.id = fileid)
+        RETURN expecttime;
+      totaltime := totaltime + expecttime;
+    }
+
+    FOREVERY (OBJECT item FROM state.runnable CONCAT state.timedwait)
+    {
+      INTEGER64 expecttime := item->taskdata.lastpublishtime ?? avgtime;
+      totaltime := totaltime + expecttime;
+      IF (item->taskdata.id = fileid)
+        RETURN totaltime / runners;
+    }
+
+    RETURN -1;
+  }
+
+>;
+
+OBJECT FUNCTION Constructor(OBJECT queue)
+{
+  RETURN NEW PublisherQueueController(queue);
+}
+
+OBJECT queue := NEW PublisherQueue("publisher:publication", CELL
     [ ...args
     , debuglevel := ToInteger(args.debuglevel, args.debug ? debuglevel_all : debuglevel_none)
     , debugprint := args.debug
-    , args.cleanqueue
+    , args.resetqueue
     ]);
 
-queue->Run();
+AddInterruptCallback(PTR queue->Shutdown);
+queue->StartProcessing(); // Starts running the queue
+RunWebHareService("publisher:publication", PTR Constructor(queue), [ restartimmediately := TRUE ]);

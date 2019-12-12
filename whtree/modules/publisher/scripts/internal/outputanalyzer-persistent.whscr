@@ -3,7 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
 
@@ -14,10 +14,11 @@ STATIC OBJECTTYPE OutputAnalyzerQueue EXTEND PersistentDiskQueue
     RETURN EncodeHSON(task);
   }
 
-  UPDATE MACRO RebuildPersistentQueue()
+  UPDATE MACRO TryRebuildPersistentQueue()
   {
+    PRINT(`Queue not consistent, scheduling full rescan\n`);
     // If the queue could not be restored, rescan all folders
-    SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULE", [ action := "GATHERFOLDERS" ]);
+    this->PushTask([ action := "GATHERFOLDERS" ]);
   }
 
   UPDATE MACRO HandleTaskError(OBJECT item, OBJECT error)
@@ -32,16 +33,25 @@ STATIC OBJECTTYPE OutputAnalyzerQueue EXTEND PersistentDiskQueue
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debuglevel", type := "stringopt" ]
-    , [ name := "keepstorage", type := "switch" ]
+    , [ name := "resetqueue", type := "switch" ]
     , [ name := "debug", type := "switch" ]
     ]);
 IF (NOT RecordExists(args))
-  TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--keepstorage]`);
+  TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--resetqueue]`);
+
+
+OBJECT FUNCTION Constructor(OBJECT queue)
+{
+  RETURN NEW PersistentQueueControllerBase(queue);
+}
+
 
 OBJECT queue := NEW OutputAnalyzerQueue("publisher:outputanalyzer", CELL
     [ ...args
     , debuglevel := ToInteger(args.debuglevel, args.debug ? debuglevel_all : debuglevel_none)
     , debugprint := args.debug
+    , args.resetqueue
     ]);
 
-queue->Run();
+queue->StartProcessing(); // Starts running the queue
+RunWebHareService("publisher:outputanalyzer", PTR Constructor(queue), [ restartimmediately := TRUE ]);

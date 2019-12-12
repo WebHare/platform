@@ -12,6 +12,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -282,19 +283,18 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
 
     RECORD ARRAY workerlist;
 
-    OBJECT link := ConnectToGlobalIPCPort("system:persistentqueue.publisher:publication");
-    RECORD res;
-    IF (ObjectExists(link))
+    RECORD res := DEFAULT RECORD;
+    TRY
     {
-      res := link->SendMessage([ action := "STATE" ]);
-      IF (res.status = "ok")
-        res := link->ReceiveMessage(AddTimeToDate(1000, GetCurrentDatetime()));
-      link->Close();
+      OBJECT service := WaitForPromise(OpenWebHareService("publisher:publication"));
+      res := WaitForPromise(service->GetState());
+      service->CloseService();
     }
+    CATCH;
 
-    IF (RecordExists(res) AND res.status = "ok")
+    IF (RecordExists(res))
     {
-      this->queuelength->value := ToString(LENGTH(res.msg.running) + res.msg.runnable + res.msg.timedwait);
+      this->queuelength->value := ToString(LENGTH(res.running) + res.runnable + res.timedwait);
 
       DATETIME now := GetCurrentDatetime();
       workerlist :=
@@ -306,27 +306,44 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
                , time := this->tolliumuser->FormatTimespan(diff.days, diff.msecs)
                , starttime := this->tolliumuser->FormatTime(date_running, "seconds", TRUE)
                , deadline := ""
-            FROM res.msg.running;
+            FROM res.running;
+
+      IF (res.expectedtimetocompletion = 0)
+        this->estimatedcompletion->value := GetTid("system:monitor.queues.estimate_unavailable");
+      ELSE
+      {
+        // Add a few seconds to completion
+        DATETIME eta := AddTimeToDate(res.expectedtimetocompletion + 10 * 1000, GetCurrentDatetime());
+        IF(GetDayCount(this->tolliumuser->UTCToLocal(eta)) != GetDayCount(this->tolliumuser->UTCToLocal(now))) //tomorrow? (from user's perspective)
+          this->estimatedcompletion->value := this->tolliumuser->FormatDatetime(eta, "seconds", TRUE, TRUE);
+        ELSE
+          this->estimatedcompletion->value := this->tolliumuser->FormatTime(eta, "seconds", TRUE);
+      }
+
     }
     ELSE
+    {
       this->queuelength->value := "";
+      this->estimatedcompletion->value := "";
+    }
 
     res := DEFAULT RECORD;
-    link := ConnectToGlobalIPCPort("system:persistentqueue.publisher:outputanalyzer");
-    IF (ObjectExists(link))
+    TRY
     {
-      res := link->SendMessage([ action := "STATE" ]);
-      IF (res.status = "ok")
-        res := link->ReceiveMessage(AddTimeToDate(1000, GetCurrentDatetime()));
-      link->Close();
+      OBJECT service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+      res := WaitForPromise(service->GetState());
+      service->CloseService();
     }
+    CATCH;
 
-    IF (RecordExists(res) AND res.status = "ok")
+    IF (RecordExists(res))
     {
-      this->analyzerqueuelength->value := ToString(LENGTH(res.msg.running) + res.msg.runnable + res.msg.timedwait);
+      this->analyzerqueuelength->value := ToString(LENGTH(res.running) + res.runnable + res.timedwait);
     }
     ELSE
+    {
       this->analyzerqueuelength->value := "";
+    }
 
     RETURN workerlist;
   }

@@ -3,8 +3,8 @@
 // short: Ensures all files marked to be published are on the persistent publication Queue
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
-LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
 
 OpenPrimary();
 GetPrimary()->BeginWork();
@@ -12,6 +12,8 @@ GetPrimary()->BeginWork();
 RECORD ARRAY shouldbequeued :=
     SELECT id
          , whfspath
+         , priority := published % 100000
+         , lastpublishtime
       FROM system.fs_objects
      WHERE isfolder = FALSE
            AND isactive
@@ -28,4 +30,16 @@ IF(Length(shouldbequeued) > 0)
   //dumpvalue(shouldbequeued,'boxed');
 }
 
-SchedulePersistentTask("publisher:publication", "SCHEDULEMULTIPLE", [ tasks := SELECT id FROM shouldbequeued ]);
+OBJECT service := WaitForPromise(OpenWebHareService("publisher:publication"));
+RECORD retval := WaitForPromise(service->ScheduleMultiple(SELECT id, lastpublishtime, priority FROM shouldbequeued));
+service->CloseService();
+
+IF (IsValueSet(retval.scheduled))
+{
+  PRINT(`The following files were not present in the publisher queue\n`);
+  DumpValue((
+        SELECT *
+          FROM shouldbequeued
+         WHERE id IN (SELECT AS INTEGER ARRAY id FROM retval.scheduled)
+      ORDER BY whfspath), "boxed");
+}
