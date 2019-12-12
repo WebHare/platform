@@ -387,18 +387,17 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
       @cell return.running Currently running items
       @cell return.queues Queues
       @cell return.queues.tag Tag of the queue
-      @cell return.queues.runnable Number of runnable items (items with queuestate 'runnable')
-      @cell return.queues.timedwait Number of items that are scheduled to run in the future  (items with queuestate 'timedwait')
+      @cell return.queues.runnable Runnable items (items with queuestate 'runnable')
+      @cell return.queues.timedwait Items that are scheduled to run in the future  (items with queuestate 'timedwait')
   */
   PUBLIC RECORD FUNCTION GetState()
   {
     RETURN
         [ running :=    (SELECT AS OBJECT ARRAY item FROM this->running)
         , queues :=     SELECT queuename
-                             , runnable :=    LENGTH(runnable)
-                             , timedwait :=   LENGTH(timedwait)
+                             , runnable
+                             , timedwait
                           FROM this->queues
         ];
   }
-
 >;

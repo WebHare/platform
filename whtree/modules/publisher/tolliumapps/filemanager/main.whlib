@@ -28,6 +28,7 @@ LOADLIB "mod::publisher/lib/internal/virtualfs-publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
@@ -724,33 +725,23 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       RETURN;
     }
 
-    INTEGER estimated_time := -1;
+    INTEGER64 estimated_time := -1;
     OBJECT work := this->BeginUnvalidatedWork();
     // Get an up-to-date file record
     RECORD statusfile := SELECT id, published, lastpublishtime, lastpublishdate FROM system.fs_objects WHERE id = file.id;
     INTEGER status:= GetErrorFromPublished(statusfile.published);
     IF (status >= 1 AND status <= 100)
     {
-      // This code is copied from the getRemainingTime function in web/files/props.shtml
-      RECORD measure := __PUBLISHER_GETFILEPUBLISHTIME_INTERNAL(system.fs_objects, statusfile.id);
-      IF (RecordExists(measure)) // Status info available
+      TRY
       {
-        IF (measure.total != 0                                                  // The file is in the queue
-            AND NOT(measure.measured = 0 OR measure.measured < measure.total/2) // Enough measurements to give a sensible estimation
-            AND measure.workers > 1)                                            // Enough workers to estimate reminaing time
-        {
-          // Divide the total number of msecs by workers-1. This is an estimation!
-          INTEGER totaltime := measure.totaltime / (measure.workers);
-
-          // Add the time it will take to publish the current document
-          totaltime := totaltime + statusfile.lastpublishtime;
-
-          INTEGER percentage_measured := (measure.total * 100) / measure.measured;
-          estimated_time := (( (totaltime+500) / 1000) * percentage_measured) / 100;
-          IF (estimated_time < 1)
-            estimated_time := 1;
-        }
+        OBJECT service := WaitForPromise(OpenWebHareService("publisher:publication"));
+        estimated_time := WaitForPromise(service->GetExpectedTimeToCompletion(statusfile.id));
+        service->CloseService();
       }
+      CATCH;
+
+      IF (estimated_time > 0 AND estimated_time < 1000)
+        estimated_time := 1000;
     }
     work->Cancel();
 
@@ -759,7 +750,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     STRING publishedat := this->tolliumuser->FormatDateTime(statusfile.lastpublishdate, "minutes", TRUE, TRUE);
     STRING statustext := GetFileStatusFromPublished(statusfile.published, TRUE, publishedat, DEFAULT RECORD).text;
     IF (estimated_time >= 0)
-      statustext := statustext || "\n" || this->GetTid(".messageboxes.remainingpublishtime", this->tolliumuser->FormatTimespan(0, estimated_time*1000));
+      statustext := statustext || "\n" || this->GetTid(".messageboxes.remainingpublishtime", this->tolliumuser->FormatTimespan(0, INTEGER(estimated_time)));
     this->RunSimpleScreen("info", statustext);
   }
 

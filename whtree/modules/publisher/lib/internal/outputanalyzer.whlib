@@ -3,12 +3,12 @@
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
-LOADLIB "mod::system/lib/internal/tasks/queueapi.whlib";
 
 
 BOOLEAN nodelay;
@@ -79,13 +79,13 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
 
     GetPrimary()->CommitWork();
 
-    SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE",
-          [ tasks :=
+    OBJECT service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+    WaitForPromise(service->ScheduleMultiple(
                 SELECT action :=    "SCAN"
                      , folderid
                      , recursive := FALSE
-                  FROM ToRecordArray(allfolders, "folderid")
-          ]);
+                  FROM ToRecordArray(allfolders, "folderid")));
+    service->CloseService();
   }
 
   MACRO ScanFolder(INTEGER folderid, BOOLEAN recursive)
@@ -102,13 +102,13 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
 
     IF (recursive)
     {
-      SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE",
-          [ tasks :=
-                SELECT action :=    "SCAN"
-                     , folderid :=  id
-                     , recursive := TRUE
-                  FROM system.fs_objects WHERE isfolder AND parent = folderid AND type != 1
-          ]);
+      OBJECT service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+      WaitForPromise(service->ScheduleMultiple(
+                  SELECT action :=    "SCAN"
+                       , folderid :=  id
+                       , recursive := TRUE
+                    FROM system.fs_objects WHERE isfolder AND parent = folderid AND type != 1));
+      service->CloseService();
     }
   }
 
