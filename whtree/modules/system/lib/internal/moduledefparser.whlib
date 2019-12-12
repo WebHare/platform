@@ -519,12 +519,16 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
                              portalnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "monitorpanel")->GetCurrentElements();
   FOREVERY(OBJECT panel FROM panelnodes)
   {
-    INSERT [ grp :=             QualifyName(modulename, panel->GetAttribute("group"))
-           , title :=           ParseXMLTidPtr(modulename, topgid, panel, "title")
-           , screen :=          panel->localname = "dashboardpanel" ? MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
-                                                                     : QualifyName(modulename, panel->GetAttribute("screen"))
-           , name :=            QualifyName(modulename, panel->GetAttribute("name"))
-           ] INTO panels aT END;
+    RECORD rec :=
+         [ grp :=             QualifyName(modulename, panel->GetAttribute("group"))
+         , title :=           ParseXMLTidPtr(modulename, topgid, panel, "title")
+         , screen :=          panel->localname = "dashboardpanel" ? MakeAbsoluteScreenReference(`mod::${modulename}/`, panel->GetAttribute("screen"))
+                                                                   : QualifyName(modulename, panel->GetAttribute("screen"))
+         , name :=            QualifyName(modulename, panel->GetAttribute("name"))
+         ];
+
+    IF (IsNodeApplicableToThisWebHare(panel))
+      INSERT rec INTO panels aT END;
   }
 
   RETURN CELL[ groups, panels ];

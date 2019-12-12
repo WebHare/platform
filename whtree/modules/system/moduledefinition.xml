@@ -125,7 +125,8 @@
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />
     <dashboardpanel group="dev" name="precalculatedcache" tid="tolliumapps.dashboard.caches.precalculatedcache" screen="tolliumapps/dashboard/caches.xml#precalculatedcache" />
     <monitorpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
-    <monitorpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" />
+    <monitorpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" unlessenvironset="WEBHARE_DBASENAME"  />
+    <monitorpanel group="ap" name="postgresql" tid="monitor.postgresql.title" screen="monitor/postgresql.postgresql" ifenvironset="WEBHARE_DBASENAME"  />
     <monitorpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
     <monitorpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
     <monitorpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />

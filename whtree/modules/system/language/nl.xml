@@ -289,6 +289,20 @@
         <text tid="name">Module / node module</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="postgresql">   <!-- monitor.postgresql -->
+      <text tid="application_name">Application name</text>
+      <text tid="backend_start">Transactiestart</text>
+      <text tid="debuginfo">Debuginformatie</text>
+      <text tid="logstacktraces">Stack traces vastleggen</text>
+      <text tid="pid">Backend PID</text>
+      <text tid="query">Laatste query</text>
+      <text tid="query_start">Starttijd v/d query</text>
+      <text tid="readonly">Alleen-lezen</text>
+      <text tid="state">Status</text>
+      <text tid="title">PostgreSQL database</text>
+      <text tid="transactionstab">Transactions</text>
+      <text tid="wait_event_type">Wachtevent-type</text>
+    </textgroup>
     <textgroup gid="processlist">   <!-- monitor.processlist -->
       <text tid="abort">Afbreken</text>
       <text tid="abortprocess">Afbreken</text>
