@@ -70,7 +70,8 @@ SWITCH (args.command)
                , backend_start
                , state
            FROM transactions
-          WHERE backend_type = "client backend"), "boxed"));
+          WHERE backend_type = "client backend"
+       ORDER BY backend_start), "boxed"));
     }
     PRINT(`Total: ${LENGTH(transactions)} connections\n`);
   }
