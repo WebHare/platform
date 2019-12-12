@@ -2,6 +2,7 @@
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -10,6 +11,7 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
 <
   UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
   {
+    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
     RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
 
     // try to load each <screen> in the screens document to catch all errors
@@ -33,7 +35,7 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
           result.warnings := result.warnings CONCAT parsedelement.warnings;
 
           INTEGER elline := parsedelement.rootnode.tolliumscope.line;
-          IF(NOT this->VerifyObjectExistence(doc, elline, parsedelement.objtype))
+          IF(NOT this->VerifyObjectExistence(validatingdoc, elline, parsedelement.objtype))
             CONTINUE;
 
           //any errors would throw a RetrieveResourceException
@@ -97,6 +99,9 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
         }
       }
     }
+
+    result.errors   := result.errors   CONCAT validatingdoc->errors;
+    result.warnings := result.warnings CONCAT validatingdoc->warnings;
     RETURN result;
   }
 >;

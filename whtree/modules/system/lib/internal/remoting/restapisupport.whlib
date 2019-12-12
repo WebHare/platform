@@ -18,7 +18,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
-
+LOADLIB "mod::system/lib/internal/validation/support.whlib";
 
 PUBLIC RECORD __restapiinfo;
 
@@ -508,7 +508,6 @@ RECORD FUNCTION ParseEndpoint(OBJECT endpointnode, RECORD context, OBJECT errork
             , description :=          TrimWhitespace(endpoint_description || "\n\n" || method_description)
             , urltokens :=            (SELECT AS STRING ARRAY value FROM pathtokens)
             , parameters :=           params
-            , library :=              context.library
             , objtype :=              context.objtype
             , security :=             endpointnode->GetAttribute("security") ?? context.security
             , functionname :=         functiondef.functionname
@@ -559,10 +558,8 @@ MACRO CheckEndpointPaths(RECORD ARRAY endpoints, OBJECT errorkeeper)
   }
 }
 
-RECORD FUNCTION ParseRestConfig(OBJECT doc)
+RECORD FUNCTION ParseRestConfig(STRING resourcename, OBJECT doc)
 {
-  STRING library := doc->documentelement->GetAttribute("library");
-  STRING objtype := doc->documentelement->GetAttribute("objecttype");
   STRING logsource := doc->documentelement->GetAttribute("logsource");
   STRING security := doc->documentelement->GetAttribute("security");
 
@@ -570,6 +567,13 @@ RECORD FUNCTION ParseRestConfig(OBJECT doc)
   RECORD ARRAY types;
 
   OBJECT errorkeeper := NEW ErrorKeeperType;
+
+  //TODO at some point, warn about separate library/objtype. we're supporting combined objecttype= since 4.26
+  STRING objtype;
+  IF(doc->documentelement->HasAttribute("library"))
+    objtype := doc->documentelement->GetAttribute("library") || "#" || doc->documentelement->GetAttribute("objecttype");
+  ELSE
+    objtype := MakeAbsoluteResourcePath(resourcename, doc->documentelement->GetAttribute("objecttype"));
 
   FOREVERY (OBJECT elt FROM doc->documentelement->childnodes->GetCurrentElements())
     SWITCH (elt->nodename)
@@ -585,7 +589,7 @@ RECORD FUNCTION ParseRestConfig(OBJECT doc)
       }
       CASE "endpoint"
       {
-        RECORD endpoint := ParseEndpoint(elt, [ library := library, objtype := objtype, security := security ], errorkeeper);
+        RECORD endpoint := ParseEndpoint(elt, CELL[ objtype, security ], errorkeeper);
         IF (LENGTH(endpoint.methods) != 0)
           INSERT endpoint INTO endpoints AT END;
       }
@@ -599,6 +603,8 @@ RECORD FUNCTION ParseRestConfig(OBJECT doc)
       , logsource :=    logsource
       , errors :=       errorkeeper->errors
       , warnings :=     errorkeeper->warnings
+      , rootlinennum := doc->documentelement->linenum
+      , objtype :=      objtype
       ];
 }
 
@@ -611,15 +617,22 @@ PUBLIC STRING FUNCTION CheckSignature(RECORD method)
       ];
 
   FUNCTION PTR func;
-  IF (method.objtype != "")
+  TRY
   {
-    OBJECT obj := MakeObject(method.library, method.objtype);
-    IF (NOT MemberExists(obj, method.functionname))
-      RETURN "Member '" || method.functionname || "' does not exist";
-    func := GetObjectMethodPtr(obj, method.functionname);
+    IF (method.objtype != "")
+    {
+      OBJECT obj := MakeObject(method.objtype);
+      IF (NOT MemberExists(obj, method.functionname))
+        RETURN "Member '" || method.functionname || "' does not exist";
+      func := GetObjectMethodPtr(obj, method.functionname);
+    }
+    ELSE
+      func := MakeFunctionPTR(method.functionname);
   }
-  ELSE
-    func := MakeFunctionPTR(method.library, method.functionname);
+  CATCH(OBJECT e)
+  {
+    RETURN e->what;
+  }
 
   IF (ValidateFunctionPtr(func, TypeID(RECORD), method.callparamtypes))
     RETURN "";
@@ -631,8 +644,14 @@ PUBLIC OBJECTTYPE RestAPIDefinitionFile EXTEND ResourceValidationBase
 <
   UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
   {
+    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
+
     RECORD result := ResourceValidationBase::Validate(doc, resourcename, xsd);
-    RECORD parsed := ParseRestConfig(doc);
+    RECORD parsed := ParseRestConfig(resourcename, doc);
+
+    IF(parsed.objtype != "")
+      this->VerifyObjectExistence(validatingdoc, parsed.rootlinennum, parsed.objtype);
+
     result.errors := result.errors CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.errors;
     result.warnings := result.warnings CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.warnings;
 
@@ -644,6 +663,8 @@ PUBLIC OBJECTTYPE RestAPIDefinitionFile EXTEND ResourceValidationBase
           INSERT CELL[ resourcename, message, code := 0, line := method.source.line, col := 0 ] INTO result.errors AT END;
       }
 
+    result.errors   := result.errors   CONCAT validatingdoc->errors;
+    result.warnings := result.warnings CONCAT validatingdoc->warnings;
     RETURN result;
   }
 >;
@@ -653,7 +674,7 @@ RECORD FUNCTION GetCachableRestConfig(STRING resource)
   STRING ARRAY masks := GetResourceEventMasks([resource]);
   BLOB data := GetWebhareResource(resource);
   RECORD retval := [ eventmasks :=   masks
-                   , value :=        ParseRestConfig(MakeXMLDocument(data))
+                   , value :=        ParseRestConfig(resource, MakeXMLDocument(data))
                    ];
   RETURN retval;
 }

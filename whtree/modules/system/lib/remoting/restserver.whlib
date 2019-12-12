@@ -148,11 +148,11 @@ RECORD FUNCTION RunRestCallInternal(STRING apispecification, STRING method, STRI
       IF(endpoint.security = "wrdauth")
         __restapiinfo.wrdauthplugin := GetWRDAuthPlugin(fullurl);
 
-      OBJECT obj := MakeObject(endpoint.library, endpoint.objtype);
+      OBJECT obj := MakeObject(endpoint.objtype);
       func := GetObjectMethodPtr(obj, endpoint.functionname);
     }
     ELSE
-      func := MakeFunctionPTR(endpoint.library, endpoint.functionname, TypeID(RECORD), endpoint.callparamtypes);
+      func := MakeFunctionPTR(endpoint.functionname, TypeID(RECORD), endpoint.callparamtypes);
 
     //FIXME either XSD should enforce we return a <record>, or we should be more liberal with accepted types
     RECORD result := CallFunctionPtrVA(func, callparams);
