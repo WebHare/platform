@@ -464,6 +464,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
       , references_schema :=        ""
       , references_table :=         ""
       , check :=                    ""
+      , islongkey :=                FALSE
       ], colrec,
       [ required := [ "name", "dbtype" ]
       , discard := [ "internalcolumnname", "noupdate", "documentation", "location" ]
@@ -501,6 +502,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
       {
         colrec.dbtype := "int8";
         colrec.check := `(((${PostgreSQLEscapeIdentifier(colrec.name)} >= '-2147483648'::integer) AND (${PostgreSQLEscapeIdentifier(colrec.name)} <= 2147483647)))`;
+        colrec.islongkey := TRUE;
       }
       ELSE
         colrec.dbtype := "int4";
@@ -768,8 +770,8 @@ PUBLIC MACRO RebuildColumnAutonumberConfig(OBJECT context, STRING schemaname, ST
   IF (context->trans->__ExecSQL(`SELECT to_regclass($1)::oid`, [ args := VARIANT[ col.sequencename ] ]).to_regclass != 0)
     context->AddCommand(`DROP SEQUENCE IF EXISTS ${col.sequencename}`);
 
-  // Wrap at max_integer, but not if the column type is int8
-  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
+  // Use int4 for __longkey, so the value is clamped and an integer is returned (useful for MakeAutoNumber)
+  context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" AND NOT col.islongkey ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
 
   context->AddCommand(`CREATE OR REPLACE FUNCTION ${col.autonumbersfuncname}(count integer) RETURNS ${col.dbtype}[] VOLATILE LANGUAGE plpgsql AS $$
 DECLARE

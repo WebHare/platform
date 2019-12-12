@@ -1438,7 +1438,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
     RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
     IF (NOT RecordExists(result))
       THROW NEW Exception(`No value returned by MakeAutonumber`);
-    RETURN result.value;
+    RETURN INTEGER(result.value);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION SchemaExists(STRING schemaname)
