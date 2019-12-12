@@ -20,7 +20,7 @@ LOADLIB "wh::internal/transservices.whlib";
 */
 
 
-INTEGER FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+RECORD FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_CLOSE(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETSTATUS(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
@@ -1079,6 +1079,9 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   STRING pvt_transactionisolationlevel;
 
+  /// Pid of PostgreSQL backend client
+  INTEGER pvt_backendpid;
+
   /// Blob handler
   OBJECT pvt_blobhandler;
 
@@ -1091,9 +1094,13 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Blob handler
   PUBLIC PROPERTY blobhandler(pvt_blobhandler, -);
 
-  MACRO NEW(INTEGER id, BOOLEAN auto, OBJECT blobhandler)
+  /// Pid of PostgreSQL backend client
+  PUBLIC PROPERTY backendpid(pvt_backendpid, -);
+
+  MACRO NEW(RECORD transresult, BOOLEAN auto, OBJECT blobhandler)
   {
-    this->RegisterTransaction(id);
+    this->RegisterTransaction(transresult.id);
+    this->pvt_backendpid := transresult.pid;
     this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
     this->pvt_blobhandler := blobhandler;
@@ -1712,10 +1719,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
 
-  INTEGER transid;
+  RECORD transresult;
   TRY
   {
-    transid :=  __PGSQL_CONNECT(
+    transresult :=  __PGSQL_CONNECT(
         [ [ name :=   "dbname"
           , value :=  dbasename
           ]
@@ -1737,10 +1744,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
     THROW;
   }
 
-  IF(transid<=0)
+  IF(NOT RecordExists(transresult))
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.blobhandler);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.blobhandler);
 
   IF (IsDebugTagEnabled("postgresql:auto_explain"))
   {

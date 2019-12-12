@@ -107,6 +107,8 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         std::pair< ConnStatusType, PGTransactionStatusType > GetStatus();
 
+        int GetBackendPid();
+
         bool isworkopen;
         int32_t webhare_blob_oid;
         std::string blobfolder;

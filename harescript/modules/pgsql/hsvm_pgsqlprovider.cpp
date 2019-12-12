@@ -1392,6 +1392,11 @@ std::pair< ConnStatusType, PGTransactionStatusType > PGSQLTransactionDriver::Get
         return std::make_pair(PQstatus(conn), PQtransactionStatus(conn));
 }
 
+int PGSQLTransactionDriver::GetBackendPid()
+{
+        return PQbackendPID(conn);
+}
+
 std::string_view PGSQLTransactionDriver::ReadResultCell(PGPtr< PGresult > &resultset, unsigned row, unsigned col)
 {
         int len = PQgetlength(resultset.get(), row, col);
@@ -2336,9 +2341,12 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         }
 
         std::unique_ptr< PGSQLTransactionDriver > driver(new PGSQLTransactionDriver(hsvm, conn, blobfolder));
+        int pid = driver->GetBackendPid();
         int32_t trans_id = GetVirtualMachine(hsvm)->GetSQLSupport().RegisterTransaction(std::move(driver));
 
-        HSVM_IntegerSet(hsvm, id_set, trans_id);
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ID")), trans_id);
+        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "PID")), pid);
 }
 
 void PGSQL_Close(HSVM *hsvm)
@@ -2545,7 +2553,7 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
 {
         using namespace HareScript::SQLLib::PGSQL;
 
-        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT:WH_PGSQL:I:RA", PGSQL_Connect);
+        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT:WH_PGSQL:R:RA", PGSQL_Connect);
         HSVM_RegisterMacro(regdata, "__PGSQL_CLOSE:WH_PGSQL::I", PGSQL_Close);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETSTATUS:WH_PGSQL:R:I", PGSQL_GetStatus);
         HSVM_RegisterFunction(regdata, "__PGSQL_EXEC:WH_PGSQL:RA:ISVAIAB", PGSQL_Exec);
