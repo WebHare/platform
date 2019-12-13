@@ -1651,14 +1651,19 @@ STATIC OBJECTTYPE ApplyRuleTester
       webdesign.siteprofile     := apply.siteprofile;
       webdesign.wittyencoding   := apply.webdesign.wittyencoding   ?? webdesign.wittyencoding ;
 
-      webdesign.assetpack            := apply.webdesign.has_assetpack            ? apply.webdesign.assetpack            : webdesign.assetpack     ;
+      //assetpack also triggers setting supportedlanguages
+      IF(apply.webdesign.has_assetpack)
+      {
+        webdesign.assetpack            := apply.webdesign.assetpack;
+        webdesign.supportedlanguages   := apply.webdesign.supportedlanguages;
+      }
+
       webdesign.basedependency       := apply.webdesign.has_basedependency       ? apply.webdesign.basedependency       : webdesign.basedependency;
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
       webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
       webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
       webdesign.lazyloadcss          := apply.webdesign.has_lazyloadcss          ? apply.webdesign.lazyloadcss          : webdesign.lazyloadcss;
-      webdesign.supportedlanguages   := SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(apply.webdesign.supportedlanguages CONCAT webdesign.supportedlanguages, "lang");
     }
 
     IF (RecordExists(webdesign))

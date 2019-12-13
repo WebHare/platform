@@ -260,7 +260,7 @@
       </accesscheck>
     </virtualfs>
     <webdesign name="basetest" title="selftest 'basetest'" siteprofile="webdesigns/basetest/basetest.siteprl">
-      <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl" />
+      <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl xyz" />
     </webdesign>
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
     <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />

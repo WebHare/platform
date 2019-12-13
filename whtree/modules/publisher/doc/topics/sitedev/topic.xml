@@ -1,6 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Site development/webdesign"
-       docorder="javascript-api npm analytics consenthandler languagefiles dynamic-pages whfsregister errorpages">
+       docorder="webdesign javascript-api npm analytics consenthandler languagefiles dynamic-pages whfsregister errorpages">
   <section name="webdesign" title="Webdesign" />
   <section name="whfs" title="WebHare Filesystem (WHFS) and Sites" />
   <section name="dynamic" title="Dynamic web pages" />
