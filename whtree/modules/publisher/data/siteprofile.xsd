@@ -1305,16 +1305,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="supportedlanguages">
-      <xs:annotation>
-        <xs:documentation>
-          The list of languages that are supported for client-side getTid calls
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:list itemType="xs:string" />
-      </xs:simpleType>
-    </xs:attribute>
     <xs:attribute name="async" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
