@@ -5,12 +5,12 @@
 
   <fragment name="intextlink" gid=".intextlink">
     <contents>
-      <select name="linktype" type="radio" required="true" title="" onchange="onlinktypechange">
-        <option rowkey="nolink"></option>
-        <option rowkey="external">
+      <select name="linktype" type="radio" required="true" title="" onchange="onlinktypechange" rowkeytype="integer">
+        <option rowkey="0" tid=".linktype-nolink"></option>
+        <option rowkey="1" tid=".linktype-external">
           <textedit name="external" width="1pr" placeholdertid=".externalplaceholder" validationchecks="url-plus-relative" required="true" title="" errorlabeltid=".linktype-external"/>
         </option>
-        <option rowkey="internal">
+        <option rowkey="2" tid=".linktype-internal">
           <p:browseforobject name="internal" required="true" title="" errorlabeltid=".linktype-internal" showclear="false" width="2pr" />
           <textedit name="append" width="1pr" />
         </option>

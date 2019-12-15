@@ -6,6 +6,21 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
+MACRO ExpandHyperlinkComponents(OBJECT selectbox)
+{
+  FOREVERY(RECORD opt FROM selectbox->options)
+  {
+    OBJECT insertpos := selectbox->GetButtoncomponent(opt.rowkey);
+
+    FOREVERY(OBJECT comp FROM opt.enablecomponents)
+    {
+      selectbox->parentpanel->InsertComponentAfter(comp, insertpos, FALSE);
+      insertpos := comp;
+    }
+  }
+}
+
+
 PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
   //
@@ -14,9 +29,15 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   RECORD ARRAY saveoptions;
 
-  STRING current_linktype;
+  INTEGER current_linktype;
 
   BOOLEAN initialvalueset;
+
+  OBJECT ARRAY __linkhandlers; //internal link <linkhandlers> object
+
+  RECORD ARRAY originaloptions;
+
+  BOOLEAN __internallinks;
 
   // ---------------------------------------------------------------------------
   //
@@ -30,7 +51,11 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   PUBLIC PROPERTY value(GetValue, SetValue);
 
   /// Title
-  UPDATE PUBLIC PROPERTY title(this->linktype->title, this->linktype->title);
+  UPDATE PUBLIC PROPERTY title(^linktype->title, ^linktype->title);
+
+  PUBLIC PROPERTY linkhandlers(__linkhandlers, SetLinkHandlers);
+
+  PUBLIC PROPERTY internallinks(__internallinks, SetInternalLinks);
 
   // ---------------------------------------------------------------------------
   //
@@ -41,8 +66,9 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   {
     EXTEND this BY TolliumIsComposable;
     EXTEND this BY TolliumIsDirtyable;
-    this->current_linktype := "nolink";
+
     this->valuetype := "intextlink";
+    this->__internallinks := TRUE;
   }
 
   // ---------------------------------------------------------------------------
@@ -54,11 +80,48 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(def);
     this->valuetype := def.valuetype;
-    this->saveoptions := this->linktype->options;
+    this->saveoptions := ^linktype->options;
     this->title := def.title;
+    this->__internallinks := def.internallinks;
+    IF(ObjectExists(def.linkhandlers))
+      this->linkhandlers := def.linkhandlers->linkhandlers;
 
+    this->ConfigureOptions();
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    IF(Length(this->originaloptions) = 0)
+      this->ConfigureOptions();
+  }
+
+  MACRO ConfigureOptions()
+  {
+    IF(Length(this->originaloptions) = 0)
+      this->originaloptions := ^linktype->options;
+
+    RECORD ARRAY opts := this->originaloptions;
     IF(this->pvt_required)
-      DELETE FROM this->linktype->options WHERE rowkey="nolink";
+      DELETE FROM opts WHERE rowkey = 0;
+    IF(NOT this->__internallinks)
+      DELETE FROM opts WHERE rowkey = 2;
+
+    INTEGER toset := 0;
+    FOREVERY(OBJECT handler FROM this->linkhandlers)
+    {
+      OBJECT ARRAY components := handler->CreateComponents(this->owner);
+
+      INSERT [ rowkey := #handler + 100
+             , title := handler->title
+             , handler := handler
+             , enablecomponents := components
+             , tolliumselected := FALSE
+             ] INTO opts AT END;
+    }
+    ^linktype->options := opts;
+    ^linktype->value := toset;
+
+    ExpandHyperlinkComponents(^linktype);
   }
 
   // ---------------------------------------------------------------------------
@@ -68,29 +131,27 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   RECORD FUNCTION GetCurrentInternalLinkValue()
   {
-    INTEGER objid := this->internal->value;
+    INTEGER objid := ^internal->value;
     IF(objid!=0)
     {
-      BOOLEAN valid_append := Left(this->append->value, 1) IN [ "#", "?", "!" ];
-      RETURN MakeIntExtInternalLink(objid, valid_append ? this->append->value : "");
+      BOOLEAN valid_append := Left(^append->value, 1) IN [ "#", "?", "!" ];
+      RETURN MakeIntExtInternalLink(objid, valid_append ? ^append->value : "");
     }
     RETURN DEFAULT RECORD;
   }
 
   RECORD FUNCTION GetIntlinkValue()
   {
-    IF(this->linktype->value="internal")
-    {
+    RECORD selected := ^linktype->selection;
+    IF(NOT RecordExists(selected) OR selected.rowkey = 0) //'no link'
+      RETURN DEFAULT RECORD;
+
+    IF(^linktype->value = 2) //intnternal link
       RETURN this->GetCurrentInternalLinkValue();
-    }
-    IF(this->linktype->value="external")
-    {
-      IF(this->external->value != "" AND ValidateInput(this->external->value, "dummy", [ "url-plus-relative" ]) = "")
-      {
-        RETURN MakeIntExtExternalLink(this->external->value);
-      }
-    }
-    RETURN DEFAULT RECORD;
+    ELSE IF(^linktype->value = 1) //intnternal link
+      RETURN MakeIntExtExternalLink(^external->value);
+
+    RETURN MakeIntExtExternalLink(selected.handler->GetLink());
   }
 
   // ---------------------------------------------------------------------------
@@ -98,33 +159,51 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   // Getters & setters
   //
 
-  UPDATE PUBLIC MACRO SetRequired(BOOLEAN new_required)
+  MACRO SetLinkHandlers(OBJECT ARRAY newlinkhandlers)
+  {
+    this->__linkhandlers := newlinkhandlers;
+    IF(Length(this->originaloptions) > 0) //need to reconfig?
+      this->ConfigureOptions();
+  }
+
+  MACRO SetInternalLinks(BOOLEAN newinternallinks)
+  {
+    IF(this->__internallinks = newinternallinks)
+      RETURN;
+
+    this->__internallinks := newinternallinks;
+    IF(Length(this->originaloptions) > 0) //need to reconfig?
+      this->ConfigureOptions();
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN new_required)
   {
     IF(new_required = this->pvt_required)
       RETURN;
 
     TolliumFragmentBase::SetRequired(new_required);
+    this->ConfigureOptions();
     IF(this->pvt_required)
-      DELETE FROM this->linktype->options WHERE rowkey="nolink";
+      DELETE FROM ^linktype->options WHERE rowkey="nolink";
     ELSE
-      this->linktype->options := this->saveoptions;
+      ^linktype->options := this->saveoptions;
   }
 
-  UPDATE PUBLIC MACRO SetEnabled(BOOLEAN nowenable)
+  UPDATE MACRO SetEnabled(BOOLEAN nowenable)
   {
     IF(this->pvt_enabled = nowenable)
       RETURN;
 
     this->pvt_enabled := nowenable;
-    this->linktype->enabled := nowenable;
+    ^linktype->enabled := nowenable;
   }
 
   VARIANT FUNCTION GetValue()
   {
     RECORD value := this->GetIntLinkValue();
-    IF(this->valuetype="intextlink")
+    IF(this->valuetype = "intextlink")
       RETURN value;
-    IF(this->valuetype="string")
+    IF(this->valuetype = "string")
       RETURN GetIntExtLinkAsString(value);
 
     THROW NEW Exception("Unrecognized valuetype '" || this->valuetype || "'");
@@ -132,37 +211,38 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   MACRO SetValue(VARIANT value)
   {
-    RECORD intextlink;
-    IF(this->valuetype="intextlink")
-      intextlink := value;
-    ELSE IF(this->valuetype="string")
-      intextlink := ParseIntExtLinkString(value);
-    ELSE
-      THROW NEW Exception("Unrecognized valuetype '" || this->valuetype || "'");
+    this->EnsurePreInit();
 
-    // Set type to nolink, so no conversion is run
-    this->linktype->value := "nolink";
-
-    IF(RecordExists(intextlink) AND intextlink.externallink != "")
+    IF(NOT RecordExists(value))
     {
-      this->linktype->value := "external";
-      this->external->value := intextlink.externallink;
-      this->internal->value := 0;
-      this->append->value := "";
-
+      ^linktype->value := 0;
     }
-    ELSE IF(RecordExists(intextlink) AND intextlink.internallink != 0)
+    ELSE IF(value.internallink != 0 AND this->internallinks)
     {
-      this->linktype->value := "internal";
-      this->internal->value := intextlink.internallink;
-      this->append->value := intextlink.append;
-      this->external->value := "";
+      ^linktype->value := 2;
+      ^internal->value := value.internallink;
+      ^append->value := value.append;
     }
     ELSE
     {
-      this->external->value := "";
-      this->internal->value := 0;
-      this->append->value := "";
+      BOOLEAN didset;
+      FOREVERY(RECORD opt FROM ^linktype->options)
+      {
+        IF(opt.rowkey < 100) //not handling builtins here
+         CONTINUE;
+
+        IF(opt.handler->SetLinkIfSupported(value.externallink))
+        {
+          didset := TRUE;
+          ^linktype->value := opt.rowkey;
+          BREAK;
+        }
+      }
+      IF(NOT didset)
+      {
+        ^linktype->value := 1; //external link
+        ^external->value := value.externallink;
+      }
     }
 
     IF (this->initialvalueset)
@@ -178,9 +258,8 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   MACRO OnLinkTypeChange()
   {
-    // Try to convert internal links to external links and vice versa
-    IF (this->linktype->value = "internal" AND this->current_linktype = "external")
-    {
+    IF (^linktype->value = 2 AND this->current_linktype = 1)
+    { // Try to convert internal links to external links
       IF (this->external->value != "")
       {
         //fill from external
@@ -201,7 +280,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
         this->external->value := "";
       }
     }
-    ELSE IF (this->linktype->value = "external" AND this->current_linktype = "internal")
+    ELSE IF (^linktype->value = 1 AND this->current_linktype = 2)
     {
       RECORD intextlink := this->GetCurrentInternalLinkValue();
       IF(RecordExists(intextlink))
@@ -219,9 +298,9 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
       this->append->value := "";
     }
 
-    IF (this->current_linktype != this->linktype->value)
+    IF (this->current_linktype != ^linktype->value)
     {
-      this->current_linktype := this->linktype->value;
+      this->current_linktype := ^linktype->value;
       this->SetDirty();
     }
   }
@@ -237,11 +316,11 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(NOT this->enabled) //nothing to check on inactive fields
       RETURN;
 
-    IF(this->required AND this->linktype->value = "nolink")
+    IF(this->required AND ^linktype->value = 0)
     {
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
     }
-    ELSE IF(this->linktype->value="internal")
+    ELSE IF(^linktype->value = 2)
     {
       this->internal->ValidateValue(work);
       IF (Left(this->append->value, 1) NOT IN [ "", "#", "?", "!" ])
@@ -259,17 +338,27 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
         }
       }
     }
-    ELSE IF(this->linktype->value="external")
+    ELSE IF(^linktype->value = 1)
     {
-      this->external->ValidateValue(work);
+      ^external->ValidateValue(work);
     }
   }
 
+  /** Preselect internal or external link */
   PUBLIC MACRO SetLinkType(STRING type)
   {
-    IF (type IN [ "external", "internal" ])
-      this->linktype->value := type;
+    IF(type = "internal")
+      ^linktype->value := 2;
+    ELSE IF(type = "external")
+      ^linktype->value := 1;
     ELSE
-      this->linktype->value := "nolink";
+      THROW NEW TolliumException(this, `Unrecognized SetLinkType value '${type}'`);
+  }
+
+  /** Focus the external link entry. Used by RTE to autofocus the most likely spot (at least for keyboard entry) on new links */
+  PUBLIC MACRO FocusExternalLinkEntry()
+  {
+    IF(^linktype->value = 1)
+      this->owner->frame->focused := ^external;
   }
 >;

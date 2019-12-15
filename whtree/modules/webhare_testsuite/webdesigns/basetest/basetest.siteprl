@@ -301,7 +301,7 @@
     </contents>
   </fragment>
 
-  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" htmlclass="gohtml">
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" htmlclass="gohtml" allownewwindowlinks="true">
     <css path="css/rtd.css" />
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" containertag="h1" textstyles="" />
@@ -359,6 +359,11 @@
   <apply>
     <to type="all" pathmask="*override-widget-search*"/>
     <setwidget contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" renderobjectname="lib/basetest.whlib#Level2Widget_OverrideSearch" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*rtdlevel1*"/>
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
   </apply>
 
   <apply>

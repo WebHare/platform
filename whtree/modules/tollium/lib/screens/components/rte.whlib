@@ -1,29 +1,19 @@
 <?wh
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::publisher/lib/components/internallinks.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 
-MACRO ExpandHyperlinkComponents(OBJECT selectbox)
+RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwindow)
 {
-  FOREVERY(RECORD opt FROM selectbox->options)
-  {
-    OBJECT insertpos := selectbox->GetButtoncomponent(opt.rowkey);
-
-    FOREVERY(OBJECT comp FROM opt.enablecomponents)
-    {
-      selectbox->parentpanel->InsertComponentAfter(comp, insertpos, FALSE);
-      insertpos := comp;
-    }
-  }
-}
-
-RECORD FUNCTION GetHyperlinkResult(OBJECT rte, OBJECT selectbox, BOOLEAN newwindow, OBJECT externallink)
-{
-  RECORD selected := selectbox->selection;
-  IF(NOT RecordExists(selected) OR selected.rowkey=0)
+  RECORD link := selectbox->value;
+  IF(NOT RecordExists(link))
     RETURN DEFAULT RECORD;
 
-  RETURN [ link := selected.rowkey = 1 ? externallink->value : selected.handler->GetValue(rte)
-         , target := newwindow ? "_blank" : ""
-         ];
+  RETURN CELL[ link := link.internallink != 0 ? rte->CreateLinkRefHyperlink(link.internallink) || link.append
+                                              : link.externallink
+             , target := newwindow ? "_blank" : ""
+             ];
 }
 
 PUBLIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
@@ -42,7 +32,7 @@ PUBLIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
     IF(Abs(currentaspect - this->origaspect) < 0.0005)
       this->keepaspectratio->value := TRUE;
 
-    SetupHyperlinkOptions(this, this->rte, data.data.link, this->linktype, this->openinnewwindow, TRUE, this->externallink);
+    SetupHyperlinkOptions(this, this->rte, data.data.link, ^link, this->openinnewwindow);
   }
 
   BOOLEAN FUNCTION Submit()
@@ -53,7 +43,7 @@ PUBLIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
   PUBLIC RECORD FUNCTION GetValue()
   {
     RECORD res := this->settings->value;
-    INSERT CELL link := GetHyperlinkResult(this->rte, this->linktype, this->openinnewwindow->value, this->externallink) INTO res;
+    INSERT CELL link := GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value) INTO res;
     RETURN res;
   }
 
@@ -90,42 +80,35 @@ PUBLIC OBJECTTYPE ImageProperties EXTEND TolliumScreenBase
   }
 >;
 
-MACRO SetupHyperlinkOptions(OBJECT screen, OBJECT rte, RECORD linkdata, OBJECT comp_linktype, OBJECT comp_openinnewwindow, BOOLEAN offernolink, OBJECT externallink)
+MACRO SetupHyperlinkOptions(OBJECT screen, OBJECT rte, RECORD linkdata, OBJECT comp_linktype, OBJECT comp_openinnewwindow)
 {
-  RECORD ARRAY opts := comp_linktype->options;
-  IF(NOT offernolink)
-    DELETE FROM opts AT 0;
+  OBJECT ARRAY handlers := rte->linkhandlers;
+  comp_linktype->internallinks := RecordExists(SELECT FROM ToRecordArray(handlers,"handler") WHERE handler EXTENDSFROM InternalLinks);
+  comp_linktype->linkhandlers := SELECT AS OBJECT ARRAY handler FROM ToRecordArray(handlers,"handler") WHERE handler NOT EXTENDSFROM InternalLinks;
 
-  INTEGER toset := 0;
-  FOREVERY(OBJECT handler FROM rte->linkhandlers)
+  RECORD linkvalue;
+  IF(RecordExists(linkdata))
   {
-    OBJECT ARRAY components := handler->CreateComponents(screen);
-
-    INSERT [ rowkey := #handler + 2
-           , title := handler->title
-           , handler := handler
-           , enablecomponents := components
-           , tolliumselected := FALSE
-           ] INTO opts AT END;
-
-    IF(toset = 0 AND RecordExists(linkdata) AND handler->TrySetValue(rte, linkdata.link))
-      toset := opts[END-1].rowkey;
+    IF(linkdata.link LIKE "x-richdoclink-e:*")
+    {
+      RECORD split := SplitIntLink(linkdata.link);
+      INTEGER targetid := rte->GetLinkRefHyperlink(split.link);
+      IF(targetid != 0)
+        linkvalue := MakeIntExtInternalLink(targetid, split.append);
+    }
+    ELSE
+    {
+      linkvalue := MakeIntExtExternalLink(linkdata.link);
+    }
   }
-  IF(toset = 0 AND RecordExists(linkdata)) //nothing set yet
-  {
-    externallink->value := linkdata.link;
-    toset := 1;
-  }
-  comp_linktype->options := opts;
-  comp_linktype->value := toset;
+  comp_linktype->value := linkvalue;
 
   comp_openinnewwindow->visible := NOT RecordExists(rte->rtdtypeinfo) OR rte->rtdtypeinfo.allownewwindowlinks;
   comp_openinnewwindow->value := RecordExists(linkdata) AND linkdata.target = "_blank";
-  ExpandHyperlinkComponents(comp_linktype);
 }
 
 //ADDME call destroycomponents too..
-PUBLIC OBJECTTYPE Hyperlink EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Hyperlink EXTEND TolliumScreenBase
 <
   OBJECT rte;
   OBJECT extlink;
@@ -134,29 +117,21 @@ PUBLIC OBJECTTYPE Hyperlink EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->rte := data.rte;
-    this->removehyperlinkbutton->visible := RecordExists(data.data);
+    ^removehyperlinkbutton->visible := RecordExists(data.data);
 
-    SetupHyperlinkOptions(this, this->rte, data.data, this->linktype, this->openinnewwindow, FALSE, this->externallink);
+    SetupHyperlinkOptions(this, this->rte, data.data, ^link, ^openinnewwindow);
 
     IF(NOT RecordExists(data.data)) //move focus to the external link field..
-    {
-      IF(Length(this->linktype->options[0].enablecomponents) > 0)
-        this->frame->focused := this->linktype->options[0].enablecomponents[0];
-    }
+      ^link->FocusExternalLinkEntry();
   }
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginFeedback();
-    IF(this->linktype->value > 1)
-      this->linktype->selection.handler->ValidateValue(work);
-    ELSE IF(this->linktype->value = 1)
-      this->externallink->ValidateValue(work);
-    RETURN work->Finish();
+    RETURN this->BeginFeedback()->Finish();
   }
 
   PUBLIC RECORD FUNCTION GetData()
   {
-    RETURN this->isremove ? [destroy:=TRUE] : GetHyperlinkResult(this->rte, this->linktype, this->openinnewwindow->value, this->externallink);
+    RETURN this->isremove ? [destroy:=TRUE] : GetHyperlinkResult(this->rte, ^link, ^openinnewwindow->value);
   }
 
   MACRO DoRemoveHyperlink()

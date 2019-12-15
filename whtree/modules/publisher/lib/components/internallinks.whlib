@@ -3,61 +3,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
-PUBLIC OBJECTTYPE InternalLinks EXTEND TolliumLinkHandlerBase
+PUBLIC OBJECTTYPE InternalLinks EXTEND TolliumLinkHandlerBase //We only exist to be detected by the RTE. New code shouldn't use internal link hanlders anymore
 <
-  OBJECT browseforobject;
-  OBJECT append;
-
-  /** Root folders to show in the browse dialog, leave empty to show all accessible folders
-  */
-  PUBLIC INTEGER ARRAY roots;
-
-  MACRO NEW()
-  {
-    this->title := GetTid("publisher:components.internallinks.optiontitle");
-  }
-
-  UPDATE PUBLIC MACRO StaticInit(RECORD def)
-  {
-    TolliumLinkHandlerBase::StaticInit(def);
-  }
-
-  UPDATE PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink)
-  {
-    RECORD split := SplitIntLink(inlink);
-    INTEGER linkid := rte->GetLinkRefHyperlink(split.link);
-    IF(linkid=0)
-      RETURN FALSE;
-
-    this->browseforobject->value := linkid;
-    this->append->value := split.append;
-    RETURN TRUE;
-  }
-  UPDATE PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
-  {
-    this->browseforobject := screen->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "browseforobject");
-    this->browseforobject->required := TRUE;
-    this->browseforobject->errorlabel := this->title;
-    this->browseforobject->showclear := FALSE;
-    this->browseforobject->roots := this->roots;
-    this->browseforobject->acceptunpublished := TRUE;
-
-    this->append := screen->CreateTolliumComponent("textedit");
-    this->append->title := GetTid("publisher:components.internallinks.append");
-
-    RETURN [ this->browseforobject, this->append ];
-  }
-  UPDATE PUBLIC MACRO DestroyComponents()
-  {
-    this->browseforobject->DeleteComponent();
-  }
-  UPDATE PUBLIC STRING FUNCTION GetValue(OBJECT rte)
-  {
-    RETURN rte->CreateLinkRefHyperlink(this->browseforobject->value) || this->append->value;
-  }
-  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
-  {
-    IF(ObjectExists(this->append) AND Left(this->append->value, 1) NOT IN [ "", "#", "?", "!" ])
-      work->AddErrorFor(this->append, GetTid("publisher:components.errors.invalidappend", this->title));
-  }
 >;

@@ -2909,6 +2909,7 @@ PUBLIC OBJECTTYPE TolliumProxyComponent EXTEND TolliumSpecialComponent
   }
 >;
 
+/** Base class for custom links */
 PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
 <
   MACRO NEW()
@@ -2920,17 +2921,30 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
     this->TolliumComponentBase_StaticInit(def);
   }
 
-  PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink)
+  PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink) //LEGACY HANDLER code should move away from it since 4.27
   {
-    RETURN FALSE;
+    THROW NEW Exception("TolliumLinkHandlerBase::TrySetLink not implemented"); //you'll need to override this - we'll talk about TrySetLink as that's the proper name now
   }
+
+  /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)
+      @param inlink Link to set
+      @return TRUE if the link was valid */
+  UPDATE PUBLIC BOOLEAN FUNCTION SetLinkIfSupported(STRING inlink)
+  {
+    RETURN this->TrySetValue(DEFAULT OBJECT, inlink);
+  }
+
   PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
   {
     RETURN DEFAULT OBJECT ARRAY;
   }
+  PUBLIC STRING FUNCTION GetLink()
+  {
+    RETURN this->GetValue(DEFAULT OBJECT);
+  }
   PUBLIC STRING FUNCTION GetValue(OBJECT rte)
   {
-    THROW NEW Exception("TolliumRTELinkBase::GetValue not implemented"); //you'll need to override this
+    THROW NEW Exception("TolliumLinkHandlerBase::GetLink not implemented"); //you'll need to override this - we'll talk about GetLink as that's the proper name now
   }
   PUBLIC MACRO DestroyComponents()
   {

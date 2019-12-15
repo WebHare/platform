@@ -1,4 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          lib="screens/components/rte.whlib"
          gid="components.rte">
 
@@ -59,12 +60,7 @@
         </tab>
         <tab tid=".hyperlink">
           <heading tid=".destination" />
-          <select name="linktype" title="" type="radio" required="true" rowkeytype="integer">
-            <option rowkey="0" tid="components.rte.imageproperties.nohyperlink" />
-            <option rowkey="1" tid="components.rte.externallink">
-              <textedit width="1pr" title="" name="externallink" validationchecks="url-plus-relative" required="true" errorlabeltid="components.rte.externallink" placeholdertid="components.rte.externallink-placeholder" />
-            </option>
-          </select>
+          <p:intextlink name="link" title="" required="false"/>
           <line layout="left">
             <checkbox name="openinnewwindow" title="" labeltid=".openinnewwindow" />
           </line>
@@ -85,12 +81,7 @@
     </actions>
     <body>
       <heading name="destination" height="1pr" />
-      <select name="linktype" title="" type="radio" required="true" rowkeytype="integer">
-        <option rowkey="0" tid="components.rte.imageproperties.nohyperlink" />
-        <option rowkey="1" tid="components.rte.externallink">
-          <textedit width="1pr" title="" name="externallink" validationchecks="url-plus-relative" required="true" errorlabeltid="components.rte.externallink" placeholdertid="components.rte.externallink-placeholder" />
-        </option>
-      </select>
+      <p:intextlink name="link" title="" required="true"/>
       <line layout="left">
         <checkbox name="openinnewwindow" title="" labeltid=".openinnewwindow" />
       </line>

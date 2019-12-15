@@ -4,19 +4,18 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-INTEGER testrtdfileid;
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT testrtd, testrtd2;
 
 MACRO PrepIt()
 {
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
 
   testfw->BeginWork();
-
-  OBJECT testloc := testfw->GetTestSite()->rootobject->EnsureFolder([ name := "rtdtype" ]);
-  OBJECT testrtd := testloc->CreateFile( [ name := "links.rtd", type := richdoctype->id, publish := TRUE ]);
-//  OBJECT testrtd2 := testloc->CreateFile( [ name := "other.rtd", type := richdoctype->id, publish := TRUE ]);
-  testrtdfileid := testrtd->id;
-  //testrtd2fileid := testrtd2->id;
+  testrtd  := GetTestsuiteTempFolder()->CreateFile( [ name := "rtdlevel1-links.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtd2 := GetTestsuiteTempFolder()->CreateFile( [ name := "rtdlevel1-other.rtd", type := richdoctype->id, publish := TRUE ]);
 
   testfw->CommitWork();
 }
@@ -24,19 +23,19 @@ MACRO PrepIt()
 
 OBJECT ASYNC FUNCTION InsertLink()
 {
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ testrtd->whfspath ], target := DEFAULT RECORD ]));
 
   OBJECT myrte := TT("doceditor")->contents->rte;
   myrte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is the text <i>entered</i> into a level 2 rtd</p></body></html>');
 
   AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
 
-  RECORD customlink := SELECT * FROM topscreen->linktype->options WHERE title = "custom link handler";
+  RECORD customlink := SELECT * FROM TT("link")->^linktype->options WHERE title = "custom link handler";
   TestEq(TRUE, RecordExists(customlink));
 
-  topscreen->linktype->value := customlink.rowkey;
-  topscreen->linktype->selection.enablecomponents[0]->value := 15;
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TT("link")->^linktype->value := customlink.rowkey;
+  TT("link")->^linktype->selection.enablecomponents[0]->value := 15;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   RECORD insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
   TestEq(TRUE, RecordExists(insertedlinkinstr), "Unable to find the InsertHyperlink instruction in the outgoing instruction stream");
@@ -45,10 +44,31 @@ OBJECT ASYNC FUNCTION InsertLink()
 
   myrte := TT("doceditor")->contents->rte;
   AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := "x-webharetestsuite-customlink:15" ]]));
-  TestEq("custom link handler", topscreen->linktype->selection.title);
-  TestEq(15, topscreen->linktype->selection.enablecomponents[0]->value);
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TestEq("custom link handler", TT("link")->^linktype->selection.title);
+  TestEq(15, TT("link")->^linktype->selection.enablecomponents[0]->value);
+
+  //Let's change it to an internal link
+  TT("link")->^linktype->value := 2; //2 is always internal link
+  TT("link")->^internal->value := testrtd2->id;
+  TT("link")->^append->value := "#addme";
+  TT("openinnewwindow")->value := TRUE;
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  RECORD updatelinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
+  TestEq(TRUE, RecordExists(updatelinkinstr), "Unable to find the UpdateProps2 instruction in the outgoing instruction stream");
+  TestEq("xx", updatelinkinstr.messages[0].data.actionid);
+  TestEq("_blank", updatelinkinstr.messages[0].data.settings.target);
+  TestEqLike("x-richdoclink-e:*", updatelinkinstr.messages[0].data.settings.link);
+
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "_blank", link := updatelinkinstr.messages[0].data.settings.link ]]));
+  TestEq(2, TT("link")->^linktype->value);
+  TestEq(testrtd2->id, TT("link")->^internal->value);
+  TestEq("#addme", TT("link")->^append->value);
+  TestEq(TRUE, TT("openinnewwindow")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   RETURN TRUE;
 }
 
