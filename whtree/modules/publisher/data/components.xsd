@@ -711,7 +711,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.intextlink" />
+          <s:tolliumcomponent placement="inline" fragment="/tolliumcomponents/intextlink.xml#intextlink" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />

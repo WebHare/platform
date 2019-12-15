@@ -1,0 +1,21 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="components"
+         library="intextlink.whlib">
+
+  <fragment name="intextlink" gid=".intextlink">
+    <contents>
+      <select name="linktype" type="radio" required="true" title="" onchange="onlinktypechange">
+        <option rowkey="nolink"></option>
+        <option rowkey="external">
+          <textedit name="external" width="1pr" placeholdertid=".externalplaceholder" validationchecks="url-plus-relative" required="true" title="" errorlabeltid=".linktype-external"/>
+        </option>
+        <option rowkey="internal">
+          <p:browseforobject name="internal" required="true" title="" errorlabeltid=".linktype-internal" showclear="false" width="2pr" />
+          <textedit name="append" width="1pr" />
+        </option>
+      </select>
+    </contents>
+  </fragment>
+
+</screens>
