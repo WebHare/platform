@@ -213,9 +213,12 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   {
     this->EnsurePreInit();
 
-    IF(NOT RecordExists(value))
+    IF(NOT RecordExists(value) OR (value.internallink = 0 AND value.externallink = ""))
     {
       ^linktype->value := 0;
+      ^internal->value := 0;
+      ^append->value := "";
+      ^external->value := "";
     }
     ELSE IF(value.internallink != 0 AND this->internallinks)
     {
