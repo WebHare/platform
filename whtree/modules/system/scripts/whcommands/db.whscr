@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::dbase/whdb.whlib";
@@ -13,6 +14,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/dbase/base.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
@@ -77,6 +79,45 @@ SWITCH (args.command)
     }
     PRINT(`Total: ${LENGTH(transactions)} connections\n`);
   }
+  CASE "locks"
+  {
+    RECORD subargs := ParseArguments(args.args,
+        [ [ name := "allinfo", type := "switch" ]
+        ]);
+
+    IF (NOT RecordExists(subargs))
+      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+    args := CELL[ ...args, ...subargs ];
+
+    IF (GetDatabaseType() = "whdb")
+    {
+      PRINT(`Not supported for database type whdb\n`);
+      RETURN;
+    }
+
+    RECORD monitorinfo := GetDatabaseMonitorInfo(GetPrimary());
+    FOREVERY (RECORD owner FROM monitorinfo.blockinglocks)
+    {
+      PRINT(`Owner: ${owner.application_name}\n`);
+      PRINT(` Transaction start: ${FormatISO8601DateTime(owner.xact_start, "", "milliseconds", "CET")}\n`);
+      PRINT(` Query start: ${FormatISO8601DateTime(owner.query_start, "", "milliseconds", "CET")}\n`);
+      PRINT(` PostgreSQL backend pid: ${owner.pid}\n`);
+      IF (owner.debuginfohint != "")
+        PRINT(` Debug info: ` || Substitute(owner.debuginfohint, "\n", "\n" || RepeatText(" ", 13)) || "\n");
+      FOREVERY (RECORD waiter FROM owner.waiters)
+      {
+        PRINT(`  Waiter: ${waiter.application_name}\n`);
+        PRINT(`   Transaction start: ${FormatISO8601DateTime(waiter.xact_start, "", "milliseconds", "CET")}\n`);
+        PRINT(`   Query start: ${FormatISO8601DateTime(waiter.query_start, "", "milliseconds", "CET")}\n`);
+        PRINT(`   PostgreSQL backend pid: ${waiter.pid}\n`);
+        IF (waiter.tables != "")
+          PRINT(`    Locking row in table ${waiter.tables}\n`);
+        IF (waiter.debuginfohint != "")
+          PRINT(`   Debug info: ` || Substitute(owner.debuginfohint, "\n", "\n" || RepeatText(" ", 15)) || "\n");
+      }
+    }
+  }
+
   CASE "readwritestatus"
   {
     RECORD subargs := ParseArguments(args.args,

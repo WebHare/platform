@@ -297,6 +297,23 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   , STRING ARRAY "proconfig" // Function's local settings for run-time configuration variables
   //, proacl  aclitem[]   Access privileges; see GRANT and REVOKE for details  > pg_proc
   > "pg_proc"
+, TABLE
+  < STRING "locktype" // Type of the lockable object: relation, extend, page, tuple, transactionid, virtualxid, object, userlock, or advisory
+  , INTEGER "database" NULL := -1 // OID of the database in which the lock target exists, or zero if the target is a shared object, or null if the target is a transaction ID
+  , INTEGER "relation" NULL := 0 // OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation
+  , INTEGER "page" NULL := -1 // Page number targeted by the lock within the relation, or null if the target is not a relation page or tuple
+  , INTEGER "tuple" NULL := -1 // Tuple number targeted by the lock within the page, or null if the target is not a tuple
+  , STRING "virtualxid" NULL := "" // Virtual ID of the transaction targeted by the lock, or null if the target is not a virtual transaction ID
+  , INTEGER "transactionid" NULL := -1 // ID of the transaction targeted by the lock, or null if the target is not a transaction ID
+  , INTEGER "classid" NULL := -1 // OID of the system catalog containing the lock target, or null if the target is not a general database object
+  , INTEGER "objid" NULL := 0 // OID column  OID of the lock target within its system catalog, or null if the target is not a general database object
+  , INTEGER "objsubid" NULL := -1 //Column number targeted by the lock (the classid and objid refer to the table itself), or zero if the target is some other general database object, or null if the target is not a general database object
+  , STRING "virtualtransaction" // Virtual ID of the transaction that is holding or awaiting this lock
+  , INTEGER "pid" NULL := 0 // Process ID of the server process holding or awaiting this lock, or null if the lock is held by a prepared transaction
+  , STRING "mode" // Name of the lock mode held or desired by this process (see Section 13.3.1 and Section 13.2.3)
+  , BOOLEAN "granted" // True if lock is held, false if lock is awaited
+  , BOOLEAN "fastpath" // True if lock was taken via fast path, false if taken via main lock table
+  > "pg_locks"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA

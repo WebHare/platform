@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/base.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 
 PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
@@ -49,70 +50,36 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
     ^transactions->rows := rows;
   }
 
-  RECORD FUNCTION DecodeWHLogInfo(STRING logline)
-  {
-    RECORD retval :=
-        [ debuginfo :=      ""
-        , debuginfohint :=  ""
-        ];
-
-    SWITCH (Left(logline, 1))
-    {
-      CASE "t"
-      {
-        STRING ARRAY parts := Tokenize(SubString(logline, 2, LENGTH(logline) - 3), ",");
-        retval.debuginfo := (
-            SELECT AS STRING uri
-              FROM ToRecordArray(parts, "uri")
-             WHERE uri != "mod::system/lib/database.whlib"
-               AND uri NOT LIKE "wh::dbase/*"
-               AND uri NOT LIKE "wh::internal/trans*"
-               ) ?? parts[0];
-        retval.debuginfohint := "Stack trace:\n" || Detokenize(parts, "\n");
-      }
-    }
-
-    RETURN retval;
-  }
-
   UPDATE PUBLIC MACRO RefreshMonitorPanel()
   {
-    RECORD ARRAY translist := this->trans->__ExecSQL("SELECT * FROM pg_stat_activity ORDER BY pid");
+    RECORD monitorinfo := GetDatabaseMonitorInfo(GetPrimary());
 
-    FOREVERY (RECORD trans FROM translist)
-    {
-      STRING debuginfotxt;
-      IF (trans.query LIKE `/?whlog:*`)
-      {
-        INTEGER pos := SearchSubString(trans.query, "*/");
-        debuginfotxt := SubString(trans.query, 8, pos - 8);
-        trans.query := SubString(trans.query, pos + 2);
-      }
-      translist[#trans] := CELL[ ...trans, ...this->DecodeWHLogInfo(debuginfotxt) ];
-    }
-
-
-    RECORD trans_default :=
-        [ usename := ""
-        , application_name := ""
-        , backend_start := DEFAULT DATETIME
-        , query_start := DEFAULT DATETIME
-        , xact_start := DEFAULT DATETIME
-        ];
-
-
-    this->transactions->rows :=
+    ^transactions->rows :=
         SELECT *
              , rowkey :=  pid
-             , isself :=  pid = this->trans->backendpid
-          FROM translist
+             , isself :=  pid = monitorinfo.ownpid
+          FROM monitorinfo.translist
          WHERE backend_type = "client backend";
+
+    ^blockedlocks->rows :=
+        SELECT *
+             , tables :=      ""
+             , subnodes :=
+                    SELECT *
+                      FROM waiters
+          FROM monitorinfo.blockinglocks;
+
+    ^blockedlocks->expanded := SELECT AS STRING ARRAY rowkey FROM monitorinfo.blockinglocks;
   }
 
   MACRO GotLogStackTracesChange()
   {
+    INTEGER newlogstacktraces := ^logstacktraces->value ? 10 : 0;
     RECORD database := GetDatabaseDebugConfig();
-    database.logstacktraces := ^logstacktraces->value ? 10 : 0;
-    UpdateSystemConfigurationRecord(CELL[ database ]);
+    IF (database.logstacktraces != newlogstacktraces)
+    {
+      database.logstacktraces := ^logstacktraces->value ? 10 : 0;
+      UpdateSystemConfigurationRecord(CELL[ database ]);
+    }
   }
 >;
