@@ -629,26 +629,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , has_lazyloadcss          := node->HasAttribute("lazyloadcss")
                         ];
 
-    STRING assetpack := node->GetAttribute("assetpack");
-    IF(assetpack != "")
+    webdesign.assetpack := QualifyName(this->module,node->GetAttribute("assetpack"));
+    IF(webdesign.assetpack != "")
     {
       IF(this->filename NOT LIKE "mod::*")
-      {
         this->AddError(node, "Assetpacks can only be specified for module-based siteprofiles");
-      }
-      ELSE
-      {
-        webdesign.assetpack := assetpack LIKE "*:*" ? assetpack : this->module || ":" || assetpack;
-      }
-    }
 
-    IF(assetpack != "")
-    {
-      RECORD modinfo := GetWebhareModuleInfo(Tokenize(assetpack,':')[0]);
+      RECORD modinfo := GetWebhareModuleInfo(Tokenize(webdesign.assetpack,':')[0]);
       RECORD assetpackinfo;
 
       IF(RecordExists(modinfo))
-        assetpackinfo := SELECT * FROM modinfo.assetpacks WHERE ToUppercase(name) = ToUppercase(assetpack);
+        assetpackinfo := SELECT * FROM modinfo.assetpacks WHERE ToUppercase(name) = ToUppercase(webdesign.assetpack);
 
       IF(RecordExists(assetpackinfo))
       {
@@ -657,7 +648,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       }
       ELSE
       {
-        this->AddError(node, `No such assetpack '${assetpack}'`);
+        this->AddError(node, `No such assetpack '${webdesign.assetpack}'`);
       }
     }
 
