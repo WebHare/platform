@@ -140,18 +140,6 @@ STATIC OBJECTTYPE Validating
 
     FOREVERY(RECORD apply FROM csp.applies)
     {
-      IF(RecordExists(apply.webdesign))
-      {
-        IF(apply.webdesign.assetpack != "")
-        {
-          RECORD moduleinfo := GetWebhareModuleInfo(Tokenize(apply.webdesign.assetpack,':')[0]);
-          IF(NOT RecordExists(moduleinfo) OR NOT RecordExists(SELECT FROM moduleinfo.assetpacks WHERE ToUppercase(name) = ToUppercase(apply.webdesign.assetpack)))
-          {
-            this->AddError(this->GetApplyErrorContext(apply), "No such assetpack '" || apply.webdesign.assetpack || "'");
-          }
-        }
-      }
-
       FOREVERY(RECORD torec FROM apply.tos)
         this->ValidateApplyRecursive(apply,torec);
 

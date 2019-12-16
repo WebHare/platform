@@ -9,7 +9,11 @@
   <div id="content" data-dynamiclink="[dynamiclink]"
                     data-anchors="[anchors]"
                     data-webdesign-prepareforrendering="[webdesign_prepareforrendering]"
-                    data-dynamicpageparameters="[dynamicpageparameters_hson]">
+                    data-dynamicpageparameters="[dynamicpageparameters_hson]"
+                    [if sitelanguage.nl]data-sitelanguage-nl[/if]
+                    [if sitelanguage.en]data-sitelanguage-en[/if]
+                    [if sitelanguage.xyz]data-sitelanguage-xyz[/if]
+                    >
     [contents]
   </div>
   [if widget]

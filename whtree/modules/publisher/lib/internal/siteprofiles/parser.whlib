@@ -620,7 +620,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , supportedlanguages       := ParseXSList(node->GetAttribute("supportedlanguages"))
                         , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
 
-                        , has_assetpack          := node->HasAttribute("assetpack")
+                        , has_assetpack            := node->HasAttribute("assetpack")
                         , has_basedependency       := node->HasAttribute("basedependency")
                         , has_supportserrors       := node->HasAttribute("supportserrors")
                         , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
@@ -639,6 +639,25 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       ELSE
       {
         webdesign.assetpack := assetpack LIKE "*:*" ? assetpack : this->module || ":" || assetpack;
+      }
+    }
+
+    IF(assetpack != "")
+    {
+      RECORD modinfo := GetWebhareModuleInfo(Tokenize(assetpack,':')[0]);
+      RECORD assetpackinfo;
+
+      IF(RecordExists(modinfo))
+        assetpackinfo := SELECT * FROM modinfo.assetpacks WHERE ToUppercase(name) = ToUppercase(assetpack);
+
+      IF(RecordExists(assetpackinfo))
+      {
+        //Cache important settings which would be too slow to look up separately from <webdeisgn>
+        webdesign.supportedlanguages := assetpackinfo.supportedlanguages;
+      }
+      ELSE
+      {
+        this->AddError(node, `No such assetpack '${assetpack}'`);
       }
     }
 

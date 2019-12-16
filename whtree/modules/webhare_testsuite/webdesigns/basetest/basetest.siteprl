@@ -408,6 +408,11 @@
   </apply>
 
   <apply>
+    <to type="file" pathmask="/testpages/staticpage-xyz" />
+    <sitelanguage lang="xyz-blabla" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="/testpages/formtest" />
     <sitelanguage lang="nl" /> <!-- change it away from the default so we can ensure it is set and not just defaulting to 'en' -->
   </apply>

@@ -13,6 +13,27 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestTestSite()
+{
+  //some things can already be tested using the webhare testsuite site, so do those first
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage"));
+  OBJECT contentdiv := testfw->browser->document->GetElementById("content");
+
+  TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-en'));
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-xyz'));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage-xyz"));
+  contentdiv := testfw->browser->document->GetElementById("content");
+
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-en'));
+  TestEq(FALSE, contentdiv->HasAttribute('data-sitelanguage-nl'));
+  TestEq(TRUE, contentdiv->HasAttribute('data-sitelanguage-xyz'));
+}
+
 MACRO Prepare()
 {
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
@@ -273,7 +294,8 @@ MACRO TestCaptureSubPaths()
 
 }
 
-RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
+RunTestframework([ PTR TestTestSite
+                 , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR Prepare
                  , PTR TestSimplePages
                  , PTR TestDynPage

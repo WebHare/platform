@@ -99,6 +99,23 @@ OBJECT ARRAY FUNCTION GenerateUniqueAnchors(OBJECT ARRAY anchors)
   RETURN outanchors;
 }
 
+RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
+{
+  IF(NOT ObjectExists(webdesign->pvt_dependencyresolverv2))
+    RETURN DEFAULT RECORD;
+
+  RECORD langrec;
+  STRING matchlang := ToUppercase(webdesign->languagecode);
+  FOREVERY(STRING langcode FROM webdesign->__config.supportedlanguages)
+    IF(NOT CellExists(langrec,langcode))
+    {
+      BOOLEAN ismatch := ToUppercase(langcode) = matchlang OR matchlang LIKE ToUppercase(langcode) || "-*";
+      langrec := CellInsert(langrec, langcode, ismatch);
+    }
+
+  RETURN langrec;
+}
+
 PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 < // ---------------------------------------------------------------------------
   //
@@ -735,6 +752,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , ishomepage    := ObjectExists(this->targetsite) AND this->targetsite->id = this->targetfolder->id AND this->targetobject->id = this->targetfolder->indexdoc
                    , isindexdoc    := ObjectExists(this->targetsite) AND this->targetobject->id = this->targetfolder->indexdoc
                    , isrtdpreview  := FALSE
+                   , sitelanguage  := GetSiteLanguageRecord(PRIVATE this)
                    ];
 
     IF(NOT this->IsUsingModuleDesign())
