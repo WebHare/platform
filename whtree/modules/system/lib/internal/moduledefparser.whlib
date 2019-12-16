@@ -313,15 +313,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   RETURN retval;
 }
 
-PUBLIC STRING ARRAY FUNCTION ParseAndQualifyXMLList(STRING xmllist, STRING qualification)
-{
-  STRING ARRAY retval := ParseXSList(xmllist);
-  FOREVERY (STRING str FROM retval)
-    retval[#str] := QualifyName(qualification, str);
-
-  RETURN retval;
-}
-
 PUBLIC RECORD FUNCTION ParseChecks(STRING modulename, OBJECT node, BOOLEAN alwaysreturnrecord)
 {
   RECORD app := [ accesscheck :=    DEFAULT RECORD
@@ -459,9 +450,14 @@ PUBLIC STRING FUNCTION ParseGid(STRING module, STRING gid, OBJECT element)
   RETURN gid;
 }
 
+/** Prefix name with module names, unless it already has a module name OR contains a wildcard
+    @param qualification Prefix to add
+    @parma name Name to check
+    @return qualified name */
 PUBLIC STRING FUNCTION QualifyName(STRING qualification, STRING name)
 {
-  RETURN name = "" ? "" : name LIKE "*:*" ? name : qualification || ":" || name;
+  RETURN name = "" OR SearchSubstring(name,'*') != -1 ? name
+         : name LIKE "*:*" ? name : qualification || ":" || name;
 }
 
 STRING FUNCTION ParseXMLModuleNamed(STRING module, OBJECT element, STRING attrname)
@@ -474,6 +470,18 @@ STRING FUNCTION GetTIDPtrFromTid(STRING module, STRING tid)
   IF(tid NOT LIKE "*:*")
     tid := module || ":" || tid;
   RETURN tid;
+}
+
+/** Parse a xs:list (%ParseXSList) and %QualifyName the entries
+    @param qualification Prefix to add
+    @parma xmllist List to parse and qualify
+    @return qualified names */
+PUBLIC STRING ARRAY FUNCTION ParseAndQualifyXMLList(STRING qualification, STRING xmllist)
+{
+  STRING ARRAY retval := ParseXSList(xmllist);
+  FOREVERY (STRING str FROM retval)
+    retval[#str] := QualifyName(qualification, str);
+  RETURN retval;
 }
 
 PUBLIC STRING FUNCTION GetModdefTidptr(STRING modulename, OBJECT node, STRING type)
@@ -502,8 +510,8 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
   {
     INSERT [ name :=          QualifyName(modulename, grp->GetAttribute("name"))
            , title :=         ParseXMLTidPtr(modulename, topgid, grp, "title")
-           , orderbefore :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderbefore")), modulename)
-           , orderafter  :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderafter")), modulename)
+           , orderbefore :=   ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderbefore")))
+           , orderafter  :=   ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderafter")))
            ] INTO groups aT END;
   }
 
@@ -545,8 +553,8 @@ PUBLIC RECORD ARRAY FUNCTION GetAppGroups(STRING modulename, OBJECT moddef)
   {
     INSERT [ name :=         modulename || ":" || grp->GetAttribute("name")
            , tid :=          ParseXMLTidPtr(modulename, "", grp, "title")
-           , orderbefore :=  ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderbefore")), modulename)
-           , orderafter :=   ParseAndQualifyXMLList(ToLowercase(grp->GetAttribute("orderafter")), modulename)
+           , orderbefore :=  ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderbefore")))
+           , orderafter :=   ParseAndQualifyXMLList(modulename, ToLowercase(grp->GetAttribute("orderafter")))
            ] INTO groups AT END;
   }
   RETURN groups;
@@ -1039,8 +1047,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                     , isglobal            := subchild->GetAttribute("objecttype") = ""
                     , title               := this->ParseXMLTidTitle(subchild, "title", subchildgid)
                     , description         := this->ParseXMLTidTitle(subchild, "description", subchildgid)
-                    , showbefore          := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showbefore")), modulename)
-                    , showafter           := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("showafter")), modulename)
+                    , showbefore          := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("showbefore")))
+                    , showafter           := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("showafter")))
                     , isrootright         := ParseXSBoolean(subchild->GetAttribute("isrootright"))
                     , line                := subchild->linenum
                     ];
@@ -1162,8 +1170,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                     [ module        := modulename
                     , name          := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
                     , target        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "target"))
-                    , orderbefore   := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("runbefore")), modulename)
-                    , orderafter    := ParseAndQualifyXMLList(ToLowercase(subchild->GetAttribute("runafter")), modulename)
+                    , orderbefore   := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runbefore")))
+                    , orderafter    := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runafter")))
                     , interceptfunction := interceptfunction
                     , line          := subchild->linenum
                     ];

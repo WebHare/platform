@@ -1,0 +1,15 @@
+<?wh
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+
+
+MACRO TestModuleParsing()
+{
+  TestEq(["system:abc","publisher:def"], ParseAndQualifyXMLList("system", "abc publisher:def"));
+  TestEq(["*"], ParseAndQualifyXMLList("system", "*"));
+  TestEq(["xyz*"], ParseAndQualifyXMLList("system", "xyz*"));
+  TestEq(["publisher:*","*:oneweirdapp","*:*","x*:y*"], ParseAndQualifyXMLList("system", "publisher:*   *:oneweirdapp\n *:*\tx*:y* "));
+}
+
+RunTestFramework([ PTR TestModuleParsing
+                 ]);
