@@ -3,6 +3,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
-PUBLIC OBJECTTYPE InternalLinks EXTEND TolliumLinkHandlerBase //We only exist to be detected by the RTE. New code shouldn't use internal link hanlders anymore
+PUBLIC OBJECTTYPE InternalLinks EXTEND TolliumLinkHandlerBase //We only exist to be detected by the RTE. New code shouldn't use internal link handlers anymore
 <
 >;
