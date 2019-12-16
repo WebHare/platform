@@ -20,7 +20,7 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
   RECORD rtdsettings := options.applytester->GetRTDTypeSettings();
   IF(NOT RecordExists(rtdsettings) OR rtdsettings.rtdtype = "")
   {
-    //without a <rtdtdoc rtdtype> we won't support widget indexing - just return the old wrapped htmltext blob?
+    //without a <rtddoc rtdtype> we won't support widget indexing - just return the old wrapped htmltext blob?
     htmltext := richdoc.htmltext;
   }
   ELSE
