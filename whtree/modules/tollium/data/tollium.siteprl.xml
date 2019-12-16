@@ -21,7 +21,7 @@
                library="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib"
                objectname="WebinterfaceDesign"
                maxcontentwidth="960px"
-               assetpack="tollium:webinterface"
+               assetpack="webinterface"
                supportserrors="true"
                supportsaccessdenied="true"
                async="false" />
