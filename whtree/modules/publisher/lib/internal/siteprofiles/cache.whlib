@@ -137,7 +137,8 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , dynamicexecution := RecordExists(type.filetype) ? type.filetype.dynamicexecution : RecordExists(type.foldertype) ? type.foldertype.dynamicexecution : DEFAULT RECORD
          , isacceptableindex := RecordExists(type.fstype) AND type.fstype.isacceptableindex
          , extensions := RecordExists(type.filetype) ? type.filetype.extensions : STRING[]
-         , searchprovider := RecordExists(type.filetype) ? type.filetype.searchprovider : ""
+         , searchcontentprovider := RecordExists(type.filetype) ? type.filetype.searchcontentprovider : ""
+         , indexversion := RecordExists(type.filetype) ? type.filetype.indexversion : ""
          , blobiscontent := RecordExists(type.filetype) AND type.filetype.blobiscontent
          , ishidden := RecordExists(type.foldertype) AND type.foldertype.ishidden
          , capturesubpaths := RecordExists(type.fstype) AND type.fstype.capturesubpaths

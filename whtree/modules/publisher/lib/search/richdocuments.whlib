@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+
+
+PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ fsobject := DEFAULT OBJECT //FIXME will we use/need this?
+                                 , applytester := DEFAULT OBJECT
+                                 ], options);
+
+  BLOB htmltext;
+
+  IF(NOT RecordExists(richdoc))
+    RETURN DEFAULT RECORD;
+
+  RECORD rtdsettings := options.applytester->GetRTDTypeSettings();
+  IF(NOT RecordExists(rtdsettings) OR rtdsettings.rtdtype = "")
+  {
+    //without a <rtddoc rtdtype> we won't support widget indexing - just return the old wrapped htmltext blob?
+    htmltext := richdoc.htmltext;
+  }
+  ELSE
+  {
+    RECORD rtdtype := GetRTDSettingsFromType(rtdsettings.rtdtype);
+    OBJECT context := NEW PreviewContext(options.fsobject, options.applytester, rtdtype, TRUE);
+
+    htmltext := GetPrintedAsBlob(PTR context->RenderRTD(richdoc));
+  }
+
+  RETURN CELL[ htmltext ];
+}
+

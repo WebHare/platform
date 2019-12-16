@@ -763,7 +763,7 @@ PUBLIC OBJECT FUNCTION GetRTETempDir()
 
 PUBLIC RECORD FUNCTION GetRTDSingleObjectPreview(OBJECT fsobject, OBJECT applytester, STRING instanceref, RECORD rtdtypeinfo, RECORD data, STRING language, OBJECT mergefields)
 {
-  OBJECT context := NEW PreviewContext(fsobject, applytester, rtdtypeinfo);
+  OBJECT context := NEW PreviewContext(fsobject, applytester, rtdtypeinfo, FALSE);
   context->__mergefields := mergefields;
   RECORD widgetinfo := GetEmbeddedObjectRenderer(fsobject, applytester, rtdtypeinfo.namespace, data, context);
   OBJECT renderer := widgetinfo.widget; //GetEmbeddedObjectRenderer never returns a default object

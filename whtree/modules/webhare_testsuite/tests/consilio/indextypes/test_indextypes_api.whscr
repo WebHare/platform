@@ -1,0 +1,99 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
+
+LOADLIB "mod::/publisher/lib/search/richdocuments.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+RECORD testdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</h1>'  //h1s[0]
+                                          || '<div class="wh-rtd-embeddedobject" data-instanceid="level2doc">noise</div>'
+                                          )
+                   , instances := [[ instanceid := "level2doc"
+                                   , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"
+                                             , richdoc := [ htmltext := StringToBlob('<h2 class="heading2">Tweede kop</h2>')
+                                                          ]
+                                             ]
+                                   ]
+                                 ]
+                   ];
+
+OBJECT indexpromise;
+OBJECT testrtd;
+
+MACRO TestIndexTypeAPIs()
+{
+  testfw->BeginWork();
+  indexpromise := GetWHFSCommitHandler()->WaitForChangesIndexed();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id, publish := TRUE ]);
+  richdoctype->SetInstanceData(testrtd->id, [data := testdoc]);
+
+  OBJECT applytester := GetApplytesterForObject(testrtd->id);
+
+  TestEq(DEFAULT RECORD, GetRichDocumentIndexableContent(DEFAULT RECORD, CELL[applytester]));
+
+  RECORD indexable := GetRichDocumentIndexableContent(testdoc, CELL[applytester]);
+  TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.htmltext));
+
+  testfw->CommitWork();
+
+  OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
+
+  RECORD ARRAY objs := provider->ListObjects2(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[]);
+  TestEq(1, Length(objs));
+
+  testfw->BeginWork();
+  testrtd->UpdateMetadata(CELL[]);
+  testfw->CommitWork();
+
+  RECORD fetched := provider->FetchObject(DEFAULT DATETIME, "fsobj_" || testrtd->id, objs[0].id, [ force := TRUE ]);
+  TestEqLike("*Eerste kop*Tweede kop*", fetched.document_body);
+  TestEq(FALSE, fetched.document_body LIKE "*noise*");
+}
+
+MACRO TestPublisherIndex()
+{
+  Print("waiting for all changes to be indexed...\n");
+  WaitForPromise(indexpromise);
+  Print("it's indexed!\n\n");
+
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ "indextypes@consilio" := STRING[] ]]);
+  TestEq(1,Length(result.results));
+  TestEqLike("*Eerste kop*Tweede kop*", result.results[0].summary);
+}
+
+MACRO TestSearchOverride()
+{
+  //Test overriding the search parameter
+  testfw->BeginWork();
+  testrtd->UpdateMetadata([name := "override-widget-search.rtd"]);
+  testfw->CommitWork();
+
+  OBJECT applytester := GetApplytesterForObject(testrtd->id);
+  RECORD indexable := GetRichDocumentIndexableContent(testdoc, CELL[applytester]);
+  TestEqLike("*This is the level2 search preview*", BlobToString(indexable.htmltext));
+}
+
+RunTestframework(
+    [ PTR TestIndexTypeAPIs
+    , PTR TestPublisherIndex
+    , PTR TestSearchOverride
+    ]);

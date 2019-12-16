@@ -649,8 +649,13 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
       {
         //wrap them inside their standard div.
         Print('<div class="wh-rtd-embeddedobject">');
-        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings"))
-          obj->Render();
+        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings")) //it's a WidgetBase derived object
+        {
+          IF(this->richdoc->previewcontext->__previewsearch)
+            obj->RenderSearchPreview();
+          ELSE
+            obj->Render();
+        }
         ELSE
           obj->RenderPreview();
         Print('</div>');

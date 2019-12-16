@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_indextypes_api.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
+  <test script="test_indextypes_api.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+</group>

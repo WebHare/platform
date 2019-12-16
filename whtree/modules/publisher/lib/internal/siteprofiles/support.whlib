@@ -74,7 +74,8 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          , generatepreview := FALSE
          , previewlibrary := ""
          , previewobjectname := ""
-         , searchprovider := ""
+         , searchcontentprovider := ""
+         , indexversion := ""
          , siteprofile := ""
          , line := 0
          ];

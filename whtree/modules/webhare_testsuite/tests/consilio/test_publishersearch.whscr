@@ -4,26 +4,21 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
+
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-
-MACRO CommitAndWaitForIndex()
-{
-  OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
-  testfw->CommitWork();
-  Print("waiting for changes indexed...\n");
-  WaitForPromise(promise);
-  Print("it's indexed\n");
-}
 
 MACRO PublisherSearchTest()
 {
@@ -50,9 +45,14 @@ MACRO PublisherSearchTest()
                  ]);
   richdoctype->SetInstanceData(file_5->id, [data := myrichdoc->ExportAsRecord()]);
 
+  //ensure structuredef documents are still (somewhat) indexed (otherwise we'd regress too early on these)
+  OBJECT applytester := GetApplytesterForObject(file_5->id);
+  RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
+  TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
+
   STRING file_5_tree := `${siteroot->parent} ${siteroot->id} ${file_5->id}`;
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   // Empty contain should not crash
   RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", INTEGER[]));
@@ -165,7 +165,7 @@ MACRO PublisherSearchTest()
 
   file_4->RecycleSelf();
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_4->id));
   TestEq(0, result.totalcount, "RecycleSelf file still found, race?");
@@ -173,7 +173,7 @@ MACRO PublisherSearchTest()
   // Restore the file, it should return
   testfw->BeginWork();
   OpenWHFSObject(file_4->id)->MoveTo(siteroot, "");
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_4->id));
   TestEq(1, result.totalcount, "Restore file not found, race?");
@@ -183,7 +183,7 @@ MACRO PublisherSearchTest()
 
   file_4->DeleteSelf();
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_4->id));
   TestEq(0, result.totalcount, "DeleteSelf file still found, race?");
@@ -193,7 +193,7 @@ MACRO PublisherSearchTest()
 
   file_1->MoveTo(subfolder, "");
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   file_1->Refresh();
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_1->id));
@@ -228,7 +228,7 @@ MACRO PublisherSearchTest()
   OBJECT publishersearchtesttype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest");
   publishersearchtesttype->SetInstanceData(file_5->id, [ testfield := file_5->id ]);
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' by id and check custom module field
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
@@ -251,7 +251,7 @@ MACRO PublisherSearchTest()
 
   publishersearchtesttype->SetInstanceData(file_5->id, [ testfield := siteroot->id ]);
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' by id and check updated custom module field
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
@@ -282,7 +282,7 @@ MACRO PublisherSearchTest()
                      ]
       ]);
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   // Find 'file_5' objects by id, the array fields should not be present
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_5->id));
@@ -313,7 +313,7 @@ MACRO PublisherSearchTest()
                      ]
       ]);
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   // Find 'file_7' objects by id and check custom module fields
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
@@ -395,7 +395,7 @@ MACRO PublisherSearchTest()
 
   file_7->RecycleSelf();
 
-  CommitAndWaitForIndex();
+  CommitAndWaitForPublisherIndex();
 
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_7->id)), 0, -1);
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");

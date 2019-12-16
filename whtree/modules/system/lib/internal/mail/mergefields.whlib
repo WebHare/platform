@@ -86,7 +86,7 @@ PUBLIC RECORD FUNCTION CreateMergeFieldsContext(OBJECT applytester, OBJECT formr
 
   RECORD mergedata := formresults->GetWittyResultData(result);
   OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata ], result.languagecode);
-  OBJECT context := NEW PreviewContext(formresults->GetStorageObject(), applytester, rtdtype);
+  OBJECT context := NEW PreviewContext(formresults->GetStorageObject(), applytester, rtdtype, FALSE);
   context->__mergefields := mergefields;
 
   RETURN

@@ -1616,7 +1616,7 @@
         <xs:element name="filemgrextension" type="FileMgrExtension" />
         <xs:element name="versioningpolicy" type="VersioningPolicy" />
         <xs:element name="indexfield" type="PublisherIndexField" />
-        <xs:element name="searchcontentprovider" />
+        <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
         <xs:element name="siteprofile">
           <xs:complexType>
@@ -1780,6 +1780,27 @@
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
+
+  <xs:complexType name="SearchContentProvider">
+    <xs:annotation>
+      <xs:documentation>Filetypes refer to searchcontentproviders to the Publisher Search how to index files of that type</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="name" use="required">
+      <xs:annotation>
+        <xs:documentation>The (module-scoped) name for this search content provider</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="objectname" use="required">
+      <xs:annotation>
+        <xs:documentation>The object implementing the provider. Must derive from %SearchProviderBase</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="version" use="required">
+      <xs:annotation>
+        <xs:documentation>Version of this provider. Changing this version in any way will cause all objects using this provider to be reindex</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
 
   <xs:complexType name="SearchFilter">
     <xs:sequence>

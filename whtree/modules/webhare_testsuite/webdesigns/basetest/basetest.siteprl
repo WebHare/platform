@@ -357,6 +357,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*override-widget-search*"/>
+    <setwidget contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" renderobjectname="lib/basetest.whlib#Level2Widget_OverrideSearch" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*experimental-anchors*"/>
     <webdesign library="lib/basetest.whlib" objectname="ExperimentalAnchorsDesign" />
   </apply>

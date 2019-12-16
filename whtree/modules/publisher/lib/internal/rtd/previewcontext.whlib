@@ -14,6 +14,8 @@ PUBLIC OBJECTTYPE PreviewContext
   RECORD rtdtypeinfo;
   PUBLIC STRING languagecode;
 
+  //This preview context is running for search previews
+  PUBLIC BOOLEAN __previewsearch;
   //The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
   PUBLIC PROPERTY targetfolder(GetTargetFolder, -);
   //The site containing the targetobject;
@@ -23,12 +25,13 @@ PUBLIC OBJECTTYPE PreviewContext
   PUBLIC PROPERTY targetapplytester(applytester, -);
   PUBLIC OBJECT __mergefields;
 
-  MACRO NEW(OBJECT fsobject, OBJECT applytester, RECORD rtdtypeinfo)
+  MACRO NEW(OBJECT fsobject, OBJECT applytester, RECORD rtdtypeinfo, BOOLEAN forsearch)
   {
     this->fsobject := fsobject;
     this->applytester := applytester;
     this->rtdtypeinfo := rtdtypeinfo;
     this->languagecode := ObjectExists(applytester) ? applytester->GetSiteLanguage() : "en";
+    this->__previewsearch := forsearch;
   }
 
   /** Is this a RTD preview? The preview context always returns true, webdesign returns false */

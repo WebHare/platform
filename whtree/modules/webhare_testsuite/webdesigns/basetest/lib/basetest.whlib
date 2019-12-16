@@ -285,7 +285,7 @@ PUBLIC OBJECTTYPE Level1Widget EXTEND WidgetBase
   }
 >;
 
-PUBLIC OBJECTTYPE Level2Widget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE Level2Widget EXTEND WidgetBase
 <
   OBJECT rtd;
   MACRO NEW()
@@ -306,6 +306,14 @@ PUBLIC OBJECTTYPE Level2Widget EXTEND WidgetBase
                           , mytype := this->widgettype
                           , rtd := PTR this->rtd->RenderAllObjects()
                           ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Level2Widget_OverrideSearch EXTEND Level2Widget
+<
+  UPDATE PUBLIC MACRO RenderSearchPreview()
+  {
+    Print(`<div class="level2-searchpreview">This is the level2 search preview</div>`);
   }
 >;
 

@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+
+PUBLIC MACRO CommitAndWaitForPublisherIndex()
+{
+  OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
+  testfw->CommitWork();
+  Print("waiting for changes indexed...\n");
+  WaitForPromise(promise);
+  Print("it's indexed\n");
+}
+

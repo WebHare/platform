@@ -51,6 +51,9 @@ The widget class can query `this->context->IsRTDPreview()` to see if it is
 being rendered in the rich text editor (as a preview) or in a live web page
 (equivalent to `isrtdpreview` in witty)
 
+Widgets can also override `RenderLive` to override its live rendering only, and
+override `RenderSearchPreview` to change how the widget is interpreted during
+searches.
 
 ## Editing widget data
 A widget's contenttype can contain one or more members. To set up an editor for
