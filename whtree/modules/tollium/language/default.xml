@@ -680,8 +680,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
-      <text tid="externallink">External link</text>
-      <text tid="externallink-placeholder">http://www.example.com/example/</text>
       <text tid="normalcell">Default cell styling</text>
       <text tid="properties">Properties</text>
       <text tid="sureremovetable">Are you sure you want to remove this table?</text>
@@ -717,7 +715,6 @@
         <text tid="img_left">Floating left</text>
         <text tid="img_right">Floating right</text>
         <text tid="keepaspectratio">Keep aspect ratio</text>
-        <text tid="nohyperlink">No hyperlink</text>
         <text tid="openinnewwindow">Open in new window</text>
         <text tid="position">Positioning</text>
         <text tid="properties">Properties</text>

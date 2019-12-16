@@ -10,7 +10,7 @@ PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
     this->title := "custom link handler";
   }
 
-  UPDATE PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink)
+  UPDATE PUBLIC BOOLEAN FUNCTION SetLinkIfSupported(STRING inlink)
   {
     STRING ARRAY inlinktok := Tokenize(inlink,"x-webharetestsuite-customlink:");
     IF (Length(inlinktok) != 2)
@@ -35,7 +35,7 @@ PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
   {
     this->timestampobject->DeleteComponent();
   }
-  UPDATE PUBLIC STRING FUNCTION GetValue(OBJECT rte)
+  UPDATE PUBLIC STRING FUNCTION GetLink()
   {
     RETURN "x-webharetestsuite-customlink:" || this->timestampobject->value;
   }

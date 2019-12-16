@@ -680,8 +680,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="rte">   <!-- components.rte -->
-      <text tid="externallink">Externe link</text>
-      <text tid="externallink-placeholder">http://www.example.com/voorbeeld/</text>
       <text tid="normalcell">Standaard celopmaak</text>
       <text tid="properties">Eigenschappen</text>
       <text tid="sureremovetable">Weet u zeker dat u deze tabel wilt verwijderen?</text>
@@ -717,7 +715,6 @@
         <text tid="img_left">Links zwevend</text>
         <text tid="img_right">Rechts zwevend</text>
         <text tid="keepaspectratio">Behoud breedte-hoogte verhouding</text>
-        <text tid="nohyperlink">Geen hyperlink</text>
         <text tid="openinnewwindow">Open in nieuw venster</text>
         <text tid="position">Plaatsing</text>
         <text tid="properties">Eigenschappen</text>

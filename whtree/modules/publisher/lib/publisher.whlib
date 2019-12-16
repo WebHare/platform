@@ -808,14 +808,6 @@ PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
   RETURN "";
 }
 
-/** @short Get the destination of an internal/external link field stored as a string
-    @param intextlinkstring String representation of the intext link
-    @return The link or an empty string if the link was not set or referred to a nonexisting internal file */
-PUBLIC STRING FUNCTION GetStringIntExtLinkTarget(STRING intextlinkstring)
-{
-  RETURN GetIntExtlinkTarget(ParseIntExtLinkString(intextlinkstring));
-}
-
 /** @short Create an intextlink record for an internal link
     @param fsref Filesystem object we're referring to
     @param append What to append to the URL (emtpy, ?..., #... or !...)

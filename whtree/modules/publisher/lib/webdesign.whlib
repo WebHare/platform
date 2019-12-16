@@ -25,6 +25,7 @@ LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
@@ -911,7 +912,18 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN pageconfig;
   }
 
-  /** @short Rewrite a link from an RTD
+  /** Get the target of an internal/external link, applying any custom rewrites
+      @param intextlink intextlink record
+      @return Final link target */
+  PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
+  {
+    STRING textlink := GetIntExtlinkTarget(intextlink);
+    IF(textlink != "")
+      textlink := this->RewriteHyperlink(textlink);
+    RETURN textlink;
+  }
+
+  /** @short Rewrite a link from a RTD or contenttype data
       @long Override RewriteHyperlink to convert custom hyperlink schemes back to real URLs
       @param href URL to update
       @return The final URL to use

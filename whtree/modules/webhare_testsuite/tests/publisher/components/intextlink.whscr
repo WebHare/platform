@@ -1,13 +1,16 @@
 <?wh
 
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 
 
-OBJECT ASYNC FUNCTION TestIntExtLink()
+ASYNC MACRO TestIntExtLink()
 {
   OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
                                                    [ component := "http://www.webhare.net/xmlns/publisher/components:intextlink"
@@ -20,13 +23,23 @@ OBJECT ASYNC FUNCTION TestIntExtLink()
   topscreen->comp->value := [ append := "", externallink := "http://example.com", internallink := 0 ];
   TestEQ([ append := "", externallink := "http://example.com", internallink := 0 ], topscreen->comp->value);
 
+  // Set empty externallink link, should clear it - some users expect this
+  topscreen->comp->value := [ append := "", externallink := "", internallink := 0 ];
+  TestEQ(DEFAULT RECORD, topscreen->comp->value);
+  TestEQ("", topscreen->comp->^external->value);
+
   // Set internal link
   topscreen->comp->value := [ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
   TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
 
+  // Set default record, should clear too
+  topscreen->comp->value := DEFAULT RECORD;
+  TestEQ(DEFAULT RECORD, topscreen->comp->value);
+
   // Change to external link again (had clearing bug)
   topscreen->comp->value := [ append := "", externallink := "http://example.com", internallink := 0 ];
   TestEQ([ append := "", externallink := "http://example.com", internallink := 0 ], topscreen->comp->value);
+  TestEQ("http://example.com", topscreen->comp->^external->value);
 
   // Change to internal link again (had clearing bug)
   topscreen->comp->value := [ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
@@ -75,10 +88,28 @@ OBJECT ASYNC FUNCTION TestIntExtLink()
   TestEQ([ append := "#jo", externallink := "", internallink := whfs_publishedfile->id ], topscreen->comp->value);
 
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->tolliumexecutecancel());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
-  RETURN TRUE;
+ASYNC MACRO TestIntExtLink_WithLinkHandlers()
+{
+  STRING intextlink_withlinkhandlers := `<?xml version="1.0" encoding="UTF-8"?>
+  <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+    <screen name="firstscreen" implementation="none"><body><p:intextlink name="link" required="true" internallinks="false"><linkhandlers><test:customlinkhandler/></linkhandlers></p:intextlink></body></screen>
+  </screens>`;
+
+  // test loadscreen rejecting these - must see a load error
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(`inline::${intextlink_withlinkhandlers}#firstscreen`));
+
+  TestEq(["External link","custom link handler"], SELECT AS STRING ARRAY title FROM TT("link")->^linktype->options);
+  TT("link")->value := MakeIntExtExternalLink("x-webharetestsuite-customlink:15");
+  TestEq("custom link handler", TT("link")->^linktype->selection.title);
+  TestEq(15, TT("link")->^linktype->selection.enablecomponents[0]->value);
+  TestEq(MakeIntExtExternalLink("x-webharetestsuite-customlink:15"), TT("link")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR TestIntExtLink
+                 , PTR TestIntExtLink_WithLinkHandlers
                  ]);

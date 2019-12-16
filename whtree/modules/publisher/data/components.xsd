@@ -711,9 +711,13 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.intextlink" />
+          <s:tolliumcomponent placement="inline" fragment="/tolliumcomponents/intextlink.xml#intextlink" />
+          <s:extraparser field="linkhandlers" type="s:bodynode" target="./s:linkhandlers" />
         </xs:appinfo>
       </xs:annotation>
+      <xs:sequence>
+        <xs:element ref="s:linkhandlers" minOccurs="0" maxOccurs="1" />
+      </xs:sequence>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="tc:IsDirtyable" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -726,6 +730,11 @@
             <xs:enumeration value="string"/>
           </xs:restriction>
         </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="internallinks" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>Show the internal link option (defaults to true)</xs:documentation>
+        </xs:annotation>
       </xs:attribute>
     </xs:complexType>
   </xs:element>

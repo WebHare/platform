@@ -7,6 +7,9 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -19,18 +22,6 @@ STRING internallink_clipboard;
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
-}
-
-OBJECT ASYNC FUNCTION CreateHyperlink(STRING append)
-{
-  RECORD internallinks := SELECT * FROM topscreen->linktype->options WHERE title = "Internal link";
-  TestEq(TRUE, RecordExists(internallinks));
-
-  topscreen->linktype->value := internallinks.rowkey;
-  topscreen->linktype->selection.enablecomponents[0]->value := testrtd2fileid;
-  topscreen->linktype->selection.enablecomponents[1]->value := append;
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  RETURN TRUE;
 }
 
 MACRO PrepIt()
@@ -249,7 +240,8 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
 
   //now let's create a hyperlink
   AWAIT ExpectScreenChange(+1, PTR level2rte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
-  AWAIT CreateHyperlink("");
+  TT("link")->value := MakeIntExtInternalLink(testrtd2fileid,"");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   //returned from creating a hyperlink...
   RECORD insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
@@ -261,7 +253,8 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
 
   //Create another hyperlink, with an 'append'
   AWAIT ExpectScreenChange(+1, PTR level2rte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
-  AWAIT CreateHyperlink("#bladiebla");
+  TT("link")->value := MakeIntExtInternalLink(testrtd2fileid,"#bladiebla");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   //returned from creating a hyperlink...
   insertedlinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertHyperlink";
@@ -403,7 +396,7 @@ OBJECT ASYNC FUNCTION ModifyLink()
 
   GetTestController()->GrabInstructions(); //flush
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href")]]));
-  AWAIT ExpectScreenChange(-1, PTR topscreen->removehyperlinkbutton->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR TTClick("removehyperlinkbutton"));
 
   RECORD updateobjinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
 
@@ -416,8 +409,7 @@ OBJECT ASYNC FUNCTION ModifyLink()
 
   GetTestController()->GrabInstructions(); //flush
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ actionid:="xx", affectednodeinfo := [ type := "hyperlink", target := "", link := links[0]->GetAttribute("href") ]]));
-  topscreen->linktype->selection := topscreen->linktype->options[0];
-  topscreen->externallink->value := "http://example.org?abc#def";
+  TT("link")->value := MakeIntExtExternalLink("http://example.org?abc#def");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   updateobjinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
