@@ -23,7 +23,7 @@ ASYNC MACRO TestIntExtLink()
   topscreen->comp->value := [ append := "", externallink := "http://example.com", internallink := 0 ];
   TestEQ([ append := "", externallink := "http://example.com", internallink := 0 ], topscreen->comp->value);
 
-  // Set empty exernallink link, should clear it - some users expect this
+  // Set empty externallink link, should clear it - some users expect this
   topscreen->comp->value := [ append := "", externallink := "", internallink := 0 ];
   TestEQ(DEFAULT RECORD, topscreen->comp->value);
   TestEQ("", topscreen->comp->^external->value);
