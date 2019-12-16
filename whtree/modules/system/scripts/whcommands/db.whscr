@@ -80,7 +80,8 @@ SWITCH (args.command)
   CASE "readwritestatus"
   {
     RECORD subargs := ParseArguments(args.args,
-        [ [ name := "newvalue", type := "param" ]
+        [ [ name := "y", type := "switch" ]
+        , [ name := "newvalue", type := "param" ]
         ]);
 
     IF (NOT RecordExists(subargs))
@@ -103,9 +104,12 @@ SWITCH (args.command)
       {
         CASE "read-only"
         {
-          PRINT("Are you sure you want to switch the database of this WebHare to read-only? Enter 'yes' to proceed. ");
-          IF (ReadLineFrom(0, 4096, TRUE) != "yes")
-            TerminateScript();
+          IF (NOT args.y)
+          {
+            PRINT("Are you sure you want to switch the database of this WebHare to read-only? Enter 'yes' to proceed. ");
+            IF (ReadLineFrom(0, 4096, TRUE) != "yes")
+              TerminateScript();
+          }
 
           RECORD dbaseconfig := GetDatabaseDebugConfig();
           UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := TRUE ] ]);
