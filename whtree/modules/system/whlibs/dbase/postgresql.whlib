@@ -29,6 +29,7 @@ MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) _
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 /** Escapes a literal string for direct insertion into a query string
     @param toencode String to encode
@@ -1588,6 +1589,11 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
     RETURN retval;
   }
+
+  UPDATE PUBLIC MACRO __UpdateDebugConfig(RECORD newconfig)
+  {
+    __PGSQL_UPDATEDEBUGSETTINGS(this->id, newconfig.logstacktraces);
+  }
 >;
 
 PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1718,6 +1724,13 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   RECORD ARRAY params;
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
+
+  IF (IsValueSet(__GetDatabaseDebugConfig))
+  {
+    RECORD config := __GetDatabaseDebugConfig();
+    IF (config.logstacktraces > 0)
+      INSERT [ name := "webhare:logstacktraces", value := ToString(config.logstacktraces) ] INTO params AT END;
+  }
 
   RECORD transresult;
   TRY

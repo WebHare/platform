@@ -24,15 +24,21 @@ RECORD FUNCTION GetUpdateRec(STRING colname, INTEGER renumberto, BOOLEAN recordr
   RETURN upd;
 }
 
-// Function to test if the WebHare database is in readonly mode
-PUBLIC FUNCTION PTR __TestDBReadOnlyMode;
+/** Returns the database debug configuration
+    @private
+    @cell(boolean) readonly Init in readonly mode
+    @cell(boolean) logstacktrace Log stack traces
+*/
+PUBLIC FUNCTION PTR __GetDatabaseDebugConfig;
 
 /** Returns whether WebHare is in database readonly mode
     @return TRUE if in readonly mode. If so, BeginWork and CommitWork calls will throw an exception.
 */
 PUBLIC BOOLEAN FUNCTION IsDatabaseReadonly()
 {
-  RETURN __TestDBReadOnlyMode != DEFAULT FUNCTION PTR AND __TestDBReadOnlyMode();
+  IF (__GetDatabaseDebugConfig = DEFAULT FUNCTION PTR)
+    RETURN FALSE;
+  RETURN __GetDatabaseDebugConfig().readonly;
 }
 
 OBJECTTYPE TableColumn
@@ -1136,6 +1142,14 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   {
     IF (NOT this->IsWorkOpen())
       THROW NEW Exception(`Cannot disable work timeout, work is not open`);
+  }
+
+  /** Process an updated database debug configuration
+      @param newconfig.readonly Readonly. Already handled by BeginWork, no need to process
+      @param newconfig.logstacktraces Log stack traces
+  */
+  PUBLIC MACRO __UpdateDebugConfig(RECORD newconfig)
+  {
   }
 >;
 

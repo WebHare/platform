@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
+LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
@@ -24,9 +25,10 @@ LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 MACRO ShowSyntax(STRING error)
 {
   PRINT(`Error: ${error}\n`);
-  PRINT("Syntax: wh database <command>\n");
+  PRINT("Syntax: wh db <command>\n");
   PRINT("Commands:\n");
   PRINT("  transactions             Show transaction list\n");
+  PRINT("  readwritestatus          Get/set read-write status (read-write / read-only)\n");
   TerminateScriptWithError("");
 }
 
@@ -91,7 +93,7 @@ SWITCH (args.command)
     IF (args.newvalue != "")
     {
       STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
-      IF (envsettings LIKE "* WEBHARE_DBASE_READONLY=*")
+      IF (envsettings LIKE `* WEBHARE_DBASE_READONLY=*` AND envsettings NOT LIKE `* WEBHARE_DBASE_READONLY=""\n`)
         TerminateScriptWithError("The database readonly settings are set globally by 'wh console' and cannot be changed.");
 
       IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
@@ -105,12 +107,14 @@ SWITCH (args.command)
           IF (ReadLineFrom(0, 4096, TRUE) != "yes")
             TerminateScript();
 
-          UpdateSystemConfigurationRecord(CELL[ database := [ readonly := TRUE ] ]);
+          RECORD dbaseconfig := GetDatabaseDebugConfig();
+          UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := TRUE ] ]);
           ReloadWebhareConfig2("ALL");
         }
         CASE "read-write"
         {
-          UpdateSystemConfigurationRecord(CELL[ database := [ readonly := FALSE ] ]);
+          RECORD dbaseconfig := GetDatabaseDebugConfig();
+          UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := FALSE ] ]);
           ReloadWebhareConfig2("ALL");
         }
       }

@@ -4,6 +4,7 @@
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/hssupport.whlib";
 LOADLIB "wh::internal/transbase.whlib";
+LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::system.whlib";
 
@@ -104,16 +105,24 @@ MACRO ReadDebugConfig()
   }
 }
 
-BOOLEAN FUNCTION TestDBReadOnlyMode()
+/** Returns the debug configuration of the database
+    @return Database debug configuration
+    @cell(boolean) return.readonly Read-only mode
+    @cell(integer) return.logstacktraces Number of stack trace items to log
+    @loadlib mod::system/lib/internal/dbase/base.whlib
+*/
+PUBLIC RECORD FUNCTION GetDatabaseDebugConfig()
 {
-  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
-    RETURN TRUE;
-
   RECORD config := EnforceStructure(
-      [ database :=   [ readonly := FALSE ]
+      [ database :=   [ readonly := FALSE
+                      , logstacktraces := 0
+                      ]
       ], __SYSTEM_GETSYSTEMCONFIG());
 
-  RETURN config.database.readonly;
+  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")
+    config.database.readonly := TRUE;
+
+  RETURN config.database;
 }
 
 STRING profilingtype;
@@ -132,6 +141,9 @@ MACRO HandleConfigChange()
     HandleDebugConfig(NOT gotfirstconfig);
     gotfirstconfig := TRUE;
   }
+  OBJECT primary := GetPrimaryWebhareTransactionObject();
+  IF (ObjectExists(primary))
+    primary->__UpdateDebugConfig(GetDatabaseDebugConfig());
 }
 
 MACRO HandleDebugConfig(BOOLEAN initialapply)
@@ -270,5 +282,5 @@ __LibraryLoadRemapper := PTR LibraryLoadRemapper;
 __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
-__TestDBReadOnlyMode := PTR TestDBReadOnlyMode;
+__GetDatabaseDebugConfig := PTR GetDatabaseDebugConfig;
 
