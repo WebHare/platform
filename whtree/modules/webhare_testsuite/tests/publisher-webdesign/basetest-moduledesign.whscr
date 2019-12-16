@@ -18,7 +18,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestTestSite()
 {
-  //some things can already be testd using the webhare testsuite site, so do those first
+  //some things can already be tested using the webhare testsuite site, so do those first
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage"));
   OBJECT contentdiv := testfw->browser->document->GetElementById("content");
 
