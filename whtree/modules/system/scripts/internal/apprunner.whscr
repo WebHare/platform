@@ -355,6 +355,8 @@ PUBLIC STATIC OBJECTTYPE AppRunner
       IF(app NOT IN seenapps)
         this->TerminateAppByName(app->name, "Not needed anymore");
 
+    this->applications := seenapps;
+
     this->StartApplications();
     BroadcastEvent("system:internal.apprunner.refresh",DEFAULT RECORD);
   }
