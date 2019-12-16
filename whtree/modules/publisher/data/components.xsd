@@ -51,7 +51,7 @@
   <xs:element name="browseforobjectarray" type="BrowseForObjectArray">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" lib="components/browseforobjectarray.whlib" objecttype="PublisherBrowseForObjectArray" />
+        <s:tolliumcomponent placement="block" objecttype="/lib/components/browseforobjectarray.whlib#PublisherBrowseForObjectArray" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -130,7 +130,7 @@
   <xs:complexType name="WHFSInstance">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" lib="components/whfsinstance.whlib" objecttype="WHFSInstance" />
+        <s:tolliumcomponent placement="composition" objecttype="/lib/components/whfsinstance.whlib#WHFSInstance" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:CompositionBase" />
@@ -162,7 +162,7 @@
         <xs:documentation>
           This option source can be used to use an array member from an instance as options for a select.
         </xs:documentation>
-        <s:tolliumcomponent placement="optionsource" lib="components/whfsinstanceoptions.whlib" objecttype="WHFSInstanceOptions" />
+        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/whfsinstanceoptions.whlib#WHFSInstanceOptions" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -315,7 +315,7 @@
   <xs:complexType name="FSObjects">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="optionsource" lib="components/fsobjects.whlib" objecttype="FSObjects" />
+        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSObjects" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -341,7 +341,7 @@
   <xs:complexType name="FSLibrary">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="optionsource" lib="components/fsobjects.whlib" objecttype="FSLibrary" />
+        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSLibrary" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -359,7 +359,7 @@
   <xs:complexType name="InternalLinks">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="rte" lib="components/internallinks.whlib" objecttype="InternalLinks" />
+        <s:tolliumcomponent placement="rte" objecttype="/lib/components/internallinks.whlib#InternalLinks" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -735,7 +735,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="listcolumn" lib="components/intextlinkcolumn.whlib" objecttype="IntExtLinkColumn" />
+          <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/intextlinkcolumn.whlib#IntExtLinkColumn" />
           <s:fixedfield field="type" type="xs:string" value="text" />
         </xs:appinfo>
       </xs:annotation>
@@ -996,7 +996,7 @@
   <xs:complexType name="WHFSRefColumn">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="listcolumn" lib="components/whfsrefcolumn.whlib" objecttype="WHFSRefColumn" />
+        <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/whfsrefcolumn.whlib#WHFSRefColumn" />
         <s:fixedfield field="type" type="xs:string" value="text" />
       </xs:appinfo>
     </xs:annotation>
@@ -1301,7 +1301,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="listcolumn" lib="components/formcondition.whlib" objecttype="FormConditionColumn" />
+          <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/formcondition.whlib#FormConditionColumn" />
           <s:fixedfield field="type" type="xs:string" value="text" />
         </xs:appinfo>
       </xs:annotation>

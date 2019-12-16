@@ -114,7 +114,7 @@
   <xs:element name="preinittest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="screens/tests/fragments.whlib" objecttype="PreinitTestComponent" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/screens/tests/fragments.whlib#PreinitTestComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -125,7 +125,7 @@
   <xs:element name="preinitcomptest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" lib="screens/tests/fragments.whlib" objecttype="PreinitCompTestComponent" />
+        <s:tolliumcomponent placement="composition" objecttype="/lib/screens/tests/fragments.whlib#PreinitCompTestComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -136,7 +136,7 @@
   <xs:element name="preinitspecialtest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" lib="screens/tests/fragments.whlib" objecttype="PreinitTestSpecialComponent" />
+        <s:tolliumcomponent placement="composition" objecttype="/lib/screens/tests/fragments.whlib#PreinitTestSpecialComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -172,7 +172,7 @@
   <xs:element name="querysourcecomp">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="optionsource" lib="screens/tests/fragments.whlib" objecttype="QuerySourceComponent" />
+        <s:tolliumcomponent placement="optionsource" objecttype="/lib/screens/tests/fragments.whlib#QuerySourceComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -200,7 +200,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="rte" lib="screens/components/customlinkhandler.whlib" objecttype="CustomLinkHandler" />
+          <s:tolliumcomponent placement="rte" objecttype="/lib/screens/components/customlinkhandler.whlib#CustomLinkHandler" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />

@@ -1,5 +1,4 @@
-<restapi xmlns="http://www.webhare.net/xmlns/system/restapi" library="mod::webhare_testsuite/tests/wh/webserver/remoting/restapi/restapi.whlib"
-         objecttype="TestRestAPI"
+<restapi xmlns="http://www.webhare.net/xmlns/system/restapi" objecttype="restapi.whlib#TestRestAPI"
          logsource="webhare_testsuite:restapi"
          security="wrdauth">
 

@@ -88,7 +88,7 @@
   <xs:element name="entity">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" lib="components/entity.whlib" objecttype="TolliumWRDEntity" />
+        <s:tolliumcomponent placement="composition" objecttype="/lib/components/entity.whlib#TolliumWRDEntity" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -182,7 +182,7 @@
   <xs:element name="field">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="components/field.whlib" objecttype="TolliumWRDField" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/components/field.whlib#TolliumWRDField" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -351,7 +351,7 @@
   <xs:element name="arraybox">
     <xs:annotation>
       <xs:appinfo>
-        <!-- <s:tolliumcomponent placement="block" lib="components/arraybox.whlib" objecttype="TolliumWRDArrayBox" /> -->
+        <!-- <s:tolliumcomponent placement="block" objecttype="/lib/components/arraybox.whlib#TolliumWRDArrayBox" /> -->
         <s:tolliumcomponent placement="block" fragment="components.arraybox" />
       </xs:appinfo>
       <xs:documentation>
@@ -393,7 +393,7 @@
   <xs:element name="selectentity">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="components/selectentity.whlib" objecttype="TolliumWRDEntitySelectionField" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/components/selectentity.whlib#TolliumWRDEntitySelectionField" />
         <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
       </xs:appinfo>
     </xs:annotation>
@@ -461,7 +461,7 @@
   <xs:element name="countryfields">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="components/countryfields.whlib" objecttype="TolliumWRDCountryFields" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/components/countryfields.whlib#TolliumWRDCountryFields" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -479,7 +479,7 @@
   <xs:element name="paramfield">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" lib="components/queryparameterfield.whlib" objecttype="TolliumWRDQueryParameterField" />
+        <s:tolliumcomponent placement="inline" objecttype="/lib/components/queryparameterfield.whlib#TolliumWRDQueryParameterField" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -541,7 +541,7 @@
           <xs:documentation>
             This option source can be used to select the results of a query.
           </xs:documentation>
-          <s:tolliumcomponent placement="optionsource" lib="components/runquery.whlib" objecttype="RunQuery" />
+          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/runquery.whlib#RunQuery" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="QueryAttributes" />
@@ -569,7 +569,7 @@
           <xs:documentation>
             This option source can be used to select the results of a query.
           </xs:documentation>
-          <s:tolliumcomponent placement="optionsource" lib="components/queryresults.whlib" objecttype="QueryResults" />
+          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/queryresults.whlib#QueryResults" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="QueryAttributes" />
@@ -926,7 +926,7 @@
   <xs:element name="entityrefcolumn">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="listcolumn" lib="components/entityrefcolumn.whlib" objecttype="EntityRefColumn" />
+        <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/entityrefcolumn.whlib#EntityRefColumn" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -971,8 +971,7 @@
       <xs:annotation>
         <xs:appinfo>
           <s:tolliumcomponent placement="composition"
-                              lib="components/entitylistener.whlib"
-                              objecttype="TolliumWRDEntityListener"
+                              objecttype="/lib/components/entitylistener.whlib#TolliumWRDEntityListener"
                               />
         </xs:appinfo>
       </xs:annotation>

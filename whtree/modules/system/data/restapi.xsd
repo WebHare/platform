@@ -18,8 +18,7 @@
         <xs:element ref="t:types" minOccurs="0" maxOccurs="1" />
         <xs:element ref="t:endpoint" minOccurs="0" maxOccurs="unbounded" />
       </xs:sequence>
-      <xs:attribute name="library" type="t:NonEmptyString" use="required" />
-      <xs:attribute name="objecttype" type="t:NonEmptyString" />
+      <xs:attribute name="objecttype" type="t:NonEmptyString" use="required" />
       <xs:attribute name="logsource" type="t:NonEmptyString" use="required" />
       <xs:attribute name="security" type="t:SecurityProvider" use="required" />
     </xs:complexType>

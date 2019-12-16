@@ -8,7 +8,6 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/localization.whlib";
 
-LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/validation/extracttids.whlib";
@@ -16,7 +15,6 @@ LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 
 
 RECORD ARRAY schemata;
@@ -61,7 +59,7 @@ PUBLIC OBJECTTYPE LegacyTestInfoValidator EXTEND ResourceValidationBase
   UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
   {
     RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.warnings AT END;
+    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.errors AT END;
     RETURN result;
   }
 >;
@@ -104,30 +102,6 @@ PUBLIC OBJECTTYPE TestInfoValidator EXTEND ResourceValidationBase
         INSERT CELL[ line := 0, col := 0, resourcename, message := `Directory entry '${entry.name}' not referred in tests and not on ignoremasks list` ] INTO result.warnings AT END;
     }
     RETURN result;
-  }
->;
-
-PUBLIC OBJECTTYPE XSDValidator EXTEND ResourceValidationBase
-<
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
-  {
-    RECORD baseresult := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    STRING module := GetModuleNameFromResourcePath(resourcename);
-
-    //ADDME generalize?
-    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
-       OR doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
-    {
-      RECORD res := ParseFormDefComponents(resourcename, doc);
-      baseresult.errors := baseresult.errors CONCAT res.errors;
-      baseresult.warnings := baseresult.warnings CONCAT res.warnings;
-    }
-    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
-    {
-      RECORD res := ParseComponentsXSD(resourcename, doc, RECORD[]);
-      baseresult.errors := baseresult.errors CONCAT res.errors;
-    }
-    RETURN baseresult;
   }
 >;
 

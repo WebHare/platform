@@ -22,7 +22,7 @@
   <xs:element name="rightobjecttree">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" lib="components/rightobjecttree.whlib" objecttype="RightObjectTreeComponent" />
+        <s:tolliumcomponent placement="block" objecttype="/lib/components/rightobjecttree.whlib#RightObjectTreeComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -50,7 +50,7 @@
   <xs:element name="registrynode">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" lib="components/registrynode.whlib" objecttype="RegistryNode" />
+        <s:tolliumcomponent placement="composition" objecttype="/lib/components/registrynode.whlib#RegistryNode" />
         <xs:documentation>
           A registrynode composition points to a node in the registry, and allows you to access the keys by cellname
         </xs:documentation>

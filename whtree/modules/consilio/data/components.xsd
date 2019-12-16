@@ -23,7 +23,7 @@
   <xs:element name="autosuggest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="autosuggest" lib="components/autosuggest.whlib" objecttype="ConsilioAutoSuggestComponent" />
+        <s:tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#ConsilioAutoSuggestComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
