@@ -27,7 +27,7 @@
                witty="witty/basetest.witty"
                library="lib/basetest.whlib"
                objectname="BaseTestDesign"
-               assetpack="webhare_testsuite:basetest"
+               assetpack="basetest"
                maxcontentwidth="960px"
                contentnavstops="h1"
                wittyencoding="HTML-NI"/>

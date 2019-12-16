@@ -31,7 +31,7 @@
                witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
                library="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib"
                objectname="WebinterfaceDesign"
-               assetpack="tollium:webinterface"
+               assetpack="webinterface"
                maxcontentwidth="960px"
                supportserrors="true"
                supportsaccessdenied="true" />
