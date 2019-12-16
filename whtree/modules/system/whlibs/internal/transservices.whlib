@@ -32,6 +32,7 @@ PUBLIC MACRO RegisterTransaction(OBJECT trans)
 
 
 /** Unregisters the transaction object.
+    @param trans Transaction object
 */
 PUBLIC MACRO UnregisterTransaction(OBJECT trans)
 {
@@ -49,6 +50,7 @@ PUBLIC MACRO UnregisterTransaction(OBJECT trans)
 
 
 /** Returns the transactions object for a specific transaction
+    @param transid Id of the transaction object
 */
 PUBLIC OBJECT FUNCTION GetTransactionObjectByIdInternal(INTEGER transid)
 {
@@ -108,7 +110,7 @@ PUBLIC MACRO SetPrimaryWebhareTransaction(INTEGER transid)
 
 /** Register a transaction binder function, that will be called with the
     id of the primary WebHare transaction when that changes
-    @param bindfunction Function to call, signature: MACRO bindfunc(INTEGER transactionid)
+    @param bindfunc Function to call, signature: MACRO bindfunc(INTEGER transactionid)
     @topic database/webharedb
     @public
     @loadlib mod::system/lib/database.whlib
