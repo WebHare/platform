@@ -9,7 +9,7 @@ moduledefinition.xml:
   </publisher>
 ```
 
-Searchproviders should update their `versionn=` when their (search) preview changes in a way that requires reindexing.
+Searchproviders should update their `version=` when their (search) preview changes in a way that requires reindexing.
 
 You can then specify a `searchcontentprovider=` with a filetype.
 
