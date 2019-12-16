@@ -1359,14 +1359,15 @@ const char* GetOperator(DBConditionCode::_type condition)
 
 
 
-PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, std::string const &_blobfolder)
+PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTransactionDriver::Options const &options)
 : DatabaseTransactionDriverInterface(GetVirtualMachine(_vm))
 , conn(_conn)
 , prepared_statements_counter(0)
 , isworkopen(false)
 , webhare_blob_oid(0)
-, blobfolder(_blobfolder)
+, blobfolder(options.blobfolder)
 , allowwriteerrordelay(false)
+, logstacktraces(options.logstacktraces)
 {
         description.supports_block_cursors = false;
         description.supports_single = true; // unused!!
@@ -1990,6 +1991,26 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
         if (PGSQLTransactionDriver::GetLastResult().second)
             return PGPtr< PGresult >();
 
+        std::string logprefix;
+        if (logstacktraces > 0)
+        {
+                logprefix = "/*whlog:t[";
+
+                std::vector< StackTraceElement > elements;
+                vm->GetStackTrace(&elements, true, false);
+
+                int32_t eltcount = 0;
+                for (auto itr: elements)
+                {
+                        if (eltcount == logstacktraces)
+                             break;
+                        if (eltcount++)
+                            logprefix += ",";
+                        logprefix += itr.filename + "#" + Blex::AnyToString(itr.position.line) + "#" + Blex::AnyToString(itr.position.column) + "(" + itr.func + ")";
+                }
+                logprefix += "]*/";
+        }
+
         Blex::SHA1 sha1;
         sha1.Process(query.querystr.c_str(), query.querystr.size() + 1);
         if (query.params.types.size())
@@ -1997,7 +2018,7 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
         std::string hash = sha1.FinalizeHash().stl_str();
 
         PreparedStatement &prep = prepared_statements[hash];
-        if (prep.use < 16 && (query.querystr.compare(0, 7, "SELECT "sv) == 0 || query.querystr.compare(0, 7, "INSERT "sv) == 0))
+        if (prep.use < 16 && (query.querystr.compare(0, 7, "SELECT "sv) == 0 || query.querystr.compare(0, 7, "INSERT "sv) == 0) && logprefix.empty())
         {
                 if (++prep.use == 16)
                 {
@@ -2028,7 +2049,7 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
         }
 
         int res = 0;
-        if (!prep.name.empty())
+        if (!prep.name.empty() && logprefix.empty())
         {
                 PQ_PRINT("Execute"<<(asyncresult?" async":"") << " prepared statement " << prep.name << ": " << prep.querystr);
                 res = PQsendQueryPrepared(
@@ -2045,7 +2066,7 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                 PQ_PRINT("Execute"<<(asyncresult?" async":"") << " query: " << query.querystr);
                 res = PQsendQueryParams(
                     conn,
-                    query.querystr.c_str(),
+                    logprefix.empty() ? query.querystr.c_str() : (logprefix + query.querystr).c_str(),
                     query.params.types.size(),
                     query.params.types.begin(),
                     query.params.dataptrs.begin(),
@@ -2281,6 +2302,7 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         std::vector< std::string > strings;
 
         std::string blobfolder;
+        int32_t logstacktraces = 0;
 
         PQ_PRINT("PGSQL_Connect");
 
@@ -2297,6 +2319,8 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
                         PQ_PRINT(" wh-specific: " << name);
                         if (name == "webhare:blobfolder")
                             blobfolder = value;
+                        else if (name == "webhare:logstacktraces")
+                            logstacktraces = Blex::DecodeSignedNumber< int32_t >(value, 10);
                         else
                         {
                                 HSVM_ThrowException(hsvm, ("Unknown webhare-specific parameter '" + name + "'").c_str());
@@ -2340,7 +2364,11 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
                 return;
         }
 
-        std::unique_ptr< PGSQLTransactionDriver > driver(new PGSQLTransactionDriver(hsvm, conn, blobfolder));
+        auto options = PGSQLTransactionDriver::Options(); // value-initialize the options
+        options.blobfolder = blobfolder;
+        options.logstacktraces = logstacktraces;
+
+        std::unique_ptr< PGSQLTransactionDriver > driver(new PGSQLTransactionDriver(hsvm, conn, options));
         int pid = driver->GetBackendPid();
         int32_t trans_id = GetVirtualMachine(hsvm)->GetSQLSupport().RegisterTransaction(std::move(driver));
 
@@ -2471,6 +2499,20 @@ void PGSQL_GetUploadedBlobId(HSVM *hsvm, HSVM_VariableId id_set)
             stackm.SetSTLString(id_set, context->blobid);
 }
 
+void PGSQL_UpdateDebugSettings(HSVM *hsvm)
+{
+        int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
+        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        if (!driver)
+        {
+                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
+                return;
+        }
+
+        driver->logstacktraces = HSVM_IntegerGet(hsvm, HSVM_Arg(1));
+}
+
+
 void PGSQL_EscapeIdentifier(HSVM *hsvm, HSVM_VariableId id_set)
 {
         VirtualMachine *vm = GetVirtualMachine(hsvm);
@@ -2562,8 +2604,10 @@ BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN:WH_PGSQL:B:I", PGSQL_GetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
+        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::II", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
+
 
         HSVM_RegisterContext(regdata, PostgreSQLWHBlobContextId, NULL, &CreateBlobContext, &DestroyBlobContext);
 

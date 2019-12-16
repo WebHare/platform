@@ -41,6 +41,13 @@ struct ParamsEncoder;
 /** PostgreSQL transaction object */
 class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 {
+    public:
+        struct Options
+        {
+                std::string blobfolder;
+                int32_t logstacktraces;
+        };
+
     private:
         typedef IdMapStorage< QueryData > QueryStorage;
 
@@ -84,7 +91,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
     public:
         /// Initializes ODBC transaction
-        PGSQLTransactionDriver(HSVM *vm, PGconn *conn, std::string const &_blobfolder);
+        PGSQLTransactionDriver(HSVM *vm, PGconn *conn, Options const &options);
         ~PGSQLTransactionDriver();
 
         virtual void ExecuteInsert(DatabaseQuery const &query, VarId newrecord);
@@ -113,6 +120,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         int32_t webhare_blob_oid;
         std::string blobfolder;
         bool allowwriteerrordelay;
+        int32_t logstacktraces;
 
         friend struct ParamsEncoder;
 };
