@@ -29,16 +29,16 @@ RECORD FUNCTION GetUpdateRec(STRING colname, INTEGER renumberto, BOOLEAN recordr
     @cell(boolean) readonly Init in readonly mode
     @cell(boolean) logstacktrace Log stack traces
 */
-PUBLIC FUNCTION PTR __GetDatabaseDebugConfig;
+PUBLIC FUNCTION PTR __GetDatabaseRuntimeConfig;
 
 /** Returns whether WebHare is in database readonly mode
     @return TRUE if in readonly mode. If so, BeginWork and CommitWork calls will throw an exception.
 */
 PUBLIC BOOLEAN FUNCTION IsDatabaseReadonly()
 {
-  IF (__GetDatabaseDebugConfig = DEFAULT FUNCTION PTR)
+  IF (__GetDatabaseRuntimeConfig = DEFAULT FUNCTION PTR)
     RETURN FALSE;
-  RETURN __GetDatabaseDebugConfig().readonly;
+  RETURN __GetDatabaseRuntimeConfig().readonly;
 }
 
 OBJECTTYPE TableColumn
@@ -386,6 +386,9 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   /** Events to call on a successful commit */
   RECORD ARRAY pvt_commitevents;
 
+  /// Whether this is the primary transaction
+  BOOLEAN pvt_isprimary;
+
   /** List of names of simple commit events (without data) */
   STRING ARRAY pvt_simplecommiteventset;
 
@@ -626,7 +629,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
                                ], options);
     IF (this->pvt_numworks != 0)
       THROW NEW Exception("Cannot begin work: work is already open");
-    IF (IsDatabaseReadonly())
+    IF (this->pvt_isprimary AND IsDatabaseReadonly())
       THROW NEW Exception("Cannot begin work: the WebHare database is in readonly mode");
 
     TRY
@@ -681,11 +684,14 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW NEW Exception("Cannot commit work: work is not open");
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
-    IF (IsDatabaseReadonly())
-      THROW NEW Exception("Cannot commit work: the WebHare database is in readonly mode");
 
     TRY
+    {
+      IF (this->pvt_isprimary AND IsDatabaseReadonly())
+        THROW NEW Exception("Cannot commit work: the WebHare database is in readonly mode");
+
       this->__CallPreCommitHandlers(TRUE);
+    }
     CATCH (OBJECT e)
     {
       // Throwing pre-commit handlers cause a rollback

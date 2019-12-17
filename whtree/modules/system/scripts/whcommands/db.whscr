@@ -152,13 +152,13 @@ SWITCH (args.command)
               TerminateScript();
           }
 
-          RECORD dbaseconfig := GetDatabaseDebugConfig();
+          RECORD dbaseconfig := GetDatabaseRuntimeConfig();
           UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := TRUE ] ]);
           ReloadWebhareConfig2("ALL");
         }
         CASE "read-write"
         {
-          RECORD dbaseconfig := GetDatabaseDebugConfig();
+          RECORD dbaseconfig := GetDatabaseRuntimeConfig();
           UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := FALSE ] ]);
           ReloadWebhareConfig2("ALL");
         }

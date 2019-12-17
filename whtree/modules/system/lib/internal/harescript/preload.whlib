@@ -111,7 +111,7 @@ MACRO ReadDebugConfig()
     @cell(integer) return.logstacktraces Number of stack trace items to log
     @loadlib mod::system/lib/internal/dbase/base.whlib
 */
-PUBLIC RECORD FUNCTION GetDatabaseDebugConfig()
+PUBLIC RECORD FUNCTION GetDatabaseRuntimeConfig()
 {
   RECORD config := EnforceStructure(
       [ database :=   [ readonly := FALSE
@@ -143,7 +143,7 @@ MACRO HandleConfigChange()
   }
   OBJECT primary := GetPrimaryWebhareTransactionObject();
   IF (ObjectExists(primary))
-    primary->__UpdateDebugConfig(GetDatabaseDebugConfig());
+    primary->__UpdateDebugConfig(GetDatabaseRuntimeConfig());
 }
 
 MACRO HandleDebugConfig(BOOLEAN initialapply)
@@ -282,5 +282,5 @@ __LibraryLoadRemapper := PTR LibraryLoadRemapper;
 __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
-__GetDatabaseDebugConfig := PTR GetDatabaseDebugConfig;
+__GetDatabaseRuntimeConfig := PTR GetDatabaseRuntimeConfig;
 

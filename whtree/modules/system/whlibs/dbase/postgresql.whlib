@@ -1115,10 +1115,11 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Pid of PostgreSQL backend client
   PUBLIC PROPERTY backendpid(pvt_backendpid, -);
 
-  MACRO NEW(RECORD transresult, BOOLEAN auto, OBJECT blobhandler)
+  MACRO NEW(RECORD transresult, BOOLEAN auto, BOOLEAN isprimary, OBJECT blobhandler)
   {
     this->RegisterTransaction(transresult.id);
     this->pvt_backendpid := transresult.pid;
+    this->pvt_isprimary := isprimary;
     this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
     this->pvt_blobhandler := blobhandler;
@@ -1729,6 +1730,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , clientname :=   ""
       , webhare_dbasename := ""
       , blobhandler :=  DEFAULT OBJECT
+      , isprimary :=    FALSE
       ], transinfo);
 
   IF (NOT transinfo.auto)
@@ -1742,9 +1744,9 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
 
-  IF (IsValueSet(__GetDatabaseDebugConfig))
+  IF (transinfo.isprimary AND IsValueSet(__GetDatabaseRuntimeConfig))
   {
-    RECORD config := __GetDatabaseDebugConfig();
+    RECORD config := __GetDatabaseRuntimeConfig();
     IF (config.logstacktraces > 0)
       INSERT [ name := "webhare:logstacktraces", value := ToString(config.logstacktraces) ] INTO params AT END;
   }
@@ -1777,7 +1779,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF(NOT RecordExists(transresult))
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.blobhandler);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.isprimary, transinfo.blobhandler);
 
   IF (IsDebugTagEnabled("postgresql:auto_explain"))
   {

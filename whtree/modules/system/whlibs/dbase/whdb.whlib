@@ -366,10 +366,11 @@ OBJECTTYPE WHDBTransaction EXTEND BuiltinTransactionBase
 
   INTEGER waithandler;
 
-  MACRO NEW(INTEGER id, BOOLEAN auto)
+  MACRO NEW(INTEGER id, BOOLEAN auto, BOOLEAN isprimary)
   {
     this->RegisterTransaction(id);
     this->pvt_isauto := auto;
+    this->pvt_isprimary := isprimary;
     this->__is_whdb := TRUE;
 
     IF(this->pvt_isauto)
@@ -853,9 +854,9 @@ PUBLIC INTEGER FUNCTION __avoiddepwarning_StartWHDBTransaction(RECORD transinfo)
     @param trans ID of new transaction
     @param isauto Whether the transaction is an auto-transasction
 */
-PUBLIC OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto)
+PUBLIC OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto, BOOLEAN isprimary DEFAULTSTO FALSE)
 {
-  RETURN NEW WHDBTransaction(trans, isauto);
+  RETURN NEW WHDBTransaction(trans, isauto, isprimary);
 }
 
 /** @short Get any errors so far

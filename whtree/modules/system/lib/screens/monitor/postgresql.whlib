@@ -37,7 +37,7 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
 
   MACRO RefreshConfig()
   {
-    RECORD debugconfig := GetDatabaseDebugConfig();
+    RECORD debugconfig := GetDatabaseRuntimeConfig();
     ^readonly->value := debugconfig.readonly;
     ^logstacktraces->value := debugconfig.logstacktraces > 0;
 
@@ -75,7 +75,7 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
   MACRO GotLogStackTracesChange()
   {
     INTEGER newlogstacktraces := ^logstacktraces->value ? 10 : 0;
-    RECORD database := GetDatabaseDebugConfig();
+    RECORD database := GetDatabaseRuntimeConfig();
     IF (database.logstacktraces != newlogstacktraces)
     {
       database.logstacktraces := ^logstacktraces->value ? 10 : 0;
