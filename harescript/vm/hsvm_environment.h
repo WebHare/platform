@@ -465,8 +465,11 @@ class LibraryLoader
         /// The linked libraries currently directly loaded
         LibraryConstPtrs loaded_libs;
 
-        /// Pointers to the libraries that must still be initialized
+        /// Pointers to the libraries that must be initialized (superset of loaded_libs)
         LibraryConstPtrs mustinit;
+
+        /// Map from name to library, mirrors mustinit
+        std::unordered_map< std::string, Library const * > mustinit_urimap;
 
         /// Number of libraries that have been returned for initialization
         unsigned initcount;
@@ -489,6 +492,9 @@ class LibraryLoader
 
         /** Retrieve info about all libraries, from the context of a VM */
         void GetAllWHLibrariesInfo(Blex::ContextKeeper &keeper, std::vector< LibraryInfo > *infos);
+
+        /** Get the uris of all libraries, from the context of a VM */
+        void GetAllWHLibrariesUris(std::vector< std::string > *uris);
 
         /** Adds an extra library. */
         Library const * LoadWHLibrary(Blex::ContextKeeper &keeper, std::string const &liburi, Library const *current_init_lib);
