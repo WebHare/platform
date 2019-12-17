@@ -40,6 +40,9 @@ SCHEMA
   > postgresql_migration_issues
 > webhare_internal;
 
+MACRO __BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
 PUBLIC RECORD ARRAY FUNCTION UpdateMultipleBlobs(RECORD blobconfig, RECORD ARRAY blobs)
 {
   OBJECT blobresolver := GetBlobResolverByConfig(blobconfig);
@@ -68,8 +71,9 @@ IF (NOT RecordExists(args))
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 
-ASYNC MACRO HandleProcess(OBJECT itr)
+ASYNC FUNCTION HandleProcess(OBJECT itr)
 {
+  INTEGER exitcode := -1;
   WHILE (TRUE)
   {
     RECORD rec := AWAIT itr->Next();
@@ -79,9 +83,10 @@ ASYNC MACRO HandleProcess(OBJECT itr)
     {
       CASE "output" { PRINT(rec.value.line || "\n"); }
       CASE "error"  { PRINT(rec.value.line || "\n"); }
-      CASE "close"  { PRINT(`Process closed with exit code ${rec.value.exitcode}\n`); }
+      CASE "close"  { PRINT(`Process closed with exit code ${rec.value.exitcode}\n`); exitcode := rec.value.exitcode; }
     }
   }
+  RETURN exitcode;
 }
 
 /** Calculate the path of a whdb blob parent folder
@@ -108,6 +113,48 @@ IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
 
 IF (RecordExists(GetDiskFileProperties(postgresql_final_dbasefolder)))
   TerminateScriptWithError(`Existing PostgreSQL database found in '${postgresql_final_dbasefolder}', refusing to re-migrate`);
+
+STRING want_readonly := IsdatabaseReadOnly() ? "already_readonly" : "";
+WHILE (want_readonly NOT IN [ "yes", "no", "already_readonly" ])
+{
+  PRINT("Do you want to switch the WebHare database to readonly during migration? Please type 'yes' or 'no'.");
+  want_readonly := ReadLineFrom(0, 4096, TRUE);
+}
+
+OBJECT trans := OpenPrimary();
+
+// UTF-8 invalid stuff that can be deleted safely
+IF (want_readonly != "already_readonly")
+{
+  trans->BeginWork();
+  DELETE FROM system.flatregistry WHERE name LIKE "webhare_testsuite.storeddata.*";
+  trans->CommitWork();
+}
+
+IF (want_readonly = "yes")
+{
+  OBJECT proc := CreateProcess(MergePath(GetEnvironmentVariable("WEBHARE_DIR"), "bin/wh"), [ "db", "readwritestatus", "-y", "read-only"],
+      [ take_input :=       TRUE
+      , take_output :=      TRUE
+      , take_errors :=      TRUE
+      ]);
+  proc->Start();
+  IF (WaitForPromise(HandleProcess(MakeProcessAsyncIterator(proc))) != 0)
+    TerminateScriptWithError(`Could not switch the database to read-only mode`);
+
+  __BeginWHDBWork(trans->id);
+  INTEGER ARRAY transactionids := SELECT AS INTEGER ARRAY transid FROM __SendWHDBCommand(trans->id, 'show transactions');
+  __RollbackWHDBWork(trans->id);
+
+  INTEGER ARRAY org_transactionids := transactionids;
+  WHILE (ArraysIntersect(org_transactionids, transactionids))
+  {
+    __BeginWHDBWork(trans->id);
+    transactionids := SELECT AS INTEGER ARRAY transid FROM __SendWHDBCommand(trans->id, 'show transactions');
+    __RollbackWHDBWork(trans->id);
+    Sleep(100);
+  }
+}
 
 // Start postgresql server
 RECORD ARRAY postgresql_env :=
@@ -136,13 +183,7 @@ OBJECT processitr := MakeProcessAsyncIterator(psql_server);
 OBJECT processwait := HandleProcess(processitr);
 
 
-OBJECT trans := OpenPrimary();
 OBJECT postgresql_trans;
-
-// UTF-8 invalid stuff that can be deleted safely
-trans->BeginWork();
-DELETE FROM system.flatregistry WHERE name LIKE "webhare_testsuite.storeddata.*";
-trans->CommitWork();
 
 // Get a blob handler that uses the migration folder for local disk storage
 BLOB blobconfigdatablob := GetDiskResource(MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "etc/blobstorage.config.json"), [ allowmissing := TRUE ]);
@@ -251,7 +292,9 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
   INSERT parsed INTO apply_schemadefs AT END;
 }
 
-trans->BeginWork();
+
+IF (want_readonly != "yes")
+  trans->BeginWork();
 postgresql_trans->BeginWork();
 
 PRINT(`Creating schemas... `);
