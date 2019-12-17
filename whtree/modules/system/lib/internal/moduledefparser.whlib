@@ -528,7 +528,7 @@ PUBLIC RECORD FUNCTION GetModuleDashboardInfo(STRING modulename, OBJECT moddef)
          ];
 
     IF (IsNodeApplicableToThisWebHare(panel))
-      INSERT rec INTO panels aT END;
+      INSERT rec INTO panels AT END;
   }
 
   RETURN CELL[ groups, panels ];

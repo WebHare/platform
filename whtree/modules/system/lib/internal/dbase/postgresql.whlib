@@ -1404,7 +1404,7 @@ PUBLIC RECORD FUNCTION GetDatabaseMonitorInfo(OBJECT trans)
          AND pid IN (SELECT AS INTEGER ARRAY pid FROM notgranted)
     ORDER BY pid;
 
-  RECORD ARRAY tables :=
+  RECORD ARRAY tupletables :=
       SELECT relation :=    pg_class.oid
            , tablename :=   `${nspname}.${relname}`
         FROM catalog.pg_class
@@ -1413,7 +1413,7 @@ PUBLIC RECORD FUNCTION GetDatabaseMonitorInfo(OBJECT trans)
          AND pg_class.oid IN (SELECT AS INTEGER ARRAY relation FROM interesting_tuples)
     ORDER BY pg_class.oid;
 
-  interesting_tuples := JoinArrays(interesting_tuples, "relation", tables, [ tablename := "" ]);
+  interesting_tuples := JoinArrays(interesting_tuples, "relation", tupletables, [ tablename := "" ]);
 
   FOREVERY (RECORD rec FROM notgranted)
   {
