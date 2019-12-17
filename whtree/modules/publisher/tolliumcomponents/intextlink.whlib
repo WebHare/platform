@@ -183,10 +183,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
     TolliumFragmentBase::SetRequired(new_required);
     this->ConfigureOptions();
-    IF(this->pvt_required)
-      DELETE FROM ^linktype->options WHERE rowkey="nolink";
-    ELSE
-      ^linktype->options := this->saveoptions;
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN nowenable)
