@@ -61,7 +61,6 @@ ShtmlContextData::ShtmlContextData(Shtml *shtml)
 : shtml(shtml)
 , request(0)
 , accessruleid(0)
-, error_is_for_action(false)
 , sync_script(false)
 {
 }
@@ -387,19 +386,6 @@ void Shtml::VMGroupTerminated(HSVM *vm)
         WHCore::ScriptGroupContextData *scriptcontext=static_cast<WHCore::ScriptGroupContextData*>(HSVM_GetGroupContext(vm, WHCore::ScriptGroupContextId,true));
         ShtmlContextData *shtmlcontext = static_cast<ShtmlContextData*>(scriptcontext->shtml.get());
 
-        /* We now tell OnExecute to handle this logerrors so we can get the ordering right in the error log (reason before actual messages)
-
-        unsigned abortflag = group->GetAbortFlag() ? *group->GetAbortFlag() : -999;
-
-        if (!shtmlcontext->error_is_for_action && group->GetErrorHandler().AnyErrors() && abortflag != HSVM_ABORT_DISCONNECT)
-            LogErrors(
-                webserver.GetJobManager().GetGroupId(group),
-                webserver.GetJobManager().GetGroupExternalSessionData(group),
-                webserver.GetJobManager().GetGroupErrorContextInfo(group),
-                group->GetErrorHandler(),
-                *shtmlcontext->request);
-        */
-
         SHTML_PRINT("Group " << group << " has finished, abortflag value: " << abortflag << ", errors: " << (group->GetErrorHandler().AnyErrors() ? "yes" : "no"));
 
         std::unique_ptr< ConnectionWorkTask > task;
@@ -560,12 +546,6 @@ void Shtml::ExecuteAccessScript(WebServer::Connection *webcon, std::string const
         {
                 if(!HSVM_ExecuteScript(app->hsvm, 1, 0)) //not suspendable
                 {
-                        if(HandleRedirectSendfile(webcon, app->hsvm))
-                        {
-                                webcontext->runningapp.reset();
-                                return;
-                        }
-
                         SHTML_PRINT("Access script: must run error handler");
                         if(!SendErrors(
                                 webcon,
@@ -586,6 +566,10 @@ void Shtml::ExecuteAccessScript(WebServer::Connection *webcon, std::string const
                                 SHTML_PRINT("Access script: error handler is running");
                                 return; //avoid resetting the running app, so the error handler has a chance to actually run
                         }
+                }
+                else
+                {
+                        HandleRedirectSendfile(webcon, app->hsvm);
                 }
         }
         catch (std::exception &)
@@ -836,18 +820,20 @@ bool ConnectionWorkTask::OnExecute(WebServer::Connection *webcon)
                         {
                                 HareScript::JobManager *jobmgr = vmgroup->GetJobManager();
 
-                                // VM is now locked, so we can execute HandleRedirectSendfile
-                                if (!HandleRedirectSendfile(webcon, vm))
-                                {
-                                        started_error_script = html->SendErrors(
-                                                webcon,
-                                                jobmgr ? jobmgr->GetGroupId(vmgroup) : "",
-                                                jobmgr ? jobmgr->GetGroupExternalSessionData(vmgroup) : "",
-                                                jobmgr ? jobmgr->GetGroupErrorContextInfo(vmgroup) : "",
-                                                HareScript::GetVirtualMachine(vm)->GetVMGroup()->GetErrorHandler(),
-                                                false); //NOTE - Set to 'false'... trying to get all LogErrors calls done from SendErrors
-                                }
+                                started_error_script = html->SendErrors(
+                                        webcon,
+                                        jobmgr ? jobmgr->GetGroupId(vmgroup) : "",
+                                        jobmgr ? jobmgr->GetGroupExternalSessionData(vmgroup) : "",
+                                        jobmgr ? jobmgr->GetGroupErrorContextInfo(vmgroup) : "",
+                                        HareScript::GetVirtualMachine(vm)->GetVMGroup()->GetErrorHandler(),
+                                        false); //NOTE - Set to 'false'... trying to get all LogErrors calls done from SendErrors
                         }
+                        else
+                        {
+                                // VM is now locked, so we can execute HandleRedirectSendfile
+                                HandleRedirectSendfile(webcon, vm);
+                        }
+
                         if (!started_error_script)
                             webcon->AsyncResponseDone();
                 } break;

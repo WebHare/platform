@@ -275,10 +275,8 @@ void ShtmlContextData::Variable(HSVM *vm, HSVM_VariableId id_set)
 
 void ShtmlContextData::Sendfile(HSVM *vm)
 {
-
         blob_to_send.reset(new HareScript::Interface::InputStream(vm, HSVM_Arg(0)));
-        error_is_for_action = true;
-        HSVM_ReportCustomError(vm, "WHS_SendFile termination");
+        HSVM_SilentTerminate(vm);
 }
 
 void ShtmlContextData::RequestUrl(HSVM *vm, HSVM_VariableId id_set)
