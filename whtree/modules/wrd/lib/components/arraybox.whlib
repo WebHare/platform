@@ -215,7 +215,7 @@ PUBLIC OBJECTTYPE ArrayBox EXTEND TolliumFragmentBase
         }
         DEFAULT
         {
-          val := [ data := RecordExists(value) ? Left(EncodeHSON(value),400) : "" ];
+          val := [ data := IsValueSet(value) ? Left(EncodeHSON(value),400) : "" ];
           //ABORT("Unsupported attrtype #" || col.attributetype || " found in setrows");
         }
       }
