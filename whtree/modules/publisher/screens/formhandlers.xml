@@ -21,6 +21,8 @@
       <select name="sendernamefield" type="pulldown">
         <option rowkey="" tid=".none" />
       </select>
+      <textedit name="sendername" width="1pr" />
+      <textedit name="sender" validationchecks="email-maysendfrom" width="1pr" />
       <select name="replytofield" type="pulldown">
         <option rowkey="" tid=".none" />
       </select>

@@ -414,6 +414,7 @@ if [ -n "$ISMODULETEST" ]; then # for module tests, configure a primary interfac
   <webservers>
     <interface name="primaryinterface" virtualhost="true" isprimary="true" baseurl="http://127.0.0.1/" />
   </webservers>
+  <setregistrykey module="system" key="services.smtp.mailfrom" value="defaultmailfrom@beta.webhare.net" />
 </serverconfig>
 HERE
   if ! $SUDO docker cp "${TEMPBUILDROOT}/config" $CONTAINER:/; then
