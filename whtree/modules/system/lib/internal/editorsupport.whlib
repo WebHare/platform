@@ -528,7 +528,8 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
         OR match[2].value LIKE "*/jstests/rte/jstests-rte.js*"
         OR match[2].value LIKE "*/mootools/core/core.js*"
         OR match[2].value LIKE "*/mootools/core/core-debug.js*"
-        OR match[2].value LIKE "*/jstests/testsuite.js*")
+        OR match[2].value LIKE "*/jstests/testsuite.js*"
+        OR match[2].value LIKE "*/dompack/testframework/*")
     {
       // Chrome:
       IF (match[1].value IN
