@@ -468,6 +468,22 @@
         <text tid="name">Module / node module</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="postgresql">   <!-- monitor.postgresql -->
+      <text tid="application_name">Application name</text>
+      <text tid="backend_start">Transaction start</text>
+      <text tid="debuginfo">Debug info</text>
+      <text tid="lockstab">Locks</text>
+      <text tid="logstacktraces">Log stack traces</text>
+      <text tid="pid">Backend PID</text>
+      <text tid="query">Last query</text>
+      <text tid="query_start">Query start</text>
+      <text tid="readonly">Readonly</text>
+      <text tid="state">State</text>
+      <text tid="tables">Affected tables</text>
+      <text tid="title">PostgreSQL database</text>
+      <text tid="transactionstab">Transactions</text>
+      <text tid="wait_event_type">Wait event type</text>
+    </textgroup>
     <textgroup gid="processlist">   <!-- monitor.processlist -->
       <text tid="abort">Abort</text>
       <text tid="abortprocess">Abort</text>

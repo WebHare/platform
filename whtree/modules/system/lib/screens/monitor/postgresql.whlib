@@ -1,0 +1,85 @@
+﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/dbase/base.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+
+
+PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
+< OBJECT trans;
+  RECORD ARRAY columns;
+
+
+  MACRO Init()
+  {
+    this->trans := GetPrimaryWebhareTransactionObject();
+    this->columns := ^transactions->columns;
+    RegisterEventCallback("system:systemconfig", PTR this->GotConfigChange);
+
+    this->RefreshConfig();
+  }
+
+  MACRO GotConfigChange(STRING event, RECORD data)
+  {
+    this->RefreshConfig();
+  }
+
+  MACRO RefreshConfig()
+  {
+    RECORD debugconfig := GetDatabaseRuntimeConfig();
+    ^readonly->value := debugconfig.readonly;
+    ^logstacktraces->value := debugconfig.logstacktraces > 0;
+
+    RECORD ARRAY columns := this->columns;
+    IF (NOT ^logstacktraces->value)
+      DELETE FROM columns WHERE name = "debuginfo";
+
+    RECORD ARRAY rows := ^transactions->rows;
+    ^transactions->columns := columns;
+    ^transactions->rows := rows;
+  }
+
+  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  {
+    RECORD monitorinfo := GetDatabaseMonitorInfo(GetPrimary());
+
+    ^transactions->rows :=
+        SELECT *
+             , rowkey :=  pid
+             , isself :=  pid = monitorinfo.ownpid
+          FROM monitorinfo.translist
+         WHERE backend_type = "client backend";
+
+    ^blockedlocks->rows :=
+        SELECT *
+             , tables :=      ""
+             , subnodes :=
+                    SELECT *
+                      FROM waiters
+          FROM monitorinfo.blockinglocks;
+
+    ^blockedlocks->expanded := SELECT AS STRING ARRAY rowkey FROM monitorinfo.blockinglocks;
+  }
+
+  MACRO GotLogStackTracesChange()
+  {
+    INTEGER newlogstacktraces := ^logstacktraces->value ? 10 : 0;
+    RECORD database := GetDatabaseRuntimeConfig();
+    IF (database.logstacktraces != newlogstacktraces)
+    {
+      database.logstacktraces := ^logstacktraces->value ? 10 : 0;
+      UpdateSystemConfigurationRecord(CELL[ database ]);
+    }
+  }
+>;

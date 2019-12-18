@@ -20,7 +20,7 @@ LOADLIB "wh::internal/transservices.whlib";
 */
 
 
-INTEGER FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+RECORD FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_CLOSE(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETSTATUS(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
@@ -29,6 +29,7 @@ MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) _
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
+MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 /** Escapes a literal string for direct insertion into a query string
     @param toencode String to encode
@@ -296,6 +297,23 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   , STRING ARRAY "proconfig" // Function's local settings for run-time configuration variables
   //, proacl  aclitem[]   Access privileges; see GRANT and REVOKE for details  > pg_proc
   > "pg_proc"
+, TABLE
+  < STRING "locktype" // Type of the lockable object: relation, extend, page, tuple, transactionid, virtualxid, object, userlock, or advisory
+  , INTEGER "database" NULL := -1 // OID of the database in which the lock target exists, or zero if the target is a shared object, or null if the target is a transaction ID
+  , INTEGER "relation" NULL := 0 // OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation
+  , INTEGER "page" NULL := -1 // Page number targeted by the lock within the relation, or null if the target is not a relation page or tuple
+  , INTEGER "tuple" NULL := -1 // Tuple number targeted by the lock within the page, or null if the target is not a tuple
+  , STRING "virtualxid" NULL := "" // Virtual ID of the transaction targeted by the lock, or null if the target is not a virtual transaction ID
+  , INTEGER "transactionid" NULL := -1 // ID of the transaction targeted by the lock, or null if the target is not a transaction ID
+  , INTEGER "classid" NULL := -1 // OID of the system catalog containing the lock target, or null if the target is not a general database object
+  , INTEGER "objid" NULL := 0 // OID column  OID of the lock target within its system catalog, or null if the target is not a general database object
+  , INTEGER "objsubid" NULL := -1 //Column number targeted by the lock (the classid and objid refer to the table itself), or zero if the target is some other general database object, or null if the target is not a general database object
+  , STRING "virtualtransaction" // Virtual ID of the transaction that is holding or awaiting this lock
+  , INTEGER "pid" NULL := 0 // Process ID of the server process holding or awaiting this lock, or null if the lock is held by a prepared transaction
+  , STRING "mode" // Name of the lock mode held or desired by this process (see Section 13.3.1 and Section 13.2.3)
+  , BOOLEAN "granted" // True if lock is held, false if lock is awaited
+  , BOOLEAN "fastpath" // True if lock was taken via fast path, false if taken via main lock table
+  > "pg_locks"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA
@@ -1079,6 +1097,9 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Transaction isolation level. One of 'read committed', 'repeatable read', 'serializable'
   STRING pvt_transactionisolationlevel;
 
+  /// Pid of PostgreSQL backend client
+  INTEGER pvt_backendpid;
+
   /// Blob handler
   OBJECT pvt_blobhandler;
 
@@ -1091,9 +1112,14 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Blob handler
   PUBLIC PROPERTY blobhandler(pvt_blobhandler, -);
 
-  MACRO NEW(INTEGER id, BOOLEAN auto, OBJECT blobhandler)
+  /// Pid of PostgreSQL backend client
+  PUBLIC PROPERTY backendpid(pvt_backendpid, -);
+
+  MACRO NEW(RECORD transresult, BOOLEAN auto, BOOLEAN isprimary, OBJECT blobhandler)
   {
-    this->RegisterTransaction(id);
+    this->RegisterTransaction(transresult.id);
+    this->pvt_backendpid := transresult.pid;
+    this->pvt_isprimary := isprimary;
     this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
     this->pvt_blobhandler := blobhandler;
@@ -1581,6 +1607,11 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
     RETURN retval;
   }
+
+  UPDATE PUBLIC MACRO __UpdateDebugConfig(RECORD newconfig)
+  {
+    __PGSQL_UPDATEDEBUGSETTINGS(this->id, newconfig.logstacktraces);
+  }
 >;
 
 PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1699,6 +1730,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       , clientname :=   ""
       , webhare_dbasename := ""
       , blobhandler :=  DEFAULT OBJECT
+      , isprimary :=    FALSE
       ], transinfo);
 
   IF (NOT transinfo.auto)
@@ -1712,10 +1744,17 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
 
-  INTEGER transid;
+  IF (transinfo.isprimary AND IsValueSet(__GetDatabaseRuntimeConfig))
+  {
+    RECORD config := __GetDatabaseRuntimeConfig();
+    IF (config.logstacktraces > 0)
+      INSERT [ name := "webhare:logstacktraces", value := ToString(config.logstacktraces) ] INTO params AT END;
+  }
+
+  RECORD transresult;
   TRY
   {
-    transid :=  __PGSQL_CONNECT(
+    transresult :=  __PGSQL_CONNECT(
         [ [ name :=   "dbname"
           , value :=  dbasename
           ]
@@ -1737,10 +1776,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
     THROW;
   }
 
-  IF(transid<=0)
+  IF(NOT RecordExists(transresult))
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transid, transinfo.auto, transinfo.blobhandler);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.isprimary, transinfo.blobhandler);
 
   IF (IsDebugTagEnabled("postgresql:auto_explain"))
   {

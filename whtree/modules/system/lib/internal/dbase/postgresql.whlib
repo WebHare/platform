@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::regex.whlib";
@@ -1306,4 +1307,133 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
   }
 
   RETURN schemadef;
+}
+
+RECORD FUNCTION DecodePostgreSQLWHLogInfo(STRING logline)
+{
+  RECORD retval :=
+      [ debuginfo :=      ""
+      , debuginfohint :=  ""
+      ];
+
+  SWITCH (Left(logline, 1))
+  {
+    CASE "t"
+    {
+      STRING ARRAY parts := Tokenize(SubString(logline, 2, LENGTH(logline) - 3), ",");
+      retval.debuginfo := (
+          SELECT AS STRING uri
+            FROM ToRecordArray(parts, "uri")
+           WHERE uri != "mod::system/lib/database.whlib"
+             AND uri NOT LIKE "wh::dbase/*"
+             AND uri NOT LIKE "wh::internal/trans*"
+             ) ?? parts[0];
+      retval.debuginfohint := "Stack trace:\n" || Detokenize(parts, "\n");
+    }
+  }
+
+  RETURN retval;
+}
+
+
+PUBLIC RECORD FUNCTION GetDatabaseMonitorInfo(OBJECT trans)
+{
+  SCHEMA catalog LIKE postgresql_pg_catalog;
+  catalog := BindTransactionToSchema(trans->id, "pg_catalog");
+
+  RECORD ARRAY translist := trans->__ExecSQL("SELECT * FROM pg_stat_activity ORDER BY pid");
+
+  FOREVERY (RECORD transrec FROM translist)
+  {
+    STRING debuginfotxt;
+    IF (transrec.query LIKE `/?whlog:*`)
+    {
+      INTEGER pos := SearchSubString(transrec.query, "*/");
+      debuginfotxt := SubString(transrec.query, 8, pos - 8);
+      transrec.query := SubString(transrec.query, pos + 2);
+    }
+    translist[#transrec] := CELL[ ...transrec, ...DecodePostgreSQLWHLogInfo(debuginfotxt) ];
+  }
+
+  RECORD ARRAY alllocks :=
+        SELECT TEMPORARY hash := EncodeUFS(GetMD5Hash(EncodeHSON(CELL[ locktype, database, relation, page, tuple, virtualxid, transactionid, classid, objid, objsubid ])))
+             , *
+             , hash :=      hash
+             , rowkey :=    `${pid},${hash}`
+          FROM catalog.pg_locks
+      ORDER BY hash;
+
+  STRING ARRAY notgranted_hashes := SELECT AS STRING ARRAY DISTINCT hash FROM alllocks WHERE NOT granted ORDER BY hash;
+
+  RECORD ARRAY displaylocks :=
+      SELECT *
+        FROM alllocks
+       WHERE hash IN notgranted_hashes;
+
+  RECORD trans_default :=
+      [ usename := ""
+      , application_name := ""
+      , backend_start :=    DEFAULT DATETIME
+      , query_start :=      DEFAULT DATETIME
+      , xact_start :=       DEFAULT DATETIME
+      , state :=            ""
+      , wait_event_type :=  ""
+      , query :=            ""
+      , debuginfo :=        ""
+      , debuginfohint :=    ""
+      ];
+
+  displaylocks := JoinArrays(displaylocks, "pid", translist, trans_default);
+
+  RECORD ARRAY notgranted :=
+      SELECT *
+        FROM displaylocks
+       WHERE NOT granted
+         AND hash IN notgranted_hashes;
+
+  RECORD ARRAY blockinglocks :=
+      SELECT *
+        FROM displaylocks
+       WHERE granted
+         AND hash IN notgranted_hashes;
+
+  RECORD ARRAY interesting_tuples :=
+      SELECT *
+        FROM alllocks
+       WHERE locktype = "tuple"
+         AND pid IN (SELECT AS INTEGER ARRAY pid FROM notgranted)
+    ORDER BY pid;
+
+  RECORD ARRAY tupletables :=
+      SELECT relation :=    pg_class.oid
+           , tablename :=   `${nspname}.${relname}`
+        FROM catalog.pg_class
+           , catalog.pg_namespace
+       WHERE relnamespace = pg_namespace.oid
+         AND pg_class.oid IN (SELECT AS INTEGER ARRAY relation FROM interesting_tuples)
+    ORDER BY pg_class.oid;
+
+  interesting_tuples := JoinArrays(interesting_tuples, "relation", tupletables, [ tablename := "" ]);
+
+  FOREVERY (RECORD rec FROM notgranted)
+  {
+    RECORD ARRAY tuples := RecordRange(interesting_tuples, rec, [ "PID" ]);
+    STRING tables := Detokenize(
+        (SELECT AS STRING ARRAY DISTINCT tablename
+           FROM tuples
+       ORDER BY tablename), ", ");
+    INSERT CELL tuples := tuples INTO notgranted[#rec];
+    INSERT CELL tables := tables INTO notgranted[#rec];
+  }
+
+  blockinglocks :=
+      SELECT *
+           , waiters :=   RecordRange(notgranted, blockinglocks, [ "HASH" ])
+        FROM blockinglocks;
+
+  RETURN CELL
+      [ translist
+      , blockinglocks
+      , ownpid :=       trans->backendpid
+      ];
 }

@@ -668,6 +668,7 @@ PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
                           : "~webhare"
       , passwd := ""
       , auto := TRUE
+      , isprimary := TRUE
       ];
 
   IF(options.clientname != "")

@@ -1,0 +1,52 @@
+﻿<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         lib="screens/monitor/postgresql.whlib"
+         gid="monitor">
+
+  <screen name="postgresql" gid=".postgresql" title="">
+
+    <actions>
+    </actions>
+
+    <body height="1pr">
+      <tabs name="tabs" height="1pr">
+        <tab name="transactionstab" spacers="top left right">
+          <list name="transactions"
+                highlightname="isself"
+                selectmode="single"
+                sortcolumn="backend_start"
+                >
+            <column name="application_name" type="text" />
+            <column name="pid" type="integer" width="14x" />
+            <column name="backend_start" type="datetime" precision="milliseconds" storeutc="true" width="21x" />
+            <column name="query_start" type="datetime" precision="milliseconds" storeutc="true" width="21x" />
+            <column name="state" type="text" width="15x"/>
+            <column name="wait_event_type" type="text" width="15x"/>
+            <column name="query" type="text" />
+            <column name="debuginfo" type="text" hintname="debuginfohint" />
+          </list>
+        </tab>
+        <tab name="lockstab" spacers="top left right">
+          <list name="blockedlocks"
+                selectmode="single"
+                sortcolumn="backend_start"
+                >
+            <column name="application_name" type="text" tree="true" />
+            <column name="pid" type="integer" width="14x" />
+            <column name="backend_start" type="datetime" precision="milliseconds" storeutc="true" width="21x" />
+            <column name="query_start" type="datetime" precision="milliseconds" storeutc="true" width="21x" />
+            <column name="state" type="text" width="15x"/>
+            <column name="wait_event_type" type="text" width="15x"/>
+            <column name="query" type="text" />
+            <column name="tables" type="text" />
+            <column name="debuginfo" type="text" hintname="debuginfohint" />
+          </list>
+        </tab>
+      </tabs>
+      <panel spacers="all">
+        <heading tid="~settings" />
+        <checkbox name="readonly" title="" labeltid=".readonly" enabled="false"/>
+        <checkbox name="logstacktraces" onchange="GotLogStackTracesChange" title="" labeltid=".logstacktraces"/>
+      </panel>
+    </body>
+  </screen>
+</screens>
