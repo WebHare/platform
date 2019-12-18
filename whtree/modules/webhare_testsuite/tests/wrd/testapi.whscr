@@ -122,6 +122,11 @@ MACRO TestSchema()
   // Test TEST_PASSWORD (FIXME => Create a password, test with login functions)
   TestEq(SortArray([ INTEGER(domain2value3->id) ]), SortArray(testpersonrec.test_multiple_domain));
 
+  // Test cached query
+  TestEQ(testpersonrec, persontype->GetEntityFields(testpersonid, [ "*" ], [ cachettl := 60000 ]));
+  TestEQ(testpersonrec, persontype->GetEntityFields(testpersonid, [ "*" ], [ cachettl := 60000 ]));
+  TestEQ(testpersonrec, persontype->GetEntity(testpersonid)->GetFields([ "*" ], [ cachettl := 60000 ]));
+
   // test that we can query for existince of test_image and test_file
   TestImageFileField(persontype, testpersonid, TRUE);
 
@@ -158,6 +163,10 @@ MACRO TestSchema()
   FOREVERY (RECORD rec FROM UnpackRecord(testpersonrec))
   {
     TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name));
+    TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name, [ cachettl := 60000 ]));
+    TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name, [ cachettl := 60000 ])); // 2nd cached time
+    TestEq(rec.value, persontype->GetEntity(testpersonid)->GetField(rec.name));
+    TestEq(rec.value, persontype->GetEntity(testpersonid)->GetField(rec.name, [ cachettl := 60000 ]));
     VARIANT expected := GetTypeDefaultValue(TypeID(rec.value));
     IF (rec.name = "WRD_ADDRESS_FORMAL")
       expected := "Sir/Madam";
@@ -165,6 +174,35 @@ MACRO TestSchema()
       expected := "Dear Sir/Madam";
     TestEq(expected, persontype->GetEntityField(0, rec.name), rec.name);
   }
+
+  // test historymode
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "__getfields" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "now" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "at", when := GetCurrentDatetime() ]));
+  TestEq(DEFAULT DATETIME, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "at", when := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(DEFAULT DATETIME, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "range", when_start := DEFAULT DATETIME, when_limit := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "range", when_start := MakeDate(2000, 1, 1), when_limit := GetCurrentDatetime() ]));
+
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "__getfields" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "now" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "at", when := GetCurrentDatetime() ]).test_datetime);
+  TestEq(DEFAULT RECORD, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "at", when := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(DEFAULT RECORD, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "range", when_start := DEFAULT DATETIME, when_limit := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "range", when_start := MakeDate(2000, 1, 1), when_limit := GetCurrentDatetime() ]).test_datetime);
+
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "__getfields" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "now" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "at", when := GetCurrentDatetime() ]));
+  TestEq(DEFAULT DATETIME, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "at", when := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(DEFAULT DATETIME, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "range", when_start := DEFAULT DATETIME, when_limit := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "range", when_start := MakeDate(2000, 1, 1), when_limit := GetCurrentDatetime() ]));
+
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "__getfields" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "now" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "at", when := GetCurrentDatetime() ]).test_datetime);
+  TestEq(DEFAULT RECORD, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "at", when := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(DEFAULT RECORD, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "range", when_start := DEFAULT DATETIME, when_limit := MakeDate(2000, 1, 1) ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "range", when_start := MakeDate(2000, 1, 1), when_limit := GetCurrentDatetime() ]).test_datetime);
 
   //test remapping getentityfields
   testpersonrec := persontype->GetEntityFields(testpersonid, [ title := "WRD_TITLE" ]);
@@ -1058,67 +1096,6 @@ MACRO TestHistoryMode()
   {
     testfw->BeginWork();
 
-    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity([ wrd_lastname := "HistoryModeTest" ])->id);
-    person->UpdateEntity([ wrd_contact_email := "email-3@example.net" ]);
-
-    // Using non-history mode after history mode, wrong settings was updated
-    // Current setting must be updated
-
-    // Selects needed to trigger race condition.
-    person->UpdateEntity([ wrd_contact_email := "email-1@example.net" ], [ updateat := MakeDate(2000, 1, 1)]);
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-
-    INTEGER attrid := wrdperson->GetAttribute("WRD_CONTACT_EMAIL").id;
-
-    person->UpdateEntity([ wrd_contact_email := "email-2@example.net" ], [ updateat := MakeDate(2000, 1, 2)]);
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-    person->UpdateEntity([ wrd_contact_email := "email-3@example.net" ]);
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
-
-    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
-    TestEq("email-3@example.net", wrdperson->GetEntityFields(person->id, [ "WRD_CONTACT_EMAIL" ], [ querytime := makeDate(2000, 1, 1) ] ).wrd_contact_email);
-    TestEq("email-3@example.net", wrdperson->GetEntityField(person->id, "WRD_CONTACT_EMAIL", [ querytime := makeDate(2000, 1, 1) ] ));
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    TestEq("email-3@example.net", wrdperson->GetEntityFields(person->id, [ "WRD_CONTACT_EMAIL" ], [ querytime := makeDate(2000, 1, 2) ]).wrd_contact_email);
-    TestEq("email-3@example.net", wrdperson->GetEntityField(person->id, "WRD_CONTACT_EMAIL", [ querytime := makeDate(2000, 1, 2) ]));
-
-    testfw->RollbackWork();
-  }
-
-  {
-    testfw->BeginWork();
-
-    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity([ wrd_lastname := "HistoryModeTest" ])->id);
-
-    // Using non-history mode after history mode, all settings were deleted
-    // Only current setting may be deleted
-
-    // Selects needed to trigger race condition.
-    person->UpdateEntity([ wrd_contact_email := "email-1@example.net" ], [ updateat := MakeDate(2000, 1, 1)]);
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    person->UpdateEntity([ wrd_contact_email := "email-2@example.net" ], [ updateat := MakeDate(2000, 1, 2)]);
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    person->UpdateEntity([ wrd_contact_email := "" ]);
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    TestEq("", person->GetField("WRD_CONTACT_EMAIL"));
-    TestEq("", wrdperson->GetEntityFields(person->id, [ "WRD_CONTACT_EMAIL" ], [ querytime := makeDate(2000, 1, 1) ]).wrd_contact_email);
-    TestEq("", wrdperson->GetEntityField(person->id, "WRD_CONTACT_EMAIL", [ querytime := makeDate(2000, 1, 1) ]));
-    TestEq("", wrdperson->GetEntityFields(person->id, [ "WRD_CONTACT_EMAIL" ], [ querytime := makeDate(2000, 1, 2) ]).wrd_contact_email);
-    TestEq("", wrdperson->GetEntityField(person->id, "WRD_CONTACT_EMAIL", [ querytime := makeDate(2000, 1, 2) ]));
-
-    testfw->RollbackWork();
-  }
-
- {
-    testfw->BeginWork();
-
     OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity([ wrd_lastname := "FuturePerson", wrd_creationdate := AddDaysToDate(1,GetCurrentdatetime()) ])->id);
 
     RECORD ARRAY results;
@@ -1133,71 +1110,35 @@ MACRO TestHistoryMode()
     TestEq(1, Length(results));
     testEq(person->id, results[0].id);
 
-    results := wrdperson->RunQuery(
+    TestEQ(RECORD[], wrdperson->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID" ]
+        , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
+        , historymode := "at"
+        , when := GetCurrentDatetime()
+        ]));
+
+    TestEQ([ CELL[ person->id ] ], wrdperson->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID" ]
+        , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
+        , historymode := "at"
+        , when := AddDaysToDate(1,GetCurrentdatetime())
+        ]));
+
+    TestEQ(RECORD[], wrdperson->RunQuery(
+        [ outputcolumns := [ id := "WRD_ID" ]
+        , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
+        , historymode := "range"
+        , when_start := DEFAULT DATETIME
+        , when_limit := GetCurrentDatetime()
+        ]));
+
+    TestEQ([ CELL[ person->id ] ], wrdperson->RunQuery(
         [ outputcolumns := [ id := "WRD_ID" ]
         , filters := [[ field := "WRD_LASTNAME", value := "FuturePerson" ]]
         , historymode := "range"
         , when_start := GetCurrentDatetime()
         , when_limit := MAX_DATETIME
-        ]);
-    TestEq(1, Length(results));
-    testEq(person->id, results[0].id);
-
-    testfw->RollbackWork();
-  }
-
-  {
-    testfw->BeginWork();
-
-    OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
-    OBJECT destlink2 := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink2"]);
-
-    RECORD data :=
-        [ richie :=
-              [ embedded := DEFAULT RECORD ARRAY
-              , htmltext:= StringToBlob('<html><body><p class="normal">Diagnostiek Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>')
-              , instances := DEFAULT RECORD ARRAY
-              , links :=
-                    [ [ linkref := 468208
-                      , tag := 'RL-E0br8EYFeqU0i8vJWwseRQ'
-                      ]
-                    ]
-              ]
-        ,  testinstance :=
-              [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
-              , id := "TestInstance-1"
-              , styletitle := ""
-              , whfssettingid := 0
-              , whfsfileid := 0
-              , fsref := destlink->id
-              ]
-        , testintextlink :=
-              [ internallink := destlink->id
-              , externallink := ""
-              , append := "#bla"
-              ]
-        ];
-
-
-    DATETIME now := GetCurrentDateTime();
-    OBJECT entity := wrdperson->CreateEntity(MakeMergedRecord(data,
-        [ wrd_creationdate := AddTimeToDate(-4, now)
         ]));
-
-    TestEqStructure(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]));
-    TestEqMembers(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
-
-    RECORD modified := data;
-    modified.richie.htmltext:= StringToBlob('<html><body><p class="normal">BLABLABLA Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>');
-    modified.testinstance.id := "TestInstance-1a";
-    modified.testintextlink.internallink := destlink2->id;
-
-    entity->UpdateEntity(modified, [ updateat := AddTimeToDate(-2, now) ]);
-
-    TestEqMembers(modified, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
-    TestEqMembers(modified, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], [querytime:=now]), "*,-whfssettingid,-whfsfileid");
-
-    TestEqMembers(modified, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], [querytime:=AddTimeToDate(-3, now)]), "*,-whfssettingid,-whfsfileid");
 
     testfw->RollbackWork();
   }
@@ -1224,6 +1165,15 @@ MACRO TestEnrichBulk()
                               ,[ getid := p2 ]
                               ], "GETID"
                               , [ email := "test_email", firstname := "wrd_firstname" ]);
+  TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
+          ,[ getid := p2, email := "bulk_p2@example.com", firstname := "Person 2"]
+          ], result);
+
+  result := wrdperson->Enrich([[ getid := p1 ]
+                              ,[ getid := p2 ]
+                              ], "GETID"
+                              , [ email := "test_email", firstname := "wrd_firstname" ]
+                              , [ cachettl := 60*1000 ]);
   TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
           ,[ getid := p2, email := "bulk_p2@example.com", firstname := "Person 2"]
           ], result);
@@ -3085,6 +3035,10 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   //not setting required_attr should be fine as long as we're a temporary
   OBJECT tempentity := persontype->CreateEntity(CELL[], [ temp := TRUE ]);
   tempentity->UpdateEntity( [ wrd_contact_email := "temp2@beta.webhare.net" ]);
+
+  // Enrich should not work onl temporaries with default historymode
+  TestEQ(DEFAULT RECORD ARRAY, persontype->Enrich([ [ wrd_id := tempentity->id ] ], "wrd_id", CELL[ "wrd_contact_email" ]));
+  TestEQ([ [ wrd_id := tempentity->id, wrd_contact_email := "temp2@beta.webhare.net" ] ], persontype->Enrich([ [ wrd_id := tempentity->id ] ], "wrd_id", CELL[ "wrd_contact_email" ], [ historymode := "__getfields" ]));
 
   //but as we try to make it non-temp, it should fail!
   TestThrowsLike("*REQUIRED_ATTR*required*", PTR tempentity->UpdateEntity([ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]));

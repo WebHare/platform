@@ -923,12 +923,10 @@ void LibraryLoader::GetWHLibraryInfo(Blex::ContextKeeper &keeper, std::string co
         info->compile_id = Blex::DateTime::Invalid();
 
         Library const *curlib = NULL;
-        for (LibraryConstPtrs::iterator itr=loaded_libs.begin();itr!=loaded_libs.end() && !curlib;++itr)
-            if ( (*itr)->GetLibURI() == liburi)
-                curlib = *itr;
-        for (LibraryConstPtrs::iterator itr=mustinit.begin();itr!=mustinit.end() && !curlib;++itr)
-            if ( (*itr)->GetLibURI() == liburi)
-                curlib = *itr;
+
+        auto citr = mustinit_urimap.find(liburi);
+        if (citr != mustinit_urimap.end())
+             curlib = citr->second;
 
         info->loaded = curlib;
 
@@ -945,13 +943,9 @@ void LibraryLoader::GetWHLibraryInfo(Blex::ContextKeeper &keeper, std::string co
 
                 for (LibraryConstPtrs::const_iterator it = to_init.begin(); it != to_init.end(); ++it)
                 {
-                        // A problemn is there when a library with the same name and another library pointer is present
-                        for (LibraryConstPtrs::iterator itr=loaded_libs.begin();itr!=loaded_libs.end();++itr)
-                            if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
-                                info->outofdate = true;
-                        for (LibraryConstPtrs::iterator itr=mustinit.begin();itr!=mustinit.end();++itr)
-                            if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
-                                info->outofdate = true;
+                        auto itr = mustinit_urimap.find((*it)->GetLibURI());
+                        if (itr != mustinit_urimap.end() && itr->second != *it)
+                            info->outofdate = true;
                 }
 
                 llib.ReleaseLibRef(lib);
@@ -984,6 +978,12 @@ void LibraryLoader::GetAllWHLibrariesInfo(Blex::ContextKeeper &keeper, std::vect
         }
 }
 
+void LibraryLoader::GetAllWHLibrariesUris(std::vector< std::string > *uris)
+{
+        for (auto &itr: mustinit)
+            uris->push_back(itr->GetLibURI());
+}
+
 Library const* LibraryLoader::LoadWHLibrary(Blex::ContextKeeper &keeper, std::string const &liburi, Library const *current_init_lib)
 {
         //First, put the library on our lib list. This can be done safely, we won't return on error (we throw!)
@@ -995,7 +995,7 @@ Library const* LibraryLoader::LoadWHLibrary(Blex::ContextKeeper &keeper, std::st
 
         try
         {
-                // Get initilization order for new library
+                // Get initialization order for new library
                 LibraryConstPtrs const &to_init = new_lib->GetInitializationOrder();
 
                 // Check if any of the libraries has another version in the current library lists (o(n^2))
@@ -1005,19 +1005,24 @@ Library const* LibraryLoader::LoadWHLibrary(Blex::ContextKeeper &keeper, std::st
                         for (LibraryConstPtrs::iterator itr=loaded_libs.begin();itr!=loaded_libs.end();++itr)
                             if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
                                 throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
-                        for (LibraryConstPtrs::iterator itr=mustinit.begin();itr!=mustinit.end();++itr)
-                            if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
-                                throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
+
+                        auto itr = mustinit_urimap.find((*it)->GetLibURI());
+                        if (itr != mustinit_urimap.end() && itr->second != *it)
+                            throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
                 }
 
                 // Not currently initializing at all? We are SO done!
                 if (!current_init_lib)
                 {
-                        for (LibraryConstPtrs::const_iterator it = to_init.begin(); it != to_init.end(); ++it)
+                        for (auto itr: to_init)
                         {
-                                if (std::find(mustinit.begin(), mustinit.end(), *it) == mustinit.end())
-                                    mustinit.push_back(*it);
+                                if (std::find(mustinit.begin(), mustinit.end(), itr) == mustinit.end())
+                                {
+                                           mustinit.push_back(itr);
+                                           mustinit_urimap[itr->GetLibURI()] = itr;
+                                }
                         }
+
                         return new_lib;
                         //SPEEDUP: look only at libraries that were already present in mustinit, not in added libs
                 }
@@ -1045,13 +1050,9 @@ Library const* LibraryLoader::LoadWHLibrary(Blex::ContextKeeper &keeper, std::st
                         if (std::find(new_mustinit.begin(), initpos, lib) != initpos)
                             continue;
 
-                        // Check if the library is already know under another name (o(n^2))
-                        for (LibraryConstPtrs::iterator itr=loaded_libs.begin();itr!=loaded_libs.end();++itr)
-                            if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
-                                throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
-                        for (LibraryConstPtrs::iterator itr=new_mustinit.begin();itr!=new_mustinit.end();++itr)
-                            if ( (*itr)->GetLibURI() == (*it)->GetLibURI() && *itr != *it)
-                                throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
+                        auto itr = mustinit_urimap.find((*it)->GetLibURI());
+                        if (itr != mustinit_urimap.end() && itr->second != *it)
+                            throw VMRuntimeError(Error::LibraryUpdatedDuringRun, liburi, (*it)->GetLibURI());
 
                         LibraryConstPtrs::iterator oldpos = std::find(initpos, new_mustinit.end(), lib);
                         if (oldpos != new_mustinit.end())
@@ -1071,6 +1072,10 @@ Library const* LibraryLoader::LoadWHLibrary(Blex::ContextKeeper &keeper, std::st
 
                 throw;
         }
+
+        // does not seem to happen often, so slow update is ok
+        for (auto &itr: mustinit)
+            mustinit_urimap[itr->GetLibURI()] = itr;
 
         return new_lib;
 }

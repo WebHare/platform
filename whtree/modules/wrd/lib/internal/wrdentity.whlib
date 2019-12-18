@@ -347,13 +347,28 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   RECORD entityrec;
   OBJECT pvt_wrdtype;
 
+  /// @type(object %WRDSchema2017) WRD schema object
   PUBLIC PROPERTY wrdschema(this->pvt_wrdtype->wrdschema,-);
+
+  /// @type(object %WRDType2017) WRD type object
   PUBLIC PROPERTY wrdtype(pvt_wrdtype, -);
+
+  /// @type(integer) ID of the left entity this links from (only set for domains, links and attachments)
   PUBLIC PROPERTY leftentity(this->entityrec.leftentity, -);
+
+  /// @type(integer) Id of the entity this entity links to (only set for links)
   PUBLIC PROPERTY rightentity(this->entityrec.rightentity, -);
+
+  /// @type(string) Guid of this entity
   PUBLIC PROPERTY guid(GetGuid,-);
+
+  /// @type(string) Entity id of this entity
   PUBLIC PROPERTY id(this->entityrec.id, -);
 
+  /** Create a new WRD entity object
+      @param(object %WRDType2017) wrdtype WRD type object
+      @param entityrec Base data of the entity
+  */
   PUBLIC MACRO NEW(OBJECT wrdtype, RECORD entityrec)
   {
     this->pvt_wrdtype := wrdtype;
@@ -364,8 +379,11 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   {
     RETURN EncodeWRDGUID(this->entityrec.guid);
   }
+
   /** @short Update this entity
-    @param entitydata A record containing the fields to update */
+      @param entitydata A record containing the fields to update
+      @param options @includecelldef %WRDType2017::UpdateEntity.options
+  */
   PUBLIC MACRO UpdateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->pvt_wrdtype->UpdateEntity(this->entityrec.id, entitydata, options);
@@ -374,6 +392,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
 
   /** @short returns all requested fields of the entity with the given find_id
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @param options @includecelldef %WRDType2017::GetEntityFields.options
       @return Record with a cell for each requested field (not all described)
   */
   PUBLIC RECORD FUNCTION GetFields(VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -382,16 +401,19 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
   /** @short Get a single field
       @param field Tag of field to grab
+      @param options @includecelldef %WRDType2017::GetEntityField.options
+      @return Contents of the requested field
   */
-  PUBLIC VARIANT FUNCTION GetField(STRING field)
+  PUBLIC VARIANT FUNCTION GetField(STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN GetCell(this->pvt_wrdtype->GetEntityFields(this->entityrec.id, [field]), field);
+    RETURN this->pvt_wrdtype->GetEntityField(this->entityrec.id, field, options);
   }
 
   /** @short Is the entity referenced?
       @long Check whether any entity refers to this one, including historical references. This function is
             mainly intended as a 'safe to delete' check. Events, registry entries and direct self-references
-            are ignored, but a circular reference (through another entity) is still counted as a reference. */
+            are ignored, but a circular reference (through another entity) is still counted as a reference.
+      @return TRUE if a reference to this entity exists */
   PUBLIC BOOLEAN FUNCTION IsReferenced()
   {
     RETURN RecordExists(SELECT FROM wrd.entities WHERE leftentity = this->entityrec.id AND id!=this->entityrec.id)
@@ -400,7 +422,11 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
 
 
-  // Returns TRUE if 'testvalue' is the correct password; can be used on password attributes and free text attributes
+  /** Tests if a password is correct, can be used on password attributes and free text attributes
+      @param attrtag Tag of the attribute with the password
+      @param testvalue Password to test
+      @return TRUE if 'testvalue' is the correct password; can be used on password attributes and free text attributes
+  */
   PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
   {
     // Find the current password of this entity, based on the attribute
@@ -425,6 +451,8 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
 
   /** Filters out attribute cells that have the same value as the currently stored entity has.
+      @param updates Entity updates
+      @return Updates, with top-level fields that already have the specified value removed
   */
   PUBLIC RECORD FUNCTION FilterFieldUpdates(RECORD updates)
   {
@@ -536,7 +564,9 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
     }
   }
 
-  /** @short Is the entity currently existing, considering creationdate/limitdate */
+  /** @short Is the entity currently existing, considering creationdate/limitdate
+      @return TRUE if the entity currently exists
+  */
   PUBLIC BOOLEAN FUNCTION IsLive()
   {
     DATETIME now := GetCurrentDatetime();
@@ -546,13 +576,22 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
 
 >;
 
+/** WRD entity
+    @topic wrd/api
+    @public
+*/
 PUBLIC STATIC OBJECTTYPE WRDEntity2017 EXTEND WRDEntityBase
 <
+  /** Create a new WRD entity object
+      @param(object %WRDType2017) wrdtype WRD type object
+      @param entityrec Base data of the entity
+  */
   PUBLIC MACRO NEW(OBJECT wrdtype, RECORD entityrec)
   : WRDEntityBase(wrdtype, entityrec)
   {
   }
 
+  /// Closes this entity
   PUBLIC MACRO CloseEntity()
   {
     this->UpdateEntity([ wrd_limitdate := GetCurrentDatetime() ]);

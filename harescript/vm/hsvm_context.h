@@ -607,6 +607,8 @@ class BLEXLIB_PUBLIC VirtualMachine
 
         void GetAllLibrariesInfo(std::vector< LibraryInfo > *info);
 
+        void GetAllLibrariesUris(std::vector< std::string > *uris);
+
         void GetHSVMStats(struct HSVM_Stats *dest, int destlen);
 
     private:

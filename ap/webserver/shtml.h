@@ -138,8 +138,6 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
         std::string statusheader;
         ///Program ID, if we're synchronous
         std::string srhprogid;
-        ///If an error was throw to trigger another action (redirect, sending a blob)
-        bool error_is_for_action;
         ///Blob to send, if any
         std::shared_ptr<Blex::RandomStream> blob_to_send;
         ///Session IDs we took a reference to

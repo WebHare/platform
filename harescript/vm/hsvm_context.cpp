@@ -731,11 +731,8 @@ void VirtualMachine::PrepareStackTrace(VMRuntimeError *error)
         try
         {
                 // Gather loaded libraries, store them in the error handler
-                std::vector< LibraryInfo > libraries;
-                GetAllLibrariesInfo(&libraries);
                 std::vector< std::string > resources = loadedresources;
-                for (auto &library: libraries)
-                    resources.push_back(library.uri);
+                GetAllLibrariesUris(&resources);
 
                 // Remove duplicates
                 std::sort(resources.begin(), resources.end());
@@ -801,6 +798,11 @@ void VirtualMachine::GetLoadedLibrariesInfo(std::vector< LibraryInfo > *info)
 void VirtualMachine::GetAllLibrariesInfo(std::vector< LibraryInfo > *info)
 {
         libraryloader.GetAllWHLibrariesInfo(contextkeeper, info);
+}
+
+void VirtualMachine::GetAllLibrariesUris(std::vector< std::string > *uris)
+{
+        libraryloader.GetAllWHLibrariesUris(uris);
 }
 
 bool VirtualMachine::MustLibsInitialize()

@@ -542,6 +542,12 @@ void HSVM_AbortForUncaughtException(struct HSVM *vm)
         END_CATCH_VMEXCEPTIONS
 }
 
+void HSVM_SilentTerminate(struct HSVM *vm)
+{
+        volatile unsigned *flag = VM.GetVMGroup()->GetAbortFlag();
+        *flag = HSVM_ABORT_SILENTTERMINATE;
+}
+
 HSVM_VariableType HSVM_GetType(HSVM *vm, HSVM_VariableId id)
 {
         START_CATCH_VMEXCEPTIONS

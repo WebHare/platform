@@ -523,7 +523,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 
   PUBLIC MACRO ContinueInit()
   {
-    IF(ObjectExists(this->composition) AND NOT MemberExists(this->composition,"UpdateEntityAt"))
+    IF(ObjectExists(this->composition) AND NOT MemberExists(this->composition,"EnsureReservedEntityId"))
       ABORT("The composition is not an wrd:entity");
     IF(ObjectExists(this->composition))
     {

@@ -305,6 +305,11 @@ HSVM_PUBLIC void*  HSVM_GetGroupContext(struct HSVM *vm, unsigned int context_id
 */
  HSVM_PUBLIC void HSVM_AbortForUncaughtException(struct HSVM *vm) ;
 
+/** Terminates the VM, without errors
+    @param vm Virtual machine
+*/
+HSVM_PUBLIC void HSVM_SilentTerminate(struct HSVM *vm);
+
 /** Retrieve the type of a variable
     @param vm Virtual machine
     @param id ID of the variable of which the type must be returned

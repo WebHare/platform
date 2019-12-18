@@ -64,17 +64,17 @@ BlobBase::BlobBase(VirtualMachine *_vm, Blex::FileOffset _cachedlength)
 , cachedlength(_cachedlength)
 , keeper(vm->GetEnvironment().GetContextReg())
 {
-        DEBUGPRINT("Create blob " << this);
+        BLOB_PRINT("Create blob " << this);
 }
 
 BlobBase::~BlobBase()
 {
-        DEBUGPRINT("Destroy blob " << this);
+        BLOB_PRINT("Destroy blob " << this);
 }
 
 Blex::FileOffset BlobBase::GetLength()
 {
-        DEBUGPRINT("GetLength for " << this->GetDescription() << ", cached: " << cachedlength);
+        BLOB_PRINT("GetLength for " << this->GetDescription() << ", cached: " << cachedlength);
         if (cachedlength == std::numeric_limits< Blex::FileOffset >::max())
             cachedlength = GetCacheableLength();
         return cachedlength;

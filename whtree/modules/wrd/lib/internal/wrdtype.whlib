@@ -1466,60 +1466,67 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param ids Ids of the entities to retrieve (only when 'returnall' is false)
       @param returnall If TRUE, return all active entities
       @param uppercase_ignore Ignored
-      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
-      @param historymode @includecelldef #RunQuery.querydata.historymode
+      @param queryoptions Query options. Outputcolumns and filters are ignored @includecelldef #RunQuery.querydata
       @return Query result
   */
-  PUBLIC RECORD ARRAY FUNCTION __GetBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, STRING historymode)
+  RECORD ARRAY FUNCTION __GetBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, RECORD queryoptions)
   {
     IF (IsDefaultvalue(ids)) // ExecuteEnrichment passes a DEFAULT BOOLEAN ARRAY when leftouterjoining an empty array
       ids := INTEGER[];
-    RETURN this->RunQuery([ outputcolumns := outputcolumns
+    IF (CellExists(queryoptions, "cachettl")) // improve cacheability
+      ids := GetSortedSet(ids);
+    RETURN this->RunQuery([ ...queryoptions
+                          , outputcolumns := outputcolumns
                           , filters := returnall ? DEFAULT RECORD ARRAY : [[ field := "WRD_ID", matchtype := "IN", value := ids ]]
-                          , historymode := historymode
                           ]);
-  }
-  /** @short Grab a list of fields, given a list of ids to gather
-      @param ids Ids of the entities to retrieve (only when 'returnall' is false)
-      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
-      @return Query result
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetBulkFields(INTEGER ARRAY ids, RECORD outputcolumns)
-  {
-    RETURN this->__GetBulkFields(ids, FALSE, FALSE, outputcolumns,"all");
   }
 
   /** @short Enrich an array with fields from this type
       @param inrows Rows to enrich
       @param idcellname Name of the cell containing the id (eg WRD_ID, ID, ROWKEY). Append '[]' if the cell is an array of values.
       @param addcolumns Output columns to add
-      @cell(string) options.historymode Historymode for this enrich, allowed values are 'now' and 'all'. Defaults to 'all'!
+      @cell(string) options.sources.historymode History mode. Defaults to 'all'!
+                    - 'now': Return all entities that are valid now
+                    - 'at': Return all entities that were valid at 'when'
+                    - 'range': Return all entities that were valid in the range [ 'when_start', 'when_limit' ]
+                    - 'all': Return all entities (excluding temporaries)
+                    - '__getfields': Return all entities (including temporaries)
+      @cell options.when @includecelldef #RunWRDQuery.querydata.sources.when
+      @cell options.when_start @includecelldef #RunWRDQuery.querydata.sources.when_start
+      @cell options.when_limit @includecelldef #RunWRDQuery.querydata.sources.when_limit
+      @cell options.cachettl @includecelldef #RunQuery.querydata.cachettl
       @cell(boolean) options.rightouterjoin Insert default values for missing matches, instead of deleting them from the result
       @cell(record) options.leftouterjoin Default values to insert for left side missing matches, instead of deleting them from the result
       @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name (when the idcell is an array, insert enriched values into this cell).
       @cell(string) options.joinfield Field on which we will be joining ourselves with the input rows. Defaults to WRD_ID
-      @cell options.presentfield If set, this field will contain 'left', 'right' or 'both' depending on which records were present
+      @cell(string) options.presentfield If set, this field will contain 'left', 'right' or 'both' depending on which records were present
       @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
   PUBLIC RECORD ARRAY FUNCTION Enrich(RECORD ARRAY inrows, STRING idcellname, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ historymode := "all"
-                               , joinfield := "WRD_ID"
-                               ], options, [ passthrough := TRUE ]);
+    options := ValidateOptions([ historymode :=   "all"
+                               , when :=          DEFAULT DATETIME
+                               , when_start :=    DEFAULT DATETIME
+                               , when_limit :=    DEFAULT DATETIME
+                               , joinfield :=     "WRD_ID"
+                               , cachettl := 0
+                               ], options,
+                               [ passthroughin := "enrichoptions"
+                               , optional := [ "WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL" ]
+                               ]);
 
     //ADDME reuse existing id cells
     INSERT CELL __joinid := options.joinfield INTO addcolumns;
-    FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, options.historymode);
-    DELETE CELL joinfield, historymode FROM options;
-    RETURN ExecuteEnrichment(inrows, idcellname, options, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
+    FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, CELL[ ...options, DELETE joinfield, DELETE enrichoptions ]);
+    RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
   }
 
   /** Execute a query on this type
-    ` @param querydata Query specification
+      @param querydata Query specification
       @cell querydata.outputcolumns @includecelldef #RunWRDQuery.querydata.sources.outputcolumns
       @cell(string) querydata.outputcolumn If set, return an array with the contents of this attribute
       @cell querydata.filters @includecelldef #RunWRDQuery.querydata.sources.filters
       @cell querydata.resultlimit @includecelldef #RunWRDQuery.querydata.resultlimit
-      @cell querydata.typefilter @includecelldef #RunWRDQuery.querydata.sources.resultlimit
+      @cell querydata.typefilter @includecelldef #RunWRDQuery.querydata.sources.typefilter
       @cell querydata.historymode @includecelldef #RunWRDQuery.querydata.sources.historymode
       @cell querydata.when @includecelldef #RunWRDQuery.querydata.sources.when
       @cell querydata.when_start @includecelldef #RunWRDQuery.querydata.sources.when_start
@@ -1622,7 +1629,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short Get an entity by ID
     @long Get an entity of this type, looking it up by id
     @param find_id ID to look up
-    @return The entity object, or a default object if no entity was found */
+    @return(object %WRDEntity2017) The entity object, or a default object if no entity was found */
   PUBLIC OBJECT FUNCTION GetEntity(INTEGER find_id)
   {
     INTEGER ARRAY validtypeids := [INTEGER(this->typerec.id)] CONCAT this->__childtypeids;
@@ -1641,6 +1648,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short returns all requested fields of the entity with the given find_id
       @param find_id id of the entity
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @cell(string) options.historymode History mode. Defaults to '__getfields'.
+      @cell(datetime) options.when @includecelldef #RunQuery.querydata.when
+      @cell(datetime) options.when_start @includecelldef #RunQuery.querydata.when_start
+      @cell(datetime) options.when_limit @includecelldef #RunQuery.querydata.when_limit
+      @cell(integer) options.cachettl @includecelldef #RunQuery.querydata.cachettl
       @return Record with a cell for each requested field
   */
   PUBLIC RECORD FUNCTION GetEntityFields(INTEGER find_id, VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1648,46 +1660,30 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     IF(find_id=0)
       RETURN DEFAULT RECORD; //Will never match, avoid the query construction
 
-    options := ValidateOptions( [ querytime := DEFAULT DATETIME
+    options := ValidateOptions( [ when := DEFAULT DATETIME
+                                , when_start := DEFAULT DATETIME
+                                , when_limit := DEFAULT DATETIME
                                 , historymode := "__getfields"
-                                ], options, [ optional := ["QUERYTIME"]]);
+                                , cachettl := 0
+                                ], options, [ optional := ["WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL"]]);
 
-    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
-
-    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    OBJECT query := MakeWRDQuery([ sources := [[ type := this
-                                               , filters := filters
-                                               , outputcolumns := fields
-                                               , historymode := options.historymode
-                                               ]
-                                              ]
-                                 ]);
-    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
-    RETURN query->Execute();
+    RETURN this->RunQuery(CELL
+        [ outputcolumns :=  fields
+        , filters :=        [ [ field := "WRD_ID", value := find_id ] ]
+        , ...options
+        ]);
   }
 
+  /** @short returns a specific field of the entity with the given find_id
+      @param find_id id of the entity
+      @param field Names of the field to return
+      @param options @includecelldef #GetEntityFields.options
+      @return Contents of the requested field
+  */
   PUBLIC VARIANT FUNCTION GetEntityField(INTEGER find_id, STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ querytime := DEFAULT DATETIME
-                                , historymode := "__getfields"
-                                ], options, [ optional := ["QUERYTIME"]]);
-
-    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
-
-    RECORD map := [ result := field ];
-
-    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    OBJECT query := MakeWRDQuery([ sources := [[ type := this
-                                               , filters := filters
-                                               , outputcolumns := map
-                                               , historymode := options.historymode
-                                               ]
-                                              ]
-                                 ]);
-
-    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
-    RECORD row := query->Execute() ?? GetDefaultJoinRecord(this, map);
-    RETURN row.result;
+    RECORD outputcolumns := [ result := field ];
+    RETURN (this->GetEntityFields(find_id, outputcolumns, options) ?? GetDefaultJoinRecord(this, outputcolumns)).result;
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -2413,7 +2409,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short Get an entity, create if it doesn't exist.
       @param requiredmetadata The required metadata. Any required and set unique fields are used to look up the existing entity
       @param optionalmetadata Optional metadata, to apply if the entity is created
-      @return The entity */
+      @return(object %WRDEntity2017) The entity */
   PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
   {
     RECORD ARRAY filters;
@@ -2442,6 +2438,16 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN match;
   }
 
+  /** Updates an entity
+      @param entityid Id of the entity to update
+      @param entitydata Record with the fields to update.
+      @cell options.errorcallback @includecelldef #__internal_updentity.options.errorcallback
+      @cell options.onmapdomvalue @includecelldef #__internal_updentity.options.onmapdomvalue
+      @cell options.importmode @includecelldef #__internal_updentity.options.importmode
+      @cell options.whfsmapper @includecelldef #__internal_updentity.options.whfsmapper
+      @cell options.changeset @includecelldef #__internal_updentity.options.changeset
+      @cell options.decodeinvalidutf8as @includecelldef #__internal_updentity.options.decodeinvalidutf8as
+  */
   PUBLIC MACRO UpdateEntity(INTEGER entityid, RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->__internal_updentity(entitydata, entityid, TRUE, options);
@@ -2673,6 +2679,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN result;
   }
 
+  /** @param entitydata Entity data
+      @param entityid Entity id, 0 for a new entity
+      @param isv2api Whether called from the 2017 API
+      @cell(macro ptr) options.errorcallback Macro called when an error is detected
+      @cell(function ptr) options.onmapdomvalue Function used to determine entity id of domain values when a string is passed.
+      @cell(boolean) options.importmode If TRUE, skip various checks
+      @cell(object) options.whfsmapper WHFS mapper to unmap references to WHFS
+      @cell(boolean) options.temp Whether the entity should be created as a temporary (only allowed for new entities)
+      @cell(integer) options.changeset If set, add this update to the specific changeset
+      @cell(string) options.decodeinvalidutf8as Character set to use for decoding invalid UTF-8 characters
+  */
   PUBLIC RECORD FUNCTION __internal_updentity(RECORD entitydata, INTEGER entityid, BOOLEAN isv2api, RECORD options)
   {
     options := ValidateOptions([ errorcallback := PTR OnThrowEntityError
@@ -3548,7 +3565,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
       @cell options.onmapdomvalue
       @cell options.updateat
       @cell(boolean) options.temp Create a temporary entity (expires after up to 24 hours, never returned in queries)
-      @return The newly created entity
+      @return(object %WRDEntity2017) The newly created entity
   */
   PUBLIC OBJECT FUNCTION CreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
