@@ -98,6 +98,10 @@ GLOBALLDFLAGS += $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 ifeq ($(WHBUILD_PLATFORM),linux)
   CPPFLAGS += -I/opt/libjpeg-turbo/include
   GLOBALLDFLAGS += -L/opt/libjpeg-turbo/lib64/
+  ifeq ($(WHBUILD_LTO),1)
+    CPPFLAGS += -flto=jobserver
+    GLOBALLDFLAGS += -flto=jobserver
+   endif
 endif
 
 GLOBALLDFLAGS += -Llib -L/usr/local/lib$(SYSLIBDIRSUFFIX) $(CROSSLIBDIR)
@@ -236,13 +240,13 @@ define GeneratePrecompiledHeader
 endef #end define GeneratePrecompiledHeader
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
- 	LinkShared	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkModule	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkShared       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkModule       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
  	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
 else
-	LinkShared	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -o $2 $1 $(addprefix -l,$3)
-	LinkModule	   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -o $2 $1 $(addprefix -l,$3)
-	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
+	LinkShared       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) -o $2 $1 $(addprefix -l,$3)
+	LinkModule       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_SHARED) $(LDFLAGS_MODULE) -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) $(LDFLAGS_EXE) -o $2 $1 $(addprefix -l,$3)
 endif
 
 BLEX_BASE_LIBS += z dl
