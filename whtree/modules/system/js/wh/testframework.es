@@ -984,9 +984,13 @@ var $selenium =
   }
 };
 
-function invoke(lib, func, ...params)
+async function invoke(lib, func, ...params)
 {
-  return jstestsrpc.invoke(lib, func, params);
+  let result = await jstestsrpc.invoke(lib, func, params);
+  if (typeof result == "object" && result && result.__outputtoolsdata)
+    dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles:false, cancelable: false, detail: result.__outputtoolsdata});
+
+  return result;
 }
 function getWrdLogoutUrl(returnurl)
 {

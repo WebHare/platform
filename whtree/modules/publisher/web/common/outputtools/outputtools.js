@@ -15,6 +15,7 @@ var hadrecompile = false;
 var hadrepublish = false;
 var hadresourcechange = false;
 var whoutputtoolsdata = null;
+var watchedresources = [];
 
 function setupWebsocket()
 {
@@ -38,8 +39,8 @@ function setupWebsocket()
     if(bundleid)
       toolssocket.send(JSON.stringify({ type: 'watchassetpack', uuid: bundleid }));
     toolssocket.send(JSON.stringify({ type: 'watchurl', url: window.location.href }));
-    if (whoutputtoolsdata && whoutputtoolsdata.resources)
-      toolssocket.send(JSON.stringify({ type: 'watchresources', resources: whoutputtoolsdata.resources }));
+    if (watchedresources.length)
+      toolssocket.send(JSON.stringify({ type: 'watchresources', resources: watchedresources }));
     livesocket = toolssocket;
   });
   toolssocket.addEventListener('message', function(event)
@@ -329,6 +330,7 @@ function onMessage(event)
 function onDomReady()
 {
   document.documentElement.classList.add("wh-outputtool--active");
+  window.addEventListener("wh:outputtools-extradata", function(evt) { processResourceData(evt.detail); });
 
   toolbar = document.createElement("wh-outputtools");
   toolbar.innerHTML =
@@ -399,12 +401,26 @@ function onDomReady()
 
   whoutputtoolsdata = document.getElementById("wh-outputtoolsdata");
   if (whoutputtoolsdata)
+  {
     whoutputtoolsdata = JSON.parse(whoutputtoolsdata.textContent);
-
-  if (livesocket && whoutputtoolsdata && whoutputtoolsdata.resources)
-    livesocket.send(JSON.stringify({ type: 'watchresources', resources: whoutputtoolsdata.resources }));
+    if (whoutputtoolsdata)
+      processResourceData(whoutputtoolsdata);
+  }
 
   setupWebsocket();
+}
+
+function processResourceData(data)
+{
+  if (data.resources)
+  {
+    for (var i = 0; i < data.resources.length; ++i)
+      if (watchedresources.indexOf(data.resources[i]) == -1)
+        watchedresources.push(data.resources[i]);
+  }
+
+  if (livesocket)
+    livesocket.send(JSON.stringify({ type: 'watchresources', resources: watchedresources }));
 }
 
 function updateToolbar()
