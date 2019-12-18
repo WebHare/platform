@@ -39,6 +39,7 @@ fi
 export CCACHE_DIR=/tmp/compile/ccache
 export WHBUILD_NODEPS=1
 export WHBUILD_ALLOW=1
+export WHBUILD_LTO=1
 
 if ! /opt/wh/whtree/bin/wh make install ; then
   echo BUILD FAILED
