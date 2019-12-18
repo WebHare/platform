@@ -9,6 +9,5 @@
                  backup-and-restore
                  fromsource
                  running-in-docker
-                 configuration-tuning
-                 future-deprecations">
+                 configuration-tuning">
 </topic>

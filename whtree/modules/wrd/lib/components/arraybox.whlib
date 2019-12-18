@@ -3,6 +3,9 @@ LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
 
 /////////////////////////////////////////////////////////////////////
@@ -206,13 +209,14 @@ PUBLIC OBJECTTYPE ArrayBox EXTEND TolliumFragmentBase
         {
           val := [ data := "RICHDOCUMENT" ];
         }
-        CASE 22 /* Record */
+        CASE 20 // Int/ext link
         {
-          val := [ data := RecordExists(val) ? Left(EncodeHSON(val),400) : "" ];
+          val := [ data := GetIntExtlinkTarget(value) ];
         }
         DEFAULT
         {
-          ABORT("Unsupported attrtype #" || col.attributetype || " found in setrows");
+          val := [ data := IsValueSet(value) ? Left(EncodeHSON(value),400) : "" ];
+          //ABORT("Unsupported attrtype #" || col.attributetype || " found in setrows");
         }
       }
 

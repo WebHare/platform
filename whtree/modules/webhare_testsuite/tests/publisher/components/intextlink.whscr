@@ -57,6 +57,12 @@ ASYNC MACRO TestIntExtLink()
   topscreen->comp->SetLinkType("internal");
   TestEQ([ append := "#jo", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
 
+  TestEq(["No link","External link","Internal link"], SELECT AS STRING ARRAY title FROM topscreen->comp->^linktype->options);
+  topscreen->comp->required := TRUE;
+  TestEq(["External link","Internal link"], SELECT AS STRING ARRAY title FROM topscreen->comp->^linktype->options);
+  topscreen->comp->required := FALSE;
+  TestEq(["No link","External link","Internal link"], SELECT AS STRING ARRAY title FROM topscreen->comp->^linktype->options);
+
   // Folder with indexdoc
   testfw->BeginWork();
   OBJECT whfs_folderwithindex := GetTestsuiteTempFolder();
