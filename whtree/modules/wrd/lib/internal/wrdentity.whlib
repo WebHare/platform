@@ -374,6 +374,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
 
   /** @short returns all requested fields of the entity with the given find_id
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @param options @includecelldef %WRDType2017::GetEntityFields.options
       @return Record with a cell for each requested field (not all described)
   */
   PUBLIC RECORD FUNCTION GetFields(VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -382,10 +383,12 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   }
   /** @short Get a single field
       @param field Tag of field to grab
+      @param options @includecelldef %WRDType2017::GetEntityField.options
+      @return Contents of the requested field
   */
-  PUBLIC VARIANT FUNCTION GetField(STRING field)
+  PUBLIC VARIANT FUNCTION GetField(STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN GetCell(this->pvt_wrdtype->GetEntityFields(this->entityrec.id, [field]), field);
+    RETURN this->pvt_wrdtype->GetEntityField(this->entityrec.id, field, options);
   }
 
   /** @short Is the entity referenced?

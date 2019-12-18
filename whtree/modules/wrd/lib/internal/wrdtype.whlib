@@ -1466,17 +1466,18 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param ids Ids of the entities to retrieve (only when 'returnall' is false)
       @param returnall If TRUE, return all active entities
       @param uppercase_ignore Ignored
-      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
-      @param historymode @includecelldef #RunQuery.querydata.historymode
+      @param queryoptions Query options. Outputcolumns and filters are ignored @includecelldef #RunQuery.querydata
       @return Query result
   */
-  PUBLIC RECORD ARRAY FUNCTION __GetBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, STRING historymode)
+  RECORD ARRAY FUNCTION __GetBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, RECORD outputcolumns, RECORD queryoptions)
   {
     IF (IsDefaultvalue(ids)) // ExecuteEnrichment passes a DEFAULT BOOLEAN ARRAY when leftouterjoining an empty array
       ids := INTEGER[];
-    RETURN this->RunQuery([ outputcolumns := outputcolumns
+    IF (CellExists(queryoptions, "cachettl")) // improve cacheability
+      ids := GetSortedSet(ids);
+    RETURN this->RunQuery([ ...queryoptions
+                          , outputcolumns := outputcolumns
                           , filters := returnall ? DEFAULT RECORD ARRAY : [[ field := "WRD_ID", matchtype := "IN", value := ids ]]
-                          , historymode := historymode
                           ]);
   }
 
@@ -1493,15 +1494,18 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
   PUBLIC RECORD ARRAY FUNCTION Enrich(RECORD ARRAY inrows, STRING idcellname, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ historymode := "all"
-                               , joinfield := "WRD_ID"
-                               ], options, [ passthrough := TRUE ]);
+    options := ValidateOptions([ historymode :=   "all"
+                               , joinfield :=     "WRD_ID"
+                               , cachettl := 0
+                               ], options,
+                               [ passthroughin := "enrichoptions"
+                               , optional :=      [ "cachettl" ]
+                               ]);
 
     //ADDME reuse existing id cells
     INSERT CELL __joinid := options.joinfield INTO addcolumns;
-    FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, options.historymode);
-    DELETE CELL joinfield, historymode FROM options;
-    RETURN ExecuteEnrichment(inrows, idcellname, options, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
+    FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, CELL[ ...options, DELETE joinfield, DELETE enrichoptions ]);
+    RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
   }
 
   /** Execute a query on this type
@@ -1515,6 +1519,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell querydata.when @includecelldef #RunWRDQuery.querydata.sources.when
       @cell querydata.when_start @includecelldef #RunWRDQuery.querydata.sources.when_start
       @cell querydata.when_limit @includecelldef #RunWRDQuery.querydata.sources.when_limit
+      @cell(datetime) querydata.querytime Override for the current time
       @cell(integer) querydata.cachettl If set, use the adhoccache to cache the results for this number of milliseconds. The cache is invalidated when changes to this type are committed.
         Do not use within a same transaction that also modifies this WRD type.
       @return Query results
@@ -1545,10 +1550,16 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     INTEGER resultlimit := -1;
     OBJECT whfsmapper;
     BOOLEAN singlecolumn;
+    DATETIME querytime;
     IF (CellExists(querydata, "resultlimit"))
     {
       resultlimit := querydata.resultlimit;
       DELETE CELL resultlimit FROM querydata;
+    }
+    IF (CellExists(querydata, "querytime"))
+    {
+      querytime := querydata.querytime;
+      DELETE CELL querytime FROM querydata;
     }
     IF (CellExists(querydata, "whfsmapper"))
     {
@@ -1573,6 +1584,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INSERT CELL whfsmapper := whfsmapper INTO wrdquery;
 
     OBJECT wrd_query := MakeWRDQuery(wrdquery);
+    IF (IsValueSet(querytime))
+      wrd_query->current_time := querytime;
     VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
     IF(singlecolumn)
     {
@@ -1632,6 +1645,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short returns all requested fields of the entity with the given find_id
       @param find_id id of the entity
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
+      @cell(datetime) options.querytime If set, act like the query was executed at this time
+      @cell(string) options.historymode History mode. Defaults to '__getfields'.
+      @cell(integer) options.cachettl If present, cache the query result for this number of milliseconds. Must be positive.
       @return Record with a cell for each requested field
   */
   PUBLIC RECORD FUNCTION GetEntityFields(INTEGER find_id, VARIANT fields, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1641,43 +1657,40 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     options := ValidateOptions( [ querytime := DEFAULT DATETIME
                                 , historymode := "__getfields"
-                                ], options, [ optional := ["QUERYTIME"]]);
+                                , cachettl := 0
+                                ], options, [ optional := ["QUERYTIME", "CACHETTL"]]);
 
-    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
-
-    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    OBJECT query := MakeWRDQuery([ sources := [[ type := this
-                                               , filters := filters
-                                               , outputcolumns := fields
-                                               , historymode := options.historymode
-                                               ]
-                                              ]
-                                 ]);
-    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
-    RETURN query->Execute();
+    RETURN this->RunQuery(CELL
+        [ outputcolumns :=  fields
+        , filters :=        [ [ field := "WRD_ID", value := find_id ] ]
+        , ...options
+        ]);
   }
 
+  /** @short returns a specific field of the entity with the given find_id
+      @param find_id id of the entity
+      @param field Names of the field to return
+      @cell(datetime) options.querytime If set, act like the query was executed at this time
+      @cell(string) options.historymode History mode. Defaults to '__getfields'.
+      @cell(integer) options.cachettl If present, cache the query result for this number of milliseconds. Must be positive.
+      @return Contents of the requested field
+  */
   PUBLIC VARIANT FUNCTION GetEntityField(INTEGER find_id, STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ querytime := DEFAULT DATETIME
                                 , historymode := "__getfields"
-                                ], options, [ optional := ["QUERYTIME"]]);
+                                , cachettl := 0
+                                ], options, [ optional := ["QUERYTIME", "CACHETTL"]]);
 
-    RECORD ARRAY filters := [ [ field := "WRD_ID", value := find_id ] ];
+    RECORD outputcolumns := [ result := field ];
 
-    RECORD map := [ result := field ];
+    RECORD row := this->RunQuery(CELL
+        [ outputcolumns
+        , filters :=        [ [ field := "WRD_ID", value := find_id ] ]
+        , ...options
+        ]);
 
-    //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    OBJECT query := MakeWRDQuery([ sources := [[ type := this
-                                               , filters := filters
-                                               , outputcolumns := map
-                                               , historymode := options.historymode
-                                               ]
-                                              ]
-                                 ]);
-
-    query->current_time := CellExists(options,'querytime') ? options.querytime : GetCurrentDatetime();
-    RECORD row := query->Execute() ?? GetDefaultJoinRecord(this, map);
+    row := row ?? GetDefaultJoinRecord(this, outputcolumns);
     RETURN row.result;
   }
 

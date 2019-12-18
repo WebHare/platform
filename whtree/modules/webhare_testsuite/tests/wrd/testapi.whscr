@@ -122,6 +122,11 @@ MACRO TestSchema()
   // Test TEST_PASSWORD (FIXME => Create a password, test with login functions)
   TestEq(SortArray([ INTEGER(domain2value3->id) ]), SortArray(testpersonrec.test_multiple_domain));
 
+  // Test cached query
+  TestEQ(testpersonrec, persontype->GetEntityFields(testpersonid, [ "*" ], [ cachettl := 60000 ]));
+  TestEQ(testpersonrec, persontype->GetEntityFields(testpersonid, [ "*" ], [ cachettl := 60000 ]));
+  TestEQ(testpersonrec, persontype->GetEntity(testpersonid)->GetFields([ "*" ], [ cachettl := 60000 ]));
+
   // test that we can query for existince of test_image and test_file
   TestImageFileField(persontype, testpersonid, TRUE);
 
@@ -158,6 +163,10 @@ MACRO TestSchema()
   FOREVERY (RECORD rec FROM UnpackRecord(testpersonrec))
   {
     TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name));
+    TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name, [ cachettl := 60000 ]));
+    TestEq(rec.value, persontype->GetEntityField(testpersonid, rec.name, [ cachettl := 60000 ]));
+    TestEq(rec.value, persontype->GetEntity(testpersonid)->GetField(rec.name));
+    TestEq(rec.value, persontype->GetEntity(testpersonid)->GetField(rec.name, [ cachettl := 60000 ]));
     VARIANT expected := GetTypeDefaultValue(TypeID(rec.value));
     IF (rec.name = "WRD_ADDRESS_FORMAL")
       expected := "Sir/Madam";
@@ -165,6 +174,24 @@ MACRO TestSchema()
       expected := "Dear Sir/Madam";
     TestEq(expected, persontype->GetEntityField(0, rec.name), rec.name);
   }
+
+  // test historymode
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "__getfields" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "now" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "now", querytime := GetCurrentDatetime() ]));
+  TestEq(DEFAULT DATETIME, persontype->GetEntityField(testpersonid, "test_datetime", [ historymode := "now", querytime := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "__getfields" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "now" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "now", querytime := GetCurrentDatetime() ]).test_datetime);
+  TestEq(DEFAULT RECORD, persontype->GetEntityFields(testpersonid, [ "test_datetime" ], [ historymode := "now", querytime := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "__getfields" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "now" ]));
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "now", querytime := GetCurrentDatetime() ]));
+  TestEq(DEFAULT DATETIME, persontype->GetEntity(testpersonid)->GetField("test_datetime", [ historymode := "now", querytime := MakeDate(2000, 1, 1) ])); // entity didn't exist then
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "__getfields" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "now" ]).test_datetime);
+  TestEq(testpersonrec.test_datetime, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "now", querytime := GetCurrentDatetime() ]).test_datetime);
+  TestEq(DEFAULT RECORD, persontype->GetEntity(testpersonid)->GetFields([ "test_datetime" ], [ historymode := "now", querytime := MakeDate(2000, 1, 1) ])); // entity didn't exist then
 
   //test remapping getentityfields
   testpersonrec := persontype->GetEntityFields(testpersonid, [ title := "WRD_TITLE" ]);
@@ -1224,6 +1251,15 @@ MACRO TestEnrichBulk()
                               ,[ getid := p2 ]
                               ], "GETID"
                               , [ email := "test_email", firstname := "wrd_firstname" ]);
+  TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
+          ,[ getid := p2, email := "bulk_p2@example.com", firstname := "Person 2"]
+          ], result);
+
+  result := wrdperson->Enrich([[ getid := p1 ]
+                              ,[ getid := p2 ]
+                              ], "GETID"
+                              , [ email := "test_email", firstname := "wrd_firstname" ]
+                              , [ cachettl := 60*1000 ]);
   TestEq( [[ getid := p1, email := "bulk_p1@example.com", firstname := "Person 1"]
           ,[ getid := p2, email := "bulk_p2@example.com", firstname := "Person 2"]
           ], result);
@@ -3085,6 +3121,10 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   //not setting required_attr should be fine as long as we're a temporary
   OBJECT tempentity := persontype->CreateEntity(CELL[], [ temp := TRUE ]);
   tempentity->UpdateEntity( [ wrd_contact_email := "temp2@beta.webhare.net" ]);
+
+  // Enrich should not work onl temporaries with default historymode
+  TestEQ(DEFAULT RECORD ARRAY, persontype->Enrich([ [ wrd_id := tempentity->id ] ], "wrd_id", CELL[ "wrd_contact_email" ]));
+  TestEQ([ [ wrd_id := tempentity->id, wrd_contact_email := "temp2@beta.webhare.net" ] ], persontype->Enrich([ [ wrd_id := tempentity->id ] ], "wrd_id", CELL[ "wrd_contact_email" ], [ historymode := "__getfields" ]));
 
   //but as we try to make it non-temp, it should fail!
   TestThrowsLike("*REQUIRED_ATTR*required*", PTR tempentity->UpdateEntity([ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]));
