@@ -247,7 +247,7 @@ MACRO TestImport()
   OBJECT schemaobj :=  testfw->GetWRDSchema();
   TestEq(TRUE, ObjectExists(schemaobj));
 
-  // Create a unique test url to make sure we're not getting the chec results of an old checked link
+  // Create a unique test url to make sure we're not getting the check results of an old checked link
   STRING testurl := "http://example.com/7-" || FormatISO8601DateTime(GetCurrentDatetime(), "", "", "", FALSE);
 
   OBJECT wrd_imexport := schemaobj->CreateType("IMEXPORT");

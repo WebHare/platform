@@ -12,6 +12,7 @@ LOADLIB "wh::internal/interface.whlib";
     @cell(boolean) options.rightouterjoin If FALSE, delete inrows without matching enrichment, otherwise call getdefaultjoinrecord function ptr and use that to enrich the source row.
     @cell(boolean) options.matchcase If TRUE, compare the id cells case insensitive.
     @cell(string) options.wrapfields If not empty, wrap the enriched fields in a cell with this name
+    @cell(string) options.presentfield If set, this field will contain 'left', 'right' or 'both' depending on which records were present
     @param getbulkfields Function to call to get data to enrich the inrows with.
         Signature: RECORD ARRAY FUNCTION function_ptr(VARIANT idcellvalues, BOOLEAN leftouterjoin, BOOLEAN matchcase).
         Needs to return a record array with a cell '__JOINID' which is used to match the enrich rows to the source rows

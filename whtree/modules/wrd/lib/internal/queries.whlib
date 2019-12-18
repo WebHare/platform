@@ -3903,7 +3903,7 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
     @cell(string) querydata.sources.historymode History mode, one of
                   - 'now': Return all entities that are valid now
                   - 'at': Return all entities that were valid at 'when'
-                  - 'range': Return all entities that were valid in the range [ 'when_start', 'when_limit' \>
+                  - 'range': Return all entities that were valid in the range [ 'when_start', 'when_limit' ]
                   - 'all': Return all entities (excluding temporaries)
                   - '__getfields': Return all entities (including temporaries)
     @cell(datetime) querydata.sources.when For history mode 'at', date when entities must be valid to be returned
