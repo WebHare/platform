@@ -2129,7 +2129,7 @@
   </textgroup>
   <textgroup gid="siteprofile">   <!-- siteprofile -->
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
-      <text tid="embedhtml">Rauwe HTML code</text>
+      <text tid="embedhtml">HTML blok</text>
       <text tid="embedvideo">Ingebedde video</text>
       <text tid="embedvideooftype"><param p="1"/> video</text>
       <text tid="formwidget">Form widget</text>
