@@ -143,7 +143,7 @@ test.registerTests(
         let startTime = new Date();
         pxl.setPxlOptions({ donottrack: "1" });
         pxl.sendPxlEvent(pxlEvent, null, { donottrack: "0" });
-        let lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetAccessLogLines", pxlEvent, startTime.toISOString());
+        let lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetPxlLogFiles", pxlEvent, startTime.toISOString());
         test.true(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
         let url = new URL("https://example.org" + lines[0]);
         test.true(url.searchParams.has("pe"));
@@ -156,7 +156,7 @@ test.registerTests(
         // Send an event without explicit id
         startTime = new Date();
         pxl.sendPxlEvent(pxlEvent);
-        lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetAccessLogLines", pxlEvent, startTime.toISOString());
+        lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetPxlLogFiles", pxlEvent, startTime.toISOString());
         test.true(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
         url = new URL("https://example.org" + lines[0]);
         test.true(url.searchParams.has("pe"));
@@ -166,7 +166,7 @@ test.registerTests(
         // Send an event with data
         startTime = new Date();
         pxl.sendPxlEvent(pxlEvent, { ds_1: pxlId, dn_fun: eventId });
-        lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetAccessLogLines", pxlEvent, startTime.toISOString());
+        lines = await test.invoke("mod::consilio/lib/internal/testframework.whlib", "GetPxlLogFiles", pxlEvent, startTime.toISOString());
         test.true(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
         url = new URL("https://example.org" + lines[0]);
         test.true(url.searchParams.has("pe"));

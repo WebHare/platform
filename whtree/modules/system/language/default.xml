@@ -1952,6 +1952,7 @@
         <text tid="mailretention">Save sent emails</text>
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
         <text tid="processhistory">Keep process history</text>
+        <text tid="pxllog">Keep pxl log</text>
         <text tid="registergeonames">Click here to register for a GeoNames account</text>
         <text tid="scripttimeout">Script time out</text>
         <text tid="security">Security</text>

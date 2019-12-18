@@ -504,7 +504,7 @@ PUBLIC OBJECTTYPE MultiFileLogReader
     IF(Length(this->logfiles)=0)
       RETURN FALSE;
 
-    RECORD logconfig := [ logtype :=        this->format = "access" ? "access" : "modulelog"
+    RECORD logconfig := [ logtype :=        this->format IN ["access","pxl"] ? "access" : "modulelog"
                         , filetype :=       "file"
                         , path :=           this->logfiles[0].path
                         , data :=           DEFAULT BLOB

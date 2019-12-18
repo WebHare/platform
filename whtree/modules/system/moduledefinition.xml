@@ -2111,6 +2111,7 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="global"> <!-- Global options affect all websites/servers -->
           <integer name="accesslogdays" description="Nr of days of access logs to keep" initialval="30" />
           <integer name="errorlogdays" description="Nr of days of error logs to keep" initialval="30" />
+          <integer name="pxllogdays" description="Nr of days of pxl access logs to keep" initialval="90" />
           <integer name="usagelogdays" description="Nr of days of usage stats to keep" initialval="90" />
           <obsoletekey name="explicitaliases" />
           <obsoletekey name="logstacktraces" />

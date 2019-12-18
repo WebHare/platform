@@ -81,8 +81,9 @@ class WebHareServer
         std::unique_ptr< WHCore::JobManagerIntegrator > jobmgrintegrator;
 
         Blex::Logfile accesslog;
-
         Blex::Logfile errorlog;
+        //the pxllog only receives hits for /.px/ urls
+        Blex::Logfile pxllog;
 
         enum ToDo
         {

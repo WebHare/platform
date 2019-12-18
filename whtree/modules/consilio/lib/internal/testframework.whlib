@@ -166,7 +166,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
   }
 >;
 
-PUBLIC STRING ARRAY FUNCTION TestInvoke_GetAccessLogLines(STRING id, STRING rangestart)
+PUBLIC STRING ARRAY FUNCTION TestInvoke_GetPxlLogFiles(STRING id, STRING rangestart)
 {
   RETURN FilterRecentHits(id, MakeDateFromText(rangestart));
 }
@@ -180,7 +180,7 @@ STRING ARRAY FUNCTION FilterRecentHits(STRING event, DATETIME rangestart)
   // Wait for access log to catch up
   Sleep(5000);
 
-  OBJECT accesslog := OpenWebHareLogStream("access", rangestart, GetCurrentDateTime());
+  OBJECT accesslog := OpenWebHareLogStream("pxl", rangestart, GetCurrentDateTime());
   STRING ARRAY lines;
   WHILE (TRUE)
   {

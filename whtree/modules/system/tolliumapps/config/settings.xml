@@ -115,6 +115,10 @@
             <text title="" valuetid="~units.days"/>
           </line>
           <line>
+            <textedit composition="tweaks" cellname="pxllogdays" valuetype="integer" tid=".pxllog"  width="6x"/>
+            <text title="" valuetid="~units.days"/>
+          </line>
+          <line>
             <textedit composition="tweaks" cellname="errorlogdays" valuetype="integer" tid=".errorlog"  width="6x"/>
             <text title="" valuetid="~units.days"/>
           </line>

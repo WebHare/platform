@@ -9,10 +9,7 @@ republish <objectid>[...]               Republish the selected file(s), specifie
 pstree                                  Show WebHare processes
 terminate                               Terminate all WebHare processes nicely (SIGTERM)
 kill                                    Kill all WebHare processes abruptly (SIGKILL)
-activity                                Show recent activity from the access.log
-accesslog                               Show the access log
-errorslog                               Show the error log
-servicelog                              Show the service manager log
+activity                                Show recent hitcounters grouped by minute from the access.log
 dirs                                    Show paths and environment settings
 check                                   Run selfchecks
 shellconfig                             Get WebHare configuration in shell variables

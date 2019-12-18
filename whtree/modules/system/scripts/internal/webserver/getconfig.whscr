@@ -57,6 +57,9 @@ STATIC OBJECTTYPE GetconfigPortHandler EXTEND IPCPortHandlerBase
       IF(NOT RecordExists(config))
         config := CreateMinimalWebserverConfig();
 
+      //Enforce the structure expected by the webserver fore more stability between upgrades - TODO also enforce structure for subarrays
+      config := EnforceStructure(GetBaseWebserverConfigRecord(), config);
+
       RECORD lastconfig := CallFunctionFromJob("mod::system/lib/internal/webserver/reloadconfig.whlib", "ReloadPreviousConfig", config);
       StoreDiskFile(this->saved_configpath, EncodeHSONBlob(lastconfig), [ overwrite := TRUE ]);
     }
