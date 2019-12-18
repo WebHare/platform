@@ -2129,7 +2129,7 @@
   </textgroup>
   <textgroup gid="siteprofile" limitlanguages="en nl">   <!-- siteprofile -->
     <textgroup gid="widgets">   <!-- siteprofile.widgets -->
-      <text tid="embedhtml">Raw HTML code</text>
+      <text tid="embedhtml">HTML block</text>
       <text tid="embedvideo">Embedded video</text>
       <text tid="embedvideooftype"><param p="1"/> video</text>
       <text tid="formwidget">Form widget</text>
@@ -2779,8 +2779,8 @@
     <textgroup gid="htmlwidget">   <!-- widgets.htmlwidget -->
       <text tid="html">HTML code</text>
       <text tid="invalidhtml">The entered HTML code is invalid</text>
-      <text tid="title">Raw HTML code</text>
-      <text tid="title-inline">Raw HTML code (inline)</text>
+      <text tid="title">HTML block</text>
+      <text tid="title-inline">HTML block (inline)</text>
       <text tid="toolonghtml">The entered HTML code is too long, this field supports up to 4096 characters</text>
     </textgroup>
     <textgroup gid="slideshowwidget">   <!-- widgets.slideshowwidget -->

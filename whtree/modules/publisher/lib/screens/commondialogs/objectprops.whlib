@@ -1946,7 +1946,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           //If this indexdoc has the name of an index file, it must be renamed or destroyed!
           RECORD indexfile := SELECT * FROM system.fs_objects WHERE id = parentfolder->indexdoc;
 
-          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages)
+          IF(indexfile.ispinned) //a pinned index file will never go away implicitly. fixes webhare/webhare#1439
+          {
+            this->QueryMessageBox("cannotreplacepinnedindex", [ stoponfeedback := [ "*" ], params := [ STRING(indexfile.name)] ]);
+            RETURN [ status := "retry" ];
+          }
+
+          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages) //indexpages can't be unmarked as index so need to go away - which is why we ask a different question
           {
             IF (indexfile.type = 24)
               recycleoldindex := indexfile.id;
@@ -1962,12 +1968,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
                 makeindex := FALSE;
             }
           }
-          ELSE IF(indexfile.ispinned)
-          {
-            this->QueryMessageBox("cannotreplacepinnedindex", [ stoponfeedback := [ "*" ], params := [ STRING(indexfile.name)] ]);
-            RETURN [ status := "retry" ];
-          }
-          ELSE
+          ELSE //double-check index reassignment. this is just a flag move, no content is moved away
           {
             STRING feedback := this->QueryMessageBox("replaceindexconfirm", [ params := [ STRING(indexfile.name), ^name->value ] ]);
             IF (feedback = "")
