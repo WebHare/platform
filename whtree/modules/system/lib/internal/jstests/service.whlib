@@ -5,15 +5,18 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/webdriver.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/testfw/emails.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 
@@ -199,5 +202,18 @@ PUBLIC VARIANT FUNCTION RPC_Invoke(STRING lib, STRING func, VARIANT ARRAY params
   VARIANT result := CallAnyPtrVA(funcptr, params);
   IF (TypeID(result) = TypeID(OBJECT) AND result EXTENDSFROM PromiseBase)
     result := WaitForPromise(result);
+  IF (TypeID(result) = TypeID(RECORD))
+  {
+    // Filter out anything inside the builtinmodules
+    STRING ARRAY resources :=
+        SELECT AS STRING ARRAY liburi
+          FROM GetAllUsedHarescriptLibraries()
+         WHERE liburi LIKE "mod::*/*"
+           AND SubString(Tokenize(liburi, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
+
+    INSERT CELL __outputtoolsdata := CELL
+        [ resources :=      GetSortedSet(resources)
+        ] INTO result;
+  }
   RETURN result;
 }

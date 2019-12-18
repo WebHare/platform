@@ -67,7 +67,13 @@ FOREVERY (STRING path FROM rootpaths CONCAT extraroots)
     StoreDiskFile(storepath, connectfile, [ overwrite := TRUE ]);
   CATCH
   {
-    PrintTo(2, `Could not store connectinfo file in ${storepath}\n`);
-    SetConsoleExitCode(1);
+    // Try again without going through a temporary file, allow for a user-writable file in a readonly directory
+    TRY
+      StoreDiskFile(storepath, connectfile, [ overwrite := TRUE, inplace := TRUE ]);
+    CATCH
+    {
+      PrintTo(2, `Could not store connectinfo file in ${storepath}\n`);
+      SetConsoleExitCode(1);
+    }
   }
 }

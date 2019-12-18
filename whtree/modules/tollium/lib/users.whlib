@@ -419,6 +419,17 @@ PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     }
   }
 
+  /** @short Get the event masks to use to listen to modifications to specific registry keys
+      @param keys List of registry keys
+      @return A list of event mask(s)
+  */
+  PUBLIC STRING ARRAY FUNCTION GetRegistryKeyEventMasks(STRING ARRAY keys)
+  {
+    FOREVERY (STRING regkey FROM keys)
+      keys[#regkey] := this->pvt_registryrootname || "." || regkey;
+    RETURN GetRegistryKeyEventMasks(keys);
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Helper functions
