@@ -6,7 +6,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 
-RECORD ARRAY FUNCTION GetAccessLogEntries(DATETIME rangestart)
+RECORD ARRAY FUNCTION GetAccessLogEntries(STRING logname, DATETIME rangestart, INTEGER expectlines)
 {
   // Wait for access log to catch up
   DATETIME deadline := AddTimeToDate(60*1000,GetCurrentDateTime());
@@ -15,7 +15,7 @@ RECORD ARRAY FUNCTION GetAccessLogEntries(DATETIME rangestart)
   {
     Sleep(1000);
 
-    OBJECT accesslog := OpenWebHareLogStream("access", rangestart, GetCurrentDateTime());
+    OBJECT accesslog := OpenWebHareLogStream(logname, rangestart, GetCurrentDateTime());
     rows := RECORD[];
     WHILE (TRUE)
     {
@@ -23,14 +23,12 @@ RECORD ARRAY FUNCTION GetAccessLogEntries(DATETIME rangestart)
       IF (NOT RecordExists(row))
         BREAK;
 
-      //DumpValue(row);
-
       IF (row.url NOT LIKE "*__test*")
         CONTINUE;
 
       INSERT row INTO rows AT END;
     }
-    IF(Length(rows) >= 5)
+    IF(Length(rows) >= expectlines)
       BREAK;
 
     accesslog->Close();
@@ -50,8 +48,9 @@ MACRO RunQueries()
   testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost", [ headers := [ [ field := "Host", value := "example \" .com " ] ] ]);
   testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost2", [ headers := [ [ field := "Host", value := "example\r.com" ] ] ]);
   testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost3", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
+  testfw->browser->GotoWebPage(testvport.baseurl || ".px/pixelhit?__test", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
 
-  RECORD ARRAY data := GetAccessLogEntries(teststart);
+  RECORD ARRAY data := GetAccessLogEntries("access", teststart, 6);
   TestEQMembers(
       [ [ host :=       "127.0.0.1"
         , method :=     "GET"
@@ -73,6 +72,19 @@ MACRO RunQueries()
         ]
       , [ host :=       "example"
         , url :=        "/.__test/illegalhost3"
+        ]
+      , [ host :=       "example"
+        , url :=        "/.px/pixelhit?__test"
+        ]
+      ], data, "*");
+
+  data := GetAccessLogEntries("pxl", teststart, 1);
+  TestEQMembers(
+      [ [ host :=       "example"
+        , method :=     "GET"
+        , port :=       testvport.portnumber
+        , url :=        "/.px/pixelhit?__test"
+        , useragent :=  'HareScript/2 (HareScript HTTP library)'
         ]
       ], data, "*");
 }

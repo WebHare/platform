@@ -27,6 +27,30 @@ LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
 //RECORD ARRAY hosts;
 
+PUBLIC RECORD FUNCTION GetBaseWebserverConfigRecord()
+{
+  RETURN CELL
+      [ version := 1
+      , generated := GetCurrentDatetime()
+      , generatedby := GetWebhareVersion()
+      , ports := RECORD[]
+      , hosts := RECORD[]
+      , types := RECORD[]
+      , rules := RECORD[]
+      , trust_xforwardedfor := STRING[]
+
+        //save log rotation limits for the minimal configuration
+      , errorlog := 99999
+      , accesslog := 99999
+      , pxllog := 99999
+      , script_timeout := 900
+      , keep_process_history := 60000
+      , stripextensions := STRING[]
+      , errors := RECORD[]
+      , debugurlmasks := STRING[]
+      ];
+}
+
 PUBLIC BOOLEAN FUNCTION IsCertificateForHostname(RECORD cert, STRING hostname)
 {
   hostname := ToLowercase(hostname);
@@ -1055,24 +1079,11 @@ OBJECTTYPE WebConfigBuilder
              , DELETE applysource
           FROM rules;
 
-    this->finalconfig := CELL
-      [ version := 1
-      , generated := GetCurrentDatetime()
-      , generatedby := GetWebhareVersion()
-      , ports := ports
-      , hosts := hosts
-      , types := RECORD[]
-      , rules := rules
-      , trust_xforwardedfor := STRING[]
-
-      , errorlog := 99
-      , accesslog := 99
-      , script_timeout := 900
-      , keep_process_history := 60000
-      , stripextensions := STRING[]
-      , errors := this->errors
-      , debugurlmasks := STRING[]
-      ];
+    this->finalconfig := GetBaseWebserverConfigRecord();
+    this->finalconfig.ports := ports;
+    this->finalconfig.hosts := hosts;
+    this->finalconfig.rules := rules;
+    this->finalconfig.errors := this->errors;
 
     IF(NOT this->minimalconfig)
     {
@@ -1095,6 +1106,7 @@ OBJECTTYPE WebConfigBuilder
 
       this->finalconfig.errorlog := ReadRegistryKey("system.webserver.global.errorlogdays");
       this->finalconfig.accesslog := ReadRegistryKey("system.webserver.global.accesslogdays");
+      this->finalconfig.pxllog := ReadRegistryKey("system.webserver.global.pxllogdays");
       this->finalconfig.script_timeout := ReadRegistryKey("system.webserver.global.scripttimeout");
       this->finalconfig.keep_process_history := ReadRegistryKey("system.webserver.global.historyseconds") * 1000;
       this->finalconfig.stripextensions := ParseXSList(ToUppercase(ReadRegistryKey("publisher.publication.stripextensions")));

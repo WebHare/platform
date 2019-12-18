@@ -21,6 +21,7 @@ void WebHareServer::FlushLogFiles()
 {
         accesslog.Flush();
         errorlog.Flush();
+        pxllog.Flush();
 }
 
 template < class A >
@@ -244,6 +245,11 @@ void WebHareServer::AccessLogFunction(WebServer::Connection &conn, unsigned resp
         // Add end of line.
         builder.Append("\n");
         accesslog.RawLog(builder.data.begin(), builder.data.end(), now);
+
+        //aww no c++20 yet
+        //if(reqparser.GetReceivedUrl().starts_with("/.px/"))
+        if(reqparser.GetReceivedUrl().compare(0, 5, "/.px/") == 0)
+            pxllog.RawLog(builder.data.begin(), builder.data.end(), now);
 }
 void WebHareServer::ErrorLogFunction(Blex::SocketAddress const &remoteaddr, std::string const&error)
 {
@@ -380,7 +386,7 @@ bool WebHareServer::StartManagementScript()
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
 
         // FIXME: set current script name (setcurrentfile on errorhandler)
-        if (!HSVM_LoadScript(hsvm, "modulescript::system/internal/webserver/manager.whscr"))
+        if (!HSVM_LoadScript(hsvm, "mod::system/scripts/internal/webserver/manager.whscr"))
         {
                 LogManagementScriptErrors(group);
                 Blex::SafeErrorPrint("Could not load webserver management script, terminating webserver\n");
@@ -426,8 +432,11 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
             throw std::runtime_error("WebHare not properly configured or environment variables not set");
 
         Blex::CreateDir(webhare->GetLogRoot(),true);
-        accesslog.OpenLogfile(webhare->GetLogRoot(), "access", ".log",false, 99, false);
-        errorlog.OpenLogfile(webhare->GetLogRoot(), "errors", ".log",true, 99, false);
+
+        // We start with safe history days (99999) until we receive our actual configuration
+        accesslog.OpenLogfile(webhare->GetLogRoot(), "access", ".log",false, 99999, false);
+        errorlog.OpenLogfile(webhare->GetLogRoot(), "errors", ".log",true, 99999, false);
+        pxllog.OpenLogfile(webhare->GetLogRoot(), "pxl", ".log",true, 99999, false);
 
         webserver.reset(new WebServer::Server(webhare->GetTmpRoot(),
                                               std::bind(&WebHareServer::AccessLogFunction,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
@@ -847,6 +856,7 @@ void WebHareServer::LoadConfig(HSVM *hsvm, HSVM_VariableId retval, HSVM_Variable
 
                 errorlog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "ERRORLOG"));
                 accesslog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "ACCESSLOG"));
+                pxllog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "PXLLOG"));
                 newconfig->script_timeout = HSVM_LoadCell<int32_t>(hsvm, config, "SCRIPT_TIMEOUT");
                 HSVM_LoadIn(newconfig->stripextensions, hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "STRIPEXTENSIONS")));
         }

@@ -1763,6 +1763,7 @@
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
+        <text tid="pxllog">Bewaar pxl log</text>
         <text tid="registergeonames">Klik hier om een GeoNames-account te registreren</text>
         <text tid="scripttimeout">Script time-out</text>
         <text tid="security">Beveiliging</text>
