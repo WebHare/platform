@@ -32,10 +32,6 @@ PUBLIC OBJECTTYPE CustomContentBase
     this->contentsourceid := data.contentsourceid;
   }
 
-  ///Force cached data to be reread
-  PUBLIC BOOLEAN force;
-
-
   /** @short Get a title for this index
       @return Title
   */
@@ -65,7 +61,7 @@ PUBLIC OBJECTTYPE CustomContentBase
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  /** @short List of fields to provide in ListObjects2 for current_objects
+  /** @short List of fields to provide in ListObjects3/ListObjects2 for current_objects
       @return List of field names
   */
   PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
@@ -90,6 +86,25 @@ PUBLIC OBJECTTYPE CustomContentBase
   PUBLIC RECORD FUNCTION ListGroups(DATETIME commanddate)
   {
     THROW NEW Exception("ListGroups not implemented");
+  }
+
+  /** @short Get a list of all objects within a group
+      @param commanddate Date when this command (or its oldest ancestor) was issued
+      @param groupid The group the get the list of objects of
+      @param current_objects List of currently present objects. Fields can be specified with GetListObjectFields (only filled in update mode, not in rebuild mode)
+      @cell(boolean) options.rebuild If this is a rebuild action or just a check
+      @return The result
+      @cell return.status "result" if call succeeded, "error" if an error ocurred
+      @cell return.error Return a record with an 'error' cell of type string if an error occurred
+      @cell return.objects The list of objects
+      @cell return.objects.id The id of the object
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
+  {
+    RETURN this->ListObjects2(commanddate, groupid, current_objects);
   }
 
   /** @short Get a list of all objects within a group
@@ -169,7 +184,7 @@ PUBLIC OBJECTTYPE CustomContentBase
     RETURN defaultmapping;
   }
 
-  /** Helper function to implement the FetchObject function if ListObjects(2) already gives back the data for
+  /** Helper function to implement the FetchObject function if ListObjects(2/3) already gives back the data for
       all existing objects (needed to ensure CheckConsilioObject which call FetchObject directly still
       functions)
       @param commanddate
@@ -184,7 +199,7 @@ PUBLIC OBJECTTYPE CustomContentBase
   */
   RECORD FUNCTION FetchObjectFromObjectList(DATETIME commanddate, STRING groupid, STRING objectid)
   {
-    RECORD result := this->ListObjects2(commanddate, groupid, RECORD[]);
+    RECORD result := this->ListObjects3(commanddate, groupid, RECORD[], DEFAULT RECORD);
     IF (result.status != "result")
       RETURN result;
 
@@ -319,12 +334,13 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     RETURN DEFAULT RECORD ARRAY;
   }
 
-  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+  UPDATE PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
   {
-    RECORD res := this->DoJobRequest([ command :=     "listobjects2"
+    RECORD res := this->DoJobRequest([ command :=     "listobjects3"
                                      , commanddate := commanddate
                                      , groupid :=     groupid
                                      , current_objects := current_objects
+                                     , options :=     options
                                      ]);
 
     IF (res.status = "ok" AND res.msg.status = "result")

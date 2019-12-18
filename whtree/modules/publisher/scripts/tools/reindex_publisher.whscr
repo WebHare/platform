@@ -9,7 +9,6 @@ LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR IsRunningInEditor() ]
-    , [ name := "force", type :="switch" ]
     , [ name := "ids", type := "paramlist" ]
     ]);
 IF (NOT RecordExists(args))
@@ -42,6 +41,6 @@ FOREVERY (STRING idstr FROM args.ids)
 }
 
 IF (Length(to_reindex) > 0)
-  ReindexWHFSChanges(to_reindex, [ debug := args.debug, force := args.force ]);
+  ReindexWHFSChanges(to_reindex, [ debug := args.debug ]);
 ELSE
   Print("Nothing to do\n");

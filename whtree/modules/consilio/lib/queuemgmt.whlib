@@ -387,7 +387,6 @@ MACRO HandleCommandSynchronously(RECORD basedata, FUNCTION PTR resolve, FUNCTION
         {
             RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                               , refresh := TRUE
-                                              , force := options.force
                                               ]);
             IF (Length(result.errors) > 0)
               THROW NEW Exception(result.errors[0].message);

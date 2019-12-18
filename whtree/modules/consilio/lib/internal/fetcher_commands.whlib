@@ -475,7 +475,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
       , nocleaning := FALSE
       , printprogress := FALSE
       , debugobjects := FALSE
-      , force := FALSE //force any cached data to be reread
       ], options);
 
   RECORD result :=
@@ -540,7 +539,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
       // Get fields to provided to objectfields
       STRING ARRAY objectfields := provider->GetObjectListFields();
 
-      /* Current objects (not needed for deactivation, but we'll provided them to ListObjects2)
+      /* Current objects (not needed for deactivation, but we'll provided them to ListObjects3/ListObjects2)
          @cell id Object id
          @cell date_indexdate Indexdate for this object
          @cell date_indexed Commanddate of command that added this object
@@ -554,7 +553,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                , requiredindexdate :=      CellExists(obj, "REQUIREDINDEXDATE") ? obj.requiredindexdate : DEFAULT DATETIME
                , existing_pos :=           RecordLowerBound(existing_objects, [ id := id ], [ "ID" ])
                , data :=                   CellExists(obj, "DATA") ? obj.data : DEFAULT RECORD
-            FROM provider->ListObjects2(data.commanddate, data.groupid, options.rebuild ? DEFAULT RECORD ARRAY : existing_objects) AS obj;
+            FROM provider->ListObjects3(data.commanddate, data.groupid, options.rebuild ? DEFAULT RECORD ARRAY : existing_objects, CELL[ options.rebuild ]) AS obj;
 
       IF(options.debugobjects)
         DumpValue(objects, "boxed");
@@ -602,7 +601,7 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
           }
 
           // Fetch and index the object, new objects within the group are returned
-          RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate, options.force);
+          RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate, options.rebuild);
 
           IF (cmdresult.success)
           {
@@ -872,7 +871,7 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
   }
 
   // Fetch and index the object unconditionally
-  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate, DEFAULT DATETIME, DEFAULT DATETIME, FALSE);
+  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate, DEFAULT DATETIME, DEFAULT DATETIME, TRUE);
   IF (NOT cmdresult.success)
   {
     IF (cmdresult.error IN [ "exception", "abort" ])

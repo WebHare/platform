@@ -63,7 +63,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
     ReindexWHFSChanges([[ id := this->objid
                         , isfolder := this->fsobj->isfolder
                         , isdelete := NOT this->fsobj->isactive
-                        ]], [ debug := TRUE, force := TRUE ]);
+                        ]], [ debug := TRUE ]);
     this->Refresh(this->fsobj);
   }
   MACRO DoInspectConsilio()

@@ -28,7 +28,7 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
 
 PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ eventid := "", debug := FALSE, force := FALSE ], options);
+  options := ValidateOptions([ eventid := "", debug := FALSE ], options);
 
   IF (publisher_index = 0)
   {
@@ -100,7 +100,6 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
 
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                       , refresh := TRUE
-                                      , force := options.force
                                       ]);
     IF(Length(result.errors) > 0 AND options.debug)
       DumpValue(result);
