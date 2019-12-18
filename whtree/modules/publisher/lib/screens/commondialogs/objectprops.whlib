@@ -1952,7 +1952,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
             RETURN [ status := "retry" ];
           }
 
-          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages) //indexpages cant be unmarked as index so need to go away - which is why we ask a different quetsion
+          IF (ToLowercase(indexfile.name) IN whconstant_webserver_indexpages) //indexpages can't be unmarked as index so need to go away - which is why we ask a different question
           {
             IF (indexfile.type = 24)
               recycleoldindex := indexfile.id;
