@@ -1479,15 +1479,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                           , historymode := historymode
                           ]);
   }
-  /** @short Grab a list of fields, given a list of ids to gather
-      @param ids Ids of the entities to retrieve (only when 'returnall' is false)
-      @param outputcolumns @includecelldef #RunQuery.querydata.outputcolumns
-      @return Query result
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetBulkFields(INTEGER ARRAY ids, RECORD outputcolumns)
-  {
-    RETURN this->__GetBulkFields(ids, FALSE, FALSE, outputcolumns,"all");
-  }
 
   /** @short Enrich an array with fields from this type
       @param inrows Rows to enrich
