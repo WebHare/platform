@@ -578,64 +578,8 @@ MACRO TestAttributes(STRING tag)
 
 MACRO TestHistoryMode()
 {
-  __wrdtest_disable_updateat_throw := TRUE;
   OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
   OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
-
-  {
-    testfw->BeginWork();
-
-    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity2([ wrd_lastname := "HistoryModeTest" ])->id);
-    person->UpdateFields([ wrd_contact_email := "email-3@example.net" ]);
-
-    // Using non-history mode after history mode, wrong settings was updated
-    // Current setting must be updated
-
-    // Selects needed to trigger race condition.
-    person->UpdateFieldsAt([ wrd_contact_email := "email-1@example.net" ], MakeDate(2000, 1, 1));
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-    person->UpdateFieldsAt([ wrd_contact_email := "email-2@example.net" ], MakeDate(2000, 1, 2));
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-    person->UpdateFields([ wrd_contact_email := "email-3@example.net" ]);
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
-
-    TestEq("email-3@example.net", person->GetField("WRD_CONTACT_EMAIL"));
-    TestEq("email-3@example.net", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 1)).wrd_contact_email);
-    //printrecordarrayto(0, (select * from wrd.entity_settings WHERE entity = person->id), 'boxed');
-    TestEq("email-3@example.net", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 2)).wrd_contact_email);
-
-    testfw->RollbackWork();
-  }
-
-  {
-    testfw->BeginWork();
-
-    OBJECT person := wrdperson->GetEntity(wrdperson->CreateEntity2([ wrd_lastname := "HistoryModeTest" ])->id);
-
-    // Using non-history mode after history mode, all settings were deleted
-    // Only current setting may be deleted
-
-    // Selects needed to trigger race condition.
-    person->UpdateFieldsAt([ wrd_contact_email := "email-1@example.net" ], MakeDate(2000, 1, 1));
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    person->UpdateFieldsAt([ wrd_contact_email := "email-2@example.net" ], MakeDate(2000, 1, 2));
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    person->UpdateFields([ wrd_contact_email := "" ]);
-    SELECT FROM wrd.entity_settings WHERE entity = person->id;
-
-    TestEq("", person->GetField("WRD_CONTACT_EMAIL"));
-    TestEq("", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 1)).wrd_contact_email);
-    TestEq("", wrdperson->GetEntityFieldsAt(person->id, [ "WRD_CONTACT_EMAIL" ], makeDate(2000, 1, 2)).wrd_contact_email);
-
-    testfw->RollbackWork();
-  }
 
  {
     testfw->BeginWork();
@@ -663,62 +607,6 @@ MACRO TestHistoryMode()
         ]);
     TestEq(1, Length(results));
     testEq(person->id, results[0].id);
-
-    testfw->RollbackWork();
-  }
-
-  {
-    testfw->BeginWork();
-
-    OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
-    OBJECT destlink2 := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink2"]);
-
-    RECORD data :=
-        [ richie :=
-              [ embedded := DEFAULT RECORD ARRAY
-              , htmltext:= StringToBlob('<html><body><p class="normal">Diagnostiek Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>')
-              , instances := DEFAULT RECORD ARRAY
-              , links :=
-                    [ [ linkref := 468208
-                      , tag := 'RL-E0br8EYFeqU0i8vJWwseRQ'
-                      ]
-                    ]
-              ]
-        ,  testinstance :=
-              [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
-              , id := "TestInstance-1"
-              , styletitle := ""
-              , whfssettingid := 0
-              , whfsfileid := 0
-              , fsref := destlink->id
-              ]
-        , testintextlink :=
-              [ internallink := destlink->id
-              , externallink := ""
-              , append := "#bla"
-              ]
-        ];
-
-
-    DATETIME now := GetCurrentDateTime();
-    OBJECT entity := wrdperson->CreateEntity2(MakeMergedRecord(data,
-        [ wrd_creationdate := AddTimeToDate(-4, now)
-        ]));
-
-    TestEqStructure(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]));
-    TestEqMembers(data, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
-
-    RECORD modified := data;
-    modified.richie.htmltext:= StringToBlob('<html><body><p class="normal">BLABLABLA Enterobius vermicularis:</p><ul class="unordered"><li>microscopie van <a href="x-richdoclink:RL-E0br8EYFeqU0i8vJWwseRQ">perianale</a> huida77676767fstrijk met <a href="https://example.com">plakbandmethode</a></li></ul></body></html>');
-    modified.testinstance.id := "TestInstance-1a";
-    modified.testintextlink.internallink := destlink2->id;
-
-    entity->UpdateFieldsAt(modified, AddTimeToDate(-2, now));
-
-    TestEqMembers(modified, entity->GetFields([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ]), "*,-whfssettingid,-whfsfileid");
-    TestEqMembers(modified, entity->GetEntityFieldsAt([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], now), "*,-whfssettingid,-whfsfileid");
-
-    TestEqMembers(modified, entity->GetEntityFieldsAt([ "RICHIE", "TESTINSTANCE", "TESTINTEXTLINK" ], AddTimeToDate(-3, now)), "*,-whfssettingid,-whfsfileid");
 
     testfw->RollbackWork();
   }
@@ -1351,11 +1239,10 @@ MACRO TestWRDQuery_Mentions_Single()
                                              , wrd_contact_email := "mentionstest3@example.com"
                                              , wrd_creationdate := MakeDate(2014,1,1)
                                              ]);
-  person3->UpdateFieldsAt2([ test_array := [[ test_single := dom11 ]] ], MakeDate(2014,1,5)); //historyic update to ensure MENTIOS does not see this
-  person3->UpdateFieldsAt2([ test_array := [[ test_single := dom12
-                                            , test_single_other := dom11  //setting this attribute to prove that MENTIONS actually looked at the proper attribute
-                                            ]
-                                           ]], MakeDate(2014,1,10));
+  person3->UpdateFields([ test_array := [[ test_single := dom12
+                                         , test_single_other := dom11  //setting this attribute to prove that MENTIONS actually looked at the proper attribute
+                                         ]
+                                        ]]);
 
   //person with both
   INTEGER person4id := wrdperson->CreateEntity2([ wrd_firstname := "Mentions4"
@@ -1419,9 +1306,9 @@ MACRO TestWRDQuery_Mentions_Single()
 
   // Bug: array elements closed will still be picked up for mentions
   OBJECT person4 := wrdperson->GetEntity(person4id);
-  person4->UpdateFieldsAt(
+  person4->UpdateFields(
       [ test_array := DEFAULT RECORD ARRAY
-      ], GetCurrentDatetime());
+      ]);
 
   result := RunWRDQuery([ sources := [[ type := wrdperson
                                       , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
@@ -1435,13 +1322,6 @@ MACRO TestWRDQuery_Mentions_Single()
   // Mentions of FREE attribute
   person3->UpdateFields([ test_array := [ [ test_free := "1" ], [ test_free := "2" ], [ test_free := "1" ] ] ]);
   TestEQ([ [ wrd_id := person3->id ] ], wrdperson->RunQuery(
-      [ outputcolumns := [ "WRD_ID" ]
-      , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
-      ]));
-
-  // Test honoring of array creationdate/limitdata
-  person3->UpdateFieldsAt([ test_array := DEFAULT RECORD ARRAY ], GetCurrentDatetime());
-  TestEQ(DEFAULT RECORD ARRAY, wrdperson->RunQuery(
       [ outputcolumns := [ "WRD_ID" ]
       , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
       ]));

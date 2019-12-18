@@ -263,17 +263,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   */
   PUBLIC RECORD ARRAY FUNCTION GetEntitiesFields(INTEGER ARRAY find_ids, STRING ARRAY fields)
   {
-    RETURN this->GetEntitiesFieldsAt(find_ids, fields, GetCurrentDatetime());
-  }
-
-  /** @short Returns all requested fields of all entities matching the ids
-      @param find_ids ids of the entity
-      @param fields name of the fields to return
-      @param when the time of which you want to know the value of. It does not need to equal a specific time at which the fields were updated.
-      @return Record array with a cell for each requested field, un unspecified order
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetEntitiesFieldsAt(INTEGER ARRAY find_ids, STRING ARRAY fields, DATETIME when)
-  {
     RECORD ARRAY filters;
     IF(Length(find_ids)=0)
       RETURN DEFAULT RECORD ARRAY;
@@ -284,42 +273,13 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
       filters := [ [ field := "WRD_ID", matchtype := "IN", value := find_ids ] ];
 
     //note: getentityfields sees ALL entities, but returns values as they were at 'when'.
-    OBJECT query := MakeWRDQuery([ sources := [[ type := this
-                                               , filters := filters
-                                               , outputcolumns := fields
-                                               , historymode := "all"
-                                               ]
-                                              ]
-                                 ]);
-    query->current_time := when;
-    RETURN query->Execute();
-  }
-
-  /** @short Returns all requested fields of the entity with the value they had at the specified time
-      @param find_id id of the entity
-      @param fields name of the fields to return
-      @param when the time of which you want to know the value of. It does not need to equal a specific time at which the fields were updated.
-      @return Record with a cell for each requested field (not all described)
-  */
-  PUBLIC RECORD FUNCTION GetEntityFieldsAt(INTEGER find_id, STRING ARRAY fields, DATETIME when)
-  {
-    RECORD ARRAY results := this->GetEntitiesFieldsAt([find_id], fields, when);
-    RETURN RECORD(results);
-  }
-
-  PUBLIC RECORD FUNCTION GetEntityFieldsBefore(INTEGER find_id, STRING ARRAY fields, DATETIME when)
-  {
-    when := AddTimeToDate(-1, when);
-    RETURN this->GetEntityFieldsAt(find_id, fields, when);
-  }
-
-  /** @short gets a list of dates on which the specified entity has been modified
-      @param find_id Id of the entity to check
-      @return list of all datetimes on which the entity was modified
-  */
-  PUBLIC DATETIME ARRAY FUNCTION GetEntityModificationDates(INTEGER find_id)
-  {
-    RETURN [GetCurrentDatetime()];
+    RETURN RunWRDQuery([ sources := [ [ type := this
+                                      , filters := filters
+                                      , outputcolumns := fields
+                                      , historymode := "all"
+                                      ]
+                                    ]
+                       ]);
   }
 
   PUBLIC RECORD FUNCTION GetNewEntityFields(STRING ARRAY fields)

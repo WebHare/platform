@@ -46,40 +46,4 @@ PUBLIC STATIC OBJECTTYPE LegacyWRDEntity EXTEND WRDEntityBase
   {
     this->pvt_wrdtype->UpdateEntity(this->entityrec.id, entitydata);
   }
-
-  /** @short Update this entity, setting the specified starting time for updates and closing current values.
-      @long All the specified fields are updated in the entity, and will be marked valid from the specified starting time until
-            infinity. If the starting time is set, the current values will be closed (and thus, still available), otherwise, those
-            values will be overwritten. Values that will become valid after the
-            starting time are all always removed.
-      @param entitydata A record containing the fields to update
-      @param updatedat Time to set on the new fields. If set to default datetime, existing values are overwritten, not closed
-  */
-  PUBLIC RECORD FUNCTION UpdateFieldsAt(RECORD entitydata, DATETIME updatedat)
-  {
-    RETURN LegacyUpdateEntity(this->pvt_wrdtype, entitydata, this->entityrec.id, updatedat);
-  }
-  PUBLIC MACRO UpdateFieldsAt2(RECORD entitydata, DATETIME updatedat)
-  {
-    this->pvt_wrdtype->UpdateEntity(this->entityrec.id, entitydata, [ updateat := updatedat ]);
-  }
-
-  /** @short gets a list of dates on which the specified entity has been updated
-      @return list of all changed on which the entity was updated
-  */
-  PUBLIC DATETIME FUNCTION GetModificationDates()
-  {
-    RETURN this->pvt_wrdtype->GetEntityModificationDates(this->entityrec.id);
-  }
-
-
-  /** @short Returns all requested fields of the entity with the value they had at the specified time
-      @param fields name of the fields to return
-      @param when the time of which you want to know the value of. It does not need to equal a specific time at which the fields were updated.
-      @return record with a cell for each requested field (not all described)
-  */
-  PUBLIC RECORD FUNCTION GetEntityFieldsAt(STRING ARRAY fields, DATETIME when)
-  {
-    RETURN this->pvt_wrdtype->GetEntityFieldsAt(this->entityrec.id, fields, when);
-  }
 >;

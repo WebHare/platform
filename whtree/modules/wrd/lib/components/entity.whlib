@@ -26,7 +26,7 @@ MACRO DestroyStorage(INTEGER entityid)
   DELETE FROM wrd.entities WHERE id = entityid AND creationdate = MAX_DATETIME; //verifying it's a temporary
 }
 
-PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
+PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 <
   STRING ARRAY pvt_fields;
   OBJECT pvt_wrdtype;
@@ -181,7 +181,6 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
         , extradata := DEFAULT RECORD
         ], options);
 
-    DATETIME updateat := DEFAULT DATETIME;
     RECORD updates := CELL[ ...this->extradata
                           , ...this->__GetEntityUpdates(DEFAULT RECORD)
                           , ...options.extradata
@@ -196,7 +195,7 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
       //if you modify wrd_tag, uppercase it! (unless its unchanged)
       IF(CellExists(updates,'wrd_tag') AND updates.wrd_tag != ToUppercase(updates.wrd_tag) AND entity->GetField("wrd_tag") != updates.wrd_tag)
         updates.wrd_tag := ToUppercase(updates.wrd_tag);
-      this->__UpdateEntityWithValues(work, entity, updates, updateat);
+      this->__UpdateEntityWithValues(work, entity, updates);
       RETURN entity->id;
     }
     ELSE
@@ -204,8 +203,6 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
       //if you set wrd_tag, uppercase it!
       IF(CellExists(updates,'wrd_tag'))
         updates.wrd_tag := ToUppercase(updates.wrd_tag);
-      IF(NOT CellExists(updates,'wrd_creationdate') AND updateat != DEFAULT DATETIME)
-        INSERT CELL wrd_creationdate := updateat INTO updates;
 
       this->__CreateEntityWithValues(work, updates);
       this->__storageid := 0;
@@ -404,7 +401,7 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     IF(this->__storageid != 0)
       THROW NEW TolliumException(this, "The 'temporary' wrd:entity API requires a static wrdtype= to be set on the wrd:entity");
     IF (ObjectExists(this->wrdentity))
-      this->__UpdateEntityWithValues(work, this->pvt_entity, updates, DEFAULT DATETIME);
+      this->__UpdateEntityWithValues(work, this->pvt_entity, updates);
     ELSE
       this->__CreateEntityWithValues(work, updates);
   }
@@ -439,7 +436,7 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
       GetPrimaryWebhareTransactionObject()->RegisterCommitHandler("", PTR this->OnCommitAfterCreate);
   }
 
-  BOOLEAN FUNCTION __UpdateEntityWithValues(OBJECT work, OBJECT entity, RECORD updates, DATETIME updateat)
+  BOOLEAN FUNCTION __UpdateEntityWithValues(OBJECT work, OBJECT entity, RECORD updates)
   {
     IF(this->onstorevalue != DEFAULT FUNCTION PTR)
       updates := this->onstorevalue(work, updates);
@@ -448,8 +445,7 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 
     entity->UpdateEntity(
         updates,
-        [ updateat := updateat
-        , errorcallback := PTR this->ReportError(work, #1)
+        [ errorcallback := PTR this->ReportError(work, #1)
         ]);
 
     RETURN NOT work->HasFailed();
@@ -471,31 +467,18 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     RETURN DEFAULT OBJECT;
   }
 
-  // Returns 0 when an error has occurred
-  PUBLIC INTEGER FUNCTION CreateEntityAt(OBJECT work, DATETIME updateat, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
+  PUBLIC INTEGER FUNCTION CreateEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
   {
     RECORD updates := this->__GetEntityUpdates(additional_values);
     IF (work->HasFailed())
       RETURN 0;
 
-    IF(NOT CellExists(updates,'wrd_creationdate') AND updateat != DEFAULT DATETIME)
-      INSERT CELL wrd_creationdate := updateat INTO updates;
-
     this->__CreateEntityWithValues(work, updates);
     RETURN ObjectExists(this->wrdentity) ? this->wrdentity->id : 0;
-  }
-  PUBLIC INTEGER FUNCTION CreateEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
-  {
-    RETURN this->CreateEntityAt(work, DEFAULT DATETIME, additional_values);
   }
 
   // Returns true when no errors occurred
   PUBLIC BOOLEAN FUNCTION UpdateEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
-  {
-    RETURN this->UpdateEntityAt(work, DEFAULT DATETIME, additional_values);
-  }
-
-  PUBLIC BOOLEAN FUNCTION UpdateEntityAt(OBJECT work, DATETIME updateat, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT ObjectExists(this->pvt_entity))
       ABORT("Invoking UpdateEntityAt without having set the 'entity' member");
@@ -504,9 +487,8 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     IF (work->HasFailed())
       RETURN FALSE;
 
-    RETURN this->__UpdateEntityWithValues(work, this->pvt_entity, updates, updateat);
+    RETURN this->__UpdateEntityWithValues(work, this->pvt_entity, updates);
   }
-
 
   /** @short Initialize the wrd:entity with type and the id to edit */
   PUBLIC MACRO LoadEntity(OBJECT wrdtype, INTEGER id)
@@ -527,24 +509,19 @@ PUBLIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     }
   }
 
-  PUBLIC INTEGER FUNCTION StoreEntityAt(OBJECT work, DATETIME updateat, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
+  PUBLIC INTEGER FUNCTION StoreEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
   {
     IF(ObjectExists(this->wrdentity))
     {
-      IF(this->UpdateEntityAt(work, updateat, additional_values))
+      IF(this->UpdateEntity(work, additional_values))
         RETURN this->wrdentity->id;
       ELSE
         RETURN 0;
     }
     ELSE
     {
-      RETURN this->CreateEntityAt(work, updateat, additional_values);
+      RETURN this->CreateEntity(work, additional_values);
     }
-  }
-
-  PUBLIC INTEGER FUNCTION StoreEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
-  {
-    RETURN this->StoreEntityAt(work, DEFAULT DATETIME, additional_values);
   }
 
   PUBLIC INTEGER FUNCTION GetEntityId()
