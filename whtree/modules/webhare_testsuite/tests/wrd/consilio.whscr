@@ -1,4 +1,6 @@
 ﻿<?wh
+
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
@@ -245,10 +247,13 @@ MACRO TestImport()
   OBJECT schemaobj :=  testfw->GetWRDSchema();
   TestEq(TRUE, ObjectExists(schemaobj));
 
+  // Create a unique test url to make sure we're not getting the chec results of an old checked link
+  STRING testurl := "http://example.com/7-" || FormatISO8601DateTime(GetCurrentDatetime(), "", "", "", FALSE);
+
   OBJECT wrd_imexport := schemaobj->CreateType("IMEXPORT");
 
   wrd_imexport->CreateAttribute("URL", "URL");
-  wrd_imexport->CreateEntity([ wrd_tag := "TAG", url := "http://example.com/7" ]);
+  wrd_imexport->CreateEntity([ wrd_tag := "TAG", url := testurl ]);
 
   OBJECT exporter := MakeWRDSchemaExporter(schemaobj);
   BLOB file := exporter->RunExport();
@@ -261,7 +266,7 @@ MACRO TestImport()
   testfw->CommitWork();
 
   TestEQ(
-      [ [ url :=    "http://example.com/7", referrer := "URL", statustext := "Not checked yet", statusicon := "tollium:status/unknown" ]
+      [ [ url :=    testurl, referrer := "URL", statustext := "Not checked yet", statusicon := "tollium:status/unknown" ]
       ], SELECT url, referrer, statustext, statusicon FROM EnrichLinkCheckStatuses(GetWRDLinkCheckReport([ entity := eid ])) ORDER BY url);
 }
 
