@@ -309,10 +309,10 @@ MACRO PublishRichDocTableTest()
           </colgroup>
           <tbody>
             <tr>
-              <td><p clas="normal">This is a normal cell</p></td>
-              <td class="redpill"><p clas="normal">This is a red cell</p></td>
-              <td class="bluepill"><p clas="normal">This is a blue cell</p></td>
-              <td class="greenpill"><p clas="normal">This is a green cell</p></td>
+              <td><p class="normal">This is a normal cell</p></td>
+              <td class="wh-rtd__tablecell redpill"><p class="normal">This is a red cell</p></td>
+              <td class="bluepill"><p class="normal">This is a blue cell</p></td>
+              <td class="greenpill"><p class="normal">This is a green cell</p></td>
             </tr>
           </tbody>
         </table>
