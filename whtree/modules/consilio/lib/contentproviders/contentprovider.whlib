@@ -126,7 +126,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
     RETURN this->GetDefaultMapping(this->GetEmptySearchRecord());
   }
 
-  /** @short Get the list of fields that must be provided in objects to the ListObjects2 function
+  /** @short Get the list of fields that must be provided in objects to the ListObjects3/ListObjects2 function
   */
   UPDATE PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
   {
@@ -142,6 +142,23 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   PUBLIC RECORD ARRAY FUNCTION ListGroups(DATETIME commanddate)
   {
     THROW NEW Exception("ListGroups function not updated");
+  }
+
+  /** @short Return a list of objects within the given group
+      @param commanddate Date when this command was issued
+      @param groupid Id of the group to list, as returned by ListGroups
+      @param current_objects Current objects present within consilio (only filled in update mode, not in rebuild mode)
+      @cell(boolean) options.rebuild If this is a rebuild action or just a check
+      @return Result of the call
+      @cell return The objects
+      @cell return.id Id of the object
+      @cell return.requiredindexdate If the indexdate of the version of the object currently stored in the index
+               is at least this value, it is kept as-is and not re-fetched. (warning: don't use this if FetchObject returns
+               other objects not returned by this ListObjects, because those objects will not be discovered, and subsequently removed).
+  */
+  PUBLIC RECORD ARRAY FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
+  {
+    RETURN this->ListObjects2(commanddate, groupid, current_objects);
   }
 
   /** @short Return a list of objects within the given group
@@ -178,6 +195,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   /** @short Fetch an object and parse its contents
       @long This function returns an object to index. All return cells are optional, but at least a document_body or
             document_fields cell must be returned, otherwise the object will be deleted from the index.
+      @param commanddate Date when this command was issued
       @param groupid Id of the group in which the object was listed, as returned by ListGroups
       @param objectid Id of the object to fetch
       @return Result of the call

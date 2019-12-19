@@ -66,9 +66,9 @@ WHILE (TRUE)
     {
       iochan->SendReply(ListGroups(rec.msg.commanddate), rec.msgid);
     }
-    CASE "listobjects2"
+    CASE "listobjects3"
     {
-      iochan->SendReply(ListObjects2(rec.msg.commanddate, rec.msg.groupid, rec.msg.current_objects), rec.msgid);
+      iochan->SendReply(ListObjects3(rec.msg.commanddate, rec.msg.groupid, rec.msg.current_objects, rec.msg.options), rec.msgid);
     }
     CASE "fetchobject"
     {
@@ -136,12 +136,12 @@ RECORD FUNCTION ListGroups(DATETIME commanddate)
   RETURN result;
 }
 
-RECORD FUNCTION ListObjects2(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects)
+RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
 {
   RECORD result;
   TRY
   {
-    result := contentobject->ListObjects2(commanddate, groupid, current_objects);
+    result := contentobject->ListObjects3(commanddate, groupid, current_objects, options);
   }
   CATCH (OBJECT e)
   {
@@ -192,7 +192,6 @@ RECORD FUNCTION FetchObject(DATETIME commanddate, STRING groupid, STRING objecti
   RECORD result;
   TRY
   {
-    contentobject->force := options.force;
     result := contentobject->FetchObject(commanddate, groupid, objectid);
   }
   CATCH (OBJECT e)

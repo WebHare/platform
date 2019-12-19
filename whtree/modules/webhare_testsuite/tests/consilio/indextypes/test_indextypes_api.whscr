@@ -57,14 +57,14 @@ MACRO TestIndexTypeAPIs()
   OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
   OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
 
-  RECORD ARRAY objs := provider->ListObjects2(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[]);
+  RECORD ARRAY objs := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[], [ rebuild := TRUE ]);
   TestEq(1, Length(objs));
 
   testfw->BeginWork();
   testrtd->UpdateMetadata(CELL[]);
   testfw->CommitWork();
 
-  RECORD fetched := provider->FetchObject(DEFAULT DATETIME, "fsobj_" || testrtd->id, objs[0].id, [ force := TRUE ]);
+  RECORD fetched := objs[0].data;
   TestEqLike("*Eerste kop*Tweede kop*", fetched.document_body);
   TestEq(FALSE, fetched.document_body LIKE "*noise*");
 }

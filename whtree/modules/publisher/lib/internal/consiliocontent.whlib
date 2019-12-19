@@ -31,8 +31,6 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 
-OBJECT searchinfotype;
-
 /** looks up a second level named node by qualified name */
 PUBLIC OBJECT FUNCTION LookupModuleDefNamedNode(STRING topnodename, STRING subnodename, STRING qualifiedname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -95,38 +93,15 @@ RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
     retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || retval.searchprovider || "\t" || typeinfo.indexversion));
   }
 
-  RETURN CELL[ value := retval
-             , eventmasks
-             ];
-}
-
-RECORD FUNCTION GetSearchInfoUncached(INTEGER objid)
-{
-  IF (NOT ObjectExists(searchinfotype))
-    searchinfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/searchinfo");
-  RECORD fsobj := SELECT isfolder, parent FROM system.fs_objects WHERE id = objid;
-  RETURN
-      [ value := searchinfotype->GetInstanceData(objid)
-      , eventmasks := [ "system:whfs.folder." || (fsobj.isfolder ? objid : fsobj.parent) // broadcast after file/folder has changed
-                      , "system:whfs.types" // broadcast after siteprofile recompile (searchproviders may have changed)
-                      ]
+  RETURN CELL
+      [ value := retval
+      , eventmasks
       ];
 }
 
-RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
+RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
 {
-  RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
-  IF(scp.searchprovider = "")
-    RETURN RECORD[]; //no classic searchprovider either
-
-  RECORD bodyinfo := GetAdhocCached([ id := fsobj.id ], PTR GetSearchInfoUncached(fsobj.id));
-
-  IF(NOT force AND bodyinfo.formodificationdate >= fsobj.modificationdate) //uptodate
-  {
-    RETURN SELECT AS RECORD ARRAY body FROM bodyinfo.subfiles;
-  }
-
-  OBJECT provider := MakeObject(scp.searchprovider);
+  OBJECT provider := MakeObject(searchprovider);
 
   RECORD ARRAY subfiles;
   FOREVERY(RECORD subfile FROM provider->GetSearchContents(fsobj.id))
@@ -138,17 +113,40 @@ RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
       INSERT DEFAULT RECORD INTO subfiles AT END;
   }
 
-  GetPrimary()->BeginWork();
-  bodyinfo :=
-      [ formodificationdate := fsobj.modificationdate
-      , subfiles := ToRecordArray(subfiles,"body")
+  RETURN
+      [ value := CELL
+          [ fsobj.id
+          , formodificationdate := fsobj.modificationdate
+          , subfiles := ToRecordArray(subfiles,"body")
+          ]
+      , eventmasks := [ "system:whfs.folder." || (fsobj.isfolder ? fsobj.id : fsobj.parent) // broadcast after file/folder has changed
+                      , "system:whfs.types" // broadcast after siteprofile recompile (searchproviders may have changed)
+                      ]
       ];
-  IF (NOT ObjectExists(searchinfotype))
-    searchinfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/searchinfo");
-  searchinfotype->SetInstanceData(fsobj.id, bodyinfo);
+}
 
-  GetPrimary()->CommitWork();
-  RETURN subfiles;
+RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
+{
+  RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
+  IF (scp.searchprovider = "")
+    RETURN RECORD[]; //no classic searchprovider either
+
+  RECORD cachetag := CELL[ fsobj.id ];
+
+  // If not forced, get cached subfile
+  IF (NOT force)
+  {
+    // Check if it's still up to date
+    RECORD bodyinfo := GetAdhocCached(cachetag, PTR GetSearchSubfilesUncached(scp.searchprovider, fsobj));
+    IF (bodyinfo.formodificationdate >= fsobj.modificationdate)
+      RETURN SELECT AS RECORD ARRAY body FROM bodyinfo.subfiles;
+  }
+
+  // Explicitly update the cache
+  RECORD value := GetSearchSubfilesUncached(scp.searchprovider, fsobj);
+  StoreAdhocCached(cachetag, value);
+
+  RETURN SELECT AS RECORD ARRAY body FROM value.value.subfiles;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetIndexFields()
@@ -240,80 +238,75 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
            ];
   }
 
-  UPDATE PUBLIC RECORD FUNCTION ListObjects(DATETIME indexdate, STRING groupid)
+  UPDATE PUBLIC RECORD FUNCTION ListObjects3(DATETIME indexdate, STRING groupid, RECORD ARRAY current_objects, RECORD options)
   {
-    RECORD fsrec :=
-        SELECT id
-             , isfolder
-             , modificationdate
-             , type
-          FROM system.fs_objects
-         WHERE id = this->ParseId(groupid);
-
+    STRING ARRAY parts := Tokenize(groupid, "_");
+    INTEGER fsobjid := Length(parts) >= 2 AND parts[0] = "fsobj" ? ToInteger(parts[1], 0) : 0;
+    OBJECT fsobj := OpenWHFSObject(fsobjid);
     RECORD ARRAY objects;
-    IF (RecordExists(fsrec))
+    IF (ObjectExists(fsobj))
     {
-      RECORD ARRAY subfiles := GetSearchSubfiles(fsrec, this->force);
-      objects :=
-          [ [ id := "fsobj_" || fsrec.id
-            , requiredindexdate := fsrec.modificationdate
-            ]
-          ]
-          CONCAT
-          (SELECT id := "fsobj_" || fsrec.id || "_" || #subfiles
-                , requiredindexdate := fsrec.modificationdate
-             FROM subfiles
-            WHERE #subfiles > 0);
-    }
+      STRING ARRAY whfstree;
+      INTEGER parent := fsobj->id;
+      WHILE (parent > 0)
+      {
+        INSERT ToString(parent) INTO whfstree AT 0;
+        parent := SELECT AS INTEGER COLUMN parent
+                    FROM system.fs_objects
+                   WHERE id = VAR parent;
+      }
 
-    RETURN [ status := "result"
-           , objects := objects
-           ];
-  }
+      RECORD basefields :=
+          [ name := fsobj->name
+          , title := fsobj->title
+          , description := fsobj->description
+          , keywords := fsobj->keywords
+          , url := fsobj->indexurl
+          , whfsid := ToString(fsobj->id)
+          , whfsparent := ToString(fsobj->parent)
+          , whfsobject := fsobj->isfolder ? "folder" : "file"
+          , whfstype := ToString(fsobj->type)
+          , whfspath := fsobj->whfspath
+          , whfstree := Detokenize(whfstree, " ")
+          , date_creation := fsobj->creationdate
+          , date_modification := fsobj->modificationdate
+          , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
+          ];
 
-  UPDATE PUBLIC RECORD FUNCTION FetchObject(DATETIME indexdate, STRING groupid, STRING objectid)
-  {
-    OBJECT fsobj := OpenWHFSObject(this->ParseId(objectid));
-    IF (NOT ObjectExists(fsobj))
-      RETURN [ status := "error"
-             , error := "Invalid objectid '" || objectid || "' for groupid '" || groupid || "'"
-             ];
-    INTEGER arrayid := this->ParseSubId(objectid);
-
-    STRING ARRAY whfstree;
-    INTEGER parent := fsobj->id;
-    WHILE (parent > 0)
-    {
-      INSERT ToString(parent) INTO whfstree AT 0;
-      parent := SELECT AS INTEGER COLUMN parent
-                  FROM system.fs_objects
-                 WHERE id = VAR parent;
-    }
-
-
-    RECORD fields :=
-        [ name := fsobj->name
-        , title := fsobj->title
-        , description := fsobj->description
-        , keywords := fsobj->keywords
-        , url := fsobj->indexurl
-        , whfsid := ToString(fsobj->id)
-        , whfsparent := ToString(fsobj->parent)
-        , whfsobject := fsobj->isfolder ? "folder" : "file"
-        , whfstype := ToString(fsobj->type)
-        , whfspath := fsobj->whfspath
-        , whfstree := Detokenize(whfstree, " ")
-        , date_creation := fsobj->creationdate
-        , date_modification := fsobj->modificationdate
-        , date_publication := NOT fsobj->isfolder AND fsobj->publish ? fsobj->lastpublishdate : DEFAULT DATETIME
-        ];
-
-    FOREVERY (RECORD indexfield FROM GetIndexFields())
-    {
       TRY
       {
-        // Parse the contenttype data and store it in a module field
-        fields := this->ParseIndexField(fields, fsobj->id, indexfield, arrayid);
+        RECORD ARRAY subfiles := GetSearchSubfiles(CELL
+            [ fsobj->id
+            , fsobj->type
+            , fsobj->isfolder
+            , fsobj->modificationdate
+            , fsobj->parent
+            ], options.rebuild);
+        INSERT
+            [ id := "fsobj_" || fsobj->id
+            , requiredindexdate := fsobj->modificationdate
+            , data := CELL
+                [ status := "result"
+                , document_body := Length(subfiles) > 0 AND RecordExists(subfiles[0]) ? BlobToString(subfiles[0].data) : ""
+                , document_fields := this->AddParsedIndexFields(fsobj, basefields, 0)
+                , indexdate := fsobj->modificationdate
+                ]
+            ] INTO objects AT END;
+        FOREVERY (RECORD subfile FROM subfiles)
+        {
+          IF (#subfile = 0)
+            CONTINUE;
+          INSERT
+              [ id := "fsobj_" || fsobj->id || "_" || #subfile
+              , requiredindexdate := fsobj->modificationdate
+              , data := CELL
+                  [ status := "result"
+                  , document_body := RecordExists(subfile) ? BlobToString(subfile.data) : ""
+                  , document_fields := this->AddParsedIndexFields(fsobj, basefields, #subfile)
+                  , indexdate := fsobj->modificationdate
+                  ]
+              ] INTO objects AT END;
+        }
       }
       CATCH (OBJECT e)
       {
@@ -323,35 +316,21 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                ];
       }
     }
+
+    RETURN [ status := "result"
+           , objects := objects
+           ];
+  }
+
+  RECORD FUNCTION AddParsedIndexFields(OBJECT fsobj, RECORD fields, INTEGER arrayid)
+  {
+    FOREVERY (RECORD indexfield FROM GetIndexFields())
+    {
+      // Parse the contenttype data and store it in a module field
+      fields := this->ParseIndexField(fields, fsobj->id, indexfield, arrayid);
+    }
     DELETE CELL _arrayname, _arraylength FROM fields;
-
-    RECORD result :=
-        [ status := "result"
-        , document_fields := fields
-        , indexdate := fsobj->modificationdate
-        ];
-
-    RECORD ARRAY subfiles := GetSearchSubfiles(CELL[ fsobj->id, fsobj->modificationdate, fsobj->type, fsobj->isfolder ], FALSE); //Don't force here, generating subfiles is already forced in ListObjects
-    IF(arrayid < Length(subfiles) AND RecordExists(subfiles[arrayid]))
-      INSERT CELL document_body := BlobToString(subfiles[arrayid].data) INTO result;
-
-    RETURN result;
-  }
-
-  INTEGER FUNCTION ParseId(STRING id)
-  {
-    STRING ARRAY parts := Tokenize(id, "_");
-    IF (Length(parts) >= 2 AND parts[0] = "fsobj")
-      RETURN ToInteger(parts[1], 0);
-    RETURN 0;
-  }
-
-  INTEGER FUNCTION ParseSubId(STRING id)
-  {
-    STRING ARRAY parts := Tokenize(id, "_");
-    IF (Length(parts) = 3 AND parts[0] = "fsobj")
-      RETURN ToInteger(parts[2], 0);
-    RETURN 0;
+    RETURN fields;
   }
 
   RECORD FUNCTION ParseIndexField(RECORD fields, INTEGER objid, RECORD indexfield, INTEGER arrayid)

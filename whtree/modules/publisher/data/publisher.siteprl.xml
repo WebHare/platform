@@ -991,14 +991,6 @@
 
   ==== -->
 
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/searchinfo" cloneoncopy="false">
-    <member name="formodificationdate" type="datetime" /> <!-- modification date for which this searchinfo was cached -->
-    <member name="subfiles" type="array">
-      <member name="body" type="file" />
-    </member>
-    <member name="error" type="string" />
-  </contenttype>
-
   <applysiteprofile path="siteprofiles/debugsettings.siteprl.xml" />
 
   <!-- publisherindex is lowest priority, because fsobject updates are usually processed synchronously. we can live with the background index checks on low priority -->
