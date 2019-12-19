@@ -513,6 +513,7 @@ ASYNC MACRO TestMailWitty()
   outmail->mergerecord := [ firstname := "Pietje"
                           , thelink := "http://example.net/"
                           , extra := ""
+                          , hookedpreparemail := "Filler Because We Want To Test PrepareMailWitty Without A Webcontext"
                           ];
 
   BLOB eml := outmail->ExportAsEML();
@@ -645,7 +646,9 @@ ASYNC MACRO TestMailWitty()
 MACRO TestMailWitty_EmbeddedTemplate()
 {
   OBJECT outmail := PrepareMailWitty(Resolve("testdata/maildata/applytemplate.html.witty"));
-  outmail->mergerecord := [ firstname := "Yo!" ];
+  outmail->mergerecord := [ firstname := "Yo!"
+                          , hookedpreparemail := "Filler Because We Want To Test PrepareMailWitty Without A Webcontext"
+                          ];
   BLOB eml := outmail->ExportAsEML();
   RECORD resultmessage := DecodeMIMEMessage(eml);
 

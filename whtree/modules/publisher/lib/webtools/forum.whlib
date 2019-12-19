@@ -297,8 +297,10 @@ STATIC OBJECTTYPE ForumObject
       TRY
       {
         SetTidLanguage(this->webcontext->languagecode);
-        STRING mailtemplate := GetApplyTesterForObject(this->selectedstoredfileid)->GetDefaultMailTemplate();
-        OBJECT mail := PrepareMailWitty(`mod::publisher/witty/forumposting.html.witty:forumpostingmail`, [ mailtemplate := mailtemplate ]);
+        OBJECT applytester := GetApplyTesterForObject(this->selectedstoredfileid);
+        STRING mailtemplate := applytester->GetDefaultMailTemplate();
+        OBJECT webcontext := __GetWebContextForApplyTester(applytester, this->selectedstoredfileid);
+        OBJECT mail := PrepareMailWitty(`mod::publisher/witty/forumposting.html.witty:forumpostingmail`, CELL[ mailtemplate, webcontext ]);
         mail->mailto := TokenizeEmailAddresses(this->config.mailpostingsto);
         mail->mergerecord := mailinfo;
         mail->QueueMailInWork();

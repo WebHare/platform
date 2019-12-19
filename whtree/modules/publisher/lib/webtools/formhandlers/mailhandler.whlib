@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/forms/tasks.whlib";
@@ -511,18 +512,22 @@ PUBLIC STATIC OBJECTTYPE MailResultsEditor EXTEND MailHandlerEditor
 
 OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, OBJECT formdefinition, OBJECT formresults, RECORD extramergedata)
 {
-  STRING mailtemplate := ResolveMailTemplate(settings, formdefinition->formdefinitions);
+  STRING tasktemplate := ResolveMailTemplate(settings, formdefinition->formdefinitions);
   OBJECT mail;
 
-  IF(mailtemplate = "")
-    mail := PrepareMailWitty("mod::publisher/lib/internal/forms/defaultmail.html.witty", [ mailtemplate := settings.applytemplate ?? "mod::publisher/data/forms/defaultmailtemplate.html.witty" ]);
-  ELSE
-    mail := PrepareMailWitty(mailtemplate, [ mailtemplate := settings.applytemplate ?? "mod::publisher/data/forms/defaultmailtemplate.html.witty" ]);
-
   RECORD mailmergedata := formresults->PrepareFormDataForComposer(mail, result, [ attachfiles := settings.attachfiles ]);
-  OBJECT applytester := GetApplyTesterForObject(formresults->GetStorageObject()->id);
+  INTEGER storageid := formresults->GetStorageObject()->id;
+  OBJECT applytester := GetApplyTesterForObject(storageid);
+  OBJECT webcontext := __GetWebContextForApplyTester(applytester, storageid);
   RECORD mergecontext := CreateMergeFieldsContext(applytester, formresults, formdefinition, result);
   mergecontext.context->__mergefields->extradata := extramergedata;
+
+  IF(tasktemplate = "")
+    tasktemplate := "mod::publisher/lib/internal/forms/defaultmail.html.witty";
+
+  mail := PrepareMailWitty(tasktemplate, CELL[ mailtemplate := settings.applytemplate ?? "mod::publisher/data/forms/defaultmailtemplate.html.witty"
+                                             , webcontext
+                                             ]);
 
   INSERT CELL richcontent := mail->GetRTDBody(settings.text, [ wittyhyperlinks := TRUE
                                                              , __mergecontext := mergecontext
