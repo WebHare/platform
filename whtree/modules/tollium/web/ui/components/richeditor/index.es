@@ -536,8 +536,9 @@ export class RTE
   {
     if(actiontarget.__node && actiontarget.__node.nodeName=='A')
       return this._updateHyperlink(actiontarget.__node, settings);
-    if(actiontarget.__node && (actiontarget.__node.nodeName=='TR' || actiontarget.__node.nodeName=='TD'))
+    if(actiontarget.__node && (actiontarget.__node.nodeName=='TH' || actiontarget.__node.nodeName=='TD'))
       return this._updateCell(actiontarget.__node, settings);
+
     throw new Error("Did not understand action target");
   }
 

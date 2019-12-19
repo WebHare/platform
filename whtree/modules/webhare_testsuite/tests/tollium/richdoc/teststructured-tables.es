@@ -121,9 +121,23 @@ test.registerTests(
       {
         test.click(test.qSA('t-text').filter(node=>node.textContent.includes("header row")) [0]);  // disable
         test.click(test.qSA('t-text').filter(node=>node.textContent.includes("header column")) [0]);  // enable
+        test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
         test.clickTolliumButton("OK");
       }
     , waits: [ "ui" ]
+    }
+  , 'leftheader reclick (crashed earlier when targetting existing TH)'
+  , async function(doc,win)
+    {
+      let rtenode = test.compByName('structured');
+      let table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      test.click(table.querySelector("th"), { button: 2 });
+      test.click(test.getOpenMenuItem("Properties"));
+      await test.wait('ui');
+
+      test.fill(test.getCurrentScreen().qSA("select")[1], 'bluepill');
+      test.clickTolliumButton("OK");
+      await test.wait('ui');
     }
   , { name: 'leftheader-test'
     , test:function(doc,win)
