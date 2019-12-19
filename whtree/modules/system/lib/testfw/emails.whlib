@@ -34,7 +34,6 @@ PUBLIC RECORD ARRAY FUNCTION __TryGetEmails(STRING emailaddress, BOOLEAN peekonl
   RECORD ARRAY outmails;
   FOREVERY(RECORD email FROM emails)
   {
-//    RECORD email := DecodeHSONBlob(maildata);
     RECORD outmail := [ envelope_sender := email.sender
                       , headers := email.mimeheaders
                       , html := ""

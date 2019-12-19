@@ -288,6 +288,20 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="sender" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Sender email address (advanced-only for mailresults, freely settable for mailfeedback)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="sendername" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Sender email display name (advanced-only for mailresults, freely settable for mailfeedback)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:element name="mailresultshandler">
@@ -363,8 +377,6 @@
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="EmailHandlerAttributes" />
-      <xs:attribute name="sender" type="xs:string" use="required" />
-      <xs:attribute name="sendername" type="xs:string" />
       <xs:attribute name="receiverfield" type="xs:string" />
       <xs:attribute name="bcc" type="xs:string" />
       <xs:attribute name="sendoncanceltoo" type="xs:boolean" /> <!-- LEGACY no longer supported -->
@@ -392,8 +404,6 @@
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="EmailHandlerAttributes" />
-      <xs:attribute name="sender" type="xs:string" use="required" />
-      <xs:attribute name="sendername" type="xs:string" />
       <xs:attribute name="receiverfield" type="xs:string" />
       <xs:attribute name="bcc" type="xs:string" />
       <xs:attribute name="onduplicate">

@@ -59,6 +59,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , custommergefields := FALSE
                               , embeddedresults := FALSE
                               , mailconfirmation := FALSE
+                              , customformedits := DEFAULT MACRO PTR
                               ];
 
 MACRO FillTestFormFile(OBJECT formfile, RECORD options)
@@ -840,10 +841,16 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     confirmhandler->SetAttribute("textid", rtdtext);
   }
 
+  IF(options.customformedits != DEFAULT MACRO PTR)
+    options.customformedits(CELL[ formdef
+                                , formdefs
+                                ]);
+
   //Validate it - if we can't even pass our own validation...
   RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().formtext]);
   TestEq(RECORD[], validation.errors);
   TestEq(RECORD[], validation.warnings);
+
 
   //Export the form to disk
   formdefs->SaveToWHFS(formfile);

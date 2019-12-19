@@ -194,6 +194,9 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
         ^emailcontents->rtd->value := instance.data;
     }
     ^subject->value := this->node->GetAttribute("subject");
+
+    ^sender->value := this->node->GetAttribute("sender");
+    ^sendername->value := this->node->GetAttribute("sendername");
   }
 
   MACRO LoadCurrentTemplate()
@@ -271,6 +274,16 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
 
     IF (NOT work->HasFailed())
     {
+      IF(^sender->value != "")
+        this->node->SetAttribute("sender", ^sender->value);
+      ELSE
+        this->node->RemoveAttribute("sender");
+
+      IF(^sendername->value != "")
+        this->node->SetAttribute("sendername", ^sendername->value);
+      ELSE
+        this->node->RemoveAttribute("sendername");
+
       IF (^subject->value != "")
         this->node->SetAttribute("subject", ^subject->value);
       ELSE
@@ -345,8 +358,6 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
   {
     MailHandlerEditor::PostInitExtension();
 
-    ^sender->value := this->node->GetAttribute("sender");
-    ^sendername->value := this->node->GetAttribute("sendername");
     //If sender is set but sendername isn't, stop requiring sendername. may be a webpack import or manual XML modification
     ^sendername->required := NOT (^sender->value != "" AND ^sendername->value = "");
 
@@ -360,9 +371,6 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
 
     IF (NOT work->HasFailed())
     {
-      this->node->SetAttribute("sender", ^sender->value);
-      this->node->SetAttribute("sendername", ^sendername->value);
-
       this->node->RemoveAttribute("sendoncanceltoo");
 
       this->SubmitIntraFieldPulldown(^receiverfield, "receiverfield");
@@ -527,8 +535,6 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
   {
     CASE "feedback", "confirmation"
     {
-      mail->mailfrom := MakeEmailAddress(settings.sendername, settings.sender, TRUE);
-
       IF (settings.bcc != "")
         mail->mailbcc := TokenizeEmailAddresses(settings.bcc);
 
@@ -557,7 +563,6 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
           mail->replyto := GetCell(result.response, replytofield.name);
       }
 
-
       // Create a list of receivers for the results
       RECORD ARRAY receivers := SELECT *
                                      , matchresult := formresults->MatchFormCondition(condition, result)
@@ -567,6 +572,10 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
       mail->mailto := SELECT AS STRING ARRAY email FROM receivers WHERE matchresult.success;
     }
   }
+
+  IF(settings.sender != "")
+    mail->mailfrom := MakeEmailAddress(mail->mailsendername ?? settings.sendername, settings.sender, TRUE);
+
   mail->mergerecord := CELL[ ...mail->mergerecord
                            , ...mailmergedata
                            , addresults := settings.addresults

@@ -7,6 +7,7 @@
   <test script="testformfile-pagetitles-infotexts.whscr"/>
   <test script="testformapi.whscr" />
   <test script="testformcustomfile.whscr"/>
+  <test script="testformfile-mailoptions.whscr"/>
   <test script="testformfile-formeditapp.whscr"/>
   <jstest name="testcore-plaincomponents" file="testcore.es">
     <arg value="plaincomponents"/>

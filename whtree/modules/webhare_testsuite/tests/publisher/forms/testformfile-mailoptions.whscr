@@ -1,0 +1,65 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+
+STRING emailfieldname;
+
+MACRO AddExtraHandlers(RECORD forminfo)
+{
+  //Add a mail handler
+  OBJECT mailhandler := forminfo.formdef->AddHandler("mailresultshandler");
+  mailhandler->SetAttribute("receivers", "result1@beta.webhare.net");
+  mailhandler->SetAttribute("subject", "Your Form Was Filled");
+  mailhandler->SetAttribute("addresults", "true");
+  mailhandler->SetAttribute("sender", "mailfrom@beta.webhare.net");
+  mailhandler->SetAttribute("sendername", "Mail From");
+}
+
+PUBLIC MACRO BuildForm()
+{
+  BuildWebtoolForm([ customformedits := PTR AddExtraHandlers ]);
+}
+
+PUBLIC ASYNC MACRO TestMailOptions()
+{
+  OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+
+  OBJECT webtoolform := OpenFormFileDefinition(customformfile);
+  OBJECT webtoolresults := OpenFormFileResults(customformfile);
+
+  RECORD ARRAY fields := webtoolform->ListFields();
+
+  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
+  TestEq(TRUE, emailfieldname != "", "Email field not found");
+  RECORD submitrec := [ firstname := "Pietje & Henkie" ];
+  submitrec := CellInsert(submitrec, emailfieldname, "testmails@beta.webhare.net");
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  RECORD result1mail := testfw->ExtractAllMailFor("result1@beta.webhare.net", [ timeout := 60000, count := 1 ]);
+  TestEq(TRUE, RecordExists(result1mail));
+  TestEq(`Mail From <mailfrom@beta.webhare.net>`, (SELECT AS STRING value FROM result1mail.headers WHERE field="From"));
+  TestEq(`<mailfrom@beta.webhare.net>`, result1mail.envelope_sender);
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR TestMailOptions
+                 ], [ canceltasks := [ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ]
+                    , testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
+                    ]);

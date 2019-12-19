@@ -1371,11 +1371,15 @@ STATIC OBJECTTYPE WittyMailComposer
 
     STRING returnpath := this->errorsto ?? prep.mailfrom;
     IF(returnpath != "")
-      INSERT [ field := "Return-Path", value := PrettyFormatEmailAddress(returnpath) ] INTO headers AT END;
+    {
+      //Reformat returnpath to remove sender name
+      returnpath := MakeEmailAddress("", SplitEmailName(returnpath).email);
+      INSERT [ field := "Return-Path", value := returnpath ] INTO headers AT END;
+    }
 
     RETURN CELL [ headers
                 , toppart
-                , envelopefrom := this->errorsto ?? prep.mailfrom
+                , envelopefrom := returnpath
                 , recipients := mailrecipients
                 ];
   }
