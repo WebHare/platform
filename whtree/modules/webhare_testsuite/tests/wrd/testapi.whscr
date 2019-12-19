@@ -1089,7 +1089,6 @@ MACRO TestDomainTagTranslation()
 
 MACRO TestHistoryMode()
 {
-  __wrdtest_disable_updateat_throw := TRUE;
   OBJECT schemaobj := testfw->GetWRDSchema();
   OBJECT wrdperson := schemaobj->^wrd_person;
 
