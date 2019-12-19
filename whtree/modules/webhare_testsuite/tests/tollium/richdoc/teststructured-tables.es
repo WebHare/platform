@@ -1,5 +1,8 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
+import * as dompack from 'dompack';
+
+import {selectRange} from "@mod-tollium/web/ui/components/richeditor/internal/selection.es";
 
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/richdoc.main')
@@ -95,21 +98,37 @@ test.registerTests(
       test.eq("", nodes[2].scope);
     }
 
+  , "Test chrome contextmenu issue"
+  , async function()
+    {
+      /* Chrome seems to move the selection just before dispatching the rightclick event.
+         the selection will appear to to start behind the '1' end before the "0" in the P in the NEXT cell
+
+         We cannot use test.click(table.querySelector("td"), { button: 2 }); to test this situation
+         as that one will first simulate mousedown... which already fixes the selection issue
+      */
+      var rtenode = test.compByName('structured');
+      var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
+      var td_ps = table.querySelectorAll("td p");
+
+      selectRange({ start: { element: td_ps[0], offset: 1}
+                  , end: { element: td_ps[1], offset: 0}
+                  });
+
+      dompack.dispatchDomEvent(td_ps[0], "contextmenu");
+      test.click(test.getOpenMenuItem("Properties"));
+      await test.wait('ui');
+
+      test.clickTolliumButton("OK");
+      await test.wait('ui');
+    }
+
       // Test table left
   , { name: 'leftheader-open-properties-1'
     , test:function(doc,win)
       {
         var rtenode = test.compByName('structured');
         var table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
-        var first_td_p = table.querySelector("td p");
-
-        var rte = rtetest.getRTE(win, 'structured');
-        rtetest.setRTESelection(win, rte.getEditor(),
-                                   { startContainer: first_td_p
-                                   , startOffset: 0
-                                   , endContainer: first_td_p
-                                   , endOffset: 0
-                                   });
 
         test.click(table.querySelector("td"), { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));

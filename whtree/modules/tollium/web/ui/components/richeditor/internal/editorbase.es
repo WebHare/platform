@@ -4,7 +4,7 @@ import * as preload from 'dompack/extra/preload';
 import { qSA } from 'dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard"; //FIXME should become import KeyboardHandler as soon as our dompack has KeyboardHandler.getEventKeyNames
-var SelectionInterface = require('./selection');
+import SelectionInterface from './selection';
 var tablesupport = require('./tableeditor');
 var rangy = require('@mod-system/js/frameworks/rangy/rangy13');
 import * as richdebug from "./richdebug";
