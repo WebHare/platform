@@ -809,6 +809,11 @@
     -->
   </contenttype>
 
+  <!-- Livecycle management  -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/lifecycle">
+    <member name="deletion" type="datetime" /> <!-- When to delete this file. PERMANENT! -->
+  </contenttype>
+
   <apply>
     <to type="all" />
 
@@ -830,6 +835,8 @@
     <!-- Disable for now, until we make this feature public -->
     <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwebtool" />
     <denyfiletype typedef="http://www.webhare.net/xmlns/publisher/formwidget" />
+
+    <extendproperties extension="mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle" contenttype="http://www.webhare.net/xmlns/publisher/lifecycle" requireright="system:supervisor" />
   </apply>
 
   <apply>

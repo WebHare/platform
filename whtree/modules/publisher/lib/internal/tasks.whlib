@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
@@ -58,3 +59,25 @@ PUBLIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase
                               ]);
   }
 >;
+
+PUBLIC MACRO ExecuteLifecycleCleanup()
+{
+  OBJECT lifecycletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/lifecycle");
+
+  RECORD ARRAY instances := lifecycletype->ListAllInstances();
+  instances := SELECT * FROM instances WHERE fsobject != 0;
+  instances := lifecycletype->Enrich(instances, "FSOBJECT", ["DELETION"]);
+  instances := SELECT * FROM instances WHERE deletion != DEFAULT DATETIME AND deletion < GetCurrentDatetime();
+
+  FOREVERY(RECORD instance FROM instances)
+  {
+    OBJECT todelete := OpenWHFSObject(instance.fsobject);
+    //FIXME postpone to on-succesful-commit
+    LogAuditEvent("publisher:lifecycle", [ objectid := instance.fsobject
+                                         , type := "DELETE"
+                                         , whfspath := todelete->whfspath
+                                         , planneddeletion := instance.deletion
+                                         ]);
+    todelete->DeleteSelf();
+  }
+}

@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/webserver/management.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -52,6 +53,25 @@ BOOLEAN FUNCTION WaitForBeenPublished(INTEGER fileid, DATETIME sincewhen)
     Sleep(100);
   }
   RETURN FALSE;
+}
+
+MACRO TestLifeCycle()
+{
+  testfw->BeginWork();
+
+  OBJECT autokill_now := GetTestsuiteTempFolder()->CreateFile([ name:= "autokill_now"]);
+  OBJECT autokill_soon := GetTestsuiteTempFolder()->CreateFile([ name:= "autokill_soon"]);
+
+  autokill_now->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [deletion := AddTimeToDate(-1,GetCurrentDatetime())]);
+  autokill_soon->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [deletion := AddTimeToDate(60000,GetCurrentDatetime())]);
+
+  ExecuteLifecycleCleanup();
+
+  TestEq(TRUE,  ObjectExists(GetTestsuiteTempFolder()->OpenByName("autokill_soon")));
+  TestEq(FALSE, ObjectExists(GetTestsuiteTempFolder()->OpenByName("autokill_now")));
+  TestEq(FALSE, RecordExists(SELECT FROM system.fs_objects WHERE id = autokill_now->id)); //permanenetly gone!
+
+  testfw->CommitWork();
 }
 
 MACRO PublicationMoveFile()
@@ -252,7 +272,8 @@ MACRO SetIndexDocTest()
   TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
 }
 
-RunTestFramework([ PTR PublicationDeleteFile
+RunTestFramework([ PTR TestLifecycle
+                 , PTR PublicationDeleteFile
                  , PTR PublicationDeleteFolder
                  , PTR PublicationMoveFile
                  , PTR PublicationStartStopTest
