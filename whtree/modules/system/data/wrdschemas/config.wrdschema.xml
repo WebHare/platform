@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <!-- The system:config schema stores various structured settings which would be quite complex in the registry but don't
+       warrant their own tables -->
+
+  <domain tag="CONFIGAPP">
+    <!-- Domain for configuration apps. Used to attach rights -->
+    <attributes>
+      <free tag="APPTAG" title="Application tag, eg system:dashboard" required="true" unique="true" />
+      <free tag="TID" title="TID to use" />
+    </attributes>
+  </domain>
+
+</schemadefinition>
