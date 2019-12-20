@@ -125,7 +125,7 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
       ];
 }
 
-RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
+PUBLIC RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
 {
   RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
   IF (scp.searchprovider = "")
