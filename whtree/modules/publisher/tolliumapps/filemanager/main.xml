@@ -205,8 +205,8 @@
               tid="tollium:common.actions.inspect"
               shortcut="ctrl+shift+i"
               onexecute="doinspect">
-        <enableon source="foldertree" min="1" checkflags="!isvirtual" frameflags="issysop" />
-        <enableon source="filelist" min="1" max="1" checkflags="!isvirtual" frameflags="issysop" />
+        <enableon source="foldertree" min="1" checkflags="!isvirtual" frameflags="issupervisor" />
+        <enableon source="filelist" min="1" max="1" checkflags="!isvirtual" frameflags="issupervisor" />
       </action>
       <action name="editfileorfoldertype" onexecute="doeditfileorfoldertype">
         <enableon source="foldertree" checkflags="canchangetype" min="1" onexecute="doeditfoldertype" />
