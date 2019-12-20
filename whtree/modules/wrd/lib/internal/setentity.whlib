@@ -5,13 +5,13 @@ MACRO OnLegacyEntityError(RECORD error)
 {
   INSERT error INTO currentupdateerrors AT END;
 }
-PUBLIC RECORD FUNCTION LegacyUpdateEntity(OBJECT wrdtype, RECORD entitydata, INTEGER entityid, DATETIME updatedat)
+PUBLIC RECORD FUNCTION LegacyUpdateEntity(OBJECT wrdtype, RECORD entitydata, INTEGER entityid)
 {
   RECORD ARRAY saveerrors := currentupdateerrors;
   currentupdateerrors := DEFAULT RECORD ARRAY;
   TRY
   {
-    RECORD result := wrdtype->__internal_updentity(entitydata, entityid, FALSE, [ updateat := updatedat, errorcallback := PTR OnLegacyEntityError ]);
+    RECORD result := wrdtype->__internal_updentity(entitydata, entityid, FALSE, [ errorcallback := PTR OnLegacyEntityError ]);
     INSERT CELL errors := currentupdateerrors INTO result;
     RETURN result;
   }
