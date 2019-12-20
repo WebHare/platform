@@ -167,8 +167,6 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
   {
     IF(message.type="newcompletions")
       this->completions := this->completions CONCAT message.data;
-    ELSE IF (message.type="countcompletions")
-      RETURN [ result := "message", msg := [ completions := LENGTH(this->completions) ] ];
 
     RETURN [ result := "message"
            , msg := DEFAULT RECORD
