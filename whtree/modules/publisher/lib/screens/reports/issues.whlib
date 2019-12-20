@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -170,8 +171,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoViewInPublisher()
   {
-    //IF (RecordExists(this->errors->selection))
-    this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := this->errors->selection.rowkey ], DEFAULT RECORD, FALSE);
+    RunPublisherFileManager(this, ^errors->selection.rowkey);
   }
 
 >;

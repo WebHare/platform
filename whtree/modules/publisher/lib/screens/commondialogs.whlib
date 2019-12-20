@@ -3,6 +3,7 @@
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -636,7 +637,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
       this->RunMessageBox(".norightsforpublisher");
       RETURN;
     }
-    this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := toopen ], DEFAULT RECORD, FALSE);
+    RunPublisherFileManager(this, toopen);
   }
   MACRO DoOpenInPublisher_Folders()
   {

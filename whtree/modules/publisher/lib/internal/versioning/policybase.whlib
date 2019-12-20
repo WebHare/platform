@@ -76,6 +76,7 @@ INTEGER ARRAY FUNCTION GetVersionedObjects(INTEGER ARRAY ids, BOOLEAN ignore_req
 
 MACRO OpenFileInPublisher(OBJECT parentscreen, INTEGER fileid)
 {
+  //TODO RunPublisherFileManager but triggers cyclic dependency
   parentscreen->tolliumcontroller->StartApplication("publisher:app", [ fileid := fileid ], DEFAULT RECORD, [ reusemode := "never"]);
 }
 

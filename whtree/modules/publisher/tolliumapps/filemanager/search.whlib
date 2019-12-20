@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 
@@ -823,7 +824,7 @@ PUBLIC STATIC OBJECTTYPE SearchPublisher EXTEND TolliumScreenBase
     }
     IF (this->openinpublisher)
     {
-      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := ^results->value ], DEFAULT RECORD, FALSE);
+      RunPublisherFileManager(this, ^results->value);
       this->tolliumresult := "cancel";
     }
     ELSE

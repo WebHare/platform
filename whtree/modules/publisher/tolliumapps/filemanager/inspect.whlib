@@ -6,6 +6,7 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
@@ -917,10 +918,8 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
 
   MACRO DoJumpToReference()
   {
-    this->jumpto := ^refs->value;
-    this->tolliumresult := "jump";
+    RunPublisherFileManager(this, ^refs->value);
   }
-
 >;
 
 

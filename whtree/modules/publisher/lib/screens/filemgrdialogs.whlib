@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -709,10 +710,7 @@ PUBLIC OBJECTTYPE ShowModifications EXTEND TolliumScreenBase
 
   MACRO DoOpenInPublisher()
   {
-    this->tolliumcontroller->SendApplicationMessage("publisher:app"
-                                                  , [ fileid := this->modifications->value ]
-                                                  , DEFAULT RECORD
-                                                  , TRUE);
+    RunPublisherFileManager(this, ^modifications->value);
   }
 
   MACRO DoExport()

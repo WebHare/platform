@@ -6,6 +6,8 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
@@ -94,7 +96,7 @@ PUBLIC OBJECTTYPE LinkCheck EXTEND TolliumScreenBase
 
   MACRO DoFileView()
   {
-    this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := this->links->selection.fileid ], DEFAULT RECORD, FALSE);
+    RunPublisherFileManager(this, this->links->selection.fileid);
   }
 
   MACRO DoCSVExport()

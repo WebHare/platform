@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
@@ -1097,20 +1098,20 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   MACRO DoInspectAutosave()
   {
     IF(ObjectExists(this->currentautosave))
-      CreateWHFSObjectInspectDialog(this, this->currentautosave->id)->RunModal();
+      RunFSObjectInspectDialog(this, this->currentautosave->id);
     ELSE
       this->RunSimpleScreen("info", "No autosave present");
   }
   MACRO DoInspectDraft()
   {
     IF(ObjectExists(this->currentdraft))
-      CreateWHFSObjectInspectDialog(this, this->currentdraft->id)->RunModal();
+      RunFSObjectInspectDialog(this, this->currentdraft->id);
     ELSE
       this->RunSimpleScreen("info", "No draft present");
   }
   MACRO DoInspectFinal()
   {
-    CreateWHFSObjectInspectDialog(this, this->fileid)->RunModal();
+    RunFSObjectInspectDialog(this, this->fileid);
   }
 >;
 

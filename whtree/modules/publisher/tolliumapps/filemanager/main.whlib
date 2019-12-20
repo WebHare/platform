@@ -1202,11 +1202,11 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoNewInstance()
   {
     // We won't open virtual folders, they can't be transfered securely (no stable ids)
-    RECORD target;
+    INTEGER target;
     IF (RecordExists(^foldertree->selection) AND NOT ^foldertree->selection.isvirtual)
-      target := [ folderid:= ^foldertree->value ];
+      target := ^foldertree->value;
 
-    this->tolliumcontroller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
+    RunPublisherFileManager(this, target);
   }
 
   MACRO DoPrefs()
@@ -1318,8 +1318,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoGoToResult()
   {
-    RECORD target := [ fileid := ^filelist->selection.id ];
-    this->tolliumcontroller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
+    RunPublisherFileManager(this, ^filelist->selection.id);
   }
 
   /// Changes the current selected folder, used to implement path menu actions
@@ -1759,9 +1758,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoInspect()
   {
-    OBJECT dialog := CreateWHFSObjectInspectDialog(this, this->GetCurrentlySelectedFSobject());
-    IF (dialog->RunModal() = "jump")
-      this->SelectObject(dialog->jumpto);
+    RunFSObjectInspectDialog(this, this->GetCurrentlySelectedFSobject());
   }
 
   MACRO DoInternalLinkToTree()

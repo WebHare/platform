@@ -1,6 +1,7 @@
 ﻿<?wh
 
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
@@ -136,6 +137,6 @@ PUBLIC OBJECTTYPE SitesSummary EXTEND TolliumScreenBase
   MACRO DoEditSite()
   {
     IF (RecordExists(this->summary->selection))
-      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid:= this->summary->selection.root ], DEFAULT RECORD, FALSE);
+      RunPublisherFileManager(this, ^summary->selection.root);
   }
 >;
