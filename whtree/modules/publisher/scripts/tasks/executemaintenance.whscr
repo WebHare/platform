@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 OBJECT trans;
@@ -119,3 +120,7 @@ CheckPublicDrafts();
 RemoveObsoleteBundledAssets();
 RemoveObsoleteCacheFolders();
 RemoveObsoleteAutosaves();
+
+trans->BeginWork();
+ExecuteLifecycleCleanup();
+trans->CommitWork();

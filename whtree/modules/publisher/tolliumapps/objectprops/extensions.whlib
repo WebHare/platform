@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Lifecycle EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
+  {
+    TolliumTabsExtensionBase::ValidateValue(feedback);
+    IF(^deletion->value != DEFAULT DATETIME AND ^deletion->value < GetRoundedDatetime(AddDaysToDate(1,GetCurrentDatetime()), 86400*1000))
+      feedback->AddErrorFor(^deletion, this->GetTid(".deletioncannotbeinpast"));
+  }
+>;

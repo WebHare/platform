@@ -2531,6 +2531,16 @@
         <text tid="settings">Instellingen</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="objectprops">   <!-- tolliumapps.objectprops -->
+      <textgroup gid="extensions">   <!-- tolliumapps.objectprops.extensions -->
+        <textgroup gid="lifecycle">   <!-- tolliumapps.objectprops.extensions.lifecycle -->
+          <text tid="deletion">Permanente verwijdering</text>
+          <text tid="deletioncannotbeinpast">De verwijderingsdatum mag niet in het verleden liggen</text>
+          <text tid="ispermanent">(geen prullenbak, verwijdering kan niet ongedaan worden gemaakt)</text>
+          <text tid="lifecycle">Levenscyclus</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->
       <text tid="alreadyexists">Er bestaat al een tag genaamd '<param p="1"/>'</text>
       <text tid="suredelete">Weet u zeker dat u tag '<param p="1"/>' wil verwijderen ?</text>

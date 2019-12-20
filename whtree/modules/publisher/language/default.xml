@@ -2531,6 +2531,16 @@
         <text tid="settings">Settings</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="objectprops">   <!-- tolliumapps.objectprops -->
+      <textgroup gid="extensions">   <!-- tolliumapps.objectprops.extensions -->
+        <textgroup gid="lifecycle">   <!-- tolliumapps.objectprops.extensions.lifecycle -->
+          <text tid="deletion">Permanent deletion</text>
+          <text tid="deletioncannotbeinpast">Deletion date cannot be in the past</text>
+          <text tid="ispermanent">(no trash, deletion cannot be undone)</text>
+          <text tid="lifecycle">Lifecycle</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="tagmanager">   <!-- tolliumapps.tagmanager -->
       <text tid="alreadyexists">A tag named '<param p="1"/>' already exists</text>
       <text tid="suredelete">Are you sure you want to delete tag '<param p="1"/>' ?</text>

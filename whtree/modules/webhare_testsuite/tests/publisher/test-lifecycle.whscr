@@ -3,17 +3,22 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/internal/tasks.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO EnsureTasksExecuted(DATETIME when)
 {
-  DATETIME waitlimit := AddTimeToDate(60000,GetCurrentDatetime());
-  //Print("Waiting until " || formatdatetime("%H:%M:%S", waitlimit) || "\n");
+  DATETIME deadline := AddTimeToDate(60000,GetCurrentDatetime());
+  //Print("Waiting until " || formatdatetime("%H:%M:%S", deadline) || "\n");
   WHILE (TRUE)
   {
     RECORD ARRAY tasks_to_execute :=
@@ -24,35 +29,62 @@ MACRO EnsureTasksExecuted(DATETIME when)
       BREAK;
 
     Sleep(100);
-    IF(GetCurrentDatetime() >= waitlimit)
+    IF(GetCurrentDatetime() >= deadline)
       ABORT("Task isn't completing");
   }
 
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
   //PRINT("Tasks & publisher finished\n");
 }
 
-MACRO PrepareTasks()
+/** Wait for a file to have been published. Use this if you know that a file should be republish within a few seconds */
+BOOLEAN FUNCTION WaitForBeenPublished(INTEGER fileid, DATETIME sincewhen)
+{
+  /* We loop because even if we EnsureTasksExecuted, there's no way to ensure
+     that the publisher:executetasks post-commit completions have been sent
+     to the completion handler (we could  see that the completions queue is empty,
+     but is that because it hasn't received anything yet of because it's done ?) */
+
+  DATETIME deadline := AddTimeToDate(15000,GetCurrentDatetime());
+  WHILE (TRUE)
+  {
+    IF(IsBeingPublishedSince(fileid, sincewhen))
+      RETURN TRUE;
+    Sleep(100);
+  }
+  RETURN FALSE;
+}
+
+MACRO TestLifeCycle()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite("");
+
+  OBJECT autokill_now := GetTestsuiteTempFolder()->CreateFile([ name:= "autokill_now"]);
+  OBJECT autokill_soon := GetTestsuiteTempFolder()->CreateFile([ name:= "autokill_soon"]);
+
+  autokill_now->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [deletion := AddTimeToDate(-1,GetCurrentDatetime())]);
+  autokill_soon->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [deletion := AddTimeToDate(60000,GetCurrentDatetime())]);
+
+  ExecuteLifecycleCleanup();
+
+  TestEq(TRUE,  ObjectExists(GetTestsuiteTempFolder()->OpenByName("autokill_soon")));
+  TestEq(FALSE, ObjectExists(GetTestsuiteTempFolder()->OpenByName("autokill_now")));
+  TestEq(FALSE, RecordExists(SELECT FROM system.fs_objects WHERE id = autokill_now->id)); //permanenetly gone!
+
   testfw->CommitWork();
 }
 
 MACRO PublicationMoveFile()
 {
-
-
   testfw->BeginWork();
 
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT tomovefile := testsite->rootobject->CreateFile(
+  OBJECT tomovefile := GetTestsuiteTempFolder()->CreateFile(
       [ name:=        "tomove.html"
       , type :=       24
       , publish :=    TRUE
       ]);
-  OBJECT destfolder := testsite->rootobject->CreateFolder([name := "destfolder"]);
-  OBJECT deletedfolder := testsite->rootobject->CreateFolder([name := "deletedfolder"]);
+  OBJECT destfolder := GetTestsuiteTempFolder()->CreateFolder([name := "destfolder"]);
+  OBJECT deletedfolder := GetTestsuiteTempFolder()->CreateFolder([name := "deletedfolder"]);
 
   DATETIME now := GetCurrentDateTime();
   AddFileTask(tomovefile->id, now, 3, destfolder->id); // move
@@ -80,8 +112,7 @@ MACRO PublicationDeleteFile()
 {
   testfw->BeginWork();
 
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT tokillfile := testsite->rootobject->CreateFile(
+  OBJECT tokillfile := GetTestsuiteTempFolder()->CreateFile(
       [ name:=        "todelete.html"
       , type :=       24
       , publish :=    TRUE
@@ -101,8 +132,7 @@ MACRO PublicationDeleteFolder()
 {
   testfw->BeginWork();
 
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT tokillfolder := testsite->rootobject->CreateFolder(
+  OBJECT tokillfolder := GetTestsuiteTempFolder()->CreateFolder(
       [ name:=        "todelete"
       ]);
   OBJECT tokillfile := tokillfolder->CreateFile(
@@ -123,28 +153,22 @@ MACRO PublicationDeleteFolder()
 
 MACRO PublicationStartStopTest()
 {
-
-
   testfw->BeginWork();
 
-  OBJECT testsite := testfw->GetTestSite();
-
-  OBJECT indexfile := testsite->rootobject->CreateFile(
+  OBJECT indexfile := GetTestsuiteTempFolder()->CreateFile(
       [ name:=        "index.html"
       , type :=       24
       , publish :=    TRUE
       ]);
 
-  OBJECT testfile := testsite->rootobject->CreateFile(
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile(
       [ name:=        "test.html"
       , data :=       StringToBlob("Dit is tekst")
       , publish :=    FALSE
       ]);
 
   testfw->CommitWork();
-
-  testfw->RefreshWebserverConfig(); //fixme combine this all into setuptestwebsite?
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
 
   testfw->BeginWork();
   DATETIME now := GetCurrentDateTime();
@@ -152,8 +176,6 @@ MACRO PublicationStartStopTest()
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
-
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
 
   //this tests that both testfile and indexfile have been (re)queued for republication since the last 'now'
   TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
@@ -166,8 +188,6 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
-
   //this tests that testfile has been (re)queued for republication since the last 'now', but not indexfile
   TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
   TestEQ(FALSE, IsBeingPublishedSince(indexfile->id, now));
@@ -179,9 +199,7 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
-
-  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, WaitForBeenPublished(indexfile->id, now));
   testfile->Refresh();
   TestEQ(FALSE, testfile->publish);
 
@@ -192,8 +210,6 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
-
   TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
   TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
 
@@ -203,8 +219,6 @@ MACRO PublicationStartStopTest()
   testfw->CommitWork();
 
   EnsureTasksExecuted(now);
-
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
 
   TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
   TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
@@ -232,19 +246,17 @@ MACRO PublicationStartStopTest()
 
 MACRO SetIndexDocTest()
 {
-  OBJECT testsite := testfw->GetTestSite();
-
-  OBJECT indexfile := testsite->rootobject->OpenByPath("index.html");
-  OBJECT testfile := testsite->rootobject->OpenByPath("test.html");
+  OBJECT indexfile := GetTestsuiteTempFolder()->OpenByPath("index.html");
+  OBJECT testfile := GetTestsuiteTempFolder()->OpenByPath("test.html");
 
   testfw->BeginWork();
   indexfile->UpdateMetadata([ name := "test2.html" ]);
   testfw->CommitWork();
 
-  TestEQ(indexfile->id, testsite->rootobject->indexdoc);
+  TestEQ(indexfile->id, GetTestsuiteTempFolder()->indexdoc);
 
   // Make sure any republication is done
-  testfw->WaitForPublishCompletion(testfw->GetTestSite()->root);
+  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
 
   testfw->BeginWork();
   DATETIME now := GetCurrentDateTime();
@@ -253,18 +265,14 @@ MACRO SetIndexDocTest()
 
   EnsureTasksExecuted(now);
 
-  PRINT("FIXME - WAIT FOR COMPLETION QUEUE\n"); Sleep(3000);
-
-  testsite->rootobject->Refresh();
-  TestEQ(testfile->id, testsite->rootobject->indexdoc);
+  GetTestsuiteTempFolder()->Refresh();
+  TestEQ(testfile->id, GetTestsuiteTempFolder()->indexdoc);
 
   TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
   TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
-
-
 }
 
-RunTestFramework([ PTR PrepareTasks
+RunTestFramework([ PTR TestLifecycle
                  , PTR PublicationDeleteFile
                  , PTR PublicationDeleteFolder
                  , PTR PublicationMoveFile

@@ -9,7 +9,7 @@
   <test script="actions.whscr"/>
   <test script="main.whscr" flaky="1" />
   <test script="recyclebin.whscr"/>
-  <test script="scheduledtasks.whscr"/>
+  <test script="test-lifecycle.whscr"/>
   <test script="tagmanager.whscr"/>
   <test script="ordering.whscr"/>
   <test script="newrights.whscr"/>
