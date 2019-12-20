@@ -102,6 +102,18 @@ export function RunIteratorOnRange2(win,range)
   return list;
 }
 
+//get the current selection for the test window, avoiding Rangy and RTE
+export function getCurrentRawSelection()
+{
+  let sel = test.getWin().getSelection();
+  return { anchor: { node: sel.anchorNode, offset: sel.anchorOffset }
+         , focus: { node: sel.focusNode, offset: sel.focusOffset }
+         , isCollapsed: sel.isCollapsed
+         , type: sel.type
+         };
+
+}
+
 export function getRTESelection(win, rte)
 {
   return rte.getSelectionRange().toDOMRange();

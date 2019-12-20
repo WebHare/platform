@@ -1,6 +1,43 @@
 import Range from './dom/range';
 
-class SelectionInterface
+export function selectRange(range)
+{
+  if (!range)
+    throw new Error("No range specified");
+  if (!range.start.element || !range.end.element)
+    throw new Error("Range start or end are not valid nodes");
+
+  let doc = range.start.element.ownerDocument;
+  var selection = doc.getSelection();
+  if (!selection)
+  {
+    if(Range.getLogLevel() & 1)
+      console.log('have NO selection object');
+    return false;
+  }
+
+  if(Range.getLogLevel() & 1)
+    console.log('have selection object', range.start, range.end);
+
+  // Rangy sometimes fails on IE. This standard code passes the tests...
+  var domrange = doc.createRange();
+  domrange.setStart(range.start.element, range.start.offset);
+  domrange.setEnd(range.end.element, range.end.offset);
+
+  if(Range.getLogLevel() & 1)
+    console.log('SI selectRange dom result', domrange);
+
+  selection.removeAllRanges();
+  selection.addRange(domrange);
+
+  if(Range.getLogLevel() & 1)
+    console.log('SI final selection', selection);
+
+  // Don't detach the domrange. At least IE 10 needs it.
+  return true;
+}
+
+export default class SelectionInterface
 {
   // ---------------------------------------------------------------------------
   //
@@ -51,39 +88,6 @@ class SelectionInterface
   */
   selectRange(range)
   {
-    if (!range)
-      throw new Error("No range specified");
-    if (!range.start.element || !range.end.element)
-      throw new Error("Range start or end are not valid nodes");
-
-    var selection = this.doc.getSelection();
-    if (!selection)
-    {
-      if(Range.getLogLevel() & 1)
-        console.log('have NO selection object');
-      return false;
-    }
-
-    if(Range.getLogLevel() & 1)
-      console.log('have selection object', range.start, range.end);
-
-    // Rangy sometimes fails on IE. This standard code passes the tests...
-    var domrange = this.doc.createRange();
-    domrange.setStart(range.start.element, range.start.offset);
-    domrange.setEnd(range.end.element, range.end.offset);
-
-    if(Range.getLogLevel() & 1)
-      console.log('SI selectRange dom result', domrange);
-
-    selection.removeAllRanges();
-    selection.addRange(domrange);
-
-    if(Range.getLogLevel() & 1)
-      console.log('SI final selection', selection);
-
-    // Don't detach the domrange. At least IE 10 needs it.
-    return true;
+    return selectRange(range); //use the freestanding version, we can autoderive current node etc from the range
   }
 }
-
-module.exports = SelectionInterface;

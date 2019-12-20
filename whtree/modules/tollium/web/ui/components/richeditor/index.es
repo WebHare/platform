@@ -204,6 +204,9 @@ export class RTE
     event.preventDefault();
 
     // Contextmenu event changes selection, but the select event will fire later, so force update when getting the state.
+    if(this.editrte)
+      this.editrte.OnSelectionChange(null); //Fixes Chrome's weird cross-td-boundary selection right click
+
     let actionstate = this.getSelectionState(true).actionstate;
 
     let contextmenu = dompack.create('ul');
@@ -244,7 +247,7 @@ export class RTE
       }
     }
 
-    menu.openAt(contextmenu, event, {eventnode:this.node});
+    menu.openAt(contextmenu, event.target, {eventnode:this.node});
   }
 
   _activateRTDMenuItem(evt)
@@ -536,8 +539,9 @@ export class RTE
   {
     if(actiontarget.__node && actiontarget.__node.nodeName=='A')
       return this._updateHyperlink(actiontarget.__node, settings);
-    if(actiontarget.__node && (actiontarget.__node.nodeName=='TR' || actiontarget.__node.nodeName=='TD'))
+    if(actiontarget.__node && (actiontarget.__node.nodeName=='TH' || actiontarget.__node.nodeName=='TD'))
       return this._updateCell(actiontarget.__node, settings);
+
     throw new Error("Did not understand action target");
   }
 

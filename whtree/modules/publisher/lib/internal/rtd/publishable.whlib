@@ -2,6 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
@@ -13,6 +14,14 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+STRING ARRAY FUNCTION ParseClasses(STRING inlist)
+{
+  STRING ARRAY out;
+  FOREVERY(STRING classname FROM ParseXSList(inlist))
+    IF(classname NOT LIKE "wh-rtd__*")
+      INSERT classname INTO out AT END;
+  RETURN out;
+}
 
 STRING FUNCTION Gathertext(OBJECT parent, INTEGER maxlen)
 {
@@ -211,9 +220,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       FOREVERY(RECORD cellrec FROM row.cells)
       {
         STRING class := "wh-rtd__tablecell";
-        IF(cellrec.cellstyle != "")
+        IF(Length(cellrec.cellclasses) > 0)
         {
-          RECORD matchstyle := SELECT * FROM outputobject->document->structure->structure.cellstyles WHERE cellstyles.tag = cellrec.cellstyle;
+          RECORD matchstyle := SELECT * FROM outputobject->document->structure->structure.cellstyles WHERE cellstyles.tag IN cellrec.cellclasses;
           IF(RecordExists(matchstyle))
             class := class || " " || matchstyle.tag;
           //Validate
@@ -580,7 +589,7 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
                           , richobjects := DEFAULT OBJECT ARRAY
                           , colspan := ToInteger(cellnode->GetAttribute("colspan"),1)
                           , rowspan := ToInteger(cellnode->GetAttribute("rowspan"),1)
-                          , cellstyle := cellnode->GetAttribute("class")
+                          , cellclasses := ParseClasses(cellnode->GetAttribute("class"))
                           ];
 
         FOREVERY(OBJECT subnode FROM cellnode->childnodes->GetCurrentElements())
