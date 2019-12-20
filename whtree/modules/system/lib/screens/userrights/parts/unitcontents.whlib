@@ -442,7 +442,7 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     RECORD policy := GetPolicyForUser(this->contexts, this->GetSelectedWRDAuthobject()->entityid);
     IF(NOT policy.haspassword)
     {
-      this->RunSimpleScreen("info", GetTid("system:userrights.dialogues.cannotresetunmanageduser"));
+      this->contexts->screen->RunSimpleScreen("info", GetTid("system:userrights.dialogues.cannotresetunmanageduser"));
       RETURN;
     }
 
