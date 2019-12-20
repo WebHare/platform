@@ -4,7 +4,7 @@
     <insert position="tasksettings" where="atend">
       <heading tid=".lifecycle" />
       <line>
-        <datetime cellname="deletion" name="deletion" type="date" /> <!-- storeutc="true"  ... not showing time because we're not really that precise witha daily task -->
+        <datetime cellname="deletion" name="deletion" type="date" /> <!-- storeutc="true"  ... not showing time because we're not really that precise with a daily task -->
         <text valuetid=".ispermanent" />
       </line>
     </insert>
