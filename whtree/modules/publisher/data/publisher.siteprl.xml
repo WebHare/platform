@@ -202,7 +202,6 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/zipfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/archivefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/libraryfile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/flashfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/externallink" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/internallink" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/contentlink" cloneoncopy="true" />
@@ -220,9 +219,7 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/webfieldsfile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/smarttagsfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/flvvideofile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile" cloneoncopy="true">
     <member name="original" type="file" />
     <member name="data" type="richdocument" />
@@ -429,18 +426,6 @@
       isdevelopertype="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
-  />
-
-  <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/flashfile"
-      webhare_builtintypeid="17"
-      tid="publisher:filetypes.flash"
-      tolliumicon="tollium:files/application_x-webhare-general"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      ispublishable="true"
-      requirescontent="true"
   />
 
   <filetype
@@ -656,17 +641,6 @@
       typedef="http://www.webhare.net/xmlns/publisher/mp3audiofile"
       tid="publisher:filetypes.mp3audiofile"
       tolliumicon="tollium:files/audio"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      ispublishable="true"
-      requirescontent="true"
-  />
-
-  <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/flvvideofile"
-      tid="publisher:filetypes.flvvideofile"
-      tolliumicon="tollium:files/video"
       blobiscontent="true"
       needstemplate="false"
       needsprofile="false"
