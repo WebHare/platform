@@ -241,6 +241,7 @@ PUBLIC MACRO FillInForm()
   TestEq(numexportfields - 1/* - 2*/, Length(ownermaildoc->GetElements("th.resultheader"))); //coptsub2 should NOT be exported
   TestEQ("Piëtje", TrimWhitespace(ownermaildoc->GetElements("td")[0]->textcontent),"Must be pietje");
   TestEq(TRUE, ownermaildoc->outerxml LIKE "*Signed by homer:*", "Mail should be in template");
+  TestEq("hooked-custom", ownermaildoc->body->GetAttribute("data-hookedpreparemail"));
 
   OBJECT checkboxes_row := ownermaildoc->GetElements("tr")[6];
   Testeq("Checkboxes", TrimWhitespace(checkboxes_row->GetElements("th")[0]->textcontent), "Checkboxes must appear BEFORE CheckboxOpt3 at line 4");

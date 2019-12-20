@@ -12,7 +12,7 @@
     <meta name="wh-mailcomposer-cc" value="mailtemplate-cc@beta.webhare.net" />
     <meta name="wh-mailcomposer-bcc" value="mailtemplate-bcc@beta.webhare.net" />
   </head>
-  <body>
+  <body data-hookedpreparemail="[hookedpreparemail]">
     <div id="slotcontainer">
       <slot name="mailbody"></slot>
     </div>
