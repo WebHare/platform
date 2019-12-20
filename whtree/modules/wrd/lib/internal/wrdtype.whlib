@@ -38,7 +38,6 @@ Terminology:
 */
 
 STRING ARRAY warnings_per_vm;
-PUBLIC BOOLEAN  __wrdtest_disable_updateat_throw; //we need to be able to test updateat ignoring history on live
 
 INTEGER ARRAY FUNCTION GetChildTypes(INTEGER wrdtypeid)
 {
@@ -2694,16 +2693,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     options := ValidateOptions([ errorcallback := PTR OnThrowEntityError
                                , onmapdomvalue := PTR this->GetDomVal(#1,#2)
-                               , updateat := DEFAULT DATETIME
                                , importmode := FALSE
                                , whfsmapper := DEFAULT OBJECT
                                , temp := FALSE
                                , changeset := 0
                                , decodeinvalidutf8as := ""
                                ], options);
-
-    IF(entityid = 0 AND options.updateat != DEFAULT DATETIME)
-      THROW NEW Exception("'updateat' not supported when creating an entity");
 
     IF(options.temp)
     {
@@ -2715,22 +2710,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                         , wrd_creationdate := MAX_DATETIME
                         , wrd_limitdate := AddDaysToDate(7, GetCurrentDatetime())
                         ];
-    }
-
-    IF(options.updateat != DEFAULT DATETIME)
-    {
-      IF(NOT IsDtapLive() AND NOT __wrdtest_disable_updateat_throw)
-        THROW NEW Exception(`Setting updateat when invoking UpdateEntity (or a similar function) is no longer supported!`);
-
-      options.updateat := DEFAULT DATETIME;
-
-      IF(this->tag NOT IN warnings_per_vm)
-      {
-        INSERT this->tag INTO warnings_per_vm AT END;
-        RECORD ARRAY trace := GetStackTrace();
-        STRING file := SELECT AS STRING filename FROM trace WHERE filename NOT LIKE "mod::wrd/*" AND filename NOT LIKE "module::wrd/*";
-        LogError("wrd:updateentity", `${file ?? "unknown"} invoked UpdateEntity (or a similar function) for type ${this->tag} with an UpdateAt parameter. This parameter is no longer supported!`, CELL[filename:=file, trace]);
-      }
     }
 
     BOOLEAN anyerror;
@@ -3563,7 +3542,6 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
   /** Create a new entity
       @param entitydata Initial field settings
       @cell options.onmapdomvalue
-      @cell options.updateat
       @cell(boolean) options.temp Create a temporary entity (expires after up to 24 hours, never returned in queries)
       @return(object %WRDEntity2017) The newly created entity
   */

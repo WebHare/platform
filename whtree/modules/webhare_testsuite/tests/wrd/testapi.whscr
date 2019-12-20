@@ -1089,7 +1089,6 @@ MACRO TestDomainTagTranslation()
 
 MACRO TestHistoryMode()
 {
-  __wrdtest_disable_updateat_throw := TRUE;
   OBJECT schemaobj := testfw->GetWRDSchema();
   OBJECT wrdperson := schemaobj->^wrd_person;
 
@@ -1567,10 +1566,7 @@ MACRO TestWRDQuery_Password()
   TestEq(1, Length(SELECT FROM results WHERE id IN [secretpwd]));
   TestEq(2, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
 
-  //Check that VerifyPassword properly considers attribute lifetimes
   TestEq(TRUE, persontype->GetEntity(testpwd)->VerifyPassword("TEST_PASSWORD", "test"));
-  persontype->UpdateEntity(testpwd, [ test_password := "" ], [ updateat := AddTimeToDate(-1, GetCurrentDatetime()) ]);
-  TestEq(FALSE, persontype->GetEntity(testpwd)->VerifyPassword("TEST_PASSWORD", "test"));
 
   //Verify we're allowed to set XSHA passwords
   persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg==`]);
@@ -2008,7 +2004,7 @@ MACRO TestWRDQuery_Mentions_Single()
   OBJECT person4 := wrdperson->GetEntity(person4id);
   person4->UpdateEntity(
       [ test_array := DEFAULT RECORD ARRAY
-      ], [ updateat := GetCurrentDatetime() ]);
+      ]);
 
   result := testfw->GetWRDSchema()->RunQuery([ sources := [[ type := wrdperson
                                       , outputcolumns := [ fn := "WRD_FIRSTNAME" ]
@@ -2026,8 +2022,7 @@ MACRO TestWRDQuery_Mentions_Single()
       , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
       ]));
 
-  // Test honoring of array creationdate/limitdata
-  person3->UpdateEntity([ test_array := DEFAULT RECORD ARRAY ], [updateat :=  GetCurrentDatetime()] );
+  person3->UpdateEntity([ test_array := DEFAULT RECORD ARRAY ]);
   TestEQ(DEFAULT RECORD ARRAY, wrdperson->RunQuery(
       [ outputcolumns := [ "WRD_ID" ]
       , filters := [ [ field := "TEST_ARRAY.TEST_FREE", matchtype := "MENTIONS", value := "1" ]]
@@ -2268,8 +2263,7 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
            WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
         ORDER BY entity));
 
-  // Will clear out current range: empties everything
-  testperson_2_obj->UpdateEntity([ UE_INT := 4 ], [updateat:=now]);
+  testperson_2_obj->UpdateEntity([ UE_INT := 4 ]);
 
   TestEq(
       [ [ entity :=         testperson_1
@@ -2277,170 +2271,6 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
         ]
       , [ entity :=         testperson_2
         , rawdata :=        "4"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Change 10 ms later
-  testperson_2_obj->UpdateEntity([ UE_INT := 5 ], [updateat:=AddTimeToDate(10, now)]);
-
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
-        ]
-      , [ entity :=         testperson_2
-        , rawdata :=        "5"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Change to default 10 ms later
-  testperson_2_obj->UpdateEntity([ UE_INT := 0 ], [updateat:=AddTimeToDate(20, now)]);
-/*
-  IF (SELECT AS BOOLEAN limitdate = AddTimeToDate(20, now)
-        FROM wrd.entity_settings
-       WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4")
-  {
-    PRINT("FIXME: test failed: workaround\n");
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(10, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4";
-  }
-*/
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Change to default 10 ms later
-  testperson_2_obj->UpdateEntity([ UE_INT := 0 ], [updateat:= AddTimeToDate(20, now)]);
-/*
-  IF (SELECT AS BOOLEAN limitdate = AddTimeToDate(20, now)
-        FROM wrd.entity_settings
-       WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4")
-  {
-    PRINT("FIXME: test failed: workaround\n");
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(10, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4";
-  }
-*/
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Change to something to default 10 ms later
-  testperson_2_obj->UpdateEntity([ UE_INT := 6 ], [ updateat := AddTimeToDate(30, now) ]);
-/*
-  IF (SELECT AS BOOLEAN limitdate = AddTimeToDate(30, now)
-        FROM wrd.entity_settings
-       WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4")
-  {
-    PRINT("FIXME: test failed: workaround\n");
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(10, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4";
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(20, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "5";
-  }
-*/
-  testperson_2_obj->UpdateEntity([ UE_INT := 8 ], [ updateat := AddTimeToDate(-10, now) ]);
-/*
-  IF (SELECT AS BOOLEAN limitdate = MAX_DATETIME
-        FROM wrd.entity_settings
-       WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "8")
-  {
-    PRINT("FIXME: test failed: workaround\n");
-    UPDATE wrd.entity_settings
-       SET limitdate := now
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "8";
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(10, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4";
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(20, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "5";
-    UPDATE wrd.entity_settings
-       SET limitdate := MAX_DATETIME
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "6";
-  }
-*/
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
-        ]
-      , [ entity :=         testperson_2
-        , rawdata :=        "8"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-/*
-  PRINT("Current contents\n" || AnyToString(
-         (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id), "boxed"));
-*/
-  // Set in the past to 0, must remove that setting only
-  testperson_2_obj->UpdateEntity([ UE_INT := 0 ], [ updateat := AddTimeToDate(-10, now) ]);
-/*
-  IF (RecordExists(SELECT
-                     FROM wrd.entity_settings
-                    WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "8"))
-  {
-    PRINT("FIXME: test failed: workaround\n");
-    DELETE FROM wrd.entity_settings
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "8";
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(10, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "4";
-    UPDATE wrd.entity_settings
-       SET limitdate := AddTimeToDate(20, now)
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "5";
-    UPDATE wrd.entity_settings
-       SET limitdate := MAX_DATETIME
-     WHERE entity = testperson_2 AND attribute = ue_int_id AND rawdata = "6";
-  }
-*/
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
-        ]
-      ], (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Same for testperson_1, but with only one remaining setting after the gap
-  testperson_1_obj->UpdateEntity([ UE_INT := 0 ], [updateat := AddTimeToDate(10, now)]);
-
-  TestEq(RECORD[]
-      , (SELECT entity, rawdata
-            FROM wrd.entity_settings
-           WHERE entity IN [ testperson_1, testperson_2] AND attribute = ue_int_id
-        ORDER BY entity));
-
-  // Setting after gap, to same value (test not updating existing value)
-  testperson_1_obj->UpdateEntity([ UE_INT := 3 ], [updateat := AddTimeToDate(20, now)]);
-
-  TestEq(
-      [ [ entity :=         testperson_1
-        , rawdata :=        "3"
         ]
       ], (SELECT entity, rawdata
             FROM wrd.entity_settings
@@ -2509,7 +2339,7 @@ MACRO TestUpdateEntityFields() //TODO cleanup? - this test is pretty much irrele
            WHERE entity IN [ testperson_3 ] AND attribute IN [ INTEGER(arrayue_int_id), arraysubue_int_id ]
         ORDER BY entity, attribute != arrayue_int_id));
 
-  testperson_3_obj->UpdateEntity([ UE_ARRAY := [ [ UE_INT := 2 ], [ UE_INT := 3 ] ] ],[updateat :=  AddTimeToDate(-10, now)]);
+  testperson_3_obj->UpdateEntity([ UE_ARRAY := [ [ UE_INT := 2 ], [ UE_INT := 3 ] ] ]);
 /*
   PRINT("Current array contents\n" || AnyToString(
          (SELECT id, entity, attribute, rawdata, parentsetting, ordering

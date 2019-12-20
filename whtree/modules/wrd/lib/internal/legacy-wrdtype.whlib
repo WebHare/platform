@@ -102,7 +102,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   */
   PUBLIC RECORD FUNCTION CreateEntity(RECORD entitydata)
   {
-    RECORD res := LegacyUpdateEntity(this, entitydata, 0, DEFAULT DATETIME);
+    RECORD res := LegacyUpdateEntity(this, entitydata, 0);
     this->domainvalues_cached := FALSE;
     RETURN res;
   }
@@ -120,7 +120,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     INSERT CELL wrd_title := title INTO entitydata;
     INSERT CELL wrd_leftentity := parent INTO entitydata;
     this->domainvalues_cached := FALSE;
-    RECORD res:= LegacyUpdateEntity(this, entitydata, 0, DEFAULT DATETIME);
+    RECORD res:= LegacyUpdateEntity(this, entitydata, 0);
     this->domainvalues_cached := FALSE;
     RETURN res;
   }

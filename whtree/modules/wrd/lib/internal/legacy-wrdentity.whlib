@@ -39,7 +39,7 @@ PUBLIC STATIC OBJECTTYPE LegacyWRDEntity EXTEND WRDEntityBase
     @param entitydata A record containing the fields to update */
   PUBLIC RECORD FUNCTION UpdateFields(RECORD entitydata)
   {
-    RETURN LegacyUpdateEntity(this->pvt_wrdtype, entitydata, this->entityrec.id, DEFAULT DATETIME);
+    RETURN LegacyUpdateEntity(this->pvt_wrdtype, entitydata, this->entityrec.id);
   }
 
   PUBLIC MACRO UpdateFields2(RECORD entitydata)
