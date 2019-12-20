@@ -165,7 +165,21 @@ VARIANT FUNCTION LookupWRDId(RECORD ARRAY map, INTEGER lookingfor)
   RETURN map[pos.position].data;
 }
 
-//convert entity ids to guids
+/** Rewrite WRD entity references from data from query output
+    @param(record) retval Mappings, record with a cell per domain type
+    @cell(record array) retval.* Mapping
+    @cell(integer) retval.*.wrd_id Value to look up
+    @cell retval.*.data Value to look map to
+    @param attrs List of attributes to map
+    @cell(string) attrs.attributetypename Attribute type name
+    @cell(string) attrs.localtag Attribute local tag
+    @cell(record array) attrs.fields Array fields
+    @param data Query output to rewrite
+    @param excludeallblobs Remove all blob fields
+    @param knownblobs Delete all blob fields with these hashes
+    @param defaultlink Value to map default links to (must be the same type as `retval.*.data`)
+    @return Rewritten data
+*/
 PUBLIC RECORD ARRAY FUNCTION RewriteLinks(RECORD retval, RECORD ARRAY attrs, RECORD ARRAY data, BOOLEAN excludeallblobs, STRING ARRAY knownblobs, VARIANT defaultlink)
 {
   FOREVERY (RECORD attr FROM attrs)
@@ -243,7 +257,7 @@ PUBLIC RECORD ARRAY FUNCTION RewriteLinks(RECORD retval, RECORD ARRAY attrs, REC
       {
         data[#rec] := DEFAULT RECORD;
         INTEGER ARRAY links := GetCell(rec, attr.localtag);
-        STRING ARRAY rewrite;
+        VARIANT rewrite := GetTypeDefaultArray(TypeID(defaultlink));
 
         FOREVERY (INTEGER link FROM links)
           INSERT LookupWRDId(map, link) INTO rewrite AT END;
