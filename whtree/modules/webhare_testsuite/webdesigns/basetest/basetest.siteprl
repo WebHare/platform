@@ -32,9 +32,6 @@
                contentnavstops="h1"
                wittyencoding="HTML-NI"/>
 
-    <!-- Set site language -->
-    <sitelanguage getlanguagefunction="lib/basetest.whlib#GetBasetestLanguage" />
-
     <!-- Republish all files upon every change
     <republish folder="/" indexonly="false" recursive="true" />
     -->
@@ -419,6 +416,7 @@
 
   <apply>
     <to type="file" pathmask="/testpages/formtest" />
+    <to type="file" pathmask="*-nl*" />
     <sitelanguage lang="nl" /> <!-- change it away from the default so we can ensure it is set and not just defaulting to 'en' -->
   </apply>
 

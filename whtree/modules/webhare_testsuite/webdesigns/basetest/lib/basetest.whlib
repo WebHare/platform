@@ -326,11 +326,6 @@ PUBLIC BOOLEAN FUNCTION SkipCaptcha(OBJECT webcontext)
   RETURN GetFormWebVariable("skipcaptcha") = "1";
 }
 
-PUBLIC STRING FUNCTION GetBasetestLanguage(OBJECT webcontext)
-{
-  RETURN IsRequest() ? GetFormWebVariable("setlang") : "";
-}
-
 PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
 <
   MACRO OnObjectLibraryChange()

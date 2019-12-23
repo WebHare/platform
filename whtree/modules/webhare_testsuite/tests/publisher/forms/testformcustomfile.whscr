@@ -33,7 +33,22 @@ PUBLIC MACRO BuildForm()
       , embeddedresults := TRUE
       , emailfieldname := "email"
       ]);
+
+  testfw->BeginWork();
+
+  IF(ObjectExists(OpenTestsuiteSite()->OpenByPath("webtools/customform-nl")))
+    OpenTestsuiteSite()->OpenByPath("webtools/customform-nl")->RecycleSelf();
+
+  OpenTestsuiteSite()->OpenByPath("webtools")->CreateFile(
+    [ name := "customform-nl"
+    , typens := "http://www.webhare.net/xmlns/publisher/contentlink"
+    , filelink := OpenTestsuiteSite()->OpenByPath("webtools/customform")->id
+    , publish := TRUE
+    ]);
+
+  testfw->CommitWork();
 }
+
 PUBLIC MACRO CustomForm()
 {
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
@@ -303,8 +318,8 @@ MACRO CustomForm_SuppressMail()
 MACRO CustomForm_NL()
 {
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
-  TestEq(FALSE, testfw->browser->GotoWebPage(customformfile->url || "?setlang=fail")); //make sure we're actually getting setlang
-  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?setlang=nl"));
+  OBJECT customformfile_nl := OpenTestsuiteSite()->OpenByPath("webtools/customform-nl");
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile_nl->url));
 
   //verify that the customselect realized it should be dutch
   OBJECT customselectfield := testfw->browser->QS("select[name='tsline.customselect.select']");

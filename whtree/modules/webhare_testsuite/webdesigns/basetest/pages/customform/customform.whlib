@@ -43,9 +43,6 @@ PUBLIC OBJECTTYPE CustomFormPage EXTEND WebtoolFormPage
 <
   MACRO NEW()
   {
-    IF(GetFormWebVariable("setlang") = "fail")
-      THROW NEW Exception("Got a setlang but didn't like it");
-
     this->form->pagedata := [ ihavegot := "something"
                             , electric := 6
                             ];
