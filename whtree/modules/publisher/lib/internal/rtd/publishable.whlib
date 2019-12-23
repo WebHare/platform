@@ -878,7 +878,7 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
 
     FOREVERY(OBJECT richobject FROM this->flatobjects)
     {
-      IF(richobject->isembeddedobject AND ObjectExists(richobject->__embeddedobject) AND NOT MemberExists(richobject->embeddedobject, "__pvt_widgetsettings")) //not a widget
+      IF(richobject->isembeddedobject AND ObjectExists(richobject->__embeddedobject) AND NOT MemberExists(richobject->__embeddedobject, "__pvt_widgetsettings")) //not a widget
       {
         richobject->embeddedobject->languagecode := webdesign->languagecode;
         richobject->embeddedobject->Prepare();
