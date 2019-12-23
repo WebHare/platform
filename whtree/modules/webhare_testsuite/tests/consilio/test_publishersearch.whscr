@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/search/richdocuments.whlib";
 
@@ -19,23 +20,30 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
 
-MACRO PublisherSearchTest()
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+OBJECT testroot;
+INTEGER testsiteid;
+OBJECT file_1, file_3, file_2, file_4, file_5;
+OBJECT subfolder;
+
+MACRO Prepare()
 {
   // Create and fill the test site
   testfw->BeginWork();
 
-  OBJECT site := testfw->SetupTestWebdesignWebsite("");
-
-  OBJECT siteroot := site->rootobject;
-  OBJECT subfolder := site->rootobject->CreateFolder([ name := "subfolder", title := "blafolder <>" ]);
+  testroot := GetTestsuiteTempFolder();
+  subfolder := testroot->CreateFolder([ name := "subfolder", title := "blafolder <>" ]);
+  testsiteid := testroot->parentsite;
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", title := "blafile & co", data := StringToBlob("blabla"), publish := TRUE]);
-  OBJECT file_3 := siteroot->CreateFile([name:="testfile2.shtml", title := "blafile", data := StringToBlob("<?wh LOADLIB 'currentsite::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
-  OBJECT file_2 := siteroot->CreateFile([name:="testfile3.whlib", title := "blafile", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla3'); }") ]);
-  OBJECT file_4 := siteroot->CreateFile([name:="testfile4.txt", title := "blafile", data := StringToBlob("blabla4"), publish := TRUE]);
-  OBJECT file_5 := siteroot->CreateFile([name:="testfile5.rtd", title := "blafile", type := richdoctype->id, publish := TRUE]);
+  file_1 := testroot->CreateFile([name:="testfile1.txt", title := "blafile & co", data := StringToBlob("blabla"), publish := TRUE]);
+  file_3 := testroot->CreateFile([name:="testfile2.shtml", title := "blafile", data := StringToBlob("<?wh LOADLIB 'currentsite::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
+  file_2 := testroot->CreateFile([name:="testfile3.whlib", title := "blafile", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla3'); }") ]);
+  file_4 := testroot->CreateFile([name:="testfile4.txt", title := "blafile", data := StringToBlob("blabla4"), publish := TRUE]);
+  file_5 := testroot->CreateFile([name:="testfile5.rtd", title := "blafile", type := richdoctype->id, publish := TRUE]);
 
   OBJECT myrichdoc := NEW RichDocument;
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
@@ -50,20 +58,21 @@ MACRO PublisherSearchTest()
   RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
   TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
 
-  STRING file_5_tree := `${siteroot->parent} ${siteroot->id} ${file_5->id}`;
-
   CommitAndWaitForPublisherIndex();
+}
 
+MACRO PublisherSearchTest()
+{
   // Empty contain should not crash
   RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", INTEGER[]));
   TestEq(0, result.totalcount);
   TestEQ(STRING[], result.eventmasks, "A nothing query will never return anything, so no events to listen to");
 
 
-  // Search for all objects within the test site
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", site->id));
+  // Search for all objects within the test folder
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", testroot->id));
   TestEq(7, result.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = siteroot->id));
+  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_2->id));
@@ -78,17 +87,19 @@ MACRO PublisherSearchTest()
   TestEq("fsobj_" || file_5->id, resultobj.objectid);
   TestEq(file_5->id, resultobj.whfsid);
   TestEq("file", resultobj.whfsobject);
-  TestEq(siteroot->id, resultobj.whfsparent);
+  TestEq(testroot->id, resultobj.whfsparent);
   TestEq(file_5->whfspath, resultobj.whfspath);
-  TestEq(file_5_tree, resultobj.whfstree);
+  TestEq(`${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
+
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEq(richdoctype->id, resultobj.whfstype);
 
   // Search for other fields
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder")]));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafile")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafile")]));
   TestEq(5, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_2->id));
@@ -97,7 +108,7 @@ MACRO PublisherSearchTest()
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
 
   RECORD ARRAY items;
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["title"] ]);
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["title"] ]);
   TestEq(6, result.totalcount);
 
   items := SELECT * FROM result.results ORDER BY whfspath;
@@ -107,14 +118,14 @@ MACRO PublisherSearchTest()
   TestEq(FALSE, CellExists(items[5], '_score'));
   TestEq(FALSE, CellExists(items[5], '_summary'));
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["_summary"], summaryfield := "_summary" ]);
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["_summary"], summaryfield := "_summary" ]);
   TestEq(6, result.totalcount);
 
   items := SELECT * FROM result.results ORDER BY whfspath;
   TestEq("blafolder <>", items[0].title);
   TestEq("blabla5", items[5]._summary);
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["summary"], summaryfield := "summary", scorefield := "points" ]);
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ highlightfields := ["summary"], summaryfield := "summary", scorefield := "points" ]);
   TestEq(6, result.totalcount);
 
   items := SELECT * FROM result.results ORDER BY whfspath;
@@ -122,7 +133,7 @@ MACRO PublisherSearchTest()
   TestEq("blabla5", items[5].summary);
   TestEq(TYPEID(FLOAT), TYPEID(items[5].points), 'ensure score exists and is of proper type');
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ summaryfield := "" ]);
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile", [ querymode := "OR" ])]), [ summaryfield := "" ]);
   TestEq(6, result.totalcount);
 
   items := SELECT * FROM result.results ORDER BY whfspath;
@@ -131,28 +142,28 @@ MACRO PublisherSearchTest()
 
   //TestEq("blafile", items[0]._summary);
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blafolder blafile")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blafolder blafile")]));
   TestEq(0, result.totalcount);
 
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blabla")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla")]));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blabla4")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla4")]));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_4->id));
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", site->id), CQParseUserQuery("blabla5")]));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd([CQMatch("whfstree", "CONTAINS", testsiteid), CQParseUserQuery("blabla5")]));
   TestEq(1, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
 
   // Search for the site root object
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", siteroot->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testroot->id));
   TestEq(1, result.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = siteroot->id));
+  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
 
   // Search for all objects directly within the site root (shouldn't return the site root itself)
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", siteroot->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", testroot->id));
   TestEq(6, result.totalcount);
-  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = siteroot->id));
+  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_2->id));
@@ -172,7 +183,7 @@ MACRO PublisherSearchTest()
 
   // Restore the file, it should return
   testfw->BeginWork();
-  OpenWHFSObject(file_4->id)->MoveTo(siteroot, "");
+  OpenWHFSObject(file_4->id)->MoveTo(testroot, "");
   CommitAndWaitForPublisherIndex();
 
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_4->id));
@@ -205,9 +216,9 @@ MACRO PublisherSearchTest()
   TestEq(file_1->parent, resultobj.whfsparent);
 
   // Search for all objects directly within the site root (should no longer return the moved and deleted files)
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", siteroot->id));
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsparent", "=", testroot->id));
   TestEq(4, result.totalcount);
-  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = siteroot->id));
+  TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_2->id));
@@ -249,7 +260,7 @@ MACRO PublisherSearchTest()
 
   testfw->BeginWork();
 
-  publishersearchtesttype->SetInstanceData(file_5->id, [ testfield := siteroot->id ]);
+  publishersearchtesttype->SetInstanceData(file_5->id, [ testfield := testroot->id ]);
 
   CommitAndWaitForPublisherIndex();
 
@@ -257,20 +268,20 @@ MACRO PublisherSearchTest()
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(TRUE, CellExists(result.results[0], "contenttypefield@webhare_testsuite"));
-  TestEq(ToString(siteroot->id), result.results[0]."contenttypefield@webhare_testsuite");
+  TestEq(ToString(testroot->id), result.results[0]."contenttypefield@webhare_testsuite");
   TestEq(TRUE, CellExists(result.results[0], "libraryfield@webhare_testsuite"));
   TestEq("", result.results[0]."libraryfield@webhare_testsuite");
 
   // It should only be found by the new id
   result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(siteroot->id)), 0, -1);
+  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(testroot->id)), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(file_5->id, result.results[0].whfsid);
   // It should not be found by the libraryfield, as it only returns the object id
   result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
   TestEq(0, result.totalcount);
-  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(siteroot->id)), 0, -1);
+  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(testroot->id)), 0, -1);
   TestEq(0, result.totalcount);
 
   testfw->BeginWork();
@@ -295,7 +306,7 @@ MACRO PublisherSearchTest()
   publishersearchtesttype->SetInstanceData(file_5->id, DEFAULT RECORD ARRAY);
 
   // Create a file with the test filetype and initialize its array member
-  OBJECT file_7 := siteroot->CreateFile(
+  OBJECT file_7 := testroot->CreateFile(
       [ name:="testfile7.txt"
       , title := "blafile7"
       , type := publishersearchtesttype->id
@@ -355,7 +366,7 @@ MACRO PublisherSearchTest()
 
   // Find each object using range filters
   RECORD rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2016, 12, 31)), "", TRUE, FALSE);
-  RECORD rangequery := MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(site->id)), [ rangefilter ]);
+  RECORD rangequery := MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]);
   result := search_obj->SearchQuery(rangequery, 0, -1);
   TestEq(2, result.totalcount);
   TestEq(2, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
@@ -364,14 +375,14 @@ MACRO PublisherSearchTest()
 
 
   rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2017, 1, 1)), "", TRUE, FALSE);
-  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(site->id)), [ rangefilter ]), 0, -1);
+  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
 
   rangefilter := MakeRangeFilter("arrayfield.date_otherfield@webhare_testsuite", DateTimeToString(MakeDate(2016, 12, 31)), "", FALSE, FALSE);
-  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(site->id)), [ rangefilter ]), 0, -1);
+  result := search_obj->SearchQuery(MakeFilteredQuery(MakeLiteralQuery("whfstree", ToString(testsiteid)), [ rangefilter ]), 0, -1);
   TestEq(1, result.totalcount);
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
@@ -401,6 +412,17 @@ MACRO PublisherSearchTest()
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");
 }
 
-RunTestframework([ PTR PublisherSearchTest ]
+ASYNC MACRO InspectConsilio()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR Prepare
+                 //, PTR PublisherSearchTest
+                 , PTR InspectConsilio
+                 ]
                  , [ consilio := TRUE
-                   ]);
+                   , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ]]);
