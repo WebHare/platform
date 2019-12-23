@@ -91,6 +91,8 @@ OBJECT FUNCTION OpenEmbeddedObject(OBJECT doc, OBJECT node)
 
   OBJECT context := ObjectExists(doc->previewcontext) ? doc->previewcontext : doc->webdesign;
   RECORD embeddedobject := GetEmbeddedObjectRenderer(doc->pvt_baseobject, doc->pvt_applytester, doc->rtdtype, instancedata, context);
+  IF(ObjectExists(doc->previewcontext))
+    doc->previewcontext->AddIndexInfo(embeddedobject.indextype, embeddedobject.indexversion);
 
   RETURN embeddedobject.widget;
 }

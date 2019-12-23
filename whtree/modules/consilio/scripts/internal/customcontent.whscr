@@ -182,7 +182,7 @@ RECORD FUNCTION ListObjects3(DATETIME commanddate, STRING groupid, RECORD ARRAY 
                                           ? objects.requiredindexdate
                                           : DEFAULT DATETIME
                , data :=              CellExists(objects, "DATA") AND RecordExists(data)
-                                          ? CleanRecord(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE" ])
+                                          ? CleanRecord(data, [ "DOCUMENT_FIELDS", "DOCUMENT_BODY", "OBJECTS", "LINKS", "INDEXDATE", "REQUIREDINDEXDATE", "INDEXTYPES", "INDEXVERSIONS" ])
                                           : DEFAULT RECORD
             FROM result.objects;
     }

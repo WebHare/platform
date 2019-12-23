@@ -1,4 +1,5 @@
 <?wh
+
 ///@short IndexManager Test
 
 LOADLIB "wh::files.whlib";
@@ -117,7 +118,7 @@ RECORD FUNCTION IndexDocument(INTEGER conn,
                               STRING keywords,
                               STRING description,
                               STRING body,
-                              STRING webhareid DEFAULTSTO "")
+                              STRING webhareid)
 {
   // Index the page
   IF (webhareid = "")
@@ -131,6 +132,8 @@ RECORD FUNCTION IndexDocument(INTEGER conn,
                                , [name := "description", value := description]
                                , [name := "body", value := body]
                                , [name := "contentprovider", value := "test"]
+                               , [name := "indextypes", value := "a b c"]
+                               , [name := "indexversions", value := "d e f"]
                                ]);
   HandleProcessOutput();
   RETURN res;
@@ -172,9 +175,10 @@ RECORD FUNCTION SearchIndex(INTEGER conn,
                        , [name := "first", value := "0"]
                        , [name := "count", value := "50"]
                        , [name := "summary", value := "0"]
-                       , [name := "fields", value := "url,score,groupid,title,type,date_modified,size,summary"]
+                       , [name := "fields", value := "url,score,groupid,title,type,date_modified,size,indextypes,indexversions,summary"]
                        ];
   RECORD response := PostHTTPPageMultipart(conn, (indexid > 0 ? "/index/"||indexid : "") || "/search", vars);
+//> ['doc1\t1/doc1\t\t\t\\u001Dtitle1a\\u001C\t\t\t\ta b c\td e f\t', '']
 
   // See if there are any search results to decode
   INSERT CELL results := DEFAULT RECORD ARRAY INTO response;
@@ -184,17 +188,42 @@ RECORD FUNCTION SearchIndex(INTEGER conn,
     FOREVERY(STRING line FROM resultlines)
     {
       STRING ARRAY fields := Tokenize(line,'\t');
-      IF(Length(fields)>=7)
+      IF(Length(fields)>=9)
       {
         STRING ARRAY efields := Tokenize(line,'\t');
         FOREVERY (STRING f FROM efields)
           efields[#f] := EncodeJava(f);
 
-        STRING summary := Length(fields)>=8 ? fields[7] : "";
-        INSERT INTO response.results(id, url, score, groupid, fileid, title, type, modificationdate, size, summary)
-               VALUES(#line, DecodeJava(fields[0]), ToFloat(fields[2],0.0), DecodeJava(fields[1]), ToInteger(fields[1],-1), DecodeJava(fields[3]),
-                      ToInteger(fields[4],-1), MakeDateFromDayCount(ToInteger(fields[5],-1)), ToInteger(fields[6],-1), summary)
-               AT END;
+/* from indexmanager.whlib
+
+        IF(indexmanager.type = 1) // Objectid is always returned first, groupid always returned second
+          in_requested_fields := SELECT * FROM in_requested_fields ORDER BY name != "OBJECTID", name != "GROUPID", name;
+
+   so our sort order in fields is apparently ignored and should ACTUALLY be read as:
+
+0        1       2     3     4    5              6   7          8             9
+objectid,groupid,score,title,type,date_modified,size,indextypes,indexversions,summary
+
+['doc1', '1/doc1', '', '', '\\u001Dtitle1a\\u001C', '', '', '', 'a b c', 'd e f', '']
+
+and it looks like basically the offsets are still way off
+
+   */
+
+        STRING summary := Length(fields)>=11 ? fields[10] : "";
+        INSERT [ id := #line
+               , url :=               DecodeJava(fields[0])
+               , score :=             ToFloat(fields[2],0.0)
+               , groupid :=           DecodeJava(fields[1])
+               , fileid :=            ToInteger(fields[1],-1)
+               , title :=             DecodeJava(fields[3])
+               , type :=              ToInteger(fields[4],-1)
+               , modificationdate :=  MakeDateFromDayCount(ToInteger(fields[5],-1))
+               , size :=              ToInteger(fields[6],-1)
+               , summary :=           summary
+               , indextypes :=        DecodeJava(fields[8])
+               , indexversions :=     DecodeJava(fields[9])
+               ] INTO response.results AT END;
       }
     }
   }
@@ -219,7 +248,7 @@ RECORD response;
 OpenTest("TestSingleDocument");
 
 //=== Add document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1", "");
 TestEq(200, response.code);
 
 //=== Search single words ===
@@ -296,7 +325,7 @@ TestEq(200, response.code);
 TestEqualUrls(["doc1"], response);
 
 //=== Update document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a", "");
 TestEq(200, response.code);
 
 //=== Search old document ====
@@ -308,6 +337,9 @@ TestEqualUrls(DEFAULT STRING ARRAY, response);
 response := SearchIndex(indexmgr_conn, "+title1a +keywords1a +description1a +body1a", 1);
 TestEq(200, response.code);
 TestEqualUrls(["doc1"], response);
+dumpvalue(response,'tree');
+TestEq("a b c",response.results[0].indextypes);
+TestEq("d e f",response.results[0].indexversions);
 
 //=== Delete document
 response := DeleteDocument(indexmgr_conn, 0, "1/doc1");
@@ -324,7 +356,7 @@ CloseTest("TestSingleDocument");
 OpenTest("TestMultipleDocuments");
 
 //=== Add first document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1", "");
 TestEq(200, response.code);
 
 //=== Search first document ===
@@ -333,7 +365,7 @@ TestEq(200, response.code);
 TestEqualUrls(["doc1"], response);
 
 //=== Add second document ===
-response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2", "keywords2", "description2", "body2");
+response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2", "keywords2", "description2", "body2", "");
 TestEq(200, response.code);
 
 //=== Search first document ===
@@ -347,7 +379,7 @@ TestEq(200, response.code);
 TestEqualUrls(["doc2"], response);
 
 //=== Update first document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a", "");
 TestEq(200, response.code);
 
 //=== Search old first document ===
@@ -366,7 +398,7 @@ TestEq(200, response.code);
 TestEqualUrls(["doc2"], response);
 
 //=== Update second document ===
-response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2a", "keywords2a", "description2a", "body2a");
+response := IndexDocument(indexmgr_conn, 1, "doc2", indexdate, "title2a", "keywords2a", "description2a", "body2a", "");
 TestEq(200, response.code);
 
 //=== Search old documents ===
@@ -413,7 +445,7 @@ CloseTest("TestMultipleDocuments");
 OpenTest("TestMultipleIndices");
 
 //=== Add first document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1", "keywords1", "description1", "body1", "");
 TestEq(200, response.code);
 
 //=== Search first document ===
@@ -426,7 +458,7 @@ TestEq(200, response.code);
 TestEqualUrls(DEFAULT STRING ARRAY, response);
 
 //=== Add second document ===
-response := IndexDocument(indexmgr_conn, 2, "doc2", indexdate, "title1", "keywords1", "description1", "body1");
+response := IndexDocument(indexmgr_conn, 2, "doc2", indexdate, "title1", "keywords1", "description1", "body1", "");
 TestEq(200, response.code);
 
 //=== Search the documents ===
@@ -444,7 +476,7 @@ TestEq(2, Length(response.results));
 TestEqualUrls(["doc1","doc2"], response);
 
 //=== Update first document ===
-response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a");
+response := IndexDocument(indexmgr_conn, 1, "doc1", indexdate, "title1a", "keywords1a", "description1a", "body1a", "");
 TestEq(200, response.code);
 
 //=== Search the documents ===

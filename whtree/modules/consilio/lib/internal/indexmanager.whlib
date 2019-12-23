@@ -661,6 +661,11 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                   singleresult := CellInsert(singleresult, field.name, value);
                   CONTINUE;
                 }
+                ELSE IF (TypeID(field.value) = TypeID(STRING ARRAY)) // Convert to STRING ARRAY
+                {
+                  singleresult := CellInsert(singleresult, field.name, Tokenize(value,' '));
+                  CONTINUE;
+                }
                 ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
                 {
                   // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
@@ -1335,6 +1340,11 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
 
   STRING result := SearchIndexNotFound;
 
+  objects := SELECT *
+                , indextypes :=             CellExists(objects, "INDEXTYPES") ? objects.indextypes : STRING[]
+                , indexversions :=          CellExists(objects, "INDEXVERSIONS") ? objects.indexversions : STRING[]
+             FROM objects;
+
   RECORD indexmanager := GetIndexManagersForIndex(indexid);
   IF (RecordExists(indexmanager))
   {
@@ -1350,6 +1360,8 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
           RECORD ARRAY vars := [ [ name := "groupid",           value := groupid ]
                                , [ name := "objectid",          value := obj.objectid ]
                                , [ name := "contentsource",     value := ToString(contentsource.id) ]
+                               , [ name := "indextypes",        value := Detokenize(obj.indextypes," ") ]
+                               , [ name := "indexversions",     value := Detokenize(obj.indexversions," ") ]
                                ];
           // Make name lowercase, as Consilio expects field names to be in lowercase and UnpackRecord returns uppercase field names
           vars := vars CONCAT
@@ -1422,6 +1434,8 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(INTEGER indexid,
             INSERT CELL groupid := groupid
                       , objectid := obj.objectid
                       , contentsource := contentsource.id
+                      , indextypes := obj.indextypes
+                      , indexversions := obj.indexversions
               INTO document;
             FOREVERY (RECORD field FROM UnpackRecord(document))
             {

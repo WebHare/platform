@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   PUBLIC MACRO Refresh(OBJECT fsobj)
   {
     this->fsobj := fsobj;
-    this->subfiles := GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = this->objid), FALSE);
+    this->subfiles := GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = this->objid), FALSE).subfiles;
 
     IF(Length(this->subfiles) > 0)
     {
