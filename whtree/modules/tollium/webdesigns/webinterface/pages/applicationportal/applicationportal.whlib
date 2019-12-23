@@ -36,6 +36,8 @@ LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
+///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
+CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword"];
 
 RECORD FUNCTION GetRawAppLaunchInstruction(STRING appname)
 {
@@ -781,13 +783,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->SetupPortal(webcontext);
     STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");
 
-    IF(Length(this->applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->applicationmasks))
+    IF(appname NOT IN loginapps AND Length(this->applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->applicationmasks))
       THROW NEW Exception(`Application '${appname}' is not permitted by this portal's applicationmasks`);
 
     IF(ObjectExists(this->wrdauthplugin)
        AND NOT ObjectExists(this->currentuser)
-       AND appname != "system:forgotpassword"
-       AND appname != "system:resetpassword"
+       AND appname NOT IN loginapps
        AND (appname != "system:needsysop" OR NOT this->runwebhareinstall))
       THROW NEW Exception("You are not logged in");
 
