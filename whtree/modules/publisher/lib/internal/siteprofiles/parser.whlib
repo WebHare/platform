@@ -1022,9 +1022,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               CASE "sitelanguage"
               {
                 apply.sitelanguage := [ lang := node->GetAttribute("lang")
-                                      , getlanguagefunction := this->ParseFSPath(node, "getlanguagefunction")
                                       , has_lang := node->HasAttribute("lang")
-                                      , has_getlanguagefunction := node->HasAttribute("getlanguagefunction")
                                       ];
                 CONTINUE;
               }

@@ -220,7 +220,7 @@ PUBLIC STATIC OBJECTTYPE WebContext
     this->pvt_targetfolder := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->isfolder ? this->pvt_targetobject : this->pvt_targetobject->parentobject : DEFAULT OBJECT;
     this->pvt_targetsite := ObjectExists(this->pvt_targetobject) ? OpenSite(this->pvt_targetobject->parentsite) : DEFAULT OBJECT;
     this->pvt_targetapplytester := applytester;
-    this->languagecode := this->pvt_targetapplytester->GetSiteLanguage([ webcontext := this ]);
+    this->languagecode := this->pvt_targetapplytester->GetSiteLanguage();
 
     IF(ObjectExists(this->pvt_targetobject))
     {
