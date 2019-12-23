@@ -26,8 +26,9 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
   RETURN DEFAULT INTEGER ARRAY;
 }
 
-PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  RECORD ARRAY results;
   options := ValidateOptions([ eventid := "", debug := FALSE ], options);
 
   IF (publisher_index = 0)
@@ -101,10 +102,11 @@ PUBLIC MACRO ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTS
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                       , refresh := TRUE
                                       ]);
-    IF(Length(result.errors) > 0 AND options.debug)
-      DumpValue(result);
+    INSERT CELL[ objid, result ] INTO results AT END;
   }
 
   IF (options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
+
+  RETURN results;
 }
