@@ -71,13 +71,14 @@ MACRO PublisherSearchTest()
 
   // Search for all objects within the test folder
   result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", testroot->id));
-  TestEq(7, result.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = testroot->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = subfolder->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_1->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_2->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_3->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_4->id));
+  TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
+  TestEq(7, result.totalcount);
   TestEQ(TRUE, Length(result.eventmasks) > 0); //FIXME actually test/use this eventmask, or if nothing else, at least verify it..
 
   // Check for some returned fields
@@ -415,13 +416,13 @@ MACRO PublisherSearchTest()
 ASYNC MACRO InspectConsilio()
 {
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
-
+  TTClick(":Reindex");
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR Prepare
-                 //, PTR PublisherSearchTest
                  , PTR InspectConsilio
+                 , PTR PublisherSearchTest
                  ]
                  , [ consilio := TRUE
                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

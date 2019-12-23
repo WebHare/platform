@@ -12,6 +12,8 @@ PUBLIC OBJECTTYPE PreviewContext
   OBJECT fsobject;
   OBJECT applytester;
   RECORD rtdtypeinfo;
+  STRING ARRAY indextypes;
+  STRING ARRAY indexversions;
   PUBLIC STRING languagecode;
 
   //This preview context is running for search previews
@@ -38,6 +40,21 @@ PUBLIC OBJECTTYPE PreviewContext
   PUBLIC BOOLEAN FUNCTION IsRTDPreview()
   {
     RETURN TRUE;
+  }
+
+  /** Return gathered indexinformation for widgets and other content generators */
+  PUBLIC RECORD FUNCTION __GetIndexInfo()
+  {
+    RETURN CELL [ this->indextypes, this->indexversions ];
+  }
+
+  /** Register indexinformation for widgets and other content generators */
+  PUBLIC MACRO AddIndexInfo(STRING indextype, STRING indexversion)
+  {
+    IF(indextype != "" AND indextype NOT IN this->indextypes)
+      INSERT indextype INTO this->indextypes AT END;
+    IF(indexversion != "" AND indexversion NOT IN this->indexversions)
+      INSERT indexversion INTO this->indexversions AT END;
   }
 
   /** @short Open RTD data using an rtdtype

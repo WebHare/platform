@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -159,10 +161,16 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
   {
     __pvt_widget_passthrough := savedata;
   }
-  RETURN [ widget := obj
-         , canedit := RecordExists(typeinfo.editor)
-         , embedtype := typeinfo.embedtype
-         ];
+
+  STRING indextype := EncodeBase16(GetSHA1Hash(`widget:${instancedata.whfstype}`));
+  STRING indexversion := RecordExists(described.typeinfo.filetype) ? EncodeBase16(GetSHA1Hash(`${indextype} ${described.typeinfo.filetype.indexversion}`)) : "";
+
+  RETURN CELL[ widget := obj
+             , canedit := RecordExists(typeinfo.editor)
+             , typeinfo.embedtype
+             , indextype
+             , indexversion
+             ];
 
 }
 

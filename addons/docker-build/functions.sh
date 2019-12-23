@@ -60,6 +60,10 @@ get_finaltag()
       # Release branch
       MAINTAG="${CI_COMMIT_REF_NAME:8}"
       BRANCHTAGS="$MAINTAG"
+    elif [ "${CI_COMMIT_REF_NAME:0:3}" == "rc/" ]; then
+      # Release branch
+      MAINTAG="${CI_COMMIT_REF_NAME:3}-rc"
+      BRANCHTAGS="$MAINTAG"
     elif [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
       # Master branch
       MAINTAG="master"

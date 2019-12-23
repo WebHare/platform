@@ -697,6 +697,8 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                                                              , documentfields := fields
                                                              , suggestfields
                                                              , suggestprefixes
+                                                             , indextypes :=             CellExists(toadd, "INDEXTYPES") ? toadd.indextypes : STRING[]
+                                                             , indexversions :=          CellExists(toadd, "INDEXVERSIONS") ? toadd.indexversions : STRING[]
                                                           FROM toadd),
                                                        [ discardsummaries := provider->discardsummaries
                                                        , refresh := options.refresh
@@ -1494,7 +1496,7 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
                                 , "contentsource", "contentprovider"
                                 , "date_indexed", "date_indexdate"
                                 , "suggestfields", "suggestprefix"
-                                , "body" ])
+                                , "body", "indextypes", "indexversions" ])
       IF (CellExists(document_fields, field))
         document_fields := CellDelete(document_fields, field);
 
@@ -1546,6 +1548,8 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
           , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
           , objects := CellExists(objectrec, "objects") ? objectrec.objects : DEFAULT RECORD ARRAY
+          , indextypes := CellExists(objectrec, "indextypes") ? objectrec.indextypes : STRING[]
+          , indexversions := CellExists(objectrec, "indexversions") ? objectrec.indexversions : STRING[]
           ];
     }
     ELSE

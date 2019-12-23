@@ -53,6 +53,11 @@ PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
     IF(NOT RecordExists(content))
       RETURN DEFAULT RECORD ARRAY;
 
-    RETURN [ WrapBlob(content.htmltext, "richdocumentfile.html") ];
+    //FIXME design a nicer return type than extending a wrapped blob
+    RETURN [ CELL[ ...WrapBlob(content.htmltext, "richdocumentfile.html")
+                 , indextypes := content.indextypes
+                 , indexversions := content.indexversions
+                 ]
+           ];
   }
 >;

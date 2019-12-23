@@ -33,7 +33,7 @@ RECORD testdoc :=  [ htmltext := StringToBlob('<h1 class="heading1">Eerste kop</
                    ];
 
 OBJECT indexpromise;
-OBJECT testrtd;
+OBJECT testrtd, testrtd_noinstances;
 
 MACRO TestIndexTypeAPIs()
 {
@@ -42,15 +42,26 @@ MACRO TestIndexTypeAPIs()
 
   OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id, publish := TRUE ]);
+  testrtd := testloc->CreateFile( [ name := "lvl1.rtd", type := richdoctype->id ]);
   richdoctype->SetInstanceData(testrtd->id, [data := testdoc]);
 
   OBJECT applytester := GetApplytesterForObject(testrtd->id);
-
   TestEq(DEFAULT RECORD, GetRichDocumentIndexableContent(DEFAULT RECORD, CELL[applytester]));
 
   RECORD indexable := GetRichDocumentIndexableContent(testdoc, CELL[applytester]);
   TestEqLike("*Eerste kop*Tweede kop*", BlobToString(indexable.htmltext));
+  TestEq(1, Length(indexable.indextypes));
+  TestEq(1, Length(indexable.indexversions));
+
+  RECORD testdoc_noinstances := CELL[...testdoc, instances := RECORD[]];
+  testrtd_noinstances := testloc->CreateFile([name := "noinstances.rtd", type := richdoctype->id ]);
+  richdoctype->SetInstanceData(testrtd_noinstances->id, [ data := testdoc_noinstances ] );
+
+  RECORD indexable_noinstances := GetRichDocumentIndexableContent(testdoc_noinstances,
+                                                                  CELL[applytester]);
+  //No subcontent, so no indextypes or versions
+  TestEq(STRING[], indexable_noinstances.indextypes);
+  TestEq(STRING[], indexable_noinstances.indexversions);
 
   testfw->CommitWork();
 
@@ -58,15 +69,21 @@ MACRO TestIndexTypeAPIs()
   OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
 
   RECORD ARRAY objs := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd->id, RECORD[], [ rebuild := TRUE ]);
-  TestEq(1, Length(objs));
 
-  testfw->BeginWork();
-  testrtd->UpdateMetadata(CELL[]);
-  testfw->CommitWork();
+  TestEq(1, Length(objs));
+  TestEq(2, Length(objs[0].data.indextypes));
+  TestEq(2, Length(objs[0].data.indexversions));
 
   RECORD fetched := objs[0].data;
   TestEqLike("*Eerste kop*Tweede kop*", fetched.document_body);
   TestEq(FALSE, fetched.document_body LIKE "*noise*");
+
+  RECORD ARRAY objs2 := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testrtd_noinstances->id, RECORD[], [ rebuild := TRUE ]);
+  TestEq(1, Length(objs2));
+  TestEq(1, Length(objs2[0].data.indextypes));
+  TestEq(1, Length(objs2[0].data.indexversions));
+  TestEq(TRUE, objs2[0].data.indextypes[0] IN fetched.indextypes, "The filetype hash has to be in both files");
+  TestEq(TRUE, objs2[0].data.indexversions[0] IN fetched.indexversions, "The filetype version hash has to be in both files");
 }
 
 MACRO TestPublisherIndex()
@@ -75,7 +92,9 @@ MACRO TestPublisherIndex()
   WaitForPromise(indexpromise);
   Print("it's indexed!\n\n");
 
-  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ "indextypes@consilio" := STRING[] ]]);
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", testrtd->id), [ mapping := [ indextypes := STRING[], indexversions := STRING[] ]]);
+  TestEq(2, Length(result.results[0].indextypes));
+  TestEq(2, Length(result.results[0].indexversions));
   TestEq(1,Length(result.results));
   TestEqLike("*Eerste kop*Tweede kop*", result.results[0].summary);
 }

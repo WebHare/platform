@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   PUBLIC MACRO Refresh(OBJECT fsobj)
   {
     this->fsobj := fsobj;
-    this->subfiles := GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = this->objid), FALSE);
+    this->subfiles := GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = this->objid), FALSE).subfiles;
 
     IF(Length(this->subfiles) > 0)
     {
@@ -69,7 +69,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
     /* We receive errorinfo in a nonstandard format (string, no trace).. we should
       probably fix THAT and ensure we get standard HS exceptions/traces before bothering
       with nicer display here */
-    IF(Length(results) > 0 AND Length(results[0].errors) > 0)
+    IF(Length(results) > 0 AND Length(results[0].result.errors) > 0)
       Reflect(results[0]);
 
     this->Refresh(this->fsobj);

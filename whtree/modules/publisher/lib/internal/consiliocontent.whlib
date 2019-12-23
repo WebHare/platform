@@ -104,11 +104,19 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
   OBJECT provider := MakeObject(searchprovider);
 
   RECORD ARRAY subfiles;
+  STRING ARRAY indextypes, indexversions;
   FOREVERY(RECORD subfile FROM provider->GetSearchContents(fsobj.id))
   {
     RECORD parsed_page := ParsePage(subfile.data, subfile.mimetype);
     IF (RecordExists(parsed_page) AND parsed_page.success)
+    {
       INSERT WrapBlob(StringToBlob(parsed_page.text), "subresult" || #subfile || ".txt") INTO subfiles AT END;
+      IF(#subfile = 0 AND CellExists(subfile,'indextypes'))
+      {
+        indextypes := subfile.indextypes;
+        indexversions := subfile.indexversions;
+      }
+    }
     ELSE
       INSERT DEFAULT RECORD INTO subfiles AT END;
   }
@@ -117,7 +125,10 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
       [ value := CELL
           [ fsobj.id
           , formodificationdate := fsobj.modificationdate
-          , subfiles := ToRecordArray(subfiles,"body")
+          , subfiles :=   subfiles
+          //TODO support indextypes/versions on more than one page? or should we just require that they're all supplied in one big block?
+          , indextypes
+          , indexversions
           ]
       , eventmasks := [ "system:whfs.folder." || (fsobj.isfolder ? fsobj.id : fsobj.parent) // broadcast after file/folder has changed
                       , "system:whfs.types" // broadcast after siteprofile recompile (searchproviders may have changed)
@@ -125,13 +136,17 @@ RECORD FUNCTION GetSearchSubfilesUncached(STRING searchprovider, RECORD fsobj)
       ];
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
+PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
 {
   RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
   IF (scp.searchprovider = "")
-    RETURN RECORD[]; //no classic searchprovider either
+    RETURN [ subfiles := RECORD[]
+           , indextypes := STRING[]
+           , indexversions := STRING[]
+           ];
 
   RECORD cachetag := CELL[ fsobj.id ];
+  RECORD retval;
 
   // If not forced, get cached subfile
   IF (NOT force)
@@ -139,14 +154,23 @@ PUBLIC RECORD ARRAY FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
     // Check if it's still up to date
     RECORD bodyinfo := GetAdhocCached(cachetag, PTR GetSearchSubfilesUncached(scp.searchprovider, fsobj));
     IF (bodyinfo.formodificationdate >= fsobj.modificationdate)
-      RETURN SELECT AS RECORD ARRAY body FROM bodyinfo.subfiles;
+      retval := bodyinfo;
+  }
+  IF(NOT RecordExists(retval))
+  {
+    // Explicitly update the cache
+    RECORD value := GetSearchSubfilesUncached(scp.searchprovider, fsobj);
+    StoreAdhocCached(cachetag, value);
+    retval := value.value;
   }
 
-  // Explicitly update the cache
-  RECORD value := GetSearchSubfilesUncached(scp.searchprovider, fsobj);
-  StoreAdhocCached(cachetag, value);
+  IF(scp.typehash != "")
+  {
+    INSERT scp.typehash INTO retval.indextypes AT END;
+    INSERT scp.versionhash INTO retval.indexversions AT END;
+  }
 
-  RETURN SELECT AS RECORD ARRAY body FROM value.value.subfiles;
+  RETURN retval;
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetIndexFields()
@@ -275,24 +299,28 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
 
       TRY
       {
-        RECORD ARRAY subfiles := GetSearchSubfiles(CELL
+        RECORD searchres := GetSearchSubfiles(CELL
             [ fsobj->id
             , fsobj->type
             , fsobj->isfolder
             , fsobj->modificationdate
             , fsobj->parent
             ], options.rebuild);
+
         INSERT
             [ id := "fsobj_" || fsobj->id
             , requiredindexdate := fsobj->modificationdate
             , data := CELL
                 [ status := "result"
-                , document_body := Length(subfiles) > 0 AND RecordExists(subfiles[0]) ? BlobToString(subfiles[0].data) : ""
+                , document_body := Length(searchres.subfiles) > 0 AND RecordExists(searchres.subfiles[0]) ? BlobToString(searchres.subfiles[0].data) : ""
                 , document_fields := this->AddParsedIndexFields(fsobj, basefields, 0)
                 , indexdate := fsobj->modificationdate
+                , indexversions := searchres.indexversions
+                , indextypes := searchres.indextypes
                 ]
             ] INTO objects AT END;
-        FOREVERY (RECORD subfile FROM subfiles)
+
+        FOREVERY (RECORD subfile FROM searchres.subfiles)
         {
           IF (#subfile = 0)
             CONTINUE;
@@ -304,6 +332,8 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                   , document_body := RecordExists(subfile) ? BlobToString(subfile.data) : ""
                   , document_fields := this->AddParsedIndexFields(fsobj, basefields, #subfile)
                   , indexdate := fsobj->modificationdate
+                  , indexversions := STRING[]
+                  , indextypes := STRING[]
                   ]
               ] INTO objects AT END;
         }
