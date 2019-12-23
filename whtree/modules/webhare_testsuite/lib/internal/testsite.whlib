@@ -60,7 +60,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , embeddedresults := FALSE
                               , mailconfirmation := FALSE
                               , customformedits := DEFAULT MACRO PTR
-                              //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field anmes...
+                              //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field names...
                               , emailfieldname := ""
                               ];
 
