@@ -274,9 +274,9 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
           IF (baseurl != "" AND Left(this->external->value, Length(baseurl)) = baseurl AND Substring(this->external->value, Length(baseurl), 1) IN ['#','?','!'])
             this->append->value := Substring(this->external->value, Length(baseurl));
-        }
 
-        this->external->value := "";
+          this->external->value := "";
+        }
       }
     }
     ELSE IF (^linktype->value = 1 AND this->current_linktype = 2)
