@@ -109,7 +109,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   OBJECT emailfield := formpage->AppendComponent("textedit");
   TestEqLike("formcomp:*", emailfield->GetAttribute("guid"));
   IF(options.emailfieldname != "")
-    emailfield->SetAttribute("name","email");
+    emailfield->SetAttribute("name", options.emailfieldname);
 
   emailfield->SetAttribute("title","Email");
   emailfield->SetAttribute("required","1");
