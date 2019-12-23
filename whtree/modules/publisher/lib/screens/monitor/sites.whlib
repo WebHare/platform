@@ -3,6 +3,7 @@ LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib"; // republish functions
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -201,9 +202,7 @@ PUBLIC OBJECTTYPE Sites EXTEND MonitorPanelBase
       RETURN;
 
     FOREVERY(RECORD site FROM selection)
-    {
-      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := site.rowkey ], DEFAULT RECORD, FALSE);
-    }
+      RunPublisherFileManager(this, site.rowkey);
   }
 
   MACRO DoOpenSiteProperties()

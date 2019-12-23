@@ -15,6 +15,8 @@ LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -1125,7 +1127,7 @@ PUBLIC STATIC OBJECTTYPE CatalogPreviewItem EXTEND TolliumScreenBase
         // If the groupid value is a positive integer, it is a WebHare file id, link it to the publisher
         INTEGER groupid := ToInteger(fieldvalue, 0);
         IF (groupid > 0)
-          fieldlink := PTR this->tolliumcontroller->SendApplicationMessage("publisher:app", [ fileid := groupid ], DEFAULT RECORD, FALSE);
+          fieldlink := PTR RunPublisherFileManager(this, groupid);
       }
       ELSE IF (fieldname = "SIZE")
       {

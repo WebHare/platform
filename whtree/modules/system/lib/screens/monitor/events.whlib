@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
@@ -295,13 +296,7 @@ PUBLIC OBJECTTYPE Events EXTEND MonitorPanelBase
     RECORD sel := this->events->selection;
 
     STRING event := sel.event;
-    IF (event LIKE "system:whfs.folder.*")
-    {
-      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := sel.parsed.whfsid ], DEFAULT RECORD, FALSE);
-    }
-    ELSE IF (event LIKE "system:whfs.site.*")
-    {
-      this->tolliumcontroller->SendApplicationMessage("publisher:app", [ folderid := sel.parsed.whfsid ], DEFAULT RECORD, FALSE);
-    }
+    IF (event LIKE "system:whfs.folder.*" OR event LIKE "system:whfs.site.*")
+      RunPublisherFileManager(this, sel.parsed.whfsid);
   }
 >;

@@ -41,6 +41,10 @@ FOREVERY (STRING idstr FROM args.ids)
 }
 
 IF (Length(to_reindex) > 0)
-  ReindexWHFSChanges(to_reindex, [ debug := args.debug ]);
+{
+  RECORD ARRAY results := ReindexWHFSChanges(to_reindex);
+  IF(args.debug AND Length(results) > 0 AND Length(results[0].errors) > 0)
+    DumpValue(results,'tree');
+}
 ELSE
   Print("Nothing to do\n");

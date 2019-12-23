@@ -271,6 +271,20 @@ PUBLIC BOOLEAN FUNCTION RunDeleteFSObjectsDialog(OBJECT parentscreen, INTEGER AR
 
 }
 
+/** Run the 'inspect object' dialog
+    @param parentscreen Screen invoking us
+    @param objectid Object to inpsect */
+PUBLIC MACRO RunFSObjectInspectDialog(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+
+  IF(NOT parentscreen->contexts->user->HasRight("system:supervisor"))
+    THROW NEW Exception("Non-supervisors may not access the Inspect dialog");
+
+  parentscreen->RunScreen("mod::publisher/tolliumapps/filemanager/inspect.xml#inspect", [ fsobj := objectid ]);
+}
+
+
 /** Run the 'edit object properties' dialog
     @param parentscreen Screen invoking us
     @param objectid Object to edit
@@ -307,6 +321,22 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
       RunEditFileHooks(DEFAULT RECORD, objectid);
     work->Finish();
   }
+}
+
+/** @short Launch the filemanager opening the specified file or folder
+    @param parentscreen Screen invoking us
+    @param objectid ID of object to edit
+*/
+PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD objinfo := SELECT isfolder FROM system.fs_objects WHERE id = objectid;
+  RECORD target;
+  IF(RecordExists(objinfo) AND objinfo.isfolder)
+    target := [ folderid := objectid ];
+  ELSE IF(RecordExists(objinfo) AND objinfo.isfolder)
+    target := [ fileid := objectid ];
+
+  parentscreen->contexts->controller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
 }
 
 

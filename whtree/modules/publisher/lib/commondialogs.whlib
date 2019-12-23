@@ -105,13 +105,6 @@ PUBLIC OBJECT FUNCTION CreateWHFSSitePropsDialog(OBJECT parent, INTEGER fsobj)
     RETURN parent->LoadScreen("publisher:commondialogs/siteprops.siteprops", [ why := "edit", fsobj := fsobj ]);
 }
 
-/** @short Create a "WHFS Object properties" dialog
-*/
-PUBLIC OBJECT FUNCTION CreateWHFSObjectInspectDialog(OBJECT parent, INTEGER fsobj)
-{
-  RETURN parent->LoadScreen("mod::publisher/tolliumapps/filemanager/inspect.xml#inspect", [ fsobj := fsobj ]);
-}
-
 /** @short Create a "WHFS Duplicate Object" dialog
 */
 PUBLIC OBJECT FUNCTION CreateWHFSDuplicateObjectDialog(OBJECT parent, INTEGER parentfolder, INTEGER sourceobj) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunNewFSObjectDialog")
