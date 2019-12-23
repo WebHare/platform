@@ -2,6 +2,8 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
@@ -28,7 +30,16 @@ PUBLIC RECORD FUNCTION GetRichDocumentIndexableContent(RECORD richdoc, RECORD op
     RECORD rtdtype := GetRTDSettingsFromType(rtdsettings.rtdtype);
     OBJECT context := NEW PreviewContext(options.fsobject, options.applytester, rtdtype, TRUE);
 
-    htmltext := GetPrintedAsBlob(PTR context->RenderRTD(richdoc));
+    STRING savelanguage := GetTidLanguage();
+    TRY
+    {
+      SetTIDLanguage(options.applytester->GetSiteLanguage());
+      htmltext := GetPrintedAsBlob(PTR context->RenderRTD(richdoc));
+    }
+    FINALLY
+    {
+      SetTIDLanguage(savelanguage);
+    }
   }
 
   RETURN CELL[ htmltext ];
