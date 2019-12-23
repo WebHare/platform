@@ -883,10 +883,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   */
   RECORD FUNCTION GetCacheableSiteConfig()
   {
-    RETURN this->GetCachableSiteconfig();
-  }
-  RECORD FUNCTION GetCachableSiteConfig() //old name, renamed for consistentcy
-  {
     RETURN DEFAULT RECORD;
   }
 
