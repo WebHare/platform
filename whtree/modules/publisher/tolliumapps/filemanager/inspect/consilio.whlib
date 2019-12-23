@@ -69,7 +69,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
     /* We receive errorinfo in a nonstandard format (string, no trace).. we should
       probably fix THAT and ensure we get standard HS exceptions/traces before bothering
       with nicer display here */
-    IF(Length(results) > 0 AND Length(results[0].errors) > 0)
+    IF(Length(results) > 0 AND Length(results[0].result.errors) > 0)
       Reflect(results[0]);
 
     this->Refresh(this->fsobj);

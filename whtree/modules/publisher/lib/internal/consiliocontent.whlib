@@ -140,7 +140,10 @@ PUBLIC RECORD FUNCTION GetSearchSubfiles(RECORD fsobj, BOOLEAN force)
 {
   RECORD scp := GetAdhocCached(CELL[ fsobj.type, fsobj.isfolder ], PTR GetTypeSearchProviderUncached(fsobj.type, fsobj.isfolder));
   IF (scp.searchprovider = "")
-    RETURN RECORD[]; //no classic searchprovider either
+    RETURN [ subfiles := RECORD[]
+           , indextypes := STRING[]
+           , indexversions := STRING[]
+           ];
 
   RECORD cachetag := CELL[ fsobj.id ];
   RECORD retval;
@@ -303,6 +306,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
             , fsobj->modificationdate
             , fsobj->parent
             ], options.rebuild);
+
         INSERT
             [ id := "fsobj_" || fsobj->id
             , requiredindexdate := fsobj->modificationdate
