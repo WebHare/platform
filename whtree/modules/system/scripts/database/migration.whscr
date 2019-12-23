@@ -552,6 +552,8 @@ PRINT(`done\n`);
 */
 MACRO RenameRightsTables()
 {
+  SCHEMA postgresql_system LIKE system := BindTransactionToSchema(postgresql_trans->id, "system");
+
   FOREVERY (RECORD objtype FROM SELECT DISTINCT tablename, storagetable FROM system.module_objecttypes WHERE tablename != "")
   {
     STRING obj_tablename := objtype.tablename;
@@ -573,11 +575,18 @@ MACRO RenameRightsTables()
       ABORT("Can't find referenced table '"||objtype.tablename||"' for object type '" || objtype.name || "'");
 
     STRING new_storagetable_localname := "o_" || tablerec.object_id;
+
+    PRINT(`Rename "system_rights".${PostgreSQLEscapeIdentifier(storagetable_localname)} to ${PostgreSQLEscapeIdentifier(new_storagetable_localname)}\n`);
+
     postgresql_trans->__ExecSQL(`ALTER TABLE "system_rights".${PostgreSQLEscapeIdentifier(storagetable_localname)} RENAME TO ${PostgreSQLEscapeIdentifier(new_storagetable_localname)}`);
+
+    UPDATE postgresql_system.module_objecttypes
+       SET storagetable := `system_rights.${new_storagetable_localname}`
+     WHERE tablename = objtype.tablename;
   }
 }
 
-PRINT(`Renaming rights tables... `);
+PRINT(`Renaming rights tables...\n`);
 RenameRightsTables();
 PRINT(`done\n`);
 
