@@ -5,7 +5,10 @@
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <validation>
       <exclude mask="tests/tollium/language/gettid.whscr" why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
-      <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" />
+      <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />
+      <exclude mask="tests/system/modules/data/brokenscreen.xml" why="these testfiles contain errors on purpose" />
+      <exclude mask="tests/tollium/nodejs/test_gettid.es" why="these testfiles contain errors on purpose" />
+      <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
       <eslint mask="nosuch.js" />
     </validation>

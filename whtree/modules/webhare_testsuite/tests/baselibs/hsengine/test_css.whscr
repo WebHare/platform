@@ -246,14 +246,13 @@ BLOB FUNCTION RewriteCSS(BLOB input)
   //INTEGER stream := CreateStream();
   OBJECT cssom := MakeCSSStyleSheet(input);
   RETURN cssom->GetDocumentBlob(TRUE);
-//  cssom->PrintTo(stream, [ newlines := TRUE, indent := TRUE]);
-  //BLOB pretty := MakeBlobFromStream(stream);
-  //RETURN pretty;
 }
 
 MACRO TestCSSPrettyPrint()
 {
   OpenTest("TestCSSPrettyPrint");
+
+  TestEq("html\n{\n  margin: 0;\n}\n", BlobToString(RewriteCSS(StringToBlob("html{margin:0}"))));
 
   TestEqTextBlob(OpenTestFile("touchformattedout.css"), RewriteCSS(OpenTestFile("touch.css")));
 /* FOR OLFERT

@@ -5,5 +5,6 @@
   <test script="testprettify.whscr" />
   <test script="testvalidate.whscr" />
   <test script="test_module_imexport.whscr" />
+  <test script="test_rewrite.whscr" />
   <test script="testparsers.whscr" />
 </group>

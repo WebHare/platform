@@ -1,0 +1,74 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/modules/json.whlib";
+LOADLIB "mod::system/lib/internal/modules/rewrite_xml.whlib";
+
+
+PUBLIC RECORD FUNCTION RewriteFile(STRING filepath, BLOB indata)
+{
+  IF(filepath LIKE "*.css")
+  {
+    OBJECT cssom := MakeCSSStyleSheet(indata);
+    RETURN CELL [ success := TRUE
+                , result := cssom->GetDocumentBlob(TRUE)
+                ];
+  }
+
+  STRING data := TrimWhitespace(BlobToString(indata, -1));
+
+  IF (LEFT(data,3) = DecodeBase16("EFBBBF")) // BOM?
+    data := TrimWhitespace(Substring(data, 3));
+
+  IF (LEFT(data,1) IN [ "[", "{" ])
+  {
+    RETURN [ success := TRUE
+           , result := StringToBlob(PrettifyJSON(data))
+           ];
+  }
+
+  IF (LEFT(data,5) = "hson:")
+  {
+    VARIANT hsondata := DecodeHSON(data);
+    RETURN [ success := TRUE
+           , result := StringToBlob("HSON:\n"||AnyToString(hsondata, "tree"))
+           ];
+  }
+
+  IF (LENGTH(indata) = 0)
+    ABORT("Could not read " || filepath);
+
+
+  OBJECT doc := MakeXMLDocument(indata);
+  //A suitable rewrite candidate?
+  IF (ObjectExists(doc->documentelement)
+     AND (doc->documentelement->namespaceuri || "#" || doc->documentelement->localname)
+         IN [ "http://www.webhare.net/xmlns/tollium/screens#screens"
+            , "http://www.webhare.net/xmlns/publisher/siteprofile#siteprofile"
+            , "http://www.webhare.net/xmlns/wrd/schemadefinition#schemadefinition"
+            , "http://www.webhare.net/xmlns/system/moduledefinition#module"
+            ])
+  {
+    RETURN [ success := TRUE
+           , result := StringToBlob(RewriteXMLFile(GetResourceNameFromDiskPath(filepath), indata))
+           ];
+  }
+
+  doc->documentelement->NormalizeNamespaces();
+  IF (RecordExists(doc->GetParseErrors()))
+  {
+    RETURN [ success := FALSE
+           , errors := doc->GetParseErrors()
+           , result := StringToBlob((RewriteXMLFile(GetResourceNameFromDiskPath(filepath), indata)))
+           ];
+  }
+
+  BLOB form := doc->GetDocumentBlob(TRUE);
+  RETURN [ success := true
+         , result := form
+         ];
+}

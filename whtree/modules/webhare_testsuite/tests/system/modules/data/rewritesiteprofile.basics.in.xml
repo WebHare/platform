@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:w="http://www.webhare.net/xmlns/wrd/components"
+             xmlns:ut="http://www.utwente.nl/xmlns/components">
+  <!-- Also used in sitesettings FIXME fix following empty line, don't want it in output -->
+  <contenttype namespace="urn::xmlns1" cloneoncopy="true">
+    <member name="chatinfolink" type="whfsref" />
+  </contenttype>
+
+  <contenttype namespace="urn::xmlns2" cloneoncopy="false">
+    <member name="chatinfolink" type="whfsref" />
+    <member name="chatinfolink2" type="whfsref" />
+  </contenttype>
+
+</siteprofile>

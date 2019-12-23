@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+<!-- Side widgets -->
+
+  <widgettype editextension="#edityourbenefits" namespace="urn::testnamespace/widgets/yourbenefits">
+    <members>
+      <member name="title" type="string" />
+      <member name="subtitle" type="string" />
+      <member name="items" type="array">
+        <member name="title" type="string" />
+        <member name="subtitle" type="string" />
+        <member name="subtitle_type" type="string" />
+        <member name="link" type="intextlink" />
+      </member>
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="edityourbenefits" gid="testtids.gid1">
+    <newtab gid=".gid2">
+      <textedit composition="contentdata" cellname="title" width="1pr" required="true" />
+      <textedit composition="contentdata" cellname="subtitle" width="1pr" />
+      <arrayedit composition="contentdata"
+                 cellname="items"
+                 width="1pr"
+                 height="1pr"
+                 minwidth="450px"
+                 minrows="1"
+                 orderable="true"
+                 roweditscreen=".edityourbenefitlink"
+                 rowselect="true">
+        <column name="title" type="text" width="120px" />
+        <p:intextlinkcolumn name="link" width="2pr" />
+      </arrayedit>
+    </newtab>
+  </tabsextension>
+
+  <!-- Do not rewrite, has implementation -->
+  <widgettype editfragment=".donotrewrite" namespace="urn::testnamespace/widgets/donotrewrite">
+    <members>
+      <member name="title" type="string" />
+      <member name="subtitle" type="string" />
+      <member name="items" type="array">
+        <member name="title" type="string" />
+        <member name="subtitle" type="string" />
+        <member name="subtitle_type" type="string" />
+        <member name="link" type="intextlink" />
+      </member>
+    </members>
+  </widgettype>
+
+  <fragment xmlns="http://www.webhare.net/xmlns/tollium/screens" name="donotrewrite" library="lib/dummy.whlib">
+    <contents>
+      <textedit composition="fsinstance" cellname="title" width="1pr" required="true" />
+      <textedit composition="fsinstance" cellname="subtitle" width="1pr" />
+      <arrayedit composition="fsinstance"
+                 cellname="items"
+                 width="1pr"
+                 height="1pr"
+                 minwidth="450px"
+                 minrows="1"
+                 orderable="true"
+                 roweditscreen=".edityourbenefitlink"
+                 rowselect="true">
+        <column name="title" type="text" width="120px" />
+        <p:intextlinkcolumn name="link" width="2pr" />
+      </arrayedit>
+    </contents>
+  </fragment>
+
+</siteprofile>

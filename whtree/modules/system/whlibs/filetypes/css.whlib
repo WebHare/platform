@@ -489,7 +489,7 @@ PUBLIC STATIC OBJECTTYPE CSSRule
   INTEGER FUNCTION Get10() { RETURN 10; }
 
   /// List of the prelude tokens
-  RECORD ARRAY pvt_prelude;
+  PUBLIC RECORD ARRAY pvt_prelude;
 
   /// Most deriving rules are at-rules, so the storage is placed here
   STRING pvt_atname;
@@ -693,7 +693,7 @@ PUBLIC STATIC OBJECTTYPE CSSUnknownAtRule EXTEND CSSRule
 
 /** The CSSStyleRule interface represents a style rule. Spec: https://www.w3.org/TR/cssom/#the-cssstylerule-interface
 */
-PUBLIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/cssom/#cssstylerule
+PUBLIC STATIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/cssom/#cssstylerule
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1021,7 +1021,7 @@ PUBLIC OBJECTTYPE CSSStyleRule EXTEND CSSRule // http://dev.w3.org/csswg/cssom/#
 
 /** describs an @import rule. Spec: https://www.w3.org/TR/2013/WD-cssom-20131205/#the-cssimportrule-interface
 */
-PUBLIC OBJECTTYPE CSSImportRule EXTEND CSSRule
+PUBLIC STATIC OBJECTTYPE CSSImportRule EXTEND CSSRule
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1132,7 +1132,7 @@ interface CSSGroupingRule : CSSRule {
   void deleteRule(unsigned long index);
 }
 */
-PUBLIC OBJECTTYPE CSSGroupingRule EXTEND CSSRule
+PUBLIC STATIC OBJECTTYPE CSSGroupingRule EXTEND CSSRule
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1273,7 +1273,7 @@ PUBLIC OBJECTTYPE CSSGroupingRule EXTEND CSSRule
 
 /** CSSConditionRule: abstract class. See: https://drafts.csswg.org/css-conditional-3/#cssconditionrule
 */
-PUBLIC OBJECTTYPE CSSConditionRule EXTEND CSSGroupingRule
+PUBLIC STATIC OBJECTTYPE CSSConditionRule EXTEND CSSGroupingRule
 < // ---------------------------------------------------------------------------
   //
   // Public properties (spec)
@@ -1301,7 +1301,7 @@ interface CSSMediaRule : CSSGroupingRule {
   [SameObject, PutForwards=mediaText] readonly attribute MediaList media;
 }
 */
-PUBLIC OBJECTTYPE CSSMediaRule EXTEND CSSGroupingRule
+PUBLIC STATIC OBJECTTYPE CSSMediaRule EXTEND CSSGroupingRule
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1719,7 +1719,7 @@ PUBLIC STATIC OBJECTTYPE StyleSheet
   // attribute boolean disabled;
 >;
 
-PUBLIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
+PUBLIC STATIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
 < // ---------------------------------------------------------------------------
   //
   // Private variables
@@ -1891,152 +1891,6 @@ PUBLIC OBJECTTYPE CSSStyleSheet EXTEND StyleSheet
       PrintTo(stream, str);
 
     RETURN MakeBlobFromStream(stream);
-/*
-    IF(formatted)
-    {
-      INTEGER numrules := Length(this->cssrules->GetCurrentRules());
-      FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
-      {
-        PrintTo(str, rule->csstext || "\n");
-      }
-    }
-    ELSE
-    {
-      FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
-      {
-        PrintTo(str, rule->csstext);
-      }
-    }
-    //DumpValue(this->cssrules, 'tree');
-    RETURN MakeBlobFromStream(str);
-*/
-  }
-
-  PUBLIC MACRO PrintTo(INTEGER stream, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    STRING postrule, prerule, postdecl, predecl, preacc, postacc;
-    BOOLEAN newlines, indent := FALSE;
-    IF(CellExists(options, 'newlines'))
-    {
-      postrule := "\n";
-      postdecl := "\n";
-      postacc := "\n";
-      preacc := "\n";
-      newlines := TRUE;
-    }
-    IF(CellExists(options, 'indent'))
-    {
-      //preacc := " ";
-      predecl := "  ";
-      indent := TRUE;
-    }
-
-    FOREVERY(OBJECT rule FROM this->cssrules->GetCurrentRules())
-    {
-      STRING last;
-      BOOLEAN start := TRUE;
-
-      IF(NOT RecordExists(SELECT * FROM rule->pvt_prelude WHERE type != "token") OR RecordExists(SELECT * FROM rule->pvt_prelude WHERE type = "simpleblock" AND associatedtoken = "["))
-      {
-        last := "ws";
-        FOREVERY(RECORD part FROM rule->prelude)
-        {
-          // Need to emit deferred whitespace?
-          IF (last = "deferred-ws" AND (part.type != "token" OR part.token.token NOT IN [ "ws", "," ]))
-            PrintTo(stream, " ");
-
-          IF(part.type = "simpleblock")
-          {
-            // Probably an '['
-            PrintTo(stream, "[");
-            FOREVERY(RECORD subpart FROM part.value)
-              IF(CellExists(subpart, "token"))
-                PrintTo(stream, subpart.token.value);
-
-            PrintTo(stream, "]");
-            CONTINUE;
-          }
-
-          STRING nextlast := part.token.token;
-          SWITCH(part.token.token)
-          {
-            CASE "ws"
-            {
-              IF(part.token.type = "comment")
-              {
-                IF (last = "deferred-ws")
-                  PrintTo(stream, " ");
-
-                PrintTo(stream, TrimWhitespace(part.token.value) || "\n");
-              }
-              ELSE IF (last NOT IN [ "ws", "," ])
-              {
-                // Schedule deferred whitespace to emit at next token that doesn't start with whitespace
-                nextlast := "deferred-ws";
-              }
-            }
-            CASE "ident", "delim"
-            {
-              IF(start AND rule->selectortext LIKE "*,*")
-                PrintTo(stream, "  ");
-
-              PrintTo(stream, TrimWhitespace(part.token.value));
-              start := FALSE;
-            }
-            CASE ","
-            {
-              PrintTo(stream, "\n, ");
-            }
-            CASE "#"
-            {
-              PrintTo(stream, part.token.token || part.token.value);
-            }
-            CASE "function"
-            {
-              PrintTo(stream, part.token.token || "(" || Detokenize(part.token.arguments, ", ") || ")");
-            }
-            DEFAULT
-            {
-              IF(start AND rule->selectortext LIKE "*,*")
-                PrintTo(stream, "  ");
-
-              PrintTo(stream, TrimWhitespace(part.token.token));
-            }
-          }
-          last := nextlast;
-        }
-      }
-      ELSE
-      {
-        IF(RecordExists(SELECT * FROM rule->prelude WHERE token.token = "at-rule"))
-        {
-          //got one, print it:
-          PrintTo(stream, Substitute(Substitute(rule->selectortextwithcomments, "*/ ", "*/"), "*/", "*/\n") || "\n{\n  ");
-          // FIXME: Create a nice pretty-print method for media query rule blocks; you're probably going to need the existing parser again, or at the very least use the string parser.
-          //STRING decl := rule->__Declarationstring;
-          //decl := Substitute(decl, "\n", "\n  ");
-          //decl := Substitute(decl, ";", ";\n  ");
-          //decl := Substitute(decl, "}", "}\n\n  ");
-          //decl := Substitute(decl, "{ ", "\n  {\n    ");
-          PrintTo(stream, TrimWhitespace(rule->__Declarationstring) || "\n");
-          PrintTo(stream, "}\n\n");
-          last := "ws";
-          CONTINUE;
-        }
-      }
-
-      PrintTo(stream, preacc || "{" || postacc);
-      STRING ARRAY declarations := Tokenize(rule->__Declarationstring, ";");
-      DELETE FROM declarations AT END-1;
-      FOREVERY(STRING declaration FROM declarations)
-      {
-        PrintTo(stream, predecl || TrimWhitespace(declaration) || ";" || postdecl);
-      }
-      PrintTo(stream, "}" || postacc || postacc);
-
-      IF (postacc != "")
-        last := "ws";
-    }
   }
 >;
 

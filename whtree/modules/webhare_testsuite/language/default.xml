@@ -132,9 +132,16 @@
   <textgroup gid="testfallbackrecursion">   <!-- testfallbackrecursion -->
     <text tid="text">Can't find me</text>
   </textgroup>
-  <textgroup gid="testtids">   <!-- testtids -->
+  <textgroup gid="testtids" limitlanguages="en">   <!-- testtids -->
     <textgroup gid="fragment">   <!-- testtids.fragment -->
       <text tid="fragment">fragment</text>
+    </textgroup>
+    <textgroup gid="gid1">   <!-- testtids.gid1 -->
+      <textgroup gid="gid2">   <!-- testtids.gid1.gid2 -->
+        <text tid="link">Link</text>
+        <text tid="subtitle">Subtitle</text>
+        <text tid="title">Title</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="screen">   <!-- testtids.screen -->
       <text tid="screen">screen</text>
