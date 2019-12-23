@@ -60,6 +60,8 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , embeddedresults := FALSE
                               , mailconfirmation := FALSE
                               , customformedits := DEFAULT MACRO PTR
+                              //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field anmes...
+                              , emailfieldname := ""
                               ];
 
 MACRO FillTestFormFile(OBJECT formfile, RECORD options)
@@ -106,6 +108,9 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
   OBJECT emailfield := formpage->AppendComponent("textedit");
   TestEqLike("formcomp:*", emailfield->GetAttribute("guid"));
+  IF(options.emailfieldname != "")
+    emailfield->SetAttribute("name","email");
+
   emailfield->SetAttribute("title","Email");
   emailfield->SetAttribute("required","1");
   emailfield->SetAttribute("validationchecks","email");

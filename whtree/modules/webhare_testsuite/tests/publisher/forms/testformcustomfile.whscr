@@ -18,8 +18,6 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
-STRING emailfieldname;
-
 PUBLIC MACRO BuildForm()
 {
   BuildCustomWebtoolForm(
@@ -33,6 +31,7 @@ PUBLIC MACRO BuildForm()
       , setmailresultsfields := TRUE
       , custommergefields := TRUE
       , embeddedresults := TRUE
+      , emailfieldname := "email"
       ]);
 }
 PUBLIC MACRO CustomForm()
@@ -57,8 +56,6 @@ PUBLIC MACRO CustomForm()
   RECORD ARRAY fields := webtoolform->ListFields();
 
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);
-  emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
-  TestEq(TRUE, emailfieldname!="", "Email field not found");
 
   RECORD submitrec := [ firstname := "P. Giménez & Henkie 😇"
                       , upload := [ filename := "allstar.txt"
@@ -76,9 +73,8 @@ PUBLIC MACRO CustomForm()
                       , "tsline.customselect.select" := "lang-en"
                       , radio := ["opt"]
                       , "reversed.text" := "Euro & €"
+                      , email := "testfw+formtest@beta.webhare.net"
                       ];
-
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
@@ -88,7 +84,7 @@ PUBLIC MACRO CustomForm()
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   TestEQ("new", submitted.submittype);
   TestEq(TRUE, RecordExists(submitted.response.address));
-  TestEq("testfw+formtest@beta.webhare.net", Getcell(submitted.response,emailfieldname));
+  TestEq("testfw+formtest@beta.webhare.net", submitted.response.email);
   TestEq("NL", submitted.response.address.country);
   TestEq("Hengelosestraat", submitted.response.address.street);
   TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
@@ -212,9 +208,8 @@ PUBLIC MACRO CustomForm()
                             ]
                , "tsline.customselect.select" := "lang-en"
                , textarea := RepeatText("x", 8192) // Test long strings being exported as blobs
+               , email := "testfw+formtest@beta.webhare.net"
                ];
-
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
   res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
@@ -292,9 +287,8 @@ MACRO CustomForm_SuppressMail()
                       , "address.city" := "Enschede"
                       , "tsline.customselect.select" := "lang-en"
                       , radio := ["opt"]
+                      , email := "testfw+dontmailme@beta.webhare.net"
                       ];
-
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+dontmailme@beta.webhare.net");
 
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
@@ -329,9 +323,8 @@ MACRO CustomForm_NL()
                       , "address.city" := "Enschede"
                       , "tsline.field1" := "Testje"
                       , "tsline.customselect.select" := "lang-nl"
+                      , email := "keesje+formtest@beta.webhare.net"
                       ];
-
-  submitrec := CellInsert(submitrec, emailfieldname, "keesje+formtest@beta.webhare.net");
 
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
@@ -407,7 +400,7 @@ ASYNC MACRO EditCustomForm()
   TestEq(RECORD[], ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").data.formtext ]).errors); // make sure deletion didn't break XSD
 
   OBJECT webtoolresults := OpenFormFileResults(formfile);
-  RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := emailfieldname, fn := "firstname", "radio" ] ]);
+  RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := "email", fn := "firstname", "radio" ] ]);
 
   TestEq("Õption", directrows[0].radio);
 
@@ -460,11 +453,8 @@ ASYNC MACRO ProcessExpiredResults()
                                    , city := "Enschede"
                                    , province := "OV" // will be ignored for NL
                                    ]
+                      , email := "testfw+formtest@beta.webhare.net"
                       ];
-
-  emailfieldname := SELECT AS STRING name FROM webtoolform->ListFields() WHERE title = ":Email";
-  TestEq(TRUE, emailfieldname!="", "Email field not found");
-  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
 
   // Regression: this would crash because the (expired) result could not be found for merging the thankyou page fields
   RECORD res := tester->SubmitForm(submitrec);
