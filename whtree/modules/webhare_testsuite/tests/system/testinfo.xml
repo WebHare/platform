@@ -21,7 +21,7 @@
   <test script="testwebhareservice.whscr" />
   <test script="testresources.whscr" />
   <test script="appserver.whscr" />
-  <test name="devtools" path="devtools/" />
+  <test name="modules" path="modules/" />
   <test name="nodejs" path="nodejs/" />
   <test name="setup" path="setup/" />
   <test name="services" path="services/" />

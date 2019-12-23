@@ -7,7 +7,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
-LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/support.whlib";
 
 
 MACRO PrintSyntaxAndTerminate()

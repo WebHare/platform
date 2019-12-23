@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo"> <!-- TODO Might make more sense to rename devtools/ to modules/ ? -->
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="testeditorsupport.whscr" />
   <test script="testsourcemanipulation.whscr" />
   <test script="testcheckmodule.whscr" />

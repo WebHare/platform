@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/editorsupport.whlib";
-LOADLIB "mod::system/lib/internal/devtools/sourcemanipulation.whlib";
+LOADLIB "mod::system/lib/internal/modules/sourcemanipulation.whlib";
 
 
 LOADLIB "wh::files.whlib";

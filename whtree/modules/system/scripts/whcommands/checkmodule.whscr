@@ -72,7 +72,7 @@ FOREVERY(STRING modname FROM checklist)
 {
   Print(`Checking module ${modname}...\n`);
   OBJECT promise := AsyncCallFunctionFromJob(
-              "mod::system/lib/internal/devtools/checkmodule.whlib#CheckModule",
+              "mod::system/lib/internal/modules/checkmodule.whlib#CheckModule",
               modname, CELL
               [ printissues := TRUE
               , args.debug

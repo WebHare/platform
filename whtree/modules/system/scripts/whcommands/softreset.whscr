@@ -3,12 +3,14 @@
 // short: Send a soft-reset
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
@@ -53,23 +55,31 @@ IF (args.c OR args.p)
 }
 ELSE IF(args.sp OR args.spv)
 {
+  OpenPrimary();
+  RECORD res;
   IF(args.sp)
   {
     Print("Recompiling siteprofiles\n");
-    RECORD res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
+    res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
     IF(args.twice)
       res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
-
-    IF(Length(res.errors) > 0)
-      SetConsoleExitCode(1);
-
-    PrintValidationMessages(res);
-    IF(Length(res.warnings CONCAT res.errors) > 0)
-      Print("\n"); //extra linefeed
+  }
+  ELSE
+  {
+    res := DecodeHSONBlob(GetWebHareResource("whfs::/webhare-private/publisher/compiled-siteprofiles.status"));
+    IF(Length(res.warnings) > 0 OR Length(res.errors) > 0)
+      Print("Issues reported by last siteprofile compilation\n");
   }
 
+  IF(Length(res.errors) > 0)
+    SetConsoleExitCode(1);
+
+  PrintValidationMessages(res);
+  IF(Length(res.warnings CONCAT res.errors) > 0)
+    Print("\n"); //extra linefeed
+
   Print("Validating siteprofiles\n");
-  RECORD res := ValidateSiteProfiles([ debug := args.debug, reportmissing := args.reportmissing ]);
+  res := ValidateSiteProfiles([ debug := args.debug, reportmissing := args.reportmissing ]);
   FOREVERY(RECORD err FROM res.errors)
     Print(`${AnsiCmd("red")}${err.filename}:${err.line}: Error: ${err.error}${AnsiCmd("reset")}\n`);
 

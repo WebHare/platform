@@ -211,8 +211,8 @@ MACRO TestEditSupport()
     IF (NOT RecordExists(teststack))
       CONTINUE;
 
-    TestEQ(TRUE, teststack.stack[0].editorpath IN [ "modules/webhare_testsuite/tests/system/devtools/testeditorsupport.whscr"
-                                                  , "../../whdata/installedmodules/webhare_testsuite/tests/system/devtools/testeditorsupport.whscr" //docker tests, TODO acceptable?
+    TestEQ(TRUE, teststack.stack[0].editorpath IN [ "modules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
+                                                  , "../../whdata/installedmodules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr" //docker tests, TODO acceptable?
                                                   ]);
     BREAK;
   }
@@ -222,11 +222,11 @@ MACRO TestEditSupport()
       "resolveuri",
       VARIANT[ connectinfo.translateinfo
              , testfilerelpath
-             , "mod::webhare_testsuite/tests/system/devtools/testeditorsupport.whscr"
+             , "mod::webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
              ]);
 
-  TestEQ(TRUE, retval.result.results[0].editorpath IN [ "modules/webhare_testsuite/tests/system/devtools/testeditorsupport.whscr"
-                                                      , "../../whdata/installedmodules/webhare_testsuite/tests/system/devtools/testeditorsupport.whscr" //docker tests, TODO acceptable?
+  TestEQ(TRUE, retval.result.results[0].editorpath IN [ "modules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr"
+                                                      , "../../whdata/installedmodules/webhare_testsuite/tests/system/modules/testeditorsupport.whscr" //docker tests, TODO acceptable?
                                                       ]);
 
   retval := browser->InvokeJSONRPC(

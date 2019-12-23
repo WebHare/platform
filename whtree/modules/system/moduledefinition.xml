@@ -2329,7 +2329,7 @@ The full base URL on which this site will be published, calculated by combining 
       <accesscheck>
       </accesscheck>
     </webservice>
-    <webservice name="editorservice" transports="whremoting jsonrpc" library="internal/devtools/editorservice.whlib" primarytrans="none" prefix="RPC_">
+    <webservice name="editorservice" transports="whremoting jsonrpc" library="internal/modules/editorservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>

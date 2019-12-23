@@ -13,7 +13,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/virtualfs/api.whlib";
-LOADLIB "mod::system/lib/internal/devtools/webdavinfo.whlib";
+LOADLIB "mod::system/lib/internal/modules/webdavinfo.whlib";
 LOADLIB "mod::system/lib/internal/webserver/webdav.whlib";
 LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";

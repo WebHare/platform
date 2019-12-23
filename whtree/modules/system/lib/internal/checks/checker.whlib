@@ -18,7 +18,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
-LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
 RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
 
