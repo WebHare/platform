@@ -1,9 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::devsupport.whlib";
-LOADLIB "wh::money.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";

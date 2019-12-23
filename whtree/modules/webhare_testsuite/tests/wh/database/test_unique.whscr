@@ -1,6 +1,5 @@
 <?wh // Testscript for unique constraint
 
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";

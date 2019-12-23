@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
-LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
 MACRO WebserverConfig()

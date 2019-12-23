@@ -1,7 +1,6 @@
 ﻿<?wh
 
 LOADLIB "wh::dbase/whdb.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 STRING ARRAY all_permissions := ["SELECT","INSERT","UPDATE","DELETE","REFERENCES"];
 RECORD results_so_far;

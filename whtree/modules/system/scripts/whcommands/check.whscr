@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "wh::os.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";

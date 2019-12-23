@@ -2,7 +2,6 @@
 
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/harescript/preload.whlib" EXPORT GetDatabaseRuntimeConfig;
 
 

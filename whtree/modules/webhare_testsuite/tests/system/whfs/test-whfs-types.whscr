@@ -3,7 +3,6 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
 
@@ -13,7 +12,6 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
-LOADLIB "mod::system/lib/internal/whfs/conversion.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 STRING emptysiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" />';

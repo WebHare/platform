@@ -2,7 +2,6 @@
 LOADLIB "wh::witty.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 

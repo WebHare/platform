@@ -7,17 +7,10 @@ LOADLIB "wh::dbase/whdb.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/validation.whlib";
-LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
-
-LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
 
 // command: database <command>

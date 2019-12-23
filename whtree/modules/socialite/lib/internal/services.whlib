@@ -1,5 +1,4 @@
 ﻿<?wh
-LOADLIB "mod::system/lib/remoting/whservice.whlib";
 
 LOADLIB "mod::socialite/lib/api.whlib";
 LOADLIB "mod::socialite/lib/networkapi/facebookv2.whlib";

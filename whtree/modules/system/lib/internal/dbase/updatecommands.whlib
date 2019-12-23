@@ -2,7 +2,6 @@
 
 LOADLIB "wh::internal/transbase.whlib";
 
-LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
 

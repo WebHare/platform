@@ -16,7 +16,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
 LOADLIB "mod::wrd/lib/internal/tasks.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
 

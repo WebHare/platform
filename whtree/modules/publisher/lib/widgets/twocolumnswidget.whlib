@@ -4,10 +4,6 @@
 
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
-LOADLIB "mod::system/lib/cache.whlib";
-
-LOADLIB "mod::tollium/lib/gettid.whlib";
-
 
 /** @short Two columns widget
     @long Implements a two-column widget (http://www.webhare.net/xmlns/publisher/widgets/twocolumns)

@@ -3,7 +3,6 @@
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
 PUBLIC OBJECTTYPE ConfirmFieldWidget EXTEND WidgetBase

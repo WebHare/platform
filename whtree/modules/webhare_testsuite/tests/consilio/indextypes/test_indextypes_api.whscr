@@ -1,16 +1,11 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
-LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 
 LOADLIB "mod::/publisher/lib/search/richdocuments.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";

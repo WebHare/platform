@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::internal/any.whlib";

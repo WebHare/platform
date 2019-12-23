@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webdav.whlib";
 

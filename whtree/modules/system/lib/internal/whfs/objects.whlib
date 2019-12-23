@@ -5,10 +5,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/detect.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
