@@ -172,18 +172,18 @@
               tid="webtools.mergefield.widgettitle"
               ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
               renderobjectname="mod::publisher/lib/internal/forms/mergefield.whlib#MergeFieldWidget"
-              editfragment="#editmergefield"
+              editextension="#editmergefield"
               requiremergefieldscontext="true">
     <members>
       <member name="fieldname" type="string" />
     </members>
   </widgettype>
 
-  <fragment name="editmergefield" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib" library="mod::publisher/lib/internal/forms/mergefield.whlib">
-    <contents gid="webtools.mergefield">
-      <select composition="fsinstance" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
-    </contents>
-  </fragment>
+  <tabsextension name="editmergefield" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib" library="mod::publisher/lib/internal/forms/mergefield.whlib">
+    <newtab gid="webtools.mergefield">
+      <select composition="contentdata" cellname="fieldname" name="fieldname" type="pulldown" required="true" rowkeytype="string" />
+    </newtab>
+  </tabsextension>
 
   <!-- This embedded object embeds the form results within the mail. We're not exposing it to all users for now, so the
        form's mailrtdtype should explicity allow this widgettype to use it. -->
@@ -200,18 +200,18 @@
               tid="webtools.confirmfield.widgettitle"
               ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
               renderobjectname="mod::publisher/lib/internal/forms/confirmfield.whlib#ConfirmFieldWidget"
-              editfragment="#editconfirmfield"
+              editextension="#editconfirmfield"
               requiremergefieldscontext="true">
     <members>
       <member name="linktext" type="string" />
     </members>
   </widgettype>
 
-  <fragment name="editconfirmfield" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="lib" library="mod::publisher/lib/internal/forms/confirmfield.whlib">
-    <contents gid="webtools.confirmfield">
-      <textedit composition="fsinstance" cellname="linktext" placeholdertid=".placeholder" width="1pr" />
-    </contents>
-  </fragment>
+  <tabsextension name="editconfirmfield" xmlns="http://www.webhare.net/xmlns/tollium/screens">
+    <newtab gid="webtools.confirmfield">
+      <textedit composition="contentdata" cellname="linktext" placeholdertid=".placeholder" width="1pr" />
+    </newtab>
+  </tabsextension>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/formwebtool">
     <member name="disablecaptcha" type="boolean" />

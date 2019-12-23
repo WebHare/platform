@@ -1,20 +1,20 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-             xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-             >
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/customform">
     <member name="somedata" type="string" />
   </contenttype>
+
   <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/customform"
-            extensions=".customform"
-            title="WebHare testsuite customform type"
-            tolliumicon="tollium:files/application_x-webhare-survey"
             blobiscontent="false"
-            needstemplate="true"
-            needsprofile="false"
+            extensions=".customform"
             isacceptableindex="true"
             ispublishable="true"
-            ispublishedassubdir="true">
+            ispublishedassubdir="true"
+            needsprofile="false"
+            needstemplate="true"
+            title="WebHare testsuite customform type"
+            tolliumicon="tollium:files/application_x-webhare-survey">
     <dynamicexecution routerfunction="customform.whlib#CustomFormRouter" />
   </filetype>
 
@@ -42,26 +42,24 @@
     </widgets>
   </rtdtype>
 
-  <widgettype
-      namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
-      ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
-      editfragment="#editcustomformwidget"
-      renderobjectname="customform.whlib#customformwidget"
-      title="Custom Form Widget"
-      requiremergefieldscontext="true">
+  <widgettype editextension="#editcustomformwidget"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
+              renderobjectname="customform.whlib#customformwidget"
+              requiremergefieldscontext="true"
+              title="Custom Form Widget">
     <members>
       <member name="fieldname" type="string" />
     </members>
   </widgettype>
 
-  <fragment
-      name="editcustomformwidget"
-      implementation="lib"
-      library="customform.whlib"
-      xmlns="http://www.webhare.net/xmlns/tollium/screens">
-    <contents>
-      <select composition="fsinstance" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
-    </contents>
-  </fragment>
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+            name="editcustomformwidget"
+            implementation="lib"
+            library="customform.whlib">
+    <newtab>
+      <select composition="contentdata" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
+    </newtab>
+  </tabsextension>
 
 </siteprofile>

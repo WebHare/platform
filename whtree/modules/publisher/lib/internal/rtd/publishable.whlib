@@ -79,6 +79,22 @@ BOOLEAN FUNCTION HasContentRecursive(OBJECT parent)
   RETURN FALSE;
 }
 
+OBJECT FUNCTION OpenEmbeddedObject(OBJECT doc, OBJECT node)
+{
+  STRING instanceid := node->GetAttribute("data-instanceid");
+  IF(instanceid = "")
+    RETURN DEFAULT OBJECT;
+
+  RECORD instancedata := doc->GetInstance(instanceid);
+  IF(NOT RecordExists(instancedata))
+    RETURN DEFAULT OBJECT;
+
+  OBJECT context := ObjectExists(doc->previewcontext) ? doc->previewcontext : doc->webdesign;
+  RECORD embeddedobject := GetEmbeddedObjectRenderer(doc->pvt_baseobject, doc->pvt_applytester, doc->rtdtype, instancedata, context);
+
+  RETURN embeddedobject.widget;
+}
+
 PUBLIC STATIC OBJECTTYPE RichDocumentFilter
 <
   PUBLIC STRING ARRAY tagfilter;
@@ -409,15 +425,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       }
       CASE "span"
       {
-        IF(node->HasAttribute("data-instanceid"))
+        IF(IsEmbeddedObject(node))
         {
-          RECORD instancedata := outputobject->document->GetInstance(node->GetAttribute("data-instanceid"));
-          IF(NOT RecordExists(instancedata))
-             RETURN;
-
-          OBJECT context := ObjectExists(outputobject->document->previewcontext) ? outputobject->document->previewcontext : outputobject->document->webdesign;
-          OBJECT embeddedobject := GetEmbeddedObjectRenderer(outputobject->document->pvt_baseobject, outputobject->document->pvt_applytester, outputobject->document->rtdtype, instancedata, context).widget;
-          embeddedobject->RenderLive(); //only widgetbase derived stuff accepted, so no need to fallback to old render functions
+          OBJECT embeddedobject := OpenEmbeddedObject(outputobject->document, node);
+          IF(ObjectExists(embeddedobject))
+            embeddedobject->RenderLive(); //only widgetbase derived stuff accepted inline, so no need to fallback to old render functions
         }
         ELSE IF(node->GetAttribute("data-wh-gettid") != "")
         {
@@ -525,16 +537,15 @@ OBJECTTYPE StructuredRichDocumentFilter EXTEND RichDocumentFilter
   }
 >;
 
-OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
+STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
 <
   OBJECT richdoc;
   OBJECT pvt_blocknode;
   RECORD pvt_blockstyle;
   BOOLEAN pvt_isembeddedobject;
-  OBJECT pvt_embeddedobject;
+  PUBLIC OBJECT __embeddedobject;
 
   PUBLIC PROPERTY isembeddedobject(pvt_isembeddedobject,-);
-  PUBLIC PROPERTY embeddedobject(GetEmbeddedObject, -);
 
   PUBLIC PROPERTY blockstyle(pvt_blockstyle, -);
   PUBLIC PROPERTY blocknode(pvt_blocknode,-);
@@ -619,21 +630,13 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
     RETURN this->pvt_isembeddedobject OR HasContentRecursive(this->pvt_blocknode);
   }
 
-  PUBLIC OBJECT FUNCTION GetEmbeddedObject()
+  PUBLIC OBJECT FUNCTION __GetEmbeddedObject()
   {
     IF(NOT this->pvt_isembeddedobject)
       RETURN DEFAULT OBJECT;
-    IF(ObjectExists(this->pvt_embeddedobject))
-      RETURN this->pvt_embeddedobject;
-
-    STRING instanceid := this->pvt_blocknode->GetAttribute("data-instanceid");
-    RECORD instancedata := this->richdoc->GetInstance(instanceid);
-    IF(NOT RecordExists(instancedata))
-       RETURN DEFAULT OBJECT;
-
-    OBJECT context := ObjectExists(this->richdoc->previewcontext) ? this->richdoc->previewcontext : this->document->webdesign;
-    this->pvt_embeddedobject := GetEmbeddedObjectRenderer(this->richdoc->pvt_baseobject, this->richdoc->pvt_applytester, this->richdoc->rtdtype, instancedata, context).widget;
-    RETURN this->pvt_embeddedobject;
+    IF(NOT ObjectExists(this->__embeddedobject))
+      this->__embeddedobject := OpenEmbeddedObject(this->richdoc, this->pvt_blocknode);
+    RETURN this->__embeddedobject;
   }
 
   PUBLIC MACRO RenderObject(VARIANT options DEFAULTSTO DEFAULT RECORD)
@@ -650,7 +653,7 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
 
     IF(this->isembeddedobject)
     {
-      OBJECT obj := this->embeddedobject;
+      OBJECT obj := this->__GetEmbeddedObject();
       IF(NOT ObjectExists(obj))
         RETURN;
 
@@ -658,10 +661,12 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
       {
         //wrap them inside their standard div.
         Print('<div class="wh-rtd-embeddedobject">');
-        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings")) //it's a WidgetBase derived object
+        IF(MemberExists(obj, "__pvt_widgetsettings")) //it's a WidgetBase derived object
         {
           IF(this->richdoc->previewcontext->__previewsearch)
+          {
             obj->RenderSearchPreview();
+          }
           ELSE
             obj->Render();
         }
@@ -671,7 +676,7 @@ OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
       }
       ELSE
       {
-        IF(MemberExists(this->embeddedobject, "__pvt_widgetsettings"))
+        IF(MemberExists(obj, "__pvt_widgetsettings"))
           obj->RenderLive();
         ELSE
           obj->RenderObject(options.webdesign);
@@ -794,8 +799,8 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
     {
       IF(obj->isembeddedobject)
       {
-        IF(ObjectExists(obj->embeddedobject))
-          anchors := anchors CONCAT obj->embeddedobject->GatherSuggestedAnchors(webdesign);
+        IF(ObjectExists(obj->__GetEmbeddedObject()))
+          anchors := anchors CONCAT obj->__embeddedobject->GatherSuggestedAnchors(webdesign);
         CONTINUE; //we're not supporting anchors on embedded objects yet
       }
 
@@ -873,7 +878,7 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
 
     FOREVERY(OBJECT richobject FROM this->flatobjects)
     {
-      IF(richobject->isembeddedobject AND ObjectExists(richobject->embeddedobject) AND NOT MemberExists(richobject->embeddedobject, "__pvt_widgetsettings")) //not a widget
+      IF(richobject->isembeddedobject AND ObjectExists(richobject->__embeddedobject) AND NOT MemberExists(richobject->__embeddedobject, "__pvt_widgetsettings")) //not a widget
       {
         richobject->embeddedobject->languagecode := webdesign->languagecode;
         richobject->embeddedobject->Prepare();

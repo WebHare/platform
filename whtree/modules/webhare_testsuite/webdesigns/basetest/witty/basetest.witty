@@ -33,7 +33,9 @@
 [component blinky]<blink>[text]</blink>[/component]
 
 [component level2widget]
-<div class="level2widget" data-lang="[languagecode]" data-mytype="[mytype]" data-rtdtype="[rtdtype]" data-targetsite="[targetsite]" data-targetfolder="[targetfolder]" data-whfssettingid="[whfssettingid]" data-whfsfileid="[whfsfileid]">
+<div class="level2widget" data-lang="[languagecode]" data-mytype="[mytype]" data-rtdtype="[rtdtype]" data-targetsite="[targetsite]"
+     data-targetfolder="[targetfolder]" data-whfssettingid="[whfssettingid]" data-whfsfileid="[whfsfileid]"
+     data-gettid-test="[gettid basetest.title]">
   [rtd]
 </div>
 [/component]

@@ -224,6 +224,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     }
     IF(has_fragment)
     {
+      this->AddWarning(node, "editfragment= has been deprecated. Switch to editextension=");
       STRING fragmentref := this->ParseTolliumRef(node,"editfragment");
       RETURN fragmentref != "" ? [ type := "fragment", fragment := fragmentref ] : DEFAULT RECORD;
     }
