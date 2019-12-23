@@ -8,65 +8,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
 
-PUBLIC OBJECTTYPE embedblock1_comp EXTEND TolliumFragmentBase
-<
-// //  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
-  PUBLIC PROPERTY value(GetValue, SetValue);
-
-  MACRO NEW()
-  {
-    this->invisibletitle := TRUE;
-
-    EXTEND this BY TolliumIsComposable;
-  }
-
-  RECORD FUNCTION GetValue()
-  {
-    RETURN
-        [ whfstype :=   "http://www.webhare.net/xmlns/beta/embedblock1"
-        , id :=         this->idvalue->value
-        , styletitle := this->styletitle->value
-        ];
-  }
-
-  MACRO SetValue(RECORD data)
-  {
-    this->idvalue->value := RecordExists(data) ? data.id : "";
-    this->styletitle->value := RecordExists(data) ? data.styletitle : "";
-  }
->;
-
-PUBLIC OBJECTTYPE embedblock2_comp EXTEND TolliumFragmentBase
-<
-//  UPDATE PUBLIC PROPERTY title(GetTitle, SetTitle);
-  PUBLIC PROPERTY value(GetValue, SetValue);
-
-  MACRO NEW()
-  {
-    this->invisibletitle := TRUE;
-
-    EXTEND this BY TolliumIsComposable;
-  }
-
-  RECORD FUNCTION GetValue()
-  {
-    RETURN
-        [ whfstype :=   "http://www.webhare.net/xmlns/beta/embedblock2"
-        , id2 :=         this->idvalue->value
-        , styletitle := this->styletitle->value
-        ];
-  }
-
-  MACRO SetValue(RECORD data)
-  {
-    this->idvalue->value := RecordExists(data) ? data.id2 : "";
-    this->styletitle->value := RecordExists(data) ? data.styletitle : "";
-  }
-
-//  STRING FUNCTION GetTitle() { RETURN this->idtitle->title; }
-//  UPDATE MACRO SetTitle(STRING newtitle) { this->idtitle->title := newtitle; }
->;
-
 
 PUBLIC OBJECTTYPE embedblock1_renderer EXTEND WidgetBase
 <

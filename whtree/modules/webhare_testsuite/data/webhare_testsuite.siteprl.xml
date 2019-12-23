@@ -57,7 +57,7 @@
   </widgettype>
 
   <widgettype namespace="http://www.webhare.net/xmlns/beta/embedinlineblock1"
-              editfragment="mod::webhare_testsuite/screens/components/embedtest.xml#embedinlineblock1_comp"
+              editextension="mod::webhare_testsuite/screens/components/embedtest.xml#embedinlineblock1_comp"
               renderlibrary="module::webhare_testsuite/screens/components/embedtest.whlib"
               renderobjectname="EmbedInlineBlock1Renderer"
               embedtype="inline"

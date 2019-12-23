@@ -141,9 +141,9 @@ PUBLIC STATIC OBJECTTYPE MultiMergeField EXTEND ComposedFormFieldBase
   }
 >;
 
-PUBLIC OBJECTTYPE EditCustomFormWidget EXTEND TolliumFragmentBase
+PUBLIC OBJECTTYPE EditCustomFormWidget EXTEND TolliumTabsExtensionBase
 <
-  UPDATE MACRO PreInitComponent()
+  UPDATE PUBLIC MACRO InitExtension(OBJECT linecontainer)
   {
     ^fieldname->options :=
         SELECT rowkey := name

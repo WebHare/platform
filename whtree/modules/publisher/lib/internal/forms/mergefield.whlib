@@ -5,11 +5,11 @@ LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE EditMergeField EXTEND TolliumFragmentBase
+PUBLIC STATIC OBJECTTYPE EditMergeField EXTEND TolliumTabsExtensionBase
 <
-  UPDATE PUBLIC MACRO PreInitComponent()
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
   {
-    this->fieldname->options := SELECT rowkey := name, title FROM this->contexts->mergefields->mergefields;
+    ^fieldname->options := SELECT rowkey := name, title FROM this->contexts->mergefields->mergefields;
   }
 >;
 
