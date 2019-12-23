@@ -43,7 +43,6 @@ get_finaltag()
   PUSH_BUILD_IMAGES=
 
   local MAINTAG
-  local BRANCHTAGS
 
   get_whversion
   echo "WebHare version: $WHVERSION"
@@ -59,19 +58,15 @@ get_finaltag()
     if [ "${CI_COMMIT_REF_NAME:0:8}" == "release/" ]; then
       # Release branch
       MAINTAG="${CI_COMMIT_REF_NAME:8}"
-      BRANCHTAGS="$MAINTAG"
     elif [ "${CI_COMMIT_REF_NAME:0:3}" == "rc/" ]; then
       # Release branch
       MAINTAG="${CI_COMMIT_REF_NAME:3}-rc"
-      BRANCHTAGS="$MAINTAG"
     elif [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
       # Master branch
       MAINTAG="master"
-      BRANCHTAGS="$MAINTAG $WHVERSION"
     else
       # Other branch
       MAINTAG="$CI_COMMIT_REF_SLUG"
-      BRANCHTAGS="$MAINTAG"
     fi
 
     # check if there is a CI registry
@@ -82,14 +77,10 @@ get_finaltag()
 
     BUILD_IMAGE="$CI_REGISTRY_IMAGE:$MAINTAG-$CI_COMMIT_SHA"
 
-    for P in $BRANCHTAGS ; do
-      BRANCH_IMAGES="$(trim $BRANCH_IMAGES $CI_REGISTRY_IMAGE:$P)"
-    done
+    BRANCH_IMAGES="$(trim $BRANCH_IMAGES $CI_REGISTRY_IMAGE:$MAINTAG)"
 
     if [ -n "$PUBLIC_REGISTRY_IMAGE" ]; then # PUBLIC_REGISTRY_IMAGE is only set for protected branches/tags
-      for P in $BRANCHTAGS ; do
-        PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $PUBLIC_REGISTRY_IMAGE:$P)"
-      done
+      PUBLIC_IMAGES="$(trim $PUBLIC_IMAGES $PUBLIC_REGISTRY_IMAGE:$MAINTAG)"
     fi
   else
     # local build. No pushes or deploys
