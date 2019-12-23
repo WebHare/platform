@@ -1438,12 +1438,6 @@
         <xs:documentation>ISO 2 char language code</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="getlanguagefunction" type="xs:string"
-      >
-      <xs:annotation>
-        <xs:documentation>Reference to function of type STRING FUNCTION GetLanguage(OBJECT webcontext) which will return the langauge code to use.</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="UsePublishTemplate">

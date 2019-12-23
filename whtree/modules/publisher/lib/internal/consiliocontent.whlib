@@ -311,7 +311,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
       CATCH (OBJECT e)
       {
         LogHarescriptException(e);
-        RETURN [ status := "error"
+        RETURN [ status := e EXTENDSFROM LibraryVersionConflictException ? "outofdate" : "error"
                , error := e->what
                ];
       }

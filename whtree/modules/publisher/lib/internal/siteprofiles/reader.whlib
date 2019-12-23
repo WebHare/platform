@@ -1545,23 +1545,16 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN pages;
   }
 
-  PUBLIC STRING FUNCTION GetSiteLanguage(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC STRING FUNCTION GetSiteLanguage()
   {
-    options := ValidateOptions([ webcontext := DEFAULT OBJECT ], options);
-    STRING lang, getlanguagefunction;
+    STRING lang := "en";
     FOREVERY(RECORD apply FROM this->__GetAppliesForcell("SITELANGUAGE"))
     {
       IF(apply.sitelanguage.has_lang)
-        lang := apply.sitelanguage.lang;
-      IF(apply.sitelanguage.has_getlanguagefunction)
-        getlanguagefunction := apply.sitelanguage.getlanguagefunction;
+        lang := apply.sitelanguage.lang ?? "en";
     }
 
-    STRING finallang;
-    IF (getlanguagefunction != "" AND ObjectExists(options.webcontext))
-      finallang := MakeFunctionPtr(getlanguagefunction, TYPEID(STRING), [TYPEID(OBJECT)])(options.webcontext);
-
-    RETURN finallang ?? lang ?? "en";
+    RETURN lang ?? "en";
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetMailTemplates()
