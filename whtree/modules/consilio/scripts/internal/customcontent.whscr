@@ -1,6 +1,8 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 
@@ -92,9 +94,9 @@ STRING FUNCTION ValidateResult(RECORD result, STRING ARRAY validstatuses)
     RETURN "Invalid result received: got a non-existing record";
   IF(NOT CellExists(result, "status"))
     RETURN "Invalid result received: missing cell 'status'";
-  IF(result.status NOT IN [ "error" ] CONCAT validstatuses)
+  IF(result.status NOT IN [ "outofdate", "error" ] CONCAT validstatuses)
     RETURN "Invalid result received: status must be one of: " || Detokenize([ "error" ] CONCAT validstatuses,", ") || " but got '" || result.status || "'";
-  IF(result.status = "error" AND NOT CellExists(result, "error"))
+  IF(result.status IN [ "outofdate", "error" ] AND NOT CellExists(result, "error"))
     RETURN "Invalid result received: status was error but the cell 'error' was missing";
   RETURN "";
 }
@@ -121,6 +123,12 @@ RECORD FUNCTION ListGroups(DATETIME commanddate)
   IF(checkresult != "")
     RETURN [ status := "error", error := checkresult ];
 
+  IF (result.status = "outofdate")
+  {
+    Print("Restarting because we are attempting to load out-of-date code\n");
+    SetConsoleExitCode(0);
+    TerminateScript();
+  }
   IF (result.status = "result")
   {
     // Remove unwanted cells from the result record
