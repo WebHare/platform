@@ -4,7 +4,6 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -17,6 +16,7 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
@@ -74,9 +74,7 @@ PUBLIC STATIC OBJECTTYPE WebHareDBBlobStabilizer
     }
 
     BLOB orgblob := this->cache[pos.position].data;
-    INTEGER orgblobid := __GetWHDBBlobInternalId(data);
-    INTEGER newblobid := __GetWHDBBlobInternalId(data);
-    IF (orgblobid != 0 OR newblobid = 0)
+    IF(IsSameBlobInDatabase(orgblob, data))
       RETURN orgblob;
 
     // The new blob is already registered, the old blob wasn't

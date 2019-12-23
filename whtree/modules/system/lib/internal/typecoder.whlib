@@ -5,7 +5,8 @@ LOADLIB "wh::float.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
+
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 PUBLIC RECORD FUNCTION PrepareAnyForDatabase(VARIANT data)
 {
@@ -38,8 +39,7 @@ PUBLIC BOOLEAN FUNCTION AreBlobsEqual(BLOB a, BLOB b)
   IF(IsDefaultValue(a)) //implies B is length 0 too
     RETURN TRUE;
 
-  INTEGER int_a := __GetWHDBBlobInternalId(a);
-  IF (int_a != 0 AND __GetWHDBBlobInternalId(b) = int_a)
+  IF(IsSameBlobInDatabase(a,b))
     RETURN TRUE;
 
   RETURN GetHashForBlob(a,"SHA-256") = GetHashForBlob(b,"SHA-256");
