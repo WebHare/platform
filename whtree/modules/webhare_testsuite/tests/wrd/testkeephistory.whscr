@@ -2,7 +2,6 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/keystore.whlib";
@@ -65,8 +64,6 @@ MACRO TestChanges()
   OBJECT testpersonobj := persontype->GetEntity(testpersonid);
 
   RECORD oldsettings := testpersonobj->GetFields(["*"]);
-  //dumpvalue(oldsettings,'tree');
-  INTEGER image_blob_id := GetWHDBBlobInternalId(oldsettings.test_image.data);
 
   {
     testfw->BeginWork();
