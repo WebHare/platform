@@ -1,4 +1,6 @@
 ﻿<?wh
+/* wh run mod::system/scripts/database/migration.whscr
+*/
 
 LOADLIB "wh::async.whlib";
 LOADLIB "wh::datetime.whlib";
@@ -63,10 +65,14 @@ IF (IsWithinFunctionRunningJob())
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "dryrun", type := "switch" ]
+    , [ name := "nowait", type := "switch" ]
     ]);
 
 IF (NOT RecordExists(args))
+{
+  Print("Syntax: wh run mod::system/scripts/database/migration.whscr [--dryrun] [--nowait]");
   TerminateScriptWithError(`Invalid arguments`);
+}
 
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
@@ -102,6 +108,11 @@ PUBLIC STRING FUNCTION GetWHDBBlobDir(STRING blobroot, INTEGER blobid)
   RETURN `${blobroot}/${mainfolder = 0 ? "blob" : `blob-${mainfolder}`}/${subfolder}/`;
 }
 
+IF(NOT args.dryrun AND NOT args.nowait)
+{
+  Print("Starting mgrating from WHDB to PostgreSQL....\n");
+  Sleep(2000);
+}
 
 STRING basedataroot := GetWebHareConfiguration().basedataroot;
 STRING dbasefolder := MergePath(basedataroot, "dbase");

@@ -3,7 +3,6 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -419,20 +418,6 @@ MACRO ApplyServerConfig()
 
 MACRO PreflightChecks()
 {
-  IF (GetDatabaseType() = "whdb")
-  {
-    INTEGER ARRAY roles := SELECT AS INTEGER ARRAY ToInteger(SubString(COLUMN role_name, 7),0)
-                             FROM information_schema.all_roles
-                            WHERE role_schema = "DEFINITION_SCHEMA"
-                              AND role_name LIKE "WHUSER_*";
-
-    FOREVERY(INTEGER role FROM roles)
-    {
-      PRINT("Dropping user WHUSER_" || role || "\n");
-      __SendWHDBCommand(trans->id, "DROP USER WHUSER_" || role);
-    }
-  }
-
   //Update system.webservers output path if still referring to the pre-docker path
   STRING outputpath := ReadSoftLink("/opt/webhare/output");
   IF(outputpath = "/opt/whdata/output")

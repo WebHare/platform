@@ -1,5 +1,12 @@
 <?wh
 
+LOADLIB "wh::dbase/whdb.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::internal/transservices.whlib";
+
+LOADLIB "mod::system/lib/internal/dbase/base.whlib";
+
+
 /** Find the first gap range in a list of strictly increasing integers
     @param ids Strictly increasing list of integers (sorted and no duplicates)
     @param expectfirst Expected first element in the list of integers
@@ -33,3 +40,33 @@ PUBLIC RECORD FUNCTION __FindFirstGapInSet(INTEGER ARRAY ids, INTEGER expectfirs
   RETURN CELL[ rangestart := expectfirst + s, rangelimit ];
 }
 
+
+/** Are two blobs the same in the database */
+PUBLIC BOOLEAN FUNCTION IsSameBlobInDatabase(BLOB a, BLOB b)
+{
+  IF(GetDatabaseType() = "whdb")
+  {
+    INTEGER orgblobid := __GetWHDBBlobInternalId(a);
+    RETURN orgblobid != 0 AND __GetWHDBBlobInternalId(b) = orgblobid;
+  }
+  ELSE
+  {
+    IF(GetPrimaryWebhareTransaction() = 0)
+      RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
+
+    STRING orgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), a);
+    RETURN orgblobid != __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
+  }
+}
+
+/** Is this blob in the database ? (zero-copy to reupload) */
+PUBLIC BOOLEAN FUNCTION IsBlobRegisteredInDatabase(BLOB inblob)
+{
+  IF(GetDatabaseType() = "whdb")
+    RETURN __GetWHDBBlobInternalId(inblob) != 0;
+
+  IF(GetPrimaryWebhareTransaction() = 0)
+    RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
+
+  RETURN __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), inblob) != "";
+}
