@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/algorithms.whlib";

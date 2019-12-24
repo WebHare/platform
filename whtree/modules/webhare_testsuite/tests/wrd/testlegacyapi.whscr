@@ -15,10 +15,8 @@ LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 
-LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdtype.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 MACRO TestSchema()

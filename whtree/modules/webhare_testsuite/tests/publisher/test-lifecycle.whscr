@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/webserver/management.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";

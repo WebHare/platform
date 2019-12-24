@@ -3,23 +3,15 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::money.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
 
 LOADLIB "mod::publisher/lib/internal/publishing-backend.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
-LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
-
-LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
 
 LOADLIB "mod::publisher/lib/internal/publication/publish.whlib";
 

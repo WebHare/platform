@@ -17,7 +17,6 @@ LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/webserver/stats.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/tolliumapps/webservers/support.whlib";
 
 

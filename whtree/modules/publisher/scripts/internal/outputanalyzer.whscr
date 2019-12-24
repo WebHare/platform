@@ -8,7 +8,6 @@ LOADLIB "mod::system/lib/database.whlib";
 
 
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
-LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 
 /* wh run mod::publisher/scripts/internal/outputanalyzer.whscr
 

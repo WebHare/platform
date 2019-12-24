@@ -5,7 +5,6 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";

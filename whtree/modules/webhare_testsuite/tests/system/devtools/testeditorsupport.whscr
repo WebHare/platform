@@ -5,7 +5,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "wh::internet/webdav.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";

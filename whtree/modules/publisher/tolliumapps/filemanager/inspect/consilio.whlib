@@ -8,7 +8,6 @@ LOADLIB "mod::consilio/lib/screens/catalog.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

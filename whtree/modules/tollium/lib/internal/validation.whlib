@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::system/lib/internal/validation/support.whlib";

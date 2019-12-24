@@ -1,9 +1,7 @@
 ﻿<?wh
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/registry.whlib";
 
 LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";

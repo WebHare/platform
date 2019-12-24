@@ -1,18 +1,10 @@
 ﻿<?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
-LOADLIB "wh::regex.whlib";
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::dbase/postgresql.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 

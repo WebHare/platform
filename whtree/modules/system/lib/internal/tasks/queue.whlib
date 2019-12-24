@@ -3,10 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::money.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";

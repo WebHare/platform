@@ -4,7 +4,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::socialite/lib/vimeo.whlib";

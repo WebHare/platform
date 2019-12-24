@@ -1,8 +1,5 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
-
-LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";

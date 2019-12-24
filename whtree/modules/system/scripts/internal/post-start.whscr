@@ -22,7 +22,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 

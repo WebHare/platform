@@ -12,8 +12,6 @@ LOADLIB "wh::internal/enrichment.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";

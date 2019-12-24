@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 

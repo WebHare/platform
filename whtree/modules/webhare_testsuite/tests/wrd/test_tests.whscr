@@ -2,8 +2,6 @@
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
-
 //Test APIs we have prepared for testers
 MACRO TestCleanupAndBulk()
 {

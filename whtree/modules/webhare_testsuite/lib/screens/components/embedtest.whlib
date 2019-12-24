@@ -2,9 +2,6 @@
 
 LOADLIB "wh::witty.whlib";
 
-LOADLIB "mod::tollium/lib/componentbase.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
-
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
 

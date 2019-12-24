@@ -1,7 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_repositorytree.whscr"/>
-  <group skipautotests="true">
-    <test script="testapi.whscr" />
-  </group>
   <test script="types.whscr"/>
 </group>

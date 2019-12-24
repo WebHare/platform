@@ -1,8 +1,6 @@
 ﻿<?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -10,7 +8,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
-LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";

@@ -10,7 +10,6 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
-LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 

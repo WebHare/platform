@@ -1,13 +1,11 @@
 ﻿<?wh
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";

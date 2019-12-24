@@ -1,7 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::dbase/whdb.whlib";
-
 LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

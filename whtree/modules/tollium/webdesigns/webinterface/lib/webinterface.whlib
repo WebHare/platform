@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
