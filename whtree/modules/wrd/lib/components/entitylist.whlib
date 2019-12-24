@@ -108,6 +108,10 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY empty(^entities->empty, ^entities->empty);
 
+  PUBLIC PROPERTY editableflags(^entities->editableflags, ^entities->editableflags);
+
+  PUBLIC PROPERTY deletableflags(^entities->deletableflags, ^entities->deletableflags);
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -150,6 +154,8 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
     ^entities->onselect := definition.onselect;
     ^entities->onfocusin := definition.onfocusin;
     ^entities->empty := definition.empty;
+    ^entities->editableflags := definition.editableflags;
+    ^entities->deletableflags := definition.deletableflags;
 
     IF(definition.openaction != DEFAULT OBJECT)
       ^entities->openaction := definition.openaction;
