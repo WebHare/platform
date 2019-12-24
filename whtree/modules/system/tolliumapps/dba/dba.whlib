@@ -100,19 +100,6 @@ STRING FUNCTION ExplainConstraints(RECORD tabledef, RECORD columnrec)
   RETURN Detokenize(constraints,", ");
 }
 
-
-RECORD ARRAY FUNCTION GetSchemaRoles(STRING schema_name)
-{
-  IF (GetDatabaseType() != "whdb")
-    RETURN RECORD[];
-
-  RETURN SELECT rowkey := role_id
-              , roleid := role_id
-              , name := role_name
-           FROM information_schema.all_roles
-          WHERE role_schema = VAR schema_name;
-}
-
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   RECORD ARRAY dbs;
@@ -284,7 +271,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       ^columns->rows := DEFAULT RECORD ARRAY;
       ^indices->rows := DEFAULT RECORD ARRAY;
-      ^roles->rows := GetSchemaRoles(curitem.schema_name);
       //^definition->value := GetSchemaDefStatement(curitem.rowkey) || "\n\n" || GetSchemaModuleDef(curitem.rowkey);
       ^definition->value := GetSchemaModuleDef(GetPrimary(), curitem.schema_name);
       ^databasewhlib->value := GetDatabaseWHLIB(GetPrimary(), curitem.schema_name);
@@ -502,7 +488,7 @@ PUBLIC OBJECTTYPE ImportWizard EXTEND TolliumScreenBase
     OBJECT imexporter := NEW DatabaseImExport("system.dba.schemaexport", "0.1");
     RECORD ARRAY toplevels;
 
-    IF(RecordExists(SELECT FROM information_schema.all_schemata WHERE ToUppercase(schema_name) = ToUppercase(this->schemaname->value)))
+    IF(GetPrimary()->SchemaExists(^schemaname->value))
     {
       toplevels := imexporter->GetSchemaToplevels(this->schemaname->value);
       IF(Length(toplevels) = 0)

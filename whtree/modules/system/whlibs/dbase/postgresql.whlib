@@ -1487,7 +1487,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
   {
-    ABORT("IndexExists not supported for PostgreSQL");
+    THROW NEW Exception("IndexExists yet not supported for PostgreSQL");
   }
 
   UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
@@ -1503,12 +1503,12 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
   {
-    ABORT(`CreateTable not supported for PostgreSQL`);
+    THROW NEW Exception(`CreateTable yet not supported for PostgreSQL`);
   }
 
   UPDATE PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablemanip)
   {
-    ABORT(`AlterTable not supported for PostgreSQL`);
+    THROW NEW Exception(`AlterTable yet not supported for PostgreSQL`);
   }
 
   UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
@@ -1523,12 +1523,12 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC INTEGER FUNCTION GetRoleId(STRING rolename) //FIXME: Optimize using local metadata cache!(don't bother with schema PUBLIC)
   {
-    ABORT("GetRoleId not supported for PostgreSQL");
+    THROW NEW Exception("GetRoleId yet not supported for PostgreSQL");
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsRoleEnabled(INTEGER roleid)
   {
-    ABORT("IsRoleEnabled not supported for PostgreSQL");
+    THROW NEW Exception("IsRoleEnabled yet not supported for PostgreSQL");
   }
 
   UPDATE PUBLIC INTEGER ARRAY FUNCTION GetEnabledRoles()
