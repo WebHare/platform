@@ -58,3 +58,15 @@ PUBLIC BOOLEAN FUNCTION IsSameBlobInDatabase(BLOB a, BLOB b)
     RETURN orgblobid != __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
   }
 }
+
+/** Is this blob in the database ? (zero-copy to reupload) */
+PUBLIC BOOLEAN FUNCTION IsBlobRegisteredInDatabase(BLOB inblob)
+{
+  IF(GetDatabaseType() = "whdb")
+    RETURN __GetWHDBBlobInternalId(inblob) != 0;
+
+  IF(GetPrimaryWebhareTransaction() = 0)
+    RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
+
+  RETURN __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), inblob) != "";
+}

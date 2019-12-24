@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
@@ -215,18 +216,18 @@ MACRO RTECreation()
   RegisterBlobInWebhareDB(exportdata.htmltext);
 
   // test 2nd export of the same data
-  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable->ExportAsRecord().htmltext));
+  TestEq(TRUE, IsSameBlobInDatabase(exportdata.htmltext, editable->ExportAsRecord().htmltext));
 
   editable->SetHTMLFromClientRTE(`<html><body>Text2</body></html>`);
   editable->SetHTMLFromClientRTE(`<html><body>Text</body></html>`);
 
   // test remembering through changes
-  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable->ExportAsRecord().htmltext));
+  TestEq(TRUE, IsSameBlobInDatabase(exportdata.htmltext, editable->ExportAsRecord().htmltext));
 
   // test import - export
   OBJECT editable2 := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
   editable2->ImportFromRecord(exportdata);
-  TestEQ(GetWHDBBlobInternalId(exportdata.htmltext), GetWHDBBlobInternalId(editable2->ExportAsRecord().htmltext));
+  TestEq(TRUE, IsSameBlobInDatabase(exportdata.htmltext, editable2->ExportAsRecord().htmltext));
 }
 
 MACRO NewImage()

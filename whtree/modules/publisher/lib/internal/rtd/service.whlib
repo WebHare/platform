@@ -59,27 +59,27 @@ PUBLIC STATIC OBJECTTYPE WebHareDBBlobStabilizer
 
   /** Returns the provided blob, or an earlier provided blob with identical content if that one is already
       registered in the WebHare database
-      @param data Blob to cache
+      @param newblob Blob to cache
       @return Blob with identical content, registered with the WebHare database
   */
-  PUBLIC BLOB FUNCTION Process(BLOB data)
+  PUBLIC BLOB FUNCTION Process(BLOB newblob)
   {
-    STRING hash := GetHashForBlob(data, "SHA-512");
+    STRING hash := GetHashForBlob(newblob, "SHA-512");
     RECORD pos := RecordLowerBound(this->cache, CELL[ hash ], [ "HASH" ]);
     IF (NOT pos.found)
     {
       // Register the blob, it may be inserted into the database later on
-      INSERT CELL[ hash, data ] INTO this->cache AT pos.position;
-      RETURN data;
+      INSERT CELL[ hash, data := newblob ] INTO this->cache AT pos.position;
+      RETURN newblob;
     }
 
     BLOB orgblob := this->cache[pos.position].data;
-    IF(IsSameBlobInDatabase(orgblob, data))
+    IF(IsBlobRegisteredInDatabase(orgblob) OR NOT IsBlobRegisteredInDatabase(newblob))
       RETURN orgblob;
 
-    // The new blob is already registered, the old blob wasn't
-    this->cache[pos.position].data := data;
-    RETURN data;
+    // The new blob is already registered, the old blob wasn't, so give that out for next cache calls
+    this->cache[pos.position].data := newblob;
+    RETURN newblob;
   }
 >;
 
