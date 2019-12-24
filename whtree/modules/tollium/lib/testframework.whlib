@@ -1390,6 +1390,8 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
 */
 PUBLIC OBJECT FUNCTION TT(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  IF(NOT ObjectExists(topscreen))
+    THROW NEW Exception(`No screen is open! looking for '${compname}'`);
   RETURN __LookupComponentByTestReference(topscreen, compname, options);
 }
 
