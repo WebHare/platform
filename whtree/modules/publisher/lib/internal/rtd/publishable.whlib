@@ -880,12 +880,16 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
 
     FOREVERY(OBJECT richobject FROM this->flatobjects)
     {
-      IF(richobject->isembeddedobject AND ObjectExists(richobject->__embeddedobject) AND NOT MemberExists(richobject->__embeddedobject, "__pvt_widgetsettings")) //not a widget
+      IF(NOT richobject->isembeddedobject)
+        CONTINUE;
+
+      OBJECT embobj := richobject->__GetEmbeddedObject();
+      IF(ObjectExists(embobj) AND NOT MemberExists(embobj, "__pvt_widgetsettings")) //not a WidgetBase embobj
       {
-        richobject->embeddedobject->languagecode := webdesign->languagecode;
-        richobject->embeddedobject->Prepare();
+        embobj->languagecode := webdesign->languagecode;
+        embobj->Prepare();
         IF(NOT ObjectExists(this->previewcontext))
-          richobject->embeddedobject->PrepareForRendering(webdesign);
+          embobj->PrepareForRendering(webdesign);
       }
     }
   }
