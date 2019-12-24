@@ -95,6 +95,44 @@ class MultiInputSubstition
 
     this._replacednode.value = '';
   }
+  _handlePastedValue(inval)
+  {
+    return false;
+  }
+  _handleBaseOnInput(field)
+  {
+    //now with EARLY focus
+    //FIXME cleanup field first?
+    //FIXME determine whether to use NUMBER of TEL.
+    // if(field && field.input.length == )
+    if(field) //we're being invoked for a field
+    {
+      if(this._handlePastedValue(field.value))
+      {
+        this._refreshReplacingFields();
+        return true;
+      }
+
+      let maxlength = this._getFieldTextLength(field);
+      if(field.value.length >= maxlength)
+      {
+        let nextfield = this._getNextField(field);
+        if(nextfield)
+        {
+          dompack.focus(nextfield);
+
+          if(field.value.length > maxlength)
+          { //copy over remaining contents
+            nextfield.value = field.value.substr(maxlength);
+            field.value = field.value.substr(0,maxlength);
+            dompack.dispatchDomEvent(nextfield, 'input');
+            return true; //the next field's _onInput will deal with all the normal validations
+          }
+        }
+      }
+    }
+    return false;
+  }
   _finalize()
   {
     this._refreshAttributes();
@@ -424,46 +462,28 @@ export class DateField extends MultiInputSubstition
     return true;
   }
 
-  _onInput(field)
+  _handlePastedValue(inval)
   {
-    //now with EARLY focus
-    //FIXME cleanup field first?
-    //FIXME determine whether to use NUMBER of TEL.
-    // if(field && field.input.length == )
-    if(field) //we're being invoked for a field
+    //if we're spotting a xx-xx-xx or xx/xx/xx pattern, assume a paste
+    let is_dashed = inval.match(/.+-.+-.+/);
+    let is_slashed = inval.match(/.+\/.+\/.+/);
+    if(is_dashed || is_slashed)
     {
-      //if we're spotting a xx-xx-xx or xx/xx/xx pattern, assume a paste
-      let is_dashed = field.value.match(/.+-.+-.+/);
-      let is_slashed = field.value.match(/.+\/.+\/.+/);
-      if(is_dashed || is_slashed)
+      let parseddate = datehelpers.parseDate('d-m-y', inval,{nofail:true});
+      if(parseddate)
       {
-        let parseddate = datehelpers.parseDate('d-m-y', field.value,{nofail:true});
-        if(parseddate)
-        {
-          this._setReplacedValue(datehelpers.formatISODate(parseddate.year, parseddate.month, parseddate.day));
-          this._refreshReplacingFields();
-          return;
-        }
-      }
-
-      let maxlength = this._getFieldTextLength(field);
-      if(field.value.length >= maxlength)
-      {
-        let nextfield = this._getNextField(field);
-        if(nextfield)
-        {
-          dompack.focus(nextfield);
-
-          if(field.value.length > maxlength)
-          { //copy over remaining contents
-            nextfield.value = field.value.substr(maxlength);
-            field.value = field.value.substr(0,maxlength);
-            dompack.dispatchDomEvent(nextfield, 'input');
-            return; //the next field's _onInput will deal with all the normal validations
-          }
-        }
+        this._setReplacedValue(datehelpers.formatISODate(parseddate.year, parseddate.month, parseddate.day));
+        this._refreshReplacingFields();
+        return true;
       }
     }
+    return false;
+  }
+
+  _onInput(field)
+  {
+    if(this._handleBaseOnInput(field))
+      return;
 
     let year =  parseInt(this._nodes.year.value,0);
     let month = parseInt(this._nodes.month.value,0);
@@ -677,8 +697,11 @@ export class TimeField extends MultiInputSubstition
            ];
   }
 
-  _onInput(evt)
+  _onInput(field)
   {
+    if(this._handleBaseOnInput(field))
+      return;
+
     let hour =   parseInt(this._nodes.hour.value,0);
     let minute = parseInt(this._nodes.minute.value,0);
     let second = this._nodes.second ? parseInt(this._nodes.second.value,0) : 0;

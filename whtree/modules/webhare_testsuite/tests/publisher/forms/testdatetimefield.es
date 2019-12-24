@@ -414,10 +414,11 @@ test.registerTests(
       let hourfield = test.qSA("[data-wh-form-group-for=time] input")[1];
       let minutefield = test.qSA("[data-wh-form-group-for=time] input")[2];
 
-      //focus should have moved to the month field
-      test.eq(hourfield, test.getDoc().activeElement);
+      //focus should have moved to the minute field
+      test.eq(minutefield, test.getDoc().activeElement);
       test.eq('23', hourfield.value);
 
+      test.click(hourfield);
       await test.pressKey(':');
       test.eq(minutefield, test.getDoc().activeElement);
       test.eq('23', hourfield.value);

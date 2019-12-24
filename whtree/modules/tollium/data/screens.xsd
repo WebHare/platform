@@ -4905,31 +4905,26 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
   </xs:attributeGroup>
 
-  <xs:attributeGroup name="ArrayListEditAttributes">
-    <xs:attributeGroup ref="GlobalListAttributes" />
-    <xs:attributeGroup ref="tc:IsDirtyable" />
-    <xs:attributeGroup ref="ListContextMenus" /><!-- FIXME: experimental for now -->
-    <xs:attributeGroup ref="ArrayListEditButtons" />
-
+  <xs:attributeGroup name="ArrayListEditFlags">
     <xs:attribute name="editableflags" type="CheckFlags">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>
-            Only rows with these flags set to TRUE will be editable
-          </html:p>
-        </xs:documentation>
+        <xs:documentation>Only rows with these flags set to TRUE will be editable</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 
     <xs:attribute name="deletableflags" type="CheckFlags">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>
-            Only rows with these flags set to TRUE will be deletable
-          </html:p>
-        </xs:documentation>
+        <xs:documentation>Only rows with these flags set to TRUE will be deletable</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ArrayListEditAttributes">
+    <xs:attributeGroup ref="GlobalListAttributes" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
+    <xs:attributeGroup ref="ListContextMenus" /><!-- FIXME: experimental for now -->
+    <xs:attributeGroup ref="ArrayListEditButtons" />
+    <xs:attributeGroup ref="ArrayListEditFlags" />
 
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>

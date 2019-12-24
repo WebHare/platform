@@ -245,7 +245,7 @@ PUBLIC RECORD ARRAY FUNCTION GetUserPeerList(OBJECT user)
     @cell options.scopes Required scopes
     @cell options.validuntil Required token validity until
     @return Connection result
-    @cell return.status "ok"/"notconnected"
+    @cell return.status "ok"/"neverconnected"/"cannotconnect"/"notloggedin"/"notenoughvalidity"
     @cell(object #RemoteWebHareConnection) return.peer Peer
 */
 PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -268,11 +268,15 @@ PUBLIC RECORD FUNCTION OpenUserWebHarePeer(OBJECT user, STRING url, RECORD optio
     THROW NEW Exception(`No such peer '${url}'`);
 
   IF (NOT RecordExists(peer.currenttoken))
-    RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
+    RETURN [ status := "neverconnected", peer := DEFAULT OBJECT ];
 
   RECORD connectinfo := GetWebHareConnectability(url, peer.currenttoken.token);
-  IF (NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
+  IF (NOT RecordExists(connectinfo))
     RETURN [ status := "notconnected", peer := DEFAULT OBJECT ];
+  IF (NOT connectinfo.isloggedin)
+    RETURN [ status := "notloggedin", peer := DEFAULT OBJECT ];
+  IF (connectinfo.expires < options.validuntil)
+    RETURN [ status := "notenoughvalidity", peer := DEFAULT OBJECT ];
 
   //FIXME check our scopes are in that list
   RETURN

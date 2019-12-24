@@ -338,6 +338,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   RECORD schemarec;
   RECORD ARRAY typecache;
   OBJECT pvt_types;
+  ///currently registered hat properties
+  STRING ARRAY currenthats;
 
   //true if we're in the new api. will disppear if migration is ever complete, and gives an easily greppable identifier
   PUBLIC BOOLEAN __iswrdapi2017;
@@ -410,6 +412,14 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       INTEGER ARRAY existingtypeids := SELECT AS INTEGER ARRAY id FROM wrd.types WHERE types.wrd_schema = this->schemarec.id;
       DELETE FROM this->typecache WHERE id NOT IN existingtypeids;
     }
+
+    //remove obsolete saved hatted properties
+    FOREVERY(STRING hat FROM this->currenthats)
+      IF(NOT RecordExists(SELECT FROM this->typecache WHERE ToUppercase(tag) = ToUppercase(hat))) //type deleted
+      {
+        MemberDelete(this, "^" || hat);
+        DELETE FROM this->currenthats AT SearchElement(this->currenthats, hat);
+      }
   }
 
   PUBLIC STRING FUNCTION __GetCurrentLanguageCode()
@@ -523,7 +533,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     OBJECT wrdtype := this->__GetTypeByTag(tag, TRUE); //'->^typetag' is ALWAYS a 2017 definition
     IF (NOT ObjectExists(wrdtype))
       THROW NEW Exception(`No such type '${tag}' exists in this schema`);
+
     // Save for quick re-access
+    INSERT ToUppercase(wrdtype->tag) INTO this->currenthats AT END;
     MemberInsert(this, propname, FALSE, wrdtype);
     RETURN wrdtype;
   }
@@ -1050,3 +1062,16 @@ PUBLIC RECORD FUNCTION GetCacheableSchemaRec(INTEGER findid)
       ];
 }
 
+RECORD ARRAY wrdschemacache;
+
+PUBLIC OBJECT FUNCTION OpenWRDSchema2017(RECORD schemarec)
+{
+  OBJECT wrdschema := SELECT AS OBJECT(OBJECT(schemaobj)) FROM wrdschemacache WHERE id = schemarec.id;
+  IF(ObjectExists(wrdschema))
+    RETURN wrdschema;
+
+  DELETE FROM wrdschemacache WHERE id = schemarec.id;
+  wrdschema := NEW WRDSchema2017(schemarec);
+  INSERT CELL[ id := schemarec.id, schemaobj := WEAKOBJECT(wrdschema) ] INTO wrdschemacache AT END;
+  RETURN wrdschema;
+}

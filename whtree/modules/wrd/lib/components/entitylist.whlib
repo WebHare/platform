@@ -507,6 +507,10 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
   */
   PUBLIC MACRO PTR onchangeorder;
 
+  PUBLIC PROPERTY editableflags(^entities->editableflags, ^entities->editableflags);
+
+  PUBLIC PROPERTY deletableflags(^entities->deletableflags, ^entities->deletableflags);
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -525,6 +529,9 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
     ^entities->buttons := definition.buttons;
     ^entities->showbuttons := definition.showbuttons;
+
+    ^entities->editableflags := definition.editableflags;
+    ^entities->deletableflags := definition.deletableflags;
   }
 
   // ---------------------------------------------------------------------------

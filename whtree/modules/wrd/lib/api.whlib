@@ -74,8 +74,7 @@ PUBLIC OBJECT FUNCTION OpenWRDSchema(STRING findname)
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 
-  OBJECT theschema := NEW WRDSchema2017(schemarec);
-  RETURN theschema;
+  RETURN OpenWRDSchema2017(schemarec);
 }
 
 /** @short Retrieves a WRD Schema based on it's unique ID.
@@ -88,8 +87,7 @@ PUBLIC OBJECT FUNCTION OpenWRDSchemaById(INTEGER schemaid)
   IF(NOT RecordExists(schemarec) OR schemarec.name LIKE "$wrd$deleted$*")
     RETURN DEFAULT OBJECT;
 
-  OBJECT theschema := NEW WRDSchema2017(schemarec);
-  RETURN theschema;
+  RETURN OpenWRDSchema2017(schemarec);
 }
 
 /** Creates a new WRD schema
