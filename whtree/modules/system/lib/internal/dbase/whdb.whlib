@@ -958,6 +958,7 @@ PUBLIC RECORD FUNCTION GetWHDBDatabaseSchemaDef(STRING schemaname)
     {
       RECORD indexdef :=
           [ name :=           idx.index_name
+          , is_implicit :=    FALSE
           , is_unique :=      idx.is_unique
           , is_uppercase :=   idx.is_uppercase
           , cols :=           RECORD[]
