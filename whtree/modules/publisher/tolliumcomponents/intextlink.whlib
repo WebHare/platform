@@ -44,9 +44,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   // Public variables and properties
   //
 
-  /// Type of the value ('intextlink' or 'string')
-  PUBLIC STRING valuetype;
-
   /// Value
   PUBLIC PROPERTY value(GetValue, SetValue);
 
@@ -67,7 +64,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     EXTEND this BY TolliumIsComposable;
     EXTEND this BY TolliumIsDirtyable;
 
-    this->valuetype := "intextlink";
     this->__internallinks := TRUE;
   }
 
@@ -79,7 +75,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     TolliumFragmentBase::StaticInit(def);
-    this->valuetype := def.valuetype;
     this->saveoptions := ^linktype->options;
     this->title := def.title;
     this->__internallinks := def.internallinks;
@@ -140,7 +135,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     RETURN DEFAULT RECORD;
   }
 
-  RECORD FUNCTION GetIntlinkValue()
+  RECORD FUNCTION GetValue()
   {
     RECORD selected := ^linktype->selection;
     IF(NOT RecordExists(selected) OR selected.rowkey = 0) //'no link'
@@ -194,18 +189,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     ^linktype->enabled := nowenable;
   }
 
-  VARIANT FUNCTION GetValue()
-  {
-    RECORD value := this->GetIntLinkValue();
-    IF(this->valuetype = "intextlink")
-      RETURN value;
-    IF(this->valuetype = "string")
-      RETURN GetIntExtLinkAsString(value);
-
-    THROW NEW Exception("Unrecognized valuetype '" || this->valuetype || "'");
-  }
-
-  MACRO SetValue(VARIANT value)
+  MACRO SetValue(RECORD value)
   {
     this->EnsurePreInit();
 
@@ -328,7 +312,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
       }
       ELSE
       {
-        STRING url := GetIntextlinkTarget(this->GetIntLinkValue());
+        STRING url := GetIntextlinkTarget(this->GetValue());
         IF(url != "")
         {
           STRING validate_error := ValidateInput(url, fieldtitle, [ "url" ]);

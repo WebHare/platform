@@ -723,14 +723,6 @@
       <xs:attributeGroup ref="sc:TidOrTitle" />
       <xs:attributeGroup ref="sc:Errorlabel" />
       <xs:attributeGroup ref="sc:Required" />
-      <xs:attribute name="valuetype" default="intextlink">
-        <xs:simpleType>
-          <xs:restriction base="xs:string">
-            <xs:enumeration value="intextlink"/>
-            <xs:enumeration value="string"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
       <xs:attribute name="internallinks" type="xs:boolean" default="true">
         <xs:annotation>
           <xs:documentation>Show the internal link option (defaults to true)</xs:documentation>
