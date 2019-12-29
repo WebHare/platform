@@ -1,6 +1,8 @@
 <?wh
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -18,6 +20,12 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
         wrdauth->__disableintegration := TRUE;
     }
   }
+  UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
+  {
+    RETURN [ favicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon.ico")
+           ];
+  }
+
   UPDATE PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)
   {
     STRING requrl := Tokenize(url,'?')[0];
