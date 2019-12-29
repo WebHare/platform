@@ -525,9 +525,14 @@ $todd.Application = class
     whconnect.revealInFinder(path);
   }
 
-  _onMsgOpenInEditor(path, loc)
+  async _onMsgOpenInEditor(path, loc, options)
   {
-    whconnect.openInEditor(path, loc);
+    let opener = whconnect.openInEditor(path, loc);
+    if(options && options.closewindow)
+    {
+      await opener;
+      this._onMsgCloseWindow();
+    }
   }
 
   _onMsgAskWebHareConnect(message)
@@ -539,6 +544,11 @@ $todd.Application = class
   {
     toddImages.resetImageCache();
     return true;
+  }
+
+  _onMsgCloseWindow()
+  {
+    window.close();
   }
 
   queueEventAsync(actionname, param)

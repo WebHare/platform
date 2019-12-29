@@ -1,11 +1,10 @@
 import './css/webinterface.scss';
 import 'typeface-roboto';
 import 'typeface-roboto-mono';
+import './pages/harescripterror';
 
 require('font-awesome/css/font-awesome.css');
 require('@mod-wrd/js/auth');
-
-import * as dompack from 'dompack';
 
 const IndyShell = require('@mod-tollium/web/ui/js/shell');
 

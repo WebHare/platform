@@ -10,7 +10,7 @@
 
     LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
     LOADLIB "mod::system/lib/webserver/errors.whlib";
-    PrintHSErrors(GetRequestErrorInfo().errors);
+    PrintHSErrors(GetRequestErrorInfo().errors, DEFAULT FUNCTION PTR);
     ?>
   </body>
 </html>

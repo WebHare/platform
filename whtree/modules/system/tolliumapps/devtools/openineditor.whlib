@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::system/lib/services.whlib";
+
+
+PUBLIC MACRO runopenineditor(OBJECT controller, RECORD initdata)
+{
+  IF(initdata.calltype != "direct" OR Length(initdata.params) != 1)
+    THROW NEW Exception("This application cannot be directly invoked");
+
+  RECORD openinfo := DecryptForThisServer("system:openineditor", initdata.params[0]);
+  controller->ExecuteClientCall("OpenInEditor", openinfo.filename, CELL[openinfo.line,openinfo.col], [ closewindow := TRUE ]);
+}
