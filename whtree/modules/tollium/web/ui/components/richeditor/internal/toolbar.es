@@ -570,19 +570,6 @@ export default class RTEToolbar
     this.UpdateButtonState("align_justified", selstate.alignjustified);*/
   }
 
-/*ADDME: Unused?
-  getImageSrc(buttonname, disabled, width, height)
-  {
-    // If buttonpath was specified, link to the image in the buttonpath directory, otherwise link to the tollium image generator
-    if (this.options.buttonpath)
-      return this.options.buttonpath + buttonname + (disabled ? '_disabled' : '') + '.png';
-    else
-    {
-      return '/tollium_todd/img.shtml?n=tollium:rte/' + buttonname + '&w=' + (width ? width : this.imgsize) + '&h=' + (height ? height : this.imgsize) + '&d=' + (disabled ? '1' : '');
-    }
-  }
-*/
-
   getButton(buttonname)
   {
     for (var i=0; i<this.buttons.length; ++i)

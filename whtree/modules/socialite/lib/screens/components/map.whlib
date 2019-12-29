@@ -3,6 +3,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::system/lib/keystore.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::socialite/lib/internal/googlesupport.whlib";
 //LOADLIB "mod::socialite/lib/google/apikey.whlib";
@@ -451,8 +452,9 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                                  , height := height LIKE "*px" ? ToInteger(Left(height, Length(height)-2),48) : 48
                               FROM [ defaultoverlayicon ] CONCAT this->icons;
 
-      UPDATE icons SET icon := icon != "" ? "/.tollium/ui/img.shtml?n=" || EncodeURL(icon) || "&w=" || width || "&h=" || height || "&type=.png" : ""
-                      , shadow := shadow != "" ? "/.tollium/ui/img.shtml?n=" || EncodeURL(shadow) || "&w=" || width || "&h=" || height || "&type=.png" : "";
+      STRING imgshtml := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img.shtml");
+      UPDATE icons SET icon := icon != "" ? imgshtml || "?n=" || EncodeURL(icon) || "&w=" || width || "&h=" || height || "&type=.png" : ""
+                      , shadow := shadow != "" ? imgshtml || "?n=" || EncodeURL(shadow) || "&w=" || width || "&h=" || height || "&type=.png" : "";
 
       INTEGER iconsize; //how much to reserve for icons
       IF(Length(icons)=0)
