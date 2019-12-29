@@ -167,7 +167,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         IF(ObjectExists(outputobject->document->webdesign)
            AND outputobject->document->webdesign->__anchor_experiment)
         {
-          IF(outputobject->blockstyle.containertag IN outputobject->document->webdesign->contentnavstops)
+          IF(RecordExists(outputobject->blockstyle) AND outputobject->blockstyle.containertag IN outputobject->document->webdesign->contentnavstops)
           {
             STRING content := TrimWhitespace(blocknode->textcontent);
             IF(content != "")
