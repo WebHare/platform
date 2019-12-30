@@ -1,6 +1,7 @@
 <?wh
 //Migrations and runonce
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 CONSTANT STRING ARRAY whens :=
@@ -18,6 +19,9 @@ RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
 
   FOREVERY(OBJECT runonce FROM doc->xml->ListElements("http://www.webhare.net/xmlns/system/moduledefinition","runonce"))
   {
+    IF(NOT IsNodeApplicableToThisWebHare(runonce))
+      CONTINUE;
+
     STRING when := runonce->GetAttribute("when") ?? "aftertablecreation";
 
     // Check ordering
