@@ -3,27 +3,24 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/validation.whlib";
 
-PUBLIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
+PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
 <
-  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING name, OBJECT xsd)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ScreensFileValidator::Validate(doc,name,xsd);
-    IF(name LIKE "module*")
+    ScreensFileValidator::ValidateDocument();
+    IF(this->respath LIKE "mod*")
     {
-      FOREVERY(OBJECT node FROM doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","services")->GetCurrentElements())
-      {
-        INSERT [ resourcename := name
-               , line := node->linenum
-               , col := 0
-               , message := "Module siteprofiles should not contain service definitions - move your services to the module"
-               , code := 0
-               ] INTO result.errors AT END;
-      }
+      FOREVERY(OBJECT node FROM this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","services")->GetCurrentElements())
+      this->AddError(node, "Module siteprofiles should not contain service definitions - move your services to the module");
     }
 
-    RECORD parseres := ParseSiteProfile(name, "", [ xmldoc := doc ]); //ADDME forwards XSD?
-    result.errors := result.errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
-    result.warnings := result.warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
-    RETURN result;
+    RECORD parseres := ParseSiteProfile(this->respath, "", [ xmldoc := this->xml ]); //ADDME forwards XSD?
+    this->errors := this->errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
+    this->warnings := this->warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
+    IF(this->syntaxlevel_2020)
+    {
+      FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
+        this->AddError(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
+    }
   }
 >;

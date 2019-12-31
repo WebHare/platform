@@ -273,7 +273,7 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
   TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*not expected*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  //TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Unrecognized implementation*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 3));

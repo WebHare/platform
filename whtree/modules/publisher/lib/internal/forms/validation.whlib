@@ -1,21 +1,19 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
 
-PUBLIC OBJECTTYPE FormdefValidator EXTEND ResourceValidationBase
+PUBLIC OBJECTTYPE FormdefValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    STRING modulename := GetModuleNameFromResourcePath(resourcename);
-    FOREVERY(OBJECT formnode FROM doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms","form")->GetCurrentElements())
+    FOREVERY(OBJECT formnode FROM this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms","form")->GetCurrentElements())
     {
       STRING formname := formnode->GetAttribute("name");
-      RECORD res := ParseFormDef(formnode, formname, resourcename, formname, DEFAULT OBJECT, [ validatexmlonly := TRUE, accepterrors := TRUE ]);
-      result.errors := result.errors CONCAT res.errors;
-      result.warnings := result.warnings CONCAT res.warnings;
+      RECORD res := ParseFormDef(formnode, formname, this->respath, formname, DEFAULT OBJECT, [ validatexmlonly := TRUE, accepterrors := TRUE ]);
+      this->errors := this->errors CONCAT res.errors;
+      this->warnings := this->warnings CONCAT res.warnings;
     }
-    RETURN result;
   }
 >;
 

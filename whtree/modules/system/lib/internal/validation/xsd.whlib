@@ -5,40 +5,31 @@ LOADLIB "mod::system/lib/internal/validation/support.whlib";
 
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 
-PUBLIC OBJECTTYPE XSDValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE XSDValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
-    RECORD baseresult := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    STRING module := GetModuleNameFromResourcePath(resourcename);
-
     //ADDME generalize?
     RECORD res;
-    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
-       OR doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
+    IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
     {
-      res := ParseFormDefComponents(resourcename, doc);
-      baseresult.errors := baseresult.errors CONCAT res.errors;
-      baseresult.warnings := baseresult.warnings CONCAT res.warnings;
+      res := ParseFormDefComponents(this->respath, this->xml);
+      this->errors := this->errors CONCAT res.errors;
+      this->warnings := this->warnings CONCAT res.warnings;
     }
-    IF(doc->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
+    IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
     {
-      res := ParseComponentsXSD(resourcename, doc, RECORD[]);
-      baseresult.errors := baseresult.errors CONCAT res.errors;
-      baseresult.warnings := baseresult.warnings CONCAT res.warnings;
+      res := ParseComponentsXSD(this->respath, this->xml, RECORD[]);
+      this->errors := this->errors CONCAT res.errors;
+      this->warnings := this->warnings CONCAT res.warnings;
 
       FOREVERY(RECORD comp FROM res.components)
       {
         IF(comp.objtype != "")
-          this->VerifyObjectExistence(validatingdoc, comp.linenum, comp.objtype);
+          this->VerifyObjectExistence(comp.linenum, comp.objtype);
       }
     }
-
-    baseresult.errors   := baseresult.errors   CONCAT validatingdoc->errors;
-    baseresult.warnings := baseresult.warnings CONCAT validatingdoc->warnings;
-
-    RETURN baseresult;
   }
 >;
 

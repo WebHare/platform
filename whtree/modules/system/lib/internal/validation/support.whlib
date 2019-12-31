@@ -1,19 +1,32 @@
 <?wh
 
+LOADLIB "wh::devsupport.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-PUBLIC STATIC OBJECTTYPE ValidatingXMLDocument
+
+/** Base objecttype for resource validators
+*/
+PUBLIC STATIC OBJECTTYPE XMLValidatorBase
 <
+  STRING lastlib;
+  RECORD lastlibdescr;
+
+  PUBLIC BOOLEAN syntaxlevel_2020;
+  PUBLIC BOOLEAN onlytids;
+
   PUBLIC OBJECT xml;
+  PUBLIC STRING modulename;
   PUBLIC STRING respath;
   PUBLIC RECORD ARRAY errors;
   PUBLIC RECORD ARRAY warnings;
 
   MACRO NEW(OBJECT xmldoc, STRING respath)
   {
+    this->modulename := GetModuleNameFromResourcePath(respath);
     this->respath := respath;
     this->xml := xmldoc;
   }
@@ -95,10 +108,44 @@ PUBLIC STATIC OBJECTTYPE ValidatingXMLDocument
     RETURN "";
   }
 
+  RECORD FUNCTION GetLibDescription(STRING libname)
+  {
+    IF(this->lastlib != libname)
+    {
+      this->lastlib := libname;
+      IF(libname != "")
+      {
+        this->lastlibdescr := DescribeCompiledLibrary(libname);
+      }
+      ELSE
+      {
+        this->lastlibdescr := DEFAULT RECORD;
+      }
+    }
+    RETURN this->lastlibdescr;
+  }
+
+  BOOLEAN FUNCTION VerifyObjectExistence(INTEGER linenum, STRING objtype)
+  {
+    STRING ARRAY objtoks := Tokenize(objtype,'#');
+    RECORD lib := this->GetLibDescription(objtoks[0]);
+    IF(NOT RecordExists(lib))
+    {
+      this->AddErrorForLine(linenum, `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')`);
+      RETURN FALSE;
+    }
+    IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(objtoks[1] || "#NEW")))
+    {
+      this->AddErrorForLine(linenum, `Object '${objtoks[1]}' not found in '${objtoks[0]}'`);
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
+  /** Hook for additional resource valiadtion for XML documents */
+  PUBLIC MACRO ValidateDocument()
+  {
+  }
 >;
 
-PUBLIC OBJECT FUNCTION GetModuleXMLValidator(STRING modulename)
-{
-  OBJECT xml := GetModuleDefinitionXML(modulename);
-  RETURN NEW ValidatingXMLDocument(xml, GetModuleDefinitionXMLResourceName(modulename));
-}

@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
 LOADLIB "mod::system/lib/internal/validation/svg.whlib";
 LOADLIB "mod::system/lib/internal/validation/witty.whlib";
 LOADLIB "mod::system/lib/internal/validation/xml.whlib";
+LOADLIB "mod::system/lib/internal/validation/support.whlib" EXPORT XMLValidatorBase;
 
 
 BOOLEAN FUNCTION IsHareScriptFile(STRING path)
