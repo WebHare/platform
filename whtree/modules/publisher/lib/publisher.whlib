@@ -637,7 +637,8 @@ RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, I
   RETURN retval;
 }
 
-/** @short Get information about a photoalbum folder
+/** @private Deprecated!
+    @short Get information about a photoalbum folder
     @long This function described a photoalbum, allowing you to create custom links to the folders. All returned links are absolute
     @param folderid Folder id of the photoalbum
     @return A record array describing the photos
@@ -657,7 +658,12 @@ RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, I
     @cell return.thumbnailwidth Picture width on the link page
     @cell return.thumbnailheight Picture height on the link page
     */
-PUBLIC RECORD ARRAY FUNCTION GetPhotoalbumContents(INTEGER folderid)
+PUBLIC RECORD ARRAY FUNCTION GetPhotoalbumContents(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "We recommend building photoalbums using the imagecache and not using the classic template-v2 photoalbum folder type")
+{
+  RETURN __GetPhotoalbumContents(Folderid);
+}
+
+PUBLIC RECORD ARRAY FUNCTION __GetPhotoalbumContents(INTEGER folderid)
 {
   RECORD props := GetPhotoalbumProps(folderid);
 
