@@ -188,8 +188,6 @@ PUBLIC OBJECTTYPE ModuleDefinitionValidator EXTEND ResourceValidationBase
       }
     }
 
-    FOREVERY(OBJECT nodewithrunmodel FROM doc->GetElements("*[runmodel]"))
-      INSERT CELL[ resourcename, col := 0, line := nodewithrunmodel->linenum, message := "The runmodel attribute has been deprecated and should be removed" ] INTO result.warnings AT END;
 
     FOREVERY(OBJECT rulenode FROM doc->GetElements("webrule"))
     {
