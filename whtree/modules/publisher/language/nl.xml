@@ -889,6 +889,7 @@
         <text tid="private">Privé</text>
         <text tid="public">Public</text>
         <text tid="references">Referenties</text>
+        <text tid="reflect">Toon waarde (reflect)</text>
         <text tid="requestapproval">Verzoek voor goedkeuring</text>
         <text tid="searchprovider">Zoekcontentprovider</text>
         <text tid="type">Type</text>

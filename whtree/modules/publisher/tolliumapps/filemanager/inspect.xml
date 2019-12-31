@@ -13,6 +13,10 @@
         <enableon source="dbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdbinfo" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="canedit" onexecute="doeditdraftdbinfo" />
       </action>
+      <action name="reflect">
+        <enableon source="dbinfo" min="1" max="1" onexecute="doreflect" />
+        <enableon source="draftdbinfo" min="1" max="1" onexecute="doreflectdraft" />
+      </action>
       <action name="previewdbinfo" tid=".preview">
         <enableon source="dbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdbinfo" />
         <enableon source="draftdbinfo" min="1" max="1" checkflags="canpreview" onexecute="dopreviewdraftdbinfo" />
@@ -32,6 +36,7 @@
         <item action="editdbinfo" />
         <item action="previewdbinfo" />
         <item action="dbinfodownload" />
+        <item action="reflect" />
       </menu>
     </menus>
 

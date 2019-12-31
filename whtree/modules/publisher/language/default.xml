@@ -889,6 +889,7 @@
         <text tid="private">Private</text>
         <text tid="public">Public</text>
         <text tid="references">References</text>
+        <text tid="reflect">Show value (reflect)</text>
         <text tid="requestapproval">Request approval</text>
         <text tid="searchprovider">Search content provider</text>
         <text tid="type">Type</text>
