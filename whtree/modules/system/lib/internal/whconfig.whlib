@@ -6,6 +6,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/semver.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -100,16 +101,25 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
   RETURN [ versionnum := __SYSTEM_WEBHAREVERSION().versionnum
+         , version := __SYSTEM_WEBHAREVERSION().version
          , dtapstage := GetDtapStage()
          , installationtype := IsRestoredWebHare()  ? "restore" : "production"
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
          ];
 }
 
+STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
+{
+  RETURN `${oldversion/10000}.${oldversion%10000/100}.${oldversion%100}`;
+}
+
 PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD restrictions)
 {
-  IF(restrictions.requireversion != 0 AND restrictions.requireversion > webhareversioninfo.versionnum)
-    RETURN `Required version: ${restrictions.requireversion}, current: ${webhareversioninfo.versionnum}`;
+  //Support versioninfo without semantic 'version' for backwards compatibility (eg. peering with old webhares)
+  STRING semver := CellExists(webhareversioninfo,'version') ? webhareversioninfo.version : GetSemVerFromClassicVersion(webhareversioninfo.vesrionnum);
+
+  IF(restrictions.requireversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.requireversion))
+    RETURN `Required version: ${restrictions.requireversion}, current: ${webhareversioninfo.version}`;
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
     RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
 
@@ -145,7 +155,15 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
 PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([prefix := ""], options);
-  RETURN [ requireversion :=     ParseXSInt(xmlnode->GetAttribute(options.prefix || "requireversion"))
+
+  STRING requireversion := xmlnode->GetAttribute(options.prefix || "requireversion");
+  IF(Length(requireversion) = 5 AND ToInteger(requireversion,-1) >= 20000) // it's an old version format
+  {
+    INTEGER versionnr := ToInteger(requireversion,-1);
+    requireversion := `>= ${GetSemVerFromClassicVersion(versionnr)}`;
+  }
+
+  RETURN [ requireversion :=     requireversion
          , beforeversion :=      ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"))
          , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
          , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
