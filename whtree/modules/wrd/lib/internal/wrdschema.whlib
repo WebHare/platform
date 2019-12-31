@@ -190,7 +190,7 @@ STATIC OBJECTTYPE BulkCreator
               IF(outputname != "")
                 e->what := e->what || ` (creating entity '${outputname})'`;
               ELSE
-                e->what := e->what || ` (creating entity #${#item} of action block #${#act}`;
+                e->what := e->what || ` (creating entity #${#item} of action block #${#act} (CREATE ${ToUppercase(act.create)}))`;
               THROW;
             }
           }
@@ -218,7 +218,7 @@ STATIC OBJECTTYPE BulkCreator
             }
             CATCH(OBJECT e)
             {
-              e->what := e->what || ` (modifying entity '${outputname})'`;
+              e->what := e->what || ` (modifying ${ToUppercase(act.modify)} '${outputname}')'`;
               THROW;
             }
           }
