@@ -71,22 +71,22 @@
 
   <tabsextension name="extension">
     <newtab>
-      <select composition="contentitem_nl" cellname="usestandardtext2" name="nl_usestandardtext" type="radio" title="" rowkeytype="boolean">
+      <select composition="theitem" cellname="usestandardtext2" name="nl_usestandardtext" type="radio" title="" rowkeytype="boolean">
         <option rowkey="true">
-          <select composition="contentitem_nl" cellname="standardtext" name="nl_standardtext" type="pulldown" rowkeytype="integer" title="" />
+          <select composition="theitem" cellname="standardtext" name="nl_standardtext" type="pulldown" rowkeytype="integer" title="" />
         </option>
         <option rowkey="false" enablecomponents="nl_shorttext nl_mediatype" />
       </select>
       <panel height="16x">
         <heading tid=".shorttext"/>
-        <textarea title="" composition="contentitem_nl" cellname="shorttext2" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
+        <textarea title="" composition="theitem" cellname="shorttext2" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
         <line>
-          <select composition="contentitem_nl" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
+          <select composition="theitem" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
             <option rowkey="video" enablecomponents="nl_mediaurl" />
             <option rowkey="image" enablecomponents="nl_mediaurl" />
             <option rowkey="website" enablecomponents="nl_mediaurl" />
           </select>
-          <textedit composition="contentitem_nl" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
+          <textedit composition="theitem" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
           <!-- <s:selectvideo composition="contentblock" cellname="videourl" name="videourl" /> -->
         </line>
       </panel>

@@ -96,13 +96,13 @@
     </body>
   </screen>
 
-  <screen name="roweditor" implementation="rowedit">
+  <screen name="roweditor">
     <compositions>
       <record name="row" />
     </compositions>
     <body>
       <checkbox composition="row" cellname="checkbox" visible="false" />
-      <textedit composition="row" cellname="text" name="text" />
+      <textedit name="virtualized_text" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />

@@ -211,7 +211,11 @@ PUBLIC OBJECTTYPE TolliumTabsExtensionBase EXTEND TolliumFragmentBase
 
   MACRO NEW()
   {
-    this->extensionoptions := __tabsextension_options;
+    //Inject the extendcomponents as hatted components so tabsextensions can access things like ^contentdata
+    FOREVERY(RECORD newref FROM __tabsextension_options.extendcomponents)
+      MemberInsert(this, "^" || newref.name, TRUE, newref.component);
+
+    this->extensionoptions := __tabsextension_options.options;
   }
 
   // ---------------------------------------------------------------------------
@@ -714,15 +718,13 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF(NOT this->tolliumscreenbuilder->HasFailed())
       this->tolliumscreenmanager->DoInitComponents(components, this->tolliumscreenbuilder);
     IF(NOT this->tolliumscreenbuilder->HasFailed())
-    {
       result.rootnode := this->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields);
-      this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
-      this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
-    }
+
+    this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
+    this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
+
     IF(this->tolliumscreenbuilder->HasFailed())
     {
-      this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
-      this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
       result.errors := result.errors CONCAT this->tolliumscreenbuilder->GetErrors();
       //ADDME: Shouldn't we have our own screenbuilder instead of reusing our loadscreen's one? Parent/child relationships?
       this->tolliumscreenbuilder->ClearErrors();

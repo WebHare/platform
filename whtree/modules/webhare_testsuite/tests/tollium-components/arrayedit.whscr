@@ -32,7 +32,7 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(1, browser->onchangecount->value, 'onmapsrows may not trigger onchange');
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->addbutton->tolliumclick());
-  TT("text")->value := "My new row";
+  TT("virtualized_text")->value := "My new row";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   TestEq(["Row 1","My new row"],SELECT AS STRING ARRAY text FROM topscreen->comp->value);
@@ -66,8 +66,8 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
 
   //Test adding with a prefilled dialog
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->RunAddRow([ text := "Superrow"], [ insertat := 1]));
-  TestEq("Superrow", TT("text")->value);
-  TT("text")->value := "Superrow!!!";
+  TestEq("Superrow", TT("virtualized_text")->value);
+  TT("virtualized_text")->value := "Superrow!!!";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   TestEq(3, Length(topscreen->comp->rows));

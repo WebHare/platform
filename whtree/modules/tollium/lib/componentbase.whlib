@@ -1880,7 +1880,7 @@ PUBLIC OBJECTTYPE TolliumComposableComponentWithLabelBase EXTEND TolliumComponen
   }
 >;
 
-
+/** Compositions combine multiple input fields into a record */
 PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
@@ -1892,6 +1892,9 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 
   // List of compositions whose value we should merge
   PUBLIC OBJECT ARRAY mergecompositions;
+
+  ///List of virtual cells (not backed by a real tollium field)
+  RECORD ARRAY __virtualcells;
 
   // ---------------------------------------------------------------------------
   //
@@ -2030,6 +2033,14 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
                                    || GetTypeName(TypeID(subcell->value)) || "'" );
       subcell->value := GetCell(contents, subcell->cellname);
     }
+
+    FOREVERY(RECORD subcell FROM this->__virtualcells)
+    {
+      IF (NOT CellExists(contents, subcell.name))
+        CONTINUE; //partial sets should not be our problem
+
+      subcell.setter(GetCell(contents, subcell.name));
+    }
   }
 
   RECORD FUNCTION GetValue()
@@ -2047,6 +2058,14 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
         THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
 
       rec := CellInsert(rec, subcell->cellname, subcell->value);
+    }
+
+    FOREVERY(RECORD subcell FROM this->__virtualcells)
+    {
+      IF (CellExists(rec, subcell.name))
+        THROW NEW TolliumException(this, `Virtual cell '${subcell.name}' also exists as a normal cell`);
+
+      rec := CellInsert(rec, subcell.name, subcell.getter());
     }
 
     RETURN rec;
@@ -2086,6 +2105,14 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   //
   // Public interface
   //
+
+  /** Create a virtual cell by defining its getter and setter callbacks. */
+  PUBLIC MACRO RegisterVirtualCell(STRING name, FUNCTION PTR getter, MACRO PTR setter)
+  {
+    IF(RecordExists(SELECT FROM this->__virtualcells WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name)))
+      THROW NEW Exception(`Virtual cell '${name}' already exists`);
+    INSERT CELL [ name, getter, setter ] INTO this->__virtualcells AT END;
+  }
 
   /** Returns whether a value is a valid value for this composition
       @param value Value to validate

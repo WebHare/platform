@@ -572,7 +572,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 
     // pass the tabsextension_api to the next created tabs extension object
     RECORD old_tabsextension_options := __tabsextension_options;
-    __tabsextension_options := options;
+    __tabsextension_options := CELL[ options, this->extendcomponents ];
     TRY
     {
       result := this->owner->LoadTolliumBodyFragment(offered_comps, offered_handlers, resourcename, extensionsname, TRUE);
