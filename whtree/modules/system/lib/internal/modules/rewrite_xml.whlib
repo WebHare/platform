@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/validation.whlib";
 CONSTANT STRING tollium_ns := "http://www.webhare.net/xmlns/tollium/screens";
 CONSTANT STRING publisher_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
 CONSTANT STRING publisher_ns := "http://www.webhare.net/xmlns/publisher/components";
+CONSTANT STRING wrd_ns := "http://www.webhare.net/xmlns/wrd/components";
 
 CONSTANT RECORD ARRAY fixelements :=
   [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
@@ -24,6 +25,9 @@ CONSTANT RECORD ARRAY fixelements :=
     ]
   , [ namespace := tollium_ns, localnames := ["list"]
     , xslistattributes := ["icons"]
+    ]
+  , [ namespace := wrd_ns, localnames := ["entitiesedit"]
+    , xslistattributes := ["icons", "requestcolumns"]
     ]
   , [ namespace := tollium_ns, localnames := ["*"]
     , removeattributes := ["margintop","marginbottom","marginleft","marginright"]
@@ -41,6 +45,7 @@ CONSTANT RECORD ARRAY fixelements :=
   , [ namespace := publisher_sp, localnames := ["foldertype"], attributesorder := ["typedef"] ]
   , [ namespace := publisher_sp, localnames := ["filetype"], attributesorder := ["typedef"] ]
   , [ namespace := publisher_sp, localnames := ["to"], attributesorder := ["type","filetype","foldertype","parenttype"] ]
+  , [ namespace := publisher_sp, localnames := ["extendproperties"], attributesorder := ["extension"] ]
 
   , [ namespace := publisher_ns, localnames := ["browseforobject"],  xslistattributes := ["accepttypes"]  ]
   ];
@@ -379,12 +384,108 @@ BOOLEAN FUNCTION ApplyWidgetRewrite(OBJECT widgetnode)
   RETURN FALSE; //no match
 }
 
+BOOLEAN FUNCTION ApplyExtendPropertiesRewrite(OBJECT extendpropertiesnode)
+{
+  STRING propertyeditor := extendpropertiesnode->GetAttribute("name");
+  IF(propertyeditor="")
+    RETURN FALSE; //it's okay!
+
+  OBJECT ARRAY fragments := extendpropertiesnode->ownerdocument->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor");
+  FOREVERY(OBJECT fragment FROM fragments)
+    IF(fragment->GetAttribute("name") = propertyeditor)
+    {
+      OBJECT tabsextension := extendpropertiesnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","tabsextension");
+      tabsextension->SetAttribute("xmlns", "http://www.webhare.net/xmlns/tollium/screens");
+      FOREVERY(RECORD attr FROM fragment->ListAttributes())
+        tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+
+      //Remove p:whfsinstance instance
+      BOOLEAN foundfsinstance;
+      FOREVERY(OBJECT whfsinstance FROM fragment->ListElements("http://www.webhare.net/xmlns/publisher/components","whfsinstance"))
+        IF(whfsinstance->GetAttribute("name") = "fsinstance")
+        {
+          extendpropertiesnode->SetAttribute("contenttype", whfsinstance->GetAttribute("typedef"));
+          whfsinstance->Dispose();
+          foundfsinstance := TRUE;
+        }
+
+      IF(NOT foundfsinstance)
+        RETURN FALSE;
+
+      OBJECT ARRAY compositions := fragment->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","compositions");
+      IF(Length(compositions) = 1)
+      {
+        IF(Length(compositions[0]->ListChildren("*","*")) > 0)
+        {
+          OBJECT newcompositions := extendpropertiesnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","compositions");
+          tabsextension->AppendChild(newcompositions);
+          WHILE(ObjectExists(compositions[0]->firstchild))
+            newcompositions->AppendChild(compositions[0]->firstchild);
+        }
+        compositions[0]->Dispose();
+      }
+
+      FOREVERY(OBJECT contentsnode FROM fragment->ListChildren("*","*"))
+      {
+        OBJECT newtabinsert := extendpropertiesnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens",contentsnode->localname);
+        tabsextension->AppendChild(newtabinsert);
+
+        FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename="implementation")
+            CONTINUE;
+
+          newtabinsert->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        //Migrate nodes
+        WHILE(Objectexists(contentsnode->firstchild))
+          newtabinsert->AppendChild(contentsnode->firstchild);
+      }
+
+      //Replace composition=contentdata with composition=fsinstance
+      FOREVERY(OBJECT node FROM tabsextension->GetElements(`*[composition="fsinstance"]`))
+        node->SetAttribute("composition", "contentdata");
+
+      //Kill redundant namespace prefixes
+      FOREVERY(OBJECT node FROM tabsextension->ListElements(`http://www.webhare.net/xmlns/tollium/screens`,"*"))
+        IF(node->prefix != "")
+        {
+          OBJECT betternode := extendpropertiesnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens", node->localname);
+          FOREVERY(RECORD attr FROM node->ListAttributes())
+          {
+            IF(attr.localname="xmlns")
+              CONTINUE;
+            betternode->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+          }
+          WHILE(Objectexists(node->firstchild))
+            betternode->AppendChild(node->firstchild);
+
+          node->parentnode->replacechild(betternode, node);
+        }
+
+      fragment->parentnode->replacechild(tabsextension, fragment);
+
+      extendpropertiesnode->SetAttribute("extension", "#"||propertyeditor);
+      extendpropertiesnode->RemoveAttribute("name");
+      RETURN TRUE;
+    }
+
+  RETURN FALSE; //no match
+}
+
 BOOLEAN FUNCTION ApplyRewrites(OBJECT xmldoc)
 {
   BOOLEAN anyrewrite;
 
   FOREVERY(OBJECT widgetnode FROM xmldoc->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","widgettype"))
     IF(ApplyWidgetRewrite(widgetnode))
+      anyrewrite := TRUE;
+
+  FOREVERY(OBJECT extendpropertiesnode FROM xmldoc->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","extendproperties"))
+    IF(ApplyExtendPropertiesRewrite(extendpropertiesnode))
       anyrewrite := TRUE;
 
   RETURN anyrewrite;

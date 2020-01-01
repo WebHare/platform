@@ -84,6 +84,7 @@ RunTestFramework([ PTR TestRewriter
                  , PTR TestScreenRewriteAPI
                  , PTR TestRewriteXMLFile("rewritescreen.basics")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.basics")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.propertyeditor")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.editfragment", [ ignorewarninglines := [39] ])
                  , PTR TestRewriteXMLFile("rewritescreen.wrddemo")
                  ]);
