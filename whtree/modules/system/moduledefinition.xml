@@ -2197,6 +2197,9 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="geonames">
           <string name="accountname" description="Account name for GeoNames Web Services" />
         </node>
+        <node name="geoip2">
+          <string name="licensekey" description="License key for GeoIP2 downloads" />
+        </node>
       </node>
       <node name="cache">
         <datetime name="moddatecutoff" description="After this date, we use the image hash instead of modification date in URLs" initialval="now" />

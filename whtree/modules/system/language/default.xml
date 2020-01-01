@@ -1956,12 +1956,14 @@
         <text tid="elasticsecret">Elasticsearch key</text>
         <text tid="errorlog">Keep error log</text>
         <text tid="fullaccessips">IPs skipping login checks</text>
+        <text tid="geiop2">GeoLite2</text>
         <text tid="geonames">GeoNames</text>
         <text tid="geonamesinfo">The GeoNames webservice is used to determine the time zone based on the user's location or by searching for a location. This requires a (free) GeoNames account.</text>
         <text tid="harescript">HareScript</text>
         <text tid="identity">Identity</text>
         <text tid="infotext">Information</text>
         <text tid="infotitle">Login info title</text>
+        <text tid="licensekey">License key</text>
         <text tid="logfiles">Logfiles</text>
         <text tid="login">Login</text>
         <text tid="logindialog">Login screen</text>
@@ -1969,6 +1971,7 @@
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
         <text tid="processhistory">Keep process history</text>
         <text tid="pxllog">Keep pxl log</text>
+        <text tid="registergeoip2">Click here to register for a GeoLite2 account</text>
         <text tid="registergeonames">Click here to register for a GeoNames account</text>
         <text tid="scripttimeout">Script time out</text>
         <text tid="security">Security</text>

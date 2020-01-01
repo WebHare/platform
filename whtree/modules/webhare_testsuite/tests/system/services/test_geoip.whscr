@@ -1,5 +1,10 @@
 <?wh
+
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::publisher/lib/analytics.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/tasks/geoipdownload.whlib";
 
@@ -7,8 +12,7 @@ PUBLIC RECORD FUNCTION GetGeoIPCapabilities() __ATTRIBUTES__(EXTERNAL "system_ge
 
 MACRO TestGEOIP()
 {
-  //dumpvalue(GetGeoIPCapabilities());
-  RECORD result := UpdateGEOIPDatabases();
+  RECORD result := UpdateGEOIPDatabases(GetEnvironmentVariable("TESTSECRET_GEOIP2_LICENSEKEY") ?? ReadRegistryKey("system.services.geoip2.licensekey"));
   DumpValue(result,'tree');
   IF(NOT result.success)
   {

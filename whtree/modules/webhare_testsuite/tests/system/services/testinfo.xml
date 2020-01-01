@@ -6,7 +6,7 @@
   <test script="test_createsend.whscr" tags="external" ifenvironset="TESTSECRET_CREATESEND_APIKEY" />
   <test script="test_mailchimp.whscr" tags="external" ifenvironset="TESTSECRET_MAILCHIMP_APIKEY" />
   <test script="test_taxservices.whscr" tags="external" />
-  <test script="test_geoip.whscr" tags="external" />
+  <test script="test_geoip.whscr" tags="external" ifenvironset="TESTSECRET_GEOIP2_LICENSEKEY" />
   <test script="test_printer.whscr" />
   <test script="test_analytics.whscr" />
   <test script="uploadreceiver.whscr" />
