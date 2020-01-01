@@ -318,11 +318,20 @@ MACRO TestBasicValidate()
 
   res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
                                                                 , onlytids := TRUE
+                                                                , syntaxlevel := ""
                                                                 ]);
+
   TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
   TestEq([[ attrname := "tid",    col := 0, line := 4, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode-filesandfolders" ]
          ], res.tids);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
+                                                                , onlytids := TRUE
+                                                                , syntaxlevel := "2020"
+                                                                ]);
+  TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.errors);
+
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := optiontidssynthesis
                                                                 , onlytids := TRUE

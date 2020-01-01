@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/validation/config.whlib";
 
 // command: validate <path>
 // short: Validate XML files
@@ -18,6 +19,8 @@ RECORD cmdargs := ParseArguments(GetConsoleArguments(),
 IF(NOT RecordExists(cmdargs) OR Length(cmdargs.files) = 0)
   TerminateScriptWithError("Syntax: wh validate [--tids] [--doc] <files...>");
 
+RECORD validateconfig;
+
 FOREVERY(STRING arg FROM cmdargs.files)
 {
   IF(NOT IsPathAbsolute(arg) AND arg NOT LIKE "*::*")
@@ -27,7 +30,7 @@ FOREVERY(STRING arg FROM cmdargs.files)
   IF(resname="")
     TerminateScriptWithError(`Cannot map path '${arg}' to a WebHare resource`);
 
-  RECORD result := ValidateSingleFile(resname, [ documentation := cmdargs.doc ]);
+  RECORD result := ValidateSingleFile(resname, CELL[ ...GetValidationOptions(resname), documentation := cmdargs.doc ]);
   PrintValidationMessages(result);
 
   IF(cmdargs.tids)

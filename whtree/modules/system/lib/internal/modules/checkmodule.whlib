@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
+LOADLIB "mod::system/lib/internal/validation/config.whlib";
 
 
 OBJECTTYPE CheckerObject
@@ -130,9 +131,7 @@ OBJECTTYPE CheckerObject
         Print(`${toscan}\n`);
 
       RECORD result := ValidateSingleFile(toscan, [ onlytids := this->options.onlytids
-                                                  , perfectcompile := this->validateconfig.perfectcompile
-                                                  , nomissingtids := this->validateconfig.nomissingtids
-                                                  , nowarnings := this->validateconfig.nowarnings
+                                                  , ...GetValidationOptionsFromConfig(this->validateconfig)
                                                   , documentation := this->options.documentation
                                                   ]);
 

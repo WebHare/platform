@@ -19,6 +19,9 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
     {
       IF(topnode->localname="messageboxes")
       {
+        IF(this->syntaxlevel_2020)
+          this->AddError(topnode, "<messageboxes> are deprecated, use RunSimpleScreen");
+
         FOREVERY(OBJECT messagebox FROM topnode->childnodes->GetCurrentElements())
           GetMessageBoxFromNode(messagebox, this->modulename);
       }

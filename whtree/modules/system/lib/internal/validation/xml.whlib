@@ -289,6 +289,7 @@ PUBLIC RECORD FUNCTION RunXMLValidatorOnDOM(OBJECT doc, STRING resourcename, REC
   }
 
   validator->onlytids := options.onlytids;
+  validator->syntaxlevel_2020 := options.syntaxlevel = "2020";
 
   RECORD ARRAY tids := RunAndExtractTids(resourcename, PTR validator->ValidateDocument());
   tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;
