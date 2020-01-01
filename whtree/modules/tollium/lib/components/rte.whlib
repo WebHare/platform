@@ -8,6 +8,7 @@ LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
@@ -222,8 +223,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
     this->editable := NEW RichDocumentEditor(this->owner->tolliumcontroller->baseurl);
     this->__margins := "compact";
-    //this->editable->ondirty := PTR this->OnEditableDirty;
-    //this->cleaner := NEW RTDCleaner;
+
     this->pvt_blockelement := TRUE;
     this->componenttype := "rte";
     this->formfieldtype := "string";
@@ -511,16 +511,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     this->ExtUpdatedRequired();
   }
 
-  /** Get the current value as a rich document /
-  PUBLIC OBJECT FUNCTION GetRichDocumentValue()
-  {
-    OBJECT myrichdoc := NEW RichDocument;
-    RECORD value := this->value;
-    IF(RecordExists(value))
-      myrichdoc->ImportFromRecord(value);
-    RETURN myrichdoc;
-  }
-*/
   PUBLIC RECORD FUNCTION GetWHRTEStructure()
   {
     RECORD structure := this->editable->GetWHRTEStructure();
@@ -540,7 +530,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   MACRO SetRTDTypeInfo(RECORD newrtdtypeinfo)
   {
     this->editable->rtdtype := newrtdtypeinfo;
-    //this->cleaner->rtdtypeinfo := newrtdtypeinfo;
   }
 
   MACRO SetValue(RECORD contents)
@@ -558,7 +547,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   MACRO SetType(STRING type)
   {
     this->editable->basetype := type;
-    //this->cleaner->type := type;
 
     this->ExtUpdatedType();
   }
@@ -717,7 +705,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     }
     IF(type="dirty")
     {
-      //LogDebug("tollium", "message dirty", this->pvt_valueid, msgdata.valueid);
       IF(debugrtddirty)
         DumpValue( [ localgeneration := this->valuegeneration, localdirtycount := this->valuedirtycount
                    , remotegeneration := msgdata.valuegeneration, remotedirtycount := msgdata.valuedirtycount
@@ -935,8 +922,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   {
     this->QueueOutboundMessage("InsertEmbeddedObject", this->editable->CreateWidget(instancerec));
     this->SetDirty();
-//      IF (this->ondirty != DEFAULT FUNCTION PTR)
-  //      this->ondirty();
   }
 
   RECORD FUNCTION HandleEmbeddedObjectProperties(RECORD data)
@@ -1009,6 +994,12 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
     IF(ObjectExists(applytester))
       this->editable->applytester := applytester;
       //this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    IF(GetDtapStage() = "development")
+      THROW NEW TolliumException(this, "The <rte> component should be replaced by either <richdocument> or <richarea>");
   }
 >;
 

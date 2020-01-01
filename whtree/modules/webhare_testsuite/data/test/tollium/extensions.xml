@@ -10,14 +10,7 @@
             <t:arrayedit name="arrayedit" roweditscreen=".extendededitor" >
               <t:column name="text" type="text" />
             </t:arrayedit>
-            <t:rte name="rte"
-                 type="richdocument"
-                 height="1pr"
-                 minheight="300px">
-              <t:linkhandlers>
-                <test:customlinkhandler />
-              </t:linkhandlers>
-            </t:rte>
+            <t:richdocument name="rte" height="1pr" minheight="300px" />
           </t:newtab>
           <t:newtab title="Extra tab" name="extratab">
             <t:arrayedit name="" roweditscreen=".extendededitor" > <!-- Do NOT 'name' this arrayedit. this is specifically about testing that unnamed arrayedit (anonymous, not injected into scope) do not prevent their submembers ('list') from being injected into scope -->

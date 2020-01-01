@@ -555,6 +555,11 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   PUBLIC STRING FUNCTION ShowMessageBox(STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() = "development")
+    {
+      DumpValue(GetStacktrace(),'boxed');
+      this->RunSimpleScreen("warning", `ShowMessageBox has been deprecated - switch to RunSimpleScreen`);
+    }
     RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := options ])->RunModal();
   }
 

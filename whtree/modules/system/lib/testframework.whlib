@@ -508,7 +508,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     this->useseparateoutputport := options.requireport != 0;
 
     this->usedatabase := options.usedatabase;
-    IF(this->usedatabase AND IsDTAPLive())
+    IF(this->usedatabase AND GetDtapStage() != "development")
       ABORT(`The testframework may ONLY run in development environments. Current stage: ${GetDTAPStage()} (use eg: 'wh cli setsystemtype development')`);
 
     this->publisheroutputbase := (this->relativeoutputfolders ? "" : GetWebHareConfiguration().basedataroot || 'output/') || 'beta_testsite_publisher_output/';
