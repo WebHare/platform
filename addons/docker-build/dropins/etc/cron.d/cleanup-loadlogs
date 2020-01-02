@@ -1,0 +1,2 @@
+# clear old load report dirs after 7 days
+0 4 * * * root  find /opt/whdata/loadreports -mindepth 1 -type d -mmin +10080 -exec rm -rf {} \;
