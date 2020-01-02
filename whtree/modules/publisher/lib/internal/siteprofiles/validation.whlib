@@ -11,7 +11,7 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
     IF(this->respath LIKE "mod*")
     {
       FOREVERY(OBJECT node FROM this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","services")->GetCurrentElements())
-      this->AddError(node, "Module siteprofiles should not contain service definitions - move your services to the module");
+        this->AddError(node, "Module siteprofiles should not contain service definitions - move your services to the module");
     }
 
     RECORD parseres := ParseSiteProfile(this->respath, "", [ xmldoc := this->xml ]); //ADDME forwards XSD?
