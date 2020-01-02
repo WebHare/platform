@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta configscreen="sysmgmt.homepage">
+    <version>1.0.0</version>
+    <description>De Digitale site</description>
+
+    <packaging download="true" requireversion="42401">
+      <dependency module="socialite"/>
+      <dependency module="newsletter" requireversion="^4.0.1" />
+      <dependency module="webpack"/>
+      <unixpermissions path="data/stunnel/stunnel.sh" permissions="0755" />
+      <excludepath mask="*localtests*" />
+    </packaging>
+  </meta>
+
+  <portal>
+    <applicationgroup name="siteapps" tid="testtids.gid1.gid2.title" orderbefore="system:cms"/>
+    <application name="woonvinder" group="siteapps" tid="testtids.gid1.gid2.title" screen="woonvinder.main">
+      <accesscheck>
+        <requireright right="wpkooprights"/>
+      </accesscheck>
+    </application>
+    <application name="usermgmt" group="siteapps" tid="testtids.gid1.gid2.subtitle" screen="usermgmt.main">
+      <accesscheck>
+        <requireright right="system:sysop"/>
+      </accesscheck>
+    </application>
+  </portal>
+
+  <publisher>
+    <webdesign name="dwp2017" siteprofile="rewritesiteprofile.basics.out.xml" title="De site: Corporate site">
+      <assetpack entrypoint="webdesigns/dwp2017/src/index.es" supportedlanguages="nl"/>
+    </webdesign>
+    <webdesign name="wpkoop" siteprofile="rewritesiteprofile.editfragment.out.xml" title="De site: Koopwoningen">
+    </webdesign>
+    <webfeature name="dwplogin" title="DWP ActiveDirectory login" siteprofile="rewritesiteprofile.propertyeditor.out.xml" webdesignmasks="tollium:webinterface" />
+    <formcomponents namespace="http://www.desite.net/xmlns/forms" xmlschema="data/formdef.xsd"/>
+  </publisher>
+
+  <servicemanager>
+    <task tag="import_ogekenmerken" script="tasks/dummy.whscr" runtime="05:15" runinterval="30" timeout="120" description="Importeer OGE-kenmerken" minservertype="test"/>
+    <task tag="import_woningen" script="scripts/tasks/dummy.whscr" runtime="06:40" runinterval="12" timeout="120" description="Importeer huurwoningen naar de website" />
+    <task tag="maintenance_task" script="scripts/tasks/dummy.whscr" runtime="05:15" runinterval="1440" />
+    <task tag="maintenance_task2" script="scripts/tasks/dummy.whscr" runtime="13:20" runinterval="480" />
+
+    <!-- note: runatstartup tasks also run at module push, which is ideal for us -->
+    <runatstartup script="tasks/dummy.whscr" />
+
+    <managedtask type="pdfmailflow" library="formcomponents/pdfmailflow.whlib" objectname="PDFMailFlowTask"/>
+    <managedtask type="dms_acceptatie" library="lib/tasks/woningacceptatie.whlib" objectname="DMSAcceptatieTask"/>
+  </servicemanager>
+
+  <services>
+    <apprunnerconfig library="internal/support.whlib" configfunction="getapprunnerconfig" />
+    <webservice name="woonvinder" transports="jsonrpc whremoting" library="internal/rpc.whlib" primarytrans="auto" prefix="rpc_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <webservice name="klantportaal" transports="jsonrpc whremoting" library="internal/klantportaal.whlib" primarytrans="auto" prefix="rpc_">
+      <accesscheck>
+      </accesscheck>
+    </webservice>
+
+    <webservice name="rpc" transports="jsonrpc" library="mod::site_digitaal/webdesigns/dwp2017/lib/rpc.whlib" primarytrans="auto" prefix="rpc_">
+      <accesscheck/>
+    </webservice>
+
+    <localservice name="woningapi" library="woningapi.whlib" objectname="siteWoningAPI" reuse="true"/>
+    <localservice name="siteapi" library="siteapi.whlib" objectname="siteAccountAPI" reuse="true"/>
+
+    <check library="internal/checks.whlib" objectname="siteLoginCheck" />
+  </services>
+
+  <rights>
+    <rightsgroup name="rightsgroup" tid="testtids.gid1.gid2.title"/>
+
+    <right name="wpkooprights" tid="testtids.gid1.gid2.subtitle" rightsgroup="rightsgroup">
+      <impliedby right="system:sysop"/>
+    </right>
+  </rights>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="ogekenmerkwaarden" primarykey="id">
+      <d:integer name="id" autonumberstart="1"><d:documentation>  Unique identification </d:documentation>
+      </d:integer>
+      <d:varchar name="ogenummer" maxlength="64" nullable="false" unique="true" />
+      <!-- LOREM IPSUM! -->
+      <d:money name="oppervlakte_woonkamer_1" />
+      <d:index name="ogenummerindex" columns="ogenummer(32)" unique="true" uppercase="true" />
+    </d:table>
+  </databaseschema>
+
+  <moduleregistry>
+    <obsoletenode name="development" />
+    <node name="externals">
+      <obsoletekey name="test"/>
+      <obsoletekey name="server"/>
+      <string name="username" initialval="someaccount" />
+      <string name="password"/>
+    </node>
+    <obsoletenode name="emails_tuinonderhoud" />
+    <obsoletenode name="emails_nieuweprojecten" />
+  </moduleregistry>
+
+  <backend>
+    <webrule path="allroots:/.site_digitaal/" match="initial" handlebydir="web/public/" />
+  </backend>
+
+  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <schema name="site_digitaal:website" originalname="site website" autocreate="true" definitionfile="data/site.wrdschema.xml"/>
+  </wrdschemas>
+
+  <newsletter xmlns="http://www.webhare.net/xmlns/newsletter/module">
+    <account tag="dwp_othermails" title="site overige mails" autocreate="true" wrdschema="newsletter:site">
+      <mailtype tag="defaultmail" title="site" language="nl" generator="mod::site_digitaal/newsletters/standaardmail/standaardmail.whlib#GenerateMailing" profile="mod::site_digitaal/newsletters/standaardmail/standaardmail.prl" />
+    </account>
+    <account tag="servicemails" title="site servicemails" autocreate="true" wrdschema="site_digitaal:website">
+      <mailtype tag="defaultmail" title="Standaardmailing" language="nl" />
+    </account>
+  </newsletter>
+</module>

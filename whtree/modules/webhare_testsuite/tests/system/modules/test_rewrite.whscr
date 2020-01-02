@@ -50,13 +50,13 @@ MACRO TestRewriteXMLFile(STRING basefilename, RECORD options DEFAULTSTO DEFAULT 
   STRING rewriteagain := RewriteXMLFile(rewritepath, StringToBlob(result));
   IF(rewriteagain != result)
   {
+    Print("First rewrite:\n");
+    Print(result||"\n\n");
+    Print("Second rewrite:\n");
+    Print(rewriteagain||"\n\n");
+    Print(SimpleTextDiff(result, rewriteagain));
     ABORT("Re-rewrite altered the result (we're not stable!)");
   }
-}
-
-MACRO TestScreenRewriteAPI()
-{
-  TestThrows(PTR RewriteXMLFile("mod::system/screens/screen.xml", GetWebHareResource(Resolve("data/brokenscreen.xml"))));
 }
 
 MACRO TestRewriter()
@@ -81,7 +81,7 @@ MACRO TestRewriter()
 }
 
 RunTestFramework([ PTR TestRewriter
-                 , PTR TestScreenRewriteAPI
+                 , PTR TestRewriteXMLFile("rewritemoduledef.basics")
                  , PTR TestRewriteXMLFile("rewritescreen.basics")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.basics")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.propertyeditor")
