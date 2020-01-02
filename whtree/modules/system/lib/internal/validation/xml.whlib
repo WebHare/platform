@@ -163,7 +163,7 @@ MACRO CheckModuleWebservices(OBJECT validatingdoc)
     FOREVERY(OBJECT webservice FROM servicenode->ListElements("http://www.webhare.net/xmlns/system/moduledefinition", "webservice"))
     {
       IF(webservice->GetAttribute("prefix") = "")
-        validatingdoc->AddWarning(webservice, `A webservice should define a prefix= to prevent accidental exports (eg prefix="RPC_")`);
+        validatingdoc->AddWarning(webservice, `A webservice should define a prefix= to prevent accidental exports (eg prefix="RPC_")`, [ failatsyntaxlevel := "2020"]);
     }
 
 }

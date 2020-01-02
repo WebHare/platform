@@ -53,12 +53,21 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     this->hints := this->hints CONCAT hints;
   }
   //Add a warning. Depending on validation settings for a module these may turn into errors
-  PUBLIC MACRO AddWarning(OBJECT node, STRING error)
+  PUBLIC MACRO AddWarning(OBJECT node, STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, error);
+    this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, error, options);
   }
-  PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING error)
+  PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ failatsyntaxlevel := "" ], options);
+    IF( (options.failatsyntaxlevel = "2020" AND this->syntaxlevel_2020)
+        OR
+        (options.failatsyntaxlevel = "next" AND this->syntaxlevel_next))
+    {
+      this->AddErrorForLine(linenum, error);
+      RETURN;
+    }
+
     INSERT [ resourcename :=  this->respath
            , line :=      linenum
            , col :=       0

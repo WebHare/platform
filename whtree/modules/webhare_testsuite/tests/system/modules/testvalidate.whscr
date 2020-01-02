@@ -387,12 +387,15 @@ MACRO TestValidateNext()
     <meta />
     <appcontexts />
     <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" />
+    <services><webservice name="accountapi" library="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib" transports="jsonrpc"><accesscheck /></webservice></services>
   </module>`);
 
   RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next, syntaxlevel := "next" ]);
+  //DumpValue(res.errors);
   TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
          ,[ line := 5, message := "<wrdschema xmlns=\"http://www.webhare.net/xmlns/wrd/schemadefinition\"> have been deprecated, drop the xmlns" ]
-         ], SELECT line, message FROM res.errors);
+         ,[ line := 6, message := 'A webservice should define a prefix= to prevent accidental exports (eg prefix=\"RPC_\")' ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 }
 
 MACRO TestTidScan()
