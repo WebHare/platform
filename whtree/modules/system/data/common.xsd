@@ -336,7 +336,7 @@
     </xs:attribute>
     <xs:attribute name="requireversion" type="xs:string">
       <xs:annotation>
-        <xs:documentation>Minimum version number. Semantic version expected, but an integer (Eg 41002) will be interpreted as >= 4.10.2 (matching 4.10.02 and up)</xs:documentation>
+        <xs:documentation>Minimum version number. Semantic version expected, but an integer (e.g. 41002) will be interpreted as >= 4.10.2 (matching 4.10.02 and up)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="beforeversion" type="xs:integer">
