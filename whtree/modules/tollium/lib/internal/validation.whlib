@@ -23,7 +23,25 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
           this->AddError(topnode, "<messageboxes> are deprecated, use RunSimpleScreen");
 
         FOREVERY(OBJECT messagebox FROM topnode->childnodes->GetCurrentElements())
-          GetMessageBoxFromNode(messagebox, this->modulename);
+        {
+          RECORD node := GetMessageBoxFromNode(messagebox, this->modulename);
+          STRING replacement;
+          STRING suggesttype;
+
+          IF(length(node.buttons) = 0)
+          {
+            STRING buttons := Detokenize( (node.defaultbuttons)," ");
+            IF(buttons = "yes no")
+              suggesttype := node.icon = "warning" ? "verify" : "confirm";
+            ELSE IF(buttons IN ["ok cancel","ok",""])
+              suggesttype := node.icon = "error" ? "error" : node.icon="warning" ? "warning" : "info";
+          }
+
+          IF(suggesttype != "")
+            this->AddHint(messagebox, `Consider replacing ->RunMessageBox(".${messagebox->GetAttribute("name")}") with ->RunSimpleScreen("${suggesttype}", GetTid("${node.msgdef}"))`);
+          ELSE
+            this->AddHint(messagebox, `Consider replacing ->RunMessageBox(".${messagebox->GetAttribute("name")}") with ->RunSimpleScreen(..., GetTid("${node.msgdef}"), ...?)`);
+        }
       }
       ELSE IF(topnode->localname IN ["screen","fragment","propertyeditor","tabsextension"]) //FIXME validate namespaces. note that propertyeditor is a hack and is from a different namespace!
       {
