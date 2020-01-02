@@ -379,7 +379,7 @@ html.debug-grid t-panel:before
   bottom:0;
   left:0;
   right:0;
-  background: #ffffff url("../img/grid.png") top left;
+  background: repeating-linear-gradient(#ffffff, #ffffff 27px, #00ff00 28px) top left;
 }
 /* SYNC-SPACERS-DEBUG: these values must sync up with $todd.settings.spacer_top */
 html.debug-grid t-panel.spacer-top:before
@@ -483,7 +483,7 @@ html.debug-grid t-inlineblock:before
   bottom:0;
   left:0;
   right:0;
-  background: #ffffff url("../img/grid.png") top left;
+  background: repeating-linear-gradient(#ffffff, #ffffff 27px, #00ff00 28px) top left;
 }
 
 t-inlineblock > .panel-area > div.line

@@ -2,16 +2,27 @@
 LOADLIB "wh::witty.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
 <
   RECORD harescriptinfo;
+  STRING interfaceurl;
 
   MACRO NEW(RECORD harescriptinfo)
   {
     this->harescriptinfo := harescriptinfo;
+    this->interfaceurl := GetPrimaryWebhareInterfaceURL();
+  }
+
+  RECORD FUNCTION GetResourceRef(RECORD resourceref)
+  {
+    RETURN CELL[ link := this->interfaceurl || "?app=system:openineditor(" || EncodeURL(EncryptForThisServer("system:openineditor", CELL[ resourceref.filename, resourceref.line, resourceref.col ])) || ")"
+               ];
   }
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
@@ -21,13 +32,18 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
           FROM this->harescriptinfo.allerrors
          WHERE filename LIKE "mod::*";
 
+    webdesign->pagetitle := "HareScript error";
+    webdesign->pageconfig.favicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/harescripterror.png");
     webdesign->__additionalresources := webdesign->__additionalresources CONCAT resources;
   }
 
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
   {
+    FUNCTION PTR getresourceinfo;
+    IF(GetDtapStage() = "development")
+      getresourceinfo := PTR this->GetResourceRef;
     RECORD wittydata := CELL[ ...this->harescriptinfo
-                            , errors := PTR PrintHSErrors(this->harescriptinfo.allerrors)
+                            , errors := PTR PrintHSErrors(this->harescriptinfo.allerrors, getresourceinfo)
                             ];
     LoadWittylibrary(Resolve("mod::publisher/lib/internal/builtinpages/harescripterror.witty"),"HTML-NI")->Run(wittydata);
   }

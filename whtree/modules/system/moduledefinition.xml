@@ -65,6 +65,12 @@
       <accesscheck />
     </application>
 
+    <application name="openineditor" startmacro="tolliumapps/devtools/openineditor.whlib#runopenineditor">
+      <accesscheck>
+        <requireright right="system:supervisor" /> <!-- noone with lower levels should have even been able to see the error page -->
+      </accesscheck>
+    </application>
+
     <application name="resetpassword" screen="tolliumapps/login/forgotpassword.xml#resetpassword">
       <accesscheck />
     </application>

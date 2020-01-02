@@ -8,7 +8,25 @@ STRING FUNCTION FixWhitespaceCollapse(STRING indata) //convert sequences of spac
   RETURN Substitute(indata,'  ',' \u00a0');
 }
 
-PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors)
+MACRO PrintResourceRef(RECORD resref, FUNCTION PTR getresourceref)
+{
+  RECORD refinfo;
+  IF(getresourceref != DEFAULT FUNCTION PTR)
+    refinfo := getresourceref(resref);
+
+  IF(RecordExists(refinfo))
+    Print(`<a href="${EncodeValue(refinfo.link)}" target="_blank"`);
+  ELSE
+    Print('<span');
+
+  Print(` class="wh-hserror__resourceref"`);
+  IF(RecordExists(refinfo))
+    Print(` data-resourceref="${EncodeValue(EncodeJSON(CELL[...refinfo, DELETE link]))}"`);
+
+  Print(`>${EncodeHTML(resref.filename)} ${resref.line},${resref.col}</${RecordExists(refinfo)?"a":"span"}>`);
+}
+
+PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors, FUNCTION PTR getresourceref)
 {
   //Strip redirect from the stacktrace, it only confuses
   IF(Length(allerrors)>2 AND allerrors[END-2].filename = "mod::system/lib/internal/webserver/systemredirect.whlib")
@@ -62,10 +80,9 @@ PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors)
       Print('\n<li><span style="white-space: pre;font-family: monospace">');
     ELSE
       Print('\n<li><span>');
-    Print(EncodeHTML(error.filename));
 
-    Print(' ' || error.line || ',' || error.col || ': ');
-    Print(EncodeHTML(FixWhitespaceCollapse(error.message)));
+    PrintResourceRef(error, getresourceref);
+    Print(': ' || EncodeHTML(FixWhitespaceCollapse(error.message)));
     Print('</span></li>');
   }
   Print('</ul>');
@@ -80,9 +97,7 @@ PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors)
       Print('\n<li>');
       IF(trace.bold)
         Print("<b>");
-      Print(EncodeHTML(trace.filename));
-
-      Print(' ' || trace.line || ',' || trace.col);
+      PrintResourceRef(trace, getresourceref);
       IF (trace.func!="")
         Print(' (' || EncodeHTML(trace.func) || ')');
       IF(trace.bold)

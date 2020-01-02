@@ -1,15 +1,12 @@
 [component main]
   <script>
-    // Check for old IE versions (<= 10)
-    if (document.all)
-      document.write('<p class="tollium-unsupported"><img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />Internet Exporer versions older than 11 are not supported.</p>');
-    // Check for other old browsers (not supporting the <progress> element)
-    else if (!("max" in document.createElement("progress")))
-      document.write('<p class="tollium-unsupported"><img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />Chrome versions older than 8, Firefox versions older than 6 and Safari versions older than 6 are not supported.</p>');
+    // Check for old IE versions (<= 10), check for other old browsers (not supporting the <progress> element)
+    if (document.all || !("max" in document.createElement("progress")))
+      document.write('<p class="tollium-unsupported"><b>Unsupported browser</b><br /><br />Please update your browser.</p>');
   </script>
   <noscript>
     <p class="tollium-unsupported">
-      <img src="/.tollium/ui/img/warning.png" width="24" height="24" style="float: left;" />&nbsp;<b>Unsupported browser</b><br /><br />
+      <b>Unsupported browser</b><br /><br />
       Your browser is not supported. You may need to enable JavaScript if you have manually disabled it.<br/><br/>
     </p>
   </noscript>
