@@ -737,7 +737,7 @@
                  objectname="WRDSchemaDefinitionFile" />
   </validation>
 
-  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
-    <schema tag="testschema" title="WebHare testsuite test schema" autocreate="true" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" maxservertype="development"/>
+  <wrdschemas>
+    <schema tag="testschema" title="WebHare testsuite test schema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" maxservertype="development"/>
   </wrdschemas>
 </module>

@@ -211,6 +211,7 @@
       </xs:element>
       <xs:element name="tollium" type="Tollium" />
       <xs:element name="backend" type="Backend" />
+      <xs:element name="wrdschemas" type="WRDSchemas" />
       <xs:element name="hooking" type="Hooking" />
       <xs:element name="databaseschema" type="dbschema:DatabaseSchema" maxOccurs="unbounded" />
       <xs:element name="publisher" type="Publisher" />
@@ -2536,6 +2537,41 @@
       </xs:element>
     </xs:sequence>
     <xs:attribute name="gid" type="SimpleGid" use="optional" />
+  </xs:complexType>
+
+  <!-- ****************************************************
+
+       wrdschemas
+
+  ***************************************************** -->
+  <xs:complexType name="WRDSchemas">
+    <xs:sequence minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="schema">
+        <xs:complexType>
+          <xs:attribute name="tag" use="required">
+            <xs:annotation>
+              <xs:documentation>Schema tag, will be combined with the module name to build the wrd schema name</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="title">
+            <xs:annotation>
+              <xs:documentation>Optional human-readable schema title</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="autocreate" type="xs:boolean" default="true">
+            <xs:annotation>
+              <xs:documentation>Automatically create this schema. Defauls to true</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="definitionfile">
+            <xs:annotation>
+              <xs:documentation>Definition file describing the schema (a wrdschema.xml file)</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
   </xs:complexType>
 
   <!-- ****************************************************

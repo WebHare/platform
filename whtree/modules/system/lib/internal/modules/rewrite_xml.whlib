@@ -9,6 +9,8 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 CONSTANT STRING tollium_ns := "http://www.webhare.net/xmlns/tollium/screens";
 CONSTANT STRING publisher_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
@@ -62,6 +64,7 @@ CONSTANT RECORD ARRAY fixelements :=
 
   , [ namespace := dbschema_ns, localnames := ["documentation"],  subelementspacing := "none" ]
 
+  , [ namespace := moduledef_ns, localnames := ["schema"], wraplineat := 300  ] //TODO rewrite wrdschemas node to lose its namespace once all are 4.28+, current syntax suggests we might embed the whole schemadefinition (same xmlns)
   , [ namespace := wrdschemadef_ns, localnames := ["schema"], wraplineat := 300  ]
   ];
 
