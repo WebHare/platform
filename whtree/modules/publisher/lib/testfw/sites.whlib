@@ -4,7 +4,7 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/support.whlib";
 
 /** @short Setup a website for continuous integration tests
     @param webdesigntemplate Name of the webdesign to use, eg "mysite:mydesign"

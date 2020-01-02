@@ -32,7 +32,7 @@ LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/support.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";

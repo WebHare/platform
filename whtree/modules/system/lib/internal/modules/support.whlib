@@ -140,7 +140,7 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
       THROW NEW Exception(`git init failed, exit code ${gitresult.exitcode}: ${Left(gitresult.output,120)}`);
   }
 
-  InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/devtools/templates/module/", destpath, data);
+  InstantiateTemplateFolder(GetModuleInstallationRoot("system") || "data/modules/templates/module/", destpath, data);
   RunModuleHookTarget("system:devtools_modulecreation", [ module := modulename
                                                         , destpath := destpath
                                                         ]);

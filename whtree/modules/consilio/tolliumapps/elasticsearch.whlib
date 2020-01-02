@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
-LOADLIB "mod::system/lib/internal/devtools/json.whlib";
+LOADLIB "mod::system/lib/internal/modules/json.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";

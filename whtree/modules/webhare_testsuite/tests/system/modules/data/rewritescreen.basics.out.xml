@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- basic test -->
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.mapdemo">
+
+  <screen name="demo" width="1x" height="2x" minwidth="3x" minheight="4x" implementation="none" tid="~title">
+    <!-- first subgroup. no line above! -->
+    <actions>
+      <action name="testaction" title="" />
+    </actions>
+
+    <!-- second subgroup. ONE line above -->
+    <menus>
+      <menu name="mymenu" />
+    </menus>
+
+    <!--
+      multi
+ line
+            comment
+    -->
+    <compositions>
+      <record name="rec" />
+    </compositions>
+
+<!--
+      multi line comment straight left aligned
+-->
+    <toolbar>
+      <button action="testaction" />  <!-- test comment with node on next line -->
+      <button action="testaction" />
+    </toolbar>
+
+    <body>
+      <panel />  <!-- my panel -->
+    </body>
+
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+  <screen name="secondscreen" implementation="none" title="Second &lt;'screen'>">
+    <body>
+      <!-- first part of my screen. no line above! -->
+      <text title="mixed quotes: &quot; '" />
+      <panel />
+
+      <!-- second part of my screen. ONE line above -->
+      <list name="list1" icons="tollium:actions/publish tollium:actions/accept" />
+      <list name="list2"
+            icons="tollium:actions/publish
+                   tollium:actions/accept
+                   tollium:actions/publish
+                   tollium:actions/accept
+                   tollium:actions/publish
+                   tollium:actions/accept
+                   tollium:actions/publish
+                   tollium:actions/accept" />
+    </body>
+  </screen>
+
+  <screen name="keeptoolbar" implementation="none" title='"Title"'>
+    <toolbar>
+      <!-- comment prevents deletion -->
+    </toolbar>
+
+    <body>
+      <text tid="~cancel" />  <!-- accidental
+      multiline comment -->
+      <panel />
+    </body>
+  </screen>
+
+</screens>
+
+<!-- EOF -->

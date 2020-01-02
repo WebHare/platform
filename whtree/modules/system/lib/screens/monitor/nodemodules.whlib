@@ -4,7 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
 
 PUBLIC OBJECTTYPE Panel EXTEND MonitorPanelBase

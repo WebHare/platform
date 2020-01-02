@@ -1,0 +1,414 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/validation.whlib";
+
+CONSTANT STRING tollium_ns := "http://www.webhare.net/xmlns/tollium/screens";
+CONSTANT STRING publisher_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
+CONSTANT STRING publisher_ns := "http://www.webhare.net/xmlns/publisher/components";
+
+CONSTANT RECORD ARRAY fixelements :=
+  [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
+                                                                               ,"type","width","height","minwidth","minheight"]
+                                                         , tidattributes := ["tid"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["messagebox"],    attributesorder := ["name","icon","button"] ] //icon .. button was 400+ hits, button .. icon was about 100... and its deprecated anyway so just change as little as possible
+  , [ namespace := tollium_ns, localnames := ["option"],       attributesorder := ["rowkey"] ]
+  , [ namespace := tollium_ns, localnames := ["panel","cell","list","part"]
+    , removeattributes := ["border"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["list"]
+    , xslistattributes := ["icons"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["*"]
+    , removeattributes := ["margintop","marginbottom","marginleft","marginright"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["screens"],  subelementspacing := "betweenall" ]
+  , [ namespace := tollium_ns, localnames := ["screen"],   subelementspacing := "internal" ]
+  , [ namespace := tollium_ns, localnames := ["toolbar"],   eliminateifempty := TRUE ]
+  //, [ namespace := tollium_ns, localnames := ["action"],   attributesorder :=  ["source","min","max","checkflags"] ]
+  , [ namespace := tollium_ns, localnames := ["enableon"], attributesorder :=  ["source","min","max","checkflags"] ]
+  , [ namespace := tollium_ns, localnames := ["textedit"], attributesorder :=  ["minlength","maxlength","minvalue","maxvalue"] ]
+  , [ namespace := tollium_ns, localnames := ["list"],     removeattributes := ["rowselect"] ]
+
+  , [ namespace := publisher_sp, localnames := ["siteprofile"],  subelementspacing := "betweenall"  ]
+  , [ namespace := publisher_sp, localnames := ["contenttype"],  removeattributevalues := ["cloneoncopy=true"], attributesorder := ["namespace"] ]
+  , [ namespace := publisher_sp, localnames := ["foldertype"], attributesorder := ["typedef"] ]
+  , [ namespace := publisher_sp, localnames := ["filetype"], attributesorder := ["typedef"] ]
+  , [ namespace := publisher_sp, localnames := ["to"], attributesorder := ["type","filetype","foldertype","parenttype"] ]
+
+  , [ namespace := publisher_ns, localnames := ["browseforobject"],  xslistattributes := ["accepttypes"]  ]
+  ];
+
+CONSTANT RECORD initialformattingstate :=
+  [ indent := ""
+  , indentstepsize := 2
+  , wraplineat := 125
+  , subelementspacing := ""
+  ];
+
+BOOLEAN FUNCTION IsPrefixUsed(OBJECT el, STRING findprefix)
+{
+  IF(el->prefix = findprefix)
+    RETURN TRUE;
+  IF(RecordExists(SELECT FROM el->ListAttributes() WHERE prefix = findprefix OR nodevalue LIKE prefix || ":*")) //assume a "xx:" is a qualify named references
+    RETURN TRUE;
+  FOREVERY(OBJECT child FROM el->ListChildren("*","*"))
+    IF(IsPrefixUsed(child, findprefix))
+     RETURN TRUE;
+  RETURN FALSE;
+}
+
+STRING FUNCTION FixTid(STRING intid)
+{
+  IF(intid LIKE "tollium:common.actions.*" AND GetTid(intid) = GetTid("~" || Substring(intid,23)))
+    RETURN "~" || Substring(intid,23);
+  IF(intid LIKE "tollium:common.labels.*" AND GetTid(intid) = GetTid("~" || Substring(intid,22)))
+    RETURN "~" || Substring(intid,22);
+  IF(intid LIKE "tollium:common.buttons.*" AND GetTid(intid) = GetTid("~" || Substring(intid,23)))
+    RETURN "~" || Substring(intid,23);
+  RETURN intid;
+}
+
+STRING FUNCTION EncodeAttrValue(STRING text)
+{
+  text := Substitute(Substitute(text,'&','&amp;'),'<','&lt;');
+
+  IF(text LIKE '*"*' AND text NOT LIKE "*'*") //if it contains a double quote but no single quote, prefer a single quote escape
+    RETURN `'${Substitute(text,"'",'&apos;')}'`;
+  ELSE
+    RETURN `"${Substitute(text,'"','&quot;')}"`;
+}
+
+BOOLEAN FUNCTION HasContents(OBJECT node)
+{
+  FOR(node := node->firstchild; ObjectExists(node); node := node->nextsibling)
+    IF(node->nodetype != 3 OR TrimWhitespace(node->nodevalue) != "")
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
+{
+  STRING usenodename := el->nodename;
+  BOOLEAN eliminateifempty;
+  formattingstate.subelementspacing := ""; //reset at new levels
+
+  RECORD ARRAY attrs := el->ListAttributes();
+  RECORD ARRAY elsettings := SELECT *
+                               FROM fixelements
+                              WHERE (fixelements.namespace = "*" OR fixelements.namespace = el->namespaceuri)
+                                     AND (el->localname IN fixelements.localnames OR "*" IN fixelements.localnames);
+
+  attrs := SELECT * FROM attrs ORDER BY nodename;
+
+  STRING ARRAY attributesorder, tidattributes, xslistattributes;
+  FOREVERY(RECORD elsetting FROM elsettings)
+  {
+    //remove deprecated attributes
+    IF(CellExists(elsetting, "removeattributes"))
+      DELETE FROM attrs WHERE namespaceuri = "" AND attrs.nodename IN elsetting.removeattributes;
+
+    IF(CellExists(elsetting, "removeattributevalues"))
+      FOREVERY(STRING toremove FROM elsetting.removeattributevalues)
+      {
+        STRING attrname := Tokenize(toremove, '=')[0];
+        STRING attrvalue := Substring(toremove, Length(attrname) + 1);
+        DELETE FROM attrs WHERE namespaceuri = "" AND attrs.nodename = attrname AND attrs.nodevalue = attrvalue;
+      }
+
+    //order attributes in preferred order
+    IF(CellExists(elsetting, "attributesorder"))
+      attributesorder := attributesorder CONCAT elsetting.attributesorder;
+
+    IF(CellExists(elsetting, "tidattributes"))
+      tidattributes := tidattributes CONCAT elsetting.tidattributes;
+
+    IF(CellExists(elsetting, "xslistattributes"))
+      xslistattributes := xslistattributes CONCAT elsetting.xslistattributes;
+
+    IF(CellExists(elsetting, "eliminateifempty"))
+      eliminateifempty := elsetting.eliminateifempty;
+
+    IF(CellExists(elsetting, "subelementspacing"))
+      formattingstate.subelementspacing := elsetting.subelementspacing;
+  }
+
+  IF(eliminateifempty AND NOT HasContents(el))
+    RETURN "";
+
+  //sort and detect lists
+  attrs := SELECT *
+                , isxslist := nodename IN xslistattributes
+             FROM attrs
+            ORDER BY nodename IN attributesorder ? SearchElement(attributesorder, nodename) : 10000+#attrs;
+
+  UPDATE attrs SET nodevalue := FixTid(nodevalue) WHERE nodename IN tidattributes;
+  UPDATE attrs SET nodevalue := Detokenize(ParseXSList(nodevalue),' ') WHERE isxslist;
+
+  DELETE FROM attrs WHERE namespaceuri = "http://www.w3.org/2000/xmlns/" AND prefix != "" AND NOT IsPrefixUsed(el, localname);
+
+  INTEGER numxmlnsattrs := Length(SELECT FROM attrs WHERE namespaceuri = "http://www.w3.org/2000/xmlns/");
+  IF(numxmlnsattrs > 0)
+  {
+    //we always prefer xmlns= first
+    attrs := SELECT * FROM attrs ORDER BY namespaceuri = "http://www.w3.org/2000/xmlns/" DESC;
+  }
+
+  //encode the attributes (in case we want to switch to single quotes)
+  attrs := SELECT *, encoded := EncodeAttrValue(nodevalue) FROM attrs;
+
+  //here we go!
+  STRING result;
+
+  result := result || formattingstate.indent || '<' || usenodename;
+  STRING trysingleline := result;
+  FOREVERY(RECORD attr FROM attrs)
+    trysingleline := `${trysingleline} ${attr.nodename}=${attr.encoded}`;
+
+  IF(Length(trysingleline) > initialformattingstate.wraplineat  //too long, wrap it!
+     OR numxmlnsattrs > 1) //we don't like more than one xmlns attribute unwrapped
+  {
+    FOREVERY(RECORD attr FROM attrs)
+    {
+      IF(#attr = 0)
+        result := `${result} ${attr.nodename}=`;
+      ELSE //next line,indent!
+        result := `${result}\n${formattingstate.indent}${RepeatText(" ", Length(usenodename) + 1)} ${attr.nodename}=`;
+
+      INTEGER curpos := Length(Tokenize(result,'\n')[END-1]);
+      //rewrite xslist attributes into multiline versions? (eg long icon lists)
+      IF(attr.isxslist AND curpos + Length(attr.encoded) > formattingstate.wraplineat) //adding the attribute would cause us to exceed maximum line Length
+      {
+        STRING ARRAY items := ParseXSList(attr.nodevalue);
+        FOREVERY(STRING val FROM items)
+        {
+          IF(#val = 0)
+            result := `${result}"${EncodeAttributeValue(val)}`;
+          ELSE
+            result := `${result}${RepeatText(" ", curpos+1)}${EncodeAttributeValue(val)}`;
+
+          IF(#val = Length(items) - 1)
+            result := `${result}"`;
+          ELSE
+            result := `${result}\n`;
+        }
+      }
+      ELSE
+      {
+        result := `${result}${attr.encoded}`;
+      }
+    }
+  }
+  ELSE
+  {
+    result := trysingleline;
+  }
+
+  IF(NOT HasContents(el))
+  {
+    RETURN result || ' />\n';
+  }
+
+  result := result || '>\n';
+
+  RECORD substate := formattingstate;
+  substate.indent := substate.indent || RepeatText(" ", substate.indentstepsize);
+
+  //Write our children
+  result := result || RewriteChildren(el, substate);
+
+  result := result ||formattingstate.indent ||  "</" || usenodename || ">\n";
+  RETURN result;
+}
+
+STRING FUNCTION RewriteChildren(OBJECT node, RECORD formattingstate)
+{
+  STRING output;
+  BOOLEAN onnextline := TRUE;
+  BOOLEAN anycontent := FALSE;
+  BOOLEAN justdidmultilinecomment := FALSE;
+
+  FOR(node := node->firstchild; ObjectExists(node); node := node->nextsibling)
+  {
+    IF(node->nodetype = 1)
+    {
+      IF(formattingstate.subelementspacing = "betweenall" AND NOT anycontent AND NOT justdidmultilinecomment)
+        output := output || '\n';
+
+      justdidmultilinecomment := FALSE;
+
+      STRING noderesult := RewiteXMLElement(node, formattingstate);
+      IF(noderesult = "") //node cancelled itself
+      {
+        //should we 'onnextline'?
+        CONTINUE;
+      }
+
+      output := output || noderesult;
+      IF(formattingstate.subelementspacing = "betweenall"
+         OR (formattingstate.subelementspacing = "internal" AND NOT node->IsSameNode(node->parentnode->lastelementchild)))
+        output := output || '\n';
+
+      onnextline := FALSE;
+      anycontent := TRUE;
+    }
+    ELSE IF(node->nodetype = 3) //textcontent
+    {
+      justdidmultilinecomment := FALSE;
+
+      STRING content := node->textcontent;
+      onnextline := content LIKE "*\n*";
+
+      content := TrimWhitespace(content);
+      IF(content = "")
+        CONTINUE;
+
+      output := output || EncodeTextNode(content);
+    }
+    ELSE IF(node->nodetype = 8) //comment
+    {
+      justdidmultilinecomment := FALSE;
+
+      //Reformat the coment. surround it with one space but don't add next to a linefeed
+      STRING comment := node->nodevalue;
+      WHILE(Left(comment,1) = ' ')
+        comment := Substring(comment,1);
+      IF(comment NOT LIKE "*\n*") //not a multiline comment (prevent reverse indenting the -->)
+        WHILE(Right(comment,1) = ' ')
+          comment := Left(comment,Length(comment)-1);
+      IF(Left(comment,1) != '\n')
+        comment := " " || comment;
+      IF(Right(comment,1) NOT IN [' ',"\n"])
+        comment := comment || " ";
+
+      STRING encodedcomment := `<!--${comment}-->`;
+      IF(NOT onnextline AND output LIKE "*\n" AND NOT node->parentnode->IsSameNode(node->ownerdocument))
+      {
+        //this comment was on the sameline as the last element in the source... should we combine it ?
+        output := Left(output, Length(output) - 1);
+        output := `${output}  ${encodedcomment}\n`;
+      }
+      ELSE
+      {
+        IF(ObjectExists(node->previouselementsibling) AND output NOT LIKE "*\n\n")
+          output := output || "\n"; //if we're not the first subchild, we want an empty line above our comments so it acts as a group
+
+        BOOLEAN mustindent := TRUE;
+        //Unless we seem to start at the leftmost column, indent us
+        IF(ObjectExists(node->previoussibling) AND node->previoussibling->nodevalue LIKE "*\n")
+          mustindent := FALSE;
+
+        output := `${output}${mustindent ? formattingstate.indent : ""}${encodedcomment}\n`;
+      }
+      onnextline := FALSE;
+    }
+    ELSE
+    {
+      ABORT(CELL[node->nodetype,node->nodevalue]);
+    }
+  }
+  RETURN output;
+}
+
+BOOLEAN FUNCTION ApplyWidgetRewrite(OBJECT widgetnode)
+{
+  IF(widgetnode->GetAttribute("editfragment") = "")
+    RETURN FALSE; //it's okay!
+
+  STRING fragmentpath := widgetnode->GetAttribute("editfragment");
+  IF(Left(fragmentpath,1) NOT IN [".","#"])
+    RETURN FALSE;
+
+  //always replace . with #
+  fragmentpath := "#" || Substring(fragmentpath,1);
+
+  OBJECT ARRAY fragments := widgetnode->ownerdocument->ListElements("http://www.webhare.net/xmlns/tollium/screens","fragment");
+  FOREVERY(OBJECT fragment FROM fragments)
+    IF(fragment->GetAttribute("name") = Substring(fragmentpath,1))
+    {
+      IF(fragment->GetAttribute("implementation") != "none")
+        RETURN FALSE; //don't dare to touch code-backed fragments
+
+      OBJECT tabsextension := widgetnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","tabsextension");
+      tabsextension->SetAttribute("xmlns", "http://www.webhare.net/xmlns/tollium/screens");
+      FOREVERY(RECORD attr FROM fragment->ListAttributes())
+      {
+        IF(attr.localname="xmlns")
+          CONTINUE;
+        IF(attr.nodename="implementation")
+          CONTINUE;
+
+        tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+      }
+
+      OBJECT newtab := widgetnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","newtab");
+      tabsextension->AppendChild(newtab);
+
+      OBJECT contentsnode := fragment->ListChildren("http://www.webhare.net/xmlns/tollium/screens","contents")[0];
+      FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+      {
+        IF(attr.localname="xmlns")
+          CONTINUE;
+        IF(attr.nodename="implementation")
+          CONTINUE;
+
+        newtab->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+      }
+
+      //Migrate nodes
+      WHILE(Objectexists(contentsnode->firstchild))
+        newtab->AppendChild(contentsnode->firstchild);
+
+      //Replace composition=contentdata with composition=fsinstance
+      FOREVERY(OBJECT node FROM newtab->GetElements(`*[composition="fsinstance"]`))
+        node->SetAttribute("composition", "contentdata");
+
+      fragment->parentnode->replacechild(tabsextension, fragment);
+
+      widgetnode->SetAttribute("editextension", fragmentpath);
+      widgetnode->RemoveAttribute("editfragment");
+      RETURN TRUE;
+    }
+
+  RETURN FALSE; //no match
+}
+
+BOOLEAN FUNCTION ApplyRewrites(OBJECT xmldoc)
+{
+  BOOLEAN anyrewrite;
+
+  FOREVERY(OBJECT widgetnode FROM xmldoc->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","widgettype"))
+    IF(ApplyWidgetRewrite(widgetnode))
+      anyrewrite := TRUE;
+
+  RETURN anyrewrite;
+}
+
+PUBLIC STRING FUNCTION RewriteXMLFile(STRING infile, BLOB indata)
+{
+  RECORD res := ValidateSingleFile(infile, [ overridedata := indata ]);
+  IF(Length(res.errors) > 0)
+    THROW NEW Exception(FormatValidationError(res.errors[0]));
+
+  OBJECT xmldoc := MakeXMLDocument(indata);
+  IF(ApplyRewrites(xmldoc))
+  {
+    BLOB newcontents := StringToBlob(xmldoc->outerxml);
+    res := ValidateSingleFile(infile, [ overridedata := StringToBlob(xmldoc->outerxml) ]);
+    IF(Length(res.errors) > 0)
+    {
+      SendBlobTo(0, newcontents);
+      THROW NEW Exception(FormatValidationError(res.errors[0]));
+    }
+  }
+
+  RECORD formatting := initialformattingstate;
+  STRING result := '<?xml version="1.0" encoding="UTF-8"?>\n' || RewriteChildren(xmldoc, formatting);
+  RETURN result;
+}

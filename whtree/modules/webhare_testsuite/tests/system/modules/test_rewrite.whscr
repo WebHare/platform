@@ -1,0 +1,89 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/modules/rewrite.whlib";
+LOADLIB "mod::system/lib/internal/modules/rewrite_xml.whlib";
+
+MACRO TestRewriteXMLFile(STRING basefilename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  Print(`Rewriting ${basefilename}\n`);
+  options := ValidateOptions([ ignorewarninglines := INTEGER[] ], options);
+
+  BLOB expecteddata := GetWebHareResource(Resolve(`data/${basefilename}.out.xml`));
+  BLOB indata := GetWebHareResource(Resolve(`data/${basefilename}.in.xml`));
+
+  STRING rewritepath :=Resolve(`data/${basefilename}.in.xml`);
+  STRING result := RewriteXMLFile(rewritepath, indata);
+
+  RECORD finalvalidation := ValidateSingleFile(Resolve(`data/${basefilename}.out.xml`), [ overridedata := StringToBlob(result) ]);
+  DELETE FROM finalvalidation.warnings WHERE line IN options.ignorewarninglines;
+
+  IF(Length(finalvalidation.errors) > 0 OR Length(finalvalidation.warnings) > 0)
+  {
+    Print(`Rewrite of screen ${basefilename} failed due to validation errors.\n${RepeatText("-",76)}\nOriginal:\n`);
+    SendBlobTo(0,indata);
+    Print("\nRewritten version:\n");
+    Print(result || "\n\n");
+    PrintValidationMessages(finalvalidation);
+    ABORT();
+  }
+
+  //it validated, now test for EQ
+  STRING expectedtext := BlobToString(expecteddata);
+  IF(expectedtext != result)
+  {
+    Print(`Rewrite of screen ${basefilename} gave unexpected results.\n${RepeatText("-",76)}\nExpected:\n`);
+    SendBlobTo(0, expecteddata);
+    Print("\nGot:\n");
+    Print(result || "\n\n");
+    Print(SimpleTextDiff(expectedtext, result));
+    ABORT();
+  }
+
+  //re-rewrite it just in case2
+  STRING rewriteagain := RewriteXMLFile(rewritepath, StringToBlob(result));
+  IF(rewriteagain != result)
+  {
+    ABORT("Re-rewrite altered the result (we're not stable!)");
+  }
+}
+
+MACRO TestScreenRewriteAPI()
+{
+  TestThrows(PTR RewriteXMLFile("mod::system/screens/screen.xml", GetWebHareResource(Resolve("data/brokenscreen.xml"))));
+}
+
+MACRO TestRewriter()
+{
+  TestEq("html\n{\n  margin: 0;\n}\n", BlobToString(RewriteFile("test.css", StringToBlob(`html{margin:0}`)).result));
+  TestEq(`{\n  "a": 42\n}`, BlobToString(RewriteFile("test", StringToBlob(`\xEF\xBB\xBF{a:42}`)).result));
+  TestEq(`HSON:\n+RECORD\n +A: 42\n`, BlobToString(RewriteFile("test", EncodeHSONBlob([a:=42])).result));
+  TestEq(`<?xml version="1.0" encoding="UTF-8"?>\n<test/>\n`, BlobToString(RewriteFile("test.xml", StringToBlob("<test/>")).result));
+
+  STRING minisiteprofile := `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><apply><to type="all"/><sitelanguage lang="en"/></apply></siteprofile>`;
+  STRING minisiteprofile_out := `<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <apply>
+    <to type="all" />
+    <sitelanguage lang="en" />
+  </apply>
+
+</siteprofile>
+`;
+  TestEq(`${minisiteprofile_out}`, BlobToString(RewriteFile("test.xml", StringToBlob(minisiteprofile)).result));
+}
+
+RunTestFramework([ PTR TestRewriter
+                 , PTR TestScreenRewriteAPI
+                 , PTR TestRewriteXMLFile("rewritescreen.basics")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.basics")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.editfragment", [ ignorewarninglines := [39] ])
+                 , PTR TestRewriteXMLFile("rewritescreen.wrddemo")
+                 ]);

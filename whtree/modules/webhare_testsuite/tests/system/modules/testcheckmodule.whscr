@@ -5,7 +5,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/devtools/checkmodule.whlib";
+LOADLIB "mod::system/lib/internal/modules/checkmodule.whlib";
 
 MACRO TestCheckModule()
 {

@@ -5,7 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/virtualfs/base.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/internal/devtools/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/support.whlib";
 
 PUBLIC OBJECTTYPE VirtualWebdavInfoFS EXTEND VirtualFSBase
 <

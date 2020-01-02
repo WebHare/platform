@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/devtools/node.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
