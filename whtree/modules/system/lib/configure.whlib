@@ -79,7 +79,7 @@ PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
              , branch := ""
              , committag := ""
              , ...buildinfo
-             , docker := CellExists(buildinfo,'docker') ? buildinfo.docker = "1" : FALSE
+             , docker := GetEnvironmentVariable("WEBHARE_IN_DOCKER") != ""
              ];
 }
 

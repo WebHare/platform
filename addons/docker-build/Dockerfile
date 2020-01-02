@@ -90,12 +90,3 @@ ADD dropins /
 
 # Create the shrinkwrap
 RUN --mount=type=tmpfs,target=/opt/whdata,readwrite /opt/wh/whtree/modules/system/scripts/internal/create_shrinkwrap.sh
-
-# Add a label with the commit SHA, which we can retrieve from docker registry when checking if an image is newer
-# Add a label describing the builder, so we have this information ready when inspecting images
-ARG CI_COMMIT_SHA
-ARG CI_PIPELINE_ID
-ARG BUILDERTAG
-LABEL com.webhare.webhare.git-commit-sha="$CI_COMMIT_SHA" \
-      com.webhare.webhare.pipelineid="$CI_PIPELINE_ID" \
-      com.webhare.webhare.buildertag="$BUILDERTAG" \
