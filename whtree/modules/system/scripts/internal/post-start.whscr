@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/internal/logging.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

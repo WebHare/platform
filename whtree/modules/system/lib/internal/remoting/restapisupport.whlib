@@ -640,32 +640,25 @@ PUBLIC STRING FUNCTION CheckSignature(RECORD method)
   RETURN "Got signature " || ExplainFunctionPtrSignature(func) || ", but wanted " || ExplainFunctionSignature(TypeID(RECORD), method.callparamtypes, method.functionname);
 }
 
-PUBLIC OBJECTTYPE RestAPIDefinitionFile EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE RestAPIDefinitionFile EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
-
-    RECORD result := ResourceValidationBase::Validate(doc, resourcename, xsd);
-    RECORD parsed := ParseRestConfig(resourcename, doc);
+    RECORD parsed := ParseRestConfig(this->respath, this->xml);
 
     IF(parsed.objtype != "")
-      this->VerifyObjectExistence(validatingdoc, parsed.rootlinennum, parsed.objtype);
+      this->VerifyObjectExistence(parsed.rootlinennum, parsed.objtype);
 
-    result.errors := result.errors CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.errors;
-    result.warnings := result.warnings CONCAT SELECT *, resourcename := VAR resourcename FROM parsed.warnings;
+    this->errors := this->errors CONCAT SELECT *, resourcename := this->respath FROM parsed.errors;
+    this->warnings := this->warnings CONCAT SELECT *, resourcename := this->respath FROM parsed.warnings;
 
     FOREVERY (RECORD endpoint FROM parsed.endpoints)
       FOREVERY (RECORD method FROM endpoint.methods)
       {
         STRING message := CallFunctionFromJob("module::system/internal/remoting/restapisupport.whlib", "CheckSignature", method);
         IF (message != "")
-          INSERT CELL[ resourcename, message, code := 0, line := method.source.line, col := 0 ] INTO result.errors AT END;
+          this->AddErrorForLine(method.source.line, message);
       }
-
-    result.errors   := result.errors   CONCAT validatingdoc->errors;
-    result.warnings := result.warnings CONCAT validatingdoc->warnings;
-    RETURN result;
   }
 >;
 

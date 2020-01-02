@@ -6,8 +6,8 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/validation/extracttids.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib" EXPORT RetrieveWebHareResource, GetModuleNameFromResourcePath, IsAbsoluteResourcePath, MakeAbsoluteResourcePath, GetResourceEventMasks;
 LOADLIB "wh::internal/interface.whlib";
 
@@ -233,109 +233,4 @@ PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
     RETURN "";
   RETURN "/.publisher/sd/" || pathtoks[0] || '/' || pathtoks[2] || "/" || Detokenize(ArraySlice(pathtoks,4),'/');
 }
-
-/** Base objecttype for resource validators
-*/
-PUBLIC STATIC OBJECTTYPE ResourceValidationBase
-<
-  STRING lastlib;
-  RECORD lastlibdescr;
-
-  RECORD FUNCTION GetLibDescription(STRING libname)
-  {
-    IF(this->lastlib != libname)
-    {
-      this->lastlib := libname;
-      IF(libname != "")
-      {
-        this->lastlibdescr := DescribeCompiledLibrary(libname);
-      }
-      ELSE
-      {
-        this->lastlibdescr := DEFAULT RECORD;
-      }
-    }
-    RETURN this->lastlibdescr;
-  }
-
-  BOOLEAN FUNCTION VerifyObjectExistence(OBJECT validatingdoc, INTEGER linenum, STRING objtype)
-  {
-    STRING ARRAY objtoks := Tokenize(objtype,'#');
-    RECORD lib := this->GetLibDescription(objtoks[0]);
-    IF(NOT RecordExists(lib))
-    {
-      validatingdoc->AddErrorForLine(linenum, `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')`);
-      RETURN FALSE;
-    }
-    IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(objtoks[1] || "#NEW")))
-    {
-      validatingdoc->AddErrorForLine(linenum, `Object '${objtoks[1]}' not found in '${objtoks[0]}'`);
-      RETURN FALSE;
-    }
-
-    RETURN TRUE;
-  }
-
-  /** Process a resource to extract tids and optionally fully validate */
-  PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
-  {
-    //Default implementation, process both Validate and ExtractTidReferences
-    RECORD temp := RunAndExtractTids(resourcename, PTR this->Validate(doc, resourcename, xsd));
-    IF(CellExists(temp.returnvalue,'tids'))
-      temp.tids := temp.tids CONCAT temp.returnvalue.tids;
-    temp.tids := temp.tids CONCAT this->ExtractTidReferences(resourcename, doc);
-    temp.tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM temp.tids;
-    RETURN CELL[ errors := temp.returnvalue.errors
-               , warnings := temp.returnvalue.warnings
-               , tids := temp.tids
-               ];
-  }
-
-  /** Returns the list of tids within a resource
-      @param resourcename Resource
-      @param doc Resource XML document
-      @return
-      @cell(integer) return.line Line number within the source resouce
-      @cell(integer) return.col Column number within the source resouce
-      @cell(string) return.tid Tid
-      @cell(string) return.path Source resource
-  */
-  PUBLIC RECORD ARRAY FUNCTION ExtractTidReferences(STRING resourcename, OBJECT doc)
-  {
-    RETURN RECORD[];
-  }
-
-  /** Validates a resource. Any tids parsed will be
-      @param doc XML document
-      @param resourcename Resource name
-      @param xsd Schema for this document
-      @return Warnings and errors
-      @cell(record array) return.errors
-      @cell(string) return.errors.filename
-      @cell(string) return.errors.line
-      @cell(string) return.errors.col
-      @cell(string) return.errors.message
-  */
-  PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
-  {
-    RECORD ARRAY errors;
-    IF(ObjectExists(xsd))
-    {
-      errors := xsd->ValidateDocument(doc);
-      IF(Length(errors)>0)
-      {
-        errors := SELECT message
-                       , line
-                       , col :=     0
-                       , resourcename := resourcename
-                    FROM SimplifyXMLValidationErrors(errors, doc->documentelement);
-      }
-    }
-    RETURN
-        [ errors :=   errors
-        , warnings := RECORD[]
-        , tids :=     RECORD[]
-        ];
-  }
->;
 

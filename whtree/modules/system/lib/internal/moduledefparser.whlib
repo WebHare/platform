@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/shortcuts.whlib";
 
@@ -640,13 +641,11 @@ PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modul
   RETURN designs;
 }
 
-PUBLIC STATIC OBJECTTYPE ModuleDefParser
+PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 <
   RECORD moduledef;
-  STRING modulepath;
-  OBJECT verifier;
 
-  MACRO NEW(STRING modulename)
+  MACRO NEW(OBJECT xmldoc, STRING respath) : XMLValidatorBase(xmldoc, respath)
   {
     this->moduledef :=
       [ moduledefinitionfile := ""
@@ -703,8 +702,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
       , formcomponents       := DEFAULT RECORD ARRAY
       ];
 
-    this->moduledef.name := modulename;
-    this->moduledef.isbuiltinmodule := modulename IN whconstant_builtinmodules;
+    this->moduledef.name := this->modulename;
+    this->moduledef.isbuiltinmodule := this->modulename IN whconstant_builtinmodules;
   }
 
   RECORD FUNCTION ParseApp(OBJECT node)
@@ -717,7 +716,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
 
     IF(app.screen LIKE "*#*") //it's a new style path
     {
-      app.screen := MakeAbsoluteScreenReference(this->modulepath, app.screen);
+      app.screen := MakeAbsoluteScreenReference(this->respath, app.screen);
     }
     ELSE IF(node->HasAttribute("startmacro"))
     {
@@ -730,7 +729,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
       }
       ELSE
       {
-        app.appfunction := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("startmacro"));
+        app.appfunction := MakeAbsoluteResourcePath(this->respath, node->GetAttribute("startmacro"));
       }
     }
     ELSE
@@ -760,41 +759,13 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
     RETURN ParseXMLTidPtr(this->moduledef.name, gid, element, attrname);
   }
 
-  MACRO AddWarning(OBJECT node, STRING error)
-  {
-    this->verifier->AddWarning(node, error);
-  }
-  MACRO AddError(OBJECT node, STRING error)
-  {
-    this->verifier->AddError(node, error);
-  }
-  MACRO AddErrorForLine(INTEGER linenum, STRING error)
-  {
-    this->verifier->AddErrorForLine(linenum, error);
-  }
-
   ///Backwards compatible XML def parser
-  PUBLIC RECORD FUNCTION Parse(OBJECT xml)
-  {
-    STRING modulename := this->moduledef.name;
-    STRING modulepath := "mod::" || modulename || "/moduledefinition.xml";
-
-    RECORD result := this->ParseAndValidate(NEW ValidatingXMLDocument(xml, modulepath));
-    RETURN CELL [ ...result
-                , errors := this->verifier->errors
-                , warnings := this->verifier->warnings
-                ];
-  }
 
   ///The actual parser, allowing external verifiers to be supplied for validation
-  PUBLIC RECORD FUNCTION ParseAndValidate(OBJECT validatingdoc)
+  PUBLIC RECORD FUNCTION ParseAndValidate()
   {
-    this->verifier := validatingdoc;
-
-    OBJECT xml := this->verifier->xml;
-    OBJECT root := xml->documentelement;
-    STRING modulename := this->verifier->GetModuleName();
-    this->modulepath := this->verifier->respath;
+    OBJECT root := this->xml->documentelement;
+    STRING modulename := this->modulename;
 
     IF(NOT ObjectExists(root) OR root->namespaceuri != "http://www.webhare.net/xmlns/system/moduledefinition" OR root->localname!="module")
     {
@@ -803,7 +774,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
     }
 
     RECORD ARRAY seennodes;
-    this->moduledef.moduledefinitionfile := this->modulepath;
+    this->moduledef.moduledefinitionfile := this->respath;
 
     STRING rootgid := ParseGid(modulename, "", root);
 
@@ -842,7 +813,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
 
                 INSERT
                   [ when := when
-                  , script := this->verifier->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->modulepath,"scripts/"), [ warnversion := 42600 ])
+                  , script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath,"respath/"), [ warnversion := 42600 ])
                   ] INTO this->moduledef.startupscripts AT END;
               }
               CASE "task"
@@ -852,7 +823,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                   this->AddWarning(subchild,"runtime= and runinterval= have been deprecated. you should switch to a runat= cronmask. See also https://www.webhare.dev/reference/modules/services-tasks#scheduled-tasks");
 
                 RECORD task := [ tag := modulename || "." || subchild->GetAttribute("tag")
-                               , script := this->verifier->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->modulepath,"scripts/"), [ warnversion := 42600 ])
+                               , script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath,"respath/"), [ warnversion := 42600 ])
                                , runatstartup := subchild->GetAttribute("runatstartup") IN ["true","1"]
                                , runtime := subchild->GetAttribute("runtime")
                                , runinterval := subchild->GetAttribute("runinterval")
@@ -880,7 +851,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
         }
         CASE "meta"
         {
-          this->moduledef.configscreen := MakeAbsoluteScreenReference(this->modulepath, child->GetAttribute("configscreen"));
+          this->moduledef.configscreen := MakeAbsoluteScreenReference(this->respath, child->GetAttribute("configscreen"));
 
           FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
             SWITCH(subchild->localname)
@@ -1033,7 +1004,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                   }
 
                 IF(objectrec.describer = "" AND subchild->HasAttribute("describer"))
-                  objectrec.describer := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("describer"));
+                  objectrec.describer := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("describer"));
 
                 IF (RecordExists(SELECT FROM all_objtypes WHERE name = objectrec.name))
                   this->AddError(subchild, "An objecttype with name '" || objectrec.name || "' is declared twice");
@@ -1166,7 +1137,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                 }
                 ELSE
                 {
-                  interceptfunction := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("interceptfunction"));
+                  interceptfunction := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("interceptfunction"));
                 }
 
                 RECORD intercept :=
@@ -1276,7 +1247,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
       STRING designname := child->GetAttribute("name");
       STRING designroot;
       IF(child->HasAttribute("path"))
-        designroot := MakeAbsoluteResourcePath(this->modulepath, child->GetAttribute("path"));
+        designroot := MakeAbsoluteResourcePath(this->respath, child->GetAttribute("path"));
       ELSE
         designroot := "mod::" || modulename || "/webdesigns/" || designname || "/";
       IF(designroot NOT LIKE "*/")
@@ -1304,7 +1275,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
 
           STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
           IF (entrypoint != "_polyfills")
-            entrypoint := MakeAbsoluteResourcePath(this->modulepath, assetpacknode->GetAttribute("entrypoint"));
+            entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
 
           INSERT [ name := assetpackname
                  , entrypoint := entrypoint
@@ -1324,7 +1295,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
       IF(istemplate)
         siteprofile := child->GetAttribute("siteprofile"); //no legacy support for templates
       ELSE //We used to resolve based on designroot, but that's inconsistent with how our paths normally work
-        siteprofile := this->verifier->GetVerifyPath(child, "siteprofile", designroot);
+        siteprofile := this->GetVerifyPath(child, "siteprofile", designroot);
 
       INSERT [ name := designname
              , title := ParseXMLTidPtr(modulename, childgid, child, "title")
@@ -1351,7 +1322,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
         CONTINUE;
 
       INSERT [ webdesign := QualifyName(modulename, child->GetAttribute("webdesign"))
-             , siteprofile := MakeAbsoluteResourcePath(this->modulepath, child->GetAttribute("siteprofile"))
+             , siteprofile := MakeAbsoluteResourcePath(this->respath, child->GetAttribute("siteprofile"))
              ] INTO addtowebdesigns AT END;
     }
     RETURN addtowebdesigns;
@@ -1360,9 +1331,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
   RECORD FUNCTION ParseAddAction(STRING childgid, OBJECT node)
   {
     RETURN CELL[ title             := ParseXMLTidPtr(this->moduledef.name, childgid, node, "title")
-               , screen            := MakeAbsoluteScreenReference(this->modulepath, node->GetAttribute("screen"))
-               , startmacro        := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("startmacro"))
-               , windowopenmacro   := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("windowopenmacro"))
+               , screen            := MakeAbsoluteScreenReference(this->respath, node->GetAttribute("screen"))
+               , startmacro        := MakeAbsoluteResourcePath(this->respath, node->GetAttribute("startmacro"))
+               , windowopenmacro   := MakeAbsoluteResourcePath(this->respath, node->GetAttribute("windowopenmacro"))
                , addtomenu         := node->GetAttribute("addtomenu")
                ];
   }
@@ -1399,7 +1370,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
     this->moduledef.webdesigns := designandpacks.webdesigns;
     this->moduledef.assetpacks := designandpacks.assetpacks;
     this->moduledef.addtowebdesigns := this->ParseAddToWebdesigns(child, childgid);
-    this->moduledef.webfeatures := ParseWebFeatures(this->modulepath, this->moduledef.name, child, childgid);
+    this->moduledef.webfeatures := ParseWebFeatures(this->respath, this->moduledef.name, child, childgid);
 
     FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
     {
@@ -1425,14 +1396,14 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
             INSERT "mod::" || this->moduledef.name || "/data/" || subchild->GetAttribute("datafile") INTO this->moduledef.basesiteprofiles AT END;
           }
           ELSE IF(subchild->HasAttribute("path"))
-            INSERT MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("path")) INTO this->moduledef.basesiteprofiles AT END;
+            INSERT MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("path")) INTO this->moduledef.basesiteprofiles AT END;
           ELSE
             this->AddError(subchild, "Specify either datafile= or path= for a <siteprofile/>");
         }
         CASE "objecteditor"
         {
           RECORD app := CELL[ ...this->ParseApp(subchild)
-                            , documenteditor := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("documenteditor"))
+                            , documenteditor := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("documenteditor"))
                             , supportsreadonly := ParseXSBoolean(subchild->GetAttribute("supportsreadonly"))
                             ];
 
@@ -1449,7 +1420,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
         CASE "versioningpolicy"
         {
           RECORD policy := [ name := subchild->GetAttribute("name")
-                           , library := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("library"))
+                           , library := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("library"))
                            , objectname := subchild->GetAttribute("objectname")
                            ];
           INSERT policy INTO this->moduledef.versioningpolicies AT END;
@@ -1472,7 +1443,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
           IF(subchild->HasAttribute("library"))
             plugin := MakePluginRecord("module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname"));
           ELSE
-            plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("objectname")));
+            plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname")));
 
           plugin.name := subchild->GetAttribute("name");
           plugin.namespace := subchild->GetAttribute("namespace");
@@ -1486,7 +1457,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
         CASE "addtoassetpack"
         {
           INSERT [ assetpack := subchild->GetAttribute("assetpack")
-                 , entrypoint := MakeAbsoluteResourcePath(this->modulepath,subchild->GetAttribute("entrypoint"))
+                 , entrypoint := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("entrypoint"))
                  ] INTO this->moduledef.addtoassetpacks AT END;
         }
         CASE "customnode"
@@ -1526,11 +1497,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
                    , contentmode       := addrootitem->GetAttribute("contentmode")
                    , icon              := addrootitem->GetAttribute("icon")
                    , forvirtualfilters := ParseXSList(addrootitem->GetAttribute("forvirtualfilters"))
-                   , filterscreen      := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("filterscreen"))
-                   , contentshandler   := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("contentshandler"))
+                   , filterscreen      := MakeAbsoluteResourcePath(this->respath, addrootitem->GetAttribute("filterscreen"))
+                   , contentshandler   := MakeAbsoluteResourcePath(this->respath, addrootitem->GetAttribute("contentshandler"))
                    , modulekey         := this->moduledef.name || ":" || Length(this->moduledef.filemgrextensions) || "." || Length(extension.addrootitems) //to find this in the shortcut menu
 
-                   //, library           := MakeAbsoluteResourcePath(this->modulepath, addrootitem->GetAttribute("library"))
+                   //, library           := MakeAbsoluteResourcePath(this->respath, addrootitem->GetAttribute("library"))
                    //, objectname        := addrootitem->GetAttribute("objectname")
                    ] INTO extension.addrootitems AT END;
 
@@ -1539,7 +1510,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
         }
         CASE "formcomponents"
         {
-          STRING xsd := MakeAbsoluteResourcePath(this->modulepath, subchild->GetAttribute("xmlschema"));
+          STRING xsd := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("xmlschema"));
 
           RECORD rec :=
               [ uri :=              subchild->GetAttribute("namespace")
@@ -1587,7 +1558,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
     {
       library := Tokenize(fieldfunc, "#")[0];
       functionname := Substring(fieldfunc, Length(library) + 1);
-      library := MakeAbsoluteResourcePath(this->modulepath, library);
+      library := MakeAbsoluteResourcePath(this->respath, library);
       IF (library = "" OR functionname = "")
       {
         this->AddError(node, `Invalid 'fieldfunc' value ${fieldfunc}`);
@@ -1631,7 +1602,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
   RECORD FUNCTION ParseSearchFilter(OBJECT node, STRING gid)
   {
     STRING name := node->GetAttribute("name");
-    STRING filterobjname := MakeAbsoluteResourcePath(this->modulepath, node->GetAttribute("filterobject"));
+    STRING filterobjname := MakeAbsoluteResourcePath(this->respath, node->GetAttribute("filterobject"));
     RECORD searchfilter :=
         CELL[ name
             , title := ParseXMLTidPtr(this->moduledef.name, gid, node, "title")
@@ -1691,8 +1662,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser
 */
 PUBLIC RECORD FUNCTION ParseModuleDefinition(STRING modulename, OBJECT xml)
 {
-  OBJECT parser := NEW ModuleDefParser(modulename);
-  RETURN parser->Parse(xml);
+  OBJECT parser := NEW ModuleDefParser(xml, `mod::${modulename}/moduledefinition.xml`);
+  RECORD retval := parser->ParseAndValidate();
+  RETURN CELL[ ...retval
+              , errors := parser->errors
+              ];
 }
 
 /** Parses module manifest
@@ -1826,3 +1800,8 @@ PUBLIC STRING FUNCTION GetFullModuleVersion(RECORD moduleinfo, RECORD manifest)
   RETURN fullversion;
 }
 
+PUBLIC OBJECT FUNCTION GetModuleXMLValidator(STRING modulename)
+{
+  OBJECT xml := GetModuleDefinitionXML(modulename);
+  RETURN NEW ModuleDefParser(xml, GetModuleDefinitionXMLResourceName(modulename));
+}

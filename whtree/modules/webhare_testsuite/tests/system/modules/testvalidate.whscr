@@ -273,7 +273,7 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
   TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*not expected*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  //TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Unrecognized implementation*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 3));
@@ -318,11 +318,20 @@ MACRO TestBasicValidate()
 
   res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
                                                                 , onlytids := TRUE
+                                                                , syntaxlevel := ""
                                                                 ]);
+
   TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
   TestEq([[ attrname := "tid",    col := 0, line := 4, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode-filesandfolders" ]
          ], res.tids);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
+                                                                , onlytids := TRUE
+                                                                , syntaxlevel := "2020"
+                                                                ]);
+  TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.errors);
+
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := optiontidssynthesis
                                                                 , onlytids := TRUE

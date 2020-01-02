@@ -9,6 +9,7 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/validation/config.whlib";
 
 /** @schemadef system
 */
@@ -449,7 +450,7 @@ PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECO
       ];
 
   EnsurePrimary();
-  RECORD result := ValidateSingleFile(liburi, CELL[ overridedata := source, options.documentation ]);
+  RECORD result := ValidateSingleFile(liburi, CELL[ ...GetValidationOptions(liburi), overridedata := source, options.documentation ]);
 
   RETURN
       [ messages :=

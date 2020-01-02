@@ -10,14 +10,40 @@ LOADLIB "wh::util/localization.whlib";
 
 
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
-LOADLIB "mod::system/lib/internal/validation/extracttids.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 RECORD ARRAY schemata;
+RECORD ARRAY captured_tids;
+
+MACRO OnTid(STRING resourcename, RECORD tiddata)
+{
+  tiddata := CELL [ resourcename, ...tiddata ];
+  INSERT tiddata INTO captured_tids AT END;
+}
+
+PUBLIC RECORD ARRAY FUNCTION RunAndExtractTids(STRING resourcename, FUNCTION PTR tocall)
+{
+  RECORD ARRAY save_captured_tids := captured_tids;
+  MACRO PTR save_capture := onparsedtid;
+  TRY
+  {
+    captured_tids := RECORD[];
+    onparsedtid := PTR OnTid(resourcename, #1);
+    tocall();
+    RETURN captured_tids;
+  }
+  FINALLY
+  {
+    captured_tids := save_captured_tids;
+    onparsedtid := save_capture;
+  }
+}
+
 
 RECORD ARRAY FUNCTION GetXMLValidators()
 {
@@ -54,54 +80,50 @@ RECORD ARRAY FUNCTION GetXMLValidators()
   RETURN xmlfiletypes;
 }
 
-PUBLIC OBJECTTYPE LegacyTestInfoValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE LegacyTestInfoValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    INSERT [ line := 0, col := 0, resourcename := resourcename, message := `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests `] INTO result.errors AT END;
-    RETURN result;
+    this->AddError(this->xml->documentelement, `You should add xmlns="http://www.webhare.net/xmlns/system/testinfo" to the root node of the tests`);
   }
 >;
 
-PUBLIC OBJECTTYPE TestInfoValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE TestInfoValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    IF(NOT tidsonly)
+    IF(this->onlytids)
+      RETURN;
+
+    RECORD ARRAY unreferred := SELECT *
+                                 FROM ReadWebHareResourceFolder(GetDirectoryFromPath(this->respath))
+                                WHERE name != GetNameFromPath(this->respath)
+                                      AND name != "testdata"
+                                      AND name != "data"
+                            ORDER BY ToUppercase(name);
+
+    FOREVERY(STRING toignore FROM ParseXSList(this->xml->documentelement->GetAttribute("ignoremasks")))
+      DELETE FROM unreferred WHERE ToUppercase(name) LIKE ToUppercase(toignore);
+
+    /* Quick and dirty filename gathering. It would be nicer if a real parser existed for testfiles, but runtest.whlib just
+       enumerates nodes directly without parsing first (and we probably want to ignore Applicable anyway) */
+    FOREVERY(OBJECT checknode FROM this->xml->GetElements("test[script]"))
+      DELETE FROM unreferred WHERE name = checknode->GetAttribute("script");
+    FOREVERY(OBJECT checknode FROM this->xml->GetElements("jstest[file],mochanodetest[file]"))
+      DELETE FROM unreferred WHERE name = checknode->GetAttribute("file");
+
+    FOREVERY(OBJECT checknode FROM this->xml->GetElements("test[path]"))
     {
-      RECORD ARRAY unreferred := SELECT *
-                                   FROM ReadWebHareResourceFolder(GetDirectoryFromPath(resourcename))
-                                  WHERE name != GetNameFromPath(resourcename)
-                                        AND name != "testdata"
-                                        AND name != "data"
-                              ORDER BY ToUppercase(name);
-
-      FOREVERY(STRING toignore FROM ParseXSList(doc->documentelement->GetAttribute("ignoremasks")))
-        DELETE FROM unreferred WHERE ToUppercase(name) LIKE ToUppercase(toignore);
-
-      /* Quick and dirty filename gathering. It would be nicer if a real parser existed for testfiles, but runtest.whlib just
-         enumaretes nodes directly without parsing first (and we probably want to ignore Applicalbe anyway) */
-      FOREVERY(OBJECT checknode FROM doc->GetElements("test[script]"))
-        DELETE FROM unreferred WHERE name = checknode->GetAttribute("script");
-      FOREVERY(OBJECT checknode FROM doc->GetElements("jstest[file],mochanodetest[file]"))
-        DELETE FROM unreferred WHERE name = checknode->GetAttribute("file");
-
-      FOREVERY(OBJECT checknode FROM doc->GetElements("test[path]"))
+      STRING strippath := checknode->GetAttribute("path");
+      IF(strippath LIKE "?*/")
       {
-        STRING strippath := checknode->GetAttribute("path");
-        IF(strippath LIKE "?*/")
-        {
-          strippath := Left(strippath, Length(strippath)-1); //delete trailing slash
-          DELETE FROM unreferred WHERE name = strippath;
-        }
+        strippath := Left(strippath, Length(strippath)-1); //delete trailing slash
+        DELETE FROM unreferred WHERE name = strippath;
       }
-
-      FOREVERY(RECORD entry FROM unreferred)
-        INSERT CELL[ line := 0, col := 0, resourcename, message := `Directory entry '${entry.name}' not referred in tests and not on ignoremasks list` ] INTO result.warnings AT END;
     }
-    RETURN result;
+
+    FOREVERY(RECORD entry FROM unreferred)
+      this->AddError(this->xml->documentelement, `Directory entry '${entry.name}' not referred in tests and not on ignoremasks list`);
   }
 >;
 
@@ -145,79 +167,55 @@ MACRO CheckModuleWebservices(OBJECT validatingdoc)
 
 }
 
-PUBLIC OBJECTTYPE ModuleDefinitionValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 <
-  UPDATE PUBLIC RECORD FUNCTION Validate(OBJECT doc, STRING resourcename, OBJECT xsd)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ResourceValidationBase::Validate(doc, resourcename, xsd);
+    RECORD md := this->ParseAndValidate();
 
-    STRING modulename := GetModuleNameFromResourcePath(resourcename);
-    IF(modulename = "")
-      THROW NEW Exception(`Unable to determine the module name for moduledefinition ${resourcename}`);
+    ListModuleWebruleSets(this->modulename, this->xml); //parse <webruleset> titles
+    ParseModuleDefRunonce(this);
+    CheckModuleWebservices(this);
 
-    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
-    OBJECT moddefparser := NEW ModuleDefParser(modulename);
-    RECORD md := moddefparser->ParseAndValidate(validatingdoc);
+    ParseModuleDefinition(this->modulename, this->xml);
+    CaptureOtherTids(this->modulename, this->xml);
 
-    ListModuleWebruleSets(modulename, doc); //parse <webruleset> titles
-    ParseModuleDefRunonce(validatingdoc);
-    CheckModuleWebservices(validatingdoc);
-
-    FOREVERY(OBJECT dbschema FROM doc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements())
+    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements())
     {
-      RECORD parsed := ParseWHDBSchemaSpec(modulename, dbschema);
+      RECORD parsed := ParseWHDBSchemaSpec(this->modulename, dbschema);
       FOREVERY (RECORD rec FROM parsed.msgs)
         IF (rec.iserror)
-          validatingdoc->AddErrorForLine(rec.line, rec.text);
+          this->AddErrorForLine(rec.line, rec.text);
         ELSE
-          validatingdoc->AddWarningForLine(rec.line, rec.text);
+          this->AddWarningForLine(rec.line, rec.text);
     }
-
-    result.errors   := result.errors   CONCAT validatingdoc->errors;
-    result.warnings := result.warnings CONCAT validatingdoc->warnings;
 
     FOREVERY(RECORD task FROM md.tasks)
     {
       IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")
-        INSERT CELL[ resourcename, col := 0, line := task.line, message := `Invalid timezone '${task.runtz}'` ] INTO result.errors AT END;
+        this->AddErrorForLine(task.line, `Invalid timezone '${task.runtz}'`);
 
       IF(task.runat != "")
       {
         TRY GetNextCronTime(GetCurrentDatetime(), task.runat);
-        CATCH(OBJECT e) { INSERT CELL[ resourcename, col := 0, line := task.line, message := `Invalid runat '${task.runat}': '${e->what}` ] INTO result.errors AT END; }
+        CATCH(OBJECT e) { this->AddErrorForLine(task.line, `Invalid runat '${task.runat}': '${e->what}`); }
       }
     }
 
-
-    FOREVERY(OBJECT rulenode FROM doc->GetElements("webrule"))
+    FOREVERY(OBJECT rulenode FROM this->xml->GetElements("webrule"))
     {
       //We don't currently have an easier way to parse rules..
-      RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), resourcename || ":" || rulenode->linenum);
-      RECORD parsed := ParseWebRuleData(modulename, baserule, rulenode, resourcename, [ forvalidation := TRUE ]);
-      result.errors   := result.errors   CONCAT parsed.errors;
-      result.warnings := result.warnings CONCAT parsed.warnings;
+      RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), this->respath || ":" || rulenode->linenum);
+      RECORD parsed := ParseWebRuleData(this->modulename, baserule, rulenode, this->respath, [ forvalidation := TRUE ]);
+      this->errors := this->errors CONCAT parsed.errors;
+      this->warnings := this->warnings CONCAT parsed.warnings;
       IF (RecordExists(parsed.rule))
       {
         RECORD validateres := ValidateWebRuleData(parsed.rule);
-        result.errors   := result.errors   CONCAT validateres.errors;
-        result.warnings := result.warnings CONCAT validateres.warnings;
+        this->errors   := this->errors   CONCAT validateres.errors;
+        this->warnings := this->warnings CONCAT validateres.warnings;
       }
     }
-
-    RETURN result;
-  }
-  UPDATE PUBLIC RECORD ARRAY FUNCTION ExtractTidReferences(STRING resourcename, OBJECT doc)
-  {
-    STRING modulename := GetModuleNameFromResourcePath(GetResourceNameFromDiskPath(resourcename));
-    IF(modulename="")
-      THROW NEW Exception(`Unable to determine the module name for moduledefinition ${resourcename}`);
-
-    RECORD modinfo := RunAndExtractTids(resourcename, PTR ParseModuleDefinition(modulename, doc));
-
-    RECORD ARRAY tids := modinfo.tids
-                         CONCAT
-                         RunAndExtractTids(modulename, PTR CaptureOtherTids(modulename, doc)).tids;
-    RETURN tids;
   }
 >;
 
@@ -272,42 +270,58 @@ PUBLIC RECORD FUNCTION RunXMLValidatorOnDOM(OBJECT doc, STRING resourcename, REC
     }
   }
 
-  OBJECT validator := srec.validator != "" ? MakeObject(srec.validator) : NEW ResourceValidationBase;
-  IF(ObjectExists(validator) AND NOT validator EXTENDSFROM ResourceValidationBase)
-    THROW NEW Exception(`Validator '${srec.validator}' must derive from ResourceValidationBase`);
+  OBJECT validator := srec.validator != "" ? MakeObject(srec.validator, doc, resourcename) : NEW XMLValidatorBase(doc, resourcename);
+  IF(ObjectExists(validator) AND NOT validator EXTENDSFROM XMLValidatorBase)
+    THROW NEW Exception(`Validator '${srec.validator}' must derive from XMLValidatorBase`);
 
-  RECORD temp := RunAndExtractTids(resourcename, PTR validator->ProcessResource(doc, resourcename, RecordExists(schemarec) ? schemarec.doc : DEFAULT OBJECT, options.onlytids));
-  RECORD result := temp.returnvalue;
-  result.errors := errors CONCAT result.errors;
-  result.tids := result.tids CONCAT temp.tids;
-  result.tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM result.tids;
-  RETURN CELL[...result, eventmasks];
+  IF(RecordExists(schemarec))
+  {
+    errors := schemarec.doc->ValidateDocument(doc);
+    IF(Length(errors)>0)
+    {
+      RETURN [ errors := SELECT message
+                              , line
+                              , col :=     0
+                              , resourcename := resourcename
+                           FROM SimplifyXMLValidationErrors(errors, doc->documentelement)
+             ];
+    }
+  }
+
+  validator->onlytids := options.onlytids;
+  validator->syntaxlevel_2020 := options.syntaxlevel = "2020";
+
+  RECORD ARRAY tids := RunAndExtractTids(resourcename, PTR validator->ValidateDocument());
+  tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;
+  RETURN CELL[ errors := validator->errors
+             , warnings := validator->warnings
+             , tids
+             , eventmasks
+             ];
 }
 
-PUBLIC OBJECTTYPE TopicValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE TopicValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-    IF (NOT tidsonly AND ObjectExists(doc->documentelement))
-    {
-      STRING ARRAY docorder := ParseXSList(doc->documentelement->GetAttribute("docorder"));
+    IF(this->onlytids)
+      RETURN;
 
-      RECORD ARRAY realdocs :=
-          SELECT name
-               , basename :=      GetBasenameFromPath(name)
-            FROM ReadWebHareResourceFolder(Left(resourcename, SearchLastSubString(resourcename, "/")))
-           WHERE name LIKE "*.md"
-             AND name != "intro.md";
+    STRING ARRAY docorder := ParseXSList(this->xml->documentelement->GetAttribute("docorder"));
 
-      STRING ARRAY missing := GetSortedSet(ArrayDelete(docorder, SELECT AS STRING ARRAY basename FROM realdocs));
-      STRING ARRAY notordered := SELECT AS STRING ARRAY DISTINCT basename FROM realdocs WHERE basename NOT IN docorder ORDER BY name;
+    RECORD ARRAY realdocs :=
+        SELECT name
+             , basename :=      GetBasenameFromPath(name)
+          FROM ReadWebHareResourceFolder(Left(this->respath, SearchLastSubString(this->respath, "/")))
+         WHERE name LIKE "*.md"
+           AND name != "intro.md";
 
-      IF (LENGTH(missing) != 0)
-        INSERT CELL[ resourcename, col := 0, line := doc->documentelement->linenum, message := `The following documents mentioned in docorder could not be found: ${Detokenize(missing, ", ")}` ] INTO result.warnings AT END;
-      IF (LENGTH(notordered) != 0)
-        INSERT CELL[ resourcename, col := 0, line := doc->documentelement->linenum, message := `The following documents are not mentioned in docorder: ${Detokenize(notordered, ", ")}` ] INTO result.warnings AT END;
-    }
-    RETURN result;
+    STRING ARRAY missing := GetSortedSet(ArrayDelete(docorder, SELECT AS STRING ARRAY basename FROM realdocs));
+    STRING ARRAY notordered := SELECT AS STRING ARRAY DISTINCT basename FROM realdocs WHERE basename NOT IN docorder ORDER BY name;
+
+    IF (LENGTH(missing) != 0)
+      this->AddError(this->xml->documentelement->linenum, `The following documents mentioned in docorder could not be found: ${Detokenize(missing, ", ")}`);
+    IF (LENGTH(notordered) != 0)
+      this->AddError(this->xml->documentelement->linenum, `The following documents are not mentioned in docorder: ${Detokenize(notordered, ", ")}`);
   }
 >;

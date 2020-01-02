@@ -6,42 +6,42 @@ LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
+PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
 <
-  UPDATE PUBLIC RECORD FUNCTION ProcessResource(OBJECT doc, STRING resourcename, OBJECT xsd, BOOLEAN tidsonly)
+  UPDATE PUBLIC MACRO ValidateDocument()
   {
-    OBJECT validatingdoc := NEW ValidatingXMLDocument(doc, resourcename);
-    RECORD result := ResourceValidationBase::ProcessResource(doc, resourcename, xsd, tidsonly);
-
     // try to load each <screen> in the screens document to catch all errors
     // which can't be picked up by validating using the XSD.
 
     // We use the document to know which screens are availabe,
     // but make the controller/resourcemanager load the screen.
-    FOREVERY(OBJECT topnode FROM doc->documentelement->childnodes->GetCurrentElements())
+    FOREVERY(OBJECT topnode FROM this->xml->documentelement->childnodes->GetCurrentElements())
     {
       IF(topnode->localname="messageboxes")
       {
+        IF(this->syntaxlevel_2020)
+          this->AddError(topnode, "<messageboxes> are deprecated, use RunSimpleScreen");
+
         FOREVERY(OBJECT messagebox FROM topnode->childnodes->GetCurrentElements())
-          GetMessageBoxFromNode(messagebox, GetModuleNameFromResourcePath(resourcename));
+          GetMessageBoxFromNode(messagebox, this->modulename);
       }
       ELSE IF(topnode->localname IN ["screen","fragment","propertyeditor","tabsextension"]) //FIXME validate namespaces. note that propertyeditor is a hack and is from a different namespace!
       {
         RECORD savescreenbuildinfo := __screenbuildinfo;
         TRY
         {
-          RECORD parsedelement := ParseFoundXMLPage(resourcename, topnode, topnode->localname = "screen" ? "screen" : "fragment", doc->documentelement->GetAttribute("gid"));
-          result.warnings := result.warnings CONCAT parsedelement.warnings;
+          RECORD parsedelement := ParseFoundXMLPage(this->respath, topnode, topnode->localname = "screen" ? "screen" : "fragment", this->xml->documentelement->GetAttribute("gid"));
+          this->warnings := this->warnings CONCAT parsedelement.warnings;
 
           INTEGER elline := parsedelement.rootnode.tolliumscope.line;
-          IF(NOT this->VerifyObjectExistence(validatingdoc, elline, parsedelement.objtype))
+          IF(NOT this->VerifyObjectExistence(elline, parsedelement.objtype))
             CONTINUE;
 
           //any errors would throw a RetrieveResourceException
 
           //FIXME can all objects be processed by screenbuilder?
           //FIXME simplify and share core with pvt_loadscreen
-          IF(topnode->localname = "screen" AND tidsonly = FALSE) //only screen is complete enough for a sensible internal consistency valiadtion
+          IF(topnode->localname = "screen" AND NOT this->onlytids) //only screen is complete enough for a sensible internal consistency valiadtion
           {
             __screenbuildinfo := [ options := [ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ]
                                  , parent := DEFAULT OBJECT
@@ -66,15 +66,15 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
                 builder->AddError(objinfo.data.tolliumscope, e->what);
               }
             }
-            result.errors := result.errors CONCAT builder->GetErrors();
+            this->errors := this->errors CONCAT builder->GetErrors();
           }
         }
         CATCH(OBJECT< RetrieveResourceException > e)
         {
           IF(Length(e->xmlerrors) > 0)
-            result.errors := result.errors CONCAT e->xmlerrors;
+            this->errors := this->errors CONCAT e->xmlerrors;
           ELSE
-            result.errors := result.errors CONCAT [[ line         := 0
+            this->errors := this->errors CONCAT [[ line         := 0
                                  , col          := 0
                                  , message      := e->mainerror
                                  , resourcename := e->resourcename
@@ -82,14 +82,14 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
         }
         CATCH(OBJECT< HarescriptErrorException > e)
         {
-          result.errors := result.errors CONCAT SELECT resourcename := VAR resourcename, line, col, message FROM e->errors;
+          this->errors := this->errors CONCAT SELECT resourcename := this->respath, line, col, message FROM e->errors;
         }
         CATCH(OBJECT e)
         {
-          result.errors := result.errors CONCAT [[ line    := 0
+          this->errors := this->errors CONCAT [[ line    := 0
                                , col     := 0
                                , message := e->what
-                               , resourcename := resourcename
+                               , resourcename := this->respath
                               ]];
         }
         FINALLY
@@ -98,9 +98,5 @@ PUBLIC OBJECTTYPE ScreensFileValidator EXTEND ResourceValidationBase
         }
       }
     }
-
-    result.errors   := result.errors   CONCAT validatingdoc->errors;
-    result.warnings := result.warnings CONCAT validatingdoc->warnings;
-    RETURN result;
   }
 >;

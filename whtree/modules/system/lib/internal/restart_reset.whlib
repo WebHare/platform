@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/serverconfig.whlib";
 LOADLIB "mod::system/lib/internal/logging.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
