@@ -106,7 +106,7 @@ PUBLIC STATIC OBJECTTYPE TestInfoValidator EXTEND XMLValidatorBase
       DELETE FROM unreferred WHERE ToUppercase(name) LIKE ToUppercase(toignore);
 
     /* Quick and dirty filename gathering. It would be nicer if a real parser existed for testfiles, but runtest.whlib just
-       enumaretes nodes directly without parsing first (and we probably want to ignore Applicalbe anyway) */
+       enumerates nodes directly without parsing first (and we probably want to ignore Applicable anyway) */
     FOREVERY(OBJECT checknode FROM this->xml->GetElements("test[script]"))
       DELETE FROM unreferred WHERE name = checknode->GetAttribute("script");
     FOREVERY(OBJECT checknode FROM this->xml->GetElements("jstest[file],mochanodetest[file]"))
