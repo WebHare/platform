@@ -605,8 +605,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ParseWebDesign(OBJECT node)
   {
-    RECORD webdesign := [ library                  := this->ParseFSPath(node, "library")
-                        , objectname               := node->GetAttribute("objectname")
+    RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname")
                         , witty                    := this->ParseFSPath(node, "witty")
                         , assetpack                := ""
                         , basedependency           := node->GetAttribute("basedependency")
@@ -683,67 +682,27 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ParseDynamicExecuteData(OBJECT node)
   {
-    STRING library := node->GetAttribute("library");
-    STRING startmacro := node->GetAttribute("startmacro");
-    STRING webpageobjectname := node->GetAttribute("webpageobjectname");
-    STRING routerfunction := node->GetAttribute("routerfunction");
+    STRING startmacro := this->ParseFunctionRef(node, "library", "startmacro");
+    STRING webpageobjectname := this->ParseFunctionRef(node, "library", "webpageobjectname");
+    STRING routerfunction := this->ParseFunctionRef(node, "library", "routerfunction");
 
     IF (startmacro = "" AND webpageobjectname = "" AND routerfunction="") //specifying both is acceptable, startmacro will take precedence but webpageobjectname will be used for RPCs
     {
-      this->Adderror(node, "Either 'startmacro', 'webpageobjectname' or 'routerfunction' must be specified");
+      this->AddError(node, "Either 'startmacro', 'webpageobjectname' or 'routerfunction' must be specified");
       RETURN DEFAULT RECORD;
     }
 
-    IF(routerfunction != "")
-    {
-      IF(routerfunction NOT LIKE "*#*")
-        this->AddError(node, "The attribute 'routerfunction' must contain a full path");
-      ELSE
-        routerfunction := this->ParseFSPath(node, "routerfunction");
-    }
-
-    IF(startmacro != "")
-    {
-      IF(startmacro LIKE "*#*")
-        startmacro := this->ParseFSPath(node, "startmacro");
-      ELSE IF(library = "")
-      {
-        this->AddError(node, "The attribute 'library' is required if the startmacro does not contain a library");
-        RETURN DEFAULT RECORD;
-      }
-      ELSE
-        startmacro := this->ParseFSPath(node, "library") || "#" || startmacro;
-    }
-
-    IF(webpageobjectname != "")
-    {
-      IF(webpageobjectname LIKE "*#*")
-        webpageobjectname := this->ParseFSPath(node, "webpageobjectname");
-      ELSE IF(library = "")
-      {
-        this->AddError(node, "The attribute 'library' is required if the webpageobjectname does not contain a library");
-        RETURN DEFAULT RECORD;
-      }
-      ELSE
-        webpageobjectname := this->ParseFSPath(node, "library") || "#" || webpageobjectname;
-    }
-
-    STRING ARRAY starttoks := startmacro != "" ? Tokenize(startmacro,'#') : STRING[];
-    STRING ARRAY objecttoks := webpageobjectname != "" ? Tokenize(webpageobjectname,'#') : STRING[];
-
     RETURN
-        [ startlibrary            := startmacro != "" ? starttoks[0] : ""
-        , startmacro              := startmacro != "" ? starttoks[1] : ""
-        , webpagelibrary          := webpageobjectname != "" ? objecttoks[0] : ""
-        , webpageobjectname       := webpageobjectname != "" ? objecttoks[1] : ""
-        , routerfunction          := routerfunction
+        CELL[ startmacro
+            , webpageobjectname
+            , routerfunction
 
-        , cachettl                := ParseXSInt(node->GetAttribute("cachettl"))
-        , cachewebvariables       := ParseXSList(ToUppercase(node->GetAttribute("cachewebvariables")))
-        , cacheblacklistvariables := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistvariables")))
-        , cachewebcookies         := ParseXSList(ToUppercase(node->GetAttribute("cachewebcookies")))
-        , cacheblacklistcookies   := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistcookies")))
-        ];
+            , cachettl                := ParseXSInt(node->GetAttribute("cachettl"))
+            , cachewebvariables       := ParseXSList(ToUppercase(node->GetAttribute("cachewebvariables")))
+            , cacheblacklistvariables := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistvariables")))
+            , cachewebcookies         := ParseXSList(ToUppercase(node->GetAttribute("cachewebcookies")))
+            , cacheblacklistcookies   := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistcookies")))
+            ];
   }
 
   STRING FUNCTION ParseSearchProvider(OBJECT node)
@@ -1016,7 +975,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
                                       , rendermacro := node->GetAttribute("rendermacro")
                                       , preparemacro := node->GetAttribute("preparemacro")
-                                      , objectname  := node->GetAttribute("objectname")
+                                      , objectname  := this->ParseFunctionRef(node, "library", "objectname")
                                       ];
                 CONTINUE;
               }

@@ -84,9 +84,9 @@ PUBLIC MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderw
     RETURN;
   }
 
-  __pageinfo := [ pagefolder := GetDirectoryFromPath(webdesigninfo.renderinfo.webpagelibrary) ];
+  __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
 
-  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.webpagelibrary, webdesigninfo.renderinfo.objectname, openobj);
+  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, openobj);
   OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, openobj, pageobject, renderwidgetpreview);
 
   IF (renderwidgetpreview)

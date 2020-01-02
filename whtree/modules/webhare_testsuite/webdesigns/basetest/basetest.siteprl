@@ -111,10 +111,7 @@
                   tag="requiresysoptest"
                   webpageobjectname="TestRequireSysopPage" />
     <prebuiltpage type="static" library="pages/listtest/listtest.whlib" tag="listtest" webpageobjectname="ListTestPage" />
-    <prebuiltpage type="dynamic"
-                  library="pages/wrdauthtest/wrdauthtest.whlib"
-                  tag="wrdauthtest"
-                  webpageobjectname="wrdauthtestPage" />
+    <prebuiltpage type="dynamic" tag="wrdauthtest" webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthtestPage" />
     <prebuiltpage type="static"
                   library="pages/wrdauthtest/wrdauthtest.whlib"
                   tag="wrdauthtest-static"
@@ -231,11 +228,8 @@
             extensions=".shtml"
             isacceptableindex="true"
             isdevelopertype="true"
-            ispublishable="true"
-            needsprofile="false"
-            needstemplate="false"
-            title="Capture subpath dynamic content">
-    <dynamicexecution library="lib/basetest.whlib" webpageobjectname="WebPage" />
+            ispublishable="true">
+    <dynamicexecution webpageobjectname="lib/basetest.whlib#WebPage" />
   </filetype>
 
   <!-- enable texteditors -->

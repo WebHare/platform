@@ -873,7 +873,6 @@
         <text tid="denied">Denied</text>
         <text tid="dynamicexecution">Dynamic execution</text>
         <text tid="dynamicexecution_cached">Cached</text>
-        <text tid="dynamicexecution_library">Library</text>
         <text tid="dynamicexecution_startmacro">Start macro</text>
         <text tid="dynamicexecution_webpageobjectname">Webpage objecttype</text>
         <text tid="filescantbehidden">Filetypes cannot be hidden</text>

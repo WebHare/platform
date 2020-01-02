@@ -874,7 +874,7 @@
 
   <apply>
     <to type="file" />
-    <bodyrenderer library="mod::publisher/lib/webdesign.whlib" objectname="StaticPageBase" />
+    <bodyrenderer objectname="mod::publisher/lib/webdesign.whlib#StaticPageBase" />
     <baseproperties title="true" description="true" keywords="true" />
   </apply>
 
@@ -885,17 +885,17 @@
       <structuredefinition fullpath="mod::publisher/data/default.structure.xml" />
       <css fullpath="mod::publisher/data/default.structure.css" />
     </richdocumenteditor>
-    <bodyrenderer library="mod::publisher/lib/internal/renderers/rtd.whlib" objectname="RenderRTD" />
+    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD" />
   </apply>
 
   <apply>
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/mswordfile" />
-    <bodyrenderer library="mod::publisher/lib/internal/renderers/msword.whlib" objectname="RenderMSWordFile"/>
+    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile"/>
   </apply>
 
   <apply>
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/contentlisting" parenttype="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <bodyrenderer library="mod::publisher/lib/internal/renderers/photogallery.whlib" objectname="PhotoGalleryRenderer" />
+    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/photogallery.whlib#PhotoGalleryRenderer" />
   </apply>
 
   <apply priority="-1">
@@ -923,7 +923,7 @@
 
   <apply>
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
-    <bodyrenderer library="mod::publisher/lib/internal/renderers/htmlfile.whlib" objectname="StaticHTMLFile" />
+    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
   </apply>
 
   <apply>

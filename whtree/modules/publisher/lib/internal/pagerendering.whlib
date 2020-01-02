@@ -99,34 +99,24 @@ BOOLEAN FUNCTION ValidateLibrary(STRING libname)
 
 PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid)
 {
-  //Validate both libraries
-  IF(redirectinfo.startlibrary != "" AND NOT ValidateLibrary(redirectinfo.startlibrary))
-    RETURN DEFAULT OBJECT;
-  IF(redirectinfo.webpagelibrary != "" AND redirectinfo.webpagelibrary != redirectinfo.startlibrary AND NOT ValidateLibrary(redirectinfo.webpagelibrary))
-    RETURN DEFAULT OBJECT;
-
   OBJECT pageobject;
   MACRO PTR pagemacro;
   BOOLEAN isjsonrpc := IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),";")[0] = "application/json";
 
-  INSERT CELL pagefolder := GetDirectoryFromPath(redirectinfo.webpagelibrary ?? redirectinfo.startlibrary) INTO __pageinfo; //FIXME we have Resolve, don't use pagefolder, deprecate it!
-
+  INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(redirectinfo.webpageobjectname ?? redirectinfo.startmacro,'#')[0]) INTO __pageinfo; //FIXME we have Resolve, don't use pagefolder, deprecate it!
   IF(redirectinfo.routerfunction != "")
   {
     pageobject := ExecuteRouter(fileid, redirectinfo, isjsonrpc, contentobjectid);
   }
-  ELSE IF(redirectinfo.startlibrary="" AND redirectinfo.webpagelibrary="")
-  {
-  }
   ELSE IF(redirectinfo.startmacro != "" AND NOT isjsonrpc) //startmacro takes precedence over webpageobjectname
   {
-    pagemacro := MakeFunctionPTR(redirectinfo.startlibrary, redirectinfo.startmacro, 0, DEFAULT INTEGER ARRAY);
+    pagemacro := MakeFunctionPTR(redirectinfo.startmacro);
   }
   ELSE IF(redirectinfo.webpageobjectname != "")
   {
     //we need to invoke SetupWebDesignForWebPageBase for WebPageBase but it's a waste of time for DynamicPageBase.. so delay it
     INSERT CELL __instantiatedesign := PTR SetupWebDesignForWebPageBase(fileid, contentobjectid) INTO __pageinfo;
-    pageobject := MakeObject(redirectinfo.webpagelibrary, redirectinfo.webpageobjectname);
+    pageobject := MakeObject(redirectinfo.webpageobjectname);
 
     IF(pageobject EXTENDSFROM WebPageBase) //modern
     {
@@ -136,11 +126,11 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
       THROW NEW Exception(`The specified object '${redirectinfo.webpageobjectname}' does not derive from DynamicPageBase or WebPageBase`);
 
   }
-  ELSE //autodetect
+  ELSE IF(redirectinfo.shtmlfile != "")
   {
     TRY
     {
-      pageobject := MakeObject(redirectinfo.webpagelibrary, "DynamicPage");
+      pageobject := MakeObject(redirectinfo.shtmlfile, "DynamicPage");
       IF(NOT pageobject EXTENDSFROM DynamicPageBase)
         THROW NEW Exception("The object 'DynamicPage' does not derive from DynamicPageBase");
     }
@@ -151,7 +141,7 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
 
       TRY
       {
-        pagemacro := MakeFunctionPTR(redirectinfo.startlibrary, "RunDynamicPage", 0, DEFAULT INTEGER ARRAY);
+        pagemacro := MakeFunctionPTR(redirectinfo.shtmlfile || "#RunDynamicPage", 0, DEFAULT INTEGER ARRAY);
       }
       CATCH (OBJECT macro_exception)
       {

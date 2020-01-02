@@ -107,7 +107,6 @@
           <textedit name="searchprovider" enabled="false" width="1pr" />
           <text name="ishidden" />
           <heading name="dynamicexecution" visible="false" />
-          <textedit name="dynamicexecution_library" enabled="false" visible="false" width="1pr" />
           <textedit name="dynamicexecution_startmacro" enabled="false" visible="false" width="1pr" />
           <textedit name="dynamicexecution_webpageobjectname" enabled="false" visible="false" width="1pr" />
           <text name="dynamicexecution_cached" visible="false"  />

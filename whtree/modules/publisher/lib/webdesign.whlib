@@ -314,8 +314,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       IF(this->__config.renderinfo.objectname != "")
       {
         DELETE CELL pagefolder FROM __pageinfo;
-        INSERT CELL pagefolder := GetDirectoryFromPath(this->__config.renderinfo.webpagelibrary) INTO __pageinfo;
-        this->pageobject := MakeObject(this->__config.renderinfo.webpagelibrary, this->__config.renderinfo.objectname, this->contentobject);
+        INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(this->__config.renderinfo.objectname,'#')[0]) INTO __pageinfo;
+        this->pageobject := MakeObject(this->__config.renderinfo.objectname, this->contentobject);
       }
     }
 
@@ -414,10 +414,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   }
   RECORD FUNCTION __GetSiteConfig()
   {
-    RECORD libinfo := GetHarescriptLibraryInfo(this->__config.library);
+    RECORD libinfo := GetHarescriptLibraryInfo(Tokenize(this->__config.objectname,'#')[0]);
     RETURN GetAdhocCached(
         CELL[ siteid :=     this->targetsite->id
-            , this->__config.library
             , this->__config.objectname
             , compileid :=  libinfo.compile_id
             ], PTR this->__CalculateSiteConfig());
@@ -782,7 +781,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   RECORD FUNCTION __CalculateSiteConfig()
   {
     STRING ARRAY eventmasks :=
-        STRING[ ...GetResourceEventMasks(STRING[this->__config.library])
+        STRING[ ...GetResourceEventMasks(STRING[Tokenize(this->__config.objectname,'#')[0]])
               , "publisher:internal.siteprofiles.recompiled"
               , "system:modulesupdate"
               , `system:whfs.site.${this->targetsite->id}`

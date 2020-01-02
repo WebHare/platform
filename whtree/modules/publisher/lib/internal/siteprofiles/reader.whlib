@@ -566,8 +566,7 @@ BOOLEAN FUNCTION TestRequiredRight(OBJECT user, STRING rightname, INTEGER fsobje
 
 PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
 {
-  RECORD webdesign := [ library         := "mod::publisher/lib/webdesign.whlib"
-                      , objectname      := "WebDesignBase"
+  RECORD webdesign := [ objectname      := "mod::publisher/lib/webdesign.whlib#WebDesignBase"
                       , witty           := "mod::publisher/lib/defaultwebdesign.witty"
                       , assetpack       := ""
                       , basedependency  := ""
@@ -847,9 +846,9 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
 
     //STRING lib := MakeAbsoluteResourcePath(webdesigninfo.moduledesignfolder ?? webdesigninfo.designfolder, webdesigninfo.library);
 
-    OBJECT designobj := MakeObject(webdesigninfo.library, webdesigninfo.objectname);
+    OBJECT designobj := MakeObject(webdesigninfo.objectname);
     IF(NOT MemberExists(designobj, "__PREPAREPAGE"))
-      THROW NEW Exception("The design object " || webdesigninfo.library || ":" || webdesigninfo.objectname || " does not derive from WebDesignBase");
+      THROW NEW Exception(`The design object ${webdesigninfo.objectname} does not derive from WebDesignBase`);
     designobj->__PreparePage();
     RETURN designobj;
   }
@@ -903,14 +902,12 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   {
     OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
 
-    STRING library := ObjectExists(dest) AND dest->isactive ? dest->GetResourceName() : "";
-    settings := [ startlibrary := library
-                , webpagelibrary := library
-                , startmacro := ""
+    settings := [ startmacro := ""
                 , webpageobjectname := ""
                 , routerfunction := ""
                 , cachettl := 0
                 , pagefolder := ""
+                , shtmlfile := ObjectExists(dest) AND dest->isactive ? dest->GetResourceName() : ""
                 ];
   }
   ELSE
@@ -1636,7 +1633,6 @@ STATIC OBJECTTYPE ApplyRuleTester
       IF (NOT RecordExists(webdesign))
         webdesign := GetDefaultWebDesignInfo();
 
-      webdesign.library         := apply.webdesign.library         ?? webdesign.library;
       webdesign.objectname      := apply.webdesign.objectname      ?? webdesign.objectname;
       webdesign.witty           := apply.webdesign.witty           ?? webdesign.witty;
       webdesign.designfolder    := apply.webdesign.designfolder    ?? webdesign.designfolder;
@@ -1669,9 +1665,7 @@ STATIC OBJECTTYPE ApplyRuleTester
         IF(NOT RecordExists(prebuiltsettings))
           THROW NEW Exception(`Do not know how to render prebuilt file with tag '${prebuiltinfo.prebuilttag}'`);
 
-        webdesign.renderinfo := [ webpagelibrary := prebuiltsettings.dynexecute.webpagelibrary
-                                , startlibrary := prebuiltsettings.dynexecute.startlibrary
-                                , rendermacro := prebuiltsettings.dynexecute.startmacro
+        webdesign.renderinfo := [ rendermacro := prebuiltsettings.dynexecute.startmacro
                                 , preparemacro := ""
                                 , objectname := prebuiltsettings.dynexecute.webpageobjectname
                                 , issystemredirect := prebuiltsettings.type="dynamic"
@@ -1706,19 +1700,12 @@ STATIC OBJECTTYPE ApplyRuleTester
       IF (#apply=0)
       {
         typerec := this->GetTypeRecordData();
-        bodyrenderer := [ webpagelibrary := ""
-                        , startlibrary := ""
-                        , rendermacro := ""
+        bodyrenderer := [ rendermacro := ""
                         , preparemacro := ""
                         , objectname  := ""
                         , issystemredirect := FALSE
                         , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
                         ];
-      }
-      IF (apply.bodyrenderer.library != "")
-      {
-        bodyrenderer.webpagelibrary := apply.bodyrenderer.library;
-        bodyrenderer.startlibrary := apply.bodyrenderer.library;
       }
       IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "")
       {
