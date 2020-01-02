@@ -419,6 +419,7 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
                                , vars);
   }
 
+  //https://docs.gitlab.com/ee/api/pipelines.html#retry-jobs-in-a-pipeline
   PUBLIC MACRO RetryPipeline(STRING project, INTEGER id)
   {
     //this->browser->Debug:=TRUE;
