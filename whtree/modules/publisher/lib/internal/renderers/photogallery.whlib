@@ -442,7 +442,7 @@ PUBLIC STATIC OBJECTTYPE PhotoGalleryRenderer EXTEND StaticPageBase
     //pass information  -on how many thumbnails there are per page- on to the album-generator.
     this->SetThumbnailsPerPage(thumbs_per_page);
 
-    this->photopages := GetPhotoalbumContents(webdesign->targetobject->parent);
+    this->photopages := __GetPhotoalbumContents(webdesign->targetobject->parent);
     this->photopages := SELECT TEMPORARY onpage := (#photopages / thumbs_per_page) + 1
                              , *
                              , link := webdesign->GetStaticFileLink("photo_page_" || photoid || ".html")

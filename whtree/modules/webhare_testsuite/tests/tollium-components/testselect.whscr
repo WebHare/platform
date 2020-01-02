@@ -49,9 +49,10 @@ ASYNC MACRO TestInvisibleSelectRegression()
   TestEq(FALSE, TT("enable2")->enabled);
 
   TT("tabs")->extendcomponents :=
-      [ [ name := "contentitem_nl", component := TT("contentitem_nl") ]
+      [ [ name := "theitem", component := TT("contentitem_nl") ]
       ];
   RECORD res := TT("tabs")->LoadTabsExtension(Resolve("screens/select.xml#extension"));
+  TestEq(TRUE, MemberExists(res.extension,"^theitem"));
   TT("contentitem_nl")->GetComponent("usestandardtext2")->value := FALSE;
   TestEq(TRUE, TT("contentitem_nl")->GetComponent("shorttext2")->enabled);
 

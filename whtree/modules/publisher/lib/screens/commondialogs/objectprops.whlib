@@ -101,9 +101,6 @@ OBJECTTYPE ObjectPropsAPI
   /// Applytester
   PUBLIC PROPERTY applytester(GetApplyTester,-);
 
-  /// Web context FIXME dangerous to expose...
-  PUBLIC PROPERTY webcontext(GetWebContext,-);
-
   /// Parent site
   PUBLIC PROPERTY targetsite(GetTargetSite,-);
 
@@ -126,13 +123,6 @@ OBJECTTYPE ObjectPropsAPI
   OBJECT FUNCTION GetApplyTester()
   {
     RETURN this->objectprops->contexts->applytester;
-  }
-
-  OBJECT FUNCTION GetWebContext()
-  {
-    IF(NOT IsDtapLive())
-      THROW NEW Exception("We want to remove webcontext from objectpropsapi - please inform us of this call site");
-    RETURN this->objectprops->webcontext;
   }
 
   // ---------------------------------------------------------------------------
@@ -303,7 +293,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   //OBJECT objectpropscontext;
 
   /// Webcontext for the currently edited item
-  PUBLIC OBJECT webcontext;
+  OBJECT webcontext;
 
   /// Id of the currently edited object
   PUBLIC PROPERTY objectid(itemid,-); //NOTE: part of the public api now

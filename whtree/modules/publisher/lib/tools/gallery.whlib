@@ -28,7 +28,7 @@ MACRO InitPhotofiles()
   IF (folder.type != 3 OR NOT use_local_photos)
     RETURN;
 
-  photofiles := GetPhotoalbumContents(folder.id);
+  photofiles := __GetPhotoalbumContents(folder.id);
 }
 
 

@@ -189,7 +189,7 @@ BLOB moduledefwarning := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta/>
   <hooking>
-    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions" runmodel="integrated" />
+    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions" />
   </hooking>
   <backend>
     <webruleset name="dynamicsendpoint">
@@ -231,12 +231,10 @@ MACRO TestBasicValidate()
   TestEq(RECORD[],res.errors);
   Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.testsite.title"), "Cannot find webhare_testsuite:module.testsite.title");
 
-  //may have to change if we ever error on runmodel, find a new warning then. or if permissions= goes away, we do need to check webrules are validated!
+  //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefwarning ]);
   TestEq(RECORD[],res.errors);
-  TestEq(3,Length(res.warnings));
   Testeq([[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
-         ,[ line := 5, message := "The runmodel attribute has been deprecated and should be removed" ]
          ,[ line := 9, message := "permissions= no longer has any effect and should be removed" ]
          ], (SELECT line, message FROM res.warnings));
 

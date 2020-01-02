@@ -127,6 +127,7 @@ PUBLIC RECORD ARRAY FUNCTION UnpackJSONToDBInfoRows(RECORD inrec, STRING basenam
                  , rowkey   := basename || "." || #value
                  , subnodes := UnpackJSONToDBInfoRows(value, basename || cellrec.name || "." || #value || ".", canedit, orphan)
                  , type     := "record array"
+                 , original := value
                  ] FROM cellrec.value;
       }
       CASE TypeID(VARIANT ARRAY)
@@ -264,8 +265,10 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
                                               , rowkey      := mybasename || "." || #links
                                               , subnodes    := UnpackToDBInfoRows(tolliumuser, links, mybasename || ".links." || #links, /* canedit */ FALSE, orphan)
                                               , type        := "array"
+                                              , original    := links
                                               ] FROM rtd.links)
             , type := "array"
+            , original := rtd.links
             ]
       , CELL[ ...dbinfo_baserow
             , name := "instances"
@@ -273,6 +276,7 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
             , rowkey := mybasename || 'instances'
             , subnodes := UnpackCTYpeRichDocumentInstances(rtd.instances, tolliumuser, mybasename, canedit, orphan)
             , type := "array"
+            , original := rtd.instances
             ]
       , CELL[ ...dbinfo_baserow
             , name := "embedded"
@@ -285,7 +289,9 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
                                               , subnodes := UnpackToDBInfoRows(tolliumuser, embedded, mybasename||'.embedded.' || #embedded, FALSE, orphan)
                                               , type := "array"
                                               , rowkey := mybasename || '.embedded.' || #embedded
+                                              , original := embedded
                                               ] FROM rtd.embedded)
+            , original := rtd.embedded
             , type := "array"
            ]
          ];
@@ -298,12 +304,14 @@ RECORD ARRAY FUNCTION UnpackCTYPEFormCondition(INTEGER type, RECORD condition, O
                , data := condition.field
                , rowkey := mybasename || 'field'
                , type := "string"
+               , original := condition.field
                ]
          , CELL[ ...dbinfo_baserow
                , name := "matchtype"
                , data := condition.matchtype
                , rowkey := mybasename || 'matchtype'
                , type := "string"
+               , original := condition.matchtype
                ]
          ]
          CONCAT
@@ -320,6 +328,7 @@ RECORD ARRAY FUNCTION UnpackCTYpeRichDocumentInstances(RECORD ARRAY instances, O
                                     , rowkey   :=   mybasename || #instances
                                     , subnodes :=   UnpackCTYPEToDBInfoRows(subtype, 0, tolliumuser, instances.data, mybasename || #instances || ".", canedit, orphan)
                                     , type     :=   "instance"
+                                    , original :=   instances
                                     ] FROM instances;
 }
 PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER curparent, OBJECT tolliumuser, RECORD inrec, STRING basename, BOOLEAN canedit, BOOLEAN orphan)
@@ -375,6 +384,7 @@ PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER cu
                                                , subnodes := UnpackCTYPEToDBInfoRows(whfstype, memberinfo.id, tolliumuser, subnodes, mybase || ".", canedit, orphanmember)
                                                , type     := "array"
                                                , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+                                               , original := subnodes
                                                ] FROM subnodes;
       }
       CASE 15 //richdoc
@@ -492,6 +502,7 @@ PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER cu
                                            , subnodes := UnpackCTYPEToDBInfoRows(whfstype, memberinfo.id, tolliumuser, value, basename || cellrec.name || "." || #value || ".", canedit, orphanmember)
                                            , type     := "array"
                                            , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+                                           , original := value
                                            ] FROM cellrec.value;
 
           }
@@ -602,6 +613,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
             , subnodes := UnpackToDBInfoRows(this->tolliumuser, fsobj, "fs_object.", FALSE, FALSE)
             , data := ToString(myfsobj->id)
             , type := "table row"
+            , original := fsobj
             ]
       ];
 
@@ -613,6 +625,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
                  , subnodes := UnpackToDBInfoRows(this->tolliumuser, CellDelete(siterecord, "id"), "sites.", FALSE, FALSE)
                  , data := ToString(myfsobj->id)
                  , type := "table row"
+                 , original := siterecord
                  ] INTO outrows AT END;
     }
 
@@ -625,6 +638,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
                  , subnodes := UnpackToDBInfoRows(this->tolliumuser, fs_history, "fs_history.", FALSE, FALSE)
                  , data := ToString(fs_history.id)
                  , type := "table row"
+                 , original := fs_history
                  ] INTO outrows AT END;
     }
 
@@ -639,6 +653,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
                  , subnodes := UnpackCTYPEToDBInfoRows(typeinfo, 0, this->tolliumuser, instance, typ.fs_type || ".", TRUE, FALSE)
                  , data := ToString(typ.id)
                  , type := "whfs instance"
+                 , original := instance
                  ] INTO outrows AT END;
 
     }
@@ -652,6 +667,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
                  , subnodes := UnpackToDBInfoRows(this->tolliumuser, rec, "fs_versionevents.", FALSE, FALSE)
                  , data := ToString(versionid)
                  , type := "table row"
+                 , original := rec
                  ] INTO outrows AT END;
     }
 
@@ -699,6 +715,18 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
   MACRO DoPreviewDraftDBInfo()
   {
     this->DoPreviewDBInfo(^draftdbinfo, ^drafts->selection.id);
+  }
+
+  MACRO DoReflect(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)
+  {
+    RECORD sel := (comp ?? ^dbinfo)->selection;
+    STRING ARRAY toks := Tokenize(sel.rowkey,'.');
+    Reflect(sel.original);
+  }
+
+  MACRO DoReflectDraft()
+  {
+    this->DoReflect(^draftdbinfo, ^drafts->selection.id);
   }
 
   MACRO OnDbinfoDownload(OBJECT downloadhandler)

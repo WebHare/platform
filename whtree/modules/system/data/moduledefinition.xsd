@@ -742,7 +742,6 @@
     <xs:attribute name="library" type="xs:string" use="required" />
     <xs:attribute name="objectname" type="xs:string" use="required" />
     <xs:attribute name="objecttype" type="xs:string" /> <!-- legacy support -->
-    <xs:attribute name="runmodel" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
 
@@ -2351,7 +2350,6 @@
 
           <xs:attribute name="library" type="xs:string" />
           <xs:attribute name="interceptfunction" type="xs:string" use="required" />
-          <xs:attribute name="runmodel" />
           <xs:attributeGroup ref="ApplicabletoWebHare" />
         </xs:complexType>
       </xs:element>

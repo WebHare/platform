@@ -536,3 +536,20 @@ PUBLIC MACRO RunAnyComponent(OBJECT controller, RECORD data)
 
   controller->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := data.params[0], settings := settings ])->RunModal();
 }
+
+PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    ^row->RegisterVirtualCell("text", PTR this->GetVirtualText, PTR this->SetVirtualText);
+    TolliumRowEditScreenBase::Init(data);
+  }
+  STRING FUNCTION GetVirtualText()
+  {
+    RETURN ^virtualized_text->value;
+  }
+  MACRO SetVirtualText(STRING val)
+  {
+    ^virtualized_text->value := val;
+  }
+>;
