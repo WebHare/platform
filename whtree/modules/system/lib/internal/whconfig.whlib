@@ -116,10 +116,10 @@ STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
 PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD restrictions)
 {
   //Support versioninfo without semantic 'version' for backwards compatibility (eg. peering with old webhares)
-  STRING semver := CellExists(webhareversioninfo,'version') ? webhareversioninfo.version : GetSemVerFromClassicVersion(webhareversioninfo.vesrionnum);
+  STRING semver := CellExists(webhareversioninfo,'version') ? webhareversioninfo.version : GetSemVerFromClassicVersion(webhareversioninfo.versionnum);
 
   IF(restrictions.requireversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.requireversion))
-    RETURN `Required version: ${restrictions.requireversion}, current: ${webhareversioninfo.version}`;
+    RETURN `Required version: ${restrictions.requireversion}, current: ${semver}`;
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
     RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
 
