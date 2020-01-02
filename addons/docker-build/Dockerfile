@@ -79,11 +79,6 @@ RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
     --mount=type=secret,id=instantclienturl \
     /bin/bash /compile-source.sh
 
-# Add geoip databases
-RUN --mount=type=bind,source=/setup-geoip-dbase.sh,target=/setup-geoip-dbase.sh \
-    --mount=type=cache,id=geoip-dbase,target=/tmp/downloads \
-    /bin/bash /setup-geoip-dbase.sh
-
 # Throw in the whtree and addons - note: builds will always stop caching after this step
 COPY whtree /opt/wh/whtree
 

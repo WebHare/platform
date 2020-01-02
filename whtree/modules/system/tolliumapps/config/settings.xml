@@ -6,6 +6,7 @@
   <screen name="settings" minwidth="450px">
     <actions>
       <windowopenaction name="registergeonames" onwindowopen="doregistergeonames" />
+      <windowopenaction name="registergeoip2" onwindowopen="doregistergeoip2" />
     </actions>
     <compositions>
       <radiogroup name="displaytype"/>
@@ -14,6 +15,7 @@
       <s:registrynode name="tasks" node="system.tasks" />
       <s:registrynode name="smtp" node="system.services.smtp" />
       <s:registrynode name="geonames" node="system.services.geonames" />
+      <s:registrynode name="geoip2" node="system.services.geoip2" />
       <s:registrynode name="proxy" node="system.webserver.global.proxyservers" />
       <s:registrynode name="security" node="system.webserver.security" />
       <s:registrynode name="wrdglobalconfig" node="wrd.globalconfig" />
@@ -79,6 +81,11 @@
           <textedit composition="geonames" cellname="accountname" />
           <line layout="left">
             <text title="" valuetid=".registergeonames" action="registergeonames" wordwrap="true" />
+          </line>
+          <heading tid=".geiop2"/>
+          <textedit composition="geoip2" cellname="licensekey" />
+          <line layout="left">
+            <text title="" valuetid=".registergeoip2" action="registergeoip2" wordwrap="true" />
           </line>
         </tab>
         <tab tid=".security">

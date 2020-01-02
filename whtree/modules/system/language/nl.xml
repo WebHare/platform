@@ -1767,12 +1767,14 @@
         <text tid="elasticsecret">Elasticsearch sleutel</text>
         <text tid="errorlog">Bewaar errorlog</text>
         <text tid="fullaccessips">IPs die loginchecks overslaan</text>
+        <text tid="geiop2">GeoLite2</text>
         <text tid="geonames">GeoNames</text>
         <text tid="geonamesinfo">De GeoNames-webservice wordt gebruikt om de tijdzone te bepalen op basis van de locatie van de gebruiker of door te zoeken naar een locatie. Hiervoor is een (gratis) GeoNames-account vereist.</text>
         <text tid="harescript">HareScript</text>
         <text tid="identity">Identiteit</text>
         <text tid="infotext">Inloginformatie tekst</text>
         <text tid="infotitle">Inloginformatie titel</text>
+        <text tid="licensekey">Licentiesleutel</text>
         <text tid="logfiles">Logbestanden</text>
         <text tid="login">Loginscherm</text>
         <text tid="logindialog">Inlogscherm</text>
@@ -1780,6 +1782,7 @@
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
         <text tid="pxllog">Bewaar pxl log</text>
+        <text tid="registergeoip2">Klik hier omeen GeoLite2-account te registreren</text>
         <text tid="registergeonames">Klik hier om een GeoNames-account te registreren</text>
         <text tid="scripttimeout">Script time-out</text>
         <text tid="security">Beveiliging</text>

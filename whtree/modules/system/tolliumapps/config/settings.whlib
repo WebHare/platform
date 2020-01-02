@@ -64,6 +64,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^tasks->ReadFromRegistry();
     ^smtp->ReadFromRegistry();
     ^geonames->ReadFromRegistry();
+    ^geoip2->ReadFromRegistry();
 
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
   }
@@ -132,6 +133,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^tasks->WriteToRegistry();
     ^smtp->WriteToRegistry();
     ^geonames->WriteToRegistry();
+    ^geoip2->WriteToRegistry();
 
     IF(NOT work->Finish())
       RETURN FALSE;
@@ -152,5 +154,9 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   MACRO DoRegisterGeoNames(OBJECT handler)
   {
     handler->SendURL("https://www.geonames.org/login");
+  }
+  MACRO DoRegisterGeoIP2(OBJECT handler)
+  {
+    handler->SendURL("https://www.maxmind.com/en/geolite2/signup");
   }
 >;

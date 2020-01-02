@@ -1,8 +1,16 @@
 <?wh
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/tasks/geoipdownload.whlib";
 
-RECORD result := UpdateGEOIPDatabases();
+OpenPrimary();
+STRING licensekey := ReadRegistryKey("system.services.geoip2.licensekey");
+IF(licensekey = "")
+  RETURN;
+
+RECORD result := UpdateGEOIPDatabases(licensekey);
 FOREVERY(STRING msg FROM result.messages)
   Print(`${msg}\n`);
 FOREVERY(STRING error FROM result.errors)
