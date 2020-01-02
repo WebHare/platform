@@ -25,7 +25,7 @@ PUBLIC RECORD validationoptions := [ perfectcompile := FALSE
     @cell(boolean) return.nowarnings Whether to fail validation when any warnings are found
     @cell(boolean) return.documentation Whether to validate documentation
     @cell(string array) return.eslintmasks List of masks for files to validate with eslint
-    @cell(string) return.syntaxlevel Syntax requirements (Eg 2020)
+    @cell(string) return.syntaxlevel Syntax requirements (e.g. 2020)
     @topic testframework/validation
     @public
     @loadlib mod::system/lib/validation.whlib
