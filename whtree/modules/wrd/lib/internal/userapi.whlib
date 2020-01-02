@@ -1256,8 +1256,6 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
 */
 PUBLIC OBJECT FUNCTION GetWRDAuthUserAPI(OBJECT wrdschema)
 {
-  IF(NOT wrdschema->usermgmt)
-    THROW NEW Exception(`Requesting the user api of schema ${wrdschema->tag} which is not configured for user management`);
   RETURN NEW WHUserApi(wrdschema);
 }
 

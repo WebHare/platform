@@ -446,6 +446,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   BOOLEAN relativeoutputfolders;
 
   INTEGER __betatestunit;
+  ///The ID for a testunit created if wrdauth mode is enabled. Use this for WHUSER_UNIT
   PUBLIC PROPERTY testunit(__betatestunit,-);
 
   //PUBLIC OBJECT trans;
@@ -988,6 +989,10 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
                                                            ]);
         this->pvt_userapi := GetWRDAuthUserAPi(this->openwrdschema);
       }
+      ELSE
+      {
+        this->openwrdschema->^wrd_person->UpdateAttribute("WHUSER_UNIT", [ isrequired := FALSE ]); //for compatibility with all existing tests
+      }
     }
 
     this->DoWHFSCleanUp();
@@ -1050,9 +1055,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     this->tests_started := TRUE;
 
-    IF(Length(this->credentials) > 0 OR Length(this->roles) > 0)
+    IF(this->wrdauth)
     {
-      this->__betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit" ]);
+      this->__betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit", wrd_tag := "TESTFW_TESTUNIT" ]);
     }
 
     IF(Length(this->credentials) > 0)
@@ -2084,15 +2089,15 @@ STRING FUNCTION GenerateName(MACRO PTR test)
 
 /** Run a number of tests within the framework
     @param tests Function pointers to tests to run
-    @cell(boolean) options.debug
+    @cell(boolean) options.debug Add more debug information
     @cell(string array) options.debugflags Additional debug options to set on the testframework browser
-    @cell(record array) options.testusers Test users to create
-    @cell(boolean) options.profile
+    @cell(boolean) options.profile Enable profiling, set to default
     @cell(boolean) options.relativeoutputfolders
     @cell(integer) options.requireport
-    @cell(record array) options.testroles
+    @cell(record array) options.testusers Users to create in the test WRD schema
+    @cell(record array) options.testroles Roles  to create in the test WRD schema
     @cell(boolean) options.wrdschema
-    @cell(boolean) options.wrdauth Set to false to suppress creating our schema with usermgmt capabilities (WHUSER_LOGIN etc). Defaults to true
+    @cell(boolean) options.wrdauth Set to true to setup the testschema for users/role/rights. Implicity set if testusers or testroles are set
     @cell(boolean) options.usedatabase
     @cell(boolean) options.consilio
     @cell(string array) options.addinterfacealiases
@@ -2111,7 +2116,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , requireport := 0
                               , testroles := RECORD[]
                               , wrdschema := TRUE
-                              , wrdauth := TRUE
+                              , wrdauth := FALSE
                               , usedatabase := TRUE
                               , consilio := FALSE
                               , addinterfacealiases := STRING[]
@@ -2119,6 +2124,10 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , canceltasks := STRING[]
                               , debugflags := STRING[]
                               ], options);
+
+  IF(Length(options.testusers) > 0 OR Length(options.testroles) > 0)
+    options.wrdauth := TRUE; //this requires wrdauth
+
   IF(options.profile)
   {
     Enablefunctionprofile();

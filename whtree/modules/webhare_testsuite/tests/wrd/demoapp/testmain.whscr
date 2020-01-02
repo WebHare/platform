@@ -30,6 +30,7 @@ OBJECT ASYNC FUNCTION TestMainApp()
   AWAIT ExpectScreenChange(+1, PTR TTClick("addperson"));
 
   TT("email")->value := "newaccount@example.com";
+  TT("whuser_unit")->value := testfw->testunit;
 
   TestEq(0, topscreen->contexts->wrdschema->^wrd_person->Search("WRD_CONTACT_EMAIL", "newaccount@example.com"));
   TestEq(0, topscreen->^entity->entityid);
@@ -134,6 +135,7 @@ OBJECT ASYNC FUNCTION TestMainApp()
   TestEq([[ attachfree := "Attachment #2" ]], SELECT attachfree FROM TT("attachments")->rows);
 
   // finalize add person
+  TT("whuser_unit")->value := testfw->testunit;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   // reopen and check our rows are still there!

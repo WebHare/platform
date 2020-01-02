@@ -53,6 +53,12 @@
       <tabs>
         <tab tid=".personfields">
           <textedit name="email" composition="entity" cellname="wrd_contact_email" tid="~email" />
+          <wrd:selectentity name="whuser_unit"
+                            composition="entity"
+                            cellname="whuser_unit"
+                            height="1pr"
+                            title="whuser_unit"
+                            type="pulldown" />
           <wrd:selectentity name="dom_single"
                             composition="entity"
                             cellname="test_single_domain"

@@ -227,4 +227,4 @@ MACRO SubPersonTest()
 RunTestframework ( [ PTR UpgradeTest
                    , PTR RelationTitleTest
                    , PTR SubPersonTest
-                   ], [wrdauth :=FALSE]);
+                   ]);

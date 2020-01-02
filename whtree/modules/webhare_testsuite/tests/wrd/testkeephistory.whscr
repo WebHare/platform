@@ -352,7 +352,7 @@ MACRO TestChanges()
   {
     testfw->BeginWork();
 
-    OBJECT newperson := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "shortlived@beta.webhare.net" ]);
+    OBJECT newperson := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "shortlived@beta.webhare.net", whuser_unit := testfw->testunit ]);
     OBJECT att := schemaobj->^personattachment->CreateEntity([ wrd_leftentity := newperson->id ]);
     att->UpdateEntity([ wrd_leftentity := testpersonobj->id ]);
 
@@ -381,8 +381,8 @@ MACRO TestChanges()
     tempperson->UpdateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net" ]);
     TestEQ(RECORD[], schemaobj->^wrd_person->ListChangesets(tempperson->id));
 
-    tempperson->UpdateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_creationdate := GetCurrentDateTime(), wrd_limitdate := MAX_DATETIME ]);
-    RECORD postfields := tempperson->GetFields([ "wrd_contact_email", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate" ]);
+    tempperson->UpdateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_creationdate := GetCurrentDateTime(), wrd_limitdate := MAX_DATETIME, whuser_unit := testfw->testunit ]);
+    RECORD postfields := tempperson->GetFields([ "wrd_contact_email", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate", "whuser_unit" ]);
 
     testfw->CommitWork();
 
@@ -424,10 +424,10 @@ MACRO TestChanges()
   // Entity that is created and closed in the same changeset
   {
     testfw->BeginWork();
-    OBJECT immclose := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+1@beta.webhare.net", wrd_limitdate := GetCurrentDateTime() ]);
+    OBJECT immclose := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+1@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
     testfw->CommitWork();
 
-    RECORD postimmclosefields := immclose->GetFields([  "wrd_contact_email", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate" ]);
+    RECORD postimmclosefields := immclose->GetFields([  "wrd_contact_email", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate", "whuser_unit" ]);
 
     RECORD ARRAY changesets := SELECT * FROM schemaobj->^wrd_person->ListChangesets(immclose->id);
     TestEQ(1, LENGTH(changesets));
@@ -500,6 +500,8 @@ MACRO TestExportImport()
   TestEq(1, LENGTH(changesets));
 
   RECORD ARRAY changes := persontype->GetChanges(changesets[0].id);
+  save_postimmclosefields.whuser_unit := importedschema->^whuser_unit->Search("WRD_TAG","TESTFW_TESTUNIT");
+
   TestEQ(
       [ [ id :=             changes[0].id
         , entity :=         immcloseid

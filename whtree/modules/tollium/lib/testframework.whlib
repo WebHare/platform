@@ -1198,10 +1198,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
 {
   IF(NOT ObjectExists(controller))
   {
-    IF(NOT ObjectExists(testfw->userapi))
-      THROW NEW Exception("No userapi available, cannot configure controller");
-
-    controller := NEW TolliumHeadlessController(testfw->userapi, testfw->wrdauth ? GetTestsuiteWRDauthPlugin() : DEFAULT OBJECT, FALSE);
+    controller := NEW TolliumHeadlessController(testfw->userapi ?? GetWRDAuthUserAPi(testfw->wrdschema), testfw->wrdauth ? GetTestsuiteWRDauthPlugin() : DEFAULT OBJECT, FALSE);
     controller->debugging := testfw->debug;
 
     controller->__onscreenchange := PTR OnScreenChange;
@@ -1211,7 +1208,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
     controller->__onnodrophandlerfound := PTR OnNoDropHandlerFound;
 
     IF(NOT ObjectExists(GetEffectiveUser()))
-      __SetEffectiveUser(testfw->userapi->GetAnonymousUser());
+      __SetEffectiveUser(controller->userapi->GetAnonymousUser());
 
     controller->user->language := "debug";
 

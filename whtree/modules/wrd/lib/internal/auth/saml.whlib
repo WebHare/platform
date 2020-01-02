@@ -1055,10 +1055,16 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
         OBJECT trans := GetPrimary();
         trans->BeginWork();
 
+        OBJECT wrdschema := authdomain->accounttype->wrdschema;
+        INTEGER samlimportunit := wrdschema->^whuser_unit->Search("WRD_TAG", "WH_SAMLIMPORTUNIT"); //TODO should be configurable or even Smarter
+        IF(samlimportunit = 0)
+          samlimportunit := wrdschema->^whuser_unit->CreateEntity([ wrd_tag := "WH_SAMLIMPORTUNIT", wrd_title := "SAML Import unit" ])->id;
+
         RECORD fields :=
             [ wrd_firstname :=  this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/firstname")
             , wrd_infix :=      this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/infix")
             , wrd_lastname :=   this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/lastname")
+            , whuser_unit :=    samlimportunit
             ];
 
         IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")
@@ -1069,7 +1075,8 @@ PUBLIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
         IF (authdomain->loginfieldtag != "" AND authdomain->emailfieldtag != authdomain->loginfieldtag)
           fields := CellInsert(fields, authdomain->loginfieldtag, this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/login"));
 
-        OBJECT entity := authdomain->accounttype->__DoCreateEntity(fields);
+
+        OBJECT entity := authdomain->accounttype->CreateEntity(fields);
 
         trans->CommitWork();
 

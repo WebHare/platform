@@ -151,6 +151,17 @@ ASYNC MACRO TestTypeImport()
   topscreen->map->TolliumClick();
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
+  topscreen->incolumns->value := 2; //third column, unit
+  topscreen->wrdcolumns->value := "WHUSER_UNIT";
+  AWAIT ExpectScreenChange(+1, PTR topscreen->map->TolliumClick());
+
+  //configure the mapping
+  topscreen->invals->selection := SELECT * FROM topscreen->invals->rows WHERE inval="test"; //'ja'
+  topscreen->allowedvals->selection := SELECT * FROM topscreen->allowedvals->rows WHERE title = "webhare_testsuite.unit";
+  topscreen->map->TolliumClick();
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
   // click next after mapping, see preview
   AWAIT ExpectOptionalProgressWindow(PTR topscreen->wizard->nextbutton->TolliumClick());
   // finish, start import

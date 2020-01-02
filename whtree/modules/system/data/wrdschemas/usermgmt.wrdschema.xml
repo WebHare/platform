@@ -22,7 +22,7 @@
       <boolean tag="WHUSER_DISABLED" title="Disabled"/>
       <free tag="WHUSER_DISABLEREASON" title="Reason for disabling"/>
       <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
-      <domainsingle tag="WHUSER_UNIT" title="Unit" domain="WHUSER_UNIT" />
+      <domainsingle tag="WHUSER_UNIT" title="Unit" domain="WHUSER_UNIT" required="true" />
       <domainmultiple tag="WHUSER_HIDDENANNOUNCEMENTS" title="Hidden desktop announcements" domain="WHUSER_ANNOUNCEMENT" />
     </attributes>
   </object>

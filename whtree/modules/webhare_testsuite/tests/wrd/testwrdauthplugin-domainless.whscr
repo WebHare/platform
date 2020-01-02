@@ -103,7 +103,7 @@ MACRO CreateMyTestSchema()
 
 //  OBJECT domain := CreateWRDAuthDomain(persontype, "TESTDOMAIN", "WRD_CONTACT_EMAIL", "PASSWORD");
 
-  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "testaccount@test.invalid", whuser_password := testfw->hashedpasswords.secret ]);
+  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "testaccount@test.invalid", whuser_password := testfw->hashedpasswords.secret, whuser_unit := testfw->testunit ]);
   entityid := entity->id;
 
   testfw->CommitWork();
@@ -517,7 +517,7 @@ MACRO TestLoginDenied()
   OBJECT persontype := schemaobj->GetType("WRD_PERSON");
   OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
 
-  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "logindenied@test.invalid", whuser_password := testfw->hashedpasswords.secret ]);
+  OBJECT entity := persontype->CreateEntity([ wrd_contact_email := "logindenied@test.invalid", whuser_password := testfw->hashedpasswords.secret, whuser_unit := testfw->testunit  ]);
   entityid := entity->id;
 
   testfw->CommitWork();
@@ -596,6 +596,7 @@ MACRO TestWRDAuthRouter()
   testfw->BeginWork();
   testfw->GetWRDSchema()->^wrd_person->CreateEntity([ wrd_contact_email := "testwrdauthrouter@beta.webhare.net"
                                                     , password := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"  //secret
+                                                    , whuser_unit := testfw->testunit
                                                     ]);
   testfw->CommitWork();
 

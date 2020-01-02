@@ -17,6 +17,7 @@ ASYNC MACRO TestWRDBrowser()
   TT("freetype")->value := testfw->GetWRDSchema()->^wrd_person->id;
   AWAIT ExpectScreenChange(+1, PTR topscreen->newfree->TolliumClick);
   TT("entity")->GetComponent("wrd_lastname")->value := "TestAppBrowse";
+  TT(":Unit")->value := testfw->testunit;
   TestEq(0, TT("entity")->GetComponent("personlink")->value);
 
   INTEGER johndoe := testfw->GetWRDSchema()->^wrd_person->Search("WRD_CONTACT_EMAIL", "other@example.com");

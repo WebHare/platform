@@ -64,6 +64,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
                        , wrd_contact_email := "email@example.com"
                        , wrd_contact_phone := "1234-5678"
                        , url               := "http://example.com"
+                       , whuser_unit       := testfw->testunit
                        ];
 
   INTEGER testpersonid := persontype->CreateEntity(persondata)->id;
@@ -234,7 +235,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   IF(options.withrichdoc)
   {
     OBJECT destlink := OpenTestsuitesite()->OpenByPath("tmp")->EnsureFile([name := "destlink"]);
-    INTEGER richdocid := persontype->CreateEntity([wrd_contact_email:="richdocembedded@example.com"])->id;
+    INTEGER richdocid := persontype->CreateEntity([wrd_contact_email:="richdocembedded@example.com",whuser_unit := testfw->testunit])->id;
     OBJECT richdocobj := persontype->GetEntity(richdocid);
     richdocobj->UpdateEntity([ richie := wrdtest_withembedded
                               , testinstance := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
