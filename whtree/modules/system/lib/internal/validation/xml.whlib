@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
@@ -180,7 +181,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
     ParseModuleDefinition(this->modulename, this->xml);
     CaptureOtherTids(this->modulename, this->xml);
 
-    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements())
+    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "databaseschema")->GetCurrentElements())
     {
       RECORD parsed := ParseWHDBSchemaSpec(this->modulename, dbschema);
       FOREVERY (RECORD rec FROM parsed.msgs)
@@ -216,6 +217,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         this->warnings := this->warnings CONCAT validateres.warnings;
       }
     }
+
+    IF(this->syntaxlevel_2020)
+      FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
+        this->AddError(appcontext, "<appcontexts> have been deprecated");
+    IF(this->syntaxlevel_next)
+    {
+      FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
+        this->AddError(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
+    }
+
   }
 >;
 
@@ -285,7 +296,8 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
   }
 
   validator->onlytids := options.onlytids;
-  validator->syntaxlevel_2020 := options.syntaxlevel = "2020";
+  validator->syntaxlevel_2020 := options.syntaxlevel IN ["2020","next"];
+  validator->syntaxlevel_next := options.syntaxlevel = "next";
 
   RECORD ARRAY tids := RunAndExtractTids(resourcename, PTR validator->ValidateDocument());
   tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;

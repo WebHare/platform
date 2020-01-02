@@ -16,6 +16,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   RECORD lastlibdescr;
 
   PUBLIC BOOLEAN syntaxlevel_2020;
+  PUBLIC BOOLEAN syntaxlevel_next;
   PUBLIC BOOLEAN onlytids;
 
   PUBLIC OBJECT xml;

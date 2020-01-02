@@ -455,12 +455,13 @@
     <xs:attribute name="syntaxlevel">
       <xs:annotation>
         <xs:documentation>
-          Set to 2020 to fail on syntax and features that shouldn't be used anymore in 2020
+          Set to 2020 to fail on syntax and features that shouldn't be used anymore in 2020.
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
         <xs:restriction base="xs:string">
           <xs:enumeration value="2020"/>
+          <xs:enumeration value="next"/> <!-- not documenting yet until we're sure about the name -->
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>

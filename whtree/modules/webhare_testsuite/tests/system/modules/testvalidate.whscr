@@ -380,6 +380,21 @@ MACRO TestBasicValidate()
   TestEqLike("No such library*",res.errors[0].message);
 }
 
+MACRO TestValidateNext()
+{
+  BLOB moduledef_next := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+    <meta />
+    <appcontexts />
+    <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" />
+  </module>`);
+
+  RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next, syntaxlevel := "next" ]);
+  TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
+         ,[ line := 5, message := "<wrdschema xmlns=\"http://www.webhare.net/xmlns/wrd/schemadefinition\"> have been deprecated, drop the xmlns" ]
+         ], SELECT line, message FROM res.errors);
+}
+
 MACRO TestTidScan()
 {
   //Test validation when limitlangauges used for nonprimary language
@@ -759,6 +774,7 @@ ASYNC MACRO TestLoadScreen()
 }
 
 RunTestFramework([ PTR TestBasicValidate
+                 , PTR TestValidateNext
                  , PTR TestValidateSVG
                  , PTR TestValidateForm
                  , PTR TestTidScan
