@@ -417,10 +417,10 @@ PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
     RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
     data := CELL[ syncpoints := RECORD[], ...data ];
 
-    IF (CellExists(this->initdata, "SYNCPOINTID")) //editing
-      DELETE FROM data.syncpoints WHERE id = this->initdata.syncpointid;
+    IF (RecordExists(this->initdata)) //editing
+      DELETE FROM data.syncpoints WHERE id = this->initdata.rowkey;
 
-    STRING newid := GenerateUFS128BitId();
+    STRING newid := RecordExists(this->initdata) ? this->initdata.rowkey : GenerateUFS128BitId();
     INSERT
         [ id :=                 newid
         , peer :=               ^peer->value
