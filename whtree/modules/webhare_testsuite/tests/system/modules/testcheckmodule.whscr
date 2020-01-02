@@ -63,9 +63,9 @@ GetTid("webhare_testsuite_temp:just.a.test.ignore");
     DumpValue(issues,'boxed');
 
   TestEq(RECORD[], SELECT * FROM issues WHERE resourcename LIKE "*exclude.whlib*", "Exclusion list not honored");
-  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testcompileerror.whscr" AND iserror = TRUE AND message LIKE "*Invalid LOADLIB*" AND line = 2));
-  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testwarning.whlib" AND iserror = FALSE AND message LIKE "*CreateDiskFileFromBlob*deprecated*" AND line = 3));
-  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/test.siteprl" AND iserror = TRUE AND message LIKE "*odd:locationedit*" AND line = 5));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testcompileerror.whscr" AND category = "error" AND message LIKE "*Invalid LOADLIB*" AND line = 2));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testwarning.whlib" AND category = "warning" AND message LIKE "*CreateDiskFileFromBlob*deprecated*" AND line = 3));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/test.siteprl" AND category = "error" AND message LIKE "*odd:locationedit*" AND line = 5));
 }
 
 RunTestFramework([ PTR TestCheckModule

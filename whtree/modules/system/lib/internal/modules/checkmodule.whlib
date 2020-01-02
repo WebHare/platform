@@ -20,21 +20,21 @@ OBJECTTYPE CheckerObject
   STRING module;
   RECORD validateconfig;
 
-  MACRO AddIssue(RECORD issue, BOOLEAN iserror)
+  MACRO AddIssue(RECORD issue, STRING category)
   {
-    IF(this->validateconfig.futuremodule)
-      iserror := FALSE;
-    ELSE IF(this->validateconfig.nowarnings)
-      iserror := TRUE;
+    IF(this->validateconfig.futuremodule AND category = "error")
+      category := "warning";
+    ELSE IF(this->validateconfig.nowarnings AND category = "warning")
+      category := "error";
 
-    RECORD rec := CELL[ resourcename := issue.resourcename, line := issue.line, col := issue.col, message := issue.message, iserror ];
-    RECORD pos := RecordLowerBound(this->seenissues, rec, [ "RESOURCENAME", "LINE", "COL", "ISERROR", "MESSAGE" ]);
+    RECORD rec := CELL[ issue.resourcename, issue.line, issue.col, issue.message, category ];
+    RECORD pos := RecordLowerBound(this->seenissues, rec, [ "RESOURCENAME", "LINE", "COL", "CATEGORY", "MESSAGE" ]);
     IF (pos.found)
       RETURN;
 
     INSERT rec INTO this->seenissues AT pos.position;
     IF(this->options.printissues)
-      Print(`${iserror?`${AnsiCmd("red")}ERR!:`:"Warn:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${issue.message}\n`);
+      Print(`${category="error"?`${AnsiCmd("red")}ERR!:`:category="warning"?"Warn:":"Hint:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${issue.message}\n`);
   }
 
   MACRO OnSkippedFile(STRING resourcename, STRING why)
@@ -77,7 +77,7 @@ OBJECTTYPE CheckerObject
       }
       CATCH(OBJECT e)
       {
-        this->AddIssue([ resourcename := moddefname, line := filter.linenum, col := 0, message := e->what ], TRUE  );
+        this->AddIssue([ resourcename := moddefname, line := filter.linenum, col := 0, message := e->what ], "error"  );
       }
     }
   }
@@ -113,7 +113,7 @@ OBJECTTYPE CheckerObject
     {
       RECORD ARRAY nodeissues := CheckNodeModulesInModule(moddir);
       FOREVERY(RECORD issue FROM nodeissues)
-        this->AddIssue([ resourcename := GetResourceNameFromDiskPath(issue.basepath), line := 0, col := 0, message := issue.error ], TRUE);
+        this->AddIssue([ resourcename := GetResourceNameFromDiskPath(issue.basepath), line := 0, col := 0, message := issue.error ], "error");
     }
 
     //verify moduledefinition
@@ -136,9 +136,11 @@ OBJECTTYPE CheckerObject
                                                   ]);
 
       FOREVERY(RECORD issue FROM result.errors)
-        this->AddIssue(issue,TRUE);
+        this->AddIssue(issue,"error");
       FOREVERY(RECORD issue FROM result.warnings)
-        this->AddIssue(issue,FALSE);
+        this->AddIssue(issue,"warning");
+      FOREVERY(RECORD issue FROM result.hints)
+        this->AddIssue(issue,"hint");
     }
 
   }

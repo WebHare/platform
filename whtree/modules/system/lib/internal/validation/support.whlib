@@ -21,8 +21,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   PUBLIC OBJECT xml;
   PUBLIC STRING modulename;
   PUBLIC STRING respath;
+
+  //TODO merge hint,warning,errors into one big list? but we'll need to remove the public errors/warnings/hints then
   PUBLIC RECORD ARRAY errors;
   PUBLIC RECORD ARRAY warnings;
+  PUBLIC RECORD ARRAY hints;
 
   MACRO NEW(OBJECT xmldoc, STRING respath)
   {
@@ -31,6 +34,24 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     this->xml := xmldoc;
   }
 
+  //Add a hint. informational message that will never turn into an error, but usually adds details to warnings and errors
+  PUBLIC MACRO AddHint(OBJECT node, STRING error)
+  {
+    this->AddHintForLine(ObjectExists(node) ? node->linenum : 0, error);
+  }
+  PUBLIC MACRO AddHintForLine(INTEGER linenum, STRING error)
+  {
+    INSERT [ resourcename :=  this->respath
+           , line :=      linenum
+           , col :=       0
+           , message :=   error
+           ] INTO this->hints AT END;
+  }
+  PUBLIC MACRO AddHints(RECORD ARRAY hints)
+  {
+    this->hints := this->hints CONCAT hints;
+  }
+  //Add a warning. Depending on validation settings for a module these may turn into errors
   PUBLIC MACRO AddWarning(OBJECT node, STRING error)
   {
     this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, error);
@@ -43,6 +64,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
            , message :=   error
            ] INTO this->warnings AT END;
   }
+  PUBLIC MACRO AddWarnings(RECORD ARRAY warnings)
+  {
+    this->warnings := this->warnings CONCAT warnings;
+  }
+  //Add an error.
   PUBLIC MACRO AddError(OBJECT node, STRING error)
   {
     this->AddErrorForLine(ObjectExists(node) ? node->linenum : 0, error);
@@ -55,6 +81,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
            , message :=   error
            ] INTO this->errors AT END;
   }
+  PUBLIC MACRO AddErrors(RECORD ARRAY errors)
+  {
+    this->errors := this->errors CONCAT errors;
+  }
+
   /// Our module name
   PUBLIC STRING FUNCTION GetModuleName()
   {
