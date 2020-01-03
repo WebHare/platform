@@ -21,7 +21,7 @@ PUBLIC OBJECTTYPE CustomCheckBase
   */
   PUBLIC STRING ARRAY FUNCTION GetIssues()
   {
-    RETURN DEFAULT STRING ARRAY;
+    THROW NEW Exception(`CustomCheck does not override GetIssues or GetIssueList`);
   }
 
   /** Returns extended list of issues
