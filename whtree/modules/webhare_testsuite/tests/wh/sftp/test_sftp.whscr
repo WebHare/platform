@@ -3,6 +3,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/networking/ssh.whlib";
 
@@ -67,7 +68,7 @@ ASYNC MACRO TestSFTP()
   AWAIT RunCommand("/usr/sbin/service", [ "ssh", "stop" ]);
 }
 
-IF (GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "1")
+IF (GetWebhareVersionInfo().docker)
 {
   PRINT(`Skipping test, can only be run in docker\n`);
   RETURN;

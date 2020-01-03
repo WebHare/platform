@@ -388,11 +388,6 @@ setup_webhare_envsettings()
     export WEBHARE_DISPLAYBUILDINFO=$(
       source $WEBHARE_DIR/modules/system/whres/buildinfo
       echo -n "branch $branch, commit ${committag:0:10}"
-      if [ -n "$buildid" ]; then
-        echo ", build $buildid"
-      else
-        echo ", manual build"
-      fi
     )
   else
     export WEBHARE_DISPLAYBUILDINFO=$(

@@ -4,7 +4,7 @@
   <meta>
     <version>0.1.0</version>
     <description>[description]</description>
-    <packaging download="true">
+    <packaging download="true" requireversion="42700">
     </packaging>
     <validation options="nowarnings" syntaxlevel="2020">
     </validation>

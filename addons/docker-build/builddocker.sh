@@ -53,9 +53,6 @@ if [ -n "$CI_COMMIT_SHA" ]; then
     echo "Please enable the container registry for this project"
     exit 1
   fi
-  BUILDERTAG="gitlabci-`uname`-$CI_RUNNER_VERSION_$CI_RUNNER_DESCRIPTION"
-else
-  BUILDERTAG="`hostname`-`uname`"
 fi
 
 get_finaltag
@@ -158,12 +155,6 @@ echo "Packaging source tree for the WebHare runner"
 DOCKERBUILDARGS+=(--progress)
 DOCKERBUILDARGS+=(plain)
 
-# Record commmit SHA, but only for CI builds
-DOCKERBUILDARGS+=(--build-arg)
-DOCKERBUILDARGS+=("CI_COMMIT_SHA=$CI_COMMIT_SHA")
-DOCKERBUILDARGS+=(--build-arg)
-DOCKERBUILDARGS+=("CI_PIPELINE_ID=$CI_PIPELINE_ID")
-
 if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
   CI_COMMIT_SHA="`cd $SOURCEDIR ; git rev-parse HEAD 2> /dev/null`"
@@ -224,17 +215,12 @@ cat > .dockerignore << HERE
 HERE
 
 # Create version info
-DOCKERBUILDARGS+=(--build-arg)
-DOCKERBUILDARGS+=("BUILDERTAG=$BUILDERTAG")
-
 mkdir -p dropins/opt/wh/whtree/modules/system/whres
 cat > dropins/opt/wh/whtree/modules/system/whres/buildinfo << HERE
 committag=$CI_COMMIT_SHA
 builddate=`date +'%Y-%m-%d'`
 buildtime=`date +'%H:%M:%S'`
 branch=$CI_COMMIT_REF_NAME
-docker=1
-buildertag=$BUILDERTAG
 HERE
 
 echo "Docker build args: ${DOCKERBUILDARGS[@]}"

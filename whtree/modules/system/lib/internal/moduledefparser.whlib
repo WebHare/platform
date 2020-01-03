@@ -811,9 +811,13 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                 IF(when="")
                   when := "afterlaunch";
 
+                STRING script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath, "scripts/"), [ warnversion := 42600 ]);
+                IF(script = "")
+                  CONTINUE; //ignore, executetasks would fail on an empty script
+
                 INSERT
                   [ when := when
-                  , script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath,"respath/"), [ warnversion := 42600 ])
+                  , script := script
                   ] INTO this->moduledef.startupscripts AT END;
               }
               CASE "task"
@@ -822,8 +826,12 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                 IF(subchild->HasAttribute("runtime") OR subchild->HasAttribute("runinterval"))
                   this->AddWarning(subchild,"runtime= and runinterval= have been deprecated. you should switch to a runat= cronmask. See also https://www.webhare.dev/reference/modules/services-tasks#scheduled-tasks");
 
+                STRING script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath, "scripts/"), [ warnversion := 42600 ]);
+                IF(script = "")
+                  CONTINUE; //ignore, executetasks would fail on an empty script
+
                 RECORD task := [ tag := modulename || "." || subchild->GetAttribute("tag")
-                               , script := this->GetVerifyPath(subchild, "script", MakeAbsoluteResourcePath(this->respath,"respath/"), [ warnversion := 42600 ])
+                               , script := script
                                , runatstartup := subchild->GetAttribute("runatstartup") IN ["true","1"]
                                , runtime := subchild->GetAttribute("runtime")
                                , runinterval := subchild->GetAttribute("runinterval")

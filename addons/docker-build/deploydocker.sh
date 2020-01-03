@@ -40,20 +40,6 @@ if [ -n "$PUBLIC_IMAGES" ]; then
   for P in $PUBLIC_IMAGES ; do
     echo Tagging BUILD_IMAGE as public $P
 
-    # First check version of current public image
-    TOKEN=`curl -s 'https://auth.docker.io/token?service=registry.docker.io&scope=repository:webhare/webhare-core:pull' |jq -r .token`
-    REPO=`cut $P -d: -f1`
-    VERSION=`cut $P -d: -f2`
-    MANIFESTURL="https://registry.hub.docker.com/v2/$REPO/manifests/$VERSION"
-    CURRENTPIPELINE=`curl -H "Authorization: Bearer $TOKEN" "$MANIFESTURL" | jq -r .history[0].v1Compatibility|jq -r '.config.Labels."com.webhare.webhare.pipelineid"'`
-
-    # For debugging print the enitre manifest
-    echo $MANIFESTURL
-    curl -i $MANIFESTURL
-    curl $MANIFESTURL | jq
-
-    echo "Current pipeline: $CURRENTPIPELINE"
-
     if ! docker tag "$BUILD_IMAGE" "$P" ; then
       echo Tag for external registry failed
       exit 1
