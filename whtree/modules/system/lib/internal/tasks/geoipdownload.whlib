@@ -7,6 +7,35 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
+PUBLIC OBJECTTYPE GeoIPCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
+  {
+    DATETIME oldest := MAX_DATETIME;
+    STRING basedir := MergePath(GetWebHareConfiguration().varroot, `geoip`);
+
+    FOREVERY(STRING database FROM ["Country","City"])
+    {
+      STRING downloadedpath := MergePath(basedir, `geoip-${ToLowercase(database)}.mmdb`);
+      RECORD currentversionprops := GetDiskFileProperties(downloadedpath);
+
+      IF(RecordExists(currentversionprops) AND currentversionprops.modified != DEFAULT DATETIME AND currentversionprops.modified < oldest)
+        oldest := currentversionprops.modified;
+    }
+
+    IF(oldest != MAX_DATETIME)
+    {
+      INTEGER age := GetDatetimeDifference(oldest, GetCurrentDatetime()).days;
+      IF(age >= 30)
+        RETURN RECORD[ [ msg:= `The geoip database in ${basedir} is ${age} days old. The EULA requires you to update or delete this database after 30 days` ]
+                    ];
+    }
+    RETURN RECORD[];
+  }
+>;
+
+
+
 PUBLIC RECORD FUNCTION UpdateGEOIPDatabases(STRING licensekey)
 {
   IF(licensekey = "")
