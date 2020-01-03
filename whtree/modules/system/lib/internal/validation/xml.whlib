@@ -233,11 +233,7 @@ PUBLIC RECORD FUNCTION DetermineXMLFileValidationType(OBJECT doc, STRING name)
 PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECORD options)
 {
   OBJECT doc := resourcename LIKE "*.xsd" ? MakeXMLSchema(doc_blob) : MakeXMLDocument(doc_blob);
-  RETURN RunXMLValidatorOnDOM(doc, resourcename, options);
-}
 
-PUBLIC RECORD FUNCTION RunXMLValidatorOnDOM(OBJECT doc, STRING resourcename, RECORD options)
-{
   IF(Length(doc->GetParseErrors())>0)
   {
     RETURN [ errors := (SELECT message
@@ -295,6 +291,7 @@ PUBLIC RECORD FUNCTION RunXMLValidatorOnDOM(OBJECT doc, STRING resourcename, REC
   tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;
   RETURN CELL[ errors := validator->errors
              , warnings := validator->warnings
+             , hints := validator->hints
              , tids
              , eventmasks
              ];

@@ -277,6 +277,7 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
 
 RECORD defaultvalidaterecord := [ warnings     := RECORD[]
                                 , errors       := RECORD[]
+                                , hints        := RECORD[]
                                 , tids         := RECORD[]
                                 , eventmasks   := STRING[]
                                 ];
@@ -293,7 +294,7 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
   INSERT CELL resourcename := resourcename INTO result;
 
   //Sanity checks until validate works everywhere
-  FOREVERY(STRING checklist FROM ["tids","warnings","errors"])
+  FOREVERY(STRING checklist FROM ["tids","warnings","errors","hints"])
   {
     RECORD ARRAY list := GetCell(result,checklist);
     IF(RecordExists(SELECT FROM list WHERE NOT CellExists(list,'resourcename')))
@@ -361,6 +362,16 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
            , metadata :=      source != "unknown" AND CellExists(warnings, "metadata") ? metadata : DEFAULT RECORD
         FROM result.warnings;
 
+  result.hints :=
+      SELECT TEMPORARY source := CellExists(hints, "source") ? COLUMN source : "unknown"
+           , COLUMN resourcename
+           , line
+           , col
+           , message
+           , source :=        source
+           , metadata :=      source != "unknown" AND CellExists(hints, "metadata") ? metadata : DEFAULT RECORD
+        FROM result.hints;
+
   result.tids :=
       SELECT COLUMN resourcename
            , line
@@ -386,6 +397,13 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     @cell(string array) options.eslintmasks  @includecelldef #GetModuleValidationConfig.return.eslintmasks
     @cell(string) options.syntaxlevel  @includecelldef #GetModuleValidationConfig.return.syntaxlevel
     @return Validation results
+    @cell(record array) return.hints List of hints
+    @cell(string) return.hints.resourcename Resource name for this message
+    @cell(integer) return.hints.line Line number for this message
+    @cell(integer) return.hints.col Column number for this message
+    @cell(string) return.hints.source Source for this message
+    @cell(string) return.hints.message Message
+    @cell(record) return.hints.metadata metadata (only when source != "unknown")
     @cell(record array) return.warnings List of warnings
     @cell(string) return.warnings.resourcename Resource name for this message
     @cell(integer) return.warnings.line Line number for this message

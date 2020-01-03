@@ -120,9 +120,12 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
   IF(NOT IsValidWHFSName(modulename, FALSE) OR NOT IsValidModuleName(modulename))
     THROW NEW Exception(`Illegal module name name '${modulename}'`);
 
+  IF(IsModuleInstalled(modulename))
+    THROW NEW Exception(`A module named '${modulename}' already exists`);
+
   STRING destpath := MergePath(IsPathAbsolute(subpath) ? subpath : GetWebHareConfiguration().varroot || "installedmodules/" || subpath, modulename);
   IF(RecordExists(GetDiskFileProperties(destpath)))
-    THROW NEW Exception("This module already exists");
+    THROW NEW Exception(`The directory '${destpath}' already exists`);
 
   RECORD data := [ modulename := modulename
                  , destpath := destpath || "/"

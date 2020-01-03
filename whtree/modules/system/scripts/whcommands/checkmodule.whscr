@@ -95,8 +95,8 @@ RECORD ARRAY allissues;
 FOREVERY (OBJECT p FROM promises)
 {
   RECORD ARRAY issues := WaitForPromise(p);
-  numwarnings := numwarnings + Length(SELECT FROM issues WHERE iserror = FALSE);
-  numerrors := numerrors + Length(SELECT FROM issues WHERE iserror);
+  numwarnings := numwarnings + Length(SELECT FROM issues WHERE category = "warning");
+  numerrors := numerrors + Length(SELECT FROM issues WHERE category = "error");
   allissues := allissues CONCAT issues;
 }
 
@@ -106,7 +106,7 @@ IF(numerrors>0)
   SetConsoleExitCode(1);
 
   //ADDME types for error messages might make this a bit more robust
-  RECORD ARRAY langedits := SELECT module := Tokenize(Tokenize(message,"'")[1],':')[0] FROM allissues WHERE iserror AND message LIKE "Missing tid: '*:*";
+  RECORD ARRAY langedits := SELECT module := Tokenize(Tokenize(message,"'")[1],':')[0] FROM allissues WHERE category = "error" AND message LIKE "Missing tid: '*:*";
   langedits := SELECT module, num := Count(*) FROM langedits GROUP BY module;
   FOREVERY(RECORD openlangedit FROM langedits)
     Print(`To fix ${openlangedit.num} language errors: https://my.webhare.dev/?app=tollium:langedit(${openlangedit.module})\n`);
