@@ -158,11 +158,11 @@ void LookupCityByIP(HSVM *vm, HSVM_VariableId id_set)
 
 void LookupCountryByIP(HSVM *vm, HSVM_VariableId id_set)
 {
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_String);
+
         LockedGlobalData::WriteRef lock(globaldata);
         if (!lock->EnsureInitialized(vm) || (!lock->have_citydb && !lock->have_countrydb))
             return;
-
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_String);
 
         std::string ip = HSVM_StringGetSTD(vm, HSVM_Arg(0));
         int gai_error, mmdb_error;
@@ -176,11 +176,12 @@ void LookupCountryByIP(HSVM *vm, HSVM_VariableId id_set)
 
 void GetCapabilities(HSVM *vm, HSVM_VariableId id_set)
 {
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+
         LockedGlobalData::WriteRef lock(globaldata);
         if (!lock->EnsureInitialized(vm))
             return;
 
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
         HSVM_BooleanSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "HAVE_CITY")), bool(lock->have_citydb));
         HSVM_BooleanSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "HAVE_COUNTRY")), bool(lock->have_countrydb));
 }
