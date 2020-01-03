@@ -6,11 +6,17 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
 CONSTANT STRING tollium_ns := "http://www.webhare.net/xmlns/tollium/screens";
 CONSTANT STRING publisher_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
 CONSTANT STRING publisher_ns := "http://www.webhare.net/xmlns/publisher/components";
+CONSTANT STRING moduledef_ns := whconstant_xmlns_moduledef;
+CONSTANT STRING dbschema_ns := "http://www.webhare.net/xmlns/whdb/databaseschema";
+CONSTANT STRING wrd_ns := "http://www.webhare.net/xmlns/wrd/components";
+CONSTANT STRING wrdschemadef_ns := "http://www.webhare.net/xmlns/wrd/schemadefinition";
 
 CONSTANT RECORD ARRAY fixelements :=
   [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
@@ -24,6 +30,9 @@ CONSTANT RECORD ARRAY fixelements :=
     ]
   , [ namespace := tollium_ns, localnames := ["list"]
     , xslistattributes := ["icons"]
+    ]
+  , [ namespace := wrd_ns, localnames := ["entitiesedit"]
+    , xslistattributes := ["icons", "requestcolumns"]
     ]
   , [ namespace := tollium_ns, localnames := ["*"]
     , removeattributes := ["margintop","marginbottom","marginleft","marginright"]
@@ -41,8 +50,19 @@ CONSTANT RECORD ARRAY fixelements :=
   , [ namespace := publisher_sp, localnames := ["foldertype"], attributesorder := ["typedef"] ]
   , [ namespace := publisher_sp, localnames := ["filetype"], attributesorder := ["typedef"] ]
   , [ namespace := publisher_sp, localnames := ["to"], attributesorder := ["type","filetype","foldertype","parenttype"] ]
+  , [ namespace := publisher_sp, localnames := ["extendproperties"], attributesorder := ["extension"] ]
 
   , [ namespace := publisher_ns, localnames := ["browseforobject"],  xslistattributes := ["accepttypes"]  ]
+
+  , [ namespace := moduledef_ns, localnames := ["task", "runatstartup"], fixscriptpaths := ["script"]  ]
+  , [ namespace := moduledef_ns, localnames := ["task", "runatstartup"], wraplineat := 300, attributesorder := ["runat", "runtz", "script", "tag"]  ]
+  , [ namespace := moduledef_ns, localnames := ["module" ], subelementspacing := "betweenall"  ]
+  , [ namespace := moduledef_ns, localnames := ["services","servicemanager","portal","publisher","moduleregistry","packaging","rights"],  subelementspacing := "internal", subelementjoinsamename := TRUE ]
+  , [ namespace := moduledef_ns, localnames := ["version","description"],  subelementspacing := "none" ]
+
+  , [ namespace := dbschema_ns, localnames := ["documentation"],  subelementspacing := "none" ]
+
+  , [ namespace := wrdschemadef_ns, localnames := ["schema"], wraplineat := 300  ]
   ];
 
 CONSTANT RECORD initialformattingstate :=
@@ -50,7 +70,23 @@ CONSTANT RECORD initialformattingstate :=
   , indentstepsize := 2
   , wraplineat := 125
   , subelementspacing := ""
+  , subelementjoinsamename := FALSE
+  , resourcename := ""
   ];
+
+STRING FUNCTION FixScriptPath(STRING resourcename, STRING inpath)
+{
+  STRING directpath := MakeAbsoluteResourcePath(resourcename, inpath);
+  STRING testpath := "scripts/" || inpath;
+  STRING implicitpath := MakeAbsoluteResourcePath(resourcename, testpath);
+
+  IF(NOT RecordExists(RetrieveWebHareResource(directpath, [allowmissing := TRUE]))
+     AND RecordExists(RetrieveWebHareResource(implicitpath, [allowmissing := FALSE])))
+  {
+    RETURN testpath;
+  }
+  RETURN inpath;
+}
 
 BOOLEAN FUNCTION IsPrefixUsed(OBJECT el, STRING findprefix)
 {
@@ -97,7 +133,12 @@ STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
 {
   STRING usenodename := el->nodename;
   BOOLEAN eliminateifempty;
-  formattingstate.subelementspacing := ""; //reset at new levels
+
+  //some properties we reset at each level
+  formattingstate.subelementspacing := initialformattingstate.subelementspacing;
+  formattingstate.wraplineat := initialformattingstate.wraplineat;
+
+  RECORD substate := formattingstate;
 
   RECORD ARRAY attrs := el->ListAttributes();
   RECORD ARRAY elsettings := SELECT *
@@ -136,7 +177,16 @@ STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
       eliminateifempty := elsetting.eliminateifempty;
 
     IF(CellExists(elsetting, "subelementspacing"))
-      formattingstate.subelementspacing := elsetting.subelementspacing;
+      substate.subelementspacing := elsetting.subelementspacing;
+
+    IF(CellExists(elsetting, "wraplineat"))
+      substate.wraplineat := elsetting.wraplineat;
+
+    IF(CellExists(elsetting, "fixscriptpaths"))
+      UPDATE attrs SET nodevalue := FixScriptPath(formattingstate.resourcename, nodevalue) WHERE nodename IN elsetting.fixscriptpaths;
+
+    IF(CellExists(elsetting, "subelementjoinsamename"))
+      substate.subelementjoinsamename := elsetting.subelementjoinsamename;
   }
 
   IF(eliminateifempty AND NOT HasContents(el))
@@ -171,7 +221,7 @@ STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
   FOREVERY(RECORD attr FROM attrs)
     trysingleline := `${trysingleline} ${attr.nodename}=${attr.encoded}`;
 
-  IF(Length(trysingleline) > initialformattingstate.wraplineat  //too long, wrap it!
+  IF(Length(trysingleline) > substate.wraplineat  //too long, wrap it!
      OR numxmlnsattrs > 1) //we don't like more than one xmlns attribute unwrapped
   {
     FOREVERY(RECORD attr FROM attrs)
@@ -183,7 +233,7 @@ STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
 
       INTEGER curpos := Length(Tokenize(result,'\n')[END-1]);
       //rewrite xslist attributes into multiline versions? (eg long icon lists)
-      IF(attr.isxslist AND curpos + Length(attr.encoded) > formattingstate.wraplineat) //adding the attribute would cause us to exceed maximum line Length
+      IF(attr.isxslist AND curpos + Length(attr.encoded) > substate.wraplineat) //adding the attribute would cause us to exceed maximum line Length
       {
         STRING ARRAY items := ParseXSList(attr.nodevalue);
         FOREVERY(STRING val FROM items)
@@ -215,15 +265,19 @@ STRING FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
     RETURN result || ' />\n';
   }
 
-  result := result || '>\n';
-
-  RECORD substate := formattingstate;
   substate.indent := substate.indent || RepeatText(" ", substate.indentstepsize);
+
+  result := result || '>';
+  IF(substate.subelementspacing != "none")
+    result := result || '\n';
 
   //Write our children
   result := result || RewriteChildren(el, substate);
 
-  result := result ||formattingstate.indent ||  "</" || usenodename || ">\n";
+  IF(substate.subelementspacing != "none")
+    result := result ||formattingstate.indent;
+
+  result := result ||  "</" || usenodename || ">\n";
   RETURN result;
 }
 
@@ -253,7 +307,15 @@ STRING FUNCTION RewriteChildren(OBJECT node, RECORD formattingstate)
       output := output || noderesult;
       IF(formattingstate.subelementspacing = "betweenall"
          OR (formattingstate.subelementspacing = "internal" AND NOT node->IsSameNode(node->parentnode->lastelementchild)))
-        output := output || '\n';
+      {
+        //potential vertical space....
+        IF(NOT (formattingstate.subelementjoinsamename //we can join everything togheter?
+                AND ObjectExists(node->nextelementsibling) //first node, so ignore samename join
+                AND node->nextelementsibling->localname = node->localname))
+        {
+          output := output || '\n';
+        }
+      }
 
       onnextline := FALSE;
       anycontent := TRUE;
@@ -316,27 +378,27 @@ STRING FUNCTION RewriteChildren(OBJECT node, RECORD formattingstate)
   RETURN output;
 }
 
-BOOLEAN FUNCTION ApplyWidgetRewrite(OBJECT widgetnode)
+MACRO ApplyWidgetRewrite(OBJECT widgetnode)
 {
   IF(widgetnode->GetAttribute("editfragment") = "")
-    RETURN FALSE; //it's okay!
+    RETURN;
 
   STRING fragmentpath := widgetnode->GetAttribute("editfragment");
   IF(Left(fragmentpath,1) NOT IN [".","#"])
-    RETURN FALSE;
+    RETURN;
 
   //always replace . with #
   fragmentpath := "#" || Substring(fragmentpath,1);
 
-  OBJECT ARRAY fragments := widgetnode->ownerdocument->ListElements("http://www.webhare.net/xmlns/tollium/screens","fragment");
+  OBJECT ARRAY fragments := widgetnode->ownerdocument->ListElements(tollium_ns,"fragment");
   FOREVERY(OBJECT fragment FROM fragments)
     IF(fragment->GetAttribute("name") = Substring(fragmentpath,1))
     {
       IF(fragment->GetAttribute("implementation") != "none")
-        RETURN FALSE; //don't dare to touch code-backed fragments
+        RETURN; //don't dare to touch code-backed fragments
 
-      OBJECT tabsextension := widgetnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","tabsextension");
-      tabsextension->SetAttribute("xmlns", "http://www.webhare.net/xmlns/tollium/screens");
+      OBJECT tabsextension := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"tabsextension");
+      tabsextension->SetAttribute("xmlns", tollium_ns);
       FOREVERY(RECORD attr FROM fragment->ListAttributes())
       {
         IF(attr.localname="xmlns")
@@ -347,10 +409,10 @@ BOOLEAN FUNCTION ApplyWidgetRewrite(OBJECT widgetnode)
         tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
       }
 
-      OBJECT newtab := widgetnode->ownerdocument->CreateElementNS("http://www.webhare.net/xmlns/tollium/screens","newtab");
+      OBJECT newtab := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"newtab");
       tabsextension->AppendChild(newtab);
 
-      OBJECT contentsnode := fragment->ListChildren("http://www.webhare.net/xmlns/tollium/screens","contents")[0];
+      OBJECT contentsnode := fragment->ListChildren(tollium_ns,"contents")[0];
       FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
       {
         IF(attr.localname="xmlns")
@@ -373,42 +435,184 @@ BOOLEAN FUNCTION ApplyWidgetRewrite(OBJECT widgetnode)
 
       widgetnode->SetAttribute("editextension", fragmentpath);
       widgetnode->RemoveAttribute("editfragment");
-      RETURN TRUE;
-    }
-
-  RETURN FALSE; //no match
+      RETURN ;
+   }
 }
 
-BOOLEAN FUNCTION ApplyRewrites(OBJECT xmldoc)
+MACRO ApplyExtendPropertiesRewrite(OBJECT extendpropertiesnode)
 {
-  BOOLEAN anyrewrite;
+  STRING propertyeditor := extendpropertiesnode->GetAttribute("name");
+  IF(propertyeditor="")
+    RETURN;
 
-  FOREVERY(OBJECT widgetnode FROM xmldoc->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","widgettype"))
-    IF(ApplyWidgetRewrite(widgetnode))
-      anyrewrite := TRUE;
+  OBJECT ARRAY fragments := extendpropertiesnode->ownerdocument->ListElements(publisher_sp,"propertyeditor");
+  FOREVERY(OBJECT fragment FROM fragments)
+    IF(fragment->GetAttribute("name") = propertyeditor)
+    {
+      OBJECT tabsextension := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,"tabsextension");
+      tabsextension->SetAttribute("xmlns", tollium_ns);
+      FOREVERY(RECORD attr FROM fragment->ListAttributes())
+        tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
 
-  RETURN anyrewrite;
+      //Remove p:whfsinstance instance
+      BOOLEAN foundfsinstance;
+      FOREVERY(OBJECT whfsinstance FROM fragment->ListElements(publisher_ns,"whfsinstance"))
+        IF(whfsinstance->GetAttribute("name") = "fsinstance")
+        {
+          extendpropertiesnode->SetAttribute("contenttype", whfsinstance->GetAttribute("typedef"));
+          whfsinstance->Dispose();
+          foundfsinstance := TRUE;
+        }
+
+      IF(NOT foundfsinstance)
+        RETURN;
+
+      OBJECT ARRAY compositions := fragment->ListElements(publisher_sp,"compositions");
+      IF(Length(compositions) = 1)
+      {
+        IF(Length(compositions[0]->ListChildren("*","*")) > 0)
+        {
+          OBJECT newcompositions := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,"compositions");
+          tabsextension->AppendChild(newcompositions);
+          WHILE(ObjectExists(compositions[0]->firstchild))
+            newcompositions->AppendChild(compositions[0]->firstchild);
+        }
+        compositions[0]->Dispose();
+      }
+
+      FOREVERY(OBJECT contentsnode FROM fragment->ListChildren("*","*"))
+      {
+        OBJECT newtabinsert := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,contentsnode->localname);
+        tabsextension->AppendChild(newtabinsert);
+
+        FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename="implementation")
+            CONTINUE;
+
+          newtabinsert->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        //Migrate nodes
+        WHILE(Objectexists(contentsnode->firstchild))
+          newtabinsert->AppendChild(contentsnode->firstchild);
+      }
+
+      //Replace composition=contentdata with composition=fsinstance
+      FOREVERY(OBJECT node FROM tabsextension->GetElements(`*[composition="fsinstance"]`))
+        node->SetAttribute("composition", "contentdata");
+
+      //Kill redundant namespace prefixes
+      FOREVERY(OBJECT node FROM tabsextension->ListElements(tollium_ns,"*"))
+        IF(node->prefix != "")
+        {
+          OBJECT betternode := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns, node->localname);
+          FOREVERY(RECORD attr FROM node->ListAttributes())
+          {
+            IF(attr.localname="xmlns")
+              CONTINUE;
+            betternode->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+          }
+          WHILE(Objectexists(node->firstchild))
+            betternode->AppendChild(node->firstchild);
+
+          node->parentnode->replacechild(betternode, node);
+        }
+
+      fragment->parentnode->replacechild(tabsextension, fragment);
+
+      extendpropertiesnode->SetAttribute("extension", "#"||propertyeditor);
+      extendpropertiesnode->RemoveAttribute("name");
+      RETURN ;
+    }
+
+  RETURN; //no match
+}
+
+MACRO ApplyTaskRuntimeRewrite(OBJECT tasknode)
+{
+  INTEGER interval := ToInteger(tasknode->GetAttribute("runinterval"),0);
+  STRING runtime := tasknode->GetAttribute("runtime");
+  IF(interval <= 0 OR runtime NOT LIKE "?*:??")
+    RETURN; //cannot rewrite
+
+  INTEGER hour := ToInteger(Tokenize(runtime,':')[0],-100) + 1; //add 1 hour, assume user meant Winter CET
+  IF(hour = 24)
+    hour := 0;
+  IF(hour < 0)
+    RETURN; //Wooooo! confused!
+
+  INTEGER minute := ToInteger(Tokenize(runtime,':')[1],-100);
+  IF(minute < 0 OR minute >= 60)
+    RETURN; //Wooooo! confused!
+
+  STRING runat;
+  IF(60 % interval = 0 AND interval <= 60) //we run every hour or more often, on fixed intervals... easy fix!
+  {
+    STRING ARRAY intervals;
+    //find first occurence
+    WHILE(minute - interval > 0)
+      minute := minute - interval;
+
+    WHILE(minute < 60)
+    {
+      INSERT ToString(minute) INTO intervals AT END;
+      minute := minute + interval;
+    }
+
+    runat := Detokenize(intervals,',') || " * * * *";
+  }
+  ELSE IF(1440 % interval = 0 AND interval % 60 = 0) //we run every day or more often, on fixed intervals and the same minute each hour
+  {
+    STRING ARRAY intervals;
+    INTEGER hourinterval := interval / 60;
+    //find first occurence
+    WHILE(hour - hourinterval > 0)
+      hour := hour - hourinterval;
+
+    WHILE(hour < 24)
+    {
+      INSERT ToString(hour) INTO intervals AT END;
+      hour := hour + hourinterval;
+    }
+
+    runat := minute || " " || Detokenize(intervals,',') || " * * *";
+  }
+  ELSE
+  {
+    RETURN;
+  }
+
+  tasknode->SetAttribute("runat", runat);
+  tasknode->SetAttribute("runtz", "Europe/Amsterdam");
+  tasknode->RemoveAttribute("runinterval");
+  tasknode->RemoveAttribute("runtime");
+}
+
+MACRO ApplyRewrites(OBJECT xmldoc)
+{
+  FOREVERY(OBJECT widgetnode FROM xmldoc->ListElements(publisher_sp,"widgettype"))
+    ApplyWidgetRewrite(widgetnode);
+
+  FOREVERY(OBJECT extendpropertiesnode FROM xmldoc->ListElements(publisher_sp,"extendproperties"))
+    ApplyExtendPropertiesRewrite(extendpropertiesnode);
+
+  FOREVERY(OBJECT tasknode FROM xmldoc->ListElements(moduledef_ns,"task"))
+    ApplyTaskRuntimeRewrite(tasknode);
 }
 
 PUBLIC STRING FUNCTION RewriteXMLFile(STRING infile, BLOB indata)
 {
-  RECORD res := ValidateSingleFile(infile, [ overridedata := indata ]);
-  IF(Length(res.errors) > 0)
-    THROW NEW Exception(FormatValidationError(res.errors[0]));
-
   OBJECT xmldoc := MakeXMLDocument(indata);
-  IF(ApplyRewrites(xmldoc))
-  {
-    BLOB newcontents := StringToBlob(xmldoc->outerxml);
-    res := ValidateSingleFile(infile, [ overridedata := StringToBlob(xmldoc->outerxml) ]);
-    IF(Length(res.errors) > 0)
-    {
-      SendBlobTo(0, newcontents);
-      THROW NEW Exception(FormatValidationError(res.errors[0]));
-    }
-  }
+  IF(Length(xmldoc->GetParseErrors()) > 0)
+    THROW NEW Exception(FormatValidationError(xmldoc->GetParseErrors()[0]));
+
+  ApplyRewrites(xmldoc);
 
   RECORD formatting := initialformattingstate;
+  formatting.resourcename := infile;
   STRING result := '<?xml version="1.0" encoding="UTF-8"?>\n' || RewriteChildren(xmldoc, formatting);
   RETURN result;
 }
