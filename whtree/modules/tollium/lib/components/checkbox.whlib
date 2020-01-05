@@ -129,14 +129,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
       RETURN;
 
     IF(this->inside_onchange) //historically we didn't invoke onchange, but that's inconsistent. trying to get rid of that bug
-    {
-      IF(IsDtapLive()) //ADDME remove this escape but not before april 2019.
-      {
-        LogError("tollium:checkbox","Checkbox::SetValue loop detected", [ stacktrace := GetStackTrace(), name := this->name ]);
-        RETURN;
-      }
       THROW NEW TolliumException(this, "Checkbox::SetValue loop detected - it now invokes any onchange handler directly, this application requires fixing");
-    }
 
     TRY
     {
