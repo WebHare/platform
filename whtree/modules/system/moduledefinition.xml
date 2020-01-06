@@ -2397,8 +2397,12 @@ The full base URL on which this site will be published, calculated by combining 
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />
   </validation>
 
-  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <wrdschemas>
     <schema tag="config" autocreate="true" definitionfile="data/wrdschemas/config.wrdschema.xml" />
-    <schema tag="usermgmt" autocreate="true" definitionfile="data/wrdschemas/usermgmt.wrdschema.xml" originalname="WebHare Usermanagement"/>
   </wrdschemas>
+
+  <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <schema tag="usermgmt" autocreate="true" definitionfile="data/wrdschemas/usermgmt.wrdschema.xml" originalname="WebHare Usermanagement"/> <!-- we can't move this to <wrdschemas> unil everyone's 4.27+ -->
+  </wrdschemas>
+
 </module>

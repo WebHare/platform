@@ -5,33 +5,25 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
 
-RECORD FUNCTION GetCacheableModuleDefinedWRDSchemas(STRING modulename)
+RECORD ARRAY FUNCTION ParseSchemas(OBJECT xmldef, STRING modulename, BOOLEAN separate_xmlns)
 {
-  OBJECT xmldef;
-  TRY
-    xmldef := GetModuleDefinitionXML(modulename);
-  CATCH
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
-  IF(NOT ObjectExists(xmldef))
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
+  OBJECT ARRAY wrdschemas := xmldef->documentelement->ListChildren(separate_xmlns ? ns_schemadef : whconstant_xmlns_moduledef, "wrdschemas");
+  IF(Length(wrdschemas) != 1)
+    RETURN RECORD[];
 
-  OBJECT wrdschemas := xmldef->documentelement->GetChildElementsByTagNameNS(ns_schemadef,"wrdschemas")->Item(0);
-  IF(NOT ObjectExists(wrdschemas))
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
-
-  OBJECT ARRAY schemanodes := wrdschemas->GetChildElementsByTagNameNS(ns_schemadef,"schema")->GetCurrentElements();
   RECORD ARRAY schemas;
-  FOREVERY(OBJECT schemanode FROM schemanodes)
+  FOREVERY(OBJECT schemanode FROM wrdschemas[0]->ListChildren(wrdschemas[0]->namespaceuri, "schema"))
   {
     IF(NOT IsNodeApplicableToThisWebHare(schemanode))
       CONTINUE;
 
     STRING tag, deffile;
-    IF(schemanode->HasAttribute("name")) //old style
+    IF(separate_xmlns AND schemanode->HasAttribute("name")) //old style
     {
       tag := schemanode->GetAttribute("name");
       IF(schemanode->HasAttribute("definitionfile"))
@@ -43,7 +35,11 @@ RECORD FUNCTION GetCacheableModuleDefinedWRDSchemas(STRING modulename)
     }
     ELSE
     {
-      tag := modulename || ":" || schemanode->GetAttribute("tag");
+      //can't use qualify, breaks wildcards (unless we start switching modules over to xxx:* tags and everyone is 4.28)
+      //tag := QualifyName(modulename, schemanode->GetAttribute("tag"));
+      tag := schemanode->GetAttribute("tag");
+      IF(tag NOT LIKE "?*:?*")
+        tag := modulename || ":" || tag;
       deffile := MakeAbsoluteResourcePath("mod::" || modulename || "/", schemanode->GetAttribute("definitionfile"));
     }
 
@@ -56,12 +52,29 @@ RECORD FUNCTION GetCacheableModuleDefinedWRDSchemas(STRING modulename)
       CELL[ tag
           , isexact
           , definitionfile := deffile
-          , autocreate     := isexact AND ParseXSBoolean(schemanode->GetAttribute("autocreate"))
-          , originalname   := isexact ? schemanode->GetAttribute("originalname") : ""
+                              //look for autocreate. for 4.28 integrated wrdschema, it defaults to true unless disabled
+          , autocreate     := isexact AND (ParseXSBoolean(schemanode->GetAttribute("autocreate")) OR (separate_xmlns = FALSE AND NOT schemanode->HasAttribute("autocreate")))
+          , originalname   := isexact AND separate_xmlns ? schemanode->GetAttribute("originalname") : ""
           , title          := schemanode->GetAttribute("title")
           ];
     INSERT schemarec INTO schemas AT END;
   }
+  RETURN schemas;
+}
+
+RECORD FUNCTION GetCacheableModuleDefinedWRDSchemas(STRING modulename)
+{
+  OBJECT xmldef;
+  TRY
+    xmldef := GetModuleDefinitionXML(modulename);
+  CATCH
+    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
+  IF(NOT ObjectExists(xmldef))
+    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
+
+  RECORD ARRAY schemas := ParseSchemas(xmldef, modulename, TRUE)
+                          CONCAT ParseSchemas(xmldef, modulename, FALSE);
+
   RETURN [ eventmasks := [ "system:modulesupdate" ], value := schemas ];
 }
 
