@@ -165,7 +165,10 @@ MACRO TestBase()
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("mod::webhare_testsuite/lib/database.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite"), GetWebHareResourceDiskPath("mod::webhare_testsuite"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "data/xyz", GetWebHareResourceDiskPath("moduledata::webhare_testsuite/xyz"));
+  TestEq(GetWebHareConfiguration().varroot || "storage/webhare_testsuite/xyz", GetWebHareResourceDiskPath("storage::webhare_testsuite/xyz"));
+  TestEq(GetWebHareConfiguration().varroot || "storage/webhare_testsuite/", GetWebHareResourceDiskPath("storage::webhare_testsuite"));
 
   BLOB smallbob := GetWebHareResource("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg");
   TestEq(TRUE, Length(smallbob) > 0);
@@ -214,6 +217,7 @@ MACRO SupportLIbrary()
   TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml'));
   TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
   TestEq('webhare_testsuite', GetModuleNameFromResourcePath('moduledata::webhare_testsuite/testcomponents.xsd'));
+  TestEq("webhare_testsuite", GetModuleNameFromResourcePath("storage::webhare_testsuite/xyz"));
 
   TestThrows(PTR GetResourceNameFromScreenPath('publisher:a/b.c'));
   TestEq("mod::publisher/screens/a/b.xml#c", MakeAbsoluteScreenReference("", 'publisher:a/b.c'));

@@ -135,16 +135,6 @@ STATIC OBJECTTYPE IdealRequest
     this->acceptant_privatekeyfile_pwd := password;
   }
 
-  PUBLIC BLOB FUNCTION GetCertificateAsBlob(STRING certificatefilename)
-  {
-    BLOB certdata := GetHarescriptResource("moduledata::paymentproviders/ideal/" || certificatefilename);
-
-    IF (Length(certdata) = 0)
-      ABORT('Failed to load certificate with name "'||certificatefilename||'".');
-
-    RETURN certdata;
-  }
-
   /** @short Set acquirer ("ABN", "INT", "RABO" or ...);
       @param code of acquirer (bank)
       @param whether to run all requests in testmode

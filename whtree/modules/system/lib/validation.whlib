@@ -90,41 +90,6 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(STRING resourcename, RECORD ARRAY ti
   RETURN warnings;
 }
 
-RECORD FUNCTION BuildXSD(OBJECT resmgr, STRING type)
-{
-  IF (type LIKE "whres::*")
-  {
-    BLOB schema_blob := GetHarescriptResource(type);
-    IF (LENGTH(schema_blob) = 0)
-      ABORT("Could not load '"||type||"'");
-
-    OBJECT domimpl := NEW XMLDomImplementation;
-
-    RETURN
-        [ doc := domimpl->MakeXMLSchema(schema_blob)
-        , errors := DEFAULT RECORD ARRAY
-        ];
-  }
-  ELSE IF (type LIKE "tollium-dynamic:*")
-  {
-    STRING subcode := SubString(type, SearchSubString(type, ":") + 1);
-    RETURN resmgr->OpenXMLSchema("tollium", "dynamic", subcode);
-  }
-  ELSE IF (type LIKE "moduledata::*")
-  {
-    INTEGER cpos := SearchSubString(type, ":");
-    STRING path := SubString(type, cpos + 2);
-    INTEGER spos := SearchSubString(path, "/");
-
-    STRING module := Left(path, spos);
-    STRING subcode := SubString(path, spos + 1);
-    STRING code := Left(type, cpos) = "moduledata" ? "data" : Left(type, cpos);
-
-    RETURN resmgr->OpenXMLSchema(module, code, subcode);
-  }
-  RETURN DEFAULT RECORD;
-}
-
 /** Returns the list of tids in a module
     @param validationconfig @includecelldef #GetModuleValidationConfig.return
     @param module Module to scan

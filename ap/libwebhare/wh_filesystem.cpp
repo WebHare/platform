@@ -539,6 +539,7 @@ enum Type
         FSModuleData,
         FSModuleScript,
         FSModuleRoot,
+        FSStorage,
         FSWHFS,
         FSSite,
         FSCurrentSite,
@@ -560,6 +561,8 @@ Type GetPrefix(std::string const &liburi)
             return FSWHRes;
         else if (prefix == Blex::StringPair::FromStringConstant("moduledata"))
             return FSModuleData;
+        else if (prefix == Blex::StringPair::FromStringConstant("storage"))
+            return FSStorage;
         else if (prefix == Blex::StringPair::FromStringConstant("mod"))
             return FSMod;
         else if (prefix == Blex::StringPair::FromStringConstant("moduleroot"))
@@ -593,6 +596,7 @@ const char * GetPrefixString(Type type)
         case FSWH:              return "wh";
         case FSWHRes:           return "whres";
         case FSModule:          return "module";
+        case FSStorage:         return "storage";
         case FSModuleData:      return "moduledata";
         case FSMod:             return "mod";
         case FSModuleScript:    return "modulescript";
@@ -700,6 +704,7 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 case FSModule:
                 case FSSite:
                 case FSModuleData:
+                case FSStorage:
                 case FSModuleScript:
                 case FSModuleRoot:
                 case FSMod:
@@ -713,7 +718,6 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                 case FSWHRes:
                 case FSDirect:
                 case FSDirectClib:
-                    Blex::ErrStream() << "Loader: " << loader << " libname " << *libname;
                     throw HareScript::VMRuntimeError(HareScript::Error::PrefixDoesNotAllowRelativeAddressing, GetPrefixString(loaderprefix));
 
                 default:
@@ -757,7 +761,6 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
 
         if (type == FSModule || type == FSModuleData || type == FSModuleScript || type == FSModuleRoot) //module:: should be rewritten to mod:: /lib/
         {
-                Context context(keeper);
 
                 std::string::iterator firstslash = std::find(libname->begin(), libname->end(), '/');
                 if (firstslash == libname->end())
@@ -783,6 +786,7 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                         //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
                         bool useinclude = false;
 
+                        Context context(keeper);
                         std::string modroot = context->whconn->GetModuleFolder(modulename);
                         if (!modroot.empty())
                         {
@@ -872,6 +876,18 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
 
                         templatepath = Blex::MergePath(templatepath, std::string(firstslash+1,liburi.end()));
 
+                        file = GetDirectFile(keeper, templatepath);
+                        break;
+                }
+
+        case FSStorage:
+                {
+                        std::string::iterator firstslash=std::find(liburi.begin(),liburi.end(),'/');
+                        if (firstslash == liburi.end())
+                            return FilePtr();
+
+                        std::string templatepath = context->whconn->GetBaseDataRoot() + "storage";
+                        templatepath += std::string(firstslash,liburi.end());
                         file = GetDirectFile(keeper, templatepath);
                         break;
                 }

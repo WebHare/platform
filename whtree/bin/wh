@@ -31,7 +31,7 @@ fi
 # Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
 if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   if [ -f "$WEBHARE_DIR/../base_makefile" ]; then
-    WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
+    export WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
   fi
 fi
 
@@ -1054,10 +1054,6 @@ case $INSTR in
     echo $WEBHARE_DATAROOT
     ;;
 
-  "getoutputdir")
-    exec_runscript mod::system/scripts/internal/getoutputdir.whscr "$1"
-    ;;
-
   "getmodule")
     echo "wh getmodule has been replaced by: wh module get"
     exit 1
@@ -1082,15 +1078,7 @@ case $INSTR in
 wh() { $WEBHARE_DIR/bin/wh "\$@"; } ;
 whcd() {
   local DEST;
-  if [ -z "\$1" ]; then
-    DEST="\`wh getrootdir\`" ;
-  elif [[ \$1 == http:* ]] || [[ \$1 == https:* ]] ; then
-    DEST="\`wh getoutputdir \"\$1\"\`" ;
-  elif [[ \$1 == mod::* ]] ; then
-    DEST="\`wh getmoduledir \"\${1:5}\"\`";
-  else
-    DEST="\`wh getmoduledir \"\$1\"\`";
-  fi;
+  DEST="\`wh run mod::system/scripts/internal/cli/getdir.whscr \"\$@\"\`";
   [ -n "\$DEST" ] && cd "\$DEST";
 } ;
 export -f wh ;

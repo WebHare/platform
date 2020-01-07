@@ -1,4 +1,6 @@
 ﻿<?wh
+LOADLIB "wh::files.whlib";
+
 PUBLIC MACRO PTR onparsedtid;
 PUBLIC RECORD modulelangs;
 
@@ -448,11 +450,8 @@ PUBLIC STRING FUNCTION DetermineNodeGid(STRING resourcename, OBJECT node) // FIX
 */
 PUBLIC STRING FUNCTION __GetModuleBaseFromResourceName(STRING resourcename)
 {
-  IF(resourcename LIKE "mod::*/*")
-    RETURN ToLowercase(Substring(resourcename, 5, SearchSubstring(resourcename,'/')-5));
-  IF(resourcename LIKE "moduleroot::*/*")
-    RETURN ToLowercase(Substring(resourcename, 12, SearchSubstring(resourcename,'/')-12));
-  IF(resourcename LIKE "moduledata::*/*")
-    RETURN ToLowercase(Substring(resourcename, 12, SearchSubstring(resourcename,'/')-12));
-  RETURN ToLowercase(Tokenize(resourcename,'#')[0]);
+  STRING modname := __GetModuleNameFromResourcePath(resourcename);
+  IF(modname != "")
+    RETURN modname;
+  RETURN ToLowercase(Tokenize(resourcename,'#')[0]); //this is for legacy site paths. we can remove this as soon as site-based languaage files are dead
 }

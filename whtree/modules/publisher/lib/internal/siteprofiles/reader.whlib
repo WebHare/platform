@@ -341,8 +341,6 @@ PUBLIC OBJECTTYPE SiteProfileObject
 
   PUBLIC STRING FUNCTION ParseFSPathString(STRING val)
   {
-    ///IF(val LIKE "module::*" OR val LIKE "site::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*")
-   //   RETURN val;
     IF(val LIKE "mod::*" OR val LIKE "site::*")
       RETURN val;
 

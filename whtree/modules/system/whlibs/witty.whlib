@@ -195,12 +195,7 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
 
   INTEGER FUNCTION DoLoadBlob(STRING name, BLOB indata)
   {
-    STRING gettidmodule;
-    IF(name LIKE "mod::*" OR name LIKE "module::*" OR name LIKE "moduleroot::*" OR name LIKE "moduledata::*")
-    {
-      gettidmodule := Tokenize(Tokenize(name,'::')[1],'/')[0]; //get the part between :: and /
-    }
-
+    STRING gettidmodule := __GetModuleNameFromResourcePath(name);
     INTEGER scriptid := __ParseWittyBlob(indata, this->encoding, gettidmodule);
     IF(scriptid <= 0)
       this->HandleParseErrors(name); //throws!
