@@ -1,0 +1,206 @@
+<?wh
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+STRING FUNCTION GenerateFormalname(RECORD lang, RECORD entity)
+{
+  STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
+  INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
+  STRING infix := CellExists(entity, "wrd_infix") ? entity.wrd_infix : CellExists(entity,"infix") ? entity.infix : "";
+
+  IF(lastname="")
+    RETURN ""; //Not enough information to create a 'full name'
+
+  STRING fullname;
+  IF (gender = 1)
+    fullname := lang.title_male || " ";
+  ELSE IF (gender = 2)
+    fullname := lang.title_female || " ";
+
+  //ADDME: should we realy prefer calling name to initials?
+  IF (lastname!="")
+    fullname := fullname || (infix!=""? infix || " ":"") || lastname;
+
+  RETURN TrimWhitespace(fullname);
+}
+
+STRING FUNCTION GenerateFullname(RECORD entity)
+{
+  STRING initials := CellExists(entity, "wrd_initials") ? entity.wrd_initials : CellExists(entity,"initials") ? entity.initials : "";
+  STRING firstname := CellExists(entity, "wrd_firstname") ? entity.wrd_firstname : CellExists(entity,"firstname") ? entity.firstname : "";
+  STRING firstnames := CellExists(entity, "wrd_firstnames") ? entity.wrd_firstnames : CellExists(entity,"firstnames") ? entity.firstnames : "";
+  STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
+  STRING infix := CellExists(entity, "wrd_infix") ? entity.wrd_infix : CellExists(entity,"infix") ? entity.infix : "";
+
+  IF(firstname="" AND firstnames="" AND lastname="")
+    RETURN ""; //Not enough information to create a 'full name'
+
+  STRING fullname;
+  IF(firstname!="")
+    fullname := fullname || firstname;
+  ELSE IF(firstnames!="")
+    fullname := fullname || firstnames;
+  ELSE IF(initials!="")
+    fullname := fullname || initials;
+
+  IF (lastname!="")
+    fullname := fullname || " " || (infix!=""? infix || " ":"") || lastname;
+
+  RETURN TrimWhitespace(fullname);
+}
+
+STRING FUNCTION GenerateSaluteFormal(RECORD lang, RECORD entity)
+{
+  STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
+  INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
+  STRING titles := CellExists(entity, "wrd_titles") ? entity.wrd_titles : CellExists(entity,"titles") ? entity.titles : "";
+  STRING infix := CellExists(entity, "wrd_infix") ? entity.wrd_infix : CellExists(entity,"infix") ? entity.infix : "";
+
+  IF(lastname="")
+    RETURN lang.salute_formal_noname;
+
+  // Generates 'Dear Mrs. Prof. Dr. A.C. de Vries'
+
+  STRING fullname;
+  IF (gender = 1)
+    fullname := lang.salute_formal_male;
+  ELSE IF (gender = 2)
+    fullname := lang.salute_formal_female;
+  ELSE
+    fullname := lang.salute_formal_dunno;
+
+  IF (titles != "")
+    fullname := fullname || " " || titles;
+
+  //ADDME: language or country of origin specfic caps rules ?
+  IF(infix!="")
+    fullname := fullname || " " || ToUppercase(Left(infix,1)) || Substring(infix,1,256);
+  IF(lastname!="")
+    fullname := fullname || " " || ToUppercase(Left(lastname,1)) || Substring(lastname,1,256);
+
+  RETURN TrimWhitespace(fullname);
+}
+
+STRING FUNCTION GenerateAddressFormal(RECORD lang, RECORD entity)
+{
+  STRING lastname := CellExists(entity, "wrd_lastname") ? entity.wrd_lastname : CellExists(entity,"lastname") ? entity.lastname : "";
+  INTEGER gender := CellExists(entity, "wrd_gender") ? entity.wrd_gender : CellExists(entity,"gender") ? entity.gender : 0;
+  STRING titles := CellExists(entity, "wrd_titles") ? entity.wrd_titles : CellExists(entity,"titles") ? entity.titles : "";
+  STRING infix := CellExists(entity, "wrd_infix") ? entity.wrd_infix : CellExists(entity,"infix") ? entity.infix : "";
+  STRING initials := CellExists(entity, "wrd_initials") ? entity.wrd_initials : CellExists(entity,"initials") ? entity.initials : "";
+
+  IF(lastname="")
+    RETURN lang.address_formal_noname;
+
+  // Generates: Mister Prof. Dr. A.G. de Haane
+
+  STRING fullname;
+  IF (gender = 1)
+    fullname := lang.address_formal_male;
+  ELSE IF (gender = 2)
+    fullname := lang.address_formal_female;
+  ELSE
+    fullname := lang.address_formal_dunno;
+
+  IF (titles != "")
+    fullname := fullname || " " || titles;
+
+  //ADDME: language or country of origin specfic caps rules ?
+  IF (initials != "")
+    fullname := fullname || " " || initials;
+  IF (infix!="")
+    IF (initials != "")
+      fullname := fullname || " " || infix;
+    ELSE
+      fullname := fullname || " " || ToUppercase(Left(infix,1)) || Substring(infix,1,256);
+  IF(lastname!="")
+    fullname := fullname || " " || ToUppercase(Left(lastname,1)) || Substring(lastname,1,256);
+
+  RETURN TrimWhitespace(fullname);
+}
+
+STRING FUNCTION GenerateGUID(RECORD entity)
+{
+  RETURN EncodeWRDGUID(entity.guid);
+}
+
+PUBLIC FUNCTION PTR FUNCTION GetGenerator(STRING generatetag, STRING languagecode)
+{
+  SWITCH(generatetag)
+  {
+    CASE "WRD_ORGNAME"
+    {
+      /* The generator doesn't really support WRD_ORGNAME but we need to fake it because elswhere ParseFilters redirects ORGNAME searches. Thats
+         a hack to fix for another day... but the one that blocks us from just dropping WRD_ORGNAME here */
+      RETURN DEFAULT MACRO PTR;
+    }
+    CASE "WRD_GUID"
+    {
+      RETURN PTR GenerateGUID(#1);
+    }
+    CASE "WRD_FULLNAME", "WRD_RELATION_TITLE"
+    {
+      RETURN PTR GenerateFullname(#1);
+    }
+  }
+
+  //the remaining tags require language info
+  RECORD lang := GetCell(wrd_language, CellExists(wrd_language, languagecode) ? languagecode : "en");
+  SWITCH(generatetag)
+  {
+    CASE "WRD_FORMALNAME"
+    {
+      RETURN PTR GenerateFormalname(lang, #1);
+    }
+    CASE "WRD_SALUTE_FORMAL"
+    {
+      RETURN PTR GenerateSaluteFormal(lang, #1);
+    }
+    CASE "WRD_ADDRESS_FORMAL"
+    {
+      RETURN PTR GenerateAddressFormal(lang, #1);
+    }
+  }
+
+  THROW NEW Exception(`Don't know how to generate '${generatetag}'`);
+}
+
+RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case)
+{
+  RECORD result :=
+      [ cellname                := "guid"
+      , value                   := ""
+      , valid                   := TRUE
+      , sufficient              := FALSE
+      , match_case              := TRUE
+      , need_afterfiltering     := TRUE
+      ];
+
+  IF (NOT ValidateWRDGuid(value))
+    RETURN result;
+
+  IF (match_case)
+  {
+    // Check case of the GUID
+    IF (LEFT(value, 4) != "wrd:")
+      RETURN result;
+    STRING guid_part := SubString(value, 4);
+    IF (ToUppercase(guid_part) != guid_part)
+      RETURN result;
+  }
+
+  result.valid := TRUE;
+  result.need_afterfiltering := FALSE;
+  result.value := DecodeWRDGuid(value);
+
+  RETURN result;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ApplyGeneratorAndDecoders(OBJECT wrdschema, RECORD ARRAY attrlist)
+{
+  STRING languagecode := wrdschema->__GetCurrentLanguageCode();
+  attrlist := SELECT *
+                   , generator := generatetag != "" ? GetGenerator(generatetag, languagecode) : DEFAULT MACRO PTR
+                   , decoder :=   generatetag = "WRD_GUID" ? PTR GetWRDGuidQueryEngineData(#1, #2) : DEFAULT MACRO PTR
+                FROM attrlist;
+  RETURN attrlist;
+}

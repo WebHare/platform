@@ -80,7 +80,7 @@ PUBLIC OBJECT FUNCTION __MakeTolliumLanguageFileSystem(STRING module)
 }
 
 /** Returns the current language
-    @return The language code for the current language
+    @return The language code for the current language (lowercase, eg 'nl')
 */
 PUBLIC STRING FUNCTION GetTIDLanguage()
 {

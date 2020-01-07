@@ -493,6 +493,8 @@ RECORD ARRAY FUNCTION GetBuiltinAttributes(RECORD typerec, STRING langcode)
                         , parent := 0
                         , cellnames := cellnames
                         , maxlength := 256
+                         /* The generator doesn't really support WRD_ORGNAME but we need to fake it because elswhere ParseFilters redirects ORGNAME searches. Thats
+                            a hack to fix for another day... but the one that blocks us from just dropping WRD_ORGNAME here */
                         , generatetag := typerec.tag = "WRD_RELATION" ? "WRD_RELATION_TITLE" : typerec.tag = "WRD_PERSON" ? "WRD_FULLNAME" : "WRD_ORGNAME"
                         ];
     INSERT titleattr INTO extra_attrs AT END;

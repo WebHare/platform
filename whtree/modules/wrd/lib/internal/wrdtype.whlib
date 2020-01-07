@@ -27,6 +27,7 @@ LOADLIB "mod::wrd/lib/internal/setentity.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+LOADLIB "mod::wrd/lib/internal/query/generators.whlib";
 LOADLIB "mod::wrd/lib/names.whlib";
 
 
@@ -57,56 +58,6 @@ RECORD FUNCTION RemoveSettingIds(RECORD inrec)
       inrec := CellUpdate(inrec, cellrec.name, SELECT AS RECORD ARRAY RemoveSettingIds(rec) FROM cellrec.value AS rec);
   }
   RETURN inrec;
-}
-
-VARIANT FUNCTION GetROField2(RECORD entity, OBJECT wrdschema, STRING wrdtag, VARIANT dummy DEFAULTSTO 0) //dummy value, but generator callbacks need it...
-{
-  SWITCH(wrdtag)
-  {
-    CASE"WRD_GUID"
-    {
-      RETURN EncodeWRDGUID(entity.guid);
-    }
-    CASE "WRD_FORMALNAME", "WRD_FULLNAME", "WRD_SALUTE_FORMAL", "WRD_ADDRESS_FORMAL"
-    {
-      RETURN FormatWRDNameField(wrdtag, entity, [ language := wrdschema->__GetCurrentLanguageCode() ]);
-    }
-    DEFAULT
-    {
-      ABORT("GetROField: unrecognized tag " || wrdtag);
-    }
-  }
-}
-
-RECORD FUNCTION GetWRDGuidQueryEngineData(STRING value, BOOLEAN match_case)
-{
-  RECORD result :=
-      [ cellname                := "guid"
-      , value                   := ""
-      , valid                   := TRUE
-      , sufficient              := FALSE
-      , match_case              := TRUE
-      , need_afterfiltering     := TRUE
-      ];
-
-  IF (NOT ValidateWRDGuid(value))
-    RETURN result;
-
-  IF (match_case)
-  {
-    // Check case of the GUID
-    IF (LEFT(value, 4) != "wrd:")
-      RETURN result;
-    STRING guid_part := SubString(value, 4);
-    IF (ToUppercase(guid_part) != guid_part)
-      RETURN result;
-  }
-
-  result.valid := TRUE;
-  result.need_afterfiltering := FALSE;
-  result.value := DecodeWRDGuid(value);
-
-  RETURN result;
 }
 
 INTEGER FUNCTION BuildLinkFSObject(INTEGER wrdschema, RECORD linkrec, OBJECT whfsmapper)
@@ -578,7 +529,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     this->__childtypeids := data.__childtypeids;
     this->__consiliolinkcheckattrs := data.__consiliolinkcheckattrs;
     this->__whfslinkattrs := data.__whfslinkattrs;
-    this->__final_attrs := this->ApplyGeneratorAndDecoders(data.__final_attrs);
+    this->__final_attrs := ApplyGeneratorAndDecoders(this->pvt_wrdschema, data.__final_attrs);
     this->attributelist := SELECT *
                                 , tag := ToUppercase(tag)
                                 , localtag := ToUppercase(localtag)
@@ -791,16 +742,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   //
   // Attribute  metadata management
   //
-  RECORD ARRAY FUNCTION ApplyGeneratorAndDecoders(RECORD ARRAY attrlist)
-  {
-    attrlist := SELECT *
-                     , generator := generatetag = "WRD_RELATION_TITLE" ? PTR GetROField2(#1, this->pvt_wrdschema, "WRD_FULLNAME")
-                                    : generatetag != "" ? PTR GetROField2(#1, this->pvt_wrdschema, generatetag)
-                                    : DEFAULT MACRO PTR
-                     , decoder :=   generatetag = "WRD_GUID" ? PTR GetWRDGuidQueryEngineData(#1, #2) : DEFAULT MACRO PTR
-                  FROM attrlist;
-    RETURN attrlist;
-  }
 
   /** @short Does this type have this attribute ?
       @param tag Tag of the attribute
@@ -1487,7 +1428,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                     - 'at': Return all entities that were valid at 'when'
                     - 'range': Return all entities that were valid in the range [ 'when_start', 'when_limit' ]
                     - 'all': Return all entities (excluding temporaries)
-                    - '__getfields': Return all entities (including temporaries)
       @cell options.when @includecelldef #RunWRDQuery.querydata.sources.when
       @cell options.when_start @includecelldef #RunWRDQuery.querydata.sources.when_start
       @cell options.when_limit @includecelldef #RunWRDQuery.querydata.sources.when_limit
@@ -1500,6 +1440,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @return The enriched records, in their original order. Any records which could not be enriched, are removed from the output array */
   PUBLIC RECORD ARRAY FUNCTION Enrich(RECORD ARRAY inrows, STRING idcellname, RECORD addcolumns, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    //note: we also support historymode '__getfields' (Return all entities, including temporaries) for internal use
+
     options := ValidateOptions([ historymode :=   "all"
                                , when :=          DEFAULT DATETIME
                                , when_start :=    DEFAULT DATETIME
@@ -1645,7 +1587,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short returns all requested fields of the entity with the given find_id
       @param find_id id of the entity
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
-      @cell(string) options.historymode History mode. Defaults to '__getfields'.
+      @cell(string) options.historymode History mode. By default, any entity (even temporaries) are visible
       @cell(datetime) options.when @includecelldef #RunQuery.querydata.when
       @cell(datetime) options.when_start @includecelldef #RunQuery.querydata.when_start
       @cell(datetime) options.when_limit @includecelldef #RunQuery.querydata.when_limit
