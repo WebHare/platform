@@ -667,7 +667,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     OBJECT work := StartLocalWork(trans);
     TRY
     {
-      RECORD ARRAY tosync := GetSyncableRoles(this->wrdschema->accounttype, [entityid]);
+      INTEGER roleunit := this->wrd_role->GetEntityField(entityid, "WRD_LEFTENTITY");
+      RECORD ARRAY tosync := GetSyncableRoles(this->wrd_role, [entityid]) CONCAT GetSyncableUnits(this->wrd_unit, [roleunit]);
       ApplyDBWantedAuthObjects(tosync, FALSE);
     }
     FINALLY
