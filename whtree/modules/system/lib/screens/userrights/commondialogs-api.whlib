@@ -300,8 +300,22 @@ OBJECTTYPE DeleteDialog
     IF (NOT work->Finish())
       RETURN "cancel";
 
-    OBJECT ARRAY allobjs := SELECT AS OBJECT ARRAY obj FROM this->todelete;
-    this->authapi->DeleteMultiple(allobjs);
+    INTEGER ARRAY entityids_user :=
+        SELECT AS INTEGER ARRAY obj->entityid
+          FROM this->todelete
+         WHERE type IN [ "user" ];
+
+    INTEGER ARRAY entityids_unit :=
+        SELECT AS INTEGER ARRAY obj->entityid
+          FROM this->todelete
+         WHERE type IN [ "unit" ];
+
+    INTEGER ARRAY entityids_role :=
+        SELECT AS INTEGER ARRAY obj->entityid
+          FROM this->todelete
+         WHERE type IN [ "role" ];
+
+    this->authapi->__DeleteMultiple(entityids_user, entityids_unit, entityids_role);
 
     RETURN "ok";
   }

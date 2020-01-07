@@ -356,6 +356,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       TRY
       {
         OBJECT newuser := this->wrdschema->accounttype->CreateEntity(data);
+
         RECORD ARRAY tosync := GetSyncableUsers(this->wrdschema->accounttype, [INTEGER(newuser->id)]) CONCAT GetSyncableUnits(this->wrd_unit, [unitid]);;
         ApplyDBWantedAuthObjects(tosync, FALSE);
         RETURN newuser->id;
@@ -387,11 +388,12 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       IF (NOT ObjectExists(entity))
         THROW NEW Exception("Could not find user to update");
 
+      INTEGER newunit := CellExists(data, "WHUSER_UNIT") ? data.whuser_unit : entity->GetField("WHUSER_UNIT");
+
       IF (CellExists(data, this->wrdschema->accountlogintag) OR CellExists(data, "WHUSER_UNIT"))
       {
-        INTEGER unit := CellExists(data, "WHUSER_UNIT") ? data.whuser_unit : entity->GetField("WHUSER_UNIT");
         STRING name := CellExists(data, this->wrdschema->accountlogintag) ? GetCell(data, this->wrdschema->accountlogintag) : entity->GetField(this->wrdschema->accountlogintag);
-        this->CheckName(this->GetUnit(unit), name, id, TRUE, DEFAULT OBJECT);
+        this->CheckName(this->GetUnit(newunit), name, id, TRUE, DEFAULT OBJECT);
       }
 
       OBJECT work := StartLocalWork(trans);
@@ -399,7 +401,9 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       TRY
       {
         entity->UpdateEntity(data);
-        this->ResyncToSystemTables();
+
+        RECORD ARRAY tosync := GetSyncableUsers(this->wrdschema->accounttype, [INTEGER(entity->id)]) CONCAT GetSyncableUnits(this->wrd_unit, [newunit]);;
+        ApplyDBWantedAuthObjects(tosync, FALSE);
       }
       FINALLY
       {
@@ -417,13 +421,16 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     this->UpdateUser(id, [ wrd_limitdate := GetCurrentDateTime() ]);
   }
 
-  PUBLIC MACRO SyncUserAfterUpdate(INTEGER id)
+  PUBLIC MACRO SyncUserAfterUpdate(INTEGER entityid)
   {
+    //FIXME so this path doesn't do the (already discutable potentially inside transactions...) wrd:usermgmt locking ?
     OBJECT trans := GetPrimaryWebhareTransactionObject();
     OBJECT work := StartLocalWork(trans);
     TRY
     {
-      this->ResyncToSystemTables();
+      INTEGER userunit := this->wrdschema->accounttype->GetEntityField(entityid, "WHUSER_UNIT");
+      RECORD ARRAY tosync := GetSyncableUsers(this->wrdschema->accounttype, [entityid]) CONCAT GetSyncableUnits(this->wrd_unit, [userunit]);
+      ApplyDBWantedAuthObjects(tosync, FALSE);
     }
     FINALLY
     {
@@ -492,7 +499,8 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       TRY
       {
         entity->UpdateEntity(data);
-        this->ResyncToSystemTables();
+        RECORD ARRAY tosync := GetSyncableUnits(this->wrd_unit, [id]);
+        ApplyDBWantedAuthObjects(tosync, FALSE);
       }
       FINALLY
       {
@@ -510,13 +518,14 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     this->UpdateUnit(id, [ wrd_limitdate := GetCurrentDateTime() ]);
   }
 
-  PUBLIC MACRO SyncUnitAfterUpdate(INTEGER id)
+  PUBLIC MACRO SyncUnitAfterUpdate(INTEGER entityid)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
     OBJECT work := StartLocalWork(trans);
     TRY
     {
-      this->ResyncToSystemTables();
+      RECORD ARRAY tosync := GetSyncableUnits(this->wrd_unit, [entityid]);
+      ApplyDBWantedAuthObjects(tosync, FALSE);
     }
     FINALLY
     {
@@ -652,13 +661,14 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     this->UpdateRole(id, [ wrd_limitdate := GetCurrentDateTime() ]);
   }
 
-  PUBLIC MACRO SyncRoleAfterUpdate(INTEGER id)
+  PUBLIC MACRO SyncRoleAfterUpdate(INTEGER entityid)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
     OBJECT work := StartLocalWork(trans);
     TRY
     {
-      this->ResyncToSystemTables();
+      RECORD ARRAY tosync := GetSyncableRoles(this->wrdschema->accounttype, [entityid]);
+      ApplyDBWantedAuthObjects(tosync, FALSE);
     }
     FINALLY
     {
@@ -710,7 +720,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     RETURN this->GetUnit(authobj->GetParentUnitId());
   }
 
-  PUBLIC MACRO DeleteMultiple(OBJECT ARRAY authobjs)
+  PUBLIC MACRO __DeleteMultiple(INTEGER ARRAY entityids_user, INTEGER ARRAY entityids_unit, INTEGER ARRAY entityids_role)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
 
@@ -720,18 +730,18 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       OBJECT work := StartLocalWork(trans);
       TRY
       {
-        DATETIME now := GetCurrentDateTime();
+        DATETIME now := GetCurrentDatetime();
+        FOREVERY(INTEGER user FROM entityids_user)
+          this->wrdschema->accounttype->UpdateEntity(user, [ wrd_limitdate := now ]);
+        FOREVERY(INTEGER unit FROM entityids_unit)
+          this->wrd_unit->UpdateEntity(unit, [ wrd_limitdate := now ]);
+        FOREVERY(INTEGER role FROM entityids_role)
+          this->wrd_role->UpdateEntity(role, [ wrd_limitdate := now ]);
 
-        FOREVERY (OBJECT obj FROM authobjs)
-        {
-          /// The first element may be different if we're called from the default delete dialog...
-          IF(NOT obj EXTENDSFROM WRDAuthObject OR NOT ObjectExists(obj->entity))
-            CONTINUE;
-
-          obj->entity->UpdateEntity([ wrd_limitdate := now ]);
-        }
-
-        this->ResyncToSystemTables();
+        RECORD ARRAY tosync := GetSyncableRoles(this->wrd_role, entityids_role)
+                               CONCAT GetSyncableUnits(this->wrd_unit, entityids_unit)
+                               CONCAT GetSyncableUsers(this->wrdschema->accounttype, entityids_user);
+        ApplyDBWantedAuthObjects(tosync, FALSE);
       }
       FINALLY
       {

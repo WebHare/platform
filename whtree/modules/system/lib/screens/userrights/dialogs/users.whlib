@@ -226,10 +226,10 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     {
       ^screentabs->SubmitExtensions(work);
 
-      this->contexts->userapi->SyncUserAfterUpdate(id);
-
       // Updating the GUID must run via the v2 api, can't use StoreEntity for that.
       ^userobj->wrdentity->UpdateEntity([ wrd_guid := ^wrd_guid->value ]);
+
+      this->contexts->userapi->SyncUserAfterUpdate(id);
 
       user := this->contexts->userapi->GetUser(id); //reload user, guid might have changed
     }
