@@ -94,7 +94,7 @@ RECORD FUNCTION GetCacheableCSSFile(STRING path, BLOB data)
     IF(ObjectExists(cssobj) AND cssobj->url != "")
       css->RewriteURLs(PTR RewriteCSSURL(cssobj->url, #1)); // Rewrite URLs in stylesheet files in a site:: namespace
   }
-  ELSE //IF(path LIKE "moduledata::*")
+  ELSE
   {
     // FIXME: If the developer didn't specify site::, we DON'T SUPPORT relative paths (for background-images and such things)
     //        :(

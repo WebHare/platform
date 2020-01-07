@@ -5,31 +5,6 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-/* FIXME got this one from validatescreen, but system resourcemanager uses a
-   different one. tollium should just offer an initialized domimpl in its
-   resourcemanager, or perhaps domipl should allow a list of entity loaders? */
-RECORD FUNCTION GetSchema(OBJECT resmgr, STRING uri, STRING schemaid)
-{
-  IF (ToLowercase(uri) NOT LIKE "moduledata::*")
-    RETURN DEFAULT RECORD;
-
-
-  INTEGER cpos := SearchSubString(uri, "::");
-  uri := SubString(uri, cpos + 2);
-
-  INTEGER spos := SearchSubString(uri, "/");
-  IF (spos = -1)
-    RETURN DEFAULT RECORD;
-
-  STRING module := Left(uri, spos);
-  STRING subcode := SubString(uri, spos + 1);
-
-  //ADDME verify succesful open
-  RETURN [ success := TRUE
-         , data := GetHarescriptResource("moduledata::" || module || "/" || subcode)
-         ];
-}
-
 // attrs.name, attrs.data
 PUBLIC RECORD FUNCTION StoredAttrsJSON(RECORD element, STRING ARRAY flags)
 {
