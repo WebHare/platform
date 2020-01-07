@@ -21,7 +21,7 @@ PUBLIC OBJECTTYPE CustomCheckBase
   */
   PUBLIC STRING ARRAY FUNCTION GetIssues()
   {
-    RETURN DEFAULT STRING ARRAY;
+    THROW NEW Exception(`CustomCheck does not override GetIssues or GetIssueList`);
   }
 
   /** Returns extended list of issues
@@ -92,8 +92,14 @@ PUBLIC BOOLEAN FUNCTION IsModuleInstalled(STRING modulename)
   RETURN GetModuleInstallationRoot(modulename) != "";
 }
 
+/** @short Get the disk storage root for module specific data
+    @param modulename Module name
+    @return Absolute disk path to use as base for module specific storage, always ends with a slash */
 PUBLIC STRING FUNCTION GetModuleStorageRoot(STRING modulename)
 {
+  //ensure valid module name - this especially helps countering random folder names when people make typos and pass it straight to CreateDiskDirectoryRecursive
+  IF(modulename != ToLowercase(modulename) OR NOT IsModuleInstalled(modulename))
+    THROW NEW Exception(`No such module '${modulename}'`);
   RETURN GetWebHareConfiguration().basedataroot || "storage/" || modulename || "/";
 }
 

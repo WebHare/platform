@@ -1222,3 +1222,15 @@ if(document.createDocumentFragment().firstElementChild !== null)
     }
     polyfill(DocumentFragment.prototype);
 }
+
+///////////////////////////////////////////////////////////////////////////////////
+//
+// Polyfill HTMLSelectElement.selectedOptions
+
+if (!HTMLSelectElement.prototype.hasOwnProperty("selectedOptions"))
+  Object.defineProperty(HTMLSelectElement.prototype, "selectedOptions",
+  {
+    get: function() { return this.querySelectorAll(":checked") },
+    enumerable: true,
+    configurable: true,
+  })
