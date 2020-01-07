@@ -315,7 +315,7 @@ PUBLIC BOOLEAN FUNCTION IsAbsoluteResourcePath(STRING base)
     RETURN TRUE;
 
   RETURN base LIKE "?*::?*"
-         AND Tokenize(base,'::')[0] IN ["mod","module","moduleroot","moduledata","modulescript"
+         AND Tokenize(base,'::')[0] IN ["mod","module","moduleroot","moduledata","modulescript","storage"
                                        ,"inline","inline-base64","site","whfs","direct","wh","test","whres"
                                        ];
 }
@@ -402,9 +402,7 @@ PUBLIC STRING FUNCTION MakeAbsoluteResourcePath(STRING base, STRING subpath)
 */
 PUBLIC STRING FUNCTION GetModuleNameFromResourcePath(STRING path)
 {
-  IF(path NOT LIKE "mod::*/*" AND path NOT LIKE "moduleroot::*/*" AND path NOT LIKE "module::*/*" AND path NOT LIKE "moduledata::*/*")
-    RETURN "";
-  RETURN Tokenize(Tokenize(path, '::')[1],'/')[0];
+  RETURN __GetModuleNameFromResourcePath(path);
 }
 
 PUBLIC OBJECT FUNCTION GetWebhareXMLDOMImplementation()
@@ -420,7 +418,7 @@ PUBLIC STRING FUNCTION MakeAbsoluteScreenReference(STRING baseresource, STRING s
     RETURN "";
 
   IF(baseresource LIKE "moduledata::*" OR baseresource LIKE "module::*")
-    THROW NEW Exception("Invalid prefix '" || baseresource || "' - a screen context should use moduleroot:: resource names");
+    THROW NEW Exception("Invalid prefix '" || baseresource || "' - a screen context should use mod:: resource names");
 
   IF(screenref LIKE "*::*") //absolute - we need an early return because MakeAbsoluteResourcePath does not accept empty baseresources
     RETURN MakeAbsoluteResourcePath("", screenref);

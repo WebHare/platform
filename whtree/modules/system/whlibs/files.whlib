@@ -908,3 +908,21 @@ PUBLIC RECORD FUNCTION WrapBlob(BLOB toscan, STRING filename, RECORD options DEF
 
   RETURN base;
 }
+
+//Theoretically this should be a C++ callback... this info is in the HS FilesSystem and HS itself doesn't officially care about resource path formats
+PUBLIC STRING FUNCTION __GetModuleNameFromResourcePath(STRING path)
+{
+  INTEGER doublecolonpos := SearchSubstring(path,'::');
+  IF(doublecolonpos = -1)
+    RETURN "";
+
+  INTEGER slashpos := SearchSubstring(path,'/');
+  IF(slashpos < doublecolonpos) //can't exist before ::, and -1 missing is incorrect too
+    RETURN "";
+
+  STRING namespace := Left(path, doublecolonpos);
+  IF(namespace NOT IN ["mod", "moduleroot", "module", "moduledata", "storage"])
+    RETURN "";
+
+  RETURN ToLowercase(Substring(path, doublecolonpos + 2, slashpos - doublecolonpos- 2));
+}

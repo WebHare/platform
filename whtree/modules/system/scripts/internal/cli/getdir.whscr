@@ -1,0 +1,72 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+
+/* This script calculates the pathname for whcd
+*/
+
+STRING FUNCTION TryOutputPath(STRING arg)
+{
+  RECORD res := LookupPublisherURL(arg);
+  IF(res.folder=0)
+    TerminateScriptWithError(`Did not find url: ${arg}`);
+
+  OpenPrimary();
+  RECORD site := SELECT * FROM system.sites WHERE id = res.site;
+  STRING outputpath := GetWebserverOutputFolder(site.outputweb);
+  IF(outputpath="")
+    TerminateScriptWithError(`The site '${site.name}' containing folder #${res.folder} is not being published`);
+
+  outputpath := MergePath(outputpath, site.outputfolder);
+  outputpath := MergePath(outputpath, (SELECT AS STRING fullpath FROM system.fs_objects WHERE id = res.folder));
+
+  PrintTo(2,"Going to site '" || site.name || "' folder #" || res.folder || "\n");
+  RETURN outputpath;
+}
+
+STRING FUNCTION GetWHCDPath(STRING arg)
+{
+  IF(arg="")
+    RETURN GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") ?? GetEnvironmentVariable("WEBHARE_DIR");
+
+  IF(IsModuleInstalled(arg))
+    RETURN GetModuleInstallationRoot(arg);
+
+  STRING destpath;
+  IF(arg LIKE "*::*")
+  {
+    destpath := GetWebHareResourceDiskPath(arg);
+  }
+  ELSE IF(IsAbsoluteURL(destpath))
+    destpath := TryOutputPath(arg);
+
+  IF(destpath != "")
+  {
+    RECORD targetinfo := GetDiskFileProperties(destpath);
+    IF(NOT RecordExists(targetinfo))
+      TerminateScriptWithError(`No such directory '${destpath}`);
+    ELSE IF(targetinfo.type = 0) //it's a file
+      destpath := GetDirectoryFromPath(destpath);
+
+    RETURN destpath;
+  }
+  RETURN "";
+}
+
+STRING ARRAY args := GetConsoleArguments();
+STRING arg := Length(args) = 0 ? "" : args[0];
+STRING dest := GetWHCDPath(arg);
+IF(dest != "")
+  Print(dest || "\n");
+ELSE
+  TerminateScriptWithError(`Unrecognized path '${arg}'`);

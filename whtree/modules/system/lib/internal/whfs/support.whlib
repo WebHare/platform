@@ -718,7 +718,7 @@ PUBLIC STRING FUNCTION GetDiskPathForAsset(STRING inpath, STRING reportpath, BOO
   IF(reportpath="")
     reportpath := inpath;
 
-  IF(inpath LIKE "moduleroot::*" OR inpath LIKE "modulescript::*" OR inpath LIKE "module::*" OR inpath LIKE "mod::*" OR inpath LIKE 'moduledata::*')
+  IF(__GetModuleNameFromResourcePath(inpath) != "")
   {
     inpath := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", inpath);
     IF(usemoduleroot)
@@ -751,19 +751,29 @@ PUBLIC STRING FUNCTION GetDiskPathForAsset(STRING inpath, STRING reportpath, BOO
       RETURN "test::" || restpath;
     RETURN MergePath(GetModuleInstallationRoot('webhare_testsuite') || 'tests/baselibs/hsengine', restpath) || (terminatewithslash ? "/" : "");
   }
-  IF(namespace="mod")
+  IF(namespace="mod" OR namespace="storage")
   {
-    STRING modulename := Left(restpath, SearchSubstring(restpath,'/'));
+    INTEGER nextslash := SearchSubstring(restpath,'/');
+    STRING modulename := nextslash = -1 ? restpath : Left(restpath, nextslash);
     IF(modulename="")
       THROW NEW RetrieveResourceException(reportpath, "No such resource: missing module name", DEFAULT RECORD ARRAY);
 
-    restpath := Substring(restpath, Length(modulename));
+    STRING basedir;
+    IF(namespace="mod")
+    {
+      basedir := GetModuleInstallationRoot(modulename);
+      IF(basedir="")
+        THROW NEW RetrieveResourceException(reportpath, `No such resource: no such module '${modulename}'`, DEFAULT RECORD ARRAY);
+    }
+    ELSE
+    {
+      basedir := __SYSTEM_WHCOREPARAMETERS().basedataroot || "storage/" || modulename || "/";
+    }
 
-    STRING basedir := GetModuleInstallationRoot(modulename);
-    IF(basedir="")
-      THROW NEW RetrieveResourceException(reportpath, `No such resource: no such module '${modulename}'`, DEFAULT RECORD ARRAY);
-
-    RETURN MergePath(basedir, restpath) || (terminatewithslash ? "/" : "");
+    IF(nextslash = -1)
+      RETURN basedir; //we'll always terminate a path like `mod::system` with a slash
+    ELSE
+      RETURN MergePath(basedir, Substring(restpath, nextslash)) || (terminatewithslash ? "/" : "");
   }
   RETURN "";
 }
