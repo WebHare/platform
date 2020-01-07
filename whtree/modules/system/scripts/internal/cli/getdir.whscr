@@ -47,8 +47,18 @@ STRING FUNCTION GetWHCDPath(STRING arg)
   {
     destpath := GetWebHareResourceDiskPath(arg);
   }
+  ELSE IF(arg LIKE "whdata:*")
+  {
+    //not a real namespace, so we'll support both whdata: (as if it were a URL) and whdata:: (as if it were a namespace)
+    STRING whdatapath := Substring(arg,7);
+    IF(whdatapath LIKE ":*")
+      whdatapath := Substring(arg,1);
+    destpath := GetWebhareConfiguration().basedataroot || whdatapath;
+  }
   ELSE IF(IsAbsoluteURL(destpath))
+  {
     destpath := TryOutputPath(arg);
+  }
 
   IF(destpath != "")
   {
