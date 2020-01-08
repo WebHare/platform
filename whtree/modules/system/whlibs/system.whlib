@@ -3231,7 +3231,7 @@ PUBLIC STRING FUNCTION RepeatText(STRING text, INTEGER count) __ATTRIBUTES__(EXT
           library. If the library was not loaded yet, it will be initialized.
     @signature FUNCTION PTR FUNCTION MakeFunctionPtr(STRING functionname)
     @param functionname Name of the function (unmangled, must be public, using the "lib#function" syntax)
-    @return A pointer to the function in question, or a default function pointer if the function was not found */
+    @return A pointer to the function in question. Throws if the function was not found */
 PUBLIC FUNCTION PTR FUNCTION MakeFunctionPtr(STRING functionname, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 {
   STRING libname;
