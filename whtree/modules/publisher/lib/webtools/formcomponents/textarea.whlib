@@ -18,7 +18,6 @@ PUBLIC OBJECTTYPE FormTextArea EXTEND FormComponentExtensionBase
     IF (this->maxlength->value < 0)
       this->maxlength->value := 0;
     this->usemaxlength->value := this->maxlength->value > 0;
-    this->maxlengthoptions->visible := this->contexts->formcomponentapi->showadvanced OR this->usemaxlength->value;
     //this->validationchecks->value := this->node->GetAttribute("validationchecks");
   }
 
