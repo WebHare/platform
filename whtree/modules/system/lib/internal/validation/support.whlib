@@ -7,6 +7,14 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+STRING FUNCTION GetNodeType(OBJECT node)
+{
+  IF(node->namespaceuri = whconstant_xmlns_screens AND node->localname IN ["tabsextension","screen","fragment"])
+    RETURN node->localname;
+
+  RETURN "";
+}
+
 
 /** Base objecttype for resource validators
 */
@@ -182,6 +190,46 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     }
 
     RETURN TRUE;
+  }
+
+  //verify the existence of a reference to a screens file thingy
+  OBJECT FUNCTION VerifyScreenReferenceExistence(INTEGER linenum, STRING screenref, STRING type)
+  {
+    STRING absscreenref := MakeAbsoluteScreenReference(this->respath, screenref);
+    IF(absscreenref = "")
+      RETURN DEFAULT OBJECT; //we are not a required check..
+
+    STRING ARRAY reftoks := Tokenize(absscreenref,'#');
+    IF(Length(reftoks) != 2)
+      this->AddErrorForLine(linenum, `Invalid reference for '${type}' target '${screenref}': expecting <resource>#<name>`);
+
+    TRY
+    {
+      RECORD target := RetrieveCachedXMLResource(reftoks[0]);
+
+      //Look for things under the documentnode
+      FOREVERY(OBJECT potentialtarget FROM target.doc->documentelement->ListChildren("*","*"))
+       IF(potentialtarget->GetAttribute("name") = reftoks[1])
+       {
+         STRING matchtype := GetNodeType(potentialtarget);
+         IF(matchtype = type)
+         {
+           RETURN potentialtarget; //Found it!
+         }
+         ELSE IF(matchtype != "")
+         {
+           this->AddErrorForLine(linenum, `Invalid reference for '${type}' target '${screenref}': '${reftoks[1]}' is a '${matchtype}', not a '${type}'`);
+           RETURN DEFAULT OBJECT;
+        }
+       }
+    }
+    CATCH(OBJECT<RetrieveResourceException> e)
+    {
+      this->AddErrorForLine(linenum, `Can't find '${type}' target '${screenref}': ${e->what}`);
+      RETURN DEFAULT OBJECT;
+    }
+    this->AddErrorForLine(linenum, `Can't find '${type}' target '${reftoks[1]}' in ${reftoks[0]}`);
+    RETURN DEFAULT OBJECT;
   }
 
   /** Hook for additional resource validation for XML documents */
