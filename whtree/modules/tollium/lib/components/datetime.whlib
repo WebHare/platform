@@ -1,8 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
