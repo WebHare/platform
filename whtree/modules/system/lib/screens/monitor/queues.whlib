@@ -349,7 +349,7 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
 
   RECORD ARRAY FUNCTION GetLegacyPublisherWorkers()
   {
-    IF (IsDatabaseReadonly())
+    IF (NOT IsDatabaseWritable())
       RETURN DEFAULT RECORD ARRAY;
 
     OBJECT work := this->BeginUnvalidatedWork();

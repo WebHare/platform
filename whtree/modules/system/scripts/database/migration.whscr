@@ -108,12 +108,6 @@ PUBLIC STRING FUNCTION GetWHDBBlobDir(STRING blobroot, INTEGER blobid)
   RETURN `${blobroot}/${mainfolder = 0 ? "blob" : `blob-${mainfolder}`}/${subfolder}/`;
 }
 
-IF(NOT args.dryrun AND NOT args.nowait)
-{
-  Print("Starting mgrating from WHDB to PostgreSQL....\n");
-  Sleep(2000);
-}
-
 STRING basedataroot := GetWebHareConfiguration().basedataroot;
 STRING dbasefolder := MergePath(basedataroot, "dbase");
 STRING postgresql_migrate_dbasefolder := MergePath(basedataroot, "postgresql-migration");
@@ -125,11 +119,17 @@ IF (GetEnvironmentVariable("__WEBHARE_DBASE") = "postgresql")
 IF (RecordExists(GetDiskFileProperties(postgresql_final_dbasefolder)))
   TerminateScriptWithError(`Existing PostgreSQL database found in '${postgresql_final_dbasefolder}', refusing to re-migrate`);
 
-STRING want_readonly := IsdatabaseReadOnly() ? "already_readonly" : "";
+STRING want_readonly := IsDatabaseWritable() ? "" : "already_readonly";
 WHILE (want_readonly NOT IN [ "yes", "no", "already_readonly" ])
 {
   PRINT("Do you want to switch the WebHare database to readonly during migration? Please type 'yes' or 'no'.");
   want_readonly := ReadLineFrom(0, 4096, TRUE);
+}
+
+IF(NOT args.dryrun AND NOT args.nowait)
+{
+  Print("Starting migration from WHDB to PostgreSQL....\n");
+  Sleep(2000);
 }
 
 OBJECT trans := OpenPrimary();
@@ -144,7 +144,7 @@ IF (want_readonly != "already_readonly")
 
 IF (want_readonly = "yes")
 {
-  OBJECT proc := CreateProcess(MergePath(GetEnvironmentVariable("WEBHARE_DIR"), "bin/wh"), [ "db", "readwritestatus", "-y", "read-only"],
+  OBJECT proc := CreateProcess(MergePath(GetEnvironmentVariable("WEBHARE_DIR"), "bin/wh"), [ "db", "setserver", "readonly"],
       [ take_input :=       TRUE
       , take_output :=      TRUE
       , take_errors :=      TRUE

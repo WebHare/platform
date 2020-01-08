@@ -126,10 +126,9 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
     this->mutex := mutex;
     IF(ObjectExists(transaction))
     {
-      IF(mutex != "")
-        transaction->BeginLockedWork(mutex);
-      ELSE
-        transaction->BeginWork();
+      transaction->BeginWork([ mutexes := mutex != "" ? [mutex] : STRING[]
+                             , delayreadonlyerror := TRUE //we'll fix it in Finish
+                             ]);
     }
   }
 

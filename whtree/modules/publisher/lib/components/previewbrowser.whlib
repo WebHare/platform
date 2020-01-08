@@ -652,7 +652,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     IF (selected != "")
     {
-      IF (NOT IsDatabaseReadOnly())
+      IF (IsDatabaseWritable())
         this->tolliumuser->DelayedSetRegistryKey("publisher.previewbrowser.device", selected);
       this->ReloadCurrent(TRUE, FALSE); //force reresh of the error messages
     }

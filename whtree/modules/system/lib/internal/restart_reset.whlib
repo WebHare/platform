@@ -251,7 +251,7 @@ PUBLIC STRING FUNCTION RunRestartReset(BOOLEAN debug)
   CreateDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "installedmodules", TRUE);
 
   // If the database is in readonly mode, there isn't much we can do anymore
-  IF (IsDatabaseReadonly())
+  IF (NOT IsDatabaseWritable())
     RETURN ReloadWebhareConfig2("ALL", [ nowait := TRUE ]);
 
   //Ensure the index is finished, otherwise we will just interfere and further slow down system startup

@@ -31,14 +31,27 @@ RECORD FUNCTION GetUpdateRec(STRING colname, INTEGER renumberto, BOOLEAN recordr
 */
 PUBLIC FUNCTION PTR __GetDatabaseRuntimeConfig;
 
-/** Returns whether WebHare is in database readonly mode
-    @return TRUE if in readonly mode. If so, BeginWork and CommitWork calls will throw an exception.
+/** Returns whether the database is online
+    @public
+    @loadlib mod::system/lib/database.whlib
+    @return TRUE if it is, but it may still be readonly.
 */
-PUBLIC BOOLEAN FUNCTION IsDatabaseReadonly()
+PUBLIC BOOLEAN FUNCTION IsDatabaseOnline()
+{
+  //FIXME as soon as 'wh db setserver offline' is implemented
+  RETURN TRUE;
+}
+
+/** Returns whether we can write to the Webhare database
+    @public
+    @loadlib mod::system/lib/database.whlib
+    @return FALSE if in readonly or online mode. If so, BeginWork and CommitWork calls will throw an exception.
+*/
+PUBLIC BOOLEAN FUNCTION IsDatabaseWritable()
 {
   IF (__GetDatabaseRuntimeConfig = DEFAULT FUNCTION PTR)
-    RETURN FALSE;
-  RETURN __GetDatabaseRuntimeConfig().readonly;
+    RETURN TRUE;
+  RETURN NOT __GetDatabaseRuntimeConfig().readonly;
 }
 
 OBJECTTYPE TableColumn
@@ -634,15 +647,19 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /** Begins work
+      @cell options.delayreadonlyerror If set, readonly errors are reported by commit, and we expect the caller to not do anything with irreversible sideeffects before commit (eg sending mail)
   */
   PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ mutex := ""
                                , mutexes := STRING[]
+
+                               , delayreadonlyerror := FALSE
                                ], options);
     IF (this->pvt_numworks != 0)
       THROW NEW Exception("Cannot begin work: work is already open");
-    IF (this->pvt_isprimary AND IsDatabaseReadonly())
+
+    IF (NOT options.delayreadonlyerror AND this->pvt_isprimary AND NOT IsDatabaseWritable())
       THROW NEW DatabaseReadonlyException;
 
     TRY
@@ -698,12 +715,13 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
 
+    RECORD ARRAY errors;
+    IF (this->pvt_isprimary AND NOT IsDatabaseWritable())
+      errors := [[ code := 0, message := "Cannot commit work: the WebHare database is in readonly mode", tablename := "", columname := "" ]];
+
     TRY
     {
-      IF (this->pvt_isprimary AND IsDatabaseReadonly())
-        THROW NEW Exception("Cannot commit work: the WebHare database is in readonly mode");
-
-      this->__CallPreCommitHandlers(TRUE);
+      this->__CallPreCommitHandlers(Length(errors) = 0);
     }
     CATCH (OBJECT e)
     {
@@ -712,13 +730,19 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW e;
     }
 
-    RECORD ARRAY errors := this->DoCommitWork();
+    IF(Length(errors) = 0)
+      errors := this->DoCommitWork();
+    ELSE
+      this->DoRollbackWork();
+
     this->pvt_numworks := 0;
     this->ReleaseAllLocks();
 
     BOOLEAN have_errors := Length(errors) != 0;
     TRY
+    {
       this->__CallCommitHandlers(NOT have_errors);
+    }
     FINALLY
     {
       // Ensure commit errors have priority over commit handler exceptions

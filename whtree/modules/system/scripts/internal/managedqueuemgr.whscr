@@ -730,7 +730,7 @@ STATIC OBJECTTYPE QueueMgr
   MACRO ReadManagedTasksFromDB(INTEGER updateid)
   {
     // Ignore the managedtasks table when in readonly mode
-    IF (IsDatabaseReadOnly())
+    IF (NOT IsDatabaseWritable())
       RETURN;
 
     IF(debug)

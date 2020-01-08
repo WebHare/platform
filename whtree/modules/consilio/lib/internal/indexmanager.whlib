@@ -692,7 +692,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
           }
           CloseBlobFile(resultstream);
 
-          IF (NOT IsDatabaseReadonly())
+          IF (IsDatabaseWritable())
             result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
         }
 

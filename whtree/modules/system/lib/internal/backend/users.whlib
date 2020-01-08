@@ -11,7 +11,7 @@ LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
 RECORD FUNCTION GetOverrideTokenSettings()
 {
   STRING readonlyoverridefile := MergePath(GetWebhareConfiguration().basedataroot, "readonly-overridetoken.json");
-  IF (IsDatabaseReadonly())
+  IF (NOT IsDatabaseWritable())
   {
     // Use disk file with override token when in readonly mode
     RETURN EnforceStructure(
@@ -83,7 +83,7 @@ PUBLIC STRING FUNCTION GetOrExtendOverrideURL(INTEGER setduration, DATETIME minv
   STRING overridetoken := GenerateUFS128BitId();
 
   STRING readonlyoverridefile := MergePath(GetWebhareConfiguration().basedataroot, "readonly-overridetoken.json");
-  IF (IsDatabaseReadonly())
+  IF (NOT IsDatabaseWritable())
   {
     StoreDiskFile(readonlyoverridefile, EncodeJSONBlob(
         [ validuntil :=       AddTimetoDate(setduration, GetCurrentDatetime())
