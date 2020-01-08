@@ -765,7 +765,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       IF (authobj EXTENDSFROM WRDAuthUser)
         type := "user";
       ELSE IF (authobj EXTENDSFROM WRDAuthRole)
-        type := "user";
+        type := "role";
       ELSE IF (authobj EXTENDSFROM WRDAuthUnit)
         type := "unit";
       ELSE
