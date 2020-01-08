@@ -2157,11 +2157,9 @@
     </textgroup>
   </textgroup>
   <textgroup gid="userrights">   <!-- userrights -->
-    <text tid="closesearchbar">Close search</text>
     <text tid="error">An error occurred while trying to determine the object path. Please notify an administrator of this error.</text>
     <text tid="new">Add</text>
     <text tid="norightstodeleteall">You do not have enough rights to delete all grants.</text>
-    <text tid="nosearchresult">No results for '<param p="1"/>'</text>
     <text tid="searchbox">Search</text>
     <text tid="selectusertocopyallpermissionsto">Choose the user or role you want to copy the role and/or right grants to.</text>
     <text tid="syncedauthobjects">The user database is synchronized</text>
@@ -2177,16 +2175,11 @@
       <text tid="addroletousers-list">Grant role</text>
       <text tid="adduserstorole">Grant to</text>
       <text tid="adduserstorole-hint">Grant this role to other users</text>
-      <text tid="adduserstorolecontext">Grant to</text>
       <text tid="copypermissions">Copy all grants to ...</text>
       <text tid="delete">Delete</text>
       <text tid="delete-hint">Delete the selected item(s)</text>
       <text tid="edit">Properties</text>
       <text tid="edit-hint">Edit the selected item properties</text>
-      <text tid="edit-list">Properties</text>
-      <text tid="editgrant">Edit</text>
-      <text tid="editgrant-hint">Edit the selected grant</text>
-      <text tid="editgrant-list">Properties</text>
       <text tid="editobject">Edit</text>
       <text tid="exportallgrants">Export all (role) grants</text>
       <text tid="exportallusers">Export all users</text>
@@ -2214,19 +2207,13 @@
       <text tid="properties">Properties</text>
       <text tid="properties-hint">View the properties of the selected item</text>
       <text tid="reload">Reload</text>
-      <text tid="removeusersfromrole">Delete</text>
       <text tid="removeusersfromrole-hint">Revoke the grants of this role to the selected user(s)</text>
-      <text tid="report">Show object rights</text>
-      <text tid="revokefromusers">Delete</text>
       <text tid="revokefromusers-hint">Revoke the selected grant or role from this user</text>
       <text tid="revokefromusers-list">Delete</text>
       <text tid="revokerightfromlist-hint">Revoke the selected grant</text>
       <text tid="revokerightonobject">Delete</text>
       <text tid="search">Find users and roles</text>
       <text tid="searchsimple">Search</text>
-      <text tid="selectall">Select all</text>
-      <text tid="selectall-hint">Select all items</text>
-      <text tid="setupsearchfields">Configure searchfields</text>
       <text tid="setuserdefaults">User defaults</text>
       <text tid="showobject">Jump to</text>
       <text tid="syncauthobjects">Synchronize database</text>

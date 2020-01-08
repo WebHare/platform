@@ -79,7 +79,7 @@
         <divider/>
         <item action="unitcontents->addroletousers"  />
         <item action="unitcontents->addrighttousers"  />
-        <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorolecontext" />
+        <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorole" />
         <item action="copypermissions" />
         <divider/>
         <divider />
@@ -106,7 +106,7 @@
       <menu name="grantsmenu">
         <item action="unitcontents->addroletousers" />
         <item action="grant" />
-        <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorolecontext" ellipsis="true" />
+        <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorole" ellipsis="true" />
       </menu>
 
     </menus>

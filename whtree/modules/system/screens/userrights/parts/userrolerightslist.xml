@@ -13,7 +13,7 @@
         <!-- <enableon min="1" source="userandrolelist"  frameflags="inuserstab"/> -->
       </action>
 
-      <action name="revokefromusers" hinttid=".revokefromusers-hint">
+      <action name="revokefromusers" hinttid=".revokefromusers-hint" tid="~delete" ellipsis="true">
         <enableon source="directpermissions" min="1" checkflags="canmanage" onexecute="dorevokefromusers" />
       </action>
 
@@ -21,7 +21,7 @@
         <enableon source="directpermissions" min="1" checkflags="canmanage" onexecute="domakerolefromrights" />
       </action>
 
-      <action name="edit" hinttid=".edit-hint">
+      <action name="edit" hinttid=".edit-hint" tid="~properties">
         <enableon source="directpermissions" min="1" max="1" checkflags="canmanage" onexecute="doeditgrant" />
         <enableon source="userlistbyrole" min="1" max="1" checkflags="candelete" onexecute="doeditrolegrant" />
       </action>
@@ -30,7 +30,7 @@
         <!--<enableon min="1"max ="1" source="userandrolelist" frameflags="inuserstab" checkflags="isrole canedit" onexecute="doadduserstorole" />-->
       </action>
 
-      <action name="removeusersfromrole" hinttid=".removeusersfromrole-hint">
+      <action name="removeusersfromrole" hinttid=".removeusersfromrole-hint" tid="~delete" ellipsis="true">
         <enableon min="1" source="userlistbyrole" onexecute="doremoveusersfromrole" checkflags="candelete" />
       </action>
 
@@ -87,7 +87,7 @@
                 <button action="addroletousers" tid="userrights.actions.addroletousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
                 <button action="addrighttousers" tid="userrights.actions.addrighttousers-list" width="1pr" ellipsis="true" disablemode="hidden"/>
                 <button action="revokefromusers" tid="userrights.actions.revokefromusers-list" width="1pr"/>
-                <button action="edit" tid="~properties" width="1pr"/>
+                <button action="edit" width="1pr"/>
               </cell>
             </row>
           </grid>
