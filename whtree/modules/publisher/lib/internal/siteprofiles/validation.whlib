@@ -1,8 +1,5 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/internal/validation.whlib";
 
 PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator

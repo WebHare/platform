@@ -5,7 +5,6 @@
 
 LOADLIB "wh::xml/xsd.whlib";
 
-LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/webtools/formcomponents/textedit.whlib";
 

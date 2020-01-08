@@ -5,7 +5,6 @@ LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 RECORD ARRAY FUNCTION GatherAttachmentsFromMailTree(RECORD currentpart, STRING parenttype)

@@ -1,10 +1,7 @@
-﻿<?wh
+<?wh
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
-
-LOADLIB "mod::system/lib/cluster.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 
 
 /////////////////////////////////////////////////////////////////////

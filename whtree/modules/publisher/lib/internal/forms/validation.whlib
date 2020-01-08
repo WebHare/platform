@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
 PUBLIC OBJECTTYPE FormdefValidator EXTEND XMLValidatorBase

@@ -40,7 +40,7 @@ STRING dbase := 'TABLE <INTEGER id,STRING furniture,INTEGER height> BETA_Y;';
 
 STRING dbase_start :=
         'LOADLIB "wh::dbase/local.whlib";'
-     || 'LOADLIB "wh::dbase/dynquery.whlib";'
+     || 'LOADLIB "wh::dbase/dynquery.whlib" __ATTRIBUTES__(USED);'
      || 'INTEGER trans := OpenLocalTransaction();';
 
 STRING dbase_decls := dbase_start || data_decls

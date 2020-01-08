@@ -2,7 +2,6 @@
 
 
 LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
-LOADLIB "mod::system/lib/screenbase.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/towl.whlib";

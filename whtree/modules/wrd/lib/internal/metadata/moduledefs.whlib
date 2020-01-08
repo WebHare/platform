@@ -5,7 +5,6 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";

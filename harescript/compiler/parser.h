@@ -107,6 +107,7 @@ class Parser
         VariableTypes::Type Try_P_Type_Specifier(Symbol **objtype);
         VariableTypes::Type P_Type_Specifier(Symbol **objtype);
         void P_Attribute_List(Symbol *sym);
+        bool P_Loadlib_Attribute_List();
         void P_ExportSymbol_Attribute_List(Symbol *sym);
         void P_Schema_Field_Specification(SymbolDefs::SchemaDef::TablesDef &tables);
         void P_Table_Field_Specification(SymbolDefs::TableDef &tabledef);

@@ -80,15 +80,15 @@ void Parser::P_Loadlibs(bool only_report)
                         //Preventing a wh::system.whlib load must be done before the first real statement
                         if (!context.is_system_library && !loaded_system_library)
                         {
-                                std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "wh::system.whlib", !only_report);
+                                std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "wh::system.whlib", !only_report, true);
                                 loadlibs.push_back(res.second);
 
-                                std::pair<SymbolDefs::Library*, LoadlibInfo> res2 = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "wh::internal/hsservices.whlib", !only_report);
+                                std::pair<SymbolDefs::Library*, LoadlibInfo> res2 = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "wh::internal/hsservices.whlib", !only_report, true);
                                 loadlibs.push_back(res2.second);
 
                                 if(!Blex::StrLike(context.currentlibrary, "wh::*") && !context.nonwhpreload.empty())
                                 {
-                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res3 = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, context.nonwhpreload, !only_report);
+                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res3 = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, context.nonwhpreload, !only_report, true);
                                         loadlibs.push_back(res3.second);
                                 }
 
@@ -232,7 +232,7 @@ void Parser::P_Loadlib_Statement(bool only_report)
         {
                 context.filesystem->ResolveAbsoluteLibrary(*context.keeper, context.currentlibrary, &libname);
                 //FIXME: Volgens mij is de return value van LoadLib dubbelop - LibraryURI staat immers al in een LibraryPTR (Arnold)
-                loadlibres = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, libname, !only_report);
+                loadlibres = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, libname, !only_report, false);
                 currentlib = loadlibres.first;
         }
         catch (HareScript::Message &e)
@@ -245,6 +245,13 @@ void Parser::P_Loadlib_Statement(bool only_report)
 
         // Eat the library-name
         NextToken();
+
+        if (TryParse(Lexer::__Attributes__))
+        {
+                bool used = P_Loadlib_Attribute_List();
+                if (loadlibres.first && used)
+                    loadlibres.first->referred = true;
+        }
 
         if (TryParse(Lexer::Export))
         {
@@ -1291,7 +1298,7 @@ void Parser::P_CompilerStatement(bool only_report)
                                 else
                                 {
                                         coder->GetRoot()->scriptproperty_systemredirect = true;
-                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "module::system/internal/webserver/systemredirect.whlib", !only_report);
+                                        std::pair<SymbolDefs::Library*, LoadlibInfo> res = coder->LoadLib(lexer.GetPosition(), context.currentlibrary, "module::system/internal/webserver/systemredirect.whlib", !only_report, true);
                                         loadlibs.push_back(res.second);
                                 }
                                 return;

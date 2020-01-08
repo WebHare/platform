@@ -87,9 +87,11 @@ struct Library;
 struct Library
 {
         std::string liburi;
+        LineColumn loadlibposition;
         bool indirect;
         Blex::DateTime clib_id;
         Blex::DateTime sourcetime;
+        bool referred;
 };
 
 struct TableDef

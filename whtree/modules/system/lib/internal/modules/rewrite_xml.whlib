@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 

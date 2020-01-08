@@ -61,8 +61,9 @@ class AstCoder
             @param position Relevant position in sourcefile
             @param name Unprefixed name of library
             @param execute_load Set to true to loadlibrary and import symbols into symboltable
+            @param ispreload Is a preloaded library
             @return Pointer to library object (only when execute_load is true) and prefixed URI to library */
-        std::pair<SymbolDefs::Library*, LoadlibInfo> LoadLib(LineColumn const &position, std::string const &requester, std::string const &name, bool execute_load);
+        std::pair<SymbolDefs::Library*, LoadlibInfo> LoadLib(LineColumn const &position, std::string const &requester, std::string const &name, bool execute_load, bool ispreload);
 
         /** Pushes a print for external data into the current block
             @param position Relevant position in sourcefile

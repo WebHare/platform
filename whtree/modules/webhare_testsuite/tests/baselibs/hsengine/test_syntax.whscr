@@ -111,7 +111,11 @@ blabla<?wh LOADLIB "wh::witty.whlib";
 `, [ aslibrary := TRUE ]);
 
   // No errors for close+immediate opens
-  TestAnnotatedCompile(`<?wh LOADLIB "wh::witty.whlib"; ?><?wh LOADLIB "wh::float.whlib";`, [ aslibrary := TRUE ]);
+  TestAnnotatedCompile(`
+<?wh LOADLIB "wh::witty.whlib"; ?><?wh LOADLIB "wh::float.whlib";
+//           ^ W:29 wh::witty.whlib wh::float.whlib # No symbol of loadlib 'wh::float.whlib' is referenced in this library
+//                                             ^ W:29 wh::float.whlib wh::float.whlib # No symbol of loadlib 'wh::float.whlib' is referenced in this library
+`, [ aslibrary := TRUE ]);
 
   errors :=  TestCompilePrimitive('<?wh LOADLIB "wh::witty.whlib";?>Data', [ aslibrary := TRUE ]);
   TestCleanResult(1, errors);
