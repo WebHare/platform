@@ -1342,6 +1342,7 @@ PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols)
     @cell options.processheaders Process the first row as headers (defaults to TRUE)
     @cell options.dotrimwhitespace Trim all whitespace from strings (defaults to true)
     @cell options.floatmode How to convert numbers: "integer", "money" (rounds to money and omits trailing zeroes) or "float"
+    @cell(function ptr) options.onprogress Callback that will periodically receive progress records as we import the file. Progress records contain 'cur'(rent) row (0-baesd) and 'total' and do not count the header row
     @return Extracted rows */
 PUBLIC RECORD ARRAY FUNCTION GetOOXMLSpreadsheetRows(BLOB xlsxdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1349,12 +1350,24 @@ PUBLIC RECORD ARRAY FUNCTION GetOOXMLSpreadsheetRows(BLOB xlsxdoc, RECORD option
                              , processheaders := TRUE
                              , floatmode := "float"
                              , dotrimwhitespace := TRUE
+                             , onprogress := DEFAULT MACRO PTR
                              ], options, [ enums := [ floatmode := ["float","money","integer"]]]);
 
   OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(xlsxdoc);
   OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
-  OBJECT getter := NEW TokenRowReceiver(options);
-  importxlsxsheet->ExportRowsToCallback(PTR getter->ReceiveRow, options);
+  OBJECT getter := NEW TokenRowReceiver(importxlsxsheet, options);
+
+  importxlsxsheet->ExportRowsToCallback(PTR getter->ReceiveRow, CELL[...options, DELETE onprogress]);
+
+  IF(options.onprogress != DEFAULT MACRO PTR) //send final event, we might not receive row callback for the last few rows
+  {
+    RECORD progress := importxlsxsheet->GetParseProgress();
+    IF(options.processheaders)
+      progress.total := progress.total - 1;
+
+    progress.cur := progress.total;
+    options.onprogress(progress);
+  }
   RETURN getter->Finalize();
 }
 
