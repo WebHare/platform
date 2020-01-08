@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";

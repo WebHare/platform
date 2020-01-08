@@ -4,7 +4,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC STATIC OBJECTTYPE PrecalculatedCache EXTEND MonitorPanelBase
 <

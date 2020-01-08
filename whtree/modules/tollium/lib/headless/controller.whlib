@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
-LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 PUBLIC STRING FUNCTION GetTestTolliumPortalURL()
 {

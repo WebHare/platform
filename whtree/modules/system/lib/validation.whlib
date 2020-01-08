@@ -5,7 +5,6 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";

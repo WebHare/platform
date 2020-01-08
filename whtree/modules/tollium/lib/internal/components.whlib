@@ -1,5 +1,4 @@
 ﻿<?wh
-LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 

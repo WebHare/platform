@@ -3,7 +3,6 @@
 // short: Send a soft-reset
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
