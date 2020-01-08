@@ -303,9 +303,9 @@ PUBLIC OBJECTTYPE TransactionFinishHandlerBase
 >;
 
 
-/** @topic database/webharedb
+/** @topic database/base
     @public
-    @loadlib mod::system/lib/database.whlib
+    @loadlib wh::dbase/transaction.whlib
     @short Database exception, thrown on commit when 'throwoncommiterror' is set to TRUE in transaction.
 */
 PUBLIC OBJECTTYPE DatabaseException EXTEND Exception
@@ -338,6 +338,19 @@ PUBLIC OBJECTTYPE DatabaseException EXTEND Exception
   : Exception(errors[0].message)
   {
     this->pvt_errors := errors;
+  }
+>;
+
+/** @topic database/base
+    @public
+    @loadlib wh::dbase/transaction.whlib
+    @short Database exception, thrown on BeginWork if the database is Readonly
+*/
+PUBLIC OBJECTTYPE DatabaseReadonlyException EXTEND DatabaseException
+<
+  MACRO NEW()
+  : DatabaseException([[ tablename := "", columnname := "", message := "The WebHare database is in readonly mode" ]])
+  {
   }
 >;
 
@@ -630,7 +643,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     IF (this->pvt_numworks != 0)
       THROW NEW Exception("Cannot begin work: work is already open");
     IF (this->pvt_isprimary AND IsDatabaseReadonly())
-      THROW NEW Exception("Cannot begin work: the WebHare database is in readonly mode");
+      THROW NEW DatabaseReadonlyException;
 
     TRY
     {
