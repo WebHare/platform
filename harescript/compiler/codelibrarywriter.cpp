@@ -42,6 +42,13 @@ uint32_t getdword(std::vector<uint8_t> &code, unsigned at)
         return Blex::getu32lsb(&code[at]);
 }
 
+std::string EncodeJSONString(std::string const &str)
+{
+        std::string retval = "\"";
+        Blex::EncodeJava(str.begin(), str.end(), std::back_inserter(retval));
+        return retval + "\"";
+}
+
 } //end anonymous namespace
 
 CodeLibraryWriter::CodeLibraryWriter(CompilerContext &context)
@@ -68,8 +75,18 @@ void CodeLibraryWriter::Execute(IL::Module *_module, CodeBlockLinker *_cblinker,
         wrapper.resident.scriptproperty_filecreationdate = _module->scriptproperty_filecreationdate;
         wrapper.resident.scriptproperty_systemredirect = _module->scriptproperty_systemredirect;
 
+        std::set< std::tuple< LineColumn, std::string > > unusedloadlibs;
+
         for (std::vector<SymbolDefs::Library *>::iterator it = module->loadlibs.begin(); it != module->loadlibs.end(); ++it)
-            AddLibrary(wrapper, *it);
+        {
+                AddLibrary(wrapper, *it);
+                if (!(*it)->indirect && !(*it)->referred)
+                    unusedloadlibs.insert(std::make_tuple((*it)->loadlibposition, (*it)->liburi));
+        }
+
+        // Emit unused library warnings in positional order
+        for (auto &itr: unusedloadlibs)
+            context.errorhandler.AddWarningAt(std::get<0>(itr), Warning::UnusedLoadlib, std::get<1>(itr));
 
         std::map< unsigned, unsigned > imapping;
 
@@ -783,6 +800,24 @@ void CodeLibraryWriter::AddDebugInfo(HareScript::WrappedLibrary &wrapper, std::m
         if (first)
             str << "  [\n";
         str << "]\n";
+        str << ",\"warnings\":\n";
+        first = true;
+        for (auto &itr: context.errorhandler.GetWarnings())
+        {
+            str << (first? "  [":"  ,");
+            first = false;
+            str << "{\"code\":" << itr.code <<
+                   ",\"line\":" << itr.position.line <<
+                   ",\"col\":" << itr.position.column <<
+                   ",\"filename\":" << EncodeJSONString(itr.filename) <<
+                   ",\"func\":" << EncodeJSONString(itr.func) <<
+                   ",\"msg1\":" << EncodeJSONString(itr.msg1) <<
+                   ",\"msg2\":" << EncodeJSONString(itr.msg2) <<
+                   "}\n";
+        }
+        if (first)
+            str << "  [\n";
+        str << "  ]\n";
         str << "}\n";
 
         std::string stl_str = str.str();

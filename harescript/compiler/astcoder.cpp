@@ -58,7 +58,7 @@ AstCoder::~AstCoder()
 {
 }
 
-std::pair<SymbolDefs::Library*, LoadlibInfo> AstCoder::LoadLib(LineColumn const &position, std::string const &requester, std::string const &name, bool execute_load)
+std::pair<SymbolDefs::Library*, LoadlibInfo> AstCoder::LoadLib(LineColumn const &position, std::string const &requester, std::string const &name, bool execute_load, bool ispreload)
 {
         std::unique_ptr< Blex::RandomStream > libraryfile;
         LoadlibInfo llibinfo;
@@ -84,7 +84,7 @@ std::pair<SymbolDefs::Library*, LoadlibInfo> AstCoder::LoadLib(LineColumn const 
                 }
 
                 LibraryImporter importer(context);
-                importer.Execute(position, *libraryfile, llibinfo.loadlib, clibtime, this);
+                importer.Execute(position, *libraryfile, llibinfo.loadlib, clibtime, this, ispreload);
 
                 return std::make_pair(importer.library, llibinfo);
         }

@@ -335,7 +335,8 @@ namespace Warning
                 ConditionAlwaysFalse       = 25,
                 RecordArrayUsedAsRecord    = 26,
                 ShadowingVariable          = 27,
-                ShadowedVariable           = 28
+                ShadowedVariable           = 28,
+                UnusedLoadlib              = 29
 
                 /* Please reuse free error codes instead of adding more of them */
         };

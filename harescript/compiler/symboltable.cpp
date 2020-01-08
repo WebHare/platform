@@ -381,6 +381,8 @@ Symbol * SymbolTable::ResolveSymbolInScope(const LineColumn &position, Scope con
                         context.errorhandler.AddErrorAt(position, Error::TemporaryOnlyInSelectPhase);
                 }
 
+                for (auto &litr: itr->second->exportlibraries)
+                    litr->referred = true;
                 return itr->second;
         }
         return 0;
@@ -420,7 +422,11 @@ Symbol * SymbolTable::ResolveVariableInParentScope(const LineColumn &, std::stri
                 Scope *scope = *itr;
                 Scope::Symbols::const_iterator sitr = scope->symbols.find(name);
                 if(sitr != scope->symbols.end() && sitr->second->type == SymbolType::Variable)
-                    return sitr->second;
+                {
+                        for (auto &litr: sitr->second->exportlibraries)
+                            litr->referred = true;
+                        return sitr->second;
+                }
         }
         return nullptr;
 }

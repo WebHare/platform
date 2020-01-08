@@ -309,6 +309,7 @@ WARNINGDEF( 25, ConditionAlwaysFalse,      "Condition is always false.")
 WARNINGDEF( 26, RecordArrayUsedAsRecord,   "This RECORD ARRAY is probably used erroneously as a RECORD. Use an explicit RECORD() cast if this is the intention.")
 WARNINGDEF( 27, ShadowingVariable,         "Variable '%0' has already been declared in a parent scope")
 WARNINGDEF( 28, ShadowedVariable,          "Variable '%0' is redeclared in a child scope")
+WARNINGDEF( 29, UnusedLoadlib,             "No symbol from loadlib '%0' is referenced in this library")
 { 0,0 }};
 
 

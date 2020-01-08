@@ -739,6 +739,7 @@ template <class DefList, class ResolvedDefList>
                                 {
                                         (library.linkedlibrary.*resolvedlist).push_back(resolved_type(&referencedlibrary, &*searchit, std::distance(referencedlist.begin(), searchit)));
                                         found = true;
+                                        break; // one is enough
                                 }
                         }
                         // ADDME: better error

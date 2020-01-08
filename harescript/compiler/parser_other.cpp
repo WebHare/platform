@@ -178,6 +178,36 @@ void Parser::P_Attribute_List(Symbol *sym)
         ExpectCloseParenthesis();
 }
 
+bool Parser::P_Loadlib_Attribute_List()
+{
+        PARSERULE("<loadlib-attribute-list> ::= __ATTRIBUTES__ '(' ( <loadlib-attributs> ) ')'");
+
+        bool used = false;
+        ExpectOpenParenthesis();
+        do
+        {
+                PARSERULE("<loadlib-attributs> ::= <loadlib-attribute> [ ',' <loadlib-attributs> ]");
+                PARSERULE("<loadlib-attribute> ::= ( USED )'");
+
+                std::string curattr = lexer.GetTokenSTLString();
+
+                if (Blex::StrCaseCompare(curattr,"USED") == 0)
+                {
+                        used = true;
+                        NextToken();
+                }
+                else
+                {
+                        lexer.AddError(Error::InvalidAttributes);
+                        break;
+                }
+        }
+        while (TryParse(Lexer::Comma));
+        ExpectCloseParenthesis();
+        return used;
+}
+
+
 void Parser::P_ExportSymbol_Attribute_List(Symbol *sym)
 {
         PARSERULE("<exportsymbol-attribute-list> ::= __ATTRIBUTES__ '(' ( <exportsymbol-attributs> ) ')'");

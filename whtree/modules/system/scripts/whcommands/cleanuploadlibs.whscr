@@ -2,12 +2,17 @@
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/modules/sourcemanipulation.whlib";
 LOADLIB "mod::system/lib/internal/harescript/libscan.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+
+CONSTANT INTEGER hs_warningcode_unusedloadlib := 29;
+
 
 RECORD ARRAY replacements := [ [ replacewith := "mod::tollium/lib/gettid.whlib", lib := "mod::tollium/lib/screenbase.whlib" ]
                              , [ replacewith := "wh::adhoccache.whlib", lib := "mod::system/lib/cache.whlib" ]
@@ -70,7 +75,9 @@ FOREVERY(RECORD scan FROM toscan)
     CONTINUE;
   }
 
-  STRING ARRAY unneeded := GetUnneededLoadlibs(dump);
+  RECORD debuginfo := DecodeJSONBlob(MakeZlibDecompressedFile(dump.debuginfo_compressed, "GZIP"));
+  STRING ARRAY unneeded := SELECT AS STRING ARRAY msg1 FROM RECORD ARRAY(debuginfo.warnings) WHERE code = hs_warningcode_unusedloadlib;
+
   INSERT "module::*" INTO unneeded AT 0; //try cleaning mod:: first
 
   STRING source := BlobToString(GetDiskResource(scan.diskpath));

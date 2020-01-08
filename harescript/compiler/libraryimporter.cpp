@@ -11,7 +11,7 @@ namespace HareScript
 namespace Compiler
 {
 
-SymbolDefs::Library * LibraryImporter::AddLibrary(std::string const &liburi, bool indirect, Blex::DateTime clib_id, Blex::DateTime sourcetime, AST::Module *mdl)
+SymbolDefs::Library * LibraryImporter::AddLibrary(std::string const &liburi, LineColumn position, bool ispreload, bool indirect, Blex::DateTime clib_id, Blex::DateTime sourcetime, AST::Module *mdl)
 {
         for (std::vector<SymbolDefs::Library *>::iterator it = mdl->loadlibs.begin(); it != mdl->loadlibs.end(); ++it)
             if ((*it)->liburi == liburi)
@@ -20,13 +20,24 @@ SymbolDefs::Library * LibraryImporter::AddLibrary(std::string const &liburi, boo
                     if ((*it)->clib_id != clib_id)
                         throw Message(true, Error::InternalError, "Library modified during compilation process");
 
+                    if (!indirect)
+                    {
+                            (*it)->loadlibposition = position;
+                            (*it)->indirect = false;
+                    }
+                    if (ispreload)
+                        (*it)->referred = true;
+
                     return *it;
             }
+
         SymbolDefs::Library *library = Adopt(new SymbolDefs::Library);
         library->liburi = liburi;
+        library->loadlibposition = position;
         library->indirect = indirect;
         library->clib_id = clib_id;
         library->sourcetime = sourcetime;
+        library->referred = ispreload;
         mdl->loadlibs.push_back(library);
         return library;
 }
@@ -75,6 +86,8 @@ void LibraryImporter::ReadSymbolDef(Symbol *outsymbol, SymbolDef const &insymbol
                 //       perhaps just immediately store lib info with the src.library index?
                 std::string liburi = lib.linkinfo.GetNameStr(lib.LibraryList()[insymbol.library].liburi_index);
                 outsymbol->importlibrary = AddLibrary(liburi,
+                                                   outsymbol->definitionposition,
+                                                   false,
                                                    true,
                                                    lib.LibraryList()[insymbol.library].clib_id,
                                                    lib.LibraryList()[insymbol.library].sourcetime,
@@ -148,7 +161,7 @@ Symbol* LibraryImporter::ReadObjectSymbol(LineColumn position, WrappedLibrary co
 }
 
 
-void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std::string const &liburi, Blex::DateTime /*clibtime*/, AstCoder *coder)
+void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std::string const &liburi, Blex::DateTime /*clibtime*/, AstCoder *coder, bool ispreload)
 {
         WrappedLibrary lib;
 
@@ -174,11 +187,11 @@ void LibraryImporter::Execute(LineColumn position, Blex::Stream &libstream, std:
         for (std::vector<LoadedLibraryDef>::const_iterator it = lib.LibraryList().begin(); it != lib.LibraryList().end(); ++it)
         {
                 std::string liburi = lib.linkinfo.GetNameStr(it->liburi_index);
-                AddLibrary(liburi, true, it->clib_id, it->sourcetime, coder->GetRoot());
+                AddLibrary(liburi, position, false, true, it->clib_id, it->sourcetime, coder->GetRoot());
         }
 
         // Add a direct reference to the loaded library (after the loaded libraries, for initorder)
-        library = AddLibrary(liburi, false, lib.resident.compile_id, lib.resident.sourcetime, coder->GetRoot());
+        library = AddLibrary(liburi, position, ispreload, false, lib.resident.compile_id, lib.resident.sourcetime, coder->GetRoot());
 
         unsigned idx = 0;
         for (std::vector<FunctionDef>::const_iterator it = lib.FunctionList().begin(); it != lib.FunctionList().end(); ++it, ++idx)

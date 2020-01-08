@@ -25,7 +25,7 @@ class LibraryImporter
         /** @param clib_id The id of the library
             @param source_time The expected source time, as recorded by the filesystem
         */
-        SymbolDefs::Library * AddLibrary(std::string const &libname, bool indirect, Blex::DateTime clib_id, Blex::DateTime source_time, AST::Module *mdl);
+        SymbolDefs::Library * AddLibrary(std::string const &libname, LineColumn position, bool ispreload, bool indirect, Blex::DateTime clib_id, Blex::DateTime source_time, AST::Module *mdl);
 
         /// Read a single function
         Symbol* ReadFunctionSymbol(LineColumn position, WrappedLibrary const &lib, FunctionDef const &src, AstCoder *coder);
@@ -42,7 +42,7 @@ class LibraryImporter
 
         /** @param clibtime The expected clib time, as recorded by the filesystem
         */
-        void Execute(LineColumn position, Blex::Stream &library, std::string const &liburi, Blex::DateTime clibtime, AstCoder *coder);
+        void Execute(LineColumn position, Blex::Stream &library, std::string const &liburi, Blex::DateTime clibtime, AstCoder *coder, bool ispreload);
 };
 
 } // end of namespace Compiler
