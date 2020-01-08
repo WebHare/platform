@@ -165,6 +165,9 @@ MACRO TestBase()
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("mod::webhare_testsuite/lib/database.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "scripts/whcommands/reset.whscr", GetWebHareResourceDiskPath("mod::webhare_testsuite/scripts/whcommands/reset.whscr"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "scripts/whcommands/reset.whscr", GetWebHareResourceDiskPath("modulescript::webhare_testsuite/whcommands/reset.whscr"));
+
   TestEq(GetModuleInstallationRoot("webhare_testsuite"), GetWebHareResourceDiskPath("mod::webhare_testsuite"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "data/xyz", GetWebHareResourceDiskPath("moduledata::webhare_testsuite/xyz"));
   TestEq(GetWebHareConfiguration().varroot || "storage/webhare_testsuite/xyz", GetWebHareResourceDiskPath("storage::webhare_testsuite/xyz"));

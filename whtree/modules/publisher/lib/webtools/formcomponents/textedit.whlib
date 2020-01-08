@@ -275,9 +275,6 @@ PUBLIC OBJECTTYPE FormTextEdit EXTEND FormComponentExtensionBase
     this->usemaxlength->value := this->maxlength->value > 0;
 
     this->validationchecks->value := this->node->GetAttribute("validationchecks");
-
-    this->maxlengthoptions->visible := this->contexts->formcomponentapi->showadvanced OR this->usemaxlength->value;
-    this->validationchecks->visible := this->contexts->formcomponentapi->showadvanced;
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)

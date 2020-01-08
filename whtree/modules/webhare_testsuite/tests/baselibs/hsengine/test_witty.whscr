@@ -307,6 +307,14 @@ MACRO WittyNI()
   TestEq(FALSE, scriptid=0);
   TestEq("<div><span>yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
 
+  scriptid := ParseWitty("<div>\n  <span> [test1]</span>\n</div>\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div><span> yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
+  scriptid := ParseWitty("<div>\n  [!keep space!] <span>[test1]</span>\n</div>\n!", "HTML-NI");
+  TestEq(FALSE, scriptid=0);
+  TestEq("<div> <span>yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));
+
   scriptid := ParseWitty("<div>\r\n  <span>[test1]</span>\r\n</div>\r\n!", "HTML-NI");
   TestEq(FALSE, scriptid=0);
   TestEq("<div><span>yes</span></div>!", CaptureWTE(scriptid,[ test1 := PTR Print("yes") ]));

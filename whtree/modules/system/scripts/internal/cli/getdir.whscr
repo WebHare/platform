@@ -39,9 +39,6 @@ STRING FUNCTION GetWHCDPath(STRING arg)
   IF(arg="")
     RETURN GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") ?? GetEnvironmentVariable("WEBHARE_DIR");
 
-  IF(IsModuleInstalled(arg))
-    RETURN GetModuleInstallationRoot(arg);
-
   STRING destpath;
   IF(arg LIKE "*::*")
   {
@@ -58,6 +55,11 @@ STRING FUNCTION GetWHCDPath(STRING arg)
   ELSE IF(IsAbsoluteURL(destpath))
   {
     destpath := TryOutputPath(arg);
+  }
+  ELSE IF(IsModuleInstalled(Tokenize(arg,'/')[0]))
+  {
+    STRING modulename := Tokenize(arg,'/')[0];
+    destpath := GetModuleInstallationRoot(modulename) || Substring(arg,Length(modulename)+1);
   }
 
   IF(destpath != "")

@@ -312,14 +312,14 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
     RETURN;
   }
 
-  IF(dlg->RunModal()="ok")
+  IF(dlg->RunModal() = "ok")
   {
-    OBJECT work := parentscreen->BeginUnvalidatedWork();
+    GetPrimary()->BeginWork();
     IF ( (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = VAR objectid))
       RunEditFolderHooks(DEFAULT RECORD, objectid);
     ELSE
       RunEditFileHooks(DEFAULT RECORD, objectid);
-    work->Finish();
+    GetPrimary()->CommitWork();
   }
 }
 

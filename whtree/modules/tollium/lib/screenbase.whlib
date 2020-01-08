@@ -29,12 +29,8 @@ MACRO Builtin_NotImplemented(OBJECT screen)
 STRING FUNCTION FixupLocalTid(STRING localtid)
 {
   IF(Left(localtid,1) != '.') //older WebHares allowed this, even though we've been warning for some time. we now reject this duringtests..
-  {
-    IF(NOT IsDtapLive())
-      THROW NEW Exception(`Tids passed to ->GetTid must start with a dot`);
+    THROW NEW Exception(`Tids passed to ->GetTid must start with a dot`);
 
-    localtid := '.' || localtid;
-  }
   RETURN localtid;
 }
 
@@ -559,6 +555,11 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   PUBLIC STRING FUNCTION ShowMessageBox(STRING message, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(GetDtapStage() = "development")
+    {
+      DumpValue(GetStacktrace(),'boxed');
+      this->RunSimpleScreen("warning", `ShowMessageBox has been deprecated - switch to RunSimpleScreen`);
+    }
     RETURN this->LoadScreen("tollium:commondialogs.showmessagebox", [ message := message, options := options ])->RunModal();
   }
 

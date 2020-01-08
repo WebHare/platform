@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -70,6 +71,9 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     }
     ELSE IF (data.typedef.editor.type="fragment")
     {
+      IF(GetDtapStage() = "development")
+        this->RunSimpleScreen("warning", `editfragment= has been deprecated, switch to editextension= for embedded object type ${this->whfstype}`);
+
       this->component := this->instance;
       this->positioningpanel->extendcomponents := [[ name := "fsinstance", component := this->instance ] //ADDME deprecate at some point. contentdata is consistent with tabsextensions, and we need that if a fragment is being shared between widgets & contentdata
                                                   ,[ name := "contentdata", component := this->instance ]

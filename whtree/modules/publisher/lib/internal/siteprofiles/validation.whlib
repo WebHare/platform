@@ -1,10 +1,22 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/internal/validation.whlib";
 
 PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
 <
+  MACRO EnsureNoFSInstance(OBJECT extension)
+  {
+    FOREVERY(OBJECT node FROM extension->ListElements("*","*"))
+      IF(node->GetAttribute("composition") = "fsinstance")
+      {
+        this->AddWarning(node, `This node refers to composition="fsinstance", are you sure you didn't mean composition="contentdata" ?`);
+        BREAK; //one warning of this type per extension is enough
+      }
+  }
+
   UPDATE PUBLIC MACRO ValidateDocument()
   {
     ScreensFileValidator::ValidateDocument();
@@ -12,6 +24,14 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
     {
       FOREVERY(OBJECT node FROM this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","services")->GetCurrentElements())
         this->AddError(node, "Module siteprofiles should not contain service definitions - move your services to the module");
+    }
+
+    FOREVERY(OBJECT widgettype FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","widgettype"))
+    {
+      OBJECT extension := this->VerifyScreenReferenceExistence(widgettype->linenum, widgettype->GetAttribute("editextension"), "tabsextension");
+      //extra sanity check, composition name=fsinstance is always a mistake?
+      IF(ObjectExists(extension))
+        this->EnsureNoFSInstance(extension);
     }
 
     RECORD parseres := ParseSiteProfile(this->respath, "", [ xmldoc := this->xml ]); //ADDME forwards XSD?

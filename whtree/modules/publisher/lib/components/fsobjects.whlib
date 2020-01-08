@@ -371,7 +371,7 @@ PUBLIC OBJECTTYPE FSLibrary EXTEND ObjectSourceBase
     IF(this->fslibrary="")
       RETURN OBJECT[];
 
-    OBJECT applytester := this->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->contexts->applytester;
     IF(NOT ObjectExists(applytester))
       RETURN OBJECT[];
 

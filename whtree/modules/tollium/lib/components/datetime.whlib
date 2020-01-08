@@ -122,13 +122,13 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
 
   DATETIME FUNCTION GetLocalTZValue()
   {
-    IF (this->pvt_storeutc AND this->type = "date" AND NOT IsDTAPLive())
+    IF (this->pvt_storeutc AND this->type = "date")
       THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
     RETURN this->pvt_storeutc ? this->owner->tolliumuser->UTCToLocal(this->value) : this->value;
   }
   MACRO SetLocalTZValue(DATETIME newval)
   {
-    IF (this->pvt_storeutc AND this->type = "date" AND NOT IsDTAPLive())
+    IF (this->pvt_storeutc AND this->type = "date")
       THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
     this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(this->value) : this->value;
   }

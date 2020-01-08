@@ -921,7 +921,7 @@ PUBLIC STRING FUNCTION __GetModuleNameFromResourcePath(STRING path)
     RETURN "";
 
   STRING namespace := Left(path, doublecolonpos);
-  IF(namespace NOT IN ["mod", "moduleroot", "module", "moduledata", "storage"])
+  IF(namespace NOT IN ["mod", "moduleroot", "module", "moduledata", "storage", "modulescript"])
     RETURN "";
 
   RETURN ToLowercase(Substring(path, doublecolonpos + 2, slashpos - doublecolonpos- 2));
