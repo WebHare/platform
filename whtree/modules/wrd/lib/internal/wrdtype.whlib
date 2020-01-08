@@ -28,7 +28,6 @@ LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
 LOADLIB "mod::wrd/lib/internal/query/generators.whlib";
-LOADLIB "mod::wrd/lib/names.whlib";
 
 
 /*
