@@ -73,6 +73,7 @@
       <text tid="yestoall">Yes to All</text>
     </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="databasereadonly">The database is currently read-only and changes cannot be made. Please try again later.</text>
       <text tid="field_required">Field '<param p="1"/>' is a required field</text>
       <text tid="invalid_date">Field '<param p="1"/>' contains an invalid date</text>
       <text tid="invalid_float">Field '<param p="1"/>' must contain a valid value</text>
@@ -862,6 +863,7 @@
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
       <text tid="apptitle">WebHare</text>
+      <text tid="closedlogin">It's currently not possible to login. Please try again later.</text>
       <text tid="disabledlogin">Login failed: this user account is disabled</text>
       <text tid="enterusernameandpassword">Please enter your username and password.</text>
       <text tid="forgotpassword">Forgot password</text>

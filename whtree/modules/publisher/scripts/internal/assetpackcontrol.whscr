@@ -771,7 +771,7 @@ STATIC OBJECTTYPE AssetPackController
 
   MACRO ScanModulesForBundles()
   {
-    IF (NOT IsDatabaseOnline()) //FIXME we probably still want to generate bundles when recovering readonly as we may start out without a filesystem. alternatively, have a way to download generated assets from the database
+    IF (NOT IsDatabaseWritable()) //FIXME we probably still want to generate bundles when recovering readonly as we may start out without a filesystem. alternatively, have a way to download generated assets from the database
       RETURN;
 
     RECORD ARRAY modulepacks;

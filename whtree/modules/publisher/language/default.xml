@@ -2776,7 +2776,7 @@
     <textgroup gid="site">   <!-- webtools.site -->
       <textgroup gid="messages">   <!-- webtools.site.messages -->
         <text tid="confirmlinkexpired">The confirmation link has expired</text>
-        <text tid="formunavailable">The form is currently unavailable</text>
+        <text tid="formunavailable">This form is currently unavailable. Please try again later.</text>
       </textgroup>
     </textgroup>
   </textgroup>

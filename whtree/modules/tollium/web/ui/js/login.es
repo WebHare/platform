@@ -326,7 +326,9 @@ class LoginApp
         return;
       }
 
-      let text = result.code == "DISABLED" ? getTid("tollium:shell.login.disabledlogin") : getTid("tollium:shell.login.invalidlogin");
+      let text = result.code == "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")
+                 : result.code == "DISABLED" ? getTid("tollium:shell.login.disabledlogin")
+                 : getTid("tollium:shell.login.invalidlogin");
       let errorscreen = runSimpleScreen(this.app, { text: text, buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
       callback();
       return await errorscreen;
