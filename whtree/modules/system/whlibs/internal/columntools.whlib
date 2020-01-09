@@ -127,7 +127,7 @@ PUBLIC OBJECTTYPE TokenRowReceiver
       IF(this->options.processheaders)
         progress.total := progress.total - 1; //subtract header from counters. cur is already 1-based because of the header
       ELSE
-        progress.cur := progress.cur - 1; //ensure a 1-based ordering
+        progress.cur := progress.cur + 1; //ensure a 1-based ordering
 
       IF(progress.cur = 1 OR progress.cur % 100 = 0)
         this->options.onprogress(progress);
