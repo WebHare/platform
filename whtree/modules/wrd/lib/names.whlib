@@ -5,6 +5,7 @@
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/query/generators.whlib";
 
 STRING ARRAY dutchsecondinfixes := [ "DE", "DER", "DEN", "'T" ];
 STRING ARRAY dutchinfixes := [ "IN", "VAN" ] CONCAT dutchsecondinfixes;
@@ -189,133 +190,6 @@ PUBLIC STRING FUNCTION FormatWRDNameField(STRING field, RECORD data, RECORD opti
   IF(options.language = "")
     options.language := GetTidLanguage();
 
-  RECORD lang := GetCell(wrd_language, CellExists(wrd_language, options.language) ? options.language : "en");
-  INTEGER gender := CellExists(data, "wrd_gender") ? data.wrd_gender : CellExists(data,"gender") ? data.gender : 0;
-  STRING infix := CellExists(data, "wrd_infix") ? data.wrd_infix : CellExists(data,"infix") ? data.infix : "";
-  STRING initials := CellExists(data, "wrd_initials") ? data.wrd_initials : CellExists(data,"initials") ? data.initials : "";
-  STRING firstname := CellExists(data, "wrd_firstname") ? data.wrd_firstname : CellExists(data,"firstname") ? data.firstname : "";
-  STRING firstnames := CellExists(data, "wrd_firstnames") ? data.wrd_firstnames : CellExists(data,"firstnames") ? data.firstnames : "";
-  STRING lastname := CellExists(data, "wrd_lastname") ? data.wrd_lastname : CellExists(data,"lastname") ? data.lastname : "";
-  STRING titles := CellExists(data, "wrd_titles") ? data.wrd_titles : CellExists(data,"titles") ? data.titles : "";
-
-  SWITCH(field)
-  {
-    CASE"WRD_FORMALNAME"
-    {
-      IF(lastname="")
-        RETURN ""; //Not enough information to create a 'full name'
-
-      STRING fullname;
-      IF (gender = 1)
-        fullname := lang.title_male || " ";
-      ELSE IF (gender = 2)
-        fullname := lang.title_female || " ";
-
-      //ADDME: should we realy prefer calling name to initials?
-      IF (lastname!="")
-        fullname := fullname || (infix!=""? infix || " ":"") || lastname;
-
-      RETURN TrimWhitespace(fullname);
-    }
-    CASE"WRD_FULLNAME"
-    {
-      IF(firstname="" AND firstnames="" AND lastname="")
-        RETURN ""; //Not enough information to create a 'full name'
-
-      STRING fullname;
-      IF(firstname!="")
-        fullname := fullname || firstname;
-      ELSE IF(firstnames!="")
-        fullname := fullname || firstnames;
-      ELSE IF(initials!="")
-        fullname := fullname || initials;
-
-      IF (lastname!="")
-        fullname := fullname || " " || (infix!=""? infix || " ":"") || lastname;
-
-      RETURN TrimWhitespace(fullname);
-    }
-
-    CASE"WRD_SALUTE_FORMAL"
-    {
-      IF(lastname="")
-        RETURN lang.salute_formal_noname;
-
-      // Generates 'Dear Mrs. Prof. Dr. A.C. de Vries'
-
-      STRING fullname;
-      IF (gender = 1)
-        fullname := lang.salute_formal_male;
-      ELSE IF (gender = 2)
-        fullname := lang.salute_formal_female;
-      ELSE
-        fullname := lang.salute_formal_dunno;
-
-      IF (titles != "")
-        fullname := fullname || " " || titles;
-
-      //ADDME: language or country of origin specfic caps rules ?
-      IF(infix!="")
-        fullname := fullname || " " || ToUppercase(Left(infix,1)) || Substring(infix,1,256);
-      IF(lastname!="")
-        fullname := fullname || " " || ToUppercase(Left(lastname,1)) || Substring(lastname,1,256);
-
-      RETURN TrimWhitespace(fullname);
-    }
-    /* Don't know how to define, noone really told us yet how
-    CASE"WRD_SALUTE_INFORMAL"
-    {
-      STRING fullname;
-      IF (gender = 1)
-        fullname := lang.title_male || " ";
-      ELSE IF (gender = 2)
-        fullname := lang.title_female || " ";
-
-      //ADDME: should we really prefer calling name to initials?
-      IF (initials!="")
-        fullname := fullname || initials;
-      ELSE IF(firstname!="")
-        fullname := fullname || firstname;
-
-      IF (lastname!="")
-        fullname := fullname || " " || (infix!=""? infix || " ":"") || lastname;
-      RETURN fullname;
-    }*/
-    CASE"WRD_ADDRESS_FORMAL"
-    {
-      IF(lastname="")
-        RETURN lang.address_formal_noname;
-
-      // Generates: Mister Prof. Dr. A.G. de Haane
-
-      STRING fullname;
-      IF (gender = 1)
-        fullname := lang.address_formal_male;
-      ELSE IF (gender = 2)
-        fullname := lang.address_formal_female;
-      ELSE
-        fullname := lang.address_formal_dunno;
-
-      IF (titles != "")
-        fullname := fullname || " " || titles;
-
-      //ADDME: language or country of origin specfic caps rules ?
-      IF (initials != "")
-        fullname := fullname || " " || initials;
-      IF (infix!="")
-        IF (initials != "")
-          fullname := fullname || " " || infix;
-        ELSE
-          fullname := fullname || " " || ToUppercase(Left(infix,1)) || Substring(infix,1,256);
-      IF(lastname!="")
-        fullname := fullname || " " || ToUppercase(Left(lastname,1)) || Substring(lastname,1,256);
-
-      RETURN TrimWhitespace(fullname);
-    }
-    DEFAULT
-    {
-      THROW NEW Exception(`Unrecognized salutationtype '${field}'`);
-    }
-  }
+  RETURN GetGenerator(field, options.language)(data);
 }
 
