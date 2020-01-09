@@ -1586,7 +1586,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** @short returns all requested fields of the entity with the given find_id
       @param find_id id of the entity
       @param fields Names of the fields to return as a STRING ARRAY or a RECORD
-      @cell(string) options.historymode History mode. By default, any entity (even temporaries) are visible
+      @cell(string) options.historymode History mode. By default, all entities (even temporaries) are visible
       @cell(datetime) options.when @includecelldef #RunQuery.querydata.when
       @cell(datetime) options.when_start @includecelldef #RunQuery.querydata.when_start
       @cell(datetime) options.when_limit @includecelldef #RunQuery.querydata.when_limit
