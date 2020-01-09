@@ -269,7 +269,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseCSVRows(BLOB data, RECORD options DEFAULTSTO D
   IF(options.astokenarray)
     RETURN retval; //then we're done!
 
-  OBJECT getter := NEW TokenRowReceiver(options);
+  OBJECT getter := NEW TokenRowReceiver(DEFAULT OBJECT, options);
   FOREVERY(RECORD line FROM retval)
     getter->ReceiveRow(line.tokens);
   RETURN getter->Finalize();

@@ -80,9 +80,11 @@ PUBLIC OBJECTTYPE TokenRowReceiver
 
   RECORD ARRAY result;
   RECORD options;
+  OBJECT xlsxsheet;
 
-  MACRO NEW(RECORD options)
+  MACRO NEW(OBJECT xlsxsheet, RECORD options)
   {
+    this->xlsxsheet := xlsxsheet;
     this->options := options;
     IF(NOT options.processheaders)
       this->seenheaders := TRUE; //skips the header parsing
@@ -118,6 +120,19 @@ PUBLIC OBJECTTYPE TokenRowReceiver
 
     IF(anycontent)
       INSERT outrow INTO this->result AT END;
+
+    IF(ObjectExists(this->xlsxsheet) AND this->options.onprogress != DEFAULT MACRO PTR)
+    {
+      RECORD progress := this->xlsxsheet->GetParseProgress();
+      IF(this->options.processheaders)
+        progress.total := progress.total - 1; //subtract header from counters. cur is already 1-based because of the header
+      ELSE
+        progress.cur := progress.cur + 1; //ensure a 1-based ordering
+
+      IF(progress.cur = 1 OR progress.cur % 100 = 0)
+        this->options.onprogress(progress);
+    }
+
     RETURN TRUE;
   }
 

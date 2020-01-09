@@ -4,7 +4,6 @@
 */
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/query/generators.whlib";
 
 STRING ARRAY dutchsecondinfixes := [ "DE", "DER", "DEN", "'T" ];
