@@ -68,7 +68,12 @@ FOREVERY(RECORD scan FROM toscan)
   IF(scan.name LIKE "mod::webhare_testsuite/tests/wh/hscore/xml/generated/*")
     CONTINUE;
 
-  RECORD dump := __HS_LIBDUMP(scan.name);
+  RECORD dump := __HS_LIBDUMP(scan.name); //FIXME use DescribeCompiledLibrary, have it return error info on compile failure
+  IF(NOT dump.success)
+  {
+    Sleep(1000); //compile race?
+    dump := __HS_LIBDUMP(scan.name);
+  }
   IF(NOT dump.success)
   {
     Print("compilation of " || scan.name || " failed\n");
