@@ -524,7 +524,7 @@ PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   */
   PUBLIC MACRO SetComponentState(STRING savestatekey, RECORD state)
   {
-    IF (savestatekey = "" OR IsDatabaseReadOnly())
+    IF (savestatekey = "" OR NOT IsDatabaseWritable())
       RETURN;
 
     STRING savestatehash := EncodeBase16(GetMD5Hash(savestatekey));

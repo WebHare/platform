@@ -23,7 +23,7 @@ MACRO ShowSyntax(STRING error)
   PRINT("Syntax: wh db <command>\n");
   PRINT("Commands:\n");
   PRINT("  transactions             Show transaction list\n");
-  PRINT("  readwritestatus          Get/set read-write status (read-write / read-only)\n");
+  PRINT("  setserver                Get/set read-write status (readwrite / readonly)\n");
   TerminateScriptWithError("");
 }
 
@@ -111,19 +111,18 @@ SWITCH (args.command)
     }
   }
 
-  CASE "readwritestatus"
+  CASE "setserver"
   {
     RECORD subargs := ParseArguments(args.args,
-        [ [ name := "y", type := "switch" ]
-        , [ name := "newvalue", type := "param" ]
+        [ [ name := "newvalue", type := "param" ]
         ]);
 
     IF (NOT RecordExists(subargs))
       ShowSyntax(`Illegal syntax for command '{${args.command}'`);
     args := CELL[ ...args, ...subargs ];
 
-    IF (args.newvalue NOT IN [ "", "read-only", "read-write" ])
-      TerminateScriptWithError("Invalid new value, expected one of 'read-only'/'read-write'");
+    IF (args.newvalue NOT IN [ "", "readonly", "readwrite" ])
+      TerminateScriptWithError("Invalid new value, expected one of 'readonly'/'readwrite'");
 
     IF (args.newvalue != "")
     {
@@ -136,20 +135,13 @@ SWITCH (args.command)
 
       SWITCH (args.newvalue)
       {
-        CASE "read-only"
+        CASE "readonly"
         {
-          IF (NOT args.y)
-          {
-            PRINT("Are you sure you want to switch the database of this WebHare to read-only? Enter 'yes' to proceed. ");
-            IF (ReadLineFrom(0, 4096, TRUE) != "yes")
-              TerminateScript();
-          }
-
           RECORD dbaseconfig := GetDatabaseRuntimeConfig();
           UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := TRUE ] ]);
           ReloadWebhareConfig2("ALL");
         }
-        CASE "read-write"
+        CASE "readwrite"
         {
           RECORD dbaseconfig := GetDatabaseRuntimeConfig();
           UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := FALSE ] ]);
@@ -158,7 +150,7 @@ SWITCH (args.command)
       }
     }
 
-    PRINT(`Current database status: ${IsDatabaseReadonly() ? "read-only" : "read-write"}\n`);
+    PRINT(`Current database status: ${IsDatabaseWritable() ? "readwrite" : "readonly"}\n`);
   }
   DEFAULT
   {

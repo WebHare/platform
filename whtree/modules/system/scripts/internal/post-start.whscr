@@ -499,7 +499,7 @@ MACRO RunPostStartRunOnceScripts()
 debug := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
 DATETIME start := GetCurrentDatetime();
 
-IF (NOT IsDatabaseReadOnly())
+IF (IsDatabaseWritable())
 {
   //just in case this serverm missed its initdb due to odd upgradeo rdering
   trans := OpenPrimary();

@@ -15,7 +15,7 @@ LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
-LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseReadonly;
+LOADLIB "wh::internal/transbase.whlib" EXPORT IsDatabaseWritable, IsDatabaseOnline;
 LOADLIB "wh::internal/transservices.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/base.whlib" EXPORT WebhareDBException, GetDatabaseType;

@@ -45,10 +45,10 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
 PUBLIC RECORD FUNCTION ReloadConfig()
 {
   OBJECT trans := OpenPrimary([ clientname := "webserver reloadconfig" ]);
-  IF (NOT IsDatabaseReadOnly())
+  IF (IsDatabaseWritable())
     trans->BeginWork();
   RECORD config := DownloadWebserverConfig();
-  IF (NOT IsDatabaseReadOnly())
+  IF (IsDatabaseWritable())
     trans->RollbackWork();
 
   RETURN LoadConfig(config, TRUE);
@@ -62,7 +62,7 @@ PUBLIC RECORD FUNCTION ReloadPreviousConfig(RECORD config)
 
 MACRO ReconfigureProxies(RECORD config)
 {
-  IF (IsDatabaseReadOnly())
+  IF (NOT IsDatabaseWritable())
     RETURN;
 
   OBJECT trans := GetPrimary();

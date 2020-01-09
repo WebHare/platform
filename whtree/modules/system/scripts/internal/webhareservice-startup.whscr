@@ -55,7 +55,7 @@ IF(showinfo)
 DATETIME start := GetCurrentDatetime();
 SetWHServiceState("startup", [ start := start ]);
 
-IF (GetDatabaseType() = "whdb" AND NOT IsDatabaseReadonly())
+IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
 {
   GetPrimary()->BeginWork();
   __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to on"); //allows stacktracing if the startup process gets stuck
@@ -114,7 +114,7 @@ IF(RecordExists(shrinkwrapfile))
 __disable_compilable_lockmgr := TRUE;
 RunRestartReset(showinfo);
 
-IF (GetDatabaseType() = "whdb" AND NOT IsDatabaseReadonly())
+IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
 {
   GetPrimary()->BeginWork();
   __SendWHDBCommand(GetPrimary()->id, "set global rpcinfo to off");

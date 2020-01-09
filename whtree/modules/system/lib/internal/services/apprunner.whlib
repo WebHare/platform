@@ -119,7 +119,7 @@ RECORD ARRAY FUNCTION GetModuleApps()
             ? script.databasemodes
             : [ "readonly", "online" ];
 
-        IF ("readonly" NOT IN databasemodes AND IsDatabaseReadOnly())
+        IF ("readonly" NOT IN databasemodes AND NOT IsDatabaseWritable())
           CONTINUE;
 
         INSERT [ name := script.name

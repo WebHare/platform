@@ -959,7 +959,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     ^showpart->visible := NOT this->foldertreevisible;
     ^folderpath2->visible := NOT this->foldertreevisible;
     ^folderbuttonsfilespacegroup->borders.right := NOT this->foldertreevisible;
-    IF (NOT IsDatabaseReadOnly())
+    IF (IsDatabaseWritable())
       this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.foldertree", this->foldertreevisible);
   }
 
@@ -1011,7 +1011,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       ^sortorderselect->value := newsortoption;
     }
 
-    IF (NOT IsDatabaseReadOnly())
+    IF (IsDatabaseWritable())
     {
       this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.filelistmode", this->filelistmode);
       this->tolliumuser->DelayedSetRegistryKey("publisher.prefs.filelistsort", ^sortorderselect->value);

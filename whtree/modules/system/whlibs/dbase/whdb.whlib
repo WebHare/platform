@@ -845,7 +845,7 @@ PUBLIC INTEGER FUNCTION __avoiddepwarning_StartWHDBTransaction(RECORD transinfo)
   }
 
   IF(NOT ObjectExists(trans))
-    trans := __CreateWHDBTransactionObject(transid, become_auto);
+    trans := __CreateWHDBTransactionObject(transid, become_auto, CellExists(transinfo,'isprimary') AND transinfo.isprimary);
   RETURN trans->id;
 }
 
@@ -854,7 +854,7 @@ PUBLIC INTEGER FUNCTION __avoiddepwarning_StartWHDBTransaction(RECORD transinfo)
     @param trans ID of new transaction
     @param isauto Whether the transaction is an auto-transasction
 */
-PUBLIC OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto, BOOLEAN isprimary DEFAULTSTO FALSE)
+OBJECT FUNCTION __CreateWHDBTransactionObject(INTEGER trans, BOOLEAN isauto, BOOLEAN isprimary)
 {
   RETURN NEW WHDBTransaction(trans, isauto, isprimary);
 }
