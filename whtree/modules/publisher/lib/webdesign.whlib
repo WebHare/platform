@@ -1636,11 +1636,15 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   }
 
   /** @short Render a widget directly
-      @param widgetdata Widget instance data
+      @param widgetdata Widget instance data. If unset, renders nothing
       @cell(string) options.whfstype WHFS Type of the widget to render */
   PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ whfstype := "" ], options);
+
+    IF(NOT RecordExists(widgetdata)) //accepting default records simplifies usage (similar to WrapCachedImage)
+      RETURN;
+
     IF(options.whfstype != "")
     {
       DELETE CELL whfstype FROM widgetdata;
