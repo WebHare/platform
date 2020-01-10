@@ -1,5 +1,12 @@
-﻿<?wh
-/* wh run mod::system/scripts/database/migration.whscr
+<?wh
+// command: convert-to-postgresql [--dryrun] [--nowait]
+// short: Convert WHDB to postgresql
+
+/*
+    wh convert-to-postgresql
+
+    fully automatic conversion (use on your own risk!)
+    wh db setserver readonly && wh convert-to-postgresql && sv restart webhare
 */
 
 LOADLIB "wh::async.whlib";
@@ -304,7 +311,7 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
 }
 
 
-IF (want_readonly != "yes")
+IF (want_readonly NOT IN [ "yes", "already_readonly"] )
   trans->BeginWork();
 postgresql_trans->BeginWork();
 
