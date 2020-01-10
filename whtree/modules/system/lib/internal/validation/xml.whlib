@@ -329,8 +329,8 @@ PUBLIC STATIC OBJECTTYPE TopicValidator EXTEND XMLValidatorBase
     STRING ARRAY notordered := SELECT AS STRING ARRAY DISTINCT basename FROM realdocs WHERE basename NOT IN docorder ORDER BY name;
 
     IF (LENGTH(missing) != 0)
-      this->AddError(this->xml->documentelement->linenum, `The following documents mentioned in docorder could not be found: ${Detokenize(missing, ", ")}`);
+      this->AddError(this->xml->documentelement, `The following documents mentioned in docorder could not be found: ${Detokenize(missing, ", ")}`);
     IF (LENGTH(notordered) != 0)
-      this->AddError(this->xml->documentelement->linenum, `The following documents are not mentioned in docorder: ${Detokenize(notordered, ", ")}`);
+      this->AddError(this->xml->documentelement, `The following documents are not mentioned in docorder: ${Detokenize(notordered, ", ")}`);
   }
 >;
