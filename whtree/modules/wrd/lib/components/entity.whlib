@@ -48,7 +48,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 
   PUBLIC PROPERTY attributebase(pvt_attributebase, SetAttributeBase);
 
-  PUBLIC PROPERTY fields(this->pvt_fields,-);
   PUBLIC PROPERTY autoupdate(GetAutoUpdate, SetAutoUpdate);
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
