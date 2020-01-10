@@ -1642,7 +1642,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   {
     options := ValidateOptions( [ whfstype := "" ], options);
 
-    IF(NOT RecordExists(widgetdata)) //accepting default records simplifies usage (similar to WrapCachedImage)
+    IF(NOT RecordExists(widgetdata) AND options.whfstype = "") //accepting default records simplifies usage (similar to WrapCachedImage)
       RETURN;
 
     IF(options.whfstype != "")
