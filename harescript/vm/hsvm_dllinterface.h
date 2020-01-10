@@ -1274,13 +1274,21 @@ inline std::string HSVM_StringGetSTD(struct HSVM *vm, HSVM_VariableId id)
         return std::string(begin,end);
 }
 
-/** Set a variable of type HSVM_VAR_STRING from a std::string type
+/** Set a variable of type HSVM_VAR_STRING from a std::string(_view) or C string
     @param vm Virtual machine
     @param id ID of the variable
+    @param value Value to set
     @return Value stored in the variable */
-inline void HSVM_StringSetSTD(struct HSVM *vm, HSVM_VariableId id, std::string const &value)
+inline void HSVM_StringSetSTD(struct HSVM *vm, HSVM_VariableId id, std::string_view const &value)
 {
         HSVM_StringSet(vm,id,value.data(),value.data()+value.size());
+}
+inline void HSVM_StringSetSTD(struct HSVM *vm, HSVM_VariableId id, const char *value)
+{
+        if(value)
+            HSVM_StringSet(vm,id,value,value + std::strlen(value));
+        else
+            HSVM_SetDefault(vm,id,HSVM_VAR_String);
 }
 
 inline std::string HSVM_GetVMGroupIdSTD(struct HSVM *vm)

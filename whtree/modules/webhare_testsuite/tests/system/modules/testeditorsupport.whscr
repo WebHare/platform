@@ -161,6 +161,21 @@ MACRO TestEditSupport()
         ]
       ], retval.result.errors, "*");
 
+  retval := browser->InvokeJSONRPC(
+      connectinfo.editorservice,
+      "validate",
+      VARIANT[ connectinfo.translateinfo
+             , "mod::system/lib/witty.witty"
+             , `[embed nosuchcomponent]`
+             ]);
+
+  TestEQMembers(
+      [ [ line :=     1
+        , col :=      2
+        , message := "No such component 'nosuchcomponent'"
+        ]
+      ], retval.result.errors, "*");
+
   // Test with corrupted moduledef
   retval := browser->InvokeJSONRPC(
       connectinfo.editorservice,

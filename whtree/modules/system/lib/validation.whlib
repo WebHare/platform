@@ -3,7 +3,6 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::witty.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::os.whlib";
 
@@ -161,26 +160,6 @@ PUBLIC STRING ARRAY FUNCTION GetValidatableFiles(RECORD validateconfig, STRING m
                              , filemask := "*"
                              ], options);
   RETURN RecurseGetValidatableFiles("mod::" || modulename, validateconfig, options.onskippedfile, options.filemask);
-}
-
-RECORD FUNCTION RunWittyValidator(BLOB doc_blob, STRING resourcename, RECORD options)
-{
-  TRY
-  {
-    //result.type := "witty";
-    OBJECT test := NEW WittyTemplate("TEXT");
-    test->LoadBlob(doc_blob, "test.witty");
-    RETURN ScanWittyForTids(test, resourcename);
-  }
-  CATCH (OBJECT< WittyParseException > e)
-  {
-    RETURN [ errors := SELECT resourcename := VAR resourcename
-                            , message :=  text
-                            , line
-                            , col
-                       FROM e->errors
-           ];
-  }
 }
 
 BOOLEAN FUNCTION IsSVGIconFile(STRING resourcename)
@@ -447,17 +426,12 @@ PUBLIC STRING FUNCTION FormatValidationWarning(RECORD msg)
 */
 PUBLIC MACRO PrintValidationMessages(RECORD file)
 {
-  //Defensive usage, we're not sure if we've 100% caught all instances of 'filename' being used instead of 'resourcename' yet
-  //using dumpvalue so we at least have a clue why we're suddenly seeing raw records being printed
   FOREVERY (RECORD error FROM file.errors)
-    IF(CellExists(error,'resourcename') AND CellExists(error,'message') AND CellExists(error,'line') AND CellExists(error,'col'))
-      Print(`${AnsiCmd("red")}${error.resourcename = "" ? "" : `${error.resourcename}:${error.line}: `}Error: ${error.message}${AnsiCmd("reset")}\n`);
-    ELSE
-      dumpvalue(error,'tree');
+    Print(`${AnsiCmd("red")}${error.resourcename = "" ? "" : `${error.resourcename}:${error.line}: `}Error: ${error.message}${AnsiCmd("reset")}\n`);
 
   FOREVERY (RECORD warning FROM file.warnings)
-    IF(CellExists(warning,'resourcename') AND CellExists(warning,'message') AND CellExists(warning,'line') AND CellExists(warning,'col'))
-      PRINT(`${warning.resourcename = "" ? "" : `${warning.resourcename}:${warning.line}:${warning.col}: `}Warning: ${warning.message}\n`);
-    ELSE
-      dumpvalue(warning,'tree');
+    PRINT(`${warning.resourcename = "" ? "" : `${warning.resourcename}:${warning.line}:${warning.col}: `}Warning: ${warning.message}\n`);
+
+  FOREVERY (RECORD hint FROM file.hints)
+    PRINT(`${hint.resourcename = "" ? "" : `${hint.resourcename}:${hint.line}:${hint.col}: `}Hint: ${hint.message}\n`);
 }

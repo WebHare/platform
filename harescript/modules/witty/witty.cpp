@@ -1899,30 +1899,36 @@ void GetWittyTidRawData(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_RecordArray);
         for (auto &itr: parsedfile.parts)
         {
-                if (itr.type != ParsedPart::GetTid && itr.type != ParsedPart::GetHtmlTid && (itr.type != ParsedPart::Content || itr.content_len == 0))
+                bool ishtmltid = itr.type == ParsedPart::GetHtmlTid;
+                bool istid = ishtmltid || itr.type == ParsedPart::GetTid;
+                bool isembed = itr.type == ParsedPart::Embed;
+                bool iscomponent = itr.type == ParsedPart::Component;
+                bool iscontent = itr.type == ParsedPart::Content && itr.content_len > 0;
+
+                if(!istid && !isembed && !iscomponent && !iscontent)
                     continue;
 
                 HSVM_VariableId rec = HSVM_ArrayAppend(hsvm, id_set);
+                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, rec, col_line), itr.linenum);
+                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, rec, col_col), itr.columnnum);
 
-                if (itr.type == ParsedPart::GetTid)
+                if (istid)
                 {
-                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), "tid");
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), ishtmltid ? "htmltid" : "tid");
                         HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), itr.parameters[0]);
                 }
-                else if (itr.type == ParsedPart::GetHtmlTid)
+                else if(iscontent)
                 {
-                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), "htmltid");
-                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), itr.parameters[0]);
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), "content");
+
+                        Blex::StringPair content = Blex::StringPair(&parsedfile.printdata[itr.content_pos], &parsedfile.printdata[itr.content_pos] + itr.content_len);
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), content.stl_stringview());
                 }
                 else
                 {
-                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), "content");
-                        Blex::StringPair content = Blex::StringPair(&parsedfile.printdata[itr.content_pos], &parsedfile.printdata[itr.content_pos] + itr.content_len);
-                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), content.stl_str());
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_type), isembed ? "embed" : "component");
+                        HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, rec, col_data), itr.content);
                 }
-
-                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, rec, col_line), itr.linenum);
-                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, rec, col_col), itr.columnnum);
         }
 }
 

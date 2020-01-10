@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/validation/witty.whlib";
 
 STRING FUNCTION GetNodeType(OBJECT node)
 {
@@ -172,6 +173,17 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
       }
     }
     RETURN this->lastlibdescr;
+  }
+
+  BOOLEAN FUNCTION VerifyWittyComponentExistence(INTEGER linenum, STRING wittyref)
+  {
+    STRING message := VerifyWittyComponentExistence(this->respath, wittyref);
+    IF(message != "")
+    {
+      this->AddErrorForLine(linenum, message);
+      RETURN FALSE;
+    }
+    RETURN TRUE;
   }
 
   BOOLEAN FUNCTION VerifyObjectExistence(INTEGER linenum, STRING objtype)
