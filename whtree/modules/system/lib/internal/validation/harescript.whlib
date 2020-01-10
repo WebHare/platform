@@ -265,7 +265,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
     resourcename := "site::" || obj->highestparentobject->name || obj->fullpath;
   }
 
-  RECORD retval := [ errors := RECORD[], warnings := RECORD[], tids := RECORD[] ];
+  RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[] ];
 
   OBJECT scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
 
@@ -276,9 +276,14 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
       devcheck := AsyncCallFunctionFromJob("mod::dev/lib/validation.whlib#ValidateSourceFileDocumentation", resourcename, [ overridedata := doc_blob ]);
 
     RECORD res := CompileFromSource(resourcename, doc_blob);
+
+    CONSTANT INTEGER ARRAY hints := [ 29  //UnusedLoadlib
+                                    ];
+
     res.messages := SELECT *, resourcename := filename, DELETE filename FROM res.messages;
     retval.errors := SELECT * FROM res.messages WHERE metadata.iserror;
-    retval.warnings := SELECT * FROM res.messages WHERE NOT metadata.iserror;
+    retval.warnings := SELECT * FROM res.messages WHERE NOT metadata.iserror AND metadata.code NOT IN hints;
+    retval.hints := SELECT * FROM res.messages WHERE NOT metadata.iserror AND metadata.code IN hints;
 
     // Also compile the library on disk when validating a disk file (skip for validate from source)
     IF (NOT CellExists(options, "OVERRIDEDATA"))

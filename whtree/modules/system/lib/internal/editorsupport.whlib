@@ -475,7 +475,7 @@ PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECO
                     , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
                     , message
                     , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
-                 FROM result.warnings)
+                 FROM result.warnings CONCAT result.hints)
       ];
 }
 
