@@ -21,7 +21,7 @@ MACRO __SYSTEM_SQLCLIENT_RUNSQLCLIENTSCRIPT(BLOB compiledscript, RECORD state) _
 // Transaction id for current transaction
 //INTEGER transid;
 //OBJECT trans;
-BOOLEAN autocommit := TRUE;
+BOOLEAN autocommit := IsDatabaseWritable();
 STRING showmode := "boxed";
 RECORD userdata;
 
