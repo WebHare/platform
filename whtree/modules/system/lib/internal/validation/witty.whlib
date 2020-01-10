@@ -3,7 +3,6 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::witty.whlib";
 
-LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
