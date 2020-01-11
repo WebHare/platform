@@ -673,6 +673,11 @@
               <xs:documentation>Initial number of harescript workers</xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="harescriptworkerthreads" type="xs:positiveInteger">
+            <xs:annotation>
+              <xs:documentation>Number of workerthreads to start each HareScript worker with</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
       <xs:element name="ephemeraltask">
