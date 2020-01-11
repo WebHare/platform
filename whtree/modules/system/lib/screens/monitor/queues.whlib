@@ -7,8 +7,6 @@ LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
-LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -277,9 +275,6 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
 
   RECORD ARRAY FUNCTION GetPublisherWorkers()
   {
-    IF (NOT UseNewPublisher())
-      RETURN this->GetLegacyPublisherWorkers();
-
     RECORD ARRAY workerlist;
 
     RECORD res := DEFAULT RECORD;
@@ -344,54 +339,6 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
       this->analyzerqueuelength->value := "";
     }
 
-    RETURN workerlist;
-  }
-
-  RECORD ARRAY FUNCTION GetLegacyPublisherWorkers()
-  {
-    IF (NOT IsDatabaseWritable())
-      RETURN DEFAULT RECORD ARRAY;
-
-    OBJECT work := this->BeginUnvalidatedWork();
-    RECORD state := GetPublisherState();
-    //printrecordto(0,state,'boxed');
-    work->Cancel();
-
-    IF(NOT RecordExists(state))
-      RETURN DEFAULT RECORD ARRAY;
-
-    this->queuelength->value := ToString(state.total);
-
-    INTEGER totaltime := state.workers = 0 ? 0 : state.totaltime / (state.workers);
-    INTEGER percentage_measured := state.measured = 0 ? 0 : (state.total * 100) / state.measured;
-    INTEGER estimated_time := (( (totaltime+500) / 1000) * percentage_measured) / 100;
-
-    IF(state.total=0 OR estimated_time=0)
-    {
-      this->estimatedcompletion->value := GetTid("system:monitor.queues.estimate_unavailable");
-    }
-    ELSE
-    {
-      DATETIME eta := AddTimeToDate(estimated_time*1000, GetCurrentDatetime());
-      DATETIME now := GetCurrentDatetime();
-      IF(GetDayCount(this->tolliumuser->UTCToLocal(eta)) != GetDayCount(this->tolliumuser->UTCToLocal(now))) //tomorrow? (from user's perspective)
-        this->estimatedcompletion->value := this->tolliumuser->FormatDatetime(eta, "minutes", TRUE, TRUE);
-      ELSE
-        this->estimatedcompletion->value := this->tolliumuser->FormatTime(eta, "minutes", TRUE);
-    }
-
-    this->analyzerqueuelength->value := ToString(state.analyzerqueuelength);
-
-    RECORD ARRAY procs := SELECT * FROM state.processes ORDER BY processnum;
-
-    RECORD ARRAY workerlist := SELECT rowkey := "publisher" || #procs
-                                    , name := "publisher " || #procs+1
-                                    , currenttask := DescribeFile(fileid)
-                                    , currenttaskhint := "#" || fileid
-                                    , time := this->tolliumuser->FormatTimespan(0, seconds*1000)
-                                    , starttime := ""
-                                    , deadline := ""
-                                 FROM procs;
     RETURN workerlist;
   }
 

@@ -15,7 +15,6 @@ LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
-LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 
 //debuglevel, set using envvar WEBHARE_DEBUGEVENTS. 0 = not yet read, -1 = no debugging, 1 = log actions, 3 = and traces too
 INTEGER debuglevel;
@@ -271,7 +270,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     FOREVERY(INTEGER site FROM GetSortedSet(sites))
       BroadcastEvent("system:whfs.site." || site, DEFAULT RECORD);
 
-    IF(Length(to_republish) > 0 AND UseNewPublisher())
+    IF(Length(to_republish) > 0)
     {
       OBJECT service := __OpenSynchronousWebHareService("publisher:publication");
       service->ScheduleMultiple(to_republish);
@@ -296,7 +295,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       }
     }
 
-    IF (Length(this->analyzertasks) > 0 AND UseNewPublisher())
+    IF (Length(this->analyzertasks) > 0)
     {
       OBJECT service := __OpenSynchronousWebHareService("publisher:outputanalyzer");
       service->ScheduleMultiple(this->analyzertasks);

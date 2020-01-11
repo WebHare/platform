@@ -388,7 +388,7 @@ parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
 parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
-AP_DEPLOYABLES_SERVERS = dbserver webserver publisher appserver consilio whmanager
+AP_DEPLOYABLES_SERVERS = dbserver webserver appserver consilio whmanager
 AP_DEPLOYABLES_UTILS = backup runscript whcompile webhare dumprawtable # oleexplode  consiliotool
 AP_CONSILIO_TESTS = consiliotest
 ap_DEPLOYABLES_WHAP = \
@@ -404,7 +404,7 @@ consiliotool_EXTRALINKFILES = $(filter-out $(call GetObjFiles,ap/consilio/consil
 
 PCH_HEADERS+=ap/libwebhare/allincludes.h
 
-ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests dbserver libwebhare publisher utils webserver whmanager
+ap_SRCDIRS = addons addons/system_geoip appserver consilio consilio/tests dbserver libwebhare utils webserver whmanager
 
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries

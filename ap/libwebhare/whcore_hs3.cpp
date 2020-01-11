@@ -551,101 +551,6 @@ std::string ScriptContextData::GetLibaryPath(std::string const &uri)
         return path;
 }
 
-void PUB_QueueLength(HSVM *vm, HSVM_VariableId id_set)
-{
-        Database::TransFrontend *trans = GetTransFromTableId(HareScript::GetVirtualMachine(vm), HareScript::GetVirtualMachine(vm)->GetStackMachine().GetTable(HSVM_Arg(0)));
-        if (!trans)
-        {
-                HSVM_IntegerSet(vm, id_set, -1);//no webhare database
-                return;
-        }
-
-        //FIXME: Migrate away - we can probably remove this entire function as soon as RPC is moved to the dbprovider
-
-        //FIXME: Enumerations, documentation, etc
-        Database::WritableRecord inout;
-        inout.SetInteger(1, 1); //queue length?
-        if (!trans->Ask("publisher",&inout))
-        {
-                HSVM_IntegerSet(vm, id_set, -1);//no publisher
-                return;
-        }
-        HSVM_IntegerSet(vm, id_set, inout.GetCell(1).Integer());
-}
-
-void PUB_GetFilePublishTime(HSVM *vm, HSVM_VariableId id_set)
-{
-        Database::TransFrontend *trans = GetTransFromTableId(HareScript::GetVirtualMachine(vm), HareScript::GetVirtualMachine(vm)->GetStackMachine().GetTable(HSVM_Arg(0)));
-        if (!trans)
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record); //no webhare database
-                return;
-        }
-
-        //FIXME: Migrate away - we can probably remove this entire function as soon as RPC is moved to the dbprovider
-
-        //FIXME: Enumerations, documentation, etc
-        Database::WritableRecord inout;
-        inout.SetInteger(1, 2); //file publish time
-        inout.SetInteger(2, HSVM_IntegerGet(vm, HSVM_Arg(1))); //file publish time
-        if (!trans->Ask("publisher",&inout))
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record); //no publisher
-                return;
-        }
-
-        ///Total number of files measured, includes specified file
-        HSVM_ColumnId total = HSVM_GetColumnId(vm, "TOTAL");
-        HSVM_ColumnId measured = HSVM_GetColumnId(vm, "MEASURED");
-        HSVM_ColumnId totaltime = HSVM_GetColumnId(vm, "TOTALTIME");
-        HSVM_ColumnId workers = HSVM_GetColumnId(vm, "WORKERS");
-
-        HSVM_SetDefault(vm,id_set,HSVM_VAR_Record);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, total), inout.GetCell(1).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, measured), inout.GetCell(2).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, totaltime), inout.GetCell(3).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, workers), inout.GetCell(4).Integer());
-}
-
-void PUB_GetPublisherState(HSVM *vm, HSVM_VariableId id_set)
-{
-        Database::TransFrontend *trans = GetTransFromTableId(HareScript::GetVirtualMachine(vm), HareScript::GetVirtualMachine(vm)->GetStackMachine().GetTable(HSVM_Arg(0)));
-        if (!trans)
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record); //no webhare database
-                return;
-        }
-
-        //FIXME: Migrate away - we can probably remove this entire function as soon as RPC is moved to the dbprovider
-
-        //FIXME: Enumerations, documentation, etc
-        Database::WritableRecord inout;
-        inout.SetInteger(1, 5); //publisher state
-        if (!trans->Ask("publisher",&inout))
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record); //no publisher
-                return;
-        }
-
-        ///Total number of files measured, includes specified file
-        HSVM_ColumnId total = HSVM_GetColumnId(vm, "TOTAL");
-        HSVM_ColumnId measured = HSVM_GetColumnId(vm, "MEASURED");
-        HSVM_ColumnId totaltime = HSVM_GetColumnId(vm, "TOTALTIME");
-        HSVM_ColumnId workers = HSVM_GetColumnId(vm, "WORKERS");
-        HSVM_ColumnId queuetop = HSVM_GetColumnId(vm, "QUEUETOP");
-        HSVM_ColumnId processes = HSVM_GetColumnId(vm, "PROCESSES");
-        HSVM_ColumnId analyzerqueuelength = HSVM_GetColumnId(vm, "ANALYZERQUEUELENGTH");
-
-        HSVM_SetDefault(vm,id_set,HSVM_VAR_Record);
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, total), inout.GetCell(1).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, measured), inout.GetCell(2).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, totaltime), inout.GetCell(3).Integer());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, workers), inout.GetCell(4).Integer());
-        HSVM_StringSetSTD(vm,HSVM_RecordCreate(vm, id_set, queuetop), inout.GetCell(5).String());
-        HSVM_StringSetSTD(vm,HSVM_RecordCreate(vm, id_set, processes), inout.GetCell(6).String());
-        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, analyzerqueuelength), inout.GetCell(7).Integer());
-}
-
 void SYS_WebHareVersion(HSVM *vm, HSVM_VariableId id_set)
 {
         HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
@@ -1238,9 +1143,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion);
         HSVM_RegisterMacro   (regdata, "RELOADWEBHARECONFIG3:::S", SYS_Restart);
 
-        HSVM_RegisterFunction(regdata, "__PUBLISHER_GETQUEUELENGTH_INTERNAL::I:T",PUB_QueueLength);
-        HSVM_RegisterFunction(regdata, "__PUBLISHER_GETFILEPUBLISHTIME_INTERNAL::R:TI",PUB_GetFilePublishTime);
-        HSVM_RegisterFunction(regdata, "__PUBLISHER_GETPUBLISHERSTATE::R:T",PUB_GetPublisherState);
         HSVM_RegisterFunction(regdata, "ISVALIDWHFSNAME::B:SB", PUB_ValidName);
 
         HSVM_RegisterFunction(regdata, "__SYSTEM_RECOMPILELIBRARY::R:SB", SYSTEM_RecompileLibrary);
