@@ -17,11 +17,11 @@ LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 STRING FUNCTION TryOutputPath(STRING arg)
 {
+  OpenPrimary();
   RECORD res := LookupPublisherURL(arg);
   IF(res.folder=0)
     TerminateScriptWithError(`Did not find url: ${arg}`);
 
-  OpenPrimary();
   RECORD site := SELECT * FROM system.sites WHERE id = res.site;
   STRING outputpath := GetWebserverOutputFolder(site.outputweb);
   IF(outputpath="")
@@ -52,7 +52,7 @@ STRING FUNCTION GetWHCDPath(STRING arg)
       whdatapath := Substring(arg,1);
     destpath := GetWebhareConfiguration().basedataroot || whdatapath;
   }
-  ELSE IF(IsAbsoluteURL(destpath))
+  ELSE IF(IsAbsoluteURL(arg))
   {
     destpath := TryOutputPath(arg);
   }
