@@ -838,9 +838,6 @@ RECORD FUNCTION MapEventMessage(RECORD inmsg)
              ];
 }
 
-// Internal functions to loadlib (ADDME: get those from interface.whlib)
-DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
-
 PUBLIC RECORD ARRAY FUNCTION __HS_ListCallbacks()
 {
   RECORD ARRAY retval;
