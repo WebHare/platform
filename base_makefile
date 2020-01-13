@@ -11,7 +11,6 @@ endif
 
 SRCDIR ?= .
 PREFIX ?= $(SRCDIR)/whtree
-WHBUILD_BUILDYEAR ?= $(shell date +%Y)
 WHBUILD_PLATFORM ?= $(shell uname | tr A-Z a-z)
 HSTEST ?= all
 
@@ -20,8 +19,6 @@ export WHBUILD_PREFIX=$(abspath $(PREFIX))
 export WHBUILD_BUILDDIR=$(abspath $(shell pwd))
 
 export HSTEST
-
-CPPFLAGS += -DWHBUILD_BUILDYEAR=$(WHBUILD_BUILDYEAR)
 
 ifeq ($(DEBUGMAKE),1)
 	HIDE=
