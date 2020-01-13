@@ -11,12 +11,12 @@ endif
 
 SRCDIR ?= .
 PREFIX ?= $(SRCDIR)/whtree
-WHBUILD_PLATFORM ?= $(shell uname | tr A-Z a-z)
+WHBUILD_PLATFORM := $(shell uname | tr A-Z a-z)
 HSTEST ?= all
 
 export WHBUILD_SRCDIR=$(abspath $(SRCDIR))
 export WHBUILD_PREFIX=$(abspath $(PREFIX))
-export WHBUILD_BUILDDIR=$(abspath $(shell pwd))
+export WHBUILD_BUILDDIR:=$(abspath $(shell pwd))
 
 export HSTEST
 
@@ -29,6 +29,7 @@ endif
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
+	BREWPREFIX := $(BREWPREFIX)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 
@@ -87,11 +88,12 @@ endif
 PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 aws-cpp-sdk-s3
 CPPFLAGS += -I$(SRCDIR)
 
-PKGCONFIGCFLAGS = $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
+PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
 # AWS SDK disables exceptions via pkgconfig cflags, put in extra -fexceptions to re-enable
 CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden
 
-GLOBALLDFLAGS += $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
+PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
+GLOBALLDFLAGS += $(PKGCONFIGLDFLAGS)
 ifeq ($(WHBUILD_PLATFORM),linux)
   CPPFLAGS += -I/opt/libjpeg-turbo/include
   GLOBALLDFLAGS += -L/opt/libjpeg-turbo/lib64/
@@ -258,7 +260,7 @@ harescript_HsMod_oci_AddLibs = clntsh
 harescript_HsMod_odbc_AddLibs = odbc
 harescript_HsMod_pgsql_AddLibs = pq
 
-FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(shell pwd)/$(1)))
+FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(WHBUILD_BUILDDIR)/$(1)))
 
 ################################################
 #
