@@ -946,6 +946,9 @@ PUBLIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
 
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
+    IF(NOT IsDatabaseWritable())
+      RETURN PTR this->webdesign->PrintSimpleErrorBody("publisher:formunavailable", GetTid("publisher:webtools.site.messages.formunavailable"), DEFAULT RECORD);
+
     IF(ObjectExists(this->form))
     {
       IF(NOT this->form->IsAvailable())
@@ -954,7 +957,7 @@ PUBLIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
       // __MaybeConfirmResult returns false if invalid confirmation data was supplied or if the result cannot be confirmed
       // (e.g. it could not be found or was already confirmed)
       IF (NOT this->form->__MaybeConfirmResult())
-        RETURN PTR Print(GetHTMLTidForLanguage(this->form->formlanguagecode, "publisher:webtools.site.messages.confirmlinkexpired"));
+        RETURN PTR this->webdesign->PrintSimpleErrorBody("publisher:confirmlinkexpired", GetTid("publisher:webtools.site.messages.confirmlinkexpired"), DEFAULT RECORD);
 
       RETURN this->form->GetFormBody();
     }

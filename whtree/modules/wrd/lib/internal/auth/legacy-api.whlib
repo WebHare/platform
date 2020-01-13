@@ -792,6 +792,9 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC MACRO __ReestablishSession(BOOLEAN force)
   {
+    IF(NOT IsDatabaseWritable())
+      RETURN; //we can't write wrdauth info to the database... so just ignore reestablish as if your cookie was unrecognized
+
     //Can we reestablish a session ?
     RECORD cookies := this->GetCachedCookies();
 

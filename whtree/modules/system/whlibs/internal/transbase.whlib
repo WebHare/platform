@@ -715,13 +715,11 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
 
-    RECORD ARRAY errors;
-    IF (this->pvt_isprimary AND NOT IsDatabaseWritable())
-      errors := [[ code := 0, message := "Cannot commit work: the WebHare database is in readonly mode", tablename := "", columname := "" ]];
+    BOOLEAN isreadonlyerror := this->pvt_isprimary AND NOT IsDatabaseWritable();
 
     TRY
     {
-      this->__CallPreCommitHandlers(Length(errors) = 0);
+      this->__CallPreCommitHandlers(NOT isreadonlyerror);
     }
     CATCH (OBJECT e)
     {
@@ -730,7 +728,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW e;
     }
 
-    IF(Length(errors) = 0)
+    RECORD ARRAY errors;
+    IF(NOT isreadonlyerror)
       errors := this->DoCommitWork();
     ELSE
       this->DoRollbackWork();
@@ -738,7 +737,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     this->pvt_numworks := 0;
     this->ReleaseAllLocks();
 
-    BOOLEAN have_errors := Length(errors) != 0;
+    BOOLEAN have_errors := isreadonlyerror OR Length(errors) != 0;
     TRY
     {
       this->__CallCommitHandlers(NOT have_errors);
@@ -747,7 +746,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     {
       // Ensure commit errors have priority over commit handler exceptions
       IF (have_errors AND this->throwoncommiterror)
-        THROW NEW DatabaseException(errors);
+        THROW isreadonlyerror ? NEW DatabaseReadonlyException() : NEW DatabaseException(errors);
     }
 
     RETURN errors;

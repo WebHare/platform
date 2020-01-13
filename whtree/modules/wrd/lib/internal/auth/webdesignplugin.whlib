@@ -804,6 +804,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
+    IF(NOT IsDatabaseWritable())
+      RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 
     IF(NOT CellExists(options,"firstloginfield") AND this->pvt_config.firstloginfield != "")
       INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;

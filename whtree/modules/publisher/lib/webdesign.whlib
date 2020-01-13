@@ -1079,6 +1079,17 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     PrintErrorBody(msg, errorcode, harescriptinfo);
   }
 
+  /** @short Print a simple error body. Override this if you want to handle some errors differently
+      @param errorclass Structured error tag to recognize the error, eg "publisher:formunavailable"
+      @param errormessage Readable (standard) error message
+      @param errormetadata Optional metadata about the error, contents depending on errorclass
+  */
+  PUBLIC MACRO PrintSimpleErrorBody(STRING errorclass, STRING errormessage, RECORD errormetadata)
+  {
+    //errormetadata is not DEFAULTSTO to simplify UPDATE signature
+    Print(`<p class="normal">${EncodeHTML(errormessage)}</p>`);
+  }
+
   /** @short Initialize pagewitty with the template to use */
   PUBLIC MACRO SetupPageWitty()
   {

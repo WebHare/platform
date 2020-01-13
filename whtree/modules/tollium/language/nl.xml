@@ -73,6 +73,7 @@
       <text tid="yestoall">Ja op alles</text>
     </textgroup>
     <textgroup gid="errors">   <!-- common.errors -->
+      <text tid="databasereadonly">De database is in alleen-lezen mode en daardoor kunnen er nu geen wijzigingen worden gemaakt. Probeer het later nog eens.</text>
       <text tid="field_required">Het veld '<param p="1"/>' dient ingevuld te worden</text>
       <text tid="invalid_date">Het veld '<param p="1"/>' bevat een ongeldige datum</text>
       <text tid="invalid_float">Het veld '<param p="1"/>' dient een geldige waarde te bevatten</text>
@@ -831,6 +832,7 @@
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
       <text tid="apptitle">WebHare</text>
+      <text tid="closedlogin">Het is momenteel niet mogelijk in te loggen. Probeer het later nog eens.</text>
       <text tid="disabledlogin">Inloggen mislukt: dit account is niet actief</text>
       <text tid="enterusernameandpassword">Vult u a.u.b. uw gebruikersnaam en wachtwoord in.</text>
       <text tid="forgotpassword">Wachtwoord vergeten</text>

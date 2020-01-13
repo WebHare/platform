@@ -250,12 +250,17 @@ PUBLIC OBJECTTYPE FeedbackObjectBase
         {
           commiterrors := this->transaction->CommitWork();
         }
+        CATCH(OBJECT<DatabaseReadonlyException> e)
+        {
+          commiterrors := [[ message := GetTid("tollium:common.errors.databasereadonly") ]];
+        }
         CATCH(OBJECT<DatabaseException> e)
         {
           commiterrors := e->errors;
         }
+
         FOREVERY(RECORD err FROM commiterrors)
-          INSERT [ comp := DEFAULT OBJECT, text := err.message ] INTO this->all_errors AT END;
+          INSERT [ comp := DEFAULT OBJECT, text := err.message, metadata := DEFAULT RECORD ] INTO this->all_errors AT END;
       }
       this->pvt_terminated := TRUE;
     }

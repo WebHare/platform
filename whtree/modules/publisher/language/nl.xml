@@ -2776,7 +2776,7 @@
     <textgroup gid="site">   <!-- webtools.site -->
       <textgroup gid="messages">   <!-- webtools.site.messages -->
         <text tid="confirmlinkexpired">De bevestigingslink is verlopen</text>
-        <text tid="formunavailable">Het formulier is op het moment niet beschikbaar</text>
+        <text tid="formunavailable">Dit formulier is op het moment niet beschikbaar. Probeer het later nog eens.</text>
       </textgroup>
     </textgroup>
   </textgroup>
