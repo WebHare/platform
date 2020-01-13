@@ -10,15 +10,22 @@ if [ -z "$STORAGEPATH" ];then
 fi
 
 echo "STORAGEPATH: $STORAGEPATH"
-exit 1
 
-BACKUPDEST=`cd $STORAGEPATH ; cd .. ; pwd`/backups/`date +%Y-%m-%dT%H.%M.%S`
+BACKUPDEST="$WEBHARE_DATAROOT/backups/$(date +%Y-%m-%dT%H.%M.%S)"
 mkdir -p $BACKUPDEST
+
+echo "BACKUP DESTINATION: $BACKUPDEST"
 
 if [ -f "$BACKUPDEST/dbase/translog.whdb" -o -f "$BACKUPDEST/postgresql/db/postgresql.conf" ]; then
   echo "$1 already seems to contain a database, it will be overwritten!"
   echo "Press enter to continue, or CTRL+C to abort now"
   read
+fi
+
+if [ "`uname`" == "Darwin" ]; then
+  RSYNCOPTS="--progress"
+else
+  RSYNCOPTS="--info=progress2"
 fi
 
 mkdir -p "$BACKUPDEST"
@@ -31,11 +38,20 @@ if ! is_webhare_running; then
   exit 1
 fi
 
-# Start job control, needed to start backup in background
-set -m
-trap control_c SIGINT
+function control_c()
+{
+  echo "SIGINT"
+  kill %1
+  kill %2
+  exit 1
+}
 
 if [ "$__WEBHARE_DBASE" == "dbserver" ]; then
+  # Start job control, needed to start backup in background
+  set -m
+  trap control_c SIGINT
+
+
   [ "$VERBOSE" == "1" ] && echo "Launching backup process"
   "${WEBHARE_DIR}/bin/backup" -cp --threads --blobmode=reference --suspendfile $BACKUPDEST/backup/suspend $BACKUPDEST/backup/backup > $BACKUPDEST/backuplog 2>&1 &
   tail -n 1000 -f "$BACKUPDEST/backuplog" &
@@ -81,7 +97,13 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   for BLOBBASEFOLDER in blob ` cd $STORAGEPATH ; echo blob-* `; do
     if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
       mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-      rsync -avH --info=progress2 --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+      rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+
+      RSYNCRETVAL="$?"
+      if [ "$RSYNCRETVAL" != "0" ]; then
+        echo "First rsync with error code $RSYNCRETVAL"
+        exit 1
+      fi
     fi
   done
 
@@ -95,7 +117,13 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   for BLOBBASEFOLDER in blob ` cd $STORAGEPATH ; echo blob-* `; do
     if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
       mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-      rsync -avH --info=progress2 --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+      rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+
+      RSYNCRETVAL="$?"
+      if [ "$RSYNCRETVAL" != "0" ]; then
+        echo "Second rsync with error code $RSYNCRETVAL"
+        exit 1
+      fi
     fi
   done
 else
@@ -103,4 +131,4 @@ else
   exit 1
 fi
 
-echo "Your backup is in $BACKUPDEST/backup/"
+echo "Your backup is in $BACKUPDEST/"

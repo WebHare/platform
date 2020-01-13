@@ -44,6 +44,13 @@ if [[ "$WEBHAREIMAGE" =~ ^[0-9]+\.[0-9]+$ ]]; then
   WEBHAREIMAGE="webhare/webhare-core:$WEBHAREIMAGE"
 fi
 
+if [ "`uname`" == "Darwin" ]; then
+  RSYNCOPTS="--progress"
+else
+  RSYNCOPTS="--info=progress2"
+fi
+
+
 if [ ! -d "$TORESTORE" ] ; then
   echo "$TORESTORE is not a directory"
   exit 1
@@ -131,10 +138,10 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
   else
     LINKARG=
     if [ "$BLOBIMPORTMODE" == "hardlink" ]; then
-      LINKARG=\"-H --link-dest "$TORESTORE/"\"
+      LINKARG="--link-dest=$TORESTORE/"
     fi
 
-    if ! rsync -a --info=progress2 $LINKARG "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
+    if ! rsync -a $RSYNCOPTS "$LINKARG" "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
       echo Extracting blobs failed
       exit 1
     fi

@@ -548,14 +548,6 @@ run_help()
   fi
 }
 
-function control_c()
-{
-  echo "SIGINT"
-  kill %1
-  kill %2
-  exit 1
-}
-
 getscripttorun()
 {
   VARNAME=$1
