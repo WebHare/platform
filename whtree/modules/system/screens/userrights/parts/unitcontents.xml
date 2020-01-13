@@ -25,7 +25,7 @@
         <enableon source="userandrolelist" min="1" checkflags="candelete" onexecute="domoveitemstoanotherunit" />
       </action>
 
-      <action name="delete" hinttid=".delete-hint" shortcut="del">
+      <action name="delete" hinttid=".delete-hint" shortcut="del" tid="~delete" ellipsis="true">
         <enableon source="userandrolelist" min="1" checkflags="candelete" onexecute="dodeleteuserorrole" requirefocus="true" />
       </action>
 
@@ -47,7 +47,7 @@
       <menu name="selectcontextmenu">
         <item action="addroletousers" disablemode="hidden" />
         <item action="addrighttousers" disablemode="hidden" />
-        <item action="adduserstorole" tid="userrights.actions.adduserstorolecontext" disablemode="hidden" />
+        <item action="adduserstorole" tid="userrights.actions.adduserstorole" disablemode="hidden" />
         <divider />
         <item action="move" />
         <item action="delete" />

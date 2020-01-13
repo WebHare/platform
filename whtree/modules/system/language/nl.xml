@@ -1968,11 +1968,9 @@
     </textgroup>
   </textgroup>
   <textgroup gid="userrights">   <!-- userrights -->
-    <text tid="closesearchbar">Zoeken sluiten</text>
     <text tid="error">Er is een fout opgetreden bij het bepalen van het objectpad. Neem A.U.B. contact op met een beheerder.</text>
     <text tid="new">Toevoegen</text>
     <text tid="norightstodeleteall">U heeft niet voldoende rechten om alle toekenningen te verwijderen.</text>
-    <text tid="nosearchresult">Geen resultaten voor '<param p="1"/>'</text>
     <text tid="searchbox">Zoeken</text>
     <text tid="selectusertocopyallpermissionsto">Kies de gebruiker of rol waarnaar u de rol-/rechtentoekenningen wilt kopiëren.</text>
     <text tid="syncedauthobjects">De gebruikersdatabase is gesynchroniseerd.</text>
@@ -1988,16 +1986,11 @@
       <text tid="addroletousers-list">Rol toekennen</text>
       <text tid="adduserstorole">Toekennen aan</text>
       <text tid="adduserstorole-hint">Ken deze rol toe aan andere gebruikers</text>
-      <text tid="adduserstorolecontext">Toekennen aan</text>
       <text tid="copypermissions">Kopieer alle rechten naar ...</text>
       <text tid="delete">Verwijderen</text>
       <text tid="delete-hint">Verwijder de geselecteerde element(en)</text>
       <text tid="edit">Eigenschappen</text>
       <text tid="edit-hint">Bewerk de eigenschappen van het geselecteerde item</text>
-      <text tid="edit-list">Eigenschappen</text>
-      <text tid="editgrant">Eigenschappen</text>
-      <text tid="editgrant-hint">Bewerk de eigenschappen van de geselecteerde rechtentoewijzing</text>
-      <text tid="editgrant-list">Eigenschappen</text>
       <text tid="editobject">Bewerken</text>
       <text tid="exportallgrants">Exporteer alle (rol) toekenningen</text>
       <text tid="exportallusers">Exporteer alle gebruikers</text>
@@ -2025,19 +2018,13 @@
       <text tid="properties">Eigenschappen</text>
       <text tid="properties-hint">Bekijken en aanpassen van eigenschappen van de gekozen element(en)</text>
       <text tid="reload">Opnieuw laden</text>
-      <text tid="removeusersfromrole">Verwijderen</text>
       <text tid="removeusersfromrole-hint">Trek de toekenning van deze rol aan de geselecteerde gebruiker(s) in</text>
-      <text tid="report">Objectrechten tonen</text>
-      <text tid="revokefromusers">Verwijderen</text>
       <text tid="revokefromusers-hint">Trek de geselecteerde rechten-/rollentoekenningen in.</text>
       <text tid="revokefromusers-list">Verwijderen</text>
       <text tid="revokerightfromlist-hint">Trek het geselecteerde recht in</text>
       <text tid="revokerightonobject">Verwijderen</text>
       <text tid="search">Gebruikers en rollen zoeken</text>
       <text tid="searchsimple">Zoeken</text>
-      <text tid="selectall">Alles selecteren</text>
-      <text tid="selectall-hint">Selecteer alle elementen</text>
-      <text tid="setupsearchfields">Configureer zoekvelden</text>
       <text tid="setuserdefaults">Standaard gebruikersinstellingen</text>
       <text tid="showobject">Spring naar</text>
       <text tid="syncauthobjects">Database synchroniseren</text>

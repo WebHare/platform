@@ -162,6 +162,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
           , canmanageunit :=    FALSE
           , expanded :=         FALSE
           , candelete :=        FALSE
+          , canselect :=        TRUE
           , isroot :=           TRUE
           , icon :=             4
           ] INTO unittree AT END;
