@@ -2833,6 +2833,9 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:complexContent>
       <xs:extension base="RTEBase">
+        <xs:sequence>
+          <xs:element ref="linkhandlers" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
         <xs:attribute name="type" type="RichAreaTypes" default="html">
           <xs:annotation>
             <xs:documentation>The type of content to edit. Possible types are "html", "html-inline", "html-block" and "email".</xs:documentation>

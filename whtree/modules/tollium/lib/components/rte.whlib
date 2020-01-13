@@ -1017,6 +1017,7 @@ PUBLIC OBJECTTYPE TolliumRichArea EXTEND RTEBase
     this->type := def.type;
 
     this->editable->ValidateSettings();
+    this->rtelinkhandlers := def.linkhandlers;
   }
 >;
 

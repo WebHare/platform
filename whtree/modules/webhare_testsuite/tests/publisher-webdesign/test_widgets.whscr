@@ -146,6 +146,9 @@ MACRO WidgetTypeAsFile()
   //both routes should do the same
   OBJECT xml2 := MakeXMLDocumentFromHTML(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderWidgetInstance(DEFAULT RECORD, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" ]))));
   TestEq(xml1->outerxml, xml2->outerxml);
+
+  //default default render should have no content
+  TestEQ("", BlobTostring(GetPrintedAsBlob(PTR webdesign->CallWithScope(PTR webdesign->RenderWidgetInstance(DEFAULT RECORD)))));
 }
 
 RunTestframework([ PTR TestRenderWidgets
