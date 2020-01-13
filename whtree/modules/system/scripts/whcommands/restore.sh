@@ -48,18 +48,29 @@ if [ ! -d "$TORESTORE" ] ; then
   echo "$TORESTORE is not a directory"
   exit 1
 fi
+
 # ADDME Support other restore formats, eg full backup files without blobs (no easy way to recognize them from outside though? just assume if there's no blob folder ?)
-if [ ! -f "$TORESTORE/backup/backup.bk000" ] ; then
-  echo "Cannot find $TORESTORE/backup/backup.bk000"
+if [ -f "$TORESTORE/backup/backup.bk000" ] ; then
+  RESTORE_DB=dbserver
+elif [ -f "$TORESTORE/backup/base.tar.gz" ] ; then
+  RESTORE_DB=postgresql
+else
+  echo "Cannot find $TORESTORE/backup/base.tar.gz or $TORESTORE/backup/backup.bk000"
   exit 1
 fi
+
+
+
 if [ ! -d "$TORESTORE/blob" ]; then
   echo "$TORESTORE/blob does not exist"
   exit 1
 fi
 
-if [ -d "$WEBHARE_DATAROOT/dbase" ]; then
+if [ "$RESTORE_DB" == "dbserver" -a -d "$WEBHARE_DATAROOT/dbase" ]; then
   echo "$WEBHARE_DATAROOT/dbase already exists - did you mean to specify a different WEBHARE_DATAROOT for the restore?"
+  exit 1
+elif [ "$RESTORE_DB" == "postgresql" -a -d "$WEBHARE_DATAROOT/postgresql" ]; then
+  echo "$WEBHARE_DATAROOT/postgresql already exists - did you mean to specify a different WEBHARE_DATAROOT for the restore?"
   exit 1
 fi
 
@@ -88,9 +99,51 @@ export WEBHARE_BASEPORT=$WEBHARE_BASEPORT
 EOF
 fi
 
-if ! $WEBHARE_DIR/bin/dbserver --restore "$TORESTORE/backup/backup.bk000" --restoreto "$WEBHARE_DATAROOT/dbase" --blobimportmode $BLOBIMPORTMODE ; then
-  echo "Restore failed (errorcode $?)"
-  exit $?
+if [ "$RESTORE_DB" == "dbserver" ]; then
+  if ! $WEBHARE_DIR/bin/dbserver --restore "$TORESTORE/backup/backup.bk000" --restoreto "$WEBHARE_DATAROOT/dbase" --blobimportmode $BLOBIMPORTMODE ; then
+    echo "Restore failed (errorcode $?)"
+    exit $?
+  fi
+elif [ "$RESTORE_DB" == "postgresql" ]; then
+  # Remove previous restore
+  rm -rf "$WEBHARE_DATAROOT/postgresql.restore/"
+
+  mkdir -p "$WEBHARE_DATAROOT/postgresql.restore/db/pg_wal/"
+  chmod -R 700 "$WEBHARE_DATAROOT/postgresql.restore/db/"
+
+  PV="cat"
+  which pv >/dev/null 2>&1 && PV="pv"
+
+  if ! $PV "$TORESTORE/backup/base.tar.gz" | (umask 0077 && tar zx --no-same-permissions -C "$WEBHARE_DATAROOT/postgresql.restore/db/"); then
+    echo Extracting base database failed
+    exit 1
+  fi
+  if ! $PV "$TORESTORE/backup/pg_wal.tar.gz" | (umask 0077 && tar zx --no-same-permissions -C "$WEBHARE_DATAROOT/postgresql.restore/db/pg_wal/"); then
+    echo Extracting WAL segments failed
+    exit 1
+  fi
+
+  if [ "$BLOBIMPORTMODE" == "softlink" ]; then
+    if ! cp -rs "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
+      echo Softlinking blobs failed
+      exit 1
+    fi
+  else
+    LINKARG=
+    if [ "$BLOBIMPORTMODE" == "hardlink" ]; then
+      LINKARG=\"-H --link-dest "$TORESTORE/"\"
+    fi
+
+    if ! rsync -a --info=progress2 $LINKARG "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
+      echo Extracting blobs failed
+      exit 1
+    fi
+  fi
+
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then
+    chown -R postgres "$WEBHARE_DATAROOT/postgresql/db/"
+  fi
+  mv "$WEBHARE_DATAROOT/postgresql.restore" "$WEBHARE_DATAROOT/postgresql"
 fi
 
 echo ""
