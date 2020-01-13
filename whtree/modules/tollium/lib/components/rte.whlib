@@ -133,8 +133,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   STRING pvt_toplaintextmethod;
   STRING pvt_warnlengthexceededwarningtid;
 
-
-
+  BOOLEAN pvt_havestructuredatafile;
 
   // ---------------------------------------------------------------------------
   //
@@ -984,7 +983,10 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
       this->SetCSSFiles(cssfiles);
 
     IF(def.structuredatafile!="")
+    {
+      this->pvt_havestructuredatafile := TRUE;
       this->LoadStructureDefFile(GetWebhareResource(def.structuredatafile));
+    }
 
 
     this->rtelinkhandlers := def.linkhandlers;
@@ -998,7 +1000,7 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
 
   UPDATE MACRO PostInitComponent()
   {
-    IF(GetDtapStage() = "development")
+    IF(GetDtapStage() = "development" AND NOT this->pvt_havestructuredatafile)
       THROW NEW TolliumException(this, "The <rte> component should be replaced by either <richdocument> or <richarea>");
   }
 >;
