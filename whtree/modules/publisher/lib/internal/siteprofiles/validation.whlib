@@ -29,6 +29,9 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
       //extra sanity check, composition name=fsinstance is always a mistake?
       IF(ObjectExists(extension))
         this->EnsureNoFSInstance(extension);
+
+      IF(widgettype->HasAttribute("wittycomponent"))
+        this->VerifyWittyComponentExistence(widgettype->linenum, widgettype->GetAttribute("wittycomponent"));
     }
 
     RECORD parseres := ParseSiteProfile(this->respath, "", [ xmldoc := this->xml ]); //ADDME forwards XSD?

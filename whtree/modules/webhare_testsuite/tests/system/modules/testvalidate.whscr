@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // inconsistentscreen lacks 'badbutton'
 BLOB inconsistentscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
@@ -139,7 +140,7 @@ BLOB siteprofgids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
       </panel>
     </newtab>
   </tabsextension>
-  <widgettype namespace="urn::testwidtget" tid=".widgettype" />
+  <widgettype namespace="urn::testwidget" tid=".widgettype" />
 </siteprofile>`);
 
 
@@ -378,6 +379,41 @@ MACRO TestBasicValidate()
 
   TestEq(1,Length(res.errors));
   TestEqLike("No such library*",res.errors[0].message);
+}
+
+MACRO TestValidateWitty()
+{
+  BLOB witty_nosuchcomponent := StringToBlob(`
+[component exists][embed nosuchcomponent][embed exists][/component]
+[embed mod::system/whlibs/tests/testsuite.witty:simpleembed]
+[embed mod::system/whlibs/tests/testsuite.witty:nosuchcomponent]
+[embed ../whlibs/tests/testsuite.witty:simpleembed]
+[embed ../whlibs/tests/testsuite.witty:nosuchcomponent]
+[embed nosuch.witty:nosuchcomponent]
+`);
+
+  RECORD res := ValidateSingleFile("mod::system/lib/dummy.witty", [ overridedata := witty_nosuchcomponent ]);
+  TestEq([ [ line := 2, col := 20, message := "No such component 'nosuchcomponent'" ]
+         , [ line := 4, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         , [ line := 6, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         , [ line := 7, col := 2, message := "Witty parse error on library mod::system/lib/nosuch.witty: Cannot load library mod::system/lib/nosuch.witty" ]
+         ], SELECT col, line, message FROM res.errors ORDER BY line,col,message)  ;
+
+  res := ValidateSingleFile("mod::system/data/x.siteprl.xml", [ overridedata := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+    <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+      <widgettype namespace="urn::testwidget1" wittycomponent="nosuch.witty:component" />
+      <widgettype namespace="urn::testwidget2" wittycomponent="component" />
+      <widgettype namespace="urn::testwidget3" wittycomponent="/whlibs/tests/testsuite.witty:simpleembed" />
+      <widgettype namespace="urn::testwidget4" wittycomponent="/whlibs/tests/testsuite.witty:nosuchcomponent" />
+      <widgettype namespace="urn::testwidget5" wittycomponent="../whlibs/tests/testsuite.witty:simpleembed" />
+      <widgettype namespace="urn::testwidget6" wittycomponent="../whlibs/tests/testsuite.witty:nosuchcomponent" />
+    </siteprofile>`)]);
+
+  TestEq([ [ line := 3, col := 0, message := "Witty parse error on library mod::system/data/nosuch.witty: Cannot load library mod::system/data/nosuch.witty" ]
+         , [ line := 4, col := 0, message := "Invalid Witty component reference 'component'" ]
+         , [ line := 6, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         , [ line := 8, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         ], SELECT col, line, message FROM res.errors ORDER BY line,col,message)  ;
 }
 
 MACRO TestValidateNext()
@@ -777,6 +813,7 @@ ASYNC MACRO TestLoadScreen()
 }
 
 RunTestFramework([ PTR TestBasicValidate
+                 , PTR TestValidateWitty
                  , PTR TestValidateNext
                  , PTR TestValidateSVG
                  , PTR TestValidateForm

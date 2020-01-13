@@ -10,6 +10,13 @@ RECORD last_witty_error;
 RECORD ARRAY errors;
 RECORD result;
 
+OBJECT FUNCTION ParseWittyInline(STRING data, STRING encoding)
+{
+  OBJECT temp := NEW WittyTemplate(encoding);
+  temp->LoadCodeDirect(data);
+  RETURN temp;
+}
+
 MACRO TestParse(STRING script, STRING encoding)
 {
   OBJECT tpl := NEW WittyTemplate(encoding);
@@ -783,6 +790,25 @@ MACRO ScopedCallback(STRING type)
   }
 }
 
+MACRO TestDescribeWitty()
+{
+  OBJECT script := ParseWittyInline("[gettid value]a test[gethtmltid rich]","HTML");
+  RECORD ARRAY description := script->__GetTidsRawData();
+
+  TestEq([[ line := 1, col := 2, data := "value", type := "tid" ]
+         ,[ line := 1, col := 16, data := "a test", type := "content" ]
+         ,[ line := 1, col := 22, data := "rich", type := "htmltid" ]
+         ], description);
+
+  script := ParseWittyInline("[component a][embed b][embed x:c][/component]","HTML");
+  description := script->__GetTidsRawData();
+
+  TestEq([[ line := 1, col := 2, data := "A", type := "component" ]
+         ,[ line := 1, col := 15, data := "b", type := "embed" ]
+         ,[ line := 1, col := 24, data := "x:c", type := "embed" ]
+         ], description);
+}
+
 INTEGER FUNCTION ScopedCallbackFunc()
 {
   scopedcallbackcounter := scopedcallbackcounter + 1;
@@ -830,5 +856,6 @@ WittyResolving();
 WittyEncoding();
 WittyInfiniteCRecursion();
 WittyRegression();
+TestDescribeWitty();
 EncodingConfusion();
 TestCallWithScope();
