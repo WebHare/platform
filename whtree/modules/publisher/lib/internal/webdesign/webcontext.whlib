@@ -108,19 +108,19 @@ PUBLIC STATIC OBJECTTYPE WebContext
   OBJECT pvt_targetsite;
   OBJECT pvt_targetapplytester;
 
-  //The base URL for this page
+  ///The base URL for this page
   PUBLIC STRING baseurl;
-  //The language to use (eg 'en', 'nl')
+  ///The language to use (eg 'en', 'nl')
   PUBLIC STRING languagecode;
-  //The object being published/displayed
+  /// The object being published/displayed
   PUBLIC PROPERTY targetobject(pvt_targetobject, -);
-  //The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
+  /// @type(object %WHFSFolder) The folder containing the targetobject, if targetobject is a file. Otherwise, the target object
   PUBLIC PROPERTY targetfolder(pvt_targetfolder, -);
-  //The site containing the targetobject;
+  /// @type(object %SiteObject) The site containing the targetobject;
   PUBLIC PROPERTY targetsite(pvt_targetsite, -);
-  //The apply tester for the targetobject
+  /// @type(object %ApplyRuleTester) The apply tester for the targetobject
   PUBLIC PROPERTY targetapplytester(pvt_targetapplytester, -);
-  //The object providing the source. This will differ from targetobject if targetobject is a contentlink.
+  ///The object providing the source. This will differ from targetobject if targetobject is a contentlink.
   PUBLIC PROPERTY contentobject(pvt_contentobject, -);
 
   PUBLIC OBJECT __mergefields;

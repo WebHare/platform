@@ -258,7 +258,7 @@ MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_par
       CONTINUE;
 
     INTEGER type_left := SELECT AS INTEGER id FROM local_types WHERE ToUppercase(tag) = ToUppercase(a.domaintag);
-    IF (a.domaintag != ""AND type_left = 0)
+    IF (a.domaintag != "" AND type_left = 0)
       THROW NEW Exception(`Could not resolve domain '${a.domaintag}' for attribute ${a.tag}`);
 
     RECORD metadata := a;
@@ -328,17 +328,17 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
   CASE 2
     {
       IF (type_left = 0)
-        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
 
       IF (type_right = 0)
-        THROW NEW Exception(`Could not resolve link to '${type_right_tag}' for type '${data.tag}`);
+        THROW NEW Exception(`Could not resolve link to '${type_right_tag}' for type '${data.tag}'`);
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
     }
   CASE 3
     {
       IF (type_left = 0)
-        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}`);
+        THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
     }
@@ -353,18 +353,18 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @param work Tollium work object
     @param local_schema WRD schema to update
     @param schemadef Schema definition
-    @cell(record array) schemadef.types
-    @cell(string) schemadef.types.title
-    @cell(string) schemadef.types.tag
+    @cell(record array) schemadef.types List of types
+    @cell(string) schemadef.types.title Title of the type
+    @cell(string) schemadef.types.tag Tag of the type
     @cell(string) schemadef.types.type "OBJECT"/"ATTACHMENT"/"LINK"/"DOMAIN"
-    @cell(string) schemadef.types.requiretype_left_tag For "ATTACHMENT", "LINK", tag of type of WRD_LEFTENTITY
-    @cell(string) schemadef.types.requiretype_left_tag For "LINK", tag of type of WRD_RIGHTENTITY
-    @cell(record array) schemadef.types.attrs
-    @cell(string) schemadef.types.attrs.type One of "DOMAIN_SINGLE", "FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE",
-          "PASSWORD", "DOMAIN_MULTIPLE", "IMAGE", "FILE", "TIME", "DATETIME", "ARRAY", "MONEY", "INTEGER", "BOOLEAN", "RICHDOCUMENT", "
-          "WHFS_INSTANCE", "WHFS_INTEXTLINK", "URL", "RECORD"
-    @cell(string) schemadef.types.attrs.title
-    @cell(string) schemadef.types.attrs.tag
+    @cell(string) schemadef.types.linkfrom_tag For "ATTACHMENT", "LINK", tag of type of WRD_LEFTENTITY
+    @cell(string) schemadef.types.linkto_tag For "LINK", tag of type of WRD_RIGHTENTITY
+    @cell(record array) schemadef.types.attrs List of attributes
+    @cell(string) schemadef.types.attrs.attributetypename One of "DOMAIN_SINGLE", "FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE",
+          "PASSWORD", "DOMAIN_MULTIPLE", "IMAGE", "FILE", "TIME", "DATETIME", "ARRAY", "MONEY", "INTEGER", "BOOLEAN", "RICHDOCUMENT",
+          "WHFSINSTANCE", "WHFSINTEXTLINK", "URL", "RECORD"
+    @cell(string) schemadef.types.attrs.title Title of the attribute
+    @cell(string) schemadef.types.attrs.tag Tag of the attribute
     @cell(string) schemadef.types.attrs.domaintag For DOMAIN_SINGLE, DOMAIN_MULTIPLE, tag of the type
     @cell(string) schemadef.types.domvalsyncattr Attribute to sync the domain values on
     @cell(record array) schemadef.types.vals Domain values (must all contain the @a domvalsyncattr)
@@ -377,6 +377,7 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @cell(string) schemadef.keyvaluestore.value.data
     @cell(blob) schemadef.keyvaluestore.value.blobdata
     @cell(integer) schemadef.keyvaluestore.value.type
+    @cell(string array) schemadef.schemaresources Resources used to build the schema definition
     @param options
     @cell(boolean) options.fromexternal Set to true if the source is an external server
 */
@@ -511,7 +512,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
           oc := CellInsert(oc, tooverwrite, tooverwrite);
 
     IF (NOT CellExists(oc, syncattr))
-      THROW NEW Exception("Domain values sync attibute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
+      THROW NEW Exception("Domain values sync attribute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
 
     RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := oc ]);
 
