@@ -164,8 +164,8 @@ RECORD FUNCTION GetAttributeContents(OBJECT wrdtype,
       CASE 16 { attrtype := "boolean"; }
       CASE 17 { attrtype := "richdocument"; }
       CASE 18 { attrtype := "integer64"; }
-      CASE 19 { attrtype := "whfs_instance"; }
-      CASE 20 { attrtype := "whfs_intextlink"; }
+      CASE 19 { attrtype := "whfsinstance"; }
+      CASE 20 { attrtype := "whfsintextlink"; }
       CASE 21 { attrtype := "url"; }
     }
     INSERT (attrcontents != "" ? "{" : "")

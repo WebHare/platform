@@ -292,8 +292,8 @@ PUBLIC RECORD wrd_language  := [ en := [ langcode := "en"
    16 = boolean
    17 = richdoc
    18 = integer64
-   19 = whfs_instance
-   20 = whfs_intextlink
+   19 = whfsinstance
+   20 = whfsintextlink
    21 = url
 */
 

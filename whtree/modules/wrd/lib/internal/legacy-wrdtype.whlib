@@ -149,8 +149,8 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
      16 = BOOLEAN
      17 = RICHDOCUMENT
      18 = INTEGER64
-     19 = WHFS_INSTANCE
-     20 = WHFS_INTEXTLINK
+     19 = WHFSINSTANCE
+     20 = WHFSINTEXTLINK
      21 = URL
 
      FIXME: Better (e.g. a lot of) documentation
