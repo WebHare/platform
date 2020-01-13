@@ -28,7 +28,7 @@ PUBLIC STRING FUNCTION VerifyWittyComponentExistence(STRING basepath, STRING com
   resource := MakeAbsoluteResourcePath(basepath, resource);
   TRY
   {
-    STRING ARRAY components := GetAdhocCached(CELL[resource], PTR GetCacheableComponentsList(resource)); //tbis also tests resource existence
+    STRING ARRAY components := GetAdhocCached(CELL[resource], PTR GetCacheableComponentsList(resource)); //this also tests resource existence
     IF(ToUppercase(component) NOT IN components)
       RETURN `No such component '${component}' in '${resource}'`;
     RETURN "";
