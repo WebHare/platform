@@ -91,7 +91,7 @@ if [ -n "$WEBHAREIMAGE" ]; then
   # We'll be using the specified docker image to do the restore. This will not work with pre-4.20 images
   # We'll force --copy - if you're doing rescue-type restores inside a docker container (with the dbase in /opt/whdata/restore)
   #                      just invoke wh restore inside that docker.
-  exec docker run --rm -v "$WEBHARE_DATAROOT":/opt/whdata -v "$TORESTORE":/backupsource $WEBHAREIMAGE wh restore --copy /backupsource/
+  exec docker run -ti --rm -v "$WEBHARE_DATAROOT":/opt/whdata -v "$TORESTORE":/backupsource $WEBHAREIMAGE wh restore --copy /backupsource/
   exit 255
 fi
 
@@ -136,19 +136,19 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
       exit 1
     fi
   else
-    LINKARG=
+    LINKARG=()
     if [ "$BLOBIMPORTMODE" == "hardlink" ]; then
-      LINKARG="--link-dest=$TORESTORE/"
+      LINKARG+=(--link-dest=$TORESTORE/)
     fi
 
-    if ! rsync -a $RSYNCOPTS "$LINKARG" "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
+    if ! rsync -a $RSYNCOPTS "${LINKARG[@]}" "$TORESTORE/blob" "$WEBHARE_DATAROOT/postgresql.restore/"; then
       echo Extracting blobs failed
       exit 1
     fi
   fi
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown -R postgres "$WEBHARE_DATAROOT/postgresql/db/"
+    chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
   mv "$WEBHARE_DATAROOT/postgresql.restore" "$WEBHARE_DATAROOT/postgresql"
 fi
