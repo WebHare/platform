@@ -91,6 +91,7 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
   RECORD ARRAY clusters  :=
       [ [ tag :=                    "system:default"
         , harescriptworkers :=      1
+        , harescriptworkerthreads := 1
         , javascriptworkers :=      2
         ]
       ];
@@ -113,6 +114,7 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
       INSERT
           [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
           , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
+          , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
           , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
           ] INTO clusters AT END;
     }

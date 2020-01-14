@@ -785,9 +785,13 @@ PUBLIC STRING FUNCTION __whdb_GetHarescriptType(STRING dbase_type)
     {
       RETURN "STRING";
     }
+    CASE "numeric"
+    {
+      RETURN "MONEY";
+    }
     CASE "float4","_float4"
     {
-      RETURN "float";
+      RETURN "FLOAT";
     }
     CASE "oid", "int2", "int4"
     {

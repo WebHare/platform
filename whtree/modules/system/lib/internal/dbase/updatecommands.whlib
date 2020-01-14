@@ -231,7 +231,7 @@ PUBLIC STRING FUNCTION GenerateDatabaseSchemaXMLFromSchemaDef(RECORD schemadef)
 
     FOREVERY (RECORD coldef FROM tabledef.cols)
     {
-      def := `${def}    <d:${coldef.dbtype} name="${EncodeValue(ToLowercase(coldef.name))}"`;
+      def := `${def}    <d:${ToLowercase(coldef.dbtype)} name="${EncodeValue(ToLowercase(coldef.name))}"`;
       IF (coldef.references_table != "")
       {
         STRING refto := `${coldef.references_schema = schemadef.name ? "" : `${coldef.references_schema}`}.${coldef.references_table}`;

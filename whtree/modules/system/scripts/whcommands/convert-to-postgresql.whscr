@@ -1,10 +1,27 @@
-﻿<?wh
-/* wh run mod::system/scripts/database/migration.whscr
+<?wh
+// command: convert-to-postgresql [--dryrun] [--nowait]
+// short: Convert WHDB to postgresql
+
+/*
+    to estimate and test first:
+    wh convert-to-postgresql --dryrun
+
+    run conversion:
+    wh convert-to-postgresql
+
+    fully automatic conversion (use on your own risk!)
+    wh db setserver readonly && wh convert-to-postgresql && sv restart webhare
+
+
+    tools to help you with broken databases:
+     - wh run mod::webhare_testsuite/scripts/runonce/fixdevserver.whscr
+     - wh run mod::system/scripts/tools/fix-invalid-whfs-names.whscr
 */
 
 LOADLIB "wh::async.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
@@ -14,6 +31,7 @@ LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -74,6 +92,9 @@ IF (NOT RecordExists(args))
   TerminateScriptWithError(`Invalid arguments`);
 }
 
+DATETIME startconversion := GetCurrentDatetime();
+LogInfo("system:convert-to-postgresql", "Conversion to postgresql starting" || (args.dryrun ? " (dry-run)" : ""), CELL[ type := "posgresql conversion", ...args ]);
+
 MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL "wh_pgsql", EXECUTESHARESCRIPT);
 
 
@@ -120,10 +141,13 @@ IF (RecordExists(GetDiskFileProperties(postgresql_final_dbasefolder)))
   TerminateScriptWithError(`Existing PostgreSQL database found in '${postgresql_final_dbasefolder}', refusing to re-migrate`);
 
 STRING want_readonly := IsDatabaseWritable() ? "" : "already_readonly";
-WHILE (want_readonly NOT IN [ "yes", "no", "already_readonly" ])
+IF(NOT args.dryrun)
 {
-  PRINT("Do you want to switch the WebHare database to readonly during migration? Please type 'yes' or 'no'.");
-  want_readonly := ReadLineFrom(0, 4096, TRUE);
+  WHILE (want_readonly NOT IN [ "yes", "no", "already_readonly" ])
+  {
+    PRINT("Do you want to switch the WebHare database to readonly during migration? Please type 'yes' or 'no'.");
+    want_readonly := ReadLineFrom(0, 4096, TRUE);
+  }
 }
 
 IF(NOT args.dryrun AND NOT args.nowait)
@@ -133,14 +157,6 @@ IF(NOT args.dryrun AND NOT args.nowait)
 }
 
 OBJECT trans := OpenPrimary();
-
-// UTF-8 invalid stuff that can be deleted safely
-IF (want_readonly != "already_readonly")
-{
-  trans->BeginWork();
-  DELETE FROM system.flatregistry WHERE name LIKE "webhare_testsuite.storeddata.*";
-  trans->CommitWork();
-}
 
 IF (want_readonly = "yes")
 {
@@ -304,7 +320,7 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
 }
 
 
-IF (want_readonly != "yes")
+IF (want_readonly NOT IN [ "yes", "already_readonly"] )
   trans->BeginWork();
 postgresql_trans->BeginWork();
 
@@ -334,20 +350,28 @@ __LegacyCreateTable(postgresql_trans, "webhare_internal", "postgresql_migration_
 // Defer all constraints
 postgresql_trans->__ExecSQL("SET CONSTRAINTS ALL DEFERRED");
 
+__BeginWHDBWork(trans->id);
+RECORD ARRAY indices := SELECT tab := COLUMN "table", recs := MAX(totalrecords) FROM __SendWHDBCommand(trans->id, "SHOW INDICES") GROUP BY COLUMN"table";
+__RollbackWHDBWork(trans->id);
+INTEGER64 totalnumrows := SELECT AS INTEGER64 SUM(recs) FROM indices;
+
 PRINT(`Starting record import\n`);
 
 WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
 
-INTEGER64 lastprogress, curdatatransferred, lastdatatransferred;
+INTEGER64 lastprogress, curdatatransferred, lastdatatransferred,donerows;
 INTEGER64 lastblobsize;
 STRING lastprinted;
 DATETIME lastset;
-MACRO AddProgress(INTEGER64 nr)
+MACRO AddProgress(STRING tablename, INTEGER64 nr, INTEGER64 rowsintable)
 {
-  Print(RepeatText("\x08", LENGTH(lastprinted)));
+  Print(`\rProcessing ${tablename}... `);
   INTEGER64 prevlastprogress := lastprogress < 0 ? 0i64 : lastprogress;
   IF (nr >= 0)
+  {
     lastprogress := prevlastprogress + nr;
+    donerows := donerows + nr;
+  }
   ELSE
   {
     lastprogress := -1;
@@ -358,9 +382,13 @@ MACRO AddProgress(INTEGER64 nr)
   DATETIME now := GetCurrentDateTime();
   IF (lastprogress >= 0 AND nr != 0)
   {
+    INTEGER sofar := GetDateTimeDifference(startconversion, now).msecs;
+    FLOAT overallprogress := FLOAT(donerows) / totalnumrows;
+
     INTEGER msecs := GetDateTimeDifference(lastset, now).msecs;
-    IF (msecs > 0)
-      newnr := newnr || ` ${1000 * nr / msecs}/s ${(curdatatransferred - lastdatatransferred) / 1000 /msecs}mb/s`;
+    INTEGER totalsec := GetDateTimeDifference(startconversion, now).msecs / 1000;
+    IF (msecs > 0 AND rowsintable > 0)
+      newnr := newnr || `/${rowsintable}, ${1000 * nr / msecs} records/second, table: ${FormatFloat((FLOAT(lastprogress) / rowsintable) * 100,2)}%, overall: ${FormatFloat(overallprogress * 100,2)}%, ${totalsec} secs`;
   }
   PRINT(newnr);
   INTEGER overlen := LENGTH(lastprinted) - LENGTH(newnr);
@@ -413,7 +441,7 @@ ASYNC MACRO UploadAndAddNewBlobs(RECORD ARRAY new_blobs)
   importedblobs := local_importedblobs;
 }
 
-BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY blobcols, STRING ARRAY varcharcols, RECORD ARRAY records)
+BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY blobcols, STRING ARRAY varcharcols, RECORD ARRAY records, INTEGER64 rowsintable)
 {
   records := SELECT AS RECORD ARRAY tbl FROM records;
 
@@ -503,12 +531,15 @@ BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY 
         // Update the new data
         records[#rec] := CellUpdate(records[#rec], col, newdata);
 
-        PRINT(" problem detected:\n");
-        DumpValue(rec, [ name := `invalid utf-8 in column '${col}': ${EncodeHSON(GetCell(rec, col))}` ]);
+        PRINT(`\n invalid utf-8 in column '${col}': ${Substring(EncodeHSON(GetCell(rec, col)),5)}\n`); //use hson so we see ALL invalid characters, but strip the hson: part
         IF (NOT IsValidUTF8(newdata))
         {
           PRINT(`** Could not correct!\n`);
           allvalid := FALSE;
+        }
+        ELSE
+        {
+          PRINT(` converted to: ${EncodeJava(newdata)}\n`);
         }
       }
     }
@@ -519,7 +550,7 @@ BOOLEAN FUNCTION ProcessRecords(OBJECT inserter, STRING tablename, STRING ARRAY 
   ELSE
     got_invalid_records := TRUE;
 
-  AddProgress(LENGTH(records));
+  AddProgress(tablename, LENGTH(records), rowsintable);
   WaitUntil(DEFAULT RECORD, GetCurrentDateTime());
   RETURN TRUE;
 }
@@ -529,6 +560,7 @@ FOREVERY (RECORD schemadef FROM apply_schemadefs)
   FOREVERY (RECORD tabledef FROM schemadef.tables)
   {
     STRING tblname := `${schemadef.name}.${tabledef.name}`;
+    INTEGER64 rowsintable := SELECT AS INTEGER64 recs FROM indices WHERE Touppercase(tab) = ToUppercase(tblname);
     PRINT(`Processing ${tblname}... `);
     STRING ARRAY cols := SELECT AS STRING ARRAY name FROM tabledef.cols WHERE internalcolumnname = "";
     STRING ARRAY blobcols := SELECT AS STRING ARRAY name FROM tabledef.cols WHERE internalcolumnname = "" AND dbtype = "BLOB";
@@ -539,10 +571,10 @@ FOREVERY (RECORD schemadef FROM apply_schemadefs)
 
     OBJECT inserter := GetDynamicInserter(postgresql_trans, `${schemadef.name}.${tabledef.name}`, CELL[ cols ]);
 
-    AddProgress(-1);
-    query->ExecuteTo(PTR ProcessRecords(inserter, tblname, blobcols, varcharcols, #1));
+    AddProgress(tblname, -1, rowsintable);
+    query->ExecuteTo(PTR ProcessRecords(inserter, tblname, blobcols, varcharcols, #1, rowsintable));
     INTEGER64 inserted := lastprogress < 0 ? 0i64 : lastprogress;
-    AddProgress(-1);
+    AddProgress(tblname, -1, rowsintable);
     PRINT(`done: ${inserted} records\n`);
   }
 }
@@ -554,7 +586,7 @@ PRINT(`Checking all deferred constraints... `);
 postgresql_trans->__ExecSQL("SET CONSTRAINTS ALL IMMEDIATE");
 PRINT(`done\n`);
 
-PRINT(`Creating indices and foreign keys... `);
+PRINT(`Creating indices and foreign keys, this may take a few minutes... `);
 cmd := GeneratePostgreSQLDependentSQLCommands(apply_schemadefs, postgresql_trans);
 ExecuteSQLUpdates(postgresql_trans, cmd.commands);
 PRINT(`done\n`);
@@ -565,7 +597,7 @@ MACRO RenameRightsTables()
 {
   SCHEMA postgresql_system LIKE system := BindTransactionToSchema(postgresql_trans->id, "system");
 
-  FOREVERY (RECORD objtype FROM SELECT DISTINCT tablename, storagetable FROM system.module_objecttypes WHERE tablename != "")
+  FOREVERY (RECORD objtype FROM SELECT names := GroupedValues(name), tablename, storagetable FROM system.module_objecttypes WHERE tablename != "" GROUP BY tablename, storagetable)
   {
     STRING obj_tablename := objtype.tablename;
     STRING storagetable_localname := Tokenize(objtype.storagetable, ".")[1];
@@ -583,7 +615,7 @@ MACRO RenameRightsTables()
          WHERE ToUppercase(table_name) = ToUppercase(t_table);
 
     IF (NOT RecordExists(tablerec))
-      ABORT("Can't find referenced table '"||objtype.tablename||"' for object type '" || objtype.name || "'");
+      ABORT("Can't find referenced table '"||objtype.tablename||"' for object types " || Detokenize(objtype.names,','));
 
     STRING new_storagetable_localname := "o_" || tablerec.object_id;
 
@@ -625,3 +657,7 @@ IF (NOT args.dryrun)
 
   PRINT(`Migration complete, please restart WebHare\n`);
 }
+
+INTEGER totaltime := GetDateTimeDifference(startconversion, GetCurrentDatetime()).msecs;
+STRING finaltext := "Conversion to postgresql finished" || (args.dryrun ? " (dry-run)" : "")|| " in " || totaltime/1000 || " seconds";
+LogInfo("system:convert-to-postgresql", finaltext, CELL[ type := "posgresql conversion", ...args ]);

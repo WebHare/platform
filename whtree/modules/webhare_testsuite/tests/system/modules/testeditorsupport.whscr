@@ -165,6 +165,25 @@ MACRO TestEditSupport()
       connectinfo.editorservice,
       "validate",
       VARIANT[ connectinfo.translateinfo
+             , "mod::system/scripts/test.whscr"
+             , `<?wh\nLOADLIB "wh::witty.whlib";\nPRINT("Hello, World\\n");`
+             ]);
+
+  TestEq(RECORD[], RECORD ARRAY(retval.result.errors));
+
+  TestEQMembers(
+      [ [ line :=     2
+        , col :=      9
+        , code :=     29
+        , msg1 :=     "wh::witty.whlib"
+        ]
+      ], retval.result.warnings, "*"); //as long as sublime integration doenst support hints, report loadlib issues ws warnings
+
+
+  retval := browser->InvokeJSONRPC(
+      connectinfo.editorservice,
+      "validate",
+      VARIANT[ connectinfo.translateinfo
              , "mod::system/lib/witty.witty"
              , `[embed nosuchcomponent]`
              ]);

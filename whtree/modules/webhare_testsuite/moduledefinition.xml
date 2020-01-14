@@ -16,6 +16,7 @@
 
   <servicemanager>
     <runonce       tag="setuptestsite" script="scripts/whcommands/reset.whscr" when="poststart" />
+    <runonce       tag="fixdevserver_20200110" script="scripts/runonce/fixdevserver.whscr" when="poststart" />
     <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
     <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
     <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask"/>

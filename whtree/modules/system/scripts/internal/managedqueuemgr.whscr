@@ -530,6 +530,8 @@ STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
 
 STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
 <
+  PUBLIC INTEGER threads;
+
   /** @return Worker type (0: harescript, 1: javascript)
   */
   UPDATE PUBLIC INTEGER FUNCTION GetWorkerType()
@@ -551,8 +553,11 @@ STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
   */
   UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
   {
+    STRING ARRAY args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ];
+    IF(this->threads > 1)
+      args := [ "--workerthreads", ToString(this->threads) ] CONCAT args;
     RETURN [ process := GetInstallationRoot() || "bin/runscript"
-           , args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ]
+           , args := args
            ];
   }
 >;
@@ -630,6 +635,7 @@ MACRO CheckMoreWorkers()
       OBJECT worker := NEW ManagedHSWorker;
       worker->tags := [ "default" ];
       worker->cluster := cluster.tag;
+      worker->threads := cluster.harescriptworkerthreads;
       INSERT worker INTO managedworkers AT END;
       worker->Launch();
       IF (debug)

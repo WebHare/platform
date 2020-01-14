@@ -34,7 +34,7 @@ STRING FUNCTION GetDefStmt(RECORD tabledef, RECORD ARRAY columns, STRING indent)
 
     STRING hstype := __whdb_GetHarescriptType(col.data_type);
     hs_tabledef := hs_tabledef ||  (hstype || ' "' || EncodeJava(col.column_name) || '"');
-    IF (hstype = "INTEGER" AND col.referenced_table_name != "")
+    IF ( (hstype = "INTEGER" AND col.referenced_table_name != "") OR (col.column_name = tabledef.primary_key_name))
       hs_tabledef := hs_tabledef || " NULL := 0" ;
     IF (ToLowercase(col.data_type) = "bytea")
       hs_tabledef := hs_tabledef || " __ATTRIBUTES__(BINARY)" ;

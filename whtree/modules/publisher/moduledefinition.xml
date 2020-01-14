@@ -24,7 +24,7 @@
 
     <task tag="scheduledtasks" script="scripts/tasks/executetasks.whscr" description="Launch a scheduled publisher task (eg move or start publishing a file)"/>
 
-    <taskcluster tag="publicationqueue" harescriptworkers="4" />
+    <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
     <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" />
     <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" />
 

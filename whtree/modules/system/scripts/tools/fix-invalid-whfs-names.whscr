@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+OBJECT trans := OpenPrimary();
+  trans->BeginWork();
+FOREVERY(RECORD tofix FROM SELECT id,parent,whfspath,name FROM system.fs_objects WHERE NOT IsValidWHFSName(Name, FALSE) ORDER BY whfspath)
+{
+  STRING newname := OpenwHFSObject(tofix.parent)->GenerateUniqueName(tofix.name);
+  Print(`FS Object #${tofix.id} has an invalid file name '${EncodeJava(tofix.name)}'\n`);
+  Print(`  Full whfs path: ${tofix.whfspath}\n`);
+  Print(`  New file name: ${newname}\n`);
+  OpenWHFSObject(tofix.id)->UpdateMetadata([name := newname]);
+}
+trans->CommitWork();
