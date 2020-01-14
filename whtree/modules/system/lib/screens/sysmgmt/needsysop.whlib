@@ -37,12 +37,17 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       WriteRegistryKey("system.global.servername", ^servername->value);
     }
 
+    INTEGER usersunit := this->contexts->userapi->wrdschema->^whuser_unit->Search("WRD_TITLE","Users", [ matchcase := FALSE ]);
+    IF(usersunit = 0)
+      usersunit := this->contexts->userapi->wrdschema->^whuser_unit->CreateEntity([wrd_title := "Users"])->id;
+
     OBJECT sysop := this->contexts->userapi->wrdschema->^wrd_person->CreateEntity(
       [ whuser_password := CreateWebharePasswordHash(^password->value)
       , wrd_contact_email := ^email->value
       //using french as Hello Opérateur, works better than Hello System,
       , wrd_firstname := "Opérateur"
       , wrd_lastname := "du Système"
+      , whuser_unit := usersunit
       ]);
     this->contexts->userapi->ResyncToSystemTables();
 
