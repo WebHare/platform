@@ -56,6 +56,10 @@ if [ "$__WEBHARE_DBASE" == "dbserver" ]; then
   "${WEBHARE_DIR}/bin/backup" -cp --threads --blobmode=reference --suspendfile $BACKUPDEST/backup/suspend $BACKUPDEST/backup/backup > $BACKUPDEST/backuplog 2>&1 &
   tail -n 1000 -f "$BACKUPDEST/backuplog" &
 
+  while [ ! -f "$BACKUPDEST/backup/suspend" ]; do
+    sleep .1
+  done
+
   echo "Copying/linking blobs..."
   [ "$VERBOSE" == "1" ] && MYOPTS=-v
 
