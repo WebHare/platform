@@ -9,6 +9,25 @@ PUBLIC         MACRO    __HS_THROWEXCEPTION(OBJECT obj, BOOLEAN isrethrow) __ATT
 PUBLIC                  MACRO    CLOSEZIPFILE(INTEGER fileid)  __ATTRIBUTES__(EXTERNAL);
 PUBLIC DATETIME         FUNCTION GETBLOBMODTIME(BLOB file) __ATTRIBUTES__(EXTERNAL); //internal api, not guaranteed to return a modtime (eg dbase blob)
 PUBLIC STRING           FUNCTION GETBLOBDESCRIPTION(BLOB file) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Returns the timestamp of the current date and time on the server
+    @long You can use the @italic AddTimeToDate() function in conjunction with this function to
+          get the time and date in different time zones.
+    @return A DateTime value, representing the current date and time at the WebHare system in UTC.
+    @public
+    @loadlib wh::datetime.whlib
+    @topic harescript-core/datetime
+    @see AddTimeToDate
+    @example
+// returns a timestamp of the current date and time
+DATETIME serverTime := GetCurrentDateTime();
+
+// returns a timestamp of the current date and time in UTC + 1
+INTEGER ExtraMsecs := 60 * 60 * 1000;
+DATETIME UTC1 := AddTimeToDate( ExtraMSecs, GetCurrentDateTime() );
+*/
+PUBLIC DATETIME         FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
+
 PUBLIC STRING           FUNCTION GETZIPFILECOMMENT(INTEGER fileid) __ATTRIBUTES__(EXTERNAL);
 PUBLIC RECORD ARRAY     FUNCTION GETZIPFILEDIRECTORY(INTEGER fileid)  __ATTRIBUTES__(EXTERNAL);
 PUBLIC INTEGER          FUNCTION JSONDECODERALLOCATE(BOOLEAN hson, RECORD translations) __ATTRIBUTES__(EXTERNAL);
@@ -24,6 +43,7 @@ PUBLIC                  MACRO    __HS_EVENT_CLOSESTREAM(INTEGER id) __ATTRIBUTES
 PUBLIC                  MACRO    __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(INTEGER id, STRING ARRAY add, STRING ARRAY remove, BOOLEAN reset) __ATTRIBUTES__(EXTERNAL);
 PUBLIC RECORD           FUNCTION __HS_EVENT_STREAMREAD(INTEGER id) __ATTRIBUTES__(EXTERNAL);
 PUBLIC                  MACRO    __HS_EVENT_BROADCAST(STRING event, RECORD data, BOOLEAN local) __ATTRIBUTES__(EXTERNAL);
+
 
 
 /** @short Get the path to the current directory

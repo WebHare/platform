@@ -74,7 +74,7 @@ ELSE IF(args.sp OR args.spv)
     SetConsoleExitCode(1);
 
   PrintValidationMessages(res);
-  IF(Length(res.warnings CONCAT res.errors) > 0)
+  IF(Length(res.warnings CONCAT res.errors CONCAT res.hints) > 0)
     Print("\n"); //extra linefeed
 
   Print("Validating siteprofiles\n");

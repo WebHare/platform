@@ -9,7 +9,7 @@
 */
 
 LOADLIB "wh::system.whlib";
-LOADLIB "wh::internal/interface.whlib" EXPORT MAX_DATETIME, MakeDateFromText;
+LOADLIB "wh::internal/interface.whlib" EXPORT MAX_DATETIME, MakeDateFromText, GetCurrentDateTime;
 LOADLIB "wh::util/localization.whlib" EXPORT UTCToLocal, LocalToUTC, IsLocalTimeDST, IsWeekend, GetUTCOffset,
                                              GetAvailableTimeZones, GetAvailableTimeZoneNames,
                                              GetSystemTimeZoneID;
@@ -560,24 +560,6 @@ PUBLIC INTEGER FUNCTION GetMsecsDifference(DATETIME fromdate, DATETIME todate)
   RECORD diff := GetDatetimeDifference(fromdate,todate);
   RETURN diff.days >= 1 ? (24*60*60*1000) : diff.days <= -1 ? -(24*60*60*1000) : diff.msecs;
 }
-
-
-
-/** @short Returns the timestamp of the current date and time on the server
-    @long You can use the @italic AddTimeToDate() function in conjunction with this function to
-          get the time and date in different time zones.
-    @return A DateTime value, representing the current date and time at the WebHare system in UTC.
-    @see AddTimeToDate
-    @example
-// returns a timestamp of the current date and time
-DATETIME serverTime := GetCurrentDateTime();
-
-// returns a timestamp of the current date and time in UTC + 1
-INTEGER ExtraMsecs := 60 * 60 * 1000;
-DATETIME UTC1 := AddTimeToDate( ExtraMSecs, GetCurrentDateTime() );
-*/
-PUBLIC DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
-
 
 
 

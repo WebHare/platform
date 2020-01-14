@@ -2300,7 +2300,6 @@ INTEGER randomizer_seed := -1;
 INTEGER FUNCTION GetDayCount(DATETIME date) __ATTRIBUTES__(EXTERNAL);
 INTEGER FUNCTION GetMsecondCount(DATETIME endTime) __ATTRIBUTES__(EXTERNAL);
 FLOAT FUNCTION Sqrt(FLOAT value) __ATTRIBUTES__(EXTERNAL);
-DATETIME FUNCTION GetCurrentDateTime() __ATTRIBUTES__(EXTERNAL);
 
 // Generates a nr in the range [0, rlimit>. rlimit in [0..65000]
 INTEGER FUNCTION RandomInternal(INTEGER rlimit)

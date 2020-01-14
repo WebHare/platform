@@ -84,6 +84,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
 
     this->result := [ errors               := RECORD[]
                     , warnings             := RECORD[]
+                    , hints                := RECORD[]
                     , contenttypes         := RECORD[]
                     , grouptypes           := RECORD[]
                     , siteprofiles         := RECORD[]
@@ -452,8 +453,11 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     SaveCompiledSiteProfiles(this->result);
     INSERT CELL fullcspdata := this->result INTO compileresult;
 
-    INSERT CELL errors := this->GetErrors() INTO compileresult;
-    INSERT CELL warnings := this->GetWarnings() INTO compileresult;
+    compileresult := CELL[ ...compileresult
+                         , this->result.errors
+                         , this->result.warnings
+                         , this->result.hints
+                         ];
 
     // Just assume we'll make changes
     GetWHFSCommitHandler()->FSTypesChanged();
@@ -652,6 +656,7 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
 
   RETURN [ errors := response.errors
          , warnings := response.warnings
+         , hints := response.hints
          ];
 }
 PUBLIC RECORD FUNCTION RecompileSiteProfiles()

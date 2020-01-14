@@ -8,9 +8,13 @@
     /* Note - we keep code here to the absolute minimum, if doubleerror.shtml
        breaks we have no choice but to go to the Debugging page.... */
 
+    LOADLIB "wh::internal/interface.whlib";
     LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
     LOADLIB "mod::system/lib/webserver/errors.whlib";
-    PrintHSErrors(GetRequestErrorInfo().errors, DEFAULT FUNCTION PTR);
+
+    Print("<h1>500 Server error</h1>");
+    STRING errorid := SELECT AS STRING param1 FROM GetRequestErrorInfo().errors;
+    Print(`Something went wrong on our side. Please try again later.<br><br>Error ID: ${EncodeHTML(errorid)} at ${Substring(EncodeJSON(GetCurrentDatetime()),1,24)}`);
     ?>
   </body>
 </html>

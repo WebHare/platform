@@ -331,10 +331,8 @@ PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECO
 {
   RECORD objinfo := SELECT isfolder FROM system.fs_objects WHERE id = objectid;
   RECORD target;
-  IF(RecordExists(objinfo) AND objinfo.isfolder)
-    target := [ folderid := objectid ];
-  ELSE IF(RecordExists(objinfo) AND objinfo.isfolder)
-    target := [ fileid := objectid ];
+  IF(RecordExists(objinfo))
+    target := objinfo.isfolder ? [ folderid := objectid ] : [ fileid := objectid ];
 
   parentscreen->contexts->controller->SendApplicationMessage("publisher:app", target, DEFAULT RECORD, FALSE);
 }
