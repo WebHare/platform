@@ -13,7 +13,7 @@
     wh db setserver readonly && wh convert-to-postgresql && sv restart webhare
 
 
-    tools to help you with bokenn databases:
+    tools to help you with broken databases:
      - wh run mod::webhare_testsuite/scripts/runonce/fixdevserver.whscr
      - wh run mod::system/scripts/tools/fix-invalid-whfs-names.whscr
 */
