@@ -16,6 +16,7 @@ PUBLIC STRING           FUNCTION GETBLOBDESCRIPTION(BLOB file) __ATTRIBUTES__(EX
     @return A DateTime value, representing the current date and time at the WebHare system in UTC.
     @public
     @loadlib wh::datetime.whlib
+    @topic harescript-core/datetime
     @see AddTimeToDate
     @example
 // returns a timestamp of the current date and time
