@@ -33,9 +33,15 @@ getwhparameters()
     exit 1
   fi
   eval `$WEBHARE_DIR/bin/webhare printparameters`
-  export STORAGEPATH="$WEBHARE_DATAROOT/dbase"
-  export RECORDSTORAGEPATH="$WEBHARE_DATAROOT/dbase"
-  export INDEXSTORAGEPATH="$WEBHARE_DATAROOT/dbase"
+  if [ -z "$WEBHARE_DBASENAME" ]; then
+    export STORAGEPATH="$WEBHARE_DATAROOT/dbase"
+    export RECORDSTORAGEPATH="$WEBHARE_DATAROOT/dbase"
+    export INDEXSTORAGEPATH="$WEBHARE_DATAROOT/dbase"
+  else
+    export STORAGEPATH="$WEBHARE_DATAROOT/postgresql"
+    export RECORDSTORAGEPATH=
+    export INDEXSTORAGEPATH=
+  fi
 }
 
 getmoduledir_nofail()
