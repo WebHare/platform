@@ -1931,6 +1931,11 @@
         <text tid="welcome">Om uw wachtwoord te herstellen voert u het emailadres dat aan uw account is gekoppeld in</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
+      <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
+        <text tid="revokeright">Rechtentoekenning intrekken</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
     <textgroup gid="webapis">   <!-- tolliumcomponents.webapis -->
@@ -2073,8 +2078,6 @@
         <text tid="editrightinlist-hint">Bewerk de eigenschappen van de geselecteerde toekenning</text>
         <text tid="grantrightinlist">Recht toekennen</text>
         <text tid="grantrightinlist-hint">Wijs rechten op dit object toe aan rol of gebruiker</text>
-        <text tid="revokerightfromlist">Verwijderen</text>
-        <text tid="revokerightfromlist-hint">Verwijder de geselecteerde toekenning</text>
       </textgroup>
       <textgroup gid="columns">   <!-- userrights.commondialogs.columns -->
         <text tid="description">Beschrijving</text>

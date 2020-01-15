@@ -7,7 +7,7 @@
     <actions gid="userrights.actions">
       <action name="grantrightonobject" onexecute="dograntrightonobject" ellipsis="true" enabled="false" />
 
-      <action name="revokerightonobject">
+      <action name="revokerightonobject" tid="tolliumapps.userrights.actions.revokeright" ellipsis="true">
         <enableon source="authobjectlistbyobject" min="1" requirefocus="true" checkflags="isright !inherited canmanage" onexecute="dorevokerightonobject" />
       </action>
 
@@ -18,12 +18,12 @@
 
     <menus>
       <menu name="selectcontextmenu">
-        <item action="revokerightonobject" disablemode="hidden" tid="userrights.commondialogs.actions.revokerightfromlist" hinttid="userrights.commondialogs.actions.revokerightfromlist-hint" />
+        <item action="revokerightonobject" disablemode="hidden" />
         <item action="edit" disablemode="hidden"/>
       </menu>
 
       <menu name="newcontextmenu">
-        <item action="grantrightonobject" disablemode="hidden"  tid="userrights.actions.grantrightonobject" hinttid="userrights.actions.revokerightfromlist-hint" />
+        <item action="grantrightonobject" disablemode="hidden"  tid="userrights.actions.grantrightonobject" />
       </menu>
     </menus>
 
