@@ -157,10 +157,11 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
       IF (parentid = this->rootid)
         RETURN this->worklistcache;
 
-      // Return the selected work list's items
-      RETURN
-          SELECT id := objectid
+      // Return the selected work list's items that the user has read access to
+      INTEGER ARRAY objectids :=
+          SELECT AS INTEGER ARRAY objectid
             FROM this->api->GetWorkListItems(this->GetWorkListId(parentid));
+      RETURN ToRecordArray(this->tolliumuser->HasRightOnMultiple("system:fs_browse", objectids), "id");
     }
   }
 
