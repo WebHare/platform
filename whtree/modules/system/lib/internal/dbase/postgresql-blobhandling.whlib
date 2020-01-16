@@ -115,6 +115,7 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
   INTEGER keepdeleteddays;
 
   /** @param blobfolder Folder where the parts are stored
+      @param keepdeleteddays Number of days to keep deleted blobs
   */
   MACRO NEW(STRING blobfolder, INTEGER keepdeleteddays)
   {
