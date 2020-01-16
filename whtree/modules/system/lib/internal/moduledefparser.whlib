@@ -882,10 +882,13 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   {
                     CASE "dependency"
                     {
+                      IF(NOT IsNodeApplicableToThisWebHare(subsubchild))
+                        CONTINUE;
+
                       STRING name := subsubchild->GetAttribute("module");
                       INSERT
                           [ name :=            ToLowercase(TrimWhitespace(name))
-                          , requireversion :=  subsubchild->GetAttribute("requireversion")
+                          , moduleversion :=   subsubchild->GetAttribute("moduleversion") ?? subsubchild->GetAttribute("requireversion")
                           ] INTO this->moduledef.requiredmodules AT END;
                     }
                     CASE "exclude"

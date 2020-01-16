@@ -118,6 +118,9 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
   //Support versioninfo without semantic 'version' for backwards compatibility (eg. peering with old webhares)
   STRING semver := CellExists(webhareversioninfo,'version') ? webhareversioninfo.version : GetSemVerFromClassicVersion(webhareversioninfo.versionnum);
 
+  IF(restrictions.webhareversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.webhareversion))
+    RETURN `WebHare version '${semver}' does not match required version '${restrictions.webhareversion}'`;
+
   IF(restrictions.requireversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.requireversion))
     RETURN `Required version: ${restrictions.requireversion}, current: ${semver}`;
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
@@ -163,7 +166,8 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
     requireversion := `>= ${GetSemVerFromClassicVersion(versionnr)}`;
   }
 
-  RETURN [ requireversion :=     requireversion
+  RETURN [ webhareversion :=     xmlnode->GetAttribute(options.prefix || "webhareversion")
+         , requireversion :=     requireversion
          , beforeversion :=      ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"))
          , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
          , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")

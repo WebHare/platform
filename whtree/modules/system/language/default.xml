@@ -2120,6 +2120,11 @@
         <text tid="welcome">To reset your password, please enter the email address associated with your account</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
+      <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
+        <text tid="revokeright">Revoke right grant</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
     <textgroup gid="webapis">   <!-- tolliumcomponents.webapis -->
@@ -2262,8 +2267,6 @@
         <text tid="editrightinlist-hint">Edit the selected grant</text>
         <text tid="grantrightinlist">Grant right</text>
         <text tid="grantrightinlist-hint">Grant rights on this object to another user or role</text>
-        <text tid="revokerightfromlist">Delete</text>
-        <text tid="revokerightfromlist-hint">Revoke the selected grant</text>
       </textgroup>
       <textgroup gid="columns">   <!-- userrights.commondialogs.columns -->
         <text tid="description">Description</text>

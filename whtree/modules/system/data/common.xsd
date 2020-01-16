@@ -334,9 +334,14 @@
         <xs:documentation>Space separated list of environment variables that must NOT be set (not present or empty value) for this rule to apply</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="webhareversion" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Require this version of the dependency, assumes [semantic versioning range](https://www.npmjs.com/package/semver#ranges). Supported since 4.27</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="requireversion" type="xs:string">
       <xs:annotation>
-        <xs:documentation>Minimum version number. Semantic version expected, but an integer (e.g. 41002) will be interpreted as >= 4.10.2 (matching 4.10.02 and up)</xs:documentation>
+        <xs:documentation>Minimum version number. Semantic version expected, but an integer (e.g. 41002) will be interpreted as >= 4.10.2 (matching 4.10.02 and up). Deprecated since 4.27</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="beforeversion" type="xs:integer">
