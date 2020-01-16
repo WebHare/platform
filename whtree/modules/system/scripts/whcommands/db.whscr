@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::dbase/whdb.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -22,8 +23,10 @@ MACRO ShowSyntax(STRING error)
   PRINT(`Error: ${error}\n`);
   PRINT("Syntax: wh db <command>\n");
   PRINT("Commands:\n");
-  PRINT("  transactions             Show transaction list\n");
-  PRINT("  setserver                Get/set read-write status (readwrite / readonly)\n");
+  PRINT("  locks                      List contended locks\n");
+  PRINT("  sequences [ --reset ]      List/reset sequences\n");
+  PRINT("  setserver                  Get/set read-write status (readwrite / readonly)\n");
+  PRINT("  transactions [ --allinfo ] Show transaction list\n");
   TerminateScriptWithError("");
 }
 
@@ -46,7 +49,7 @@ SWITCH (args.command)
         ]);
 
     IF (NOT RecordExists(subargs))
-      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+      ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
 
     IF (GetDatabaseType() = "whdb")
@@ -74,12 +77,12 @@ SWITCH (args.command)
   }
   CASE "locks"
   {
-    RECORD subargs := ParseArguments(args.args,
-        [ [ name := "allinfo", type := "switch" ]
+    RECORD subargs := ParseArguments(args.args, RECORD
+        [
         ]);
 
     IF (NOT RecordExists(subargs))
-      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+      ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
 
     IF (GetDatabaseType() = "whdb")
@@ -118,7 +121,7 @@ SWITCH (args.command)
         ]);
 
     IF (NOT RecordExists(subargs))
-      ShowSyntax(`Illegal syntax for command '{${args.command}'`);
+      ShowSyntax(`Illegal syntax for command '${args.command}'`);
     args := CELL[ ...args, ...subargs ];
 
     IF (args.newvalue NOT IN [ "", "readonly", "readwrite" ])
@@ -152,6 +155,48 @@ SWITCH (args.command)
 
     PRINT(`Current database status: ${IsDatabaseWritable() ? "readwrite" : "readonly"}\n`);
   }
+
+  CASE "sequences"
+  {
+    RECORD subargs := ParseArguments(args.args,
+        [ [ name := "reset", type := "switch" ]
+        ]);
+
+    IF (NOT RecordExists(subargs))
+      ShowSyntax(`Illegal syntax for command '${args.command}'`);
+    args := CELL[ ...args, ...subargs ];
+
+    IF (GetDatabaseType() = "whdb")
+    {
+      PRINT(`Not supported for database type whdb\n`);
+      RETURN;
+    }
+
+    RECORD ARRAY sequences :=
+        SELECT TEMPORARY seqdata := RECORD(GetPrimary()->__ExecSQL(`SELECT * FROM ${PostgreSQLEscapeIdentifier(n.nspname)}.${PostgreSQLEscapeIdentifier(c.relname)}`))
+             , fullname :=      `${PostgreSQLEscapeIdentifier(n.nspname)}.${PostgreSQLEscapeIdentifier(c.relname)}`
+             , last_value :=    seqdata.last_value
+             , is_called :=     seqdata.is_called
+          FROM postgresql_pg_catalog.pg_sequence AS s
+             , postgresql_pg_catalog.pg_class AS c
+             , postgresql_pg_catalog.pg_namespace AS n
+         WHERE c.relkind = 'S'
+           AND n.oid = c.relnamespace
+           AND s.seqrelid = c.oid
+      ORDER BY `${n.nspname}.${c.relname}`;
+
+    IF (args.reset)
+    {
+      trans->BeginWork();
+      FOREVERY (RECORD s FROM sequences)
+        GetPrimary()->__ExecSQL(`ALTER SEQUENCE ${s.fullname} RESTART`);
+      trans->CommitWork();
+      PRINT(`All sequences have been reset to their start values\n`);
+    }
+    ELSE
+      DumpValue(sequences, "boxed");
+  }
+
   DEFAULT
   {
     ShowSyntax(`Unknown command '${args.command}'`);
