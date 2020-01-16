@@ -1044,6 +1044,8 @@ void HS_ParseArguments(VarId id_set, VirtualMachine *vm)
         Blex::OptionParser parser(&optionlist[0]);
         if (parser.Parse(args))
         {
+                HSVM_RecordSetEmpty(*vm, id_set);
+
                 for (std::map<std::string, std::string>::iterator var = vars.begin();
                      var != vars.end(); ++var)
                 {
