@@ -59,7 +59,7 @@ Base pxl event fields, identifying the event, user and/or session.
 * `pi` User identifier, which is a permanent identifier for the user across browser sessions and valid for at most 30 days
 * `ps` User session id, which is tied to the current browsing session of the user
 * `pp` Page session id, which changes after each page load
-* `pc` Event counter for this page session
+* `pc` Event counter for this page session. 1-based.
 * `pr` Alternative record URL sample rate
 
 ### Browser context fields

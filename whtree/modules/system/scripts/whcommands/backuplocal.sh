@@ -34,7 +34,7 @@ rm -rf -- "$BACKUPDEST/dbase" "$BACKUPDEST/postgresql" "$BACKUPDEST/backup" "$BA
 mkdir -p -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"
 BLOBDEST="$BACKUPDEST"
 if ! is_webhare_running; then
-  echo "WebHare must be running for a $INSTR";
+  echo "WebHare must be running for a backup";
   exit 1
 fi
 
@@ -98,7 +98,7 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   # FIXME: make sure no blobs are deleted during the backup
 
   [ "$VERBOSE" == "1" ] && echo "Making copy of the blobs"
-  for BLOBBASEFOLDER in blob ` cd $STORAGEPATH ; echo blob-* `; do
+  for BLOBBASEFOLDER in blob ; do
     if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
       mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
       rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
@@ -114,7 +114,6 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   [ "$VERBOSE" == "1" ] && echo "Make database backup"
   PSROOT="${WEBHARE_DATAROOT}postgresql"
   mkdir -p "$BACKUPDEST/backup/"
-  echo "pg_basebackup -D $BACKUPDEST/backup/ -F tar -z -P -v -h $PSROOT/db"
   pg_basebackup -D "$BACKUPDEST/backup/" -h "$PSROOT/db" -F tar -P -v -h "$PSROOT" --compress=1
 
   [ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
