@@ -283,9 +283,9 @@ PUBLIC STRING ARRAY FUNCTION GetModuleDependencyIssues()
         INSERT `Module '${mod.name}' requires module '${dep.name}' but it is not installed` INTO errors AT END;
         CONTINUE;
       }
-      IF(dep.requireversion != "" AND NOT VersionSatisfiesRange(match.version, dep.requireversion))
+      IF(dep.moduleversion != "" AND NOT VersionSatisfiesRange(match.version, dep.moduleversion))
       {
-        INSERT `Module '${mod.name}' requires a different version of module '${dep.name}'. Have ${match.version} wants ${dep.requireversion}` INTO errors AT END;
+        INSERT `Module '${mod.name}' requires module '${dep.name}' version ${dep.moduleversion}, got ${match.version}` INTO errors AT END;
         CONTINUE;
       }
     }

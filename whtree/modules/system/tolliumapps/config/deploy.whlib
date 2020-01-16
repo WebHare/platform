@@ -81,8 +81,8 @@ PUBLIC BOOLEAN FUNCTION DoPushModule(OBJECT parent, STRING modulename)
     RECORD existing := SELECT * FROM modules WHERE name = rec.name;
     IF (NOT RecordExists(existing))
       work->AddError(GetTid("system:tolliumapps.config.deploy.deploymodule.missingrequiredmoduleonpeer", rec.name));
-    ELSE IF(rec.requireversion != "" AND NOT VersionSatisfiesRange(existing.version, rec.requireversion))
-      work->AddError(GetTid("system:tolliumapps.config.deploy.deploymodule.invalidversion", rec.name, existing.version, rec.requireversion));
+    ELSE IF(rec.moduleversion != "" AND NOT VersionSatisfiesRange(existing.version, rec.moduleversion))
+      work->AddError(GetTid("system:tolliumapps.config.deploy.deploymodule.invalidversion", rec.name, existing.version, rec.moduleversion));
   }
 
   IF (NOT work->Finish())
