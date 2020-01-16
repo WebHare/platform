@@ -108,6 +108,9 @@ MACRO ParseArgumentsTest()
                         ,  [ name := "b", type := "param" ]
                         ]));
 
+  TestEQ(TRUE, RecordExists(ParseArguments(STRING[], RECORD[])));
+  TestEQ(FALSE, RecordExists(ParseArguments([ "extra" ], RECORD[])));
+
   CloseTest("TestArguments: ParseArgumentsTest");
 }
 

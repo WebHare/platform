@@ -15,6 +15,8 @@ LOADLIB "wh::dbase/postgresql.whlib";
 */
 CONSTANT INTEGER max_varchar_indexcolsize := 264;
 
+CONSTANT STRING autonumberfunc_procid := `autonrs:1`;
+
 STATIC OBJECTTYPE ChangeContext
 < /// Transaction
   PUBLIC OBJECT trans;
@@ -758,27 +760,113 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
   RETURN cmd;
 }
 
+STRING FUNCTION DecodeIdentifier(STRING ident)
+{
+  IF (ident LIKE `U&"*`)
+    ABORT(`Decoding U&-format identifiers not supported yet`);
+  IF (ident NOT LIKE `"*`)
+    RETURN ident;
+  ident := TrimWhitespace(ident);
+  RETURN Substitute(SubString(ident, 1, LENGTH(ident) - 2), `""`, `"`);
+}
+
+BOOLEAN FUNCTION TestNeedReplaceFunction(STRING name, STRING procversion)
+{
+  STRING namespace;
+  IF (name LIKE "*.*")
+  {
+    STRING ARRAY parts := Tokenize(name, ".");
+    namespace := DecodeIdentifier(parts[0]);
+    name := parts[1];
+  }
+  name := DecodeIdentifier(name);
+
+  INTEGER nsoid := namespace != ""
+      ? SELECT AS INTEGER oid
+          FROM postgresql_pg_catalog.pg_namespace
+         WHERE nspname = namespace
+      : 0;
+
+  STRING cursrc :=
+      SELECT AS STRING prosrc
+        FROM postgresql_pg_catalog.pg_proc
+       WHERE proname = name
+         AND pronamespace = nsoid;
+
+  STRING ARRAY parts := Tokenize(cursrc, "whprocversion:");
+  IF (LENGTH(parts) = 1) // no version id?
+    RETURN TRUE;
+
+  STRING curversion := TrimWhitespace(Tokenize(parts[1], "*")[0]);
+  RETURN curversion != procversion;
+}
+
 PUBLIC MACRO RebuildColumnAutonumberConfig(OBJECT context, STRING schemaname, STRING tablename, RECORD col)
 {
-  // Easier to re-create the sequence, our autonr function will skip over existing ids anyway (rebuild should not happen nilly-will anyway)
+  // Easier to re-create the sequence, our autonr function will skip over existing ids anyway (rebuild should not happen nilly-willy anyway)
   IF (context->trans->__ExecSQL(`SELECT to_regclass($1)::oid`, [ args := VARIANT[ col.sequencename ] ]).to_regclass != 0)
     context->AddCommand(`DROP SEQUENCE IF EXISTS ${col.sequencename}`);
 
   // Use int4 for __longkey, so the value is clamped and an integer is returned (useful for MakeAutoNumber)
   context->AddCommand(`CREATE SEQUENCE ${col.sequencename} MINVALUE ${col.autonumberstart}${col.dbtype = "int8" AND NOT col.islongkey ? "" : " MAXVALUE 2147483647"} START WITH ${col.autonumberstart} CYCLE OWNED BY ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}.${PostgreSQLEscapeIdentifier(col.name)}`);
 
+  // When updating the contents of this function, please update `autonumberfunc_procid` to replace the existing functions
   context->AddCommand(`CREATE OR REPLACE FUNCTION ${col.autonumbersfuncname}(count integer) RETURNS ${col.dbtype}[] VOLATILE LANGUAGE plpgsql AS $$
+/* whprocversion: ${autonumberfunc_procid} */
 DECLARE
   retval ${col.dbtype}[] := '{}';
   sel ${col.dbtype}[];
+  currid ${col.dbtype};
+  orgnextid ${col.dbtype};
+  currbatchsize int;
+  largebatchsize int;
 BEGIN
-  WHILE coalesce(array_length(retval, 1), 0) < count LOOP
-    SELECT array_agg(newkey) INTO sel
-      FROM (SELECT nextval(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass) AS newkey FROM generate_series(1, count - coalesce(array_length(retval, 1), 0))) AS keys
- LEFT JOIN ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} tbl ON tbl.${PostgreSQLEscapeIdentifier(col.name)} = keys.newkey
-     WHERE tbl.${PostgreSQLEscapeIdentifier(col.name)} IS NULL;
+  PERFORM pg_advisory_lock(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass::int8);
+  currid := nextval(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass);
+  orgnextid := currid;
+  currbatchsize := count;
+  largebatchsize := 500;
+
+  WHILE count > 0 LOOP
+    IF currbatchsize = 1 THEN
+      /* fast path for selecting a single nr */
+      IF EXISTS (SELECT
+                   FROM ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} tbl
+                  WHERE tbl.${PostgreSQLEscapeIdentifier(col.name)} = currid) THEN
+        sel := NULL;
+      ELSE
+        sel := ARRAY[ currid ];
+      END IF;
+    ELSE
+      SELECT array_agg(newkey) INTO sel
+        FROM (SELECT newkey
+                FROM generate_series(currid, currid + currbatchsize - 1) AS keys(newkey)
+               WHERE NOT EXISTS (SELECT FROM ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} tbl WHERE tbl.${PostgreSQLEscapeIdentifier(col.name)} = keys.newkey)
+               LIMIT count) AS foo;
+    END IF;
+
+    IF sel IS NULL THEN
+      currid := currid + currbatchsize;
+      currbatchsize := largebatchsize;
+      CONTINUE;
+    END IF;
+
+    IF array_length(sel, 1) = count THEN
+      currid := sel[count] + 1;
+    ELSE
+      currid := currid + currbatchsize;
+    END IF;
+
     retval := retval || sel;
+    count := count - array_length(sel, 1);
+    currbatchsize := largebatchsize;
   END LOOP;
+
+  IF currid != orgnextid + 1 THEN
+    PERFORM setval(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass, currid, FALSE);
+  END IF;
+
+  PERFORM pg_advisory_unlock(${PostgreSQLEscapeLiteral(col.sequencename)}::regclass::int8);
   RETURN retval;
 END;$$`);
 
@@ -856,6 +944,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                 context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ADD CHECK ${coldef.check}`);
             }
 
+            BOOLEAN rebuildautonumberconfig;
             IF (NOT AreExpressionsEquivalent(curcol.column_default, coldef.defval))
             {
               PRINT(`Non eq defaults: '${curcol.column_default}' vs '${coldef.defval}'\n`);
@@ -864,11 +953,17 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
               IF (coldef.defval != "")
               {
                 IF (coldef.autonumbersfuncname != "")
-                  RebuildColumnAutonumberConfig(context, schemaspec.name, tablerec.name, coldef);
+                  rebuildautonumberconfig := TRUE;
                 ELSE
                   context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} SET DEFAULT ${coldef.defval}`);
               }
             }
+
+            IF (NOT rebuildautonumberconfig AND coldef.autonumbersfuncname != "" AND TestNeedReplaceFunction(coldef.autonumbersfuncname, autonumberfunc_procid))
+              rebuildautonumberconfig := TRUE;
+
+            IF (rebuildautonumberconfig)
+              RebuildColumnAutonumberConfig(context, schemaspec.name, tablerec.name, coldef);
 
             IF(coldef.dbtype = "varchar" AND coldef.maxlength > curcol.character_maximum_length)
               context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} SET DATA TYPE VARCHAR(${coldef.maxlength})`);

@@ -313,6 +313,16 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   , BOOLEAN "granted" // True if lock is held, false if lock is awaited
   , BOOLEAN "fastpath" // True if lock was taken via fast path, false if taken via main lock table
   > "pg_locks"
+, TABLE
+  < INTEGER "seqrelid" // The OID of the pg_class entry for this sequence
+  , INTEGER "seqtypid" // Data type of the sequence
+  , INTEGER64 "seqstart" // Start value of the sequence
+  , INTEGER64 "seqincrement" // Increment value of the sequence
+  , INTEGER64 "seqmax" // Maximum value of the sequence
+  , INTEGER64 "seqmin" // Minimum value of the sequence
+  , INTEGER64 "seqcache" // Cache size of the sequence
+  , BOOLEAN "seqcycle" // Whether the sequence cycles
+  > "pg_sequence"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA
@@ -1833,7 +1843,7 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
     RETURN FALSE;
   }
 
-  //DumpValue(message);
+  DumpValue(message);
   //DumpValue(GetStackTrace());
 
   RETURN TRUE;

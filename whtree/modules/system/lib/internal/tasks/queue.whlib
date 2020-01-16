@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/taskqueue.whlib";
-LOADLIB "mod::system/lib/internal/tasks/recordslogfile.whscr";
+LOADLIB "mod::system/lib/internal/tasks/recordslogfile.whlib";
 
 
 PUBLIC CONSTANT INTEGER debuglevel_none := 0;
@@ -140,7 +140,8 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
     this->rewriteinterval := 60 * 60 * 1000;
 
     STRING recordslogdir := GetModuleStorageRoot("system") || "persistentqueues/" || Substitute(this->tasktype, ":", "/") || "/";
-    CreateDiskDirectoryRecursive(recordslogdir, TRUE);
+    IF (NOT CreateDiskDirectoryRecursive(recordslogdir, TRUE))
+      THROW NEW Exception(`Could not create persistent queue directory '${recordslogdir}'`);
 
     this->recordslog := NEW RecordsLogFile(MergePath(recordslogdir, "queuelog"));
     IF (options.resetqueue)
