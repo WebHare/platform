@@ -1316,7 +1316,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ellipsis" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          Show an ellpisis. Use when an action requires more information to execute (often: when a dialog will appear, but
+          Show an ellipsis. Use when an action requires more information to execute (often: when a dialog will appear, but
           eg "Properties" doesn't need an ellipsis as the executed action is "Show properties") <!-- see also https://stackoverflow.com/questions/278655/when-should-i-use-a-ellipsis-in-a-menu-item -->
         </xs:documentation>
       </xs:annotation>
