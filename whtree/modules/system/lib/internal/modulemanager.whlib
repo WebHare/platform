@@ -1028,6 +1028,7 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
     IF (NOT must_run)
       CONTINUE;
 
+    LogDebug("system:modulemanager", `Start runonce script: ${module.name}: ${phase}: ${rec.script}`);
     IF(showinfo)
       Print(`>> ${module.name}: ${phase}: ${rec.script}\n`);
 
@@ -1040,6 +1041,7 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
       retval.messages := retval.messages CONCAT Tokenize(res.output, "\n");
     }
 
+    LogDebug("system:modulemanager", `Finished runonce script: ${module.name}: ${phase}: ${rec.script}`, retval, res);
     ClearAllSchemaCaches();
 
     IF(NOT res.error)
