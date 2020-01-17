@@ -4915,7 +4915,7 @@ To change a <xs:attribute /> for adding descriptions
   </xs:attributeGroup>
 
   <xs:attributeGroup name="ArrayListEditActions">
-    <xs:attribute name="addaction" type="ComponentRef">
+    <xs:attribute name="addactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
           <html:p>
@@ -4924,7 +4924,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="editaction" type="ComponentRef">
+    <xs:attribute name="editactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
           <html:p>
@@ -4933,7 +4933,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="deleteaction" type="ComponentRef">
+    <xs:attribute name="deleteactionoverride" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
           <html:p>

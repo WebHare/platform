@@ -92,13 +92,13 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   // Test custom add/edit/delete actions
   OBJECT addaction := topscreen->CreateTolliumComponent("action");
   addaction->onexecute := PTR CustomAddAction;
-  topscreen->comp->add_action := addaction;
+  topscreen->comp->addactionoverride := addaction;
   OBJECT editaction := topscreen->CreateTolliumComponent("action");
   editaction->onexecute := PTR CustomEditAction;
-  topscreen->comp->editaction := editaction;
+  topscreen->comp->editactionoverride := editaction;
   OBJECT deleteaction := topscreen->CreateTolliumComponent("action");
   deleteaction->onexecute := PTR CustomDeleteAction;
-  topscreen->comp->deleteaction := deleteaction;
+  topscreen->comp->deleteactionoverride := deleteaction;
 
   topscreen->comp->addbutton->tolliumclick();
   TestEq([[rowkey := 4, checkbox := TRUE, text := "Custom added"]], topscreen->comp->selection);
@@ -107,9 +107,9 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   topscreen->comp->deletebutton->tolliumclick(); // The custom delete action doesn't actually delete, but changes the title
   TestEq([[rowkey := 4, checkbox := FALSE, text := "Custom 'deleted'"]], topscreen->comp->selection);
 
-  topscreen->comp->add_action := DEFAULT OBJECT;
-  topscreen->comp->editaction := DEFAULT OBJECT;
-  topscreen->comp->deleteaction := DEFAULT OBJECT;
+  topscreen->comp->addactionoverride := DEFAULT OBJECT;
+  topscreen->comp->editactionoverride := DEFAULT OBJECT;
+  topscreen->comp->deleteactionoverride := DEFAULT OBJECT;
 
   TestEq(4, Length(topscreen->comp->rows));
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->comp->deletebutton->TolliumClick());

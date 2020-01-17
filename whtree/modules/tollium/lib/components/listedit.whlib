@@ -26,9 +26,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   INTEGER lastaddedactionid;
   RECORD ARRAY addedactions;
 
-  OBJECT pvt_addaction;
-  OBJECT pvt_editaction;
-  OBJECT pvt_deleteaction;
+  OBJECT pvt_addactionoverride;
+  OBJECT pvt_editactionoverride;
+  OBJECT pvt_deleteactionoverride;
 
   // ---------------------------------------------------------------------------
   //
@@ -39,9 +39,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   PUBLIC PROPERTY onrowdelete(pvt_onrowdelete, SetOnRowDelete);
   PUBLIC PROPERTY onrowsdelete(pvt_onrowsdelete, SetOnRowsDelete);
 
-  PUBLIC PROPERTY add_action(pvt_addaction, SetAddAction);
-  PUBLIC PROPERTY editaction(pvt_editaction, SetEditAction);
-  PUBLIC PROPERTY deleteaction(pvt_deleteaction, SetDeleteAction);
+  PUBLIC PROPERTY addactionoverride(pvt_addactionoverride, SetAddActionOverride);
+  PUBLIC PROPERTY editactionoverride(pvt_editactionoverride, SetEditActionOverride);
+  PUBLIC PROPERTY deleteactionoverride(pvt_deleteactionoverride, SetDeleteActionOverride);
 
   PUBLIC PROPERTY oncelledit(this->list->oncelledit, this->list->oncelledit);
   PUBLIC PROPERTY onselect(this->list->onselect, this->list->onselect);
@@ -134,9 +134,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->onrowdelete := description.onrowdelete;
     this->onrowsdelete := description.onrowsdelete;
 
-    this->add_action := description.addaction;
-    this->editaction := description.editaction;
-    this->deleteaction := description.deleteaction;
+    this->addactionoverride := description.addactionoverride;
+    this->editactionoverride := description.editactionoverride;
+    this->deleteactionoverride := description.deleteactionoverride;
 
     this->onselect := description.onselect;
 
@@ -215,27 +215,27 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->CheckDelete();
   }
 
-  MACRO SetAddAction(OBJECT addaction)
+  MACRO SetAddActionOverride(OBJECT addaction)
   {
-    this->pvt_addaction := addaction;
-    this->additem->action := ObjectExists(this->pvt_addaction) ? this->pvt_addaction : this->add;
-    this->addbutton->action := ObjectExists(this->pvt_addaction) ? this->pvt_addaction : this->add;
+    this->pvt_addactionoverride := addaction;
+    this->additem->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
+    this->addbutton->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
   }
-  MACRO SetEditAction(OBJECT editaction)
+  MACRO SetEditActionOverride(OBJECT editaction)
   {
-    this->pvt_editaction := editaction;
-    IF (ObjectExists(this->pvt_editaction))
-      this->pvt_editaction->enableon := this->edit->enableon;
-    this->edititem->action := ObjectExists(this->pvt_editaction) ? this->pvt_editaction : this->edit;
-    this->editbutton->action := ObjectExists(this->pvt_editaction) ? this->pvt_editaction : this->edit;
+    this->pvt_editactionoverride := editaction;
+    IF (ObjectExists(this->pvt_editactionoverride))
+      this->pvt_editactionoverride->enableon := this->edit->enableon;
+    this->edititem->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
+    this->editbutton->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
   }
-  MACRO SetDeleteAction(OBJECT deleteaction)
+  MACRO SetDeleteActionOverride(OBJECT deleteaction)
   {
-    this->pvt_deleteaction := deleteaction;
-    IF (ObjectExists(this->pvt_deleteaction))
-      this->pvt_deleteaction->enableon := this->"delete"->enableon;
-    this->deleteitem->action := ObjectExists(this->pvt_deleteaction) ? this->pvt_deleteaction : this->"delete";
-    this->deletebutton->action := ObjectExists(this->pvt_deleteaction) ? this->pvt_deleteaction : this->"delete";
+    this->pvt_deleteactionoverride := deleteaction;
+    IF (ObjectExists(this->pvt_deleteactionoverride))
+      this->pvt_deleteactionoverride->enableon := this->"delete"->enableon;
+    this->deleteitem->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
+    this->deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
     this->CheckDelete();
   }
 
@@ -314,7 +314,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
         [ requireselection := TRUE
         , actiontype := "action"
         ], options,
-        [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction" ] ]
+        [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction", "windowopenaction" ] ]
         ]);
 
     this->lastaddedactionid := this->lastaddedactionid + 1;
@@ -326,9 +326,10 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
     SWITCH (options.actiontype)
     {
-      CASE "action" { action->onexecute := toexecute; }
-      CASE "downloadaction" { action->ondownload := toexecute; }
-      CASE "uploadaction" { action->onupload := toexecute; }
+      CASE "action"           { action->onexecute := toexecute; }
+      CASE "downloadaction"   { action->ondownload := toexecute; }
+      CASE "uploadaction"     { action->onupload := toexecute; }
+      CASE "windowopenaction" { action->onwindowopen := toexecute; }
     }
 
     button->title := title;

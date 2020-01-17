@@ -127,7 +127,7 @@
       <arrayedit
           name="files"
           buttons="add delete"
-          addaction="addfile"
+          addactionoverride="addfile"
           orderable="true"
           public="true"
           height="1pr">
