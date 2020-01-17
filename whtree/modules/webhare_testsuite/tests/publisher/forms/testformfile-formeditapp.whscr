@@ -7,6 +7,8 @@
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -188,6 +190,10 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT(":Email contents")->__debug_simulatedirty();
   TT(":Sender name")->value := "testformfile-formeditapp";
   TT(":Sender address")->value := "testformfile-formeditapp@beta.webhare.net";
+
+  BLOB img := GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg");
+  TT("fragment1!attachments!files!addbutton")->action->ExecuteUpload([WrapBlob(img, "bob.jpg")]);
+  TestEq(1, Length(TT("fragment1!attachments!files!list")->rows));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish

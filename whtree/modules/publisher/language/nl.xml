@@ -2416,12 +2416,15 @@
         <textgroup gid="mailhandler">   <!-- tolliumapps.formedit.handlers.mailhandler -->
           <text tid="addresults">Voeg de resultaten bij de e-mail</text>
           <text tid="applytemplate">Maildesign</text>
+          <text tid="attachments">Bijlagen</text>
           <text tid="bcc">BCC</text>
           <text tid="bcc-desc">Meerdere adressen worden gescheiden door komma's</text>
           <text tid="checkduplicates">Controleer op dubbele e-mailadressen</text>
           <text tid="condition">Voorwaarde</text>
           <text tid="editmailto">Wijzig mail naar</text>
           <text tid="emailcontents">E-mailbericht</text>
+          <text tid="file">Bestand</text>
+          <text tid="files">Deze bestanden worden als bijlagen bij de e-mail meegezonden</text>
           <text tid="fsobject">Kies een sjabloon:</text>
           <text tid="mailto">Mail naar</text>
           <text tid="moduletemplate">Sjabloon in module:</text>
