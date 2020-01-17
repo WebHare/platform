@@ -11,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -501,6 +502,8 @@ DATETIME start := GetCurrentDatetime();
 
 IF (IsDatabaseWritable())
 {
+  LogDebug("system:poststart", "Database is writable, start preparing");
+
   //just in case this serverm missed its initdb due to odd upgradeo rdering
   trans := OpenPrimary();
   trans->BeginWork();
@@ -521,18 +524,26 @@ IF (IsDatabaseWritable())
   }
   trans->CommitWork();
 
+  LogDebug("system:poststart", "Start ApplyServerConfig");
   ApplyServerConfig();
+
   trans->BeginWork();
+  LogDebug("system:poststart", "Start UpdateSystemBackendSite");
   UpdateSystemBackendSite();
   trans->CommitWork();
 
   trans->BeginWork();
+  LogDebug("system:poststart", "Start PreflightChecks");
   PreflightChecks();
   trans->CommitWork();
 
+  LogDebug("system:poststart", "Start UpdateModuleNotifications");
   UpdateModuleNotifications();
 
+  LogDebug("system:poststart", "Start RunPostStartRunOnceScripts");
   RunPostStartRunOnceScripts();
+
+  LogDebug("system:poststart", "All post start tasks completed");
   Print("All post start tasks completed\n");
 }
 

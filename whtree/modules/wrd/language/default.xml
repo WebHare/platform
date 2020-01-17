@@ -469,6 +469,7 @@
   <textgroup gid="filetypes">   <!-- filetypes -->
     <text tid="samlidpendpoint">SAML IDP endpoint</text>
     <text tid="samlspendpoint">SAML SP endpoint</text>
+    <text tid="schemaarchive">Archived WRD schema</text>
   </textgroup>
   <textgroup gid="forms">   <!-- forms -->
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->

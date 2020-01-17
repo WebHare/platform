@@ -45,6 +45,7 @@ done
 
 if [ -n "$CI_COMMIT_SHA" ]; then
   # validate CI environment
+  BUILDING_INSIDE_CI=1
   echo "CI build detected ($CI_COMMIT_SHA)"
   echo "CI build - environment variables:"
   set | egrep '^(CI_|TESTFW_|WEBHARE_DEBUG)' | sort
@@ -240,7 +241,7 @@ if [ -n "$PUSH_BUILD_IMAGES" ]; then
 fi
 
 # If building for CI, build artifccts to speed up the testsuite
-if [ -n "$CI_COMMIT_SHA" ]; then
+if [ -n "$BUILDING_INSIDE_CI" ]; then
 
   echo "Creating assetpack $DESTDIR/build/webare_testsuite_assetpacks.tar.gz"
 

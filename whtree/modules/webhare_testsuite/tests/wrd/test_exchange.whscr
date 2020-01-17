@@ -1,5 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
@@ -44,6 +46,8 @@ RECORD ARRAY FUNCTION GetAllPersons(OBJECT schemaobj)
 MACRO ExportImportWRD()
 {
   testfw->BeginWork();
+
+  TestThrows(PTR MakeWRDSchemaExporter(DEFAULT OBJECT));
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   RECORD ARRAY persons := GetAllPersons(schemaobj);
@@ -128,6 +132,21 @@ MACRO ExportImportWRDSkip()
   testfw->CommitWork();
 }
 
+MACRO ExportImportToWHFS()
+{
+  testfw->BeginWork();
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  OBJECT exporter := MakeWRDSchemaExporter(schemaobj);
+  TestThrowsLike('Invalid*-1*', PTR exporter->ExportToWHFS(testfw->GetWHFSTestRoot()->id, -1));
+  exporter->ExportToWHFS(testfw->GetWHFSTestRoot()->id, 1);
+
+  RECORD ARRAY files := SELECT * FROM system.fs_objects WHERE parent = testfw->GetWHFSTestRoot()->id;
+  Testeq(1, Length(files));
+
+  testfw->RollbackWork();
+}
+
 MACRO ExportFlat()
 {
   OBJECT schemaobj := testfw->GetWRDSchema();
@@ -144,5 +163,6 @@ MACRO ExportFlat()
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR ExportImportWRD
                  , PTR ExportImportWRDSkip
+                 , PTR ExportImportToWHFS
                  , PTR ExportFlat
                  ], [ wrdauth := FALSE ]);
