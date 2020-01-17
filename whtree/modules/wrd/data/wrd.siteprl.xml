@@ -51,4 +51,21 @@
     <formdefinitions name="wrd:authpages" path="mod::wrd/data/forms/authpages.formdef.xml" />
   </apply>
 
+  <!-- WRD Schema archive -->
+  <contenttype namespace="http://www.webhare.net/xmlns/wrd/schemaarchive" cloneoncopy="true">
+  </contenttype>
+  <filetype
+      typedef="http://www.webhare.net/xmlns/wrd/schemaarchive"
+      tid="wrd:filetypes.schemaarchive"
+      tolliumicon="tollium:files/application_wharchive"
+      extensions=".wrdarchive"
+      blobiscontent="true"
+      needstemplate="false"
+      needsprofile="false"
+      isdevelopertype="true"
+      ispublishable="false"
+      requirescontent="true"
+  />
+
+
 </siteprofile>

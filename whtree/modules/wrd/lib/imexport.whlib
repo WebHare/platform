@@ -125,6 +125,8 @@ PUBLIC BLOB FUNCTION CreateWRDSchemaDefinitionFile(OBJECT wrdschema)
 
 PUBLIC OBJECT FUNCTION MakeWRDSchemaExporter(OBJECT wrdschema)
 {
+  IF(NOT ObjectExists(wrdschema))
+    THROW NEW Exception(`Missing wrdschema to export`);
   OBJECT exporter := NEW WRDImExport(wrdschema, DEFAULT RECORD);
   exporter->usemarshalformat:=TRUE;
   RETURN exporter;

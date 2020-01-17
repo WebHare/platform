@@ -380,6 +380,24 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
     RETURN DatabaseImExport::RunExport();
   }
 
+  /** @short Export archive to WHFS
+      @param numdaystokeep Number of days to keep this archive. If 0, infinite (but are you sure you want to have potential personal data linger around infinitely?) */
+  PUBLIC MACRO ExportToWHFS(INTEGER destfolder, INTEGER numdaystokeep)
+  {
+    IF(numdaystokeep < 0)
+      THROW NEW Exception(`Invalid number of days to keep: ${numdaystokeep}`);
+
+    BLOB result := this->RunExport();
+    STRING filename := Substitute(this->export_wrdschema->tag,":","--") || "-" || FormatDatetime("%Y%m%d-%H%M%S", GetCurrentDatetime()) || ".wrdschema.tar.gz";
+    OBJECT backupfile := OpenWHFSObject(destfolder)->CreateFile([ name := filename
+                                                                , data := result
+                                                                , typens := "http://www.webhare.net/xmlns/wrd/schemaarchive"
+                                                                , publish := FALSE
+                                                                ]);
+    IF(numdaystokeep > 0)
+      backupfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [ deletion := AddDaystoDate(numdaystokeep, GetCurrentDatetime()) ]);
+  }
+
   UPDATE PUBLIC MACRO RunImport(BLOB data)
   {
     this->newschemaid := MakeAutonumber(wrd.schemas,"id");
