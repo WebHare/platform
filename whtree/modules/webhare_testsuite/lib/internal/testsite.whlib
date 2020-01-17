@@ -53,6 +53,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addtwolevelfield := FALSE
                               , addtimefield := FALSE
                               , setmailresultsfields := FALSE
+                              , addfeedbackattachments := FALSE
                               , iscustom := FALSE
                               , iswidget := FALSE
                               , publish := TRUE
@@ -585,6 +586,14 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   mailhandler2->SetAttribute("subject", "About Your Submission");
   mailhandler2->SetAttribute("mailtemplate", formdefs->CreateLinkRef(mailtemplate->id));
   mailhandler2->SetAttribute("bcc", "mailresult+bcc@beta.webhare.net, mailresult+bcc2@beta.webhare.net");
+  IF (options.addfeedbackattachments)
+  {
+    STRING attachments := formdefs->CreateInstance(
+      [ whfstype := "http://www.webhare.net/xmlns/publisher/mailhandlerattachments"
+      , attachments := [ [ file := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg") ] ]
+      ]);
+    mailhandler2->SetAttribute("attachmentsid", attachments);
+  }
 
   IF(options.iscustom)
   {

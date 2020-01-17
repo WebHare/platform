@@ -248,6 +248,13 @@
     <member name="fixformoptions" type="record" /> <!-- archived original condition in case we ever need it. at some point we can drop this member -->
   </contenttype>
 
+  <!-- The contenttype used to store mail handler attachments in an instance -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mailhandlerattachments">
+    <member name="attachments" type="array">
+      <member name="file" type="file" />
+    </member>
+  </contenttype>
+
   <!-- form as widget
 
        we can't set the standard form as a widget, because we can't control

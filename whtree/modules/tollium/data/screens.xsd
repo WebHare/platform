@@ -4914,6 +4914,36 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
   </xs:attributeGroup>
 
+  <xs:attributeGroup name="ArrayListEditActions">
+    <xs:attribute name="addactionoverride" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            The action that will be used to add rows.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="editactionoverride" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            The action that will be used to edit a row.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="deleteactionoverride" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            The action that will be used to delete rows.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
   <xs:attributeGroup name="ArrayListEditFlags">
     <xs:attribute name="editableflags" type="CheckFlags">
       <xs:annotation>
@@ -4933,6 +4963,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="tc:IsDirtyable" />
     <xs:attributeGroup ref="ListContextMenus" /><!-- FIXME: experimental for now -->
     <xs:attributeGroup ref="ArrayListEditButtons" />
+    <xs:attributeGroup ref="ArrayListEditActions" />
     <xs:attributeGroup ref="ArrayListEditFlags" />
 
     <xs:attribute name="openaction" type="ComponentRef">

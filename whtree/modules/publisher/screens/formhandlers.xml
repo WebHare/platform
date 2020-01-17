@@ -65,6 +65,9 @@
     <newtab tid=".emailcontents">
       <includefragment name="emailcontents" fragment="#emailcontents" />
     </newtab>
+    <newtab tid=".attachments">
+      <includefragment name="attachments" fragment="#attachments" />
+    </newtab>
   </tabsextension>
 
   <tabsextension
@@ -112,6 +115,24 @@
       <line layout="left">
         <p:selectmailtemplate name="applytemplate" public="true" width="1pr" />
       </line>
+    </contents>
+  </fragment>
+
+  <fragment name="attachments" gid=".mailhandler" lib="webtools/formhandlers/mailhandler.whlib">
+    <actions>
+      <uploadaction name="addfile" title="" onupload="doaddfile" multiple="true" />
+    </actions>
+    <contents>
+      <text title="" valuetid=".files" wordwrap="true" />
+      <arrayedit
+          name="files"
+          buttons="add delete"
+          addactionoverride="addfile"
+          orderable="true"
+          public="true"
+          height="1pr">
+        <column name="file" type="blobrecord" />
+      </arrayedit>
     </contents>
   </fragment>
 

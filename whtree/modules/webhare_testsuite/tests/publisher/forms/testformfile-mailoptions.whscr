@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::internet/mime.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/testframework.whlib";
@@ -24,7 +26,7 @@ MACRO AddExtraHandlers(RECORD forminfo)
 
 PUBLIC MACRO BuildForm()
 {
-  BuildWebtoolForm([ customformedits := PTR AddExtraHandlers ]);
+  BuildWebtoolForm([ customformedits := PTR AddExtraHandlers, addfeedbackattachments := TRUE ]);
 }
 
 PUBLIC ASYNC MACRO TestMailOptions()
@@ -50,6 +52,11 @@ PUBLIC ASYNC MACRO TestMailOptions()
   TestEq(TRUE, RecordExists(result1mail));
   TestEq(`Mail From <mailfrom@beta.webhare.net>`, (SELECT AS STRING value FROM result1mail.headers WHERE field="From"));
   TestEq(`<mailfrom@beta.webhare.net>`, result1mail.envelope_sender);
+
+  RECORD feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 60000, count := 1 ]);
+  TestEq(TRUE, RecordExists(feedbackmail));
+  RECORD part := GetEmailPrimaryMIMEPart(feedbackmail.toppart, "multipart/mixed");
+  TestEq(TRUE, RecordExists(SELECT FROM part.subparts WHERE mimetype = 'image/jpeg; name="bob.jpg"'));
 }
 
 RunTestframework([ PTR BuildForm

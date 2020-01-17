@@ -17,6 +17,21 @@ MACRO DuplicateAction()
   topscreen->comp->SetSelectedRows([Length(topscreen->comp->value)-1]);
 }
 
+MACRO CustomAddAction()
+{
+  topscreen->comp->AddRows([[checkbox := TRUE, text := "Custom added"]]);
+}
+
+MACRO CustomEditAction()
+{
+  topscreen->comp->UpdateSingleRow([checkbox := FALSE, text := "Custom edited"]);
+}
+
+MACRO CustomDeleteAction()
+{
+  topscreen->comp->UpdateSingleRow([checkbox := FALSE, text := "Custom 'deleted'"]);
+}
+
 OBJECT ASYNC FUNCTION TestArrayEdit()
 {
   OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
@@ -73,6 +88,32 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(3, Length(topscreen->comp->rows));
   TestEq([1], topscreen->comp->GetSelectedRows()); //verify insert pos
   TestEq("Superrow!!!", topscreen->comp->selection.text);
+
+  // Test custom add/edit/delete actions
+  OBJECT addaction := topscreen->CreateTolliumComponent("action");
+  addaction->onexecute := PTR CustomAddAction;
+  topscreen->comp->addactionoverride := addaction;
+  OBJECT editaction := topscreen->CreateTolliumComponent("action");
+  editaction->onexecute := PTR CustomEditAction;
+  topscreen->comp->editactionoverride := editaction;
+  OBJECT deleteaction := topscreen->CreateTolliumComponent("action");
+  deleteaction->onexecute := PTR CustomDeleteAction;
+  topscreen->comp->deleteactionoverride := deleteaction;
+
+  topscreen->comp->addbutton->tolliumclick();
+  TestEq([[rowkey := 4, checkbox := TRUE, text := "Custom added"]], topscreen->comp->selection);
+  topscreen->comp->editbutton->tolliumclick();
+  TestEq([[rowkey := 4, checkbox := FALSE, text := "Custom edited"]], topscreen->comp->selection);
+  topscreen->comp->deletebutton->tolliumclick(); // The custom delete action doesn't actually delete, but changes the title
+  TestEq([[rowkey := 4, checkbox := FALSE, text := "Custom 'deleted'"]], topscreen->comp->selection);
+
+  topscreen->comp->addactionoverride := DEFAULT OBJECT;
+  topscreen->comp->editactionoverride := DEFAULT OBJECT;
+  topscreen->comp->deleteactionoverride := DEFAULT OBJECT;
+
+  TestEq(4, Length(topscreen->comp->rows));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->comp->deletebutton->TolliumClick());
+  TestEq(3, Length(topscreen->comp->rows));
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->tolliumexecutecancel());
 

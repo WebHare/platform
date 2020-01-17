@@ -8,6 +8,8 @@ LOADLIB "wh::internet/smtp.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -178,6 +180,41 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
       this->node->RemoveAttribute(attributename);
   }
 
+  MACRO ReadAttachments()
+  {
+    STRING instanceid := this->node->GetAttribute("attachmentsid");
+    IF (instanceid != "")
+    {
+      RECORD instance := this->contexts->formcomponentapi->GetInstance(instanceid);
+      IF (RecordExists(instance))
+        ^attachments->^files->value := instance.attachments;
+    }
+  }
+
+  MACRO WriteAttachments()
+  {
+    STRING instanceid := this->node->GetAttribute("attachmentsid");
+    IF (RecordExists(^attachments->^files->value))
+    {
+      RECORD instance :=
+          [ attachments := ^attachments->^files->value
+          , whfstype := "http://www.webhare.net/xmlns/publisher/mailhandlerattachments"
+          ];
+
+      IF (instanceid = "")
+        instanceid := this->contexts->formcomponentapi->CreateInstance(instance);
+      ELSE
+        this->contexts->formcomponentapi->SetInstance(instanceid, instance);
+      this->node->SetAttribute("attachmentsid", instanceid);
+    }
+    ELSE
+    {
+      this->node->RemoveAttribute("attachmentsid");
+      IF (instanceid != "")
+        this->contexts->formcomponentapi->SetInstance(instanceid, DEFAULT RECORD);
+    }
+  }
+
   UPDATE PUBLIC MACRO PostInitExtension()
   {
     IF(this->existing)
@@ -340,6 +377,25 @@ STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE Attachments EXTEND TolliumFragmentBase
+<
+  UPDATE MACRO PostInitComponent()
+  {
+    ^files->AddAction(GetTid("~download"), PTR this->DoDownloadFile, [ actiontype := "downloadaction" ]);
+  }
+
+  MACRO DoAddFile(RECORD ARRAY files)
+  {
+    ^files->AddRows(SELECT file := files FROM files);
+  }
+
+  MACRO DoDownloadFile(OBJECT downloadhandler)
+  {
+    RECORD todownload := ^files->selection[0].file;
+    downloadhandler->SendFile(todownload.data, todownload.mimetype, todownload.filename);
+  }
+>;
+
 PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
 <
   MACRO NEW()
@@ -363,6 +419,7 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
     ^sendername->required := NOT (^sender->value != "" AND ^sendername->value = "");
 
     this->FillIntraFieldPulldown(^receiverfield, "receiverfield");
+    this->ReadAttachments();
     ^bcc->value := this->node->GetAttribute("bcc");
   }
 
@@ -375,6 +432,7 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
       this->node->RemoveAttribute("sendoncanceltoo");
 
       this->SubmitIntraFieldPulldown(^receiverfield, "receiverfield");
+      this->WriteAttachments();
 
       IF (^bcc->value != "")
         this->node->SetAttribute("bcc", ^bcc->value);
@@ -585,6 +643,10 @@ OBJECT FUNCTION GetTaskMail(RECORD settings, RECORD result, STRING handlertype, 
                            , ...mailmergedata
                            , addresults := settings.addresults
                            ];
+
+  FOREVERY (RECORD attachment FROM settings.attachments)
+    mail->AddWrappedAttachment(attachment.file);
+
   RETURN mail;
 }
 
@@ -669,11 +731,16 @@ RECORD FUNCTION ParseMailHandler(RECORD fielddef, OBJECT node, RECORD parseconte
                   , receiverfield    := node->GetAttribute("receiverfield")
                   , bcc              := node->GetAttribute("bcc")
                   , attachfiles      := ParseXSBoolean(node->GetAttribute("attachfiles"))
+                  , attachments      := RECORD[]
                   ];
 
   STRING instance := node->GetAttribute("textid");
   IF (instance != "" AND parsecontext.getinstance != DEFAULT MACRO PTR)
     fielddef.text := parsecontext.getinstance(instance).data;
+
+  instance := node->GetAttribute("attachmentsid");
+  IF (instance != "" AND parsecontext.getinstance != DEFAULT MACRO PTR)
+    fielddef.attachments := parsecontext.getinstance(instance).attachments;
 
   RETURN fielddef;
 }

@@ -26,6 +26,10 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   INTEGER lastaddedactionid;
   RECORD ARRAY addedactions;
 
+  OBJECT pvt_addactionoverride;
+  OBJECT pvt_editactionoverride;
+  OBJECT pvt_deleteactionoverride;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -34,6 +38,10 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   PUBLIC PROPERTY onrowedit(pvt_onrowedit, SetOnRowEdit);
   PUBLIC PROPERTY onrowdelete(pvt_onrowdelete, SetOnRowDelete);
   PUBLIC PROPERTY onrowsdelete(pvt_onrowsdelete, SetOnRowsDelete);
+
+  PUBLIC PROPERTY addactionoverride(pvt_addactionoverride, SetAddActionOverride);
+  PUBLIC PROPERTY editactionoverride(pvt_editactionoverride, SetEditActionOverride);
+  PUBLIC PROPERTY deleteactionoverride(pvt_deleteactionoverride, SetDeleteActionOverride);
 
   PUBLIC PROPERTY oncelledit(this->list->oncelledit, this->list->oncelledit);
   PUBLIC PROPERTY onselect(this->list->onselect, this->list->onselect);
@@ -126,6 +134,10 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->onrowdelete := description.onrowdelete;
     this->onrowsdelete := description.onrowsdelete;
 
+    this->addactionoverride := description.addactionoverride;
+    this->editactionoverride := description.editactionoverride;
+    this->deleteactionoverride := description.deleteactionoverride;
+
     this->onselect := description.onselect;
 
     this->oncelledit := description.oncelledit;
@@ -203,6 +215,30 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->CheckDelete();
   }
 
+  MACRO SetAddActionOverride(OBJECT addaction)
+  {
+    this->pvt_addactionoverride := addaction;
+    this->additem->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
+    this->addbutton->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
+  }
+  MACRO SetEditActionOverride(OBJECT editaction)
+  {
+    this->pvt_editactionoverride := editaction;
+    IF (ObjectExists(this->pvt_editactionoverride))
+      this->pvt_editactionoverride->enableon := this->edit->enableon;
+    this->edititem->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
+    this->editbutton->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
+  }
+  MACRO SetDeleteActionOverride(OBJECT deleteaction)
+  {
+    this->pvt_deleteactionoverride := deleteaction;
+    IF (ObjectExists(this->pvt_deleteactionoverride))
+      this->pvt_deleteactionoverride->enableon := this->"delete"->enableon;
+    this->deleteitem->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
+    this->deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
+    this->CheckDelete();
+  }
+
   STRING ARRAY FUNCTION GetFlags()
   {
     RETURN SELECT AS STRING ARRAY flag FROM ToRecordArray(this->list->flags, "flag") WHERE flag != "__arrayedit_canmoveup" AND flag != "__arrayedit_canmovedown";
@@ -274,16 +310,28 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   */
   UPDATE PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ requireselection := TRUE ], options);
+    options := ValidateOptions(
+        [ requireselection := TRUE
+        , actiontype := "action"
+        ], options,
+        [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction", "windowopenaction" ] ]
+        ]);
 
     this->lastaddedactionid := this->lastaddedactionid + 1;
 
     INTEGER newactionid := this->lastaddedactionid;
-    OBJECT action := this->owner->CreateTolliumComponent("action");
+    OBJECT action := this->owner->CreateTolliumComponent(options.actiontype);
     OBJECT button := this->owner->CreateTolliumComponent("button");
     OBJECT menuitem := this->owner->CreateTolliumComponent("menuitem");
 
-    action->onexecute := toexecute;
+    SWITCH (options.actiontype)
+    {
+      CASE "action"           { action->onexecute := toexecute; }
+      CASE "downloadaction"   { action->ondownload := toexecute; }
+      CASE "uploadaction"     { action->onupload := toexecute; }
+      CASE "windowopenaction" { action->onwindowopen := toexecute; }
+    }
+
     button->title := title;
     button->action := action;
     button->width := "1pr";
@@ -503,6 +551,8 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO CheckDelete()
   {
     this->"delete"->enabled := this->pvt_enabled AND (this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
+    IF (ObjectExists(this->deleteactionoverride))
+      this->deleteactionoverride->enabled := this->pvt_enabled;
   }
 >;
 
@@ -826,7 +876,13 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   {
     options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
 
-    RECORD ARRAY newdata := this->DoRowEdit(basedata);
+    this->AddRows(this->DoRowEdit(basedata), options);
+  }
+
+  PUBLIC MACRO AddRows(RECORD ARRAY newdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
+
     IF (Length(newdata) = 0)
       RETURN;
 
@@ -1088,7 +1144,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
 
   // FIXME: also use for celledit
   // FIXME: expose the function (make it PUBLIC)?
-  /*PUBLIC*/ MACRO UpdateSingleRow(RECORD newdata)
+  PUBLIC MACRO UpdateSingleRow(RECORD newdata)
   {
     INTEGER pos := (SELECT AS INTEGER #currows + 1 FROM this->currows WHERE rowkey = this->list->value) - 1;
     IF (pos = -1)
