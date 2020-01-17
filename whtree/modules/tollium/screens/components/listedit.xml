@@ -10,17 +10,17 @@
         <enableon source="list" min="1" checkflags="__arrayedit_canmovedown" onexecute="movedownvalue" />
       </action>
       <action name="add" onexecute="addvalue" />
-      <action name="edit">
-        <enableon source="list" min="1" max="1" onexecute="editvalue" />
+      <action name="edit" onexecute="editvalue">
+        <enableon source="list" min="1" max="1" />
       </action>
-      <action name="delete">
-        <enableon source="list" min="1" onexecute="deletevalue" />
+      <action name="delete" onexecute="deletevalue">
+        <enableon source="list" min="1" />
       </action>
     </actions>
     <menus>
       <menu name="selectionmenu">
-        <item action="edit" tid="~edit" disablemode="hidden" />
-        <item action="delete" tid="~delete" disablemode="hidden" />
+        <item name="edititem" action="edit" tid="~edit" disablemode="hidden" />
+        <item name="deleteitem" action="delete" tid="~delete" disablemode="hidden" />
         <divider />
         <item action="moveup" name="moveupitem" tid="~up" visible="false"/>
         <item action="movedown" name="movedownitem" tid="~down" visible="false" />
@@ -28,7 +28,7 @@
         <!-- added actions appear here -->
       </menu>
       <menu name="noselectionmenu">
-        <item action="add" tid="common.actions.add" />
+        <item name="additem" action="add" tid="common.actions.add" />
       </menu>
     </menus>
     <contents>
