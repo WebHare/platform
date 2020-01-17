@@ -551,8 +551,8 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO CheckDelete()
   {
     this->"delete"->enabled := this->pvt_enabled AND (this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
-    IF (ObjectExists(this->deleteaction))
-      this->deleteaction->enabled := this->pvt_enabled;
+    IF (ObjectExists(this->deleteactionoverride))
+      this->deleteactionoverride->enabled := this->pvt_enabled;
   }
 >;
 
