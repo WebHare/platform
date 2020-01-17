@@ -249,6 +249,7 @@ FOR (loop := 0; loop < 180; loop := loop + 1)
 postgresql_trans->throwoncommiterror := TRUE;
 
 webhare_internal := BindTransactionToSchema(postgresql_trans->id, "webhare_internal");
+postgresql_pg_catalog := BindTransactionToSchema(postgresql_trans->id, "pg_catalog");
 
 BootstrapPostgreSQL(postgresql_trans);
 
@@ -320,8 +321,7 @@ FOREVERY (RECORD schemarec FROM SELECT * FROM schemas ORDER BY ToUppercase(schem
 }
 
 
-IF (want_readonly NOT IN [ "yes", "already_readonly"] )
-  trans->BeginWork();
+__BeginWHDBWork(trans->id);
 postgresql_trans->BeginWork();
 
 PRINT(`Creating schemas... `);
@@ -350,9 +350,7 @@ __LegacyCreateTable(postgresql_trans, "webhare_internal", "postgresql_migration_
 // Defer all constraints
 postgresql_trans->__ExecSQL("SET CONSTRAINTS ALL DEFERRED");
 
-__BeginWHDBWork(trans->id);
 RECORD ARRAY indices := SELECT tab := COLUMN "table", recs := MAX(totalrecords) FROM __SendWHDBCommand(trans->id, "SHOW INDICES") GROUP BY COLUMN"table";
-__RollbackWHDBWork(trans->id);
 INTEGER64 totalnumrows := SELECT AS INTEGER64 SUM(recs) FROM indices;
 
 PRINT(`Starting record import\n`);
