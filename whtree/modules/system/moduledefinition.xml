@@ -2398,7 +2398,7 @@ The full base URL on which this site will be published, calculated by combining 
   </validation>
 
   <wrdschemas>
-    <schema tag="config" autocreate="true" definitionfile="data/wrdschemas/config.wrdschema.xml" />
+    <schema tag="config" definitionfile="data/wrdschemas/config.wrdschema.xml" />
   </wrdschemas>
 
   <wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
