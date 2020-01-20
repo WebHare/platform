@@ -639,7 +639,7 @@ psql_server->SendInterrupt();
 WaitUntil([ promise := processwait ], MAX_DATETIME);
 
 PRINT("Sync to disk\n");
-OBJECT sync_process := CreateProcess("/usr/bin/sync", STRING[],
+OBJECT sync_process := CreateProcess("sync", STRING[],
     [ take_output := TRUE
     , take_errors := TRUE
     , merge_output_errors := TRUE
