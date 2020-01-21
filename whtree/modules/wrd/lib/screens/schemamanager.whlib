@@ -341,25 +341,30 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
   {
     RECORD tosync := ^syncpoints->selection;
 
-    OBJECT peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "wrd:read" ] ]);
-    IF (NOT ObjectExists(peer))
-      RETURN;
-
-    RECORD marshallinfo := peer->GetMarshallableInfo();
-
-    OBJECT screen := CreateProgressDialog(this,
-                                          "module::wrd/internal/tollium-bgtasks.whlib",
-                                          "SyncSchema",
-                                          [ wrdschema :=        this->contexts->wrdschema->id
-                                          , peerinfo :=         peer->GetMarshallableInfo()
-                                          , syncpoint :=        tosync.data
-                                          ]);
-
-    IF(screen->RunModal() = "ok")
+    RECORD syncoptions := this->RunScreen("exchange.xml#syncoptions", [ type := "import" ]);
+    IF (RecordExists(syncoptions))
     {
-      this->RunSimpleScreen("info", this->GetTid(".synccompleted"));
-      this->tolliumresult := "ok";
-      RETURN;
+      OBJECT peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "wrd:read" ] ]);
+      IF (NOT ObjectExists(peer))
+        RETURN;
+
+      RECORD marshallinfo := peer->GetMarshallableInfo();
+
+      OBJECT screen := CreateProgressDialog(this,
+                                            "module::wrd/internal/tollium-bgtasks.whlib",
+                                            "SyncSchema",
+                                            CELL[ wrdschema :=        this->contexts->wrdschema->id
+                                                , peerinfo :=         peer->GetMarshallableInfo()
+                                                , syncpoint :=        tosync.data
+                                                , syncoptions.excludetypes
+                                                ]);
+
+      IF(screen->RunModal() = "ok")
+      {
+        this->RunSimpleScreen("info", this->GetTid(".synccompleted"));
+        this->tolliumresult := "ok";
+        RETURN;
+      }
     }
   }
 

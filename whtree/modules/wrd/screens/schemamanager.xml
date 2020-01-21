@@ -68,9 +68,7 @@
             <button action="newschema" tid="tollium:common.actions.add" width="1pr" />
             <button action="editschema" tid="tollium:common.actions.edit" width="1pr" />
             <button action="delschema" tid="tollium:common.actions.delete" width="1pr"  />
-            <line>
-              <button action="importschema" tid="tollium:common.actions.import" width="1pr" />
-            </line>
+            <button action="importschema" tid="tollium:common.actions.import" width="1pr" />
             <button action="synchronize" tid="tollium:common.actions.synchronize" width="1pr" />
           </cell>
         </row>

@@ -108,7 +108,7 @@ PUBLIC OBJECTTYPE SyncSchema EXTEND TolliumBackgroundTask
     OBJECT peer := OpenMarshalledWebHarePeer(this->data.peerinfo);
     OBJECT wrdschema := OpenWRDSchemaById(this->data.wrdschema);
 
-    OBJECT itr := SyncFromExternalSchema(wrdschema, peer, this->data.syncpoint.remotewrdschematag);
+    OBJECT itr := SyncFromExternalSchema(wrdschema, peer, this->data.syncpoint.remotewrdschematag, CELL[ this->data.excludetypes ]);
 
     RECORD rec;
     WHILE (TRUE)

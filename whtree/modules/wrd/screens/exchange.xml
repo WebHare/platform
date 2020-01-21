@@ -229,4 +229,44 @@
     </footer>
   </screen>
 
+  <screen name="syncoptions" gid=".syncoptions" title="">
+    <actions>
+      <action name="selectall" title="" onexecute="doselectall" />
+      <action name="selectnone" title="" onexecute="doselectnone" />
+      <action name="selectnonpersonal" title="" onexecute="doselectnonpersonal" />
+    </actions>
+    <body layout="left">
+      <text name="synctypelabel" title="" labelfor="synctype" />
+      <select name="synctype" title="" type="radio" onchange="onsynctypechange">
+        <option rowkey="nonpersonaldata" />
+        <option rowkey="alldata" />
+        <option rowkey="selecttypes" />
+      </select>
+      <line>
+        <spacer width="16px" />
+        <inlineblock name="selecttypes" title="">
+          <list
+              name="includetypes"
+              columnheaders="false"
+              icons="tollium:users/user"
+              width="40x"
+              height="10x"
+              oncheck="onselectedcheck">
+            <column type="text" name="title" title="" checkboxname="selected" sortkeyname="sortpersonaldata" />
+            <column type="icon" name="haspersonaldata" title="" />
+          </list>
+          <line>
+            <text tid=".select" />
+            <text title="" valuetid=".select-all" action="selectall" />
+            <text title="" valuetid=".select-none" action="selectnone" />
+            <text title="" valuetid=".select-nonpersonal" action="selectnonpersonal" />
+          </line>
+        </inlineblock>
+      </line>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
 </screens>
