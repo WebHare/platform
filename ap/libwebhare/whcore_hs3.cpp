@@ -649,7 +649,6 @@ void PUB_GetPublisherState(HSVM *vm, HSVM_VariableId id_set)
 void SYS_WebHareVersion(HSVM *vm, HSVM_VariableId id_set)
 {
         HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "VERSION")),    BLEX_BRANDING_PRODUCT_VERSION);
         HSVM_IntegerSet(vm,   HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "VERSIONNUM")), BLEX_BRANDING_PRODUCT_VERSION_NUMBER);
 }
 

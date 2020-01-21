@@ -101,7 +101,7 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
   RETURN [ versionnum := __SYSTEM_WEBHAREVERSION().versionnum
-         , version := __SYSTEM_WEBHAREVERSION().version
+         , version := GetEnvironmentVariable("WEBHARE_VERSION")
          , dtapstage := GetDtapStage()
          , installationtype := IsRestoredWebHare()  ? "restore" : "production"
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername

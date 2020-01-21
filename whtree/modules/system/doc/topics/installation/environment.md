@@ -33,6 +33,9 @@ The user currently accessing the server. You should ensure this is set to the us
 ### WEBHARE_IN_DOCKER
 Set if we're running inside a docker environment, and not from a source installation
 
+### WEBHARE_VERSION
+Current semantic WebHare version number, eg 4.27.0
+
 ## Tweaks
 
 ### WEBHARE_CHECKEDOUT_TO

@@ -385,11 +385,18 @@ setup_buildsystem()
 setup_webhare_envsettings()
 {
   if [ -f $WEBHARE_DIR/modules/system/whres/buildinfo ]; then
+    export WEBHARE_VERSION=$( source $WEBHARE_DIR/modules/system/whres/buildinfo ; echo -n "$version" )
     export WEBHARE_DISPLAYBUILDINFO=$(
       source $WEBHARE_DIR/modules/system/whres/buildinfo
       echo -n "branch $branch, commit ${committag:0:10}"
     )
   else
+    getbaseversioninfo
+    if [ -z "$WEBHARE_VERSION" ]; then
+      echo Cannot determine WebHare version
+      exit 1
+    fi
+    export WEBHARE_VERSION="${WEBHARE_VERSION}-dev"
     export WEBHARE_DISPLAYBUILDINFO=$(
       cd $WEBHARE_DIR
       GIT_HEAD_SHA1=$(git rev-parse HEAD)
@@ -715,6 +722,7 @@ case $INSTR in
 
     getwhparameters
     setup_webhare_envsettings "$DEBUGTAGS"
+    echo "WebHare version: $WEBHARE_VERSION"
 
     if [ "$DEBUGTAGS" == "" ]; then
       # no processing needed, just exec
