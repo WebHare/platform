@@ -377,7 +377,7 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @cell(string) schemadef.keyvaluestore.value.data
     @cell(blob) schemadef.keyvaluestore.value.blobdata
     @cell(integer) schemadef.keyvaluestore.value.type
-    @cell(string array) schemadef.schemaresources Resources used to build the schema definition
+    @cell(record) schemadef.schemaresources Resources used to build the schema definition
     @param options
     @cell(boolean) options.fromexternal Set to true if the source is an external server
 */
@@ -473,6 +473,9 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
     IF (r.left.keephistorydays != r.right.keephistorydays)
       local_type->UpdateMetadata(CELL[ r.right.keephistorydays ]);
+
+    IF (r.left.haspersonaldata != r.right.haspersonaldata)
+      local_type->UpdateMetadata(CELL[ r.right.haspersonaldata ]);
 
     IF(CellExists(r.right,'attrs'))
       UpdateAttrs(local_types, local_type, 0, remote_types, r.right.attrs, r.left.tag || ".", "");

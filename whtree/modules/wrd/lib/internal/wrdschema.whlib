@@ -565,6 +565,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       @cell return.requiretype_right Tag of type that must be in wrd_rightentity for this type
       @cell return.parenttype ID of the parent type
       @cell return.keephistorydays Nr of days to keep history
+      @cell return.haspersonaldata If this type may contain sensitive personal data
   */
   PUBLIC RECORD ARRAY FUNCTION ListTypes()
   {
@@ -581,6 +582,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
                 , linkto := requiretype_right
                 , parenttype
                 , keephistorydays
+                , haspersonaldata
              FROM wrd.types
             WHERE wrd_schema = this->schemarec.id;
   }
@@ -656,6 +658,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     typerecord := MakeUpdatedRecord([ title := "", description := "", tag := ""
                                     , requiretype_left := 0, requiretype_right := 0, metatype := 1
                                     , parenttype := 0, abstract := FALSE, keephistorydays := 0
+                                    , haspersonaldata := CellExists(typerecord, "tag") AND ToUpperCase(typerecord.tag) = "WRD_PERSON"
                                     ], typerecord);
     typerecord.tag := ToUppercase(typerecord.tag);
 
@@ -675,9 +678,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 
     INTEGER newtypeid := MakeAutonumber(wrd.types,"id");
     INSERT INTO wrd.types (id, wrd_schema, title, description, tag, metatype
-                         , requiretype_left, requiretype_right, abstract, parenttype, keephistorydays)
+                         , requiretype_left, requiretype_right, abstract, parenttype, keephistorydays, haspersonaldata)
                    VALUES (newtypeid, this->id, typerecord.title, typerecord.description, typerecord.tag, typerecord.metatype
-                         , typerecord.requiretype_left, typerecord.requiretype_right, typerecord.abstract, parent, typerecord.keephistorydays);
+                         , typerecord.requiretype_left, typerecord.requiretype_right, typerecord.abstract, parent, typerecord.keephistorydays, typerecord.haspersonaldata);
 
     this->__SignalMetadataChanged();
 
@@ -739,7 +742,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateType (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ title := "", description := "", linkfrom := 0, linkto := 0, keephistorydays := 0 ], options);
+    options := ValidateOptions( [ title := "", description := "", linkfrom := 0, linkto := 0, keephistorydays := 0, haspersonaldata := FALSE ], options, [ optional := [ "haspersonaldata" ] ]);
     IF(options.linkfrom = 0 AND options.linkto != 0)
       THROW NEW Exception("Cannot set 'linkto' without setting 'linkfrom'");
     IF (options.keephistorydays < 0)
@@ -761,7 +764,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateDomain (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ title := "", description := "", keephistorydays := 0 ], options);
+    options := ValidateOptions( [ title := "", description := "", keephistorydays := 0, haspersonaldata := FALSE ], options, [ optional := [ "haspersonaldata" ] ]);
     IF (options.keephistorydays < 0)
       THROW NEW Exception(`Cannot keep changes for a negative time period`);
 
@@ -927,8 +930,12 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       orgupdate :=
           [ schemaresource :=   ""
           , resources :=        RECORD[]
+          , version := 0
           , ...orgupdate
           ];
+
+      IF (orgupdate.version != current_schema_version)
+        RETURN TRUE;
 
       IF (orgupdate.schemaresource = schemaresource)
       {

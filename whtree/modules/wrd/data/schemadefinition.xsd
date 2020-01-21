@@ -88,7 +88,7 @@
     <xs:attribute name="parent" type="Name" />
     <xs:attribute name="deleteclosedafter" /> <!-- reserved for future use -->
     <xs:attribute name="keephistorydays" type="xs:integer" />
-    <xs:attribute name="haspersonaldata" />
+    <xs:attribute name="haspersonaldata" type="xs:boolean" />
   </xs:complexType>
 
   <xs:complexType name="ObjectDefinition">

@@ -519,6 +519,12 @@
           Keep changes to entities of this type for this number of days.
         </d:documentation>
       </d:integer>
+
+      <d:boolean name="haspersonaldata">
+        <d:documentation>
+          If this type may contains sensitive personal data.
+        </d:documentation>
+      </d:boolean>
     </d:table>
 
     <d:table name="keyvaluestore" primarykey="id" parentlinkcolumn="wrd_schema">

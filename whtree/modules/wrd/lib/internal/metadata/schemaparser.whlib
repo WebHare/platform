@@ -127,6 +127,7 @@ OBJECTTYPE ParsedSchemaDef
               , parenttype_tag := ToUppercase(typenode->GetAttribute("parent"))
               , description := typenode->GetAttribute("description")
               , keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"))
+              , haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"))
               , attrs := DEFAULT RECORD ARRAY
               , allattrs := DEFAULT RECORD ARRAY
               , hasvalues := FALSE
@@ -135,6 +136,9 @@ OBJECTTYPE ParsedSchemaDef
               , linkfrom_tag := which IN ["attachment","link"] ? ToUppercase(typenode->GetAttribute("linkfrom")) : ""
               , linkto_tag   := which = "link" ? ToUppercase(typenode->GetAttribute("linkto")) : ""
               ];
+      // The WRD_PERSON type is marked as personal by default, unless explicitly set to false
+      IF (type.tag = "WRD_PERSON" AND NOT typenode->HasAttribute("haspersonaldata"))
+        type.haspersonaldata := TRUE;
     }
     ELSE
     {
@@ -373,7 +377,7 @@ OBJECTTYPE ParsedSchemaDef
         , queries := this->queries
         , metadata := this->metadata
         , keyvaluestore := this->keyvaluestore
-        , schemaresources :=  CELL[ this->withoverride, this->schemaresource, this->resources ]
+        , schemaresources := CELL[ this->withoverride, this->schemaresource, this->resources, version := current_schema_version ]
         ];
   }
 >;

@@ -6,6 +6,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
@@ -14,6 +15,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
 
 
+PUBLIC CONSTANT INTEGER current_schema_version := 1;
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
@@ -1112,4 +1114,48 @@ PUBLIC STRING FUNCTION DecodeInvalidUTF8Chars(STRING todecode, STRING fallbackch
     }
   }
   RETURN res;
+}
+
+STRING ARRAY FUNCTION GetTypeReferencesForAttr(OBJECT wrdschema, OBJECT type, INTEGER parent, STRING ARRAY current_references)
+{
+  FOREVERY (RECORD attr FROM type->ListAttributes(parent))
+  {
+    IF (attr.domain != 0)
+    {
+      OBJECT dtype := wrdschema->GetTypeById(attr.domain);
+      IF (__MatchesAnyMask(dtype->tag, current_references))
+        RETURN STRING[ type->tag ];
+    }
+    ELSE IF (attr.attributetypename = "ARRAY")
+    {
+      STRING ARRAY extra_references := GetTypeReferencesForAttr(wrdschema, type, attr.id, current_references);
+      IF (IsValueSet(extra_references))
+        RETURN extra_references;
+    }
+  }
+
+  RETURN STRING[];
+}
+
+PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY references)
+{
+  WHILE (TRUE)
+  {
+    BOOLEAN anychange;
+
+    FOREVERY (RECORD rec FROM wrdschema->ListTypes())
+    {
+      IF (__MatchesAnyMask(rec.tag, references))
+        CONTINUE;
+
+      OBJECT type := wrdschema->GetTypeById(rec.id);
+      STRING ARRAY extra_references := GetTypeReferencesForAttr(wrdschema, type, 0, references);
+      references := references CONCAT extra_references;
+      IF (IsValueSet(extra_references))
+        anychange := TRUE;
+    }
+    IF (NOT anychange)
+      BREAK;
+  }
+  RETURN references;
 }

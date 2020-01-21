@@ -10,6 +10,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 
@@ -998,4 +999,117 @@ PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
     RETURN work->Finish();
   }
 
+>;
+
+PUBLIC STATIC OBJECTTYPE SyncOptions EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    IF (data.type = "export")
+    {
+      this->frame->title := this->GetTid(".syncoptions-export");
+      ^synctypelabel->title := this->GetTid(".synctype-export");
+    }
+    ELSE
+    {
+      this->frame->title := this->GetTid(".syncoptions-import");
+      ^synctypelabel->title := this->GetTid(".synctype-import");
+    }
+
+    // Get the list of types
+    RECORD ARRAY alltypes := this->contexts->wrdschema->ListTypes();
+    // For each type, get the types referencing it (recursively)
+    FOREVERY (RECORD type FROM alltypes)
+    {
+      STRING ARRAY referencedby :=
+          SELECT AS STRING ARRAY tag
+            FROM ToRecordArray(GetTypeReferences(this->contexts->wrdschema, STRING[ type.tag ]), "tag")
+           WHERE tag != type.tag;
+      INSERT CELL referencedby := referencedby INTO alltypes[#type];
+    }
+    // A type contains personal data if the 'haspersonaldata' flag is set, or if another type that has the 'haspersonaldata'
+    // flag set is referenced by this type
+    alltypes :=
+        SELECT *
+             , haspersonaldata := haspersonaldata OR RecordExists(SELECT FROM VAR alltypes AS othertypes WHERE othertypes.haspersonaldata AND alltypes.tag IN othertypes.referencedby)
+          FROM alltypes;
+    //Reflect(SELECT tag, haspersonaldata, referencedby FROM alltypes ORDER BY tag);
+
+    ^includetypes->rows :=
+        SELECT rowkey := tag
+             , title := tag
+             , selected := NOT haspersonaldata
+             , haspersonaldata := haspersonaldata ? 1 : 0
+             , sortpersonaldata := (haspersonaldata ? 1 : 0) || tag
+             , referencedby
+          FROM alltypes;
+    this->OnSyncTypeChange();
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    IF (this->BeginFeedback()->Finish())
+    {
+      STRING ARRAY excludetypes;
+      IF (^synctype->value = "nonpersonaldata")
+        excludetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE haspersonaldata = 1;
+      ELSE IF (^synctype->value = "selecttypes")
+        excludetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE NOT selected;
+      RETURN CELL[ excludetypes ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  MACRO DoSelectAll()
+  {
+    UPDATE ^includetypes->rows
+       SET selected := TRUE;
+  }
+
+  MACRO DoSelectNone()
+  {
+    UPDATE ^includetypes->rows
+       SET selected := FALSE;
+  }
+
+  MACRO DoSelectNonPersonal()
+  {
+    UPDATE ^includetypes->rows
+       SET selected := haspersonaldata = 0;
+  }
+
+  MACRO OnSyncTypeChange()
+  {
+    ^selecttypes->visible := ^synctype->value = "selecttypes";
+  }
+
+  MACRO OnSelectedCheck(RECORD row, STRING cellname)
+  {
+    IF (GetCell(row, cellname))
+      this->CheckReferencing(row.rowkey);
+    ELSE
+      this->UncheckReferenced(row.referencedby);
+  }
+
+  MACRO CheckReferencing(STRING type)
+  {
+    // If A references B and A is checked, B should also be checked
+    FOREVERY (INTEGER idx FROM SELECT AS INTEGER ARRAY #rows FROM ^includetypes->rows WHERE type IN referencedby)
+      IF (NOT ^includetypes->rows[idx].selected)
+      {
+        ^includetypes->rows[idx].selected := TRUE;
+        this->CheckReferencing(^includetypes->rows[idx].rowkey);
+      }
+  }
+
+  MACRO UncheckReferenced(STRING ARRAY referencedby)
+  {
+    // If A references B and B is unchecked, A should also be unchecked
+    FOREVERY (INTEGER idx FROM SELECT AS INTEGER ARRAY #rows FROM ^includetypes->rows WHERE rowkey IN VAR referencedby)
+      IF (^includetypes->rows[idx].selected)
+      {
+        ^includetypes->rows[idx].selected := FALSE;
+        this->UncheckReferenced(^includetypes->rows[idx].referencedby);
+      }
+  }
 >;
