@@ -20,7 +20,7 @@ STRING FUNCTION GetNodeType(OBJECT node)
 /** Base objecttype for resource validators
 */
 PUBLIC STATIC OBJECTTYPE XMLValidatorBase
-< // Last described library resource
+< /// Last described library resource
   STRING lastlib;
 
   /// Last described library description @includecelldef DescribeCompiledLibrary.return
