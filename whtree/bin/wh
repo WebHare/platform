@@ -584,8 +584,7 @@ git_update_all()
     exit 1
   fi
 
-  testre="\<webhare\>"
-  if [[ "$1" =~ $testre ]] || [ -z "$1" ]; then
+  if [ -z "$1" ] || [[ "webhare" =~ $1 ]]; then
 
     fixup_remotes $WEBHARE_CHECKEDOUT_TO
 
@@ -659,12 +658,11 @@ git_update_all()
     if [ -d "$P/.git/refs/remotes" ]; then
       cd "$P"
       MODNAME=${P##*/}
-      testre="\<$MODNAME\>"
 
       # Convert remotes, if needed
       fixup_remotes "$P"
 
-      if [[ "$1" =~ $testre ]] || [ -z "$1" ]; then
+      if [ -z "$1" ] || [[ "$MODNAME" =~ $1 ]]; then
         echo
         echo "Updating module '$MODNAME': "
         if ! git pull --rebase ; then
@@ -1120,6 +1118,8 @@ HERE
     if [ -z "$*" ]; then
       echo "=== Updating $WEBHARE_CHECKEDOUT_TO and modules ==="
       git_update_all
+    else
+      git_update_all "$1"
     fi
     exit 0
     ;;
