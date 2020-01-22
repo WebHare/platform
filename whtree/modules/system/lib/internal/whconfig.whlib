@@ -157,7 +157,7 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
 {
   options := ValidateOptions([prefix := ""], options);
 
-  STRING webhareversion :=xmlnode->GetAttribute(options.prefix || "webhareversion");
+  STRING webhareversion := xmlnode->GetAttribute(options.prefix || "webhareversion");
   INTEGER requireversion := ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"));
   IF(webhareversion = "" AND requireversion >= 20000)
     webhareversion := `>= ${GetSemVerFromClassicVersion(requireversion)}`;
