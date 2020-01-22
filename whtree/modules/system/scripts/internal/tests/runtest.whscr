@@ -46,7 +46,7 @@ OBJECT jstestrunner;
 STRING ARRAY testtypes;
 STRING chromeurl;
 BOOLEAN keepsessions;
-STRING coverage; // "none", "script", "system"
+STRING profiling; // "", "cov", "apr", "system-cov", "system-apr"
 BOOLEAN jscoverage;
 
 
@@ -307,11 +307,11 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             ]);
       }
 
-      IF (coverage = "system")
+      IF (profiling LIKE "system-*")
       {
         __SYSTEM_SETSYSTEMCONFIG(CELL
             [ ...GetSystemConfigurationRecord()
-            , debugconfig :=  [ tags :=           [ "cov" ]
+            , debugconfig :=  [ tags :=           [ SubString(profiling, 7) ]
                               , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
                               , context :=        testinfo.testname
                               ]
@@ -376,7 +376,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         }
       }
 
-      IF (coverage = "system")
+      IF (profiling LIKE "system-*")
       {
         __SYSTEM_SETSYSTEMCONFIG(CELL
             [ ...GetSystemConfigurationRecord()
@@ -413,21 +413,21 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
       , value :=    GetEnvironmentVariable("WEBHARE_BABELCACHE") ?? MergePath(GetWebHareConfiguration().varroot, "ephemeral/babelcache/babel-node")
       ] INTO env AT END;
 
-  IF (coverage != "")
+  IF (profiling != "")
   {
     DELETE FROM env WHERE name = "WEBHARE_DEBUG";
-    IF (coverage = "system")
+    IF (profiling LIKE "system-*")
     {
       __SYSTEM_SETSYSTEMCONFIG(CELL
           [ ...GetSystemConfigurationRecord()
-          , debugconfig :=  [ tags :=           [ "cov" ]
+          , debugconfig :=  [ tags :=           [ SubString(profiling, 7) ]
                             , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
                             , context :=        testname
                             ]
           ]);
     }
     ELSE
-      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := "cov" ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
   }
 
   OBJECT process;
@@ -535,7 +535,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
 
   CloseProcess(procid);
 
-  IF (coverage = "system")
+  IF (profiling LIKE "system-*")
   {
     __SYSTEM_SETSYSTEMCONFIG(CELL
         [ ...GetSystemConfigurationRecord()
@@ -604,22 +604,22 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
   INTEGER outputstream := delay_output ? CreateStream() : 0;
   INTEGER joboutput := job->CaptureOutput();
   job->SetConsoleArguments(arguments);
-  IF (coverage != "")
+  IF (profiling != "")
   {
     RECORD ARRAY env := SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_DEBUG";
-    IF (coverage = "system")
+    IF (profiling LIKE "system-*")
     {
       // needed to remove WEBHARE_DEBUG from env, that overrides the system configuration record
       __SYSTEM_SETSYSTEMCONFIG(CELL
           [ ...GetSystemConfigurationRecord()
-          , debugconfig :=  [ tags :=           [ "system-cov" ]
+          , debugconfig :=  [ tags :=           [ profiling ]
                             , outputsession :=  GetEnvironmentVariable("WEBHARE_DEBUGSESSION") ?? "default"
                             , context :=        testname
                             ]
           ]);
     }
     ELSE
-      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := "cov" ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
+      env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling ], [ name := "WEBHARE_DEBUGCONTEXT", value := testname ] ];
 
     job->SetEnvironment(env);
   }
@@ -714,7 +714,7 @@ BOOLEAN FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY argumen
 
   job->Close();
 
-  IF (coverage = "system")
+  IF (profiling LIKE "system-*")
   {
     __SYSTEM_SETSYSTEMCONFIG(CELL
         [ ...GetSystemConfigurationRecord()
@@ -834,6 +834,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
                                     , [name := "systemcoverage", type := "switch" ]
+                                    , [name := "systemprofile", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
                                     , [name := "moduledir", type := "stringopt"]
                                     , [name := "skip", type := "stringlist"]
@@ -878,7 +879,7 @@ autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
 chromeurl := parsedargs.chromeurl;
 keepsessions := parsedargs.keepsessions;
-coverage := parsedargs.systemcoverage ? "system" : parsedargs.coverage ? "script" : "";
+profiling := parsedargs.systemcoverage ? "system-cov" : parsedargs.coverage ? "cov" : parsedargs.systemprofile ? "system-apr" : "";
 jscoverage := parsedargs.jscoverage;
 
 STRING ARRAY requiretags, excludetags;

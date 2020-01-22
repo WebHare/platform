@@ -670,7 +670,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   }
 
   /** Open an external webtool form
-      @param forombject WHFS object to open
+      @param formobject WHFS object to open
       @return(object %WebtoolFormBase) The requested form */
   PUBLIC OBJECT FUNCTION OpenWebtoolForm(OBJECT formobject)
   {

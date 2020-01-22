@@ -153,9 +153,12 @@ MACRO HandleDebugConfig(BOOLEAN initialapply)
     {
       SWITCH (tag)
       {
-        CASE "apr"
+        CASE "apr", "system-apr"
         {
-          IF (profilingtype = "" AND initialapply)
+          IF (profilingtype = "" AND tag = "system-apr" AND profilingcontext != __debugconfig.context)
+            FinishProfiling();
+
+          IF (profilingtype = "" AND (initialapply OR tag = "system-apr"))
           {
             profilingtype := "apr";
             profilingstart := GetCurrentDateTime();
@@ -167,6 +170,9 @@ MACRO HandleDebugConfig(BOOLEAN initialapply)
         }
         CASE "cov", "system-cov"
         {
+          IF (profilingtype = "" AND tag = "system-cov" AND profilingcontext != __debugconfig.context)
+            FinishProfiling();
+
           IF (profilingtype = "" AND (initialapply OR tag = "system-cov"))
           {
             profilingtype := "cov";

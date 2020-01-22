@@ -20,23 +20,49 @@ STRING FUNCTION GetNodeType(OBJECT node)
 /** Base objecttype for resource validators
 */
 PUBLIC STATIC OBJECTTYPE XMLValidatorBase
-<
+< /// Last described library resource
   STRING lastlib;
+
+  /// Last described library description @includecelldef DescribeCompiledLibrary.return
   RECORD lastlibdescr;
 
+  /// Whether syntaxlevel "2020" is enabled
   PUBLIC BOOLEAN syntaxlevel_2020;
+
+  /// Whether syntaxlevel "next" is enabled
   PUBLIC BOOLEAN syntaxlevel_next;
+
+  /// Whether only tids should be processed
   PUBLIC BOOLEAN onlytids;
 
+  /// @type(object %XMLDocument) XML document
   PUBLIC OBJECT xml;
+
+  /// Name of the module of the current document (if applicable)
   PUBLIC STRING modulename;
+
+  /// Resource name of the current document
   PUBLIC STRING respath;
 
   //TODO merge hint,warning,errors into one big list? but we'll need to remove the public errors/warnings/hints then
+  /** List of errors
+      @cell resourcename Resource name
+      @cell line Line number
+      @cell col Column number
+      @cell message Message
+  */
   PUBLIC RECORD ARRAY errors;
+
+  /** List of warnings @includecelldef #errors */
   PUBLIC RECORD ARRAY warnings;
+
+  /** List of warnings @includecelldef #hints */
   PUBLIC RECORD ARRAY hints;
 
+  /** Create a new XML validatior base object
+      @param(object %XMLDocument) xmldoc XML document to validate
+      @param respath Resource path of the document
+  */
   MACRO NEW(OBJECT xmldoc, STRING respath)
   {
     this->modulename := GetModuleNameFromResourcePath(respath);
@@ -44,54 +70,99 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     this->xml := xmldoc;
   }
 
-  //Add a hint. informational message that will never turn into an error, but usually adds details to warnings and errors
-  PUBLIC MACRO AddHint(OBJECT node, STRING error)
+  /** Add a hint. informational message that will never turn into an error, but usually adds details to warnings and errors
+      @param node Node that caused the hint
+      @param hint Hint message
+  */
+  PUBLIC MACRO AddHint(OBJECT node, STRING hint)
   {
-    this->AddHintForLine(ObjectExists(node) ? node->linenum : 0, error);
+    this->AddHintForLine(ObjectExists(node) ? node->linenum : 0, hint);
   }
-  PUBLIC MACRO AddHintForLine(INTEGER linenum, STRING error)
+
+  /** Add a hint. informational message that will never turn into an error, but usually adds details to warnings and errors
+      @param linenum Line in the document relevant to the hint
+      @param hint Hint message
+  */
+  PUBLIC MACRO AddHintForLine(INTEGER linenum, STRING hint)
   {
     INSERT [ resourcename :=  this->respath
            , line :=      linenum
            , col :=       0
-           , message :=   error
+           , message :=   hint
            ] INTO this->hints AT END;
   }
+
+  /** Adds a list of hints
+      @param hints List of hints
+      @cell hints.resourcename Resource name
+      @cell hints.line Line number
+      @cell hints.col Column number
+      @cell hints.message Hint message
+  */
   PUBLIC MACRO AddHints(RECORD ARRAY hints)
   {
     this->hints := this->hints CONCAT hints;
   }
-  //Add a warning. Depending on validation settings for a module these may turn into errors
-  PUBLIC MACRO AddWarning(OBJECT node, STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
+
+  /** Add a warning. Depending on validation settings for a module these may turn into errors
+      @param node Node that cause the warning
+      @param warning Warning message
+      @param options @includecelldef #AddWarningForLine.options
+  */
+  PUBLIC MACRO AddWarning(OBJECT node, STRING warning, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, error, options);
+    this->AddWarningForLine(ObjectExists(node) ? node->linenum : 0, warning, options);
   }
-  PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING error, RECORD options DEFAULTSTO DEFAULT RECORD)
+
+  /** Add a warning. Depending on validation settings for a module these may turn into errors
+      @param linenum Line in the document relevant to the warning
+      @param warning Warning message
+      @cell(string) options.failatsyntaxlevel Turn the warning into an error at when this syntax level is enabled.
+          Current values: "2020", "next"
+  */
+  PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING warning, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ failatsyntaxlevel := "" ], options);
     IF( (options.failatsyntaxlevel = "2020" AND this->syntaxlevel_2020)
         OR
         (options.failatsyntaxlevel = "next" AND this->syntaxlevel_next))
     {
-      this->AddErrorForLine(linenum, error);
+      this->AddErrorForLine(linenum, warning);
       RETURN;
     }
 
     INSERT [ resourcename :=  this->respath
            , line :=      linenum
            , col :=       0
-           , message :=   error
+           , message :=   warning
            ] INTO this->warnings AT END;
   }
+
+  /** Adds a list of warnings
+      @param warnings List of warnings
+      @cell warnings.resourcename Resource name
+      @cell warnings.line Line number
+      @cell warnings.col Column number
+      @cell warnings.message Warning message
+  */
   PUBLIC MACRO AddWarnings(RECORD ARRAY warnings)
   {
     this->warnings := this->warnings CONCAT warnings;
   }
-  //Add an error.
+
+  /** Add an error.
+      @param node Node that cause the error
+      @param error Error message
+  */
   PUBLIC MACRO AddError(OBJECT node, STRING error)
   {
     this->AddErrorForLine(ObjectExists(node) ? node->linenum : 0, error);
   }
+
+  /** Add an error.
+      @param linenum Line in the document relevant to the error
+      @param error Error message
+  */
   PUBLIC MACRO AddErrorForLine(INTEGER linenum, STRING error)
   {
     INSERT [ resourcename :=  this->respath
@@ -100,17 +171,30 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
            , message :=   error
            ] INTO this->errors AT END;
   }
+
+  /** Adds a list of errors
+      @param errors List of errors
+      @cell errors.resourcename Resource name
+      @cell errors.line Line number
+      @cell errors.col Column number
+      @cell errors.message Error message
+  */
   PUBLIC MACRO AddErrors(RECORD ARRAY errors)
   {
     this->errors := this->errors CONCAT errors;
   }
 
-  /// Our module name
+  /** Returns the module name of the current document
+      @return Module name
+  */
   PUBLIC STRING FUNCTION GetModuleName()
   {
     RETURN GetModuleNameFromResourcePath(this->respath);
   }
-  /// Are we working for a builtin module? (higher compliance requirements)
+
+  /** Are we working for a builtin module? (higher compliance requirements)
+      @return Whether the current document is from a builtin module
+  */
   PUBLIC BOOLEAN FUNCTION IsBuiltinModule()
   {
     RETURN this->GetModuleName() IN whconstant_builtinmodules;
@@ -158,6 +242,10 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RETURN "";
   }
 
+  /** Describe a library
+      @param libname Library resource name
+      @return Library description @includecelldef #DescribeCompiledLibrary.return
+  */
   RECORD FUNCTION GetLibDescription(STRING libname)
   {
     IF(this->lastlib != libname)
@@ -175,6 +263,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RETURN this->lastlibdescr;
   }
 
+  /** Verifies the existence of a reference to a witty component
+      @param linenum Line number of the reference
+      @param wittyref Reference to the witty component
+      @return TRUE if the witty component exists
+  */
   BOOLEAN FUNCTION VerifyWittyComponentExistence(INTEGER linenum, STRING wittyref)
   {
     STRING message := VerifyWittyComponentExistence(this->respath, wittyref);
@@ -186,6 +279,11 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RETURN TRUE;
   }
 
+  /** Verifies the existence of a reference to a function
+      @param linenum Line number of the reference
+      @param objtype Reference to the objecttype
+      @return TRUE if the objecttype exists
+  */
   BOOLEAN FUNCTION VerifyObjectExistence(INTEGER linenum, STRING objtype)
   {
     STRING ARRAY objtoks := Tokenize(objtype,'#');
@@ -204,7 +302,12 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RETURN TRUE;
   }
 
-  //verify the existence of a reference to a screens file thingy
+  /** Verify the existence of a reference to a screens file thingy
+      @param linenum Line number of the reference
+      @param screenref Reference to the screen
+      @param type Screen type (eg 'tabsextension')
+      @return TRUE if the screen exists
+  */
   OBJECT FUNCTION VerifyScreenReferenceExistence(INTEGER linenum, STRING screenref, STRING type)
   {
     STRING absscreenref := MakeAbsoluteScreenReference(this->respath, screenref);
@@ -244,9 +347,31 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     RETURN DEFAULT OBJECT;
   }
 
+  /** Verifies the existence of a reference to a function
+      @param linenum Line number of the reference
+      @param func Reference to the function
+      @return TRUE if the function exists
+  */
+  BOOLEAN FUNCTION VerifyFunctionExistence(INTEGER linenum, STRING func)
+  {
+    STRING ARRAY functoks := Tokenize(func,'#');
+    RECORD lib := this->GetLibDescription(functoks[0]);
+    IF(NOT RecordExists(lib))
+    {
+      this->AddErrorForLine(linenum, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
+      RETURN FALSE;
+    }
+    IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(functoks[1])))
+    {
+      this->AddErrorForLine(linenum, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
+      RETURN FALSE;
+    }
+
+    RETURN TRUE;
+  }
+
   /** Hook for additional resource validation for XML documents */
   PUBLIC MACRO ValidateDocument()
   {
   }
 >;
-
