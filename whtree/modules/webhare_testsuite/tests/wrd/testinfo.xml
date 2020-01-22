@@ -16,6 +16,7 @@
   <test script="testtollium.whscr" />
   <test script="test_exchange.whscr" />
   <test script="test_sync.whscr" />
+  <test script="test_personaldata.whscr" />
   <test script="testkeephistory.whscr" />
   <jstest file="testwrdauth-frontend.es" tags="wrdauth" />
   <jstest file="testwrdauth-authpages.es" tags="wrdauth" />
