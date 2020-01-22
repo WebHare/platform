@@ -11,6 +11,7 @@ DOCKERBUILDARGS=()
 DESTDIR="`pwd`"
 cd `dirname $0`
 
+source $WEBHARE_DIR/lib/wh-functions.sh
 source ./functions.sh
 
 while [[ $1 =~ ^-.* ]]; do
@@ -222,6 +223,7 @@ committag=$CI_COMMIT_SHA
 builddate=`date +'%Y-%m-%d'`
 buildtime=`date +'%H:%M:%S'`
 branch=$CI_COMMIT_REF_NAME
+version=$WEBHARE_VERSION
 HERE
 
 echo "Docker build args: ${DOCKERBUILDARGS[@]}"

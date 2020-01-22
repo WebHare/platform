@@ -73,14 +73,17 @@ PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
     }
   }
 
-  RETURN CELL[ ...__SYSTEM_WEBHAREVERSION()
-             , builddate := ""
-             , buildtime := ""
-             , branch := ""
-             , committag := ""
-             , ...buildinfo
-             , docker := GetEnvironmentVariable("WEBHARE_IN_DOCKER") != ""
-             ];
+  RECORD versioninfo := CELL[ ...__SYSTEM_WEBHAREVERSION()
+                            , builddate := ""
+                            , buildtime := ""
+                            , branch := ""
+                            , committag := ""
+                            , ...buildinfo
+                            , docker := GetEnvironmentVariable("WEBHARE_IN_DOCKER") != ""
+                            , version := GetEnvironmentVariable("WEBHARE_VERSION")
+                            ];
+
+  RETURN versioninfo;
 }
 
 /** @short Is a specific module installed ?
@@ -107,7 +110,7 @@ PUBLIC STRING FUNCTION GetModuleStorageRoot(STRING modulename)
     @return The WebHare version (eg "WebHare Platform v4.26.3") */
 PUBLIC STRING FUNCTION GetWebhareVersion()
 {
-  RETURN "WebHare Platform " || __SYSTEM_WEBHAREVERSION().version;
+  RETURN "WebHare Platform " || GetWebhareVersionInfo().version;
 }
 /** @short Get the version number of this WebHare installation
     @return The WebHare version number (eg 42603 for version 4.26.3) */

@@ -1,3 +1,15 @@
+getbaseversioninfo()
+{
+  local WHNUMERICVERSION
+  WHNUMERICVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION_NUMBER / { print $3 }' < $WEBHARE_CHECKEDOUT_TO/blex/branding.h)`
+  if [ -z "$WHNUMERICVERSION" ]; then
+    echo "Unable to retrieve version # from branding.h"
+    exit 1
+  fi
+
+  WEBHARE_VERSION=${WHNUMERICVERSION:0:1}.$((${WHNUMERICVERSION:1:2})).$((${WHNUMERICVERSION:3:2}))
+}
+
 loadshellconfig()
 {
   if [ -n "$LOADEDSHELLCONFIG" ]; then

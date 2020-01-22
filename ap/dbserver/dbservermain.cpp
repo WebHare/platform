@@ -1,6 +1,5 @@
 #include <ap/libwebhare/allincludes.h>
 
-#include <blex/branding.h>
 #include <blex/path.h>
 #include <blex/logfile.h>
 #include <blex/getopt.h>
@@ -62,7 +61,7 @@ int DBServer::Execute (std::vector<std::string> const &args)
 
                 if (!optparse.Parse(args))
                 {
-                        std::cerr << "WebHare database server " << BLEX_BRANDING_PRODUCT_VERSION << "\n\nSyntax: dbserver [options]\n\n";
+                        std::cerr << "Syntax: dbserver [options]\n\n";
 
                         //            --xxxxxxxxxxxxxxxxxxxxxxxxx  ddddddddddddddddddddddddddddddddddddddddddddddd\n
                         std::cerr << "--restore <file>             Restore the backup starting with file <file>\n";

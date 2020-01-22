@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <csignal>
 #include <ap/libwebhare/whcore.h>
-#include <blex/branding.h>
 #include <blex/threads.h>
 #include <blex/path.h>
 #include <blex/pipestream.h>
@@ -399,7 +398,7 @@ void WHService::MainLoop()
         Blex::DateTime nextcompileservercheck = now + Blex::DateTime::Msecs(50);
         Blex::DateTime nextlogflush = now + Blex::DateTime::Seconds(3);
 
-        Log(ServiceManager, "Starting service (" BLEX_BRANDING_PRODUCT_VERSION " " + Blex::GetEnvironVariable("WEBHARE_DISPLAYBUILDINFO") + ")");
+        Log(ServiceManager, "Starting service (" + Blex::GetEnvironVariable("WEBHARE_DISPLAYBUILDINFO") + ")");
 
         ReadKeyConfig();
 

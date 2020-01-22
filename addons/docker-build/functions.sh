@@ -1,14 +1,3 @@
-# Get current version this webhare, to calculate branch head extra tag (eg 4.10)
-# returns version in WHVERSION
-get_whversion()
-{
-  WHVERSION=`(awk -- '/define BLEX_BRANDING_PRODUCT_VERSION / { print $3 }' < ../../blex/branding.h) | tr -d \"`
-  if [ -z "$WHVERSION" ]; then
-    echo "Unable to retrieve version #"
-    exit 1
-  fi
-}
-
 # Get absolute path
 get_absolute_path()
 {
@@ -43,10 +32,7 @@ get_finaltag()
   PUSH_BUILD_IMAGES=
 
   local MAINTAG
-
-  get_whversion
-  echo "WebHare version: $WHVERSION"
-  echo ""
+  getbaseversioninfo
 
   # are we running on CI?
   if [ -n "$CI_COMMIT_SHA" ]; then
@@ -54,19 +40,33 @@ get_finaltag()
     # CI may push images to the CI repos
     PUSH_BUILD_IMAGES=1
 
-    # calculate main tag based on branch name
-    if [ "${CI_COMMIT_REF_NAME:0:8}" == "release/" ]; then
-      # Release branch
-      MAINTAG="${CI_COMMIT_REF_NAME:8}"
-    elif [ "${CI_COMMIT_REF_NAME:0:3}" == "rc/" ]; then
-      # Release branch
-      MAINTAG="${CI_COMMIT_REF_NAME:3}-rc"
+    if [ "$CI_COMMIT_TAG" != "" ]; then
+      if ! [[ $CI_COMMIT_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]$ ]]; then
+        echo "I do not understand the commit tag: $CI_COMMIT_TAG"
+        exit 1
+      fi
+
+      # we are building a specific tag, eg 4.28.0. git tag == docker tag == calculated semantic version
+      MAINTAG=$CI_COMMIT_TAG
+      if [ "$MAINTAG" != "$WEBHARE_VERSION" ]; then
+        echo "Expected to be tagged '$WEBHARE_VERSION' but the tag was '$MAINTAG'"
+        exit 1
+      fi
+    elif [ "${CI_COMMIT_REF_NAME:0:8}" == "release/" ]; then
+      # Release branch - eg release/4.27.
+      MAINTAG="${CI_COMMIT_REF_NAME:8}-prerelease" #Push as webhare/platform:4.27-prerelease
+      WEBHARE_VERSION=${WEBHARE_VERSION}-prerelease #Name eg 4.27.2-prerelease
     elif [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
       # Master branch
       MAINTAG="master"
+      WEBHARE_VERSION=${WEBHARE_VERSION}-master
+    elif [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
+      # Custom builds
+      MAINTAG="${CI_COMMIT_REF_NAME:7}" #Push as webhare/platform:<customtag>
+      WEBHARE_VERSION="${WEBHARE_VERSION}-${CI_COMMIT_REF_NAME:7}"
     else
-      # Other branch
       MAINTAG="$CI_COMMIT_REF_SLUG"
+      WEBHARE_VERSION="${WEBHARE_VERSION}-$CI_COMMIT_REF_SLUG"
     fi
 
     # check if there is a CI registry
@@ -88,6 +88,8 @@ get_finaltag()
     BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
   fi
 
+  echo "Semantic version:     $WEBHARE_VERSION"
+  echo ""
   echo "Building images with tags:"
   echo "BUILD_IMAGE=          $BUILD_IMAGE"
   echo ""
