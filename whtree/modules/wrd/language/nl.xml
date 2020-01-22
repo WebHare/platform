@@ -465,6 +465,20 @@
       <text tid="apparentlynotcsv">Weet u zeker dat dit een kommagescheiden tekstbestand (CSV) is?</text>
       <text tid="distinctoverflow">De gekoppelde kolom bevat teveel uniek waarden om te worden gekoppeld.</text>
     </textgroup>
+    <textgroup gid="syncoptions">   <!-- exchange.syncoptions -->
+      <text tid="select">Selecteren</text>
+      <text tid="select-all">Alles</text>
+      <text tid="select-none">Niets</text>
+      <text tid="select-nonpersonal">Niet-persoonlijke types</text>
+      <text tid="syncoptions-export">Exportopties</text>
+      <text tid="syncoptions-import">Importopties</text>
+      <text tid="synctype-alldata">Alle gegevens</text>
+      <text tid="synctype-export">Te exporteren gegevens</text>
+      <text tid="synctype-import">Te importeren gegevens</text>
+      <text tid="synctype-nonpersonaldata">Alleen niet-persoonlijke gegevens</text>
+      <text tid="synctype-selecttypes">Types selecteren</text>
+      <text tid="wrd_tag">Type</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="filetypes">   <!-- filetypes -->
     <text tid="samlidpendpoint">SAML IDP eindpunt</text>

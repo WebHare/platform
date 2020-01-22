@@ -465,6 +465,20 @@
       <text tid="apparentlynotcsv">Are you sure this is a comma separated values (CSV) text file?</text>
       <text tid="distinctoverflow">The mapped column contains too many unique values to be mapped.</text>
     </textgroup>
+    <textgroup gid="syncoptions">   <!-- exchange.syncoptions -->
+      <text tid="select">Select</text>
+      <text tid="select-all">All</text>
+      <text tid="select-none">None</text>
+      <text tid="select-nonpersonal">Non-personal types</text>
+      <text tid="syncoptions-export">Export options</text>
+      <text tid="syncoptions-import">Import options</text>
+      <text tid="synctype-alldata">All data</text>
+      <text tid="synctype-export">Data to export</text>
+      <text tid="synctype-import">Data to import</text>
+      <text tid="synctype-nonpersonaldata">Only non-personal data</text>
+      <text tid="synctype-selecttypes">Select types</text>
+      <text tid="wrd_tag">Type</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="filetypes">   <!-- filetypes -->
     <text tid="samlidpendpoint">SAML IDP endpoint</text>

@@ -1,0 +1,178 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+LOADLIB "mod::wrd/lib/imexport.whlib";
+
+
+MACRO HasPersonalDataProperty()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+
+  //----------------------------------------------------------------------------
+  // Test 'haspersonaldata' property on default test schema types
+
+  TestEq(TRUE, schemaobj->^wrd_person->haspersonaldata);
+  // Test domain 1 and 2 should not be marked as having personal data, as they don't reference wrd_person themselves, but are
+  // only referenced by it
+  TestEq(FALSE, schemaobj->^test_domain_1->haspersonaldata);
+  TestEq(FALSE, schemaobj->^test_domain_2->haspersonaldata);
+  // The attachment should be marked as having personal data as it links from wrd_person
+  TestEq(TRUE, schemaobj->^personattachment->haspersonaldata);
+
+  //----------------------------------------------------------------------------
+  // Test 'haspersonaldata' property when dynamically adding/deleting attributes
+
+  testfw->BeginWork();
+
+  // A type contains personal data if one of its attributes directly or indirectly refers to a type containing personal data
+  schemaobj->CreateType("TESTPERSONALTYPE");
+
+  TestEq(FALSE, schemaobj->^testpersonaltype->haspersonaldata);
+  schemaobj->^testpersonaltype->CreateAttribute("TESTATTR", "DOMAIN", [ domain := schemaobj->^wrd_person->id ]);
+  TestEq(TRUE, schemaobj->^testpersonaltype->haspersonaldata);
+  schemaobj->^testpersonaltype->DeleteAttribute("TESTATTR");
+  TestEq(FALSE, schemaobj->^testpersonaltype->haspersonaldata);
+
+  schemaobj->^testpersonaltype->CreateAttribute("TESTATTR", "DOMAIN", [ domain := schemaobj->^personattachment->id ]);
+  TestEq(TRUE, schemaobj->^testpersonaltype->haspersonaldata);
+  schemaobj->^testpersonaltype->DeleteAttribute("TESTATTR");
+  TestEq(FALSE, schemaobj->^testpersonaltype->haspersonaldata);
+
+  //----------------------------------------------------------------------------
+  // Test 'haspersonaldata' property when initialized through an XML schema
+
+  ApplyWRDSchemaDefinitionFile(schemaobj, StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+  <!-- WRD_PERSON has personal data, unless explicitly set to false -->
+  <object tag="WRD_PERSON" haspersonaldata="false">
+  </object>
+
+  <!-- Set explicitly to true -->
+  <object tag="TESTPERSONALTYPE" haspersonaldata="true">
+  </object>
+
+  <!-- The attachment has personal data, even though explicitly set to false -->
+  <attachment tag="TESTATTACHMENT" linkfrom="TESTPERSONALTYPE" haspersonaldata="false">
+  </attachment>
+
+  <!-- Link to personal data through domain attribute -->
+  <object tag="TESTOTHERTYPE">
+    <attributes>
+      <domainsingle tag="TESTATTR" domain="TESTATTACHMENT" />
+    </attributes>
+  </object>
+
+  <!-- Link from/to a type that links to personal data -->
+  <link tag="TESTLINKFROMPERSON" linkfrom="TESTOTHERTYPE" linkto="TEST_DOMAIN_1">
+  </link>
+  <link tag="TESTLINKTOPERSON" linkfrom="TEST_DOMAIN_1" linkto="TESTOTHERTYPE">
+  </link>
+</schemadefinition>`));
+
+  TestEq(FALSE, schemaobj->^wrd_person->haspersonaldata);
+  TestEq(FALSE, schemaobj->^personattachment->haspersonaldata);
+  TestEq(TRUE, schemaobj->^testpersonaltype->haspersonaldata);
+  TestEq(TRUE, schemaobj->^testattachment->haspersonaldata);
+  TestEq(TRUE, schemaobj->^testothertype->haspersonaldata);
+  TestEq(TRUE, schemaobj->^testlinkfromperson->haspersonaldata);
+  TestEq(TRUE, schemaobj->^testlinktoperson->haspersonaldata);
+
+  testfw->RollbackWork();
+}
+
+ASYNC MACRO TestImportExport()
+{
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  INTEGER oldschemaid := schemaobj->id;
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ target := [ schemaname := schemaobj->tag ] ]));
+
+  // Open the schema export dialog
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Export current schema", [ menuitem := TRUE ]));
+
+  // Check some types for personal data
+  FOREVERY (RECORD tocheck FROM
+      [ [ rowkey := "WRD_PERSON", personaldata := TRUE ]
+      , [ rowkey := "PERSONATTACHMENT", personaldata := TRUE ]
+      , [ rowkey := "TEST_DOMAIN_1", personaldata := FALSE ]
+      , [ rowkey := "TEST_DOMAIN_2", personaldata := FALSE ]
+      ])
+  {
+    RECORD row :=
+        SELECT *
+          FROM topscreen->^includetypes->rows
+         WHERE rowkey = tocheck.rowkey;
+    TestEq(TRUE, RecordExists(row), `${tocheck.rowkey} not found`);
+    TestEq(tocheck.personaldata, row.haspersonaldata != 0, `${tocheck.rowkey} should${tocheck.personaldata?"":" not"} be have a 'personal data' icon`);
+    TestEq(NOT tocheck.personaldata, row.selected, `${tocheck.rowkey} should${tocheck.personaldata?" not":""} be selected`);
+  }
+  topscreen->^synctype->value := "nonpersonaldata";
+  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
+
+  // Download the export file
+  RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  // Make sure that there are persons before re-importing the schema
+  RECORD ARRAY persons := schemaobj->^wrd_person->RunQuery([ outputcolumns := [ "wrd_id" ] ]);
+  TestEq(TRUE, RecordExists(persons));
+  testfw->BeginWork();
+  schemaobj->^personattachment->CreateEntity([ wrd_leftentity := persons[0].wrd_id ]);
+  testfw->CommitWork();
+  TestEq(TRUE, RecordExists(schemaobj->^personattachment->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+  // The test domains should also be there
+  TestEq(TRUE, RecordExists(schemaobj->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+  TestEq(TRUE, RecordExists(schemaobj->^test_domain_2->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+
+  // Import the exported file
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Manage schemas"));
+
+  // Upload the file, the import options dialog will show
+  STRING ARRAY uploadtokens := TT("importschema")->PrepareUpload(exportfile);
+  AWAIT ExpectScreenChange(+1, PTR TT("importschema")->ProcessInboundMessage("upload",
+      [ rule := 0
+      , items :=
+          [ [ type := "file"
+            , token := uploadtokens[0]
+            ]
+          ]
+      ]));
+  // Upload progress window
+  AWAIT ExpectOptionalProgressWindow(PTR TTClick(":OK"));
+  // 'The old schema has been renamed' message
+  AWAIT ExpectAndAnswerMessageBox("OK", DEFAULT MACRO PTR);
+  // The import options dialog will now be closed
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  // The old schema is renamed, reopen the newly imported schema
+  schemaobj := testfw->GetWRDSchema(TRUE);
+  TestEq(FALSE, schemaobj->id = oldschemaid);
+
+  // The imported schema is now added in the schema manager, select and open it
+  topscreen->schemas->selection := SELECT * FROM topscreen->schemas->rows WHERE tag = schemaobj->tag;
+  TestEq(TRUE, RecordExists(topscreen->schemas->selection));
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  // No more personal data after re-importing the schema
+  TestEq(FALSE, RecordExists(schemaobj->^wrd_person->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+  TestEq(FALSE, RecordExists(schemaobj->^personattachment->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+  // The test domains should still be there
+  TestEq(TRUE, RecordExists(schemaobj->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+  TestEq(TRUE, RecordExists(schemaobj->^test_domain_2->RunQuery([ outputcolumns := [ "wrd_id" ] ])));
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR HasPersonalDataProperty
+                 , PTR TestImportExport
+                 ],
+                 [ wrdauth := FALSE
+                 , testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
+                 ]);

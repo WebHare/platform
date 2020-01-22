@@ -6,6 +6,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
@@ -14,6 +15,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
 
 
+PUBLIC CONSTANT INTEGER current_schema_version := 1;
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
@@ -1112,4 +1114,37 @@ PUBLIC STRING FUNCTION DecodeInvalidUTF8Chars(STRING todecode, STRING fallbackch
     }
   }
   RETURN res;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY references)
+{
+  WHILE (TRUE)
+  {
+    BOOLEAN anychange;
+
+    FOREVERY (RECORD rec FROM wrdschema->ListTypes())
+    {
+      IF (__MatchesAnyMask(rec.tag, references))
+        CONTINUE;
+
+      OBJECT type := wrdschema->GetTypeById(rec.id);
+      // Check all attributes (-1 returns all attributes, including arrays recursively)
+      FOREVERY (RECORD attr FROM type->ListAttributes(-1))
+      {
+        // If this is a domain, check if it references any of the references
+        IF (attr.domain != 0)
+        {
+          OBJECT dtype := wrdschema->GetTypeById(attr.domain);
+          IF (__MatchesAnyMask(dtype->tag, references))
+          {
+            INSERT type->tag INTO references AT END;
+            anychange := TRUE;
+          }
+        }
+      }
+    }
+    IF (NOT anychange)
+      BREAK;
+  }
+  RETURN references;
 }

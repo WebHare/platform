@@ -499,6 +499,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PUBLIC PROPERTY metatype(this->typerec.metatype, -);
 
   PUBLIC PROPERTY keephistorydays(this->typerec.keephistorydays, -);
+  PUBLIC PROPERTY haspersonaldata(GetHasPersonalData, -);
 
   PUBLIC PROPERTY linkfromtype(GetLinkFromType, -);
   PUBLIC PROPERTY linktotype(GetLinkToType, -);
@@ -574,6 +575,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     FOREVERY(OBJECT typ FROM this->pvt_wrdschema->__GetTypeIfcached(this->GetValidTypeIDs()))
       IF (typ != this)
         typ->__ReloadType();
+  }
+  BOOLEAN FUNCTION GetHasPersonalData()
+  {
+    IF (this->typerec.haspersonaldata)
+      RETURN TRUE;
+
+    STRING ARRAY refs := GetTypeReferences(this->pvt_wrdschema, SELECT AS STRING ARRAY tag FROM this->pvt_wrdschema->ListTypes() WHERE haspersonaldata);
+    RETURN this->tag IN refs;
   }
   OBJECT FUNCTION GetLinkFromType()
   {
@@ -683,8 +692,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         , linkto :=         0
         , description :=    ""
         , keephistorydays :=   0
+        , haspersonaldata := FALSE
         ], newmetadata,
-        [ optional := [ "parenttype", "abstract", "title", "tag", "linkfrom", "linkto", "description", "keephistorydays" ]
+        [ optional := [ "parenttype", "abstract", "title", "tag", "linkfrom", "linkto", "description", "keephistorydays", "haspersonaldata" ]
         ]);
 
     OBJECT ARRAY typestoreload := [ this ];

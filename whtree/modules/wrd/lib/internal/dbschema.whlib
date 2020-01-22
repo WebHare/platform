@@ -46,6 +46,7 @@ PUBLIC SCHEMA
     , INTEGER "parenttype" NULL := 0
     , BOOLEAN "abstract"
     , INTEGER "keephistorydays"
+    , BOOLEAN "haspersonaldata"
     ; KEY id
     > types
   , TABLE
