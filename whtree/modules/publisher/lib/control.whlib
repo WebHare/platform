@@ -392,7 +392,7 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD 
         IF(GetCurrentDatetime() >= options.deadline)
           RETURN FALSE;
 
-        IF(options.reportfrequency > 0) //don't talk unless explicitly requetsed
+        IF(options.reportfrequency > 0) //don't talk unless explicitly requested
           PrintTo(2, "Publication in folder #" || startingfolder || " still isn't complete...\n");
         currentwaitlimit := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
 
