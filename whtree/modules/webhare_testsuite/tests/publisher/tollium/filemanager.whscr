@@ -1,6 +1,8 @@
 <?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -165,15 +167,12 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(FALSE, pvs.showingmessages);// Files of this type should be published as .shtml, but this one has the extension .html
 
-  /// Uncomment the test below when the test site problem is solved:
-  /*//Select the emptyfolder
+  //Select the emptyfolder
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="emptyfolder";
   /// OK, somehow an index can exist; remove if it does:
   RECORD ARRAY files := SELECT id, name, type FROM system.fs_objects WHERE parent IN TT("filelist")->value;
   IF(Length(files) > 0)
   {
-    PRINT("FIXME: The test requires an empty folder without index document, but no such folder exists in the test site!\n");
-    PRINT("The folder ID is " || TT("filelist")->value[0] || "; it has " || Length(files) || " children.\n");
     testfw->BeginWork();
     FOREVERY(RECORD file FROM files)
       OpenWHFSObject(file.id)->DeleteSelf();
@@ -185,7 +184,6 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq("", pvs.browserurl); // No index document
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*{publisher:components.previewbrowser.folderwithoutindex|emptyfolder}*', pvs.messages);
-  //*/
 
   //Let's hit the content link
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="contentlink.shtml";

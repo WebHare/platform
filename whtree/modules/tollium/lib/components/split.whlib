@@ -3,16 +3,17 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 
 
-/////////////////////////////////////////////////////////////////////
-// The infamous split
-
+/** Horizontal/vertial draggable split */
 PUBLIC OBJECTTYPE TolliumSplit EXTEND TolliumComponentBase
 <
   PUBLIC OBJECT ARRAY parts;
-  PUBLIC BOOLEAN horizontal;
-  STRING pvt_splitter;
+  BOOLEAN __horizontal;
+  STRING __splitter;
 
-  PUBLIC PROPERTY splitter(pvt_splitter, SetSplitter);
+  /** Split horizontally, making the slider vertical */
+  PUBLIC PROPERTY horizontal(__horizontal, SetHorizontal);
+  /** Splitter type ('' or 'transparent') */
+  PUBLIC PROPERTY splitter(__splitter, SetSplitter);
 
   MACRO NEW()
   {
@@ -38,8 +39,8 @@ PUBLIC OBJECTTYPE TolliumSplit EXTEND TolliumComponentBase
   {
     TolliumComponentBase::StaticInit(def);
     this->parts := SELECT AS OBJECT ARRAY component FROM def.children;
-    this->horizontal := def.type="horizontal";
-    this->splitter := def.splitter;
+    this->__horizontal := def.type = "horizontal";
+    this->__splitter := def.splitter;
 
     FOREVERY(RECORD child FROM def.children)
     {
@@ -61,11 +62,23 @@ PUBLIC OBJECTTYPE TolliumSplit EXTEND TolliumComponentBase
     THROW NEW TolliumException(this, 'Cannot find component to delete ' || this->name || ',' || oldcomponent->name);
   }
 
+  MACRO SetHorizontal(BOOLEAN newhorizontal)
+  {
+    IF(this->__horizontal = newhorizontal)
+      RETURN;
+
+    this->ExtUpdatedComponent();
+  }
+
   MACRO SetSplitter(STRING splittertype)
   {
     IF(splittertype NOT IN ["","transparent"])
       THROW NEW Exception(`Invalid splitter type '${splittertype}'`);
-    this->pvt_splitter := splittertype;
+    IF(this->__splitter = splittertype)
+      RETURN;
+
+    this->__splitter := splittertype;
+    this->ExtUpdatedComponent();
   }
 
   UPDATE PUBLIC MACRO TolliumWebRender()

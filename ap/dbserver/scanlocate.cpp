@@ -1332,7 +1332,7 @@ RecordId Scanner::GetCachedRowPartRecordId(unsigned row, unsigned tablenr)
         return cache[row * table_count + tablenr].recordid;
 }
 
-Cell Scanner::GetCachedRowPartCell(unsigned row, unsigned tablenr, ColumnDef const &columndef, uint8_t (&store)[MaxColumnSize + Cell::HdrSize])
+Cell Scanner::GetCachedRowPartCell(unsigned row, unsigned tablenr, ColumnDef const &columndef, CellStore &store)
 {
         return SafeGetCell(GetCachedRowPart(row, tablenr), columndef, store);
 }

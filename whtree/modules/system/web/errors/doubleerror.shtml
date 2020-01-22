@@ -9,7 +9,6 @@
        breaks we have no choice but to go to the Debugging page.... */
 
     LOADLIB "wh::internal/interface.whlib";
-    LOADLIB "mod::system/lib/internal/webserver/errorhandler-bare.whlib";
     LOADLIB "mod::system/lib/webserver/errors.whlib";
 
     Print("<h1>500 Server error</h1>");
