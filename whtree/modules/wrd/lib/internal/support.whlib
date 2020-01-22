@@ -1116,27 +1116,6 @@ PUBLIC STRING FUNCTION DecodeInvalidUTF8Chars(STRING todecode, STRING fallbackch
   RETURN res;
 }
 
-STRING ARRAY FUNCTION GetTypeReferencesForAttr(OBJECT wrdschema, OBJECT type, INTEGER parent, STRING ARRAY current_references)
-{
-  FOREVERY (RECORD attr FROM type->ListAttributes(parent))
-  {
-    IF (attr.domain != 0)
-    {
-      OBJECT dtype := wrdschema->GetTypeById(attr.domain);
-      IF (__MatchesAnyMask(dtype->tag, current_references))
-        RETURN STRING[ type->tag ];
-    }
-    ELSE IF (attr.attributetypename = "ARRAY")
-    {
-      STRING ARRAY extra_references := GetTypeReferencesForAttr(wrdschema, type, attr.id, current_references);
-      IF (IsValueSet(extra_references))
-        RETURN extra_references;
-    }
-  }
-
-  RETURN STRING[];
-}
-
 PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY references)
 {
   WHILE (TRUE)
@@ -1149,10 +1128,20 @@ PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY re
         CONTINUE;
 
       OBJECT type := wrdschema->GetTypeById(rec.id);
-      STRING ARRAY extra_references := GetTypeReferencesForAttr(wrdschema, type, 0, references);
-      references := references CONCAT extra_references;
-      IF (IsValueSet(extra_references))
-        anychange := TRUE;
+      // Check all attributes (-1 returns all attributes, including arrays recursively)
+      FOREVERY (RECORD attr FROM type->ListAttributes(-1))
+      {
+        // If this is a domain, check if it references any of the references
+        IF (attr.domain != 0)
+        {
+          OBJECT dtype := wrdschema->GetTypeById(attr.domain);
+          IF (__MatchesAnyMask(dtype->tag, references))
+          {
+            INSERT type->tag INTO references AT END;
+            anychange := TRUE;
+          }
+        }
+      }
     }
     IF (NOT anychange)
       BREAK;
