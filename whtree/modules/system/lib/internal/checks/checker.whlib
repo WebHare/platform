@@ -124,6 +124,11 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := ":The WebHare database is in readonly mode!"
            ] INTO messages AT END;
   }
+  ELSE IF(GetDatabaseType() = "whdb" AND NOT IsDtapLive())
+  {
+    INSERT [ msg := ":You are not testing the PostgreSQL database yet!"
+           ] INTO messages AT END;
+  }
 
   DATETIME plannedoutage := ReadRegistryKey("system.webserver.global.locking.scheduleddowntime");
   IF(NOT IsDefaultValue(plannedoutage))
