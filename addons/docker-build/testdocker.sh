@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source $WEBHARE_DIR/lib/wh-functions.sh
 source `dirname $0`/functions.sh
 
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
