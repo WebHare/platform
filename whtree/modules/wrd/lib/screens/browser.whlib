@@ -1,4 +1,5 @@
 ﻿<?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/langspecific.whlib";
@@ -6,13 +7,15 @@ LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 
-LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
-LOADLIB "mod::wrd/lib/internal/wrd2dot.whlib";
+LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+LOADLIB "mod::wrd/lib/internal/wrd2dot.whlib";
+
 
 /* ADDME?
    - Could save tab/type/attribute 'last' state during unload and schema
@@ -171,6 +174,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       OBJECT exporter := MakeWRDSchemaExporter(this->contexts->wrdschema);
       exporter->SkipTypes(SELECT AS INTEGER ARRAY id FROM this->contexts->wrdschema->ListTypes() WHERE tag IN syncoptions.excludetypes);
       BLOB file := exporter->RunExport();
+
+      LogAuditEvent("wrd:schemaexport", CELL
+          [ wrdschema := this->contexts->wrdschema->tag
+          , syncoptions.excludetypes
+          ]);
 
       STRING filename := GetSafeFilename("wrd_export_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".tar.gz";
       this->frame->SendFileToUser(file, "application/octet-stream", filename, now);

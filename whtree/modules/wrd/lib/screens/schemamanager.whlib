@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
@@ -10,10 +11,11 @@ LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
-LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+
 
 RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck)
 {
@@ -350,14 +352,22 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
 
       RECORD marshallinfo := peer->GetMarshallableInfo();
 
+      RECORD syncdata := CELL
+          [ wrdschema :=        this->contexts->wrdschema->id
+          , peerinfo :=         peer->GetMarshallableInfo()
+          , syncpoint :=        tosync.data
+          , syncoptions.excludetypes
+          ];
       OBJECT screen := CreateProgressDialog(this,
                                             "module::wrd/internal/tollium-bgtasks.whlib",
                                             "SyncSchema",
-                                            CELL[ wrdschema :=        this->contexts->wrdschema->id
-                                                , peerinfo :=         peer->GetMarshallableInfo()
-                                                , syncpoint :=        tosync.data
-                                                , syncoptions.excludetypes
-                                                ]);
+                                            syncdata);
+
+      LogAuditEvent("wrd:schemasync", CELL
+          [ ...syncdata
+          , wrdschema := this->contexts->wrdschema->tag
+          , DELETE peerinfo
+          ]);
 
       IF(screen->RunModal() = "ok")
       {
