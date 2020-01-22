@@ -464,7 +464,7 @@ $SUDO docker exec $CONTAINER wh waitfor poststartdone
 if [ -n "$ISMODULETEST" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   echo "`date` Check assetpacks"
-  if ! $SUDO docker exec $CONTAINER wh assetpacks check ${TESTINGMODULENAME}:"*"; then
+  if ! $SUDO docker exec $CONTAINER wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     echo ""
     echo "$(c red)****** WAIT ASSETPACKS FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
     echo ""
