@@ -1,6 +1,10 @@
 #!/bin/bash
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
+# Ensure root has /opt/whdata/home/root/
+mkdir -p /opt/whdata/home/root
+chown root /opt/whdata/home/root
+
 # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
 # probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
 mkdir -p /opt/whdata/output /opt/whdata/installedmodules

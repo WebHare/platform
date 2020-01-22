@@ -16,6 +16,9 @@
 # liberation-fonts: fonts that look like Arial, Times New Roman, Courier New
 
 
+# Fail on any error
+set +e
+
 # Add the postgres user before installing the postgresql packages
 useradd --system --uid 20003 --user-group postgres
 
@@ -34,6 +37,10 @@ add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg mai
 ( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
 ( echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list )
+
+# Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
+# usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
+cat /etc/passwd | sed -e 's/:\/root:/:\/opt\/whdata\/home\/root:/' > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
 
 # Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
 groupadd --gid 20000 whdata
