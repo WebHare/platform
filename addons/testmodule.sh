@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash -x
 
-# This script is maintained at webhare/webhare repository, addons/testmodule.sh - 'develop' branch builds automatically update this script
+# This script is maintained at https://gitlab.com/webhare/platform/blob/master/addons/testmodule.sh - 'master' branch builds
+# automatically update the online version at https://build.webhare.dev/ci/scripts/testmodule.sh
+#
 # This script and its URL exist to allow us to update how the module CI works without updating individual .gitlab-ci.yamls too often
 #
 # Invoke us like this
@@ -20,8 +22,8 @@ if ! curl -fs https://build.webhare.dev/ci/scripts/testdocker.sh -o "$MKTEMP"/te
   echo Download of testdocker.sh failed
   exit 1
 fi
-if ! curl -fs https://build.webhare.dev/ci/scripts/functions.sh -o "$MKTEMP"/functions.sh ; then
-  echo Download of functions.sh failed
+if ! curl -fs https://build.webhare.dev/ci/scripts/wh-functions.sh -o "$MKTEMP"/wh-functions.sh ; then
+  echo Download of wh-functions.sh failed
   exit 1
 fi
 
