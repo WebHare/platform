@@ -56,7 +56,7 @@ testbaselibs:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external baselibs
+    - whtree/bin/wh testdocker --tag=-external baselibs
   artifacts:
     paths:
       - artifacts
@@ -67,7 +67,7 @@ testbaselibs:
 testmodules:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external checkmodules
+    - whtree/bin/wh testdocker --tag=-external checkmodules
   artifacts:
     paths:
       - artifacts
@@ -80,7 +80,7 @@ testversioning:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external publisher-versioning
+    - whtree/bin/wh testdocker --tag=-external publisher-versioning
   artifacts:
     paths:
       - artifacts
@@ -93,7 +93,7 @@ testpublisher:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external,-forms publisher
+    - whtree/bin/wh testdocker --tag=-external,-forms publisher
   artifacts:
     paths:
       - artifacts
@@ -106,7 +106,7 @@ testpublisher-forms:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=forms publisher
+    - whtree/bin/wh testdocker --tag=forms publisher
   artifacts:
     paths:
       - artifacts
@@ -119,7 +119,7 @@ testsystem:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external system
+    - whtree/bin/wh testdocker --tag=-external system
   artifacts:
     paths:
       - artifacts
@@ -132,7 +132,7 @@ testwebdesign:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external publisher-webdesign
+    - whtree/bin/wh testdocker --tag=-external publisher-webdesign
   artifacts:
     paths:
       - artifacts
@@ -145,7 +145,7 @@ testdatabase:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.database
+    - whtree/bin/wh testdocker --tag=-external wh.database
   artifacts:
     paths:
       - artifacts
@@ -158,7 +158,7 @@ testtollium:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external tollium
+    - whtree/bin/wh testdocker --tag=-external tollium
   artifacts:
     paths:
       - artifacts
@@ -171,7 +171,7 @@ testtollium-components:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external tollium-components
+    - whtree/bin/wh testdocker --tag=-external tollium-components
   artifacts:
     paths:
       - artifacts
@@ -184,7 +184,7 @@ testconsilio:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external consilio
+    - whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
       - artifacts
@@ -197,7 +197,7 @@ testelasticsearch:
   except:
     - /^docs\/.*$/
   script:
-    - TESTFW_SETUP_ELASTICSEARCH=1 addons/docker-build/testdocker.sh --tag=-external consilio
+    - TESTFW_SETUP_ELASTICSEARCH=1 whtree/bin/wh testdocker --tag=-external consilio
   artifacts:
     paths:
       - artifacts
@@ -210,7 +210,7 @@ testcore:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external --generatexmltests wh.hscore
+    - whtree/bin/wh testdocker --tag=-external --generatexmltests wh.hscore
   artifacts:
     paths:
       - artifacts
@@ -223,7 +223,7 @@ testwebserver:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.webserver
+    - whtree/bin/wh testdocker --tag=-external wh.webserver
   artifacts:
     paths:
       - artifacts
@@ -236,7 +236,7 @@ testsocialite:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external socialite
+    - whtree/bin/wh testdocker --tag=-external socialite
   artifacts:
     paths:
       - artifacts
@@ -249,7 +249,7 @@ testwrd:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wrd
+    - whtree/bin/wh testdocker --tag=-external wrd
   artifacts:
     paths:
       - artifacts
@@ -262,7 +262,7 @@ testjscomponents:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.jscomponents
+    - whtree/bin/wh testdocker --tag=-external wh.jscomponents
   artifacts:
     paths:
       - artifacts
@@ -276,7 +276,7 @@ testexternal:
     - /^docs\/.*$/
   allow_failure: true
   script:
-    - addons/docker-build/testdocker.sh --tag=external
+    - whtree/bin/wh testdocker --tag=external
   artifacts:
     paths:
       - artifacts
@@ -292,7 +292,7 @@ testsftp:
   only:
     - schedules
   script:
-    - addons/docker-build/testdocker.sh --tag=-external wh.sftp
+    - whtree/bin/wh testdocker --tag=-external wh.sftp
   artifacts:
     paths:
       - artifacts
@@ -306,7 +306,7 @@ calculatecoverage:
   except:
     - /^docs\/.*$/
   script:
-    - addons/docker-build/testdocker.sh --coverage --generatexmltests
+    - whtree/bin/wh testdocker --coverage --generatexmltests
   artifacts:
     paths:
       - artifacts
@@ -321,8 +321,7 @@ deploydocker:
     - schedules
     - /^docs\/.*$/
   script:
-    - cd addons/docker-build
-    - ./deploydocker.sh
+    - whtree/bin/wh deploydocker
   interruptible: true
 
 updatetestscripts:
