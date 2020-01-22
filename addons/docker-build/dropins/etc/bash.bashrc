@@ -29,7 +29,7 @@ shopt -s histappend
 ## Multiple commands on one line show up as a single line
 shopt -s cmdhist
 ## Ignore redundant or space commands
-HISTCONTROL=ignoredups
+HISTCONTROL=
 ## Set time format
 HISTTIMEFORMAT='%F %T '
 
