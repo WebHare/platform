@@ -7,6 +7,7 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
 
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
@@ -399,7 +400,10 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
       // Retrieve the attribute
       RECORD attr := SELECT * FROM this->wrd_type->__final_attrs WHERE ToUppercase(tag)=ToUppercase(attrtag);
       IF (NOT RecordExists(attr))
-        THROW NEW Exception("Cannot find attribute '" || attrtag || "' in wrd type '" || this->wrd_type->tag || "'");
+      {
+        STRING bestmatch := GetBestMatch(attrtag, SELECT AS STRING ARRAY tag FROM this->wrd_type->__final_attrs);
+        THROW NEW Exception(`Cannot find attribute '${attrtag}' in wrd type '${this->wrd_type->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
+      }
 
       IF (Length(subselect)>0 AND attr.attributetype NOT IN [ 3/*address*/, 9/*image*/, 10/*file*/, 13/*array*/ ])
         THROW NEW Exception("Subselection is only possible on attributes of type address, image, file and array"); //FIXME with deeper subselections, also validate the subfields
@@ -4094,12 +4098,13 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
         IF (NOT RecordExists(parsed_link.attr))
         {
           IF(RecordExists(SELECT FROM link_right->wrd_type->__final_attrs WHERE ToUppercase(tag)=ToUppercase(link.field)))
-            THROW NEW Exception("Cannot find attribute '" || link.field || "' in wrd type '" || link_left->wrd_type->tag || "' (try swapping left and right)");
+            THROW NEW Exception(`Cannot find attribute '${link.field}' in wrd type '${link_left->wrd_type->tag}' (try swapping left and right)`);
 
-          THROW NEW Exception("Cannot find attribute '" || link.field || "' in wrd type '" || link_left->wrd_type->tag || "'");
+          STRING bestmatch := GetBestMatch(link.field, SELECT AS STRING ARRAY tag FROM link_left->wrd_type->__final_attrs);
+          THROW NEW Exception(`Cannot find attribute '${link.field}' in wrd type '${link_left->wrd_type->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
         }
         IF (parsed_link.attr.domain != link_right->wrd_type->id)
-          THROW NEW Exception("Attribute '" || link.field || "' in wrd type '" || link_left->wrd_type->tag || "' does not link to type '" || link_right->wrd_type->tag || "'");
+          THROW NEW Exception(`Attribute '${link.field}' in wrd type '${link_left->wrd_type->tag}' does not link to type '${link_right->wrd_type->tag}'`);
       }
       ELSE
       {
@@ -4122,7 +4127,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
           parsed_link.attr := SELECT * FROM link_right->wrd_type->__final_attrs WHERE ToUppercase(tag)=ToUppercase("WRD_LEFTENTITY");
         }
         ELSE
-          THROW NEW Exception("WRD types '" || link_left->wrd_type->tag || "' and '" || link_right->wrd_type->tag || "' cannot be linked to each other in this order");
+          THROW NEW Exception(`WRD types '${link_left->wrd_type->tag}' and '${link_right->wrd_type->tag}' cannot be linked to each other in this order`);
         IF (NOT RecordExists(parsed_link.attr))
           THROW NEW Exception("Internal error: could not resolve standard attribute wrd_xxxentity, while a link possibility was indicated");
       }
@@ -4284,7 +4289,10 @@ RECORD FUNCTION ParseFilters(OBJECT obj, OBJECT wrdtype, RECORD ARRAY filters, R
 
           child->attr := SELECT * FROM wrdtype->__final_attrs WHERE ToUppercase(tag)=ToUppercase(filter.field);
           IF (NOT RecordExists(child->attr))
-            THROW NEW Exception("Cannot find attribute '" || filter.field || "' in wrd type '" || wrdtype->tag || "'");
+          {
+            STRING bestmatch := GetBestMatch(filter.field, SELECT AS STRING ARRAY tag FROM wrdtype->__final_attrs);
+            THROW NEW Exception(`Cannot find attribute '${filter.field}' in wrd type '${wrdtype->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
+          }
           IF(child->attr.generatetag = "WRD_RELATION_TITLE")
             THROW NEW Exception("The WRD_TITLE field of a RELATION is not searchable"); //for now. perhaps we can lift it but it'll be a challenge...
           IF(child->attr.generatetag = "WRD_ORGNAME") //redirect to the proper field
@@ -4335,7 +4343,10 @@ RECORD FUNCTION ParseFilters(OBJECT obj, OBJECT wrdtype, RECORD ARRAY filters, R
           child := NEW WRDCondition("DOMAIN");
           child->attr := SELECT * FROM wrdtype->__final_attrs WHERE ToUppercase(tag)=ToUppercase(filter.field);
           IF (NOT RecordExists(child->attr))
-            THROW NEW Exception("Cannot find attribute '" || filter.field || "' in wrd type '" || wrdtype->tag || "'");
+          {
+            STRING bestmatch := GetBestMatch(filter.field, SELECT AS STRING ARRAY tag FROM wrdtype->__final_attrs);
+            THROW NEW Exception(`Cannot find attribute '${filter.field}' in wrd type '${wrdtype->tag}'${bestmatch = "" ? "" : `, did you mean '${bestmatch}'`}`);
+          }
           IF (CellExists(filter, "DOMAINVALUETAG_P"))
           {
             RECORD pdata := ParseParameter(filter.domainvaluetag_p);
