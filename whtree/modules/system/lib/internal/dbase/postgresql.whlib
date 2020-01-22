@@ -280,13 +280,13 @@ RECORD ARRAY FUNCTION GetColumns(OBJECT trans, STRING table_schema, STRING table
   IF (NOT schemata[spos.position].tables[tpos.position].have_columns)
   {
     RECORD tablerec := schemata[spos.position].tables[tpos.position];
-    schemata[spos.position].tables[tpos.position].have_columns := TRUE;
     schemata[spos.position].tables[tpos.position].columns :=
         SELECT *
              , table_id :=      tablerec.object_id
              , table_schema :=  table_schema
              , table_name :=    table_name
           FROM GetCachableColumns(trans, table_schema, table_name, schemata[spos.position].tables[tpos.position].object_id);
+    schemata[spos.position].tables[tpos.position].have_columns := TRUE; //set cokumns first, if above might ever throw?
   }
   RETURN schemata[spos.position].tables[tpos.position].columns;
 }
@@ -928,7 +928,34 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
 
             // Convert data types
             IF (expect_data_type != curcol.data_type)
-              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)} TYPE ${expect_data_type}`);
+            {
+              STRING alterbase := `ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}`;
+              IF(expect_data_type = "bytea")
+              {
+                /* avoid
+                    schema update error: ERROR:  default for column "urlhash" cannot be cast automatically to type bytea
+                   so just (re)set the default
+
+                   (USING does not convert the default, see https://www.postgresql.org/docs/current/sql-altertable.html) */
+                context->AddCommand(`${alterbase} DROP DEFAULT`);
+              }
+
+              STRING cmd := `${alterbase} TYPE ${expect_data_type}`;
+              IF(expect_data_type = "bytea")
+              {
+                /* We need to be explicit to solve
+                   schema update error: ERROR:  column "urlhash" cannot be cast automatically to type bytea
+                   HINT:  You might need to specify "USING urlhash::bytea".
+
+                   we didn't catch it in time, so just force the conversion now....
+                */
+                cmd := `${cmd} USING ${PostgreSQLEscapeIdentifier(coldef.name)}::bytea`; //
+              }
+              context->AddCommand(cmd);
+
+              IF(coldef.defval != "")
+                context->AddCommand(`${alterbase} SET DEFAULT ${coldef.defval}`);
+            }
 
             IF(coldef.nullable != curcol.is_nullable)
               context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
@@ -1139,7 +1166,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                                       WHERE ToUppercase(obsoleteindices.name) = ToUppercase(current_indices.index_name);
         FOREVERY(RECORD indexdef FROM kill_indices)
         {
-          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(indexdef.name)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(indexdef.name)}`;
           context->AddCommand(cmd);
         }
       }
@@ -1149,7 +1176,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
     FOREVERY(RECORD tablerec FROM schemaspec.obsoletetables)
       IF(RecordExists(SELECT FROM current_tables WHERE table_name = tablerec.name))
       {
-        RECORD ARRAY refercolumns := SELECT column_name
+        RECORD ARRAY refercolumns := SELECT *
                                        FROM GetColumns(trans, schemaspec.name, tablerec.name)
                                       WHERE referenced_table_name!="";
         FOREVERY(RECORD refcol FROM refercolumns)
@@ -1163,7 +1190,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                               GROUP BY index_name;
         FOREVERY(RECORD ind FROM referindices)
         {
-          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(ind.index_name)} ON ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)}`;
+          STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(ind.index_name)}`;
           context->AddCommand(cmd);
         }
       }
