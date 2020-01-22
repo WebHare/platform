@@ -121,8 +121,6 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
   IF(restrictions.webhareversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.webhareversion))
     RETURN `WebHare version '${semver}' does not match required version '${restrictions.webhareversion}'`;
 
-  IF(restrictions.requireversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.requireversion))
-    RETURN `Required version: ${restrictions.requireversion}, current: ${semver}`;
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
     RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
 
@@ -159,15 +157,12 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
 {
   options := ValidateOptions([prefix := ""], options);
 
-  STRING requireversion := xmlnode->GetAttribute(options.prefix || "requireversion");
-  IF(Length(requireversion) = 5 AND ToInteger(requireversion,-1) >= 20000) // it's an old version format
-  {
-    INTEGER versionnr := ToInteger(requireversion,-1);
-    requireversion := `>= ${GetSemVerFromClassicVersion(versionnr)}`;
-  }
+  STRING webhareversion := xmlnode->GetAttribute(options.prefix || "webhareversion");
+  INTEGER requireversion := ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"));
+  IF(webhareversion = "" AND requireversion >= 20000)
+    webhareversion := `>= ${GetSemVerFromClassicVersion(requireversion)}`;
 
-  RETURN [ webhareversion :=     xmlnode->GetAttribute(options.prefix || "webhareversion")
-         , requireversion :=     requireversion
+  RETURN [ webhareversion :=     webhareversion
          , beforeversion :=      ParseXSInt(xmlnode->GetAttribute(options.prefix || "beforeversion"))
          , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
          , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
