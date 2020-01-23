@@ -32,6 +32,12 @@ ASYNC MACRO TestIntExtLink()
   topscreen->comp->value := [ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ];
   TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
 
+  // Toggle required, shouldn't affect the link
+  topscreen->comp->required := TRUE;
+  TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+  topscreen->comp->required := FALSE;
+  TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value);
+
   // Set default record, should clear too
   topscreen->comp->value := DEFAULT RECORD;
   TestEQ(DEFAULT RECORD, topscreen->comp->value);
