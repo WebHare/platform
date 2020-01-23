@@ -1,6 +1,12 @@
 #!/bin/bash
 
-source `dirname $0`/functions.sh
+if [ -f $WEBHARE_DIR/lib/wh-functions.sh ] ; then
+  # Running from a whtree
+  source $WEBHARE_DIR/lib/wh-functions.sh
+else
+  # Running from a CI which directly downloaded wh-functions.sh
+  source `dirname $0`/wh-functions.sh
+fi
 
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
 TESTSUITEDIR=${MODULESDIR}/webhare_testsuite

@@ -1043,6 +1043,10 @@ HERE
     exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh "$@"
     ;;
 
+  "deploydocker")
+    exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/deploydocker.sh "$@"
+    ;;
+
   "testmodule")
     exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh -m "$@"
     ;;

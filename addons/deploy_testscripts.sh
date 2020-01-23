@@ -8,4 +8,4 @@ fi
 
 curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/testmodule.sh https://cms.webhare.dev/webdav/publisher/scripts/testmodule.sh
 curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/testdocker.sh https://cms.webhare.dev/webdav/publisher/scripts/testdocker.sh
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/functions.sh https://cms.webhare.dev/webdav/publisher/scripts/functions.sh
+curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/whtree/lib/wh-functions.sh https://cms.webhare.dev/webdav/publisher/scripts/wh-functions.sh
