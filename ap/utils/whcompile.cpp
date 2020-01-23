@@ -195,8 +195,7 @@ bool BatchRecursiveMode(std::string const &curdir,WHFileSystem &filesystem, Blex
                     continue;
                 if (dir.GetStatus().IsDir())
                 {
-                        if (!Blex::StrCaseLike(dir.CurrentFile(),"*.bak")) //don't index BAK dirs (old modules)
-                          if (!BatchRecursiveMode(dir.CurrentPath(),filesystem,keeper))
+                        if (!BatchRecursiveMode(dir.CurrentPath(),filesystem,keeper))
                             success=false;
                 }
                 else if (dir.GetStatus().IsFile())

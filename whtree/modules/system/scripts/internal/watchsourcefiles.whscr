@@ -297,7 +297,7 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
               CONTINUE;
           }
           //toks[0] is now the module name, including .2010... timestamp
-          IF (toks[0] LIKE "*.tmp" OR toks[0] LIKE "*.bak") //Don't process temporary modules
+          IF (toks[0] LIKE "*.tmp") //Don't process temporary modules
             CONTINUE;
 
           IF (args.v)
