@@ -1,4 +1,5 @@
 <?wh
+/** @topic tollium-components/base */
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
@@ -8,8 +9,10 @@ LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 
-/////////////////////////////////////////////////////////////////////
-// The tabs
+/** Tabs control.
+    @long Tabs can also be an insertion point for external components using LoadTabsExtension. After loading one or
+          more extensions, you need to invoke RunExtensionsPostInit on this component. During submission you should invoke
+          SubmitExtensions to give all inserted extensions a chance to do their work */
 
 PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
 < // ---------------------------------------------------------------------------
@@ -513,7 +516,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
   }
 
   /** @short Extend the tabs component
-      @long Extend the tabs component using a specified XML document.
+      @long Extend the tabs component using a specified XML document. You must invoke RunExtensionsPostInit after loading one or more extensions
       @param extension Extension to load
       @param options Options. If a string and set, extension is interpreted as the resource name and the subname as the extension name
       @cell options.api API object, will be set in TolliumTabsExtensionBase
@@ -679,7 +682,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumExtendableLinesContainerBase
     RETURN retval;
   }
 
-  /** Validates extensions. Usually invoked by BeginWork
+  /** Validates extensions. Usually implictly invoked by BeginWork
       @param feedback Feedback object to receive errors */
   UPDATE PUBLIC MACRO ValidateValue(OBJECT feedback)
   {
