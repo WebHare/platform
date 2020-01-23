@@ -1837,6 +1837,9 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 {
   OBJECT trans := GetTransactionObjectByIdInternal(transid); // is privileged pointer
 
+  // FIXME: Delaying errors is disabled until we have worked out a consistent model
+  RETURN TRUE;
+
   IF (trans->pvt_delayerrors AND message.severity IN [ "ERROR", "FATAL", "PANIC" ])
   {
     INSERT message INTO trans->delayederrors AT END;
