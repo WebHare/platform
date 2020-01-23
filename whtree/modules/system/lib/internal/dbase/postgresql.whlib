@@ -286,7 +286,7 @@ RECORD ARRAY FUNCTION GetColumns(OBJECT trans, STRING table_schema, STRING table
              , table_schema :=  table_schema
              , table_name :=    table_name
           FROM GetCachableColumns(trans, table_schema, table_name, schemata[spos.position].tables[tpos.position].object_id);
-    schemata[spos.position].tables[tpos.position].have_columns := TRUE; //set cokumns first, if above might ever throw?
+    schemata[spos.position].tables[tpos.position].have_columns := TRUE; //set columns first, if above might ever throw?
   }
   RETURN schemata[spos.position].tables[tpos.position].columns;
 }
