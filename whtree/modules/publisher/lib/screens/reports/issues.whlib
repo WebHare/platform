@@ -3,6 +3,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 /*
@@ -14,29 +15,38 @@ FIXME: per laag/niveau folders oppikken (highestparent is een berekend veld)
 FIXME: !!!! Webhare has a huge issue with DELETE FROM with huge amounts of RECORDS !
        in this case SELECT..FROM.. can be over 50x - 100x as fast
 */
-PUBLIC RECORD ARRAY FUNCTION TurboGetSiteErrors()
+PUBLIC RECORD ARRAY FUNCTION ListSiteIssues()
 {
   RECORD ARRAY sites := SELECT * FROM system.sites;
 
   INTEGER ARRAY siteids := SELECT AS INTEGER ARRAY id FROM sites WHERE NOT locked AND outputweb != 0;
 
+  RECORD ARRAY sitefiles;
+  FOREVERY(INTEGER siteid FROM siteids)
+  {
+    INTEGER ARRAY allparents :=  GetWHFSDescendantIds(siteid, TRUE, FALSE);
+    INTEGER ARRAY brokenfiles := SELECT AS INTEGER ARRAY id
+                                   FROM system.fs_objects
+                                  WHERE parent IN allparents
+                                        AND published % 100000 > 100;
+
+    RECORD ARRAY mysitefiles :=
+            SELECT id
+                 , highestparent := siteid
+                 , url
+                 , title
+                 , name
+                 , fullpath
+                 , errordata
+                 , published
+                 , status := GetErrorFromPublished(published) // aka %100000 .. FIXME: rename to status?
+                 , warning := TestFlagFromPublished(published, PublishedFlag_Warning)
+              FROM system.fs_objects
+             WHERE id IN brokenfiles;
+    sitefiles := sitefiles CONCAT mysitefiles;
+  }
+
   // FIXME: or don't get STRING's and in a later pass get the strings for the files we need them from?
-  RECORD ARRAY sitefiles :=
-          SELECT id
-               , highestparent
-               , url
-               , title
-               , name
-               , fullpath
-               , errordata
-               , published
-               , status := GetErrorFromPublished(published) // aka %100000 .. FIXME: rename to status?
-               , warning := TestFlagFromPublished(published, PublishedFlag_Warning)
-            FROM system.fs_objects
-           WHERE NOT isfolder
-             AND publish
-             AND highestparent IN siteids // since WH 3.?? the site id is the root folder id
-             AND published % 100000 > 100;
 
   RECORD ARRAY rsites :=
           SELECT highestparent := Any(highestparent)
@@ -74,10 +84,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO RefreshList()
   {
-    INTEGER icon_site := this->errors->GetIcon("tollium:filemgr/site");
-    INTEGER icon_siteprofile := this->errors->GetIcon("tollium:files/application_x-webhare-siteprofile");
-
-    RECORD ARRAY total := SELECT * FROM TurboGetSiteErrors() ORDER BY ToUppercase(name);
+    RECORD ARRAY total := SELECT * FROM ListSiteIssues() ORDER BY ToUppercase(name);
 
     RECORD ARRAY rows_x :=
           SELECT rowkey := id
@@ -139,6 +146,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
     rows := SELECT *, name_order := #row FROM rows AS row;
 
+    INTEGER icon_site := this->errors->GetIcon("tollium:filemgr/site");
+    INTEGER icon_siteprofile := this->errors->GetIcon("tollium:files/application_x-webhare-siteprofile");
 
     RECORD ARRAY rows2 :=
           SELECT *
@@ -165,7 +174,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                              )
             FROM rows;
 
-      this->errors->rows := rows2;
+    ^errors->rows := rows2;
   }
 
 
