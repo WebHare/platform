@@ -111,7 +111,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllModulesAndVersionDirs()
   FOREVERY (STRING installdir FROM config.moduledirs)
   {
     // Skip core modules
-    IF (installdir LIKE config.installationroot || "*")
+    IF (installdir LIKE config.installationroot || "modules/*")
       CONTINUE;
 
     RECORD ARRAY topdirs := ReadDiskDirectory(installdir,"*");
@@ -128,6 +128,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllModulesAndVersionDirs()
     }
   }
 
+  moduledirs := SELECT * FROM moduledirs WHERE RecordExists(GetDiskFileProperties(path || "/moduledefinition.xml"));
   RETURN moduledirs;
 }
 

@@ -15,8 +15,6 @@ LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
 PUBLIC CONSTANT STRING ARRAY systemservertypes := ["production","acceptance","test","development"];
 
-//List of substitute modules
-PUBLIC STRING ARRAY substitutemodules := [ "blexdev_formsapi", "google" ];
 //As changing dtapstage pretty mcuh requires a softreset, but it's often requested, it should be safe to cache on a  VM-level
 STRING cacheddtapstage;
 //restoration state. 0 if unknown, 1 if not-restore, 2 if restore
