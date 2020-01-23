@@ -934,6 +934,7 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
               {
                 // Conversion will fail when the column default can't be converted automatically, so just drop it
                 // It will be re-initialized later
+                // USING does not convert the default, see https://www.postgresql.org/docs/current/sql-altertable.html
                 context->AddCommand(`${alterbase} DROP DEFAULT`);
                 curcol.column_default := "";
               }
