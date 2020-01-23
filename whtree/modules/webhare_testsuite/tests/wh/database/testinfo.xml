@@ -22,6 +22,7 @@
   <test script="pg_locking.whscr" ifenvironset="WEBHARE_DBASENAME" />
   <test script="pg_procedures.whscr" ifenvironset="WEBHARE_DBASENAME" />
   <test script="pg_blobcleanup.whscr" ifenvironset="WEBHARE_DBASENAME" />
+  <test script="pg_metadataupdates.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
   <!-- both -->
   <test script="test_blobstore.whscr" />

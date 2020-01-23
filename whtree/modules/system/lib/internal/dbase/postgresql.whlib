@@ -930,26 +930,19 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
             IF (expect_data_type != curcol.data_type)
             {
               STRING alterbase := `ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}`;
-              IF(expect_data_type = "bytea")
+              IF(curcol.column_default != "")
               {
-                /* avoid
-                    schema update error: ERROR:  default for column "urlhash" cannot be cast automatically to type bytea
-                   so just (re)set the default
-
-                   (USING does not convert the default, see https://www.postgresql.org/docs/current/sql-altertable.html) */
+                // Conversion will fail when the column default can't be converted automatically, so just drop it
+                // It will be re-initialized later
                 context->AddCommand(`${alterbase} DROP DEFAULT`);
+                curcol.column_default := "";
               }
 
               STRING cmd := `${alterbase} TYPE ${expect_data_type}`;
               IF(expect_data_type = "bytea")
               {
-                /* We need to be explicit to solve
-                   schema update error: ERROR:  column "urlhash" cannot be cast automatically to type bytea
-                   HINT:  You might need to specify "USING urlhash::bytea".
-
-                   we didn't catch it in time, so just force the conversion now....
-                */
-                cmd := `${cmd} USING ${PostgreSQLEscapeIdentifier(coldef.name)}::bytea`; //
+                // conversion to bytea needs an explicit conversion function
+                cmd := `${cmd} USING convert_to(${PostgreSQLEscapeIdentifier(coldef.name)}, 'UTF-8')`;
               }
               context->AddCommand(cmd);
 
@@ -1190,6 +1183,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
                               GROUP BY index_name;
         FOREVERY(RECORD ind FROM referindices)
         {
+          IF (ind.index_name LIKE "*_pkey") // primary key constraint will prevent delete
+            CONTINUE;
           STRING cmd := `DROP INDEX ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(ind.index_name)}`;
           context->AddCommand(cmd);
         }
