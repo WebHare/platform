@@ -100,7 +100,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(NOT this->__internallinks)
       DELETE FROM opts WHERE rowkey = 2;
 
-    INTEGER toset := 0;
     FOREVERY(OBJECT handler FROM this->linkhandlers)
     {
       OBJECT ARRAY components := handler->CreateComponents(this->owner);
@@ -112,8 +111,8 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
              , tolliumselected := FALSE
              ] INTO opts AT END;
     }
+    UPDATE opts SET tolliumselected := TRUE WHERE rowkey = ^linktype->value;
     ^linktype->options := opts;
-    ^linktype->value := toset;
 
     ExpandHyperlinkComponents(^linktype);
   }
