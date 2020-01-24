@@ -144,6 +144,12 @@ MACRO TestPrimitiveValues()
   }
 
   trans->BeginWork();
+  DELETE FROM testtable;
+  INSERT [ id := 1, binaryvarchar := DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ] INTO testtable;
+  TestEQ(1, SELECT AS INTEGER id FROM testtable WHERE ToUppercase(binaryvarchar) = ToUppercase(DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104")));
+  trans->RollbackWork();
+
+  trans->BeginWork();
 
   DELETE FROM testtable;
 
