@@ -132,6 +132,10 @@ BOOLEAN FUNCTION IsPrereleaseNewer(STRING fromprerelease, STRING toprerelease)
   IF ((fromprerelease = "") != (toprerelease = ""))
     RETURN toprerelease = "";
 
+  // Early out if they're the same
+  IF (fromprerelease = toprerelease)
+    RETURN FALSE;
+
   // Compare every dot separated identifier from left to right until a difference is found
   STRING ARRAY fromparts := Tokenize(fromprerelease, ".");
   STRING ARRAY toparts := Tokenize(toprerelease, ".");
@@ -542,7 +546,7 @@ BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECO
 
       IF(comparemode = "npm" AND decodedversion.prerelease != "")
       {
-        /* in NPM, a prerelease NEVER matches if the relevant major/minor/patch with a prerelase aren't mentioned anywhere
+        /* in NPM, a prerelease NEVER matches if the relevant major/minor/patch with a prerelease aren't mentioned anywhere
            so for version a.b.c-x to be a match, even after all ranges, there must be a a.b.c-y somewhere in the versions */
         FOREVERY(RECORD version FROM GatherVersions(parsedrange))
           IF(version.prerelease != "" AND MatchNumeric(version, decodedversion))
@@ -554,9 +558,10 @@ BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECO
     }
     CASE "=","<=",">=","<",">"
     {
-      //Print(`${EncodeJSON(lhsparts)} ${parsedrange.type} ${EncodeJSON(rhsparts)}\n`);
       VARIANT ARRAY rhsparts := ArraySlice(parsedrange.value.decoded.compareparts, 0, parsedrange.value.parts);
       VARIANT ARRAY lhsparts := decodedversion.compareparts;
+
+      //Print(`${EncodeJSON(lhsparts)} ${parsedrange.type} ${EncodeJSON(rhsparts)}\n`);
 
       FOREVERY(VARIANT rhs FROM rhsparts) //we compare part-by-part - first three components are lexical, prerelease is lexical with an exception for empty...
       {
@@ -574,7 +579,7 @@ BOOLEAN FUNCTION CompareSemverRangeWithVersionRecursive(RECORD parsedrange, RECO
         BOOLEAN issmaller;
         IF(NOT isequal)
           IF(#rhs = 3) //no prerelease is larger than any other prerelease. only npm does alphabetic compare,
-            issmaller := lhs = "" ? FALSE : rhs = "" ? TRUE : lhs < rhs;
+            issmaller := IsPrereleaseNewer(lhs, rhs);
           ELSE
             issmaller := lhs < rhs;
 
@@ -659,7 +664,7 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
 
   RECORD decodedversion := DecodeSemanticVersion(version);
   IF (NOT RecordExists(decodedversion))
-    RETURN FALSE;  //FIXME shouldn't we be throwing or  soemthing like that?
+    RETURN FALSE;
 
   RETURN CompareSemverRangeWithVersionRecursive(parsed, decodedversion, comparemode);
 }
@@ -669,7 +674,7 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
     @param semverrange Semver range to check against
     @cell(string) options.comparemode Comparison rules.
                   If 'webhare' (the default), prerelease tags never match other prerelease tags for that version.
-                  If 'npm', prerelease tags are compared lexically, but additionally a prerelease version can only satisfy if its major.minor.patch is mentioned in combination with any patchlevel in the semver range
+                  If 'npm', prerelease tags are compared by token but a prerelease version can only satisfy if its major.minor.patch is mentioned in combination with any patchlevel in the semver range
     @return True if 'version' qualifies */
 PUBLIC BOOLEAN FUNCTION VersionSatisfiesRange(STRING version, STRING semverrange, RECORD options DEFAULTSTO DEFAULT RECORD)
 {

@@ -142,8 +142,18 @@ RECORD ARRAY satis_tests :=
                                                                           , nonmatches := [ "4.28.0-alpha", "4.28.0-dev.2", "4.28.0-eyo" ] ]
     , [ range := ">=4.28.0 || >=4.28.0-dev", comparemode := "webhare"     , matches := [ "4.28.0-dev", "4.28.0","4.28.1","4.28.11-goodie" ]
                                                                           , nonmatches := [ "4.28.0-alpha", "4.28.0-dev.2", "4.28.0-eyo" ] ] //note, this version test doesnt really make sense, nothing is > 4.28.0-dev that doesnt also match >= 4.28.0
-    ];
 
+
+      //semver sorting
+    , [ range := ">=1.0.0-alpha",      comparemode := "npm",          matches := [ "1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING[] ]
+    , [ range := ">=1.0.0-alpha.1",    comparemode := "npm",          matches := [ "1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha"] ]
+    , [ range := ">=1.0.0-alpha.beta", comparemode := "npm",          matches := [ "1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1"] ]
+    , [ range := ">=1.0.0-beta",       comparemode := "npm",          matches := [ "1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta"] ]
+    , [ range := ">=1.0.0-beta.2",     comparemode := "npm",          matches := [ "1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta"] ]
+    , [ range := ">=1.0.0-beta.11",    comparemode := "npm",          matches := [ "1.0.0-beta.11","1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2"] ]
+    , [ range := ">=1.0.0-rc.1",       comparemode := "npm",          matches := [ "1.0.0-rc.1","1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11"] ]
+    , [ range := ">=1.0.0",            comparemode := "npm",          matches := [ "1.0.0" ], nonmatches := STRING["1.0.0-alpha","1.0.0-alpha.1","1.0.0-alpha.beta","1.0.0-beta","1.0.0-beta.2","1.0.0-beta.11","1.0.0-rc.1"] ]
+    ];
 
 MACRO TestSemVer_Ranges()
 {
