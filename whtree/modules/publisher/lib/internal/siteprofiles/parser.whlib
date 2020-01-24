@@ -32,35 +32,6 @@ PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
              ];
 }
 
-RECORD ARRAY FUNCTION ParseLoadPackages(OBJECT siteprof)
-{
-  RECORD ARRAY loadpackages;
-  FOREVERY(OBJECT resdep FROM siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","loadpackage")->GetCurrentElements())
-  {
-    STRING name := ToLowercase(resdep->GetAttribute("module"));
-    IF(name="" OR name != ToLowercase(name))
-      THROW NEW Exception(`Invalid module name '${name}'`);
-
-    STRING basepath := MakeAbsoluteResourcePath(siteprof->name, `node_modules/${name}/`);
-    RECORD baseinfo := DecodeJSONBlob(GetWebhareResource(basepath || "package.json"));
-    IF(NOT CellExists(baseinfo,'webhare'))
-      THROW NEW Exception(`Module '${name}' is not a valid WebHare widget`);
-
-    IF(CellExists(baseinfo.webhare,'scopedsiteprofile'))
-    {
-      STRING scope := resdep->GetAttribute("scopenamespace");
-      IF(scope NOT LIKE "http://?*/")
-        THROW NEW Exception("Scope namespaces must be of the form http://*/"); //NOTE: might relax this in the future.. care mostly about the final slash
-
-      STRING toload := MakeAbsoluteResourcePath(basepath, baseinfo.webhare.scopedsiteprofile);
-      INSERT [ scope := scope
-             , toload := toload
-             ] INTO loadpackages AT END;
-    }
-  }
-  RETURN loadpackages;
-}
-
 STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
 {
   STRING ARRAY haslist;
@@ -82,8 +53,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   RECORD ARRAY warnings;
   STRING filename;
   OBJECT siteprof;
-  STRING scopenamespace;
-  PUBLIC BOOLEAN isscoped;
   OBJECT parameters;
   STRING toplevelgid;
   STRING module;
@@ -91,13 +60,11 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC PROPERTY siteprofile(siteprof, -);
 
-  MACRO NEW(STRING filename, OBJECT siteprof, STRING scopenamespace, OBJECT parameters)
+  MACRO NEW(STRING filename, OBJECT siteprof, OBJECT parameters)
   {
     this->parameters := parameters;
     this->filename := filename;
     this->siteprof := siteprof;
-    this->scopenamespace := scopenamespace;
-    this->isscoped := scopenamespace != "" OR ParseXSBoolean(this->siteprof->xmldoc->documentelement->GetAttribute("isscoped"));
     //__GetModuleBaseFromResourceName fallback is needed to support texts in site-based siteprofiles
     this->module := GetModuleNameFromResourcePath(filename) ?? __GetModuleBaseFromResourceName(this->filename);
     this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "gid");
@@ -265,28 +232,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN objectname != "" ? [ objectname := objectname ] : DEFAULT RECORD;
   }
 
-  STRING FUNCTION MapNamespace(STRING innamespace, BOOLEAN isdefinition)
-  {
-    IF(innamespace LIKE "scope:*")
-    {
-      IF(NOT this->isscoped)
-        THROW NEW Exception("Cannot use 'scope:' for namespace references in an unscoped site profile - did you mean to set isscoped=true on the <siteprofile> ?");
-      IF(innamespace LIKE "scope:/*")
-        THROW NEW Exception("Scope subnames may not start with a slash");
-      RETURN this->scopenamespace != "" ? this->scopenamespace || Substring(innamespace, 6) : innamespace;
-    }
-
-    IF(isdefinition AND this->isscoped)
-    {
-      THROW NEW Exception("A scoped siteprofile may not define namespaces outside 'scope:'");
-    }
-
-    IF(this->scopenamespace != "" AND Left(innamespace, Length(this->scopenamespace)) = this->scopenamespace)
-      THROW NEW Exception("A scoped siteprofile must use 'scope:' to refer to its own namespace");
-
-    RETURN innamespace;
-  }
-
   PUBLIC MACRO ParseFolderTypes()
   {
     this->ParseFileFolderTypes("foldertype", PTR this->ReadFolderType);
@@ -302,7 +247,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       TRY
       {
-        STRING ns := this->MapNamespace(ftype->GetAttribute("typedef"), TRUE);
+        STRING ns := ftype->GetAttribute("typedef");
         RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
         IF(NOT insertpos.found)
           THROW NEW Exception(`Content type ${ns} is not defined in this file`);
@@ -538,18 +483,15 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     // Type of the contenttype is the localname (ignore the namespace)
     STRING nodename := ctype->localname ?? ctype->nodename;
     // Namespace filled in?
-    STRING namespace := ctype->GetAttribute("namespace");
-    STRING ns := this->MapNamespace(namespace, TRUE);
+    STRING ns := ctype->GetAttribute("namespace");
     IF (ns = "")
-    {
       THROW NEW Exception("No namespace specified for " || nodename);
-    }
 
     BOOLEAN set_cloneoncopy := nodename != "contenttype" OR (ctype->HasAttribute("cloneoncopy") = FALSE OR ParseXSBoolean(ctype->GetAttribute("cloneoncopy")));
     INTEGER typedefid;
 
     OBJECT membersnode := ctype->GetChildElementsByTagNameNS(namespace_sp, "members")->Item(0);
-    RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, namespace);
+    RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, ns);
 
     RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
     typeinfo.id := typedefid;
@@ -595,7 +537,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       }
 
       IF(nodename="widgettype" AND ctype->HasAttribute("ingroup"))
-        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := this->MapNamespace(ctype->GetAttribute("ingroup"),FALSE) ]];
+        typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ]];
       IF( (nodename="widgettype" OR nodename="embeddedobjecttype") AND Length(typeinfo.groupmemberships)=0)
         typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
     }
@@ -767,11 +709,11 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , sitemask     := crit->GetAttribute("sitemask")
                        , sitename     := crit->GetAttribute("sitename")
                        , siteregex    := crit->GetAttribute("siteregex")
-                       , parenttype   := this->MapNamespace(crit->GetAttribute("parenttype"), FALSE)
-                       , sitetype     := this->MapNamespace(crit->GetAttribute("sitetype"), FALSE)
-                       , filetype     := this->MapNamespace(crit->GetAttribute("filetype"), FALSE)
-                       , contentfiletype := this->MapNamespace(crit->GetAttribute("contentfiletype"), FALSE)
-                       , foldertype   := this->MapNamespace(crit->GetAttribute("foldertype"), FALSE)
+                       , parenttype   := crit->GetAttribute("parenttype")
+                       , sitetype     := crit->GetAttribute("sitetype")
+                       , filetype     := crit->GetAttribute("filetype")
+                       , contentfiletype := crit->GetAttribute("contentfiletype")
+                       , foldertype   := crit->GetAttribute("foldertype")
                        , typeneedstemplate := ParseXSBoolean(crit->GetAttribute("typeneedstemplate"))
                        , prebuiltmasks := ParseXSList(ToUppercase(crit->GetAttribute("prebuiltmasks")))
                        , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
@@ -792,7 +734,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           {
             applyto := [ type        := "testdata"
                        , target      := crit->GetAttribute("target")
-                       , typedef     := this->MapNamespace(crit->GetAttribute("typedef"),FALSE)
+                       , typedef     := crit->GetAttribute("typedef")
                        , membername  := crit->GetAttribute("member")
                        , value       := crit->GetAttribute("value")
                        ];
@@ -904,7 +846,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               CASE "extendproperties", "undoextendproperties"
               {
                 STRING extension := this->ParseTolliumRef(node,"extension");
-                STRING contenttype := this->MapNamespace(node->GetAttribute("contenttype"), FALSE);
+                STRING contenttype := node->GetAttribute("contenttype");
                 IF(contenttype = "" AND extension != "")
                   this->AddError(node, "An extendproperties with extension= requires a content type");
 
@@ -1445,24 +1387,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 //it should be save to persist this for the current job, as compilation/validation jobs generally dont run long, but a full siteprof recompiler can otherwise build this object 100s of times (341 for me)
 OBJECT parametersingleton;
 
-PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
                               ], options);
 
   RECORD siteprofdata := [ name := filename
-                         , isscoped := FALSE
-                         //, sites := siteids
-                         //, allsites := allsites
                          , applysiteprofiles := DEFAULT STRING ARRAY
-                         , loadpackages := DEFAULT RECORD ARRAY
                          , langinfo := DEFAULT RECORD
                          , errors := DEFAULT RECORD ARRAY
                          , warnings := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
-                         // , applyrules := DEFAULT RECORD ARRAY
-                         // , sitesettings := DEFAULT RECORD ARRAY
-                         // , globalsettings := DEFAULT RECORD ARRAY
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
                          ];
@@ -1476,7 +1411,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, 
   TRY
   {
     siteprof := NEW SiteProfileObject(0, filename, [ xmldoc := options.xmldoc ]);
-    siteprofcontext := NEW SiteprofileCompilationContext(filename, siteprof, scopenamespace, parametersingleton);
+    siteprofcontext := NEW SiteprofileCompilationContext(filename, siteprof, parametersingleton);
     OBJECT realdoc := siteprof->xmldoc;
 
     IF(Length(realdoc->GetParseErrors()) > 0)
@@ -1495,7 +1430,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, 
     siteprofcontext->ParseFolderTypes();
     siteprofcontext->ParseFileTypes();
 
-    siteprofdata.isscoped := siteprofcontext->isscoped;
     siteprofdata.rules := (SELECT *, ruletype := "apply" FROM siteprofcontext->ImportApplies())
                           CONCAT
                           (SELECT *, ruletype := "sitesetting" FROM siteprofcontext->ImportSiteSettings())
@@ -1503,7 +1437,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, 
                           (SELECT *, ruletype := "globalsetting" FROM siteprofcontext->ImportGlobalSettings());
 
     siteprofdata.applysiteprofiles := siteprofcontext->ParseApplySiteProfiles();
-    siteprofdata.loadpackages := ParseLoadPackages(siteprof);
     siteprofdata.grouptypes := siteprofcontext->ImportGroupTypes();
 
     IF(RecordExists(siteprofdata))
@@ -1540,9 +1473,9 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, STRING scopenamespace, 
          ];
 }
 
-PUBLIC RECORD FUNCTION GetParsedSiteProfile(STRING resourcename, STRING scopenamespace)
+PUBLIC RECORD FUNCTION GetParsedSiteProfile(STRING resourcename)
 {
-  RETURN GetAdhocCached( CELL [resourcename, scopenamespace], PTR ParseSiteProfile(resourcename, scopenamespace));
+  RETURN GetAdhocCached( CELL [resourcename ], PTR ParseSiteProfile(resourcename));
 }
 
 OBJECTTYPE RecompileParameters

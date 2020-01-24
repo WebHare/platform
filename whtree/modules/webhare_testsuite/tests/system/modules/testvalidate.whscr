@@ -350,17 +350,6 @@ MACRO TestBasicValidate()
   TestEq(RECORD[],res.errors);
   TestEq(RECORD[],res.warnings);
 
-  //Test scoped namespace support
-  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := StringToBlob(
-      `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><contenttype namespace="scope:mediafolder"/></siteprofile>`)
-                                                                ]);
-  TestEq([[ message := "Cannot use \'scope:\' for namespace references in an unscoped site profile - did you mean to set isscoped=true on the <siteprofile> ?" ]], SELECT message FROM res.errors);
-
-  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := StringToBlob(
-      `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" isscoped="true"><contenttype namespace="scope:mediafolder"/></siteprofile>`)
-                                                                ]);
-  TestEq(RECORD[], res.errors);
-
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
       `<text tid="module:invalid" />
        <text tid="invalid" />
