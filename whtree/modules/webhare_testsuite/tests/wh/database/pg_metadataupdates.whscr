@@ -1,0 +1,135 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+
+
+MACRO ApplyDatabaseSchema(STRING s)
+{
+  OBJECT xsdschema := MakeXMLSchema(StringToBlob(`<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:dbschema="http://www.webhare.net/xmlns/whdb/databaseschema"
+  xmlns="http://www.webhare.net/xmlns/system/moduledefinition"
+  targetNamespace="http://www.webhare.net/xmlns/system/moduledefinition"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/whdb/databaseschema" schemaLocation="mod::system/data/validation/databaseschema.xsd" />
+
+  <xs:element name="container">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="databaseschema" type="dbschema:DatabaseSchema" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`));
+
+  BLOB docblob := StringToBlob(`<container xmlns="http://www.webhare.net/xmlns/system/moduledefinition">${s}</container>`);
+  OBJECT doc := MakeXMLDocument(docblob);
+  IF (NOT ObjectExists(doc))
+    THROW NEW Exception(`Could not parse database schema XML document`);
+  IF (RecordExists(doc->GetParseErrors()))
+    THROW NEW Exception(`Database schema document has parse errors: ${AnyToString(doc->GetParseErrors(), "tree")}`);
+
+  RECORD validationerrors := xsdschema->ValidateDocument(doc);
+  IF (RecordExists(validationerrors))
+    THROW NEW Exception(`Database schema document has validation errors: ${AnyToString(validationerrors, "tree")}`);
+
+  OBJECT dbschema := doc->documentelement->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema")->GetCurrentElements()[0];
+
+  // Parse it back into a schema definition record
+  RECORD parsed := ParseWHDBSchemaSpec("webhare_testsuite_temp", dbschema);
+
+  // Apply on the existing schema
+  RECORD cmd := GenerateDependentSQLCommands([ parsed ], GetPrimary());
+
+  testfw->BeginWork();
+  ExecuteSQLUpdates(GetPrimary(), cmd.commands);
+  testfw->CommitWork();
+}
+
+
+MACRO Setup()
+{
+  TestEQ("postgresql", GetPrimary()->type);
+
+  testfw->BeginWork();
+  GetPrimary()->__ExecSQL(`DROP SCHEMA IF EXISTS webhare_testsuite_temp CASCADE`);
+  GetPrimary()->__ExecSQL(`CREATE SCHEMA IF NOT EXISTS webhare_testsuite_temp`);
+  testfw->CommitWork();
+}
+
+
+MACRO TestByteaConversion()
+{
+  ApplyDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="byteaconversiontest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+    </d:table>
+  </databaseschema>
+`);
+  TABLE< INTEGER id, STRING name > tbl_text := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_temp.byteaconversiontest");
+  testfw->BeginWork();
+  INSERT [ id := 1, name := `E'\\000'` ] INTO tbl_text;
+  testfw->CommitWork();
+
+  ApplyDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="byteaconversiontest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:bytea name="name" maxlength="256" />
+    </d:table>
+  </databaseschema>
+`);
+
+  TestEQ(
+      [ [ id := 1, name := `E'\\000'` ]
+      ], SELECT * FROM tbl_text ORDER BY id);
+}
+
+MACRO TestIndexDrops()
+{
+  ApplyDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="indextest1" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+      <d:index name="idx1" columns="name(20)" />
+    </d:table>
+    <d:table name="indextest2" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+      <d:index name="idx1" columns="name(20)" />
+    </d:table>
+  </databaseschema>
+`);
+
+  ApplyDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="indextest1" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+      <d:obsoleteindex name="idx1" columns="name(20)" />
+    </d:table>
+    <d:obsoletetable name="indextest2" />
+  </databaseschema>
+`);
+}
+
+RunTestframework([ PTR Setup
+                 , PTR TestByteaConversion
+                 , PTR TestIndexDrops
+                 ]);

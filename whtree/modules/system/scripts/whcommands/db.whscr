@@ -130,7 +130,7 @@ SWITCH (args.command)
     IF (args.newvalue != "")
     {
       STRING envsettings := BlobToString(GetDiskResource(MergePath(GetWebhareConfiguration().varroot, ".webhare-envsettings.sh"), [ allowmissing := TRUE ]));
-      IF (envsettings LIKE `* WEBHARE_DBASE_READONLY=*` AND envsettings NOT LIKE `* WEBHARE_DBASE_READONLY=""\n`)
+      IF (envsettings LIKE `* WEBHARE_DBASE_READONLY=*` AND envsettings NOT LIKE `* WEBHARE_DBASE_READONLY=""\n*`)
         TerminateScriptWithError("The database readonly settings are set globally by 'wh console' and cannot be changed.");
 
       IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "")

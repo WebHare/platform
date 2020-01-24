@@ -11,7 +11,11 @@ LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
 
 
-// Documentation: https://github.com/PDOK/locatieserver/wiki/API-Locatieserver
+/*
+  Documentation: https://github.com/PDOK/locatieserver/wiki/API-Locatieserver
+  testurls: https://geodata.nationaalgeoregister.nl/locatieserver/v3/suggest?q=%22Sint%20Jac%22%20Utre%20and%20type:adres
+            https://geodata.nationaalgeoregister.nl/locatieserver/v3/suggest?q=postcode:%221645PN%22
+*/
 
 STRING apiurl := "https://geodata.nationaalgeoregister.nl/locatieserver/v3/";
 
