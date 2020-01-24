@@ -350,7 +350,7 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     RECORD entityrec := SELECT entity_id := entities.id
                           FROM wrd.entities
                          WHERE entities.type = this->id
-                               AND ToUppercase(guid) = ToUppercase(DecodeWRDGUID(http_guid));
+                               AND guid = DecodeWRDGUID(http_guid);
     IF (NOT RecordExists(entityrec))
       RETURN DEFAULT OBJECT;
 

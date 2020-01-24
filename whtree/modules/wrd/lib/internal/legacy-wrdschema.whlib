@@ -270,7 +270,7 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
                          WHERE entities.type = types.id
                                AND types.wrd_schema = schemas.id
                                AND schemas.id = this->id
-                               AND ToUppercase(guid) = ToUppercase(DecodeWRDGUID(http_guid));
+                               AND guid = DecodeWRDGUID(http_guid);
     IF (NOT RecordExists(entityrec))
       RETURN DEFAULT OBJECT;
 
