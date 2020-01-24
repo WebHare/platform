@@ -1459,9 +1459,10 @@ bool PGSQLTransactionDriver::BuildQueryString(
                         && coltype != VariableTypes::DateTime)
                      it->handled = false;
 
-                // No LIKE matching for binary columns
-                if (it->condition == DBConditionCode::Like && (query.tables[it->table].typeinfo->columnsdef[it->column].flags & ColumnFlags::Binary))
-                     it->handled = false;
+                // No LIKE matching or case insensitive compares for binary columns
+                if ((it->condition == DBConditionCode::Like || !it->casesensitive)
+                        && (query.tables[it->table].typeinfo->columnsdef[it->column].flags & ColumnFlags::Binary))
+                    it->handled = false;
 
                 if (!it->handled)
                     query.tables[it->table].columns[it->column].fase = Fases::Fase1;
