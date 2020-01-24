@@ -4,11 +4,12 @@
 
 LOADLIB "wh::util/stringparser.whlib";
 
-/** Semantic Versioning, see: http://semver.org */
+/* Semantic Versioning, see: http://semver.org */
 
-/**
-     @param compareparts A mix of INTEGER and STRING components suitable for direct comparisons */
-PUBLIC RECORD FUNCTION DecodeVersion(STRING version)
+/** Decode a semantic version string
+    @return A non-existing record if the version could not be parsed
+    @cell(variant array) return.compareparts A mix of INTEGER and STRING components suitable for direct comparisons */
+PUBLIC RECORD FUNCTION DecodeSemanticVersion(STRING version)
 {
   // Ignore leading v* (npm range parser ignores it)
   VARIANT ARRAY compareparts;
@@ -62,7 +63,7 @@ BOOLEAN FUNCTION IsOnlyDigits(STRING digits)
   RETURN digits != "" AND s->eof;
 }
 
-PUBLIC STRING FUNCTION EncodeVersion(RECORD version)
+PUBLIC STRING FUNCTION EncodeSemanticVersion(RECORD version)
 {
   IF (NOT CellExists(version, "major") OR version.major < 0
       OR NOT CellExists(version, "minor") OR version.minor < 0
@@ -76,10 +77,10 @@ PUBLIC STRING FUNCTION EncodeVersion(RECORD version)
 
 PUBLIC STRING FUNCTION IncrementVersionMajor(STRING version)
 {
-  RECORD decoded := DecodeVersion(version);
+  RECORD decoded := DecodeSemanticVersion(version);
   IF (NOT RecordExists(decoded))
     RETURN "";
-  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ major := decoded.major + 1
+  RETURN EncodeSemanticVersion(MakeUpdatedRecord(decoded, [ major := decoded.major + 1
                                                   , minor := 0
                                                   , patch := 0
                                                   ]));
@@ -87,31 +88,31 @@ PUBLIC STRING FUNCTION IncrementVersionMajor(STRING version)
 
 PUBLIC STRING FUNCTION IncrementVersionMinor(STRING version)
 {
-  RECORD decoded := DecodeVersion(version);
+  RECORD decoded := DecodeSemanticVersion(version);
   IF (NOT RecordExists(decoded))
     RETURN "";
-  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ minor := decoded.minor + 1
+  RETURN EncodeSemanticVersion(MakeUpdatedRecord(decoded, [ minor := decoded.minor + 1
                                                   , patch := 0
                                                   ]));
 }
 
 PUBLIC STRING FUNCTION IncrementVersionPatch(STRING version)
 {
-  RECORD decoded := DecodeVersion(version);
+  RECORD decoded := DecodeSemanticVersion(version);
   IF (NOT RecordExists(decoded))
     RETURN "";
-  RETURN EncodeVersion(MakeUpdatedRecord(decoded, [ patch := decoded.patch + 1 ]));
+  RETURN EncodeSemanticVersion(MakeUpdatedRecord(decoded, [ patch := decoded.patch + 1 ]));
 }
 
-PUBLIC BOOLEAN FUNCTION IsValidVersion(STRING version)
+PUBLIC BOOLEAN FUNCTION IsValidSemanticVersion(STRING version)
 {
-  RETURN RecordExists(DecodeVersion(version));
+  RETURN RecordExists(DecodeSemanticVersion(version));
 }
 
-PUBLIC BOOLEAN FUNCTION IsVersionNewer(STRING fromversion, STRING toversion)
+PUBLIC BOOLEAN FUNCTION IsSemanticVersionNewer(STRING fromversion, STRING toversion)
 {
-  RECORD fromdecoded := DecodeVersion(fromversion);
-  RECORD todecoded := DecodeVersion(toversion);
+  RECORD fromdecoded := DecodeSemanticVersion(fromversion);
+  RECORD todecoded := DecodeSemanticVersion(toversion);
 
   IF (NOT RecordExists(fromdecoded))
     RETURN RecordExists(todecoded); // If fromversion is invalid, toversion is newer if valid
@@ -190,13 +191,13 @@ STATIC OBJECTTYPE SemverRangeParser
     RETURN [ type := "=", value := partial ];
   }
 
-  /** Returns an webhare version
+  /** Returns an exact version
   */
   RECORD FUNCTION EncodeValue(INTEGER major, INTEGER minor, INTEGER patch, STRING prerelease)
   {
-    STRING encoded := EncodeVersion(CELL[ major, minor, patch, prerelease ]);
+    STRING encoded := EncodeSemanticVersion(CELL[ major, minor, patch, prerelease ]);
     RETURN CELL
-        [ decoded :=    DecodeVersion(encoded)
+        [ decoded :=    DecodeSemanticVersion(encoded)
         , parts :=      prerelease != "" ? 4 : 3
         ];
   }
@@ -262,10 +263,6 @@ STATIC OBJECTTYPE SemverRangeParser
       IF (NOT RecordExists(e2))
         BREAK;
 
-      //IF (e.type != "and")
-      //  e := [ type := "and", vals := [ e ] ];
-
-      //INSERT e2 INTO e.vals AT END;
       e.vals := e.vals CONCAT e2.vals;
     }
     RETURN e;
@@ -449,8 +446,8 @@ STATIC OBJECTTYPE SemverRangeParser
       }
     }
 
-    STRING encoded := EncodeVersion(CELL[ major, minor, patch, prerelease ]);
-    RECORD decoded := DecodeVersion(encoded);
+    STRING encoded := EncodeSemanticVersion(CELL[ major, minor, patch, prerelease ]);
+    RECORD decoded := DecodeSemanticVersion(encoded);
     RETURN CELL
         [ decoded
         , parts
@@ -647,7 +644,7 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
     {
       IF (HasGITCommitHash(semverrange))
       {
-        // When a commit hash is present, require an webhare match (with 'git+' and '.git' additions allowed)
+        // When a commit hash is present, require an exact match (with 'git+' and '.git' additions allowed)
         satisfies := satisfies OR (version IN [ semverrange, `git+${semverrange}`, `git+${Substitute(semverrange, "#", ".git#")}`, `git+${semverrange}.git` ]);
       }
       ELSE
@@ -660,7 +657,7 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
     RETURN satisfies;
   }
 
-  RECORD decodedversion := DecodeVersion(version);
+  RECORD decodedversion := DecodeSemanticVersion(version);
   IF (NOT RecordExists(decodedversion))
     RETURN FALSE;  //FIXME shouldn't we be throwing or  soemthing like that?
 
@@ -676,6 +673,6 @@ BOOLEAN FUNCTION __CompareSemverRangeWithVersion(STRING semverrange, STRING vers
     @return True if 'version' qualifies */
 PUBLIC BOOLEAN FUNCTION VersionSatisfiesRange(STRING version, STRING semverrange, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ comparemode := "webhare" ], options, [ enums := [ comparemode := ["npm","webhare"] ]]);
+  options := ValidateOptions([ comparemode := "webhare" ], options, [ enums := [ comparemode := ["npm", "webhare"] ]]);
   RETURN __CompareSemverRangeWithVersion(semverrange, version, options.comparemode);
 }

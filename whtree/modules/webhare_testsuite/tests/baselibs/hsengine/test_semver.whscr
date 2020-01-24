@@ -8,48 +8,48 @@ MACRO TestSemVer_Increment()
   OpenTest("TestSemVer_Increment");
 
   STRING version := "0.1.0-release-candidate.1+2015-09-01-123456";
-  TestEq(TRUE, IsValidVersion(version));
-  RECORD decoded := DecodeVersion(version);
+  TestEq(TRUE, IsValidSemanticVersion(version));
+  RECORD decoded := DecodeSemanticVersion(version);
   TestEq(TRUE, RecordExists(decoded));
   TestEq(0, decoded.major);
   TestEq(1, decoded.minor);
   TestEq(0, decoded.patch);
   TestEq("release-candidate.1", decoded.prerelease);
   TestEq("2015-09-01-123456", decoded.build);
-  TestEq(version, EncodeVersion(decoded));
+  TestEq(version, EncodeSemanticVersion(decoded));
 
   version := IncrementVersionPatch(version);
-  TestEq(TRUE, IsValidVersion(version));
-  decoded := DecodeVersion(version);
+  TestEq(TRUE, IsValidSemanticVersion(version));
+  decoded := DecodeSemanticVersion(version);
   TestEq(TRUE, RecordExists(decoded));
   TestEq(0, decoded.major);
   TestEq(1, decoded.minor);
   TestEq(1, decoded.patch);
   TestEq("release-candidate.1", decoded.prerelease);
   TestEq("2015-09-01-123456", decoded.build);
-  TestEq(version, EncodeVersion(decoded));
+  TestEq(version, EncodeSemanticVersion(decoded));
 
   version := IncrementVersionMinor(version);
-  TestEq(TRUE, IsValidVersion(version));
-  decoded := DecodeVersion(version);
+  TestEq(TRUE, IsValidSemanticVersion(version));
+  decoded := DecodeSemanticVersion(version);
   TestEq(TRUE, RecordExists(decoded));
   TestEq(0, decoded.major);
   TestEq(2, decoded.minor);
   TestEq(0, decoded.patch);
   TestEq("release-candidate.1", decoded.prerelease);
   TestEq("2015-09-01-123456", decoded.build);
-  TestEq(version, EncodeVersion(decoded));
+  TestEq(version, EncodeSemanticVersion(decoded));
 
   version := IncrementVersionMajor(version);
-  TestEq(TRUE, IsValidVersion(version));
-  decoded := DecodeVersion(version);
+  TestEq(TRUE, IsValidSemanticVersion(version));
+  decoded := DecodeSemanticVersion(version);
   TestEq(TRUE, RecordExists(decoded));
   TestEq(1, decoded.major);
   TestEq(0, decoded.minor);
   TestEq(0, decoded.patch);
   TestEq("release-candidate.1", decoded.prerelease);
   TestEq("2015-09-01-123456", decoded.build);
-  TestEq(version, EncodeVersion(decoded));
+  TestEq(version, EncodeSemanticVersion(decoded));
 
   CloseTest("TestSemVer_Increment");
 }
@@ -59,37 +59,37 @@ MACRO TestSemVer_Precedence()
   OpenTest("TestSemVer_Precedence");
 
   // 1.0.0 < 2.0.0 < 2.1.0 < 2.1.1
-  TestEq(TRUE, IsVersionNewer("1.0.0", "2.0.0"));
-  TestEq(FALSE, IsVersionNewer("2.0.0", "1.0.0"));
-  TestEq(TRUE, IsVersionNewer("2.0.0", "2.1.0"));
-  TestEq(FALSE, IsVersionNewer("2.1.0", "2.0.0"));
-  TestEq(TRUE, IsVersionNewer("2.1.0", "2.1.1"));
-  TestEq(FALSE, IsVersionNewer("2.1.1", "2.1.0"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0", "2.0.0"));
+  TestEq(FALSE, IsSemanticVersionNewer("2.0.0", "1.0.0"));
+  TestEq(TRUE, IsSemanticVersionNewer("2.0.0", "2.1.0"));
+  TestEq(FALSE, IsSemanticVersionNewer("2.1.0", "2.0.0"));
+  TestEq(TRUE, IsSemanticVersionNewer("2.1.0", "2.1.1"));
+  TestEq(FALSE, IsSemanticVersionNewer("2.1.1", "2.1.0"));
 
   // 1.0.0-alpha < 1.0.0
-  TestEq(TRUE, IsVersionNewer("1.0.0-alpha", "1.0.0"));
-  TestEq(FALSE, IsVersionNewer("1.0.0", "1.0.0-alpha"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-alpha", "1.0.0"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0", "1.0.0-alpha"));
 
   // 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
-  TestEq(TRUE, IsVersionNewer("1.0.0-alpha", "1.0.0-beta"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-beta", "1.0.0-gamma"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-gamma", "1.0.0-delta"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-delta", "1.0.0"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-alpha", "1.0.0-beta"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-beta", "1.0.0-gamma"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-gamma", "1.0.0-delta"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-delta", "1.0.0"));
 
-  TestEq(TRUE, IsVersionNewer("1.0.0-alpha", "1.0.0-alpha.1"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-alpha.1", "1.0.0-alpha"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-alpha.1", "1.0.0-alpha.beta"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-alpha.beta", "1.0.0-alpha.1"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-alpha.beta", "1.0.0-beta"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-beta", "1.0.0-alpha.beta"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-beta", "1.0.0-beta.2"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-beta.2", "1.0.0-beta"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-beta.2", "1.0.0-beta.11"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-beta.11", "1.0.0-beta.2"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-beta.11", "1.0.0-rc.1"));
-  TestEq(FALSE, IsVersionNewer("1.0.0-rc.1", "1.0.0-beta.11"));
-  TestEq(TRUE, IsVersionNewer("1.0.0-rc.1", "1.0.0"));
-  TestEq(FALSE, IsVersionNewer("1.0.0", "1.0.0-rc.1"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-alpha", "1.0.0-alpha.1"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-alpha.1", "1.0.0-alpha"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-alpha.1", "1.0.0-alpha.beta"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-alpha.beta", "1.0.0-alpha.1"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-alpha.beta", "1.0.0-beta"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-beta", "1.0.0-alpha.beta"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-beta", "1.0.0-beta.2"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-beta.2", "1.0.0-beta"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-beta.2", "1.0.0-beta.11"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-beta.11", "1.0.0-beta.2"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-beta.11", "1.0.0-rc.1"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0-rc.1", "1.0.0-beta.11"));
+  TestEq(TRUE, IsSemanticVersionNewer("1.0.0-rc.1", "1.0.0"));
+  TestEq(FALSE, IsSemanticVersionNewer("1.0.0", "1.0.0-rc.1"));
 
   //ADDME: Test precedence with build identifiers
 
