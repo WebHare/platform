@@ -706,6 +706,22 @@ case $INSTR in
     exit 255
     ;;
 
+  "execbuilt")
+    setup_for_console
+    getwhparameters
+    setup_buildsystem
+
+    PROCESS="$1"
+    shift
+
+    if [ ! -x "$PROCESS" -a -x "$WEBHARE_BUILDDIR/bin/$PROCESS" ]; then #resolve to bin path ?
+      PROCESS="$WEBHARE_BUILDDIR/bin/$PROCESS"
+    fi
+
+    exec $PROCESS "--moduledir" "$WEBHARE_BUILDDIR/lib" "$@"
+    exit 255
+    ;;
+
   "console")
     DEBUGTAGS=
     if [ "$1" == "--profile" ]; then
