@@ -48,7 +48,7 @@ PUBLIC INTEGER64 FUNCTION ParseXSInt64(STRING val)
     @param xmlfile XSD file to parse
     @param encoding XSD file encoding, if known
     @param readonly If true, create a read-only XML document
-    @return A new schema object. use GetParseErrors() to check for syntax errors */
+    @return(object %XmlSchema) A new schema object. use GetParseErrors() to check for syntax errors */
 PUBLIC OBJECT FUNCTION MakeXMLSchema(BLOB xmlfile, STRING encoding DEFAULTSTO "", BOOLEAN readonly DEFAULTSTO FALSE)
 {
   RETURN (NEW XmlDOMImplementation)->MakeXMLSchema(xmlfile, encoding, readonly);
