@@ -1,0 +1,20 @@
+<?wh
+// command: listissues [subcommand]
+// short: List Publisher publication issues
+
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/screens/reports/issues.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
+OpenPrimary();
+RECORD ARRAY issues := ListSiteIssues();
+FOREVERY(RECORD sitewithissues FROM SELECT * FROM ListSiteIssues() ORDER BY ToUppercase(name))
+{
+  Print(`Site ${sitewithissues.name}:\n`);
+  FOREVERY(RECORD file FROM SELECT * FROM sitewithissues.fileswitherrors ORDER BY ToUppercase(fullpath))
+  {
+    Print(`- ${file.fullpath}: ${EncodeJAva(GetPublicationErrorMsg(file.errorcode, file.errordata))}\n`);
+  }
+}

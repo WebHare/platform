@@ -131,7 +131,7 @@ PUBLIC OBJECTTYPE ModuleArchiveFS EXTEND VirtualModularFSBase
           name := Left(name, LENGTH(name) - 17);
         }
 
-        IF (name LIKE "*.*" AND name NOT LIKE "*.bak")
+        IF (name LIKE "*.*")
         {
           IF (name NOT LIKE "*.20??????T??????Z" OR name LIKE "*.*.*")
             CONTINUE;

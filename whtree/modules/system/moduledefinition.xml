@@ -2211,7 +2211,7 @@ The full base URL on which this site will be published, calculated by combining 
         <datetime name="moddatecutoff" description="After this date, we use the image hash instead of modification date in URLs" initialval="now" />
       </node>
       <node name="global">
-        <string name="servertype" description="Type of the server: production, acceptance, test, development, alpha" initialval="production" />
+        <string name="servertype" description="Type of the server: production, acceptance, test, development" />
         <string name="servername" description="Name of your server" initialval=""/>
         <string name="installationid" description="Installation ID of your server" initialval=""/>
       </node>

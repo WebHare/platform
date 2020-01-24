@@ -1,4 +1,4 @@
-The Tollium `<image>` component
+# The Tollium `<image>` component
 
 ## overlays
 Overlays are square selections inside the image. Overlays are based on [dompack-overlays](https://github.com/webhare/dompack-overlays) - use that package for a 'frontend' version of the overlays.

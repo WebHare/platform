@@ -62,11 +62,6 @@ IF (GetDatabaseType() = "whdb" AND IsDatabaseWritable())
   GetPrimary()->CommitWOrk();
 }
 
-/* Eliminate old *.bak stuff in the ../modules folder. They should have been moved to installedmodules long ago */
-RECORD ARRAY eliminate := SELECT * FROM ReadDiskDirectory(GetInstallationRoot()||"modules","*.bak") WHERE type=1;
-FOREVERY(RECORD oldfolder FROM eliminate)
-  DeleteDiskDirectoryRecursive(GetInstallationRoot() || "modules/" || oldfolder.name);
-
 /* Unpack important stuff that shipped with us */
 RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
 IF(RecordExists(shrinkwrapfile))

@@ -196,6 +196,8 @@ IF(hostname = "")
 }
 IF(ReadRegistryKey("system.global.installationid") = "")
   WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
+IF(ReadRegistryKey("system.global.servertype") = "")
+  WriteRegistryKey("system.global.servertype", IsModuleInstalled("webhare_testsuite") ? "development" : "test");
 
 IF(isfreshwebhare)
 {

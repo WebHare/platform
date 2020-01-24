@@ -74,8 +74,8 @@ PUBLIC BOOLEAN FUNCTION DoPushModule(OBJECT parent, STRING modulename)
 
   FOREVERY (RECORD rec FROM localmoduleinfo.requiredmodules)
   {
-    // Skip base and substite modules, they aren't listed in installed modules
-    IF (rec.name IN whconstant_builtinmodules OR rec.name IN substitutemodules)
+    // Skip base modules, they aren't listed in installed modules
+    IF (rec.name IN whconstant_builtinmodules)
       CONTINUE;
 
     RECORD existing := SELECT * FROM modules WHERE name = rec.name;
