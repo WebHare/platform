@@ -10,6 +10,8 @@ LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 INTEGER indexid;
 INTEGER contentsource;
@@ -28,8 +30,7 @@ MACRO TestBoostWords()
   // Create and fill the test site
   testfw->BeginWork();
 
-  OBJECT site := testfw->SetupTestWebdesignWebsite("");
-  OBJECT siteroot := site->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder();
 
   AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
   testfw->CommitWork();

@@ -12,6 +12,9 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
 {
   RETURN event.groupid = ToString(expectfile);
@@ -21,9 +24,8 @@ MACRO ConsilioTest()
 {
   testfw->BeginWork();
 
-  OBJECT site := testfw->SetupTestWebdesignWebsite("");
-  OBJECT siteroot := site->rootobject;
-  OBJECT subfolder := site->rootobject->CreateFolder([ name := "subfolder" ]);
+  OBJECT siteroot := GetTestsuiteTempFolder();
+  OBJECT subfolder := siteroot->CreateFolder([ name := "subfolder" ]);
 
   AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
   AddFolderToCatalog(subfolder->id, testfw->GetCatalogName_2(), "", "");
@@ -39,7 +41,7 @@ MACRO ConsilioTest()
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", data := StringToBlob("blabla check"), publish := TRUE]);
   OBJECT file_2 := siteroot->CreateFile([name:="testfile2.whlib", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla2'); }") ]);
-  OBJECT file_3 := siteroot->CreateFile([name:="testfile3.shtml", data := StringToBlob("<?wh LOADLIB 'currentsite::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
+  OBJECT file_3 := siteroot->CreateFile([name:="testfile3.shtml", data := StringToBlob("<?wh LOADLIB 'relative::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
   OBJECT file_4 := siteroot->CreateFile([name:="testfile4.txt", data := StringToBlob("blabla4"), publish := TRUE]);
   OBJECT file_6 := siteroot->CreateFile([name:="testfile6.rtd", type := richdoctype->id, publish := TRUE]);
 
@@ -194,7 +196,7 @@ MACRO ConsilioTest()
       ], results);
 
   // Test restrict url
-  search_1_obj->restrict_url := site->webroot || "folder/";
+  search_1_obj->restrict_url := siteroot->objecturl || "folder/";
   results := search_1_obj->Search("blabla", 0, 10);
   TestEq(
       [ totalcount :=       0

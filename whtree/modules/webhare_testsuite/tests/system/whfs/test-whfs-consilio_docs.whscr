@@ -3,14 +3,17 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 MACRO TestWordDoc()
 {
   testfw->BeginWork();
-  OBJECT testsite := testfw->SetupTestWebdesignWebsite("");
-  OBJECT testdatafile := testsite->rootobject->CreateFile([ name := "links.docx", publish := TRUE, data := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
+  OBJECT testfolder := GetTestsuiteTempFolder();
+  OBJECT testdatafile := testfolder->CreateFile([ name := "links.docx", publish := TRUE, data := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/links.docx") ]);
   testfw->CommitWork();
 
-  testfw->WaitForPublishCompletion(testsite->id);
+  testfw->WaitForPublishCompletion(testfolder->id);
 
   RECORD ARRAY links := GetLinksForFSObject(testdatafile->id);
   //DumpValue(links,'boxed');
