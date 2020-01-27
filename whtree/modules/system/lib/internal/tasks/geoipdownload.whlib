@@ -27,7 +27,7 @@ PUBLIC OBJECTTYPE GeoIPCheck EXTEND CustomCheckBase
     {
       INTEGER age := GetDatetimeDifference(oldest, GetCurrentDatetime()).days;
       IF(age >= 30)
-        RETURN RECORD[ [ msg:= `The geoip database in ${basedir} is ${age} days old. The EULA requires you to update or delete this database after 30 days` ]
+        RETURN RECORD[ [ msg:= `:The geoip database in ${basedir} is ${age} days old. The EULA requires you to update or delete this database after 30 days` ]
                     ];
     }
     RETURN RECORD[];
