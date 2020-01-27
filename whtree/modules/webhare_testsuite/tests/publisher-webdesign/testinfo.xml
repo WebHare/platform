@@ -3,7 +3,6 @@
   <test script="basetest-moduledesign.whscr"/>
   <test script="testwebdesign-template.whscr"/>
   <test script="gziptest.whscr"/>
-  <test script="testembeddedobject.whscr"/>
   <test script="urlhistory.whscr"/>
   <test script="urlpushevents.whscr"/>
   <test script="assetmgrtest.whscr"/>
