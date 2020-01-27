@@ -11,8 +11,13 @@
   <textgroup gid="basetest">   <!-- basetest -->
     <text tid="title">Basetest title</text>
   </textgroup>
-  <textgroup gid="editors">   <!-- editors -->
-    <text tid="betatest">Beta test tab</text>
+  <textgroup gid="editors">
+    <text tid="betatest">Beta test</text>
+    <text tid="stringtest">stringtest</text>
+    <text tid="array">array</text>
+    <text tid="textcell">textcell</text>
+    <text tid="whfscell">whfscell</text>
+    <text tid="editrow">Edit row</text>
   </textgroup>
   <textgroup gid="jstests">   <!-- jstests -->
     <text tid="apptitle">Javascript tests</text>

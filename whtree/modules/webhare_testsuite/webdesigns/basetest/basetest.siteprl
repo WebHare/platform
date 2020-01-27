@@ -698,6 +698,65 @@
     <formintegration addressvalidationschema="wrd:testschema" />
   </apply>
 
+
+  <!-- This is mostly properteditor /objectpros basic testing. Not sure if it reallly adds anything anymore on top of all
+       our other tests ...  -->
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test"
+               cloneoncopy="true">
+    <member name="stringtest" type="string" />
+    <member name="arraytest" type="array">
+      <member name="textcell" type="string" />
+      <member name="_whfscell" type="whfsref" />
+      <member name="intextcell" type="intextlink" />
+      <member name="stringarray" type="stringarray" />
+      <member name="blobcell" type="file" />
+    </member>
+    <member name="_whfsarray" type="whfsrefarray" />
+    <member name="stringarray" type="stringarray" />
+    <member name="richtest" type="richdocument" />
+    <member name="instancetest" type="instance" />
+    <member name="recordtest" type="record" />
+  </contenttype>
+  <propertyeditor name="testeditor">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/beta/test" />
+    </compositions>
+    <newtab gid="editors" tid=".betatest">
+      <t:textedit composition="fsinstance" cellname="stringtest" />
+      <t:select composition="fsinstance" cellname="_whfsarray" type="checkboxlist" height="8x">
+        <p:fsobjects composition="fsinstance" titlecell="whfspath" />
+        <p:fsobjects composition="fsinstance" fullpath="/" titlecell="whfspath" />
+      </t:select>
+      <t:box tid=".array" height="1pr">
+        <t:arrayedit composition="fsinstance" cellname="arraytest" name="arraytest" orderable="false" enabled="true" height="1pr" roweditscreen=".editrow">
+          <t:column name="textcell" type="text" tid=".textcell" width="11x"/>
+          <p:whfsrefcolumn name="_whfscell" display="path" tid=".whfscell" />
+        </t:arrayedit>
+      </t:box>
+    </newtab>
+  </propertyeditor>
+  <apply>
+    <to type="file" parentmask="/*/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <extendproperties name="testeditor" />
+  </apply>
+
+  <screen name="editrow" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="editors" tid=".editrow">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="textcell" name="textcell" />
+      <select composition="row" cellname="_whfscell" type="pulldown" height="8x" name="_whfscell">
+        <p:fsobjects composition="row" titlecell="whfspath" />
+        <p:fsobjects composition="row" fullpath="/" titlecell="whfspath" />
+      </select>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+
   <applysiteprofile path="pages/customform/customform.siteprl.xml" />
 
   <sitesettings>

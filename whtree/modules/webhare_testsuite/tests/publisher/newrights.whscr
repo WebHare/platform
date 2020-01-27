@@ -102,7 +102,7 @@ MACRO CheckPublication()
 
 RunTestFramework([ PTR Setup
                  , PTR TryRights
-                 , PTR PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ])
+                 , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest")
                  , PTR CheckPublication
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]

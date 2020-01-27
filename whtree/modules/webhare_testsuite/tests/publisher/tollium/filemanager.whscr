@@ -271,7 +271,7 @@ OBJECT ASYNC FUNCTION CreatePhotoAlbum()
   RETURN TRUE;
 }
 
-RunTestframework([ PTR PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ witherrors := TRUE ])
                  , PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree

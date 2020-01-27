@@ -74,22 +74,6 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
   }
 }
 
-PUBLIC MACRO PrepareTestSiteDesignWebsite(STRING siteprofile, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  testfw->BeginWork();
-
-  OBJECT newsite := testfw->SetupTestWebdesignWebsite(siteprofile);
-  BOOLEAN witherrors := CellExists(options,'witherrors') AND options.witherrors;
-  BOOLEAN waitpublish := (NOT CellExists(options,'waitpublish')) OR options.waitpublish = TRUE;
-  OBJECT siteroot := newsite->rootobject;
-
-  CreateContent(siteroot, witherrors);
-
-  testfw->CommitWork();
-  IF(waitpublish)
-    testfw->WaitForPublishCompletion(siteroot->id);
-}
-
 PUBLIC MACRO PrepareTestModuleWebDesignWebsite(STRING webdesigntemplate, RECORD options  DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(

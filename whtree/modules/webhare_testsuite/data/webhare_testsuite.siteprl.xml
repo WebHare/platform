@@ -7,18 +7,6 @@
    xmlns:xyz="urn:xyz">
 
   <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:h="http://www.w3.org/1999/xhtml">
-    <textgroup gid="editors">
-      <text tid="betatest">Beta test</text>
-      <text tid="stringtest">stringtest</text>
-      <text tid="array">array</text>
-      <text tid="textcell">textcell</text>
-      <text tid="whfscell">whfscell</text>
-      <text tid="editrow">Edit row</text>
-    </textgroup>
-    <textgroup gid="test">
-      <text tid="richtext">Dit is <h:b>bold</h:b></text>
-      <text tid="richtext_params">param:<h:i><param p="1" /></h:i></text>
-    </textgroup>
   </language>
 
   <grouptype namespace="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
@@ -77,23 +65,6 @@
   </apply>
 
 
-  <contenttype namespace="http://www.webhare.net/xmlns/beta/test"
-               cloneoncopy="true">
-    <member name="stringtest" type="string" />
-    <member name="arraytest" type="array">
-      <member name="textcell" type="string" />
-      <member name="_whfscell" type="whfsref" />
-      <member name="intextcell" type="intextlink" />
-      <member name="stringarray" type="stringarray" />
-      <member name="blobcell" type="file" />
-    </member>
-    <member name="_whfsarray" type="whfsrefarray" />
-    <member name="stringarray" type="stringarray" />
-    <member name="richtest" type="richdocument" />
-    <member name="instancetest" type="instance" />
-    <member name="recordtest" type="record" />
-  </contenttype>
-
   <contenttype namespace="http://www.webhare.net/xmlns/beta/test2" cloneoncopy="true">
     <member name="stringtest" type="string" />
   </contenttype>
@@ -123,46 +94,6 @@
     <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FolderEntry" />
   </foldertype>
 
-  <!-- Productionsroot -->
-  <propertyeditor name="testeditor">
-    <compositions>
-      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/beta/test" />
-    </compositions>
-    <newtab gid="editors" tid=".betatest">
-      <t:textedit composition="fsinstance" cellname="stringtest" />
-      <t:select composition="fsinstance" cellname="_whfsarray" type="checkboxlist" height="8x">
-        <p:fsobjects composition="fsinstance" titlecell="whfspath" />
-        <p:fsobjects composition="fsinstance" fullpath="/" titlecell="whfspath" />
-      </t:select>
-      <t:box tid=".array" height="1pr">
-        <t:arrayedit composition="fsinstance" cellname="arraytest" name="arraytest" orderable="false" enabled="true" height="1pr" roweditscreen=".editrow">
-          <t:column name="textcell" type="text" tid=".textcell" width="11x"/>
-          <p:whfsrefcolumn name="_whfscell" display="path" tid=".whfscell" />
-        </t:arrayedit>
-      </t:box>
-    </newtab>
-  </propertyeditor>
-
-  <screen name="editrow" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="editors" tid=".editrow">
-    <compositions>
-      <record name="row" />
-    </compositions>
-    <body>
-      <textedit composition="row" cellname="textcell" name="textcell" />
-      <select composition="row" cellname="_whfscell" type="pulldown" height="8x" name="_whfscell">
-        <p:fsobjects composition="row" titlecell="whfspath" />
-        <p:fsobjects composition="row" fullpath="/" titlecell="whfspath" />
-      </select>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
-  <apply>
-    <to type="file" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" parentmask="/*/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
-    <extendproperties name="testeditor" />
-  </apply>
   <apply>
     <to type="folder" sitemask="WebHare testsuite site" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal" />

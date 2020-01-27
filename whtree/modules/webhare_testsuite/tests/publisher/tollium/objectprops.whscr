@@ -20,7 +20,7 @@ MACRO PrepIt()
 OBJECT ASYNC FUNCTION ObjectProps()
 {
   testfw->SetTestUser("sysop");
-  PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest");
   testfw->SetTestUser("lisa");
 
   TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
@@ -79,7 +79,7 @@ OBJECT ASYNC FUNCTION ObjectProps()
 
 OBJECT ASYNC FUNCTION SiteProps()
 {
-  PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest");
   TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
 
   OBJECT root := testfw->GetTestSite()->rootobject;
