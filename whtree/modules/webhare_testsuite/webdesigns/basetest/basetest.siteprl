@@ -671,6 +671,12 @@
     <urlhistory store="true" />
   </apply>
 
+  <!-- consilio testing -->
+  <apply>
+    <to type="all" pathmask="/tmp/*robot*" />
+    <robots xmlns="http://www.webhare.net/xmlns/consilio" />
+  </apply>
+
   <!-- address validation -->
   <apply>
     <to type="all" pathmask="/testpages/staticpage" />  <!-- note: registrykey has precedence, so this rule should win, even though /testpages/ comes later -->
