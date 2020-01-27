@@ -1,5 +1,4 @@
 import test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 function forceResetConsent()
 {
@@ -36,7 +35,7 @@ test.registerTests(
       await test.wait(() => test.qSA("iframe[allowfullscreen]").length == 1);
     }
 
-  , "Test constent video"
+  , "Test consent video"
   , async function()
     {
       forceResetConsent();
