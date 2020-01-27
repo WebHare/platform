@@ -665,6 +665,16 @@
     <forumplugin autoclose="1" />
   </apply>
 
+  <!-- URL events -->
+  <apply>
+    <to type="all" pathmask="*urlevents*" />
+    <urlevents enabled="1" />
+  </apply>
+  <apply>
+    <to type="all" pathmask="*noevents*" />
+    <urlevents enabled="false" />
+  </apply>
+
   <!-- URLHistory -->
   <apply>
     <to type="all" pathmask="/tmp/*follow*" />
