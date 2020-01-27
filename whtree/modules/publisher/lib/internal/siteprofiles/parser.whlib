@@ -630,7 +630,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         ];
 
     webdesign.assetpack := QualifyName(this->module,node->GetAttribute("assetpack"));
-    IF(webdesign.assetpack != "")
+    IF(webdesign.assetpack != "" AND webdesign.assetpack != "publisher:__dummy__") //TODO do we need an official way to invoke <webdesign> without __dummy__ ? may be easier to offer once everyone uses webdesigns instead of templates and we don't need to validate against V1 sites
     {
       IF(this->filename NOT LIKE "mod::*")
         this->AddError(node, "Assetpacks can only be specified for module-based siteprofiles");

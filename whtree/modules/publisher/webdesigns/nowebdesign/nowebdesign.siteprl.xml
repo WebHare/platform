@@ -3,7 +3,7 @@
 
   <apply>
     <to type="all" />
-    <webdesign designfolder="." library="nowebdesign.whlib" objectname="NoWebdesign" wittyencoding="HTML-NI" />
+    <webdesign designfolder="." library="nowebdesign.whlib" objectname="NoWebdesign" wittyencoding="HTML-NI" assetpack="publisher:__dummy__"/>
     <disablelegacysitesettings notemplateprofile="true" />
     <baseproperties keywords="false" />
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
