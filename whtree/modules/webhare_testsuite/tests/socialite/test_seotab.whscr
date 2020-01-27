@@ -5,19 +5,6 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-STRING siteprof_with_seotab :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<apply>'
-      || '<to type="all" />'
-      || '<seotab xmlns="http://www.webhare.net/xmlns/socialite" features="canonicalurl" />'
-    || '</apply>'
-    || '<apply>'
-      || '<to type="index" />'
-      || '<robots xmlns="http://www.webhare.net/xmlns/consilio" />'
-      || '<seotab xmlns="http://www.webhare.net/xmlns/socialite" features="robots canonicalurl" />'
-    || '</apply>'
-  || '</siteprofile>';
-
 OBJECT ASYNC FUNCTION TestSEOTab()
 {
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
@@ -78,7 +65,7 @@ OBJECT ASYNC FUNCTION TestSEOTab()
   RETURN TRUE;
 }
 
-RunTestframework([ PTR PrepareTestSiteDesignWebsite(siteprof_with_seotab, [ waitpublish := FALSE ])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ waitpublish := FALSE ])
                  , PTR TestSEOTab
                  ],
                  [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

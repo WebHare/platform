@@ -141,6 +141,16 @@
   </apply>
 
   <apply>
+    <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
+    <seotab xmlns="http://www.webhare.net/xmlns/socialite" features="canonicalurl" />
+  </apply>
+  <apply>
+    <to type="index" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
+    <robots xmlns="http://www.webhare.net/xmlns/consilio" />
+    <seotab xmlns="http://www.webhare.net/xmlns/socialite" features="robots canonicalurl" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="/withdesignfolder/*" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
     <webdesign designfolder="site::webhare_testsuite.site/design/" basedependency="js/test.js" />
   </apply>

@@ -12,7 +12,7 @@
     <text tid="title">Basetest title</text>
   </textgroup>
   <textgroup gid="editors">
-    <text tid="betatest">Beta test</text>
+    <text tid="betatest">Beta test tab</text>
     <text tid="stringtest">stringtest</text>
     <text tid="array">array</text>
     <text tid="textcell">textcell</text>
