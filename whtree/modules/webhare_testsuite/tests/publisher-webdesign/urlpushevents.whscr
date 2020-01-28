@@ -4,18 +4,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-STRING testsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="all" />'
-    || '<urlevents enabled="1" />'
-  || '</apply>'
-  || '<apply>'
-    || '<to type="all" pathmask="*noevents*" />'
-    || '<urlevents enabled="false" />'
-  || '</apply>'
-|| '</siteprofile>';
-
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 STRING ARRAY active_urls;
 
@@ -78,12 +67,9 @@ STRING baseurl;
 
 MACRO FirstPublication()
 {
-  //testfw->debug := TRUE;
-
   testfw->BeginWork();
 
-  OBJECT newsite := testfw->SetupTestWebdesignWebsite(testsiteprofile);
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder()->CreateFolder([name := "urlevents"]);
 
   OBJECT indexdoc := siteroot->CreateFile([name:="index.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
   OBJECT otherdoc := siteroot->CreateFile([name:="other.html", data := DEFAULT BLOB, publish := TRUE, type := 5 ]);
@@ -136,7 +122,7 @@ MACRO FirstPublication()
 
 MACRO UnpublishFile()
 {
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder()->OpenByName("urlevents");
   OBJECT indexdoc := siteroot->OpenByPath("index.html");
   OBJECT otherdoc := siteroot->OpenByPath("other.html");
   OBJECT subindexdoc := siteroot->OpenByPath("withevents/index.html");
@@ -172,7 +158,7 @@ MACRO UnpublishFile()
 
 MACRO RecycleFolder()
 {
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder()->OpenByName("urlevents");
   OBJECT indexdoc := siteroot->OpenByPath("index.html");
   OBJECT otherdoc := siteroot->OpenByPath("other.html");
   OBJECT subfolder := siteroot->OpenByPath("withevents");
@@ -186,8 +172,7 @@ MACRO RecycleFolder()
 
   testfw->CommitWork();
 
-  IF(testfw->debug)
-    Print("Starting wait for active urls... [3]\n");
+  Print("Starting wait for active urls... [3]\n");
   // The urls of subindexdoc should no longer be active
   STRING ARRAY urls := [ baseurl
                        , baseurl || "^index.html/test.txt"
@@ -196,12 +181,12 @@ MACRO RecycleFolder()
                        ];
   IF (NOT WaitForPromise(testfw->AsyncWaitOnWithEvent(PTR CheckActiveUrls(urls), "publisher:url")))
     ABORT("Active URLs check failed");
-  IF(testfw->debug)
-    Print("Completed wait for active urls...\n");
+
+  Print("Completed wait for active urls...\n");
 }
 
 
 RunTestframework([ PTR FirstPublication
                  , PTR UnpublishFile
                  , PTR RecycleFolder
-                 ], [ debug := TRUE ]);
+                 ]);

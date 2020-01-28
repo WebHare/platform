@@ -8,6 +8,8 @@ LOADLIB "mod::consilio/lib/search.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 
 BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
@@ -15,15 +17,7 @@ BOOLEAN FUNCTION WaitForFile(INTEGER expectfile, RECORD event)
   RETURN event.groupid = ToString(expectfile);
 }
 
-STRING testsiteprofile := `
-    <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-      <apply>
-        <to type="all" />
-        <robots xmlns="http://www.webhare.net/xmlns/consilio" />
-      </apply>
-    </siteprofile>`;
-
-BLOB FUNCTION GetTestPage(INTEGER siteid, BOOLEAN noindex, BOOLEAN nofollow)
+BLOB FUNCTION GetTestPage(INTEGER fileid, BOOLEAN noindex, BOOLEAN nofollow)
 {
   RETURN StringToBlob(`
       <?wh
@@ -32,7 +26,7 @@ BLOB FUNCTION GetTestPage(INTEGER siteid, BOOLEAN noindex, BOOLEAN nofollow)
 
       PUBLIC MACRO RunDynamicPage()
       {
-        NEW TestPage()->RunPageForWHFSId(${siteid});
+        NEW TestPage()->RunPageForWHFSId(${fileid});
       }
 
       OBJECTTYPE TestPage EXTEND DynamicPageBase
@@ -72,17 +66,17 @@ MACRO TestHTMLIndexing()
   testfw->BeginWork();
 
   INTEGER indexid := GetCatalogIdByName(testfw->GetCatalogName_1());
-  OBJECT site := testfw->SetupTestWebdesignWebsite(testsiteprofile);
-  OBJECT siteroot := site->rootobject;
+  OBJECT siteroot := GetTestsuiteTempFolder();
   AddFolderToCatalog(siteroot->id, testfw->GetCatalogName_1(), "", "");
   INTEGER contentsourceid := SELECT AS INTEGER id FROM consilio.contentsources WHERE COLUMN indexid = VAR indexid;
 
   OBJECT testfile := siteroot->CreateFile(
-      [ name := "testfile.shtml"
+      [ name := "robottest.shtml"
       , title := "testlinks"
-      , data := GetTestPage(site->id, FALSE, FALSE)
       , publish := TRUE
       ]);
+  testfile->UpdateData(GetTestPage(testfile->id, FALSE, FALSE));
+
   OBJECT fileevent := OBJECT(testfw->AsyncWaitForSpecificEvent("consilio.queuemgmt.checkgroup", PTR WaitForFile(testfile->id, #1)));
 
   testfw->CommitWork();
@@ -102,7 +96,7 @@ MACRO TestHTMLIndexing()
 
   Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(site->id, TRUE, FALSE));
+  testfile->UpdateData(GetTestPage(testfile->id, TRUE, FALSE));
   // First page now has robots "noindex, follow" -> only second page should be indexed
   testfw->CommitWork();
 
@@ -116,7 +110,7 @@ MACRO TestHTMLIndexing()
 
   Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(site->id, FALSE, TRUE));
+  testfile->UpdateData(GetTestPage(testfile->id, FALSE, TRUE));
   // First page has robots "index, nofollow" -> only first page should be indexed
   testfw->CommitWork();
 
@@ -131,7 +125,7 @@ MACRO TestHTMLIndexing()
   // First page has robots "noindex, nofollow" -> both pages should not be indexed
   Sleep(1000); // So compile server sees the change
   testfw->BeginWork();
-  testfile->UpdateData(GetTestPage(site->id, TRUE, TRUE));
+  testfile->UpdateData(GetTestPage(testfile->id, TRUE, TRUE));
   testfw->CommitWork();
 
   CheckConsilioGroup(contentsourceid, ToString(testfile->id));

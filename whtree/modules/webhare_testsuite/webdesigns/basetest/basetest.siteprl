@@ -665,10 +665,26 @@
     <forumplugin autoclose="1" />
   </apply>
 
+  <!-- URL events -->
+  <apply>
+    <to type="all" pathmask="*urlevents*" />
+    <urlevents enabled="1" />
+  </apply>
+  <apply>
+    <to type="all" pathmask="*noevents*" />
+    <urlevents enabled="false" />
+  </apply>
+
   <!-- URLHistory -->
   <apply>
     <to type="all" pathmask="/tmp/*follow*" />
     <urlhistory store="true" />
+  </apply>
+
+  <!-- consilio testing -->
+  <apply>
+    <to type="all" pathmask="/tmp/*robot*" />
+    <robots xmlns="http://www.webhare.net/xmlns/consilio" />
   </apply>
 
   <!-- address validation -->
