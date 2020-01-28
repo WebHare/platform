@@ -1,0 +1,30 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/feedback.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
+<
+  STRING guid;
+
+  MACRO Init(RECORD data)
+  {
+    IF (NOT RecordExists(data.target))
+      THROW NEW Exception("This app is not to be run manually");
+    this->guid := data.target.guid;
+
+    ^extradata->^extrafields->value :=
+        [ [ field := "type", type := "tid", tid := "tollium:tolliumapps.feedback.type" ]
+        , [ field := "remarks", type := "string", tid := "tollium:tolliumapps.feedback.remarks" ]
+        ];
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    StoreFeedbackExtraData(this->guid, ^extradata->value );
+    RETURN work->Finish() ? ^extradata->value : DEFAULT RECORD;
+  }
+>;
