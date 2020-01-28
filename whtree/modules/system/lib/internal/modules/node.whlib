@@ -175,7 +175,7 @@ RECORD ARRAY FUNCTION CheckRequests(RECORD ARRAY flatmodules, RECORD ARRAY flatl
     // Get all modules from the packagelock with this name
     RECORD ARRAY namematches :=
         SELECT *
-             , satisfiesrange := VersionSatisfiesRange(version, item.range)
+             , satisfiesrange := VersionSatisfiesRange(version, item.range, [ comparemode := "npm" ])
           FROM RecordRange(flatlockmodules, item, [ "NAME" ]);
 
     // Any matches?

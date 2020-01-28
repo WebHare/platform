@@ -265,21 +265,16 @@ get_finaltag()
         echo "Expected to be tagged '$WEBHARE_VERSION' but the tag was '$MAINTAG'"
         exit 1
       fi
-    elif [ "${CI_COMMIT_REF_NAME:0:8}" == "release/" ]; then
-      # Release branch - eg release/4.27.
-      MAINTAG="${CI_COMMIT_REF_NAME:8}-prerelease" #Push as webhare/platform:4.27-prerelease
-      WEBHARE_VERSION=${WEBHARE_VERSION}-prerelease #Name eg 4.27.2-prerelease
-    elif [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
-      # Master branch
-      MAINTAG="master"
-      WEBHARE_VERSION=${WEBHARE_VERSION}-master
-    elif [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
-      # Custom builds
-      MAINTAG="${CI_COMMIT_REF_NAME:7}" #Push as webhare/platform:<customtag>
-      WEBHARE_VERSION="${WEBHARE_VERSION}-${CI_COMMIT_REF_NAME:7}"
     else
       MAINTAG="$CI_COMMIT_REF_SLUG"
-      WEBHARE_VERSION="${WEBHARE_VERSION}-$CI_COMMIT_REF_SLUG"
+
+      if [ "${CI_COMMIT_REF_NAME:0:7}" == "custom/" ]; then
+        # Custom builds - these are specifically tagged after their branch. eg branch custom/myserver with numeric version 42702 will have semver: 4.27.2-myserver
+        WEBHARE_VERSION="${WEBHARE_VERSION}-${CI_COMMIT_REF_NAME:7}"
+      else
+        # Other branches are simply considered 'in development' and have prerelease tag '-dev', eg. 4.27.2-dev
+        WEBHARE_VERSION=${WEBHARE_VERSION}-dev
+      fi
     fi
 
     # check if there is a CI registry

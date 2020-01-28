@@ -12,8 +12,9 @@ RECORD ARRAY addedmodules;
 
 FOREVERY (OBJECT pack FROM moduledef->documentelement->GetElements("meta > packaging"))
 {
-  IF (NOT IsNodeApplicableToThisWebHare(pack))
-    Print(`MODULENOTAPPLICABLE=1\n`);
+  STRING error := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(pack));
+  IF (error != "")
+    Print(`MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`);
 }
 
 FOREVERY (OBJECT dependency FROM moduledef->documentelement->GetElements("meta > packaging > dependency")

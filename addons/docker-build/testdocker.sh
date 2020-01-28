@@ -267,7 +267,7 @@ if [ -n "$ISMODULETEST" ]; then
   # Early exit when the module is not meant for this WebHare version
   if [ "$MODULENOTAPPLICABLE" != "" ]; then
     echo ""
-    echo "$(c red)****** Module is not applicable for this WebHare version *******$(c reset)"
+    echo "$(c red)****** Module is not applicable for this WebHare version: $MODULENOTAPPLICABLE *******$(c reset)"
     echo ""
     exit 0
   fi
