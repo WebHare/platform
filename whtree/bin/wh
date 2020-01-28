@@ -108,10 +108,6 @@ export WEBHARE_DATAROOT
 export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 
-INSTR="$1"
-shift
-OPTIONS="$*"
-
 if [ ! -d "$WEBHARE_DIR" ]; then
   echo "Cannot find WebHare installation" 2>&1
   exit 1
@@ -569,10 +565,6 @@ getscripttorun()
   eval $VARNAME=\$1
 }
 
-if [ "$WHTOOL_PLUGIN" == "1" ]; then
-  plugin_run "$@"
-fi
-
 git_update_all()
 {
   pushd $WEBHARE_CHECKEDOUT_TO >/dev/null
@@ -689,6 +681,15 @@ setup_for_console()
   mkdir -p "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
 }
+
+# External hook which may replace implementations in wh
+if [ -n "$WEBHARE_WH_HOOK" ]; then
+  source "$WEBHARE_WH_HOOK"
+fi
+
+INSTR="$1"
+shift
+OPTIONS="$*"
 
 case $INSTR in
   "exec")
