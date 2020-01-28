@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="SCOPE" title="Scope">
+    <attributes>
+      <free tag="TAG" title="Tag" unique="true" />
+    </attributes>
+    <values matchattribute="TAG">
+      <value>
+        <field tag="TAG">tollium:webharebackend</field>
+      </value>
+    </values>
+  </object>
+
+  <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">
+    <attributes>
+      <integer tag="VERSION" title="Version" />
+      <record tag="SCREENSHOT" title="Screenshot HTML data" />
+      <record tag="SIZE" title="Browser window size" />
+      <record tag="ELEMENT" title="Clicked element's size and position" />
+      <free tag="BROWSER" title="Browser triplet" />
+      <free tag="DEVICE" title="Browser device" />
+      <free tag="USERAGENT" title="Browser user agent" />
+      <record tag="USERDATA" title="User data" />
+      <record tag="EXTRADATA" title="Extra data" />
+    </attributes>
+  </attachment>
+
+</schemadefinition>

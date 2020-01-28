@@ -1,0 +1,23 @@
+/* This CSS is also loaded in the screenshot backend frame */
+
+.feedback__dompointer
+{
+  pointer-events: none;
+  position: absolute;
+  z-index: 1000000000;
+}
+
+.feedback__dompointer::after
+{
+  background: rgba(255, 0, 0, .1);
+  border: 2px solid rgba(255, 0, 0, .9);
+  border-radius: 4px;
+  bottom: -2px;
+  content: "";
+  display: block;
+  left: -2px;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+}

@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
+{
+  OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
+  INTEGER scopeid := wrdschema->^scope->Search("tag", scope);
+  IF (scopeid = 0)
+    THROW NEW Exception(`No such scope '${scope}'`);
+
+  OBJECT entity := wrdschema->^feedback->CreateEntity(CELL[ wrd_leftentity := scopeid, ...data ]);
+  RETURN entity->guid;
+}
+
+PUBLIC MACRO StoreFeedbackExtraData(STRING guid, RECORD extradata)
+{
+  OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
+  INTEGER feedbackid := wrdschema->^feedback->Search("wrd_guid", guid);
+  IF (feedbackid = 0)
+    THROW NEW Exception(`No feedback with guid '${guid}'`);
+
+  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata" ]);
+  feedback.extradata := CELL[ ...feedback.extradata, ...extradata ];
+
+  wrdschema->^feedback->UpdateEntity(feedbackid, feedback);
+}
