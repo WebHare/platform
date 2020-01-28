@@ -55,7 +55,7 @@ PUBLIC BOOLEAN FUNCTION IsSameBlobInDatabase(BLOB a, BLOB b)
       RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
 
     STRING orgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), a);
-    RETURN orgblobid != __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
+    RETURN orgblobid = __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
   }
 }
 
