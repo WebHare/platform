@@ -81,6 +81,15 @@
       </accesscheck>
     </application>
 
+    <application name="feedback"
+                 group="system:development"
+                 screen="tolliumapps/feedback/main.xml#main"
+                 tid="tolliumapps.feedback.apptitle"
+                 icon="tollium:actions/checklist"
+                 maxservertype="development">
+      <accesscheck/>
+    </application>
+
     <monitorpanel group="dev" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
                   screen="monitor/assetpackcontrol.assetpackcontrolpanel" />
 

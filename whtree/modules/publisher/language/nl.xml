@@ -2290,6 +2290,32 @@
         <text tid="validuntil">Geldig tot</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
+      <text tid="apptitle">Feedback</text>
+      <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Apparaat</text>
+        <text tid="download">HTML downloaden</text>
+        <text tid="extradata">Aanvullende gegevens</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="login">Gebruikersnaam</text>
+        <text tid="noextradata">Er zijn geen aanvullende gegevens beschikbaar</text>
+        <text tid="scaled">Maak de schermafbeelding passend</text>
+        <text tid="useragent">User-Agent</text>
+        <text tid="wrd_creationdate">Wanneer</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Apparaat</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="main">Feedback</text>
+        <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
+        <text tid="wrd_creationdate">Wanneer</text>
+        <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
+          <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Gesynchroniseerde map</text>

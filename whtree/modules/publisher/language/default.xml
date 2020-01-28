@@ -2290,6 +2290,32 @@
         <text tid="validuntil">Valid until</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
+      <text tid="apptitle">Feedback</text>
+      <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Device</text>
+        <text tid="download">Download HTML</text>
+        <text tid="extradata">Additional data</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="login">Username</text>
+        <text tid="noextradata">There is no additional data available</text>
+        <text tid="scaled">Fit the screenshot to the screen</text>
+        <text tid="useragent">User-Agent</text>
+        <text tid="wrd_creationdate">When</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Device</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="main">Feedback</text>
+        <text tid="screenshot-iframe">The contents of this iframe element cannot be displayed</text>
+        <text tid="wrd_creationdate">When</text>
+        <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
+          <text tid="confirmdeletefeedback">Are you sure you want to delete this feedback?</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Synchronized folder</text>

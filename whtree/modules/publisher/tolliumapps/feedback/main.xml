@@ -1,0 +1,87 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="main.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="tolliumapps.feedback"
+         >
+
+  <screen name="main"
+          allowresize="true"
+          gid=".main"
+          menubar="menubar"
+          icon="tollium:actions/checklist">
+    <actions>
+      <action name="view" tid="~view" onexecute="doview">
+        <enableon source="feedback" min="1" />
+      </action>
+      <action name="delete" tid="~delete" onexecute="dodelete" shortcut="del">
+        <enableon source="feedback" min="1" />
+      </action>
+      <action name="exit" tid="~exit" onexecute="doexit" />
+    </actions>
+    <menus>
+      <menu name="menubar">
+        <item tid=".feedback">
+          <item action="view" />
+          <item action="delete" />
+        </item>
+        <item action="exit" />
+      </menu>
+    </menus>
+    <toolbar>
+      <button action="view" icon="tollium:actions/view" />
+      <button action="delete" icon="tollium:actions/delete" />
+    </toolbar>
+    <body>
+      <wrd:entitylist name="feedback"
+                      height="1pr"
+                      wrdtype="feedback"
+                      openaction="view"
+                      requestcolumns="*"
+                      sortcolumn="wrd_creationdate"
+                      sortascending="false">
+        <column name="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" />
+        <column name="browser" type="text" />
+        <column name="device" type="text" />
+      </wrd:entitylist>
+    </body>
+  </screen>
+
+  <screen name="feedback" gid=".feedback" width="1000x" height="100x">
+    <actions>
+      <downloadaction name="download" ondownload="dodownload" />
+    </actions>
+    <compositions>
+      <record name="data" />
+      <record name="userdata" composition="data" cellname="userdata" />
+    </compositions>
+    <body>
+      <panel borders="all" width="1pr" backgroundcolor="#b6b2b2" height="1pr"><!-- Same background color as RTD -->
+        <iframe name="screenshot" width="1pr" height="1pr" />
+      </panel>
+      <line layout="left">
+        <checkbox name="scaled" title="" labeltid=".scaled" onchange="onscaleiframe" value="true" />
+      </line>
+      <datetime composition="data" cellname="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" readonly="true" />
+      <text composition="data" cellname="browser" wordwrap="true" selectable="true" />
+      <text composition="data" cellname="device" wordwrap="true" selectable="true" />
+      <text composition="data" cellname="useragent" wordwrap="true" selectable="true" />
+      <text composition="userdata" cellname="login" selectable="true" />
+      <heading tid=".extradata" />
+      <line layout="left">
+        <text name="noextradata" title="" valuetid=".noextradata" />
+      </line>
+    </body>
+    <footer>
+      <grid>
+        <cell width="1pr">
+          <button action="download" />
+        </cell>
+        <cell>
+          <defaultformbuttons buttons="close" />
+        </cell>
+      </grid>
+    </footer>
+  </screen>
+
+</screens>
