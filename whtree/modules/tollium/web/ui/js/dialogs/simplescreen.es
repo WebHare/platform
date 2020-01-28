@@ -29,7 +29,7 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
                      , specials: []
                      , allowresize: false
                      , title: options.title || getTid("tollium:shell.messagebox.defaulttitle")
-                     , defaultbutton: 'loginbutton'
+                     , defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : ''
                      }
 
       , root:        { type: 'panel', lines: [{items: [ {item:"body"} ], height:'1pr' }
