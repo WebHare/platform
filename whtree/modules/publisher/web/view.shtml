@@ -178,7 +178,10 @@ FOREVERY (RECORD header FROM browser->responseheaders)
   STRING upfield := ToUppercase(header.field);
   IF((upfield IN forbiddenheaders AND (GetRequestMethod() != "HEAD" OR upfield != "CONTENT-LENGTH"))
       OR upfield IN ["X-FRAME-OPTIONS","CONTENT-SECURITY-POLICY"])
-    CONTINUE;
+  {
+    IF (NOT (GetWebVariable("__test") = "sandbox" AND upfield = "CONTENT-SECURITY-POLICY"))
+      CONTINUE;
+  }
 
   IF(upfield = "X-WEBHAREPREVIEW-FRAME-OPTIONS")
     header.field := "X-FRAME-OPTIONS";
