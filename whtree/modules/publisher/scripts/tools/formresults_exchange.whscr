@@ -24,8 +24,8 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 IF (NOT RecordExists(args) OR (args.exportid = "" AND args.datafile = ""))
 {
   Print(`Usage:
-  formresults_export [--formname <formname>] [--overwrite] --exportid <form id to export> [<exportfile>]
-  formresults_export [--basepath <absolute whfspath>] [--ignoreexisting] <importfile>\n`);
+  formresults_exchange [--formname <formname>] [--overwrite] --exportid <form id to export> [<exportfile>]
+  formresults_exchange [--basepath <absolute whfspath>] [--ignoreexisting] <importfile>\n`);
   SetConsoleExitCode(1);
   RETURN;
 }
