@@ -579,10 +579,10 @@ void OpenQuery::Open(QueryDefinition &querydef, std::vector<VarId> &_values)
         // Set limit if applicable
         if (subqueries.size() == 1)
         {
-                if (querydef.limit >= 0)
-                    subqueries[0].querydef.limit = -1;
-                else
+                if (!subqueries[0].GetTransaction() || subqueries[0].GetTransaction()->description.supports_limit)
                     subqueries[0].querydef.limit = querydef.limit;
+                else
+                    subqueries[0].querydef.limit = -1;
         }
         else
             for (std::vector<SubQuery>::iterator it = subqueries.begin() + 1; it != subqueries.end(); ++it)

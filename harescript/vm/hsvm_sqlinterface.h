@@ -15,6 +15,7 @@ struct DBDescription
         bool supports_single;
         bool supports_data_modify;
         bool supports_nulls;
+        bool supports_limit;
         bool needs_locking_and_recheck;
         bool needs_uppercase_names;
         bool add_missing_default_columns;
