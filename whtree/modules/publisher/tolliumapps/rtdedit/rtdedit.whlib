@@ -15,7 +15,8 @@ PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
 
   MACRO OnDirty()
   {
-    this->contexts->editdocumentapi->MarkDocumentAsDirty();
+    IF (this->dirtylistener->dirty)
+      this->contexts->editdocumentapi->MarkDocumentAsDirty();
   }
 
   MACRO LoadData()
