@@ -2315,6 +2315,7 @@
         <text tid="wrd_creationdate">When</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
           <text tid="confirmdeletefeedback">Are you sure you want to delete this feedback?</text>
+          <text tid="unsupportedversion">This feedback cannot be displayed.</text>
         </textgroup>
       </textgroup>
     </textgroup>

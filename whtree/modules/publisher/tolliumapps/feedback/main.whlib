@@ -29,7 +29,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoView()
   {
-    this->RunScreen("#feedback", ^feedback->selection);
+    IF (NOT CellExists(^feedback->selection, "version") OR ^feedback->selection.version != 1)
+      this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
+    ELSE
+      this->RunScreen("#feedback", ^feedback->selection);
   }
 
   MACRO DoDelete()
