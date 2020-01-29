@@ -19,7 +19,6 @@ export default function takeScreenshot(domFilterCallback)
   }).join(''));
   const htmlAttrs = [ ...document.documentElement.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
   const bodyAttrs = [ ...document.body.attributes ].map(attr => { return { name: attr.name, value: attr.value }; });
-  const size = document.body.getBoundingClientRect();
 
   return (
     { version: screenshotVersion
@@ -29,7 +28,7 @@ export default function takeScreenshot(domFilterCallback)
       , bodyAttrs
       , bodyContents: bodyNode.innerHTML
       }
-    , size: { width: size.width, height: size.height }
+    , size: { width: window.innerWidth, height: window.innerHeight }
     , browser: browser.getTriplet()
     , device: browser.getDevice()
     , userAgent: window.navigator.userAgent

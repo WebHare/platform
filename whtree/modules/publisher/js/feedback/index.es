@@ -3,24 +3,25 @@ import pointAtDOM from "./dompointer";
 import * as service from "./internal/feedback.rpc.json";
 import "./styles.css";
 
-let feedbackOptions =
+const defaultOptions =
     { scope: ""
     , addElement: true
     , highlightCallback: null
     , domFilterCallback: null
     , feedbackPromise: null
     };
+let feedbackOptions;
 
 export function initFeedback(options)
 {
-  feedbackOptions = { ...feedbackOptions, ...options };
-  if (!feedbackOptions.scope)
-    console.error(`No scope supplied for feedback`);
+  feedbackOptions = { ...defaultOptions, ...options };
 }
 
 export async function getFeedback(event, extraOptions)
 {
   const options = { ...feedbackOptions, ...extraOptions };
+  if (!options.scope)
+    console.error(`No scope supplied for feedback`);
   const element = options.addElement ? await pointAtDOM(event, options) : null;
   if (!options.addElement || element)
   {
