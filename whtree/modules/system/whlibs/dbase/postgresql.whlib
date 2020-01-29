@@ -1112,6 +1112,9 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
   /// Blob handler
   OBJECT pvt_blobhandler;
 
+  /// Whether a commit is in progress
+  BOOLEAN pvt_committing;
+
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
   PUBLIC PROPERTY allowerrordelay(-, SetAllowErrorDelay);
 
@@ -1682,6 +1685,7 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
         reset_delayerrors := TRUE;
         transobj->pvt_delayerrors := TRUE;
       }
+      transobj->pvt_committing := TRUE;
     }
   }
 
@@ -1690,7 +1694,7 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
   IF (testquery = "BEGIN;" OR testquery LIKE "START TRANSACTION;" OR testquery LIKE "BEGIN *" OR testquery LIKE "START TRANSACTION *")
     __PGSQL_SETWORKOPEN(trans, TRUE);
 
-  IF (ObjectExists(transobj) AND RecordExists(transobj->delayederrors))
+  IF (ObjectExists(transobj) AND transobj->pvt_committing)
   {
     // Assumed that rollback/commit won't return any meaningfull errors
     retval :=
@@ -1699,6 +1703,7 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
              , column_name
           FROM transobj->delayederrors;
 
+    transobj->pvt_committing := FALSE;
     transobj->delayederrors := RECORD[];
     IF (reset_delayerrors)
       transobj->pvt_delayerrors := FALSE;
@@ -1837,8 +1842,9 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 {
   OBJECT trans := GetTransactionObjectByIdInternal(transid); // is privileged pointer
 
-  // FIXME: Delaying errors is disabled until we have worked out a consistent model
-  RETURN TRUE;
+  // FIXME: Delaying errors for queries other than commits is disabled until we have worked out a consistent model
+  IF (NOT trans->pvt_committing)
+    RETURN TRUE;
 
   IF (trans->pvt_delayerrors AND message.severity IN [ "ERROR", "FATAL", "PANIC" ])
   {
