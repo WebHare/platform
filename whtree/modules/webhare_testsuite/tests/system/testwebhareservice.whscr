@@ -1,10 +1,11 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 
 MACRO WebHareServiceTest()
 {
-  OBJECT exc:=TestThrowsLike("*Service*nosuchservice*unavailable*", PTR WaitForPromise(OpenWebHareService("webhare_testsuite:nosuchservice","x")));
+  OBJECT exc := TestThrowsLike("*Service*nosuchservice*unavailable*", PTR WaitForPromise(OpenWebHareService("webhare_testsuite:nosuchservice","x")));
   TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
 
   TestThrowsLike("*Invalid parameters*",PTR WaitForPromise(OpenWebHareService("webhare_testsuite:webhareservicetest")));
@@ -24,7 +25,27 @@ MACRO WebHareServiceTest()
   TestThrowsLike("Async crash()", PTR WaitForPromise(promise2));
 }
 
+MACRO SyncWebHareServiceTest()
+{
+  OBJECT exc:=TestThrowsLike("*Service*nosuchservice*unavailable*", PTR __OpenSynchronousWebHareService("webhare_testsuite:nosuchservice","x"));
+  TestEQ(TRUE, exc EXTENDSFROM ServiceUnavailableException);
+
+  TestThrowsLike("*Invalid parameters*",PTR __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest"));
+  TestThrowsLike("abort",PTR __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest", "abort"));
+
+  OBJECT serverinstance := __OpenSynchronousWebHareService("webhare_testsuite:webhareservicetest","x");
+  TestEq(42, serverinstance->GetLUE());
+
+  TestEq(42, serverinstance->GetLUE());
+  TestEq(42, serverinstance->GetAsyncLUE());
+
+  TestThrowsLike("Crash()", PTR (serverinstance->Crash()));
+
+  TestThrowsLike("Async crash()", PTR serverinstance->GetAsyncCrash());
+}
+
 RunTestFramework([ PTR WebHareServiceTest
+                 , PTR SyncWebHareServiceTest
                  ],
                  [ usedatabase := FALSE
                  ]);

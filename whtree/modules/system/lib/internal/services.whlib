@@ -277,3 +277,216 @@ PUBLIC MACRO ScheduleCallbackOnServiceClose(OBJECT service, FUNCTION PTR onclose
   service->__ScheduleCallbackOnServiceClose(onclose);
 }
 
+/** Synchronous version of service api, internal use only
+*/
+OBJECTTYPE SyncClusteredServiceBase
+<
+  OBJECT __link;
+  RECORD ARRAY __promises;
+  RECORD ARRAY __calllist;
+  FUNCTION PTR ARRAY __onclose;
+
+  /** @private
+      @param description Service description
+      @param(object wh::internal/jobs.whlib#IPCLinkEndPoint) link Connection IPC link
+  */
+  MACRO NEW(RECORD description, OBJECT link)
+  {
+    this->__link := link;
+    ReconstructInvokables(this, description, PTR this->__RemotingFunc);
+  }
+
+  /** Calls a remote function synchronously
+      @param tocall Function to call
+      @param args Arguments
+      @return Return value of the called function
+  */
+  VARIANT FUNCTION __RemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
+  {
+    IF (NOT ObjectExists(this->__link))
+      THROW NEW Exception("Connection to the clustered service was already lost.");
+
+    RECORD outmsg := [ call := tocall, args := args ];
+
+    RECORD res := this->__link->SendMessage(outmsg);
+
+    IF(res.status != "ok")
+      THROW NEW ServiceDisconnectException;
+
+    // Add a waiting registration
+    RECORD reg := [ replyto := res.msgid, type := "" ];
+    INSERT reg INTO this->__calllist AT RecordUpperBound(this->__calllist, reg, [ "REPLYTO" ]);
+
+    WHILE (TRUE)
+    {
+      this->RunEvents();
+      RECORD pos := RecordLowerBound(this->__calllist, reg, [ "REPLYTO" ]);
+      RECORD hit := this->__calllist[pos.position];
+      IF (hit.type = "")
+        CONTINUE;
+
+      DELETE FROM this->__calllist AT pos.position;
+      SWITCH (hit.type)
+      {
+        CASE "value"      { RETURN hit.value.result; }
+        CASE "exception"  { THROW hit.value; }
+      }
+    }
+  }
+
+  MACRO RunEvents()
+  {
+    IF (NOT ObjectExists(this->__link))
+      THROW NEW ServiceDisconnectException;
+
+    this->__link->Wait(MAX_DATETIME);
+    RECORD msg := this->__link->ReceiveMessage(DEFAULT DATETIME);
+
+    IF (msg.status = "timeout") // Spurious wakeup
+      RETURN;
+
+    IF (msg.status = "gone")
+    {
+      //Uh oh. We are doomed. Reject all promises
+      this->CloseService();
+      THROW NEW ServiceDisconnectException;
+    }
+
+    IF (msg.replyto != 0)
+    {
+      RECORD pos := RecordLowerBound(this->__calllist, msg, [ "REPLYTO" ]);
+      IF (NOT pos.found)
+      {
+        ABORT("Received unexpected reply to " || msg.replyto);
+      }
+
+      IF (CellExists(msg.msg, "__EXCEPTION"))
+      {
+        this->__calllist[pos.position].type := "exception";
+        INSERT CELL value := msg.msg INTO this->__calllist[pos.position];
+      }
+      ELSE IF (CellExists(msg.msg, "__PROMISESEQ"))
+      {
+        RECORD rec := CELL[ __promiseseq := msg.msg.__promiseseq, msg.replyto ];
+        INSERT rec INTO this->__promises AT RecordUpperBound(this->__promises, rec, [ "__PROMISESEQ" ]);
+      }
+      ELSE
+      {
+        this->__calllist[pos.position].type := "value";
+        INSERT CELL value := msg.msg INTO this->__calllist[pos.position];
+      }
+
+      RETURN;
+    }
+
+    //Then it must be a promise hit
+    RECORD ppos := RecordLowerBound(this->__promises, msg.msg, [ "__PROMISESEQ" ]);
+    IF (NOT ppos.found)
+      THROW NEW Exception("Received unexpected promise reply for promise #" || msg.msg.__promiseseq);
+
+    RECORD phit := this->__promises[ppos.position];
+    DELETE FROM this->__promises AT ppos.position;
+
+    RECORD pos := RecordLowerBound(this->__calllist, phit, [ "REPLYTO" ]);
+    IF (msg.msg.type = "resolve-exception")
+    {
+      this->__calllist[pos.position].type := "value";
+      INSERT CELL value := [ result := DecodeReceivedException(msg.msg.value) ] INTO this->__calllist[pos.position];
+    }
+    ELSE IF (msg.msg.type = "resolve")
+    {
+      this->__calllist[pos.position].type := "value";
+      INSERT CELL value := [ result := msg.msg.value ] INTO this->__calllist[pos.position];
+    }
+    ELSE IF (msg.msg.type = "reject")
+    {
+      this->__calllist[pos.position].type := "exception";
+      INSERT CELL value := DecodeReceivedException(msg.msg.value) INTO this->__calllist[pos.position];
+    }
+    ELSE
+      ABORT("Unknown fulfillment type '" || msg.msg.type || "'");
+  }
+
+  PUBLIC MACRO __ScheduleCallbackOnServiceClose(FUNCTION PTR onclose)
+  {
+    INSERT onclose INTO this->__onclose AT END;
+  }
+
+  /// Closes the service
+  PUBLIC MACRO CloseService()
+  {
+    FOREVERY (FUNCTION PTR f FROM this->__onclose)
+      f();
+    IF (ObjectExists(this->__link))
+      this->__link->Close();
+    this->__link := DEFAULT OBJECT;
+    RETURN;
+  }
+>;
+
+/** synchronous waiter on a service start event
+/*/
+STATIC OBJECTTYPE ServiceStartSyncWaiter
+< OBJECT evtmgr;
+  DATETIME waituntil;
+
+  MACRO NEW(STRING service, INTEGER timeout)
+  {
+    this->evtmgr := NEW EventManager;
+    this->evtmgr->RegisterInterest("system:webhareservice." || service || ".start");
+    this->waituntil := AddTimeToDate(timeout, GetCurrentDateTime());
+  }
+
+  PUBLIC BOOLEAN FUNCTION Wait()
+  {
+    RETURN this->evtmgr->ReceiveEvent(this->waituntil).status = "ok";
+  }
+
+  PUBLIC MACRO Close()
+  {
+    this->evtmgr->Close();
+    this->evtmgr := DEFAULT OBJECT;
+  }
+>;
+
+OBJECT FUNCTION CreateSyncServiceStartWait(STRING service, INTEGER timeout)
+{
+  RETURN NEW ServiceStartSyncWaiter(service, timeout);
+}
+
+/** Open a WebHare service
+    @param servicename Name of the service (should follow the 'module:tag' pattern)
+    @param arguments Arguments for the service
+    @return A proxy offering synchronous versions of the service API
+*/
+PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, VARIANT ARRAY arguments) __ATTRIBUTES__(VARARG)
+{
+  //FIXME don't assume servicename matches servicetag... we should be looking up the <internalservice tag=".... "
+  OBJECT mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+  IF (NOT ObjectExists(mgrport))
+  {
+    // Start a listen to the start event (async function but listener registration is synchronous)
+    OBJECT startwaiter := CreateSyncServiceStartWait(servicename, 30000);
+    TRY
+    {
+      // Check for the port to exist (it might have been created before the event listen started)
+      mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+      IF (NOT ObjectExists(mgrport))
+      {
+        startwaiter->wait();
+        mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);
+        IF (NOT ObjectExists(mgrport))
+          THROW NEW ServiceUnavailableException(servicename);
+      }
+    }
+    FINALLY
+      startwaiter->Close();
+  }
+
+  mgrport->autothrow := TRUE;
+  RECORD response := mgrport->DoRequest( [ __new := arguments ] );
+  IF(response.status="gone")
+    THROW NEW ServiceDisconnectException;
+
+  RETURN NEW SyncClusteredServiceBase(response.msg, mgrport);
+}
