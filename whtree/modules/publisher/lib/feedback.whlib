@@ -3,6 +3,42 @@
 LOADLIB "mod::wrd/lib/api.whlib";
 
 
+/** @short Store feedback
+    @param scope The scope to store the feedback for
+    @param data The feedback data
+    @cell(integer) data.version The feedback data's version, currently 1 (can be used by the Feedback application to determine which
+        fields are available)
+    @cell(record) data.screenshot The screenshot data
+    @cell(record array) data.screenshot.htmlattrs The html node's attributes
+    @cell(string) data.screenshot.htmlattrs.name Attribute name
+    @cell(string) data.screenshot.htmlattrs.value Attribute value
+    @cell(string array) data.screenshot.stylesheets The contents of each of the document's stylesheets
+    @cell(record array) data.screenshot.bodyattrs The body node's attributes
+    @cell(string) data.screenshot.bodyattrs.name Attribute name
+    @cell(string) data.screenshot.bodyattrs.value Attribute value
+    @cell(string) data.screenshot.bodycontents Basically the innerHTML of the body node
+    @cell(record) data.size Browser viewport (inner window) size
+    @cell(integer) data.size.width Viewport width
+    @cell(integer) data.size.height Viewport height
+    @cell(record) data.element The selected element's bounding box
+    @cell(integer) data.element.top Top position
+    @cell(integer) data.element.left Left position
+    @cell(integer) data.element.width Width
+    @cell(integer) data.element.height Height
+    @cell(string) data.browser Browser triplet
+    @cell(string) data.device Device (e.g. "desktop", "tablet", "phone")
+    @cell(string) data.useragent The browser's User-Agent string
+    @cell(record) data.extradata Additional data to store with the feedback
+    @cell(record array) data.extradata.extrafields Supply this field to display extra data in the Feedback application
+    @cell(string) data.extradata.extrafields.field The cell name within the extradata record
+    @cell(string) data.extradata.extrafields.type The value type, one of "string", "integer" or "tid" (if "tid" is specified,
+        the value is treated as a tid, which can be an absolute tid or may be resolved relative to this field's tid or to
+        optiongid, if supplied)
+    @cell(string) data.title The field title
+    @cell(string) data.tid The field tid (if a title is supplied, the tid is ignored)
+    @cell(string) data.optiongid Can be supplied for fields of type "tid" to resolve tid values
+    @return The stored feedback's GUID, which can be used to store extra data using %StoreExtraData
+*/
 PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
 {
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
@@ -14,6 +50,10 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
   RETURN entity->guid;
 }
 
+/** @short Store additional data with existing feedback (new extradata is merged with existing extradata)
+    @param guid The feedback's GUID, as returned by %StoreFeedback
+    @param extradata @includecelldef #StoreFeedback.data.extradata
+*/
 PUBLIC MACRO StoreFeedbackExtraData(STRING guid, RECORD extradata)
 {
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");

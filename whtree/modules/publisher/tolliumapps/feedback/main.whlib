@@ -15,7 +15,11 @@ LOADLIB "mod::wrd/lib/api.whlib";
 CONSTANT FLOAT maxscreenshotsize := 640;
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
-<
+< //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
   MACRO NEW()
   {
     this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
@@ -23,9 +27,16 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
+    //ADDME: Support for other scopes
     INTEGER scopeid := this->contexts->wrdschema->^scope->Search("tag", "tollium:webharebackend");
     ^feedback->listfilters := [ [ field := "wrd_leftentity", value := scopeid ] ];
   }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
 
   MACRO DoView()
   {
@@ -52,17 +63,30 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 >;
 
 PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
-<
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
   RECORD data;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
 
   MACRO Init(RECORD data)
   {
     this->data := data;
     ^data->value := data;
 
+    // The 'extrafields' cell contains field definitions to show extra data
     IF (CellExists(this->data.extradata, "extrafields") AND TypeID(this->data.extradata.extrafields) = TypeID(RECORD ARRAY))
     {
+      // The 'there is no extra data available' text doesn't have to be displayed
       ^noextradata->DeleteComponent();
+
       FOREVERY (RECORD extra FROM this->data.extradata.extrafields)
       {
         extra := EnforceStructure(
@@ -89,7 +113,9 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
           CASE "tid" {
             comp := this->CreateTolliumComponent("text");
             STRING tid := GetCell(this->data.extradata, extra.field);
-            IF (tid NOT LIKE "*:*" AND tid NOT LIKE "*.*")
+
+            // Try to resolve the tid if this is not an absolute tid reference
+            IF (tid NOT LIKE "*:*")
             {
               IF (extra.optiongid != "")
                 tid := extra.optiongid || "." || tid;
@@ -105,7 +131,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
         IF (ObjectExists(comp))
         {
-          comp->title := extra.tid != "" ? GetTid(extra.tid) : extra.title;
+          comp->title := extra.tid = "" ? extra.title : GetTid(extra.tid);
           IF (comp->componenttype = "text")
             comp->selectable := TRUE;
           this->frame->bodynode->InsertComponentAfter(comp, DEFAULT OBJECT, TRUE);
@@ -113,6 +139,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
       }
     }
 
+    // Load the stored screenshot into the container iframe
     ^screenshot->value := LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI")->RunComponentToString("container", CELL
         [ width := INTEGER(Ceil(data.size.width))
         , height := INTEGER(Ceil(data.size.height))
@@ -120,6 +147,34 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
         , scaled := ^scaled->value
         ]);
   }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnScaleIframe()
+  {
+    ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoDownload(OBJECT handler)
+  {
+    handler->SendFile(this->GenerateScreenshotHtml(), "text/html", `screenshot-${this->tolliumuser->FormatDateTime(this->data.wrd_creationdate, "minutes", TRUE, TRUE)}.html`);
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
 
   BLOB FUNCTION GenerateScreenshotHtml()
   {
@@ -133,15 +188,5 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
         , this->data.screenshot.bodycontents
         , element := EnforceStructure([ top := 0, left := 0, width := 0, height := 0 ], this->data.element)
         ]);
-  }
-
-  MACRO OnScaleIframe()
-  {
-    ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
-  }
-
-  MACRO DoDownload(OBJECT handler)
-  {
-    handler->SendFile(this->GenerateScreenshotHtml(), "text/html", `screenshot-${this->tolliumuser->FormatDateTime(this->data.wrd_creationdate, "minutes", TRUE, TRUE)}.html`);
   }
 >;

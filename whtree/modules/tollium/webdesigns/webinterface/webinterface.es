@@ -19,8 +19,10 @@ const $todd = require('@mod-tollium/web/ui/js/support');
 
 function initFeedback(node)
 {
+  // Initialize the feedback handler if this is a development server
   if (whintegration.config.dtapstage === "development")
   {
+    // Add a trigger node
     const trigger =
       <span class="wh-tollium__feedback">
         { createImage("tollium:objects/bug", 24, 24, "b") }
@@ -28,6 +30,7 @@ function initFeedback(node)
     trigger.addEventListener("click", event => doFeedback(event, trigger));
     node.append(trigger);
 
+    // Initialize the feedback options
     feedback.initFeedback({
       scope: "tollium:webharebackend",
       domFilterCallback: filterDOM
@@ -38,6 +41,7 @@ function initFeedback(node)
 async function doFeedback(event, trigger)
 {
   trigger.classList.add("wh-tollium__feedback--active");
+  // Ask if the user wants to give feedback for a certain DOM element
   const which = await runSimpleScreen($todd.getActiveApplication(),
     { text: getTid("tollium:shell.feedback.message")
     , title: getTid("tollium:shell.feedback.title")
@@ -58,15 +62,20 @@ async function doFeedback(event, trigger)
 
   if (which !== "cancel")
   {
+    // Get the feedback data with the screenshot
     const result = await feedback.getFeedback(event, { addElement: which === "specific" });
     if (result.success)
+    {
+      // Ask for extra information
       window.$shell.startBackendApplication("tollium:feedback", null, { target: { guid: result.guid } });
+    }
   }
   trigger.classList.remove("wh-tollium__feedback--active");
 }
 
 function filterDOM(node)
 {
+  // Don't include the trigger element in the screenshot
   return node.nodeType != Node.ELEMENT_NODE || !node.classList.contains("wh-tollium__feedback");
 }
 

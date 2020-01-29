@@ -44,6 +44,7 @@
     <right name="managefeedback" rightsgroup="system:default" tid="rights.managefeedback" descriptiontid="rights.managefeedback-descr">
       <impliedby right="system:supervisor"/>
     </right>
+    <!--ADDME: Add explicit rights for specific feedback scopes? -->
 
     <objecttype name="worklists"
                 table=".worklists"

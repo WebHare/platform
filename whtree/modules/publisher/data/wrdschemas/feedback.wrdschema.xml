@@ -14,14 +14,43 @@
 
   <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">
     <attributes>
+      <!-- Currently 1 -->
       <integer tag="VERSION" title="Version" />
+      <!--
+        RECORD ARRAY htmlattrs
+          STRING name
+          STRING  alue
+        STRING ARRAY stylesheets
+        RECORD ARRAY bodyattrs
+          STRING name
+          STRING value
+        STRING bodycontents (the 'innerHTML' of the <body> node)
+      -->
       <record tag="SCREENSHOT" title="Screenshot HTML data" />
+      <!--
+        Browser viewport size
+        INTEGER width
+        INTEGER height
+      -->
       <record tag="SIZE" title="Browser window size" />
+      <!--
+        The selected element bounding box
+        INTEGER top
+        INTEGER left
+        INTEGER width
+        INTEGER height
+      -->
       <record tag="ELEMENT" title="Clicked element's size and position" />
       <free tag="BROWSER" title="Browser triplet" />
       <free tag="DEVICE" title="Browser device" />
       <free tag="USERAGENT" title="Browser user agent" />
+      <!--
+        When a logged in user is recognized, the result of GetUserDataForLogging
+      -->
       <record tag="USERDATA" title="User data" />
+      <!--
+        Extra data supplied by the user
+      -->
       <record tag="EXTRADATA" title="Extra data" />
     </attributes>
   </attachment>
