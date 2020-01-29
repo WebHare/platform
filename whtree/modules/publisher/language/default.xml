@@ -2046,6 +2046,8 @@
   <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
     <text tid="bulkhistory">Bulk history entry</text>
     <text tid="bulkhistory-descr">This right allows users to enter URL history entries in bulk using an alternative interface.</text>
+    <text tid="managefeedback">Manage feedback</text>
+    <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
     <text tid="worklist_resolve">Handle work list items</text>

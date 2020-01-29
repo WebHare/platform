@@ -37,7 +37,11 @@
   </servicemanager>
 
   <rights>
-    <right name="pinning" rightsgroup="system:fs" tid="publisher:rights.pinning" descriptiontid="rights.pinning-descr">
+    <right name="pinning" rightsgroup="system:fs" tid="rights.pinning" descriptiontid="rights.pinning-descr">
+      <impliedby right="system:supervisor"/>
+    </right>
+
+    <right name="managefeedback" rightsgroup="system:default" tid="rights.managefeedback" descriptiontid="rights.managefeedback-descr">
       <impliedby right="system:supervisor"/>
     </right>
 
@@ -46,7 +50,7 @@
                 tid="rights.worklists"
                 describer="lib/internal/support.whlib#worklistsdescriber" />
 
-    <right name="worklist_resolve" objecttype="worklists" tid="publisher:rights.worklist_resolve" isrootright="true">
+    <right name="worklist_resolve" objecttype="worklists" tid="rights.worklist_resolve" isrootright="true">
       <impliedby right="worklist_resolve" />
     </right>
   </rights>
@@ -87,7 +91,9 @@
                  tid="tolliumapps.feedback.apptitle"
                  icon="tollium:actions/checklist"
                  maxservertype="development">
-      <accesscheck/>
+      <accesscheck>
+        <requireright right="managefeedback"/>
+      </accesscheck>
     </application>
 
     <monitorpanel group="dev" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"

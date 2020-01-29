@@ -2046,6 +2046,8 @@
   <textgroup gid="rights">   <!-- rights -->
     <text tid="bulkhistory">Bulk geschiendis-invoer</text>
     <text tid="bulkhistory-descr">Dit recht stelt gebruikers in staat URL-geschiedenis URLs in bulk in te voeren middels een alternatieve interface.</text>
+    <text tid="managefeedback">Feedback beheren</text>
+    <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
