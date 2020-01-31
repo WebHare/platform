@@ -4,9 +4,11 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -14,23 +16,97 @@ LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-MACRO EnsureTasksExecuted(DATETIME when)
+
+/** Wait for all publisher scheduled tasks triggered before a certain time
+    to finish
+    @param timeaftertrigger All scheduled tasks triggered before this time will be finished when this function returns
+    @param deadline Error out when the wait hasn't completed after this time
+*/
+MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadline)
 {
-  DATETIME deadline := AddTimeToDate(60000,GetCurrentDatetime());
-  //Print("Waiting until " || formatdatetime("%H:%M:%S", deadline) || "\n");
   WHILE (TRUE)
   {
     RECORD ARRAY tasks_to_execute :=
         SELECT * FROM publisher.schedule
-         WHERE COLUMN when <= VAR when;
+         WHERE COLUMN when <= VAR timeaftertrigger;
 
     IF (NOT RecordExists(tasks_to_execute))
       BREAK;
 
-    Sleep(100);
+    Sleep(10);
     IF(GetCurrentDatetime() >= deadline)
       ABORT("Task isn't completing");
   }
+
+  // Wait for the postcommit effects of the scheduled tasks to finish too
+  WHILE (TRUE)
+  {
+    RECORD executetaskstatus :=
+         SELECT tag, currentstart, nexttime
+           FROM system_internal.tasks
+          WHERE tag = "publisher.scheduledtasks";
+
+    IF (executetaskstatus.currentstart = DEFAULT DATETIME
+        AND executetaskstatus.nexttime = DEFAULT DATETIME)
+      BREAK;
+
+    Sleep(10);
+    IF(GetCurrentDatetime() >= deadline)
+      ABORT("publisher.scheduledtasks isn't completing");
+  }
+}
+
+/** Wait for all event completions to finish
+    @param deadline Error out when the wait hasn't completed after this time
+*/
+MACRO WaitForEventCompletions(DATETIME deadline)
+{
+  OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
+  WHILE (TRUE)
+  {
+    /* A single request is usually enough for synchronization, because it handles all
+       completions between requests
+    */
+    RECORD rec := eventcompletionlink->DoRequest( [ type := "havependingcompletions" ]);
+    IF (NOT rec.msg.result)
+      BREAK;
+
+    Sleep(10);
+    IF(GetCurrentDatetime() >= deadline)
+      ABORT("publisher.scheduledtasks isn't completing");
+  }
+  eventcompletionlink->Close();
+}
+
+/** Wait for output analyser scans to finish
+    @param folderids Ids of folders that must be completed
+    @param deadline Error out when the wait hasn't completed after this time
+*/
+MACRO WaitForOutputAnalyzer(INTEGER ARRAY folderids, DATETIME deadline)
+{
+  OBJECT outputanalyzer := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
+  WHILE (TRUE)
+  {
+    RECORD state := WaitForPromise(outputanalyzer->GetState());
+    INTEGER ARRAY scheduled := WaitForPromise(outputanalyzer->TestFoldersScheduled(folderids));
+    //DumpValue(CELL[ state, scheduled ], "tree");
+    IF (IsDefaultValue(scheduled))
+      BREAK;
+
+    Sleep(10);
+    IF(GetCurrentDatetime() >= deadline)
+      ABORT("outputanalyzer isn't completing");
+  }
+  outputanalyzer->CloseService();
+}
+
+MACRO EnsureTasksExecuted(DATETIME when)
+{
+  DATETIME deadline := AddTimeToDate(60000,GetCurrentDatetime());
+
+  WaitForPublisherScheduledTasks(when, deadline);
+  WaitForEventCompletions(deadline);
+  WaitForOutputAnalyzer(INTEGER [ GetTestsuiteTempFolder()->id ], deadline);
 
   testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
   //PRINT("Tasks & publisher finished\n");
@@ -45,7 +121,7 @@ BOOLEAN FUNCTION WaitForBeenPublished(INTEGER fileid, DATETIME sincewhen)
      but is that because it hasn't received anything yet of because it's done ?) */
 
   DATETIME deadline := AddTimeToDate(15000,GetCurrentDatetime());
-  WHILE (TRUE)
+  WHILE (GetCurrentDatetime() <= deadline)
   {
     IF(IsBeingPublishedSince(fileid, sincewhen))
       RETURN TRUE;
@@ -177,8 +253,8 @@ MACRO PublicationStartStopTest()
   EnsureTasksExecuted(now);
 
   //this tests that both testfile and indexfile have been (re)queued for republication since the last 'now'
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now), `Testfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now), `Indexfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
@@ -188,8 +264,8 @@ MACRO PublicationStartStopTest()
   EnsureTasksExecuted(now);
 
   //this tests that testfile has been (re)queued for republication since the last 'now', but not indexfile
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  TestEQ(FALSE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now), `Testfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
+  TestEQ(FALSE, IsBeingPublishedSince(indexfile->id, now), `Indexfile ${indexfile->id} shouldn't have been republished since ${AnyToString(now, "tree")}`);
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
@@ -198,7 +274,7 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  TestEQ(TRUE, WaitForBeenPublished(indexfile->id, now));
+  TestEQ(TRUE, WaitForBeenPublished(indexfile->id, now), `Indexfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
   testfile->Refresh();
   TestEQ(FALSE, testfile->publish);
 
@@ -209,8 +285,8 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now), `Testfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now), `Indexfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
@@ -219,8 +295,8 @@ MACRO PublicationStartStopTest()
 
   EnsureTasksExecuted(now);
 
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now), `Testfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now), `Indexfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
 
   testfw->BeginWork();
   now := GetCurrentDateTime();
@@ -255,7 +331,7 @@ MACRO SetIndexDocTest()
   TestEQ(indexfile->id, GetTestsuiteTempFolder()->indexdoc);
 
   // Make sure any republication is done
-  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
+  EnsureTasksExecuted(GetCurrentDatetime());
 
   testfw->BeginWork();
   DATETIME now := GetCurrentDateTime();
@@ -267,8 +343,8 @@ MACRO SetIndexDocTest()
   GetTestsuiteTempFolder()->Refresh();
   TestEQ(testfile->id, GetTestsuiteTempFolder()->indexdoc);
 
-  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now));
-  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now));
+  TestEQ(TRUE, IsBeingPublishedSince(testfile->id, now), `Testfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
+  TestEQ(TRUE, IsBeingPublishedSince(indexfile->id, now), `Indexfile ${indexfile->id} should have been republished since ${AnyToString(now, "tree")}`);
 }
 
 RunTestFramework([ PTR TestLifecycle

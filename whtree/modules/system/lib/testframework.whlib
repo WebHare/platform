@@ -1675,6 +1675,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     {
       ABORT("Publication in folder #" || startingfolder || " isn't completing");
     }
+    Sleep(1); // Make sure GetCurrentDatetime() will return something larger than lastpublishdate
   }
 
   /** Construct an AsyncEventWaiter
