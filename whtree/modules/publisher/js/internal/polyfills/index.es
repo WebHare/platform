@@ -1230,7 +1230,7 @@ if(document.createDocumentFragment().firstElementChild !== null)
 if (!HTMLSelectElement.prototype.hasOwnProperty("selectedOptions"))
   Object.defineProperty(HTMLSelectElement.prototype, "selectedOptions",
   {
-    get: function() { return this.querySelectorAll(":checked") },
+    get: function() { return this.parentNode ? this.querySelectorAll(":checked") : [] },
     enumerable: true,
     configurable: true,
   })
