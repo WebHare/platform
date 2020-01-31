@@ -377,7 +377,7 @@ LoopbackDBTransactionDriver * IsLoopbackDBTransaction(VirtualMachine *vm, Databa
 
 void RegisterTransaction(VarId id_set, VirtualMachine *vm)
 {
-        DBDescription description;
+        DBDescription description{}; // value-initialize, so everything is set to default
         description.supports_block_cursors = true;
         description.supports_single = true;
         description.supports_data_modify = true;

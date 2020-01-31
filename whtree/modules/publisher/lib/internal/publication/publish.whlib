@@ -316,9 +316,16 @@ PUBLIC STATIC OBJECTTYPE PublishTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD data)
   {
-//  SetErrorContextInfo([ source := "publisher:publishing", id := fileid ]);
-    INTEGER status := (NEW Reader)->Run(data.task.id, measure);
+    // The publisher queue can schedule two publications of the same file, make sure only 1 runs at a time
+    OBJECT mutex := OpenLockManager()->LockMutex(`publisher:publishing.${data.task.id}`);
+    TRY
+    {
+  //  SetErrorContextInfo([ source := "publisher:publishing", id := fileid ]);
+      INTEGER status := (NEW Reader)->Run(data.task.id, measure);
 
-    this->ResolveByCompletion(CELL[status]);
+      this->ResolveByCompletion(CELL[status]);
+    }
+    FINALLY
+      mutex->Close();
   }
 >;

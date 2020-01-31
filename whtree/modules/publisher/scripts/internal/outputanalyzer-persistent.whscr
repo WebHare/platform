@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
 
@@ -39,10 +40,33 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 IF (NOT RecordExists(args))
   TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--resetqueue]`);
 
+PUBLIC STATIC OBJECTTYPE OutputAnalyzerQueueController EXTEND PersistentQueueControllerBase
+<
+
+  UPDATE PUBLIC RECORD FUNCTION ScheduleMultiple(RECORD ARRAY tasks)
+  {
+    LogDebug("publisher:outputanalyzer-persistent", "schedule", tasks);
+    RETURN PersistentQueueControllerBase::ScheduleMultiple(tasks);
+  }
+
+  /** Tests which folders are currently scheduled
+      @param folderids List of folder ids to test
+      @return List of tested folders ids that are currently scheduled
+  */
+  PUBLIC INTEGER ARRAY FUNCTION TestFoldersScheduled(INTEGER ARRAY folderids)
+  {
+    RECORD state := this->queue->GetState();
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT item->taskdata.folderid
+          FROM ToRecordArray(state.running CONCAT state.runnable, "ITEM")
+         WHERE item->taskdata.action = "ACTION"
+           AND item->taskdata.folderid IN folderids;
+  }
+>;
 
 OBJECT FUNCTION Constructor(OBJECT queue)
 {
-  RETURN NEW PersistentQueueControllerBase(queue);
+  RETURN NEW OutputAnalyzerQueueController(queue);
 }
 
 

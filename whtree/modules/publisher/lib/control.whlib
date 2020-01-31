@@ -15,6 +15,7 @@ LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT SetFlagsInPublished, GetFlagsFromPublished, IsPublish, GetErrorFromPublished, GetOncePublishedFromPublished, TestFlagFromPublished
                                                           , PublishedFlag_OncePublished, PublishedFlag_Scheduled, PublishedFlag_Warning, PublishedFlag_HasWebDesign
@@ -338,21 +339,25 @@ INTEGER ARRAY FUNCTION GetInterestingFolders(INTEGER curfolder)
   RETURN result;
 }
 
-BOOLEAN FUNCTION IsFolderPublishing(INTEGER root, BOOLEAN recursive)
+BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN recursive)
 {
-  RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath FROM system.fs_objects WHERE parent = root;
+  // See if any object is marked as currently publishing
+  INTEGER ARRAY folderids := [ INTEGER(rootfolder->id) ];
   IF (recursive)
-  {
-    FOREVERY (RECORD o FROM objects)
-      IF (o.isfolder AND IsFolderPublishing(o.id, TRUE))
-        RETURN TRUE;
-  }
+    folderids := folderids CONCAT rootfolder->GetDescendantFolderids();
 
+  RECORD ARRAY objects := SELECT id, isfolder, publish, published, whfspath FROM system.fs_objects WHERE NOT isfolder AND parent IN folderids;
   FOREVERY (RECORD o FROM objects)
-    IF (NOT o.isfolder AND o.publish AND (o.published%100000) > 0 AND (o.published%100000) < 100)
+    IF (o.publish AND (o.published%100000) > 0 AND (o.published%100000) < 100)
       RETURN TRUE;
 
-  RETURN FALSE;
+  // Query the publisher queue if any of these objects is on the queue
+  OBJECT service := __OpenSynchronousWebHareService("publisher:publication");
+  INTEGER ARRAY scheduled := service->TestFilesScheduled(SELECT AS INTEGER ARRAY id FROM objects);
+  BOOLEAN isscheduled := IsValueSet(scheduled);
+  service->CloseService();
+
+  RETURN isscheduled;
 }
 
 /** Wait for publication to complete
@@ -377,25 +382,26 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD 
     FOREVERY(INTEGER fol FROM folderids)
       eventmgr->RegisterInterest("publisher:publish.folder." || fol);
 
-    DATETIME currentwaitlimit := MAX_DATETIME;
+    DATETIME nextfeedback := MAX_DATETIME;
     IF(options.reportfrequency != 0)
-      currentwaitlimit := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
+      nextfeedback := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
 
-    /* FIXME if a publishing process crashes, it does not send an event, so we might wait indefinitely because publishER does not broadcast any event about  the crash
-             testframework works because it sets reportfrequency, it just delays us a bit..
-    */
-    WHILE(IsFolderPublishing(startingfolder, TRUE))
+    WHILE(IsFolderPublishing(folderobj, TRUE))
     {
-      RECORD event := eventmgr->ReceiveEvent(MIN[]([currentwaitlimit, options.deadline]));
+      /* Check every second because we won't get feedback from the publisher queue when items have completed
+         (which will be some time AFTER they have committed)
+      */
+      RECORD event := eventmgr->ReceiveEvent(MIN[]([nextfeedback, options.deadline, AddTimeToDate(1000, GetCurrentDatetime()) ]));
       IF(event.status = "timeout")
       {
         IF(GetCurrentDatetime() >= options.deadline)
           RETURN FALSE;
 
-        IF(options.reportfrequency > 0) //don't talk unless explicitly requested
+        IF(GetCurrentDatetime() >= nextfeedback) //don't talk unless explicitly requested
+        {
           PrintTo(2, "Publication in folder #" || startingfolder || " still isn't complete...\n");
-        currentwaitlimit := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
-
+          nextfeedback := AddTimeToDate(options.reportfrequency, GetCurrentDatetime());
+        }
       }
     }
     RETURN TRUE;

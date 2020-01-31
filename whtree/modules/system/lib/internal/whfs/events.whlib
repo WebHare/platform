@@ -273,8 +273,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF(Length(to_republish) > 0 AND UseNewPublisher())
     {
-      OBJECT service := WaitForPromise(OpenWebHareService("publisher:publication"));
-      WaitForPromise(service->ScheduleMultiple(to_republish));
+      OBJECT service := __OpenSynchronousWebHareService("publisher:publication");
+      service->ScheduleMultiple(to_republish);
       service->CloseService();
     }
 
@@ -298,8 +298,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF (Length(this->analyzertasks) > 0 AND UseNewPublisher())
     {
-      OBJECT service := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
-      WaitForPromise(service->ScheduleMultiple(this->analyzertasks));
+      OBJECT service := __OpenSynchronousWebHareService("publisher:outputanalyzer");
+      service->ScheduleMultiple(this->analyzertasks);
       service->CloseService();
       //SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
     }

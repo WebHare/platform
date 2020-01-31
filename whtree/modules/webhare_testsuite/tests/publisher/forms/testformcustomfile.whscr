@@ -270,6 +270,9 @@ PUBLIC MACRO CustomForm()
   TestEq(TRUE, RecordExists(lastresult));
   TestEq(RepeatText("x", 8192), GetCell(lastresult, col_textarea));
 
+  // Make sure no email tasks are running anymore
+  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
+
   // Delete all results
   testfw->BeginWork();
   webtoolresults->DeleteAllResults();

@@ -1373,6 +1373,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
         description.supports_single = true; // unused!!
         description.supports_data_modify = true;
         description.supports_nulls = true;
+        description.supports_limit = true;
         description.needs_locking_and_recheck = false;
         description.needs_uppercase_names = false;
         description.max_joined_tables = 0;
@@ -1444,6 +1445,8 @@ bool PGSQLTransactionDriver::BuildQueryString(
 {
         //querydata.result_columns.clear();
 
+        bool all_handled = true;
+
         // Filter all conditions that we can handle; update retrieval time for that columns
         for (std::vector< SingleCondition >::iterator it = query.singleconditions.begin(); it != query.singleconditions.end(); ++it)
         {
@@ -1465,7 +1468,10 @@ bool PGSQLTransactionDriver::BuildQueryString(
                     it->handled = false;
 
                 if (!it->handled)
-                    query.tables[it->table].columns[it->column].fase = Fases::Fase1;
+                {
+                        query.tables[it->table].columns[it->column].fase = Fases::Fase1;
+                        all_handled = false;
+                }
         }
 
         for (std::vector<JoinCondition>::iterator it = query.joinconditions.begin(); it != query.joinconditions.end(); ++it)
@@ -1482,6 +1488,7 @@ bool PGSQLTransactionDriver::BuildQueryString(
                 {
                         query.tables[it->table1].columns[it->column1].fase = Fases::Fase1;
                         query.tables[it->table2].columns[it->column2].fase = Fases::Fase1;
+                        all_handled = false;
                 }
         }
 
@@ -1699,6 +1706,8 @@ bool PGSQLTransactionDriver::BuildQueryString(
         querydata.query.querystr = "SELECT " + select + " FROM " + from;
         if (!where.empty())
             querydata.query.querystr += " WHERE " + where;
+        if (query.limit > 0 && all_handled)
+            querydata.query.querystr += " LIMIT " + Blex::AnyToString(query.limit);
 
         if (cursortype == DatabaseTransactionDriverInterface::Update || cursortype == DatabaseTransactionDriverInterface::Delete)
             querydata.updatedtable = query.tables[0].name;

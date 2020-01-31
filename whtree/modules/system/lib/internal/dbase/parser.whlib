@@ -320,7 +320,7 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
             CASE "boolean"
             {
               basecol := [ dbtype := "BOOLEAN"
-                         , defval := ParseXSBoolean(col->GetAttribute("default")) ? "TRUE" : ""
+                         , defval := ParseXSBoolean(ToLowercase(col->GetAttribute("default"))) ? "TRUE" : ""
                          ];
             }
             CASE "datetime"
