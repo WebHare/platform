@@ -426,6 +426,8 @@ class IndyShell
   }
   checkWebHareUpdate()
   {
+    return; //this never worked properly and now we're receiving reports that it had triggered days after an upgrade. DISABLE IT until we restore it, probably with smarter version fetching and not using sessionstorage
+
     try
     {
       var rev = this.settings.version.committag;
