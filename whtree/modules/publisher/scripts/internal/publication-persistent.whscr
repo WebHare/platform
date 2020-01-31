@@ -118,6 +118,19 @@ PUBLIC STATIC OBJECTTYPE PublisherQueueController EXTEND PersistentQueueControll
         ];
   }
 
+  /** Tests which files are currently scheduled
+      @param fileids List of folder ids to test
+      @return List of tested folders ids that are currently scheduled
+  */
+  PUBLIC INTEGER ARRAY FUNCTION TestFilesScheduled(INTEGER ARRAY fileids)
+  {
+    RECORD state := this->queue->GetState();
+    RETURN
+        SELECT AS INTEGER ARRAY DISTINCT item->taskdata.id
+          FROM ToRecordArray(state.running CONCAT state.runnable, "ITEM")
+         WHERE item->taskdata.id IN fileids;
+  }
+
   PUBLIC INTEGER64 FUNCTION GetExpectedTimeToCompletion(INTEGER fileid)
   {
     RECORD state := this->queue->GetState();
