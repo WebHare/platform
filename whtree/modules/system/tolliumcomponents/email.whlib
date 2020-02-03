@@ -1,0 +1,81 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE Attachments EXTEND TolliumFragmentBase
+<
+  INTEGER nextid;
+
+  RECORD ARRAY uploadedfiles;
+
+  ///The attachments, a list of wrapped blobs
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+  MACRO NEW()
+  {
+    EXTEND this BY TolliumIsComposable;
+  }
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+  }
+  RECORD ARRAY FUNCTION GetValue()
+  {
+    RETURN SELECT *, DELETE id FROM this->uploadedfiles;
+  }
+  MACRO SetValue(RECORD ARRAY attachments)
+  {
+    this->uploadedfiles := RECORD[];
+    FOREVERY(RECORD attach FROM attachments)
+      this->AddWrappedAttachment(attach);
+  }
+  RECORD ARRAY FUNCTION GetAttachmentRows()
+  {
+    RETURN SELECT rowkey
+                , filename
+                , filetype := mimetype
+                , filesize := LENGTH(data)
+             FROM this->uploadedfiles;
+  }
+
+  MACRO DoAttach(RECORD ARRAY files)
+  {
+    FOREVERY(RECORD file FROM files)
+      this->AddWrappedAttachment(file);
+  }
+
+  MACRO DoDownloadAttachment(OBJECT obj)
+  {
+    RECORD match := SELECT * FROM this->uploadedfiles WHERE rowkey = ^attachmentlist->value;
+    IF(RecordExists(match))
+      obj->SendWrappedFile(match);
+  }
+
+  MACRO DoDeleteAttachment()
+  {
+    IF(this->owner->RunSimpleScreen("confirm", GetTid("system:commondialogs.mailer.confirm_delete_attachment", ^attachmentlist->selection.filename)) != "yes")
+      RETURN;
+
+    DELETE FROM this->uploadedfiles WHERE id = ^attachmentlist->selection.id;
+    this->RefreshAttachmentlist();
+  }
+
+  PUBLIC MACRO AddWrappedAttachment(RECORD data)
+  {
+    this->nextid := this->nextid + 1;
+    data := CELL[ ...data, rowkey := this->nextid ] ;
+    INSERT data INTO this->uploadedfiles AT END;
+
+    ^attachmentlist->Invalidate();
+  }
+
+  MACRO OnDrop(RECORD dragdata, RECORD droptarget, STRING dropaction, STRING droptype)
+  {
+    FOREVERY(RECORD file FROM dragdata.items)
+      this->AddWrappedAttachment(WrapBlob(file.data, file.filename));
+  }
+>;

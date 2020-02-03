@@ -9,38 +9,33 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
-  RECORD ARRAY uploadedfiles;
-  INTEGER nextid;
-
   BOOLEAN pvt_to_is_bcc_description;
   STRING pvt_description_to;
-
-  BLOB mailblob;
+  RECORD ARRAY sentheaders;
+  RECORD toppart;
 
   // ---------------------------------------------------------------------------
   //
   // Public variables and properties
   //
 
-  PUBLIC INTEGER max_attachments_size;
-
   /* Here is the glue to merge with the old ComposeMailDialog */
 
   PUBLIC PROPERTY mailfrom(^mailerfrom->value, ^mailerfrom->value);
 
-  PUBLIC PROPERTY mailto(this->mailerto->value, this->mailerto->value);
+  PUBLIC PROPERTY mailto(^mailerto->value, ^mailerto->value);
 
-  PUBLIC PROPERTY mailcc(this->mailercc->value, this->mailercc->value);
+  PUBLIC PROPERTY mailcc(^mailercc->value, ^mailercc->value);
 
-  PUBLIC PROPERTY mailbcc(this->mailerbcc->value, this->mailerbcc->value);
+  PUBLIC PROPERTY mailbcc(^mailerbcc->value, ^mailerbcc->value);
 
-  PUBLIC PROPERTY mailsubject(this->mailersubject->value, this->mailersubject->value);
+  PUBLIC PROPERTY mailsubject(^mailersubject->value, ^mailersubject->value);
 
   /** Set to TRUE to use the mailto value as a description, actually send mail to additionalbcc */
   PUBLIC PROPERTY to_is_bcc_description(pvt_to_is_bcc_description, SetToIsBCCDescription);
@@ -50,11 +45,11 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
   PUBLIC PROPERTY readonlyfrom(GetReadonlyFrom,SetReadonlyFrom);
 
-  PUBLIC PROPERTY mailbody(this->textareahtml->value, -);
+  PUBLIC PROPERTY mailbody(^textareahtml->value, -);
 
-  PUBLIC PROPERTY allowattachments(this->attachmentpanel->visible, SetAllowAttachments);
+  PUBLIC PROPERTY allowattachments(^attachments->visible, ^attachments->visible);
 
-  PUBLIC PROPERTY mailattachments(GetMailAttachments, -);
+  PUBLIC PROPERTY mailattachments(^attachments->value, ^attachments->value);
 
   PUBLIC STRING ARRAY additionalbcc;
 
@@ -67,8 +62,6 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
   PUBLIC MACRO Init()
   {
-    this->nextid := 1;
-    this->attachmentpanel->visible := TRUE;
     ^mailerfrom->placeholder := ReadRegistryKey("system.services.smtp.mailfrom");
     ^mailerfrom->required := ^mailerfrom->placeholder = "";
   }
@@ -78,7 +71,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
     OBJECT work := this->BeginWork();
     IF (NOT work->HasFailed())
     {
-      RECORD exp := this->textareahtml->value;
+      RECORD exp := ^textareahtml->value;
       IF(NOT RecordExists(exp))
         exp := [ htmltext := DEFAULT BLOB, embedded := DEFAULT RECORD ARRAY ];
 
@@ -92,7 +85,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
       RECORD toppart := CreateMIMEMailingTopPart(DEFAULT BLOB, exp.htmltext, embed);
 
       STRING ARRAY receivers := this->additionalbcc;
-      FOREVERY(STRING tok FROM tokenize((this->pvt_to_is_bcc_description ? "" : this->mailerto->value) || "," || this->mailercc->value || "," || this->mailerbcc->value,","))
+      FOREVERY(STRING tok FROM tokenize((this->pvt_to_is_bcc_description ? "" : ^mailerto->value) || "," || ^mailercc->value || "," || ^mailerbcc->value,","))
       {
         tok:=TrimWhitespace(tok);
         IF(tok!="")
@@ -100,22 +93,23 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
       }
 
       STRING mailfrom := ^mailerfrom->value ?? ^mailerfrom->placeholder;
-      RECORD ARRAY headers := GetSMTPEmailHeader(mailfrom, this->mailersubject->value,"");
+      RECORD ARRAY headers := GetSMTPEmailHeader(mailfrom, ^mailersubject->value,"");
       IF (this->pvt_to_is_bcc_description)
       {
         // Use the BCC description ('To' field value) as name and the sender's e-mail if not otherwise specified using
         // description_to
         STRING sender := this->pvt_description_to ?? SplitEmailName(mailfrom).email;
-        INSERT INTO headers(field,value) VALUES("To", MakeEmailAddress(this->mailerto->value, sender, this->mailerto->value != "")) AT END;
+        INSERT INTO headers(field,value) VALUES("To", MakeEmailAddress(^mailerto->value, sender, ^mailerto->value != "")) AT END;
       }
-      ELSE IF (Length(this->mailerto->value)>0)
-        INSERT INTO headers(field,value) VALUES("To", this->mailerto->value) AT END;
-      IF (Length(this->mailercc->value)>0)
-        INSERT INTO headers(field,value) VALUES("Cc", this->mailercc->value) AT END;
+      ELSE IF (Length(^mailerto->value)>0)
+        INSERT INTO headers(field,value) VALUES("To", ^mailerto->value) AT END;
+      IF (Length(^mailercc->value)>0)
+        INSERT INTO headers(field,value) VALUES("Cc", ^mailercc->value) AT END;
 
-      toppart := AddAttachmentsToMail(toppart, this->uploadedfiles);
+      toppart := AddAttachmentsToMail(toppart, SELECT name := filename, data, contenttype := mimetype FROM ^attachments->value);
       INTEGER ARRAY taskids := QueueMailInWork("Tollium Mailer", receivers, mailfrom, headers, toppart);
-      this->mailblob := EncodeMIMEMessage(headers, toppart);
+      this->sentheaders := headers;
+      this->toppart := toppart;
 
       IF (this->onqueuedmail != DEFAULT FUNCTION PTR)
         this->onqueuedmail(work, CELL[ taskids
@@ -137,7 +131,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
     IF(RecordExists(this->mailbody) = FALSE)
       RETURN TRUE;
 
-    RETURN this->RunSimpleScreen("confirm", GetTid("system:mailer.messages.confirm_cancel")) = "yes";
+    RETURN this->RunSimpleScreen("confirm", this->GetTid(".confirm_cancel")) = "yes";
   }
 
   // ---------------------------------------------------------------------------
@@ -147,32 +141,18 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
   MACRO SetToIsBCCDescription(BOOLEAN value)
   {
-    this->mailerto->enabled := NOT value;
+    ^mailerto->enabled := NOT value;
     this->pvt_to_is_bcc_description := value;
   }
 
   MACRO SetReadonlyFrom(BOOLEAN value)
   {
-    this->mailerfrom->enabled := NOT value;
+    ^mailerfrom->enabled := NOT value;
   }
 
   BOOLEAN FUNCTION GetReadonlyFrom()
   {
-    RETURN NOT this->mailerfrom->enabled;
-  }
-
-  MACRO SetAllowAttachments(BOOLEAN allow)
-  {
-    this->attachmentpanel->visible := allow;
-    this->addattachmentbutton->visible := allow;
-  }
-
-  RECORD ARRAY FUNCTION GetMailAttachments()
-  {
-     RETURN SELECT data
-                 , filename := name
-                 , mimetype := contenttype
-              FROM this->uploadedfiles;
+    RETURN NOT ^mailerfrom->enabled;
   }
 
   // ---------------------------------------------------------------------------
@@ -180,50 +160,10 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
   // List fills
   //
 
-  MACRO RefreshAttachments()
-  {
-    this->attachments->rows := SELECT id
-                                    , filename := name
-                                    , filetype := contenttype
-                                    , filesize := LENGTH(data)
-                                    , data
-                                 FROM this->uploadedfiles;
-
-    this->attachmentpanel->visible := TRUE;
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Actions
   //
-
-  MACRO DoAttach(RECORD ARRAY files)
-  {
-    FOREVERY(RECORD file FROM files)
-    {
-      INSERT [ id          := this->nextid
-             , name        := file.filename
-             , contenttype := file.mimetype
-             , data        := file.data
-             ] INTO this->uploadedfiles AT END;
-      this->nextid := this->nextid + 1;
-    }
-    this->RefreshAttachments();
-  }
-
-  MACRO DoDownloadAttachment(OBJECT obj)
-  {
-    obj->SendFile(this->attachments->selection.data, this->attachments->selection.filetype, this->attachments->selection.filename);
-  }
-
-  MACRO DoDeleteAttachment()
-  {
-    IF(this->RunSimpleScreen("confirm", GetTid("system:mailer.messages.confirm_delete_attachment", ^attachments->selection.filename)) != "yes")
-      RETURN;
-
-    DELETE FROM this->uploadedfiles WHERE id = ^attachments->selection.id;
-    this->RefreshAttachments();
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -232,7 +172,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
   PUBLIC BLOB FUNCTION GetSentMail()
   {
-    RETURN this->mailblob;
+    RETURN EncodeMIMEMessage(this->sentheaders, this->toppart);
   }
 
   PUBLIC BOOLEAN FUNCTION RunDialog()
@@ -242,7 +182,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
 
   PUBLIC MACRO SetHTMLContents(STRING html)
   {
-    this->textareahtml->value := [ htmltext := StringToBlob(html)
+    ^textareahtml->value := [ htmltext := StringToBlob(html)
                                  , embedded := DEFAULT RECORD ARRAY
                                  ];
   }
@@ -252,7 +192,7 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
     IF (RecordExists(rtd.instances))
       THROW NEW Exception("Using embedded instances is not supported yet");
 
-    this->textareahtml->value := CELL[ rtd.htmltext, rtd.embedded ];
+    ^textareahtml->value := CELL[ rtd.htmltext, rtd.embedded ];
   }
 
   PUBLIC MACRO Quote(STRING html)
@@ -267,15 +207,19 @@ PUBLIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
   */
   PUBLIC MACRO AddAttachment(BLOB filedata, STRING filename, STRING mimetype)
   {
-    INSERT [ id          := this->nextid
-           , name        := filename
-           , contenttype := mimetype
-           , data        := filedata
-           ] INTO this->uploadedfiles AT END;
+    RECORD wrapped := WrapBlob(filedata,filename);
+    IF(mimetype != "")
+      wrapped.mimetype := mimetype;
 
-    this->nextid := this->nextid + 1;
+    ^attachments->AddWrappedAttachment(wrapped);
+  }
 
-    this->RefreshAttachments();
+  /** @short Add a wrappped blob as an attachment
+      @param wrapped The wrapped blob
+  */
+  PUBLIC MACRO AddWrappedAttachment(RECORD wrapped)
+  {
+    ^attachments->AddWrappedAttachment(wrapped);
   }
 >;
 

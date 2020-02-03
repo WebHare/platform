@@ -18,6 +18,17 @@
     <text tid="object">Object</text>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="mailer">   <!-- commondialogs.mailer -->
+      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet u zeker dat u deze e-mail af wilt sluiten?</text>
+      <text tid="confirm_delete_attachment">Weet u zeker dat u bijlage '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="mailerbcc">Bcc</text>
+      <text tid="mailercc">Cc</text>
+      <text tid="mailerfrom">Van</text>
+      <text tid="mailersubject">Onderwerp</text>
+      <text tid="mailerto">Aan</text>
+      <text tid="send">Verzenden</text>
+      <text tid="title">Verzend e-mail</text>
+    </textgroup>
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">Bekijk e-mail</text>
       <text tid="screentitle">E-mailwachtrij</text>

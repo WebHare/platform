@@ -18,6 +18,17 @@
     <text tid="object">Object</text>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="mailer">   <!-- commondialogs.mailer -->
+      <text tid="confirm_cancel">The message has not been sent yet. Are you sure you want to discard this email?</text>
+      <text tid="confirm_delete_attachment">Are you sure you want to remove attachment '<param p="1"/>'</text>
+      <text tid="mailerbcc">Bcc</text>
+      <text tid="mailercc">Cc</text>
+      <text tid="mailerfrom">From</text>
+      <text tid="mailersubject">Subject</text>
+      <text tid="mailerto">To</text>
+      <text tid="send">Send</text>
+      <text tid="title">Send email</text>
+    </textgroup>
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">View email</text>
       <text tid="screentitle">Mail Queue</text>

@@ -1,33 +1,21 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          lib="screens/commondialogs.whlib"
-         xmlns:system="http://www.webhare.net/xmlns/system/components">
+         xmlns:system="http://www.webhare.net/xmlns/system/components"
+         xmlns:email="http://www.webhare.net/xmlns/system/email">
 
   <messageboxes gid="commondialogs.messageboxes">
     <messagebox name="notenoughrights"             icon="error"    buttons="ok" />
     <messagebox name="notenoughrights_spec"        icon="error"    buttons="ok" />
   </messageboxes>
 
-  <screen name="mailer" tid="mailer.title" width="850px" height="650px" allowresize="true" savestate="size">
-    <actions gid="mailer.actions">
+  <screen name="mailer" gid="commondialogs.mailer" tid=".title" width="850px" height="650px" allowresize="true" savestate="size" defaultbutton="send">
+    <actions>
       <action name="send" onexecute="submit" />
-      <action name="abort" onexecute="cancel" tid="tollium:common.actions.cancel"/>
-      <uploadaction name="attach" onupload="doattach" multiple="true" />
-      <action name="deleteattachment" shortcut="del" onexecute="dodeleteattachment" tid="tollium:common.actions.delete">
-        <enableon source="attachments" min="1" max="1" />
-      </action>
-      <downloadaction name="downloadattachment" ondownload="dodownloadattachment" tid="tollium:common.actions.download">
-        <enableon source="attachments" min="1" max="1" />
-      </downloadaction>
+      <action name="abort" onexecute="cancel" tid="~cancel"/>
     </actions>
 
-    <menus>
-      <menu name="attachmentmenu" gid="mailer.actions">
-        <item action="downloadattachment"/>
-        <item action="deleteattachment"/>
-      </menu>
-    </menus>
     <body>
-      <panel layout="form" gid="mailer" spacers="bottom">
+      <panel layout="form" spacers="bottom">
         <textedit name="mailerfrom" required="true" width="1pr" validationchecks="email-maysendfrom" />
         <textedit name="mailerto" required="true" width="1pr" validationchecks="emails-maysendto" />
         <textedit name="mailercc" width="1pr" validationchecks="emails-maysendto" />
@@ -35,32 +23,12 @@
         <textedit name="mailersubject" required="true" width="1pr" />
       </panel>
       <richarea type="email" name="textareahtml" height="1pr" />
-
-      <panel name="attachmentpanel" visible="false" spacers="top" >
-        <grid>
-          <cell width="1pr">
-            <list name="attachments"
-                  height="7x"
-                  selectmode="single"
-                  selectcontextmenu="attachmentmenu"
-                  openaction="downloadattachment"
-                  gid="mailer.columns">
-              <column name="filename" type="text" tid="~filename"/>
-              <column name="filetype" type="text" tid="~mimetype"/>
-              <column name="filesize" type="integer" tid="~filesize" align="right"/>
-            </list>
-          </cell>
-          <cell>
-            <button action="attach" width="1pr" tid="tollium:common.actions.add" name="addattachmentbutton" />
-            <button action="downloadattachment" width="1pr" />
-            <button action="deleteattachment" width="1pr" />
-          </cell>
-        </grid>
-      </panel>
+      <panel spacers="top" />
+      <email:attachments name="attachments" height="7x" /> <!-- spacers="top" -->
     </body>
     <footer>
       <line layout="right">
-        <button action="send"/>
+        <button action="send" name="sendbutton" tid=".send" />
         <button action="abort"/>
       </line>
     </footer>

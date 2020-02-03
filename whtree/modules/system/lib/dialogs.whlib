@@ -89,11 +89,14 @@ PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD optio
 
 /** @short Run a dialog in which the user can compose a (rich) mail
     @param parent Screen or controller loading this dialog
-    @cell(object) options.mailfrom Suggested mail sender
-    @cell(object) options.mailto Suggested mail receiver
-    @cell(object) options.mailcc Suggested mail CC
-    @cell(object) options.mailbcc Suggested mail BCC
-    @cell(object) options.subject Suggested mail subject
+    @cell(string) options.mailfrom Suggested mail sender
+    @cell(boolean) options.readonlyfrom If TRUE, make the From: address readonly
+    @cell(boolean) options.descriptive_to Use the mailto value as a description (actually send the mail to additionalbcc)
+    @cell(string array) options.mailto Suggested mail receiver
+    @cell(string array) options.mailcc Suggested mail CC
+    @cell(string array) options.mailbcc Suggested mail BCC
+    @cell(string array) options.hiddenbcc Additonal BCC addressess, will not appear in the dialog
+    @cell(string) options.subject Suggested mail subject
     @cell(object) options.email Email created using %PrepareMailWitty which will be used as the base
     @cell(record array) options.attachments Attachments to add to the mail. Should be a list of wrapped blob records (%WrapBlob)
     @cell(macro ptr) options.onqueuedmail Callback that will receive the queued mail
@@ -101,9 +104,12 @@ PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD optio
 PUBLIC MACRO RunSendEmailDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ mailfrom := ""
+                              , readonlyfrom := FALSE
+                              , descriptive_to := FALSE
                               , mailto := STRING[]
                               , mailcc := STRING[]
                               , mailbcc := STRING[]
+                              , hiddenbcc := STRING[]
                               , subject := ""
                               , email := DEFAULT OBJECT
                               , onqueuedmail := DEFAULT MACRO PTR
@@ -144,9 +150,13 @@ PUBLIC MACRO RunSendEmailDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT
     screen->mailsubject := options.subject;
 
   FOREVERY(RECORD attach FROM options.attachments)
-    screen->AddAttachment(attach.data, attach.filename, attach.mimetype);
+    screen->AddWrappedAttachment(attach);
 
+  screen->readonlyfrom := options.readonlyfrom;
   screen->onqueuedmail := options.onqueuedmail;
+  screen->to_is_bcc_description := options.descriptive_to;
+  screen->additionalbcc := options.hiddenbcc;
+
   screen->RunModal();
 }
 
