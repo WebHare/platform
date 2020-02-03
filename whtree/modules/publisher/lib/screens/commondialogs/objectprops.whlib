@@ -1502,12 +1502,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
       TRY
       {
-       //FIXME standardize global file naming. eg, "whfs:/full/siteprifile/path' ?
- //       STRING uniquename := "siteprofile_" || propeditor.fileid;
-        //FIXME properly manage siteprofiles - we should probably 'register' files explicitly with tollium, with their language system
-        /*IF(NOT CellExists(cached_languagesystems, propeditor.name))
-          cached_languagesystems := CellInsert(cached_languagesystems, uniquename, propeditor.siteprof->GetLanguageSystem());
-*/
         STRING selector;
         RECORD ARRAY extendcomponents := default_extendcomponents;
 

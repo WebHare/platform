@@ -35,15 +35,4 @@
     </contents>
   </fragment>
 
-  <fragment name="heading" lib="components/heading.whlib">
-    <contents>
-      <panel>
-        <line layout="left">
-          <checkbox name="cbox" title="" visible="false" />
-          <text name="headingtitle" title="" />
-        </line>
-      </panel>
-    </contents>
-  </fragment>
-
 </screens>

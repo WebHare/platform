@@ -1,16 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
-  <textgroup gid="backend">   <!-- backend -->
-    <textgroup gid="login">   <!-- backend.login -->
-      <text tid="loginbackground">Log in</text>
-      <textgroup gid="dialogs">   <!-- backend.login.dialogs -->
-        <text tid="loginconfigerror">You could not be logged in due to a configuration error. Please contact your system administrator.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="personal">   <!-- backend.personal -->
-      <text tid="personalsettings">Personal settings</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="common">   <!-- common -->
     <text tid="deleted">(deleted)</text>
     <text tid="filter">Filter</text>
@@ -243,56 +232,6 @@
       <text tid="value">Value</text>
       <text tid="variableinspector">Variable inspector</text>
       <text tid="variables">Variables</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="installedfonts">   <!-- installedfonts -->
-    <text tid="installedfonts">Installed fonts</text>
-  </textgroup>
-  <textgroup gid="mailer">   <!-- mailer -->
-    <text tid="attachments">Attachments</text>
-    <text tid="mailerbcc">Bcc</text>
-    <text tid="mailercc">Cc</text>
-    <text tid="mailerfrom">From</text>
-    <text tid="mailersubject">Subject</text>
-    <text tid="mailerto">To</text>
-    <text tid="preview">Preview</text>
-    <text tid="title">Send email</text>
-    <textgroup gid="actions">   <!-- mailer.actions -->
-      <text tid="attach">Add attachment</text>
-      <text tid="deleteattachment">Remove attachment</text>
-      <text tid="openattachment">Download attachment</text>
-      <text tid="send">Send</text>
-    </textgroup>
-    <textgroup gid="columns">   <!-- mailer.columns -->
-      <text tid="filename">Attachment</text>
-      <text tid="filesize">File size</text>
-      <text tid="filetype">File type</text>
-    </textgroup>
-    <textgroup gid="messages">   <!-- mailer.messages -->
-      <text tid="confirm_cancel">The message has not been sent yet. Are you sure you want to discard this email?</text>
-      <text tid="confirm_delete_attachment">Are you sure you want to remove attachment '<param p="1"/>'</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="mailqueue">   <!-- mailqueue -->
-    <textgroup gid="messages">   <!-- mailqueue.messages -->
-      <text tid="confirm_delete">Are you sure you want to delete?</text>
-      <text tid="confirm_delete_multiple">Are you sure you want to delete the selected messages?</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="main">   <!-- main -->
-    <textgroup gid="messages">   <!-- main.messages -->
-      <text tid="deletestartmenuitem">Are you sure you want to remove start menu item '<param p="1"/>'?</text>
-      <text tid="insafemode">You are now in safe mode. Add-on modules will not be available.</text>
-      <text tid="mustactivatelicense">This WebHare installation does not appear to have a valid license key. Some functionality and logins for non-sysop users will be disabled until this problem is fixed.<br/><br/>Do you want to install a license key now?</text>
-      <text tid="safemoderequiressysop">You must be logged in as a syop to use safe mode.</text>
-      <text tid="webhareclosedforinvalidlicense">WebHare is currently unavailable. Please contact your system administrator.  <br/><br/>We apologise for the inconvienence.</text>
-      <text tid="webhareclosedformaintaince">WebHare has been closed for maintainance. Please try again later.  <br/><br/>We apologise for the inconvienence.</text>
-    </textgroup>
-    <textgroup gid="userstartmenu">   <!-- main.userstartmenu -->
-      <text tid="edittitle">New title</text>
-      <text tid="title">Title</text>
-      <text tid="windowtitle">Edit my start menu</text>
-      <text tid="windowtitle_edit">Edit title</text>
     </textgroup>
   </textgroup>
   <textgroup gid="module">   <!-- module -->
@@ -845,28 +784,6 @@
       <text tid="waituntil">Wait until</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="newportal">   <!-- newportal -->
-    <textgroup gid="main">   <!-- newportal.main -->
-      <text tid="main">WebHare Portal</text>
-      <text tid="moreinfo">More information.</text>
-      <text tid="news">System news</text>
-      <text tid="personalsettings">Personal settings</text>
-      <text tid="socialite_auth">Socialite authorizations</text>
-      <textgroup gid="actions">   <!-- newportal.main.actions -->
-        <text tid="about">About 'WebHare'</text>
-        <text tid="enablecols_1">1 column</text>
-        <text tid="enablecols_2">2 columns</text>
-        <text tid="enablecols_3">3 columns</text>
-      </textgroup>
-      <textgroup gid="menubar">   <!-- newportal.main.menubar -->
-        <text tid="choosecols">Set number of columns</text>
-        <text tid="enablecolsaction_1">1 column</text>
-        <text tid="enablecolsaction_2">2 columns</text>
-        <text tid="enablecolsaction_3">3 columns</text>
-        <text tid="mainmenu">Portal</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="broadcast"><param p="1"/></text>
     <text tid="broadcast-desc"><param p="1"/></text>
@@ -1052,17 +969,6 @@
         </textgroup>
       </textgroup>
     </textgroup>
-  </textgroup>
-  <textgroup gid="setsearchablefields">   <!-- setsearchablefields -->
-    <text tid="fields">Fields</text>
-    <text tid="fieldsperson">Fields for the 'person' type</text>
-    <text tid="fieldsrole">Fields for the 'role' type</text>
-    <text tid="fieldsunit">Fields for the 'unit' type</text>
-    <text tid="setfields">Set searchable fields</text>
-    <text tid="setfieldsperson">Set searchable 'person' fields</text>
-    <text tid="setfieldsrole">Set searchable 'role' fields</text>
-    <text tid="setfieldsunit">Set searchable 'unit' fields</text>
-    <text tid="title">Configure searchable fields</text>
   </textgroup>
   <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
     <text tid="settings">Default settings</text>
@@ -2804,14 +2710,6 @@
       <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
         <text tid="rights">Rights</text>
         <text tid="users">Users</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="webserver">   <!-- webserver -->
-    <textgroup gid="webservers">   <!-- webserver.webservers -->
-      <textgroup gid="main">   <!-- webserver.webservers.main -->
-        <text tid="certificates">Certificates</text>
-        <text tid="main">Certificates</text>
       </textgroup>
     </textgroup>
   </textgroup>
