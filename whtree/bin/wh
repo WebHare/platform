@@ -458,23 +458,6 @@ right_pad()
   echo "$1$PAD"
 }
 
-cleanup_merged_branches()
-{
-  local FINALBRANCHES BRANCHESTOKILL
-
-  git fetch
-  FINALBRANCHES="`git branch | cut -b3- | egrep '(^master|^release/)'`"
-
-  for TIP in $FINALBRANCHES ; do
-    echo "Checking tip $TIP for obsolete branches"
-    BRANCHESTOKILL=`git branch --merged remotes/origin/$TIP | cut -b3- | egrep -v '(^master|^release/|^edge/)'`
-    for P in $BRANCHESTOKILL ; do
-      echo "Deleting local branch '$P'"
-      git branch -D $P  #force deletion, otherwise this will fail just because local master is out of date
-    done
-  done
-}
-
 show_commandfile_help() # instr filename
 {
   local COMMAND SHORT
@@ -624,9 +607,6 @@ git_update_all()
   if [ "`git rev-parse --abbrev-ref HEAD`" != "master" -a -f ".git/refs/remotes/origin/master" ]; then
     git branch -f master `git rev-parse remotes/origin/master`
   fi
-
-  # Cleanup merged branches
-  cleanup_merged_branches
 
   # Check sublime package
   if [ -d "$HOME/Library/Application Support/Sublime Text 3/Packages/WebHare/.git" ]; then
@@ -1104,20 +1084,6 @@ HERE
       fi
       sleep .2
     done
-    ;;
-
-  "obsoletebranches")
-    if [ -n "$1" ]; then
-      if [ ! -d "$1" ]; then
-        echo "No such directory: $1"
-        exit 1
-      fi
-      cd $1
-    else
-      cd $WEBHARE_CHECKEDOUT_TO
-    fi
-
-    cleanup_merged_branches
     ;;
 
   "freshdbconsole")
