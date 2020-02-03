@@ -342,8 +342,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   {
     IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
       Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
-    IF(NOT webdesign->IsUsingModuleDesign())
-      THROW NEW Exception("Application portals and frontend apps require a moduledesign");
 
     webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
 

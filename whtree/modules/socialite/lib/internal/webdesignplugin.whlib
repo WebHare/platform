@@ -271,30 +271,6 @@ PUBLIC OBJECTTYPE AnalyticsPlugin EXTEND WebDesignPluginBase
         script := "wh.google.analytics-plugin.gtm";
       }
     }
-
-    IF(NOT webdesign->IsUsingModuleDesign()) //only designfiles uses this, and it breaks last-minute updates of 'type'
-    {
-      RECORD versioninfo := SELECT * FROM webdesign->GetDesignRepositories() WHERE ToUppercase(repository) = "PUBLIC";
-      IF(RecordExists(versioninfo))
-      {
-        IF(versioninfo.version =0 OR versioninfo.version  >= 1748)
-          webdesign->AddDesignLoad("wh.util.trackers");
-        IF(versioninfo.version  > 0 AND versioninfo.version  < 1383)
-          script := "wh.google.analytics-plugin";
-
-        webdesign->AddDesignLoad(script);
-      }
-      ELSE
-      {
-        THROW NEW Exception("Don't know how to include the trackers - no designfiles repository and no AddDesignRequire. If you meant for this design to be module-based, we somehow think we're a site-based design");
-      }
-
-      webdesign->SetJSPluginConfig("socialite:analytics",
-                                   [ code := this->code
-                                   , type := this->type
-                                   , tracklinks := this->tracklinks
-                                   ]);
-    }
   }
 
   MACRO DoAnalyticsAndUniversal(OBJECT webdesign)

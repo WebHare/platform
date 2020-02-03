@@ -43,7 +43,6 @@
     <script type="application/json" id="wh-config">[whconfig:json]</script>
     [printheaders]
     [if harescripttestdata]<script src="/.webhare_testsuite/jstests/testdata.shtml"></script>[/if]
-    [if testjsscript]<script src="[testjsscript]"></script>[/if]
   </head>
   <body>
   </body>

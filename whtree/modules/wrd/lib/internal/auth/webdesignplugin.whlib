@@ -322,8 +322,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
         INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
     }
-    IF(NOT webdesign->IsUsingModuleDesign())
-      webdesign->AddDesignLoad("wrd.auth"); //in legacy sites, we were responsible for adding this
 
     webdesign->SetJSPluginConfig("wrd:auth", config);
   }
