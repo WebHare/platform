@@ -76,6 +76,8 @@ while [ -n "$1" ]; do
 done
 
 if [ "$ANYMODS" == "1" ] && is_webhare_running ; then
+  echo -n "Fixing modules..."
+  $WEBHARE_DIR/bin/wh fixmodules --onlybroken
   echo -n "Sending soft-reset request... "
   runscript mod::system/scripts/whcommands/softreset.whscr
   echo "done"

@@ -16,6 +16,7 @@ MACRO PrintSyntaxAndTerminate()
   Print("  create <module>:         Create a module\n");
   Print("  createwebdesign <name>:  Create a webdesign in a module\n");
   Print("  download <name>:         Download the specified module\n");
+  Print("  get <giturl>:            Get a module from a git server\n"); //note - actually implemented in our wrapper module.sh
   Print("  install <path|url>:      Install a module\n");
   Print("  rm <module>:             Delete a module\n");
 }
