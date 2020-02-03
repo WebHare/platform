@@ -287,7 +287,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
 
   RECORD FUNCTION TypesFilter(RECORD inrec)
   {
-    DELETE CELL wrd_schema, list_attributes FROM inrec;
+    DELETE CELL wrd_schema, list_attributes, haspersonaldata FROM inrec;
     INSERT CELL wrd_schema := this->newschemaid INTO inrec;
     RETURN inrec;
   }
