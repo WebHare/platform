@@ -191,6 +191,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     BOOLEAN allowwebhareinstall;
     FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", webdesign->targetobject->id))
     {
+      STRING resourcename := setting.siteprofile->name;
       IF(setting.node->HasAttribute("allowwebhareinstall"))
         allowwebhareinstall := ParseXSBoolean(setting.node->GetAttribute("allowwebhareinstall"));
       IF(setting.node->HasAttribute("allowinframe"))
@@ -204,7 +205,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       IF(setting.node->HasAttribute("personalsettingsapp"))
         this->personalsettingsapp := setting.node->GetAttribute("personalsettingsapp");
       IF(setting.node->HasAttribute("dashboardmenuupdater"))
-        INSERT MakeAbsoluteResourcePath(setting.siteprofile->name, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
+        INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
       IF(setting.node->HasAttribute("applicationmasks"))
         this->applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
 
@@ -238,7 +239,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                   , sp_tag :=     sp_tag
                   , ordering :=   ToInteger(loginmethod->GetAttribute("ordering"), 99999)
                   , autologin :=  loginmethod->GetAttribute("autologin") IN [ "true", "1" ]
-                  , tid :=        setting.siteprofile->ParseTextPointer(loginmethod, "title", gid)
+                  , tid :=        ParseXMLTIDPtr(GetModuleNameFromResourcePath(resourcename), gid, loginmethod, "title")
                   , icon :=       loginmethod->GetAttribute("icon")
                   , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
                   , loginprompt := loginmethod->GetAttribute("loginprompt")
