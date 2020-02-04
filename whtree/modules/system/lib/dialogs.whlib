@@ -91,7 +91,7 @@ PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD optio
     @param parent Screen or controller loading this dialog
     @cell(string) options.mailfrom Suggested mail sender
     @cell(boolean) options.readonlyfrom If TRUE, make the From: address readonly
-    @cell(boolean) options.descriptive_to Use the mailto value as a description (actually send the mail to additionalbcc)
+    @cell(boolean) options.descriptive_to Use the mailto value as a description (actually send the mail to hiddenbcc)
     @cell(string array) options.mailto Suggested mail receiver
     @cell(string array) options.mailcc Suggested mail CC
     @cell(string array) options.mailbcc Suggested mail BCC
