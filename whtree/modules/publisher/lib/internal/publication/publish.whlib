@@ -161,7 +161,7 @@ PUBLIC STATIC OBJECTTYPE Reader
     IF (LENGTH(hs_errors) > 0)
       DEBUGPRINT("Publishing HS errors:\n" || AnyToString(hs_errors, "boxed"));
 
-    GetPrimary()->BeginWork();
+    GetPrimary()->BeginWork([ mutex := `publisher:publishstate.${fileid}`]);
     this->StoreErrors(fileid, hs_errors, warnings);
 
     RECORD filescan := SELECT published
