@@ -12,14 +12,14 @@ MACRO TestParsing()
 {
   RECORD res;
 
-  res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/nosuchfile.siteprl.xml", "");
+  res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/nosuchfile.siteprl.xml");
   TestEq(1, Length(res.errors));
 
-  res := GetParsedSiteProfile("inline::", "");
+  res := GetParsedSiteProfile("inline::");
   TestEq(1, Length(res.errors));
 
   STRING test1resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml";
-  res := GetParsedSiteProfile(test1resname, "");
+  res := GetParsedSiteProfile(test1resname);
   TestEq(DEFAULT RECORD ARRAY, SELECT * FROM res.errors WHERE resourcename != test1resname); //nothing should sneak by....
 
   dumpvalue((SELECT * FROM res.errors ORDER BY line),'boxed');
@@ -34,7 +34,7 @@ MACRO TestParsing()
 
 
   STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";
-  res := GetParsedSiteProfile(test3resname, "");
+  res := GetParsedSiteProfile(test3resname);
 
   RECORD ARRAY sitesettings := SELECT * FROM res.rules WHERE ruletype = "sitesetting";
   TestEq(2, Length(sitesettings));
@@ -50,10 +50,7 @@ MACRO TestParsing()
   TestEq(7, test3type.foldertype.line);
   TestEq(FALSE, RecordExists(test3type.filetype));
 
-  res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml", "");
-//DumpValue(res,'tree:2');
-//abort(1);
-// abort(1);
+  res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml");
 }
 
 MACRO TestCompiler()

@@ -200,7 +200,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   RECORD ARRAY siteprofiles;
   RECORD ARRAY contenttypes;
 
-  MACRO LoadSiteProfileRecursively(STRING name, STRING scopenamespace, INTEGER ARRAY siteids, BOOLEAN allsites, STRING ARRAY loadpath)
+  MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteids, BOOLEAN allsites, STRING ARRAY loadpath)
   {
     IF(this->debug)
       Print("Load " || name || " from " || Detokenize(loadpath," >") || "\n");
@@ -213,26 +213,19 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     INSERT name INTO loadpath AT END;
 
     //Do we have the siteprofile already
-    INTEGER existingpos := (SELECT AS INTEGER #siteprofiles + 1 FROM this->siteprofiles WHERE resourcename=name AND scope=scopenamespace)-1;
+    INTEGER existingpos := (SELECT AS INTEGER #siteprofiles + 1 FROM this->siteprofiles WHERE resourcename = name)-1;
     RECORD loaded;
     IF(existingpos=-1)
     {
       existingpos := Length(this->siteprofiles);
 
-      loaded := GetParsedSiteProfile(name, scopenamespace);
-      IF(loaded.isscoped AND scopenamespace = "")
-      {
-        this->LogSPError(name,"Trying to load a scoped siteprofile using <applysiteprofile>, path: " || Detokenize(loadpath," >"),0);
-        RETURN;
-      }
-
+      loaded := GetParsedSiteProfile(name);
       this->result.errors := this->result.errors CONCAT loaded.errors;
       this->result.warnings := this->result.warnings CONCAT loaded.warnings;
       this->contenttypes := this->contenttypes CONCAT loaded.contenttypes;
       this->grouptypes := this->grouptypes CONCAT loaded.grouptypes;
 
       INSERT [ resourcename := name
-             , scope := scopenamespace
              , siteids := INTEGER[]
              , allsites := FALSE
              , siteprofile := loaded
@@ -249,17 +242,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       this->siteprofiles[existingpos].siteids := ArrayUnion(this->siteprofiles[existingpos].siteids, siteids);
 
     FOREVERY(STRING apply FROM loaded.applysiteprofiles)
-    {
-      IF(scopenamespace!="")
-        THROW NEW Exception("scopenamespace recursion not yet? supported");
-      this->LoadSiteProfileRecursively(apply, "", siteids, allsites, loadpath);
-    }
-    FOREVERY(RECORD load FROM loaded.loadpackages)
-    {
-      IF(scopenamespace!="")
-        THROW NEW Exception("scopenamespace recursion not yet? supported");
-      this->LoadSiteProfileRecursively(load.toload, load.scope, siteids, allsites, loadpath);
-    }
+      this->LoadSiteProfileRecursively(apply, siteids, allsites, loadpath);
 
     IF(this->debug)
       Print("Done " || name || "\n");
@@ -525,11 +508,11 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
 
     // Get all base profiles
     FOREVERY(STRING siteprof FROM options.baseprofiles)
-      this->LoadSiteProfileRecursively(siteprof, "", DEFAULT INTEGER ARRAY, TRUE, STRING[]);
+      this->LoadSiteProfileRecursively(siteprof, DEFAULT INTEGER ARRAY, TRUE, STRING[]);
 
     FOREVERY(RECORD activated FROM (SELECT name, siteids := GroupedValues(siteid) FROM options.siteactivatedprofiles GROUP BY name))
     {
-      this->LoadSiteProfileRecursively(activated.name, "", activated.siteids, FALSE, STRING[]);
+      this->LoadSiteProfileRecursively(activated.name, activated.siteids, FALSE, STRING[]);
     }
 
     this->ProcessGroupMemberships();

@@ -34,7 +34,7 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
         this->VerifyWittyComponentExistence(widgettype->linenum, widgettype->GetAttribute("wittycomponent"));
     }
 
-    RECORD parseres := ParseSiteProfile(this->respath, "", [ xmldoc := this->xml ]); //ADDME forwards XSD?
+    RECORD parseres := ParseSiteProfile(this->respath, [ xmldoc := this->xml ]); //ADDME forwards XSD?
     this->errors := this->errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
     this->warnings := this->warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
     IF(this->syntaxlevel_2020)

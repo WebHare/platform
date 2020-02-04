@@ -87,12 +87,10 @@
           <xs:element ref="s:imgsizepreset" />
         </xs:choice>
         <xs:element name="applysiteprofile" type="ApplySiteProfile" minOccurs="0" maxOccurs="unbounded" />
-        <xs:element name="loadpackage" type="LoadPackage" minOccurs="0" maxOccurs="unbounded" />
         <xs:element name="sitesettings" type="SiteSettings" minOccurs="0" maxOccurs="unbounded" />
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##other" processContents="lax" />
       </xs:sequence>
       <xs:attributeGroup ref="sc:Gid" />
-      <xs:attribute name="isscoped" type="xs:boolean" />
     </xs:complexType>
 
     <xs:key name="TabExtensions">
@@ -831,16 +829,6 @@
       </xs:annotation>
     </xs:attribute>
     <xs:attributeGroup ref="m:ApplicabletoWebHare" />
-  </xs:complexType>
-
-  <xs:complexType name="LoadPackage">
-    <xs:annotation>
-      <xs:documentation>
-        Load a (npm) package
-      </xs:documentation>
-    </xs:annotation>
-    <xs:attribute name="module" type="xs:string" use="required" />
-    <xs:attribute name="scopenamespace" type="xs:string" use="required" />
   </xs:complexType>
 
   <xs:complexType name="Apply">
