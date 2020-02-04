@@ -9,7 +9,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 STRING basesiteprofile :=
   '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:xyz="urn:xyz">'
-  || '<languagefolder fullpath="/design/baselanguage/" />'
   || '<apply>'
   || '<to type="all" />'
   || '<xyz:test test="2" />'
@@ -18,7 +17,6 @@ STRING basesiteprofile :=
 
 STRING includingsiteprofile :=
   '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:xyz="urn:xyz">'
-  || '<languagefolder fullpath="/design/language/" />'
   || '<apply>'
   || '<to type="all" />'
   || '<xyz:test test="1" />'
@@ -91,21 +89,8 @@ MACRO Prepare()
   OBJECT embeddingsiteprof := site->rootobject->CreateFile([name:="embedding.siteprl", data := StringToBlob(embeddingsiteprofile)]);
 
   OBJECT designfolder := siteroot->CreateFolder([name := "design"]);
-  OBJECT baselanguagefolder := designfolder->CreateFolder([name := "baselanguage"]);
-  OBJECT file_baselang_default := baselanguagefolder->CreateFile( [ name := "default.xml"
-                                                                  , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile")->id
-                                                                  , data := StringToBlob(baselang_default)
-                                                                  ]);
 
   OBJECT languagefolder := designfolder->CreateFolder([name := "language"]);
-  OBJECT file_lang_default := languagefolder->CreateFile( [ name := "default.xml"
-                                                          , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile")->id
-                                                          , data := StringToBlob(lang_default)
-                                                          ]);
-  OBJECT file_lang_en := languagefolder->CreateFile( [ name := "en.xml"
-                                                     , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile")->id
-                                                     , data := StringToBlob(lang_en)
-                                                     ]);
   TestEq(TRUE, site->AssignSiteProfile(dummysiteprof->id)); //dummy to make sure we don't get stuck on the 'first' siteprofile
   TestEq(TRUE, site->AssignSiteProfile(includingsiteprof->id));
   testfw->CommitWork();
@@ -123,41 +108,6 @@ MACRO TestInclusion()
   TestEq(0,Length(custom));
 }
 
-MACRO TestLanguage()
-{
-  TestEq("Text Zero", GetSiteprofileTID(site->id, "nl", "global.text0"));
-  TestEq("Text 1 &NL", GetSiteprofileTID(site->id, "nl", "global.text1"));
-  TestEq("Text <b>1</b> &#38;NL", GetSiteprofileHTMLTID(site->id, "nl", "global.text1"));
-}
-
-MACRO TestLanguageEmbedded()
-{
-  TestEq("Text 1 &NL", GetSiteprofileTID(site->id, "nl", "global.text1")); //work that into our cache...
-
-  // Need to remove dummy site profile here, we'll use its (auto) reference to the site language files otherwise
-  testfw->BeginWork();
-  TestEq(TRUE, site->UnassignSiteProfile(site->rootobject->OpenByPath("dummy.siteprl")->id));
-  TestEq(TRUE, site->UnassignSiteProfile(site->rootobject->OpenByPath("including.siteprl")->id));
-  TestEq(TRUE, site->AssignSiteProfile(site->rootobject->OpenByPath("embedding.siteprl")->id));
-  testfw->CommitWork();
-
-  TestEq("Text 1 &embedded NL", GetSiteprofileTID(site->id, "nl", "global.text1"), "If we still have 'Test 1 &NL', siteprofile tid caches did not flush");
-  TestEq("Text <b>1</b> &#38;embedded NL", GetSiteprofileHTMLTID(site->id, "nl", "global.text1"));
-  TestEq("Text 1 &embedded\n EN", GetSiteprofileTID(site->id, "en", "global.text1"));
-  TestEq("Text <b>1</b> &#38;embedded<br/> EN", GetSiteprofileHTMLTID(site->id, "en", "global.text1"));
-
-  TestEq("text1-1-2X",   GetSiteProfileTID(site->id, "", "global.paramtext", "1", "2", "3"));
-  TestEq("text1-2-3X",   GetSiteProfileTID(site->id, "", "global.paramtext", "2", "1", "3"));
-  TestEq("detext1-2-3X", GetSiteProfileTID(site->id, "en", "global.paramtext", "2", "1", "3"));
-  TestEq("text1-2-3X",   GetSiteProfileTID(site->id, "nl", "global.paramtext", "2", "1", "3"));
-
-  testfw->BeginWork();
-  TestEq(TRUE, site->AssignSiteProfile(site->rootobject->OpenByPath("dummy.siteprl")->id));
-  testfw->CommitWork();
-}
-
 RunTestFramework( [ PTR Prepare
                   , PTR TestInclusion
-                  , PTR TestLanguage
-                  , PTR TestLanguageEmbedded
                   ]);

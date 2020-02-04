@@ -68,8 +68,6 @@ PUBLIC STATIC OBJECTTYPE GlobalTextSearcher
     IF (CellExists(this->options, "skipdatabase"))
       this->skipdatabase := this->options.skipdatabase;
 
-    INTEGER publisher_languagefile := this->skipdatabase ? 0 : OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile")->id;
-
     RECORD ARRAY searchtypes :=
         [ [ name :=   "js"
           , exts :=   [ ".js", ".es" ]
@@ -93,7 +91,7 @@ PUBLIC STATIC OBJECTTYPE GlobalTextSearcher
           ]
         , [ name :=   "xml"
           , exts :=   [ ".siteprl", ".xml", ".wsdl", ".xsd", ".webfields" ]
-          , types :=  [ 27, 34, publisher_languagefile ]
+          , types :=  [ 27, 34 ]
           ]
         ];
 

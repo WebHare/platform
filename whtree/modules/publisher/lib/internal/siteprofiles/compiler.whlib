@@ -426,7 +426,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
 
     this->result.siteprofiles := SELECT name := resourcename
                                       , applysiteprofiles := siteprofile.applysiteprofiles
-                                      , langinfo := siteprofile.langinfo
                                       , sites := siteids
                                    FROM this->siteprofiles;
     this->result.contenttypes := this->ApplyContentTypes(compileresult.allcontenttypes);
@@ -599,11 +598,6 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   cspfile->UpdateMetaData([ data := blobdata ], [ runhooks := FALSE ]);
 }
 
-MACRO FlushSiteProfilecaches()
-{
-  tidcachepersite := DEFAULT RECORD ARRAY;
-}
-
 PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing)
 {
   IF(NOT HavePrimaryTransaction()) //--twice already gives us one
@@ -649,7 +643,6 @@ PUBLIC RECORD FUNCTION RecompileSiteProfiles()
   TRY
   {
     RECORD response := WaitForPromise(service->RequestRecompile());
-    FlushSiteProfilecaches();
     RETURN response;
   }
   FINALLY

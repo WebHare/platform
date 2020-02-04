@@ -150,11 +150,6 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
 
       obj->basefsobject := fsobject;
       obj->data := instancedata;
-
-      OBJECT siteprof := OpenSiteProfile(siteprof_fileref);
-      obj->__pvt_callbacks :=
-          [ gettid :=     PTR siteprof->GetTidForLanguage(#1, #2, #3, #4, #5, #6)
-          ];
     }
   }
   FINALLY

@@ -26,14 +26,10 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
-/// Cached language systems
-PUBLIC RECORD cached_languagesystems;
 
-PUBLIC RECORD ARRAY tidcachepersite;
 PUBLIC STRING namespace_t := "http://www.webhare.net/xmlns/tollium/screens";
 PUBLIC STRING namespace_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
 PUBLIC STRING newsletter_sp := "http://www.webhare.net/xmlns/newsletter/siteprofile";
@@ -66,46 +62,12 @@ RECORD FUNCTION UpdateListedAttributes(RECORD origrec, RECORD updatewith)
   RETURN origrec;
 }
 
-
-OBJECTTYPE SiteProfileLanguageFileSystem EXTEND LanguageFileSystem
-<
-  RECORD ARRAY langfiles;
-
-  MACRO NEW(STRING siteprofile, INTEGER basefolder)
-  : LanguageFileSystem("Language folders for siteprofile " || siteprofile)
-  {
-    OBJECT langfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/languagefile");
-    this->langfiles := SELECT id, name := ToLowercase(name)
-                         FROM system.fs_objects
-                        WHERE parent = VAR basefolder
-                              AND ToUppercase(name) LIKE "*.XML"
-                     ORDER BY ToUppercase(name)="DEFAULT.XML" DESC, ToUppercase(name);
-
-    this->languagecodes := SELECT AS STRING ARRAY Tokenize(ToLowercase(name),'.')[0] FROM this->langfiles;
-  }
-
-  UPDATE PUBLIC OBJECT FUNCTION OpenLanguageXMLFile(INTEGER langcodeidx)
-  {
-    RETURN MakeXMLDocument(SELECT AS BLOB data FROM system.fs_objects WHERE id = this->langfiles[langcodeidx].id AND isactive);
-  }
-  UPDATE PUBLIC MACRO SaveLanguageXMLFile(INTEGER langcodeidx, BLOB filedata)
-  {
-    GetPrimary()->BeginWork();
-    OpenWHFSObject(this->langfiles[langcodeidx].id)->UpdateData(filedata);
-    GetPrimary()->CommitWork();
-  }
->;
-
-PUBLIC OBJECTTYPE SiteProfileObject
+PUBLIC STATIC OBJECTTYPE SiteProfileObject
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
-  STRING tidmodule;
-
-  RECORD langinfo;
-  OBJECT langsystem;
   INTEGER whfsid;
 
   // ---------------------------------------------------------------------------
@@ -168,121 +130,17 @@ PUBLIC OBJECTTYPE SiteProfileObject
     }
     this->name := name;
     this->whfsid := id;
-    this->tidmodule := __GetModuleBaseFromResourceName(name);
 
     //ADDME make siteprofile code robust against corrupt xmldocs (just don't load them)
     IF(NOT ObjectExists(this->xmldoc) OR NOT ObjectExists(this->xmldoc->documentelement))
       THROW NEW Exception(`Siteprofile ${name} appears to be empty`);
-
-    //Get language nodes
-    OBJECT langnode := this->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "languagefolder")->Item(0);
-    IF(ObjectExists(langnode))
-    {
-      this->langinfo := [ embedded := FALSE
-                        , fullpath := langnode->GetAttribute("fullpath")
-                        ];
-    }
-    ELSE IF(this->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "language")->Length > 0)
-    {
-      this->langinfo := [ embedded := TRUE ];
-    }
-    ELSE IF (id != 0)
-    {
-      OBJECT siteroot := (fsobj ?? OpenWHFSObject(id))->highestparentobject;
-      IF (ObjectExists(siteroot))
-      {
-        OBJECT langfolder := siteroot->OpenByPath("design/language");
-        IF (ObjectExists(langfolder))
-        {
-          this->langinfo := [ embedded := FALSE
-                            , fullpath := langfolder->fullpath
-                            ];
-        }
-      }
-    }
   }
 
-
-  // ---------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
-
-  MACRO BootLanguageSystem()
-  {
-    IF(ObjectExists(this->langsystem) OR NOT RecordExists(this->langinfo))
-      RETURN;
-
-    IF(this->langinfo.embedded = FALSE)
-    {
-      INTEGER basesite := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = this->whfsid;
-      IF(basesite=0)
-        THROW NEW Exception("Cannot locate parentsite for siteprofile");
-
-      STRING path := this->langinfo.fullpath;
-      IF(path LIKE "/*")
-        path := Substring(path,1);
-
-      OBJECT basefolder := OpenWHFSObject(basesite);
-      IF(path != "")
-        basefolder := basefolder->OpenByPath(path);
-      IF(NOT ObjectExists(basefolder))
-        THROW NEW Exception("Unable to open language folder '" || this->langinfo.fullpath || "'");
-
-      this->langsystem := NEW SiteProfileLanguageFileSystem(this->name, basefolder->id);
-    }
-    ELSE
-    {
-      //Boot up an embedded filesystem
-      this->langsystem := NEW EmbeddedLanguageFileSystem(this->name, this->xmldoc);
-    }
-  }
-
-  STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN rich)
-  {
-    OBJECT nodeptr := this->GetLanguageNodePtr(langcode, tid, FALSE);
-    IF(NOT ObjectExists(nodeptr))
-    {
-      STRING failtext := __shortfailtid ? Substring(tid,SearchLastSubstring(tid,'.')) : "(cannot find text: " || tid || ")";
-      IF(rich)
-        failtext := EncodeHTML(failtext);
-      RETURN failtext;
-    }
-    RETURN this->EvaluateLanguageNodePtr(nodeptr, p1, p2, p3, p4, rich);
-  }
 
   // ---------------------------------------------------------------------------
   //
   // Public API
   //
-
-  PUBLIC OBJECT FUNCTION GetLanguageSystem()
-  {
-    IF(NOT ObjectExists(this->langsystem))
-      this->BootLanguageSystem();
-    RETURN this->langsystem;
-  }
-
-  PUBLIC OBJECT FUNCTION GetLanguageNodePtr(STRING langcode, STRING tid, BOOLEAN gid)
-  {
-    this->BootLanguageSystem();
-    RETURN ObjectExists(this->langsystem) ? this->langsystem->GetNodePtr(langcode, tid, gid) : DEFAULT OBJECT;
-  }
-
-  PUBLIC STRING FUNCTION EvaluateLanguageNodePtr(OBJECT nodeptr, STRING p1, STRINg p2, STRING p3, STRING p4, BOOLEAN html)
-  {
-    RETURN this->langsystem->EvaluateNodePtr(nodeptr, p1, p2, p3, p4, html);
-  }
-
-  PUBLIC STRING FUNCTION GetTidForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-  {
-    RETURN this->CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, FALSE);
-  }
-
-  PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-  {
-    RETURN this->CalcTIDForLanguage(langcode, tid, p1, p2, p3, p4, TRUE);
-  }
 
   PUBLIC OBJECT FUNCTION GetApplyNode(RECORD applyblock)
   {
@@ -311,24 +169,6 @@ PUBLIC OBJECTTYPE SiteProfileObject
       IF(editor->GetAttribute("name")=name)
         RETURN editor;
     RETURN DEFAULT OBJECT;
-  }
-
-  PUBLIC STRING FUNCTION GetTitleOrTid2(RECORD element, STRING langcode, STRING defaulttitle)
-  {
-    IF(element.tid != "")
-      RETURN this->GetTidForLanguage(langcode, element.tid);
-
-    IF(CellExists(element,"title"))
-      RETURN element.title;
-    RETURN defaulttitle;
-  }
-
-  PUBLIC STRING FUNCTION GetTitleOrTid(OBJECT element, STRING langcode, STRING defaulttitle)
-  {
-    RECORD el := [ tid := element->GetAttribute("tid") ];
-    IF(element->HasAttribute("title"))
-      INSERT CELL title := element->GetAttribute("title") INTO el;
-    RETURN this->GetTitleOrTid2(el,langcode,defaulttitle);
   }
 
   PUBLIC STRING FUNCTION ParseFSPath(OBJECT node, STRING attrname)
@@ -371,48 +211,7 @@ PUBLIC OBJECTTYPE SiteProfileObject
 
     RETURN MakeAbsoluteResourcePath(this->name, fullpath);
   }
-
-  PUBLIC STRING FUNCTION ParseTextPointer(OBJECT el, STRING attr, STRING gid)
-  {
-    RETURN ParseXMLTIDPtr(this->tidmodule, gid, el, attr);
-  }
 >;
-
-RECORD FUNCTION GetCachableTidSources(INTEGER siteid)
-{
-  RECORD csp := GetCachedSiteProfiles();
-  RECORD ARRAY siteprofs := SELECT name, applysiteprofiles, langinfo FROM csp.siteprofiles WHERE siteid IN siteprofiles.sites;
-
-  //Expand to the full list (ADDME cache languageinfo in CSP, avoid opening siteprofiles which really don't have any language stuff)
-  RECORD ARRAY checksiteprofs := siteprofs;
-  WHILE(Length(checksiteprofs) > 0)
-  {
-    STRING ARRAY nextsiteprofs;
-    FOREVERY(RECORD prof FROM checksiteprofs)
-      IF(Length(prof.applysiteprofiles) > 0)
-        FOREVERY(STRING apply FROM prof.applysiteprofiles)
-          IF(apply NOT IN nextsiteprofs)
-            INSERT apply INTO nextsiteprofs AT END;
-
-    checksiteprofs := SELECT name, applysiteprofiles, langinfo FROM csp.siteprofiles WHERE name IN nextsiteprofs;
-    siteprofs := siteprofs CONCAT checksiteprofs;
-  }
-
-  RETURN
-      [ eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
-      , value :=      SELECT TEMPORARY fsobj := name LIKE "whfs:*" OR name LIKE "site:*" ? OpenWHFSObjectByPath(name) : DEFAULT OBJECT
-                           , id :=              ObjectExists(fsobj) ? fsobj->id : 0
-                           , name
-                        FROM siteprofs
-      ];
-}
-
-PUBLIC OBJECT ARRAY FUNCTION GetTidSources(INTEGER siteid)
-{
-  //FIXME require parent to offer us a cache ?
-  RECORD ARRAY siteprofs := GetAdhocCached([ type := "sitetidsources", siteid := siteid ], PTR GetCachableTidSources(siteid));
-  RETURN SELECT AS OBJECT ARRAY NEW SiteProfileObject(id, name) FROM siteprofs;
-}
 
 PUBLIC INTEGER FUNCTION GetHareScriptTypeForMember(RECORD memberrec)
 {

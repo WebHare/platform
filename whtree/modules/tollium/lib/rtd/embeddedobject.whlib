@@ -18,8 +18,6 @@ PUBLIC STATIC OBJECTTYPE EmbeddedObjectBase
   // Private variables
   //
 
-  /// Callbacks. Do NOT use, for internal use for GetTID only!
-  PUBLIC RECORD __pvt_callbacks;
   OBJECT __pvt_basefsobject;
 
   // ---------------------------------------------------------------------------
@@ -54,14 +52,6 @@ PUBLIC STATIC OBJECTTYPE EmbeddedObjectBase
   //
   // Public API for user
   //
-
-  /** Lookup tid (from the place where the render library & objectname were set, either the definition of the embedded object
-      or the apply rule with 'setembeddedobjectrenderer').
-  */
-  PUBLIC STRING FUNCTION GetTID(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-  {
-    RETURN this->__pvt_callbacks.gettid(this->languagecode, tid, p1, p2, p3, p4);
-  }
 
   PUBLIC OBJECT FUNCTION MakePreviewRTD(RECORD richdoc, STRING structuredefpath)
   {

@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- ADDME Try to share language and gid stuff with tollium, but need a proper importer for that -->
-
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
@@ -48,25 +46,6 @@
   <xs:element name="siteprofile">
     <xs:complexType>
       <xs:sequence>
-        <xs:choice>
-          <xs:element ref="s:language" minOccurs="0" maxOccurs="unbounded" />
-          <xs:element name="languagefolder" minOccurs="1" maxOccurs="1">
-            <xs:complexType>
-              <xs:annotation>
-                <xs:documentation>
-                  use to specify the location of the folder containing languagefiles
-                </xs:documentation>
-              </xs:annotation>
-              <xs:attribute name="fullpath" type="xs:string">
-                <xs:annotation>
-                  <xs:documentation>
-                    fullpath to the languagefiles (relative to the site the siteprofile is in)
-                  </xs:documentation>
-                </xs:annotation>
-              </xs:attribute>
-            </xs:complexType>
-          </xs:element>
-        </xs:choice>
         <xs:choice minOccurs="0" maxOccurs="unbounded">
           <xs:group ref="s:ScreenParts" />
           <xs:element name="contenttype" type="ContentType">
