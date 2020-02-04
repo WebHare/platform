@@ -84,6 +84,12 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
            , [ anyform := this->webdesign->GetWittyDataForForm("datetimeform")
              ]);
     }
+    ELSE IF(GetWebVariable("visibleconditions")="1")
+    {
+      RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
+           , [ anyform := this->webdesign->GetWittyDataForForm("visibleconditionsform")
+             ]);
+    }
     ELSE
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:forms")
@@ -816,5 +822,22 @@ PUBLIC STATIC OBJECTTYPE DateTimeTestForm EXTEND FormBase
            , form := this->formvalue
            , extradata := extradata
            ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase
+<
+  MACRO NEW()
+  {
+    ^second->visiblecondition := FCIsSet(^first);
+    ^second->options :=
+        SELECT *
+             , visiblecondition := FCMatch(^first, "IN", [ Left(rowkey, 1) ])
+          FROM ^second->options;
+    ^third->visiblecondition := FCIsSet(^second);
+    ^third->options :=
+        SELECT *
+             , visiblecondition := FCMatch(^second, "IN", SELECT AS STRING ARRAY second.rowkey FROM ^second->options AS second WHERE second.rowkey LIKE "*" || third.rowkey)
+          FROM ^third->options AS third;
   }
 >;

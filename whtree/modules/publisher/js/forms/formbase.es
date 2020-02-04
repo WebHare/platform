@@ -764,14 +764,10 @@ export default class FormBase
 
     if (isNodeCollection(matchfield))
     {
-      //Can we set this field? Just take the parent of the first node
-      if(!this._isNowSettable(matchfield[0]))
-        return null;
-
       let currentvalue = null;
 
       for (let field of matchfield)
-        if (field.checked)
+        if (this._isNowSettable(field) && field.checked)
         {
           if (field.type != "checkbox")
             return field.value;

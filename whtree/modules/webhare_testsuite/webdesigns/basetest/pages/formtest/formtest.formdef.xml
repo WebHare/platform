@@ -321,4 +321,23 @@
     </page>
   </form>
 
+  <form name="visibleconditionsform" objectname="formtest.whlib#VisibleConditionsTestForm" jshandler="anyformhandler">
+    <page>
+      <select name="first" title="First choice" type="radio">
+        <option rowkey="a" title="A" />
+        <option rowkey="b" title="B" />
+      </select>
+      <select name="second" title="Second choice" type="radio">
+        <option rowkey="a_a" title="A A" />
+        <option rowkey="a_b" title="A B" />
+        <option rowkey="b_a" title="B A" />
+        <option rowkey="b_b" title="B B" />
+      </select>
+      <select name="third" title="Third choice" type="radio">
+        <option rowkey="a" title="A" />
+        <option rowkey="b" title="B" />
+      </select>
+    </page>
+  </form>
+
 </formdefinitions>
