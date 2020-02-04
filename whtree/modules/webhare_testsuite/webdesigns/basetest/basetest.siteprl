@@ -716,7 +716,7 @@
   </apply>
 
 
-  <!-- This is mostly properteditor /objectpros basic testing. Not sure if it reallly adds anything anymore on top of all
+  <!-- This is mostly propertyeditor/objectprops basic testing. Not sure if it really adds anything anymore on top of all
        our other tests ...  -->
   <contenttype namespace="http://www.webhare.net/xmlns/beta/test"
                cloneoncopy="true">
