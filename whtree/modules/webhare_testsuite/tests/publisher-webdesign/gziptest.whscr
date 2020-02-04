@@ -54,6 +54,6 @@ MACRO TestInitialFiles()
   TestEq(FALSE, testfw->browser->GotoWebPage(siteroot->url || "^static.html/test.txt.gz"));
 }
 
-RunTestframework([ PTR PrepareTestSiteDesignWebsite("", [ witherrors := TRUE ])
+RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest")
                  , PTR TestInitialFiles
                  ], [ profile := TRUE ]);

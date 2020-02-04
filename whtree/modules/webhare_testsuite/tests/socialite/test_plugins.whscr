@@ -4,26 +4,18 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-STRING ogsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition">'
-  || '<apply>'
-  || ' <to type="all" />'
-  || ' <opengraph xmlns="http://www.webhare.net/xmlns/socialite" site_name="PluginTest"/>'
-  ||  '</apply>'
-  || '</siteprofile>';
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 PUBLIC MACRO SetupSite()
 {
   testfw->BeginWork();
-
-  OBJECT site := testfw->SetupTestWebdesignWebsite(ogsiteprofile);
-  site->rootobject->CreateFile([name:="x.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([name:="opengraph.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
   testfw->CommitWork();
-  testfw->WaitForPublishCompletion(site->id);
-  testfw->RefreshWebserverConfig(); //FIXME this should be done implicitly (automatically run on CommitWork), but how to properly wait for it ?
+  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
 
   OBJECT browser := NEW WebBrowser;
-  TestEq(TRUE, browser->GotoWebpage(site->webroot || "x.html"), browser->url);
+  TestEq(TRUE, browser->GotoWebpage(testfile->link), testfile->link);
 
   STRING ARRAY prefixes := ParseXSList(browser->document->documentelement->GetAttribute("prefix"));
   TestEq(TRUE,Length(prefixes)>0, browser->url);

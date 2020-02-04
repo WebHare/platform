@@ -7,6 +7,8 @@ LOADLIB "mod::consilio/lib/internal/http_api.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 // Regression test: GetHTTPUrl not returning ERRORCODE's on server error (#1252)
 MACRO TestServerStatus()
@@ -19,19 +21,16 @@ MACRO TestServerStatus()
   TestEq("CONNECT", result.errorcode);
   TestEq(-8, result.code); // connection refused
 
-  testfw->BeginWork();
-  OBJECT site := testfw->SetupTestWebdesignWebsite("");
-  testfw->CommitWork();
-
-  result := GetHTTPUrl(TRUE/*get*/, site->webroot);
+  OBJECT testfolder := GetTestsuiteTempFolder();
+  result := GetHTTPUrl(TRUE/*get*/, testfolder->objecturl);
   TestEq("", result.errorcode);
   TestEq(404, result.code); // no content yet in site
 
   testfw->BeginWork();
   // Create an shtml file that sleeps for 70 seconds (the GetHTTPUrl WebBrowser object has a timeout of 60 seconds)
-  OBJECT timeout_file := site->rootobject->CreateFile([ name := "timeout.shtml", type := 25, data := StringToBlob("<?wh Sleep(2000);"), publish := TRUE ]);
+  OBJECT timeout_file := testfolder->CreateFile([ name := "timeout.shtml", type := 25, data := StringToBlob("<?wh Sleep(2000);"), publish := TRUE ]);
   testfw->CommitWork();
-  testfw->WaitForPublishCompletion(site->rootobject->id);
+  testfw->WaitForPublishCompletion(testfolder->id);
 
   result := GetHTTPUrl(TRUE/*get*/, timeout_file->url, [ timeout := 1000 ]);
   TestEq("CONNECT", result.errorcode); // Kinda expecting it to be "TIMEOUT", but apparently the WebBrowser object doesn't return a separate error code for socket timeouts

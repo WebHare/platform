@@ -1,5 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="basetest.whscr"/>
   <test script="basetest-moduledesign.whscr"/>
   <test script="testwebdesign-template.whscr"/>
   <test script="gziptest.whscr"/>

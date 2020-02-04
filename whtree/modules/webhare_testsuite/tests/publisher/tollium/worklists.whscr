@@ -7,6 +7,8 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 OBJECT api_sysop, api_lisa;
 OBJECT workfile1, workfile2, workfile3;
@@ -21,27 +23,27 @@ MACRO Setup()
 {
   testfw->BeginWork();
 
-  testfw->SetupTestWebdesignWebsite("");
+  OBJECT testroot := GetTestsuiteTempFolder();
 
   api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
   api_lisa := NEW WorkListAPI(testfw->GetUserObject("lisa"));
 
   testfw->SetTestUser("sysop");
-  workfile1 := testfw->GetTestSite()->rootobject->CreateFile(
+  workfile1 := testroot->CreateFile(
       [ name := "workfile1"
       , title := "This is the first worklist file"
       , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
       ]);
-  workfile2 := testfw->GetTestSite()->rootobject->CreateFile(
+  workfile2 := testroot->CreateFile(
       [ name := "workfile2"
       ]);
-  workfile3 := testfw->GetTestSite()->rootobject->CreateFile(
+  workfile3 := testroot->CreateFile(
       [ name := "workfile3"
       , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
       ]);
 
   // Grant testuser 'lisa' browse right on the test website
-  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testroot->id, FALSE);
 
   // Let the sysop create a work list
   testworklistid := api_sysop->CreateWorkList([ name := "Test Work List", tag := "webhare_testsuite:testlist" ]);
