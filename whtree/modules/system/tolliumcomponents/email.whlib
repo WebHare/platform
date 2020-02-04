@@ -61,7 +61,7 @@ PUBLIC OBJECTTYPE Attachments EXTEND TolliumFragmentBase
       RETURN;
 
     DELETE FROM this->uploadedfiles WHERE id = ^attachmentlist->selection.id;
-    this->RefreshAttachmentlist();
+    ^attachmentlist->Invalidate();
   }
 
   PUBLIC MACRO AddWrappedAttachment(RECORD data)
