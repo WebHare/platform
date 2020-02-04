@@ -7,7 +7,6 @@ LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 
 OBJECT contentobject;
-OBJECT trans;
 
 // Open channel to parent
 OBJECT iochan := GetIPCLinkToParent();

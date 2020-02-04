@@ -37,7 +37,6 @@ namespace ICU
 
 // Country codes that exist in CLDR data, but not the the ISO country list, which we still want to have returned by GetCountryList
 // AC, Ascension Island: Part of Saint Helena (SH-AC)
-// AN, Netherlands Antilles: Former country, dissolved into Aruba, Curaçao, Sint Maarten and special municipalities of the Netherlands
 // CP, Clipperton Island: Minor territory of France
 // DG, Diego Garcia: British Indian Ocean Territory
 // EA, Ceuta & Melilla: Spanish autonomous cities in Africa

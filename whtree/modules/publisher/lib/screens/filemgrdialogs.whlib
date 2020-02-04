@@ -416,6 +416,7 @@ PUBLIC OBJECTTYPE CreateArchiveFile EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->selecteditem := OpenWHFSObject(data.folder.id);
+    this->subfolders->visible := this->selecteditem->isfolder;
     this->recursive->visible := this->selecteditem->isfolder;
 
     this->frame->title := this->GetTid(".windowtitle", this->selecteditem->name);
