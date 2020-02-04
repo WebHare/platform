@@ -3,11 +3,10 @@
 
   <object tag="SCOPE" title="Scope">
     <attributes>
-      <free tag="TAG" title="Tag" unique="true" />
     </attributes>
-    <values matchattribute="TAG">
+    <values matchattribute="WRD_TAG">
       <value>
-        <field tag="TAG">tollium:webharebackend</field>
+        <field tag="WRD_TAG">TOLLIUM:WEBHAREBACKEND</field>
       </value>
     </values>
   </object>

@@ -1,13 +1,13 @@
 /* This CSS is also loaded in the screenshot backend frame */
 
-.feedback__dompointer
+.wh-feedback__dompointer
 {
   pointer-events: none;
   position: absolute;
   z-index: 1000000000;
 }
 
-.feedback__dompointer::after
+.wh-feedback__dompointer::after
 {
   background: rgba(255, 0, 0, .1);
   border: 2px solid rgba(255, 0, 0, .9);

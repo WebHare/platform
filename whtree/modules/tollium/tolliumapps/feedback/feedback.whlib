@@ -12,12 +12,12 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     IF (NOT RecordExists(data.target))
-      THROW NEW Exception("This app is not to be run manually");
+      THROW NEW Exception("This app is not meant to be run manually");
     this->guid := data.target.guid;
 
     ^extradata->^extrafields->value :=
-        [ [ field := "type", type := "tid", tid := "tollium:tolliumapps.feedback.type" ]
-        , [ field := "remarks", type := "string", tid := "tollium:tolliumapps.feedback.remarks" ]
+        [ [ field := "type",    type := "tid",    tid := /*tid*/"tollium:tolliumapps.feedback.type" ]
+        , [ field := "remarks", type := "string", tid := /*tid*/"tollium:tolliumapps.feedback.remarks" ]
         ];
   }
 

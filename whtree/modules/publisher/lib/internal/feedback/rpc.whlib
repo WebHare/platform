@@ -43,22 +43,28 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING scope, RECORD data)
   }
   CATCH;
 
+  GetPrimary()->BeginWork();
   TRY
   {
-    GetPrimary()->BeginWork();
     STRING guid := StoreFeedback(scope, CELL[ ...data, userdata ]);
-    GetPrimary()->CommitWork();
     RETURN CELL
         [ success := TRUE
         , guid
         ];
   }
-  CATCH (OBJECT e)
+  // Use FINALLY here to catch the exception, so we can safely rollback or commit in case of error resp. success (using CATCH
+  // to catch the exception 'eats' the exception)
+  FINALLY (OBJECT e)
   {
-    GetPrimary()->RollbackWork();
-    RETURN
-        [ success := FALSE
-        , error := e->what
-        ];
+    IF (ObjectExists(e))
+    {
+      GetPrimary()->RollbackWork();
+      RETURN
+          [ success := FALSE
+          , error := e->what
+          ];
+    }
+    ELSE
+      GetPrimary()->CommitWork();
   }
 }

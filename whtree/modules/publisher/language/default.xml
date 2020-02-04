@@ -2046,8 +2046,11 @@
   <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
     <text tid="bulkhistory">Bulk history entry</text>
     <text tid="bulkhistory-descr">This right allows users to enter URL history entries in bulk using an alternative interface.</text>
+    <text tid="feedbackscopes">Feedback scopes</text>
     <text tid="managefeedback">Manage feedback</text>
     <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
+    <text tid="managefeedbackscope">Manage feedback for a scope</text>
+    <text tid="managefeedbackscope-descr">Allows access to the Feedback application to view and handle feedback for a specific scope submitted through the feedback option</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
     <text tid="worklist_resolve">Handle work list items</text>
@@ -2311,6 +2314,7 @@
         <text tid="device">Device</text>
         <text tid="feedback">Feedback</text>
         <text tid="main">Feedback</text>
+        <text tid="scope">Scope</text>
         <text tid="screenshot-iframe">The contents of this iframe element cannot be displayed</text>
         <text tid="wrd_creationdate">When</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->

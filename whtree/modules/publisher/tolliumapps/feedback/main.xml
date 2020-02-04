@@ -33,6 +33,7 @@
       <button action="delete" icon="tollium:actions/delete" />
     </toolbar>
     <body>
+      <select name="scope" type="pulldown" onchange="onselectscope" />
       <wrd:entitylist name="feedback"
                       height="1pr"
                       wrdtype="feedback"

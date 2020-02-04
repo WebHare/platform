@@ -11,7 +11,7 @@ export default function pointAtDOM(event, options)
 
   deferred = dompack.createDeferred();
   if (!highlighter)
-    highlighter = <div class="feedback__dompointer"></div>;
+    highlighter = <div class="wh-feedback__dompointer"></div>;
 
   activateDOMPointer();
 

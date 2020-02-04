@@ -27,9 +27,14 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    //ADDME: Support for other scopes
-    INTEGER scopeid := this->contexts->wrdschema->^scope->Search("tag", "tollium:webharebackend");
-    ^feedback->listfilters := [ [ field := "wrd_leftentity", value := scopeid ] ];
+    ^scope->options :=
+        SELECT rowkey := wrd_tag
+             , title := ToLowercase(wrd_tag)
+          FROM this->contexts->wrdschema->^scope->RunQuery([ outputcolumns := [ "wrd_id", "wrd_tag" ]])
+         WHERE this->tolliumuser->HasRightOn("publisher:managefeedbackscope", wrd_id)
+         ORDER BY wrd_tag;
+    IF (Length(^scope->options) <= 1)
+      ^scope->visible := FALSE;
   }
 
 
@@ -48,7 +53,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunSimpleScreen("verify", this->GetTid(".messages.confirmdeletefeedback")) = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmdeletefeedback")) = "yes")
     {
       OBJECT work := this->BeginWork();
       this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->selection.wrd_id, [ wrd_limitdate := GetCurrentDateTime() ]);
@@ -59,6 +64,18 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoExit()
   {
     this->tolliumresult := "close";
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnSelectScope()
+  {
+    INTEGER scopeid := this->contexts->wrdschema->^scope->Search("wrd_tag", ^scope->value);
+    ^feedback->listfilters := [ [ field := "wrd_leftentity", value := scopeid ] ];
   }
 >;
 

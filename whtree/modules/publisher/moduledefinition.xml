@@ -41,8 +41,22 @@
       <impliedby right="system:supervisor"/>
     </right>
 
-    <right name="managefeedback" rightsgroup="system:default" tid="rights.managefeedback" descriptiontid="rights.managefeedback-descr">
+    <objecttype name="feedbackscopes"
+                table="wrd.entities"
+                rightsgroup="system:default"
+                tid="rights.feedbackscopes"
+                describer="lib/internal/support.whlib#feedbackscopesdescriber" />
+    <right name="managefeedback"
+           rightsgroup="system:default"
+           tid="rights.managefeedback"
+           descriptiontid="rights.managefeedback-descr">
       <impliedby right="system:supervisor"/>
+    </right>
+    <right name="managefeedbackscope"
+           objecttype="feedbackscopes"
+           tid="rights.managefeedbackscope"
+           descriptiontid="rights.managefeedbackscope-descr">
+      <impliedby right="managefeedback"/>
     </right>
     <!--ADDME: Add explicit rights for specific feedback scopes? -->
 
@@ -93,7 +107,7 @@
                  icon="tollium:actions/checklist"
                  maxservertype="development">
       <accesscheck>
-        <requireright right="managefeedback"/>
+        <requireright right="managefeedbackscope"/>
       </accesscheck>
     </application>
 
