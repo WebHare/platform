@@ -1373,7 +1373,7 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
         description.supports_single = true; // unused!!
         description.supports_data_modify = true;
         description.supports_nulls = true;
-        description.supports_limit = true;
+        description.supports_limit = false;
         description.needs_locking_and_recheck = false;
         description.needs_uppercase_names = false;
         description.max_joined_tables = 0;
