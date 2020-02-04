@@ -58,7 +58,7 @@ getwhparameters()
 
 getmoduledir_nofail()
 {
-  local XXMODULEDIR RESTPATH
+  local XXMODULEDIR RESTPATH MODULENAME
 
   RESTPATH=${2#*/}
   MODULENAME=${2%%/*}
