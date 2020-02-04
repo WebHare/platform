@@ -232,7 +232,7 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   //ADDME: If we could execute failing SQL commands without destroying the transaction, we could do with less commits ?
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
 
-  GetPrimary()->BeginWork();
+  GetPrimary()->BeginWork([ mutex := "system:initmoduletables" ]);
 
   RECORD cmds;
   IF(Length(module.databaseschemas)>0)
