@@ -132,9 +132,11 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
   TestEQ("versioned-delete1.html", TT("filelist")->rows[0].name);
 
   TT("filelist")->value := [ INTEGER(testfile->id) ];
+  topscreen->frame->focused := TT("filelist");
 
   // Run 'restore' action, expect location selection. When clicking ok, expect submit for approval, confirmation message
-  rec := AWAIT ExpectScreenChange(+1, PTR TT("restore")->ProcessInboundMessage("execute", [ rule := 1 ]), [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
+  dumpvalue(tt("filelist")->rows,'boxed');
+  rec := AWAIT ExpectScreenChange(+1, PTR TTClick("restore"), [ namemask := "*browsewhfsobject" ]); // rule 1: filelist, versioned file
   TT("folders")->value := root->id;
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->ProcessInboundMessage("execute", [ rule := 0 ])); // folder tree
   AWAIT ExpectApprovalRequest(TRUE, DEFAULT FUNCTION PTR);
@@ -142,6 +144,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
   AWAIT rec.expectcallreturn();
 
   // Should update status in filelist
+  dumpvalue(tt("filelist")->rows,'boxed');
   TestEqMembers(
     [ [ rowkey :=                   testfile->id
       , isversioned :=              TRUE
