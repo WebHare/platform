@@ -1043,12 +1043,11 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 
     this->mergefields := this->contexts->mergefields;
 
-    OBJECT applytester := this->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->contexts->applytester;
     IF(ObjectExists(applytester))
       this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
 
-    OBJECT richdocumentcontext := this->owner->GetAppContext("tollium:richdocumentcontext");
-    //Print("Context? " || (ObjectExists(richdocumentcontext) ? "ja":"nee")||'\n');
+    OBJECT richdocumentcontext := this->contexts->^__tollium__richdocumentcontext;
     IF(ObjectExists(richdocumentcontext))
     {
       this->LoadRTDSettings(richdocumentcontext->rtdtypeinfo);
