@@ -537,7 +537,7 @@ check filetype
       }
       ELSE
       {
-        OBJECT applytester := this->owner->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+        OBJECT applytester := this->owner->contexts->applytester;
         IF(ObjectExists(applytester) AND applytester->objsite != 0)
           folderid := LookupWHFSObject(applytester->objsite, this->fullpath);
       }

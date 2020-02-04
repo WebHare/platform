@@ -377,7 +377,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     IF(this->medialibrary="")
       RETURN DEFAULT INTEGER ARRAY;
 
-    OBJECT applytester := this->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->contexts->applytester;
     IF(NOT ObjectExists(applytester))
       RETURN DEFAULT INTEGER ARRAY;
 
