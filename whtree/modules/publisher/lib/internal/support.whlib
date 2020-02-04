@@ -4,7 +4,6 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
-LOADLIB "mod::publisher/lib/internal/publication/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
@@ -176,24 +175,14 @@ PUBLIC RECORD ARRAY FUNCTION GetPublisherAppRunnerConfig()
       ]
     ];
 
-  IF(UseNewPublisher())
-  {
-    INSERT [ name :=       "publisher:publication"
-           , cmdline :=    "runscript mod::publisher/scripts/internal/publication-persistent.whscr --debuglevel 2"
-           , databasemodes := [ "online" ]
-           ] INTO apps AT END;
-    INSERT [ name :=       "publisher:outputanalyzer"
-           , cmdline :=    "runscript mod::publisher/scripts/internal/outputanalyzer-persistent.whscr --debuglevel 2"
-           , databasemodes := [ "online" ]
-           ] INTO apps AT END;
-  }
-  ELSE
-  {
-    INSERT [ name :=       "publisher:publisher"
-           , cmdline :=    "publisher"
-           , databasemodes := [ "online" ]
-           ] INTO apps AT END;
-  }
+  INSERT [ name :=       "publisher:publication"
+         , cmdline :=    "runscript mod::publisher/scripts/internal/publication-persistent.whscr --debuglevel 2"
+         , databasemodes := [ "online" ]
+         ] INTO apps AT END;
+  INSERT [ name :=       "publisher:outputanalyzer"
+         , cmdline :=    "runscript mod::publisher/scripts/internal/outputanalyzer-persistent.whscr --debuglevel 2"
+         , databasemodes := [ "online" ]
+         ] INTO apps AT END;
 
   RETURN apps;
 }

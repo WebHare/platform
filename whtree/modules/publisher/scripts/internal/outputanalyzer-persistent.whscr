@@ -38,7 +38,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
     , [ name := "debug", type := "switch" ]
     ]);
 IF (NOT RecordExists(args))
-  TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--resetqueue]`);
+  TerminateScriptWithError(`Usage: outputanalyzer-persistent.whscr [--debuglevel] [--resetqueue] [--debug]`);
 
 PUBLIC STATIC OBJECTTYPE OutputAnalyzerQueueController EXTEND PersistentQueueControllerBase
 <

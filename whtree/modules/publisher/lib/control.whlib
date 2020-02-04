@@ -127,57 +127,6 @@ PUBLIC MACRO ScheduleFolderRepublish(INTEGER folderid, BOOLEAN recursive, BOOLEA
 }
 
 
-/** @short Get the publisher's state
-    @long Returns complete information about the publisher's current state and progress.
-          This function may only be called by sysop users. The FILES table must be bound
-          to a WebHare transaction for this function to work
-    @return A record describing the publisher's state, or a non-existing record if we couldn't contact the publisher
-    @cell return.total Total number of files in queue
-    @cell return.measured Number of files for which we have an estimated publication time
-    @cell return.totaltime The total of measured times, in milliseconds
-    @cell return.workers Number of worker processes
-    @cell return.queuetop An integer array, consisting of the top files in the queue
-    @cell return.processes A record array of (processnum, fileid, seconds) describing what the active processes are doing */
-PUBLIC RECORD FUNCTION GetPublisherState()
-{
-  IF (GetDatabaseType() != "whdb")
-    RETURN DEFAULT RECORD;
-
-  RECORD state := __PUBLISHER_GETPUBLISHERSTATE(system.fs_objects);
-  IF (RecordExists(state))
-  {
-    INTEGER ARRAY new_queuetop;
-    //decode the comma-separated queue top list
-    FOREVERY(STRING queueentry FROM Tokenize(state.queuetop,','))
-    {
-      INSERT ToInteger(queueentry,0) INTO new_queuetop AT END;
-    }
-
-    RECORD ARRAY new_processes;
-    //decode the tab-separated process list
-    FOREVERY(STRING processentry FROM Tokenize(state.processes,'\t'))
-    {
-      STRING ARRAY subdata := Tokenize(processentry,',');
-      IF (length(subdata)<2) //broken process entry or no processes, skip
-        CONTINUE;
-      INSERT INTO new_processes(processnum, fileid, seconds)
-             VALUES(ToInteger(subdata[0],0), ToInteger(subdata[1],0), ToInteger(subdata[2],0))
-             AT END;
-    }
-
-    //update the state record with the new data. have to remove them first
-    //because we're overwriting the types
-    DELETE CELL queuetop FROM state;
-    DELETE CELL processes FROM state;
-    INSERT CELL queuetop := new_queuetop INTO state;
-    INSERT CELL processes := new_processes INTO state;
-  }
-  RETURN state;
-}
-
-
-
-
 /** @short Add a scheduled task for a file
     @param fileid ID of the affected file
     @param when Date and time, in UTC, when the task should be executed
