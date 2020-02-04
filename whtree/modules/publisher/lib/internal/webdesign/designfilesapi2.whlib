@@ -197,14 +197,6 @@ STATIC OBJECTTYPE Resolver
       INSERT require INTO this->requestedbundle.bundleconfig.extrarequires AT END;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetRequires()
-  {
-    IF(this->assetpack!="")
-      RETURN DEFAULT RECORD ARRAY;
-
-    RETURN ToRecordArray(this->requestedbundle.bundleconfig.extrarequires,"require");
-  }
-
   PUBLIC STRING FUNCTION GetOutputTag(BOOLEAN wait)
   {
     RETURN GetPackingInfo(this->requestedbundle, wait).value.outputtag;

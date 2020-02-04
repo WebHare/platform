@@ -40,7 +40,6 @@ LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib" EXPORT WebPageBase;
 
@@ -157,12 +156,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //Macro ptr to render the widget preview
   PUBLIC MACRO PTR __renderwidgetpreview;
   OBJECT ARRAY pvt_anchors;
-  //The dependency resolver
-  OBJECT pvt_dependencyresolver;
   //The dependency resolver v2
   OBJECT pvt_dependencyresolverv2;
-  //Whether a dependencyresolver warning has been issued
-  BOOLEAN warned_dependencyresolver;
   //preparing for page? (ie can't change contentnavstops)
   BOOLEAN __preparingforpage;
   //is pageobject a new style page object?
@@ -186,7 +181,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING relativelinksscope;
   ///Create relative bases (imgroot, designroot, siteroot), according to the relative scope
   PUBLIC BOOLEAN relativebases;
-  ///Base folder of the design, either site::x/y/z/ or moduleroot::a/b/c/
+  ///Base folder of the design (mod::a/b/c/ ...)
   PUBLIC PROPERTY designfolder(this->__config.designfolder,-);
   ///URL of the design root folder. Passed as 'designroot' to the Witty
   PUBLIC STRING designrooturl;
@@ -240,8 +235,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC PROPERTY contentnavstops(pvt_contentnavstops, SetContentNavStops);
   ///Current site configuration record
   PUBLIC PROPERTY siteconfig(__GetSiteConfig, -);
-
-  PUBLIC PROPERTY dependencyresolver(GetDependencyResolver,-);
 
   PUBLIC PROPERTY webtoolform(GetWebtoolForm, -);
 
@@ -319,64 +312,24 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       }
     }
 
-    IF(this->__config.designfolder LIKE "mod::*")
-    {
-      this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config, FALSE);
-
-      this->designrooturl := this->pvt_dependencyresolverv2->designroot; //FIXME readd the version hash, see below
-      this->asyncbundle := this->__config.asyncbundle;
-
-      IF(this->pvt_targetsite->cdnbaseurl != "")
-      {
-        this->designcdnrooturl := ResolveToAbsoluteURL(this->pvt_targetsite->cdnbaseurl, this->designrooturl);
-        imgcache_globalbaseurl := this->designcdnrooturl;
-      }
-      ELSE
-      {
-        this->designcdnrooturl := this->designrooturl;
-      }
-    }
-    ELSE IF(this->__config.designfolder != "")
-    {
-      OBJECT designfolder := OpenWHFSObjectByPath(this->__config.designfolder);
-      IF(NOT ObjectExists(designfolder) OR NOT designfolder->isfolder)
-        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' could not be located");
-      IF(designfolder->url="")
-        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' has no output location");
-      IF(designfolder->typens!="http://www.webhare.net/xmlns/publisher/designfolder")
-        THROW NEW Exception("Design folder '" || this->__config.designfolder || "' is not of 'design folder' type");
-
-      this->designrooturl := designfolder->url;
-      RECORD unp := UnpackURL(this->designrooturl);
-      IF(unp.scheme IN ['http','https'] AND UnpackURL(this->baseurl).scheme = unp.scheme)
-        this->designrooturl := Substring(this->designrooturl,Length(unp.scheme)+1); //Create protocol-relative urls
-
-      OBJECT designparentsite := this->pvt_targetsite->id = designfolder->parentsite
-          ? this->pvt_targetsite
-          : OpenSite(designfolder->parentsite);
-
-      IF(designparentsite->cdnbaseurl != "") //only set ! urls if we really have a CDN (ADDME: you may still want to opt in to this to force image caches to update?)
-      {
-        this->designcdnrooturl := Substitute(designfolder->url, designparentsite->webroot, designparentsite->cdnroot);
-        this->designcdnrooturl := Left(this->designcdnrooturl, Length(this->designcdnrooturl)-1); //strip the '/'
-        INTEGER timestamp := GetDayCount(designfolder->modificationdate) * 864000 + (GetMsecondCount(designfolder->modificationdate)/100);
-        this->designcdnrooturl := this->designcdnrooturl || "/!" || ToString(timestamp,36) || "/";
-
-        RECORD cdnunp := UnpackURL(this->designcdnrooturl);
-        IF(cdnunp.scheme IN ['http','https'] AND UnpackURL(this->baseurl).scheme = cdnunp.scheme)
-          this->designcdnrooturl := Substring(this->designcdnrooturl,Length(cdnunp.scheme)+1); //Create protocol-relative urls
-      }
-      ELSE
-      {
-        this->designcdnrooturl := this->designrooturl;
-      }
-
-      //ADDME also init depsolver if no base dependency is given?
-      this->pvt_dependencyresolver := CreateDependencyResolver(designfolder->id, this->__config.basedependency ?? "--none--");
-    }
-    ELSE IF(this->__config.basedependency != "")
-    {
+    IF(this->__config.designfolder != "" AND this->__config.designfolder NOT LIKE "mod::*")
+      THROW NEW Exception("Support for v1 designfiles has been removed");
+    IF(this->__config.designfolder != "" AND  this->__config.basedependency != "")
       THROW NEW Exception("The base dependency was specified, but no designfolder was given");
+
+    this->pvt_dependencyresolverv2 := CreateDependencyResolverForModuleDesign(this->__config, FALSE);
+
+    this->designrooturl := this->pvt_dependencyresolverv2->designroot; //FIXME readd the version hash, see below
+    this->asyncbundle := this->__config.asyncbundle;
+
+    IF(this->pvt_targetsite->cdnbaseurl != "")
+    {
+      this->designcdnrooturl := ResolveToAbsoluteURL(this->pvt_targetsite->cdnbaseurl, this->designrooturl);
+      imgcache_globalbaseurl := this->designcdnrooturl;
+    }
+    ELSE
+    {
+      this->designcdnrooturl := this->designrooturl;
     }
 
     IF(IsRequest())
@@ -943,17 +896,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     }
   }
 
-  ///@private Part of the sitedesign API, deprecated
-  PUBLIC OBJECT FUNCTION GetDependencyResolver()
-  {
-    IF(NOT this->warned_dependencyresolver)
-    {
-      this->AddPublicationWarning("Directly accessing the dependencyresolver is deprecated and will be removed"); //So we can properly integrate it
-      this->warned_dependencyresolver := TRUE;
-    }
-    RETURN this->pvt_dependencyresolver;
-  }
-
   PUBLIC RECORD ARRAY FUNCTION GetAllDependedAssets() //This function is deprecated! Serviceworkers should download the assetpack manifest
   {
     IF(NOT ObjectExists(this->pvt_dependencyresolverv2))
@@ -966,17 +908,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC BOOLEAN FUNCTION IsRTDPreview()
   {
     RETURN FALSE;
-  }
-
-  PUBLIC RECORD ARRAY FUNCTION GetDesignRequires()
-  {
-    RETURN this->pvt_dependencyresolverv2->GetRequires();
-  }
-
-  ///@private Part of the sitedesign API, deprecated
-  PUBLIC RECORD ARRAY FUNCTION GetDesignRepositories()
-  {
-    RETURN ObjectExists(this->pvt_dependencyresolver) ? this->pvt_dependencyresolver->GetRepositoryNameAndVersions() : DEFAULT RECORD ARRAY;
   }
 
   /** Return the pages to render */
@@ -1149,15 +1080,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     BOOLEAN uselegacyscripttag;
     Print('<script type="application/json" id="wh-config">' || EncodeJSON(finaljsconfig) || '</script>');
 
-    IF(ObjectExists(this->pvt_dependencyresolver))
-    {
-      this->pvt_dependencyresolver->designrooturl := data.designcdnroot;
-      this->pvt_dependencyresolver->relativelinksscope := this->relativelinksscope;
-      this->pvt_dependencyresolver->baseurl := this->baseurl;
-      this->pvt_dependencyresolver->suppresstimestamps :=this->__suppresstimestamps;
-      this->pvt_dependencyresolver->PrintHeaders();
-    }
-    ELSE IF(ObjectExists(this->pvt_dependencyresolverv2))
+
+    IF(ObjectExists(this->pvt_dependencyresolverv2))
     {
       /* If linkmode is absolute:
           our path needs to the design needs to be absolute. take the CDN in prod, and take our own design in dev

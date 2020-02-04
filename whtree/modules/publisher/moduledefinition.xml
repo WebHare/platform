@@ -1071,8 +1071,6 @@
   </publisher>
 
   <services>
-    <localservice name="depresolver" library="internal/webdesign/depresolver.whlib" objectname="DepResolver" reuse="false" withtransaction="false"/>
-
     <webservice name="forms" transports="jsonrpc" library="internal/forms/rpc.whlib" requirewhaccount="false" primarytrans="none" prefix="RPC_">
       <accesscheck/>
     </webservice>
