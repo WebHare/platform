@@ -229,6 +229,7 @@ RECORD ARRAY FUNCTION GetCachableColumns(OBJECT trans, STRING schemaname, STRING
            , data_type :=                 typname || (atttypid IN [ 1042, 1043 ] ? `(${atttypmod - 4})` : atttypid IN [ 1560, 1562 ] ? `(${atttypmod})` : "")
            , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
            , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
+           , is_unique_constraint_name := (SELECT AS STRING COLUMN conname FROM attr_constraints WHERE contype = "u" OR contype = "p")
            , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
            , referenced_table_schema :=   RecordExists(foreignkey) ? foreignkey.referenced_table_schema : ""
            , check_expression :=          (SELECT AS STRING COLUMN check_expression FROM attr_constraints WHERE contype = "c")
@@ -954,13 +955,20 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
             IF(coldef.nullable != curcol.is_nullable)
               context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.nullable ? " DROP NOT NULL" : " SET NOT NULL"}`);
             IF(coldef.isunique != curcol.is_unique)
-              context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ALTER COLUMN ${PostgreSQLEscapeIdentifier(coldef.name)}${coldef.isunique ? " SET UNIQUE" : " DROP UNIQUE"}`);
+              IF(coldef.isunique)
+              {
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ADD UNIQUE (${PostgreSQLEscapeIdentifier(coldef.name)})`);
+              }
+              ELSE
+              {
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${PostgreSQLEscapeIdentifier(curcol.is_unique_constraint_name)}`);
+              }
 
             IF (NOT AreExpressionsEquivalent(curcol.check_expression, coldef.check = "" ? "" : `CHECK ${coldef.check}`))
             {
 
               IF (curcol.check_expression != "")
-                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${curcol.check_constraint_name}`);
+                context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} DROP CONSTRAINT ${PostgreSQLEscapeIdentifier(curcol.check_constraint_name)}`);
               IF (coldef.check != "")
                 context->AddCommand(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaspec.name)}.${PostgreSQLEscapeIdentifier(tablerec.name)} ADD CHECK ${coldef.check}`);
             }
