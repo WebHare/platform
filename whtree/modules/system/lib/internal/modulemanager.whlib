@@ -126,7 +126,7 @@ BOOLEAN FUNCTION AnyActiveNodes(RECORD curlevel)
 PUBLIC RECORD FUNCTION InitModuleRegistryKeys(RECORD ARRAY modules)
 {
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
-  GetPrimary()->BeginWork();
+  GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmoduleregistrykeys" ]);
 
   RECORD ARRAY allregkeys;
   FOREVERY(RECORD module FROM modules)
@@ -158,7 +158,7 @@ PUBLIC RECORD FUNCTION InitModuleIndependents(RECORD ARRAY modules, BOOLEAN list
   //ADDME: If we could execute failing SQL commands without destroying the transaction, we could do with less commits ?
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
 
-  GetPrimary()->BeginWork();
+  GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmoduleindependents" ]);
 
 //  IF (NOT pre) //FIXME reuse data from GRSD
   {
@@ -232,7 +232,7 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   //ADDME: If we could execute failing SQL commands without destroying the transaction, we could do with less commits ?
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
 
-  GetPrimary()->BeginWork([ mutex := "system:initmoduletables" ]);
+  GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmoduletables" ]);
 
   RECORD cmds;
   IF(Length(module.databaseschemas)>0)
@@ -267,7 +267,7 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
 
 PUBLIC RECORD FUNCTION InitModuleRights(RECORD module, BOOLEAN update_module_modtime)
 {
-  GetPrimary()->BeginWork();
+  GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmodulerights" ]);
 
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
   RECORD rightres := CreateModuleRights(module, update_module_modtime);
@@ -1055,7 +1055,7 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
 
     IF(NOT res.error)
     {
-      GetPrimary()->BeginWork();
+      GetPrimary()->BeginWork([ mutex := "system:modulemanager.setrunoncefinishtime" ]);
       WriteRegistryKey(regkey, GetCurrentDateTime(), [createifneeded := TRUE]);
       GetPrimary()->CommitWork();
     }
