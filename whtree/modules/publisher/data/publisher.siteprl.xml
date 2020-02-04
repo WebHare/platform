@@ -11,12 +11,6 @@
 
   -->
 
-  <language xmlns="http://www.webhare.net/xmlns/tollium/screens">
-  </language>
-
-  <language xml:lang="nl" xmlns="http://www.webhare.net/xmlns/tollium/screens">
-  </language>
-
   <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultrtdtype">
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" textstyles="i u" />
