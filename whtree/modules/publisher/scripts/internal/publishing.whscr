@@ -72,33 +72,14 @@ FOREVERY (STRING file FROM arguments.files)
 }
 
 BOOLEAN debug := arguments.debug;
-BOOLEAN interactive_conversion := LENGTH(my_files) = 0;
 
 DATETIME total_start := GetCurrentDateTime();
 
-
-WHILE (TRUE)
+//IDs are given on the command line
+WHILE (LENGTH(my_files) > 0)
 {
-  INTEGER fileid;
-  if (NOT interactive_conversion) //IDs are given on the command line
-  {
-    IF (LENGTH(my_files) = 0)
-        BREAK;
-    fileid := my_files[0];
-    DELETE FROM my_files AT 0;
-  }
-  ELSE //IDs are read from the stdin
-  {
-    STRING file := ReadLineFrom(0, 256, TRUE);
-
-    fileid := ToInteger(file, -1);
-    IF (fileid != ToInteger(file, 0))
-    {
-      PRINT("Received unexpected command '" || file || "'\n");
-      SetConsoleExitCode(1); // EXIT_FAILURE
-      RETURN;
-    }
-  }
+  INTEGER fileid := my_files[0];
+  DELETE FROM my_files AT 0;
 
   DATETIME start := GetCurrentDateTime();
 

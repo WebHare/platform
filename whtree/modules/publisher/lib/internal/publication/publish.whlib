@@ -22,7 +22,6 @@ PUBLIC BOOLEAN measure;
 
 PUBLIC STATIC OBJECTTYPE Reader
 <
-  // Fully privileged transaction
   OBJECT localfs;
   OBJECT process;
   PUBLIC DATETIME publishstart;
