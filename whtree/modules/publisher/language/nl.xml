@@ -2046,6 +2046,11 @@
   <textgroup gid="rights">   <!-- rights -->
     <text tid="bulkhistory">Bulk geschiendis-invoer</text>
     <text tid="bulkhistory-descr">Dit recht stelt gebruikers in staat URL-geschiedenis URLs in bulk in te voeren middels een alternatieve interface.</text>
+    <text tid="feedbackscopes">Feedback-scopes</text>
+    <text tid="managefeedback">Feedback beheren</text>
+    <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
+    <text tid="managefeedbackscope">Feedback voor een scope beheren</text>
+    <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
@@ -2288,6 +2293,34 @@
         <text tid="screentitle">Voorbeeldlink delen</text>
         <text tid="validinthepast">Het 'geldig tot' veld moet in de toekomst liggen.</text>
         <text tid="validuntil">Geldig tot</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
+      <text tid="apptitle">Feedback</text>
+      <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Apparaat</text>
+        <text tid="download">HTML downloaden</text>
+        <text tid="extradata">Aanvullende gegevens</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="login">Gebruikersnaam</text>
+        <text tid="noextradata">Er zijn geen aanvullende gegevens beschikbaar</text>
+        <text tid="scaled">Maak de schermafbeelding passend</text>
+        <text tid="useragent">User-Agent</text>
+        <text tid="wrd_creationdate">Wanneer</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="browser">Browser</text>
+        <text tid="device">Apparaat</text>
+        <text tid="feedback">Feedback</text>
+        <text tid="main">Feedback</text>
+        <text tid="scope">Scope</text>
+        <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
+        <text tid="wrd_creationdate">Wanneer</text>
+        <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
+          <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
+          <text tid="unsupportedversion">Deze feedback kan niet worden weergegeven.</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->

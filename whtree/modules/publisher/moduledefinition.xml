@@ -37,16 +37,35 @@
   </servicemanager>
 
   <rights>
-    <right name="pinning" rightsgroup="system:fs" tid="publisher:rights.pinning" descriptiontid="rights.pinning-descr">
+    <right name="pinning" rightsgroup="system:fs" tid="rights.pinning" descriptiontid="rights.pinning-descr">
       <impliedby right="system:supervisor"/>
     </right>
+
+    <objecttype name="feedbackscopes"
+                table="wrd.entities"
+                rightsgroup="system:default"
+                tid="rights.feedbackscopes"
+                describer="lib/internal/support.whlib#feedbackscopesdescriber" />
+    <right name="managefeedback"
+           rightsgroup="system:default"
+           tid="rights.managefeedback"
+           descriptiontid="rights.managefeedback-descr">
+      <impliedby right="system:supervisor"/>
+    </right>
+    <right name="managefeedbackscope"
+           objecttype="feedbackscopes"
+           tid="rights.managefeedbackscope"
+           descriptiontid="rights.managefeedbackscope-descr">
+      <impliedby right="managefeedback"/>
+    </right>
+    <!--ADDME: Add explicit rights for specific feedback scopes? -->
 
     <objecttype name="worklists"
                 table=".worklists"
                 tid="rights.worklists"
                 describer="lib/internal/support.whlib#worklistsdescriber" />
 
-    <right name="worklist_resolve" objecttype="worklists" tid="publisher:rights.worklist_resolve" isrootright="true">
+    <right name="worklist_resolve" objecttype="worklists" tid="rights.worklist_resolve" isrootright="true">
       <impliedby right="worklist_resolve" />
     </right>
   </rights>
@@ -78,6 +97,17 @@
     <application name="webtoolform" screen="tolliumapps/formedit/formedit.xml#editor" icon="tollium:files/application_x-webhare-survey">
       <accesscheck>
         <requireright right="system:sysop"/>
+      </accesscheck>
+    </application>
+
+    <application name="feedback"
+                 group="system:development"
+                 screen="tolliumapps/feedback/main.xml#main"
+                 tid="tolliumapps.feedback.apptitle"
+                 icon="tollium:actions/checklist"
+                 maxservertype="development">
+      <accesscheck>
+        <requireright right="managefeedbackscope"/>
       </accesscheck>
     </application>
 
@@ -1058,6 +1088,8 @@
     <webservice name="poll" transports="jsonrpc" library="webtools/internal/pollrpc.whlib" primarytrans="none" prefix="RPC_" />
     <webservice name="forum" transports="jsonrpc" library="internal/forum/rpc.whlib" primarytrans="none" prefix="RPC_" />
 
+    <webservice name="feedback" transports="jsonrpc" library="internal/feedback/rpc.whlib" primarytrans="auto" prefix="RPC_" />
+
     <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
 
     <check objectname="lib/internal/checks.whlib#SiteprofileCheck" />
@@ -1084,4 +1116,8 @@
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/siteprofile" schemalocation="data/siteprofile.xsd" rootnodes="siteprofile" validator="lib/internal/siteprofiles/validation.whlib#SiteprofValidator"/>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/publisher/forms" schemalocation="x-webhare-builtin-xsd:components.xsd?type=formcomponents" rootnodes="formdefinitions" validator="lib/internal/forms/validation.whlib#FormdefValidator"/>
   </validation>
+
+  <wrdschemas>
+    <schema tag="feedback" title="Feedback storage schema" definitionfile="mod::publisher/data/wrdschemas/feedback.wrdschema.xml" maxservertype="development" />
+  </wrdschemas>
 </module>

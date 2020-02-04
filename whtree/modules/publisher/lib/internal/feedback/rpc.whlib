@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/feedback.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
+PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING scope, RECORD data)
+{
+  data := EnforceStructure(
+      [ version := 0
+      , screenshot :=
+        [ htmlattrs := [ [ name := "", value := "" ] ]
+        , stylesheets := STRING[]
+        , bodyattrs := [ [ name := "", value := "" ] ]
+        , bodyContents := ""
+        ]
+      , size :=
+        [ width := 0
+        , height := 0
+        ]
+      , element :=
+        [ top := 0
+        , left := 0
+        , width := 0
+        , height := 0
+        ]
+      , browser := ""
+      , device := ""
+      , useragent := ""
+      , extradata := DEFAULT RECORD
+      ], data);
+
+  RECORD userdata;
+  TRY
+  {
+    OBJECT authplugin := GetWRDAuthPlugin(GetWebHeader("Referer"));
+    IF (ObjectExists(authplugin->userapi))
+      userdata := authplugin->userapi->GetUser(authplugin->GetLoggedInEntity())->GetUserDataForLogging();
+  }
+  CATCH;
+
+  GetPrimary()->BeginWork();
+  TRY
+  {
+    STRING guid := StoreFeedback(scope, CELL[ ...data, userdata ]);
+    RETURN CELL
+        [ success := TRUE
+        , guid
+        ];
+  }
+  // Use FINALLY here to catch the exception, so we can safely rollback or commit in case of error resp. success (using CATCH
+  // to catch the exception 'eats' the exception)
+  FINALLY (OBJECT e)
+  {
+    IF (ObjectExists(e))
+    {
+      GetPrimary()->RollbackWork();
+      RETURN
+          [ success := FALSE
+          , error := e->what
+          ];
+    }
+    ELSE
+      GetPrimary()->CommitWork();
+  }
+}

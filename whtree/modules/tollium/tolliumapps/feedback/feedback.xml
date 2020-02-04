@@ -1,0 +1,36 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="feedback.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="tolliumapps"
+         >
+
+  <screen name="feedback"
+          gid=".feedback"
+          tid=".apptitle">
+    <compositions>
+      <record name="extradata" />
+    </compositions>
+    <body>
+      <line layout="left">
+        <text title="" valuetid=".intro" wordwrap="true" />
+      </line>
+      <select composition="extradata" cellname="type" type="radio">
+        <option rowkey="feedback" />
+        <option rowkey="bug" />
+        <option rowkey="missingtid" />
+        <option rowkey="layout" />
+      </select>
+      <textarea composition="extradata" cellname="remarks" />
+      <arrayedit composition="extradata" cellname="extrafields" visible="false">
+        <column name="field" type="text" title="" />
+        <column name="type" type="text" title="" />
+        <column name="tid" type="text" title="" />
+      </arrayedit>
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

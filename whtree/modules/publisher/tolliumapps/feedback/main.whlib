@@ -1,0 +1,209 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+CONSTANT FLOAT maxscreenshotsize := 640;
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+< //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
+  }
+
+  MACRO Init(RECORD data)
+  {
+    ^scope->options :=
+        SELECT rowkey := wrd_tag
+             , title := ToLowercase(wrd_tag)
+          FROM this->contexts->wrdschema->^scope->RunQuery([ outputcolumns := [ "wrd_id", "wrd_tag" ]])
+         WHERE this->tolliumuser->HasRightOn("publisher:managefeedbackscope", wrd_id)
+         ORDER BY wrd_tag;
+    IF (Length(^scope->options) <= 1)
+      ^scope->visible := FALSE;
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoView()
+  {
+    IF (NOT CellExists(^feedback->selection, "version") OR ^feedback->selection.version != 1)
+      this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
+    ELSE
+      this->RunScreen("#feedback", ^feedback->selection);
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmdeletefeedback")) = "yes")
+    {
+      OBJECT work := this->BeginWork();
+      this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->selection.wrd_id, [ wrd_limitdate := GetCurrentDateTime() ]);
+      work->Finish();
+    }
+  }
+
+  MACRO DoExit()
+  {
+    this->tolliumresult := "close";
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnSelectScope()
+  {
+    INTEGER scopeid := this->contexts->wrdschema->^scope->Search("wrd_tag", ^scope->value);
+    ^feedback->listfilters := [ [ field := "wrd_leftentity", value := scopeid ] ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD data;
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+    ^data->value := data;
+
+    // The 'extrafields' cell contains field definitions to show extra data
+    IF (CellExists(this->data.extradata, "extrafields") AND TypeID(this->data.extradata.extrafields) = TypeID(RECORD ARRAY))
+    {
+      // The 'there is no extra data available' text doesn't have to be displayed
+      ^noextradata->DeleteComponent();
+
+      FOREVERY (RECORD extra FROM this->data.extradata.extrafields)
+      {
+        extra := EnforceStructure(
+            [ field := ""
+            , type := ""
+            , title := ""
+            , tid := ""
+            , optiongid := ""
+            ], extra);
+        IF (NOT CellExists(this->data.extradata, extra.field))
+          CONTINUE;
+
+        OBJECT comp;
+        SWITCH (extra.type)
+        {
+          CASE "string" {
+            comp := this->CreateTolliumComponent("text");
+            comp->value := GetCell(this->data.extradata, extra.field);
+          }
+          CASE "integer" {
+            comp := this->CreateTolliumComponent("text");
+            comp->value := ToString(GetCell(this->data.extradata, extra.field));
+          }
+          CASE "tid" {
+            comp := this->CreateTolliumComponent("text");
+            STRING tid := GetCell(this->data.extradata, extra.field);
+
+            // Try to resolve the tid if this is not an absolute tid reference
+            IF (tid NOT LIKE "*:*")
+            {
+              IF (extra.optiongid != "")
+                tid := extra.optiongid || "." || tid;
+              ELSE
+                tid := extra.tid || "-" || tid;
+            }
+            IF (tid LIKE "*:*")
+              comp->value := GetTid(tid);
+            ELSE
+              comp->value := tid;
+          }
+        }
+
+        IF (ObjectExists(comp))
+        {
+          comp->title := extra.tid = "" ? extra.title : GetTid(extra.tid);
+          IF (comp->componenttype = "text")
+            comp->selectable := TRUE;
+          this->frame->bodynode->InsertComponentAfter(comp, DEFAULT OBJECT, TRUE);
+        }
+      }
+    }
+
+    // Load the stored screenshot into the container iframe
+    ^screenshot->value := LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI")->RunComponentToString("container", CELL
+        [ width := INTEGER(Ceil(data.size.width))
+        , height := INTEGER(Ceil(data.size.height))
+        , url := ^screenshot->AddEmbeddedObject(this->GenerateScreenshotHtml(), "text/html") || "&__test=sandbox"
+        , scaled := ^scaled->value
+        ]);
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnScaleIframe()
+  {
+    ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Action handlers
+  //
+
+  MACRO DoDownload(OBJECT handler)
+  {
+    handler->SendFile(this->GenerateScreenshotHtml(), "text/html", `screenshot-${this->tolliumuser->FormatDateTime(this->data.wrd_creationdate, "minutes", TRUE, TRUE)}.html`);
+  }
+
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BLOB FUNCTION GenerateScreenshotHtml()
+  {
+    STRING ARRAY stylesheets := this->data.screenshot.stylesheets;
+    INSERT BlobToString(GetWebHareResource("mod::publisher/js/feedback/styles.css")) INTO stylesheets AT END;
+
+    RETURN LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI")->RunComponentToBlob("screenshot", CELL
+        [ this->data.screenshot.htmlattrs
+        , stylesheets
+        , this->data.screenshot.bodyattrs
+        , this->data.screenshot.bodycontents
+        , element := EnforceStructure([ top := 0, left := 0, width := 0, height := 0 ], this->data.element)
+        ]);
+  }
+>;

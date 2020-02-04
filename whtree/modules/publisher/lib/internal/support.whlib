@@ -12,6 +12,8 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT ConvertToWillPublis
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 
 PUBLIC RECORD publisher_settings :=
   [ widget_preview_expiry := 8*60*60*1000 //8 hours
@@ -218,5 +220,34 @@ PUBLIC OBJECTTYPE WorkListsDescriber EXTEND ObjectTypeDescriber
              , icon := "tollium:actions/checklist"
           FROM publisher.worklists
          WHERE id = objectid;
+  }
+>;
+
+PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
+<
+  OBJECT wrdschema;
+
+  MACRO NEW()
+  {
+    this->wrdschema := OpenWRDSchema("publisher:feedback");
+  }
+
+  PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
+  {
+    RECORD scope := this->wrdschema->^scope->GetEntityFields(objectid, [ "wrd_tag" ]);
+    IF (NOT RecordExists(scope))
+      RETURN DEFAULT RECORD;
+
+    RETURN [ id :=    objectid
+           , name :=  ToLowercase(scope.wrd_tag)
+           , icon :=  "tollium:actions/checklist"
+           ];
+  }
+
+  PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
+  {
+    RETURN this->wrdschema->^scope->FindIds(
+        [ filters := [ [ field := "wrd_tag", matchtype := "!=", value := "" ] ]
+        ]);
   }
 >;

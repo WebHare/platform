@@ -29,6 +29,10 @@
       </accesscheck>
     </application>
 
+    <application name="feedback" screen="tolliumapps/feedback/feedback.xml#feedback">
+      <accesscheck/>
+    </application>
+
     <notification name="notifications.testnotification" tid="notifications.testnotification" descriptiontid="notifications.testnotification-desc"/>
   </portal>
 
