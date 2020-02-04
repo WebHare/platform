@@ -742,7 +742,10 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
     OBJECT appcontexts := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "appcontexts")->Item(0);
     IF(ObjectExists(appcontexts))
+    {
+      this->AddWarning(node, "<appcontexts> have been deprecated and generalized into this->contexts");
       app.appcontexts := ParseAppContexts(this->moduledef.name, appcontexts);
+    }
 
     IF(node->HasAttribute("permissions"))
       this->AddWarning(node, "permissions= no longer has any effect and should be removed");
