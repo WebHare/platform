@@ -232,7 +232,7 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   //ADDME: If we could execute failing SQL commands without destroying the transaction, we could do with less commits ?
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
 
-  GetPrimary()->BeginWork();
+  GetPrimary()->BeginWork([ mutex := "system:initmoduletables" ]);
 
   RECORD cmds;
   IF(Length(module.databaseschemas)>0)
@@ -250,7 +250,16 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   }
 
   result.commands := SELECT *, module := module.name FROM cmds.commands;
-  ExecuteSQLUpdates(GetPrimary(), result.commands);
+  TRY
+  {
+    ExecuteSQLUpdates(GetPrimary(), result.commands);
+  }
+  CATCH(OBJECT e) //explicitly catching as we don't have errordelay currently... get at least ONE error
+  {
+    GetPrimary()->RollbackWork();
+    INSERT [ module := module.name, text := e->what ] INTO result.commitmessages AT END;
+    RETURN result;
+  }
 
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
   RETURN result;

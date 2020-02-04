@@ -66,7 +66,39 @@ MACRO TestIndexDrops()
 `);
 }
 
+MACRO TestColumnAttributes()
+{
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="attrtest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256"/>
+    </d:table>
+  </databaseschema>
+`);
+
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="attrtest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="512" unique="true" nullable="false"/>
+    </d:table>
+  </databaseschema>
+`);
+
+  //and revert
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="attrtest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256"/>
+    </d:table>
+  </databaseschema>
+`);
+}
+
 RunTestframework([ PTR SetupTempSchema
                  , PTR TestByteaConversion
                  , PTR TestIndexDrops
+                 , PTR TestColumnAttributes
                  ]);
