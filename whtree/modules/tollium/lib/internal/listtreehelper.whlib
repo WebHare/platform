@@ -419,8 +419,6 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
             AnyToString((SELECT rowkey
                              , title :=   CellExists(duplicates, "TITLE") ? title : "n/a"
                           FROM duplicates), "boxed"));
-        IF(this->pvt_callback->owner->tolliumcontroller->intolerant)
-          ABORT("Duplicates in list");
       }
       newmapping :=
           SELECT rowkey
