@@ -778,6 +778,8 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
                 dataset.__extrafields := CellInsert(dataset.__extrafields, field.name, UnmapValueType(ToLowercase(GetTypeName(TypeID(field.value))), field.value, "", FALSE));
             }
             Print(GetDatasetAsString(dataset));
+            IF(opt.visiblecondition != "")
+              Print(` data-wh-form-visible-if="${EncodeValue(opt.visiblecondition)}"`);
             Print(`>${opt.htmllabel}</option>`);
           }
         }
