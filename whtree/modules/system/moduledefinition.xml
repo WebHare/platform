@@ -1137,7 +1137,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
-      <d:varchar name="name" maxlength="256">
+      <d:varchar name="name" maxlength="256" unique="true" nullable="false">
         <d:documentation>
 
         </d:documentation>
@@ -1155,7 +1155,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
-      <d:varchar name="name" maxlength="256">
+      <d:varchar name="name" maxlength="256" nullable="false">
         <d:documentation>
 
         </d:documentation>
@@ -1165,7 +1165,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
-      <d:varchar name="storagetable" maxlength="256">
+      <d:varchar name="storagetable" maxlength="256" nullable="false">
         <d:documentation>
 
         </d:documentation>
@@ -1195,6 +1195,10 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
+      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
     </d:table>
 
     <d:table name="module_rights" primarykey="id">
@@ -1203,7 +1207,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
-      <d:varchar name="name" maxlength="256">
+      <d:varchar name="name" maxlength="256" nullable="false">
         <d:documentation>
 
         </d:documentation>
@@ -1218,6 +1222,10 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
+      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
+        <d:documentation>
+        </d:documentation>
+      </d:index>
     </d:table>
 
     <d:table name="module_impliedbys" primarykey="id">
