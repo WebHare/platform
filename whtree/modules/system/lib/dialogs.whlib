@@ -95,7 +95,7 @@ PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD optio
     @cell(string array) options.mailto Suggested mail receiver
     @cell(string array) options.mailcc Suggested mail CC
     @cell(string array) options.mailbcc Suggested mail BCC
-    @cell(string array) options.hiddenbcc Additonal BCC addressess, will not appear in the dialog
+    @cell(string array) options.hiddenbcc Additional BCC addresses, will not appear in the dialog
     @cell(string) options.subject Suggested mail subject
     @cell(object) options.email Email created using %PrepareMailWitty which will be used as the base
     @cell(record array) options.attachments Attachments to add to the mail. Should be a list of wrapped blob records (%WrapBlob)
