@@ -143,10 +143,20 @@ MACRO TestPrimitiveValues()
     }
   }
 
+  // Test touppercase on binary columns
   trans->BeginWork();
   DELETE FROM testtable;
   INSERT [ id := 1, binaryvarchar := DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ] INTO testtable;
   TestEQ(1, SELECT AS INTEGER id FROM testtable WHERE ToUppercase(binaryvarchar) = ToUppercase(DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104")));
+  trans->RollbackWork();
+
+  // Test limit handling when harescript does afterfiltering. Bit racy for detecting errors, depends on id=1 being found first by PostgreSQL
+  trans->BeginWork();
+  DELETE FROM testtable;
+  INSERT [ id := 1, normalvarchar := "NO_MATCH" ] INTO testtable;
+  INSERT [ id := 2, normalvarchar := "WRD" ] INTO testtable;
+  TestEQ(2, SELECT AS INTEGER id FROM testtable WHERE ToLowercase(normalvarchar) = "wrd");
+  TestEQ(2, SELECT AS INTEGER Any(id) FROM testtable GROUP BY normalvarchar HAVING ToLowercase(normalvarchar) = "wrd");
   trans->RollbackWork();
 
   trans->BeginWork();

@@ -579,7 +579,7 @@ void OpenQuery::Open(QueryDefinition &querydef, std::vector<VarId> &_values)
         // Set limit if applicable
         if (subqueries.size() == 1)
         {
-                if (!subqueries[0].GetTransaction() || subqueries[0].GetTransaction()->description.supports_limit)
+                if (!querydef.has_fase1_hscode && (!subqueries[0].GetTransaction() || subqueries[0].GetTransaction()->description.supports_limit))
                     subqueries[0].querydef.limit = querydef.limit;
                 else
                     subqueries[0].querydef.limit = -1;
