@@ -543,10 +543,11 @@ if [ -z "$ARTIFACTS" ]; then
   fi
 fi
 
-# Can't use docker cp due to the volume at /opt/whdata/, this method
-mkdir -p $ARTIFACTS/
-$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/
-$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/
+# Can't use docker cp due to the volume at /opt/whdata/
+mkdir -p $ARTIFACTS/whdata
+$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata/
 $SUDO docker exec $CONTAINER tar -c -C / tmp | tar -x -C $ARTIFACTS/
 
 if [ -n "$COVERAGE" ]; then
