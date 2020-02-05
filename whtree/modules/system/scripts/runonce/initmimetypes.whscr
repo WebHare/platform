@@ -554,8 +554,8 @@ RECORD ARRAY standard_mimetypes :=
 , [ mimetype := "model/vnd.vtu", extensions := "vtu", parsetype := 0 ]
 , [ mimetype := "model/vrml", extensions := "wrl vrml", parsetype := 0]
 , [ mimetype := "text/cache-manifest", extensions := "appcache", parsetype := 0 ]
-, [ mimetype := "text/calendar", extensions := "ics ifb", parsetype := 0 ]
-, [ mimetype := "text/css", extensions := "css", parsetype := 0 ]
+, [ mimetype := "text/calendar; charset=UTF-8", extensions := "ics ifb", parsetype := 0 ]
+, [ mimetype := "text/css; charset=UTF-8", extensions := "css", parsetype := 0 ]
 , [ mimetype := "text/csv", extensions := "csv", parsetype := 0 ]
 , [ mimetype := "text/html; charset=UTF-8", extensions := "html htm", parsetype := 0 ]
 , [ mimetype := "text/html; charset=UTF-8", extensions := "shtml whlink", parsetype := 1 ]
@@ -603,7 +603,8 @@ RECORD ARRAY standard_mimetypes :=
 
 DELETE FROM system.mimetypes WHERE mimetype="application/mp4" AND extension="mp4"; //make sure appliaction/mp4 incorrect type is gone
 STRING ARRAY curextensions := SELECT AS STRING ARRAY ToUppercase(extension) FROM system.mimetypes;
-
+UPDATE system.mimetypes SET mimetype := "text/css; charset=UTF-8" WHERE mimetype = "text/css" AND extension = "css";
+UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension = "css";
 
 FOREVERY(RECORD installtype FROM standard_mimetypes)
 {
