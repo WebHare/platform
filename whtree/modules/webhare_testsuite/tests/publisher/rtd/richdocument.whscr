@@ -188,7 +188,7 @@ MACRO ParserApiTest()
 
   TestEq(TRUE, parserobject->HasContent());
   TestEq(TRUE, mergedobject->HasContent());
-  TestEqLike('<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: <img class="wh-rtd__img wh-rtd-img" *&amp;*/></p>', myfilter->GetFiltered(parserobject));
+  TestEqLike('<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br />met een soft-break en een afbeelding: <img class="wh-rtd__img" *&amp;*/></p>', myfilter->GetFiltered(parserobject));
   TestEq('<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>', myfilter->GetFiltered(mergedobject));
 
   //note, <br> doesn't really affect tagfilter, we'll ouput it either way
