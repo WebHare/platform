@@ -35,7 +35,7 @@ PUBLIC OBJECTTYPE SharedBlocks EXTEND TolliumFragmentBase
     this->pvt_onchange := def.onchange;
     this->widgetlibrary := def.widgetlibrary;
 
-    OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->owner->contexts->applytester;
     IF (ObjectExists(applytester)) // FIXME: do we need to check?
     {
       RECORD parentfolderrec := SELECT id, whfspath FROM system.fs_objects WHERE id = applytester->objparent;
@@ -145,7 +145,7 @@ PUBLIC OBJECTTYPE SharedBlocks EXTEND TolliumFragmentBase
     IF(this->widgetlibrary="")
       RETURN DEFAULT INTEGER ARRAY;
 
-    OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->owner->contexts->applytester;
     IF(NOT ObjectExists(applytester))
       RETURN DEFAULT INTEGER ARRAY;
 

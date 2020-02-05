@@ -169,7 +169,7 @@ PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase
     IF(this->pvt_taglibrary != "")
     {
       //'modern' usage.
-      OBJECT applytester := this->owner->contexts->applytester ?? this->GetAppContext("publisher:applytester");
+      OBJECT applytester := this->owner->contexts->applytester;
       IF(NOT ObjectExists(applytester))
         THROW NEW TolliumException(this, "Unable to load the TagManager: No applytester available");
 

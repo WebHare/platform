@@ -579,17 +579,13 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
     RETURN RecordExists(value) ? CELL[ ...value, whfstype ] : DEFAULT RECORD;
   }
 
-  RECORD ARRAY appcontexts;
-  IF(ObjectExists(applytester))
-    INSERT [ name := "publisher:applytester", context := applytester ] INTO appcontexts AT END;
-
+  RECORD contexts := [ applytester := applytester ];
   IF(typedef.editor.type="screen")
   {
     OBJECT screen := parent->LoadScreen(typedef.editor.screen, [ value := value
                                                                , whfstype :=whfstype
                                                                , __typedef := typedef
-                                                               ], [ appcontexts := appcontexts
-                                                                  ]);
+                                                               ], CELL[ contexts ]);
     IF(screen->RunModal()!="ok")
       RETURN DEFAULT RECORD;
 
@@ -601,8 +597,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
     OBJECT context := NEW RichDocumentContext;
     context->rtdtypeinfo := rte->rtdtypeinfo; // get the RTD settings
     DELETE FROM context->rtdtypeinfo.allowedobjects WHERE NOT inherit;
-
-    INSERT [ name := "tollium:richdocumentcontext", context := context ] INTO appcontexts AT END;
+    INSERT CELL "^__tollium__richdocumentcontext" := context INTO contexts;
   }
 
   OBJECT dialog := parent->LoadScreen("publisher:commondialogs/embeddedobjects.editor",
@@ -611,8 +606,7 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
         , fsbaseobject := fsbaseobject
         , rte := rte
         , value := value
-        ], [ appcontexts := appcontexts
-           ]);
+        ], CELL[ contexts ]);
 
   IF(NOT ObjectExists(dialog))
   {

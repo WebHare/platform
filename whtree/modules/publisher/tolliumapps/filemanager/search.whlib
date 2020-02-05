@@ -42,7 +42,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     this->and_search := TRUE;
     this->results_limit := 100;
 
-    this->RegisterAppContext("publisher:searchfilters", NEW SearchFilterContext(PRIVATE this));
+    this->contexts->^__publisher_searchfilters :=  NEW SearchFilterContext(PRIVATE this);
 
     this->filterbuttontitle := GetTid("~search");
   }
@@ -144,12 +144,12 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
     }
     CATCH (OBJECT<SearchException> e)
     {
-      this->GetAppContext("publisher:searchfilters")->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searchexception", e->what));
+      this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searchexception", e->what));
       RETURN DEFAULT RECORD;
     }
     CATCH (OBJECT e)
     {
-      this->GetAppContext("publisher:searchfilters")->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searcherror", e->what));
+      this->contexts->^__publisher_searchfilters->filterscreen->RunSimpleScreen("error", GetTid("publisher:filemanager.search.filterpanel.searcherror", e->what));
       RETURN DEFAULT RECORD;
     }
 
@@ -210,7 +210,7 @@ PUBLIC OBJECTTYPE FilterPanel EXTEND WHFSFilterScreenBase
       STRING ARRAY curtypes := SELECT AS STRING ARRAY DISTINCT comp->type FROM ToRecordArray(this->filtercomps, "comp");
       nexttype :=
           SELECT AS STRING rowkey
-            FROM this->GetAppContext("publisher:searchfilters")->filtertypes
+            FROM this->contexts->^__publisher_searchfilters->filtertypes
            WHERE rowkey NOT IN curtypes;
     }
 
@@ -340,7 +340,7 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   UPDATE MACRO PostInitComponent()
   {
-    this->filtertype->options := this->GetAppContext("publisher:searchfilters")->filtertypes;
+    this->filtertype->options := this->contexts->^__publisher_searchfilters->filtertypes;
 
     // If this is a static component, set the static filter type (this will in turn run OnSelectType)
     IF (this->statictype != "")
@@ -382,12 +382,12 @@ PUBLIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
 
   MACRO DoAddFilter()
   {
-    this->GetAppContext("publisher:searchfilters")->AddFilter(this);
+    this->contexts->^__publisher_searchfilters->AddFilter(this);
   }
 
   MACRO DoDeleteFilter()
   {
-    this->GetAppContext("publisher:searchfilters")->DeleteFilter(this);
+    this->contexts->^__publisher_searchfilters->DeleteFilter(this);
   }
 
 
@@ -643,7 +643,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
   {
     this->initialcolumns := ^typeslist->columns;
 
-    IF (NOT this->GetAppContext("publisher:searchfilters")->showdeveloper)
+    IF (NOT this->contexts->^__publisher_searchfilters->showdeveloper)
     {
       ^showall->value := FALSE;
       ^showall->visible := FALSE;
@@ -674,7 +674,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
              , title := GetTid(title)
              , icon := ^typeslist->GetIcon(tolliumicon ?? "tollium:files/application_x-webhare-unknown")
              , namespace
-          FROM this->GetAppContext("publisher:searchfilters")->whfstypes
+          FROM this->contexts->^__publisher_searchfilters->whfstypes
          WHERE ^showall->value OR (NOT ishidden AND NOT isdevelopertype);
 
     FOREVERY (RECORD row FROM rows)

@@ -627,10 +627,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   {
     RETURN RECORD[];
   }
-  OBJECT FUNCTION GetCurrentApplytester()
-  {
-    RETURN this->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
-  }
 
   PUBLIC MACRO HandleServersideButton(STRING buttonname, STRING ARRAY params)
   {
@@ -657,14 +653,14 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         OBJECT screen := this->owner->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ this->rtdtypeinfo, addwidgets := this->GetAddedWidgetTypes() ]);
         IF (screen->RunModal() = "ok")
         {
-          RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->GetCurrentApplytester(), FALSE);
+          RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE);
           IF(RecordExists(insertvalue))
             this->InsertEmbeddedObject(insertvalue);
         }
       }
       CASE "object-video"
       {
-        RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->GetCurrentApplytester(), FALSE);
+        RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE);
         IF(RecordExists(insertvalue))
           this->InsertEmbeddedObject(insertvalue);
       }
@@ -940,7 +936,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       RETURN [ type := "remove" ];
     }
 
-    instance := DoEditWidget(this->owner, this, instance.whfstype, instance, DEFAULT OBJECT, this->GetCurrentApplytester(), TRUE);
+    instance := DoEditWidget(this->owner, this, instance.whfstype, instance, DEFAULT OBJECT, this->contexts->applytester, TRUE);
     IF(NOT RecordExists(instance))
       RETURN DEFAULT RECORD;
 
@@ -1043,12 +1039,11 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 
     this->mergefields := this->contexts->mergefields;
 
-    OBJECT applytester := this->contexts->applytester ?? this->owner->GetAppContext("publisher:applytester");
+    OBJECT applytester := this->contexts->applytester;
     IF(ObjectExists(applytester))
       this->editable->basefsobject := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.id);
 
-    OBJECT richdocumentcontext := this->owner->GetAppContext("tollium:richdocumentcontext");
-    //Print("Context? " || (ObjectExists(richdocumentcontext) ? "ja":"nee")||'\n');
+    OBJECT richdocumentcontext := this->contexts->^__tollium__richdocumentcontext;
     IF(ObjectExists(richdocumentcontext))
     {
       this->LoadRTDSettings(richdocumentcontext->rtdtypeinfo);

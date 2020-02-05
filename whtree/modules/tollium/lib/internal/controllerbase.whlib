@@ -1922,11 +1922,19 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       THROW;
     }
 
+    RECORD screenoptions := ValidateOptions([ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ], loaddata.options);
+    IF(Length(screenoptions.appcontexts) > 0 AND GetDtapStage() = "development")
+    {
+      DumpValue(GetStacktrace(),'boxed');
+      this->RunSimpleScreen("warning", `appcontexts have been deprecated, use plain contexts`);
+    }
+
+
     RECORD savescreenbuildinfo := __screenbuildinfo;
     OBJECT builder, screen;
     TRY
     {
-      __screenbuildinfo := [ options := ValidateOptions([ appcontexts := DEFAULT RECORD ARRAY, contexts := DEFAULT RECORD ], loaddata.options)
+      __screenbuildinfo := [ options := screenoptions
                            , parent := loaddata.parent
                            , controller := this
                            , privateptr := DEFAULT OBJECT
