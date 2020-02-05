@@ -157,6 +157,7 @@
   <tollium>
     <components namespace="http://www.webhare.net/xmlns/system/components" xmlschema="data/components.xsd" />
     <components namespace="http://www.webhare.net/xmlns/system/webapis" xmlschema="tolliumcomponents/webapis.xsd" />
+    <components namespace="http://www.webhare.net/xmlns/system/email" xmlschema="tolliumcomponents/email.xsd" />
 
     <!-- candownloadflags requires 'filename' & 'mimetype' -->
     <dragtype name="whfsfile"

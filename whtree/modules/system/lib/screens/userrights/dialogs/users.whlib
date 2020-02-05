@@ -356,63 +356,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
 >;
 
-PUBLIC OBJECTTYPE SetSearchableFields EXTEND TolliumScreenBase
-<
-  STRING regkeybase;
-
-  MACRO Init(RECORD data)
-  {
-    this->regkeybase := "system.userrights.searchablefields";
-
-    RECORD persondata := this->GetFieldDataFor("person");
-    this->fieldsperson->options := persondata.options;
-    this->fieldsperson->value := persondata.current;
-
-    RECORD unitdata := this->GetFieldDataFor("unit");
-    this->fieldsunit->options := unitdata.options;
-    this->fieldsunit->value := unitdata.current;
-
-    RECORD roledata := this->GetFieldDataFor("role");
-    this->fieldsrole->options := roledata.options;
-    this->fieldsrole->value := roledata.current;
-  }
-
-  RECORD FUNCTION GetFieldDataFor(STRING type)
-  {
-    RECORD out := [ current := DEFAULT STRING ARRAY
-                  , options := DEFAULT RECORD ARRAY
-                  ];
-    out.current := Tokenize(ReadregistryKey(this->regkeybase || type), ";");
-    STRING tag;
-    IF(type = "person")
-      tag := "WRD_PERSON";
-    ELSE
-      tag := "WHUSER_" || ToUpperCase(type);
-    RECORD ARRAY fields := this->contexts->userapi->wrdschema->GetType(tag)->ListAttributes(0);
-    RECORD ARRAY availablefields := SELECT localtag, title FROM fields WHERE attributetype = 2;
-    FOREVERY(RECORD field FROM availablefields)
-    {
-      INSERT [ rowkey := field.localtag, title := field.title ?? field.localtag ] INTO out.options AT END;
-    }
-    RETURN out;
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    IF(work->HasFailed())
-      RETURN work->Finish();
-
-    WriteRegistryKey(this->regkeybase || "person", Detokenize(this->fieldsperson->value, ";"));
-    WriteRegistryKey(this->regkeybase || "unit", Detokenize(this->fieldsunit->value, ";"));
-    WriteRegistryKey(this->regkeybase || "role", Detokenize(this->fieldsrole->value, ";"));
-    IF(NOT work->Finish())
-      RETURN FALSE;
-
-    RETURN TRUE;
-  }
->;
-
 PUBLIC OBJECTTYPE SetUserDefaults EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)

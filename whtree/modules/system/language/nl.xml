@@ -1,16 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
-  <textgroup gid="backend">   <!-- backend -->
-    <textgroup gid="login">   <!-- backend.login -->
-      <text tid="loginbackground">Inloggen</text>
-      <textgroup gid="dialogs">   <!-- backend.login.dialogs -->
-        <text tid="loginconfigerror">Inloggen is niet mogelijk door een configuratiefout. Neemt u aub contact op met uw systeembeheerder.</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="personal">   <!-- backend.personal -->
-      <text tid="personalsettings">Persoonlijke instellingen</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="common">   <!-- common -->
     <text tid="deleted">(verwijderd)</text>
     <text tid="filter">Filter</text>
@@ -18,6 +7,17 @@
     <text tid="object">Object</text>
   </textgroup>
   <textgroup gid="commondialogs">   <!-- commondialogs -->
+    <textgroup gid="mailer">   <!-- commondialogs.mailer -->
+      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet u zeker dat u deze e-mail af wilt sluiten?</text>
+      <text tid="confirm_delete_attachment">Weet u zeker dat u bijlage '<param p="1"/>' wilt verwijderen?</text>
+      <text tid="mailerbcc">Bcc</text>
+      <text tid="mailercc">Cc</text>
+      <text tid="mailerfrom">Van</text>
+      <text tid="mailersubject">Onderwerp</text>
+      <text tid="mailerto">Aan</text>
+      <text tid="send">Verzenden</text>
+      <text tid="title">Verzend e-mail</text>
+    </textgroup>
     <textgroup gid="mailviewer">   <!-- commondialogs.mailviewer -->
       <text tid="mailviewer">Bekijk e-mail</text>
       <text tid="screentitle">E-mailwachtrij</text>
@@ -53,56 +53,6 @@
     <textgroup gid="symbolsearch">   <!-- debugger.symbolsearch -->
     </textgroup>
     <textgroup gid="variableinspector">   <!-- debugger.variableinspector -->
-    </textgroup>
-  </textgroup>
-  <textgroup gid="installedfonts">   <!-- installedfonts -->
-    <text tid="installedfonts">Geïnstalleerde lettertypes</text>
-  </textgroup>
-  <textgroup gid="mailer">   <!-- mailer -->
-    <text tid="attachments">Bijlages</text>
-    <text tid="mailerbcc">Bcc</text>
-    <text tid="mailercc">Cc</text>
-    <text tid="mailerfrom">Van</text>
-    <text tid="mailersubject">Onderwerp</text>
-    <text tid="mailerto">Aan</text>
-    <text tid="preview">Voorbeeld</text>
-    <text tid="title">Verzend e-mail</text>
-    <textgroup gid="actions">   <!-- mailer.actions -->
-      <text tid="attach">Bijlage toevoegen</text>
-      <text tid="deleteattachment">Bijlage verwijderen</text>
-      <text tid="openattachment">Bijlage downloaden</text>
-      <text tid="send">Verzenden</text>
-    </textgroup>
-    <textgroup gid="columns">   <!-- mailer.columns -->
-      <text tid="filename">Bijlage</text>
-      <text tid="filesize">Bestandsgrootte</text>
-      <text tid="filetype">Bestandstype</text>
-    </textgroup>
-    <textgroup gid="messages">   <!-- mailer.messages -->
-      <text tid="confirm_cancel">Het bericht is nog niet verzonden. Weet u zeker dat u deze e-mail af wilt sluiten?</text>
-      <text tid="confirm_delete_attachment">Weet u zeker dat u bijlage '<param p="1"/>' wilt verwijderen?</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="mailqueue">   <!-- mailqueue -->
-    <textgroup gid="messages">   <!-- mailqueue.messages -->
-      <text tid="confirm_delete">Weet u zeker dat u dit bericht wilt verwijderen?</text>
-      <text tid="confirm_delete_multiple">Weet u zeker dat u de geselecteerde berichten wilt verwijderen?</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="main">   <!-- main -->
-    <textgroup gid="messages">   <!-- main.messages -->
-      <text tid="deletestartmenuitem">Weet u zeker dat u hoofdmenu item '<param p="1"/>' wilt verwijderen?</text>
-      <text tid="insafemode">U bent nu in de veilige modus. Toegevoegde modules zullen niet beschikbaar zijn.</text>
-      <text tid="mustactivatelicense">Deze WebHare installatie lijkt niet over een valide licentiesleutel te beschikken. Sommige functionaliteiten en logins door niet-systeembeheerders zullen uitgeschakeld zijn tot dit probleem is opgelost.<br/><br/>Wilt u nu een licentiesleutel installeren?</text>
-      <text tid="safemoderequiressysop">U dient als sysop ingelogd te zijn om de veilige modus te kunnen gebruiken.</text>
-      <text tid="webhareclosedforinvalidlicense">WebHare is op moment niet beschikbaar. Neem a.u.b. contact op met de systeembeheerder.<br/><br/>Onze verontschuldigingen voor het ongemak.</text>
-      <text tid="webhareclosedformaintaince">WebHare is gesloten voor onderhoud. Probeer het later a.u.b. nogmaals.  <br/><br/>Onze verontschuldigingen voor het ongemak.</text>
-    </textgroup>
-    <textgroup gid="userstartmenu">   <!-- main.userstartmenu -->
-      <text tid="edittitle">Nieuwe titel</text>
-      <text tid="title">Titel</text>
-      <text tid="windowtitle">Wijzig mijn hoofdmenu</text>
-      <text tid="windowtitle_edit">Wijzig titel</text>
     </textgroup>
   </textgroup>
   <textgroup gid="module">   <!-- module -->
@@ -655,28 +605,6 @@
       <text tid="waituntil">Wacht tot</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="newportal">   <!-- newportal -->
-    <textgroup gid="main">   <!-- newportal.main -->
-      <text tid="main">WebHare Portal</text>
-      <text tid="moreinfo">Meer informatie.</text>
-      <text tid="news">Systeemnieuws</text>
-      <text tid="personalsettings">Persoonlijke instellingen</text>
-      <text tid="socialite_auth">Socialite autorisaties</text>
-      <textgroup gid="actions">   <!-- newportal.main.actions -->
-        <text tid="about">Over 'WebHare'</text>
-        <text tid="enablecols_1">1 kolom</text>
-        <text tid="enablecols_2">2 kolommen</text>
-        <text tid="enablecols_3">3 kolommen</text>
-      </textgroup>
-      <textgroup gid="menubar">   <!-- newportal.main.menubar -->
-        <text tid="choosecols">Kies aantal kolommen</text>
-        <text tid="enablecolsaction_1">1 kolom</text>
-        <text tid="enablecolsaction_2">2 kolommen</text>
-        <text tid="enablecolsaction_3">3 kolommen</text>
-        <text tid="mainmenu">Portal</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="notifications">   <!-- notifications -->
     <text tid="broadcast"><param p="1"/></text>
     <text tid="broadcast-desc"><param p="1"/></text>
@@ -852,17 +780,6 @@
         </textgroup>
       </textgroup>
     </textgroup>
-  </textgroup>
-  <textgroup gid="setsearchablefields">   <!-- setsearchablefields -->
-    <text tid="fields">Velden</text>
-    <text tid="fieldsperson">Velden voor type 'persoon'</text>
-    <text tid="fieldsrole">Velden voor het type 'rol'</text>
-    <text tid="fieldsunit">Velden voor het type 'eenheid'</text>
-    <text tid="setfields">Doorzoekbare velden instellen</text>
-    <text tid="setfieldsperson">Doorzoekbare velden instellen voor personen</text>
-    <text tid="setfieldsrole">Doorzoekbare velden instellen voor rollen</text>
-    <text tid="setfieldsunit">Doorzoekbare velden instellen voor eenheden</text>
-    <text tid="title">Configureer doorzoekbare velden</text>
   </textgroup>
   <textgroup gid="setuserdefaults">   <!-- setuserdefaults -->
     <text tid="settings">Standaardinstellingen</text>
@@ -2604,14 +2521,6 @@
       <textgroup gid="tabs">   <!-- userrights.userrolerightslist.tabs -->
         <text tid="rights">Rechten</text>
         <text tid="users">Gebruikers</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="webserver">   <!-- webserver -->
-    <textgroup gid="webservers">   <!-- webserver.webservers -->
-      <textgroup gid="main">   <!-- webserver.webservers.main -->
-        <text tid="certificates">Certificaten</text>
-        <text tid="main">Certificaten</text>
       </textgroup>
     </textgroup>
   </textgroup>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:email="http://www.webhare.net/xmlns/system/email"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  targetNamespace="http://www.webhare.net/xmlns/system/email"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:element name="attachments">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/email.xml#attachments" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
