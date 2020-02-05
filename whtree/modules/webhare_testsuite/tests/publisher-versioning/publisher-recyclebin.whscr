@@ -111,7 +111,7 @@ OBJECT ASYNC FUNCTION PublisherRecycleBinVersionedDelete()
   AWAIT rec.expectcallreturn();
 
   // Approve delete
-  testfw->BeginWork();
+  testfw->BeginWork([mutex := `publisher:publishstate.${testfile->id}`]);
   AcceptApprovalRequestForDraft(GetPublicDraft(testfile->id), [ userobject := testfw->GetUserObject("sysop"), message := "approve delete" ]);
   testfw->CommitWork();
 
