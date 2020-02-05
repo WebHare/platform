@@ -557,6 +557,7 @@ PUBLIC BOOLEAN FUNCTION QueueMail(STRING origin, STRING ARRAY receivers, STRING 
     @cell options.statuscallback Callback function to invoke when receiving status updates for this mail (eg bounce, delivery, complaint)
     @cell options.statusdata Informational string passed to the status callback
     @cell options.rawheaders No postprocessing of headers like To, Subject
+    @cell options.priority Mail task priority. Defaults to 'interactive', use 'normal' or 'background' for mass/bulk mails that can easily wait and shouldn't block eg. password resets
     @return IDs of the generated task, one per receiver
 */
 PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -564,6 +565,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
   options := ValidateOptions([ statuscallback := ""
                              , statusdata := ""
                              , rawheaders := FALSE
+                             , priority := "interactive"
                              ], options);
 
   IF (NOT GetPrimary()->IsWorkOpen())
@@ -615,7 +617,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                     , rawheaders := options.rawheaders
                     ];
 
-  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, [ auxdata := auxdata, taskids := taskids ]);
+  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, [ auxdata := auxdata, taskids := taskids, priority := options.priority ]);
 }
 
 
