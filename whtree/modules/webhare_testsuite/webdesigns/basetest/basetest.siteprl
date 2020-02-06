@@ -810,6 +810,10 @@
         <tryfile path="whdata::tmp/webhare_testsuite.datastorage/[siteslug]/file.shtml" />
         <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
       </webrule>
+      <webrule path="/tmp/subsub2/" match="initial" redirecttodir="site::WebHare testsuite site/tmp/sub2" />
+      <webrule path="/tmp/secret/" match="initial" redirecttodir="site::WebHare testsuite site/tmp/sub2" requirehttpauth="true">
+        <account username="service" password="protected"/>
+      </webrule>
     </webruleset>
   </sitesettings>
 
