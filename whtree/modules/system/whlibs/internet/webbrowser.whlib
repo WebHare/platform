@@ -1031,13 +1031,19 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
     STRING peer := GetRemoteSocketIP(connwith) || ':' || GetRemoteSocketPort(connwith);
 
-    IF (username!="") //FIXME may cause a dangerous reuse of credentials later because the state is kept and might not apply to the next URLs ?
+
+    IF (username!="")
     {
       IF (username != "__header")
         SetHTTPAuthentication(connwith, username, password);
       ELSE
+      {
+        SetHTTPAuthentication(connwith, "", "");
         INSERT [ field := "Authorization", value := password ] INTO headers AT END;
+      }
     }
+    ELSE
+      SetHTTPAuthentication(connwith, "", "");
 
     RECORD result := isasync
         ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content, debug := __webbrowser_debugall OR this->debug ])
