@@ -53,7 +53,7 @@ MACRO TestPDFs()
                                  ]);
 
   images := __ExtractPDFImages(result2.data);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 5 ]);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 20 ]);
 
   BLOB final := ApplyOverlayToPDF(result.data, result2.data);
   images := __ExtractPDFImages(final);
@@ -73,7 +73,7 @@ MACRO TestPDFs()
   FOR(INTEGER x := 0; x < 12; x := x + 2)     //also test their ordering
   {
     testfw->CompareWithImage(images[x].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]);
-    testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 5 ]);
+    testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 20 ]);
   }
 }
 

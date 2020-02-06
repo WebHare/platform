@@ -1538,7 +1538,7 @@ PUBLIC MACRO DoVersionedRestoreInternal(OBJECT parentscreen, INTEGER siteroot, O
   IF (NOT RecordExists(feedbackdata))
     RETURN;
 
-  OBJECT work := parentscreen->BeginUnvalidatedWork();
+  OBJECT work := parentscreen->BeginWork([validate := OBJECT[], mutex := `publisher:publishstate.${live_object->id}`]);
 
   UpdateMetadataForPolicy(
       policy,
