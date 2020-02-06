@@ -604,7 +604,7 @@ RECORD ARRAY standard_mimetypes :=
 DELETE FROM system.mimetypes WHERE mimetype="application/mp4" AND extension="mp4"; //make sure appliaction/mp4 incorrect type is gone
 STRING ARRAY curextensions := SELECT AS STRING ARRAY ToUppercase(extension) FROM system.mimetypes;
 UPDATE system.mimetypes SET mimetype := "text/css; charset=UTF-8" WHERE mimetype = "text/css" AND extension = "css";
-UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension = "css";
+UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension IN ["ics","ifb"];
 
 FOREVERY(RECORD installtype FROM standard_mimetypes)
 {
