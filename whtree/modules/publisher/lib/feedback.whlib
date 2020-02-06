@@ -42,7 +42,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
 {
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
-  INTEGER scopeid := wrdschema->^scope->Search("wrd_tag", scope);
+  INTEGER scopeid := wrdschema->^scope->Search("wrd_tag", ToUppercase(scope));
   IF (scopeid = 0)
     THROW NEW Exception(`No such scope '${scope}'`);
 
