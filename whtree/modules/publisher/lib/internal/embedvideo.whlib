@@ -35,14 +35,5 @@ PUBLIC OBJECTTYPE EmbedVideoObject EXTEND EmbeddedObjectBase
     RECORD ARRAY videosettings := webdesign->targetapplytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "videowidget");
     IF(Length(videosettings) > 0)
       THROW NEW Exception("<videowidget> requires that the rendering uses widgets, not legacy embedded objects. You probably need to set a <rtdtype>.");
-
-    IF(webdesign->IsUsingModuleDesign())
-      RETURN;
-
-    INTEGER v := SELECT AS INTEGER version FROM webdesign->GetDesignRepositories() WHERE ToUppercase(repository) = "PUBLIC";
-    IF(v > 0 AND v < 1429)
-      THROW NEW Exception("This page tries to use embedded videos, but its designfiles version is too old to support it");
-
-    webdesign->AddDesignLoad("wh.media.embedvideo");
   }
 >;

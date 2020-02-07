@@ -14,7 +14,6 @@ LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/support.whlib";
 
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
-LOADLIB "mod::system/lib/internal/jstests/testrunner.whlib";
 
 
 OBJECT trans := OpenPrimary();
@@ -70,7 +69,6 @@ IF(urlbase LIKE "*/!/*")
       {
         RECORD data := [ printheaders := DEFAULT MACRO PTR
                        , harescripttestdata := affectedtest.harescripttestdata
-                       , testjsscript := ""
                        , exclusive :=    affectedtest.exclusive ? "1" : "0"
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
@@ -88,15 +86,7 @@ IF(urlbase LIKE "*/!/*")
         }
         ELSE
         {
-          OBJECT depsolver := GetJSTestDepsolver();
-          data.printheaders := PTR depsolver->printheaders;
-
-          BLOB jsfile :=  GetWebHareResource(affectedtest.testscript.scriptpath);
-          RECORD testinfo := ExtractHeader(jsfile, FALSE, "");
-          FOREVERY(RECORD depend FROM testinfo.depends)
-            depsolver->AddLoad(depend.name);
-
-          data.testjsscript := GetrequestURL() || "/" || EncodeURL(Tokenize(affectedtest.testscript.scriptpath,'/')[END-1]);
+          ABORT("SUPPORT FOR V1 DESIGNFILES HAS BEEN REMOVED");
         }
         testwitty->RunComponent("emptytestpage", data);
         RETURN;

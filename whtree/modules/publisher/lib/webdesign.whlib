@@ -755,14 +755,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , sitelanguage  := GetSiteLanguageRecord(PRIVATE this)
                    ];
 
-    IF(NOT this->IsUsingModuleDesign())
-    {
-      data := CELL[ ...data
-                  , gettid := PTR this->GetTid
-                  , gethtmltid := PTR this->__GetHTMLTid
-                  ];
-    }
-
     IF(this->pvt_linkmode = "absolute")
     {
       data.imgroot := data.absimgroot;
@@ -971,12 +963,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN SELECT subpath, rooturl, compressed, sourcemap FROM this->pvt_dependencyresolverv2->GetAllAssets(this->assetcachebuster);
   }
 
-  ///@private Deprecated, will be rmoved when sitedesign API is removed
-  PUBLIC BOOLEAN FUNCTION IsUsingModuleDesign()
-  {
-    RETURN ObjectExists(this->pvt_dependencyresolverv2);
-  }
-
   PUBLIC BOOLEAN FUNCTION IsRTDPreview()
   {
     RETURN FALSE;
@@ -985,21 +971,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC RECORD ARRAY FUNCTION GetDesignRequires()
   {
     RETURN this->pvt_dependencyresolverv2->GetRequires();
-  }
-
-  ///@private Part of the sitedesign API, deprecated
-  PUBLIC MACRO AddDesignLoad(STRING module)
-  {
-    IF(ObjectExists(this->pvt_dependencyresolverv2))
-    {
-      this->pvt_dependencyresolverv2->AddRequire(module);
-      RETURN;
-    }
-
-    IF(NOT ObjectExists(this->pvt_dependencyresolver))
-      THROW NEW Exception("No designfolder specified");
-
-    this->pvt_dependencyresolver->AddLoad(module);
   }
 
   ///@private Part of the sitedesign API, deprecated
@@ -1176,13 +1147,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INSERT CELL server := GetWebhareVersionNumber() INTO finaljsconfig;
 
     BOOLEAN uselegacyscripttag;
-    IF(NOT this->IsUsingModuleDesign())
-    {
-      INSERT CELL repos := DEFAULT RECORD INTO finaljsconfig;
-      FOREVERY (RECORD rec FROM this->GetDesignRepositories())
-        finaljsconfig.repos := CellInsert(finaljsconfig.repos, rec.repository, rec.version);
-    }
-
     Print('<script type="application/json" id="wh-config">' || EncodeJSON(finaljsconfig) || '</script>');
 
     IF(ObjectExists(this->pvt_dependencyresolver))

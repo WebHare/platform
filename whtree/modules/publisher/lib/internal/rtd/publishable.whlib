@@ -194,16 +194,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
     BOOLEAN prettyprint := NOT (ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->wittyencoding LIKE "*-NI");
     STRING lf := prettyprint ? "\n" : "";
 
-    IF(ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->IsUsingModuleDesign())
-    {
-      this->Print("<div class=\"wh-rtd__tablewrap " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
-      this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
-    }
-    ELSE //only add legacy if we doubt we're in a module design
-    {
-      this->Print("<div class=\"wh-rtd__tablewrap wh-rtd-table " || EncodeValue(this->GetClassName(tablenode)) || "\">\n");
-      this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">\n");
-    }
+    this->Print("<div class=\"wh-rtd__tablewrap " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
+    this->Print("<table class=\"wh-rtd__table " || EncodeValue(this->GetClassName(tablenode)) || "\">" || lf);
 
     this->print("<colgroup>" || lf);
     FOREVERY(RECORD col FROM outputobject->__table.cols)
@@ -394,16 +386,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
           classes := classes || " wh-rtd__img--floatleft";
         ELSE IF(isfloatright)
           classes := classes || " wh-rtd__img--floatright";
-
-        IF(NOT (ObjectExists(outputobject->document->webdesign) AND outputobject->document->webdesign->IsUsingModuleDesign())) //only add legacy if we doubt we're in a module design
-        {
-          //output legacy classes
-          classes := classes || " wh-rtd-img";
-          IF(isfloatleft)
-            classes := classes || " wh-rtd-floatleft -wh-rtd-floatleft floatleft";
-          ELSE IF(isfloatright)
-            classes := classes || " wh-rtd-floatright -wh-rtd-floatright floatright";
-        }
 
         this->Print('<img class="' || classes
                     || '" src="' || EncodeValue(imageurl)
