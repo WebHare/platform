@@ -13,36 +13,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-PUBLIC STRING FUNCTION __CalcSiteProfileTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN html)
-{
-  RECORD cache := SELECT * FROM tidcachepersite WHERE site=siteid;
-  IF(NOT RecordExists(cache))
-  {
-    cache := [ site := siteid, siteprofs := GetTidSources(siteid) ];
-    INSERT cache INTO tidcachepersite AT END;
-  }
-  FOREVERY(OBJECT siteprof FROM cache.siteprofs)
-  {
-    OBJECT nodeptr := siteprof->GetLanguageNodePtr(langcode, tid, FALSE);
-    IF(ObjectExists(nodeptr))
-      RETURN siteprof->EvaluateLanguageNodePtr(nodeptr, p1, p2, p3, p4, html);
-  }
-  STRING text := __shortfailtid ? Substring(tid,SearchLastSubstring(tid,'.')) : "(cannot find text: " || tid || ")";
-  IF(html)
-    text := EncodeHTML(text);
-  RETURN text;
-}
-///@private deprecated
-PUBLIC STRING FUNCTION GetSiteProfileTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") __ATTRIBUTES__(DEPRECATED "Siteprofile languages are deprecated")
-{
-  RETURN __CalcSiteProfileTid(siteid, langcode, tid, p1, p2, p3, p4, FALSE);
-}
-///@private deprecated
-PUBLIC STRING FUNCTION GetSiteProfileHTMLTID(INTEGER siteid, STRING langcode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") __ATTRIBUTES__(DEPRECATED "Siteprofile languages are deprecated")
-{
-  RETURN __CalcSiteProfileTid(siteid, langcode, tid, p1, p2, p3, p4, TRUE);
-}
-
 /** @short Open site profile by name
     @long This is the preferred API, as it supports all siteprofile names including those originating from modules
 */

@@ -1394,7 +1394,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   RECORD siteprofdata := [ name := filename
                          , applysiteprofiles := DEFAULT STRING ARRAY
-                         , langinfo := DEFAULT RECORD
                          , errors := DEFAULT RECORD ARRAY
                          , warnings := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
@@ -1438,21 +1437,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
     siteprofdata.applysiteprofiles := siteprofcontext->ParseApplySiteProfiles();
     siteprofdata.grouptypes := siteprofcontext->ImportGroupTypes();
-
-    IF(RecordExists(siteprofdata))
-    {
-      OBJECT langnode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "languagefolder")->Item(0);
-      IF(ObjectExists(langnode))
-      {
-        siteprofdata.langinfo := [ embedded := FALSE
-                                 , fullpath := siteprof->ParseFSPath(langnode, "fullpath")
-                                 ];
-      }
-      ELSE IF(siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "language")->Length > 0)
-      {
-        siteprofdata.langinfo := [ embedded := TRUE ];
-      }
-    }
   }
   CATCH(OBJECT e)
   {

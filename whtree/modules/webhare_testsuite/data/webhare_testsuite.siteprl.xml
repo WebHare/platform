@@ -6,9 +6,6 @@
    xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
    xmlns:xyz="urn:xyz">
 
-  <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:h="http://www.w3.org/1999/xhtml">
-  </language>
-
   <grouptype namespace="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
              title="webhare_testsuite richdoc testgroup" />
 

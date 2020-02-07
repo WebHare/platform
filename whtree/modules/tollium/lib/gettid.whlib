@@ -153,16 +153,7 @@ OBJECT FUNCTION GetLanguageSystem(STRING wantmodule)
   OBJECT langsystem;
   IF(NOT CellExists(modulelangs, wantmodule))
   {
-    IF(wantmodule LIKE "site::*" OR wantmodule LIKE "whfs::*")
-    {
-      langsystem := MakeFunctionPtr("module::publisher/siteprofiles.whlib", "OpenSiteProfile", TYPEID(OBJECT), [TYPEID(STRING)])(wantmodule)->GetLanguageSystem();
-      modulelangs := CellInsert(modulelangs, wantmodule, langsystem);
-    }
-    ELSE
-    {
-      langsystem := __GetTidLanguageSystemForModule(wantmodule);
-    }
-
+    langsystem := __GetTidLanguageSystemForModule(wantmodule);
   }
   ELSE
   {

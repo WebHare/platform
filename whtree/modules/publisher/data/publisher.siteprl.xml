@@ -11,12 +11,6 @@
 
   -->
 
-  <language xmlns="http://www.webhare.net/xmlns/tollium/screens">
-  </language>
-
-  <language xml:lang="nl" xmlns="http://www.webhare.net/xmlns/tollium/screens">
-  </language>
-
   <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultrtdtype">
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" textstyles="i u" />
@@ -226,7 +220,6 @@
   </contenttype>
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/msworddownload" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/languagefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/designfilessite" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/wrd/instancefile" cloneoncopy="true">
     <member name="instance" type="instance" />
@@ -688,21 +681,6 @@
       isdevelopertype="true"
       isacceptableindex="true"
       ispublishable="true"
-  />
-
-  <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/languagefile"
-      tid="publisher:filetypes.languagefile"
-      tolliumicon="tollium:files/application_x-webhare-languagefile"
-      extensions=".xml"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      isdevelopertype="true"
-      isacceptableindex="false"
-      ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
-      searchcontentprovider="publisher:contentblob"
   />
 
   <filetype

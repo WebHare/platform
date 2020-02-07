@@ -310,35 +310,6 @@ PUBLIC OBJECTTYPE LanguageFileSystem
   }
 >;
 
-PUBLIC OBJECTTYPE EmbeddedLanguageFileSystem EXTEND LanguageFileSystem
-<
-  OBJECT xmldoc;
-  RECORD ARRAY languagenodes;
-
-  MACRO NEW(STRING name, OBJECT xmldoc)
-  : LanguageFileSystem(name)
-  {
-    this->xmldoc := xmldoc;
-
-    OBJECT ARRAY langnodes := this->xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "language")->GetcurrentElements();
-    FOREVERY(OBJECT node FROM langnodes)
-    {
-      STRING lang := node->GetAttribute("xml:lang");
-      IF(lang="")
-        lang := "default";
-      INSERT [ lang := lang, tree := node ] INTO this->languagenodes AT END;
-    }
-    IF(Length(this->languagenodes) > 0 AND NOT RecordExists(SELECT FROM this->languagenodes WHERE lang = "default"))
-      INSERT [ lang := "default", tree := this->languagenodes[0].tree ] INTO this->languagenodes AT END;
-
-    this->languagecodes := SELECT AS STRING ARRAY lang FROM this->languagenodes;
-  }
-  UPDATE OBJECT FUNCTION OpenLanguageTree(INTEGER langcodeidx)
-  {
-    RETURN this->languagenodes[langcodeidx].tree;
-  }
->;
-
 PUBLIC STRING FUNCTION ParseXMLGid(STRING defaultmodule, STRING currentgid, OBJECT el, STRING cellname)
 {
   IF(NOT el->HasAttribute(cellname))

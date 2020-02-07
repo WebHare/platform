@@ -1266,34 +1266,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->RunPageWithContents(PTR this->__PrintContents);
   }
 
-  ///@private ->GetTid should no longer be invoked on webdesigns directly
-  PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-  {
-    IF(ObjectExists(this->pvt_dependencyresolverv2) AND NOT IsDTAPLive())
-      THROW NEW Exception("webdesign ->GetTID should no longer be used!");
-
-    IF(ObjectExists(this->pvt_dependencyresolverv2) OR tid LIKE "*:*") //new style
-    {
-      RETURN GetTidForLanguage(this->languagecode,tid,p1,p2,p3,p4);
-    }
-
-    RETURN __CalcSiteProfileTID(this->targetsite->id, this->languagecode, tid, p1, p2, p3, p4, FALSE);
-  }
-
-  ///@private ->GetHTMLTid should no longer be invoked on webdesigns directly
-  STRING FUNCTION __GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-  {
-    IF(ObjectExists(this->pvt_dependencyresolverv2) AND NOT IsDTAPLive())
-      THROW NEW Exception("webdesign ->GetHTMLTID should no longer be used!");
-
-    IF(ObjectExists(this->pvt_dependencyresolverv2) OR tid LIKE "*:*") //new style
-    {
-      RETURN GetHTMLTidForLanguage(this->languagecode,tid,p1,p2,p3,p4);
-    }
-
-    RETURN __CalcSiteProfileTID(this->targetsite->id, this->languagecode, tid, p1, p2, p3, p4, TRUE);
-  }
-
   PUBLIC MACRO RunPageWithContents(MACRO PTR contents)
   {
     IF(ObjectExists(this->pagewitty))
