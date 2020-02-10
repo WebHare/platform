@@ -8,25 +8,21 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib" EXPORT DescribeCo
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject;
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-/** @short Open site profile by name
+/** @private Only two callers left and its pretty low level, so we should just consider just deprecating it (at least no more new callers)
+    @short Open site profile by name
     @long This is the preferred API, as it supports all siteprofile names including those originating from modules
 */
 PUBLIC OBJECT FUNCTION OpenSiteProfile(STRING name)
 {
   RETURN NEW SiteProfileObject(0,name);
 }
-/** @short Open site profile by whfs object id
-*/
-PUBLIC OBJECT FUNCTION OpenSiteProfileById(INTEGER objectid)
-{
-  RETURN NEW SiteProfileObject(objectid,"");
-}
-
 
 /** @short Open and prepare a webdesign
     @param objectid Target object for which we're opening the webdesign
@@ -155,17 +151,34 @@ PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileGlobalSettings(STRING ns, STRIN
     IF(globalsetting.ns = ns AND globalsetting.localname = localname)
     {
       RECORD pos := RecordLowerBound(siteprofiles, globalsetting, [ "SITEPROFILE" ]);
+      OBJECT siteprof;
       IF (NOT pos.found)
+      {
+        TRY
+        {
+          siteprof := OpenSiteProfile(globalsetting.siteprofile);
+        }
+        CATCH(OBJECT<RetrieveResourceException> e) //eg a race between modulereset/siteprofile compile and actual deletion
+        {
+          LogHarescriptException(e);
+        }
         INSERT CELL[ ...globalsetting, siteprof := OpenSiteProfile(globalsetting.siteprofile) ] INTO siteprofiles AT pos.position;
+      }
+      ELSE
+      {
+        siteprof := siteprofiles[pos.position].siteprof;
+      }
 
-      OBJECT siteprof := siteprofiles[pos.position].siteprof;
+      IF(NOT ObjectExists(siteprof))
+        CONTINUE;
+
       OBJECT ARRAY elements := siteprof->xmldoc->documentelement->childnodes->GetCurrentElements();
       IF(globalsetting.idx >= Length(elements))
         CONTINUE;
 
       INSERT [ siteprofile := siteprof, node := elements[globalsetting.idx], siteids := globalsetting.siteids, allsites := globalsetting.allsites ] INTO retval AT END;
     }
-  RETURN retval;
+  RETURN SELECT * FROM retval WHERE ObjectExists(siteprofile);
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
