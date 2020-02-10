@@ -295,6 +295,8 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     //If a payment is still initialized consider it pending, unless it has been in this state for more than a week.
     IF(this->msporderdata.rawstatus = "initialized" AND MakeDateFromText(result.data.created) > AddDaysToDate(-expire_pending_payments, GetCurrentDatetime()))
       this->pvt_status := "pending";
+    ELSE IF(this->msporderdata.rawstatus = "uncleared")
+      this->pvt_status := "pending";
     ELSE IF (this->msporderdata.rawstatus = "completed")
       this->pvt_status := "approved";
     ELSE
