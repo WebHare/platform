@@ -282,8 +282,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
         , FCIsSet(^condition_or_2)
         ]);
     ^condition_and_visible->visiblecondition := FCAnd(
-        [ FCIsSet(^condition_or_1)
-        , FCIsSet(^condition_or_2)
+        [ FCIsSet(^condition_and_1)
+        , FCIsSet(^condition_and_2)
         ]);
     ^condition_not_enabled->enabledcondition := FCNot(FCNot(FCIsSet(^condition_not)));
     ^condition_not_required->requiredcondition := FCIsSet(^condition_not);
@@ -295,7 +295,7 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     ^requiredradio->options[1].visiblecondition := FCIsSet(^showradioy);
 
     // Conditional select options
-    ^condition_options->options := [ [ rowkey := 0, title := "" ] ] CONCAT
+    ^condition_options->options :=
         SELECT *
              , visiblecondition := FCMatch(^checkboxes, "HAS", INTEGER[ rowkey ])
           FROM ^condition_options->options;
