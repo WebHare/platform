@@ -388,7 +388,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
       THROW NEW Exception(`Invalid number of days to keep: ${numdaystokeep}`);
 
     BLOB result := this->RunExport();
-    STRING filename := Substitute(this->export_wrdschema->tag,":","--") || "-" || FormatDatetime("%Y%m%d-%H%M%S", GetCurrentDatetime()) || ".wrdschema.tar.gz";
+    STRING filename := Substitute(this->export_wrdschema->tag,":","--") || "-" || FormatDatetime("%Y%m%d-%H%M%S", GetCurrentDatetime()) || ".wrdschema";
     OBJECT backupfile := OpenWHFSObject(destfolder)->CreateFile([ name := filename
                                                                 , data := result
                                                                 , typens := "http://www.webhare.net/xmlns/wrd/schemaarchive"
