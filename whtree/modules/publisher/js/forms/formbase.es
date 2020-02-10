@@ -702,8 +702,8 @@ export default class FormBase
         option.propWhNodeCurrentEnabled = option_enabled;
         option.disabled = !option_enabled;
 
-        if (!isinit && !option_enabled && !tovalidate.includes(option))
-          tovalidate.push(option); // to clear errors for this disabled field
+        if (!isinit && !tovalidate.includes(option.parentNode))
+          tovalidate.push(option.parentNode); // to clear errors for this option's select field
       }
     }
 

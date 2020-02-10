@@ -109,4 +109,9 @@ body
   {
     background:#ddd;
   }
+
+  &__item--disabled
+  {
+    display: none;
+  }
 }

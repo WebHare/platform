@@ -1,6 +1,7 @@
 import test from '@mod-system/js/wh/testframework';
 
-var urlappend = test.getTestArgument(0)=='replacedcomponents' ? '?dompackpulldown=1' : '';
+const replacedcomponents = test.getTestArgument(0)=='replacedcomponents';
+const urlappend = replacedcomponents ? '?dompackpulldown=1' : '';
 
 test.registerTests(
   [ async function()
@@ -37,5 +38,64 @@ test.registerTests(
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
       test.true(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit #2");
+    }
+
+  , async function()
+    {
+      const alloptions = test.qSA("#coretest-condition_options option");
+
+      // 1 and 3 are now checked, so only 2 should be disabled
+      let disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
+      test.eq(false, disabled_options.includes("1"));
+      test.eq(true, disabled_options.includes("2"));
+      test.eq(false, disabled_options.includes("3"));
+
+      if (replacedcomponents)
+      {
+        test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
+        await test.wait('ui');
+
+        disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
+        test.eq(false, disabled_options.includes("1"));
+        test.eq(true, disabled_options.includes("2"));
+        test.eq(false, disabled_options.includes("3"));
+      }
+
+      // enable 2
+      test.click('#coretest-checkboxes-2');
+      disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
+      test.eq(false, disabled_options.includes("1"));
+      test.eq(false, disabled_options.includes("2"));
+      test.eq(false, disabled_options.includes("3"));
+
+      if (replacedcomponents)
+      {
+        test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
+        await test.wait('ui');
+
+        disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
+        test.eq(false, disabled_options.includes("1"));
+        test.eq(false, disabled_options.includes("2"));
+        test.eq(false, disabled_options.includes("3"));
+      }
+
+      // disable 2 and 3
+      test.click('#coretest-checkboxes-2');
+      test.click('#coretest-checkboxes-3');
+      disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
+      test.eq(false, disabled_options.includes("1"));
+      test.eq(true, disabled_options.includes("2"));
+      test.eq(true, disabled_options.includes("3"));
+
+      if (replacedcomponents)
+      {
+        test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
+        await test.wait('ui');
+
+        disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
+        test.eq(false, disabled_options.includes("1"));
+        test.eq(true, disabled_options.includes("2"));
+        test.eq(true, disabled_options.includes("3"));
+      }
     }
   ]);

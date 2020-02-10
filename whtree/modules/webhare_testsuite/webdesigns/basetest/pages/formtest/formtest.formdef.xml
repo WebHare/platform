@@ -84,6 +84,12 @@
       <textedit name="condition_not_enabled" title="NOT enabled" />
       <textedit name="condition_not_required" title="NOT required" />
 
+      <select name="condition_options" title="Conditional options" type="pulldown" rowkeytype="integer">
+        <option rowkey="1" title="Eins selected" />
+        <option rowkey="2" tid=".zwei" />
+        <option rowkey="3" title="Polizei" />
+      </select>
+
       <wt:matchattributes name="matchattributes_type1" title="type1" attr1="type1" />
       <wt:matchattributes name="matchattributes_type2_true" title="type2_true" attr1="type2" attr2="true" />
       <wt:matchattributes name="matchattributes_type2_false" title="type2_false" attr1="type2" attr2="false" />

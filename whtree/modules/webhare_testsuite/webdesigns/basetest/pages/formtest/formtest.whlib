@@ -277,34 +277,28 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     // Countrylist is already set by XML and cannot be updated
     TestThrows(PTR MemberUpdate(^address, 'countrylist', [ "NL" ]));
     ^checkboxes->visiblecondition := FCIsSet(^checkboxesvisible);
-    ^condition_or_visible->visiblecondition :=
-        [ matchtype := "OR"
-        , conditions :=
-            [ [ matchtype := "HASVALUE", field := "condition_or_1", value := TRUE ]
-            , [ matchtype := "HASVALUE", field := "condition_or_2", value := TRUE ]
-            ]
-        ];
-    ^condition_and_visible->visiblecondition :=
-        [ matchtype := "AND"
-        , conditions :=
-            [ [ matchtype := "HASVALUE", field := "condition_and_1", value := TRUE ]
-            , [ matchtype := "HASVALUE", field := "condition_and_2", value := TRUE ]
-            ]
-        ];
-    ^condition_not_enabled->enabledcondition :=
-        [ matchtype := "NOT"
-        , condition := [ matchtype := "HASVALUE", field := "condition_not", value := FALSE ]
-        ];
-    ^condition_not_required->requiredcondition :=
-        [ matchtype := "NOT"
-        , condition := [ matchtype := "HASVALUE", field := "condition_not", value := FALSE ]
-        ];
+    ^condition_or_visible->visiblecondition := FCOr(
+        [ FCIsSet(^condition_or_1)
+        , FCIsSet(^condition_or_2)
+        ]);
+    ^condition_and_visible->visiblecondition := FCAnd(
+        [ FCIsSet(^condition_or_1)
+        , FCIsSet(^condition_or_2)
+        ]);
+    ^condition_not_enabled->enabledcondition := FCNot(FCNot(FCIsSet(^condition_not)));
+    ^condition_not_required->requiredcondition := FCIsSet(^condition_not);
 
     // Don't make the field conditionally required on the HTML only page
     ^condition_not_enabled->required := TRUE;
 
     // Link requiredradio's "Y" option to our checkbox
-    ^requiredradio->options[1].visiblecondition := FCIsset(^showradioy);
+    ^requiredradio->options[1].visiblecondition := FCIsSet(^showradioy);
+
+    // Conditional select options
+    ^condition_options->options := [ [ rowkey := 0, title := "" ] ] CONCAT
+        SELECT *
+             , visiblecondition := FCMatch(^checkboxes, "HAS", INTEGER[ rowkey ])
+          FROM ^condition_options->options;
 
     IF(nocheckboxselect)
       ^checkboxes->value := INTEGER[];
