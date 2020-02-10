@@ -19,22 +19,6 @@ export default class CheckboxGroupField
     this.min = parseInt(this.node.dataset.whMin, 10) || 0;
     this.max = parseInt(this.node.dataset.whMax, 10) || 0;
 
-    // Set attributes for automatic Parsley validation
-    if (this.min > 0 && this.max > 0)
-    {
-      this.nodes[0].setAttribute("data-parsley-required", "");
-      this.nodes[0].setAttribute("data-parsley-check", `[${this.min},${this.max}]`);
-    }
-    else if (this.min > 0)
-    {
-      this.nodes[0].setAttribute("data-parsley-required", "");
-      this.nodes[0].setAttribute("data-parsley-mincheck", this.min);
-    }
-    else if (this.max > 0)
-    {
-      this.nodes[0].setAttribute("data-parsley-maxcheck", this.max);
-    }
-
     // Add event listeners to set custom validity
     if (this.min || this.max)
       this._validate(null);

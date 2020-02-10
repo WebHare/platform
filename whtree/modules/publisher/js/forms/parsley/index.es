@@ -1,13 +1,23 @@
 import * as dompack from 'dompack';
 import * as encoding from "dompack/types/text";
 import setLanguageTexts from './language';
+import * as whintegration from '@mod-system/js/wh/integration';
+
+console.error("@mod-publisher/js/forms/parsley will be dropped in a future version of WebHare but is now available as a npm module.");
+console.error("See https://gitlab.com/webhare/integrations/formsapi-parsleyjs/-/blob/master/README.md#replacing-formsparsley for a replacement");
+
+if(whintegration.config.dtapstage == 'development' && window.parent == window.top)
+{
+  let warn = !sessionStorage.skipParsleyCheck;
+  sessionStorage.skipParsleyCheck = '1'; //show once per tab
+  if(warn && confirm("@mod-publisher/js/forms/parsley will be dropped in a future version of WebHare but is now available as a npm module.\n\nDo you want to know more about how to replace your integration with this module?"))
+    location.href = 'https://gitlab.com/webhare/integrations/formsapi-parsleyjs/-/blob/master/README.md#replacing-formsparsley'; //should be reasonable to drop this whole libary at end of 2020 at latest
+}
 
 export default class ParsleyForm
 {
   constructor(jQuery, formnode, options)
   {
-    console.error("The WebHare forms/parsleyjs integration has been deprecated and WILL be removed in the future");
-
     this.validationlock = null;
     this.node = formnode;
     this._pendingvaliditychange = false;
