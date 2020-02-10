@@ -23,6 +23,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
   PUBLIC PROPERTY enableinfotexts(this->__config.enableinfotexts, -);
   PUBLIC PROPERTY infotextrtdtype(this->__config.infotextrtdtype, -);
   PUBLIC PROPERTY mailrtdtype(this->__config.mailrtdtype, -);
+  PUBLIC PROPERTY webtoolformhooks(this->__config.webtoolformhooks, -);
   PUBLIC PROPERTY config(this->__config,-);
 
   OBJECT webcontext;
@@ -71,6 +72,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
            , processdays := node->HasAttribute("processdays") ? ParseXSInt(node->GetAttribute("processdays")) : -1
            , addressvalidationkey := node->GetAttribute("addressvalidationkey")
            , addressvalidationschema := node->GetAttribute("addressvalidationschema")
+           , webtoolformhooks := siteprofile->ParseFSPath(node, "webtoolformhooks")
            ];
   }
 
