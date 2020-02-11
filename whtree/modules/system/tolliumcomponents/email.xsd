@@ -16,7 +16,7 @@
   <xs:element name="attachments">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/email.xml#attachments" />
+        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/email.xml#emailattachments" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
