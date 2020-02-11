@@ -41,4 +41,5 @@
   <test script="testmailconfirmation.whscr"/>
   <jstest file="testmailconfirmation-online.es" />
   <test script="testformfile-editconditions.whscr"/>
+  <jstest file="testvisibleconditions.es" />
 </group>

@@ -84,6 +84,12 @@
       <textedit name="condition_not_enabled" title="NOT enabled" />
       <textedit name="condition_not_required" title="NOT required" />
 
+      <select name="condition_options" title="Conditional options" type="pulldown" rowkeytype="integer">
+        <option rowkey="1" title="Eins selected" />
+        <option rowkey="2" tid=".zwei" />
+        <option rowkey="3" title="Polizei" />
+      </select>
+
       <wt:matchattributes name="matchattributes_type1" title="type1" attr1="type1" />
       <wt:matchattributes name="matchattributes_type2_true" title="type2_true" attr1="type2" attr2="true" />
       <wt:matchattributes name="matchattributes_type2_false" title="type2_false" attr1="type2" attr2="false" />
@@ -318,6 +324,25 @@
         </option>
       </select>
       <date name="weeknumbers" title="Weeknumbers" value="2019-07-08" />
+    </page>
+  </form>
+
+  <form name="visibleconditionsform" objectname="formtest.whlib#VisibleConditionsTestForm" jshandler="anyformhandler">
+    <page>
+      <select name="first" title="First choice" type="radio">
+        <option rowkey="a" title="A" />
+        <option rowkey="b" title="B" />
+      </select>
+      <select name="second" title="Second choice" type="radio">
+        <option rowkey="a_a" title="A A" />
+        <option rowkey="a_b" title="A B" />
+        <option rowkey="b_a" title="B A" />
+        <option rowkey="b_b" title="B B" />
+      </select>
+      <select name="third" title="Third choice" type="radio">
+        <option rowkey="a" title="A" />
+        <option rowkey="b" title="B" />
+      </select>
     </page>
   </form>
 

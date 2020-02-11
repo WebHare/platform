@@ -47,11 +47,13 @@ test.registerTests(
       test.fill('select[name="twolevel.customselect.select"]', "abc");
       test.false(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should now be visible");
 
+      test.false(test.qS('select[name="toggleselectoptions"] option[value="copt3"]').disabled, "ToggleSelectOpt3 should be available");
       test.true(test.canClick('input[name="checkboxes"][value="copt3"]'), "CheckBoxOpt3 should be clickable");
       test.click('input[name="checkboxes"][value="copt3"]');
       test.true(test.canClick('input[name="coptsub3"]'), "CheckBoxOpt3 Subfield should be clickable");
 
       test.click('input[name="togglesomeoptions"]');
+      test.true(test.qS('select[name="toggleselectoptions"] option[value="copt3"]').disabled, "ToggleSelectOpt3 should no longer be available");
       test.false(test.canClick('input[name="checkboxes"][value="copt3"]'), "CheckBoxOpt3 should no longer be clickable");
 
       test.false(test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should not be hidden");

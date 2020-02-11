@@ -685,6 +685,28 @@ export default class FormBase
       }
     }
 
+    for(let option of dompack.qSA(this.node, "select > option"))
+    {
+      let formgroup = dompack.closest(option, ".wh-form__fieldgroup");
+      let visible = !hiddengroups.includes(formgroup) && this._matchesCondition(option.dataset.whFormVisibleIf);
+      let enabled = visible && enabledgroups.includes(formgroup);
+
+      //Record initial states
+      if (option.propWhFormSavedEnabled === undefined)
+        option.propWhFormSavedEnabled = !option.disabled;
+
+      let option_enabled = enabled && option.propWhFormSavedEnabled;
+
+      if(option_enabled !== option.propWhNodeCurrentEnabled)
+      {
+        option.propWhNodeCurrentEnabled = option_enabled;
+        option.disabled = !option_enabled;
+
+        if (!isinit && !tovalidate.includes(option.parentNode))
+          tovalidate.push(option.parentNode); // to clear errors for this option's select field
+      }
+    }
+
     if (tovalidate.length)
       await this.validate(tovalidate, { focusfailed: false, iffailedbefore: true });
 
@@ -742,14 +764,10 @@ export default class FormBase
 
     if (isNodeCollection(matchfield))
     {
-      //Can we set this field? Just take the parent of the first node
-      if(!this._isNowSettable(matchfield[0]))
-        return null;
-
       let currentvalue = null;
 
       for (let field of matchfield)
-        if (field.checked)
+        if (this._isNowSettable(field) && field.checked)
         {
           if (field.type != "checkbox")
             return field.value;
