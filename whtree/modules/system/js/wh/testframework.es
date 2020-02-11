@@ -280,12 +280,12 @@ window.testEqFloat = function(expected, actual, delta, explanation)
 
 function testTrue(actual, explanation)
 {
-  test.eq(true, Boolean(actual), explanation);
+  testEq(true, Boolean(actual), explanation);
 }
 
 function testFalse(actual, explanation)
 {
-  test.eq(false, Boolean(actual), explanation);
+  testEq(false, Boolean(actual), explanation);
 }
 
 
