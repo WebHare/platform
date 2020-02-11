@@ -234,6 +234,9 @@ PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
 
   PUBLIC UPDATE RECORD FUNCTION DescribeObject(INTEGER objectid)
   {
+    IF(NOT ObjectExists(this->wrdschema))
+      RETURN DEFAULT RECORD;
+
     RECORD scope := this->wrdschema->^scope->GetEntityFields(objectid, [ "wrd_tag" ]);
     IF (NOT RecordExists(scope))
       RETURN DEFAULT RECORD;
@@ -246,6 +249,9 @@ PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
 
   PUBLIC UPDATE INTEGER ARRAY FUNCTION GetRootObjects(OBJECT user)
   {
+    IF(NOT ObjectExists(this->wrdschema))
+      RETURN INTEGER[];
+
     RETURN this->wrdschema->^scope->FindIds(
         [ filters := [ [ field := "wrd_tag", matchtype := "!=", value := "" ] ]
         ]);
