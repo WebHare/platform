@@ -945,7 +945,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
     this->__form := __passthrough.form;
   }
 
-  /** @short Do additonal form validation
+  /** @short Do additional form validation
       @long This function is called after the validation of the individual form fields and before processing the form results.
       @param work The currently opened work object
   */
