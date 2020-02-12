@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumcomponents.email" library="email.whlib">
 
-  <fragment name="attachments" gid=""> <!-- no texts, so explicitly disable the gid -->
+  <fragment name="emailattachments" gid=""> <!-- no texts, so explicitly disable the gid -->
     <actions>
       <uploadaction name="attach" multiple="true" onupload="doattach" tid="~add" />
       <action name="deleteattachment" onexecute="dodeleteattachment" shortcut="del" tid="~delete">
