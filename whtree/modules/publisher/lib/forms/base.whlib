@@ -934,8 +934,42 @@ PUBLIC OBJECTTYPE FormBase
 
 >;
 
+PUBLIC STATIC OBJECTTYPE WebtoolFormHooks
+<
+  OBJECT __form;
 
-PUBLIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
+  PROPERTY form(__form, -);
+
+  MACRO NEW()
+  {
+    this->__form := __passthrough.form;
+  }
+
+  /** @short Do additional form validation
+      @long This function is called after the validation of the individual form fields and before processing the form results.
+      @param work The currently opened work object
+  */
+  PUBLIC MACRO Validate(OBJECT work)
+  {
+  }
+
+  /** @short Do additional form processing
+      @long This function is called after the work has been validated initially and before the results are stored. Additional
+          errors and warning can be added to the work object. The result record is returned to the client. `resultsguid`
+          should not be used as the name of a result record cell.
+      @param work The currently opened work object
+      @param extradata Extra form data
+      @return The result record  */
+  PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+>;
+
+//TODO find a way so that WebtoolFormPage implements WebtoolFormHooks - but HS can't really do that yet
+
+PUBLIC STATIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
 <
   PROPERTY form(__GetForm, -);
 

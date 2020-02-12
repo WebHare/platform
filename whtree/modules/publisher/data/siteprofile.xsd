@@ -1777,6 +1777,12 @@
         <xs:documentation>Schema to get verification settings from</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="webtoolformhooks" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Supply hooks to the webtool form (would otherwise be done by a %WebtoolFormPage)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
   </xs:complexType>
 
   <xs:complexType name="CaptchaIntegration">
