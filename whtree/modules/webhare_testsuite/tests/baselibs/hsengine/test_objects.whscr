@@ -1534,6 +1534,74 @@ MACRO TestWeakObjects()
   TestEQ(FALSE, ObjectExists(OBJECT(stack_weakobj)));
 }
 
+MACRO TestReadWriteOnlyProperties()
+{
+  TestAnnotatedCompile(`<?wh
+OBJECTTYPE x
+< FUNCTION PTR a;
+  RECORD b;
+  PROPERTY ra(a, -);
+  PROPERTY rb(this->b.c, -);
+  PROPERTY wa(-, a);
+  PROPERTY wb(-, this->b.c);
+  MACRO ok_write() { this->wa := DEFAULT FUNCTION PTR; }
+  MACRO fail_write() { this->ra := DEFAULT FUNCTION PTR; }
+//                           ^ E:151 RA # Write readonly property
+  VARIANT FUNCTION ok_read() { RETURN this->ra; }
+  VARIANT FUNCTION fail_read() { RETURN this->wa; }
+//                                            ^ E:150 WA # Read writeonly property
+  VARIANT FUNCTION ok_call() { RETURN this->ra(); }
+  VARIANT FUNCTION fail_call() { RETURN this->wa(); }
+//                                            ^ E:150 WA # Read writeonly property
+  MACRO fail_deepwrite_r() { this->rb.a := 6; }
+//                                 ^ E:151 RB # Write readonly property
+  MACRO fail_deepwrite_w() { this->wb.a := 6; }
+//                                 ^ E:150 WB # Read writeonly property
+  INTEGER FUNCTION fail_deepread_w() { RETURN this->wb.a; }
+//                                                  ^ E:150 WB # Read writeonly property
+  MACRO fail_deepinsert_r() { INSERT 1 INTO this->rb.b AT END; }
+//                                                ^ E:151 RB # Write readonly property
+  MACRO fail_deepinsert_w() { INSERT 1 INTO this->wb.b AT END; }
+//                                                ^ E:150 WB # Read writeonly property
+  MACRO fail_deepdelete_r() { DELETE FROM this->rb.b AT 0; }
+//                                              ^ E:151 RB # Write readonly property
+  MACRO fail_deepdelete_w() { DELETE FROM this->wb.b AT 0; }
+//                                              ^ E:150 WB # Read writeonly property
+>;
+OBJECTTYPE writeonlyhat
+< RECORD b;
+  PROPERTY ^(-,this->b.c);
+  MACRO ok_write() { this->wa := DEFAULT FUNCTION PTR; }
+  VARIANT FUNCTION fail_read() { RETURN ^test; }
+//                                      ^ E:150 ^TEST # Read writeonly property
+  VARIANT FUNCTION fail_call() { RETURN ^test(); }
+//                                      ^ E:150 ^TEST # Read writeonly property
+  MACRO fail_deepwrite_w() { ^test.a := 6; }
+//                           ^ E:150 ^TEST # Read writeonly property
+  INTEGER FUNCTION fail_deepread_w() { RETURN ^test.a; }
+//                                            ^ E:150 ^TEST # Read writeonly property
+  MACRO fail_deepinsert_w() { INSERT 1 INTO ^test.b AT END; }
+//                                          ^ E:150 ^TEST # Read writeonly property
+  MACRO fail_deepdelete_w() { DELETE FROM ^test.b AT 0; }
+//                                        ^ E:150 ^TEST # Read writeonly property
+>;
+OBJECTTYPE readonlyhat
+< RECORD b;
+  PROPERTY ^(this->b.c,-);
+  MACRO fail_write() { ^test := DEFAULT FUNCTION PTR; }
+//                     ^ E:151 ^TEST # Write readonly property
+  VARIANT FUNCTION ok_read() { RETURN ^test; }
+  VARIANT FUNCTION ok_call() { RETURN ^test(); }
+  MACRO fail_deepwrite_r() { ^test.a := 6; }
+//                           ^ E:151 ^TEST # Write readonly property
+  MACRO fail_deepinsert_r() { INSERT 1 INTO ^test.b AT END; }
+//                                          ^ E:151 ^TEST # Write readonly property
+  MACRO fail_deepdelete_r() { DELETE FROM ^test.b AT 0; }
+//                                        ^ E:151 ^TEST # Write readonly property
+>;
+`);
+}
+
 PRINT("\n === Running TestObjects\n");
 BaseTest();
 InsertMemberTest();
@@ -1557,3 +1625,4 @@ StaticObjectTypesTest();
 RegressionsTest();
 TestHat();
 TestWeakObjects();
+TestReadWriteOnlyProperties();

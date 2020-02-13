@@ -1103,23 +1103,22 @@ Rvalue* Parser::P_Simple_Object()
 
         if (TokenType() == Lexer::OpHat)
         {
-                LineColumn hatpos = lexer.GetPosition();
-                NextToken();
                 LineColumn namepos = lexer.GetPosition();
+                NextToken();
                 std::string colname = "^" + P_Column_Name();
 
-                Symbol* symbol = context.symboltable->ResolveSymbol(hatpos, ":THIS", NULL, false);
+                Symbol* symbol = context.symboltable->ResolveSymbol(namepos, ":THIS", NULL, false);
                 if (!symbol)
                 {
-                        lexer.AddErrorAt(hatpos, Error::ThisOnlyInMemberFunctions);
+                        lexer.AddErrorAt(namepos, Error::ThisOnlyInMemberFunctions);
                         return coder->ImConstant(pos, 0); // Do NOT return 0. // ADDME: variant error node?
                 }
                 else
                 {
                         if (within_base_constructor_call)
-                            lexer.AddErrorAt(hatpos, Error::ThisNotAllowedInBaseConstructorParameters);
+                            lexer.AddErrorAt(namepos, Error::ThisNotAllowedInBaseConstructorParameters);
                 }
-                Rvalue *expr = coder->ImVariable(hatpos, symbol);
+                Rvalue *expr = coder->ImVariable(namepos, symbol);
 
                 if (!TryParse(Lexer::OpenParenthesis))
                 {

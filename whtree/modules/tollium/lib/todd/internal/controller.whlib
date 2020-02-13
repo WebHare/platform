@@ -577,29 +577,18 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
 
   MACRO OnReflect(VARIANT val, RECORD reflectoptions)
   {
-    BOOLEAN killuser;
-    TRY
-    {
-      IF(NOT ObjectExists(this->tolliumuser))
-      {
-        killuser:=TRUE;
-        this->tolliumuser := NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>");
-      }
+    RECORD contexts;
+    IF (NOT ObjectExists(this->tolliumuser))
+      contexts := [ user := NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>") ];
 
-      OBJECT dialog := this->LoadScreen( "mod::tollium/screens/debugging.xml#reflectdialog"
-                                , [ data := val
-                                  , tree := TRUE
-                                  , settings := [ stacktrace := ArraySlice(GetStackTrace(),1) ]
-                                  , reflectoptions := reflectoptions
-                                  ]);
+    OBJECT dialog := this->LoadScreen( "mod::tollium/screens/debugging.xml#reflectdialog"
+                              , [ data := val
+                                , tree := TRUE
+                                , settings := [ stacktrace := ArraySlice(GetStackTrace(),1) ]
+                                , reflectoptions := reflectoptions
+                                ], CELL[ contexts ]);
 
-      IF(dialog->RunModal() = "") //the user disconnected
-        TerminateScript(); //then STOP ourselves too - users do not expect 'Reflect(); DoSomething();' to actually do something if they abort during Reflect
-    }
-    FINALLY
-    {
-      IF(killuser)
-        this->tolliumuser := DEFAULT OBJECT;
-    }
+    IF(dialog->RunModal() = "") //the user disconnected
+      TerminateScript(); //then STOP ourselves too - users do not expect 'Reflect(); DoSomething();' to actually do something if they abort during Reflect
   }
 >;
