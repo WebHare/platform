@@ -511,7 +511,7 @@ PUBLIC STATIC OBJECTTYPE TreeBase
 
   PUBLIC MACRO TrimToSubTree(STRING ARRAY path)
   {
-    this->root := this->GetObjectByPath(path);
+    this->pvt_root := this->GetObjectByPath(path);
   }
 
   PUBLIC STRING FUNCTION ShortDump(INTEGER indent DEFAULTSTO 0)

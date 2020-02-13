@@ -532,7 +532,7 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
     RECORD resp := this->SendCommand("STARTTLS");
     IF(resp.code != 220)
     {
-      this->lasterror := resp;
+      this->pvt_lasterror := resp;
       THROW NEW Exception("StartTLS failed: " || resp.code || " " || resp.message);
     }
     IF(NOT this->socket->StartSSL(TRUE))
