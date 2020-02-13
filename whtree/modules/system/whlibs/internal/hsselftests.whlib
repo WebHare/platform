@@ -439,7 +439,7 @@ STRING FUNCTION GetAnnotatedResults(STRING test, RECORD ARRAY messages)
       res := res || rec.linetext || "\n";
       FOREVERY (RECORD msg FROM relevant_messages)
         res := res || (msg.col < 3 ? Left("  ", msg.col - 1) || "// <-" : "//" || RepeatText(" ", msg.col - 3) || "^ ") ||
-            `${msg.iserror ? "E" : "W"}:${msg.code} ${EncodeParam(msg.param1, msg.param2 != "")}${EncodeParam(msg.param1, FALSE)}# ${msg.message}\n`;
+            `${msg.iserror ? "E" : "W"}:${msg.code} ${EncodeParam(msg.param1, msg.param2 != "")}${EncodeParam(msg.param2, FALSE)}# ${msg.message}\n`;
     }
   }
 

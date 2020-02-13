@@ -1178,10 +1178,40 @@ void SemanticChecker::V_DeepOperation (AST::DeepOperation *obj, bool)
                             if (objectdef)
                             {
                                     SymbolDefs::ObjectField *field = objectdef->FindField(obj->clvalue.layers[0].name, true);
-                                    if (field && field->type == ObjectCellType::Member)
-                                        obj->clvalue.layers[0].is_member = true;
+                                    if (field)
+                                    {
+                                            // Mark members as such
+                                            if (field->type == ObjectCellType::Member)
+                                                obj->clvalue.layers[0].is_member = true;
+                                    }
+                                    else
+                                    {
+                                            // lookup the hat property
+                                            if (obj->clvalue.layers[0].name.size() > 1 && obj->clvalue.layers[0].name[0] == '^')
+                                            {
+                                                    // lookup hat property if a propertyname starting with a '^' wasn't found
+                                                    auto hatfield = objectdef->FindField("^", true);
+                                                    if (hatfield && hatfield->type == ObjectCellType::Property)
+                                                        field = hatfield;
+                                            }
+                                            else if (objectdef->flags & ObjectTypeFlags::Static)
+                                                context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::MemberDoesNotExist, obj->clvalue.layers[0].name); 
+                                    }
+                                    
+                                    // check property getter/setter (also for ^ property, if found as fallback)
+                                    if (field && field->type == ObjectCellType::Property)
+                                    {
+                                            // Deep operation will read and write the property
+                                            if (field->setter.empty())
+                                                 context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::WritingReadOnlyProperty, obj->clvalue.layers[0].name);
+                                            if (field->getter.empty())
+                                            {
+                                                    // lvalueset with 1 layer (so 'this->x := value') won't cause a read
+                                                    if (!dynamic_cast< LvalueSet * >(obj) || obj->clvalue.layers.size() > 1)
+                                                        context.errorhandler.AddErrorAt(obj->clvalue.layers[0].position, Error::ReadingWriteOnlyProperty, obj->clvalue.layers[0].name);
+                                            }
+                                    }
                             }
-
 
                             if (gottype == VariableTypes::Record)
                                 context.errorhandler.AddErrorAt(obj->position, Error::ExpectedDotOperator);
@@ -1651,18 +1681,28 @@ void SemanticChecker::V_FunctionCall (AST::FunctionCall *obj, bool)
                 SymbolDefs::ObjectDef *objectdef = GetObjectDefFromExpression(obj->parameters[0]);
                 Constant *value = dynamic_cast< Constant * >(obj->parameters[1]);
 
-                if (objectdef && (objectdef->flags & ObjectTypeFlags::Static) && value && value->type == VariableTypes::String)
+                if (objectdef && value && value->type == VariableTypes::String)
                 {
                         std::string membername = context.stackm.GetSTLString(value->var);
                         Blex::ToUppercase(membername.begin(), membername.end());
 
-                        if (!objectdef->FindField(membername, true))
+                        auto field = objectdef->FindField(membername, true);
+                        if (!field)
                         {
-                                // Skip checks on hat members
-                                if (!membername.empty() && membername[0] == '^')
-                                    return;
-
-                                context.errorhandler.AddErrorAt(obj->parameters[0]->position, Error::MemberDoesNotExist, membername);
+                                if (membername.size() > 1 && membername[0] == '^')
+                                {
+                                        // lookup hat property if a propertyname starting with a '^' wasn't found
+                                        auto hatfield = objectdef->FindField("^", true);
+                                        if (hatfield && hatfield->type == ObjectCellType::Property)
+                                            field = hatfield;
+                                }
+                                else if (!field && (objectdef->flags & ObjectTypeFlags::Static))
+                                    context.errorhandler.AddErrorAt(obj->parameters[0]->position, Error::MemberDoesNotExist, membername);
+                        }
+                        if (field && field->type == ObjectCellType::Property)
+                        {
+                                if (field->getter.empty())
+                                     context.errorhandler.AddErrorAt(obj->position, Error::ReadingWriteOnlyProperty, membername);
                         }
                 }
         }
@@ -1937,6 +1977,18 @@ void SemanticChecker::V_ObjectMemberConst (ObjectMemberConst*obj, bool)
                 if (objectdef)
                 {
                         SymbolDefs::ObjectField *field = objectdef->FindField(obj->name, true);
+                        if (!field)
+                        {
+                                if (obj->name.size() > 1 && obj->name[0] == '^')
+                                {
+                                        // lookup hat property if a propertyname starting with a '^' wasn't found
+                                        auto hatfield = objectdef->FindField("^", true);
+                                        if (hatfield && hatfield->type == ObjectCellType::Property)
+                                            field = hatfield;
+                                }
+                                else if (objectdef->flags & ObjectTypeFlags::Static)
+                                    context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
+                        }
                         if (field)
                         {
                                 switch (field->type)
@@ -1952,19 +2004,14 @@ void SemanticChecker::V_ObjectMemberConst (ObjectMemberConst*obj, bool)
                                             typestorage[obj] = VariableTypes::FunctionRecord;
                                     } break;
                                 case ObjectCellType::Property:
+                                    {
+                                            if (field->getter.empty())
+                                                context.errorhandler.AddErrorAt(obj->position, Error::ReadingWriteOnlyProperty, obj->name);
+                                    } break;
                                 case ObjectCellType::Unknown:
                                     break; // Ignore for now
                                 }
                         }
-                        else if (objectdef->flags & ObjectTypeFlags::Static)
-                        {
-                                // Skip checks on hat members
-                                if (!obj->name.empty() && obj->name[0] == '^')
-                                    return;
-
-                                context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
-                        }
-//                        DEBUGPRINT("XX NAME " << obj->name);
                 }
         }
 }
@@ -2047,6 +2094,18 @@ void SemanticChecker::V_ObjectMemberSet (ObjectMemberSet *obj, bool)
         if (objectdef)
         {
                 SymbolDefs::ObjectField *field = objectdef->FindField(obj->name, true);
+                if (!field)
+                {
+                        if (obj->name.size() > 1 && obj->name[0] == '^')
+                        {
+                                // lookup hat property if a propertyname starting with a '^' wasn't found
+                                auto hatfield = objectdef->FindField("^", true);
+                                if (hatfield && hatfield->type == ObjectCellType::Property)
+                                    field = hatfield;
+                        }
+                        else if (objectdef->flags & ObjectTypeFlags::Static)
+                            context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
+                }
                 if (field)
                 {
                         switch (field->type)
@@ -2062,20 +2121,15 @@ void SemanticChecker::V_ObjectMemberSet (ObjectMemberSet *obj, bool)
                                     context.errorhandler.AddErrorAt(obj->position, Error::MemberFunctionWriteDisallowed);
                             } break;
                         case ObjectCellType::Property:
+                            {
+                                    if (field->setter.empty())
+                                        context.errorhandler.AddErrorAt(obj->position, Error::WritingReadOnlyProperty, obj->name);
+                            } break;
                         case ObjectCellType::Unknown:
                             break; // Ignore for now
                         }
                 }
-                else if (objectdef->flags & ObjectTypeFlags::Static)
-                {
-                        // Skip checks on hat members
-                        if (!obj->name.empty() && obj->name[0] == '^')
-                            return;
-
-                        context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->name);
-                }
-
-//                        DEBUGPRINT("XX NAME " << obj->name);
+                
         }
 
 //        VerifyTypeWithCast(obj->name, VariableTypes::String);
@@ -2107,6 +2161,18 @@ void SemanticChecker::V_ObjectMethodCall (AST::ObjectMethodCall *obj, bool check
                 if (objectdef)
                 {
                         SymbolDefs::ObjectField *field = objectdef->FindField(obj->membername, true);
+                        if (!field)
+                        {
+                                if (obj->membername.size() > 1 && obj->membername[0] == '^')
+                                {
+                                        // lookup hat property if a propertyname starting with a '^' wasn't found
+                                        auto hatfield = objectdef->FindField("^", true);
+                                        if (hatfield && hatfield->type == ObjectCellType::Property)
+                                            field = hatfield;
+                                }
+                                else if (objectdef->flags & ObjectTypeFlags::Static)
+                                    context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->membername);
+                        }
                         if (field)
                         {
                                 switch (field->type)
@@ -2150,17 +2216,13 @@ void SemanticChecker::V_ObjectMethodCall (AST::ObjectMethodCall *obj, bool check
                                             }
                                     } break;
                                 case ObjectCellType::Property:
+                                    {
+                                            if (field->getter.empty())
+                                                context.errorhandler.AddErrorAt(obj->position, Error::ReadingWriteOnlyProperty, obj->membername);
+                                    } break;
                                 case ObjectCellType::Unknown:
                                     break; // Ignore for now
                                 }
-                        }
-                        else if (objectdef->flags & ObjectTypeFlags::Static)
-                        {
-                                // Skip checks on hat members
-                                if (!obj->membername.empty() && obj->membername[0] == '^')
-                                    return;
-
-                                context.errorhandler.AddErrorAt(obj->position, Error::MemberDoesNotExist, obj->membername);
                         }
                 }
         }
