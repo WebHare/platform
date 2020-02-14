@@ -4,17 +4,28 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 REQUIRENPMVERSION="5.3.0"
 export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
 
-if [ "$1" == "-v" ]; then
-  VERBOSE=1
-  shift
-fi
-if [ "$1" == "-f" ]; then
-  FORCE=1
-  shift
-fi
-if [ "$1" == "-i" ]; then
-  IGNORERUNNING=1
-  shift
+while [[ $1 =~ ^-.* ]]; do
+  if [ "$1" == "-v" ]; then
+    VERBOSE=1
+    shift
+  elif [ "$1" == "-f" ]; then
+    FORCE=1
+    shift
+  elif [ "$1" == "-i" ]; then
+    IGNORERUNNING=1
+    shift
+  elif [ "$1" == "--setup-env" ]; then
+    SETUPENV=1
+    shift
+  else
+    echo "Illegal option $1"
+    exit 1
+  fi
+done
+
+# If used as command in 'docker run', initialize the environment
+if [ "$$" = "1" -a -n "$WEBHARE_IN_DOCKER" ]; then
+  SETUPENV=1
 fi
 
 # We must have $WEBHARE_DIR, pointing to the 'whtree'.
@@ -691,6 +702,14 @@ setup_for_console()
   mkdir -p "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
   WEBHARE_DATAROOT="`cd $WEBHARE_DATAROOT; pwd`" #Ensure we have a full path
 }
+
+if [ -n "$SETUPENV" ]; then
+  check_webhare_not_running
+  setup_for_console
+
+  getwhparameters
+  setup_webhare_envsettings
+fi
 
 case $INSTR in
   "exec")
