@@ -129,6 +129,22 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
     RETURN FALSE;
   }
 
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    FOREVERY (OBJECT comp FROM this->GetChildComponents())
+    {
+      IF (comp->isnowvisible
+          AND (NOT MemberExists(comp, "labelfor")
+              OR NOT ObjectExists(comp->labelfor)))
+      {
+        OBJECT focuscomp := comp->GetFocusComponent();
+        IF (ObjectExists(focuscomp))
+          RETURN focuscomp;
+      }
+    }
+    RETURN DEFAULT OBJECT;
+  }
+
   UPDATE MACRO PreInitComponent() //FIXME ROB: shouldn't be needed, but without this imageedit breaks
   {
     TolliumComponentBase::PreInitComponent();
