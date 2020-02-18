@@ -423,6 +423,12 @@ PUBLIC STATIC OBJECTTYPE ExcelDoc
     ELSE
       RETURN GetDayCount(inval) - 693594 + msecval; //693594 = 1899-12-30, the base for the 1900 date system
   }
+
+  /** Release resources */
+  PUBLIC MACRO Close()
+  {
+    this->ooxmldoc->Close();
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE ExcelSheet
@@ -960,6 +966,9 @@ PUBLIC STATIC OBJECTTYPE XLSXColumnFileWriter EXTEND ColumnFileWriterBase
 
   MACRO ResetDoc()
   {
+    IF (ObjectExists(this->xls))
+      this->xls->Close();
+
     this->xls := DEFAULT OBJECT;
     this->sheet := DEFAULT OBJECT;
     this->datestyle := 0;
