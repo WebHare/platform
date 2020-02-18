@@ -112,11 +112,6 @@ std::unique_ptr< Blex::ComplexFileStream > GlobalBlobManager::CreateTempStream(s
 
 std::shared_ptr< GlobalBlob > GlobalBlobManager::BuildBlobFromTempStream(std::unique_ptr< Blex::ComplexFileStream > file, std::string const &name)
 {
-        {
-                LockedData::WriteRef lock(data);
-                ++lock->refcounts[name];
-        }
-
         return std::shared_ptr< GlobalBlob >(new GlobalBlob(*this, std::move(file), name));
 }
 
@@ -138,9 +133,14 @@ void GlobalBlobManager::RemoveReference(std::string const &name)
                 if (itr != lock->refcounts.end()) // shouldn't happen, but still
                 {
                         need_delete = --itr->second == 0;
-                        BLOB_PRINT("Removed reference for " << name << " refcount: " << *itr);
+                        BLOB_PRINT("Removed reference for " << name << " refcount: " << itr->second);
                         if (need_delete)
                             lock->refcounts.erase(itr);
+                }
+                else
+                {
+                        Blex::ErrStream() << "Blob double free";
+                        Blex::FatalAbort();
                 }
         }
         if (need_delete)
