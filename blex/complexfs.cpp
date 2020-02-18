@@ -400,6 +400,14 @@ bool CFS_FreeRanges::AllocateFixedRange(CFS_BlockId start, CFS_BlockCount size)
         return true;
 }
 
+unsigned CFS_FreeRanges::GetFreeBlockCount() const
+{
+        unsigned total = 0;
+        for (auto &itr: start_limit_ranges)
+            total += itr.second - itr.first;
+        return total;
+}
+
 //******************************************************************************
 //
 //   CFS_FileBlocks
@@ -2445,6 +2453,16 @@ unsigned ComplexFileSystem::GetStandardBufferSize()
         return lock->standard_filebufsize;
 }
 
+
+ComplexFileSystem::Info ComplexFileSystem::GetInfo()
+{
+        LockedBlockData::WriteRef blocklock(blockdata);
+        
+        Info info;
+        info.totalblocks = blocklock->total_sections * BlocksPerSection;
+        info.freeblocks = blocklock->free_ranges.GetFreeBlockCount();
+        return info;
+}
 
 //******************************************************************************
 //
