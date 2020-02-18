@@ -39,6 +39,8 @@
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
 
+    <robots xmlns="http://www.webhare.net/xmlns/consilio" noindex="true" nofollow="true" />
+
     <portal xmlns="http://www.webhare.net/xmlns/tollium" allowwebhareinstall="true"/>
   </apply>
 
