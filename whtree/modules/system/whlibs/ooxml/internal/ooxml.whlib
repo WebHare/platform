@@ -74,4 +74,9 @@ PUBLIC OBJECTTYPE OOXMLDocument
     RETURN this->ooxmlarchive->MakeBlob();
   }
 
+  PUBLIC MACRO Close()
+  {
+    this->ooxmlarchive->Close();
+  }
+
 >;
