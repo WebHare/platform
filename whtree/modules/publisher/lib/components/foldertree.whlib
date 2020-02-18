@@ -149,6 +149,11 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       INSERT 0 INTO this->thelist->expanded AT END;
   }
 
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    RETURN ^thelist;
+  }
+
   PUBLIC RECORD FUNCTION GetFolderSettings()
   {
     RETURN this->foldersettings;
