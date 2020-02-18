@@ -221,7 +221,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
 
   MACRO SetFocusedComponent(OBJECT comp, BOOLEAN handleupdates DEFAULTSTO TRUE)
   {
-    this->pvt_focused_component := handleupdates ? comp->GetEnableOnComponent() : comp;
+    this->pvt_focused_component := handleupdates ? comp->GetFocusComponent() : comp;
     IF (handleupdates)
       this->ExtUpdatedFocus();
   //    this->TolliumHandleFocusUpdate();

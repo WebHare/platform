@@ -763,6 +763,12 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     RETURN ObjectExists(this->pvt_proxy) ? this->pvt_proxy->GetEnableOnComponent() : DEFAULT OBJECT;
   }
 
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    this->PreShowComponent();
+    RETURN ObjectExists(this->pvt_proxy) ? this->pvt_proxy->GetFocusComponent() : DEFAULT OBJECT;
+  }
+
   BOOLEAN regenerating;
   BOOLEAN regenerateagain;
 

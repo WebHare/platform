@@ -925,6 +925,13 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN this;
   }
 
+  /** Returns the component that should be focused
+  */
+  PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    RETURN this;
+  }
+
   PUBLIC STRING FUNCTION GetSaveStateKey()
   {
     STRING keyname;
@@ -2791,6 +2798,21 @@ PUBLIC OBJECTTYPE TolliumProxyComponent EXTEND TolliumSpecialComponent
     RETURN
         [ config := FALSE
         ];
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    IF (ObjectExists(this->pvt_passthrough))
+      RETURN this->passthrough->GetFocusComponent();
+
+    FOREVERY (OBJECT checkcomponent FROM this->pvt_checkcomponents)
+    {
+      OBJECT comp := checkcomponent->GetFocusComponent();
+      IF (ObjectExists(comp))
+        RETURN comp;
+    }
+
+    RETURN DEFAULT OBJECT;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
