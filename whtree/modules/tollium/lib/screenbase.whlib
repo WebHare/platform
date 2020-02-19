@@ -173,6 +173,17 @@ PUBLIC OBJECTTYPE TolliumFragmentBase EXTEND TolliumComponentBase
     THROW NEW Exception(`No such component '${membername}'`);
   }
 
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    FOREVERY(OBJECT sub FROM this->subcomponents)
+    {
+      OBJECT comp := sub->GetFocusComponent();
+      IF (ObjectExists(comp))
+        RETURN comp;
+    }
+    RETURN DEFAULT OBJECT;
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Public API

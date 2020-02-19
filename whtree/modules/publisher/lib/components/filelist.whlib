@@ -237,6 +237,11 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->folderlistener->EnsurePostInit();
   }
 
+  UPDATE PUBLIC OBJECT FUNCTION GetFocusComponent()
+  {
+    RETURN ^mylist;
+  }
+
   MACRO SetContentMode(STRING contentmode)
   {
     IF(contentmode = this->pvt_contentmode)
