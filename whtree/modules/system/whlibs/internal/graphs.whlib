@@ -452,10 +452,10 @@ PUBLIC RECORD ARRAY FUNCTION CalculateDominatorTree(OBJECT graph, OBJECT sourcen
   OBJECT ARRAY dfu_ordered_vertices;
 
   INTEGER cnt := 0;
-  WHILE (NOT IsDefaultValue(worklist))
+  WHILE (IsValueSet(worklist))
   {
-    RECORD rec := worklist[0];
-    DELETE FROM worklist AT 0;
+    RECORD rec := worklist[END - 1];
+    DELETE FROM worklist AT END - 1;
     IF (rec.node->algo_data.dfnum != 0)
       CONTINUE;
 
@@ -464,10 +464,10 @@ PUBLIC RECORD ARRAY FUNCTION CalculateDominatorTree(OBJECT graph, OBJECT sourcen
     rec.node->algo_data.parent := rec.parent;
     INSERT rec.node INTO dfu_ordered_vertices AT END;
 
-    worklist :=
+    worklist := worklist CONCAT
      (SELECT parent := rec.node
            , node
-        FROM ToRecordArray(rec.node->linked_vertices, "NODE")) CONCAT worklist;
+        FROM ToRecordArray(ReverseArray(rec.node->linked_vertices), "NODE"));
   }
 
   OBJECT ARRAY processlist := ReverseArray(ArraySlice(dfu_ordered_vertices, 1));
