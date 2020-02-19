@@ -44,7 +44,7 @@
   <portal>
     <application group="system:setup" name="config" screen="config.main" tid="config.apptitle" icon="tollium:applications/socialite">
       <accesscheck>
-        <requireright right="system:sysop" />
+        <requireright right="fullaccess" />
       </accesscheck>
     </application>
 
