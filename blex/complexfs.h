@@ -124,6 +124,10 @@ class BLEXLIB_PUBLIC CFS_FreeRanges
             @param size Size of range
         */
         void FreeRange(CFS_Range const &range);
+
+        /** Return the number of free blocks
+        */
+        unsigned GetFreeBlockCount() const;
 };
 
 /** This class keeps the mapping to disk-blocks for a file
@@ -468,6 +472,16 @@ class BLEXLIB_PUBLIC ComplexFileSystem
         BufferAll       ///< Everything is buffered, and committed on filesystem close or Flush.
         };
 
+        /// Contains info about the filesystem
+        struct Info
+        {   
+                /// Total nr of present blocks
+                unsigned totalblocks;
+
+                /// Number of free blocks
+                unsigned freeblocks;
+        };
+
     protected:
         /** Data about the free blocks
         */
@@ -659,6 +673,9 @@ class BLEXLIB_PUBLIC ComplexFileSystem
         /** Make sure that everything is flushed to disk (usefull for delayed commit mode)
         */
         void Flush();
+
+        /** Return fs info */
+        Info GetInfo();
 
         friend class CFS_File;
         friend class ComplexFileStream;
