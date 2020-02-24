@@ -209,10 +209,10 @@ class BLEXLIB_PUBLIC GlobalBlobManager
         explicit GlobalBlobManager(std::string const &tmpdir);
         ~GlobalBlobManager();
 
-        /// Create a new stream
+        /// Create a new stream, with a single reference on the name
         std::unique_ptr< Blex::ComplexFileStream > CreateTempStream(std::string *name);
 
-        // Convert an existing stream into a blob
+        /// Convert an existing stream into a blob. Does not add a reference to the name
         std::shared_ptr< GlobalBlob > BuildBlobFromTempStream(std::unique_ptr< Blex::ComplexFileStream > file, std::string const &name);
 
         // Create a blob reference ptr from a global blob
