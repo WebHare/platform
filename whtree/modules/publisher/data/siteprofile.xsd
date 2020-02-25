@@ -291,10 +291,7 @@
     <xs:attribute name="indexversion" />
   </xs:attributeGroup>
 
-  <xs:attributeGroup name="WidgetBaseAttrs">
-    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
-    <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="tolliumicon" type="ImageSrc" />
+  <xs:attributeGroup name="WidgetSettings">
     <xs:attribute name="editextension" type="xs:string">
       <xs:annotation>
         <xs:documentation>
@@ -334,6 +331,13 @@
     </xs:attribute>
     <xs:attribute name="renderlibrary" type="xs:string" />
     <xs:attribute name="renderobjectname" type="xs:string" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="WidgetBaseAttrs">
+    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attributeGroup ref="WidgetSettings" />
+    <xs:attribute name="tolliumicon" type="ImageSrc" />
     <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
@@ -1211,11 +1215,7 @@
 
   <xs:complexType name="SetWidget">
     <xs:attribute name="contenttype" type="xs:string" use="required" />
-    <xs:attribute name="renderlibrary" type="xs:string" />
-    <xs:attribute name="renderobjectname" type="xs:string"  />
-    <xs:attribute name="editfragment" type="xs:string" />
-    <xs:attribute name="editlibrary" type="xs:string" />
-    <xs:attribute name="editfunctionname" type="xs:string" />
+    <xs:attributeGroup ref="WidgetSettings" />
     <xs:attribute name="wittycomponent" />
     <xs:attribute name="previewcomponent" />
   </xs:complexType>
