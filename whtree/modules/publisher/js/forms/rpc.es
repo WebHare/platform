@@ -7,6 +7,7 @@ import JSONRPC from '@mod-system/js/net/jsonrpc';
 import * as formservice from './internal/form.rpc.json';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
+import { runMessageBox } from 'dompack/api/dialog';
 
 function supportsScrollIntoViewBehavior() //http://caniuse.com/#feat=scrollintoview
 {
@@ -196,10 +197,14 @@ export default class RPCFormBase extends FormBase
       eventdetail.errors = result.errors;
 
       let didfirstfocus = false;
+      let globalerrors = [];
       for(let error of result.errors)
       {
         if(!error.name)
-          continue; //FIXME how to handle global errors ?
+        {
+          globalerrors.push(error);
+          continue;
+        }
 
         let failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
         if(!failednode)
@@ -234,6 +239,13 @@ export default class RPCFormBase extends FormBase
                                                    , ds_formmeta_errorsource: 'server'
                                                    , dn_formmeta_waittime: Date.now() - this._submitstart
                                                  });
+
+        if(globalerrors.length)
+        {
+          if(dompack.dispatchCustomEvent(this.node, "wh:form-globalerrors", { bubbles:true, cancelable: true, detail: { globalerrors } }))
+            this.displayGlobalErrors(globalerrors);
+        }
+
         if(dompack.dispatchCustomEvent(this.node, "wh:form-failed", { bubbles:true, cancelable: true, detail: eventdetail }))
           this.onSubmitFailed(result.errors, result.result);
       }
@@ -255,6 +267,20 @@ export default class RPCFormBase extends FormBase
     {
       waiter.resolve();
       this.__formhandler.submitting = false;
+    }
+  }
+
+  displayGlobalErrors(globalerrors)
+  {
+    try
+    {
+      let errors = globalerrors.map(error => dompack.create("p", { textContent:error.message }));
+      runMessageBox(errors, [ { title: "OK" } ]); //TOOD: language?
+    }
+    catch(e)
+    {
+      console.error("runMessageBox failed",e);
+      alert(globalerrors.map(error => error.message).join("\n"));
     }
   }
 

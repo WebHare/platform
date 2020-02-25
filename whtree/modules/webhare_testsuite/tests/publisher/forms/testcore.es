@@ -397,6 +397,13 @@ test.registerTests(
       let errors = passwordgroup.querySelector('.wh-form__error');
       test.true(errors);
       test.eq("'secret' is a bad password", errors.textContent);
+
+      //trigger global error popup
+      test.fill(test.qS('#coretest-password'),'globalerror');
+      test.click('#submitbutton');
+      await test.wait('ui');
+      test.eqMatch(/You broke the form.*Don't do that.*/, test.qS(".mydialog").textContent);
+      test.click('.mydialog button');
     }
   , { name: 'test RPC'
     , test: function()
