@@ -102,6 +102,20 @@ PUBLIC OBJECTTYPE PreviewContext
     torender->RenderAllObjects();
   }
 
+  /** @short Return a renderer for a RTD from an instance record
+      @param richdoc The rich document
+      @cell(string) options.rtdtype Path to structure to use. If not set, the parent RTD type is used
+      @return A Function PTR rendering the RTD, or a DEFAULT MACRO PTR if the RTD was empty */
+  PUBLIC MACRO PTR FUNCTION GetRTDBody(RECORD richdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ rtdtype := "" ], options);
+    IF(NOT RecordExists(richdoc))
+      RETURN DEFAULT MACRO PTR;
+
+    OBJECT rtd := this->OpenRTD(richdoc, options);
+    RETURN PTR rtd->RenderAllObjects;
+  }
+
   OBJECT FUNCTION GetTargetSite()
   {
     RETURN ObjectExists(this->targetapplytester) ? OpenSite(this->targetapplytester->objsite) : DEFAULT OBJECT;
