@@ -77,26 +77,8 @@ OBJECT ASYNC FUNCTION ObjectProps()
   RETURN TRUE;
 }
 
-OBJECT ASYNC FUNCTION SiteProps()
-{
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest");
-  TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
 
-  OBJECT root := testfw->GetTestSite()->rootobject;
-
-  testfw->SetTestUser("sysop");
-
-  OBJECT sitedialog := CreateWHFSSitePropsDialog(GetTestController(), root->id);
-  AWAIT ExpectScreenChange(+1, PTR sitedialog->RunModal()); //simply should not crash
-  TT("locksite")->value := TRUE;
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-
-  BOOLEAN lockstatus := SELECT AS BOOLEAN locked FROM system.sites WHERE id = VAR root->id;
-  TestEq(TRUE, lockstatus);
-  RETURN TRUE;
-}
 RunTestframework([ PTR ObjectProps
-                 , PTR SiteProps
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);

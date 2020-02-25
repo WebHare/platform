@@ -1,6 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="filemanager.whscr"/>
-  <test script="objectprops.whscr"/>
   <test script="testfilemgr-newobject.whscr"/>
   <test script="testfilemgr-upload.whscr"/>
 
