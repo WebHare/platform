@@ -5,11 +5,13 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 
 MACRO SyntaxFail()
 {
   Print("Syntax: wh registry get <keyname>\n");
+  Print("        wh registry list <keymask>\n");
   Print("        wh registry set [--password] <keyname> <value>\n");
   TerminateScriptWithError("Invalid syntax");
 }
@@ -36,6 +38,24 @@ SWITCH(args.cmd)
       Print(val||"\n");
     ELSE
       DumpValue(val, [ name := "" ]);
+  }
+  CASE "list"
+  {
+    RECORD restargs := ParseArguments( args.rest, [[ name := "keymask", type := "param", required := TRUE ]]);
+    IF(NOT RecordExists(restargs))
+      SyntaxFail();
+
+    OpenPrimary();
+    RECORD ARRAY matchkeys := SELECT name
+                                   , value := data != "" ? DecodeHSON(data) : DecodeHSONBlob(blobdata)
+                                FROM system_internal.flatregistry
+                               WHERE ToUppercase(name) LIKE ToUppercase(restargs.keymask)
+                            ORDER BY ToUppercase(name);
+
+    IF(Length(matchkeys) = 0)
+      TerminateScriptWithError(`No registry keys match the mask '${restargs.keymask}'`);
+
+    DumpValue(matchkeys,'boxed');
   }
   CASE "set"
   {
