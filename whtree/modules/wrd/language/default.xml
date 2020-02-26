@@ -879,6 +879,10 @@
         <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
           <text tid="agreeterms">I agree to the <html:a data-href-param="1">AfterPay terms &amp; conditions</html:a></text>
         </textgroup>
+        <textgroup gid="spraypay">   <!-- site.forms.payments.spraypay -->
+          <text tid="amountoutofrange">SprayPay is only available for payments between <param p="1"/> and <param p="2"/></text>
+          <text tid="denied">SprayPay has denied your request</text>
+        </textgroup>
       </textgroup>
     </textgroup>
   </textgroup>

@@ -1,16 +1,20 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 
 CONSTANT STRING ARRAY spraypay_requirements := [ "wrd_contact_email", "customerid"
                                                ];
+CONSTANT INTEGER spraypay_minimumamount := 250;
+CONSTANT INTEGER spraypay_maximumamount := 3000;
 
 /* api docs:
 https://spraypayintegratie.docs.apiary.io/
@@ -24,6 +28,7 @@ OBJECT FUNCTION GetBrowser()
     RETURN spraypaybrowser;
 
   spraypaybrowser := NEW WebBrowser;
+  spraypaybrowser->debug := TRUE;
   IF(IsRPCTrafficLogged("wrd:payments.spraypay"))
     LogRPCForWebbrowser("wrd:payments.spraypay", "", spraypaybrowser);
 
@@ -38,6 +43,7 @@ STRING FUNCTION GetApiBase(BOOLEAN testmode)
 CONSTANT RECORD defaultpaymentdata :=
     [ status := ""
     , customer := RECORD[]
+    , directfail := DEFAULT RECORD
     ];
 
 PUBLIC STRING FUNCTION GetSprayPaySignature(RECORD ARRAY fields, STRING ARRAY fieldsinscope, STRING hmackey)
@@ -96,13 +102,10 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
             ]];
   }
 
-  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  RECORD ARRAY FUNCTION GetCustomerFieldsFromPaymentMethod(RECORD paymentmethod)
   {
-    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
-
-    RECORD personfields := this->GetCustomerInfo(paymentmethod, [ requirements := spraypay_requirements ]);
-
     RECORD ARRAY customer;
+    RECORD personfields := this->GetCustomerInfo(paymentmethod, [ requirements := spraypay_requirements ]);
     IF(ObjectExists(paymentmethod.wrdpersonentity))
     {
       customer := [ [ name := "initials",          value := personfields.wrd_initials ]
@@ -130,6 +133,14 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
       }
       DELETE FROM customer WHERE value = "";
     }
+    RETURN customer;
+  }
+
+  UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
+  {
+    WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
+
+    RECORD ARRAY customer := this->GetCustomerFieldsFromPaymentMethod(paymentmethod);
     this->msporderdata := [ ...defaultpaymentdata
                           , customer := customer
                           ];
@@ -146,25 +157,12 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
     RETURN this->msporderdata;
   }
 
-  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  BLOB FUNCTION PreparePaymentRequest(MONEY amountpayable, RECORD ARRAY customerfields, STRING returnurl)
   {
-    RECORD result := [ submitinstruction := DEFAULT RECORD
-                     , errors := RECORD[]
-                     , processnow := FALSE
-                     ];
-
-    IF(Length(result.errors) > 0)
-      RETURN result; //preflight failure, pointless to continue
-
-    //TODO preflight first, perhaps we can already abort the requets
-
-    STRING returnurl := GetInternalReturnURL(paymenttok);
-    STRING apibase := GetApiBase(this->settings.testmode);
-
-    RECORD ARRAY orderfields := this->msporderdata.customer
+    RECORD ARRAY orderfields := customerfields
                                 CONCAT
-                                [[ name := "webshopOrderAmount", value := FormatMoney(this->amountpayable,2,'.','',FALSE) ]
-                                ,[ name := "webshopOrderId",     value := this->paymentref ]
+                                [[ name := "webshopOrderAmount", value := FormatMoney(amountpayable,2,'.','',FALSE) ]
+                                ,[ name := "webshopOrderId",     value := returnurl != "" ? this->paymentref : "preflight"]
                                 ,[ name := "webshopId",          value := ToString(this->settings.webshopid) ]
                                 ,[ name := "returnUrl",          value := returnurl ]
                                 ];
@@ -179,19 +177,78 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
     INSERT [ name := "merchantSig", value := sig ] INTO orderfields AT END;
 
     RECORD translationmap := RepackRecord(SELECT name, value := name FROM orderfields);
-    BLOB data := EncodeJSONBlob(RepackRecord(orderfields), translationmap);
+    RETURN EncodeJSONBlob(RepackRecord(orderfields), translationmap);
+  }
 
+  UPDATE PUBLIC RECORD FUNCTION CheckPaymentRequest(MONEY amount_payable, RECORD baseoptions)
+  {
+    RECORD result := [ errors := RECORD[] ];
+    IF(amount_payable < spraypay_minimumamount OR amount_payable > spraypay_maximumamount)
+    {
+      INSERT [ field := ""
+             , error := GetTid("wrd:site.forms.payments.spraypay.amountoutofrange", ToString(spraypay_minimumamount), ToString(spraypay_maximumamount))
+             , description := `SprayPay can only be used for amounts between ${spraypay_minimumamount} and ${spraypay_maximumamount}, asking for ${FormatMoney(this->amountpayable,2,'.','',FALSE)}`
+             ] INTO result.errors AT END;
+      RETURN result;
+    }
+
+    STRING apibase := GetApiBase(this->settings.testmode);
+    BLOB data := this->PreparePaymentRequest(amount_payable, this->GetCustomerFieldsFromPaymentMethod(baseoptions), "");
 
     OBJECT browser := GetBrowser();
-    browser->autofollow := FALSE; //we get a 303 back....
+    browser->autofollow := FALSE; //we may get a 303 back....
+    IF(NOT browser->PostWebPageBlob(`${apibase}loanRequest/preflight`,
+                                    [[ field := "Content-Type", value := "application/json" ]], data))
+    {
+      THROW NEW Exception("Order post failed");
+    }
+
+    RECORD res := DecodeJSONBlob(browser->content);
+    IF(res.result != "APPROVED")
+    {
+      INSERT [ field := ""
+             , error := GetTid("wrd:site.forms.payments.spraypay.denied")
+             , description := `SprayPay denied this request: ${res.result}`
+             ] INTO result.errors AT END;
+    }
+
+    RETURN result;
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
+  {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
+    IF(Length(result.errors) > 0)
+      RETURN result; //preflight failure, pointless to continue
+
+    //TODO preflight first, perhaps we can already abort the requets
+
+    STRING returnurl := GetInternalReturnURL(paymenttok);
+    STRING apibase := GetApiBase(this->settings.testmode);
+    BLOB data := this->PreparePaymentRequest(this->amountpayable, this->msporderdata.customer, returnurl);
+
+    OBJECT browser := GetBrowser();
+    browser->autofollow := FALSE; //we may get a 303 back....
     IF(NOT browser->PostWebPageBlob(`${apibase}loanRequest?redirect=true`,
                                     [[ field := "Content-Type", value := "application/json" ]], data))
     {
       THROW NEW Exception("Order post failed");
     }
 
+    IF(browser->GetHTTPStatusCode() = 200) //this is a direct response
+    {
+      this->msporderdata.directfail := DecodeJSONBlob(browser->content) ?? [ directfail := "no reason received"];
+      this->pvt_status := "failed";
+      result.processnow := TRUE;
+      RETURN result;
+    }
+
     IF(browser->GetHTTPStatusCode() != 303)
-      THROW NEW Exception("Expected a 303 but didn't receive it...");
+      THROW NEW Exception(`Expected a 303 but got ${browser->GetHTTPStatusText()}`);
 
      result.submitinstruction := [ type := "redirect"
                                  , url := browser->GetResponseHeader("Location")
@@ -205,7 +262,7 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
     this->PollStatus();
   }
 
-  BOOLEAN FUNCTION __GetStatusForOrder(STRING paymentref)
+  MACRO __GetStatusForOrder(STRING paymentref)
   {
     STRING apibase := GetApiBase(this->settings.testmode);
 
@@ -218,23 +275,35 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
     RECORD translationmap := RepackRecord(SELECT name, value := name FROM pollfields);
     BLOB data := EncodeJSONBlob(RepackRecord(pollfields), translationmap);
 
-    OBJECT browser := GetBrowser();
-    RETURN browser->PostWebPageBlob(`${apibase}order/status`,
+    GetBrowser()->PostWebPageBlob(`${apibase}order/status`,
                                     [[ field := "Content-Type", value := "application/json" ]], data);
+
   }
   MACRO PollStatus()
   {
-    IF(NOT this->__GetStatusForOrder(this->paymentref))
-      THROW NEW Exception("Status request failed");
+    this->__GetStatusForOrder(this->paymentref);
 
-    RECORD result := DecodeJSONBlob(GetBrowser()->content);
-
-    IF(result.status = "APPROVED")
-      this->pvt_status := "approved";
-    ELSE IF(result.status = "CANCELLED")
+    RECORD result := EnforceStructure([status := "", details := ""], DecodeJSONBlob(GetBrowser()->content));
+    /* `{"details":"java.lang.NullPointerException","description":null,"code":null}'` is spraypays way of telling "unknown payment reference"
+       reported but never heard back, guess we were reporting too many API bugs already
+    */
+    IF(EnforceStructure([ details := "" ], result).details = "java.lang.NullPointerException")
+    {
       this->pvt_status := "failed";
+    }
+    ELSE IF(result.status != "")
+    {
+      IF(result.status = "APPROVED")
+        this->pvt_status := "approved";
+      ELSE IF(result.status IN ["CANCELLED","DENIED"])
+        this->pvt_status := "failed";
+      ELSE
+        this->pvt_status := "pending";
+    }
     ELSE
-      this->pvt_status := "pending";
+    {
+      THROW NEW Exception(`Order status request failed`);
+    }
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
