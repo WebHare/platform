@@ -275,7 +275,7 @@ export default class RPCFormBase extends FormBase
     try
     {
       let errors = globalerrors.map(error => dompack.create("p", { textContent:error.message }));
-      runMessageBox(errors, [ { title: "OK" } ]); //TOOD: language?
+      runMessageBox(errors, [ { title: "OK" } ]); //TODO: language?
     }
     catch(e)
     {
