@@ -28,6 +28,33 @@ OBJECT ASYNC FUNCTION YoutubeComponent()
   RETURN TRUE;
 }
 
+ASYNC MACRO TestCustomImplementation()
+{
+  OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/customparser.testscreen");
+
+  AWAIT ExpectScreenChange(+1, PTR screen->RunModal());
+
+  // The 'Hello, World!' text is created by the custom tabs extension implementation, which is loaded by the custom fragment
+  // implementation, which in turn is loaded by the custom screen implementation
+  TestEq("Hello, World!", TT(":hello_world")->value);
+
+  // The rows are filled by the <test:child> elements within the <test:extraparsercomponent> component
+  TestEq(
+      [ [ testattr := "Custom parser attribute value"
+        , compref := ""
+        ]
+      , [ testattr := ""
+        , compref := "Referenced component"
+        ]
+      , [ testattr := "Last child"
+        , compref := ""
+        ]
+      ], SELECT testattr, compref FROM TT("children")->rows);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework([ PTR MultilineComponent
                  , PTR YoutubeComponent
+                 , PTR TestCustomImplementation
                  ]);

@@ -1,6 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Tollium components"
-       docorder="listedit image imgedit custom richeditor">
+       docorder="listedit image imgedit custom parsing richeditor">
   <section name="base" title="Base components" />
 
 </topic>

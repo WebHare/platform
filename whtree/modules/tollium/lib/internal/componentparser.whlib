@@ -13,6 +13,8 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 RECORD ARRAY cache_componentdefs;
 RECORD ARRAY cache_singlecomponentdefs;
+RECORD ARRAY cache_singleimplementationdefs;
+RECORD ARRAY cache_singleextraparserdefs;
 
 RECORD FUNCTION GetNamespacedTarget(OBJECT element, STRING elementname)
 {
@@ -326,6 +328,8 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
                    , errors := RECORD[]
                    , warnings := RECORD[]
                    , components := RECORD[]
+                   , implementations := RECORD[]
+                   , extraparsers := RECORD[]
                    , files := files
                    ];
 
@@ -338,6 +342,30 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
 
   IF (options.withcomments)
     INSERT CELL comment := GetAnnotiationUserDocumentation(parser->schema_information) INTO retval;
+
+  FOREVERY (RECORD type FROM parser->datatypes)
+  {
+    OBJECT ARRAY nodelist := OBJECT[ type.node ];
+    RECORD tolliumimplinfo := GetAppinfoNodeWithSource(nodelist, ns_screens, "tolliumimplementation");
+    IF (RecordExists(tolliumimplinfo))
+    {
+      INSERT
+          [ name := type.name
+          , namespaceuri := type.namespaceuri
+          , objtype := MakeAbsoluteResourcePath(resourcename, tolliumimplinfo.comp->GetAttribute("objecttype"))
+          ] INTO retval.implementations AT END;
+    }
+    RECORD tolliumparserinfo := GetAppinfoNodeWithSource(nodelist, ns_screens, "tolliumextraparser");
+    IF (RecordExists(tolliumparserinfo))
+    {
+      INSERT
+          [ name := type.name
+          , namespaceuri := type.namespaceuri
+          , parsefunc := MakeAbsoluteResourcePath(resourcename, tolliumparserinfo.comp->GetAttribute("parsefunction"))
+          , processfunc := MakeAbsoluteResourcePath(resourcename, tolliumparserinfo.comp->GetAttribute("processfunction"))
+          ] INTO retval.extraparsers AT END;
+    }
+  }
 
   FOREVERY(RECORD element FROM parser->elements)
   {
@@ -696,4 +724,56 @@ PUBLIC RECORD FUNCTION GetComponentDefinition(STRING namespaceuri, STRING localn
   INSERT rec INTO cache_singlecomponentdefs AT pos.position;
 
   RETURN compinfo;
+}
+
+PUBLIC RECORD FUNCTION GetImplementationDefinition(STRING namespaceuri, STRING localname)
+{
+  RECORD rec := [ namespaceuri := namespaceuri, localname := localname, def := DEFAULT RECORD ];
+  RECORD pos := RecordLowerBound(cache_singleimplementationdefs, rec, [ "LOCALNAME", "NAMESPACEURI" ]);
+  IF (pos.found)
+    RETURN cache_singleimplementationdefs[pos.position].def;
+
+  RECORD nsinfo := GetComponentsForNamespace(namespaceuri);
+  IF(NOT RecordExists(nsinfo))
+    THROW NEW Exception("No such component namespace '" || namespaceuri || "' while looking up '" || localname || "'");
+
+  IF(NOT nsinfo.success)
+    THROW NEW Exception("Failed to process component namespace " || namespaceuri || ": " || nsinfo.error);
+
+  RECORD implinfo := SELECT * FROM nsinfo.implementations WHERE name = localname;
+  IF(NOT RecordExists(implinfo))
+    THROW NEW Exception("No such implementation <" || localname || "> in namespace " || namespaceuri);
+
+  INSERT CELL files := nsinfo.files INTO implinfo;
+
+  rec.def := implinfo;
+  INSERT rec INTO cache_singleimplementationdefs AT pos.position;
+
+  RETURN implinfo;
+}
+
+PUBLIC RECORD FUNCTION GetExtraParserDefinition(STRING namespaceuri, STRING localname)
+{
+  RECORD rec := [ namespaceuri := namespaceuri, localname := localname, def := DEFAULT RECORD ];
+  RECORD pos := RecordLowerBound(cache_singleextraparserdefs, rec, [ "LOCALNAME", "NAMESPACEURI" ]);
+  IF (pos.found)
+    RETURN cache_singleextraparserdefs[pos.position].def;
+
+  RECORD nsinfo := GetComponentsForNamespace(namespaceuri);
+  IF(NOT RecordExists(nsinfo))
+    THROW NEW Exception("No such component namespace '" || namespaceuri || "' while looking up '" || localname || "'");
+
+  IF(NOT nsinfo.success)
+    THROW NEW Exception("Failed to process component namespace " || namespaceuri || ": " || nsinfo.error);
+
+  RECORD parserinfo := SELECT * FROM nsinfo.extraparsers WHERE name = localname;
+  IF(NOT RecordExists(parserinfo))
+    THROW NEW Exception("No such extraparser <" || localname || "> in namespace " || namespaceuri);
+
+  INSERT CELL files := nsinfo.files INTO parserinfo;
+
+  rec.def := parserinfo;
+  INSERT rec INTO cache_singleextraparserdefs AT pos.position;
+
+  RETURN parserinfo;
 }
