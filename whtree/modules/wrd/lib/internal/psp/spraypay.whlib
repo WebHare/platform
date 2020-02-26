@@ -203,7 +203,7 @@ PUBLIC STATIC OBJECTTYPE SprayPayPaymentProvider EXTEND WRDPaymentProviderBase
       THROW NEW Exception("Order post failed");
     }
 
-    RECORD res := DecodEJSONBlob(browser->content);
+    RECORD res := DecodeJSONBlob(browser->content);
     IF(res.result != "APPROVED")
     {
       INSERT [ field := ""
