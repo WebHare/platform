@@ -492,27 +492,37 @@ STATIC OBJECTTYPE WHFSForm
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.url")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "when"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.when")
           , type := "datetime"
           , storeutc := TRUE
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "ipaddress"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipaddress")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "useragent"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.useragent")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "ipcountrycode"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipcountrycode")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         ];
 
@@ -528,7 +538,12 @@ STATIC OBJECTTYPE WHFSForm
       IF(Length(outcolumns)=0) //nothing to export?
         CONTINUE;
 
-      outcolumns := SELECT *, inputname := name, name := "out" || Length(resultcolumns) + #outcolumns, storename := VAR storename FROM outcolumns;
+      outcolumns := SELECT *
+                         , fieldname := ToLowercase(field.name)
+                         , inputname := name
+                         , name := "out" || Length(resultcolumns) + #outcolumns
+                         , storename := VAR storename
+                      FROM outcolumns;
       resultcolumns := resultcolumns CONCAT outcolumns;
 
       field := CELL[ ...field
@@ -539,7 +554,7 @@ STATIC OBJECTTYPE WHFSForm
       formfields[#field] := field;
     }
 
-    columns := columns CONCAT SELECT *, DELETE inputname FROM resultcolumns;
+    columns := columns CONCAT resultcolumns;
     RETURN NEW FormResultExporter(this, formfields, columns, options, this->whfsobject->id, this->formname, options.showpendingresults, options.showexpiredresults);
   }
 

@@ -20,11 +20,14 @@ PUBLIC OBJECT FUNCTION OpenFormFileDefinition(OBJECT formfile, RECORD options DE
 
 /** @short Open the result storage of a formdefinition WHFS file
     @param formfile File to open
-    @return AN opened formdefinition
+    @return Form results, or DEFAULT OBJECT if the file does not contain a valid webtool form
 */
 PUBLIC OBJECT FUNCTION OpenFormFileResults(OBJECT formfile, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ formname := "webtoolform" ], options);
   OBJECT formdef := OpenFormFileDefinition(formfile, [ formname := options.formname ]);
+  IF(NOT ObjectExists(formdef))
+    RETURN DEFAULT OBJECT;
+
   RETURN OpenWebtoolFormResultsForFormdef(formfile, /*formdef->ListFields(), */options.formname, formdef);
 }
