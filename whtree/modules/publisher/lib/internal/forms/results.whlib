@@ -229,13 +229,18 @@ STATIC OBJECTTYPE WHFSForm
   //RECORD ARRAY formfields;
   OBJECT formdef;
   RECORD liveperlang;
+  PUBLIC OBJECT __applytester;
 
   PUBLIC BOOLEAN showpendingresults;
   PUBLIC BOOLEAN showexpiredresults;
 
   MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef)
   {
+    IF(NOT ObjectExists(whfsobject))
+      THROW NEW Exception("WHFSForm requires a valid WHFSObject");
+
     this->whfsobject := whfsobject;
+    this->__applytester := GetApplyTesterForObject(this->whfsobject->id);
     this->formname := formname;
     //this->formfields := formfields;
     this->formdef := formdef;
@@ -621,10 +626,10 @@ STATIC OBJECTTYPE WHFSForm
     IF(CellExists(this->liveperlang, langcode))
       RETURN GetCell(this->liveperlang, langcode);
 
-    STRING resourcename := ObjectExists(this->whfsobject) ? this->whfsobject->GetResourceName() : "";
+    STRING resourcename := this->whfsobject->GetResourceName();
     RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
-                                   [ webtoolformid := ObjectExists(this->whfsobject) ? this->whfsobject->id : 0 ]);
-    OBJECT form := OpenFormByDef(formdef, [ forcewebtoolformbase := TRUE, languagecode := langcode ]);
+                                   [ webtoolformid := this->whfsobject->id ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ forcewebtoolformbase := TRUE, languagecode := langcode, applytester := this->__applytester ]);
     RETURN form;
   }
 

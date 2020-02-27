@@ -228,7 +228,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO ValidateFormFile(OBJECT work)
   {
     // Check if there are no RTDs with merge fields on non-thankyou pages
-    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage);
+    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
     FOREVERY (RECORD field FROM finalform->__form.fields)
     {
       IF (field.qname != "http://www.webhare.net/xmlns/publisher/forms#richtext" // Not a richtext field
@@ -869,20 +869,25 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     RETURN sources;
   }
 
+  RECORD ARRAY FUNCTION ListFormFields()
+  {
+    RETURN this->curform->ListFields([ languagecode := this->uselanguage, applytester := this->contexts->applytester ]);
+  }
+
   RECORD ARRAY FUNCTION GetFieldsForTypes(STRING ARRAY types)
   {
     IF (Length(types) = 0)
-      RETURN this->curform->ListFields([ languagecode := this->uselanguage ]);
-    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE ArraysIntersect(types, supportedvalues);
+      RETURN this->ListFormFields();
+    RETURN SELECT * FROM this->ListFormFields() WHERE ArraysIntersect(types, supportedvalues);
   }
 
   RECORD FUNCTION GetField(STRING guid)
   {
-    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE COLUMN guid = VAR guid;
+    RETURN SELECT * FROM this->ListFormFields() WHERE COLUMN guid = VAR guid;
   }
   RECORD FUNCTION GetFieldByTag(STRING findtag)
   {
-    RETURN SELECT * FROM this->curform->ListFields([ languagecode := this->uselanguage ]) WHERE ToUppercase(name) = ToUppercase(findtag);
+    RETURN SELECT * FROM this->ListFormFields() WHERE ToUppercase(name) = ToUppercase(findtag);
   }
 
 
@@ -1126,7 +1131,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->confirmationhandler := FALSE;
 
     //Build the form
-    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage);
+    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
 
     BOOLEAN issinglepage := this->curform->GetPage(0)->node->nodename = "form";
     this->frame->flags.issinglepage := issinglepage;
