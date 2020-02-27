@@ -149,7 +149,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
                                                           , showsensitivefields := this->contexts->user->HasRight("system:supervisor")
                                                           ]);
 
-    RunColumnFileExportDialog(this, CELL[ columns := (SELECT *, DELETE storename, DELETE precision FROM exporter->columns)
+    RunColumnFileExportDialog(this, CELL[ columns := (SELECT *, DELETE storename, DELETE precision, DELETE fieldname, DELETE inputname FROM exporter->columns)
                                         , rows := exporter->ExportAllResults()
                                         ]);
   }

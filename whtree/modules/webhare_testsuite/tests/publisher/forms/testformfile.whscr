@@ -196,6 +196,14 @@ PUBLIC MACRO FillInForm()
 
   RECORD ARRAY exportrows := exporter->ExportAllResults();
   TestEq(2, Length(exportrows));
+
+  RECORD colinfo_firstname  := SELECT * FROM exporter->columns WHERE title="First name";
+  TestEq("value", colinfo_firstname.inputname);
+  TestEq("firstname", colinfo_firstname.fieldname);
+
+  RECORD ARRAY colinfos_upload  := SELECT * FROM exporter->columns WHERE fieldname="upload";
+  TestEq(["file","filelink"], SELECT AS STRING ARRAY inputname FROM colinfos_upload);
+
   STRING col_firstname  := SELECT AS STRING name FROM exporter->columns WHERE title="First name";
   STRING col_email      := SELECT AS STRING name FROM exporter->columns WHERE title="Email";
   STRING col_upload     := SELECT AS STRING name FROM exporter->columns WHERE title="Upload";
