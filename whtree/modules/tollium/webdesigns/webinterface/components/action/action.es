@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
-import { handleFeedback } from "../../js/feedback";
+import * as feedback from "../../js/feedback";
 
 import { getTid } from "@mod-tollium/js/gettid";
 import DownloadManager from '@mod-system/js/compat/download';
@@ -232,7 +232,7 @@ export default class ObjAction extends ActionForwardBase
 
   executeHandleFeedback(data)
   {
-    handleFeedback();
+    feedback.run();
   }
 
   executeCopyToClipboard(data)
