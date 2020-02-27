@@ -104,7 +104,7 @@ export class InputTextLengthCounter
     if (!this._input)
       throw new Error("Could not locate input node to count");
 
-    this._limit = Number(this._input.maxlength);
+    this._limit = Number(this._input.maxLength);
     if (this._options.showcounter)
     {
       this._counter = new Counter(
@@ -132,7 +132,7 @@ export class InputTextLengthCounter
 
   update()
   {
-    this._limit = Number(this._input.maxlength);
+    this._limit = Number(this._input.maxLength);
 
     let updates =
         { count:  this._getTextlength()
