@@ -769,6 +769,15 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     RETURN ObjectExists(this->pvt_proxy) ? this->pvt_proxy->GetFocusComponent() : DEFAULT OBJECT;
   }
 
+  UPDATE PUBLIC MACRO RecursiveUpdateIsNowVisible()
+  {
+    //ADDME: This is a workaround for a bug that causes all subcomponents to be reinserted after one another after this select
+    //       is removed from its parent, because that causes the parent-child relation between the panel and list to be broken
+    IF (this->pvt_type IN [ "checkboxlist", "inlinecheckboxlist" ] AND ObjectExists(this->pvt_parent))
+      this->RegenerateComponents();
+    TolliumComponentBase::RecursiveUpdateIsNowVisible();
+  }
+
   BOOLEAN regenerating;
   BOOLEAN regenerateagain;
 
