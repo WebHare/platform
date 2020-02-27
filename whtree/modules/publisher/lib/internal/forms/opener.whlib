@@ -57,7 +57,6 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
 
     STRING toopen := options.forcewebtoolformbase ? "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase"
                                                   : parsed.objectname ?? "mod::publisher/lib/forms/base.whlib#FormBase";
-;
 
     formobj := MakeObject(toopen);
     formobj->__EnsurePreInit();

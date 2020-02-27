@@ -25,7 +25,7 @@ MACRO DirectFormStorage1()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT formresults := OpenFormFileResults(formfile);
-  OBJECT liveform := webtoolform->__OpenAsLiveForm("en");
+  OBJECT liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
 
   liveform->^firstname->value := "Pietje";
 
@@ -43,7 +43,7 @@ MACRO DirectFormStorage1()
   TestEqLike("mod::webhare_testsuite/*", submitted.useragent);
 
   //Open in edit mode
-  liveform := webtoolform->__OpenAsLiveForm("en");
+  liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
   liveform->EditExistingResult(res.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
@@ -79,7 +79,7 @@ MACRO DirectFormStorage2()
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT formresults := OpenFormFileResults(formfile);
-  OBJECT liveform := webtoolform->__OpenAsLiveForm("en");
+  OBJECT liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
 
   RECORD ARRAY fields := liveform->ListFields();
   STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
@@ -92,7 +92,7 @@ MACRO DirectFormStorage2()
   TestEq(2, formresults->GetResultsCount());
 
   //Open in edit mode
-  liveform := webtoolform->__OpenAsLiveForm("en");
+  liveform := webtoolform->__OpenAsLiveForm("en", DEFAULT OBJECT);
   liveform->EditExistingResult(res.resultsguid);
 
   TestEqMembers(source, liveform->^upload->value, "*,-__BLOBSOURCE,-HASH,-DOMINANTCOLOR");
