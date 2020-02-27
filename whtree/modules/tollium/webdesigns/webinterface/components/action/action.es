@@ -1,5 +1,6 @@
 import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
+import { handleFeedback } from "../../js/feedback";
 
 import { getTid } from "@mod-tollium/js/gettid";
 import DownloadManager from '@mod-system/js/compat/download';
@@ -78,6 +79,8 @@ export default class ObjAction extends ActionForwardBase
       this.executeDownloadAction({rule:hitrule});
     else if(this.isEventUnmasked('windowopen'))
       this.executeWindowOpenAction({rule:hitrule});
+    else if(this.isEventUnmasked('handlefeedback'))
+      this.executeHandleFeedback({rule:hitrule});
     else if(this.isEventUnmasked('copytoclipboard'))
       this.executeCopyToClipboard({rule:hitrule});
     else if(this.isEventUnmasked('execute'))
@@ -225,6 +228,11 @@ export default class ObjAction extends ActionForwardBase
 
     window.open(fturl.url, this.target || "_blank");
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
+  }
+
+  executeHandleFeedback(data)
+  {
+    handleFeedback();
   }
 
   executeCopyToClipboard(data)
