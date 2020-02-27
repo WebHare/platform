@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -491,3 +492,42 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
   }
   RunFSObjectPropertiesDialog(parentscreen, objectid, [assumereadaccess := TRUE]); //we already check readaccess, don't redo it
 }
+
+
+/** Show a single form result
+    @param parentscreen Screen invoking us
+    @param formresults Form results
+    @param resultguid Result guid
+    @cell(string array) options.hidefields List of base fields to hide (ipaddress, ipcountrycode, url, useragent, when)
+    @return False if the requested results could not be found */
+PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT formresults, STRING resultguid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ hidefields := STRING[] ], options);
+
+  RECORD existingresult := GetFinalResult(formresults->GetStorageObject()->id, "webtoolform", resultguid, FALSE, FALSE);
+  IF(NOT RecordExists(existingresult))
+    RETURN FALSE;
+
+  OBJECT exporter := formresults->CreateExporter( [ language := GetTidLanguage()
+                                                  , isfullexport := TRUE
+                                                  , showpendingresults := TRUE
+                                                  , showexpiredresults := TRUE
+                                                  , inlineattachments := TRUE
+                                                  ]);
+  RECORD data := exporter->ExportAllResults([ resultids := INTEGER[existingresult.id]]);
+  IF(NOT RecordExists(data))
+    RETURN FALSE;
+
+  RECORD ARRAY cols := exporter->columns;
+  DELETE FROM cols WHERE name IN options.hidefields;
+  IF(NOT parentscreen->contexts->user->HasRight("system:supervisor")) //hide sensitive data - but even for supervisors it should be optional to export these
+    DELETE FROM cols WHERE name IN ["ipaddress","useragent"];
+
+  parentscreen->RunScreen("mod::publisher/tolliumapps/formedit/results.xml#singleresult",
+      CELL[ row := data
+          , cols
+          , resultid := existingresult.id
+          ]);
+  RETURN TRUE;
+}
+
