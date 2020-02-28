@@ -31,7 +31,6 @@ mic                                     Make Install, run in console mode
 umic                                    Update git, make install, run in console mode
 hstest <test>                           Run the specified HareScript test
 installsocketbinder                     Install the socket binder
-obsoletebranches [dir]                  Remove merged branches (in WebHare source tree if no directory specified)
 execbuilt                               Execute the specificed process directly from the build tree
 
 --- standard options ---
