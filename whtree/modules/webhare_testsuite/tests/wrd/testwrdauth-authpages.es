@@ -1,4 +1,4 @@
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 import * as testwrd from "@mod-wrd/js/testframework";
 import * as dompack from 'dompack';
 import * as domfocus from '@mod-system/js/dom/focus';

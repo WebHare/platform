@@ -1,4 +1,4 @@
-var test = require('@mod-system/js/wh/testframework');
+import * as test from "@mod-system/js/wh/testframework";
 var testurl = '/.webhare_testsuite/tests/pages/focuszones/';
 var domfocus = require('@mod-system/js/dom/focus');
 

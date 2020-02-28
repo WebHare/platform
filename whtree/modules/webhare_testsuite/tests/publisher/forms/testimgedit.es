@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import * as preload from 'dompack/extra/preload';
 import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';

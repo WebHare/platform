@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 
 var setupdata;
 let rand = Math.floor(100000000*Math.random());

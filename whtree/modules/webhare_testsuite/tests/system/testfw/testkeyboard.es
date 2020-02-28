@@ -1,4 +1,4 @@
-import test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 
 function getPressedKeys() { return JSON.parse(test.qS('#keyspressed').value || "[]"); }
 

@@ -1,4 +1,4 @@
-import test from '@mod-tollium/js/testframework';
+import * as test from '@mod-tollium/js/testframework';
 
 var webroot = test.getTestSiteRoot();
 var setupdata = null;

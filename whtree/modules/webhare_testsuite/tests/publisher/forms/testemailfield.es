@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 
 function getFormRPCRequests()
 {
