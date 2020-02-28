@@ -15,7 +15,7 @@
   <test path="lists/" />
   <test path="tables/" />
   <test path="richdoc/" />
-  <test path="jsapp/" />
+  <test path="shell/" />
   <test path="regressions/" />
 
   <test script="components.whscr" />
