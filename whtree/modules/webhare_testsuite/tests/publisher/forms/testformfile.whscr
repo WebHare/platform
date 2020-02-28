@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
@@ -195,6 +196,14 @@ PUBLIC MACRO FillInForm()
 
   RECORD ARRAY exportrows := exporter->ExportAllResults();
   TestEq(2, Length(exportrows));
+
+  RECORD colinfo_firstname  := SELECT * FROM exporter->columns WHERE title="First name";
+  TestEq("value", colinfo_firstname.inputname);
+  TestEq("firstname", colinfo_firstname.fieldname);
+
+  RECORD ARRAY colinfos_upload  := SELECT * FROM exporter->columns WHERE fieldname="upload";
+  TestEq(["file","filelink"], SELECT AS STRING ARRAY inputname FROM colinfos_upload);
+
   STRING col_firstname  := SELECT AS STRING name FROM exporter->columns WHERE title="First name";
   STRING col_email      := SELECT AS STRING name FROM exporter->columns WHERE title="Email";
   STRING col_upload     := SELECT AS STRING name FROM exporter->columns WHERE title="Upload";
@@ -411,9 +420,24 @@ ASYNC MACRO TestFormApp()
 
   RECORD res := tester->SubmitForm(submitrec);
   TestEq(TRUE,res.success);
+  STRING resultguid := res.result.resultsguid;
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
   TestEq(4, Length(TT("results")->rows));
+
+  //test singleresult dialog
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT webtoolresults := OpenFormFileResults(formfile);
+
+  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), webtoolresults, resultguid));
+  TestEq("Contentlink", TT(":First name")->value);
+  TestEq(TRUE, ObjectExists(TT(":Form location", [ allowmissing := TRUE ])));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), webtoolresults, resultguid, [ hidefields := ["url"] ]));
+  TestEq("Contentlink", TT(":First name")->value);
+  TestEq(FALSE, ObjectExists(TT(":Form location", [ allowmissing := TRUE ])));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Kill two results
   TT("results")->selection := ArraySlice(TT("results")->rows,0,2);
@@ -426,7 +450,6 @@ ASYNC MACRO TestFormApp()
   TestEq(0, Length(TT("results")->rows));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
-
 
   TestEq(TRUE, TT("saveasdraftbutton")->TolliumClick());
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

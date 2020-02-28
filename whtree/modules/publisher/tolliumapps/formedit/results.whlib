@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
     this->formresults := OpenWebtoolFormResultsForFormdef(OpenWHFSObject(this->fsobjid), this->form->name, this->form);
     this->exporter := this->formresults->CreateExporter( [ language := data.uselanguage
                                                          , isfullexport := FALSE //don't need extended data
-                                                         , formfields := SELECT * FROM this->form->ListFields() LIMIT 5
+                                                         , formfields := SELECT * FROM this->form->ListFields([ applytester := this->contexts->applytester]) LIMIT 5
                                                          ]);
 
     RECORD ARRAY columns := SELECT *
@@ -149,7 +149,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
                                                           , showsensitivefields := this->contexts->user->HasRight("system:supervisor")
                                                           ]);
 
-    RunColumnFileExportDialog(this, CELL[ columns := (SELECT *, DELETE storename, DELETE precision FROM exporter->columns)
+    RunColumnFileExportDialog(this, CELL[ columns := (SELECT *, DELETE storename, DELETE precision, DELETE fieldname, DELETE inputname FROM exporter->columns)
                                         , rows := exporter->ExportAllResults()
                                         ]);
   }

@@ -69,6 +69,26 @@ RECORD ARRAY FUNCTION GetAllRows(INTEGER fsobjectid, STRING formname, BOOLEAN sh
          ORDER BY when;
 }
 
+PUBLIC RECORD FUNCTION GetFinalResult(INTEGER objectid, STRING formname, STRING guid, BOOLEAN dontresolve, BOOLEAN showexpiredresults)
+{
+  RECORD storedresults := SELECT *
+                            FROM publisher.formresults
+                           WHERE form_fsobject = VAR objectid
+                                 AND COLUMN guid = VAR guid
+                                 AND form_name = VAR formname
+                                 AND (showexpiredresults OR expiration > GetCurrentDatetime());
+  IF (NOT dontresolve)
+  {
+    WHILE (RecordExists(storedresults) AND storedresults.status = 4/*replaced*/)
+      storedresults := SELECT *
+                         FROM publisher.formresults
+                        WHERE id = storedresults.replacedby
+                              AND (showexpiredresults OR expiration > GetCurrentDatetime());
+  }
+
+  RETURN storedresults;
+}
+
 STATIC OBJECTTYPE FormResultExporter
 <
   RECORD ARRAY formfields;
@@ -229,13 +249,18 @@ STATIC OBJECTTYPE WHFSForm
   //RECORD ARRAY formfields;
   OBJECT formdef;
   RECORD liveperlang;
+  PUBLIC OBJECT __applytester;
 
   PUBLIC BOOLEAN showpendingresults;
   PUBLIC BOOLEAN showexpiredresults;
 
   MACRO NEW(OBJECT whfsobject, STRING formname, /*RECORD ARRAY formfields,*/ OBJECT formdef)
   {
+    IF(NOT ObjectExists(whfsobject))
+      THROW NEW Exception("WHFSForm requires a valid WHFSObject");
+
     this->whfsobject := whfsobject;
+    this->__applytester := GetApplyTesterForObject(this->whfsobject->id);
     this->formname := formname;
     //this->formfields := formfields;
     this->formdef := formdef;
@@ -301,7 +326,7 @@ STATIC OBJECTTYPE WHFSForm
     IF(options.allowpending)
       INSERT 5 INTO validstatus AT END;
 
-    RECORD storedresults := this->GetFinalResult(guid, options.dontresolve, options.showexpiredresults);
+    RECORD storedresults := GetFinalResult(this->whfsobject->id, this->formname, guid, options.dontresolve, options.showexpiredresults);
     IF(NOT RecordExists(storedresults) OR storedresults.status NOT IN validstatus)
       RETURN DEFAULT RECORD;
 
@@ -407,7 +432,7 @@ STATIC OBJECTTYPE WHFSForm
   }
   PUBLIC MACRO CancelResult(STRING guid) //user cancel
   {
-    RECORD existingresult := this->GetFinalResult(guid, FALSE, FALSE);
+    RECORD existingresult := GetFinalResult(this->whfsobject->id, this->formname, guid, FALSE, FALSE);
     IF(NOT RecordExists(existingresult) OR existingresult.status NOT IN [1,3])
       THROW NEW Exception("Cannot cancel result");
 
@@ -428,25 +453,6 @@ STATIC OBJECTTYPE WHFSForm
     DELETE FROM publisher.formresults
            WHERE form_fsobject = this->whfsobject->id AND form_name = this->formname;
     GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${this->whfsobject->id}.${this->formname}`, DEFAULT RECORD);
-  }
-  RECORD FUNCTION GetFinalResult(STRING guid, BOOLEAN dontresolve, BOOLEAN showexpiredresults)
-  {
-    RECORD storedresults := SELECT *
-                              FROM publisher.formresults
-                             WHERE form_fsobject = this->whfsobject->id
-                                   AND COLUMN guid = VAR guid
-                                   AND form_name = this->formname
-                                   AND (showexpiredresults OR expiration > GetCurrentDatetime());
-    IF (NOT dontresolve)
-    {
-      WHILE (RecordExists(storedresults) AND storedresults.status = 4/*replaced*/)
-        storedresults := SELECT *
-                           FROM publisher.formresults
-                          WHERE id = storedresults.replacedby
-                                AND (showexpiredresults OR expiration > GetCurrentDatetime());
-    }
-
-    RETURN storedresults;
   }
 
   PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD result)
@@ -486,27 +492,37 @@ STATIC OBJECTTYPE WHFSForm
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.url")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "when"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.when")
           , type := "datetime"
           , storeutc := TRUE
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "ipaddress"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipaddress")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "useragent"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.useragent")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         , [ name := "ipcountrycode"
           , title := GetTidForLanguage(options.language, "publisher:tolliumapps.formedit.results.ipcountrycode")
           , type := "text"
           , storename := ""
+          , fieldname := ""
+          , inputname := ""
           ]
         ];
 
@@ -522,7 +538,12 @@ STATIC OBJECTTYPE WHFSForm
       IF(Length(outcolumns)=0) //nothing to export?
         CONTINUE;
 
-      outcolumns := SELECT *, inputname := name, name := "out" || Length(resultcolumns) + #outcolumns, storename := VAR storename FROM outcolumns;
+      outcolumns := SELECT *
+                         , fieldname := ToLowercase(field.name)
+                         , inputname := name
+                         , name := "out" || Length(resultcolumns) + #outcolumns
+                         , storename := VAR storename
+                      FROM outcolumns;
       resultcolumns := resultcolumns CONCAT outcolumns;
 
       field := CELL[ ...field
@@ -533,7 +554,7 @@ STATIC OBJECTTYPE WHFSForm
       formfields[#field] := field;
     }
 
-    columns := columns CONCAT SELECT *, DELETE inputname FROM resultcolumns;
+    columns := columns CONCAT resultcolumns;
     RETURN NEW FormResultExporter(this, formfields, columns, options, this->whfsobject->id, this->formname, options.showpendingresults, options.showexpiredresults);
   }
 
@@ -621,10 +642,10 @@ STATIC OBJECTTYPE WHFSForm
     IF(CellExists(this->liveperlang, langcode))
       RETURN GetCell(this->liveperlang, langcode);
 
-    STRING resourcename := ObjectExists(this->whfsobject) ? this->whfsobject->GetResourceName() : "";
+    STRING resourcename := this->whfsobject->GetResourceName();
     RECORD formdef := ParseFormDef(this->formdef->node, this->formname, resourcename, "", this->formdef->formdefinitions,
-                                   [ webtoolformid := ObjectExists(this->whfsobject) ? this->whfsobject->id : 0 ]);
-    OBJECT form := OpenFormByDef(formdef, [ forcewebtoolformbase := TRUE, languagecode := langcode ]);
+                                   [ webtoolformid := this->whfsobject->id ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ forcewebtoolformbase := TRUE, languagecode := langcode, applytester := this->__applytester ]);
     RETURN form;
   }
 
