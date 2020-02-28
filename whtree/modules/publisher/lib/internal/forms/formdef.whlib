@@ -331,19 +331,21 @@ STATIC OBJECTTYPE FormDefinition
     component->Dispose();
   }
 
-  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode)
+  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode, OBJECT applytester)
   {
     STRING resourcename := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->GetResourceName() : "";
     RECORD formdef := ParseFormDef(this->node, this->name, resourcename, "", this->formdefinitions,
                                    [ webtoolformid := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->id : 0 ]);
-    OBJECT form := OpenFormByDef(formdef, CELL[ forcewebtoolformbase := TRUE, languagecode ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ forcewebtoolformbase := TRUE, languagecode, applytester ]);
     RETURN form;
   }
 
   PUBLIC RECORD ARRAY FUNCTION ListFields(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([ languagecode := "" ], options);
-    OBJECT actualform := this->__OpenAsLiveForm(options.languagecode);
+    options := ValidateOptions([ languagecode := ""
+                               , applytester := DEFAULT OBJECT
+                               ], options);
+    OBJECT actualform := this->__OpenAsLiveForm(options.languagecode, options.applytester);
     RETURN actualform->ListFields();
   }
 
