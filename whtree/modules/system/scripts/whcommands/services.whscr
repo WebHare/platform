@@ -71,7 +71,13 @@ MACRO DebugService(STRING servicename)
 
   WHILE(TRUE)
   {
-    OBJECT proc := CreateProcess(app.app, app.args CONCAT ["--debug"],
+    STRING ARRAY debugargs := app.args;
+    IF(app.app LIKE "*/appserver")
+      debugargs := ["--debug"] CONCAT debugargs;
+    ELSE
+      debugargs := debugargs CONCAT ["--debug"];
+
+    OBJECT proc := CreateProcess(app.app, debugargs,
       [ take_input := FALSE
       , take_output := TRUE
       , take_errors := TRUE
