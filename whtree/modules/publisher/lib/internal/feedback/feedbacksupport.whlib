@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+PUBLIC OBJECT FUNCTION GetScreenshotWitty()
+{
+  RETURN LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI");
+}
+PUBLIC STRING FUNCTION GetFeedbackScreenshotHTML(INTEGER issueid)
+{
+  RETURN GetPrimaryWebhareInterfaceURL() || ".publisher/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
+}
+PUBLIC STRING FUNCTION GetFeedbackScreenshotURL(INTEGER issueid)
+{
+  RETURN GetPrimaryWebhareInterfaceURL() || ".publisher/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
+}

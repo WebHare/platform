@@ -2314,6 +2314,7 @@
         <text tid="device">Apparaat</text>
         <text tid="feedback">Feedback</text>
         <text tid="main">Feedback</text>
+        <text tid="reportedby">Gemeld door</text>
         <text tid="scope">Scope</text>
         <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
         <text tid="wrd_creationdate">Wanneer</text>

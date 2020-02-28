@@ -1,7 +1,7 @@
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";
 import * as service from "./internal/feedback.rpc.json";
-import "./styles.css";
+import "@mod-publisher/web/common/feedback/styles.css";
 
 const defaultOptions =
     { scope: ""

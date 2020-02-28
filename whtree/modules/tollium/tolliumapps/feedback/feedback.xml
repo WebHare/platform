@@ -21,7 +21,7 @@
         <option rowkey="missingtid" />
         <option rowkey="layout" />
       </select>
-      <textarea composition="extradata" cellname="remarks" />
+      <textarea composition="extradata" cellname="remarks" name="remarks" />
       <arrayedit composition="extradata" cellname="extrafields" visible="false">
         <column name="field" type="text" title="" />
         <column name="type" type="text" title="" />
