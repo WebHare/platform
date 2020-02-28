@@ -3243,6 +3243,10 @@ PUBLIC FUNCTION PTR FUNCTION MakeFunctionPtr(STRING functionname, VARIANT ARRAY 
     libname := Left(functionname, splitpos);
     functionname := Substring(functionname, splitpos + 1);
   }
+  ELSE IF(functionname = "")
+  {
+    THROW NEW Exception("Invalid call to MakeFunctionPtr - functionname was empty");
+  }
   ELSE IF(Length(args)=0)
   {
     THROW NEW Exception("Invalid call to MakeFunctionPtr - first argument was not a full library#function path, but did not receive function name either");
