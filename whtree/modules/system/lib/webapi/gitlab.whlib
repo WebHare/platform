@@ -301,6 +301,37 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     RETURN EnforceStructure(gitlab_issuestructure, this->GetProjectResource(project, "issues/" || issue));
   }
 
+  // https://docs.gitlab.com/ce/api/projects.html#upload-a-file
+  /** Upload a file to the project
+      @long Uploads a file to the GitLab project for use in MarkDown, eg for issues. This does not add the file to the project's git repository!
+      @param projectpath Path to the project
+      @param file Wrapped file to upload
+      @return Upload result
+      @cell(string) return.alt
+      @cell(string) return.url URL (relative to the project!)
+      @cell(string) return.markdown Markdown formatting to use
+      */
+  PUBLIC RECORD FUNCTION UploadFile(STRING projectpath, RECORD file)
+  {
+    RECORD ARRAY vars := [[ name := "file"
+                          , value := file.data
+                          , filename := file.filename
+                          , type := file.mimetype
+                          ]
+                         ];
+    RECORD request := CreateHTTPMultipartRequest(vars);
+
+    this->browser->SendRawRequest("POST"
+                                 , `${this->apiroot}v4/projects/${EncodeURLGitlab(projectpath)}/uploads`
+                                 , [[ field := "PRIVATE-TOKEN", value := this->pvt_token ]
+                                   ] CONCAT request.headers
+                                 , request.body
+                                 );
+
+    RECORD result := DecodeJSONBlob(this->browser->content);
+    RETURN EnforceStructure(CELL[ alt := "", url := "", markdown := "" ], result);
+  }
+
   /** @cell(string) options.description Issue description
       @cell(datetime) options.due_date Due date for issue */
   PUBLIC RECORD FUNCTION CreateIssue(STRING projectpath, STRING title, RECORD options DEFAULTSTO DEFAULT RECORD)
