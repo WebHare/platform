@@ -51,7 +51,9 @@ Sometimes it can be helpful if custom components can contain custom nodes. A com
 </xs:complexType>
 ```
 
-The `parsefunc` is the function that is called to parse the matching XML nodes and the `processfunc` is the function that is called to process the parsed data into a definition record field. To better understand what is going on, here is an example component definition that uses the example parser:
+The `parsefunc` is the function that is called to parse the matching XML nodes. The result of the parsefunc is cached. The `processfunc` is the function that is called to process the parsed data into a definition record field. 
+
+To better understand what is going on, here is an example component definition that uses the example parser:
 
 ```xml
 <xs:element name="mycustomcomponent">
