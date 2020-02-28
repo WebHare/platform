@@ -25,6 +25,11 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
     StoreFeedbackExtraData(this->guid, ^extradata->value );
-    RETURN work->Finish() ? ^extradata->value : DEFAULT RECORD;
+    IF (work->Finish())
+    {
+      this->RunSimpleScreen("info", this->GetTid(".thankyou"));
+      RETURN ^extradata->value;
+    }
+    RETURN DEFAULT RECORD;
   }
 >;

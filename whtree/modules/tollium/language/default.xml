@@ -1082,6 +1082,7 @@
       <text tid="apptitle">Feedback</text>
       <text tid="intro">Please provide some extra information.</text>
       <text tid="remarks">Remarks</text>
+      <text tid="thankyou">Thank you for your feedback!</text>
       <text tid="type">Type of feedback</text>
       <text tid="type-bug">Bug</text>
       <text tid="type-feedback">General feedback</text>

@@ -1576,6 +1576,19 @@ To change a <xs:attribute /> for adding descriptions
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="feedbackaction">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumFeedbackAction" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:sequence>
+      </xs:sequence>
+      <xs:attributeGroup ref="ActionBaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
   <xs:element name="copyaction">
     <xs:complexType>
       <xs:annotation>
@@ -5995,6 +6008,7 @@ To change a <xs:attribute /> for adding descriptions
           <xs:element ref="imageaction" />
           <xs:element ref="windowopenaction" />
           <xs:element ref="helpaction" />
+          <xs:element ref="feedbackaction" />
           <xs:element ref="copyaction" />
           <xs:element ref="forward" />
           <xs:any namespace="##other" processContents="strict" />
