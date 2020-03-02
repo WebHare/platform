@@ -413,7 +413,7 @@ PUBLIC DATETIME FUNCTION AddDaysToDate(INTEGER add_days, DATETIME date)
     @long This function can for example be useful to calculate expiration dates of documents or users.
     @param add_years The number of years to add to the timestamp. This value can also be negative.
     @param date The timestamp to add the days to
-    @cell(boolean) options.roundforward Round up/forward to next year. Defaults to TRUE
+    @cell(boolean) options.roundforward Round up/forward towards next year. Defaults to TRUE
     @return A DateTime value representing @italic date to which @italic add_years has been added
     @see AddTimeToDate
     @example
@@ -793,7 +793,7 @@ PUBLIC RECORD FUNCTION GetYearInfo(INTEGER year)
           the specified number of months would return an invalid date, the date is rounded as specified to a valid date
     @param months The number of months to add to the timestamp. This value can also be negative.
     @param date The timestamp to add the days to
-    @cell(boolean) options.roundforward Round up/forward to next year. Defaults to TRUE
+    @cell(boolean) options.roundforward Round up/forward towards next year. Defaults to TRUE
     @return A DateTime value representing @italic date to which @italic add_months has been added
     @see AddTimeToDate
     @example

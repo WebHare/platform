@@ -681,14 +681,14 @@ if [ -n "$SETUPENV" ]; then
   setup_webhare_envsettings
 fi
 
+INSTR="${1:-help}"
+shift
+OPTIONS=("$@")
+
 # External hook which may replace implementations in wh
 if [ -n "$WEBHARE_WH_HOOK" ]; then
   source "$WEBHARE_WH_HOOK"
 fi
-
-INSTR="$1"
-shift
-OPTIONS="$*"
 
 case $INSTR in
   "exec")
@@ -857,7 +857,7 @@ case $INSTR in
     runscript --workerthreads 4 mod::publisher/scripts/tools/reindex_publisher.whscr "$@"
     ;;
 
-  "help" | "")
+  "help")
     run_help
     ;;
 
@@ -1025,13 +1025,13 @@ HERE
     ;;
 
   "make")
-    if [[ $OPTIONS =~ install ]]; then
+    if [[ "${OPTIONS[@]}" =~ install ]]; then
       check_webhare_not_running
     fi
     setup_buildsystem
     estimate_buildj
     cd $WEBHARE_BUILDDIR
-    if ! make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile $OPTIONS ; then
+    if ! make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile "${OPTIONS[@]}" ; then
       [ -z "$WEBHARE_IN_DOCKER" ] && cat $WEBHARE_CHECKEDOUT_TO/addons/makefailed.txt
       exit 1
     fi
@@ -1046,7 +1046,7 @@ HERE
 
     # Cannot build a target for this in the makefile, we want to serialise these steps
     for P in clean-icu-provider clean-libs postuninstall install; do
-      make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile $P $OPTIONS
+      make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile $P "${OPTIONS[@]}"
     done
     exit
     ;;
