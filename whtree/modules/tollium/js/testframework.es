@@ -1,5 +1,6 @@
 import * as dompack from 'dompack';
-var testapi = require('@mod-system/js/wh/testframework');
+import * as test from "@mod-system/js/wh/testframework";
+
 var overridetoken = '';
 
 function escapeRegExp(str) {
@@ -68,11 +69,11 @@ class ScreenProxy
         if(curitem.nodeName=='LI')
         {
           // Move to the item first, maybe we're in auto-select mode
-          testapi.sendMouseGesture( [ { el: curitem }]);
+          test.sendMouseGesture( [ { el: curitem }]);
 
           // If not selected yet, click the menu item to open it
           if (!curitem.classList.contains('selected'))
-            testapi.click(curitem);
+            test.click(curitem);
 
           // Get the relevant detached menu
           curitem = this.win.node.ownerDocument.querySelectorAll('.wh-menulist.open')[i-1];
@@ -177,7 +178,7 @@ class ScreenProxy
     if(!closer)
       throw "Screen '" + this.win.screenname + "' has no close window";
 
-    testapi.click(closer);
+    test.click(closer);
   }
 
   getFrameTitle()
@@ -199,7 +200,7 @@ window.$screen = $screen;
 
 function getCurrentApp()
   {
-    return new AppProxy(testapi.getWindow(), testapi.getWindow().__todd.applicationstack.slice(-1)[0]);
+    return new AppProxy(test.getWindow(), test.getWindow().__todd.applicationstack.slice(-1)[0]);
   }
 function getCurrentScreen()
   {
@@ -219,7 +220,7 @@ function getTestScreen(testscreen, whdebug)
     var debugvars = "";
     if (whdebug && whdebug.length)
       debugvars = "&wh-debug=" + (typeof whdebug == "string" ? whdebug.split(" ") : whdebug).join(",");
-    var baseurl = testapi.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + allowtestfw + ')&' + getTolliumDebugVariables() + debugvars;
+    var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + allowtestfw + ')&' + getTolliumDebugVariables() + debugvars;
     return baseurl;
   }
 function getCompTestPage(componentname, params, whdebug)
@@ -229,19 +230,19 @@ function getCompTestPage(componentname, params, whdebug)
     {
       debugvars = "&wh-debug=" + (typeof whdebug == "string" ? whdebug.split(" ") : whdebug).concat(Object.keys(dompack.debugflags)).join(",");
     }
-    var baseurl = testapi.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ','+encodeURIComponent(JSON.stringify(params||null)).replace(/,/g, '%2C')+')&' + getTolliumDebugVariables() + debugvars;
+    var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ','+encodeURIComponent(JSON.stringify(params||null)).replace(/,/g, '%2C')+')&' + getTolliumDebugVariables() + debugvars;
     return baseurl;
   }
 function getTolliumButton(toddbuttontitle)
 {
-  return testapi.qSA("t-button").filter(button => button.textContent.includes(toddbuttontitle))[0];
+  return test.qSA("t-button").filter(button => button.textContent.includes(toddbuttontitle))[0];
 }
 function clickTolliumButton(toddbuttontitle)
 {
   let button = getTolliumButton(toddbuttontitle);
   if(!button)
     throw new Error(`No button titled '${toddbuttontitle}'`);
-  testapi.click(button);
+  test.click(button);
 }
 function testClickTolliumButton(toddbuttontitle, options, _deprecated_waits)
 {
@@ -259,14 +260,14 @@ function testClickTolliumButton(toddbuttontitle, options, _deprecated_waits)
 }
 function getTolliumLabel(toddlabel)
 {
-  return testapi.qSA('t-text').filter(text=>text.textContent.includes(toddlabel))[0];
+  return test.qSA('t-text').filter(text=>text.textContent.includes(toddlabel))[0];
 }
 function clickTolliumLabel(toddlabel)
 {
   var label = getTolliumLabel(toddlabel);
   if(!label)
     throw new Error("No label titled '" + toddlabel + "'");
-  testapi.click(label);
+  test.click(label);
 }
 function testClickTolliumLabel (toddlabel, options,_deprecated_waits)
 {
@@ -305,7 +306,7 @@ async function selectListRow(listname, textinrow, options = {})
        selector += '[data-name$=":' + listname + '"]';
      selector += ' div.listrow';
 
-     var rows = testapi.getCurrentScreen().qSA(selector);
+     var rows = getCurrentScreen().qSA(selector);
      return rows.filter(node => node.textContent.includes(textinrow))[0];
    });
 
@@ -318,11 +319,11 @@ async function selectListRow(listname, textinrow, options = {})
 
    var button = options&&options.rightclick ? 2 : 0;
    if(options&&options.doubleclick)
-     testapi.sendMouseGesture([ {el:el, down:button}, {up: button}, {el:el, down:button}, {up: button} ]);
+     test.sendMouseGesture([ {el:el, down:button}, {up: button}, {el:el, down:button}, {up: button} ]);
    else
-     testapi.sendMouseGesture([ {el:el, down:button}, {up: button} ]);
+     test.sendMouseGesture([ {el:el, down:button}, {up: button} ]);
 
-  await testapi.wait(options && options.waits ? options.waits : ['ui-nocheck']); //there may be UI interaction..
+  await test.wait(options && options.waits ? options.waits : ['ui-nocheck']); //there may be UI interaction..
 }
 
 function testSelectListRow(listname, textinrow, options = {})
@@ -334,7 +335,7 @@ function testSelectListRow(listname, textinrow, options = {})
 
 function getTolliumHost()
   {
-    return testapi.getTestSiteRoot() + 'testsuiteportal/';
+    return test.getTestSiteRoot() + 'testsuiteportal/';
   }
 
 function setTolliumOverrideToken(token)
@@ -371,10 +372,10 @@ function getTolliumDebugVariables()
 
 function setTodd(name, value)
 {
-  var textedit = testapi.getCurrentScreen().getToddElement(name).querySelector('input');
+  var textedit = getCurrentScreen().getToddElement(name).querySelector('input,textarea');
   if(textedit)
   {
-    testapi.fill(textedit, value);
+    test.fill(textedit, value);
     return;
   }
 
@@ -383,24 +384,24 @@ function setTodd(name, value)
 
 function clickToddButton(buttonlabel)
 {
-  let elt = testapi.getCurrentScreen().qSA('t-button').filter(button => button.textContent.includes(buttonlabel))[0];
+  let elt = getCurrentScreen().qSA('t-button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
     throw new Error("Cannot find button with text '" + buttonlabel + "'");
-  testapi.click(elt);
+  test.click(elt);
 }
 
 function clickToddToolbarButton(buttonlabel, submenulabel)
 {
-  let elt = testapi.getCurrentScreen().qSA('t-toolbar t-button').filter(button => button.textContent.includes(buttonlabel))[0];
+  let elt = getCurrentScreen().qSA('t-toolbar t-button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
     throw new Error("Cannot find toolbar button with text '" + buttonlabel + "'");
-  testapi.click(elt);
+  test.click(elt);
   if (submenulabel)
   {
-    elt = testapi.qSA('.wh-menulist.open li').filter(li=>li.textContent.includes(submenulabel));
+    elt = test.qSA('.wh-menulist.open li').filter(li=>li.textContent.includes(submenulabel));
     if (!elt.length)
       throw new Error("Cannot find toolbar button menu item with text '" + submenulabel + "'");
-    testapi.click(elt[0]);
+    test.click(elt[0]);
   }
 }
 
@@ -453,40 +454,37 @@ window.ToddTest =
 
 function getOpenSelectList()
 {
-  return testapi.qSA('div').filter(node => Array.from(node.classList).some(name => name.match(/__items--open$/)))[0];
+  return test.qSA('div').filter(node => Array.from(node.classList).some(name => name.match(/__items--open$/)))[0];
 }
 function getSelectListVisibleItems()
 {
-  return testapi.qSA('.t-selectlist__items .t-selectlist__item').filter(node => testapi.canClick(node));
+  return test.qSA('.t-selectlist__items .t-selectlist__item').filter(node => test.canClick(node));
 }
 
+export * from "@mod-system/js/wh/testframework";
 
-module.exports = Object.assign(testapi,
-{ clickToddButton: clickToddButton
-, clickToddToolbarButton: clickToddToolbarButton
-, compByName: compByName
-, getCompTestPage: getCompTestPage
-, getCurrentApp: getCurrentApp
-, getCurrentScreen: getCurrentScreen
-, getMenu: getMenu
-, getTestScreen: getTestScreen
-, getTolliumDebugVariables: getTolliumDebugVariables
-, getTolliumHost: getTolliumHost
-, setTodd: setTodd
-, setTolliumOverrideToken: setTolliumOverrideToken
-, testClickTolliumButton: testClickTolliumButton
-, testClickTolliumLabel: testClickTolliumLabel
-, testClickTolliumToolbarButton
-, testSelectListRow
-, $screen
-, getGridVsize: function() { return 28; }
-, getOpenSelectList
-, getSelectListVisibleItems
-, getTolliumButton
-, clickTolliumButton
-, selectListRow
-, getTolliumLabel
-, clickTolliumLabel
-});
-
-window.testapi = testapi;
+export { clickToddButton };
+export { clickToddToolbarButton };
+export { compByName };
+export { getCompTestPage };
+export { getCurrentApp };
+export { getCurrentScreen };
+export { getMenu };
+export { getTestScreen };
+export { getTolliumDebugVariables };
+export { getTolliumHost };
+export { setTodd };
+export { setTolliumOverrideToken };
+export { testClickTolliumButton };
+export { testClickTolliumLabel };
+export { testClickTolliumToolbarButton };
+export { testSelectListRow };
+export { $screen };
+export function getGridVsize() { return 28; }
+export { getOpenSelectList };
+export { getSelectListVisibleItems };
+export { getTolliumButton };
+export { clickTolliumButton };
+export { selectListRow };
+export { getTolliumLabel };
+export { clickTolliumLabel };

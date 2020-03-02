@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
 let testemail = Math.floor(100000000*Math.random()) + '-testformfile-online+jstest@beta.webhare.net';

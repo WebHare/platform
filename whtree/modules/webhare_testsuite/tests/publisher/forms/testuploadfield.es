@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
 function getUploadField() //get the replament field, not the original input

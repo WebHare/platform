@@ -86,9 +86,6 @@ test.registerTests(
         //quotedblockfill = !blockfillistext ? blockfill : '"' + blockfill + '"';
         //quotedloc01blockfill = !blockfillistext ? '(*0*)(*1*)' + blockfill : '"(*0*)(*1*)' + blockfill + '"';
 
-//FIXME?        if (testapi.getTestArgument(1)=='toggleblockfill')
-        //  return; // Empty value is from old br setting, ignore it
-
         test.eqHTML('<p class="normal">'+blockfill+'</p>', getContentsHTMLRaw(win), 'getContentsHTMLRaw returned unexpected value');
         test.eqHTML('<p class="normal">'+alwaysblockfill+'</p>', win.rte.getValue(), 'getContentsHTML returned unexpected value');
       }

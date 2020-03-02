@@ -1,12 +1,12 @@
 /* global testEq prepareUploadTest $t */
 import * as compatupload from '@mod-system/js/compat/upload';
-import testapi from '@mod-tollium/js/testframework';
+import * as test from '@mod-tollium/js/testframework';
 import JSONRPC from '@mod-system/js/net/jsonrpc';
 
 var group;
 var requestresult;
 
-testapi.registerTests(
+test.registerTests(
   [ { loadpage: '/tollium_todd.res/webhare_testsuite/designfiles/net/upload/upload.shtml'
     }
 

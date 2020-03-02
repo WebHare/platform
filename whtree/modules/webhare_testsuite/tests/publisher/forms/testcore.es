@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';

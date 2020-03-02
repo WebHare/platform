@@ -27,7 +27,6 @@ test.registerTests(
 
         console.log('done prepare');
 
-//        testapi.prepareNextUpload(win, 'logo.png', new $wh.URL(location.href).resolveToAbsoluteURL('/tollium_todd.res/webhare_testsuite/tollium/logo.png'));
         test.click(test.compByName('editor').querySelector('.wh-rtd-button[data-button=img]'));
 
         await uploadpromise;

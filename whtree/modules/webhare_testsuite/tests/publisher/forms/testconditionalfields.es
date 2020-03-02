@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 
 const replacedcomponents = test.getTestArgument(0)=='replacedcomponents';
 const urlappend = replacedcomponents ? '?dompackpulldown=1' : '';

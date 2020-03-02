@@ -1,4 +1,4 @@
-/** @require: var testapi = require('@mod-system/js/wh/testframework');
+/** @import: import * as test from "@mod-system/js/wh/testframework";
 */
 
 import * as dompack from 'dompack';

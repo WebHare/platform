@@ -1,4 +1,4 @@
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 
 let us_ip = '54.70.204.133'; //AWS US-WEST-2 according to https://docs.aws.amazon.com/quicksight/latest/user/regions.html - hopefully wont move out of the US soon
 

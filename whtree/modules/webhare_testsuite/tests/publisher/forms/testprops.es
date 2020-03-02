@@ -1,6 +1,6 @@
 /* test props like disabled */
 
-import test from '@mod-system/js/wh/testframework';
+import * as test from '@mod-system/js/wh/testframework';
 import { $qS } from '@mod-system/js/wh/testframework';
 
 //FIXME: Test that parlsey backend plus plain POST (not RPC!) works
