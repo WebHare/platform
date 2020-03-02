@@ -67,34 +67,6 @@ PUBLIC OBJECTTYPE WHFSFilterScreenBase EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE WidgetEditScreenBase EXTEND TolliumScreenBase
-<
-  STRING whfstype;
-  PUBLIC PROPERTY value(this->contentdata->value, this->contentdata->value);
-
-  MACRO Init(RECORD data)
-  {
-    IF(NOT MemberExists(this,"contentdata"))
-      THROW NEW TolliumException(this->frame,"Screen with implementation 'publisher:widgetedit' require a composition named 'contentdata'");
-    this->contentdata->value := data.value;
-    this->whfstype := data.whfstype;
-
-    IF(this->frame->title = "")
-      this->frame->title := GetTid(data.__typedef.title);
-  }
-  BOOLEAN FUNCTION Submit()
-  {
-    RETURN this->BeginFeedback()->Finish();
-  }
->;
-
-/** @private deprecated, use TolliumTabsExtensionBase from 4.23+
-*/
-PUBLIC STATIC OBJECTTYPE WidgetEditExtensionBase EXTEND TolliumTabsExtensionBase
-<
->;
-
-
 PUBLIC OBJECTTYPE FSObjectEditScreenBase EXTEND TolliumScreenBase
 <
   INTEGER fsobjectid;

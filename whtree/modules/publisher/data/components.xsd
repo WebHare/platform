@@ -746,7 +746,7 @@
   </xs:element>
 
   <xs:attributeGroup name="FSObjectOverviewOptions">
-    <xs:attribute name="virtualfilter" type="s:WHFSVirtualFilter" />
+    <xs:attribute name="virtualfilter" type="sc:WHFSVirtualFilter" />
   </xs:attributeGroup>
 
   <xs:attributeGroup name="FSContentsOverviewOptions">

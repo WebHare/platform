@@ -12,7 +12,6 @@
   elementFormDefault="qualified"
   xml:lang="en">
 
-  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" /> <!-- addme cleanup, only needed for WHFSVirtualFilter -->
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/wrd/schemadefinition" schemaLocation="mod::wrd/data/validation/moduleschemadef.xsd" />
@@ -1502,7 +1501,7 @@
           <xs:attribute name="icon" type="ImageSrc" />
           <xs:attribute name="forvirtualfilters">
             <xs:simpleType>
-              <xs:list itemType="s:WHFSVirtualFilter" />
+              <xs:list itemType="sc:WHFSVirtualFilter" />
             </xs:simpleType>
           </xs:attribute>
         </xs:complexType>
@@ -2047,7 +2046,7 @@
           <xs:attribute name="icon" type="ImageSrc" />
           <xs:attribute name="forvirtualfilters">
             <xs:simpleType>
-              <xs:list itemType="s:WHFSVirtualFilter" />
+              <xs:list itemType="sc:WHFSVirtualFilter" />
             </xs:simpleType>
           </xs:attribute>
         </xs:complexType>

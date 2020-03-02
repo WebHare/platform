@@ -2202,22 +2202,6 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
     {
       curpageparser->finalpage.objtype := GetLibraryPath(resourcename, screen) || "#" || screen->GetAttribute("name");
     }
-    ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#rowedit")
-    {
-      curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#TolliumRowEditScreenBase";
-    }
-    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/publisher/components#widgetextension") //FIXME deprecate this. rarely used anyway
-    {
-      curpageparser->finalpage.objtype := "TolliumTabsExtensionBase";
-    }
-    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/publisher/components#widgetedit")
-    {
-      curpageparser->finalpage.objtype := "mod::publisher/lib/screenbase.whlib#WidgetEditScreenBase";
-    }
-    ELSE IF(curpageparser->finalpage.implementation = "http://www.webhare.net/xmlns/wrd/components#entityedit")
-    {
-      curpageparser->finalpage.objtype := "mod::wrd/lib/screenbase.whlib#WRDEntityEditScreenBase";
-    }
     ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#none")
     {
       curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#" ||

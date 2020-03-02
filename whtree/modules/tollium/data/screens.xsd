@@ -34,33 +34,6 @@ To change a <xs:attribute /> for adding descriptions
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
 
-  <xs:simpleType name="AbsSize">
-    <xs:restriction base="tc:AbsSize"/>
-  </xs:simpleType>
-
-  <xs:simpleType name="VertSize">
-    <xs:restriction base="tc:Height"/>
-  </xs:simpleType>
-
-  <xs:simpleType name="AbsVertSize">
-    <xs:restriction base="tc:AbsHeight"/>
-  </xs:simpleType>
-
-
-  <xs:simpleType name="PixelWidth">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[0-9]+px"/> <!-- requiring px to allow future %/em etc support to be added without having to deal with naked '450's -->
-    </xs:restriction>
-  </xs:simpleType>
-
-  <xs:simpleType name="WHFSVirtualFilter">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="" />
-      <xs:enumeration value="copytargets" />
-      <xs:enumeration value="movetargets" />
-    </xs:restriction>
-  </xs:simpleType>
-
   <!-- The screens file root node -->
   <xs:element name="screens" type="Screens">
     <xs:unique name="screenfragnames">
@@ -69,7 +42,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:unique>
   </xs:element>
 
-  <!-- The screens file root node -->
   <xs:element name="language" type="Language">
     <xs:unique name="uniquerootgids">
       <xs:selector xpath="./s:textgroup" />
@@ -84,12 +56,10 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
-  <!-- A space-separated list of integers -->
   <xs:simpleType name="Integers">
     <xs:list itemType="xs:integer" />
   </xs:simpleType>
 
-  <!-- A money -->
   <xs:simpleType name="Money">
     <xs:restriction base="xs:string">
       <xs:pattern value="-?\d+(.\d{0,5})?"/>
@@ -104,6 +74,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:list itemType="Size" />
   </xs:simpleType>
 
+  <xs:simpleType name="AbsSize">
+    <xs:restriction base="tc:AbsSize"/>
+  </xs:simpleType>
+
   <xs:simpleType name="AbsSizeOrSp">
     <xs:annotation>
       <xs:documentation>
@@ -115,8 +89,10 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="ComponentRef">
-    <xs:restriction base="tc:ComponentRef" />
+  <xs:simpleType name="PixelWidth">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]+px"/> <!-- requiring px to allow future %/em etc support to be added without having to deal with naked '450's -->
+    </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="FixedSize">
@@ -130,6 +106,18 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="VertSize">
+    <xs:restriction base="tc:Height"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="AbsVertSize">
+    <xs:restriction base="tc:AbsHeight"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="ComponentRef">
+    <xs:restriction base="tc:ComponentRef" />
+  </xs:simpleType>
+
   <xs:simpleType name="ScreenFragmentReference">
     <xs:annotation>
       <xs:documentation>
@@ -138,107 +126,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:annotation>
     <xs:restriction base="xs:string" />
   </xs:simpleType>
-
-  <xs:attributeGroup name="IsComposableListener">
-    <xs:attribute name="composition" type="ComponentRef">
-      <xs:annotation>
-        <xs:documentation>
-          Specify where to store the data in this instance, relative to the base object for this composition.<br />
-          This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
-          recommended as it is incompatible with the history/versioning system.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="IsComposable">
-    <xs:attributeGroup ref="tc:IsComposable" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="ComponentBase">
-    <xs:attributeGroup ref="tc:ComponentBase" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="Composition">
-    <xs:attribute name="mergecompositions" type="ComponentRefList" />
-    <xs:attributeGroup ref="tc:IsDirtyable" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="ComposableComponentBase">
-    <xs:attributeGroup ref="ComponentBase" />
-    <xs:attributeGroup ref="IsComposable" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="ComposableComponentWithLabelBase">
-    <xs:attributeGroup ref="ComposableComponentBase" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="AutoSuggestableAttributes">
-    <xs:attribute name="minimumsuggestlength" type="xs:integer" default="3"/>
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="Name">
-    <xs:attributeGroup ref="tc:NamedComponent" />
-  </xs:attributeGroup>
-
-  <xs:attributeGroup name="Styling">
-    <xs:attribute name="bold" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Makes bold</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="italic" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Makes italic</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="before" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Before</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="after" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>After</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="left" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Left</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="right" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Right</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="backgroundcolor" type="Color">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>The backgroundcolor</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="textcolor" type="Color">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>The textcolor</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:attributeGroup>
 
   <!-- A color: #000000-#ffffff, #00000000-#ffffffff (with last two digits specifying alpha) or 'transparent' -->
   <xs:simpleType name="Color">
@@ -326,10 +213,6 @@ To change a <xs:attribute /> for adding descriptions
   <xs:simpleType name="StringList">
     <xs:list itemType="xs:string" />
   </xs:simpleType>
-
-  <xs:attributeGroup name="TidOrTitle">
-    <xs:attributeGroup ref="sc:TidOrTitle" />
-  </xs:attributeGroup>
 
   <!-- A tid: ( module ":" (gid ".")+ tid | gid? ("." gid)* ("." tid) ) | ~ (gid ".")? tid -->
   <!-- can't transform (.gid)*(.tid) to (.word)+, libxml treats that as (.word)* ??? -->
@@ -468,7 +351,112 @@ To change a <xs:attribute /> for adding descriptions
     </xs:union>
   </xs:simpleType>
 
-  <!-- Global documentation -->
+  <!-- Attribute groups -->
+  <xs:attributeGroup name="IsComposableListener">
+    <xs:attribute name="composition" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          Specify where to store the data in this instance, relative to the base object for this composition.<br />
+          This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
+          recommended as it is incompatible with the history/versioning system.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="IsComposable">
+    <xs:attributeGroup ref="tc:IsComposable" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ComponentBase">
+    <xs:attributeGroup ref="tc:ComponentBase" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Composition">
+    <xs:attribute name="mergecompositions" type="ComponentRefList" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ComposableComponentBase">
+    <xs:attributeGroup ref="ComponentBase" />
+    <xs:attributeGroup ref="IsComposable" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="ComposableComponentWithLabelBase">
+    <xs:attributeGroup ref="ComposableComponentBase" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="AutoSuggestableAttributes">
+    <xs:attribute name="minimumsuggestlength" type="xs:integer" default="3"/>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Name">
+    <xs:attributeGroup ref="tc:NamedComponent" />
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="Styling">
+    <xs:attribute name="bold" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Makes bold</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="italic" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Makes italic</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="before" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Before</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="after" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>After</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="left" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Left</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="right" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Right</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="backgroundcolor" type="Color">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The backgroundcolor</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="textcolor" type="Color">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The textcolor</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
+  <xs:attributeGroup name="TidOrTitle">
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+  </xs:attributeGroup>
+
   <xs:attributeGroup name="Gid">
     <xs:attributeGroup ref="sc:Gid" />
   </xs:attributeGroup>
@@ -590,7 +578,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
 
   </xs:attributeGroup>
-  <!-- End of global documentation -->
 
   <xs:attributeGroup name="LibraryLocation">
     <xs:attribute name="lib" type="NonEmptyString">
@@ -610,6 +597,16 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
   </xs:attributeGroup>
 
+  <!-- Implementations -->
+  <xs:complexType name="rowedit">
+    <xs:annotation>
+      <xs:appinfo>
+        <tolliumimplementation objecttype="/lib/screenbase.whlib#TolliumRowEditScreenBase" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <!-- Element types -->
   <!-- The screens element -->
   <xs:complexType name="Screens">
     <xs:annotation>
