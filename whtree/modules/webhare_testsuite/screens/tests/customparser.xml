@@ -1,0 +1,36 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+
+  <screen name="testscreen" implementation="test:screenimplementation">
+    <body name="body">
+      <test:extraparsercomponent name="children">
+        <test:child testattr="Custom parser attribute value" />
+        <test:child testattr="" compref="refcomp" />
+        <test:child testattr="Last child" />
+      </test:extraparsercomponent>
+      <text name="refcomp" title="Referenced component" />
+    </body>
+  </screen>
+
+  <fragment name="testfragment" implementation="test:fragmentimplementation">
+    <contents>
+      <tabs name="tabs">
+      </tabs>
+    </contents>
+  </fragment>
+
+  <tabsextension name="testextension" implementation="test:tabsextensionimplementation">
+    <newtab name="tab">
+    </newtab>
+  </tabsextension>
+
+  <fragment name="extraparsercomponent" library="/lib/screens/components/customparser.whlib">
+    <contents>
+      <list name="childnodes" sortable="false">
+        <column name="testattr" type="text" />
+        <column name="compref" type="text" />
+      </list>
+    </contents>
+  </fragment>
+
+</screens>

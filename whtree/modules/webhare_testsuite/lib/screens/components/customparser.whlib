@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ScreenImplementation EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^body->LoadFragment("mod::webhare_testsuite/screens/tests/customparser.xml", "testfragment");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE FragmentImplementation EXTEND TolliumFragmentBase
+<
+  UPDATE MACRO PreInitComponent()
+  {
+    ^tabs->LoadTabsExtension("mod::webhare_testsuite/screens/tests/customparser.xml#testextension");
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    ^tabs->RunExtensionsPostInit();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TabsExtensionImplementation EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    OBJECT comp := this->owner->CreateTolliumComponent("text");
+    comp->title := "hello_world";
+    comp->value := "Hello, World!";
+    ^tab->InsertComponentAfter(comp, DEFAULT OBJECT, TRUE);
+  }
+>;
+
+PUBLIC RECORD ARRAY FUNCTION TestExtraParser(OBJECT nodeset, RECORD field)
+{
+  RETURN
+      SELECT testattr := node->GetAttribute("testattr")
+           , compref := node->GetAttribute("compref")
+        FROM ToRecordArray(nodeset->GetCurrentElements(), "node");
+}
+
+PUBLIC RECORD ARRAY FUNCTION TestExtraProcessor(OBJECT screenbuilder, OBJECT obj, RECORD scope, RECORD ARRAY data)
+{
+  RETURN
+      SELECT *
+           , compref := compref != "" ? screenbuilder->GetCheckComponent(compref) : DEFAULT OBJECT
+        FROM data;
+}
+
+PUBLIC STATIC OBJECTTYPE ExtraParserComponent EXTEND TolliumFragmentBase
+<
+  RECORD ARRAY children;
+
+  PUBLIC PROPERTY rows(^childnodes->rows, -);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    this->children := description.children;
+  }
+
+  UPDATE MACRO PostInitComponent()
+  {
+    ^childnodes->rows :=
+        SELECT *
+             , compref := ObjectExists(compref) ? compref->title : ""
+          FROM this->children;
+  }
+>;

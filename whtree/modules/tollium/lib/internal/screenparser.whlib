@@ -606,6 +606,41 @@ STATIC OBJECTTYPE PageParser
     }
   }
 
+  PUBLIC RECORD FUNCTION LookupImplementation(OBJECT screen, STRING implementation, BOOLEAN fatal)
+  {
+    TRY
+    {
+      STRING ARRAY parts := Tokenize(implementation, "#");
+      IF (Length(parts) = 1)
+        INSERT ns_screens INTO parts AT 0;
+      RECORD def := GetImplementationDefinition(parts[0], parts[1]);
+      this->AddFiles(def.files);
+      RETURN def;
+    }
+    CATCH(OBJECT e)
+    {
+      IF(fatal)
+        this->AddError(screen->linenum, e->what);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION LookupExtraParser(OBJECT element, RECORD parser, BOOLEAN fatal)
+  {
+    TRY
+    {
+      RECORD def := GetExtraParserDefinition(parser.namespaceuri, parser.localname);
+      this->AddFiles(def.files);
+      RETURN def;
+    }
+    CATCH(OBJECT e)
+    {
+      IF(fatal)
+        this->AddError(element->linenum, e->what);
+      RETURN DEFAULT RECORD;
+    }
+  }
+
   PUBLIC MACRO AddError(INTEGER line, STRING error)
   {
     INSERT INTO this->finalpage.errors(resourcename, line, col, message) VALUES(this->resourcename,line,0,error) AT END;
@@ -1627,7 +1662,16 @@ VARIANT FUNCTION ParseUsingExtraParser(OBJECT element, RECORD field, RECORD item
     }
   }
 
-  curpageparser->AddError(element->linenum, "Unrecognized parser " || field.parser.namespaceuri|| ":" || field.parser.localname || " defined for this component");
+  RECORD parserinfo := curpageparser->LookupExtraParser(element, field.parser, TRUE);
+  IF (RecordExists(parserinfo))
+  {
+    FUNCTION PTR extraparser := MakeFunctionPtr(parserinfo.parsefunc);
+    IF (NOT ValidateFunctionPtr(extraparser, TypeID(VARIANT), [ TypeID(OBJECT), TypeID(RECORD) ]))
+      THROW NEW Exception(`Parser function ${parserinfo.parsefunc} for parser ${field.parser.namespaceuri}:${field.parser.localname} has an incorrect signature`);
+    RETURN [ __parserinfo := parserinfo, data := extraparser(nodeset, field) ];
+  }
+
+  curpageparser->AddError(element->linenum, `"Unrecognized parser ${field.parser.namespaceuri}:${field.parser.localname} defined for this component"`);
   RETURN DEFAULT RECORD;
 }
 
@@ -2182,7 +2226,9 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
     }
     ELSE
     {
-      curpageparser->AddError(screen->linenum, `Unrecognized implementation '${curpageparser->finalpage.implementation}'`);
+      RECORD implinfo := curpageparser->LookupImplementation(screen, curpageparser->finalpage.implementation, TRUE);
+      IF (RecordExists(implinfo))
+        curpageparser->finalpage.objtype := implinfo.objtype;
     }
 
     RECORD frame := curpageparser->StartXMLNode2(screen);

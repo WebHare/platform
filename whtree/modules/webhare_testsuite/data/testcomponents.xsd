@@ -7,12 +7,69 @@
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+  xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   elementFormDefault="qualified"
   xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:complexType name="screenimplementation">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#screenimplementation" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <xs:complexType name="fragmentimplementation">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#fragmentimplementation" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <xs:complexType name="tabsextensionimplementation">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#tabsextensionimplementation" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <xs:complexType name="testextraparser">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumextraparser parsefunction="/lib/screens/components/customparser.whlib#testextraparser"
+                              processfunction="/lib/screens/components/customparser.whlib#testextraprocessor" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
+  <xs:element name="extraparsercomponent">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="block" fragment="/screens/tests/customparser.xml#extraparsercomponent" />
+        <s:extraparser field="children" type="testextraparser" target="./test:child" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice>
+          <xs:element name="child" minOccurs="0" maxOccurs="unbounded">
+            <xs:complexType>
+              <xs:attribute name="testattr" type="xs:string" />
+              <xs:attribute name="compref" type="tc:ComponentRef" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attributeGroup ref="tc:ComposableComponentBase" />
+      <xs:attributeGroup ref="sc:TidOrTitle" />
+    </xs:complexType>
+  </xs:element>
 
   <xs:element name="block_multilinecomponent">
     <xs:annotation>

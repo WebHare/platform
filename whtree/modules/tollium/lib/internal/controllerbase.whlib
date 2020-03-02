@@ -474,6 +474,17 @@ PUBLIC OBJECTTYPE __ScreenBuilder
         }
       }
     }
+
+    IF (TypeID(data) = TypeID(RECORD) AND CellExists(data, "__parserinfo"))
+    {
+      IF (data.__parserinfo.processfunc = "")
+        RETURN data.data;
+      FUNCTION PTR extraprocessor := MakeFunctionPtr(data.__parserinfo.processfunc);
+      IF (NOT ValidateFunctionPtr(extraprocessor, TypeID(VARIANT), [ TypeID(OBJECT), TypeID(OBJECT), TypeID(RECORD), TypeID(VARIANT) ]))
+        THROW NEW Exception(`Processor function ${data.__parserinfo.parsefunc} for parser ${field.parser.namespaceuri}:${field.parser.localname} has an incorrect signature`);
+      RETURN extraprocessor(this, obj, scope, data.data);
+    }
+
     THROW NEW TolliumException(obj, `Unrecognized reprocessor ${field.parser.namespaceuri}:${field.parser.localname}`);
   }
 
