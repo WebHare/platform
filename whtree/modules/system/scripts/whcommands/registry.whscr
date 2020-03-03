@@ -34,10 +34,10 @@ SWITCH(args.cmd)
 
     OpenPrimary();
     VARIANT val := ReadRegistryKey(restargs.keyname);
-    IF(TypeId(val)=TypeID(STRING))
+    IF(TypeId(val) = TypeID(STRING))
       Print(val||"\n");
     ELSE
-      DumpValue(val, [ name := "" ]);
+      Print(EncodeHSON(val) || '\n');
   }
   CASE "list"
   {
@@ -89,10 +89,27 @@ SWITCH(args.cmd)
 
     SWITCH (keytype)
     {
-      CASE "string"     { WriteRegistryKey(restargs.keyname, restargs.value, CELL[ createifneeded ]); }
-      CASE "boolean"    { WriteRegistryKey(restargs.keyname, ToUppercase(restargs.value) IN ["1","TRUE"], CELL[ createifneeded ]); }
-      CASE "integer"    { WriteRegistryKey(restargs.keyname, ToInteger(restargs.value,0), CELL[ createifneeded ]); }
-      DEFAULT           { TerminateScriptWithError(`Not sure how to store value of type '${keytype}'`); }
+      CASE "string"
+      {
+        WriteRegistryKey(restargs.keyname, restargs.value, CELL[ createifneeded ]);
+      }
+      CASE "boolean"
+      {
+        WriteRegistryKey(restargs.keyname, ToUppercase(restargs.value) IN ["1","TRUE"], CELL[ createifneeded ]);
+      }
+      CASE "integer"
+      {
+        WriteRegistryKey(restargs.keyname, ToInteger(restargs.value,0), CELL[ createifneeded ]);
+      }
+      CASE "record"
+      {
+        RECORD data := DecodeHSON(restargs.value);
+        WriteRegistryKey(restargs.keyname, data, CELL[ createifneeded ]);
+      }
+      DEFAULT
+      {
+        TerminateScriptWithError(`Not sure how to store value of type '${keytype}'`);
+      }
     }
 
     trans->CommitWork();
