@@ -7,7 +7,7 @@ a (base) record to %ValidateOptions to forward oauth2 specific options.
 
 Oauth2 offers some wrappers to simplify common authentication flows:
 
-- %Oauth2Connection::SetupTokenUsingRegistryKey - loads an authentication from the registry (set using eg a `<webapis:oauth2authorization>` component). extends the key if ncessary
+- %Oauth2Connection::SetupTokenUsingRegistryKey - loads an authentication token from the registry (set using eg a `<webapis:oauth2authorization>` component). Extends the token if necessary.
 
 - %Oauth2Connection::SetupClientCredentialsUsingRegistryKey - load or set up client_credentials, extending if necessary
 
