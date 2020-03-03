@@ -110,51 +110,21 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE"] CONCAT ^data->GetComposedCellnames());
     ^data->value := feedback;
 
-    // The 'extrafields' cell contains field definitions to show extra data
-    IF (CellExists(feedback.extradata, "extrafields") AND TypeID(feedback.extradata.extrafields) = TypeID(RECORD ARRAY))
+    RECORD ARRAY extrafields := GetFeedbackExtraFields(feedback.extradata);
+    IF(Length(extrafields) > 0)
     {
       // The 'there is no extra data available' text doesn't have to be displayed
       ^noextradata->DeleteComponent();
 
-      FOREVERY (RECORD extra FROM feedback.extradata.extrafields)
+      FOREVERY (RECORD extra FROM extrafields)
       {
-        extra := EnforceStructure(
-            [ field := ""
-            , type := ""
-            , title := ""
-            , tid := ""
-            , optiongid := ""
-            ], extra);
-        IF (NOT CellExists(feedback.extradata, extra.field))
-          CONTINUE;
-
         OBJECT comp;
         SWITCH (extra.type)
         {
-          CASE "string" {
+          CASE "text"
+          {
             comp := this->CreateTolliumComponent("text");
-            comp->value := GetCell(feedback.extradata, extra.field);
-          }
-          CASE "integer" {
-            comp := this->CreateTolliumComponent("text");
-            comp->value := ToString(GetCell(feedback.extradata, extra.field));
-          }
-          CASE "tid" {
-            comp := this->CreateTolliumComponent("text");
-            STRING tid := GetCell(feedback.extradata, extra.field);
-
-            // Try to resolve the tid if this is not an absolute tid reference
-            IF (tid NOT LIKE "*:*")
-            {
-              IF (extra.optiongid != "")
-                tid := extra.optiongid || "." || tid;
-              ELSE
-                tid := extra.tid || "-" || tid;
-            }
-            IF (tid LIKE "*:*")
-              comp->value := GetTid(tid);
-            ELSE
-              comp->value := tid;
+            comp->value := extra.value;
           }
         }
 
