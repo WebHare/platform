@@ -5,7 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/webapi/mailchimp.whlib";
+LOADLIB "mod::system/lib/webapi/mail/mailchimp.whlib";
 
 MACRO Test_MailchimpAPI()
 {
