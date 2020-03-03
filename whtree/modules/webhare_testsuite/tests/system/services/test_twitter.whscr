@@ -34,7 +34,7 @@ MACRO TestClientAuth()
   twit->SetupClientCredentialsUsingRegistryKey("webhare_testsuite.apis.twitter_testauth");
   //twit->oauth2->browser->debug:=true;
 
-  //TODO Build nice and enforcestrutured endpoints
+  //TODO Build nice and enforcestructured endpoints
   TestEq(TRUE, twit->oauth2->browser->gotowebpage(`${apibaseurl}1.1/users/lookup.json?screen_name=WebHareT`));
 }
 
