@@ -13,7 +13,7 @@ PUBLIC RECORD FUNCTION RunCalculationFunction(STRING lib, STRING func, RECORD da
 
   RECORD result;
 
-  FUNCTION PTR fptr := MakeFunctionPtr(lib, func, TypeID(RECORD), [ TypeID(RECORD) ]);
+  FUNCTION PTR fptr := MakeFunctionPtr(lib || "#" || func, TypeID(RECORD), [ TypeID(RECORD) ]);
   TRY
   {
     result := [ value := fptr(data) ];

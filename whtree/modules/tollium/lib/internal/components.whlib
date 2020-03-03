@@ -201,7 +201,7 @@ PUBLIC MACRO ExecuteDebugAction(OBJECT screen, RECORD action, VARIANT data)
       IF(debugactionnode->GetAttribute("name") = acttoks[1])
       {
         STRING lib := MakeAbsoluteResourcePath(GetModuleDefinitionXMLResourceName(acttoks[0]), debugactionnode->GetAttribute("library"));
-        MACRO PTR startmacro := MakeFunctionPtr(lib, debugactionnode->GetAttribute("startmacro"), 0, [TYPEID(OBJECT), TYPEID(VARIANT)]);
+        MACRO PTR startmacro := MakeFunctionPtr(lib || "#" || debugactionnode->GetAttribute("startmacro"), 0, [TYPEID(OBJECT), TYPEID(VARIANT)]);
         startmacro(screen, data);
         RETURN;
       }

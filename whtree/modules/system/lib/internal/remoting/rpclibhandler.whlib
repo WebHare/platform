@@ -52,7 +52,7 @@ OBJECTTYPE RPCLib
     IF (findname NOT IN this->functions)
       RETURN DEFAULT FUNCTION PTR;
 
-    RETURN MakeFunctionPtr(this->pvt_libname, findname);
+    RETURN MakeFunctionPtr(this->pvt_libname || "#" || findname);
   }
 >;
 

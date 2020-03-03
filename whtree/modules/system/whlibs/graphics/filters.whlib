@@ -389,7 +389,7 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
     __DRAWLIB_V2_GRAYSCALECANVAS(outputcanvas);
   IF(instructions.postprocessor != DEFAULT MACRO PTR)
   {
-    OBJECT canvas := MakeFunctionPtr("wh::graphics/canvas.whlib", "__CREATECANVASWITHCANVASID", TypeID(OBJECT), [TypeID(INTEGER)])(outputcanvas);
+    OBJECT canvas := MakeFunctionPtr("wh::graphics/canvas.whlib#__CREATECANVASWITHCANVASID", TypeID(OBJECT), [TypeID(INTEGER)])(outputcanvas);
     instructions.postprocessor(canvas);
     instructions.outheight := canvas->height;
     instructions.outwidth := canvas->width;

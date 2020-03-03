@@ -77,7 +77,7 @@ IF(settings.msg.scriptname LIKE "site::*")
 //settings.msg.istemplate = true for template, false for harescriptfiles
 TRY
 {
-  MakeFunctionPTR(settings.msg.scriptname, "INITFUNCTION",0,DEFAULT INTEGER ARRAY);
+  MakeFunctionPTR(settings.msg.scriptname || "#INITFUNCTION",0,DEFAULT INTEGER ARRAY);
 }
 CATCH(OBJECT e)
 {
