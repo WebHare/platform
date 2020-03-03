@@ -16,7 +16,6 @@ STRING clientsecret := GetEnvironmentVariable("TESTSECRET_TWITTER_CLIENTSECRET")
 
 MACRO SetupTwitterClient()
 {
-  //for our CI, apikeys associated with webhare-ci-test-aws
   IF(clientid = "" OR clientsecret = "")
     THROW NEW Exception("TESTSECRET_TWITTER_CLIENTID or TESTSECRET_TWITTER_CLIENTSECRET not set!");
 
