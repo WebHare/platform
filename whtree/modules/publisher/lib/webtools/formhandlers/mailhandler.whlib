@@ -419,7 +419,8 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
     ^sendername->required := NOT (^sender->value != "" AND ^sendername->value = "");
 
     this->FillIntraFieldPulldown(^receiverfield, "receiverfield");
-    this->ReadAttachments();
+    IF (this->handlertype != "confirmation")
+      this->ReadAttachments();
     ^bcc->value := this->node->GetAttribute("bcc");
   }
 
@@ -432,7 +433,8 @@ PUBLIC STATIC OBJECTTYPE MailFeedbackEditor EXTEND MailHandlerEditor
       this->node->RemoveAttribute("sendoncanceltoo");
 
       this->SubmitIntraFieldPulldown(^receiverfield, "receiverfield");
-      this->WriteAttachments();
+      IF (this->handlertype != "confirmation")
+        this->WriteAttachments();
 
       IF (^bcc->value != "")
         this->node->SetAttribute("bcc", ^bcc->value);

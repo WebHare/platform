@@ -311,7 +311,7 @@
   </apply>
 
   <!-- RTDType and widget testing -->
-  <embeddedobjecttype editscreen="#editlevel1"
+  <embeddedobjecttype editextension="#editlevel1"
                       isfiletype="true"
                       ispublishable="true"
                       namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1"
@@ -321,22 +321,14 @@
     <member name="fileref" type="whfsref" />
   </embeddedobjecttype>
 
-  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editlevel1" implementation="p:widgetedit">
-    <compositions>
-      <record name="contentdata" />
-    </compositions>
-
-    <body>
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editlevel1">
+    <newtab>
       <richdocument composition="contentdata"
                     cellname="richdoc"
                     name="richdoc"
                     rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" />
-    </body>
-
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
+    </newtab>
+  </tabsextension>
 
   <widgettype editextension="#editlevel2"
               namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"

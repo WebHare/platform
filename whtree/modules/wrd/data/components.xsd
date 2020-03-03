@@ -20,6 +20,14 @@
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
+  <xs:complexType name="entityedit">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumimplementation objecttype="/lib/screenbase.whlib#WRDEntityEditScreenBase" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:complexType>
+
   <xs:simpleType name="HistoryMode">
     <xs:restriction base="xs:string">
       <xs:enumeration value="now"/>

@@ -10,7 +10,6 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
-LOADLIB "mod::publisher/lib/screenbase.whlib" EXPORT WidgetEditExtensionBase;
 
 
 PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase

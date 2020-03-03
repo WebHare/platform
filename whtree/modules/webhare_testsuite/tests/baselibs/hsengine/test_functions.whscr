@@ -334,6 +334,9 @@ MACRO DynamicTest()
   FUNCTION PTR test;
   OpenTest("TestFunctions: DynamicTest");
 
+  TestThrowsLike("Invalid call to MakeFunctionPtr - functionname was empty", PTR MakeFunctionPtr(""));
+  TestThrowsLike("Invalid call to MakeFunctionPtr - first argument was not a full library#function path, but did not receive function name either", PTR MakeFunctionPtr("blablafunc"));
+
   TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib", "blablafunc", 0, DEFAULT INTEGER ARRAY));
   TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib#blablafunc", 0, DEFAULT INTEGER ARRAY));
 

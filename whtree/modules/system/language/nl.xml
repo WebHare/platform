@@ -1856,14 +1856,14 @@
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
     <textgroup gid="webapis">   <!-- tolliumcomponents.webapis -->
-      <text tid="authorization">Authorisatie</text>
-      <text tid="authorize">Authoriseer</text>
+      <text tid="authorization">Autorisatie</text>
+      <text tid="authorize">Autoriseren</text>
       <text tid="callbackurl">Callback/redirect URL</text>
       <text tid="clientid">Client id</text>
       <text tid="clientsecret">Client secret</text>
       <text tid="configureclient">Configureren</text>
-      <text tid="oauth2wait">Oauth2 authorisatie</text>
-      <text tid="waiting">Wacht op bevestiging</text>
+      <text tid="oauth2wait">Oauth2 autorisatie</text>
+      <text tid="waiting">Wachten op bevestiging</text>
       <textgroup gid="timezoneedit">   <!-- tolliumcomponents.webapis.timezoneedit -->
         <text tid="auto">Automatisch</text>
         <text tid="country">Land</text>
