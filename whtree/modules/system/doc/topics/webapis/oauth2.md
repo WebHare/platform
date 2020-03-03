@@ -1,4 +1,19 @@
-# OAUTH2 setup
+# OAUTH2
+
+## Setting up a connection
+The %Oauth2Connection object manages the oauth2 request browser. If you build an objecttype to manage a specific API or platform
+we recommend including this browser in your object (and not extending from it). Use the `oauth2options` record as
+a (base) record to %ValidateOptions to forward oauth2 specific options.
+
+Oauth2 offers some wrappers to simplify common authentication flows:
+
+- %Oauth2Connection::SetupTokenUsingRegistryKey - loads an authentication from the registry (set using eg a `<webapis:oauth2authorization>` component). extends the key if ncessary
+
+- %Oauth2Connection::SetupClientCredentialsUsingRegistryKey - load or set up client_credentials, extending if necessary
+
+## Allowing backend configuration
+The following example shows you how to setup an oauth connection whose credentials can be fully managed in the backend. (Note
+that the oauth2 APIs do not require you to use the backend or WebHare database at all)
 
 Moduledefinition registry key
 
@@ -9,7 +24,11 @@ Moduledefinition registry key
   </moduleregistry>
 ```
 
-Configuration and connection screen
+Configuration and connection screen. The `oauth2client` component allows the user to enter a clientid and a clientsecret. You
+can pass the name of this key as `clientregistrykey` to the `Oauth2Connection`.
+
+The `oauth2authorization` sets up a component to allow a user to authorize an account using the token request flow.
+If you will be using client credentials you probably don't need an authorization component.
 
 ```xml
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
