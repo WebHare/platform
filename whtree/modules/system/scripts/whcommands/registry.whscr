@@ -33,9 +33,12 @@ SWITCH(args.cmd)
       SyntaxFail();
 
     OpenPrimary();
+
     VARIANT val := ReadRegistryKey(restargs.keyname);
-    IF(TypeId(val) = TypeID(STRING))
-      Print(val||"\n");
+    IF(TYPEID(val) = TYPEID(STRING) OR TYPEID(val) = TYPEID(INTEGER))
+      Print(val || "\n");
+    ELSE IF(TYPEID(val) = TYPEID(BOOLEAN))
+      print(val ? "true\n" : "false\n");
     ELSE
       Print(EncodeHSON(val) || '\n');
   }
@@ -75,7 +78,7 @@ SWITCH(args.cmd)
     IF (restargs.type = "")
     {
       VARIANT val := ReadRegistryKey(restargs.keyname);
-      restargs.type := GetTypeName(TypeID(val));
+      restargs.type := GetTypeName(TYPEID(val));
     }
 
     STRING keytype := ToLowercase(restargs.type);
