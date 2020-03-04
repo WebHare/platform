@@ -33,11 +33,14 @@ SWITCH(args.cmd)
       SyntaxFail();
 
     OpenPrimary();
+
     VARIANT val := ReadRegistryKey(restargs.keyname);
-    IF(TypeId(val)=TypeID(STRING))
-      Print(val||"\n");
+    IF(TYPEID(val) = TYPEID(STRING) OR TYPEID(val) = TYPEID(INTEGER))
+      Print(val || "\n");
+    ELSE IF(TYPEID(val) = TYPEID(BOOLEAN))
+      print(val ? "true\n" : "false\n");
     ELSE
-      DumpValue(val, [ name := "" ]);
+      Print(EncodeHSON(val) || '\n');
   }
   CASE "list"
   {
@@ -75,7 +78,7 @@ SWITCH(args.cmd)
     IF (restargs.type = "")
     {
       VARIANT val := ReadRegistryKey(restargs.keyname);
-      restargs.type := GetTypeName(TypeID(val));
+      restargs.type := GetTypeName(TYPEID(val));
     }
 
     STRING keytype := ToLowercase(restargs.type);
@@ -89,10 +92,27 @@ SWITCH(args.cmd)
 
     SWITCH (keytype)
     {
-      CASE "string"     { WriteRegistryKey(restargs.keyname, restargs.value, CELL[ createifneeded ]); }
-      CASE "boolean"    { WriteRegistryKey(restargs.keyname, ToUppercase(restargs.value) IN ["1","TRUE"], CELL[ createifneeded ]); }
-      CASE "integer"    { WriteRegistryKey(restargs.keyname, ToInteger(restargs.value,0), CELL[ createifneeded ]); }
-      DEFAULT           { TerminateScriptWithError(`Not sure how to store value of type '${keytype}'`); }
+      CASE "string"
+      {
+        WriteRegistryKey(restargs.keyname, restargs.value, CELL[ createifneeded ]);
+      }
+      CASE "boolean"
+      {
+        WriteRegistryKey(restargs.keyname, ToUppercase(restargs.value) IN ["1","TRUE"], CELL[ createifneeded ]);
+      }
+      CASE "integer"
+      {
+        WriteRegistryKey(restargs.keyname, ToInteger(restargs.value,0), CELL[ createifneeded ]);
+      }
+      CASE "record"
+      {
+        RECORD data := DecodeHSON(restargs.value);
+        WriteRegistryKey(restargs.keyname, data, CELL[ createifneeded ]);
+      }
+      DEFAULT
+      {
+        TerminateScriptWithError(`Not sure how to store value of type '${keytype}'`);
+      }
     }
 
     trans->CommitWork();

@@ -1,0 +1,42 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+CONSTANT STRING apibaseurl := "https://api.twitter.com/";
+
+PUBLIC STATIC OBJECTTYPE TwitterAPI
+<
+  PUBLIC OBJECT oauth2;
+  RECORD oauthconfig;
+
+  // NOTE needs to support both oauth1a and oauth2...
+  MACRO NEW(RECORD options)
+  {
+    this->oauthconfig := ValidateOptions(CELL[ ...oauthbaseoptions ], options);
+
+    IF(this->oauthconfig.clientregistrykey != "")
+    {
+      RECORD keyinfo := ReadRegistryKey(this->oauthconfig.clientregistrykey, [fallback := DEFAULT RECORD]);
+      IF(RecordExists(keyinfo))
+      {
+        keyinfo := EnforceStructure([clientid := "", clientsecret := ""],keyinfo);
+        IF(this->oauthconfig.clientid = "")
+          this->oauthconfig.clientid := keyinfo.clientid;
+        IF(this->oauthconfig.clientsecret = "")
+          this->oauthconfig.clientsecret := keyinfo.clientsecret;
+      }
+    }
+
+  }
+
+  PUBLIC MACRO SetupClientCredentialsUsingRegistryKey(STRING regkey)
+  {
+    this->oauth2 := NEW Oauth2Connection([ authtokenurl := `${apibaseurl}oauth2/token`
+                                         , clientid := this->oauthconfig.clientid
+                                         , clientsecret := this->oauthconfig.clientsecret
+                                         ]);
+
+    this->oauth2->SetupClientCredentialsUsingRegistryKey(regkey);
+  }
+>;

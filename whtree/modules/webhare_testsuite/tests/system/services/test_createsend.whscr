@@ -5,7 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/webapi/createsend.whlib";
+LOADLIB "mod::system/lib/webapi/mail/createsend.whlib";
 
 MACRO Test_CreateSendAPI()
 {

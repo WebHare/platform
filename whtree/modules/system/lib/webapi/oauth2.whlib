@@ -12,16 +12,20 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
-PUBLIC CONSTANT RECORD oauth2options := [ clientid := ""
-                                        , clientsecret := ""
-                                        , clientcomponent := DEFAULT OBJECT
-                                        , clientregistrykey := ""
-                                        , authorizeurl := ""
-                                        , authtokenurl := ""
-                                        , redirecturl := ""
-                                        , rpclogsource := ""
-                                        ];
+PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
+                                               , clientsecret := ""
+                                               , clientregistrykey := ""
+                                               , rpclogsource := ""
+                                               ];
 
+PUBLIC CONSTANT RECORD oauth2options := CELL[ ...oauthbaseoptions
+                                            , clientcomponent := DEFAULT OBJECT
+                                            , authorizeurl := ""
+                                            , authtokenurl := ""
+                                            , redirecturl := ""
+                                            ];
+
+/** Manages the oauth2 %WebBrowser */
 PUBLIC STATIC OBJECTTYPE Oauth2Connection
 <
   RECORD oauthconfig;
@@ -36,10 +40,11 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   ///Some providers (eg Zoho) set a wrong unit for 'expires_in'
   PUBLIC BOOLEAN expires_in_msecs;
 
-  /** options.redirectto Where to redirect after authorization */
+  /** @cell(string) options.redirectto Where to redirect after authorization
+      @cell(string) options.clientregistrykey Registry node containing client id and secret */
   MACRO NEW(RECORD options)
   {
-    this->oauthconfig := ValidateOptions(oauth2options, options, [ required := [ "clientid","authorizeurl","authtokenurl" ], passthroughin := "ignored" ]);
+    this->oauthconfig := ValidateOptions(oauth2options, options);
 
     IF(ObjectExists(this->oauthconfig.clientcomponent))
     {
@@ -73,8 +78,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     this->authorization_header_type := "Bearer";
     this->__browser := NEW WebBrowser;
     this->__browser->onrequest := PTR this->OnBrowserRequest(#1, this->__browser->onrequest);
-    IF(options.rpclogsource != "")
-      LogRPCForWebbrowser(options.rpclogsource, "", this->__browser);
+    IF(this->oauthconfig.rpclogsource != "" AND IsRPCTrafficLogged(this->oauthconfig.rpclogsource))
+      LogRPCForWebbrowser(this->oauthconfig.rpclogsource, "", this->__browser);
   }
 
   MACRO SetToken(RECORD token)
@@ -152,8 +157,8 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(CellExists(sessdata.tokeninfo,"access_token"))
     {
       RETURN CELL[ ...sessdata.tokeninfo
-                         , __meta := [ requeststart := sessdata.requeststart ]
-                         ];
+                 , __meta := [ requeststart := sessdata.requeststart ]
+                 ];
     }
     RETURN DEFAULT RECORD;
   }
@@ -233,7 +238,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     {
       this->token := CELL[ ...this->token  //keep any refresh_token
                          , ...newtoken
-                           , __meta := [ requeststart := requeststart ]
+                         , __meta := [ requeststart := requeststart ]
                          ];
       RETURN [ success := TRUE, message := "" ];
     }
@@ -275,10 +280,59 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
 
     IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
         [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+    {
       THROW NEW Exception(`Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}`);
+    }
 
     RECORD token := EnforceStructure([ access_token := "", refresh_token := "", expires_in := 0, token_type := "" ], DecodeJSONBLob(this->browser->content));
     RETURN token;
+  }
+
+  /** Request client credentials (authorizing the app itself, not a specific user)
+  */
+  PUBLIC RECORD FUNCTION RequestClientCredentials()
+  {
+    BLOB body := CreateHTTPUrlencodedRequest(
+                  [[ name := "client_id",     value := this->oauthconfig.clientid ]
+                  ,[ name := "client_secret", value := this->oauthconfig.clientsecret ]
+                  ,[ name := "grant_type",    value := "client_credentials" ]
+                  ]).body;
+
+    IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
+        [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
+    {
+      THROW NEW Exception(`Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}`);
+    }
+
+    RECORD token := EnforceStructure([ access_token := "", refresh_token := "", expires_in := 0, token_type := "" ], DecodeJSONBLob(this->browser->content));
+    RETURN token;
+  }
+
+  /** Grab client credentials from a registry key, requesting or extending if necessary.
+      @long This call wrpas client token request and storage. It should be called outside open work
+      @param keyname Registry key to store the token in
+      @cell(boolean) return.success If true, credentials were succesfully renewed */
+  PUBLIC RECORD FUNCTION SetupClientCredentialsUsingRegistryKey(STRING keyname)
+  {
+    IF(GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("SetupClientCredentialsUsingRegistryKey cannot be used with open work"); //we need control, plus shouldn't do remote requests with open transactions
+
+    this->token := ReadRegistryKey(keyname);
+
+    IF(this->IsAccessTokenExpired())
+    {
+      DATETIME requeststart := GetCurrentDatetime();
+      this->token := DEFAULT RECORD; //reset bearer token to prevent confusion on the API's side
+      RECORD result := this->RequestClientCredentials();
+      IF(result.access_token = "")
+        RETURN [ success := FALSE ];
+
+      this->token := CELL[ ...result, __meta := [ requeststart := requeststart ] ];
+      GetPrimary()->BeginWork();
+      WriteRegistryKey(keyname, this->token);
+      GetPrimary()->CommitWork();
+    }
+    RETURN [ success := TRUE ];
   }
 
   /// Grab a token from a registry key, extending it if necessary

@@ -1,0 +1,43 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+LOADLIB "mod::system/lib/webapi/social/twitter.whlib";
+
+
+CONSTANT STRING apibaseurl := "https://api.twitter.com/";
+
+STRING clientid := GetEnvironmentVariable("TESTSECRET_TWITTER_CLIENTID");
+STRING clientsecret := GetEnvironmentVariable("TESTSECRET_TWITTER_CLIENTSECRET");
+
+MACRO SetupTwitterClient()
+{
+  IF(clientid = "" OR clientsecret = "")
+    THROW NEW Exception("TESTSECRET_TWITTER_CLIENTID or TESTSECRET_TWITTER_CLIENTSECRET not set!");
+
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.apis.twitter_testclient", [ clientid := "utyHOHn1kCbInKb7aHsuaYOKN", clientsecret := "OzfaGr6ymlUJEGapD0g5Ok8eQraPHU52hV97qtr1cOPUKEL25J"]);
+  testfw->CommitWork();
+}
+
+MACRO TestClientAuth()
+{
+  OBJECT twit := NEW TwitterAPI([ clientregistrykey := "webhare_testsuite.apis.twitter_testclient"]);
+  twit->SetupClientCredentialsUsingRegistryKey("webhare_testsuite.apis.twitter_testauth");
+
+  //reinvoke to ensure proper roundtrip
+  twit := NEW TwitterAPI([ clientregistrykey := "webhare_testsuite.apis.twitter_testclient"]);
+  twit->SetupClientCredentialsUsingRegistryKey("webhare_testsuite.apis.twitter_testauth");
+  //twit->oauth2->browser->debug:=true;
+
+  //TODO Build nice and enforcestructured endpoints
+  TestEq(TRUE, twit->oauth2->browser->gotowebpage(`${apibaseurl}1.1/users/lookup.json?screen_name=WebHareT`));
+}
+
+RunTestFramework([ PTR SetupTwitterClient
+                 , PTR TestClientAuth
+                 ]);
