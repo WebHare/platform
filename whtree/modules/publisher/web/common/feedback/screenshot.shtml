@@ -1,0 +1,26 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OpenPrimary();
+
+RECORD issuereq := DecryptForThisServer("tollium:screenshot", GetWebvariable("ss"));
+OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
+RECORD issueinfo := feedbackschema->^feedback->GetEntityFields(issuereq.issueid, ["SCREENSHOT","ELEMENT"]);
+STRING ARRAY stylesheets := issueinfo.screenshot.stylesheets;
+
+GetScreenshotWitty()->RunComponent("screenshot", CELL
+      [ issueinfo.screenshot.htmlattrs
+      , stylesheets
+      , issueinfo.screenshot.bodyattrs
+      , issueinfo.screenshot.bodycontents
+      , element := EnforceStructure([ top := 0, left := 0, width := 0, height := 0 ], issueinfo.element)
+      ]);

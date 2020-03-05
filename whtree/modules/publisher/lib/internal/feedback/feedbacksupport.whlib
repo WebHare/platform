@@ -1,0 +1,83 @@
+<?wh
+
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+PUBLIC OBJECT FUNCTION GetScreenshotWitty()
+{
+  RETURN LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI");
+}
+PUBLIC STRING FUNCTION GetFeedbackScreenshotURL(INTEGER issueid)
+{
+  RETURN GetPrimaryWebhareInterfaceURL() || ".publisher/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
+}
+PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)
+{
+  RECORD ARRAY fields;
+
+  // The 'extrafields' cell contains field definitions to show extra data
+  IF (NOT (CellExists(extradata, "extrafields") AND TypeID(extradata.extrafields) = TypeID(RECORD ARRAY)))
+    RETURN fields;
+
+  FOREVERY (RECORD extra FROM extradata.extrafields)
+  {
+    extra := EnforceStructure(
+        [ field := ""
+        , type := ""
+        , title := ""
+        , tid := ""
+        , optiongid := ""
+        ], extra);
+
+    IF (NOT CellExists(extradata, extra.field))
+      CONTINUE;
+
+    STRING type, value;
+    SWITCH (extra.type)
+    {
+      CASE "string"
+      {
+        type := "text";
+        value := GetCell(extradata, extra.field);
+      }
+      CASE "integer"
+      {
+        type := "text";
+        value := ToString(GetCell(extradata, extra.field));
+      }
+      CASE "tid"
+      {
+        type := "text";
+        STRING tid := GetCell(extradata, extra.field);
+
+        // Try to resolve the tid if this is not an absolute tid reference
+        IF (tid NOT LIKE "*:*")
+        {
+          IF (extra.optiongid != "")
+            tid := extra.optiongid || "." || tid;
+          ELSE
+            tid := extra.tid || "-" || tid;
+        }
+        IF (tid LIKE "*:*")
+          value := GetTid(tid);
+        ELSE
+          value := tid;
+      }
+      DEFAULT
+      {
+        CONTINUE; //not understood..
+      }
+    }
+
+    INSERT CELL[ name := extra.field
+               , title := extra.tid = "" ? extra.title : GetTid(extra.tid)
+               , type
+               , value
+               ] INTO fields AT END;
+  }
+  RETURN fields;
+}

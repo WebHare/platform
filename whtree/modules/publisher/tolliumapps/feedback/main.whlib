@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::witty.whlib";
 
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
@@ -45,7 +46,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoView()
   {
-    IF (NOT CellExists(^feedback->selection, "version") OR ^feedback->selection.version != 1)
+    IF (^feedback->selection.version != 1)
       this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
     ELSE
       this->RunScreen("#feedback", ^feedback->selection);
@@ -71,6 +72,16 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   //
   // Callbacks
   //
+  RECORD ARRAY FUNCTION MapFeedbackRows(RECORD ARRAY rows)
+  {
+    rows := SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
+                 , *
+                 , reportedby     := reportinfo.realname ?? reportinfo.login
+                 , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
+              FROM rows;
+
+    RETURN rows;
+  }
 
   MACRO OnSelectScope()
   {
@@ -96,53 +107,24 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->data := data;
-    ^data->value := data;
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE"] CONCAT ^data->GetComposedCellnames());
+    ^data->value := feedback;
 
-    // The 'extrafields' cell contains field definitions to show extra data
-    IF (CellExists(this->data.extradata, "extrafields") AND TypeID(this->data.extradata.extrafields) = TypeID(RECORD ARRAY))
+    RECORD ARRAY extrafields := GetFeedbackExtraFields(feedback.extradata);
+    IF(Length(extrafields) > 0)
     {
       // The 'there is no extra data available' text doesn't have to be displayed
       ^noextradata->DeleteComponent();
 
-      FOREVERY (RECORD extra FROM this->data.extradata.extrafields)
+      FOREVERY (RECORD extra FROM extrafields)
       {
-        extra := EnforceStructure(
-            [ field := ""
-            , type := ""
-            , title := ""
-            , tid := ""
-            , optiongid := ""
-            ], extra);
-        IF (NOT CellExists(this->data.extradata, extra.field))
-          CONTINUE;
-
         OBJECT comp;
         SWITCH (extra.type)
         {
-          CASE "string" {
+          CASE "text"
+          {
             comp := this->CreateTolliumComponent("text");
-            comp->value := GetCell(this->data.extradata, extra.field);
-          }
-          CASE "integer" {
-            comp := this->CreateTolliumComponent("text");
-            comp->value := ToString(GetCell(this->data.extradata, extra.field));
-          }
-          CASE "tid" {
-            comp := this->CreateTolliumComponent("text");
-            STRING tid := GetCell(this->data.extradata, extra.field);
-
-            // Try to resolve the tid if this is not an absolute tid reference
-            IF (tid NOT LIKE "*:*")
-            {
-              IF (extra.optiongid != "")
-                tid := extra.optiongid || "." || tid;
-              ELSE
-                tid := extra.tid || "-" || tid;
-            }
-            IF (tid LIKE "*:*")
-              comp->value := GetTid(tid);
-            ELSE
-              comp->value := tid;
+            comp->value := extra.value;
           }
         }
 
@@ -157,10 +139,10 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     // Load the stored screenshot into the container iframe
-    ^screenshot->value := LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI")->RunComponentToString("container", CELL
-        [ width := INTEGER(Ceil(data.size.width))
-        , height := INTEGER(Ceil(data.size.height))
-        , url := ^screenshot->AddEmbeddedObject(this->GenerateScreenshotHtml(), "text/html") || "&__test=sandbox"
+    ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
+        [ width := INTEGER(Ceil(feedback.size.width))
+        , height := INTEGER(Ceil(feedback.size.height))
+        , url := GetFeedbackScreenshotURL(this->data.rowkey)
         , scaled := ^scaled->value
         ]);
   }
@@ -174,36 +156,5 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO OnScaleIframe()
   {
     ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
-  }
-
-
-  //----------------------------------------------------------------------------
-  //
-  // Action handlers
-  //
-
-  MACRO DoDownload(OBJECT handler)
-  {
-    handler->SendFile(this->GenerateScreenshotHtml(), "text/html", `screenshot-${this->tolliumuser->FormatDateTime(this->data.wrd_creationdate, "minutes", TRUE, TRUE)}.html`);
-  }
-
-
-  //----------------------------------------------------------------------------
-  //
-  // Helper functions
-  //
-
-  BLOB FUNCTION GenerateScreenshotHtml()
-  {
-    STRING ARRAY stylesheets := this->data.screenshot.stylesheets;
-    INSERT BlobToString(GetWebHareResource("mod::publisher/js/feedback/styles.css")) INTO stylesheets AT END;
-
-    RETURN LoadWittyLibrary(Resolve("screenshot.witty"), "HTML-NI")->RunComponentToBlob("screenshot", CELL
-        [ this->data.screenshot.htmlattrs
-        , stylesheets
-        , this->data.screenshot.bodyattrs
-        , this->data.screenshot.bodycontents
-        , element := EnforceStructure([ top := 0, left := 0, width := 0, height := 0 ], this->data.element)
-        ]);
   }
 >;

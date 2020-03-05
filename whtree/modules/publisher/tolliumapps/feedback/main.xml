@@ -38,10 +38,12 @@
                       height="1pr"
                       wrdtype="feedback"
                       openaction="view"
-                      requestcolumns="*"
+                      onmaprows="mapfeedbackrows"
+                      requestcolumns="version wrd_creationdate browser device userdata"
                       sortcolumn="wrd_creationdate"
                       sortascending="false">
         <column name="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" />
+        <column name="reportedby" linkname="reportedbylink" type="text" />
         <column name="browser" type="text" />
         <column name="device" type="text" />
       </wrd:entitylist>
@@ -49,9 +51,6 @@
   </screen>
 
   <screen name="feedback" gid=".feedback" width="1000x" height="100x">
-    <actions>
-      <downloadaction name="download" ondownload="dodownload" />
-    </actions>
     <compositions>
       <record name="data" />
       <record name="userdata" composition="data" cellname="userdata" />
@@ -74,14 +73,7 @@
       </line>
     </body>
     <footer>
-      <grid>
-        <cell width="1pr">
-          <button action="download" />
-        </cell>
-        <cell>
-          <defaultformbuttons buttons="close" />
-        </cell>
-      </grid>
+      <defaultformbuttons buttons="close" />
     </footer>
   </screen>
 

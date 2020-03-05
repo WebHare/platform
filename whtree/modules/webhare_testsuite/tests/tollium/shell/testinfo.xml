@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <jstest file="test_jsapp.es" />
+  <jstest file="test_feedback.es" />
 </group>
