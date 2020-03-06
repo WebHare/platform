@@ -1836,6 +1836,7 @@
     </textgroup>
   </textgroup>
   <textgroup gid="module">   <!-- module -->
+    <text tid="name">Publisher</text>
     <text tid="testforms">Open formulierentest</text>
     <text tid="webruleset-allowcorsall">Volledig open 'Access-Control-Allow-Origin'</text>
     <text tid="webruleset-varycookie">Toevoegen 'Vary: Cookie'</text>

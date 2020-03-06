@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 
-PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
 < OBJECT trans;
   RECORD ARRAY columns;
 
@@ -42,7 +42,7 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND MonitorPanelBase
     ^transactions->rows := rows;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     RECORD monitorinfo := GetDatabaseMonitorInfo(GetPrimary());
 

@@ -67,7 +67,7 @@
             </panel>
           </cell>
           <cell spacers="left right" layout="left">
-            <checkbox name="showcompletedtasks" onchange="refreshmonitorpanel" title="" labeltid=".showcompletedtasks" />
+            <checkbox name="showcompletedtasks" onchange="RefreshDashboardPanel" title="" labeltid=".showcompletedtasks" />
             <button width="1pr" action="view"          />
             <button width="1pr" action="flush"                />
             <button width="1pr" action="delete" />

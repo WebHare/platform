@@ -272,7 +272,7 @@ PUBLIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
     }
     this->monitor->contents := screen;
     this->monitor->contents->EnableRefresh();
-    this->monitor->contents->RefreshMonitorPanel();
+    this->monitor->contents->RefreshDashboardPanel();
   }
 >;
 

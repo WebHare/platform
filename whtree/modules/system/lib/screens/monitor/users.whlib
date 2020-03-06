@@ -70,7 +70,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
     TolliumAppListBase::Init();
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     this->RefreshUserList();
     this->OnUserSelect();
@@ -242,7 +242,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
       RETURN;
 
     __HS_ABORTJOBBYGROUPID(this->apps->value);
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoSendGlobalMessage()
@@ -267,7 +267,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
     OBJECT work := this->BeginWork();
     WriteRegistryKey("system.webserver.global.locking.sysoponly", FALSE);
     work->Finish();
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoCloseWebhareLogin()
@@ -278,7 +278,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
       WriteRegistryKey("system.webserver.global.locking.sysoponly", TRUE);
       work->Finish();
     }
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoCancelScheduledDowntime()
@@ -289,7 +289,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
       WriteRegistryKey("system.webserver.global.locking.scheduleddowntime", DEFAULT DATETIME);
       work->Finish();
     }
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoScheduleDowntime()

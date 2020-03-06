@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE TolliumAppListBase EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -62,7 +62,7 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND MonitorPanelBase
         , link :=   link
         ] INTO this->applicationstarters AT pos.position;
 
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   // ---------------------------------------------------------------------------

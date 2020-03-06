@@ -1836,6 +1836,7 @@
     </textgroup>
   </textgroup>
   <textgroup gid="module" limitlanguages="en nl">   <!-- module -->
+    <text tid="name">Publisher</text>
     <text tid="testforms">Open forms test</text>
     <text tid="webruleset-allowcorsall">Fully open 'Access-Control-Allow-Origin'</text>
     <text tid="webruleset-varycookie">Add 'Vary: Cookie'</text>

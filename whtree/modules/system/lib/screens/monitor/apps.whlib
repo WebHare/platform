@@ -43,7 +43,7 @@ PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
   // Helper functions
   //
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() // called by the main screen of the monitor
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() // called by the main screen of the monitor
   {
     this->RefreshAppList();
   }

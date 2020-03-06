@@ -1006,6 +1006,7 @@
           </xs:complexType>
         </xs:element>
       </xs:choice>
+      <xs:element name="dashboardgroup" minOccurs="0" maxOccurs="unbounded" type="DashboardGroup" />
       <xs:element name="monitorgroup" minOccurs="0" maxOccurs="unbounded">
         <xs:annotation>
           <xs:documentation>

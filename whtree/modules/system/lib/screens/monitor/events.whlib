@@ -10,7 +10,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 // FIXME: only update lists once every X seconds? (in case we actually have new messages ofcourse)
 
 
-PUBLIC OBJECTTYPE Events EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Events EXTEND DashboardPanelBase
 <
   // ---------------------------------------------------------------------------
   //
@@ -52,7 +52,7 @@ PUBLIC OBJECTTYPE Events EXTEND MonitorPanelBase
     this->messageinfo->visible := this->decodeknownmessages->value;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     this->RefreshEvents();
   }

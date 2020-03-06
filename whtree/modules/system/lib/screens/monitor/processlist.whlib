@@ -190,7 +190,7 @@ PUBLIC OBJECTTYPE ProcessDetails EXTEND TolliumFragmentBase
 
 >;
 
-PUBLIC OBJECTTYPE ProcessList EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE ProcessList EXTEND DashboardPanelBase
 <
 
   RECORD ARRAY unfiltered_rows;
@@ -244,7 +244,7 @@ PUBLIC OBJECTTYPE ProcessList EXTEND MonitorPanelBase
     RETURN script;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     RECORD current_status := __HS_GETJOBMANAGERSTATUS(TRUE);
     INSERT CELL time := GetCurrentDateTime() INTO current_status;

@@ -77,7 +77,7 @@
       </accesscheck>
     </application>
 
-    <monitorpanel group="dev" name="queries" tid="monitor.queries.title" screen="monitor.queries" />
+    <dashboardpanel group="dev" name="queries" tid="monitor.queries.title" screen="monitor.queries" />
 
     <notification name="notifications.catalog_uptodate" tid="notifications.catalog_uptodate" descriptiontid="notifications.catalog_uptodate-desc" />
   </portal>

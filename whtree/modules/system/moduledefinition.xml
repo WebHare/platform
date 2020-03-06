@@ -120,32 +120,32 @@
       </accesscheck>
     </application>
 
-    <monitorgroup name="ap" tid="monitor.groups.ap" icon="tollium:system/webhare" orderbefore="*"/>
-    <monitorgroup name="tasks" tid="monitor.groups.tasks" icon="tollium:system/webhare" orderbefore="dev other"/>
-    <monitorgroup name="dev" tid="monitor.groups.dev" icon="tollium:system/system" orderafter="ap other" />
-    <monitorgroup name="other" tid="monitor.groups.other" icon="tollium:system/system" orderafter="ap"/>
+    <dashboardgroup name="ap" tid="monitor.groups.ap" orderbefore="*"/>
+    <dashboardgroup name="tasks" tid="monitor.groups.tasks" orderbefore="dev other"/>
+    <dashboardgroup name="dev" tid="monitor.groups.dev" orderafter="ap other" />
+    <dashboardgroup name="other" tid="monitor.groups.other" orderafter="ap"/>
 
-    <monitorpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
-    <monitorpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
-    <monitorpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
+    <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
+    <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
+    <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />
     <dashboardpanel group="dev" name="precalculatedcache" tid="tolliumapps.dashboard.caches.precalculatedcache" screen="tolliumapps/dashboard/caches.xml#precalculatedcache" />
-    <monitorpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
-    <monitorpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" unlessenvironset="WEBHARE_DBASENAME"  />
-    <monitorpanel group="ap" name="postgresql" tid="monitor.postgresql.title" screen="monitor/postgresql.postgresql" ifenvironset="WEBHARE_DBASENAME"  />
-    <monitorpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
-    <monitorpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
-    <monitorpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
-    <monitorpanel group="ap" name="apprunner" tid="monitor.apprunner.title" screen="monitor/apprunner.apprunner" />
+    <dashboardpanel group="ap" name="apps" tid="monitor.apps.title" screen="monitor/apps.apps" />
+    <dashboardpanel group="ap" name="whdb" tid="monitor.whdb.title" screen="monitor/whdb.whdb" unlessenvironset="WEBHARE_DBASENAME"  />
+    <dashboardpanel group="ap" name="postgresql" tid="monitor.postgresql.title" screen="monitor/postgresql.postgresql" ifenvironset="WEBHARE_DBASENAME"  />
+    <dashboardpanel group="ap" name="users" tid="monitor.users.title" screen="monitor/users.users" />
+    <dashboardpanel group="ap" name="processlist" tid="monitor.processlist.title" screen="monitor/processlist.processlist" />
+    <dashboardpanel group="ap" name="webserverscripts" tid="monitor.webserverscripts.title" screen="monitor/webserverscripts.webserverscripts" />
+    <dashboardpanel group="ap" name="apprunner" tid="monitor.apprunner.title" screen="monitor/apprunner.apprunner" />
     <dashboardpanel group="ap" name="systemnews" tid="tolliumapps.dashboard.systemnews.systemnews" screen="tolliumapps/dashboard/systemnews.xml#overview" />
 
-    <monitorpanel group="tasks" name="mailqueue" tid="monitor.mailqueue.title" screen="monitor/mailqueue.mailqueuepanel"  />
+    <dashboardpanel group="tasks" name="mailqueue" tid="monitor.mailqueue.title" screen="monitor/mailqueue.mailqueuepanel"  />
 
-    <monitorpanel group="dev" name="events" tid="monitor.events.title" screen="monitor/events.events" />
-    <monitorpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />
-    <monitorpanel group="tasks" name="managedtasks" tid="monitor.managedtasks.title" screen="monitor/managedtasks.panel" />
+    <dashboardpanel group="dev" name="events" tid="monitor.events.title" screen="monitor/events.events" />
+    <dashboardpanel group="dev" name="locks" tid="monitor.locks.title" screen="monitor/locks.locks" />
+    <dashboardpanel group="tasks" name="managedtasks" tid="monitor.managedtasks.title" screen="monitor/managedtasks.panel" />
 
-    <monitorpanel group="other" name="nodemodules" tid="monitor.nodemodules.title" screen="monitor/nodemodules.panel" />
+    <dashboardpanel group="other" name="nodemodules" tid="monitor.nodemodules.title" screen="monitor/nodemodules.panel" />
 
 
     <notification name="notifications.whfs.siteprofcompiled" tid="notifications.whfs.siteprofcompiled" descriptiontid="notifications.whfs.siteprofcompiled-desc" />

@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "mod::system/lib/screenbase.whlib";
 
-PUBLIC STATIC OBJECTTYPE Queries EXTEND MonitorPanelBase
+PUBLIC STATIC OBJECTTYPE Queries EXTEND DashboardPanelBase
 <
   RECORD ARRAY seenqueries;
 
@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE Queries EXTEND MonitorPanelBase
     this->seenqueries := RECORD[];
     this->RefreshEvents();
   }
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     this->RefreshEvents();
   }

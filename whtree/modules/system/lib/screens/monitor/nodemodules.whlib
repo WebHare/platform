@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
 
-PUBLIC OBJECTTYPE Panel EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 <
   RECORD ARRAY sites;
 
@@ -17,7 +17,7 @@ PUBLIC OBJECTTYPE Panel EXTEND MonitorPanelBase
     RETURN 0;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     this->RefreshModules();
   }

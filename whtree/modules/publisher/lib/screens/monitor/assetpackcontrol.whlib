@@ -12,7 +12,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 CONSTANT STRING browsertargets_current := "last 2 chrome versions, last 2 firefox versions, last 2 safari versions";
 
 
-PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 <
   OBJECT assetpackcontrol;
 
@@ -21,7 +21,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND MonitorPanelBase
     RETURN 0;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     IF(NOT ObjectExists(this->assetpackcontrol))
       TRY this->assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol")); CATCH;
@@ -132,7 +132,7 @@ PUBLIC OBJECTTYPE AssetPackControlPanel EXTEND MonitorPanelBase
       IF (rec.event = "system:webhareservice.publisher:assetpackcontrol.start")
         this->ResetConnection();
 
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
   MACRO OnConfigEvent(RECORD ARRAY events)
   {
