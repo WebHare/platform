@@ -1,14 +1,11 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
-LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
