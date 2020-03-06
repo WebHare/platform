@@ -1,7 +1,5 @@
 <?wh
 
-LOADLIB "wh::witty.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -9,6 +7,7 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
+
 
 OpenPrimary();
 
