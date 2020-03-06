@@ -12,7 +12,6 @@ DESTDIR="`pwd`"
 cd `dirname $0`
 
 source $WEBHARE_DIR/lib/wh-functions.sh
-source ./functions.sh
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "--checkout" ]; then
