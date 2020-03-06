@@ -15,7 +15,7 @@ RECORD FUNCTION GetCacheableIntercepts(STRING targetname)
     THROW NEW Exception("Illegal hook target name, expected the form modulename ':' targetname.");
 
   STRING modulename := LEFT(targetname, colonpos);
-  RECORD module := SELECT * FROM MakeFunctionPtr("mod::system/lib/internal/resourcemanager.whlib", "GetWebHareModules", TYPEID(RECORD ARRAY),DEFAULT INTEGER ARRAY)() WHERE name=modulename;
+  RECORD module := SELECT * FROM MakeFunctionPtr("mod::system/lib/internal/resourcemanager.whlib#GetWebHareModules", TYPEID(RECORD ARRAY),DEFAULT INTEGER ARRAY)() WHERE name=modulename;
   IF (NOT RecordExists(module))
     THROW NEW Exception("Illegal hook target name, the module '"||modulename||"' could not be found.");
 

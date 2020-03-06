@@ -12,7 +12,7 @@ LOADLIB "mod::wrd/lib/internal/userapi.whlib";
     @return(object mod::wrd/lib/internal/auth/webdesignplugin.whlib#WRDAuthPlugin) Requested authentication plugin, or throws if none available */
 PUBLIC OBJECT FUNCTION GetPrimaryWebhareAuthPlugin()
 {
-  FUNCTION PTR getwebcontext := MakeFunctionPtr("mod::publisher/lib/siteprofiles.whlib","GETWEBCONTEXT",TYPEID(OBJECT),[TYPEID(INTEGER)]);
+  FUNCTION PTR getwebcontext := MakeFunctionPtr("mod::publisher/lib/siteprofiles.whlib#GetWebContext",TYPEID(OBJECT),[TYPEID(INTEGER)]);
   OBJECT wrdauthplugin := getwebcontext(16)->GetWRDAuthPlugin();
   IF(NOT ObjectExists(wrdauthplugin))
     THROW NEW Exception("Unable to retrieve the WebHare backend wrdauthplugin");

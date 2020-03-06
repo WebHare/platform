@@ -48,14 +48,14 @@ PUBLIC RECORD FUNCTION ParsePage(BLOB data, STRING mimetype, RECORD options DEFA
   RECORD parsed_page;
   TRY
   {
-    parsed_page := MakeFunctionPtr(parser.lib, parser.func, TypeID(RECORD), [TypeID(BLOB), TypeID(BOOLEAN)])(data, options.contentlinksonly);
+    parsed_page := MakeFunctionPtr(parser.lib || "#" || parser.func, TypeID(RECORD), [TypeID(BLOB), TypeID(BOOLEAN)])(data, options.contentlinksonly);
   }
   CATCH (OBJECT e) {}
   IF (NOT RecordExists(parsed_page))
   {
     TRY
     {
-      parsed_page := MakeFunctionPtr(parser.lib, parser.func, TypeID(RECORD), [TypeID(BLOB)])(data);
+      parsed_page := MakeFunctionPtr(parser.lib || "#" || parser.func, TypeID(RECORD), [TypeID(BLOB)])(data);
     }
     CATCH (OBJECT e) {}
   }

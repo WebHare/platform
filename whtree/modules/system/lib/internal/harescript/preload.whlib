@@ -24,7 +24,7 @@ FUNCTION PTR __logdebug;
 
 BLOB FUNCTION GetWebhareResource(STRING path)
 {
-  RECORD result := MakeFunctionPtr("mod::system/lib/resources.whlib","RetrieveWebHareResource",TYPEID(RECORD),[TYPEID(STRING),TYPEID(RECORD)])(path,DEFAULT RECORD);
+  RECORD result := MakeFunctionPtr("mod::system/lib/resources.whlib#RetrieveWebHareResource",TYPEID(RECORD),[TYPEID(STRING),TYPEID(RECORD)])(path,DEFAULT RECORD);
   RETURN result.data;
 }
 
@@ -42,7 +42,7 @@ STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
       IF(baseid=0)
         THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
 
-      STRING parentsitename := MakeFunctionPtr("mod::system/lib/database.whlib", "__GetSiteNameForObjectId", TYPEID(STRING), [TYPEID(INTEGER)])(baseid);
+      STRING parentsitename := MakeFunctionPtr("mod::system/lib/database.whlib#__GetSiteNameForObjectId", TYPEID(STRING), [TYPEID(INTEGER)])(baseid);
       IF(parentsitename="")
         THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - base file #" || baseid || " is not in a site");
 

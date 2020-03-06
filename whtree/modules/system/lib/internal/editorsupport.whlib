@@ -57,17 +57,17 @@ STRING FUNCTION MergeURL(STRING url, STRING append)
 
 MACRO EnsurePrimary()
 {
-  FUNCTION PTR haveprimarytransaction := MakeFunctionPTR("mod::system/lib/database.whlib", "haveprimarytransaction", TypeID(BOOLEAN), DEFAULT INTEGER ARRAY);
+  FUNCTION PTR haveprimarytransaction := MakeFunctionPTR("mod::system/lib/database.whlib#haveprimarytransaction", TypeID(BOOLEAN), DEFAULT INTEGER ARRAY);
   IF (NOT haveprimarytransaction())
   {
-    FUNCTION PTR openprimary := MakeFunctionPTR("mod::system/lib/database.whlib", "openprimary", TypeID(OBJECT), [ TypeID(RECORD) ]);
+    FUNCTION PTR openprimary := MakeFunctionPTR("mod::system/lib/database.whlib#openprimary", TypeID(OBJECT), [ TypeID(RECORD) ]);
     OBJECT trans := OpenPrimary(DEFAULT RECORD);
 
     local_system := BindTransactionToSchema(trans->id, "system");
   }
   ELSE
   {
-    FUNCTION PTR getprimary := MakeFunctionPTR("mod::system/lib/database.whlib", "getprimary", TypeID(OBJECT), DEFAULT INTEGER ARRAY);
+    FUNCTION PTR getprimary := MakeFunctionPTR("mod::system/lib/database.whlib#getprimary", TypeID(OBJECT), DEFAULT INTEGER ARRAY);
     local_system := BindTransactionToSchema(getprimary()->id, "system");
   }
 }
@@ -357,7 +357,7 @@ PUBLIC RECORD FUNCTION TranslateURLToRootPath(STRING anyurl, RECORD options DEFA
         ELSE
         {
           // Don't want to depend on the loadlib
-          FUNCTION PTR lookuppublisherurl := MakeFunctionPTR("mod::publisher/lib/publisher.whlib", "LookupPublisherURL", TypeID(RECORD), [ TypeID(STRING) ]);
+          FUNCTION PTR lookuppublisherurl := MakeFunctionPTR("mod::publisher/lib/publisher.whlib#LookupPublisherURL", TypeID(RECORD), [ TypeID(STRING) ]);
 
           RECORD rec := LookupPublisherURL(Left(anyurl, SearchSubString(anyurl||"?","?")));
           IF (rec.file != 0)
@@ -387,7 +387,7 @@ STRING FUNCTION RewriteFilenameToSite(STRING filename)
   IF (filename LIKE "whfs::*")
   {
     EnsurePrimary();
-    FUNCTION PTR func := MakeFunctionPTR("mod::system/lib/whfs.whlib", "OpenWHFSObjectByPath", TypeID(OBJECT), [ TypeID(STRING) ]);
+    FUNCTION PTR func := MakeFunctionPTR("mod::system/lib/whfs.whlib#OpenWHFSObjectByPath", TypeID(OBJECT), [ TypeID(STRING) ]);
 
     OBJECT obj := func(filename);
     IF (ObjectExists(obj) AND obj->highestparent != 0)
