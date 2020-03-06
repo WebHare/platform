@@ -1436,11 +1436,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
         TRY
         {
-          IF (comp->datastore = "self")
-          {
-            // Only set default setting for new object, not for parent objects
-            comp->SetDefaultInstanceDataForParent(parentid, this->isfolder, newtype);
-          }
+          comp->SetDefaultInstanceDataForParent(parentid, this->isfolder, newtype);
         }
         CATCH (OBJECT<TolliumException> e)
         {
