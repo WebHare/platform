@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import settings from '@mod-tollium/webdesigns/webinterface/shared/settings.json';
 
 require("../common.lang.json");
 
@@ -30,7 +29,7 @@ $todd.settings =
 , textedit_defaultwidth: 150
 , list_column_padding: 8 // 2x4 padding
 , list_column_minwidth: 24 // minimum width for an icon (16) + 2x4 padding
-, grid_vsize: settings.tollium_grid_vsize //grid vertical size (28 pixels)
+, grid_vsize: 28 //grid vertical size (28 pixels)
 , tabspace_vsize: 32 //vertical size inside the tab-space layout
 
 //size of spacers in a sync with apps.scss. SYNC-SPACERS/SYNC-SPACERS-DEBUG
