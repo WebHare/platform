@@ -2,7 +2,6 @@
 @import "dashboard.scss";
 @import "~@mod-tollium/js/themes/indy/mixins.scss";
 @import "~dompack/components/pulldown/mixins.scss";
-@import "../../../webdesigns/webinterface/shared/settings.json";
 
 /****************************************************************************************************************************
  * General settings
@@ -607,7 +606,7 @@ t-tabs {
 
 t-tabs > nav
 {
-  height: $tollium_grid_vsize * 1px;
+  height: 28px;
   overflow: hidden;
   position: relative;
   white-space: nowrap;
