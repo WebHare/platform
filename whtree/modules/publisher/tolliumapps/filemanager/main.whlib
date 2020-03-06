@@ -18,7 +18,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/versioning.whlib";
-LOADLIB "mod::publisher/tolliumapps/filemanager/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -1167,15 +1166,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoManageWHFSRegister()
   {
     this->RunScreen("mod::publisher/tolliumapps/config/whfsregister.xml#whfsregister");
-  }
-  MACRO DoManageContentTypes()
-  {
-    this->RunScreen("siteprofiles.xml#managectypes");
-  }
-
-  MACRO DoRecompileContentTypes()
-  {
-    DoRecompileSiteProfiles(this);
   }
 
   MACRO DoManageURLHistory()

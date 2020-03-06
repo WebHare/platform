@@ -1155,8 +1155,6 @@
         <text tid="confirmmove">Are you sure you want to move '<param p="1"/>' to folder '<param p="2"/>'?</text>
         <text tid="confirmmovemultiple">Are you sure you want to move <param p="1"/> items to folder '<param p="2"/>'?</text>
         <text tid="confirmresetwarnings">This will reset all warning and confirmation dialogs. All messages you have disabled ("Do not show this message again" or "Do not ask me again") will be re-enabled.<br/><br/>Are you sure you want to reset the warnings?</text>
-        <text tid="deletectypeconfirm">Are you sure you want to permanently delete contenttype '<param p="1"/>'?</text>
-        <text tid="deletectypememberconfirm">Are you sure you want to permanently delete content type member '<param p="1"/>'?</text>
         <text tid="deleteindexconfirm">The folder '<param p="1"/>' contains an index file, but the new folder type requires another index file.<br/>Do you want to delete the current index file '<param p="2"/>'?</text>
         <text tid="destinationsitelocked">You cannot place files or folders in a locked site.</text>
         <text tid="emptytrashconfirm">Are you sure you want to permanently delete the items in the trash?</text>
@@ -1178,7 +1176,6 @@
         <text tid="sitedoesnotexist">The selected site no longer exists!</text>
         <text tid="siteprofilecompilationerror">An error occurred while compiling the site profiles.</text>
         <text tid="siteprofileerrors">The following errors occured processing the site profiles:<br/><br/><param p="1"/></text>
-        <text tid="siteprofilesrecompiled">The site profiles are recompiled.</text>
         <text tid="surerepublishfolderoutsidesite">The following sites will be republished:<br/><br/><param p="1"/><br/><br/><ifparam p="2" value="0"><else/>and <param p="2"/> more.<br/></ifparam><br/>Are you sure you want continue?</text>
         <text tid="tellnewgoto">The shortcut you were trying to use is no longer available.<br/><br/>Use CTRL+SHIFT+G to open the 'Goto to site or URL' dialog</text>
         <text tid="toomanyobjectsatatimeinversionedsite">You can only move one object to a versioned site at a time.</text>
@@ -1265,39 +1262,6 @@
       <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
         <text tid="query">Search files and folders...</text>
         <text tid="searchpublisher">Search Publisher</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="siteprofiles">   <!-- filemanager.siteprofiles -->
-      <textgroup gid="ctypeerrors">   <!-- filemanager.siteprofiles.ctypeerrors -->
-        <text tid="ctypeerrors">Compilation messages</text>
-        <text tid="file">Site profile</text>
-        <text tid="line">Line</text>
-        <text tid="message">Message</text>
-      </textgroup>
-      <textgroup gid="ctypemembers">   <!-- filemanager.siteprofiles.ctypemembers -->
-        <text tid="ctypemembers">Content type members</text>
-        <text tid="ctypename">Content type</text>
-        <text tid="linenum">Line</text>
-        <text tid="locationbox">Location of definition</text>
-        <text tid="name">Name</text>
-        <text tid="nomembers">This content type has no members</text>
-        <text tid="opensiteprofile">Go to site profile</text>
-        <text tid="publishicon">Published</text>
-        <text tid="siteprofile">Site profile</text>
-        <text tid="typename">Type</text>
-      </textgroup>
-      <textgroup gid="managectypes">   <!-- filemanager.siteprofiles.managectypes -->
-        <text tid="filter">Filter</text>
-        <text tid="id">ID</text>
-        <text tid="managectypes">Manage content types</text>
-        <text tid="namespace">Namespace</text>
-        <text tid="noctypes">No content types have been defined</text>
-        <text tid="recompile">Refresh</text>
-      </textgroup>
-      <textgroup gid="messageboxes">   <!-- filemanager.siteprofiles.messageboxes -->
-        <text tid="deletectypeconfirm">Are you sure you want to permanently delete contenttype '<param p="1"/>'?</text>
-        <text tid="deletectypememberconfirm">Are you sure you want to permanently delete content type member '<param p="1"/>'?</text>
-        <text tid="siteprofilesrecompiled">The site profiles are recompiled.</text>
       </textgroup>
     </textgroup>
     <textgroup gid="types">   <!-- filemanager.types -->
@@ -2237,6 +2201,29 @@
         <text tid="site">Site</text>
         <text tid="value">Refers to</text>
         <text tid="whfsregister">WHFS Register</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
+        <text tid="ctypeerrors">Compilation messages</text>
+        <text tid="ctypemembers">Content type members</text>
+        <text tid="deletectypeconfirm">Are you sure you want to permanently delete contenttype '<param p="1"/>'?</text>
+        <text tid="deletectypememberconfirm">Are you sure you want to permanently delete content type member '<param p="1"/>'?</text>
+        <text tid="file">Site profile</text>
+        <text tid="filter">Filter</text>
+        <text tid="line">Line</text>
+        <text tid="linenum">Line</text>
+        <text tid="locationbox">Location of definition</text>
+        <text tid="message">Message</text>
+        <text tid="name">Name</text>
+        <text tid="namespace">Namespace</text>
+        <text tid="noctypes">No content types have been defined</text>
+        <text tid="nomembers">This content type has no members</text>
+        <text tid="panel">Content types</text>
+        <text tid="recompile">Recompile</text>
+        <text tid="siteprofile">Site profile</text>
+        <text tid="siteprofilesrecompiled">The site profiles are recompiled.</text>
+        <text tid="typename">Type</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->

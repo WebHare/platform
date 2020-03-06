@@ -1,17 +1,10 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="siteprofiles.whlib"
+         library="contenttypes.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         gid="filemanager.siteprofiles"
+         gid="tolliumapps.dashboard.contenttypes"
          >
 
-  <messageboxes gid=".messageboxes">
-    <messagebox name="siteprofilesrecompiled" icon="information" buttons="ok" />
-    <messagebox name="deletectypeconfirm" icon="question" buttons="yes no" default="no" />
-    <messagebox name="deletectypememberconfirm" icon="question" buttons="yes no" default="no" />
-  </messageboxes>
-
-  <screen name="managectypes" gid=".managectypes" allowresize="true" width="100x" height="30x">
-
+  <screen name="panel">
     <actions>
       <action name="recompile" onexecute="dorecompile" shortcut="ctrl+e"/>
       <action name="viewtype" tid="~properties" onexecute="doviewtype" shortcut="ctrl+i">
@@ -32,7 +25,7 @@
     <body>
       <grid height="1pr">
         <cell width="1pr">
-          <panel backgroundcolor="#f0f0f0" borders="top left right" spacers="right">
+          <panel backgroundcolor="#f0f0f0" borders="top right" spacers="right">
             <line layout="tabs-space">
               <spacer />
               <textedit name="filter" onchange="gotfilterchange" />
@@ -47,24 +40,21 @@
                 openaction="viewtype"
                 minwidth="30x"
                 width="1pr" height="1pr"
-                borders="all">
+                borders="right top">
             <column name="namespace" type="text" iconname="typeicon" />
             <column name="id" type="integer" width="8x" tid="~id" />
           </list>
         </cell>
-        <cell>
+        <cell spacers="left top right">
           <button action="recompile" width="1pr" />
           <button action="viewtype" width="1pr" />
           <button action="deletetype" width="1pr" />
         </cell>
       </grid>
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="ctypemembers" gid=".ctypemembers" allowresize="true" width="105x" height="25x">
+  <screen name="ctypemembers" allowresize="true" width="105x" height="25x">
     <actions>
       <action name="deletetype" tid="~delete">
         <enableon source="members" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
@@ -111,7 +101,7 @@
     </footer>
   </screen>
 
-  <screen name="ctypeerrors" gid=".ctypeerrors" allowresize="true">
+  <screen name="ctypeerrors" allowresize="true">
     <body name="body">
       <panel height="1pr">
         <list name="messagelist"

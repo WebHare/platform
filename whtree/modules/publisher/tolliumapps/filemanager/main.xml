@@ -49,8 +49,6 @@
               tid=".newinstance">
         <enableon source="foldertreeproxy" checkflags="!isvirtual" min="1" max="1" />
       </action>
-      <action name="ctypes" onexecute="domanagecontenttypes" frameflags="issysop" shortcut="ctrl+m" />
-      <action name="recompilectypes" onexecute="dorecompilecontenttypes" title="" frameflags="issysop" shortcut="ctrl+shift+m" />
       <action name="prefs"
               tid="tollium:common.actions.preferences"
               shortcut="ctrl+,"
@@ -389,7 +387,6 @@
           <item action="editfileorfoldertype" />
           <item action="managerights" />
           <item action="manageurlhistory" />
-          <item action="ctypes" disablemode="hidden" />
           <item action="inspect" disablemode="hidden" />
           <divider />
           <item name="insertpos_edit" title="" visible="false" />
