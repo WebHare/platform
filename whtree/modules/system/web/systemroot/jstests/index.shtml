@@ -11,7 +11,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
-LOADLIB "mod::publisher/lib/internal/webdesign/support.whlib";
 
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 

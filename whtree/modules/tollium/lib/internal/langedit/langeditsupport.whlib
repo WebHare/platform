@@ -1,9 +1,9 @@
 ﻿<?wh
-LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 PUBLIC OBJECTTYPE LangSystemBackend
 <
