@@ -39,5 +39,8 @@ test.registerTests(
       await test.load(setupdata.testportalurl + "?app=publisher:feedback");
       await test.wait('ui');
 
+      test.click(test.qSA('div.listrow')[0]);
+      await test.wait('ui'); //list apparently needs this time to process the selection update
+      test.clickToddToolbarButton("View");
     }
   ]);

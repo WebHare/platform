@@ -130,7 +130,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
         IF (ObjectExists(comp))
         {
-          comp->title := extra.tid = "" ? extra.title : GetTid(extra.tid);
+          comp->title := extra.title;
           IF (comp->componenttype = "text")
             comp->selectable := TRUE;
           this->frame->bodynode->InsertComponentAfter(comp, DEFAULT OBJECT, TRUE);
