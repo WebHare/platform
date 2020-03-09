@@ -1,13 +1,27 @@
 ﻿<?wh
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-LOADLIB "wh::dbase/whdb.whlib";
 LOADLIB "wh::os.whlib";
 
-OpenPrimary();
+OBJECT trans := OpenPrimary();
 INTEGER64 totalnumbytes, totalnumblobs;
 
-RECORD ARRAY relevant_columns := SELECT table_schema,table_name,column_name from information_schema.columns where data_type="BLOB";
+RECORD ARRAY relevant_columns;
+
+FOREVERY(RECORD schemarec FROM trans->GetSchemaListing())
+  FOREVERY(RECORD tablerec FROM trans->GetTableListing(schemarec.schema_name))
+  {
+    IF(schemarec.schema_name = "webhare_internal" AND tablerec.table_name = "blob")
+      CONTINUE;
+
+    FOREVERY(RECORD columnrec FROM trans->GetColumnListing(schemarec.schema_name, tablerec.table_name))
+      IF(columnrec.data_type in ["BLOB","webhare_blob"]) //WHDB or PSQL blob types
+        INSERT CELL [ table_schema := schemarec.schema_name
+                    , tablerec.table_name
+                    , columnrec.column_name
+                    ] INTO relevant_columns AT END;
+  }
+
 FOREVERY(RECORD col FROM relevant_columns)
 {
   Print(col.table_schema || "." || col.table_name || "." || col.column_name || ": ");
