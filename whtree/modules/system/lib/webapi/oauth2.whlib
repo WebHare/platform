@@ -350,6 +350,11 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
     connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
     Print("<script>window.close();</script>");
   }
+  ELSE IF(CellExists(sessdata,"callback"))
+  {
+    RECORD finaltoken := oauthconnection->__CreateFinalToken(sessdata);
+    MakeFunctionPtr(sessdata.callback)(sessdata.callbackstate, finaltoken);
+  }
   ELSE
   {
     StoreWebSessionData(sessid, "system:oauth2", sessdata);
