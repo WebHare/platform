@@ -89,7 +89,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     {
       RECORD fpos := RecordLowerBound(rec.files, [ file := fileid ], [ "FILE" ]);
       IF (NOT fpos.found)
-        INSERT [ file := fileid, events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
+        INSERT [ file := fileid, isfolder := (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = fileid), events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
       ELSE
         IF (event NOT IN rec.files[fpos.position].events)
           INSERT event INTO this->items[itempos].files[fpos.position].events AT END;
@@ -233,7 +233,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
           IF (ArraysIntersect(obj.events, [ "create", "update", "rename", "move", "del" ]))
             INSERT
                 [ id := obj.file
-                , isfolder := (SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = obj.file)
+                , isfolder := obj.isfolder
                 , isdelete := "del" IN obj.events
                 , events := obj.events
                 ] INTO to_reindex AT END;

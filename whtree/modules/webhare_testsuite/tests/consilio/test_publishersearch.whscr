@@ -226,6 +226,14 @@ MACRO PublisherSearchTest()
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE whfsid = file_4->id));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE whfsid = file_5->id));
 
+  // Delete the subfolder, file 1 should no longer be found
+  testfw->BeginWork();
+  subfolder->DeleteSelf();
+  CommitAndWaitForPublisherIndex();
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_1->id));
+  TestEq(0, result.totalcount);
+
   // The file should not be found by the custom index field (it hasn't been set yet)
   OBJECT search_obj := OpenSearchObject("en", whconstant_consilio_catalog_whfs);
 

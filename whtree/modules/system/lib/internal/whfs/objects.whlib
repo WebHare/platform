@@ -1050,7 +1050,7 @@ OBJECTTYPE WHFSObject
       THROW NEW WHFSException("OTHER","This object is already deleted");
 
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->DoDeleteOrRecycle(this->parentsite, /*this->pvt_isfolder ? this->pvt_id :*/ this->pvt_parent, this->pvt_id, is_recycle);
+    commithandler->DoDeleteOrRecycle(this->parentsite, this->pvt_parent, this->pvt_id, is_recycle);
 
     this->Refresh();
   }
