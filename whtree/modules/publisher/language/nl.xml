@@ -859,6 +859,7 @@
         <text tid="refreshingpagelist">Paginalijst wordt ververst...</text>
         <text tid="refreshingpagelisterror">Er is een fout opgetreden bij het ophalen van de paginalijst</text>
         <text tid="reindex">Herindexeer</text>
+        <text tid="searchinfoerror">Er is een fout opgetreden bij het ophalen van de subbestanden</text>
         <text tid="subfile">Subbestand</text>
         <text tid="url">URL</text>
       </textgroup>
