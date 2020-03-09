@@ -15,7 +15,18 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/internal/consiliocontent.whlib";
 LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
-PUBLIC RECORD ARRAY FUNCTION GetPagelist(INTEGER objid)
+PUBLIC RECORD ARRAY FUNCTION GetSubFiles(INTEGER objid)
+{
+  OpenPrimary();
+
+  RECORD objinfo := SELECT parent FROM system.fs_objects WHERE id = objid;
+  IF(NOT RecordExists(objinfo))
+    RETURN RECORD[];
+
+    RETURN GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = objid), FALSE).subfiles;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetPageList(INTEGER objid)
 {
   OpenPrimary();
 
@@ -32,6 +43,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   INTEGER objid;
   OBJECT fsobj;
   RECORD ARRAY subfiles;
+  OBJECT subfilespromise;
   OBJECT pagelistpromise;
 
   PUBLIC MACRO Setup(INTEGER objid)
@@ -41,20 +53,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   PUBLIC MACRO Refresh(OBJECT fsobj)
   {
     this->fsobj := fsobj;
-    this->subfiles := GetSearchSubfiles((SELECT id, type, isfolder, modificationdate, parent FROM system.fs_objects WHERE id = this->objid), FALSE).subfiles;
-
-    IF(Length(this->subfiles) > 0)
-    {
-      ^subfile->options := SELECT rowkey := #subfiles
-                                , title := (RecordExists(subfiles) ? filename : "") || " (#" || #subfiles || ")"
-                                , groupid := "fsobj_" || this->objid || (#subfiles > 0 ? "_" || #subfiles: "")
-                             FROM this->subfiles;
-    }
-    ELSE
-    {
-      ^subfile->options := [[ rowkey := 0, title := this->GetTid(".nosearchinfo"), groupid := "fsobj_" || this->objid ]];
-    }
-    ^subfile->readonly := Length(^subfile->options) = 1;
+    this->RefreshSubFiles();
     this->RefreshConsilioPagelist(FALSE);
   }
 
@@ -77,6 +76,43 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   {
     IF(NOT RunConsilioInspectDialog(this, whconstant_consilio_catalog_whfs, "", ^subfile->selection.groupid))
       this->owner->RunSimpleScreen("error", this->GetTid(".cannotinspectconsilio"));
+  }
+
+  ASYNC MACRO RefreshSubFiles()
+  {
+    IF (ObjectExists(this->subfilespromise))
+      RETURN;
+
+    this->subfiles := RECORD[];
+    this->subfilespromise := AsyncCallFunctionFromJob(Resolve("#GetSubFiles"), this->objid);
+    TRY
+    {
+      this->subfiles := AWAIT this->subfilespromise;
+
+      IF(Length(this->subfiles) > 0)
+      {
+        ^subfile->options := SELECT rowkey := #subfiles
+                                  , title := (RecordExists(subfiles) ? filename : "") || " (#" || #subfiles || ")"
+                                  , groupid := "fsobj_" || this->objid || (#subfiles > 0 ? "_" || #subfiles: "")
+                               FROM this->subfiles;
+      }
+      ELSE
+      {
+        ^subfile->options := [[ rowkey := 0, title := this->GetTid(".nosearchinfo"), groupid := "fsobj_" || this->objid ]];
+      }
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      ^subfile->options := [[ rowkey := 0, title := this->GetTid(".searchinfoerror"), groupid := "fsobj_" || this->objid ]];
+      RunExceptionReportDialog(this, e);
+    }
+    FINALLY
+    {
+      this->subfilespromise := DEFAULT OBJECT;
+    }
+
+    ^subfile->readonly := Length(^subfile->options) = 1;
   }
 
   MACRO OnSubfileChange()

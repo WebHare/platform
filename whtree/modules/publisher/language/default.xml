@@ -859,6 +859,7 @@
         <text tid="refreshingpagelist">Refreshing page list...</text>
         <text tid="refreshingpagelisterror">There was an error refreshing the pagelist</text>
         <text tid="reindex">Reindex</text>
+        <text tid="searchinfoerror">There was an error refreshing the subfiles</text>
         <text tid="subfile">Subfile</text>
         <text tid="url">URL</text>
       </textgroup>
