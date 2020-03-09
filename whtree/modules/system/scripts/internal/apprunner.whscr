@@ -239,9 +239,9 @@ PUBLIC STATIC OBJECTTYPE AppRunner
   }
   PUBLIC MACRO BootUp()
   {
-    RegisterEventCallback("system:softreset", PTR this->OnReloadApps(TRUE, #1, #2));
-    RegisterEventCallback("system:apprunner.internal.rescan", PTR this->OnReloadApps(FALSE, #1, #2));
-    RegisterEventCallback("system:systemconfig", PTR this->OnReloadApps(FALSE, #1, #2));
+    RegisterEventCallback("system:softreset", PTR this->GotReloadEvent(TRUE, #1, #2));
+    RegisterEventCallback("system:apprunner.internal.rescan", PTR this->GotReloadEvent(FALSE, #1, #2));
+    RegisterEventCallback("system:systemconfig", PTR this->GotReloadEvent(FALSE, #1, #2));
 
     this->IntegrateApplications(ListExpectedApps(), NOT RecordExists(PollWHServiceState("poststartdone")));
   }
@@ -251,7 +251,16 @@ PUBLIC STATIC OBJECTTYPE AppRunner
   // Callbacks
   //
 
-  MACRO OnReloadApps(BOOLEAN issoftreset, STRING event, RECORD data)
+  MACRO GotReloadEvent(BOOLEAN issoftreset, STRING event, RECORD data)
+  {
+    /* Broadcasts within IntegrateApplications can trigger event callbacks
+       Delay running update to the next microtask slot, so no recursive
+       calling into IntegrateApplications
+    */
+    ScheduleMicroTask(PTR this->HandleReloadEvent(issoftreset, event, data));
+  }
+
+  MACRO HandleReloadEvent(BOOLEAN issoftreset, STRING event, RECORD data)
   {
     this->IntegrateApplications(ListExpectedApps(), issoftreset);
   }
