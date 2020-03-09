@@ -5,13 +5,13 @@ REQUIRENPMVERSION="5.3.0"
 export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
 
 while [[ $1 =~ ^-.* ]]; do
-  if [ "$1" == "-v" ]; then
-    VERBOSE=1
+  if [ "$1" == "-v" -o "$1" == "--verbose" ]; then
+    export WH_VERBOSE=1
     shift
-  elif [ "$1" == "-f" ]; then
+  elif [ "$1" == "-f" -o "$1" == "--force" ]; then
     FORCE=1
     shift
-  elif [ "$1" == "-i" ]; then
+  elif [ "$1" == "-i" -o "$1" == "--ignore-running" ]; then
     IGNORERUNNING=1
     shift
   elif [ "$1" == "--setup-env" ]; then
@@ -36,7 +36,7 @@ if [ -z "$WEBHARE_DIR" ]; then
     export WEBHARE_DIR=`cd ${BASH_SOURCE%/*}/..; pwd`
   fi
 
-  [ "$VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
+  [ "$WH_VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
 fi
 
 # Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
@@ -93,8 +93,8 @@ if [ -z "$WEBHARE_TEMP" ]; then
   WEBHARE_TEMP="$WEBHARE_DATAROOT/tmp"
 fi
 
-[ "$VERBOSE" == "1" ] && echo "WebHare data directory:   $WEBHARE_DATAROOT"
-[ "$VERBOSE" == "1" ] && echo "WebHare base port number: $WEBHARE_BASEPORT"
+[ "$WH_VERBOSE" == "1" ] && echo "WebHare data directory:   $WEBHARE_DATAROOT"
+[ "$WH_VERBOSE" == "1" ] && echo "WebHare base port number: $WEBHARE_BASEPORT"
 
 if [ -n "$WHBUILD_DEBUG" ]; then
   WHBUILD_DIPREFIX=debug-
@@ -256,18 +256,6 @@ setup_buildsystem()
     exit 1
   fi
   mkdir -p $WEBHARE_BUILDDIR
-
-  if [ -f "$WEBHARE_BUILDDIR/Makefile" ]; then
-    echo "We no longer care for the Makefile ($WEBHARE_BUILDDIR/Makefile), it'll only confuse me"
-    echo "Are you OK with me deleting it? (answer YES)"
-    echo ""
-    read answer
-    if [ "$answer" != "YES" ]; then
-      echo "Then I fear you're on your own"
-      exit 1
-    fi
-    rm "$WEBHARE_BUILDDIR/Makefile"
-  fi
 
   if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
@@ -980,11 +968,6 @@ case $INSTR in
     echo $WEBHARE_DATAROOT
     ;;
 
-  "getmodule")
-    echo "wh getmodule has been replaced by: wh module get"
-    exit 1
-    ;;
-
   "getmoduledir")
     getmoduledir MODULEDIR "$1"
     echo $MODULEDIR
@@ -1204,24 +1187,24 @@ HERE
       getmoduledir MODULEDIR $TARGETMODULE
 
       if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" ]; then
-        exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "$@"
+        exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
       fi
       if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
-        exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "$@"
+        exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
       fi
       if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ]; then
         setup_node
-        exec node "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "$@"
+        exec node "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "${OPTIONS[@]}"
       fi
 
       echo "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"
       exit 1
     else #Command not in the form 'xxx:yyy'
       if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" ]; then
-        exec /bin/bash "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" "$@"
+        exec /bin/bash "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" "${OPTIONS[@]}"
       fi
       if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.whscr" ]; then
-        exec_runscript --workerthreads 4 "mod::system/scripts/whcommands/$INSTR.whscr" "$@"
+        exec_runscript --workerthreads 4 "mod::system/scripts/whcommands/$INSTR.whscr" "${OPTIONS[@]}"
       fi
     fi
 

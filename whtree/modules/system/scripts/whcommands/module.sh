@@ -12,7 +12,7 @@ while [[ $1 =~ --.* ]]; do
   "--key")
     shift
     if [ -n "$1" -a -f "$1" ]; then
-      [ "$VERBOSE" == "1" ] && echo "Using SSH key at $1"
+      [ "$WH_VERBOSE" == "1" ] && echo "Using SSH key at $1"
       export GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $1"
     else
       echo "Could not find key '$1'"
@@ -37,31 +37,25 @@ ERROR=0
 
 getwhparameters
 while [ -n "$1" ]; do
-  if [[ $1 =~ ^https?://[^/]*/([^/]*)/([^/]*)\.git$ ]]; then
-    # Remote git URL
-    CLONEURL="$1"
+  CLONEURL="$1"
+
+  if [[ $CLONEURL =~ ^https?://[^/]*/([^/]*)/([^/]*)\.git$ ]]; then
     MODULENAME="${BASH_REMATCH[2]}"
     PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-  elif [[ $1 =~ ^https?://[^/]*/([^/]*)/([^/]*)/([^/]*)\.git$ ]]; then   # gitlab subgroup support
-    # Remote git URL
-    CLONEURL="$1"
+  elif [[ $CLONEURL =~ ^https?://[^/]*/([^/]*)/([^/]*)/([^/]*)\.git$ ]]; then   # gitlab subgroup support
     MODULENAME="${BASH_REMATCH[3]}"
     PATHNAME="${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
-  elif [[ $1 =~ ^.*:([^/]*)/([^/]*)\.git$ ]]; then
-    # Remote git URL
-    CLONEURL="$1"
+  elif [[ $CLONEURL =~ ^.*:([^/]*)/([^/]*)\.git$ ]]; then
     MODULENAME="${BASH_REMATCH[2]}"
     PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
   else
-    CLONEURL="git@gitlab.webhare.com:$1.git"
-    MODULENAME="`echo $1|cut -d/ -f2`"
-    PATHNAME="$1"
+    echo Do not understand URL "$CLONEURL"
+    exit 1
   fi
 
-  [ "$VERBOSE" == "1" ] && echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$PATHNAME'"
-
+  [ "$WH_VERBOSE" == "1" ] && echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$PATHNAME'"
   if getmoduledir_nofail XXXTEMP $MODULENAME ; then
-    echo "The module '$MODULENAME' already exists"
+    echo "The module '$MODULENAME' already exists in $XXXTEMP"
   else
     if [ -z "$WEBHARE_GITMODULES" ]; then
       TARGETDIR=`echo "$WEBHARE_DATAROOT/installedmodules/$PATHNAME" | tr '[:upper:]' '[:lower:]'`
