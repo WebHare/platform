@@ -132,7 +132,7 @@ PUBLIC OBJECTTYPE Oauth2Authorization EXTEND TolliumFragmentBase
     STRING portname := GenerateTemporaryIPCPortName();
     this->authport := CreateIPCPort(portname);
 
-    STRING state := "ipc:" || EncryptForThisServer("system:oauth2.portname", portname); //don't expose arbirtrary port connectors
+    STRING state := "ipc:" || EncryptForThisServer("system:oauth2.portname", portname); //don't expose arbitrary port connectors
 
     this->authport->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->HandleConnection(authinfo, #1));
     browser->SendURL(UpdateURLVariables(authinfo.__oauth2_authflow.url, [ state := state ]));
