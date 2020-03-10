@@ -1,81 +1,75 @@
-﻿<?wh
+<?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-
-PUBLIC MACRO DoRecompileSiteProfiles(OBJECT parent)
-{
-  RECORD result := RecompileSiteProfiles();
-  IF (Length(result.errors) > 0 OR Length(result.warnings) > 0)
-  {
-    // Group errors by file, show fatal errors first, order by line number
-    RECORD ARRAY messages := (SELECT *, iserror := TRUE FROM result.errors)
-                             CONCAT
-                             (SELECT *, iserror := FALSE FROM result.warnings);
-
-    parent->RunScreen("mod::publisher/tolliumapps/filemanager/siteprofiles.xml#ctypeerrors", CELL[messages]);
-  }
-  ELSE
-  {
-    parent->RunMessageBox("mod::publisher/tolliumapps/filemanager/siteprofiles.xml#siteprofilesrecompiled");
-  }
-}
-
-PUBLIC OBJECTTYPE ManageCTypes EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 <
-  MACRO Init()
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
-    this->RefreshList();
+    RETURN 0;
   }
 
   MACRO DoRecompile()
   {
-    DoRecompileSiteProfiles(this);
-    this->RefreshList();
+    RECORD result := RecompileSiteProfiles();
+    IF (Length(result.errors) > 0 OR Length(result.warnings) > 0)
+    {
+      // Group errors by file, show fatal errors first, order by line number
+      RECORD ARRAY messages := (SELECT *, iserror := TRUE FROM result.errors)
+                               CONCAT
+                               (SELECT *, iserror := FALSE FROM result.warnings);
+
+      this->RunScreen("#ctypeerrors", CELL[messages]);
+      RETURN;
+    }
+    ELSE
+    {
+      this->RunSimpleScreen("info", this->GetTid(".siteprofilesrecompiled"));
+    }
+    this->RefreshDashboardPanel();
   }
 
-  MACRO RefreshList()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     //Gather our information..
-    STRING mask := this->filter->value != "" ? Substitute("*" || Substitute(TrimWhitespace(NormalizeWhitespace(this->filter->value)), " ", "*") || "*", "**", "*") : "*";
+    STRING mask := ^filter->value != "" ? Substitute("*" || Substitute(TrimWhitespace(NormalizeWhitespace(^filter->value)), " ", "*") || "*", "**", "*") : "*";
     RECORD ARRAY contenttypes := ListFSContentTypes([ mask := mask ]);
-    this->types->rows := SELECT *
+    ^types->rows := SELECT *
                               , rowkey := id
                               , listrowclasses:= candelete ? ["grayedout"] : STRING[]
-                              , typeicon := tolliumicon != "" ? this->types->GetIcon(tolliumicon) : 0
+                              , typeicon := tolliumicon != "" ? ^types->GetIcon(tolliumicon) : 0
                            FROM contenttypes;
   }
 
   MACRO GotFilterChange()
   {
-    this->RefreshList();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoViewType()
   {
-    OBJECT ctypescreen := this->LoadScreen(".ctypemembers", [ ctypeid := this->types->value, namespace := this->types->selection.namespace ]);
-    ctypescreen->RunModal();
+    this->RunScreen("#ctypemembers", [ ctypeid := ^types->value, namespace := ^types->selection.namespace ]);
   }
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deletectypeconfirm", this->types->selection.namespace) = "yes")
-    {
-      OBJECT work := this->BeginWork();
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".deletectypeconfirm", ^types->selection.namespace)) != "yes")
+      RETURN;
 
-      DELETE FROM system.fs_types WHERE id = this->types->value;
-      GetWHFSCommitHandler()->FSTypesChanged();
+    OBJECT work := this->BeginWork();
 
-      IF (work->Finish())
-        this->RefreshList();
-    }
+    DELETE FROM system.fs_types WHERE id = ^types->value;
+    GetWHFSCommitHandler()->FSTypesChanged();
+
+    IF (work->Finish())
+      this->RefreshDashboardPanel();
   }
-
 >;
 
 PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
@@ -135,16 +129,16 @@ PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunMessageBox(".deletectypememberconfirm", ^members->selection.name) = "yes")
-    {
-      OBJECT work := this->BeginWork();
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletectypememberconfirm", ^members->selection.name)) != "yes")
+      RETURN;
 
-      DELETE FROM system.fs_members WHERE id = ^members->value;
-      GetWHFSCommitHandler()->FSTypesChanged();
+    OBJECT work := this->BeginWork();
 
-      IF (work->Finish())
-        ^members->ReloadList();
-    }
+    DELETE FROM system.fs_members WHERE id = ^members->value;
+    GetWHFSCommitHandler()->FSTypesChanged();
+
+    IF (work->Finish())
+      ^members->ReloadList();
   }
 >;
 

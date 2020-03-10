@@ -94,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     DATETIME updstart := GetCurrentDatetime();
     IF(ObjectExists(^currentmonitor->contents))
-      ^currentmonitor->contents->RefreshMonitorPanel();
+      ^currentmonitor->contents->RefreshDashboardPanel();
     ELSE
       this->RefreshMainPanel();
 
@@ -134,8 +134,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
         OBJECT screen := this->LoadScreen(sel.screen);
         IF (ObjectExists(screen))
         {
-          IF(NOT (screen EXTENDSFROM MonitorPanelBase))
-            THROW NEW Exception("The monitor panel '" || sel.screen || "' does not extend from MonitorPanelBase");
+          IF(NOT (screen EXTENDSFROM DashboardPanelBase))
+            THROW NEW Exception(`The dashboard panel '${sel.screen}' does not extend from DashboardPanelBase`);
 
           sel.panel := screen;
           sel.panel->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
@@ -148,7 +148,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       {
         ^currentmonitor->contents := sel.panel;
         ^currentmonitor->contents->EnableRefresh();
-        ^currentmonitor->contents->RefreshMonitorPanel();
+        ^currentmonitor->contents->RefreshDashboardPanel();
       }
     }
 
@@ -389,7 +389,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE EditSnooze EXTEND MonitorPanelBase
+PUBLIC STATIC OBJECTTYPE EditSnooze EXTEND DashboardPanelBase
 < OBJECT wrd_systemmessages_snoozes;
 
   RECORD ARRAY items;

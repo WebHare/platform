@@ -13,7 +13,7 @@ MACRO __BeginWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT
 MACRO __RollbackWHDBWork(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 
-PUBLIC OBJECTTYPE WHDB EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE WHDB EXTEND DashboardPanelBase
 < OBJECT trans;
 
   RECORD ARRAY historic_queries; // Max max_history, max 1 minute
@@ -35,7 +35,7 @@ PUBLIC OBJECTTYPE WHDB EXTEND MonitorPanelBase
     this->columns := this->querylog->columns;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     __BeginWHDBWork(this->trans->id);
     RECORD ARRAY translist := __SendWHDBCommand(this->trans->id, "SHOW TRANSACTIONS");
@@ -131,7 +131,7 @@ PUBLIC OBJECTTYPE WHDB EXTEND MonitorPanelBase
   MACRO OnChangeGrouping()
   {
     // Needed to force sending the value
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO OnQueryLogSelect()
@@ -180,6 +180,6 @@ PUBLIC OBJECTTYPE WHDB EXTEND MonitorPanelBase
   MACRO DoResetLog()
   {
     this->historic_queries := DEFAULT RECORD ARRAY;
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 >;

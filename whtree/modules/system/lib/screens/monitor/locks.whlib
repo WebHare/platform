@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE Locks EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Locks EXTEND DashboardPanelBase
 <
   OBJECT lockmgr;
 
@@ -17,10 +17,10 @@ PUBLIC OBJECTTYPE Locks EXTEND MonitorPanelBase
   MACRO Init()
   {
     this->lockmgr := OpenLockManager();
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     this->laststatus := this->lockmgr->GetStatus();
     this->stacktrace->value := this->laststatus.logtraces;

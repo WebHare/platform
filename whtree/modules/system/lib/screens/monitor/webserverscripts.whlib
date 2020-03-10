@@ -7,7 +7,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE WebserverScripts EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE WebserverScripts EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
@@ -27,7 +27,7 @@ PUBLIC OBJECTTYPE WebserverScripts EXTEND MonitorPanelBase
 
   MACRO OnScriptEvent(RECORD ARRAY events)
   {
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   STRING FUNCTION GetLastError(RECORD ARRAY messages)
@@ -53,7 +53,7 @@ PUBLIC OBJECTTYPE WebserverScripts EXTEND MonitorPanelBase
     RETURN "Unknown code: " || status;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     OBJECT mgmt_link := ConnectToIPCPort("system:scriptmanager");
     IF (NOT ObjectExists(mgmt_link))

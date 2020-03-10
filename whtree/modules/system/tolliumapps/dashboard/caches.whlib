@@ -5,9 +5,9 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE PrecalculatedCache EXTEND MonitorPanelBase
+PUBLIC STATIC OBJECTTYPE PrecalculatedCache EXTEND DashboardPanelBase
 <
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     ^cacheentries->Invalidate();
   }

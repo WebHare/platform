@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/internal/mail/tasks.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE MailqueuePanel EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
 <
   STRING filterorigin;
 
@@ -28,7 +28,7 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND MonitorPanelBase
       this->flushbutton->visible := FALSE;
       this->deletebutton->visible := FALSE;
       this->showsentmail->value := TRUE;
-      this->RefreshMonitorPanel();
+      this->RefreshDashboardPanel();
     }
     IF(CellExists(data, "FILTER"))
       this->filterorigin := data.filter;
@@ -51,10 +51,10 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND MonitorPanelBase
 
   MACRO OnManagedTaskEvent(RECORD ARRAY events)
   {
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     RECORD ARRAY rows := SELECT rowkey := managedtasks.id
                               , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME

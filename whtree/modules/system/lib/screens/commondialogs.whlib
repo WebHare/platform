@@ -264,15 +264,11 @@ PUBLIC OBJECTTYPE MailQueueDialog EXTEND TolliumScreenBase
     //RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
     OBJECT screen := this->LoadScreen("mod::system/screens/monitor/mailqueue.xml#mailqueuepanel", [ runembedded := TRUE, filter := data.sourcefilter ]);
     IF (ObjectExists(screen))
-    {
-      IF(NOT (screen EXTENDSFROM MonitorPanelBase))
-        THROW NEW Exception("The monitor panel does not extend from MonitorPanelBase");
-
       screen->__pvt_yourmonitor := PRIVATE THIS; //ADDME use some sort of messaging interface? better not to expose privatedata
-    }
+
     this->monitor->contents := screen;
     this->monitor->contents->EnableRefresh();
-    this->monitor->contents->RefreshMonitorPanel();
+    this->monitor->contents->RefreshDashboardPanel();
   }
 >;
 

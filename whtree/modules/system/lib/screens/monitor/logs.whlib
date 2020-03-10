@@ -65,9 +65,9 @@ PUBLIC RECORD ARRAY FUNCTION GetWebHareLogFile(STRING filename, INTEGER nrbytes)
   RETURN logitems;
 }
 
-PUBLIC OBJECTTYPE Logs EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Logs EXTEND DashboardPanelBase
 <
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
       // Read the errors.log and servicemanager.log files
       RECORD errorlog := this->GetLog("errors", 10000); //FIXME: Reg key for nr bytes?

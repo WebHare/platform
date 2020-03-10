@@ -15,7 +15,7 @@ INTEGER max_publishers_at_once := 10;
 INTEGER max_tabs_at_once := 20;
 
 
-PUBLIC OBJECTTYPE Sites EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 <
   RECORD ARRAY sites;
   RECORD ARRAY siteprofiles;
@@ -25,7 +25,7 @@ PUBLIC OBJECTTYPE Sites EXTEND MonitorPanelBase
     RETURN 0;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
     this->RefreshSitesList();
   }

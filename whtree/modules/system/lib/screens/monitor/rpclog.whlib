@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC OBJECTTYPE RPCLog EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE RPCLog EXTEND DashboardPanelBase
 <
   MACRO GotRegistryEvents(RECORD ARRAY events)
   {
@@ -55,7 +55,7 @@ PUBLIC OBJECTTYPE RPCLog EXTEND MonitorPanelBase
     this->logslist->rows := list;
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     this->RefreshRPCLogList();
   }

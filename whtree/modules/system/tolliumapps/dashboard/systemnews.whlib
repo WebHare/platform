@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-PUBLIC OBJECTTYPE Overview EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
 <
   OBJECT wrdschema;
   OBJECT announcement_type;

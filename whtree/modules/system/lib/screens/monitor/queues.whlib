@@ -121,9 +121,9 @@ STRING FUNCTION DescribeConsilioTask(RECORD worker, RECORD ARRAY contentprovider
   RETURN workerstatus;
 }
 
-PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
 <
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     this->workers->rows := this->GetConsilioWorkers() CONCAT this->GetPublisherWorkers();
     this->tasks->rows := this->GetTasks();
@@ -345,7 +345,7 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
   MACRO DoTaskProperties()
   {
     this->LoadScreen(".taskproperties", [ id := this->tasks->value ])->RunModal();
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
   MACRO DoScheduleTaskNow()
@@ -354,7 +354,7 @@ PUBLIC OBJECTTYPE Queues EXTEND MonitorPanelBase
     UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id = this->tasks->value;
     GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
     work->Finish();
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
 
     this->RunMessageBox(".taskscheduled");
   }

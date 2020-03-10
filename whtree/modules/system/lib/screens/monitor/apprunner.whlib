@@ -10,7 +10,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 //
 // AppRunner controller
 //
-PUBLIC OBJECTTYPE AppRunner EXTEND MonitorPanelBase
+PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
@@ -29,10 +29,10 @@ PUBLIC OBJECTTYPE AppRunner EXTEND MonitorPanelBase
 
   MACRO OnAppRunnerRefreshEvent(RECORD ARRAY events)
   {
-    this->RefreshMonitorPanel();
+    this->RefreshDashboardPanel();
   }
 
-  UPDATE PUBLIC MACRO RefreshMonitorPanel()
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     TRY
     {

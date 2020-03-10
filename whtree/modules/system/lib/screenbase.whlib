@@ -3,16 +3,22 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-/** @short Base classes for monitor panels
-    @long All monitor panels should derive from this object. To avoid future conflicts, avoid any member names containing the word 'Monitor' */
-PUBLIC OBJECTTYPE MonitorPanelBase EXTEND TolliumScreenBase
+/** @short Base classes for dashboard panels
+    @long All dashboard panels should derive from this object. To avoid future conflicts, avoid any member names containing the word 'Monitor' */
+PUBLIC STATIC OBJECTTYPE DashboardPanelBase EXTEND TolliumScreenBase
 <
   PUBLIC OBJECT __pvt_yourmonitor;
 
-  PUBLIC MACRO RefreshMonitorPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
+  /** Called whenever a panel should refresh itself (either manually invoked by user, or automatically) */
+  PUBLIC MACRO RefreshDashboardPanel()
+  {
+    this->RefreshMonitorPanel(); //for backwards compatibility with newsletter, will be removed!
+  }
+  PUBLIC MACRO RefreshMonitorPanel() //for backwards compatibility with newsletter, will be removed!
   {
 
   }
+
   /** @short Suggest an update frequency
       @return The suggested update frequency in second. Defaults to 1. Return 0 to disable interval updates */
   PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -36,3 +42,7 @@ PUBLIC OBJECTTYPE MonitorPanelBase EXTEND TolliumScreenBase
 
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE MonitorPanelBase EXTEND DashboardPanelBase
+<
+>; //for backwards compat with newsletter

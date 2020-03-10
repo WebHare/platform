@@ -1156,8 +1156,6 @@
         <text tid="confirmmove">Weet u zeker dat u '<param p="1"/>' naar de map '<param p="2"/>' wilt verplaatsen?</text>
         <text tid="confirmmovemultiple">Weet u zeker dat u <param p="1"/> onderdelen naar de map '<param p="2"/>' wilt verplaatsen?</text>
         <text tid="confirmresetwarnings">Hiermee worden alle waarschuwingen opnieuw ingesteld. Alle meldingen die zijn uitgeschakeld door de optie "Laat deze melding niet meer zien" worden dan weer getoond.<br/>Wilt u de waarschuwingen opnieuw instellen?</text>
-        <text tid="deletectypeconfirm">Weet u zeker dat u het contenttype '<param p="1"/>' permanent wilt verwijderen?</text>
-        <text tid="deletectypememberconfirm">Weet u zeker dat u het contenttype-element '<param p="1"/>' permanent wilt verwijderen?</text>
         <text tid="deleteindexconfirm">De map '<param p="1"/>' bevat een indexbestand, maar het nieuwe maptype vereist een ander indexbestand.<br/>Wilt u het huidige indexbestand '<param p="2"/>' verwijderen?</text>
         <text tid="destinationsitelocked">U kunt geen bestanden of mappen in een vergrendelde site plaatsen.</text>
         <text tid="emptytrashconfirm">Weet u zeker dat u alle onderdelen uit de prullenbak permanent wilt verwijderen?</text>
@@ -1179,7 +1177,6 @@
         <text tid="sitedoesnotexist">De geselecteerde website bestaat niet meer!</text>
         <text tid="siteprofilecompilationerror">Er is een fout opgetreden bij het compileren van de siteprofielen.</text>
         <text tid="siteprofileerrors">De volgende fouten zijn opgetreden bij het uitvoeren van de site profielen:<br/><br/><param p="1"/></text>
-        <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
         <text tid="surerepublishfolderoutsidesite">De volgende websites zullen worden geherpubliceerd:<br/><br/><param p="1"/><br/><br/><ifparam p="2" value="0"><else/>en nog <param p="2"/> andere websites.<br/></ifparam><br/>Weet u zeker dat u wilt doorgaan?</text>
         <text tid="tellnewgoto">De gebruikte sneltoets is niet meer in gebruik.<br/><br/>Gebruik CTRL+SHIFT+G om de "Ga naar site of URL" optie te openen.</text>
         <text tid="toomanyobjectsatatimeinversionedsite">U kunt slechts één object tegelijk verplaatsen naar een website met versiebeheer.</text>
@@ -1266,39 +1263,6 @@
       <textgroup gid="searchpublisher">   <!-- filemanager.search.searchpublisher -->
         <text tid="query">Zoeken naar bestanden en mappen...</text>
         <text tid="searchpublisher">Publisher doorzoeken</text>
-      </textgroup>
-    </textgroup>
-    <textgroup gid="siteprofiles">   <!-- filemanager.siteprofiles -->
-      <textgroup gid="ctypeerrors">   <!-- filemanager.siteprofiles.ctypeerrors -->
-        <text tid="ctypeerrors">Meldingen na compilatie</text>
-        <text tid="file">Siteprofiel</text>
-        <text tid="line">Regel</text>
-        <text tid="message">Melding</text>
-      </textgroup>
-      <textgroup gid="ctypemembers">   <!-- filemanager.siteprofiles.ctypemembers -->
-        <text tid="ctypemembers">Contenttype elementen</text>
-        <text tid="ctypename">Contenttype</text>
-        <text tid="linenum">Regel</text>
-        <text tid="locationbox">Definitielocatie</text>
-        <text tid="name">Naam</text>
-        <text tid="nomembers">Dit contenttype heeft geen elementen</text>
-        <text tid="opensiteprofile">Ga naar siteprofile</text>
-        <text tid="publishicon">Gepubliceerd</text>
-        <text tid="siteprofile">Siteprofiel</text>
-        <text tid="typename">Type</text>
-      </textgroup>
-      <textgroup gid="managectypes">   <!-- filemanager.siteprofiles.managectypes -->
-        <text tid="filter">Filter</text>
-        <text tid="id">ID</text>
-        <text tid="managectypes">Beheer contenttypes</text>
-        <text tid="namespace">Namespace</text>
-        <text tid="noctypes">Er zijn geen contenttypes gedefinieerd</text>
-        <text tid="recompile">Verversen</text>
-      </textgroup>
-      <textgroup gid="messageboxes">   <!-- filemanager.siteprofiles.messageboxes -->
-        <text tid="deletectypeconfirm">Weet u zeker dat u het contenttype '<param p="1"/>' permanent wilt verwijderen?</text>
-        <text tid="deletectypememberconfirm">Weet u zeker dat u het contenttype-element '<param p="1"/>' permanent wilt verwijderen?</text>
-        <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
       </textgroup>
     </textgroup>
     <textgroup gid="types">   <!-- filemanager.types -->
@@ -1837,6 +1801,7 @@
     </textgroup>
   </textgroup>
   <textgroup gid="module">   <!-- module -->
+    <text tid="name">Publisher</text>
     <text tid="testforms">Open formulierentest</text>
     <text tid="webruleset-allowcorsall">Volledig open 'Access-Control-Allow-Origin'</text>
     <text tid="webruleset-varycookie">Toevoegen 'Vary: Cookie'</text>
@@ -2237,6 +2202,29 @@
         <text tid="site">Site</text>
         <text tid="value">Verwijst naar</text>
         <text tid="whfsregister">WHFS Register</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="contenttypes">   <!-- tolliumapps.dashboard.contenttypes -->
+        <text tid="ctypeerrors">Meldingen na compilatie</text>
+        <text tid="ctypemembers">Contenttype elementen</text>
+        <text tid="deletectypeconfirm">Weet u zeker dat u het contenttype '<param p="1"/>' permanent wilt verwijderen?</text>
+        <text tid="deletectypememberconfirm">Weet u zeker dat u het contenttype-element '<param p="1"/>' permanent wilt verwijderen?</text>
+        <text tid="file">Siteprofiel</text>
+        <text tid="filter">Filter</text>
+        <text tid="line">Regel</text>
+        <text tid="linenum">Regel</text>
+        <text tid="locationbox">Definitielocatie</text>
+        <text tid="message">Melding</text>
+        <text tid="name">Naam</text>
+        <text tid="namespace">Namespace</text>
+        <text tid="noctypes">Er zijn geen contenttypes gedefinieerd</text>
+        <text tid="nomembers">Dit contenttype heeft geen elementen</text>
+        <text tid="panel">Contenttypes</text>
+        <text tid="recompile">Hercompileren</text>
+        <text tid="siteprofile">Siteprofiel</text>
+        <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
+        <text tid="typename">Type</text>
       </textgroup>
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->

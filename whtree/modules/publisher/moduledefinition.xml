@@ -111,11 +111,13 @@
       </accesscheck>
     </application>
 
-    <monitorpanel group="dev" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
-                  screen="monitor/assetpackcontrol.assetpackcontrolpanel" />
-
-    <monitorpanel group="dev" name="sites" tid="monitor.sites.title"
-                  screen="monitor/sites.sites" />
+    <dashboardgroup name="publisher" tid="module.name" orderafter="system:ap system:tasks" />
+    <dashboardpanel group="publisher" name="sites" tid="monitor.sites.title"
+                    screen="monitor/sites.sites" />
+    <dashboardpanel group="publisher" name="assetpackcontrol" tid="monitor.assetpackcontrol.title"
+                    screen="monitor/assetpackcontrol.assetpackcontrolpanel" />
+    <dashboardpanel group="publisher" name="contenttypes" tid="tolliumapps.dashboard.contenttypes.panel"
+                    screen="/tolliumapps/dashboard/contenttypes.xml#panel" />
   </portal>
 
   <tollium>
