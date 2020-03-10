@@ -57,7 +57,7 @@ PUBLIC MACRO ReportError(STRING message, RECORD ARRAY errors, STRING annotation)
         SELECT AS INTEGER line
           FROM GetStackTrace()
          WHERE filename NOT LIKE "*hsselftests*";
-    PRINT("\n  -- Test " || test_name || " yielded errors at line " || linenr || ":\n");
+    PRINT(`\n  -- Test ${test_name != "" ? test_name || " " : ""}yielded errors at line ${linenr}\n`);
   }
 
   PRINT(message || "\n");

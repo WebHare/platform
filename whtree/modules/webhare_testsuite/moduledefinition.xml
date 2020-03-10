@@ -248,6 +248,8 @@
     <node name="apis">
       <obsoletekey name="google_oauth_clientid" />
       <obsoletekey name="google_oauth_clientsecret" />
+      <record name="twitter_testclient" />
+      <record name="twitter_testauth" />
     </node>
   </moduleregistry>
 
