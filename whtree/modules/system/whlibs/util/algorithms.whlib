@@ -240,9 +240,22 @@ PUBLIC VARIANT Function ArrayIntersection(VARIANT first, VARIANT second)
     THROW NEW Exception("ArrayIntersection expects both arrays to be of the same type");
 
   VARIANT intersects := GetTypeDefaultValue(TypeID(first));
-  FOREVERY(VARIANT elem FROM first)
-    IF(elem IN second)
-      INSERT elem INTO intersects AT END;
+
+  // bounds for sort implementation derived from test on integers
+  IF (LENGTH(first) >= 40 AND LENGTH(second) >= 32 AND TypeID(first) IN
+      [ TypeID(INTEGER ARRAY), TypeID(STRING ARRAY) ])
+  {
+    second := __HS_SQL_SortArray(second, FALSE, FALSE);
+    FOREVERY (VARIANT elem FROM first)
+      IF (__HS_SQL_LOWERBOUND(second, elem).found)
+        INSERT elem INTO intersects AT END;
+  }
+  ELSE
+  {
+    FOREVERY(VARIANT elem FROM first)
+      IF(elem IN second)
+        INSERT elem INTO intersects AT END;
+  }
 
   RETURN intersects;
 }
@@ -335,9 +348,22 @@ PUBLIC VARIANT FUNCTION ArrayDelete(VARIANT list, VARIANT toremove)
     THROW NEW Exception("ArrayDelete expects both arrays to be of the same type");
 
   VARIANT differences := GetTypeDefaultValue(TypeID(list));
-  FOREVERY(VARIANT elem FROM list)
-    IF(elem NOT IN toremove)
-      INSERT elem INTO differences AT END;
+
+  // bounds for sort implementation derived from test on integers
+  IF (LENGTH(list) >= 40 AND LENGTH(toremove) >= 32 AND TypeID(list) IN
+      [ TypeID(INTEGER ARRAY), TypeID(STRING ARRAY) ])
+  {
+    toremove := __HS_SQL_SortArray(toremove, FALSE, FALSE);
+    FOREVERY (VARIANT elem FROM list)
+      IF (NOT __HS_SQL_LOWERBOUND(toremove, elem).found)
+        INSERT elem INTO differences AT END;
+  }
+  ELSE
+  {
+    FOREVERY(VARIANT elem FROM list)
+      IF(elem NOT IN toremove)
+        INSERT elem INTO differences AT END;
+  }
 
   RETURN differences;
 }

@@ -379,7 +379,14 @@ MACRO TestVAlueMapper()
   TestEq('MAN', gender2->GetAllMappings()[2].fromval);
   TestEq(1, gender2->GetAllMappings()[1].toval);
   TestEq(2, gender2->Lookup('Female'));
+}
 
+INTEGER ARRAY FUNCTION MakeRange(INTEGER start, INTEGER last)
+{
+  INTEGER ARRAY res;
+  FOR (INTEGER i := start; i <= last; i := i + 1)
+    INSERT i INTO res AT END;
+  RETURN res;
 }
 
 MACRO TestArrayIntersection()
@@ -391,6 +398,8 @@ MACRO TestArrayIntersection()
   TestEq(["bar", "baz"], ArrayIntersection(alpha, bravo));
   TestEq(DEFAULT STRING ARRAY, ArrayIntersection(alpha, charlie));
   TestEq(["foo", "bar", "baz", "test", "alpha", "beta", "charlie"], ArrayIntersection(alpha, delta));
+
+  TestEQ(MakeRange(0, 32), ArrayIntersection(MakeRange(0, 42), MakeRange(0, 32)));
 }
 
 MACRO TestArraysIntersect()
@@ -418,6 +427,8 @@ MACRO TestArrayDelete()
   TestEq(["foo", "test", "alpha", "beta", "charlie"], ArrayDelete(alpha, bravo));
   TestEq(["foo", "bar", "baz", "test", "alpha", "beta", "charlie"], ArrayDelete(alpha, charlie));
   TestEq(DEFAULT STRING ARRAY, ArrayDelete(alpha, delta));
+
+  TestEQ(MakeRange(33, 42), ArrayDelete(MakeRange(0, 42), MakeRange(0, 32)));
 }
 
 MACRO TestArrayUnion()
