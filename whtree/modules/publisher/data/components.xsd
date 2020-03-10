@@ -137,22 +137,6 @@
     <xs:attributeGroup ref="tc:IsComposable" />
 
     <xs:attribute name="typedef" type="xs:string" />
-    <xs:attribute name="datastore" default="self">
-      <xs:annotation>
-        <xs:documentation>
-          Specify where to store the data in this instance, relative to the base object for this composition.<br />
-          This feature is included for backwards compatibility with earlier site profiles, it's use is no longer
-          recommended as it complicates change tracking.
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:enumeration value="self" />
-          <xs:enumeration value="parent" />
-          <xs:enumeration value="root" />
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
   </xs:complexType>
 
 

@@ -11,7 +11,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 //
 // Instance data container
 //
-PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
+PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -38,7 +38,6 @@ PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 
   PUBLIC PROPERTY basefsobject(pvt_basefsobject, SetBaseFSObject);
   PUBLIC PROPERTY applytester(pvt_applytester, -);
-  PUBLIC STRING datastore;
   PRIVATE STRING delayed_type_init;
 
   PUBLIC PROPERTY extracells(pvt_extracells, SetExtraCells);
@@ -50,15 +49,12 @@ PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 
   MACRO NEW()
   {
-    this->datastore := "self";
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     TolliumCompositionBase::StaticInit(def);
-
     this->delayed_type_init := def.typedef; //delay it, as we may not have DB connectivity yet
-    this->datastore := def.datastore;
   }
 
   STRING FUNCTION GetTypeNS()
@@ -92,22 +88,9 @@ PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   }
 
 
-  PUBLIC OBJECT FUNCTION GetStorageObject()
-  {
-    IF(NOT ObjectExists(this->pvt_basefsobject))
-      RETURN DEFAULT OBJECT;
-    IF(this->datastore="self")
-      RETURN this->pvt_basefsobject;
-    IF(this->datastore="parent")
-      RETURN this->pvt_basefsobject->parentobject;
-    IF(this->datastore="root")
-      RETURN OpenWHFSObject(this->pvt_basefsobject->highestparent);
-    THROW NEW Exception("Unrecognized datastore '" || this->datastore || "'");
-  }
-
   PUBLIC MACRO ReadInstanceFromFSObject()
   {
-    OBJECT loc := this->GetStorageObject();
+    OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type))
     {
       this->value := ObjectExists(loc) ? loc->GetInstanceDataByType(this->type) : this->type->defaultinstance;
@@ -132,7 +115,7 @@ PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 
   PUBLIC MACRO WriteInstanceToFSObject()
   {
-    OBJECT loc := this->GetStorageObject();
+    OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type) AND ObjectExists(loc))
     {
       RECORD setvalue := this->value;
@@ -228,19 +211,11 @@ PUBLIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   {
     this->basefsobject := id != 0 ? OpenWHFSObject(id) : DEFAULT OBJECT;
     IF(id != 0)
-    {
-      IF(this->datastore != "self")
-        THROW NEW TolliumException(this, `Load and Store only support 'self' data storage`);
-
       this->value := this->basefsobject->GetInstanceDataByType(this->type);
-    }
   }
 
   PUBLIC MACRO Store(OBJECT work, INTEGER id, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(this->datastore != "self")
-      THROW NEW TolliumException(this, `Load and Store only support 'self' data storage`);
-
     options := ValidateOptions(
         [ extradata := DEFAULT RECORD
         ], options);

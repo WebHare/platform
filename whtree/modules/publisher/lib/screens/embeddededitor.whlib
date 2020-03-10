@@ -43,7 +43,6 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       IF(NOT ObjectExists(instance))
       {
         instance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
-        instance->datastore := "self";
         instance->basefsobject := fileobj;
         instance->type := OpenWHFSType(edittype);
         IF(NOT ObjectExists(instance->type))

@@ -10,6 +10,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
@@ -380,7 +381,7 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   OBJECT connection;
   IF(sessid LIKE "ipc:*")
   {
-    connection := ConnectToIPCPort(Substring(sessid,4));
+    connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
     IF(NOT ObjectExists(connection))
       THROW NEW Exception(`Your session has expired`); //you already did this probably
 
@@ -403,6 +404,11 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
     Print("<script>window.close();</script>");
+  }
+  ELSE IF(CellExists(sessdata,"callback"))
+  {
+    RECORD finaltoken := oauthconnection->__CreateFinalToken(sessdata);
+    MakeFunctionPtr(sessdata.callback)(sessdata.callbackstate, finaltoken);
   }
   ELSE
   {
