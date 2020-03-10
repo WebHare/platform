@@ -1431,9 +1431,12 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
 RECORD FUNCTION DecodePostgreSQLWHLogInfo(STRING logline)
 {
   RECORD retval :=
-      [ debuginfo :=      ""
-      , debuginfohint :=  ""
+      [ debuginfo :=        ""
+      , debuginfohint :=    ""
+      , debuginfotrace :=   RECORD[]
       ];
+
+  OBJECT r := NEW Regex("^([^#]*)#([0-9]*)#([0-9]*)\\(([^)]*)\\)$");
 
   SWITCH (Left(logline, 1))
   {
@@ -1448,6 +1451,19 @@ RECORD FUNCTION DecodePostgreSQLWHLogInfo(STRING logline)
              AND uri NOT LIKE "wh::internal/trans*"
              ) ?? parts[0];
       retval.debuginfohint := "Stack trace:\n" || Detokenize(parts, "\n");
+      FOREVERY (STRING p FROM parts)
+      {
+        RECORD ARRAY matches := r->Exec(p);
+        IF (RecordExists(matches))
+        {
+          INSERT
+              [ filename :=     matches[1].value
+              , line :=         ToInteger(matches[2].value, 1)
+              , col :=          ToInteger(matches[3].value, 1)
+              , func :=         matches[4].value
+              ] INTO retval.debuginfotrace AT END;
+        }
+      }
     }
   }
 
@@ -1500,6 +1516,7 @@ PUBLIC RECORD FUNCTION GetDatabaseMonitorInfo(OBJECT trans)
       , query :=            ""
       , debuginfo :=        ""
       , debuginfohint :=    ""
+      , debuginfotrace :=   RECORD[]
       ];
 
   displaylocks := JoinArrays(displaylocks, "pid", translist, trans_default);

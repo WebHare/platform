@@ -331,6 +331,7 @@
     </textgroup>
     <textgroup gid="groups">   <!-- monitor.groups -->
       <text tid="ap">WebHare Platform</text>
+      <text tid="database">Database</text>
       <text tid="dev">Development</text>
       <text tid="other">Other</text>
       <text tid="tasks">Tasks and queues</text>
@@ -421,17 +422,37 @@
     <textgroup gid="postgresql">   <!-- monitor.postgresql -->
       <text tid="application_name">Application name</text>
       <text tid="backend_start">Transaction start</text>
+      <text tid="blobcleanup">Blob cleanup</text>
+      <text tid="cleanup-disabled">Disabled</text>
+      <text tid="cleanup-notfound">Not found</text>
+      <text tid="cleanup-running">Running</text>
+      <text tid="cleanup-scheduled">Scheduled at <param p="1"/></text>
+      <text tid="cleanupstatus">Status</text>
+      <text tid="col">Column</text>
       <text tid="debuginfo">Debug info</text>
-      <text tid="lockstab">Locks</text>
+      <text tid="filename">File name</text>
+      <text tid="func">Function</text>
+      <text tid="line">Line</text>
+      <text tid="locks">Locks</text>
       <text tid="logstacktraces">Log stack traces</text>
+      <text tid="notraceavailable">No stack trace available</text>
+      <text tid="notransactionselected">No transaction selected</text>
       <text tid="pid">Backend PID</text>
       <text tid="query">Last query</text>
       <text tid="query_start">Query start</text>
       <text tid="readonly">Readonly</text>
+      <text tid="schedulecleanup">Schedule now</text>
+      <text tid="settings">Settings</text>
       <text tid="state">State</text>
       <text tid="tables">Affected tables</text>
-      <text tid="title">PostgreSQL database</text>
-      <text tid="transactionstab">Transactions</text>
+      <text tid="trace">Stack trace</text>
+      <text tid="transactions">Transactions</text>
+      <text tid="unlinkedblobparts">Unlinked blob parts</text>
+      <text tid="unlinkedblobsheading">Unlinked blobs</text>
+      <text tid="unlinkednextremoval">Next possible removal</text>
+      <text tid="unreferencedblobs">Unreferenced blobs</text>
+      <text tid="unreferencedblobsheading">Unreferenced blobs</text>
+      <text tid="unreferencednextremoval">Next possible removal</text>
       <text tid="wait_event_type">Wait event type</text>
     </textgroup>
     <textgroup gid="processlist">   <!-- monitor.processlist -->
@@ -1703,7 +1724,7 @@
           <text tid="differentrepository">The module on the server is from a different repository (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
           <text tid="invalidversion">The module '<param p="1"/>' on the server has version '<param p="2"/>' which does not satisfy the requested version '<param p="3"/>'</text>
           <text tid="missingrequiredmoduleonpeer">The required module '<param p="1"/>' is not present on the server.</text>
-          <text tid="modulehaspeerchanges">The module on the server has been modified after installation. <br/><br/>Are you sure you want to replace the it?</text>
+          <text tid="modulehaspeerchanges">The module on the server has been modified after installation. <br/><br/>Are you sure you want to replace it?</text>
           <text tid="notatbranchhead">The HEAD of your git working copy is not at the branch head - you either have local changes you did not push to the origin server, or the origin server has changes you haven't pulled to your local copy yet.<br/><br/>Please merge or rebase, and then push the changes to origin. Are you sure you want to proceed?</text>
           <text tid="notgituptodate">A newer version of this module is available in the central repository. Please update your local module first. <br/><br/>Are you sure you want to deploy this (outdated) version?</text>
           <text tid="peerchangeswarning">Module has been modified after installation</text>
