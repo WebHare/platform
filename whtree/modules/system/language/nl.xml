@@ -262,7 +262,7 @@
       <text tid="query">Laatste query</text>
       <text tid="query_start">Starttijd v/d query</text>
       <text tid="readonly">Alleen-lezen</text>
-      <text tid="schedulecleanup">Nu implannen</text>
+      <text tid="schedulecleanup">Nu inplannen</text>
       <text tid="settings">Instellingen</text>
       <text tid="state">Status</text>
       <text tid="tables">Getroffen tabellen</text>
