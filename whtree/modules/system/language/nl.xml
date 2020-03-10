@@ -152,6 +152,7 @@
     </textgroup>
     <textgroup gid="groups">   <!-- monitor.groups -->
       <text tid="ap">WebHare Platform</text>
+      <text tid="database">Database</text>
       <text tid="dev">Ontwikkeling</text>
       <text tid="other">Overig</text>
       <text tid="tasks">Taken en wachtrijen</text>
@@ -242,17 +243,37 @@
     <textgroup gid="postgresql">   <!-- monitor.postgresql -->
       <text tid="application_name">Application name</text>
       <text tid="backend_start">Transactiestart</text>
+      <text tid="blobcleanup">Blob opruimproces</text>
+      <text tid="cleanup-disabled">Uitgeschakeld</text>
+      <text tid="cleanup-notfound">Niet gevonden</text>
+      <text tid="cleanup-running">Draait</text>
+      <text tid="cleanup-scheduled">Ingepland op <param p="1"/></text>
+      <text tid="cleanupstatus">Status</text>
+      <text tid="col">Column</text>
       <text tid="debuginfo">Debuginformatie</text>
-      <text tid="lockstab">Locks</text>
+      <text tid="filename">Bestandsnaam</text>
+      <text tid="func">Functie</text>
+      <text tid="line">Regel</text>
+      <text tid="locks">Locks</text>
       <text tid="logstacktraces">Stack traces vastleggen</text>
+      <text tid="notraceavailable">Geen stack trace beschikbaar</text>
+      <text tid="notransactionselected">Geen transactie geselecteerd</text>
       <text tid="pid">Backend PID</text>
       <text tid="query">Laatste query</text>
       <text tid="query_start">Starttijd v/d query</text>
       <text tid="readonly">Alleen-lezen</text>
+      <text tid="schedulecleanup">Nu implannen</text>
+      <text tid="settings">Instellingen</text>
       <text tid="state">Status</text>
       <text tid="tables">Getroffen tabellen</text>
-      <text tid="title">PostgreSQL database</text>
-      <text tid="transactionstab">Transactions</text>
+      <text tid="trace">Stack trace</text>
+      <text tid="transactions">Transactions</text>
+      <text tid="unlinkedblobparts">Ontkoppelde blobstukken</text>
+      <text tid="unlinkedblobsheading">Ontkoppelde blobs</text>
+      <text tid="unlinkednextremoval">Volgende mogelijke verwijdering</text>
+      <text tid="unreferencedblobs">Niet-gerefereerde blobs</text>
+      <text tid="unreferencedblobsheading">Niet-gerefereerde blobs</text>
+      <text tid="unreferencednextremoval">Volgende mogelijke verwijdering</text>
       <text tid="wait_event_type">Wachtevent-type</text>
     </textgroup>
     <textgroup gid="processlist">   <!-- monitor.processlist -->

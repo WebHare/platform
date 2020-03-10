@@ -1,24 +1,34 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql-blobcleanup.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 
-PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
+STRING FUNCTION FormatQuery(STRING query)
+{
+  query := Substitute(query, " FROM ", "\n  FROM ");
+  query := Substitute(query, " WHERE ", "\n WHERE ");
+  query := Substitute(query, " JOIN ", "\n  JOIN ");
+  RETURN query;
+}
+
+
+PUBLIC STATIC OBJECTTYPE PostgreSQLTransactions EXTEND DashboardPanelBase
 < OBJECT trans;
   RECORD ARRAY columns;
-
 
   MACRO Init()
   {
     this->trans := GetPrimaryWebhareTransactionObject();
     this->columns := ^transactions->columns;
     RegisterEventCallback("system:systemconfig", PTR this->GotConfigChange);
-
     this->RefreshConfig();
   }
 
@@ -30,11 +40,9 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
   MACRO RefreshConfig()
   {
     RECORD debugconfig := GetDatabaseRuntimeConfig();
-    ^readonly->value := debugconfig.readonly;
-    ^logstacktraces->value := debugconfig.logstacktraces > 0;
 
     RECORD ARRAY columns := this->columns;
-    IF (NOT ^logstacktraces->value)
+    IF (debugconfig.logstacktraces = 0)
       DELETE FROM columns WHERE name = "debuginfo";
 
     RECORD ARRAY rows := ^transactions->rows;
@@ -53,6 +61,46 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
           FROM monitorinfo.translist
          WHERE backend_type = "client backend";
 
+    this->GotTransactionSelect();
+  }
+
+  MACRO GotTransactionSelect()
+  {
+    RECORD show :=  ^transactions->selection ?? [ query := "", debuginfotrace := RECORD[] ];
+    ^query->value := FormatQuery(show.query);
+    ^trace->rows := show.debuginfotrace;
+    ^trace->empty := RecordExists(^transactions->selection)
+        ? this->GetTid(".notraceavailable")
+        : this->GetTid(".notransactionselected");
+  }
+
+  MACRO DoOpenTraceRow()
+  {
+    this->RunScreen("processlist.xml#codeview",
+        [ rows :=   ^trace->rows
+        , value :=  ^trace->value
+        ]);
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    RECORD sel := ^trace->selection;
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PostgreSQLLocks EXTEND DashboardPanelBase
+< OBJECT trans;
+
+  MACRO Init()
+  {
+    this->trans := GetPrimaryWebhareTransactionObject();
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    RECORD monitorinfo := GetDatabaseMonitorInfo(GetPrimary());
+
     ^blockedlocks->rows :=
         SELECT *
              , tables :=      ""
@@ -62,6 +110,134 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
           FROM monitorinfo.blockinglocks;
 
     ^blockedlocks->expanded := SELECT AS STRING ARRAY rowkey FROM monitorinfo.blockinglocks;
+  }
+
+  MACRO GotLockSelect()
+  {
+    RECORD show :=  ^blockedlocks->selection ?? [ query := "", debuginfotrace := RECORD[] ];
+    ^query->value := FormatQuery(show.query);
+    ^trace->rows := show.debuginfotrace;
+    ^trace->empty := RecordExists(^blockedlocks->selection)
+        ? this->GetTid(".notraceavailable")
+        : this->GetTid(".notransactionselected");
+  }
+
+  MACRO DoOpenTraceRow()
+  {
+    this->RunScreen("processlist.xml#codeview",
+        [ rows :=   ^trace->rows
+        , value :=  ^trace->value
+        ]);
+  }
+
+  MACRO DoOpenInEditor()
+  {
+    RECORD sel := ^trace->selection;
+    this->contexts->controller->ExecuteClientCall("OpenInEditor", sel.filename, [ line := sel.line, col := sel.col ]);
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
+< OBJECT trans;
+  OBJECT analyzer;
+
+  MACRO Init()
+  {
+    this->trans := GetPrimaryWebhareTransactionObject();
+    this->analyzer := NEW PostgreSQLBlobAnalyzer(this->trans);
+    RegisterEventCallback("system:postgresql.blobmanifest",  PTR this->GotBlobManifestChange);
+
+    this->RefreshBlobManifest();
+  }
+
+  MACRO GotBlobManifestChange(STRING event, RECORD data)
+  {
+    this->RefreshBlobManifest();
+  }
+
+  MACRO RefreshBlobManifest()
+  {
+    RECORD manifest := this->analyzer->ReadBlobManifest();
+    ^unreferencedblobs->value := SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced;
+    ^unreferencednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date))) FROM manifest.unreferenced;
+    ^unlinkedblobparts->value := SELECT AS INTEGER SUM(LENGTH(blobpartids)) FROM manifest.unlinked;
+    ^unlinkednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date))) FROM manifest.unlinked;
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    RECORD cleanuptask :=
+        SELECT currentstart
+             , nexttime
+             , enabled
+          FROM system_internal.tasks
+         WHERE tag = "system.cleanpostgresqlblobs";
+
+    ^cleanupstatus->value := RecordExists(cleanuptask)
+        ? cleanuptask.currentstart = DEFAULT DATETIME
+              ? cleanuptask.enabled
+                   ? this->GetTid(".cleanup-scheduled", this->contexts->user->FormatDateTime(cleanuptask.nexttime, "minutes", TRUE, TRUE))
+                   : this->GetTid(".cleanup-disabled")
+              : this->GetTid(".cleanup-running")
+        : this->GetTid(".cleanup-notfound");
+    ^schedulecleanup->enabled := RecordExists(cleanuptask) AND cleanuptask.currentstart = DEFAULT DATETIME;
+  }
+
+  MACRO DoScheduleCleanup()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE tag = "system.cleanpostgresqlblobs";
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    work->Finish();
+    this->RefreshDashboardPanel();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase
+< OBJECT trans;
+  OBJECT analyzer;
+
+  MACRO Init()
+  {
+    this->trans := GetPrimaryWebhareTransactionObject();
+
+    this->RefreshConfig();
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 0;
+  }
+
+  MACRO GotConfigChange(STRING event, RECORD data)
+  {
+    this->RefreshConfig();
+  }
+
+  MACRO RefreshConfig()
+  {
+    RECORD debugconfig := GetDatabaseRuntimeConfig();
+    ^readonly->value := debugconfig.readonly;
+    ^logstacktraces->value := debugconfig.logstacktraces > 0;
+  }
+
+  MACRO GotBlobManifestChange(STRING event, RECORD data)
+  {
+    this->RefreshBlobManifest();
+  }
+
+  MACRO RefreshBlobManifest()
+  {
+    RECORD manifest := this->analyzer->ReadBlobManifest();
+    ^unreferencedblobs->value := SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced;
+    ^unreferencednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date))) FROM manifest.unreferenced;
+    ^unlinkedblobparts->value := SELECT AS INTEGER SUM(LENGTH(blobpartids)) FROM manifest.unlinked;
+    ^unlinkednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date))) FROM manifest.unlinked;
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
   }
 
   MACRO GotLogStackTracesChange()
@@ -75,3 +251,4 @@ PUBLIC OBJECTTYPE PostgreSQL EXTEND DashboardPanelBase
     }
   }
 >;
+

@@ -2,18 +2,33 @@
          lib="screens/monitor/postgresql.whlib"
          gid="monitor">
 
-  <screen name="postgresql" gid=".postgresql" title="">
+  <screen name="postgresqltransactions" gid=".postgresql" title="">
 
     <actions>
+      <action name="opentracerow" onexecute="DoOpenTraceRow" tid="~open">
+        <enableon source="trace" min="1" />
+      </action>
+      <action name="openineditor" onexecute="doopenineditor" tid="~openineditor">
+        <enableon source="trace" min="1" />
+      </action>
     </actions>
 
+    <menus>
+      <menu name="tracecontextmenu">
+        <item action="opentracerow" />
+        <item action="openineditor" />
+      </menu>
+    </menus>
+
     <body height="1pr">
-      <tabs name="tabs" height="1pr">
-        <tab name="transactionstab" spacers="top left right">
+      <split type="vertical">
+        <part height="2pr">
           <list name="transactions"
                 highlightname="isself"
                 selectmode="single"
                 sortcolumn="backend_start"
+                borders="none"
+                onselect="GotTransactionSelect"
                 >
             <column name="application_name" type="text" />
             <column name="pid" type="integer" width="14x" />
@@ -24,11 +39,67 @@
             <column name="query" type="text" />
             <column name="debuginfo" type="text" hintname="debuginfohint" />
           </list>
-        </tab>
-        <tab name="lockstab" spacers="top left right">
+        </part>
+        <part height="1pr" name="debuginfo">
+          <split type="horizontal">
+            <part width='1pr'>
+              <panel spacers="left">
+                <heading tid=".query" />
+              </panel>
+              <panel borders="top" height="1pr">
+                <codeedit height="1pr" name="query" enabled="false" />
+              </panel>
+            </part>
+            <part width="2pr">
+              <panel spacers="left">
+                <heading tid=".trace" />
+              </panel>
+              <list name="trace"
+                    height="1pr"
+                    borders="top"
+                    openaction="opentracerow"
+                    selectcontextmenu="tracecontextmenu"
+                    selectmode="single"
+                    sortable="false"
+                    >
+                <column name="filename" type="text" />
+                <column name="line" type="integer" width="6x" />
+                <column name="col" type="integer" width="6x" />
+                <column name="func" type="text" />
+              </list>
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="postgresqllocks" gid=".postgresql" title="">
+
+    <actions>
+      <action name="opentracerow" onexecute="DoOpenTraceRow" tid="~open">
+        <enableon source="trace" min="1" />
+      </action>
+      <action name="openineditor" onexecute="doopenineditor" tid="~openineditor">
+        <enableon source="trace" min="1" />
+      </action>
+    </actions>
+
+    <menus>
+      <menu name="tracecontextmenu">
+        <item action="opentracerow" />
+        <item action="openineditor" />
+      </menu>
+    </menus>
+
+    <body height="1pr">
+      <split type="vertical">
+        <part height="2pr">
           <list name="blockedlocks"
                 selectmode="single"
                 sortcolumn="backend_start"
+                borders="none"
+                onselect="GotLockSelect"
                 >
             <column name="application_name" type="text" tree="true" />
             <column name="pid" type="integer" width="14x" />
@@ -40,8 +111,67 @@
             <column name="tables" type="text" />
             <column name="debuginfo" type="text" hintname="debuginfohint" />
           </list>
-        </tab>
-      </tabs>
+        </part>
+        <part height="1pr" name="debuginfo">
+          <split type="horizontal">
+            <part width='1pr'>
+              <panel spacers="left">
+                <heading tid=".query" />
+              </panel>
+              <panel borders="top" height="1pr">
+                <codeedit height="1pr" name="query" enabled="false" />
+              </panel>
+            </part>
+            <part width="2pr">
+              <panel spacers="left">
+                <heading tid=".trace" />
+              </panel>
+              <list name="trace"
+                    height="1pr"
+                    borders="top"
+                    openaction="opentracerow"
+                    selectcontextmenu="tracecontextmenu"
+                    selectmode="single"
+                    sortable="false"
+                    >
+                <column name="filename" type="text" />
+                <column name="line" type="integer" width="6x" />
+                <column name="col" type="integer" width="6x" />
+                <column name="func" type="text" />
+              </list>
+            </part>
+          </split>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+  <screen name="postgresqlblobcleanup" gid=".postgresql" title="">
+
+    <actions>
+      <action name="schedulecleanup" onexecute="DoScheduleCleanup" />
+    </actions>
+
+    <body height="1pr" spacers="all">
+      <panel spacers="all">
+        <heading tid=".unreferencedblobsheading" />
+        <textedit name="unreferencedblobs" readonly="true" valuetype="integer" />
+        <datetime name="unreferencednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+        <heading tid=".unlinkedblobsheading" />
+        <textedit name="unlinkedblobparts" readonly="true" valuetype="integer" />
+        <datetime name="unlinkednextremoval" type="datetime" precision="seconds" readonly="true" storeutc="true" />
+        <heading tid=".blobcleanup" />
+        <text name="cleanupstatus" readonly="true" />
+        <line layout="left">
+          <button action="schedulecleanup" />
+        </line>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="postgresqlsettings" gid=".postgresql" title="">
+
+    <body height="1pr">
       <panel spacers="all">
         <heading tid="~settings" />
         <checkbox name="readonly" title="" labeltid=".readonly" enabled="false"/>
