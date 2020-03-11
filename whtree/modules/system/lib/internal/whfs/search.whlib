@@ -97,6 +97,9 @@ PUBLIC RECORD ARRAY FUNCTION FindWHFSObjectReferences(RECORD searchoptions)
 
 
 /** Schedules the result of a %FindWHFSObjectReferences for publication
+    @topic sitedev/whfs
+    @public
+    @loadlib mod::system/lib/whfs.whlib
     @param references References as returned by FindWHFSObjectReferences */
 PUBLIC MACRO RepublishWHFSObjectReferences(RECORD ARRAY references)
 {
