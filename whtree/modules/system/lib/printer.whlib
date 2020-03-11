@@ -89,19 +89,10 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
       , log :=          DEFAULT RECORD ARRAY
       ];
 
-  //IF (withalpha)
-  //{
-  //  RECORD rec := CalculateTransparencyFromImages(response.black, response.white);
-  //  finalimage := rec.canvas;
-  //  retval.screenshot := rec.data;
-  //}
-  //ELSE
-  {
-    finalimage := CreateCanvasFromBlob(response.screenshot.data);
-    IF(NOT ObjectExists(finalimage))
-      THROW NEW Exception("Unable to open final image " );
-    retval.screenshot := response.screenshot;
-  }
+  finalimage := CreateCanvasFromBlob(response.screenshot.data);
+  IF(NOT ObjectExists(finalimage))
+    THROW NEW Exception("Unable to open final image");
+  retval.screenshot := response.screenshot;
 
   IF (Length(options.cutouts) > 0)
   {
@@ -231,15 +222,6 @@ PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO
   OBJECT pdfgen := NEW ChromePDFAPI();
   BLOB pdfdata := WaitForPromise( pdfgen->GeneratePDFFromURL(link, [ media := options.media ]) );
   RETURN WrapBlob(pdfdata, options.filename);
-}
-
-PUBLIC MACRO SendGeneratedPDF(OBJECT filereceiver, RECORD data, RECORD options DEFAULTSTO CELL[]) __ATTRIBUTES__(DEPRECATED "This function will be be removed. Just use filereceiver->SendWrappeDFile(GeneratePDF(...")
-{
-  IF (filereceiver NOT EXTENDSFROM TolliumAsyncDownloadBase AND filereceiver NOT EXTENDSFROM TolliumAsyncWindowOpenBase)
-   THROW NEW Exception("SendGeneratedPDF requires filereceiver to be a download or windowopen handler");
-
-  RECORD result := GeneratePDF(data,options);
-  filereceiver->SendFile(result.data, result.mimetype, result.filename);
 }
 
 // https://pdfbox.apache.org/2.0/commandline.html
