@@ -6,6 +6,7 @@
     </div>
     <script type="text/javascript">
       console.log("test message");
+      new Promise( (resolve,reject) => reject("Test uncaught promise rejection"));
       var a = {};
       a.boem();
     </script>
