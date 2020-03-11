@@ -171,7 +171,7 @@ PUBLIC RECORD FUNCTION FormatChromeExceptionEntry(RECORD event)
 
   RECORD exinfo := EnforceStructure([ description := "", value := "" ], event.exceptiondetails."exception");
   RETURN [ level := "exception"
-         , message := exinfo.description ?? exinfo.value //uncauhgt promise rejections seem to use value, not description
+         , message := exinfo.description ?? exinfo.value //uncaught promise rejections seem to use value, not description
          , timestamp := MakeDatetimeFromUnixTimestamp(MONEY(event.timestamp / 1000))
          ];
 }
