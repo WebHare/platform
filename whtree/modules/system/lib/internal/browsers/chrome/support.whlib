@@ -165,8 +165,13 @@ PUBLIC RECORD FUNCTION FormatChromeConsoleEntry(RECORD event)
 
 PUBLIC RECORD FUNCTION FormatChromeExceptionEntry(RECORD event)
 {
+  event := EnforceStructure([ timestamp := 0i64
+                            , exceptiondetails := [ "exception" := DEFAULT RECORD ]
+                            ], event);
+
+  RECORD exinfo := EnforceStructure([ description := "", value := "" ], event.exceptiondetails."exception");
   RETURN [ level := "exception"
-         , message := event.exceptiondetails."exception".description //FIXME nicer info
+         , message := exinfo.description ?? exinfo.value //uncauhgt promise rejections seem to use value, not description
          , timestamp := MakeDatetimeFromUnixTimestamp(MONEY(event.timestamp / 1000))
          ];
 }
