@@ -1,0 +1,34 @@
+<?wh
+// command: wrd:deleteschema <schema>
+// short: Deletes the requested schema
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+MACRO Main()
+{
+  RECORD ARRAY options := [ [ name := "schemaname", type := "param", required := TRUE ]
+                          ];
+
+  RECORD cmdargs := ParseArguments(GetConsoleArguments(), options);
+  IF(NOT RecordExists(cmdargs))
+  {
+    Print("Syntax: wh wrd:deleteschema <schemaname>\n");
+    TerminateScriptWithError("");
+  }
+
+  OBJECT targetschema := OpenWRDSchema(cmdargs.schemaname);
+  IF(NOT ObjectExists(targetschema))
+    TerminateScriptWithError(`No such wrd schema '${cmdargs.schemaname}`);
+
+  GetPrimary()->BeginWork();
+  targetschema->DeleteSelf();
+  GetPrimary()->CommitWork();
+}
+
+OpenPrimary();
+Main();
