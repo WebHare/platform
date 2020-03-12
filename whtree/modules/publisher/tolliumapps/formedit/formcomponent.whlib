@@ -168,6 +168,7 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
     ^requiredcondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "requiredconditionid");
     ^enabledcondition->visible := "noenabled" NOT IN this->compdef.editdefaults;
     ^enabledcondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "enabledconditionid");
+    ^visiblecondition->visible := "novisible" NOT IN this->compdef.editdefaults;
     ^visiblecondition->value := this->contexts->formcomponentapi->GetConditionAttribute(this->node, "visibleconditionid");
 
     ^comment->value := this->node->GetAttribute("comment");
