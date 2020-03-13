@@ -40,9 +40,11 @@
                 openaction="viewtype"
                 minwidth="30x"
                 width="1pr" height="1pr"
+                sortcolumn="namespace"
                 borders="right top">
-            <column name="namespace" type="text" iconname="typeicon" />
             <column name="id" type="integer" width="8x" tid="~id" />
+            <column name="namespace" type="text" iconname="typeicon" />
+            <column name="orphansince" type="datetime" storeutc="true" align="right" width="17x"/>
           </list>
         </cell>
         <cell spacers="left top right">
@@ -77,12 +79,14 @@
                 ongetpath="ongetpath"
                 ongetchildren="ongetchildren"
                 selectcontextmenu="context_menu"
+                sortcolumn="name"
                 icons="tollium:status/negative tollium:status/checked"
                 minwidth="30x"
                 width="1pr" height="1pr">
+            <column name="rowkey" type="integer" width="8x" tid="~id" />
             <column name="name" type="text" tree="true" />
             <column name="typename" type="text" />
-            <column name="rowkey" type="integer" width="8x" tid="~id" />
+            <column name="orphansince" type="datetime" storeutc="true" align="right" width="17x"/>
           </list>
         </cell>
         <cell>

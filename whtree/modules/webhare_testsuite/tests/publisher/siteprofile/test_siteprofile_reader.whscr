@@ -175,22 +175,6 @@ MACRO GlobalDataTester()
   TestEq(TRUE, LookupContentTypeByName("http://www.webhare.net/xmlns/beta/dynfolder").id IN GetDynamicExecuteFolderTypes());
 
   TestEQ(FALSE, 4 IN GetDynamicExecuteFolderTypes()); //word doc
-
-  RECORD ARRAY allcontenttypes := ListFSContentTypes();
-  TestEqStructure([[ id := 0, namespace := "", candelete := FALSE, isfoldertype := FALSE, tolliumicon := ""]], allcontenttypes);
-  TestEQ(FALSE, RecordExists(SELECT FROM allcontenttypes WHERE id=0));
-  TestEQ([id := 4
-         , candelete := FALSE
-         , isfoldertype := FALSE
-         , tolliumicon := "tollium:files/application_msword"
-         , namespace := "http://www.webhare.net/xmlns/publisher/mswordfile"
-         ], RECORD(SELECT * FROM allcontenttypes WHERE id=4));
-
-  RECORD ARRAY limitedcontenttypes := ListFSContentTypes([ mask := "*msword*"]);
-  TestEQ(TRUE, LengtH(limitedcontenttypes) < Length(allcontenttypes));
-  TestEq(TRUE, RecordExists(SELECT FROM limitedcontenttypes WHERE id=4));
-
-  //FIXME test one with 'candelete TRUE'. see our earlier orphan ADDME
 }
 
 MACRO TestMailTemplates()

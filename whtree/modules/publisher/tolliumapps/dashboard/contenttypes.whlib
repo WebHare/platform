@@ -1,12 +1,43 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+BOOLEAN FUNCTION IsReferenced(INTEGER typid)
+{
+  RETURN RecordExists(SELECT FROM system.fs_objects AS objects WHERE type = typid LIMIT 1);
+}
+
+///list the contenttypes known in system.fs_types
+RECORD ARRAY FUNCTION ListFSContentTypes(STRING mask)
+{
+  RECORD ARRAY contenttypes :=
+    SELECT id
+         , namespace
+         , candelete := orphan //AND NOT this->IsReferenced(namespace)
+         , isfoldertype
+         , orphansince
+      FROM system_internal.fs_types
+     WHERE (VAR mask != "*" ? ToUppercase(namespace) LIKE ToUppercase(mask) : TRUE);
+
+  RECORD ARRAY iconinfo := SELECT id
+                                , tolliumicon := RecordExists(filetype) ? filetype.tolliumicon : foldertype.tolliumicon
+                             FROM GetCachedSiteProfiles().contenttypes
+                            WHERE RecordExists(filetype) OR RecordExists(foldertype);
+
+  contenttypes := JoinArrays(contenttypes, "id", iconinfo, [ tolliumicon := "" ], [ rightouterjoin := TRUE ]);
+
+  UPDATE contenttypes SET candelete := FALSE WHERE candelete = TRUE AND IsReferenced(id);
+  RETURN contenttypes;
+}
 
 PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 <
@@ -39,12 +70,12 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   {
     //Gather our information..
     STRING mask := ^filter->value != "" ? Substitute("*" || Substitute(TrimWhitespace(NormalizeWhitespace(^filter->value)), " ", "*") || "*", "**", "*") : "*";
-    RECORD ARRAY contenttypes := ListFSContentTypes([ mask := mask ]);
+    RECORD ARRAY contenttypes := ListFSContentTypes(mask);
     ^types->rows := SELECT *
-                              , rowkey := id
-                              , listrowclasses:= candelete ? ["grayedout"] : STRING[]
-                              , typeicon := tolliumicon != "" ? ^types->GetIcon(tolliumicon) : 0
-                           FROM contenttypes;
+                         , rowkey := id
+                         , listrowclasses:= candelete ? ["grayedout"] : STRING[]
+                         , typeicon := tolliumicon != "" ? ^types->GetIcon(tolliumicon) : 0
+                      FROM contenttypes;
   }
 
   MACRO GotFilterChange()
@@ -102,7 +133,8 @@ PUBLIC STATIC OBJECTTYPE CTypeMembers EXTEND TolliumScreenBase
                                       , publish
                                       , candelete := orphan
                                       , expanded := FALSE
-                                   FROM system.fs_members
+                                      , orphansince
+                                   FROM system_internal.fs_members
                                   WHERE fs_type = ctypeid
                                         AND fs_members.parent = parentid
                                ORDER BY ToUpperCase(name);
