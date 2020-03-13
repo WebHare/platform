@@ -27,8 +27,18 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
         AND this->targetfolder->typens = "http://www.webhare.net/xmlns/tollium/manual")
       INSERT "wh-tollium--manual" INTO this->htmlclasses AT END;
 
-    RETURN [ favicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon.ico")
-           ];
+    RETURN
+        [ favicon :=
+          [ touchicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/apple-touch-icon.png")
+          , icon32 := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/favicon-32x32.png")
+          , icon16 := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/favicon-16x16.png")
+          , maskicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/safari-pinned-tab.svg")
+          , webmanifest := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/site.webmanifest")
+          , browserconfig := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/browserconfig.xml")
+          , iconcolor := "#3091dd"
+          , themecolor := "#4a4a4a"
+          ]
+        ];
   }
 
   UPDATE PUBLIC MACRO PrepareErrorPage(INTEGER errorcode, RECORD harescriptinfo, STRING url)

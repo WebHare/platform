@@ -33,7 +33,16 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
          WHERE filename LIKE "mod::*";
 
     webdesign->pagetitle := "HareScript error";
-    webdesign->pageconfig.favicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/harescripterror.png");
+    webdesign->pageconfig.favicon :=
+        [ touchicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/apple-touch-icon.png")
+        , icon32 := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/favicon-32x32.png")
+        , icon16 := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/favicon-16x16.png")
+        , maskicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/safari-pinned-tab.svg")
+        , webmanifest := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/site.webmanifest")
+        , browserconfig := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/erroricon/browserconfig.xml")
+        , iconcolor := "#e40015"
+        , themecolor := "#4a4a4a"
+        ];
     webdesign->__additionalresources := webdesign->__additionalresources CONCAT resources;
   }
 
