@@ -1273,7 +1273,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(NOT ObjectExists(inputfile))
       RETURN DEFAULT MACRO PTR;
 
-    RETURN PTR this->GetRTDBody(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
+    RETURN this->GetRTDBody(inputfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data, options);
   }
 
   /** @private obsolete, use OpenRTD */
