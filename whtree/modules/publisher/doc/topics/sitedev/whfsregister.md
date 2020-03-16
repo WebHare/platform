@@ -36,5 +36,5 @@ INTEGER newsfolder := LookupInWHFSRegister("mysupersite:news");
 
 ## Fallback value
 The `<registerslot>` can specify a 'fallback' which will be returned if the slot is unset and can't find its initial value. If the fallback value exists and is returned
-it will not be 'set' as the value for the slot so the registerslot won't follow the file if its moved. Fallback values are mostly useful for tests to specify an alternative
+it will not be 'set' as the value for the slot so the registerslot won't follow the file if it's moved. Fallback values are mostly useful for tests to specify an alternative
 testing version of a register slot
