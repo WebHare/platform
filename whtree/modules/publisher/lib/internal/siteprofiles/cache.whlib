@@ -168,32 +168,3 @@ PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
            FROM GetCachedSiteProfiles().contenttypes
           WHERE RecordExists(foldertype) AND RecordExists(foldertype.dynamicexecution);
 }
-
-BOOLEAN FUNCTION IsReferenced(INTEGER typid)
-{
-  RETURN RecordExists(SELECT FROM system.fs_objects AS objects WHERE type = typid LIMIT 1);
-}
-
-///list the contenttypes known in system.fs_types
-PUBLIC RECORD ARRAY FUNCTION ListFSContentTypes(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ mask := "*" ],options);
-
-  RECORD ARRAY contenttypes :=
-    SELECT id
-         , namespace
-         , candelete := orphan //AND NOT this->IsReferenced(namespace)
-         , isfoldertype
-      FROM system.fs_types
-     WHERE (options.mask != "*" ? ToUppercase(namespace) LIKE ToUppercase(options.mask) : TRUE);
-
-  RECORD ARRAY iconinfo := SELECT id
-                                , tolliumicon := RecordExists(filetype) ? filetype.tolliumicon : foldertype.tolliumicon
-                             FROM GetCachedSiteProfiles().contenttypes
-                            WHERE RecordExists(filetype) OR RecordExists(foldertype);
-
-  contenttypes := JoinArrays(contenttypes, "id", iconinfo, [ tolliumicon := "" ], [ rightouterjoin := TRUE ]);
-
-  UPDATE contenttypes SET candelete := FALSE WHERE candelete = TRUE AND IsReferenced(id);
-  RETURN contenttypes;
-}

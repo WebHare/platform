@@ -249,6 +249,7 @@ PUBLIC SCHEMA
     , STRING "previewlibrary"
     , STRING "previewobjectname"
     , STRING "searchprovider"
+    , DATETIME "orphansince"
     ; KEY id
     > fs_types
   , TABLE
@@ -259,6 +260,7 @@ PUBLIC SCHEMA
     , BOOLEAN "publish"
     , BOOLEAN "orphan"
     , INTEGER "parent" NULL := 0
+    , DATETIME "orphansince"
     ; KEY id
     > fs_members
   , TABLE

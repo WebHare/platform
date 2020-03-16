@@ -1299,6 +1299,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           (which means this member was kept in the database because there still were instances/files using this member, but the member isn't returned by instancedata API's such as GetInstanceData or whfstype-&gt;Enrich anymore. When the member exists again (not an orphan anymore) the data formally set in these orphan members becomes accessable again.)
         </d:documentation>
       </d:boolean>
+      <d:datetime name="orphansince">
+        <d:documentation>
+          Since when is this field orphaned
+        </d:documentation>
+      </d:datetime>
       <d:boolean name="publish">
         <d:documentation>
           Whether the content of this member can retrieved through the publisher.
@@ -1678,6 +1683,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           (the contenttype is preserved in the database when there still are fs_objects or member of type 'instance' using this contenttype).
         </d:documentation>
       </d:boolean>
+      <d:datetime name="orphansince">
+        <d:documentation>
+          Since when is this type orphaned
+        </d:documentation>
+      </d:datetime>
       <d:varchar name="searchprovider" maxlength="256">
         <d:documentation>
           The library#object used to create the publisher search body contents for this type

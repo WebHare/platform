@@ -2220,6 +2220,7 @@
         <text tid="namespace">Namespace</text>
         <text tid="noctypes">No content types have been defined</text>
         <text tid="nomembers">This content type has no members</text>
+        <text tid="orphansince">Orphan since</text>
         <text tid="panel">Content types</text>
         <text tid="recompile">Recompile</text>
         <text tid="siteprofile">Site profile</text>

@@ -16,6 +16,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
@@ -76,10 +77,10 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   MACRO NEW()
   {
     this->current_fs_types := SELECT *
-                                FROM system.fs_types
+                                FROM system_internal.fs_types
                             ORDER BY namespace;
     this->current_fs_members := SELECT *
-                                  FROM system.fs_members
+                                  FROM system_internal.fs_members
                               ORDER BY fs_type;
 
     this->result := [ errors               := RECORD[]
@@ -458,24 +459,58 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   {
     // Only hit the DB for records we need to change
     INTEGER ARRAY seen_content_type_ids := SELECT AS INTEGER ARRAY id FROM this->result.contenttypes ORDER BY id;
-    INTEGER ARRAY change_orphan_types :=
+    INTEGER ARRAY set_orphan_types :=
         SELECT AS INTEGER ARRAY id
           FROM this->current_fs_types
-         WHERE NOT orphan AND NOT LowerBound(seen_content_type_ids, id).found;
+         WHERE (orphan = FALSE OR orphansince = DEFAULT DATETIME) AND NOT LowerBound(seen_content_type_ids, id).found;
+
+    INTEGER ARRAY clear_orphan_types :=
+        SELECT AS INTEGER ARRAY id
+          FROM this->current_fs_types
+         WHERE orphan = TRUE AND LowerBound(seen_content_type_ids, id).found;
 
     INTEGER ARRAY seen_member_ids := GetSortedSet(this->seen_members);
-    INTEGER ARRAY change_orphan_members :=
+    INTEGER ARRAY set_orphan_members :=
         SELECT AS INTEGER ARRAY id
           FROM this->current_fs_members
-         WHERE orphan = LowerBound(seen_member_ids, id).found;
+         WHERE (orphan = FALSE OR orphansince = DEFAULT DATETIME) AND NOT LowerBound(seen_member_ids, id).found;
+    INTEGER ARRAY clear_orphan_members :=
+        SELECT AS INTEGER ARRAY id
+          FROM this->current_fs_members
+         WHERE orphan = TRUE AND LowerBound(seen_member_ids, id).found;
 
-    UPDATE system.fs_types
-       SET orphan := NOT orphan
-     WHERE id IN change_orphan_types;
+    DATETIME now := GetCurrentDateTime();
+    IF(Length(set_orphan_types) > 0)
+    {
+      UPDATE system_internal.fs_types
+         SET orphan := TRUE
+           , orphansince := now
+       WHERE id IN set_orphan_types;
+    }
 
-    UPDATE system.fs_members
-       SET orphan := NOT orphan
-     WHERE id IN change_orphan_members;
+    IF(Length(clear_orphan_types) > 0)
+    {
+      UPDATE system_internal.fs_types
+          SET orphan := FALSE
+            , orphansince := DEFAULT DATETIME
+        WHERE id IN clear_orphan_types;
+    }
+
+    IF(Length(set_orphan_members) > 0)
+    {
+      UPDATE system_internal.fs_members
+         SET orphan := TRUE
+           , orphansince := now
+       WHERE id IN set_orphan_members;
+    }
+
+    IF(Length(clear_orphan_members) > 0)
+    {
+      UPDATE system_internal.fs_members
+         SET orphan := FALSE
+           , orphansince := DEFAULT DATETIME
+       WHERE id IN clear_orphan_members;
+    }
   }
 
   PUBLIC RECORD FUNCTION ApplyStandardPostProcessing(RECORD compileresult)

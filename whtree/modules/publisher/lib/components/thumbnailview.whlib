@@ -377,7 +377,7 @@ PUBLIC OBJECTTYPE ThumbnailView EXTEND FSContentsOverviewBase
   MACRO SetAcceptTypes(STRING ARRAY types)
   {
     this->accepttypedefs := types;
-    this->accepttypeids := SELECT AS INTEGER ARRAY id FROM ListFSContentTypes() WHERE namespace IN types;
+    this->accepttypeids := SELECT AS INTEGER ARRAY id FROM system.fs_types WHERE namespace IN types;
 
     // Use the invalid typeid -1 if only invalid types were set, so nothing matches
     IF (Length(types) > 0 AND Length(this->accepttypeids) = 0)

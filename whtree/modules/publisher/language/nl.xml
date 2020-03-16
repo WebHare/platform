@@ -2220,6 +2220,7 @@
         <text tid="namespace">Namespace</text>
         <text tid="noctypes">Er zijn geen contenttypes gedefinieerd</text>
         <text tid="nomembers">Dit contenttype heeft geen elementen</text>
+        <text tid="orphansince">Verweesd sinds</text>
         <text tid="panel">Contenttypes</text>
         <text tid="recompile">Hercompileren</text>
         <text tid="siteprofile">Siteprofiel</text>
