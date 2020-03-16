@@ -1668,6 +1668,7 @@
             <xs:attribute name="description" />
             <xs:attribute name="descriptiontid" type="SimpleTid" />
             <xs:attribute name="initialvalue" />
+            <xs:attribute name="fallback" />
             <xs:attribute name="type" use="required">
               <xs:annotation>
                 <xs:documentation>

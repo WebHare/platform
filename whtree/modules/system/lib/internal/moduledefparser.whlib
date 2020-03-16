@@ -579,6 +579,7 @@ PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT modd
              , title :=        ParseXMLTidPtr(modulename, "", slot, "title")
              , description :=  ParseXMLTidPtr(modulename, "", slot, "description")
              , initialvalue := slot->GetAttribute("initialvalue")
+             , fallback :=     slot->GetAttribute("fallback")
              , type :=         slot->GetAttribute("type")
              ] INTO slots AT END;
     }

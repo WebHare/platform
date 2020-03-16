@@ -84,18 +84,25 @@ INTEGER FUNCTION TryAddWHFSRegister(RECORD slot, INTEGER for_deleted_file)
   }
 
   STRING aboutslot := `WHFS register slot '${slot.module}:${slot.name}' ${for_deleted_file != 0 ? ` refers to deleted object #${for_deleted_file}` : `has not been set`}`;
-  IF(modinfo.initialvalue = "")
-  {
-    GetPrimary()->CommitWork(); //don't waste the work so far
-    THROW NEW Exception(`${aboutslot} and has no initial value`);
-  }
+  INTEGER target;
+  IF(modinfo.initialvalue != "")
+    target := LookupWHFSObject(0, modinfo.initialvalue);
 
-  //Look it up
-  INTEGER target := LookupWHFSObject(0, modinfo.initialvalue);
   IF(target <= 0)//-1 is not found, 0 is root, both are unacceptable destinations
   {
-    GetPrimary()->CommitWork(); //don't waste the work so far
-    THROW NEW Exception(`${aboutslot} and its initial value '${modinfo.initialvalue}' could not be located`);
+    GetPrimary()->CommitWork(); //don't waste the work (EnsureSlotFile) so far
+
+    IF(modinfo.fallback != "") //if the fallback is available, return but don't record it
+    {
+      target := LookupWHFSObject(0, modinfo.fallback);
+      IF(target > 0)
+        RETURN target;
+    }
+
+    IF(modinfo.initialvalue = "")
+      THROW NEW Exception(`${aboutslot} and has no initial value`);
+    ELSE
+      THROW NEW Exception(`${aboutslot} and its initial value '${modinfo.initialvalue}' could not be located`);
   }
 
   //Store it
