@@ -77,6 +77,7 @@ ASYNC MACRO CreateUsingTemplates()
   created := GetTestsuiteTempFolder()->OpenByName("index.rtd");
   testfw->BeginWork();
   created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", [ anyfield := "TestDuplication" ]);
+  created->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", [ idfield := "Unique identifier" ]);
   testfw->CommitWork();
   TestEq(TRUE, ObjectExists(created));
   TestEq(TRUE, created->publish); //marked as 'publish'
@@ -102,6 +103,8 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
   TestEq("index-1.rtd", TT("name")->value);
   TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "anyfield")->value);
+  // The 'nocopyprops' properties (having cloneoncopy set to false) should not have been copied
+  TestEq("", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", "idfield")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   created := GetTestsuiteTempFolder()->OpenByName("index-1.rtd");
