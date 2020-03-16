@@ -200,6 +200,23 @@
     <extendproperties contenttype="http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" extension="#basetestprops" />
   </apply>
 
+  <!-- Content type that isn't copied -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" cloneoncopy="false">
+    <member name="idfield" type="string" />
+  </contenttype>
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+                 name="nocopyprops"
+                 implementation="none">
+    <newtab title="BaseTestProps">
+      <textedit composition="contentdata" cellname="idfield" title="idfield" />
+    </newtab>
+  </tabsextension>
+
+  <apply>
+    <to type="all" />
+    <extendproperties contenttype="http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" extension="#nocopyprops" />
+  </apply>
+
   <!-- Capture subpath tests -->
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent" />
 

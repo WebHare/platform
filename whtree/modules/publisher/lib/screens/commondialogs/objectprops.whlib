@@ -1373,7 +1373,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
       STRING compname := "contentdata";
       TRY
       {
-        IF (ObjectExists(extendprop.instance))
+        // Read current contenttype from (source)file or use default (in case of a new file)
+        // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
+        IF (ObjectExists(extendprop.instance) AND (NOT this->isduplicate OR extendprop.instance->type->cloneoncopy))
           extendprop.instance->ReadInstanceFromFSObject();
 
         FOREVERY(OBJECT comp FROM extendprop.compositions)
@@ -1400,8 +1402,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
               olddata := DEFAULT RECORD;
           }
 
-          // Read defaults for this type
-          comp->ReadInstanceFromFSObject();
+          // Read current contenttype from (source)file or use default (in case of a new file)
+          // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
+          IF (NOT this->isduplicate OR comp->type->cloneoncopy)
+            comp->ReadInstanceFromFSObject();
 
           IF (RecordExists(olddata))
           {
