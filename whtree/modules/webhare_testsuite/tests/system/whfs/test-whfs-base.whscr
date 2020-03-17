@@ -171,7 +171,7 @@ MACRO WrappedTest()
   testfw->BeginWork();
 
   OBJECT testfolderobj := testfw->GetWHFSTestRoot();
-  RECORD goudvisfile := WrapBlob(GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png"), "goudvis-name.png");
+  RECORD goudvisfile := WrapBlob(GetWebhareResource("mod::system/web/tests/goudvis.png"), "goudvis-name.png");
 
   /* You *must* specify name explicitly, we're not going to take 'filename' from wrapped as that will be very confusing in
      an UpdateMetadata call: if you give it a 'wrapped' with a different filename and don't explicitly set a name := to UpdateMetadata,

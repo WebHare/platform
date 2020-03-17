@@ -64,7 +64,7 @@ PUBLIC MACRO FillInForm()
                                   , link := "data:text/plain,someBODY"
                                   ]
                       , imgedit := [ filename := "goudvis.png"
-                                   , link := GetDataUrl(GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png"), "image/png")
+                                   , link := GetDataUrl(GetWebhareResource("mod::system/web/tests/goudvis.png"), "image/png")
                                    ]
                       , date := "2017-06-22"
                       , checkboxes := ["copt1","copt3"]

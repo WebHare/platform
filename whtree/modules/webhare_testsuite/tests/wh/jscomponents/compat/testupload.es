@@ -140,8 +140,8 @@ test.registerTests(
   , { name: 'testSelectAndUpload'
     , test: async function(doc, win)
       {
-        prepareUploadTest($t('myinput'),[ { url: '/tollium_todd.res/webhare_testsuite/designfiles/net/upload/header-logo.png'
-                                             , filename: 'header-logo.png'
+        prepareUploadTest($t('myinput'),[ { url: '/tests/webhare.png'
+                                             , filename: 'webhare.png'
                                              } ]);
 
         let uploadfiles = await compatupload.selectFiles();
@@ -161,8 +161,8 @@ test.registerTests(
         testEq([ 'loadstart', 'loadend' ], requestresult.events);
 
         testEq(1, files.length);
-        testEq('header-logo.png', files[0].name);
-        testEq(4157, files[0].size);
+        testEq('webhare.png', files[0].name);
+        testEq(4355, files[0].size);
         testEq('image/png', files[0].type);
       }
     }

@@ -104,8 +104,8 @@ PUBLIC RECORD ARRAY restructuringtests :=
 
     , [ structure :=      pages_rte_test_structure
       , title :=          "Softenters, images at root level"
-      , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" />`
-      , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></p>`
+      , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/tests/webhare.png" />`
+      , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></p>`
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Links with hash urls"
@@ -114,13 +114,13 @@ PUBLIC RECORD ARRAY restructuringtests :=
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image"
-      , input :=          `<p><a href="http://nu.nl/" target="_blank"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" /></a></p>`
-      , expect :=         `<p class="normal"><a href="http://nu.nl/" target="_blank"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" /></a></p>`
+      , input :=          `<p><a href="http://nu.nl/" target="_blank"><img alt="test" height="50" width="50" src="/tests/webhare.png" /></a></p>`
+      , expect :=         `<p class="normal"><a href="http://nu.nl/" target="_blank"><img alt="test" class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></a></p>`
       ]
     , [ structure :=      pages_rte_test_structure
       , title :=          "Link with image and text"
-      , input :=          `<p><a href="http://nu.nl/"><img alt="test" height="50" width="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" />x</a></p>`
-      , expect :=         `<p class="normal"><a href="http://nu.nl/"><img alt="test" class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" />x</a></p>`
+      , input :=          `<p><a href="http://nu.nl/"><img alt="test" height="50" width="50" src="/tests/webhare.png" />x</a></p>`
+      , expect :=         `<p class="normal"><a href="http://nu.nl/"><img alt="test" class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" />x</a></p>`
       ]
 
     , [ structure :=      pages_rte_test_structure

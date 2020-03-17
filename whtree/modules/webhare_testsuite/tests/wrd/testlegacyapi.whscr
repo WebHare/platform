@@ -7,6 +7,7 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "wh::util/localization.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -59,7 +60,7 @@ MACRO TestSchema()
   TestEq(MakeDate(2006, 1, 1), testpersonrec.test_date);
   // Test TEST_PASSWORD (FIXME => Create a password, test with login functions)
   TestEq(SortArray([ INTEGER(domain2value3->id) ]), SortArray(testpersonrec.test_multiple_domain));
-  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
   TestEq(testimage_blob, testpersonrec.test_image.data);
   TestEq(TRUE, CellExists(testpersonrec.test_image, "IMAGEID"));
   TestEq(TRUE, CellExists(testpersonrec.test_file, "FILEID"));
@@ -145,7 +146,7 @@ MACRO ImageCache()
   OBJECT wrdperson := schemaobj->GetTypeByTag("WRD_PERSON");
   STRING baseurl := OpenTestsuitesite()->webroot;
 
-  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
   INTEGER entityid1 := wrdperson->CreateEntity2([ test_image := WrapBlob(testimage_blob,"")
                                                ] )->id;
   INTEGER entityid2 := wrdperson->CreateEntity2([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
@@ -1417,7 +1418,7 @@ MACRO TestUpdateFiltering()
   myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
   RECORD myrichexp := myrichdoc->ExportAsRecord();
 
-  BLOB testimage_blob := testfw->GetModuleTestBlob("webhare_testsuite","wrd/testdata/goudvis.png");
+  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png", [ extractdominantcolor := TRUE ]);
 
   OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
