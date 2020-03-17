@@ -195,7 +195,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   persontype->CreateAttribute("TEST_ARRAY.TEST_MULTIPLE",         "DOMAINARRAY",       [ title := "Array multiple domain attribute", domaintag := domain1_obj->tag ]);
   persontype->CreateAttribute("TEST_ARRAY.TEST_EMAIL",            "EMAIL",             [ title := "Array email attribute" ]);
 
-  BLOB testimage_blob := GetWebhareResource("mod::webhare_testsuite/tests/wrd/testdata/goudvis.png");
+  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
 
   BLOB testfile_blob; //FIXME: Get from disk
@@ -264,7 +264,7 @@ PUBLIC MACRO CreateWRDTestSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
 PUBLIC MACRO TestRichieEmbedded(RECORD testrec1)
 {
   TestEq(1, Length(testrec1.embedded));
-  TestEq(4157, Length(testrec1.embedded[0].data));
+  TestEq(4355, Length(testrec1.embedded[0].data));
   TestEq(2, Length(testrec1.instances));
   TestEq("<b>BOLD<\/b> HTML", testrec1.instances[0].data.html);
 }

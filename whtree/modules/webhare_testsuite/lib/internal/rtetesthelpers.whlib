@@ -9,11 +9,11 @@ PUBLIC RECORD FUNCTION GetTestRTD(RECORD options DEFAULTSTO DEFAULT RECORD)
   STRING inputfile := options.bigstructure ? "rte-structure-big.html" : "rte-structure.html";
   RETURN [ htmltext := GetWebHareResource("mod::webhare_testsuite/data/test/" || inputfile)
          , embedded := [ [ contentid := "SRCEMBED-4tE8e-B6Eig"
-                         , data := GetWebhareResource("mod::webhare_testsuite/web/tests/pages/rte/header-logo.png")
-                         , width:=27
-                         , height:=26
+                         , data := GetWebhareResource("mod::system/web/tests/webhare.png")
+                         , width := 178
+                         , height := 51
                          , mimetype:="image/png"
-                         , filename := "header-logo.png"
+                         , filename := "webhare.png"
                          ]
                        ]
          , instances := [ [ instanceid := "_1ra7ve1TrCw-usGy9kO-g"

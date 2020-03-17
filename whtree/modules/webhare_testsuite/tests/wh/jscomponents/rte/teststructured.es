@@ -478,7 +478,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<ol class="ordered"><li>"(*0*)1"</li><li><br data-wh-rte="bogus"></li><li>"2(*1*)"</li></ol>');
 
         // List to other list with disallowed <b> and <img> (remove <b> and <img>
-        rtetest.setStructuredContent(win, '<ol class="ordered"><li><i><b>"(*0*)1(*1*)"</b></i><img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50"></li></ol>');
+        rtetest.setStructuredContent(win, '<ol class="ordered"><li><i><b>"(*0*)1(*1*)"</b></i><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></li></ol>');
         prestate = rtetest.getPreActionState(rte);
         rte._toggleBulletedList();
         await rtetest.testUndoRedo(rte, prestate);
@@ -774,14 +774,14 @@ test.registerTests(
         rtetest.testEqHTMLEx(win, '<p class="normal">'+quotedloc01blockfill+'</p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         // End of block (with next block an image)
-        rte.setContentsHTML('<p class="normal">ab</p><p class="normal"><img src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" height="50"></p>');
+        rte.setContentsHTML('<p class="normal">ab</p><p class="normal"><img src="/tests/webhare.png" width="50" height="50"></p>');
         locators = richdebug.getAllLocatorsInNode(rte.getContentBodyNode());
-        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)<img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50">(*8*)</p>(*9*)', rte.getContentBodyNode(), locators);
+        rtetest.testEqHTMLEx(win, '(*0*)<p class="normal">(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</p>(*6*)<p class="normal">(*7*)<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">(*8*)</p>(*9*)', rte.getContentBodyNode(), locators);
 
         rte.selectRange(new Range(locators[4], locators[4]));
         await rtetest.runWithUndo(rte, () => rte.executeHardEnter());
         range = rte.getSelectionRange();
-        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"</p><p class="normal">'+quotedloc01blockfill+'</p><p class="normal"><img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50"></p>', rte.getContentBodyNode(), [ range.start, range.end ]);
+        rtetest.testEqHTMLEx(win, '<p class="normal">"ab"</p><p class="normal">'+quotedloc01blockfill+'</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></p>', rte.getContentBodyNode(), [ range.start, range.end ]);
 
         // End of filled nested li
         rte.setContentsHTML('<ol class="ordered"><li>a<ol class="ordered"><li>b</li></ol></li></ol>');
@@ -1044,7 +1044,7 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><p class="normal">(*0*)(*1*)'+blockfill+'</p>');
 
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)"</p>');
-        topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" align="left">'});
+        topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" align="left">'});
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
@@ -1055,7 +1055,7 @@ test.registerTests(
         test.true(range.isCollapsed());
 
         locators = rtetest.setStructuredContent(win,  '<p class="normal">"test(*0*)"</p>');
-        topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50" class="pietje wh-rtd__img--floatleft">'});
+        topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" class="pietje wh-rtd__img--floatleft">'});
         //console.log(topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         range = rte.getSelectionRange();
@@ -1108,14 +1108,14 @@ test.registerTests(
 
         // Paste forbidden inline styles
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
-        topaste = dompack.create("div", { innerHTML: '<ul><li><b>b</b></li></ul><h1 class="heading1"><img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50"></h1><ul><li>c</li></ul>' });
+        topaste = dompack.create("div", { innerHTML: '<ul><li><b>b</b></li></ul><h1 class="heading1"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50"></h1><ul><li>c</li></ul>' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         let imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
         rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"test"</h1><ul class="unordered"><li>"b"</li></ul><p class="normal"><img class="wh-rtd__img" height="50" src="${imgsrc}" width="50"></p><ul class="unordered"><li>"c"</li></ul><h1 class="heading1">"(*0*)(*1*)ing"</h1>`);
 
         // Paste forbidden inline styles
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
-        topaste = dompack.create("div", { innerHTML: '<b>b</b><img class="wh-rtd__img" height="50" src="/.webhare_testsuite/tests/pages/rte/header-logo.png" width="50">' });
+        topaste = dompack.create("div", { innerHTML: '<b>b</b><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50">' });
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
         imgsrc = dompack.qS(rte.getContentBodyNode(), "img").getAttribute("src", 2);
         rtetest.testEqSelHTMLEx(win, `<h1 class="heading1">"testb"</h1><p class="normal"><img class="wh-rtd__img" height="50" src="${imgsrc}" width="50">(*0*)(*1*)</p><h1 class="heading1">"ing"</h1>`);

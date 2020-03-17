@@ -86,8 +86,8 @@ test.registerTests(
       test.eq("Dit bestandstype is niet toegestaan", filegroup.querySelector(".wh-form__error").textContent);
 
       //uploading proper file should fix it
-      test.prepareUpload( [{ url: '/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg'
-                          , filename: 'landscape_4.jpg'
+      test.prepareUpload( [{ url: '/tests/flipped_and_180.jpg'
+                          , filename: 'flipped_and_180.jpg'
                           }]);
 
       test.click('[data-wh-form-group-for=file] .wh-form__uploadfieldselect');

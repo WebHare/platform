@@ -147,7 +147,7 @@ test.registerTests(
             [ '<div>"a(*0*)(*2*)b(*1*)(*3*)c"</div>'
             , '<div>"a"<b>"(*0*)(*2*)b(*1*)(*3*)"</b>"c"</div>'
             , '<div>"a"<img></img>"test"<b>"(*0*)(*2*)b(*1*)(*3*)"</b>"c"</div>'
-            , '<p>"hmmm hmm"</p><img src="/.webhare_testsuite/tests/pages/rte/header-logo.png">"test"<b>"(*0*)(*2*)Bo ld!(*1*)(*3*)"</b>"en nog een "<a href="http://example.org/">"hyperlink"</a>"!"<p>"regel 2"</p><p>"image met "<a href="#link">"een hyperlink: "<img src="/.webhare_testsuite/tests/pages/rte/header-logo.png"></a></p>'
+            , '<p>"hmmm hmm"</p><img src="/tests/webhare.png">"test"<b>"(*0*)(*2*)Bo ld!(*1*)(*3*)"</b>"en nog een "<a href="http://example.org/">"hyperlink"</a>"!"<p>"regel 2"</p><p>"image met "<a href="#link">"een hyperlink: "<img src="/tests/webhare.png"></a></p>'
             ];
 
         for (var i = 0; i < movetests.length; ++i)
