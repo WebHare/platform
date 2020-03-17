@@ -72,8 +72,22 @@ ASYNC MACRO ObjectProps()
   AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
 
+ASYNC MACRO TestRenameSiteConflict()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ OpenTestsuiteSite()->rootobject->whfspath ] ]));
+
+  topscreen->frame->focused := TT("foldertree");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TestEq(OpenTestsuiteSite()->rootobject->name, TT(":Name")->value);
+  TT(":Name")->value := "WebHare Backend";
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*site*WebHare Backend*exists*" ]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTescape);
+}
 
 RunTestframework([ PTR ObjectProps
+                 , PTR TestRenameSiteConflict
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);

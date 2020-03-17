@@ -2117,17 +2117,27 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         }
       }
 
+      // check for site conflict - do this first as even moving the site won't fix it
+      IF(ObjectExists(this->sourceitem) AND this->sourceitem->parentsite = this->sourceitem->id)
+      {
+        OBJECT othersite := OpenSiteByName(name);
+        IF(ObjectExists(othersite) AND othersite->id != this->sourceitem->id)
+        {
+          work->AddError(GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", name));
+          RETURN work->Finish();
+        }
+      }
+
       // Test for an object with the same name at the target location
       OBJECT otherobject := this->parentfolder->OpenByName(name);
       IF (ObjectExists(otherobject) AND otherobject->id != this->itemid)
       {
         BOOLEAN hiddenforme := IsObjectHiddenForMe(GetEffectiveUser(), otherobject->id);
-        OBJECT subwork := this->BeginFeedback();
         IF(hiddenforme)
-          subwork->AddError(GetTid("publisher:common.errors.hiddenfolderexists", name, this->parentfolder->name));
+          work->AddError(GetTid("publisher:common.errors.hiddenfolderexists", name, this->parentfolder->name));
         ELSE
-          subwork->AddError(GetTid("publisher:common.errors.fileorfolderexists", name, this->parentfolder->name));
-        RETURN subwork->Finish();
+          work->AddError(GetTid("publisher:common.errors.fileorfolderexists", name, this->parentfolder->name));
+        RETURN work->Finish();
       }
 
       RECORD indexactions;

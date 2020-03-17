@@ -1485,7 +1485,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     }
     IF(ObjectExists(OpenSiteByName(obj.name)))
     {
-      this->RunMessageBox(".sitealreadyexists", obj.name);
+      this->RunSimpleScreen("error", GetTid("publisher:commondialogs.errors.objectprops.sitealreadyexists", obj.name));
       RETURN;
     }
     OBJECT confirm := this->LoadScreen(".converttositedialog", [ site := obj.name ]);
