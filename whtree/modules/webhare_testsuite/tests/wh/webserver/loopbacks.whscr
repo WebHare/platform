@@ -1473,7 +1473,7 @@ MACRO TestGlobalAccessRules()
 
   OBJECT image := testfw->GetTestSite()->rootobject->CreateFile(
       [ name := "bob.jpg"
-      , data := GetWebhareResource("mod::webhare_testsuite/data/test/bob.jpg")
+      , data := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg")
       , publish := TRUE
       ]);
 

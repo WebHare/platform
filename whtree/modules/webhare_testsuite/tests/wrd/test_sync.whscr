@@ -180,7 +180,7 @@ MACRO TestSync()
   Sleep(2); // make sure the org_0 and new_0 entities have different modificationdates
   synctarget->^wrd_person->UpdateEntity(new_0,
       [ etest_domain := new_1
-      , etest_file :=   WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+      , etest_file :=   WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg")
       , etest_array :=  [ [ text := "t3" ] ]
       , etest_array2 := [ [ text := "t4", text2 := "t5" ] ]
       ]);
@@ -403,11 +403,11 @@ MACRO TestLocalBlobUsage()
 
   OBJECT entity := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
       [ test_file :=    WrapBlob(StringToBlob("string file"), "filename.text")
-      , test_image :=   WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+      , test_image :=   WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg")
       , richie :=       [ htmltext := StringToBlob('<html><body>'
                                           || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://webhare.nl/">webhare</a> <i>[]paragraaf[]</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" class="wh-rtd__img--floatright" width="160" height="120" alt="I&amp;G" /></p>'
                                           || '</body></html>')
-                        , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+                        , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg")
                                         , contentid := "imagecid-81400"
                                         ]
                                       ]

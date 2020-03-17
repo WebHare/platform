@@ -326,7 +326,7 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 
   STRING FUNCTION GenerateContent(STRING source)
   {
-    BLOB bobimage := GetWebhareResource("mod::webhare_testsuite/data/test/smallbob.jpg");
+    BLOB bobimage := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg");
     STRING link := this->iframe->AddEmbeddedObject(bobimage, "image/jpeg");
 
     RETURN
@@ -497,7 +497,7 @@ PUBLIC OBJECTTYPE ImageTest EXTEND TolliumScreenBase
 
   MACRO DoUpdateImageData_Bob()
   {
-    BLOB bobimage := GetWebhareResource("mod::webhare_testsuite/data/test/bob.jpg");
+    BLOB bobimage := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg");
     this->image->SetImage(bobimage, "bob.jpg");
   }
   MACRO DoUpdateImageUrl()

@@ -191,7 +191,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT(":Sender name")->value := "testformfile-formeditapp";
   TT(":Sender address")->value := "testformfile-formeditapp@beta.webhare.net";
 
-  BLOB img := GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg");
+  BLOB img := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg");
   TT("fragment1!attachments!files!addbutton")->action->ExecuteUpload([WrapBlob(img, "bob.jpg")]);
   TestEq(1, Length(TT("fragment1!attachments!files!list")->rows));
 

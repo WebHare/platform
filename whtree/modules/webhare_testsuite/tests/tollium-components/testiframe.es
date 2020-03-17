@@ -108,7 +108,7 @@ test.registerTests(
         // Test html content
         test.eq('htmlcontent2', iframe.contentWindow.document.getElementById('source').dataset.source);
         let imgpreload = await preload.promiseImage(iframe.contentWindow.document.getElementById('image').src);
-        test.eq(160, imgpreload.width);
+        test.eq(428, imgpreload.width);
 
         // Do a JS call outside of loading stage
         test.click(test.getMenu(['I03']));
@@ -139,7 +139,7 @@ test.registerTests(
                              && test.qS("iframe").contentWindow.document.getElementById('source').dataset.source == 'blobcontent4');
 
       let imgpreload = await preload.promiseImage(test.qS("iframe").contentWindow.document.getElementById('image').src);
-      test.eq(160, imgpreload.width);
+      test.eq(428, imgpreload.width);
 
       //next tes: grab links
       test.click(test.getMenu(['I05']));

@@ -255,8 +255,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoInsertImage()
   {
-    BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/smallbob.jpg");
-    this->GetCurrentRTE()->InsertImage(smallbobjpg, "smallbob.jpg");
+    BLOB smallbobjpg := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg");
+    this->GetCurrentRTE()->InsertImage(smallbobjpg, "snowbeagle.jpg");
   }
 
   MACRO DoInsertObject()

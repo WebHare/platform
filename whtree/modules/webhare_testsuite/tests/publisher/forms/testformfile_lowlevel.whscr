@@ -33,7 +33,7 @@ MACRO DirectFormStorage1()
   STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   GetMember(liveform, "^" || emailfieldname)->value := "directsubmit1@beta.webhare.net";
 
-  RECORD source := WrapBlob(GetWebHareResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg");
+  RECORD source := WrapBlob(GetWebHareResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg");
   liveform->^upload->value := source;
 
   RECORD res := liveform->__SubmitFormNow();
