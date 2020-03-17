@@ -82,7 +82,7 @@ MACRO TestRegister()
   testslotfolder->UpdateMetadata([name := "testslot3"]);
   testfw->CommitWork();
 
-  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"), "should follow the new entry after ename");
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"), "should follow the new entry after rename");
 
   testfw->BeginWork();
   testslotfolder->RecycleSelf();
@@ -94,6 +94,20 @@ MACRO TestRegister()
   testslotfolder := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot"]);
   testfw->CommitWork();
 
+  TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+
+  testfw->BeginWork();
+  testslotfolder->DeleteSelf();
+  OBJECT fallbackfolder := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot-fallback"]);
+  testfw->CommitWork();
+
+  TestEq(fallbackfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
+
+  testfw->BeginWork();
+  testslotfolder := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot"]);
+  testfw->CommitWork();
+
+  //should switch over to 'real' location as the fallback isn't actually stored
   TestEq(testslotfolder->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
 }
 
