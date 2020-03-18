@@ -333,11 +333,16 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     IF(^password->value = "secret" OR (^password->value = "secret!" AND ^number->value != -2))
     {
       work->AddErrorFor(^password, `'${^password->value}' is a bad password`);
-      work->AddError("The form is generally bad");
     }
     ELSE IF(^password->value = " secret")
     {
       THROW NEW Exception("Unexpectedly received ' secret' - is trimwhitespace broken?");
+    }
+    ELSE IF(^password->value = "globalerror")
+    {
+      work->AddErrorFor(^password, `'${^password->value}' is also a bad password`);
+      work->AddError(`You broke the form`);
+      work->AddError(`Don't do that`);
     }
 
     RECORD formvalue := this->formvalue;

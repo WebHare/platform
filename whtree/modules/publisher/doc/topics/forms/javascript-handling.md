@@ -90,6 +90,19 @@ Please Note that if you want to override the scroll because the scrolling places
 should consider styling `wh-anchor` to reserve the necessary vertical space (by setting eg `height: 80px; margin-top: -80px;`)
 as this will also help fix targetted links landing on your page (`#anchor` links)
 
+## wh:form-globalerrors
+
+Target: The form node
+
+Bubbles: yes
+
+Cancelable: yes
+
+Detail: `{ globalerrors: [ { message: 'xxx' } ] }`
+
+Fired whenever global errors have been received from the server (errors that cannot be connected to a specific field).
+If not cancelled, the formsapi will attempt to show a popup using the dompack dialog API. If that fails, it will simply `alert()` the message(s).
+
 ## wh:form-pagechange
 
 Target: The current page (`.wh-form__page`)
