@@ -60,7 +60,7 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
           [ file := WrapBLob(StringToBlob(RepeatText("testfile", 64)), "testfile.txt")
           ]);
 
-  OBJECT image := siteroot->CreateFile([name:="bob.jpg", data := GetWebhareResource("mod::webhare_testsuite/data/test/bob.jpg"), publish := TRUE ]);
+  OBJECT image := siteroot->CreateFile([name:="bob.jpg", data := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
   OBJECT simplexlsx := siteroot->CreateFile([name:="simple.xlsx", data := GetWebhareResource("whres::ooxml/template.xlsx"), publish := TRUE ]);
 
   IF(with_errors)

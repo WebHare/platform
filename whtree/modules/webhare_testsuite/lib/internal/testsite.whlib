@@ -611,7 +611,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   {
     STRING attachments := formdefs->CreateInstance(
       [ whfstype := "http://www.webhare.net/xmlns/publisher/mailhandlerattachments"
-      , attachments := [ [ file := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg") ] ]
+      , attachments := [ [ file := WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg") ] ]
       ]);
     mailhandler2->SetAttribute("attachmentsid", attachments);
   }
@@ -704,7 +704,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
       , data := [ htmltext := StringToBlob('<html><body>'
                                   || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://webhare.nl/">webhare</a> <i>[]paragraaf[]</i><br/>met\neen      soft-break en een afbeelding: <img src="cid:imagecid-81400" class="wh-rtd__img--floatright" width="160" height="120" alt="I&amp;G" /></p>'
                                   || '</body></html>')
-                , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg")
+                , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg")
                                 , contentid := "imagecid-81400"
                                 ]
                               ]

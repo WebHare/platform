@@ -411,8 +411,8 @@ test.registerTests(
       let selection = rte.getEditor().getSelectionRange();
       let img = selection.getElementsByTagName("img")[0];
       test.true(img);
-      test.eq('160', img.getAttribute("width"));
-      test.eq('120', img.getAttribute("height"));
+      test.eq('428', img.getAttribute("width"));
+      test.eq('284', img.getAttribute("height"));
     }
 
 

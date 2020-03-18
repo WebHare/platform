@@ -217,6 +217,9 @@ export default class ObjIFrame extends ComponentBase
     {
       var doc = this.iframe.contentWindow.document;
       this.addIframeEvent(doc, "click", this.clickLink.bind(this));
+
+      //flag that we've configured the iframe, some tests need this
+      this.iframe.contentWindow.whIframeAttached = true;
     }
     catch(e)
     {

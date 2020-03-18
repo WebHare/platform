@@ -75,7 +75,7 @@ MACRO SimpleTest()
   TestThrows(PTR GetWebhareResource("filebyid::" || testfile->id));
   TestThrows(PTR GetHareScriptResource("filebyid::" || testfile->id));
 
-  TestEq(299732, Length(subfolder2->Getresource("mod::webhare_testsuite/data/test/bob.jpg")));
+  TestEq(45081, Length(subfolder2->Getresource("mod::system/web/tests/snowbeagle.jpg")));
   TestEq(5829, Length(subfolder2->Getresource("whres::xml/xml.xsd")));
 
   //Upload an empty file with a .witty extension - now gets no filetype

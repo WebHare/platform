@@ -48,7 +48,7 @@ MACRO Prepare()
   myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
                                  || '<p class="normal">blabla5</p>'
                                  || '</body></html>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);
   richdoctype->SetInstanceData(file_5->id, [data := myrichdoc->ExportAsRecord()]);
 

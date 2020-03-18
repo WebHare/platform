@@ -25,7 +25,7 @@ ASYNC MACRO ObjectProps()
 
   OBJECT root := OpenTestsuiteSite()->rootobject;
   OBJECT propsfolder := GetTestsuiteTempFolder()->CreateFolder([name := "propstest"]);
-  OBJECT imgfile := propsfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), publish := TRUE ]);
+  OBJECT imgfile := propsfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
   OBJECT imglink := propsfolder->CreateFile([name:="imglink.jpg", type := 20, filelink := imgfile->id, publish := TRUE ]);
   imglink->SetInstanceData("http://www.webhare.net/xmlns/beta/test"
                           , [ arraytest := [[ textcell := "Row 1" ]]]);

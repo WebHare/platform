@@ -136,7 +136,7 @@ MACRO ParserApiTest()
                                  || '</tbody></table>'
                                  || '<code class="language-harescript">&lt;?wh   Print("Hello, world")\n</code>'
                                  || '</body></html>')
-                 , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                 , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
                                  , contentid := "imagecid-81400"
                                  ]
                                ]
@@ -150,7 +150,7 @@ MACRO ParserApiTest()
   TestEQ(0, storeddata.embedded[0].rotation);
   TestEQ(FALSE, storeddata.embedded[0].mirrored);
   TestEQ(DEFAULT RECORD, storeddata.embedded[0].refpoint);
-  TestEQ("#6A6E4F", storeddata.embedded[0].dominantcolor);
+  TestEQ("#EBEDF0", storeddata.embedded[0].dominantcolor);
 
   OBJECT structure := NEW RichDocumentStructure;
   structure->LoadFromXML(MakeXMLDocument(GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml"))->documentelement, "http://www.webhare.net/xmlns/tollium/richstructure");
@@ -244,7 +244,7 @@ MACRO RichDocInstanceTest()
   STRING instanceid := myrichdoc->CreateInstance([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
                                                  , ignored := "xyz" //should be removed by normalization
                                                  , aref := site->id
-                                                 , img := WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg")
+                                                 , img := WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg")
                                                  ]);
 
   TestEq([ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
@@ -416,9 +416,9 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">alleen verticaal, te groot: <img src="cid:imagecid-81400" height="280"/></p>'
                                             || '<p class="normal">alleen verticaal, binnen grenzen: <img src="cid:imagecid-81400" height="140"/></p>'
                                             || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
-                                            || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="160"/></p>'
+                                            || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="120"/></p>'
                                             || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);;
   richdoc->SaveToWHFS(testfile);
   testfw->CommitWork();
@@ -452,7 +452,7 @@ MACRO PublishRichDocImageTest()
   TestEq(160, imgcanvas->width);
   TestEq(120, imgcanvas->height);
 
-  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
+  OBJECT imgsrc := CreateResizedCanvasFromBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), [ method := "scale", setwidth := 160, setheight := 120 ]);
   imgsrc->SetImageSize(160,120);
   TestEq(160, imgsrc->width);
   TestEq(120, imgsrc->height);
@@ -472,23 +472,23 @@ MACRO PublishRichDocImageTest()
   TestEq("300", imgtags[2]->GetAttribute("width"));
   TestEq("263", imgtags[2]->GetAttribute("height"));
 
-  //The fourth image, had height 280. 373x280 is too big, so it should be reduced to 300x225
+  //The fourth image, had height 280. 373x280 is too big, so it should be reduced to 300x199
   TestEq("300", imgtags[3]->GetAttribute("width"));
-  TestEq("225", imgtags[3]->GetAttribute("height"));
-  //This one had height 140, that's okay. It should become 187x140
-  TestEq("187", imgtags[4]->GetAttribute("width"));
+  TestEq("199", imgtags[3]->GetAttribute("height"));
+  //This one had height 140, that's okay. It should become 211x140
+  TestEq("211", imgtags[4]->GetAttribute("width"));
   TestEq("140", imgtags[4]->GetAttribute("height"));
 
-  //Width 320. 300x225 again
+  //Width 320. 300x199 again
   TestEq("300", imgtags[5]->GetAttribute("width"));
-  TestEq("225", imgtags[5]->GetAttribute("height"));
-  //Width 160. should work out
-  TestEq("160", imgtags[6]->GetAttribute("width"));
-  TestEq("120", imgtags[6]->GetAttribute("height"));
+  TestEq("199", imgtags[5]->GetAttribute("height"));
+  //Width 120. should work out
+  TestEq("120", imgtags[6]->GetAttribute("width"));
+  TestEq("80", imgtags[6]->GetAttribute("height"));
 
-  //Unspecified. Should reduced to 330x225
+  //Unspecified. Should reduced to 300x199
   TestEq("300", imgtags[7]->GetAttribute("width"));
-  TestEq("225", imgtags[7]->GetAttribute("height"));
+  TestEq("199", imgtags[7]->GetAttribute("height"));
 }
 
 MACRO IntLinktest()
@@ -514,7 +514,7 @@ MACRO IntLinktest()
                                  || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
                                  || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
                                  || '</body></html>')
-                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  , links := [[ tag := "1234-5678-001", linkref := workfolder->id ]]
                  ]);;
 

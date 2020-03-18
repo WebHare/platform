@@ -108,7 +108,7 @@ test.registerTests(
         // Test html content
         test.eq('htmlcontent2', iframe.contentWindow.document.getElementById('source').dataset.source);
         let imgpreload = await preload.promiseImage(iframe.contentWindow.document.getElementById('image').src);
-        test.eq(160, imgpreload.width);
+        test.eq(428, imgpreload.width);
 
         // Do a JS call outside of loading stage
         test.click(test.getMenu(['I03']));
@@ -139,7 +139,7 @@ test.registerTests(
                              && test.qS("iframe").contentWindow.document.getElementById('source').dataset.source == 'blobcontent4');
 
       let imgpreload = await preload.promiseImage(test.qS("iframe").contentWindow.document.getElementById('image').src);
-      test.eq(160, imgpreload.width);
+      test.eq(428, imgpreload.width);
 
       //next tes: grab links
       test.click(test.getMenu(['I05']));
@@ -147,9 +147,12 @@ test.registerTests(
     }
 
   , { name: 'clicklink'
-    , test: function(doc,win)
+    , test: async function(doc,win)
       {
         var iframe = test.$$t('iframe')[0];
+        //wait for us to have intercepted the click handler
+        await test.wait( () => iframe.contentWindow.whIframeAttached === true);
+
         var iframdoc = iframe.contentWindow.document;
         iframdoc.getElementById('link').click();
       }
@@ -159,7 +162,12 @@ test.registerTests(
   , { name: 'clicklink verify'
     , test: function(doc,win)
       {
-
+        var textarea = test.$$t('textarea')[0];
+        test.eq('{"args":[1,"test"],"type":"receivedcall"}\n' +
+               'data:data\n' +
+               'data:databa\n' +
+               '{"args":[3,"test"],"type":"receivedcall"}\n' +
+               'click:http://www.webhare.dev/', textarea.value.trim());
       }
     }
 

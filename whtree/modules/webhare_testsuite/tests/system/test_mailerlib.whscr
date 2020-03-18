@@ -556,7 +556,7 @@ ASYNC MACRO TestMailWitty()
                                    || '<div class="wh-rtd-embeddedobject" data-instanceid="B1ra7ve1TrCwfdusGy9kOxg"></div>'
                                    || '<div class="wh-rtd-embeddedobject" data-instanceid="xxya7ve1TrCwfdusGy9kOxg"></div>'
                                    || '</body></html>')
-                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
                                         , contentid := "imagecid-81400"
                                         ]
                                   ]
@@ -627,7 +627,7 @@ ASYNC MACRO TestMailWitty()
   //test whether embedded images survived
   TestEq(TRUE, onqueuedmail_lastoptions.toppart.mimetype LIKE "multipart/mixed");
   TestEq(TRUE, onqueuedmail_lastoptions.toppart.subparts[0].mimetype LIKE "multipart/related");
-  TestEq(TRUE, RecordExists(SELECT FROM onqueuedmail_lastoptions.toppart.subparts[0].subparts WHERE filename LIKE "*.jpg" AND Length(data)=Length(GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"))));
+  TestEq(TRUE, RecordExists(SELECT FROM onqueuedmail_lastoptions.toppart.subparts[0].subparts WHERE filename LIKE "*.jpg" AND Length(data)=Length(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"))));
   TestEq(FALSE, RecordExists(SELECT FROM onqueuedmail_lastoptions.toppart.subparts[0].subparts WHERE filename LIKE "*..jpg"));
 
   Testeq(1,Length(testfw->extractallmailfor("maildialog@beta.webhare.net")));
