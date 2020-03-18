@@ -136,7 +136,7 @@ PUBLIC CONSTANT STRING whconstant_wrd_testschema := "wrd:testschema";
 
 //valid editdefaults= values
 PUBLIC CONSTANT STRING ARRAY whconstant_forms_valideditdefaults :=
-[ "name", "title", "hidetitle", "required", "noenabled", "groupclasses", "label", "placeholder", "prefix", "suffix", "infotext" ];
+[ "name", "title", "hidetitle", "required", "noenabled", "novisible", "groupclasses", "label", "placeholder", "prefix", "suffix", "infotext" ];
 
 //valid editdefaults= values for handlers
 PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=

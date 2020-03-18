@@ -762,6 +762,8 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
   /// The 'empty' value for pulldowns
   PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
 
+  PUBLIC STRING orientation;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -777,6 +779,7 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
       this->pvt_type := Substitute(field.selecttype, 'group', '');
       this->SetOptions(this->ParseStaticOptions(field.options));
       this->deletedoptions := field.deletedoptions;
+      this->orientation := field.orientation;
 
       IF (this->type = "checkbox")
       {
@@ -1121,6 +1124,7 @@ PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase
                 , selecttype := this->type
                 , min := this->min
                 , max := this->max
+                , orientation := this->orientation
                 , type := "select"
                 ];
 
