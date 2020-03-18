@@ -83,7 +83,7 @@ INTEGER FUNCTION TryAddWHFSRegister(RECORD slot, INTEGER for_deleted_file)
     RETURN slotfile->filelink;
   }
 
-  STRING aboutslot := `WHFS register slot '${slot.module}:${slot.name}' ${for_deleted_file != 0 ? ` refers to deleted object #${for_deleted_file}` : `has not been set`}`;
+  STRING aboutslot := `WHFS register slot '${slot.module}:${slot.name}' ${for_deleted_file != 0 ? `refers to deleted object #${for_deleted_file}` : `has not been set`}`;
   INTEGER target;
   IF(modinfo.initialvalue != "")
     target := LookupWHFSObject(0, modinfo.initialvalue);

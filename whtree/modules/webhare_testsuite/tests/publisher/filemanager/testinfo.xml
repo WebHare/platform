@@ -1,3 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_objectprops.whscr" />
+  <test script="test_siteprops.whscr" />
   <test script="test_types.whscr" />
 </group>

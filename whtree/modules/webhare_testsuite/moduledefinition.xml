@@ -293,7 +293,7 @@
     <formcomponents namespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" xmlschema="tests/publisher/forms/data/testformcomponents.xsd"/>
 
     <registerslot name="testsite" tid="module.testsite.title" descriptiontid="module.testsite.description" initialvalue="site::webhare testsuite site" type="site" />
-    <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare_testsuite.testfolder/testslot" type="folder" />
+    <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare_testsuite.testfolder/testslot" type="folder" fallback="whfs::/webhare_testsuite.testfolder/testslot-fallback"/>
   </publisher>
 
   <consilio>

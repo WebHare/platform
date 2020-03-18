@@ -2,14 +2,14 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::publisher/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
 }
 
@@ -17,18 +17,14 @@ MACRO PrepIt()
 //
 // ObjectProps
 //
-OBJECT ASYNC FUNCTION ObjectProps()
+ASYNC MACRO ObjectProps()
 {
-  testfw->SetTestUser("sysop");
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest");
   testfw->SetTestUser("lisa");
-
-  TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
 
   testfw->BeginWork();
 
-  OBJECT root := testfw->GetTestSite()->rootobject;
-  OBJECT propsfolder := root->CreateFolder([name := "propstest"]);
+  OBJECT root := OpenTestsuiteSite()->rootobject;
+  OBJECT propsfolder := GetTestsuiteTempFolder()->CreateFolder([name := "propstest"]);
   OBJECT imgfile := propsfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::webhare_testsuite/data/test/bob.jpg"), publish := TRUE ]);
   OBJECT imglink := propsfolder->CreateFile([name:="imglink.jpg", type := 20, filelink := imgfile->id, publish := TRUE ]);
   imglink->SetInstanceData("http://www.webhare.net/xmlns/beta/test"
@@ -37,9 +33,8 @@ OBJECT ASYNC FUNCTION ObjectProps()
 
   testfw->SetTestUser("sysop");
 
-  OBJECT dialog := CreateWHFSObjectPropsDialog(GetTestController(), imglink->id);
-  AWAIT ExpectScreenChange(+1, PTR dialog->RunModal);
-
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[imglink->whfspath] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
   AWAIT ExpectScreenChange(+1, PTR TT("path")->__test_executebrowse());
 
   //the thumbnail view should have inited.
@@ -54,8 +49,8 @@ OBJECT ASYNC FUNCTION ObjectProps()
 
   AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
   TT("textcell")->value := "New row";
-  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare_testsuite.testfolder/webhare_testsuite.site/static.html";
-  TestEq(TRUE, staticfile != 0, "Where is my static.html?");
+  INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/WebHare testsuite site/index.rtd";
+  TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
 
   TT("_whfscell")->value := staticfile;
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -70,33 +65,29 @@ OBJECT ASYNC FUNCTION ObjectProps()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  Testeq("ok", dialog->tolliumresult);
 
   RECORD data := imglink->GetInstanceData("http://www.webhare.net/xmlns/beta/test");
   TestEq(2, Length(data.arraytest));
-  RETURN TRUE;
+
+  AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
 
-OBJECT ASYNC FUNCTION SiteProps()
+ASYNC MACRO TestRenameSiteConflict()
 {
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest");
-  TestEq(TRUE, ObjectExists(testfw->GetTestSite()));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ OpenTestsuiteSite()->rootobject->whfspath ] ]));
 
-  OBJECT root := testfw->GetTestSite()->rootobject;
+  topscreen->frame->focused := TT("foldertree");
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TestEq(OpenTestsuiteSite()->rootobject->name, TT(":Name")->value);
+  TT(":Name")->value := "WebHare Backend";
 
-  testfw->SetTestUser("sysop");
-
-  OBJECT sitedialog := CreateWHFSSitePropsDialog(GetTestController(), root->id);
-  AWAIT ExpectScreenChange(+1, PTR sitedialog->RunModal()); //simply should not crash
-  TT("locksite")->value := TRUE;
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-
-  BOOLEAN lockstatus := SELECT AS BOOLEAN locked FROM system.sites WHERE id = VAR root->id;
-  TestEq(TRUE, lockstatus);
-  RETURN TRUE;
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*site*WebHare Backend*exists*" ]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
+
 RunTestframework([ PTR ObjectProps
-                 , PTR SiteProps
+                 , PTR TestRenameSiteConflict
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);
