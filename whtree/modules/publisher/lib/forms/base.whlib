@@ -135,6 +135,8 @@ STATIC OBJECTTYPE FormPage
     IF (this->title != "")
       Print(` data-wh-form-pagetitle="${EncodeValue(this->title)}"`);
 
+    IF (this->page.name != "")
+      Print(` data-wh-form-pagename="${EncodeValue(this->page.name)}"`);
     IF (this->page.role != "")
     {
       Print(` data-wh-form-pagerole="${EncodeValue(this->page.role)}"`);
