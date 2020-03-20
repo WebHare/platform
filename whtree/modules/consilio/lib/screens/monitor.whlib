@@ -79,7 +79,7 @@ PUBLIC STATIC OBJECTTYPE Queries EXTEND DashboardPanelBase
         [ catalog := TRUE
         , tag := query.catalog
         , id := 0
-        , query := query.searchquery
+        , query := query.query
         ]);
       scr->RunModal();
     }
