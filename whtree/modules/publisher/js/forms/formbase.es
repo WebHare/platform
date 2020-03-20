@@ -685,7 +685,7 @@ export default class FormBase
       }
     }
 
-    for(let option of dompack.qSA(this.node, "select > option"))
+    for(let option of dompack.qSA(this.node, ".wh-form__fieldgroup select > option"))
     {
       let formgroup = dompack.closest(option, ".wh-form__fieldgroup");
       let visible = !hiddengroups.includes(formgroup) && this._matchesCondition(option.dataset.whFormVisibleIf);
