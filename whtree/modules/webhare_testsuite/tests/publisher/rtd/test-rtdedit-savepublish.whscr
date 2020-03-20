@@ -1,17 +1,66 @@
 <?wh
 
 
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-OBJECT testfile;
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
+}
+RECORD ARRAY FUNCTION GetRTEInstructions()
+{
+  RETURN SELECT * FROM GetTestController()->GrabInstructions() WHERE instr IN ["update","component"] AND target = RTE()->toddname;
+}
+
+ASYNC MACRO TestRevert()
+{
+  testfw->BeginWork();
+
+  OBJECT  testfile := GetTestsuiteTempFolder()->CreateFile(
+      [ name :=   "testrevert.rtd"
+      , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , publish := TRUE
+      ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile"
+                           , [ data := [ htmltext := StringToBlob(`<html><body><p class="normal">Initial text</p></body></html>`)
+                                       ]
+                             ]);
+
+  testfw->CommitWork();
+
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ]  ]));
+
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">This is another text</p>');
+  RTE()->__debug_simulatedirty();
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  //Save as draft
+  TTClick(":Save");
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+
+  //Revert back to original
+  GetRTEInstructions(); //flush so far
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Cancel draft"), [ messagemask := "*revert*last*"]); //Are you sure you want to revert the draft document to the last published version?
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT MACRO PTR, [ messagemask := "*document*reverted*"]); //The draft version has been cancelled - the document is reverted to the latest published version.
+
+  RECORD ARRAY rtes := GetRTEInstructions();
+  TestEq(TRUE, Length(rtes) > 0, "RTE should have sent an update event reverting the content and not optimized it away");
+
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+  TestEQLike("*Initial text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestSaveToUnpublishedSite()
@@ -20,14 +69,13 @@ ASYNC MACRO TestSaveToUnpublishedSite()
   //We need an unpublished site for this test - you need to be able to 'prepare' documents without output so we cant use the testsuite-site
   testfw->SetupTestWebdesignWebsite("", [ enableoutput := FALSE ]);
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  testfile := siteroot->CreateFile(
+  OBJECT testfile := siteroot->CreateFile(
       [ name :=   "testfile.rtd"
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
       ]);
   testfw->CommitWork();
 
   testfw->SetTestUser("sysop");
-
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ]  ]));
 
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
@@ -36,13 +84,13 @@ ASYNC MACRO TestSaveToUnpublishedSite()
   Testeq(FALSE, OpenWHFSObject(testfile->id)->publish);
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick());
   AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT MACRO PTR, [ messagemask := "*has been prepared for publishing*"]);
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
   Testeq(TRUE, OpenWHFSObject(testfile->id)->publish);
 }
 
-
 RunTestFramework(
-    [ PTR TestSaveToUnpublishedSite
+    [ PTR TestRevert
+    , PTR TestSaveToUnpublishedSite
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
