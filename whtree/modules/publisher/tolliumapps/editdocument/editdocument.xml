@@ -1,19 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.editdocument" library="editdocument.whlib">
 
-  <messageboxes gid=".messageboxes">
-    <messagebox name="savebeforeclose" icon="question" buttons="yes no cancel" />
-    <messagebox name="confirmcanceldraft" icon="question" buttons="yes no" />
-    <messagebox name="confirmsaveandpublish" icon="question" buttons="yes no" dontshowagain="yes" />
-    <messagebox name="resumeautosave" buttons="yes no cancel" />
-    <messagebox name="draftcancelled" buttons="close" />
-    <messagebox name="requestcancelled" buttons="close" />
-    <messagebox name="otherhasdraft" buttons="ok cancel" dontshowagain="ok" />
-    <messagebox name="confirmcancelrequest" icon="question" buttons="yes no" />
-    <messagebox name="closeeditorafterversionedpublish" icon="question" buttons="yes no" />
-    <messagebox name="publishversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
-  </messageboxes>
-
   <screen name="editdocumentapp"
           width="800px"
           height="600px"
