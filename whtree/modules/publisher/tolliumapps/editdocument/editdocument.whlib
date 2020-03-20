@@ -756,7 +756,9 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           SubmitApprovalRequestFromMetadata(work, fsobj, approval_metadata);
         }
         ELSE IF (savemode = "versioned-locked-editlive")
-          THROW NEW Exception("Cannot publish draft when already submitted for approval");
+        {
+          RETURN FALSE; //should not be reachable, unless someone manages to race it?
+        }
       }
     }
 
@@ -902,8 +904,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE IF (savemode = "versioned-locked-editlive")
     {
-      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.alreadysubmittedforapproval"));
-      RETURN;
+      RETURN; //should not be reachable, unless someone manages to race it?
     }
     ELSE
     {
