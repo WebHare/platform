@@ -297,8 +297,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         this->tolliumresult := "cancel";
         RETURN;
       }
-//      ABORT(otherdraft);
-    //Gebruiker XX / Een andere gebruiker heeft een conceptversie van dit document opgeslagen. Deze conceptversie wordt nu ge-opend. U kunt dit concept aanpassen en opslaan en publiceren. Eventueel kunt u ook de conceptversie verwijderen en teruggaan naar de gepubliceerde versie.
     }
 
     BOOLEAN mustloadrte := TRUE;
@@ -1047,66 +1045,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     this->showdraftbar := FALSE;
     this->draftbar->visible := FALSE;
   }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-  /** Returns whether the RTE is dirty wrt the current draft (or the published file if no draft exists).
-      Autosaves are ignored.
-  PUBLIC BOOLEAN FUNCTION IsDirty()
-  {
-    OBJECT targetfile := this->GetBaseSourceObject();
-    IF(NOT ObjectExists(targetfile))
-      RETURN FALSE;
-
-    // Started from an autosave?
-    IF (NOT RecordExists(this->reprocessedoriginalvalue))
-      RETURN TRUE;
-
-//    RECORD olddata := targetfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-    RECORD changes := OpenwHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->CompareInstanceDataUpdates([ data := this->reprocessedoriginalvalue], [ data := this->rte->value ]);
-/*
-    IF (this->tolliumcontroller->debugging AND RecordExists(changes))
-    {
-      IF (NOT RecordExists(olddata.data) OR NOT RecordExists(updates.data))
-        PRINT("Document is dirty - either old or new data does not exist\n");
-      ELSE
-      {
-        PRINT("Document is dirty\n");
-        IF (BlobToString(olddata.data.htmltext) != BlobToString(updates.data.htmltext))
-        {
-          PRINT("Old html\n" || BlobToString(olddata.data.htmltext) || "\n");
-          PRINT("New html\n" || BlobToString(updates.data.htmltext) || "\n");
-          PRINT("Structured xml-based diff\n" || SimpleTextDiff(
-              BlobToString(MakeXMLDocumentFromHTML(olddata.data.htmltext)->GetDocumentBlob(TRUE)),
-              BlobToString(MakeXMLDocumentFromHTML(updates.data.htmltext)->GetDocumentBlob(TRUE))));
-        }
-        ELSE
-        {
-          PRINT("HTML has no modifications\n" || BlobToString(olddata.data.htmltext) || "\n");
-          olddata.data.embedded := SELECT *, DELETE hash, DELETE link, DELETE settingid, DELETE __blobsource FROM olddata.data.embedded;
-          updates.data.embedded := SELECT *, DELETE hash, DELETE link, DELETE settingid, DELETE __blobsource FROM updates.data.embedded;
-
-          PRINT("Old RTE data\n" || AnyToString(olddata.data, "tree"));
-          PRINT("New RTE data\n" || AnyToString(updates.data, "tree"));
-          PRINT("Diff\n" || SimpleTextDiff(AnyToString(olddata.data, "tree"), AnyToString(updates.data, "tree")));
-        }
-      }
-    }
-    /*
-    LogDebug("publisher", "document test dirty", RecordExists(changes), this->rte->dirty, changes, olddata);
-    IF (RecordExists(changes) AND RecordExists(olddata) AND RecordExists(changes.data) AND RecordExists(updates.data))
-    {
-      //note: this debug code crashes when data is a default record
-      LogDebug("publisher", "old html", BlobToString(olddata.data.htmltext));
-      LogDebug("publisher", "new html", BlobToString(updates.data.htmltext));
-    }
-    * /
-    RETURN RecordExists(changes) OR this->rte->dirty;
-  }
-  */
 
   MACRO DoInspectAutosave()
   {
