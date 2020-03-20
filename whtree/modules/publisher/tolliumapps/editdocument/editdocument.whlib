@@ -287,7 +287,12 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       STRING user := this->contexts->userapi->GetUserDisplayName(otherdraft.user);
       STRING when := this->tolliumuser->FormatDatetime(otherdraft.creationdate, "minutes", TRUE, FALSE);
 
-      IF (this->RunMessageBox(".otherhasdraft", user, when) != "ok")
+      IF (this->RunSimpleScreen("confirm"
+                               , GetTid("publisher:tolliumapps.editdocument.messageboxes.otherhasdraft", user, when)
+                               , [ buttons := [ "ok","cancel"]
+                                 , dontshowkey := "publisher.editdocument.otherhasdraft"
+                                 , dontshowbuttons := ["ok"]
+                                 ]) != "ok")
       {
         this->tolliumresult := "cancel";
         RETURN;
@@ -305,7 +310,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         this->currentautosave := OpenDraft(fsobject->id, myautosave.id);
         this->ReloadRTEContents();
 
-        STRING response := this->RunMessageBox(".resumeautosave");
+        STRING response := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave"), [ buttons := [ "yes", "no", "cancel" ]]);
         IF(response != "yes" AND response != "no")
         {
           this->tolliumresult := "cancel";
@@ -776,11 +781,16 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     {
       IF (withpublish)
       {
-        IF (this->RunMessageBox(".closeeditorafterversionedpublish") = "yes")
+        IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.closeeditorafterversionedpublish")) = "yes")
           this->tolliumresult := "ok";
       }
       ELSE
-        this->RunMessageBox(".publishversionedfiletoapplychanges");
+      {
+        this->RunSimpleScreen("info"
+                             , GetTid("publisher:tolliumapps.editdocument.messageboxes.publishversionedfiletoapplychanges")
+                             , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
+                               ]);
+      }
     }
 
     RETURN TRUE;
@@ -894,12 +904,16 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE IF (savemode = "versioned-locked-editlive")
     {
-      this->RunMessageBox(".alreadysubmittedforapproval");
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.alreadysubmittedforapproval"));
       RETURN;
     }
     ELSE
     {
-      IF(this->RunMessageBox(".confirmsaveandpublish") != "yes")
+      IF(this->RunSimpleScreen("confirm"
+                              , GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmsaveandpublish")
+                              , [ dontshowkey := "publisher.editdocument.confirmsaveandpublish"
+                                , dontshowbuttons := ["yes"]
+                                ]) != "yes")
         RETURN;
     }
     this->ExecuteSave(TRUE, metadata);
@@ -950,7 +964,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   {
     IF (this->frame->flags.isdirty)
     {
-      STRING res := this->RunMessageBox(".savebeforeclose", OpenWHFSObject(this->fileid)->name);
+      STRING res := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.savebeforeclose", OpenWHFSObject(this->fileid)->name), [ buttons := ["yes","no","cancel"]]);
       SWITCH (res)
       {
         CASE "yes"
@@ -977,7 +991,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
   MACRO DoCanceldraft()
   {
-    IF (this->RunMessageBox(".confirmcanceldraft") != "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) != "yes")
       RETURN;
 
     OBJECT old_currentautosave := this->currentautosave;
@@ -1001,7 +1015,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       this->ReloadRTEContents();
       this->RefreshState();
 
-      this->RunMessageBox(".draftcancelled");
+      this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.draftcancelled"));
     }
     ELSE
     {
@@ -1014,7 +1028,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   {
     IF (this->GetSaveMode() IN [ "versioned-locked" ]
         AND ObjectExists(this->currentdraft)
-        AND this->RunMessageBox(".confirmcancelrequest") = "yes")
+        AND this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
     {
       OBJECT work := this->BeginWork();
 
@@ -1023,7 +1037,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       IF (work->Finish())
       {
         this->RefreshState();
-        this->RunMessageBox(".requestcancelled");
+        this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.requestcancelled"));
       }
     }
   }
