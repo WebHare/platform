@@ -125,8 +125,8 @@ export default class ObjRTE extends ComponentBase
 
   setValue(newvalue) //set from server
   {
-    if(this.untouchedcontent == newvalue.value && !this.rte.isDirty())
-      return console.log("RTE: server sent an unneeded update");
+    if(this.untouchedcontent && this.untouchedcontent == newvalue.value)
+      return; //server sent an unneeded update
 
     this.untouchedcontent = newvalue.value;
     this.valuegeneration = newvalue.valuegeneration;
@@ -510,6 +510,7 @@ export default class ObjRTE extends ComponentBase
   _gotDirty()
   {
     ++this.valuedirtycount;
+    this.untouchedcontent = null; //invalidate cached 'original'
     this.queueMessage("dirty", { valuedirtycount: this.valuedirtycount, valuegeneration: this.valuegeneration });
   }
 

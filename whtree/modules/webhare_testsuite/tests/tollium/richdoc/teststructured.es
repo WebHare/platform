@@ -6,6 +6,16 @@ import { encodeValue } from 'dompack/types/text';
 let instanceref; // instance ref at the frontend side
 let instanceid; // instance id at the backend site
 
+
+async function setRawHTML(code)
+{
+  test.clickTolliumButton("Edit raw html");
+  await test.wait("ui");
+  test.compByName('code').querySelector('textarea').value = code;
+  test.clickTolliumButton("OK");
+  await test.wait("ui");
+}
+
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/richdoc.main')
     , waits: [ 'ui' ]
@@ -371,6 +381,44 @@ test.registerTests(
         await test.wait("ui");
         test.eq('YES', test.compByName('dirty').querySelector('input').value);
       }
+    }
+
+  , "Test another dirtyness regression"
+  , async function(doc, win)
+    {
+      /* when
+         - making a simple change
+         - forcing undirty
+         - sending the original version from the server to the client
+
+         the client may ignore this revert */
+
+      //load up simple enough content to trigger the RTE 'unchanged content' optimization
+      await setRawHTML(`<html><body><h2 class="heading2">test changes</h2></body</html>`);
+
+      //make a trivial change, verify dirty state flips
+      test.eq('NO', test.compByName('dirty').querySelector('input').value);
+      let body = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode");
+      body.querySelector("h2").textContent = "another change";
+
+      var rte = rtetest.getRTE(win,'structured');
+      rte._gotStateChange();
+
+      await test.wait("ui");
+      test.eq('YES', test.compByName('dirty').querySelector('input').value);
+
+      //force undirty
+      test.clickTolliumButton("Undirty");
+      await test.wait("ui");
+      test.eq('NO', test.compByName('dirty').querySelector('input').value);
+
+      //reload the initial value
+      await setRawHTML(`<html><body><h2 class="heading2">test changes</h2></body</html>`);
+
+      //did the RTE pick this up?
+      body = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode");
+      test.eq("test changes", body.querySelector("h2").textContent);
+      test.eq('NO', test.compByName('dirty').querySelector('input').value);
     }
 
   , { name: "Test image copypaste within document"
