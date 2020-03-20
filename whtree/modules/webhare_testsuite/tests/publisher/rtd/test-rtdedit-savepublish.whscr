@@ -14,10 +14,10 @@ OBJECT FUNCTION Rte()
   RETURN TT("doceditor")->contents->rte;
 }
 
-MACRO Create()
+ASYNC MACRO TestSaveToUnpublishedSite()
 {
   testfw->BeginWork();
-  //We need an unpublished site for this test
+  //We need an unpublished site for this test - you need to be able to 'prepare' documents without output so we cant use the testsuite-site
   testfw->SetupTestWebdesignWebsite("", [ enableoutput := FALSE ]);
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   testfile := siteroot->CreateFile(
@@ -25,10 +25,7 @@ MACRO Create()
       , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
       ]);
   testfw->CommitWork();
-}
 
-ASYNC FUNCTION TestSave()
-{
   testfw->SetTestUser("sysop");
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ]  ]));
@@ -41,14 +38,11 @@ ASYNC FUNCTION TestSave()
   AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT MACRO PTR, [ messagemask := "*has been prepared for publishing*"]);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
   Testeq(TRUE, OpenWHFSObject(testfile->id)->publish);
-
-  RETURN TRUE;
 }
 
 
 RunTestFramework(
-    [ PTR Create
-    , PTR TestSave
+    [ PTR TestSaveToUnpublishedSite
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
