@@ -555,9 +555,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
                , data :=                   CellExists(obj, "DATA") ? obj.data : DEFAULT RECORD
             FROM provider->ListObjects3(data.commanddate, data.groupid, options.rebuild ? DEFAULT RECORD ARRAY : existing_objects, CELL[ options.rebuild ]) AS obj;
 
-      IF(options.debugobjects)
-        DumpValue(objects, "boxed");
-
       // For deactivation, we only need to know if ListObjects throws, no more action needed (or wanted)
       IF (NOT options.deactivate)
       {
@@ -599,6 +596,9 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
             ELSE
               existing_commanddate := existing_objects[obj.existing_pos.position].commanddate;
           }
+
+          IF(options.debugobjects)
+            Print(`Fetching object, group: ${data.groupid}, object: ${objects[cur].id} (${cur}/${Length(objects)})\n`);
 
           // Fetch and index the object, new objects within the group are returned
           RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate, options.rebuild);
