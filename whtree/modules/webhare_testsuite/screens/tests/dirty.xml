@@ -9,6 +9,7 @@
     </actions>
     <compositions>
       <dirtylistener name="dirtylistener" ondirty="ondirty" />
+      <dirtylistener name="lonelydirtylistener" ondirty="onlonelydirty" />
       <record name="composition" dirtylistener="dirtylistener" />
       <radiogroup name="radiogroup" />
       <radiogroup name="radiogroup_listener" dirtylistener="dirtylistener" />
@@ -18,6 +19,9 @@
         <text name="dirtystatus" title="dirty?" width="1pr" />
         <button name="setbutton" action="setdirty" />
         <button name="clearbutton" action="cleardirty" />
+      </line>
+      <line>
+        <text name="lonelydirtystatus" title="lonelydirty?" width="1pr" />
       </line>
       <textedit name="textedit" title="textedit" dirtylistener="dirtylistener" />
       <textedit name="textedit_composition" title="composition" composition="composition" cellname="textedit" />

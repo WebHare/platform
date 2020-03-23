@@ -14,7 +14,11 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   // Variables
   //
 
+  //watched components
   RECORD ARRAY components;
+
+  //local dirty status, used if we're explicitly made dirty
+  BOOLEAN manualdirty;
 
 
   // ---------------------------------------------------------------------------
@@ -140,33 +144,36 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
 
   PUBLIC MACRO SetDirty()
   {
-    IF (RecordExists(SELECT FROM this->components WHERE NOT isdirty))
-    {
-      UPDATE this->components
-         SET isdirty := TRUE;
+    IF(this->manualdirty AND NOT RecordExists(SELECT FROM this->components WHERE NOT isdirty)) //already full dirty
+      RETURN;
 
-      this->ExtUpdatedDirtyComponents();
-      IF (this->ondirty != DEFAULT FUNCTION PTR)
-        this->ondirty();
-    }
+    this->manualdirty := TRUE;
+    UPDATE this->components
+       SET isdirty := TRUE;
+
+    this->ExtUpdatedDirtyComponents();
+    IF (this->ondirty != DEFAULT FUNCTION PTR)
+      this->ondirty();
   }
 
   PUBLIC MACRO ClearDirty()
   {
-    IF (this->dirty)
+    IF(NOT this->manualdirty AND NOT RecordExists(SELECT FROM this->components WHERE isdirty)) //already full clean
+      RETURN;
+
+    this->manualdirty := FALSE;
+    FOREVERY (RECORD comp FROM this->components)
     {
-      FOREVERY (RECORD comp FROM this->components)
+      IF (comp.isdirty)
       {
-        IF (comp.isdirty)
-        {
-          this->components[#comp].isdirty := FALSE;
-          comp.comp->DirtyCleared();
-        }
+        this->components[#comp].isdirty := FALSE;
+        comp.comp->DirtyCleared();
       }
-      this->ExtUpdatedDirtyComponents();
-      IF (this->ondirty != DEFAULT FUNCTION PTR)
-        this->ondirty();
     }
+
+    this->ExtUpdatedDirtyComponents();
+    IF (this->ondirty != DEFAULT FUNCTION PTR)
+      this->ondirty();
   }
 
   PUBLIC MACRO SetDirtyComponent(OBJECT obj)
@@ -194,10 +201,6 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   //
   // Helper functions
   //
-  BOOLEAN FUNCTION IsDirtyInternal(OBJECT obj)
-  {
-    RETURN SELECT AS BOOLEAN isdirty FROM this->components WHERE comp = obj;
-  }
   BOOLEAN FUNCTION SetDirtyInternal(OBJECT obj)
   {
     IF (RecordExists(SELECT FROM this->components WHERE comp = obj AND NOT isdirty))
@@ -229,7 +232,7 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
 
   BOOLEAN FUNCTION GetDirty()
   {
-    RETURN RecordExists(SELECT FROM this->components WHERE isdirty);
+    RETURN this->manualdirty OR RecordExists(SELECT FROM this->components WHERE isdirty);
   }
 
 
