@@ -20,9 +20,6 @@
         <button name="setbutton" action="setdirty" />
         <button name="clearbutton" action="cleardirty" />
       </line>
-      <line>
-        <text name="lonelydirtystatus" title="lonelydirty?" width="1pr" />
-      </line>
       <textedit name="textedit" title="textedit" dirtylistener="dirtylistener" />
       <textedit name="textedit_composition" title="composition" composition="composition" cellname="textedit" />
       <combobox name="combobox" title="combobox" dirtylistener="dirtylistener">
@@ -70,6 +67,7 @@
       <imgedit name="imgedit" title="imgedit" dirtylistener="dirtylistener" width="1pr" height="4gr"/>
       <text title="rte" labelfor="rte" />
       <richarea name="rte" type="html" dirtylistener="dirtylistener" />
+      <text name="lonelydirtystatus" title="lonelydirty?" width="1pr" />
     </body>
   </screen>
 
