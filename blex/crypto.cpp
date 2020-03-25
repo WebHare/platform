@@ -1334,7 +1334,8 @@ SSLContext::SSLContext(bool is_server, std::string const &ciphersuite)
         }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
-        SSL_CTX_set_min_proto_version((SSL_CTX*)ctx, TLS1_2_VERSION);
+        if (is_server)
+            SSL_CTX_set_min_proto_version((SSL_CTX*)ctx, TLS1_2_VERSION);
 
         SSL_CTX_set_options((SSL_CTX*)ctx, SSL_OP_ALL
                                            | (is_server ? SSL_OP_NO_RENEGOTIATION : 0)
