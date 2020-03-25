@@ -141,6 +141,8 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
 }
 
 /** @short Generate a PDF from a witty record
+    @long Header and footer templates can use `<span class="pageNumber"></span>` and `<span class="totalPages"></span>` to show the page number and total number of pages respectively, but due to a Chrome limitation
+          these are only shown if you also set the page margins to not intersect with these elements
     @param data Witty data
     @cell options.pdfengine PDF Engine to use. 'chrome' (default)
     @cell options.printbackground Print backgrounds too? (defaults to true)
@@ -150,6 +152,10 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     @cell(string) options.media Media to use - 'screen' (default) or 'print'
     @cell(boolean) options.debug Enable debug mode
     @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
+    @cell(record) options.margin Page marginn (eg `[ top := "0.5cm", bottom := "0.5cm", left := "1cm", right := "1cm" ]`). Defaults to no margins
+    @cell(boolean) options.displayheaderfooter Display header and footer. Defaults to FALSE
+    @cell(string) options.headertemplate Header template HTML code
+    @cell(string) options.footertemplate Header template HTML code
     @return Wrapped file containing the PDF (or ZIP, if getsource is used)
 */
 PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[])
@@ -163,6 +169,10 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                              , getsource := FALSE
                              , delay := 0
                              , lookupresource := DEFAULT FUNCTION PTR
+                             , displayheaderfooter := FALSE
+                             , headertemplate := ""
+                             , footertemplate := ""
+                             , margin := DEFAULT RECORD
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
@@ -191,8 +201,20 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
     pdfgenerator->mergerecord := data;
     pdfgenerator->lookupresource := options.lookupresource;
 
-    BLOB pdfdata := options.getsource ? pdfgenerator->GenerateSource() : WaitForPromise(pdfgenerator->GeneratePDF());
-    RETURN WrapBlob(pdfdata, options.filename);
+    BLOB filedata;
+    IF(options.getsource)
+    {
+      filedata := pdfgenerator->GenerateSource();
+    }
+    ELSE
+    {
+      filedata := WaitForPromise(pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
+                                                               , options.headertemplate
+                                                               , options.footertemplate
+                                                               , options.margin
+                                                               ]));
+        }
+    RETURN WrapBlob(filedata, options.filename);
   }
 
   THROW NEW Exception("GeneratePDF failed");

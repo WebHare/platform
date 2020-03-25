@@ -190,6 +190,8 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
         CELL[ ...sharedpageprepoptions
             , scale := 1m
             , displayheaderfooter := FALSE
+            , headertemplate := ""
+            , footertemplate := ""
             , landscape := FALSE
             , pageranges := ""
             , format := ""
@@ -225,6 +227,8 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
     RECORD parameters :=
         CELL[ options.landscape
             , options.displayheaderfooter
+            , options.headertemplate
+            , options.footertemplate
             , options.printbackground
             , options.scale
             , paperwidth
