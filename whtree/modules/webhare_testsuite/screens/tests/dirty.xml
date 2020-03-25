@@ -9,6 +9,7 @@
     </actions>
     <compositions>
       <dirtylistener name="dirtylistener" ondirty="ondirty" />
+      <dirtylistener name="lonelydirtylistener" ondirty="onlonelydirty" />
       <record name="composition" dirtylistener="dirtylistener" />
       <radiogroup name="radiogroup" />
       <radiogroup name="radiogroup_listener" dirtylistener="dirtylistener" />
@@ -66,6 +67,7 @@
       <imgedit name="imgedit" title="imgedit" dirtylistener="dirtylistener" width="1pr" height="4gr"/>
       <text title="rte" labelfor="rte" />
       <richarea name="rte" type="html" dirtylistener="dirtylistener" />
+      <text name="lonelydirtystatus" title="lonelydirty?" width="1pr" />
     </body>
   </screen>
 

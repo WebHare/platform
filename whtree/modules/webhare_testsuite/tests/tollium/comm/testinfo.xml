@@ -5,4 +5,5 @@
   <jstest file="testeventserver.es" exclusive="true" />
   <test script="testsvg.whscr" />
   <jstest file="testdirty.es" />
+  <test script="testdirty-hs.whscr" />
 </group>

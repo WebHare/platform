@@ -8,6 +8,7 @@ PUBLIC OBJECTTYPE DirtyTest EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->OnDirty();
+    this->OnLonelyDirty();
   }
 
   MACRO DoSetDirty()
@@ -23,6 +24,11 @@ PUBLIC OBJECTTYPE DirtyTest EXTEND TolliumScreenBase
   MACRO OnDirty()
   {
     this->dirtystatus->value := this->dirtylistener->dirty ? "YES" : "NO";
+  }
+
+  MACRO OnLonelyDirty()
+  {
+    ^lonelydirtystatus->value := ^lonelydirtylistener->dirty ? "YES" : "NO";
   }
 
   MACRO OnCheckboxClick()

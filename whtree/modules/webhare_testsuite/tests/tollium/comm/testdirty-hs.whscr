@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestDirtyListener()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:runscreen", [ params := ["tests/dirty.dirtytest"]]));
+  TestEq("NO", TT(":lonelydirty?")->value);
+  TestEq(FALSE, TT("lonelydirtylistener")->dirty);
+  TT("lonelydirtylistener")->SetDirty();
+  TestEq("YES", TT(":lonelydirty?")->value);
+  TestEq(TRUE, TT("lonelydirtylistener")->dirty);
+  TT("lonelydirtylistener")->ClearDirty();
+  TestEq("NO", TT(":lonelydirty?")->value);
+  TestEq(FALSE, TT("lonelydirtylistener")->dirty);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestDirtyListener
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);
