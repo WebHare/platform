@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -15,11 +16,26 @@ STRING doc := `<!DOCTYPE html>
   <head>
     <style>
       html,body { background-color: transparent; }
-      html { font: 45px Arial; color: #00000; }
+      html { font: 45px Arial; color: #000000; }
     </style>
   </head>
   <body>
     NOT A TEAPOT.
+  </body>
+</html>`;
+
+STRING multipagedoc := `<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html,body { background-color: transparent; }
+      html { font: 45px Arial; color: #000000; }
+    </style>
+  </head>
+  <body>
+    <p>Page 1</p>
+    <p style="page-break-before: always">Page 2</p>
+    <p style="page-break-before: always">Page 3</p>
   </body>
 </html>`;
 
@@ -46,7 +62,7 @@ MACRO TestPDFs()
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 
   RECORD result2 := GeneratePDF( [ body := PTR Print(bgdoc)
                                  , wittypath := "inline::[body]"
@@ -57,7 +73,7 @@ MACRO TestPDFs()
 
   BLOB final := ApplyOverlayToPDF(result.data, result2.data);
   images := __ExtractPDFImages(final);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 
   //test empty concat
   TestThrows (PTR ConcatenatePDFs(BLOB[]));
@@ -75,6 +91,19 @@ MACRO TestPDFs()
     testfw->CompareWithImage(images[x].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]);
     testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 25 ]);
   }
+
+  result := GeneratePDF( [ body := PTR Print(multipagedoc)
+                         , wittypath := "inline::[body]"
+                         ], [ printbackground := FALSE
+                            , displayheaderfooter := TRUE
+                            , margin := [ top := "0.5cm", left := "0.5cm", right := "0.5cm", bottom := "0.5cm" ]
+                            , headertemplate := `<div style="width:100%; text-align:right; font-size:12px;">HEADER: <span class='pageNumber'></span>/<span class='totalPages'></span></div>`
+                            , footertemplate := `<div style="width:100%; text-align:right; font-size:12px;">FOOTER: <span class='pageNumber'></span>/<span class='totalPages'></span></div>`
+                            ]);
+  images := __ExtractPDFImages(result.data);
+  TestEq(3,Length(images));
+  Testeq("page-2.jpg", images[1].filename);
+  testfw->CompareWithImage(images[1].data, Resolve("testdata/pagenumberedpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
 ASYNC MACRO TestWittyDialog()
@@ -96,7 +125,7 @@ MACRO TestPDFFromURL()
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]); //ADDME lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
 MACRO TestScreenshots()

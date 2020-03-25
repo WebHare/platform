@@ -204,7 +204,7 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN filelist;
   }
 
-  ASYNC FUNCTION GeneratePDFInternal(BLOB data)
+  ASYNC FUNCTION GeneratePDFInternal(BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     RECORD ARRAY filelist := this->GetFileList(data);
     IF(Length(filelist) = 0)
@@ -213,15 +213,15 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     OBJECT server := NEW AdHocServer(/*[ logdebug := TRUE ]*/);
     server->PrecacheFiles(filelist);
 
-    BLOB pdf := AWAIT this->GeneratePDFFromURL(server->baseurl || "/.contents");
+    BLOB pdf := AWAIT this->GeneratePDFFromURL(server->baseurl || "/.contents", options);
     server->Close();
     RETURN pdf;
   }
 
-  PUBLIC ASYNC FUNCTION GeneratePDF()
+  PUBLIC ASYNC FUNCTION GeneratePDF(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->PrepareHTMLVersion();
-    RETURN AWAIT this->GeneratePDFInternal(DEFAULT BLOB);
+    RETURN AWAIT this->GeneratePDFInternal(DEFAULT BLOB, options);
   }
 
   PUBLIC BLOB FUNCTION GenerateSource()
@@ -241,10 +241,10 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN result;
   }
 
-  PUBLIC ASYNC FUNCTION GeneratePDFFromBlob(BLOB data, RECORD ARRAY embedded_files DEFAULTSTO DEFAULT RECORD ARRAY)
+  PUBLIC ASYNC FUNCTION GeneratePDFFromBlob(BLOB data, RECORD ARRAY embedded_files DEFAULTSTO DEFAULT RECORD ARRAY, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->embedded_files := embedded_files;
-    RETURN AWAIT this->GeneratePDFInternal(data);
+    RETURN AWAIT this->GeneratePDFInternal(data, options);
   }
 
   ASYNC FUNCTION GotoThePage(STRING url, RECORD options)
