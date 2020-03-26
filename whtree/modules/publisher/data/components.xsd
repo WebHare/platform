@@ -355,7 +355,6 @@
       <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
     </xs:sequence>
     <xs:attributeGroup ref="tc:ComponentBase" />
-    <xs:attributeGroup ref="FSObjectOverviewOptions" />
 
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
       <xs:annotation>
@@ -722,10 +721,6 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:attributeGroup name="FSObjectOverviewOptions">
-    <xs:attribute name="virtualfilter" type="sc:WHFSVirtualFilter" />
-  </xs:attributeGroup>
-
   <xs:attributeGroup name="FSContentsOverviewOptions">
     <xs:attribute name="foldertree" type="tc:ComponentRef">
       <xs:annotation>
@@ -734,7 +729,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attributeGroup ref="FSObjectOverviewOptions" />
   </xs:attributeGroup>
 
 

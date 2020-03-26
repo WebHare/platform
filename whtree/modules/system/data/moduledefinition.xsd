@@ -1500,11 +1500,6 @@
           </xs:attribute>
           <xs:attribute name="contentmode" type="xs:string" />
           <xs:attribute name="icon" type="ImageSrc" />
-          <xs:attribute name="forvirtualfilters">
-            <xs:simpleType>
-              <xs:list itemType="sc:WHFSVirtualFilter" />
-            </xs:simpleType>
-          </xs:attribute>
         </xs:complexType>
       </xs:element>
     </xs:sequence>
@@ -2046,11 +2041,6 @@
             </xs:simpleType>
           </xs:attribute>
           <xs:attribute name="icon" type="ImageSrc" />
-          <xs:attribute name="forvirtualfilters">
-            <xs:simpleType>
-              <xs:list itemType="sc:WHFSVirtualFilter" />
-            </xs:simpleType>
-          </xs:attribute>
         </xs:complexType>
       </xs:element>
     </xs:sequence>

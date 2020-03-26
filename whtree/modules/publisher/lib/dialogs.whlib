@@ -34,6 +34,9 @@ PUBLIC MACRO RunManageTagsDialog(OBJECT parentscreen, INTEGER tagfolder, RECORD 
 /** Run the 'browse for object' dialog, returning a single object
     @param parentscreen Screen invoking us
     @cell(integer array) options.roots Root folders to show. If empty, shows all root folders
+    @cell(boolean) options.acceptfiles Accept files. (defaults to TRUE)
+    @cell(boolean) options.acceptfolders Accept folders. (defaults to TRUE)
+    @cell(boolean) options.acceptforeignfolders Accept selection of foreign folders (defaults to FALSE)
     @cell(string array) options.accepttypes List of acceptable WHFS types for selection
     @cell(integer) options.recyclebinid ID for the recyclebin. If not set, no recyclebin will be available in the browse dialog
     @cell(integer) options.value Currently selected item

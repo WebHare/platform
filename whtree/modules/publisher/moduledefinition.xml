@@ -1011,8 +1011,8 @@
 
     <filemgrextension>
       <accesscheck />
-      <addrootitem tid="components.foldertree.fsroot" gotoitemtid="components.foldertree.fsroot" icon="tollium:folders/publisher" contentmode="webhareroot" gotoshortcut="ctrl+shift+h" forvirtualfilters="copytargets movetargets" />
-      <addrootitem tid="terminology.trash" gotoitemtid="terminology.trash" icon="tollium:folders/trash" contentmode="recyclebin" filterscreen="mod::publisher/tolliumapps/filemanager/recyclebin.xml#filterpanel" gotoshortcut="ctrl+shift+t" forvirtualfilters="movetargets" />
+      <addrootitem tid="components.foldertree.fsroot" gotoitemtid="components.foldertree.fsroot" icon="tollium:folders/publisher" contentmode="webhareroot" gotoshortcut="ctrl+shift+h" />
+      <addrootitem tid="terminology.trash" gotoitemtid="terminology.trash" icon="tollium:folders/trash" contentmode="recyclebin" filterscreen="mod::publisher/tolliumapps/filemanager/recyclebin.xml#filterpanel" gotoshortcut="ctrl+shift+t" />
     </filemgrextension>
 
     <filemgrextension>

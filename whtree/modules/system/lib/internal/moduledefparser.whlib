@@ -1511,7 +1511,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                    , gotoshortcut      := addrootitem->GetAttribute("gotoshortcut")
                    , contentmode       := addrootitem->GetAttribute("contentmode")
                    , icon              := addrootitem->GetAttribute("icon")
-                   , forvirtualfilters := ParseXSList(addrootitem->GetAttribute("forvirtualfilters"))
                    , filterscreen      := MakeAbsoluteResourcePath(this->respath, addrootitem->GetAttribute("filterscreen"))
                    , contentshandler   := MakeAbsoluteResourcePath(this->respath, addrootitem->GetAttribute("contentshandler"))
                    , modulekey         := this->moduledef.name || ":" || Length(this->moduledef.filemgrextensions) || "." || Length(extension.addrootitems) //to find this in the shortcut menu

@@ -248,10 +248,7 @@ PUBLIC RECORD ARRAY FUNCTION GetInnerObjectListing(OBJECT tolliumuser, INTEGER p
 PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
 <
   STRING ARRAY defaultflags; // Default flags, which are always available
-  STRING  pvt_virtualfilter;
   RECORD ARRAY contentshandlercache;
-
-  PUBLIC PROPERTY virtualfilter(pvt_virtualfilter, SetVirtualFilter);
 
   MACRO NEW()
   {
@@ -264,21 +261,6 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
 
   MACRO ReloadOverview()
   {
-  }
-
-  MACRO SetVirtualFilter(STRING virtualfilter)
-  {
-    IF (virtualfilter = this->pvt_virtualfilter)
-      RETURN;
-
-    this->pvt_virtualfilter := virtualfilter;
-    this->ReloadOverview();
-  }
-
-  PUBLIC UPDATE MACRO StaticInit(RECORD def)
-  {
-    TolliumFragmentBase::StaticInit(def);
-    this->pvt_virtualfilter := def.virtualfilter;
   }
 
   PUBLIC MACRO ShowFolder(INTEGER folderid)

@@ -656,8 +656,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       FOREVERY(RECORD addroot FROM ext.addrootitems)
       {
         counter := counter + 1;
-        IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
-          CONTINUE;
 
         // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
         INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;

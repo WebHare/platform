@@ -560,12 +560,4 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="WHFSVirtualFilter">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="" />
-      <xs:enumeration value="copytargets" />
-      <xs:enumeration value="movetargets" />
-    </xs:restriction>
-  </xs:simpleType>
-
 </xs:schema>

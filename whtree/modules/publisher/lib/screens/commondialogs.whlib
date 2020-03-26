@@ -122,8 +122,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
   PUBLIC PROPERTY type(GetType, SetType);
 
-  PUBLIC PROPERTY virtualfilter(this->folders->virtualfilter, SetVirtualFilter);
-
   /** The type namespace for WHFS thumbnails
   */
   PUBLIC PROPERTY thumbnailwhfstype(GetThumbnailWHFSType, SetThumbnailWHFSType);
@@ -160,6 +158,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
        , description := ""
        , acceptfiles := TRUE
        , acceptfolders := TRUE
+       , acceptforeignfolders := FALSE //switching the default to FALSE, much safer...
        , acceptunpublished := TRUE // show both published and non-published files by default
        , thumbnailwhfstype := ""
        , thumbnailwhfsfield := ""
@@ -167,7 +166,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
        , folder := 0
        , showreadonly := FALSE
        , recyclebinid := 0
-       , virtualfilter := ""
        ], data, [ enums := [ type := [ "list", "thumbnails" ]
                            ]]);
 
@@ -179,7 +177,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
     this->description := data.description;
     this->pvt_acceptfiles   := data.acceptfiles;
     this->pvt_acceptfolders := data.acceptfolders;
-    this->pvt_acceptforeignfolders := TRUE;
+    this->pvt_acceptforeignfolders := data.acceptforeignfolders;
     this->acceptunpublished := data.acceptunpublished;
     this->pvt_thumbnailwhfstype := data.thumbnailwhfstype;
     this->pvt_thumbnailwhfsfield := data.thumbnailwhfsfield;
@@ -188,8 +186,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
     IF(data.showreadonly)
       this->showreadonly := TRUE;
-    IF(data.virtualfilter != "")
-      this->virtualfilter := data.virtualfilter;
 
     this->folders->filteritems := PTR this->FilterFolders;
 
@@ -440,13 +436,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
     this->fileslist->foldertree := type="list" ? this->folders : DEFAULT OBJECT;
     this->filesthumbs->foldertree := type="thumbnails" ? this->folders : DEFAULT OBJECT;
     this->ApplySettingsToView(FALSE);
-  }
-
-  MACRO SetVirtualFilter(STRING filter)
-  {
-    this->folders->virtualfilter := filter;
-    this->fileslist->virtualfilter := filter;
-    this->filesthumbs->virtualfilter := filter;
   }
 
   MACRO SetThumbnailWHFSField(STRING fieldname)
