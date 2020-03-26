@@ -640,13 +640,21 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
 
   MACRO RefreshList()
   {
-    VARIANT currentselection := this->mylist->value;
     IF(this->listsetupdirty AND ObjectExists(this->contentslisthandler))
     {
+      VARIANT currentselection := ^mylist->value;
       this->listsetupdirty := FALSE;
       this->SetupListLayout();
+      ^mylist->SetValueIfValid(currentselection);
     }
+    ELSE
+    {
+      ^mylist->Invalidate();
+    }
+  }
 
+  RECORD ARRAY FUNCTION OnGetRows()
+  {
     BOOLEAN canpublish;
     RECORD folder := SELECT * FROM system.fs_objects WHERE id = this->curfolder AND isfolder;
 
@@ -659,8 +667,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
           this->mylist->empty := GetTid("publisher:components.filelist.sitelocked-reason", site.lockreason);
         ELSE
           this->mylist->empty := GetTid("publisher:components.filelist.sitelocked");
-        this->mylist->rows := DEFAULT RECORD ARRAY;
-        RETURN;
+        RETURN RECORD[];
       }
       canpublish := RecordExists(site) AND site.outputweb != 0;
     }
@@ -796,8 +803,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
              , ordering_last :=   #files = files_last
           FROM files;
 
-    this->mylist->rows := files;
-    this->mylist->SetValueIfValid(currentselection);
+    RETURN files;
   }
 
   PUBLIC UPDATE MACRO ReloadOverview()
