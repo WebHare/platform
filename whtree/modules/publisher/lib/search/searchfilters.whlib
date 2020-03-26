@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/search/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -543,21 +544,24 @@ PUBLIC OBJECTTYPE WHFSFolderFilter EXTEND BaseSearchFilter
 
   UPDATE PUBLIC RECORD FUNCTION SelectQuery(RECORD value)
   {
-    OBJECT dlg;
+    INTEGER selected;
     IF (value.matchtype = "site")
     {
-      dlg := CreateSiteSelectDialog(this->context->filterscreen);
+      OBJECT dlg := CreateSiteSelectDialog(this->context->filterscreen);
+      IF (dlg->RunModal() = "ok")
+        selected := dlg->value;
     }
     ELSE
     {
-      dlg := CreateBrowseForWHFSObjectDialog(this->context->filterscreen);
-      dlg->acceptfiles := FALSE;
-      dlg->acceptfolders := TRUE;
+      selected := RunBrowseForFSObjectDialog(this->context->filterscreen
+                      , [ acceptfiles := FALSE
+                        , acceptfolders := TRUE
+                        , value := CellExists(value.selectquery, "whfsfolder") ? value.selectquery.whfsfolder : 0
+                        ]);
     }
-    IF (CellExists(value.selectquery, "whfsfolder"))
-      dlg->value := value.selectquery.whfsfolder;
-    IF (dlg->RunModal() = "ok")
-      RETURN [ ...value, selectquery := this->GetUpdatedValue(value, dlg->value) ];
+
+    IF (selected != 0)
+      RETURN [ ...value, selectquery := this->GetUpdatedValue(value, selected) ];
     RETURN DEFAULT RECORD;
   }
 
