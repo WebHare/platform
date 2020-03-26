@@ -495,13 +495,6 @@
         </xs:list>
       </xs:simpleType>
     </xs:attribute>
-    <xs:attribute name="forcewhfsroot" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          If set, force the specified WHFS path as the root folder for this foldertree. Initialization will fail if this folder does not exist
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
 
     <xs:attributeGroup ref="s:ListBorders" />
   </xs:complexType>

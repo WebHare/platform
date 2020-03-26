@@ -96,16 +96,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     this->pvt_showprotected := def.showprotected;
     this->pvt_showreadonly := def.showreadonly;
 
-    IF(def.forcewhfsroot != "" AND GetPrimaryWebhareTransaction() != 0) //forced root
-    {
-      OBJECT rootfolder := OpenWHFSObjectByPath(def.forcewhfsroot);
-      IF(NOT ObjectExists(rootfolder) OR NOT rootfolder->isfolder)
-        THROW NEW Exception("No such WHFS folder " || def.forcewhfsroot);
-
-      this->roots := [ INTEGER(rootfolder->id) ];
-      this->useroots := TRUE;
-    }
-
     this->onselect := def.onselect;
 
     //this->thelist->ongetpath := PTR this->OnGetPath;
