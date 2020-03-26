@@ -701,6 +701,9 @@ export default class FormBase
       {
         option.propWhNodeCurrentEnabled = option_enabled;
         option.disabled = !option_enabled;
+        // If this option was the selected option, but is now disabled, reset the select's value
+        if (option.disabled && option.selected)
+          option.parentNode.selectedIndex = -1;
 
         if (!isinit && !tovalidate.includes(option.parentNode))
           tovalidate.push(option.parentNode); // to clear errors for this option's select field
