@@ -716,15 +716,10 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     files := SELECT *
                   , rowkey := id
                   , name_noicon := name
-                  //, modified := modificationdate
                   , modified := this->owner->tolliumuser->FormatRecentDateTime(modificationdate, TRUE)
-                  //, filesize := isfolder OR NOT pvt_blobiscontent ? "" : this->owner->tolliumuser->FormatFileSize(pvt_length_data, 0, FALSE)
                   , pvt_highlight := RecordExists(folder) AND id = folder.indexdoc
-                  //, pvt_marker := RecordExists(folder) AND id = folder.indexdoc ? this->mylist->GetIcon("tollium:status/marker") : 0
                   , pvt_name_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || name
                   , pvt_title_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || title || "/" || name
-                  //, pvt_description_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || description || "/" || name
-                  // ,pvt_filesize_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || (isfolder OR NOT pvt_blobiscontent ? "" : Right("000000000"||ToString(pvt_length_data),10)) || name
                   , pvt_modified_sort := (this->groupfolders ? (isfolder ? "0" : "1") : "") || FormatDateTime("%Y%m%d%H%M%S", modificationdate) || name
                   , pvt_ordering_sort := Right("000000000" || ordering, 10) || name
                   , icon := this->mylist->GetIcon(pvt_iconname)
@@ -801,11 +796,6 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
              , ordering_last :=   #files = files_last
           FROM files;
 
-/*
-RECORD ARRAY bad := SELECT * FROM files AS row WHERE NOT CellExists(files[#row],"selectable");
-IF (Length(bad) > 0)
-  ABORT(anytostring(bad,"tree"));
-*/
     this->mylist->rows := files;
     this->mylist->SetValueIfValid(currentselection);
   }
