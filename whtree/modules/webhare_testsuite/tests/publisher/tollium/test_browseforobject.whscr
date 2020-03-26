@@ -1,21 +1,20 @@
 <?wh
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 ASYNC MACRO TestThumbnailBrowse()
 {
-  OBJECT browse := CreateBrowseForWHFSObjectDialog(GetTestController());
-  browse->acceptfiles := TRUE;
-  browse->acceptfolders := FALSE;
-  browse->acceptunpublished := TRUE;
-  browse->accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
-  browse->type := "thumbnails";
-  browse->selectmode := "single";
-  browse->roots := [INTEGER(OpenTestsuiteSite()->id)];
-
-  RECORD res := AWAIT ExpectScreenChange(+1, PTR browse->RunSelectfileDialog());
+  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunBrowseForFSObjectDialog(GetTestController(),
+    [ acceptfiles := TRUE
+    , acceptfolders := FALSE
+    , acceptunpublished := TRUE
+    , accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ]
+    , type := "thumbnails"
+    , roots := [INTEGER(OpenTestsuiteSite()->id)]
+    ]));
 
   OBJECT imgeditfile := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg");
   TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name="testpages";
@@ -27,13 +26,36 @@ ASYNC MACRO TestThumbnailBrowse()
 
   TestEq(imgeditfile->id, AWAIT res.expectcallreturn());
 
-  browse := CreateBrowseForWHFSObjectDialog(GetTestController());
-  browse->acceptfiles := TRUE;
-  browse->folder := imgeditfile->parent;
+  AWAIT ExpectScreenChange(+1, PTR RunBrowseForFSObjectDialog(GetTestController(),
+    [ acceptfiles := TRUE
+    , folder := imgeditfile->parent
+    ]));
 
-  AWAIT ExpectScreenChange(+1, PTR browse->RunSelectfileDialog());
   TestEq("testpages", TT("folders")->selection.name);
+  TestEq(0, Length(SELECT FROM TT("folders")->rows WHERE name="Trash"), "No recyclebin by default");
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  AWAIT ExpectScreenChange(+1, PTR RunBrowseForFSObjectDialog(GetTestController(),
+    [ acceptfiles := TRUE
+    ]));
+
+  TestEq("testpages", TT("folders")->selection.name, "Should have remembered testpages");
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+
+  res := AWAIT ExpectScreenChange(+1, PTR RunBrowseForFSObjectDialog(GetTestController(),
+    [ folder := -1
+    , recyclebinid := -5
+    , acceptfiles := FALSE
+    ]));
+
+  TestEq("WebHare Publisher", TT("folders")->selection.name);
+  TestEq(1, Length(SELECT FROM TT("folders")->rows WHERE name="Trash"), "Should have a bin (and no other root folders named trash please, not going to have tests deal with that)");
+  TT("folders")->selection := SELECT * FROM TT("folders")->rows WHERE name="Trash";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(-5, AWAIT res.expectcallreturn());
 }
 
 ASYNC MACRO TestBrowseForObject()
@@ -42,10 +64,29 @@ ASYNC MACRO TestBrowseForObject()
   OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([ name := "deleteme.txt" ]);
   testfw->CommitWork();
 
-  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/publisher/components:browseforobject" ]);
+  STRING simple_browse_comp := `inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none">
+    <body>
+      <p:browseforobject name="comp" site="webhare testsuite site" fullpath="/portal1/"/>
+    </body>
+  </screen>
+</screens>#test`;
+
+  OBJECT scr := GetTestController()->LoadScreen(simple_browse_comp);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->browseaction"));
+  TestEq("portal1", TT("folders")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  scr := GetTestController()->LoadScreen(simple_browse_comp);
   scr->comp->value := testfile->id;
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("WebHare testsuite site:/tmp/deleteme.txt", scr->comp->^path->value);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->browseaction"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   TestEq("WebHare testsuite site:/tmp/deleteme.txt", scr->comp->^path->value);
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 
@@ -53,7 +94,7 @@ ASYNC MACRO TestBrowseForObject()
   testfile->RecycleSelf();
   testfw->CommitWork();
 
-  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/publisher/components:browseforobject" ]);
+  scr := GetTestController()->LoadScreen(simple_browse_comp);
   scr->comp->value := testfile->id;
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
@@ -64,6 +105,8 @@ ASYNC MACRO TestBrowseForObject()
 ASYNC MACRO TestBrowseForObjectArray()
 {
   OBJECT imgeditfile := OpenTestsuiteSite()->OpenByPath("/testpages/imgeditfile.jpeg");
+  OBJECT staticpage := OpenTestsuiteSite()->OpenByPath("/testpages/staticpage");
+
   // ?app=webhare_testsuite:component(http://www.webhare.net/xmlns/publisher/components:browseforobjectarray)
   OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/publisher/components:browseforobjectarray" ]);
   scr->comp->browsetype := "thumbnails";
@@ -74,11 +117,11 @@ ASYNC MACRO TestBrowseForObjectArray()
   AWAIT ExpectScreenChange(+1, PTR scr->comp->__debug_addaction->TolliumClick());
   //INSERT TT("folders")->rows[0].rowkey INTO TT("folders")->expanded AT END;
   TestEq("testpages", TT("folders")->selection.name);
-  topscreen->filesthumbs->value := [INTEGER(imgeditfile->id)];
+  topscreen->filesthumbs->value := [INTEGER(imgeditfile->id), INTEGER(staticpage->id)];
   topscreen->frame->focused := topscreen->filesthumbs;
 
   AWAIT ExpectScreenChange(-1, PTR TT("submitaction")->TolliumClick());
-  TestEq([INTEGER(imgeditfile->id)], scr->comp->value);
+  TestEq(SortArray([INTEGER(imgeditfile->id), INTEGER(staticpage->id)]), SortArray(scr->comp->value));
 }
 
 RunTestFramework(

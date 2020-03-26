@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -389,13 +390,9 @@ check filetype
 
   MACRO AddValue()
   {
-    OBJECT browse := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
-    STRING result := browse->RunModal();
-
-    IF (result != 'ok')
+    INTEGER ARRAY newfileids := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
+    IF(Length(newfileids) = 0)
       RETURN;
-
-    INTEGER ARRAY newfileids := browse->value;
 
     INTEGER ARRAY beforeinlist := SELECT AS INTEGER ARRAY id FROM this->currentview->rows;//this->currentview->files
     INTEGER ARRAY alreadyused;
@@ -413,7 +410,7 @@ check filetype
 
     INTEGER insertpos := RecordExists(row) ? row.pos : LENGTH(this->currentview->rows);
     INTEGER ARRAY oldfiles := this->currentview->files;
-    INTEGER ARRAY newfiles := ArraySlice(oldfiles, 0, insertpos) CONCAT browse->value CONCAT ArraySlice(oldfiles, insertpos);
+    INTEGER ARRAY newfiles := ArraySlice(oldfiles, 0, insertpos) CONCAT newfileids CONCAT ArraySlice(oldfiles, insertpos);
     newfiles :=
         SELECT AS INTEGER ARRAY id
           FROM ToRecordArray(newfiles, "ID") AS newfile
@@ -428,29 +425,25 @@ check filetype
     INTEGER fileid := this->currentview->value[0];
     RECORD file := SELECT * FROM system.fs_objects WHERE id=this->currentview->value[0];
 
-    OBJECT browse;
+    INTEGER ARRAY newfiles;
     IF (RecordExists(file))
     {
       // preselect folder and file
-      browse := this->InternalBrowseForFiles(file.parent, this->currentview->value);
+      newfiles := this->InternalBrowseForFiles(file.parent, this->currentview->value);
     }
     ELSE
     {
       // if the file isn't found anymore, don't preselect anything
-      browse := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
+      newfiles := this->InternalBrowseForFiles(0, DEFAULT INTEGER ARRAY);
     }
-
-    STRING result := browse->RunModal();
-
-    IF (result != 'ok')
+    IF(Length(newfiles) = 0)
       RETURN;
 
     RECORD row := SELECT *, pos := #rows FROM this->currentview->rows WHERE tolliumselected;
-    INTEGER ARRAY newfiles := this->currentview->files;
     IF (RecordExists(row))
-      newfiles := ArraySlice(newfiles, 0, row.pos) CONCAT browse->value CONCAT ArraySlice(newfiles, row.pos + 1);
+      newfiles := ArraySlice(newfiles, 0, row.pos) CONCAT newfiles CONCAT ArraySlice(newfiles, row.pos + 1);
     ELSE
-      newfiles := newfiles CONCAT browse->value;
+      newfiles := newfiles CONCAT newfiles;
 
       this->currentview->files := newfiles;
   }
@@ -527,7 +520,7 @@ check filetype
     }
   }
 
-  OBJECT FUNCTION InternalBrowseForFiles(INTEGER folderid, INTEGER ARRAY fileids)
+  INTEGER ARRAY FUNCTION InternalBrowseForFiles(INTEGER folderid, INTEGER ARRAY fileids)
   {
     IF (folderid = 0 AND this->fullpath != "")
     {
@@ -543,26 +536,16 @@ check filetype
       }
     }
 
-    OBJECT browse := CreateBrowseForWHFSObjectDialog(this->owner);
-    browse->acceptfiles   := this->pvt_acceptfiles;
-    browse->acceptfolders := this->pvt_acceptfolders;
-    browse->accepttypes   := this->accepttypes;
-
-    browse->acceptunpublished := this->acceptunpublished;
-
-    browse->type          := this->browsetype;
-    browse->selectmode    := 'multiple';
-
-    // setting for thumbnail view
-    browse->thumbnailwhfstype  := this->thumbnailwhfstype;
-    browse->thumbnailwhfsfield := this->thumbnailwhfsfield;
-
-    IF (folderid > 0)
-      browse->folder := folderid;
-
-    IF (Length(fileids) > 0)
-      browse->value := fileids;
-
-    RETURN browse;
+    RETURN RunBrowseForFSObjectsDialog(this->owner,
+      [ acceptfiles   := this->pvt_acceptfiles
+      , acceptfolders := this->pvt_acceptfolders
+      , accepttypes   := this->accepttypes
+      , acceptunpublished := this->acceptunpublished
+      , type          := this->browsetype
+      , thumbnailwhfstype  := this->thumbnailwhfstype
+      , thumbnailwhfsfield := this->thumbnailwhfsfield
+      , value := fileids
+      , folder := folderid
+      ]);
   }
 >;
