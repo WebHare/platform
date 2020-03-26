@@ -1,5 +1,5 @@
 <?wh
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -154,46 +154,37 @@ PUBLIC OBJECTTYPE SharedBlocks EXTEND TolliumFragmentBase
 
   RECORD ARRAY FUNCTION OnRowEdit(RECORD row)
   {
-    OBJECT browsedialog := CreateBrowseForWHFSObjectDialog(this->owner);
-    browsedialog->acceptfolders := FALSE;
-    browsedialog->roots := this->GetWidgetLibraryRoots();
+    INTEGER ARRAY roots := this->GetWidgetLibraryRoots();
 
     FOREVERY(RECORD src FROM this->sources)
     {
       OBJECT base := LookupBaseFSObject(this, src.site, src.fullpath);
       IF(NOT ObjectExists(base) OR NOT base->isfolder)
         CONTINUE;
-      INSERT base->id INTO browsedialog->roots AT END;
+      INSERT base->id INTO roots AT END;
     }
-    IF(Length(browsedialog->roots)=0)
+    IF(Length(roots)=0)
     {
       this->owner->RunMessageBox("publisher:components/sharedblocks.nosharedblocksources");
       RETURN DEFAULT RECORD ARRAY;
     }
 
-    BOOLEAN isedit := RecordExists(row);
-    IF(isedit)
+    IF(RecordExists(row))
     {
-      browsedialog->value := row.block;
-    }
-    ELSE
-    {
-      browsedialog->selectmode := "multiple";
-    }
-
-    IF(browsedialog->RunModal()="ok")
-    {
-      //ADDME any validations to do?
-      IF(isedit)
-      {
-        row.block := browsedialog->value;
-        RETURN [row];
-      }
-      ELSE
-        RETURN ToRecordArray(browsedialog->value, "block");
+      INTEGER newblock := RunBrowseForFSObjectDialog(this->owner, CELL[ roots
+                                                                      , acceptfolders := FALSE
+                                                                      , value := row.block
+                                                                      ]);
+      IF(newblock != 0)
+        row := CELL[...row, block := newblock ];
+      RETURN [row];
     }
 
-    RETURN DEFAULT RECORD ARRAY;
+    INTEGER ARRAY newblocks := RunBrowseForFSObjectsDialog(this->owner, CELL[ roots
+                                                                            , acceptfolders := FALSE
+                                                                            ]);
+
+    RETURN ToRecordArray(newblocks, "block");
   }
 
   MACRO DoDelete()
