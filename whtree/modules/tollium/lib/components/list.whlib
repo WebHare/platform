@@ -546,6 +546,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->pvt_dragsingleicon := def.dragsingleicon;
     this->pvt_dragmultipleicon := def.dragmultipleicon;
     this->pvt_borders := def.borders;
+    this->pvt_highlightname := def.highlightname;
     this->__class := def.class;
 
     //FIXME: Use an icon list instead of transferring all individual icon names!
@@ -555,7 +556,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->sortcolumn := def.sortcolumn;
     this->pvt_styles := def.styles;
     this->sortascending := def.sortascending;
-    this->highlightname := def.highlightname;
 
     this->savestate := def.savestate;
     IF (def.rowkeytype != "")
@@ -1006,7 +1006,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     IF (this->pvt_rowiconname != name)
     {
-      IF(Length(this->storage->rows)!=0)
+      IF(this->storage->AreRowsLoaded())
         THROW NEW TolliumException(this, "Cannot change the row icon name if rows are still active");
       this->pvt_rowiconname := name;
       this->FixColumns(); //update the internal list of columns to check
@@ -1017,7 +1017,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     IF (this->pvt_rowiconhintname != name)
     {
-      IF(Length(this->storage->rows)!=0)
+      IF(this->storage->AreRowsLoaded())
         THROW NEW TolliumException(this, "Cannot change the row icon hint name if rows are still active");
       this->pvt_rowiconhintname := name;
       this->FixColumns(); //update the internal list of columns to check
@@ -1028,7 +1028,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     IF (this->pvt_highlightname != name)
     {
-      IF(Length(this->storage->rows)!=0)
+      IF(this->storage->AreRowsLoaded())
         THROW NEW TolliumException(this, "Cannot change the highlight name if rows are still active");
 
       this->pvt_highlightname := name;
