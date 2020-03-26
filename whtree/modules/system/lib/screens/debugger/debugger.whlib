@@ -1166,39 +1166,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
   }
 
-  MACRO DoOpenDBFile()
-  {
-    OBJECT dialog := CreateBrowseForWHFSObjectDialog(this);
-    dialog->acceptfolders := FALSE;
-    dialog->acceptunpublished := TRUE;
-    dialog->accepttypes :=
-        [ "http://www.webhare.net/xmlns/publisher/shtmlfile"
-        , "http://www.webhare.net/xmlns/publisher/semidynamicfile"
-        , "http://www.webhare.net/xmlns/publisher/libraryfile"
-        , "http://www.webhare.net/xmlns/publisher/standalonetemplatefile"
-        , "http://www.webhare.net/xmlns/publisher/templatefile"
-        ];
-
-    IF (this->files->value LIKE "whfs::*")
-    {
-      OBJECT obj := OpenWHFSObjectByPath(this->files->value);
-      IF (ObjectExists(obj))
-      {
-        IF (obj->isfolder)
-          dialog->folder := obj->id;
-        ELSE
-          dialog->value := obj->id;
-      }
-    }
-
-    IF (dialog->RunModal() = "ok" AND dialog->value != 0)
-    {
-      OBJECT obj := OpenWHFSObject(dialog->value);
-      IF (NOT obj->isfolder)
-        this->OpenFileByPath("whfs::" || obj->whfspath);
-    }
-  }
-
 
   MACRO DoCloseFile()
   {
