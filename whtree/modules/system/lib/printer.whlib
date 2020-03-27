@@ -284,8 +284,10 @@ RECORD FUNCTION RunPDFBox(STRING ARRAY instructions)
          ];
 }
 
-//Warning - this API may move or go away entirely (what kind of guarantees would we want to give to an API like this)
-PUBLIC RECORD ARRAY FUNCTION __ExtractPDFImages(BLOB inpdf)
+/** Export each page of the PDF to an image
+    @param inpdf PDF to read
+    @return The images in wrapped blobs, one for each page */
+PUBLIC RECORD ARRAY FUNCTION ExportPDFToImages(BLOB inpdf)
 {
   STRING pdftemp := GenerateTemporaryPathname();
   StoreDiskFile(pdftemp, inpdf, [ exclusive := TRUE ]);
