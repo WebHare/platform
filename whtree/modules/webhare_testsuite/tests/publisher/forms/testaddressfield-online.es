@@ -36,7 +36,7 @@ test.registerTests(
         test.true(test.canClick("#addressform-address\\.city"));
         test.false(test.qS("#addressform-address\\.province").required);
         test.true(test.qS("#addressform-address\\.street").required);
-        test.false(test.qS("#addressform-address\\.nr_detail").required);
+        test.true(test.qS("#addressform-address\\.nr_detail").required);
         test.true(test.qS("#addressform-address\\.zip").required);
         test.true(test.qS("#addressform-address\\.city").required);
 
