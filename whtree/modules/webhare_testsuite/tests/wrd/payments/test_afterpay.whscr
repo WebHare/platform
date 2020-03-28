@@ -99,11 +99,11 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
   OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
   testfw->CommitWork();
 
-  RECORD properrequest := BuildRequest(paymentapi, testperson, fortype, fortype="BE" ? 231.69 : 231.67);
+  RECORD properrequest := BuildRequest(paymentapi, testperson, fortype, fortype="BE" ? 131.69 : 131.67);
 
   Print("Planned return url: " || properrequest.returnurl || "\n");
 
-  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 231.69 : 231.67, properrequest);
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 131.69 : 131.67, properrequest);
   TestEq(FALSE, paymentinstruction.complete);
   TestEq(1, Length(paymentinstruction.errors));
   TestEq("WRD_LASTNAME", paymentinstruction.errors[0].field);
@@ -114,7 +114,7 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
 
   //Fix lastname and retry
   INSERT CELL wrd_lastname := "Acceptatie" INTO properrequest.wrdpersonfields;
-  paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 231.69 : 231.67, properrequest);
+  paymentinstruction := paymentapi->StartPayment(entity->id, fortype="BE" ? 131.69 : 131.67, properrequest);
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(paymentinstruction.submitinstruction));
   RECORD status := DecodeJSONBlob(testfw->browser->content);
   TestEq(entity->id, status.returninfo.paymentid);
