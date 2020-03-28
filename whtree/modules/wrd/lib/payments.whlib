@@ -416,7 +416,7 @@ STATIC OBJECTTYPE PaymentAPI
         GetPrimary()->CommitWork();
 
         IF(options.returnurl != "")
-          retval.submitinstruction := [ type := "redirect" , url := options.returnurl ];
+          retval.submitinstruction := [ type := "redirect" , url := UpdateReturnURLWithPaymentInfo(options.returnurl, entity) ];
       }
       ELSE
       {
@@ -434,7 +434,8 @@ STATIC OBJECTTYPE PaymentAPI
           ProcessCompletedPayment(options.paymenthandler, this->paymentattribute, psp, paymententity, FALSE);
           GetPrimary()->CommitWork();
 
-          retval.submitinstruction := [ type := "redirect", url := GetInternalReturnURL(psp->paymentuuid) ];
+          //if we're told to process status immediately, no need to return through return.shtml
+          retval.submitinstruction := [ type := "redirect", url := UpdateReturnURLWithPaymentInfo(options.returnurl, entity) ];
         }
       }
 

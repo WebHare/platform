@@ -28,6 +28,11 @@ PUBLIC RECORD paymentbaseoptions :=
   , orderlines := RECORD[]
   ];
 
+PUBLIC STRING FUNCTION UpdateReturnURLWithPaymentInfo(STRING returnurl, INTEGER paymententity)
+{
+  RETURN UpdateURLVariables(returnurl, [ _p := EncryptForThisServer("wrd:payments-endpoint", [ e := paymententity ]) ]);
+}
+
 PUBLIC STRING FUNCTION GetInternalReturnURL(STRING paymenttok, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ isnotification := FALSE ], options);
