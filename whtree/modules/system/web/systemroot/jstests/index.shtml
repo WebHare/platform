@@ -150,6 +150,7 @@ RECORD data := [ printheaders :=    PTR depsolver->PrintHeaders(DEFAULT OBJECT,"
                , testlisturl :=     testlisturl
                , seleniumref :=     GetWebVariable("seleniumref")
                , testsiteroot :=    testsiteroot
+               , webhareversionnumber := GetWebhareVersionNumber()
                ];
 
 testrunwitty->RunComponent("hostingpage", data);
