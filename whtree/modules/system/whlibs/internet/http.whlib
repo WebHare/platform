@@ -164,14 +164,14 @@ OBJECT FUNCTION* SendContent(INTEGER stream, STRING data, BOOLEAN isasync)
 
 /** @short This function will decode a http response
     @param connectionid Integer of the connectionid
-    @param discard_content Only retrieve headers (don't wait for content)
+    @param expect_body_in_response Whether to expect a body (eg not HEAD request)
     @param isasync Whether to run asynchronous
     @return Record with the response
     @cell return.protocol String of the protocol (example "HTTP/1.1")
     @cell return.code Integer of the return code, or 0 if the connection was closed
     @cell return.content String with the returned message
     @cell return.headers A record array of (field,value) strings containing the headers received with this request */
-OBJECT FUNCTION* GetHTTPResponse(INTEGER connectionid, BOOLEAN discard_content, BOOLEAN isasync)
+OBJECT FUNCTION* GetHTTPResponse(INTEGER connectionid, BOOLEAN expect_body_in_response, BOOLEAN isasync)
 {
   RECORD response := [ protocol := "HTTP/0.9"
                      , code := 0
@@ -309,11 +309,7 @@ OBJECT FUNCTION* GetHTTPResponse(INTEGER connectionid, BOOLEAN discard_content, 
     }
   }
 
-  //ADDME: Either closing the socket before receiving the content, and re-opening it when needed, or reading the content into
-  //       'nothing' would be nicer than reading the content into a stream and then ignoring the stream. Some servers (e.g.
-  //       http://www.pensioenfederatie.nl/) send response content with a HEAD call, which we must ignore to prevent the next
-  //       request on the same connection from reading it.
-  IF (discard_content)
+  IF (NOT expect_body_in_response)
     RETURN response;
 
   // Content
@@ -512,8 +508,7 @@ PUBLIC OBJECT FUNCTION* SendHTTPRequestInternal(INTEGER connectionid, STRING doc
   IF(__HasURLInvalidCharacters(document))
     THROW NEW Exception("Illegal URL '" || EncodeJava(document) || "'");
 
-  options := ValidateOptions([ discard_content := FALSE
-                             , debug := FALSE
+  options := ValidateOptions([ debug := FALSE
                              ], options);
   RECORD settings := GetSettings(connectionid);
 
@@ -565,13 +560,13 @@ PUBLIC OBJECT FUNCTION* SendHTTPRequestInternal(INTEGER connectionid, STRING doc
 
   IF(options.debug)
   {
-    Print(`REQUEST${options.discard_content ? " (discarding content)" : ""}: ${method} ${document} (to ${GetRemoteSocketIP(connectionid)}:${GetRemoteSocketPort(connectionid)})\n`);
+    Print(`REQUEST: ${method} ${document} (to ${GetRemoteSocketIP(connectionid)}:${GetRemoteSocketPort(connectionid)})\n`);
     DumpValue(headers,'boxed');
     SendBlobTo(0,entity);
     Print('\n');
   }
 
-  RECORD response := YIELD* __SendRawHTTPRequestInternal(connectionid, method || " " || document || " HTTP/1.1", headers, entity, method != "HEAD" AND NOT options.discard_content, FALSE, isasync);
+  RECORD response := YIELD* __SendRawHTTPRequestInternal(connectionid, method || " " || document || " HTTP/1.1", headers, entity, method != "HEAD", FALSE, isasync);
 
   IF (response.code = 0)
   {
@@ -678,7 +673,7 @@ PUBLIC OBJECT FUNCTION* __SendRawHTTPRequestInternal(INTEGER connectionid, STRIN
   RECORD response;
   WHILE(TRUE)
   {
-    response := YIELD* GetHTTPResponse(connectionid, NOT expect_body_in_response, isasync);
+    response := YIELD* GetHTTPResponse(connectionid, expect_body_in_response, isasync);
     IF(response.code = 100) //ADDME Limit number of 100s? Allow users to set an option to actually receive 100s?
       CONTINUE;
     BREAK;

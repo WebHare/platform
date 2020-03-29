@@ -347,9 +347,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   /// log everything we do
   PUBLIC BOOLEAN debug;
 
-  /// Set to TRUE to not receive the response content for the request (i.e. treat the request like it was a HEAD request)
-  PUBLIC BOOLEAN discard_content;
-
   OBJECT state;
 
   /// Set to override the soocket send buffer size (used when connecting)
@@ -1046,8 +1043,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       SetHTTPAuthentication(connwith, "", "");
 
     RECORD result := isasync
-        ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content, debug := __webbrowser_debugall OR this->debug ])
-        : SendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content, debug := __webbrowser_debugall OR this->debug ]);
+        ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ debug := __webbrowser_debugall OR this->debug ])
+        : SendHTTPRequest(connwith, send_url, method, headers, body, [ debug := __webbrowser_debugall OR this->debug ]);
 
     IF(__webbrowser_debugall OR this->debug)
       DumpValue(result,'boxed');
@@ -1071,8 +1068,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         SetHTTPAuthentication(connwith, username, password);
 
       result := isasync
-          ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content ])
-          : SendHTTPRequest(connwith, send_url, method, headers, body, [ discard_content := this->discard_content ]);
+          ? YIELD AsyncSendHTTPRequest(connwith, send_url, method, headers, body)
+          : SendHTTPRequest(connwith, send_url, method, headers, body);
     }
 
     IF (this->pvt_secure)

@@ -1,5 +1,5 @@
 ﻿<?wh
-
+loadlib "wh::datetime.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -37,7 +37,6 @@ PUBLIC RECORD FUNCTION GetHTTPUrl(BOOLEAN get_url, STRING url, RECORD options DE
                              , username := ""
                              , password := ""
                              , ifmodifiedsince := DEFAULT DATETIME
-                             , head_workaround := FALSE
                              , autofollow_301 := FALSE
                              , timeout := 60 * 1000
                              ], options);
@@ -72,9 +71,6 @@ PUBLIC RECORD FUNCTION GetHTTPUrl(BOOLEAN get_url, STRING url, RECORD options DE
   FOREVERY (RECORD cookie FROM browser->GetAllCookies())
     browser->DeleteCookie(cookie.name);
 
-  browser->discard_content := options.head_workaround;
-  IF (options.head_workaround)
-    get_url := TRUE;
   IF (NOT browser->SendRawRequest(get_url ? "GET" : "HEAD", url, headers, DEFAULT BLOB))
   {
     RECORD httpstatus := browser->GetHTTPStatus();

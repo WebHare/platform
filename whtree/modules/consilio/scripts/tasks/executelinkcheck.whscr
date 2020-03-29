@@ -31,33 +31,20 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
+LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/consoleapps.whlib";
-
-/*
-These URL's require a GET request instead of a HEAD request
-- Server returns a 405 code (method not allowed) when using HEAD
-  http://www.hetcak.nl/portalserver/portals/cak-portal/pages/k1-cak-klanten
-- Server returns a 500 code when using HEAD
-  https://www.adfiz.nl/
-  https://www.rabobank.nl/particulieren/betalen/internetbankieren/extra-inzicht/
-- Connection is closed by the server on HEAD
-  https://mijn.belastingdienst.nl/mbd-pmb/
-- Servers returns content for a HEAD request
-  https://www.pensioenfederatie.nl/
-- Server redirects to an error page, which in turn redirects to that error page, resulting in circular redirection
-  http://www.duo.nl/
-*/
 
 // Command line settings
 RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", type := "switch" ]
                                                          , [ name := "debugbrowser", type := "switch" ]
                                                          , [ name := "noreschedule", type := "switch" ]
                                                          , [ name := "nocache", type := "switch" ]
+                                                         , [ name := "force", type := "switch" ]
                                                          , [ name := "urlmask", type := "stringopt" ]
                                                          , [ name := "runsize", type := "stringopt" ]
-                                                         , [ name := "urls", type := "paramlist" ]
                                                          ]);
 IF (NOT RecordExists(settings))
   Abort("invalid arguments");
@@ -74,16 +61,8 @@ OBJECT trans;
 DATETIME checkdate := GetCurrentDateTime();
 
 //ADDME: Make these tunable through the registry?
-INTEGER server_status_permanent := 6*60*60*1000; // Return cached status 2 hours after it's set
-                                                 // (don't set link status to broken if server was temporarily down)
-INTEGER check_server_interval := 60*60*1000; // Check server status each hour
 INTEGER check_link_interval := 24*60*60*1000; // Check links once each day
 INTEGER max_batch_run_length := 10*60*1000; // Stop runs that have been taking longer than 10 minutes
-
-// The server host:port that was last checked
-STRING last_serverhost;
-INTEGER last_serverport;
-INTEGER last_serverstatus;
 
 // Set to TRUE by supplying a "debug" argument
 BOOLEAN debug;
@@ -91,127 +70,6 @@ BOOLEAN debug;
 SetUserAgent("LinkChecker");
 
 trans := OpenPrimary();
-
-INTEGER FUNCTION GetServerStatus(STRING hostname, INTEGER port)
-{
-  IF (LENGTH(hostname || ":" || port) > 262) // max length
-    RETURN 003;
-
-  RECORD server := SELECT nextcheck, status, down_since
-                     FROM consilio.checked_servers
-                    WHERE ToUppercase(COLUMN server) = ToUppercase(hostname || ":" || port);
-  IF (NOT RecordExists(server) OR server.nextcheck <= checkdate OR settings.nocache)
-  {
-    // Server status should be checked
-    RETURN 0;
-  }
-  ELSE IF (AddTimeToDate(server_status_permanent,server.down_since) > GetCurrentDateTime())
-  {
-    // Server status was set, but we'll wait until enough time has passed before returning it
-    // Don't update link status yet
-    RETURN -1;
-  }
-  ELSE
-  {
-    // Return cached server status
-    RETURN server.status;
-  }
-}
-
-MACRO SetServerStatus(STRING hostname, INTEGER port, INTEGER newstatus)
-{
-  trans->BeginWork();
-  DATETIME next_check := AddTimeToDate(check_server_interval, GetCurrentDateTime());
-  IF (newstatus = 0)
-  {
-    IF (debug)
-      PRINT("Deleting from checked_servers\n");
-    DELETE FROM consilio.checked_servers WHERE ToUppercase(server) = ToUppercase(hostname || ":" || port);
-  }
-  ELSE IF (RecordExists(SELECT * FROM consilio.checked_servers
-                    WHERE ToUppercase(server) = ToUppercase(hostname || ":" || port)))
-  {
-    IF (debug)
-      PRINT("Updating checked_servers\n");
-    UPDATE consilio.checked_servers
-       SET status := newstatus
-         , nextcheck := next_check
-     WHERE ToUppercase(server) = ToUppercase(hostname || ":" || port);
-  }
-  ELSE
-  {
-    IF (debug)
-      PRINT("Inserting into checked_servers\n");
-    INSERT INTO consilio.checked_servers(server, status, nextcheck, down_since)
-         VAlUES(hostname || ":" || port, newstatus, next_check, GetCurrentDateTime());
-  }
-  trans->CommitWork();
-}
-
-RECORD FUNCTION GetResponse(STRING url)
-{
-  //Perhaps we already know the server is dead ?
-  STRING serverhost := GetHostnameFromURL(url);
-  INTEGER serverport := GetPortFromURL(url);
-  IF (debug)
-    PRINT("Checking on server " || serverhost || ":" || serverport || "\n");
-
-  INTEGER status;
-  IF (serverhost = last_serverhost AND serverport = last_serverport)
-  {
-    status := last_serverstatus;
-  }
-  ELSE
-  {
-    status := GetServerStatus(serverhost, serverport);
-    last_serverhost := serverhost;
-    last_serverport := serverport;
-    last_serverstatus := status;
-  }
-  IF (status != 0)
-  {
-    IF (debug)
-      PRINT("Returning cached status " || status || "\n");
-    RETURN [code := status];
-  }
-
-  // Get the page from the web server
-  IF (debug)
-    PRINT("Get HTTP url '" || url || "'\n");
-  RECORD options := [ ifmodifiedsince := GetRoundedDateTime(checkdate, 86400 * 1000) // Try not to download content if not modified
-                    , head_workaround := TRUE // Workaround for broken servers not correctly handling HEAD requests
-                    , autofollow_301 := TRUE
-                    ];
-  RECORD result := GetHTTPUrl(TRUE/*get*/, url, options);
-  IF (NOT result.success AND result.errorcode != "")
-  {
-    IF (debug)
-      PRINT("Could not connect: " || result.error || " (" || result.errorcode || ")\n");
-
-    IF (result.errorcode = "RESOLVE")
-    {
-      SetServerStatus(serverhost,serverport,002);
-      RETURN [code := 002];
-    }
-    IF (result.errorcode = "TIMEOUT")
-    {
-      SetServerStatus(serverhost,serverport,004);
-      RETURN [code := 004];
-    }
-    IF (result.errorcode = "SSLHANDSHAKE")
-    {
-      SetServerStatus(serverhost,serverport,006);
-      RETURN [code := 006];
-    }
-    SetServerStatus(serverhost,serverport,003);
-    RETURN [code := 003];
-
-  }
-  // Server was found, delete server status from database
-  SetServerStatus(serverhost,serverport,0);
-
-  RETURN result;
-}
 
 MACRO UpdateDatabase(RECORD ARRAY changed_recs)
 {
@@ -249,20 +107,12 @@ IF (NOT ReadRegistryKey("consilio.linkchecker.enabled", [fallback:=TRUE]))
   RETURN;
 }
 
-IF (max_per_run > 0)
-  links_to_check := SELECT *
-                      FROM consilio.checked_links
-                     WHERE nextcheck < checkdate
-                           AND (settings.urlmask="" OR (ToUppercase(url) LIKE ToUppercase(settings.urlmask)))
-//                       ORDER BY url
-                     LIMIT max_per_run;
-ELSE
-  links_to_check := SELECT *
-                      FROM consilio.checked_links
-                     WHERE nextcheck < checkdate
-                           AND (settings.urlmask="" OR (ToUppercase(url) LIKE ToUppercase(settings.urlmask)))
-//                       ORDER BY url
-                         ;
+links_to_check := SELECT *
+                    FROM consilio.checked_links
+                   WHERE (settings.force ? TRUE : nextcheck < checkdate)
+                         AND (settings.urlmask="" OR (ToUppercase(url) LIKE ToUppercase(settings.urlmask)))
+                   LIMIT max_per_run > 0 ? max_per_run : 999999;
+
 IF (debug)
   PRINT("Checking " || Length(links_to_check) || " links\n");
 
@@ -300,7 +150,7 @@ FOREVERY (RECORD link_to_check FROM links_to_check)
       PRINT("Checking link #" || #link_to_check || ": " || url || "\n");
 
     STRING ARRAY visited := [url]; // List of visited URL's for this page (to detect circular references)
-    response := GetResponse(url);
+    response := CheckLink(url, CELL[settings.debug,settings.nocache]);
     WHILE (response.code = 301 // Moved Permanently
         OR response.code = 302 // Found
         OR response.code = 303 // See Other
@@ -327,7 +177,7 @@ FOREVERY (RECORD link_to_check FROM links_to_check)
         // Try the new URL
         url := newurl;
         INSERT url INTO visited AT END;
-        response := GetResponse(url);
+        response := CheckLink(url, CELL[settings.debug,settings.nocache]);
       }
     }
 
