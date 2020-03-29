@@ -131,6 +131,7 @@ PUBLIC MACRO CustomForm()
   TestEqLike(`*<div class="custom-form-widget">Custom Form Widget with value 'P. Giménez &amp; Henkie 😇'</div>*`, TrimWhitespace(confirmmaildoc->body->outerxml));
   // Test if the form results are embedded within ":BEFORERESULTS:" and ":AFTERRESULTS:"
   TestEqLike("*:BEFORERESULTS:*First name*P. Giménez & Henkie 😇*Email*testfw+formtest@beta.webhare.net*Groups & stuff*Upload*allstar.txt*Date*22 June 2017*Checkboxes*CheckboxOpt1; CheckboxOpt3*Radio*Õption*Reversed*Euro & €*Address*Hengelosestraat 296*Netherlands*:AFTERRESULTS:*", TrimWhitespace(confirmmaildoc->body->textcontent));
+  TestEq("Hi P. Giménez & Henkie 😇", BlobToString(rtdconfirmmail.toppart.subparts[1].data), 'attachment incorrect');
 
   editlink := confirmmaildoc->GetElements("p.normal a")[0];
   TestEq(witty.pagedata.editlink, editlink->GetAttribute("href"));

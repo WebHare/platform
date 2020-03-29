@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -170,5 +171,7 @@ PUBLIC OBJECTTYPE CustomFormWidget EXTEND WidgetBase
       THROW NEW Exception(`Field '${this->data.fieldname}' does not have a value`);
 
     Print(`<div class="custom-form-widget">Custom Form Widget with value '${EncodeHTML(field.value.text)}'</div>`);
+
+    this->context->mailcomposer->AddAttachment(StringToBlob(`Hi ${field.value.text}`), [filename := "test.txt", mimetype := "text/plain" ]);
   }
 >;
