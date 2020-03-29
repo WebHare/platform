@@ -123,20 +123,33 @@ RECORD ARRAY FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
       DELETE FROM prevtokens AT 0;
     INSERT tok INTO prevtokens AT END;
 
-    IF(ToUppercase(tok.token) IN [ "GETTID", "GETHTMLTID", "/*TID*/" ])
+    BOOLEAN is_gettid := tok.token = "getTid";;
+    BOOLEAN is_gethtmltid := tok.token = "getHTMLTid";
+    IF(is_gettid OR is_gethtmltid OR ToUppercase(tok.token) = "/*TID*/")
     {
-      BOOLEAN is_gettid := ToUppercase(tok.token) = "GETTID" OR ToUppercase(tok.token) = "GETHTMLTID";
-      BOOLEAN is_this_gettid;
-
       //ADDME: Gather errors and report them in a list after a 'scan missing texts' action
       RECORD expect_parenthesis := GetNextTok(file);
 
       RECORD expect_tid;
 
-      IF (is_gettid)
+      IF(is_gettid AND RecordExists(expect_parenthesis) AND expect_parenthesis.token = ".") //is this getTid.html ?
+      {
+        expect_parenthesis := GetNextTok(file);
+        IF(RecordExists(expect_parenthesis) AND expect_parenthesis.token = "html")
+        {
+          expect_parenthesis := GetNextTok(file);
+        }
+        ELSE
+        {
+          CONTINUE; //unrecognized syntax
+        }
+      }
+
+      IF (is_gettid OR is_gethtmltid)
       {
         IF(RecordExists(expect_parenthesis) AND expect_parenthesis.token IN [":=","=",":"]) //use of gettid as variable name/function declaration
           CONTINUE; //skippable!
+
 
         IF(NOT RecordExists(expect_parenthesis) OR expect_parenthesis.token!="(")
         {

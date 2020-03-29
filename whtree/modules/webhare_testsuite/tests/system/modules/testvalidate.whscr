@@ -478,6 +478,15 @@ GetTid("missing.module"); GetTid("system:has.module");`);
     TestEq([ "system:group.a_b_c" ], (SELECT AS STRING ARRAY tid FROM res.tids), "Failed on underscore map test #" || #totest);
   }
 
+  //Test JS
+  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.es");
+  dumpvalue(res.tids);
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.unicode_2028" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext_params" ]
+                ], res.tids, "*");
+
 
   BLOB tidxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <xs:schema
