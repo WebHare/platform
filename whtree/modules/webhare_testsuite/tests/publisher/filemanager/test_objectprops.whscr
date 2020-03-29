@@ -1,5 +1,7 @@
 <?wh
 LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -86,8 +88,29 @@ ASYNC MACRO TestRenameSiteConflict()
   AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
 
+ASYNC MACRO TestPinFlip()
+{
+  GetPrimary()->BeginWork();
+  OBJECT testfolder := GetTestsuiteTempFolder()->CreateFolder([name := "testpinflip"]);
+  GetPrimary()->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ testfolder->whfspath ] ]));
+  TestEq("testpinflip", TT("foldertree")->selection.name);
+  TestEq(TRUE, TT("foldertree")->selection.candelete);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+  TT("pinobject")->value := TRUE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("testpinflip", TT("foldertree")->selection.name);
+  TestEq(FALSE, TT("foldertree")->selection.candelete, "Pinning should have blocked delete - events missed?");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close filemgr
+}
+
 RunTestframework([ PTR ObjectProps
                  , PTR TestRenameSiteConflict
+                 , PTR TestPinFlip
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);
