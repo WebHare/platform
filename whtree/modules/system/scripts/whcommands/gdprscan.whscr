@@ -14,7 +14,8 @@ OBJECT trans := OpenPrimary();
 BOOLEAN anydbschema := FALSE;
 FOREVERY (RECORD dbschema FROM trans->GetSchemaListing())
 {
-  IF(dbschema.schema_name IN ["GOOGLE","SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP"]) //FIXME modules thmeselves should explicitly indicate tables as safe
+  //FIXME modules (webshop) should explicitly indicate tables as safe
+  IF(ToUppercase(dbschema.schema_name) IN ["SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP","PG_CATALOG","INFORMATION_SCHEMA","WEBHARE_INTERNAL"])
     CONTINUE;
 
   BOOLEAN printed := FALSE;

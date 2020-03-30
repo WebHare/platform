@@ -58,7 +58,7 @@ MACRO TestPDFs()
   RECORD result := GeneratePDF( [ body := PTR Print(doc)
                                 , wittypath := "inline::[body]"
                                 ], [ printbackground := FALSE ]);
-  RECORD ARRAY images := __ExtractPDFImages(result.data);
+  RECORD ARRAY images := ExportPDFToImages(result.data);
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);
@@ -68,11 +68,11 @@ MACRO TestPDFs()
                                  , wittypath := "inline::[body]"
                                  ]);
 
-  images := __ExtractPDFImages(result2.data);
+  images := ExportPDFToImages(result2.data);
   testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 25 ]);
 
   BLOB final := ApplyOverlayToPDF(result.data, result2.data);
-  images := __ExtractPDFImages(final);
+  images := ExportPDFToImages(final);
   testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 
   //test empty concat
@@ -83,7 +83,7 @@ MACRO TestPDFs()
   Testeq(collection, result.data);
 
   collection := ConcatenatePDFs(BLOB[result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data]);
-  images := __ExtractPDFImages(collection);
+  images := ExportPDFToImages(collection);
 
   Testeq(12,Length(images));
   FOR(INTEGER x := 0; x < 12; x := x + 2)     //also test their ordering
@@ -100,7 +100,7 @@ MACRO TestPDFs()
                             , headertemplate := `<div style="width:100%; text-align:right; font-size:12px;">HEADER: <span class='pageNumber'></span>/<span class='totalPages'></span></div>`
                             , footertemplate := `<div style="width:100%; text-align:right; font-size:12px;">FOOTER: <span class='pageNumber'></span>/<span class='totalPages'></span></div>`
                             ]);
-  images := __ExtractPDFImages(result.data);
+  images := ExportPDFToImages(result.data);
   TestEq(3,Length(images));
   Testeq("page-2.jpg", images[1].filename);
   testfw->CompareWithImage(images[1].data, Resolve("testdata/pagenumberedpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
@@ -121,7 +121,7 @@ MACRO TestPDFFromURL()
   STRING testurl := GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/system/pdf.html";
   Print("Generate pdf from: " || testurl || "\n");
   RECORD result := GeneratePDFFromURL(testurl, [ printbackground := FALSE ]);
-  RECORD ARRAY images := __ExtractPDFImages(result.data);
+  RECORD ARRAY images := ExportPDFToImages(result.data);
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);

@@ -275,17 +275,10 @@ PUBLIC RECORD ARRAY FUNCTION ParseCSVRows(BLOB data, RECORD options DEFAULTSTO D
   RETURN getter->Finalize();
 }
 
-(*IFVERSION >= 42400*)
 PUBLIC RECORD ARRAY FUNCTION ExcelTextParser(STRING data, STRING separator, STRING encoding, BOOLEAN adaptive_utf8 DEFAULTSTO FALSE) __ATTRIBUTES__(DEPRECATED "Switch to ParseCSVRows in WebHare 4.23+")
 {
   RETURN ParseCSVRows(StringToBlob(data), CELL[separator, encoding, acceptutf8 := adaptive_utf8, astokenarray := TRUE]);
 }
-(*ELSE*)
-PUBLIC RECORD ARRAY FUNCTION ExcelTextParser(STRING data, STRING separator, STRING encoding, BOOLEAN adaptive_utf8 DEFAULTSTO FALSE)
-{
-  RETURN ParseCSVRows(StringToBlob(data), CELL[separator, encoding, acceptutf8 := adaptive_utf8, astokenarray := TRUE]);
-}
-(*END*)
 
 
 /** @short Creates a record array out of a record array with just tokens

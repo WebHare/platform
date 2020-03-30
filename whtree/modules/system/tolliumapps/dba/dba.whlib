@@ -441,7 +441,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     OBJECT work := this->BeginWork();
     IF(curitem.isschema)
-      GetPrimary()->DropSchema(curitem.schema_name);
+      GetPrimary()->DropSchema(curitem.schema_name, [ cascade := TRUE ]);
     ELSE
       GetPrimary()->DropTable(curitem.schema_name, curitem.name);
     work->Finish();
