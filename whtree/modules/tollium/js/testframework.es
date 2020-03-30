@@ -164,6 +164,13 @@ class ScreenProxy
       regex = new RegExp(":" + escapeRegExp(toddname).replace('\\*','.*') + "$");
       match = candidates.filter(node => node.dataset.name.match(regex));
     }
+    if(!match.length)
+    {
+      //look for pulldowns, they have an odd name
+      let pulldown = this.qS(`select[data-name*=':${toddname}$']`);
+      if(pulldown)
+        return pulldown;
+    }
     if(match.length>1)
       throw new Error("Multiple matches for name '" + toddname + "'");
     return match.length == 1 ? match[0] : null;
