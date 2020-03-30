@@ -87,6 +87,7 @@ Information about autocomplete attributes:
         -->
       <addressformat ordering="PROVINCE,STREET+NR_DETAIL,ZIP+CITY" zipvalidation="####">
         <field tag="ZIP" required="yes" />
+        <field tag="NR_DETAIL" required="yes" />
         <!-- NOTE: Brussels is made up of several communes.
              The title will sometimes follow Brussels in an address:  Brussel, Vorst. but is not needed.
              appie: This only applies to Brussels
