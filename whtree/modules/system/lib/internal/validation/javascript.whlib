@@ -123,7 +123,7 @@ RECORD ARRAY FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
       DELETE FROM prevtokens AT 0;
     INSERT tok INTO prevtokens AT END;
 
-    BOOLEAN is_gettid := tok.token = "getTid";;
+    BOOLEAN is_gettid := tok.token = "getTid";
     BOOLEAN is_gethtmltid := tok.token = "getHTMLTid";
     IF(is_gettid OR is_gethtmltid OR ToUppercase(tok.token) = "/*TID*/")
     {
