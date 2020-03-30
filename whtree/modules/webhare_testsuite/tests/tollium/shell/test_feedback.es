@@ -39,6 +39,14 @@ test.registerTests(
       await test.load(setupdata.testportalurl + "?app=publisher:feedback");
       await test.wait('ui');
 
+      let selectscope = test.compByName("scope");
+      if(selectscope) //the scope pulldown only appears when we have a choice
+      {
+        let toselect = test.qSA(selectscope,"option").filter(opt=>opt.textContent == "tollium:webharebackend")[0];
+        test.fill(selectscope,toselect.value);
+        await test.wait("ui");
+      }
+
       test.click(test.qSA('div.listrow')[0]);
       await test.wait('ui'); //list apparently needs this time to process the selection update
       test.clickToddToolbarButton("View");

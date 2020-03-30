@@ -1633,6 +1633,11 @@
         <xs:element name="indexfield" type="PublisherIndexField" />
         <xs:element name="searchcontentprovider" type="SearchContentProvider" />
         <xs:element name="searchfilter" type="SearchFilter" />
+        <xs:element name="feedbackscope">
+          <xs:complexType>
+            <xs:attribute name="tag" use="required" />
+          </xs:complexType>
+        </xs:element>
         <xs:element name="siteprofile">
           <xs:complexType>
             <xs:attribute name="datafile" type="xs:string" />

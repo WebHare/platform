@@ -4,11 +4,6 @@
   <object tag="SCOPE" title="Scope">
     <attributes>
     </attributes>
-    <values matchattribute="WRD_TAG">
-      <value>
-        <field tag="WRD_TAG">TOLLIUM:WEBHAREBACKEND</field>
-      </value>
-    </values>
   </object>
 
   <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">

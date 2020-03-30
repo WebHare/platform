@@ -49,6 +49,7 @@
       <assetpack name="polyfills" entrypoint="_polyfills" supportedlanguages="" webharepolyfills="false" />
     </webdesign>
     <customnode namespace="http://www.webhare.net/xmlns/tollium" name="portal"/>
+    <feedbackscope tag="webharebackend" />
   </publisher>
 
   <services>

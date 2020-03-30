@@ -1,0 +1,51 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib" ;
+
+RECORD ARRAY FUNCTION ParseScopes(OBJECT xmldef, STRING modulename)
+{
+  OBJECT ARRAY publishernode := xmldef->documentelement->ListChildren(whconstant_xmlns_moduledef, "publisher");
+  IF(Length(publishernode) != 1)
+    RETURN RECORD[];
+
+  RECORD ARRAY scopes;
+  FOREVERY(OBJECT scopenode FROM publishernode[0]->ListChildren(whconstant_xmlns_moduledef, "feedbackscope"))
+  {
+    IF(NOT IsNodeApplicableToThisWebHare(scopenode))
+      CONTINUE;
+
+    STRING tag := QualifyName(modulename, scopenode->GetAttribute("tag"));
+
+    RECORD scoperec :=
+      CELL[ tag
+          ];
+    INSERT scoperec INTO scopes AT END;
+  }
+  RETURN scopes;
+}
+
+RECORD FUNCTION GetCacheableModuleDefinedWRDscopes(STRING modulename)
+{
+  OBJECT xmldef;
+  TRY
+    xmldef := GetModuleDefinitionXML(modulename);
+  CATCH
+    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
+  IF(NOT ObjectExists(xmldef))
+    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
+
+  RECORD ARRAY scopes := ParseScopes(xmldef, modulename);
+
+  RETURN [ eventmasks := [ "system:modulesupdate" ], value := scopes ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetModuleDefinedFeedbackScopes(STRING modulename)
+{
+  RETURN GetAdhocCached(CELL[ modulename ], PTR GetCacheableModuleDefinedWRDscopes(modulename));
+}

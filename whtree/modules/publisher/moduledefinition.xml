@@ -23,6 +23,7 @@
     <task runat="17  4 * * *"  runtz="maintenance" tag="deletearchived" script="scripts/tasks/deletearchived.whscr" description="Cleanup folders that have been archived for 7 or more days"/>
 
     <task tag="scheduledtasks" script="scripts/tasks/executetasks.whscr" description="Launch a scheduled publisher task (eg move or start publishing a file)"/>
+    <task tag="updatefeedbackscopes" script="scripts/tasks/updatefeedbackscopes.whscr" description="Update feedback scopes" runatstartup="true" />
 
     <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
     <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" />
@@ -101,11 +102,10 @@
     </application>
 
     <application name="feedback"
-                 group="system:development"
+                 group="system:setup"
                  screen="tolliumapps/feedback/main.xml#main"
                  tid="tolliumapps.feedback.apptitle"
-                 icon="tollium:actions/checklist"
-                 maxservertype="development">
+                 icon="tollium:actions/checklist">
       <accesscheck>
         <requireright right="managefeedbackscope"/>
       </accesscheck>
@@ -1118,6 +1118,6 @@
   </validation>
 
   <wrdschemas>
-    <schema tag="feedback" title="Feedback storage schema" definitionfile="mod::publisher/data/wrdschemas/feedback.wrdschema.xml" maxservertype="development" />
+    <schema tag="feedback" title="Feedback storage schema" definitionfile="mod::publisher/data/wrdschemas/feedback.wrdschema.xml" />
   </wrdschemas>
 </module>

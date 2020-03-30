@@ -1,0 +1,43 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "mod::publisher/lib/internal/feedback/moduledefs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+OBJECT trans := OpenPrimary();
+OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
+
+RECORD ARRAY alldefs;
+FOREVERY(STRING module FROM GetInstalledModuleNames())
+  alldefs := alldefs CONCAT GetModuleDefinedFeedbackScopes(module);
+
+RECORD ARRAY currentscopes := feedbackschema->^scope->RunQuery(
+    [ outputcolumns := CELL[ "WRD_ID","WRD_TAG","WRD_LIMITDATE" ]
+    , historymode := "all"
+    ]);
+
+FOREVERY(RECORD currentscope FROM currentscopes)
+{
+  RECORD match := SELECT * FROM alldefs WHERE ToUppercase(alldefs.tag) = ToUppercase(currentscope.wrd_tag);
+  IF(NOT RecordExists(match))
+    CONTINUE;
+
+  IF(currentscope.wrd_limitdate != MAX_DATETIME)
+  {
+    trans->BeginWork();
+    feedbackschema->UpdateEntity(match.wrd_id, [ wrd_limitdate := MAX_DATETIME ]);
+    trans->CommitWork();
+  }
+
+  DELETE FROM alldefs WHERE tag=match.tag;
+}
+
+FOREVERY(RECORD newscope FROM alldefs)
+{
+  trans->BeginWork();
+  feedbackschema->^scope->CreateEntity([ wrd_tag := ToUppercase(newscope.tag)]);
+  trans->CommitWork();
+}
