@@ -19,7 +19,7 @@ require('../pages/listtest/listtest');
 
 /////////////////////////////////////////////////////////
 // Forms
-const getTid = require("@mod-tollium/js/gettid").getTid;
+import { getTid, getHTMLTid } from "@mod-tollium/js/gettid";
 
 forms.setup({validate: true });
 dompack.register('.wh-poll', node => new PollWebtool(node));
@@ -44,6 +44,8 @@ window.getTidTest = function()
   return { //this never used, but we want this for the tid scanner
            consolelog: getTid("webhare_testsuite:webdesigns.basetest.consolelog")
          , unicode2028: getTid("webhare_testsuite:test.unicode_2028")
+         , richtext: getHTMLTid("webhare_testsuite:test.richtext")
+         , richtext_params: getTid.html("webhare_testsuite:test.richtext_params")
          };
 };
 

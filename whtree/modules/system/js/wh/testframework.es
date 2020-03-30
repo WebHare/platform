@@ -1119,6 +1119,11 @@ function getPxlLog(eventtypefilter)
   return log;
 }
 
+function getWebhareVersionNumber()
+{
+  return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
+}
+
 module.exports = { registerTests: registerJSTests
                  , getTestArgument: getTestArgument
                  , getOpenMenu: getOpenMenu
@@ -1136,6 +1141,7 @@ module.exports = { registerTests: registerJSTests
                  , findElementWithText: findElementWithText
                  , $qS
                  , $qSA
+                 , getWebhareVersionNumber
                  , waitForEvent: test.waitForEvent
                  , eq: window.testEq
                  , eqMatch: testEqMatch

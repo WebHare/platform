@@ -26,7 +26,7 @@ RECORD FUNCTION GenerateFakeResult(MONEY foramount)
                [ afterPayOrderReference := "8c25e3fcd2d72d70f 4921ee234fc5b"
                , checksum := "7c0ec4f90d5aca7310a788692e43c8ff"
                , resultid := 0
-               , statusCode := foramount >= 230 AND foramount < 231 ? "W" : "A"
+               , statusCode := foramount >= 200 AND foramount < 300 ? "W" : "A"
                , timestampIn := 1552851267022
                , timestampOut := 1552851267405
                , transactionId := 2594523
@@ -160,6 +160,7 @@ PUBLIC STATIC OBJECTTYPE AfterpayPaymentProvider EXTEND WRDPaymentProviderBase
 
     OBJECT service := this->GetSoapClient("AfterPaycheck", this->settings.afterpaytype);
     RECORD callresult;
+
     IF(ObjectExists(service))
     {
       callresult := service->VALIDATEANDCHECKB2CORDER(

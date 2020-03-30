@@ -1,5 +1,5 @@
 [component hostingpage]<!DOCTYPE html>
-<html data-testsiteroot="[testsiteroot]">
+<html data-testsiteroot="[testsiteroot]" data-webhareversionnumber="[webhareversionnumber]">
   <head>
      <link rel="shortcut icon" href="favicon.ico" />
     <title>[forevery mask][if first][else],[/if][mask][/forevery] (JSTests)</title>
