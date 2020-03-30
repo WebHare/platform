@@ -1,7 +1,9 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::consilio/lib/internal/linkchecker/linkchecking.whlib";
 LOADLIB "mod::consilio/lib/internal/http_api.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -26,15 +28,20 @@ MACRO TestServerStatus()
   TestEq("", result.errorcode);
   TestEq(404, result.code); // no content yet in site
 
-  testfw->BeginWork();
-  // Create an shtml file that sleeps for 70 seconds (the GetHTTPUrl WebBrowser object has a timeout of 60 seconds)
-  OBJECT timeout_file := testfolder->CreateFile([ name := "timeout.shtml", type := 25, data := StringToBlob("<?wh Sleep(2000);"), publish := TRUE ]);
-  testfw->CommitWork();
-  testfw->WaitForPublishCompletion(testfolder->id);
-
-  result := GetHTTPUrl(TRUE/*get*/, timeout_file->url, [ timeout := 1000 ]);
+  // This page sleeps for 2 seconds:
+  result := GetHTTPUrl(TRUE/*get*/, ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.webhare_testsuite/tests/consilio/timeout.shtml"), [ timeout := 1000 ]);
   TestEq("CONNECT", result.errorcode); // Kinda expecting it to be "TIMEOUT", but apparently the WebBrowser object doesn't return a separate error code for socket timeouts
   TestEq(0, result.code);
+
+  //Create a file that breaks on HEAD but works with get. Some remote servers do that!
+  result := CheckLink(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.webhare_testsuite/tests/consilio/head-broken.shtml?head=500&get=200"));
+  TestEq("", result.errorcode);
+  TestEq(200, result.code);
+
+  //But we shouldn't look past eg. a 404
+  result := CheckLink(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),"/.webhare_testsuite/tests/consilio/head-broken.shtml?head=404&get=200"));
+  TestEq("", result.errorcode);
+  TestEq(404, result.code);
 }
 
 RunTestFramework( [ PTR TestServerStatus

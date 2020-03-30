@@ -1,0 +1,6 @@
+<?wh
+LOADLIB "mod::system/lib/webserver.whlib";
+IF(GetRequestMethod() = "HEAD")
+  AddHTTPHeader("Status", GetWebVariable("head"), FALSE);
+ELSE
+  AddHTTPHeader("Status", GetWebVariable("get"), FALSE);

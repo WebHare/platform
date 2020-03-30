@@ -1,0 +1,159 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/http_api.whlib";
+
+//ADDME: Make these tunable ?
+PUBLIC CONSTANT INTEGER server_status_permanent := 6*60*60*1000; // Return cached status 2 hours after it's set
+                                                                 // (don't set link status to broken if server was temporarily down)
+INTEGER check_server_interval := 60*60*1000; // Check server status each hour
+
+INTEGER FUNCTION GetServerStatus(STRING origin, RECORD options)
+{
+  IF (LENGTH(origin) > 262) // max length
+    RETURN 003;
+
+  //switching to origin instead of host:port, as scheme is also relevant (avoid recording disconnects just because of wrong protocol)
+  RECORD server := SELECT nextcheck, status, down_since
+                     FROM consilio.checked_servers
+                    WHERE ToUppercase(COLUMN server) = ToUppercase(origin);
+  IF (NOT RecordExists(server) OR server.nextcheck <= GetCurrentDateTime() OR options.nocache)
+  {
+    // Server status should be checked
+    RETURN 0;
+  }
+  ELSE IF (AddTimeToDate(server_status_permanent,server.down_since) > GetCurrentDateTime())
+  {
+    // Server status was set, but we'll wait until enough time has passed before returning it
+    // Don't update link status yet
+    RETURN -1;
+  }
+  ELSE
+  {
+    // Return cached server status
+    RETURN server.status;
+  }
+}
+
+MACRO SetServerStatus(STRING origin, INTEGER newstatus, RECORD options)
+{
+  GetPrimary()->BeginWork();
+  DATETIME next_check := AddTimeToDate(check_server_interval, GetCurrentDateTime());
+  IF (newstatus = 0)
+  {
+    IF (options.debug)
+      PRINT("Deleting from checked_servers\n");
+    DELETE FROM consilio.checked_servers WHERE ToUppercase(server) = ToUppercase(origin);
+  }
+  ELSE IF (RecordExists(SELECT * FROM consilio.checked_servers
+                    WHERE ToUppercase(server) = ToUppercase(origin)))
+  {
+    IF (options.debug)
+      PRINT("Updating checked_servers\n");
+    UPDATE consilio.checked_servers
+       SET status := newstatus
+         , nextcheck := next_check
+     WHERE ToUppercase(server) = ToUppercase(origin);
+  }
+  ELSE
+  {
+    IF (options.debug)
+      PRINT("Inserting into checked_servers\n");
+    INSERT INTO consilio.checked_servers(server, status, nextcheck, down_since)
+         VAlUES(origin, newstatus, next_check, GetCurrentDateTime());
+  }
+  GetPrimary()->CommitWork();
+}
+
+
+// The server host:port that was last checked
+STRING last_origin;
+INTEGER last_serverstatus;
+
+PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([debug := FALSE, nocache := FALSE], options);
+
+  //Perhaps we already know the server is dead ?
+  STRING origin := UnpackURL(url).origin;
+  IF (options.debug)
+    PRINT("Checking on server " || origin || "\n");
+  BOOLEAN usedcachedstatus;
+  INTEGER status;
+  IF (origin = last_origin)
+  {
+    status := last_serverstatus;
+    usedcachedstatus := TRUE;
+  }
+  ELSE
+  {
+    status := GetServerStatus(origin, options);
+    last_origin := origin;
+    last_serverstatus := status;
+  }
+  IF (status != 0)
+  {
+    IF (options.debug)
+      PRINT("Returning cached status " || status || "\n");
+    RETURN [code := status];
+  }
+
+  // Get the page from the web server
+  IF (options.debug)
+    PRINT("Get HTTP url '" || url || "'\n");
+
+  RECORD result := GetHTTPUrl(FALSE/*head*/, url, [ autofollow_301 := TRUE ]);
+
+  /*
+    Some servers are broken when requesting HEADs. Eg, these URLs require(d)
+      a GET request instead of a HEAD request
+  - Server returns a 405 code (method not allowed) when using HEAD
+    http://www.hetcak.nl/portalserver/portals/cak-portal/pages/k1-cak-klanten
+  - Server returns a 500 code when using HEAD
+    https://www.adfiz.nl/
+    https://www.rabobank.nl/particulieren/betalen/internetbankieren/extra-inzicht/
+  - Connection is closed by the server on HEAD
+    https://mijn.belastingdienst.nl/mbd-pmb/
+  - Servers returns content for a HEAD request
+    https://www.pensioenfederatie.nl/
+  - Server redirects to an error page, which in turn redirects to that error page, resulting in circular redirection
+    http://www.duo.nl/
+  */
+
+  //if we get an odd HEAD response, retry with GET
+  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code = 400 OR result.code >= 500))
+    result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := TRUE ]);
+
+  IF (NOT result.success AND result.errorcode != "")
+  {
+    IF (options.debug)
+      PRINT("Could not connect: " || result.error || " (" || result.errorcode || ")\n");
+
+    IF (result.errorcode = "RESOLVE")
+    {
+      SetServerStatus(origin,002, options);
+      RETURN [code := 002];
+    }
+    IF (result.errorcode = "TIMEOUT")
+    {
+      SetServerStatus(origin,004, options);
+      RETURN [code := 004];
+    }
+    IF (result.errorcode = "SSLHANDSHAKE")
+    {
+      SetServerStatus(origin,006, options);
+      RETURN [code := 006];
+    }
+    SetServerStatus(origin,003, options);
+    RETURN [code := 003];
+
+  }
+  // Server was found, delete server status from database
+  SetServerStatus(origin,0, options);
+
+  RETURN result;
+}
