@@ -1,38 +1,42 @@
 import * as dompack from "dompack";
 import * as feedback from "@mod-publisher/js/feedback";
-import * as whintegration from "@mod-system/js/wh/integration";
 import getTid from "@mod-tollium/js/gettid";
 import { createImage } from "@mod-tollium/js/icons";
 import { runSimpleScreen } from "@mod-tollium/web/ui/js/dialogs/simplescreen";
 import $todd from "@mod-tollium/web/ui/js/support";
 
-export function init(node)
+export default class TolliumFeedbackAPI
 {
-  // Add the feedback trigger if this is a development server
-  if (whintegration.config.dtapstage === "development")
+  constructor()
   {
     // Add a trigger node
-    const trigger =
+    this.trigger =
       <span class="wh-tollium__feedback">
         { createImage("tollium:objects/bug", 24, 24, "b") }
       </span>;
-    trigger.addEventListener("click", async event =>
+
+    this.trigger.addEventListener("click", async event =>
     {
-      trigger.classList.add("wh-tollium__feedback--active");
-      await run(event, trigger);
-      trigger.classList.remove("wh-tollium__feedback--active");
+      this.trigger.classList.add("wh-tollium__feedback--active");
+      await this.run(event, this.trigger);
+      this.trigger.classList.remove("wh-tollium__feedback--active");
     });
-    node.append(trigger);
+    document.body.append(this.trigger);
   }
 
-  // Initialize the feedback options
-  feedback.initFeedback({
-    scope: "tollium:webharebackend",
-    domFilterCallback: filterDOM
-  });
+  remove()
+  {
+    this.trigger.remove();
+    this.trigger = null;
+  }
+
+  async run(event)
+  {
+    return run(event, { scope: this.scope });
+  }
 }
 
-export async function run(event)
+export async function run(event, options)
 {
   // Ask if the user wants to give feedback for a certain DOM element
   const which = await runSimpleScreen($todd.getActiveApplication(),
@@ -56,7 +60,7 @@ export async function run(event)
   if (which !== "cancel")
   {
     // Get the feedback data with the screenshot
-    const result = await feedback.getFeedback(event, { addElement: which === "specific" });
+    const result = await feedback.getFeedback(event, { addElement: which === "specific", ...options });
     if (result.success)
     {
       // Ask for extra information
@@ -65,8 +69,15 @@ export async function run(event)
   }
 }
 
+
 function filterDOM(node)
 {
   // Don't include the trigger element in the screenshot
   return node.nodeType != Node.ELEMENT_NODE || !node.classList.contains("wh-tollium__feedback");
 }
+
+// Initialize the feedback options - we always init, as backend apps can trigger feedback too
+feedback.initFeedback({
+  scope: "tollium:webharebackend",
+  domFilterCallback: filterDOM
+});

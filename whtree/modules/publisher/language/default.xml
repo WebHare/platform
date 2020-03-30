@@ -2313,6 +2313,10 @@
           <text tid="unsupportedversion">This feedback cannot be displayed.</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
+        <text tid="enabletolliumfeedback">Accept feedback in the WebHare backend</text>
+        <text tid="settings">Feedback  scope settings</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->

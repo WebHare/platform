@@ -675,6 +675,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , issysop := issysop
             , reloadonexit := this->runwebhareinstall
             , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none" : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
+            , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? "tollium:webharebackend" : ""
             ];
 
     IF(this->impersonatedentity != 0) //no images, no layout title

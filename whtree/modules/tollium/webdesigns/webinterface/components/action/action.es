@@ -38,6 +38,7 @@ export default class ObjAction extends ActionForwardBase
     this.imgsize = data.imgsize;
     this._onexecute = data.onexecute;
     this.source = data.source; //for copy action
+    this.scope = data.scope; //for handlefeedback actions
 
     /*
     if (this.shortcut)
@@ -232,7 +233,7 @@ export default class ObjAction extends ActionForwardBase
 
   executeHandleFeedback(data)
   {
-    feedback.run();
+    feedback.run(null, {scope: this.scope});
   }
 
   executeCopyToClipboard(data)
