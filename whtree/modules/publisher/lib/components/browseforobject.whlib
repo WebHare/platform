@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -269,51 +271,57 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
     RETURN path;
   }
 
+  INTEGER FUNCTION GetBaseFolderforBrowse()
+  {
+    IF(this->value != 0)
+      RETURN SELECT AS INTEGER parent FROM system.fs_objects WHERE id = this->value AND isactive;
+    IF(this->folder != 0) //this->folder only has effect if we have no value yet
+      RETURN this->folder;
+
+    IF(this->site != "") //site= fullpath= on <p:browseforobject>
+    {
+      STRING openpath := "site::" || this->site || "/" || this->fullpath;
+      OBJECT target := OpenWHFSObjectBypath(openpath);
+      IF(ObjectExists(target) AND target->isfolder)
+        RETURN target->id;
+    }
+    ELSE IF(this->fullpath != "") //only fullpath= ?? we probably have an applytester which can give us the site. otherwise, tough luck
+    {
+      IF(ObjectExists(this->contexts->applytester))
+      {
+        OBJECT targetsiteroot := OpenWHFSObject(this->contexts->applytester->objsite);
+        IF(ObjectExists(targetsiteroot))
+        {
+          OBJECT target := targetsiteroot->OpenByPath(this->fullpath);
+          IF(ObjectExists(target) AND target->isfolder)
+            RETURN target->id;
+        }
+      }
+    }
+
+    RETURN 0;
+  }
 
   MACRO DoBrowse()
   {
-    RECORD baseinfo;
-    IF(this->value != 0)
-      baseinfo := SELECT parent FROM system.fs_objects WHERE id=this->value AND isactive;
+    INTEGER result := RunBrowseForFSObjectDialog(this->owner,
+      CELL[ type := this->browsetype
+          , this->description
+          , this->acceptfiles
+          , this->acceptfolders
+          , this->accepttypes
+          , this->acceptunpublished
+          , this->thumbnailwhfstype
+          , this->thumbnailwhfsfield
+          , this->value
+          , folder := this->value = 0 ? this->GetBaseFolderforBrowse() : 0
+          , roots := this->roots
+          ]);
 
-    OBJECT filedlg := CreateBrowseForWHFSObjectDialog(this->owner);
-    filedlg->type := this->browsetype;
-
-    IF (this->description != "")
-      filedlg->description := this->description;
-
-    filedlg->acceptfiles        := this->acceptfiles;
-    filedlg->acceptfolders      := this->acceptfolders;
-    filedlg->accepttypes        := this->accepttypes;
-    filedlg->acceptunpublished  := this->acceptunpublished;
-
-    filedlg->thumbnailwhfstype  := this->thumbnailwhfstype;
-    filedlg->thumbnailwhfsfield := this->thumbnailwhfsfield;
-
-    IF(RecordExists(baseinfo))
+    IF(result != 0 AND this->value != result)
     {
-      filedlg->folder := baseinfo.parent;
-    }
-    ELSE //then determinate starting position based on data
-    {
-      filedlg->SetFolderBySiteFullpath(this, this->site, this->fullpath);
-    }
-
-    filedlg->roots := this->roots;
-    filedlg->value := this->value;
-
-    IF (filedlg->folder = 0)
-      filedlg->folder := this->folder;
-    IF (filedlg->folder = 0 AND Length(filedlg->roots) > 0)
-      filedlg->folder := filedlg->roots[0];
-
-    IF (filedlg->RunModal() = "ok")
-    {
-      BOOLEAN docallback;
-      IF (this->value != filedlg->value AND this->onchange != DEFAULT FUNCTION PTR)
-        docallback := TRUE;
-      this->value := filedlg->value;
-      IF (docallback)
+      this->value := result;
+      IF (this->onchange != DEFAULT FUNCTION PTR)
         this->onchange();
     }
   }

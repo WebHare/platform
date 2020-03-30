@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
@@ -969,20 +970,18 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
     }
     ELSE
     {
-      OBJECT bffd := CreateBrowseForWHFSObjectDialog(this);
-      bffd->acceptforeignfolders := FALSE;
-      bffd->acceptfiles := FALSE;
-      bffd->showreadonly := TRUE;
+      INTEGER target := RunBrowseForFSObjectDialog(this, [ acceptfiles := FALSE
+                                                         , showreadonly := TRUE
+                                                         , title := this->GetTid(".createhistorycopy")
+                                                         , description := this->GetTid(".createhistorycopydescr")
+                                                         ]);
 
-      bffd->title := this->GetTid(".createhistorycopy");
-      bffd->description := this->GetTid(".createhistorycopydescr");
-
-      IF (bffd->RunModal() != "ok" OR bffd->value = 0)
+      IF (target = 0)
         RETURN;
 
       restoredata :=
-          [ parent :=   bffd->value
-          , name :=     OpenWHFSObject(bffd->value)->GenerateUniqueName(orgname)
+          [ parent :=   target
+          , name :=     OpenWHFSObject(target)->GenerateUniqueName(orgname)
           ];
     }
 
@@ -1031,22 +1030,18 @@ PUBLIC OBJECTTYPE History EXTEND TolliumScreenBase
       }
       ELSE
       {
-        OBJECT bffd := CreateBrowseForWHFSObjectDialog(this);
-        bffd->acceptforeignfolders := FALSE;
-        bffd->acceptfiles := FALSE;
-        bffd->showreadonly := TRUE;
-
-        bffd->title := this->GetTid(".undelete");
-        bffd->description := this->GetTid(".undeletedescription");
-
-        bffd->roots := [ this->siteid ];
-
-        IF (bffd->RunModal() != "ok")
+        INTEGER target := RunBrowseForFSObjectDialog(this, [ acceptfiles := FALSE
+                                                           , showreadonly := TRUE
+                                                           , title := this->GetTid(".undelete")
+                                                           , description := this->GetTid(".undeletedescription")
+                                                           , roots := INTEGER[this->siteid]
+                                                           ]);
+        IF(target = 0)
           RETURN;
 
         restoredata :=
-            [ parent :=   bffd->value
-            , name :=     OpenWHFSObject(bffd->value)->GenerateUniqueName(orgname)
+            [ parent :=   target
+            , name :=     OpenWHFSObject(target)->GenerateUniqueName(orgname)
             ];
       }
 
@@ -1514,23 +1509,21 @@ PUBLIC MACRO DoVersionedRestoreInternal(OBJECT parentscreen, INTEGER siteroot, O
       targetfolder := targetfolder->OpenByPath(SubString(path, 1)) ?? targetfolder;
     }
 
-    OBJECT bffd := CreateBrowseForWHFSObjectDialog(parentscreen);
-    bffd->acceptforeignfolders := FALSE;
-    bffd->acceptfiles := FALSE;
-    bffd->showreadonly := TRUE;
+    INTEGER target := RunBrowseForFSObjectDialog(parentscreen,
+        [ acceptfiles := FALSE
+        , showreadonly := TRUE
+        , title := GetTid("publisher:tolliumapps.versioning.undelete")
+        , description := GetTid("publisher:tolliumapps.versioning.undeletedescription")
+        , roots := INTEGER[siteroot]
+        , folder := targetfolder->id
+        ]);
 
-    bffd->title := GetTid("publisher:tolliumapps.versioning.undelete");
-    bffd->description := GetTid("publisher:tolliumapps.versioning.undeletedescription");
-
-    bffd->roots := [ siteroot ];
-    bffd->folder := targetfolder->id;
-
-    IF (bffd->RunModal() != "ok")
+    IF (target = 0)
       RETURN;
 
     restoredata :=
-        [ parent :=   bffd->value
-        , name :=     OpenWHFSObject(bffd->value)->GenerateUniqueName(restore_name)
+        [ parent :=   target
+        , name :=     OpenWHFSObject(target)->GenerateUniqueName(restore_name)
         ];
   }
 

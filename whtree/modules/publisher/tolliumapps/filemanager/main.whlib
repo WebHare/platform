@@ -1357,11 +1357,15 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     IF (NOT feedback->Finish())
       RETURN FALSE;
 
-    OBJECT bffd := CreateBrowseForWHFSObjectDialog(this);
-    bffd->acceptforeignfolders := FALSE;
-    bffd->acceptfiles := FALSE;
-    bffd->showreadonly := TRUE;
-    bffd->virtualfilter := type = "move" ? "movetargets" : "copytargets";
+    RECORD opts := [ acceptforeignfolders := FALSE
+                   , acceptfiles := FALSE
+                   , showreadonly := TRUE
+                   , value := this->lastmovedestination >= 0 ? this->lastmovedestination
+                                                             : (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0].id AND isactive)
+                   , title := ""
+                   , description := ""
+                   , recyclebinid := type="move" ? -2 : 0 //only show recyclebin when moving
+                   ];
 
     IF (type ="move" AND ObjectExists(rec.policy))
     {
@@ -1380,51 +1384,49 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
           roots := roots CONCAT ArrayIntersection(allchildren, user_roots);
         }
 
-      bffd->roots := roots;
+      INSERT CELL roots := roots INTO opts;
     }
-
-    bffd->value := this->lastmovedestination >= 0 ? this->lastmovedestination : (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0].id AND isactive);
 
     SWITCH(type)
     {
       CASE "copy"
       {
-        bffd->title := this->GetTid(".copymove.copytitle");
-        bffd->description := this->GetTid(".copymove.copydescr");
+        opts.title := this->GetTid(".copymove.copytitle");
+        opts.description := this->GetTid(".copymove.copydescr");
       }
       CASE "move"
       {
-        bffd->title := this->GetTid(".copymove.movetitle");
-        bffd->description := this->GetTid(".copymove.movedescr");
+        opts.title := this->GetTid(".copymove.movetitle");
+        opts.description := this->GetTid(".copymove.movedescr");
       }
       CASE "internallink"
       {
-        bffd->title := this->GetTid(".copymove.internallinktitle");
-        bffd->description := this->GetTid(".copymove.internallinkdescr");
+        opts.title := this->GetTid(".copymove.internallinktitle");
+        opts.description := this->GetTid(".copymove.internallinkdescr");
       }
       CASE "contentlink"
       {
-        bffd->title := this->GetTid(".copymove.contentlinktitle");
-        bffd->description := this->GetTid(".copymove.contentlinkdescr");
+        opts.title := this->GetTid(".copymove.contentlinktitle");
+        opts.description := this->GetTid(".copymove.contentlinkdescr");
       }
     }
 
-    IF (bffd->RunModal() != "ok")
+    INTEGER objectsto := RunBrowseForFSObjectDialog(this, opts);
+    IF (objectsto = 0)
       RETURN FALSE;
 
-    RECORD destination := bffd->selection;
-    IF(type="move" AND destination.contentmode = "recyclebin")
+    IF(type="move" AND objectsto = -2)
     {
       IF(NOT RunDeleteFSObjectsDialog(this, (SELECT AS INTEGER ARRAY id FROM selection), [ confirm := FALSE]))
         RETURN FALSE;
     }
     ELSE
     {
-      this->lastmovedestination := destination.id;
+      this->lastmovedestination := objectsto;
 
       OBJECT work := this->BeginUnvalidatedWork();
 
-      OBJECT targetobj := destination.id = 0 ? OpenWHFSRootObject() : OpenWHFSObject(destination.id);
+      OBJECT targetobj := objectsto = -1 ? OpenWHFSRootObject() : OpenWHFSObject(objectsto);
       RECORD opres := CopyMoveFilesAndFolders(work, selection, targetobj, type, this->tolliumuser);
       IF (NOT work->Finish())
         RETURN FALSE;

@@ -2,6 +2,8 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -242,19 +244,19 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
 
   MACRO SelectFromPublisherRoots(INTEGER ARRAY roots)
   {
-    OBJECT browse := CreateBrowseForWHFSObjectDialog(this->owner);
-    browse->acceptfiles := TRUE;
-    browse->acceptfolders := FALSE;
-    browse->acceptunpublished := TRUE;
-    browse->accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ];
-    browse->type := "thumbnails";
-    browse->selectmode := "single";
-    IF (Length(roots) > 0)
-      browse->roots := roots;
-    IF (RecordExists(this->value) AND this->value.source_fsobject != 0)
-      browse->value := this->value.source_fsobject;
+    INTEGER imageid := RunBrowseForFSObjectDialog(this->owner,
+      [ acceptfiles := TRUE
+      , acceptfolders := FALSE
+      , acceptunpublished := TRUE
+      , accepttypes := [ "http://www.webhare.net/xmlns/publisher/imagefile" ]
+      , type := "thumbnails"
+      , roots := roots
+      , value := RecordExists(this->value) ? this->value.source_fsobject : 0
+      ]);
+    IF(imageid = 0)
+      RETURN;
 
-    OBJECT imageobj := OpenWHFSObject(browse->RunSelectfileDialog());
+    OBJECT imageobj := OpenWHFSObject(imageid);
     IF (ObjectExists(imageobj))
     {
       RECORD image := WrapBlob(imageobj->data, imageobj->name);

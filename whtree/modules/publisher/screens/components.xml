@@ -38,7 +38,7 @@
           <text name="resultslimited" title="" wordwrap="true" onclicklink="onshowallresults" />
         </panel>
       </panel>
-      <list name="mylist" rowkeytype="integer" highlightname="pvt_highlight" onsortorderchange="gotsortorderchange"> <!-- oncelledit="oncelledit" -->
+      <list name="mylist" rowkeytype="integer" highlightname="pvt_highlight" ongetrows="ongetrows" onsortorderchange="gotsortorderchange"> <!-- oncelledit="oncelledit" -->
         <column name="icon" type="icon" title="" sortkeyname="pvt_name_sort" iconlink="false" />
         <column name="name" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" iconname="icon" />
         <column name="name_noicon" type="text" sortkeyname="pvt_name_sort" hintname="pvt_namehint" />

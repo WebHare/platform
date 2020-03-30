@@ -31,32 +31,38 @@ PUBLIC MACRO RunManageTagsDialog(OBJECT parentscreen, INTEGER tagfolder, RECORD 
   parentscreen->RunScreen("mod::publisher/tolliumapps/tagmanager/tagmanager.xml#tagmanager", [ tagfolder := tagfolder ]);
 }
 
-/** Run the 'browse for object' dialog
+/** Run the 'browse for object' dialog, returning a single object
     @param parentscreen Screen invoking us
-    @cell(integer array) options.roots Root folders to show
+    @cell(integer array) options.roots Root folders to show. If empty, shows all root folders
+    @cell(boolean) options.acceptfiles Accept files. (defaults to TRUE)
+    @cell(boolean) options.acceptfolders Accept folders. (defaults to TRUE)
+    @cell(boolean) options.acceptforeignfolders Accept selection of foreign folders (defaults to FALSE)
     @cell(string array) options.accepttypes List of acceptable WHFS types for selection
+    @cell(integer) options.recyclebinid ID for the recyclebin. If not set, no recyclebin will be available in the browse dialog
+    @cell(integer) options.value Currently selected item
+    @cell(integer) options.folder Folder to preselect, if no value is given. If 0, preselect based on last selected folder. If -1, select the root
     @return Selected object, or 0 if the dialog was cancelled */
 PUBLIC INTEGER FUNCTION RunBrowseForFSObjectDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ roots := INTEGER[]
-                              , accepttypes := STRING[]
-                              ], options, [ optional := ["roots"] ]);
-
-  OBJECT dialog := CreateBrowseForWHFSObjectDialog(parentscreen);
-
-  IF(CellExists(options,'roots'))
-  {
-    IF(Length(options.roots) = 0)
-      THROW NEW Exception("List of root folders to show is empty");
-
-    dialog->roots := options.roots;
-  }
-
-  dialog->accepttypes := options.accepttypes;
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "single"]);
   IF (dialog->RunModal() = "ok")
     RETURN dialog->value;
 
   RETURN 0;
+}
+
+/** Run the 'browse for object' dialog, returning multiple objects
+    @param parentscreen Screen invoking us
+    @param options @includecelldef %RunBrowseForFSObjectDialog.options
+    @cell(integer array) options.value Currently selected items
+    @return Selected objects or an empty array if the dialog was cancelled */
+PUBLIC INTEGER ARRAY FUNCTION RunBrowseForFSObjectsDialog(OBJECT parentscreen, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT dialog := parentscreen->LoadScreen('mod::publisher/screens/commondialogs.xml#browsewhfsobject', CELL[...options, __selectmode := "multiple"]);
+  IF (dialog->RunModal() = "ok")
+    RETURN dialog->value;
+
+  RETURN DEFAULT INTEGER ARRAY;
 }
 
 /** Run the 'create new object' flow

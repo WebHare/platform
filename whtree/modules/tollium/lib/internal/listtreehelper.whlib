@@ -1560,6 +1560,12 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
     RETURN this->pvt_rows;
   }
 
+  //check if rows have already been loaded, without causing rows to load
+  PUBLIC BOOLEAN FUNCTION AreRowsLoaded()
+  {
+    RETURN Length(this->pvt_rows) > 0;
+  }
+
   /** Returns the root rows of a tree
   */
   PUBLIC RECORD ARRAY FUNCTION GetRootRows()

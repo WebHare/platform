@@ -23,7 +23,6 @@
   <screen name="browsewhfsobject"
           gid=".browsewhfsobject"
           title=""
-          onshow="preparedialog"
           allowresize="true"
           height="600px"
           width="800px">

@@ -96,16 +96,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     this->pvt_showprotected := def.showprotected;
     this->pvt_showreadonly := def.showreadonly;
 
-    IF(def.forcewhfsroot != "" AND GetPrimaryWebhareTransaction() != 0) //forced root
-    {
-      OBJECT rootfolder := OpenWHFSObjectByPath(def.forcewhfsroot);
-      IF(NOT ObjectExists(rootfolder) OR NOT rootfolder->isfolder)
-        THROW NEW Exception("No such WHFS folder " || def.forcewhfsroot);
-
-      this->roots := [ INTEGER(rootfolder->id) ];
-      this->useroots := TRUE;
-    }
-
     this->onselect := def.onselect;
 
     //this->thelist->ongetpath := PTR this->OnGetPath;
@@ -666,8 +656,6 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       FOREVERY(RECORD addroot FROM ext.addrootitems)
       {
         counter := counter + 1;
-        IF(this->pvt_virtualfilter != "" AND this->pvt_virtualfilter NOT IN addroot.forvirtualfilters)
-          CONTINUE;
 
         // Keep this method of determining the root ids in sync with ContentsHandlerContext::NEW
         INTEGER id := addroot.contentmode = "webhareroot" ? 0 : -__rootitemidspace * counter;

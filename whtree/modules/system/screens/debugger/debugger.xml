@@ -20,7 +20,6 @@
     <actions>
       <action name="debugconfig" onexecute="dodebugconfig" />
       <action name="openfile" onexecute="doopenfile" shortcut="ctrl+o" />
-      <action name="opendbfile" onexecute="doopendbfile" />
       <action name="closefile" onexecute="doclosefile">
         <enableon source="files" min="1" />
       </action>
@@ -152,7 +151,6 @@
                 <spacer />
                 <buttongroup layout="horizontal">
                   <button action="openfile" icon="tollium:actions/open" type="icon"/>
-                  <button action="opendbfile" icon="tollium:database/database" type="icon"/>
                   <button action="closefile" icon="tollium:objects/cross" type="icon"/>
                 </buttongroup>
               </line>

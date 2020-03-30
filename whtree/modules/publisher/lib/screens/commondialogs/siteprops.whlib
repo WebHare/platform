@@ -1,5 +1,5 @@
 <?wh
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
@@ -336,18 +336,12 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
 
   MACRO DoAddSiteProfile()
   {
-    OBJECT filedlg := CreateBrowseForWHFSObjectDialog(this);
-    filedlg->acceptfolders := FALSE;
-    filedlg->accepttypes := [ "http://www.webhare.net/xmlns/publisher/siteprofilefile" ];
-
-    // Site profiles can be selected from anywhere, preselect current site, else repository
-    IF (RecordExists(this->cursite))
-      filedlg->folder := this->itemid; // Select current site if available. ADDME: try to locate siteprofiles in the site, select that folder
-    ELSE
-      filedlg->folder := 1; // Repository
-
-    IF (filedlg->RunModal() = "ok")
-      INSERT [ rowkey := filedlg->value ] INTO ^siteprofiles->rows AT END;
+    //NOTE: siteprofiles are deprecated so already removing most of the folder-selection logic
+    INTEGER toadd := RunBrowseForFSObjectDialog(this, [ accepttypes := [ "http://www.webhare.net/xmlns/publisher/siteprofilefile" ]
+                                                      , acceptfolders := FALSE
+                                                      ]);
+    IF(toadd != 0)
+      INSERT [ rowkey := toadd ] INTO ^siteprofiles->rows AT END;
 
   }
 

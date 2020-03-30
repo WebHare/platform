@@ -113,6 +113,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
   STRING ARRAY accepttypedefs; // Namespaces of accepted types
   INTEGER ARRAY accepttypeids; // Id's of accepted types
+  INTEGER recyclebinid;
 
   /** Indicates whether only single or multiple selections are allowed
   */
@@ -120,8 +121,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
   PUBLIC STRING pvt_selectmode;
 
   PUBLIC PROPERTY type(GetType, SetType);
-
-  PUBLIC PROPERTY virtualfilter(this->folders->virtualfilter, SetVirtualFilter);
 
   /** The type namespace for WHFS thumbnails
   */
@@ -141,18 +140,66 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
   INTEGER mostrecentfolder;
 
   // Params: fileid
-  PUBLIC MACRO Init()
+  PUBLIC MACRO Init(RECORD data)
   {
-    this->type := "list";
-    this->acceptfiles   := TRUE;
-    this->acceptfolders := TRUE;
-    this->acceptforeignfolders := TRUE;
-    this->acceptunpublished := TRUE; // show both published and non-published files by default
-    this->selectmode := "single";
+    BOOLEAN ismultiple := CellExists(data,'__selectmode') AND data.__selectmode = "multiple";
+    VARIANT expectvalue;
+    IF(ismultiple)
+      expectvalue := INTEGER[];
+    ELSE
+      expectvalue := 0;
+    DELETE CELL __selectmode FROM data;
 
-    RECORD siteprofs := GetCachedSiteProfiles();
+    data := ValidateOptions(
+       [ roots := INTEGER[]
+       , accepttypes := STRING[]
+       , type := "list"
+       , title := ""
+       , description := ""
+       , acceptfiles := TRUE
+       , acceptfolders := TRUE
+       , acceptforeignfolders := FALSE //switching the default to FALSE, much safer...
+       , acceptunpublished := TRUE // show both published and non-published files by default
+       , thumbnailwhfstype := ""
+       , thumbnailwhfsfield := ""
+       , value := expectvalue
+       , folder := 0
+       , showreadonly := FALSE
+       , recyclebinid := 0
+       ], data, [ enums := [ type := [ "list", "thumbnails" ]
+                           ]]);
+
+    //set private props as much as possible to avoid many ApplySettingsToView calls
+    this->accepttypedefs := data.accepttypes;
+    ^fileviewtype->value := data.type;
+    this->roots := data.roots;
+    this->title := data.title;
+    this->description := data.description;
+    this->pvt_acceptfiles   := data.acceptfiles;
+    this->pvt_acceptfolders := data.acceptfolders;
+    this->pvt_acceptforeignfolders := data.acceptforeignfolders;
+    this->acceptunpublished := data.acceptunpublished;
+    this->pvt_thumbnailwhfstype := data.thumbnailwhfstype;
+    this->pvt_thumbnailwhfsfield := data.thumbnailwhfsfield;
+    this->pvt_selectmode := ismultiple ? "multiple" : "single";
+    this->recyclebinid := data.recyclebinid;
+
+    IF(data.showreadonly)
+      this->showreadonly := TRUE;
 
     this->folders->filteritems := PTR this->FilterFolders;
+
+    this->ApplySettingsToView(TRUE);
+
+    IF(IsValueSet(data.value))
+    {
+      this->value := data.value;
+    }
+    ELSE IF(data.folder != 0)
+    {
+      this->folder := data.folder = -1 ? 0 : data.folder;
+    }
+    this->frame->focused := this->acceptfiles ? this->type = "thumbnails" ? ^filesthumbs : ^fileslist : ^folders;
   }
 
   MACRO PopulateRecentAndFavoriteFolders()
@@ -294,71 +341,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
       this->folders->value := folder;
     }
   }
-  PUBLIC MACRO SetFolderBySiteFullpath(OBJECT baseobject, STRING sitename, STRING fullpath)
-  {
-    STRING destwhfspath;
-
-    IF(sitename != "")
-    {
-      INTEGER matchsite := SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(sitename);
-      IF(matchsite=0)
-        RETURN;
-
-      STRING basepath := SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = matchsite;
-      IF(fullpath LIKE "/*")
-        fullpath := Substring(fullpath,1);
-
-      //go to the site specified
-      //PRINT(basepath || fullpath ||"\n");
-      destwhfspath := basepath || fullpath;
-    }
-    ELSE IF(ObjectExists(baseobject))
-    {
-      OBJECT whfsinstance := GetWHFSInstanceComposition(baseobject);
-      OBJECT basefsobject;
-      IF(ObjectExists(whfsinstance))
-        basefsobject := OpenWHFSObject(whfsinstance->GetBaseForObjectLists());
-      IF(ObjectExists(basefsobject) AND NOT basefsobject->isfolder)
-        basefsobject := basefsobject->parentobject;
-
-      IF(ObjectExists(basefsobject))
-      {
-        IF(fullpath LIKE "/*" AND basefsobject->parentsite != 0)
-        {
-          basefsobject := OpenWHFSObject(basefsobject->parentsite);
-          fullpath := Substring(fullpath,1);
-        }
-        destwhfspath := basefsobject->whfspath || fullpath;
-      }
-    }
-
-    this->SetFolderByWHFSPath(destwhfspath);
-  }
-  PUBLIC MACRO SetFolderByWHFSPath(STRING destwhfspath)
-  {
-    this->folders->selection := DEFAULT RECORD;
-    IF(destwhfspath="")
-      RETURN;
-
-    RECORD ARRAY roots := SELECT * FROM this->folders->rows WHERE level=1;
-    IF(RecordExists(SELECT FROM roots WHERE id > 0)) //Do we have limited roots?
-    {
-      INTEGER ARRAY idlist := SELECT AS INTEGER ARRAY id FROM roots;
-      RECORD useroot := SELECT roots.name, fs_objects.whfspath
-                          FROM roots
-                             , system.fs_objects
-                         WHERE roots.id = fs_objects.id
-                               AND fs_objects.id IN idlist
-                               AND ToUppercase(VAR destwhfspath) LIKE ToUppercase(fs_objects.whfspath || "*");
-
-      IF(NOT RecordExists(useroot))
-        RETURN;
-
-      //rewrite use visible name (may have been renamed) and remainder path
-      destwhfspath := "/" || useroot.name || "/" || Substring(destwhfspath, Length(useroot.whfspath));
-    }
-    this->folders->GotoPath(destwhfspath);
-  }
 
   PUBLIC OBJECT FUNCTION __GetCurrentFilelist()
   {
@@ -372,20 +354,30 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
     {
       //ADDME are there tags in the filelist? currently only roots do it, so no
       IF(this->selectmode = "multiple")
-        RETURN SELECT contentmode := "", id FROM this->__GetCurrentFilelist()->selection;
+        RETURN SELECT contentmode := "", id, modulekey := "" FROM this->__GetCurrentFilelist()->selection;
 
       RECORD selection := this->__GetCurrentFilelist()->selection;
       IF(RecordExists(selection))
-        RETURN [ contentmode := "", id := selection.id ];
+        RETURN CELL[ contentmode := "", selection.id, modulekey := "" ]; //publisher is only in foldertree
       ELSE
         RETURN DEFAULT RECORD;
     }
 
     RECORD selectedfolder := this->folders->selection;
     IF(this->selectmode="single")
-      RETURN RecordExists(selectedfolder) ? [ contentmode := selectedfolder.contentmode, id := selectedfolder.rowkey ] : DEFAULT RECORD;
+      RETURN RecordExists(selectedfolder) ? CELL[ selectedfolder.contentmode, id := selectedfolder.rowkey, selectedfolder.modulekey ] : DEFAULT RECORD;
     ELSE
-      RETURN RecordExists(selectedfolder) ? [[ contentmode := selectedfolder.contentmode, id := selectedfolder.rowkey ]] : DEFAULT RECORD ARRAY;
+      RETURN RecordExists(selectedfolder) ? [CELL[ selectedfolder.contentmode, id := selectedfolder.rowkey, selectedfolder.modulekey ]] : DEFAULT RECORD ARRAY;
+  }
+
+  INTEGER FUNCTION GetIdFromRow(RECORD row)
+  {
+    dumpvalue(row);
+    IF(row.id < 0 AND row.modulekey = "publisher:0.1")
+      RETURN this->recyclebinid;
+    IF(row.id = 0) //root
+      RETURN -1;
+    RETURN row.id;
   }
 
   /** @short gets the selected files
@@ -393,17 +385,16 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
   VARIANT FUNCTION GetValue()
   {
     IF(this->selectmode = "multiple")
-      RETURN SELECT AS INTEGER ARRAY id FROM this->GetSelection();
+      RETURN SELECT AS INTEGER ARRAY this->GetIdFromRow(row) FROM this->GetSelection() AS row;
 
     RECORD selection := this->GetSelection();
-    RETURN RecordExists(selection) ? selection.id : 0;
+    RETURN RecordExists(selection) ? this->GetIdFromRow(selection) : 0;
   }
 
   /** @short set the selected files
   */
   MACRO SetValue(VARIANT value)
   {
-    this->ApplySettingsToView(FALSE); //make sure roots etc are set
     IF(this->acceptfiles)
     {
       INTEGER firstvalue;
@@ -427,29 +418,24 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
   {
     IF(NOT this->acceptforeignfolders)
       DELETE FROM infolders WHERE type=1;
+
+    DELETE FROM infolders WHERE id < 0 AND (this->recyclebinid != 0 ? modulekey != "publisher:0.1"  : TRUE);
     RETURN infolders;
   }
 
   STRING FUNCTION GetType()
   {
-    RETURN this->fileviewtype->value;
+    RETURN ^fileviewtype->value;
   }
   MACRO SetType(STRING type)
   {
     IF (type NOT IN ["list","thumbnails"])
       THROW NEW Exception('Unknown BrowseWHFSObject dialog type \''||type || "'");
 
-    this->fileviewtype->value := type;
+    ^fileviewtype->value := type;
     this->fileslist->foldertree := type="list" ? this->folders : DEFAULT OBJECT;
     this->filesthumbs->foldertree := type="thumbnails" ? this->folders : DEFAULT OBJECT;
     this->ApplySettingsToView(FALSE);
-  }
-
-  MACRO SetVirtualFilter(STRING filter)
-  {
-    this->folders->virtualfilter := filter;
-    this->fileslist->virtualfilter := filter;
-    this->filesthumbs->virtualfilter := filter;
   }
 
   MACRO SetThumbnailWHFSField(STRING fieldname)
@@ -535,7 +521,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
     IF(this->acceptfiles OR this->pvt_selectmode = "multiple")
     {
-      this->fileviewtype->visible := this->pvt_hideviewtype = FALSE;
+      ^fileviewtype->visible := this->pvt_hideviewtype = FALSE;
       this->filepart->visible := TRUE;
 
       this->folders->selectmode := "single";
@@ -546,11 +532,11 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
       filecomp->accepttypes := this->accepttypedefs;
       filecomp->filteritems := PTR this->FilterItems;
 
-      OBJECT toselect := this->fileviewtype->value="thumbnails" ? this->thumbnailtab : this->filelisttab;
+      OBJECT toselect := ^fileviewtype->value="thumbnails" ? this->thumbnailtab : this->filelisttab;
       IF(toselect != this->fileparttabs->selectedtab OR ispreinit) //first run, ensure our components are initialized
       {
         this->fileparttabs->selectedtab := toselect;
-        IF(this->fileviewtype->value="thumbnails")
+        IF(^fileviewtype->value="thumbnails")
         {
           this->filesthumbs->SetThumbnailWHFSType(this->thumbnailwhfstype, this->thumbnailwhfsfield);
         }
@@ -585,7 +571,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
     }
     ELSE
     {
-      this->fileviewtype->visible := FALSE;
+      ^fileviewtype->visible := FALSE;
       this->filepart->visible := FALSE;
 
       this->folders->selectmode := this->pvt_selectmode;
@@ -609,11 +595,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
     IF((this->selectmode = "single" AND this->folders->value = 0))
       this->folders->SetvalueIfValid(this->mostrecentfolder);
-  }
-
-  MACRO PrepareDialog()
-  {
-    this->ApplySettingsToView(TRUE);
   }
 
   MACRO SetAcceptTypes(STRING ARRAY types)

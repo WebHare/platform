@@ -355,7 +355,6 @@
       <xs:element ref="s:acceptdrops" minOccurs="0" maxOccurs="1" />
     </xs:sequence>
     <xs:attributeGroup ref="tc:ComponentBase" />
-    <xs:attributeGroup ref="FSObjectOverviewOptions" />
 
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
       <xs:annotation>
@@ -494,13 +493,6 @@
           </xs:simpleType>
         </xs:list>
       </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="forcewhfsroot" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          If set, force the specified WHFS path as the root folder for this foldertree. Initialization will fail if this folder does not exist
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
 
     <xs:attributeGroup ref="s:ListBorders" />
@@ -729,10 +721,6 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:attributeGroup name="FSObjectOverviewOptions">
-    <xs:attribute name="virtualfilter" type="sc:WHFSVirtualFilter" />
-  </xs:attributeGroup>
-
   <xs:attributeGroup name="FSContentsOverviewOptions">
     <xs:attribute name="foldertree" type="tc:ComponentRef">
       <xs:annotation>
@@ -741,7 +729,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attributeGroup ref="FSObjectOverviewOptions" />
   </xs:attributeGroup>
 
 
