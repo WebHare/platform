@@ -69,7 +69,7 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
     // Set rowkeytypes for select components (which do not have a rowkeytype if they don't have options)
     FOREVERY (OBJECT subcell FROM this->cells)
     {
-      IF (subcell->cellname != "" AND MemberExists(subcell, "rowkeytype"))
+      IF (MemberExists(subcell, "rowkeytype"))
       {
         RECORD typerec := SELECT type FROM this->type->members WHERE ToUppercase(name) = ToUppercase(subcell->cellname);
         IF (NOT RecordExists(typerec))
