@@ -1529,13 +1529,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           IF (comp EXTENDSFROM WHFSInstance AND comp->typens != "")
           {
             FOREVERY(OBJECT cellobj FROM comp->cells)
-              IF(cellobj->cellname != "")
-              {
-                STRING fullname := comp->typens || ":" || cellobj->cellname;
-                IF(fullname IN seen_members) //ADDME can Tabs do this validation on loaded components ?
-                  THROW NEW Exception("Multiple property editors are trying to handle field '" || fullname || "'");
-                INSERT fullname INTO seen_members AT END;
-              }
+            {
+              STRING fullname := comp->typens || ":" || cellobj->cellname;
+              IF(fullname IN seen_members) //ADDME can Tabs do this validation on loaded components ?
+                THROW NEW Exception("Multiple property editors are trying to handle field '" || fullname || "'");
+              INSERT fullname INTO seen_members AT END;
+            }
           }
 
         propeditor.compositions := loadresult.compositions;

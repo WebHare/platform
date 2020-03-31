@@ -251,8 +251,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     FOREVERY(OBJECT field FROM this->cells)
     {
       STRING tag := ToUppercase(field->cellname);
-      IF(tag = "")
-        CONTINUE;
       IF (tag IN this->pvt_fields)
       {
         STRING ARRAY names := SELECT AS STRING ARRAY cells->name FROM ToRecordArray(this->cells, "CELLS") WHERE cells->cellname = field->cellname AND cells->name != "";
@@ -319,9 +317,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 
     FOREVERY (OBJECT fld FROM this->cells)
     {
-      IF (NOT MemberExists(fld, "cellname"))
-        CONTINUE;
-
       IF (ToUppercase(fld->cellname) = ToUppercase(attrtag))
       {
         comp := fld;

@@ -1913,7 +1913,7 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   /// Current value of the composition
   PUBLIC PROPERTY value(GetValue, SetValue);
   /// Cells that make up the value
-  PUBLIC PROPERTY cells(GetVisibleCells, -);
+  PUBLIC PROPERTY cells(GetValueCells, -);
   /// Extra cells that will be directly merged into the records GetValue but cannot be set using setvalue
   PUBLIC RECORD extradata;
 
@@ -1943,11 +1943,11 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   // Helper functions
   //
 
-  OBJECT ARRAY FUNCTION GetVisibleCells()
+  OBJECT ARRAY FUNCTION GetValueCells()
   {
     OBJECT ARRAY retval;
     FOREVERY(OBJECT cellobj FROM this->pvt_cells)
-      IF(cellobj EXTENDSFROM TolliumIsComposable)
+      IF(cellobj EXTENDSFROM TolliumIsComposable AND cellobj->cellname != "")
         INSERT cellobj INTO retval AT END;
 
     FOREVERY(OBJECT mergedobj FROM this->mergecompositions)
@@ -1994,25 +1994,26 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   // Getters & setters
   //
 
-
+  ///Reset all composition cells to their default value
+  PUBLIC MACRO ResetValue()
+  {
+    FOREVERY(OBJECT subcell FROM this->cells)
+      subcell->value := GetTypeDefaultValue(TypeId(subcell->value));
+    FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
+      mergecomp->ResetValue();
+  }
 
   MACRO SetValue(RECORD contents)
   {
     IF(NOT RecordExists(contents)) //allow := DEFAULT RECORD to reset all values
     {
-      FOREVERY(OBJECT subcell FROM this->cells)
-        subcell->value := GetTypeDefaultValue(TypeId(subcell->value));
-      FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
-        mergecomp->value := DEFAULT RECORD;
 
+      this->ResetValue();
       RETURN;
     }
 
     FOREVERY(OBJECT subcell FROM this->cells)
     {
-      IF(subcell->cellname="")
-        CONTINUE; //we're not getting these either, so kill
-
       IF (NOT CellExists(contents, subcell->cellname))
         CONTINUE; //partial sets should not be our problem
 
@@ -2056,11 +2057,6 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 
     FOREVERY(OBJECT subcell FROM this->cells)
     {
-      // A composition from a roweditscreen might also be registered here (so it can get up to date site specific information).
-      // Since it's not a cell in the composition it's cellname is empty.
-      IF (subcell->cellname = "")
-        CONTINUE;
-
       IF (CellExists(rec, subcell->cellname))
         THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
 
@@ -2085,9 +2081,6 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     FOREVERY(OBJECT subcell FROM this->cells)
       IF(subcell->IsUpdateValue())
       {
-        IF (subcell->cellname = "")
-          CONTINUE;
-
         IF (CellExists(rec, subcell->cellname))
           THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
         rec := CellInsert(rec, subcell->cellname, subcell->value);
@@ -2138,7 +2131,7 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   PUBLIC OBJECT FUNCTION GetComponent(STRING name)
   {
     FOREVERY(OBJECT subcell FROM this->cells)
-     IF(subcell->cellname != "" AND ToUppercase(subcell->cellname) = ToUppercase(name))
+     IF(ToUppercase(subcell->cellname) = ToUppercase(name))
         RETURN subcell;
 
     FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
