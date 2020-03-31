@@ -722,7 +722,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
       {
         FOREVERY (RECORD file FROM event.data.files)
         {
-          IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events)
+          IF ("move" IN file.events OR "del" IN file.events OR "rename" IN file.events OR "update" IN file.events)
           {
             IF (this->thelist->GetRowFlatPosition(file.file) != -1)
             {
@@ -730,7 +730,8 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
               RETURN;
             }
           }
-          ELSE IF ("create" IN file.events AND NOT tested_folder)
+
+          IF ("create" IN file.events AND NOT tested_folder)
           {
             IF (this->thelist->GetRowFlatPosition(event.data.folder) != -1)
             {

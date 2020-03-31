@@ -76,22 +76,3 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
     THROW NEW Exception(`Unknown merge fields source '${this->source.type}'`);
   }
 >;
-
-PUBLIC RECORD FUNCTION CreateMergeFieldsContext(OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
-{
-  RECORD integrationsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-  RECORD rtdtype := GetRTDType(RecordExists(integrationsettings) AND integrationsettings.mailrtdtype != "" ? integrationsettings.mailrtdtype : "http://www.webhare.net/xmlns/publisher/defaultmailrtdtype");
-  IF (NOT RecordExists(rtdtype))
-    RETURN DEFAULT RECORD;
-
-  RECORD mergedata := formresults->GetWittyResultData(result);
-  OBJECT mergefields := NEW MergeFieldsContext([ type := "formdef", formdef := formdefinition, data := mergedata ], result.languagecode);
-  OBJECT context := NEW PreviewContext(formresults->GetStorageObject(), applytester, rtdtype, FALSE);
-  context->__mergefields := mergefields;
-
-  RETURN
-      CELL[ context
-          , applytester
-          , rtdtype
-          ];
-}

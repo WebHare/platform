@@ -197,8 +197,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO TrySelectObject(STRING path)
   {
     STRING remainder := ^foldertree->GotoPath(path);
-    IF(remainder="")//Handled!
+    IF(remainder = "")//Handled!
+    {
+      this->frame->focused := ^foldertree;
       RETURN;
+    }
+
     IF(remainder != "" AND remainder NOT LIKE "*/*" AND ^foldertree->value != 0) //we entered a folder..
     {
       ^filelist->selection := SELECT * FROM ^filelist->rows WHERE ToUppercase(name) = ToUppercase(remainder);
@@ -206,6 +210,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
         this->frame->focused := ^filelist;
       RETURN;
     }
+
     this->RunGoto(path);
   }
 
