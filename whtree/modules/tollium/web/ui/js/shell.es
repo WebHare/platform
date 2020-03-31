@@ -10,6 +10,7 @@ let todd_components = {};
 
 import { components as FrameComponents } from './frame';
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
+import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback.es';
 
 todd_components = { ...FrameComponents
                   , ...getComponents()
@@ -490,9 +491,25 @@ class IndyShell
     }
   }
 
+  _updateFeedbackHandler(scope)
+  {
+    if(scope)
+    {
+      if(!this.feedbackhandler)
+        this.feedbackhandler = new TolliumFeedbackAPI;
+      this.feedbackhandler.scope = scope;
+    }
+    else if(!scope && this.feedbackhandler)
+    {
+      this.feedbackhandler.remove();
+      this.feedbackhandler = null;
+    }
+  }
+
   applyShellSettings(settings)
   {
     this.settings = settings;
+    this._updateFeedbackHandler(settings.feedbackscope);
 
     this.eventsconnection.setGroups(settings.eventgroups);
     this.broadcaststart = Date.parse(settings.now);

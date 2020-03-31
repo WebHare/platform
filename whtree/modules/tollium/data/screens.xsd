@@ -1583,6 +1583,11 @@ To change a <xs:attribute /> for adding descriptions
       <xs:sequence>
       </xs:sequence>
       <xs:attributeGroup ref="ActionBaseAttributes" />
+      <xs:attribute name="scope">
+        <xs:annotation>
+          <xs:documentation>Scope to which feedback should be reported.</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 

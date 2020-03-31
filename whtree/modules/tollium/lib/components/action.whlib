@@ -1094,6 +1094,8 @@ PUBLIC OBJECTTYPE TolliumHelpAction EXTEND WindowOpenActionBase
 
 PUBLIC OBJECTTYPE TolliumFeedbackAction EXTEND ActionBase
 <
+  STRING scope;
+
   MACRO NEW()
   {
     this->handlername := "handlefeedback";
@@ -1102,7 +1104,15 @@ PUBLIC OBJECTTYPE TolliumFeedbackAction EXTEND ActionBase
   UPDATE PUBLIC MACRO StaticInit(RECORD definition)
   {
     INSERT CELL enableon := DEFAULT RECORD ARRAY INTO definition;
+    this->scope := definition.scope;
     ActionBase::StaticInit(definition);
+  }
+
+  UPDATE RECORD FUNCTION GetExtraWebRenderFields()
+  {
+    RETURN
+        [ scope := this->scope
+        ];
   }
 >;
 

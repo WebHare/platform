@@ -17,6 +17,7 @@
       <action name="delete" tid="~delete" onexecute="dodelete" shortcut="del">
         <enableon source="feedback" min="1" />
       </action>
+      <action name="settings" tid="~settings" onexecute="dosettings" />
       <action name="exit" tid="~exit" onexecute="doexit" />
     </actions>
     <menus>
@@ -25,6 +26,8 @@
           <item action="view" />
           <item action="delete" />
         </item>
+        <item action="settings" />
+        <divider />
         <item action="exit" />
       </menu>
     </menus>
@@ -74,6 +77,15 @@
     </body>
     <footer>
       <defaultformbuttons buttons="close" />
+    </footer>
+  </screen>
+
+  <screen name="settings" gid=".settings">
+    <body>
+      <checkbox name="enabletolliumfeedback" title="" labeltid=".enabletolliumfeedback" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
 

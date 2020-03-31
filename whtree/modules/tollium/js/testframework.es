@@ -164,6 +164,13 @@ class ScreenProxy
       regex = new RegExp(":" + escapeRegExp(toddname).replace('\\*','.*') + "$");
       match = candidates.filter(node => node.dataset.name.match(regex));
     }
+    if(!match.length)
+    {
+      //look for pulldowns, they have an odd name
+      let pulldown = this.qS(`select[data-name*=':${toddname}$']`);
+      if(pulldown)
+        return pulldown;
+    }
     if(match.length>1)
       throw new Error("Multiple matches for name '" + toddname + "'");
     return match.length == 1 ? match[0] : null;
@@ -459,6 +466,26 @@ function getOpenSelectList()
 function getSelectListVisibleItems()
 {
   return test.qSA('.t-selectlist__items .t-selectlist__item').filter(node => test.canClick(node));
+}
+
+/** wait for a todd component to appear in the current screen
+    @long sometimes just waiting for a component is the easiest way to navigate app transitions */
+export async function waitForToddComponent(name)
+{
+  await test.wait(() =>
+  {
+    try
+    {
+      let comp = compByName(name);
+      if(comp)
+        return true;
+    }
+    catch(ignore)
+    {
+    }
+    return false;
+  });
+  return compByName(name);
 }
 
 export * from "@mod-system/js/wh/testframework";

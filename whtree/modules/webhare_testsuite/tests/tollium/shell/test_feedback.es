@@ -18,6 +18,31 @@ test.registerTests(
       await test.wait('pageload'); //login refreshes
       await test.wait('ui');
     }
+  , "Start feedback app, check if we can control feedback"
+  , async function()
+    {
+      await test.load(setupdata.testportalurl + "?app=publisher:feedback");
+      await test.wait('ui');
+
+      let selectscope = test.compByName("scope");
+      if(selectscope) //the scope pulldown only appears when we have a choice
+      {
+        let toselect = test.qSA(selectscope,"option").filter(opt=>opt.textContent == "tollium:webharebackend")[0];
+        test.fill(selectscope,toselect.value);
+        await test.wait("ui");
+      }
+
+      test.click(test.qSA('t-toolbar t-button').slice(-1)[0]);
+      test.click(test.qSA("ul.wh-menu li").filter(li => li.textContent == "Settings")[0]);
+      await test.wait("ui");
+
+      test.setTodd('enabletolliumfeedback',true);
+      test.clickTolliumButton("OK");
+      await test.wait("ui");
+
+      //wait for feedback button to appear
+      await test.wait( () => test.qS(".wh-tollium__feedback"));
+    }
   , "Report an issue!"
   , async function()
     {
@@ -26,20 +51,19 @@ test.registerTests(
 
       test.clickToddButton('Specific');
       await test.wait('ui');
-      test.click('.t-apptab__icon');
+      test.click(test.qSA('.t-apptab__icon')[0]);
 
-      await test.wait(() => test.qSA(".t-apptab").length == 2); //wait for the feedback dialog to appear
-      await test.wait('ui'); //a new app will spawn
+      await test.waitForToddComponent('remarks');
       test.setTodd('remarks',`I've got an issue with this bunny`);
       test.clickToddButton('OK');
+      await test.wait('ui');
+      test.clickToddButton('OK');
     }
-  , "Start feedback app"
+  , "Check if we got the issue"
   , async function()
     {
-      await test.load(setupdata.testportalurl + "?app=publisher:feedback");
-      await test.wait('ui');
-
-      test.click(test.qSA('div.listrow')[0]);
+      let feedbackrows = await test.waitForToddComponent('feedback!entities');
+      test.click(test.qSA(feedbackrows,'div.listrow')[0]);
       await test.wait('ui'); //list apparently needs this time to process the selection update
       test.clickToddToolbarButton("View");
     }

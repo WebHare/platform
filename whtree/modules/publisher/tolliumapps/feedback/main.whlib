@@ -6,9 +6,11 @@ LOADLIB "wh::float.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
-
 
 CONSTANT FLOAT maxscreenshotsize := 640;
 
@@ -17,22 +19,32 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   //
   // Initialization
   //
+  BOOLEAN doneinit;
 
   MACRO NEW()
   {
     this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
   }
 
+  MACRO DoSettings()
+  {
+    this->RunScreen("#settings", [ scope := ^scope->value ]);
+  }
+
   MACRO Init(RECORD data)
   {
     ^scope->options :=
-        SELECT rowkey := wrd_tag
+        SELECT rowkey := ToLowercase(wrd_tag)
              , title := ToLowercase(wrd_tag)
           FROM this->contexts->wrdschema->^scope->RunQuery([ outputcolumns := [ "wrd_id", "wrd_tag" ]])
          WHERE this->tolliumuser->HasRightOn("publisher:managefeedbackscope", wrd_id)
          ORDER BY wrd_tag;
+
     IF (Length(^scope->options) <= 1)
       ^scope->visible := FALSE;
+
+    this->doneinit := TRUE;
+    ^scope->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.lastscope", ""));
   }
 
 
@@ -82,8 +94,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnSelectScope()
   {
-    INTEGER scopeid := this->contexts->wrdschema->^scope->Search("wrd_tag", ^scope->value);
+    INTEGER scopeid := this->contexts->wrdschema->^scope->Search("wrd_tag", ToUppercase(^scope->value));
     ^feedback->listfilters := [ [ field := "wrd_leftentity", value := scopeid ] ];
+
+    IF(this->doneinit)
+      this->contexts->user->SetRegistryKey("publisher.feedback.lastscope", ^scope->value);
   }
 >;
 
@@ -153,5 +168,38 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO OnScaleIframe()
   {
     ^screenshot->PostMessage([ type := "scaled", scaled := ^scaled->value ], "*");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
+<
+  STRING scope;
+
+  MACRO Init(RECORD data)
+  {
+    this->scope := data.scope;
+
+    ^enabletolliumfeedback->visible := data.scope = "tollium:webharebackend";
+    IF(^enabletolliumfeedback->visible)
+    {
+      ^enabletolliumfeedback->value := ReadRegistryKey("system.backend.features.feedback");
+    }
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    BOOLEAN refreshtollium;
+    IF(^enabletolliumfeedback->visible AND ^enabletolliumfeedback->value != ReadRegistryKey("system.backend.features.feedback"))
+    {
+      WriteRegistryKey("system.backend.features.feedback", ^enabletolliumfeedback->value);
+      refreshtollium := TRUE;
+    }
+
+    IF(NOT work->Finish())
+      RETURN FALSE;
+
+    IF(refreshtollium)
+      BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+    RETURN TRUE;
   }
 >;

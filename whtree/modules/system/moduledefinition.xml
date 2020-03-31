@@ -2273,6 +2273,9 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="check">
           <string name="ipallowmask" description="Space separated list of IP addresses/masks allowed to use the check page" initialval="127.0.0.1" />
         </node>
+        <node name="features">
+          <boolean name="feedback" />
+        </node>
         <node name="layout">
           <string name="title" initialval="WebHare&#174; Platform" />
           <obsoletekey name="dashboardbgpos" />
