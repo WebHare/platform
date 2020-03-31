@@ -2314,7 +2314,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.feedback.settings -->
-        <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend in</text>
+        <text tid="enabletolliumfeedback">Accepteer feedback in de WebHare backend</text>
         <text tid="settings">Feedback scope instellingen</text>
       </textgroup>
     </textgroup>
