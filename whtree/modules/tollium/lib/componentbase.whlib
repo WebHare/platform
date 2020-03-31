@@ -1994,17 +1994,21 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   // Getters & setters
   //
 
-
+  ///Reset all composition cells to their default value
+  PUBLIC MACRO ResetValue()
+  {
+    FOREVERY(OBJECT subcell FROM this->cells)
+      subcell->value := GetTypeDefaultValue(TypeId(subcell->value));
+    FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
+      mergecomp->ResetValue();
+  }
 
   MACRO SetValue(RECORD contents)
   {
     IF(NOT RecordExists(contents)) //allow := DEFAULT RECORD to reset all values
     {
-      FOREVERY(OBJECT subcell FROM this->cells)
-        subcell->value := GetTypeDefaultValue(TypeId(subcell->value));
-      FOREVERY(OBJECT mergecomp FROM this->mergecompositions)
-        mergecomp->value := DEFAULT RECORD;
 
+      this->ResetValue();
       RETURN;
     }
 
