@@ -7,24 +7,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 PUBLIC MACRO TestSiteProfileIndices()
 {
   testfw->BeginWork();
-
-  STRING xssiteprofile :=
-    `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:c="http://www.webhare.net/xmlns/consilio">
-         <sitesettings sitename="betatestindexsite">
-           <c:addtoindex name="${EncodeValue(testfw->GetCatalogName_1())}" tag="something" maxgroupobjects="2" />
-         </sitesettings>
-         <sitesettings>
-           <c:addtoindex name="${EncodeValue(testfw->GetCatalogName_1())}" tag="something" maxgroupobjects="3" />
-         </sitesettings>
-         <sitesettings sitename="non_existing">
-           <c:addtoindex name="${EncodeValue(testfw->GetCatalogName_3())}" />
-         </sitesettings>
-         <c:index name="${EncodeValue(testfw->GetCatalogName_2())}">
-           <c:contentsource type="publisher:webhare" folder="/" discardsummaries="true" />
-         </c:index>
-       </siteprofile>`;
-
-  OBJECT site := testfw->SetupTestWebdesignWebsite(xssiteprofile, [ sitename := "betatestindexsite" ]);
+  OBJECT site := testfw->SetupTestWebdesignWebsite([ sitename := "betatestindexsite", webfeatures := ["webhare_testsuite:siteprofileindices"] ]);
   INTEGER siteroot := site->root;
   INTEGER index_1 := testfw->GetCatalogIdByName(testfw->GetCatalogName_1());
   IF (index_1 != 0)

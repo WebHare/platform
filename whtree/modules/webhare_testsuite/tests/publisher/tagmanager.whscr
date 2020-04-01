@@ -8,7 +8,7 @@ LOADLIB "mod::publisher/lib/tagmanager.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite("");
+  testfw->SetupTestWebdesignWebsite();
   testfw->CommitWork();
 }
 

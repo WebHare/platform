@@ -44,7 +44,7 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
     siteopts.outputpath := Substitute(options.sitename, "<prefix>", "");
   }
 
-  OBJECT newsite := testfw->SetupTestWebdesignWebsite("", siteopts); //ADDME merge this into us?
+  OBJECT newsite := testfw->SetupTestWebdesignWebsite(siteopts); //ADDME merge this into us?
 
   IF(options.istemplate)
     SetupWebDesign(webdesigntemplate, testfw_testmodule, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );

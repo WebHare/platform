@@ -57,7 +57,7 @@ MACRO SiteprofAssignTest()
   //Make sure the siteprofile system is in a clean state
   TestSiteProfilesNoErrors();
 
-  testfw->SetupTestWebdesignWebsite("");
+  testfw->SetupTestWebdesignWebsite();
 
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
 

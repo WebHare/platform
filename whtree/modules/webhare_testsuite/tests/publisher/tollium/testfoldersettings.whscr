@@ -5,7 +5,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite("");
+  testfw->SetupTestWebdesignWebsite();
   testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_fullaccess", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
 }

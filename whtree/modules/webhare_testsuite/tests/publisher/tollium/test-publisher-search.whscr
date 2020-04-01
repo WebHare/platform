@@ -12,7 +12,7 @@ OBJECT linksrtdfile;
 MACRO PrepIt()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite("");
+  testfw->SetupTestWebdesignWebsite();
 
   OBJECT siteroot := testfw->GetTestsite()->rootobject;
 
