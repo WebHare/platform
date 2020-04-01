@@ -14,27 +14,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-STRING testsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
-      || '<member name="s" type="string" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
-STRING testsiteprofile2 :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
-      || '<member name="s" type="string" />'
-      || '<member name="s2" type="string" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
-STRING testsiteprofile3 :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/actionstest">'
-      || '<member name="s2" type="string" />'
-    || '</contenttype>'
-  || '</siteprofile>';
 
 STRING repub_testhtml_siteprofile :=
 '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
@@ -48,38 +27,11 @@ STRING repub_testhtml_siteprofile :=
   || '</apply>'
 || '</siteprofile>';
 
-
-MACRO SiteprofAssignTest()
+MACRO Setup()
 {
-  testfw->StartTrans("~webhare",TRUE);
   testfw->BeginWork();
-
-  //Make sure the siteprofile system is in a clean state
-  TestSiteProfilesNoErrors();
-
   testfw->SetupTestWebdesignWebsite();
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-
-  //Verify that extracting an archive containing site profiles, causes a siteprofile recompilation
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
   testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-  siteprof->RecycleSelf();
-  testfw->CommitWork();
-
-  testfw->EndTrans();
 }
 
 MACRO SiteRenameTest()
@@ -240,58 +192,6 @@ MACRO TypeChangeTest()
   TestEq(0, datafile->template);
   TestEq(0, datafile->profile);
 
-  testfw->EndTrans();
-}
-
-MACRO MultipleSiteprofileDefinitionsTest()
-{
-  testfw->StartTrans("~webhare", TRUE);
-  testfw->BeginWork();
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-
-  OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
-  TestEq(TRUE, ObjectExists(testtype));
-  TestEq(1, Length(testtype->members));
-
-  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="test2.siteprl", data := StringToBlob(testsiteprofile2)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
-  TestEq(TRUE, ObjectExists(testtype));
-  TestEq(1, Length(testtype->members));
-
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id)); //ADDME shouldn't need this, RecycleSelf should do
-  siteprof->RecycleSelf();
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT siteprof3 := testsite->rootobject->CreateFile([name:="test3.siteprl", data := StringToBlob(testsiteprofile3)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof3->id));
-  siteprof2->RecycleSelf();
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof2->id)); //ADDME shouldn't need this, RecycleSelf should do
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  testtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest");
-  TestEq(TRUE, ObjectExists(testtype));
-  TestEq(1, Length(testtype->members));
-  TestEq("s2", testtype->members[0].name);
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof3->id)); //ADDME shouldn't need this, RecycleSelf should do
-  siteprof3->RecycleSelf();
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/actionstest")));
-  testfw->CommitWork();
   testfw->EndTrans();
 }
 
@@ -849,14 +749,13 @@ MACRO TestReferences()
 }
 
 
-RunTestframework( [ PTR SiteprofAssignTest
+RunTestframework( [ PTR Setup
                   , PTR SiteRenameTest
                   , PTR SiteProfActionsTest
                   , PTR DeleteTest
                   , PTR TypeChangeTest
                   , PTR SiteOutputContainTest //deletetest must appear before siteoutput tes
                   , PTR SiteOutputForeignTest //deletetest must appear before siteoutput tes
-                  , PTR MultipleSiteprofileDefinitionsTest
                   , PTR CopyMoveTest
                   , PTR TestReferences
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
