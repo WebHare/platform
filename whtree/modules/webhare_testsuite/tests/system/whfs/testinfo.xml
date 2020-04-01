@@ -1,7 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test-whfs-base.whscr" />
   <test script="test-whfs-register.whscr" />
-  <test script="test-whfs-siteprofiles.whscr" />
   <test script="test-whfs-siteprofiles_apply.whscr" />
   <test script="test-whfs-conversions.whscr" />
   <test script="test-whfs-archiving.whscr" />
