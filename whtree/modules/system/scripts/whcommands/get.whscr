@@ -2,6 +2,7 @@
 
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
@@ -28,6 +29,10 @@ SWITCH(args.parameter)
   CASE "snsendpoint"
   {
     Print(GetSNSEndpoint()||"\n");
+  }
+  CASE "backendurl", "primarywebhareinterfaceurl"
+  {
+    Print(GetPrimaryWebhareInterfaceURL()||"\n");
   }
   DEFAULT
   {
