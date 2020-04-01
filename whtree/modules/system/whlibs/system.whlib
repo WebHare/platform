@@ -4209,7 +4209,7 @@ PUBLIC RECORD FUNCTION ValidateOptions(RECORD defaultoptions, RECORD options, RE
 
 /** @short Enforce a structure on a data
     @long Structure enforcing is useful to normalize incoming JSON data.
-    @param expected Expected structure - only types of cells are used. Records should have a template structure
+    @param expected Expected structure (and fallback values for non-record/array types). For records and arrays only types are used, records should have a template structure
     @param received Data to normalize
     @param options Options
     @cell options.outofboundsvalue Numeric value to use for numbers that are out of bounds for their expected type. Will be casted to the expected type, without bounds check.
@@ -4231,6 +4231,14 @@ PUBLIC VARIANT FUNCTION EnforceStructure(VARIANT expected, VARIANT received, REC
     THROW NEW Exception(`Option 'outofboundsvalue' must be a number, got a ${GetTypeName(TypeID(options.outofboundsvalue))}.`);
 
   RETURN EnforceStructureInternal(expected, received, options);
+}
+
+VARIANT FUNCTION GetStructuredFallback(VARIANT expected)
+{
+  IF(IsTypeIDArray(TYPEID(expected)) OR TYPEID(expected) = TYPEID(RECORD))
+    RETURN GetTypeDefaultValue(TYPEID(expected));
+  ELSE
+    RETURN expected;
 }
 
 VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RECORD options)
@@ -4259,12 +4267,12 @@ VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RE
 
   //The JSON null
   IF(TYPEID(received) = TYPEID(RECORD) AND NOT RecordExists(received))
-    RETURN GetTypeDefaultValue(TYPEID(expected));
+    RETURN GetStructuredFallback(expected);
 
   IF(IsTypeIDArray(TYPEID(expected)))
   {
     IF(NOT IsTypeIDArray(TYPEID(received)))
-      RETURN GetTypeDefaultValue(TYPEID(expected));
+      RETURN GetStructuredFallback(expected);
 
     IF(TYPEID(expected) = TYPEID(received) AND TypeID(received) IN [ TypeID(INTEGER ARRAY), TypeID(STRING ARRAY) ])
       RETURN received;
@@ -4353,7 +4361,7 @@ VARIANT FUNCTION EnforceStructureInternal(VARIANT expected, VARIANT received, RE
        , 256*TypeID(MONEY) + TypeID(FLOAT)          { RETURN FLOAT(received); }
   }
 
-  RETURN GetTypeDefaultValue(TYPEID(expected));
+  RETURN GetStructuredFallback(expected);
 }
 
 /** @short Resolve a path against the current library
