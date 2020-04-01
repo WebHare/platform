@@ -4,12 +4,6 @@
          gid="commondialogs">
 
   <screen name="siteprops" gid=".siteprops" allowresize="true" savestate="size" minwidth="70x" width="100x" height="40x" flags="ispinned">
-    <actions>
-      <action name="addsiteprofile" tid="tollium:common.actions.add" onexecute="doaddsiteprofile" />
-      <action name="deletesiteprofile" tid="tollium:common.actions.delete" onexecute="dodeletesiteprofile">
-        <enableon source="siteprofiles" min="1" max="1" />
-      </action>
-    </actions>
     <compositions>
       <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
     </compositions>
@@ -38,26 +32,6 @@
             <column name="feature" type="text" checkboxname="featurechecked" />
             <column name="module" type="text" />
           </list>
-        </tab>
-        <tab tid=".siteprofilestab">
-          <grid height="1pr" >
-            <col width="1pr" />
-            <col />
-            <row height="1pr">
-              <cell height="1pr">
-                <list name="siteprofiles"
-                      selectmode="single"
-                      emptytid=".nositeprofiles"
-                      width="1pr" height="1pr" minheight="10x">
-                  <p:whfsrefcolumn name="rowkey" tid=".profilename" />
-                </list>
-              </cell>
-              <cell>
-                <button action="addsiteprofile" width="1pr" />
-                <button action="deletesiteprofile" width="1pr" />
-              </cell>
-            </row>
-          </grid>
         </tab>
       </tabs>
     </body>

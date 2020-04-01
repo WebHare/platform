@@ -18,7 +18,6 @@ INTEGER max_tabs_at_once := 20;
 PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 <
   RECORD ARRAY sites;
-  RECORD ARRAY siteprofiles;
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
   {
@@ -47,7 +46,6 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
   {
     this->webdesign->visible := this->linkedtotype->value = "webdesign";
     this->webfeature->visible := this->linkedtotype->value = "webfeature";
-    this->siteprofile->visible := this->linkedtotype->value = "siteprofile";
   }
 
   MACRO RefreshFilterOptions()
@@ -63,24 +61,9 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
           ORDER BY NormalizeText(name, this->tolliumuser->language);
 
     OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "siteprofiles", "webfeatures"]);
+    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "webfeatures"]);
 
     this->sites := sites;
-
-
-    INTEGER ARRAY siteprofilewhfsids;
-    FOREVERY(RECORD site FROM sites)
-      siteprofilewhfsids := siteprofilewhfsids CONCAT site.siteprofiles;
-
-    this->siteprofiles :=
-            SELECT id
-                 , whfspath
-              FROM system.fs_objects
-             WHERE id IN siteprofilewhfsids
-          ORDER BY NormalizeText(whfspath, this->tolliumuser->language);
-
-
-    this->siteprofile->options := SELECT rowkey := id, title := whfspath FROM this->siteprofiles;
 
     STRING ARRAY usedsitedesigns := SELECT AS STRING ARRAY DISTINCT sitedesign FROM sites;
 
@@ -140,15 +123,12 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
              , webdesign := sitedesign
              , hasactivefeatures := Length(webfeatures) > 0  ? icon_positive : icon_negative
              , activefeatures := DeTokenize(webfeatures, ", ")
-             , haslinkedprofiles := Length(siteprofiles) > 0 ? icon_positive : icon_negative
-             , linkedprofiles := DeTokenize((SELECT AS STRING ARRAY ToString(value) FROM ToRecordArray(siteprofiles, "value")), ", ")
              , url := webroot
              , canview := webroot != "" // not locked, has output, ...
           FROM this->sites
          WHERE (this->weboutput->value = 0  ? TRUE : outputweb  = this->weboutput->value)
            AND (this->linkedtotype->value != "webdesign"  OR this->webdesign->value = ""   ? TRUE : this->webdesign->value   =  sitedesign)
            AND (this->linkedtotype->value != "webfeature" OR this->webfeature->value = ""  ? TRUE : this->webfeature->value  IN webfeatures)
-           AND (this->linkedtotype->value != "siteprofile" OR this->siteprofile->value = 0 ? TRUE : this->siteprofile->value IN siteprofiles)
            AND (this->query->value = ""     ? TRUE : (ToUpperCase(name) LIKE querylike));
 
     this->siteslist->rows := rows;

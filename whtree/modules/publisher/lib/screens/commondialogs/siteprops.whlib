@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
@@ -167,12 +166,6 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
 
       ^sitedesign->value := sitesettings.sitedesign;
 
-      ^siteprofiles->rows :=
-          SELECT rowkey := id
-            FROM system.fs_objects
-           WHERE type = 27
-             AND id IN sitesettings.siteprofiles;
-
       IF (this->cursite.versioningpolicy!="")
       {
         ^outputweb->enabled := FALSE;
@@ -300,8 +293,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
     }
 
     // Apply siteprofile settings
-    siteobj->UpdateSiteMetadata( [ siteprofiles := (SELECT AS INTEGER ARRAY rowkey FROM ^siteprofiles->rows)
-                                 , sitedesign := ^sitedesign->value
+    siteobj->UpdateSiteMetadata( [ sitedesign := ^sitedesign->value
                                  , webfeatures := (SELECT AS STRING ARRAY rowkey FROM ^webfeatures->rows WHERE featurechecked)
                                  , locked := ^locksite->value
                                  , lockreason := ^lockreason->value
@@ -329,27 +321,6 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
     this->itemid := objid;
     RETURN TRUE;
   }
-  ///////////////////////////////////////////////////////////////////
-  //
-  //  Handler functions for the screen actions
-  //
-
-  MACRO DoAddSiteProfile()
-  {
-    //NOTE: siteprofiles are deprecated so already removing most of the folder-selection logic
-    INTEGER toadd := RunBrowseForFSObjectDialog(this, [ accepttypes := [ "http://www.webhare.net/xmlns/publisher/siteprofilefile" ]
-                                                      , acceptfolders := FALSE
-                                                      ]);
-    IF(toadd != 0)
-      INSERT [ rowkey := toadd ] INTO ^siteprofiles->rows AT END;
-
-  }
-
-  MACRO DoDeleteSiteProfile()
-  {
-    DELETE FROM ^siteprofiles->rows WHERE rowkey = ^siteprofiles->value;
-  }
-
   ///////////////////////////////////////////////////////////////////
   //
   //  Internal helper functions
