@@ -537,64 +537,6 @@ MACRO MergeTypeInto()
   testfw->RollbackWork();
 }
 
-MACRO DupeSiteProfs()
-{
-  testfw->BeginWork();
-
-  STRING siteprofdata1 :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
-        || '<member name="str1" type="string" />'
-        || '<member name="str2" type="string" />'
-      || '</contenttype>'
-      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
-    || '</siteprofile>';
-
-  STRING siteprofdata2 :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
-        || '<member name="str1" type="string" />'
-        || '<member name="str3" type="string" />'
-      || '</contenttype>'
-      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
-    || '</siteprofile>';
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest")));
-
-  OBJECT siteprof1 := testsite->rootobject->CreateFile([name:="test1.siteprl", data := StringToBlob(siteprofdata1)]);
-  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="test2.siteprl", data := StringToBlob(siteprofdata2)]);
-
-  TestEq(0, Length(GetSitesUsingSiteProfile(siteprof1->id)));
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof1->id));
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(TRUE, ObjectExists(thetype));
-  TestEq(2, Length(thetype->members));
-
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(2, Length(thetype->members)); // duplicates are now ignored!
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof2->id));
-
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof1->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(2, Length(thetype->members));
-  TestEq(["str1","str3"], SELECT AS STRING ARRAY name FROM thetype->members ORDER BY name);
-
-
-  testfw->CommitWork();
-}
-
 MACRO FindTest()
 {
   testfw->BeginWork();
@@ -1178,7 +1120,6 @@ RunTestframework([ PTR Prepare
                  , PTR MergeTypeInto
                  , PTR FindTest
                  , PTR InplaceUpdateTest
-                 , PTR DupeSiteProfs
                  , PTR TestPhotoAlbum
                  , PTR TestTypeChange
                  , PTR TestArrayMembers
