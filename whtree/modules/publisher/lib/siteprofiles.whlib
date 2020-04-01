@@ -196,6 +196,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)
              , rowkey := mod.name || ":" || design.name
              , siteprofiles := design.siteprofile != "" ? STRING[design.siteprofile] : STRING[]
              , designroot := design.designroot
+             , hidden := design.hidden
              ] INTO sitedesigns AT END;
     }
 
@@ -220,6 +221,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailableWebFeatures()
              , rowkey := mod.name || ":" || design.name
              , siteprofile := design.siteprofile
              , webdesignmasks := design.webdesignmasks ?? ["*"]
+             , hidden := design.hidden
              ] INTO webfeatures AT END;
     }
 

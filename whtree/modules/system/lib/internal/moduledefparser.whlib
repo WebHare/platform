@@ -637,6 +637,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modul
            , col := 0
            , istemplate := ParseXSBoolean(child->GetAttribute("istemplate"))
            , webdesignmasks := ParseXSList(child->GetAttribute("webdesignmasks"))
+           , hidden := ParseXSBoolean(child->GetAttribute("hidden"))
            ] INTO designs AT END;
   }
   RETURN designs;
@@ -1319,6 +1320,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
              , col := 0
              , designroot := designroot
              , istemplate := istemplate
+             , hidden := ParseXSBoolean(child->GetAttribute("hidden"))
              ] INTO designs AT END;
     }
 

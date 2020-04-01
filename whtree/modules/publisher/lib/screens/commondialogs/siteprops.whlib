@@ -90,6 +90,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
   OBJECT curitem;
 
   OBJECT parentfolder;
+  OBJECT cursiteobj;
   RECORD cursite; // current site
   INTEGER itemid;
   BOOLEAN newsite;
@@ -109,9 +110,14 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       RETURN;
     }
 
+    IF(data.why = "edit")
+      this->cursiteobj := OpenSite(data.fsobj);
+
     RECORD ARRAY sitedesigns := SELECT rowkey
                                      , title := GetTid(title)
-                                  FROM GetAvailableWebDesigns(FALSE);
+                                  FROM GetAvailableWebDesigns(FALSE)
+                                 WHERE (ObjectExists(this->cursiteobj) ? rowkey = this->cursiteobj->webdesign : TRUE)
+                                       OR NOT hidden;
 
     ^sitedesign->options := ^sitedesign->options
                                   CONCAT
@@ -208,7 +214,9 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
                                , featurechecked := rowkey IN currentselection
                                , module := Tokenize(rowkey,':')[0]
                             FROM GetAvailableWebFeatures()
-                           WHERE MatchCommonXMLWildcardMasks(^sitedesign->value, webdesignmasks)
+                           WHERE (ObjectExists(this->cursiteobj) AND rowkey IN this->cursiteobj->webfeatures)
+                                 OR (MatchCommonXMLWildcardMasks(^sitedesign->value, webdesignmasks)
+                                     AND NOT hidden)
                         ORDER BY ToUppercase(feature);
   }
 
