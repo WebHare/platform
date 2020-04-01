@@ -16,8 +16,6 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 STRING emptysiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" />';
 
-STRING wpkoopsiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><contenttype namespace="http://www.wpkoop.nl/broken" /></siteprofile>';
-
 //PublisherTestSiteInit(DEFAULT BLOB);
 
 OBJECT testsite;
@@ -511,22 +509,6 @@ MACRO AutoCreateTypes()
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance1", [ openorphans := TRUE ])));
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2", [ openorphans := TRUE ])));
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
-}
-
-MACRO AutoCreateTypesIncompleteMetadata()
-{
-  testfw->BeginWork();
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
-  OBJECT wpkoopsiteprof := testsite->rootobject->CreateFile([name:="wpkoop.siteprl", data := StringToBlob(wpkoopsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(wpkoopsiteprof->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
-  RECORD imp := ImportWHFSArchive(testsite->rootobject, testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/wpkoop_crash.zip"), [ overwrite := TRUE ]);
-
-  testfw->RollbackWork();
 }
 
 MACRO MergeTypeInto()
@@ -1193,7 +1175,6 @@ MACRO TestDirectInstanceData()
 RunTestframework([ PTR Prepare
                  , PTR MockedTypes
                  , PTR AutoCreateTypes
-                 , PTR AutoCreateTypesIncompleteMetadata
                  , PTR MergeTypeInto
                  , PTR FindTest
                  , PTR InplaceUpdateTest
