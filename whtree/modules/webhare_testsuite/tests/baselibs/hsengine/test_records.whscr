@@ -692,18 +692,21 @@ MACRO EnforceStructureTest()
   TestEq("", EnforceStructure("", DEFAULT RECORD));
   TestEq(0, EnforceStructure(0, DEFAULT RECORD));
 
-  //we only enforce structure so actual values are ignored:
-  TestEq("", EnforceStructure("XX", DEFAULT RECORD));
+  //we only enforce structure for records, otherise we take actual values
+  TestEq("XX", EnforceStructure("XX", DEFAULT RECORD));
+  TestEq(RECORD[], EnforceStructure([[ x := 2 ]], DEFAULT RECORD));
 
   TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [ x := 42 ]));
   TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [[ x := 42 ]]));
   TestEq([ x := 42 ], EnforceStructure([ x := 0 ], [ x := "42" ]));
   TestEq([ x := 0 ], EnforceStructure([ x := 0 ], CELL[]));
+  TestEq([ x := 1 ], EnforceStructure([ x := 1 ], CELL[]));
   TestEq([ x := 0 ], EnforceStructure([ x := 0 ], DEFAULT RECORD));
   TestEq([ x := 0 ], EnforceStructure([ x := 0 ], 1));
+  TestEq(2, EnforceStructure(2, DEFAULT RECORD));
 
   TestEq([ x := 42, y := 18 ], EnforceStructure([ x := 0 ], [ x := "42", y := 18 ]));
-  TestEq([ x := 0, y := 18 ], EnforceStructure([ x := 0 ], [ y :=18 ]));
+  TestEq([ x := 15, y := 18 ], EnforceStructure([ x := 15 ], [ y :=18 ]));
 
   TestEq([[ x := 42 ]], EnforceStructure([[ x := 0 ]], [[ x := 42 ]]));
   TestEq([[ x := 42 ], [ x := 43 ]], EnforceStructure([[ x := 0 ]], [[ x := 42 ], [ x := 43 ]]));

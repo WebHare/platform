@@ -2005,12 +2005,8 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 
   MACRO SetValue(RECORD contents)
   {
-    IF(NOT RecordExists(contents)) //allow := DEFAULT RECORD to reset all values
-    {
-
-      this->ResetValue();
+    IF(NOT RecordExists(contents)) //no effect. If you want to reset all data, use ResetValue
       RETURN;
-    }
 
     FOREVERY(OBJECT subcell FROM this->cells)
     {
