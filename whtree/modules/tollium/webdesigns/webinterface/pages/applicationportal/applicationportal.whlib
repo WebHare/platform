@@ -110,7 +110,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   OBJECT wrdauthplugin;
   OBJECT currentuser;
   RECORD launchuserinfo;
-  ///Use RequireWebhareUserlogin - use the user set by access rules
+  ///Use RequireLoggedinWebHareUser - use the user set by access rules
   BOOLEAN useexternalwebharelogin;
   ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
   BOOLEAN usewrdauthloginpage;
