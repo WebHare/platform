@@ -177,6 +177,8 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
         ^outputweb->enabled := FALSE;
         ^outputfolder->enabled := FALSE;
       }
+
+      this->RefreshWebFeatures();
       UPDATE ^webfeatures->rows SET featurechecked := TRUE WHERE rowkey IN sitesettings.webfeatures;
     }
     ELSE
