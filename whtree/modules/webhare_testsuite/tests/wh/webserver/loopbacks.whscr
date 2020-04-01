@@ -12,6 +12,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 
@@ -1446,38 +1448,17 @@ MACRO TestGlobalAccessRules()
 {
   RECORD outputport := testfw->CreateWebserverPort([ outputserver := TRUE ]);
 
-  // Set a datestorage siteprofile over '/', see if global accessrules with datastorage rules still work
-  STRING siteprl_datastorage :=
-`<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-  <sitesettings>
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
-      <webrule path="/" match="initial">
-        <tryfolder path="siteoutput::[sitename]/" />
-        <tryfile path="siteoutput::[sitename]/index.shtml" />
-      </webrule>
-    </webruleset>
-  </sitesettings>
-</siteprofile>`;
-
+  SetupTestWebsite("", [webfeatures := ["webhare_testsuite:siteprl_datastorage" ]]);
   testfw->BeginWork();
 
-  testfw->SetupTestWebsite(DEFAULT BLOB);
+  // Set a datestorage siteprofile over '/', see if global accessrules with datastorage rules still work
   testfw->GetTestSite()->SetPrimaryOutput(outputport.webservers[0].id,"/");
-
-  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile(
-      [ name := "test.siteprl.xml"
-      , data := StringToBlob(siteprl_datastorage)
-      , type := 27
-      ]);
 
   OBJECT image := testfw->GetTestSite()->rootobject->CreateFile(
       [ name := "bob.jpg"
       , data := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg")
       , publish := TRUE
       ]);
-
-  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
 
   testfw->CommitWork();
   testfw->RefreshWebserverConfig();
@@ -1492,22 +1473,7 @@ MACRO TestGlobalAccessRules()
 
   // Test access rule priorities. The set with priority 5 should win
   testfw->BeginWork();
-  siteprof->UpdateMetadata([ data := StringToBlob(
-`<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-  <sitesettings>
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" priority="6">
-      <webrule path="/" match="initial">
-        <addheader header="X-Ordertest" value="6"/>
-      </webrule>
-    </webruleset>
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" priority="5">
-      <webrule path="/bob.jpg" match="initial">
-        <addheader header="X-Ordertest" value="5"/>
-      </webrule>
-    </webruleset>
-  </sitesettings>
-</siteprofile>`) ]);
+  testfw->GetTestSite()->UpdateSiteMetadata( [webfeatures := ["webhare_testsuite:siteprl_datastorage2" ]]);
   testfw->CommitWork();
   testfw->RefreshWebserverConfig();
 

@@ -1,0 +1,36 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/conversionstest">
+    <member name="str" type="string" />
+    <member name="rich" type="richdocument" />
+    <member name="arr" type="array">
+      <member name="data1" type="string" />
+      <member name="data2" type="string" />
+      <member name="data3" type="string" />
+      <member name="arraydata" type="array">
+        <member name="data4" type="string" />
+      </member>
+    </member>
+    <member name="photos" type="whfsrefarray" />
+  </contenttype>
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/conversionsdest">
+    <member name="arrdest" type="array">
+      <member name="data1" type="string" />
+      <member name="data2" type="richdocument" />
+      <member name="data4" type="string" />
+    </member>
+    <member name="slidephotos" type="array">
+      <member name="image" type="whfsref"/>
+      <member name="applytexts" type="string"/>
+    </member>
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/arraymembertest">
+    <member name="mystring" type="string" />
+    <member name="myarray" type="array">
+      <member name="mystring" type="string" />
+      <member name="myarray2" type="array">
+        <member name="mystring2" type="string" />
+      </member>
+    </member>
+  </contenttype>
+</siteprofile>

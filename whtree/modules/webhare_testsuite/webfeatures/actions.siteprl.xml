@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <apply>
+    <to type="file" pathmask="*/test.html" />
+    <republish folder="/" mask="blabla.html" recursive="false" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*/test2.html" />
+    <republish mask="blabla2.html" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*/action.html" />
+    <scheduletimedtask task="webhare_testsuite:singleshottest" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="*/badtask.html" />
+    <scheduletimedtask task="webhare_testsuite:nosuchtask" />
+  </apply>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/referencestest">
+    <member name="whfsref" type="whfsref" />
+    <member name="whfsrefarray" type="whfsrefarray" />
+  </contenttype>
+
+  <apply>
+    <to type="file" parentmask="/referred2/" />
+    <republish scope="references" />
+  </apply>
+
+</siteprofile>

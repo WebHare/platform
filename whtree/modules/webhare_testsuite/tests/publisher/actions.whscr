@@ -15,18 +15,6 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 
-STRING repub_testhtml_siteprofile :=
-'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="file" pathmask="*/test.html" />'
-    || '<republish folder="/" mask="blabla.html" recursive="false" />'
-  || '</apply>'
-  || '<apply>'
-    || '<to type="file" pathmask="*/test2.html" />'
-    || '<republish mask="blabla2.html" />'
-  || '</apply>'
-|| '</siteprofile>';
-
 MACRO Setup()
 {
   testfw->BeginWork();
@@ -336,6 +324,7 @@ MACRO CopyMoveTest()
   testfw->StartTrans("~webhare",FALSE);
 
   OBJECT testsite := testfw->GetTestSite();
+
   OBJECT source1 := testsite->rootobject->CreateFolder([name:="source1"]);
   OBJECT testhtml := source1->CreateFile([name:="test.html", data := StringToBlob("<html><title>Testfile</title></html>"), publish := true]);
   OBJECT testindex := source1->CreateFile([name:="folder-index.html", data := StringToBlob("<html><title>Index</title></html>"), publish := true]);
@@ -503,8 +492,7 @@ MACRO CopyMoveTest()
   testhtml->MoveTo(testsite->rootobject, "");
 
   //Create a siteprofile to repub everything whenever a file named "test.html" is changed (and a move sounds like a change)
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="repubtesthtml.siteprl", data := StringToBlob(repub_testhtml_siteprofile)]);
-  testsite->AssignSiteProfile(siteprof->id);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
   testfw->Commit(); //flush the siteprofile updates, since the siteprofiles cache uses a weblet, which doesn't live in our transaction :(  FIXME fix that! weblet should SHARE our tranasction
 
   testfw->StartTrans("~webhare",FALSE);
@@ -535,24 +523,8 @@ MACRO CopyMoveTest()
 
   TestEq(TRUE, IsBeingPublished(destblabla->id));
   TestEq(TRUE, IsBeingPublished(sourceblabla->id));
-
-  testsite->UnassignSiteProfile(siteprof->id);
   testfw->Commit();
 }
-
-
-STRING actionstest_siteprofile :=
-'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="file" pathmask="*/action.html" />'
-    || '<scheduletimedtask task="webhare_testsuite:singleshottest" />'
-  || '</apply>'
-  || '<apply>'
-    || '<to type="file" pathmask="*/badtask.html" />'
-    || '<scheduletimedtask task="webhare_testsuite:nosuchtask" />'
-  || '</apply>'
-|| '</siteprofile>';
-
 
 MACRO SiteProfActionsTest()
 {
@@ -560,8 +532,7 @@ MACRO SiteProfActionsTest()
   testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="actionstest.siteprl", data := StringToBlob(actionstest_siteprofile)]);
-  testsite->AssignSiteProfile(siteprof->id);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
   testfw->CommitWork(); //flush the siteprofile updates
 
   TestSiteProfilesNoErrors();
@@ -621,8 +592,7 @@ MACRO TestReferences()
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="references.siteprl", data := StringToBlob(testreferences_siteprofile)]);
-  testsite->AssignSiteProfile(siteprof->id);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:actions"]]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -750,13 +720,13 @@ MACRO TestReferences()
 
 
 RunTestframework( [ PTR Setup
+                  , PTR CopyMoveTest
                   , PTR SiteRenameTest
                   , PTR SiteProfActionsTest
                   , PTR DeleteTest
                   , PTR TypeChangeTest
                   , PTR SiteOutputContainTest //deletetest must appear before siteoutput tes
                   , PTR SiteOutputForeignTest //deletetest must appear before siteoutput tes
-                  , PTR CopyMoveTest
                   , PTR TestReferences
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "deleter"]

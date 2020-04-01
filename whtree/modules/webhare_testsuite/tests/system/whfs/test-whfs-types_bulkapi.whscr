@@ -2,7 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -15,11 +14,8 @@ MACRO TestBulkApi()
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   testsite := CreateSiteFromFolder(firstfolder->id);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:autocreatetest","webhare_testsuite:conversionstest"]]);
 
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testbulk.siteprl", data := StringToBlob(testsiteprofile)]);
-  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="testbulk2.siteprl", data := StringToBlob(testconversionssiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
   testfw->CommitWork();
 
   testfw->BeginWork();
