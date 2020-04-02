@@ -69,7 +69,6 @@
           <select name="linkedtotype" type="pulldown" onchange="onlinkedtotypechange">
             <option rowkey="webdesign" tid="commondialogs.siteprops.sitedesign" />
             <option rowkey="webfeature" />
-            <option rowkey="siteprofile" />
             <!--
             <option rowkey="designfolder" />
             <option rowkey="basedon_templatev2" />
@@ -84,7 +83,6 @@
           </select>
           <select name="webdesign"  type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
           <select name="webfeature" type="pulldown" rowkeytype="string" onchange="refreshsiteslist" title="" />
-          <select name="siteprofile" type="pulldown" rowkeytype="integer" onchange="refreshsiteslist" title="" />
         </line>
 
         <select name="weboutput" type="pulldown" rowkeytype="integer" onchange="refreshsiteslist" tid="commondialogs.siteprops.outputweb"></select>
@@ -102,7 +100,6 @@
         <column name="name"              type="text" width="1pr" />
         <column name="webdesign"         type="text" width="25x" tid="commondialogs.siteprops.sitedesign" />
         <column name="hasactivefeatures" type="icon" width="10x" align="center" hintname="activefeatures" />
-        <column name="haslinkedprofiles" type="icon" width="10x" align="center" hintname="linkedprofiles" />
         <column name="url"               type="url" />
       </list>
       <text name="queryresultsinfo" title="" />

@@ -178,7 +178,9 @@ STATIC OBJECTTYPE SiteObject
   PUBLIC PROPERTY cdnroot(GetCDNRoot, -);
 
   /// Name of the site design for this site
-  PUBLIC PROPERTY sitedesign(GetSiteDesign, -);
+  PUBLIC PROPERTY webdesign(GetSiteDesign, -);
+
+  PUBLIC PROPERTY sitedesign(GetSiteDesign, -); //TO DEPRECATE!
 
   /// List of webfeatures of this site
   PUBLIC PROPERTY webfeatures(GetWebFeatures, -);
@@ -335,9 +337,8 @@ STATIC OBJECTTYPE SiteObject
   /** Update the metadata for this site
       @param metadata Updates
       @cell(boolean) metadata.isversioned Whether the site is versioned
-      @cell(string) metadata.sitedesign Site design used by this site
+      @cell(string) metadata.webdesign Webdesign used by this site
       @cell(string array) metadata.webfeatures List of webfeatures
-      @cell(string) metadata.webdesign Site design used by this site (deprecated)
       @cell(string) metadata.cdnbaseurl CDN base url
       @cell(boolean) metadata.locked Whether the site is locked
       @cell(string) metadata.lockreason Reason for locking the site
@@ -417,7 +418,7 @@ STATIC OBJECTTYPE SiteObject
     RECORD currentsettings := sitesettingstype->GetInstanceData(this->id);
     RECORD updsettings;
 
-    IF(CellExists(metadata,"SITEDESIGN") OR CellExists(metadata,"WEBDESIGN"))
+    IF(CellExists(metadata,"SITEDESIGN")/*TO DEPRECATE*/ OR CellExists(metadata,"WEBDESIGN"))
     {
       STRING setwebdesign := CellExists(metadata,"WEBDESIGN") ? metadata.webdesign : metadata.sitedesign;
       IF (currentsettings.sitedesign != setwebdesign)

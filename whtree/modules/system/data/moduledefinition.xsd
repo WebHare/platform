@@ -1938,6 +1938,11 @@
     <xs:attribute name="path" type="xs:string"/>
     <xs:attribute name="title" type="xs:string"/>
     <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="hidden" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Hide this webdesign in the interface, unless explicitly selected</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="siteprofile" type="xs:string"/>
     <xs:attribute name="istemplate" type="xs:boolean"/>
     <xs:attributeGroup ref="ApplicabletoWebHare" />
@@ -1947,6 +1952,11 @@
     <xs:attribute name="name" type="xs:string" use="required" />
     <xs:attribute name="title" type="xs:string"/>
     <xs:attribute name="tid" type="SimpleTid" />
+    <xs:attribute name="hidden" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Hide this feature in the interface, unless explicitly selected</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="siteprofile" type="xs:string"/>
     <xs:attribute name="webdesignmasks" type="sc:WildcardMasks">
       <xs:annotation>

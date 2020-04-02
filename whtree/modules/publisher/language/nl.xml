@@ -447,60 +447,22 @@
       <text tid="selectsitedialog">Selecteer een website</text>
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
-      <text tid="applyindex">Index</text>
       <text tid="cdnbaseurl">CDN basis URL</text>
       <text tid="feature">Feature</text>
-      <text tid="folder">Map</text>
-      <text tid="force_profile_local">Forceer profiel in deze map</text>
-      <text tid="force_profile_recursive">Forceer profiel in submappen</text>
-      <text tid="force_template_local">Forceer sjabloon in deze map</text>
-      <text tid="force_template_recursive">Forceer sjabloon in submappen</text>
-      <text tid="forcedbyparent">(Geforceerd door bovenliggende map)</text>
-      <text tid="forceprofile">Forceer profiel</text>
-      <text tid="forcetemplate">Forceer sjabloon</text>
-      <text tid="local">in deze map</text>
-      <text tid="lockreason">Reden voor vergrendeling:</text>
       <text tid="locksite">Vergrendel de site</text>
       <text tid="module">Module</text>
-      <text tid="nositeprofiles">Er zijn geen siteprofielen toegewezen</text>
       <text tid="nowebfeatures">Geen 'webfeatures' beschikbaar</text>
-      <text tid="originallocation">Oorspronkelijke locatie</text>
       <text tid="output">Uitvoer</text>
       <text tid="outputfolder">Submap in uitvoer-URL</text>
       <text tid="outputweb">Uitvoer-URL</text>
-      <text tid="path">Pad</text>
       <text tid="productionurl">Productie URL</text>
-      <text tid="profile">Profiel</text>
-      <text tid="profilename">Siteprofiel</text>
-      <text tid="publicationsettings">Publicatie-instellingen</text>
-      <text tid="recursive">in alle submappen</text>
-      <text tid="restrictions">Beperkingen</text>
-      <text tid="secondaryoutput">Secundaire uitvoer</text>
-      <text tid="secondaryoutputsettings">Secundaire uitvoer</text>
       <text tid="sitedesign">Sitedesign</text>
       <text tid="sitedesign-none">(geen)</text>
       <text tid="sitedesignbox">Website design</text>
       <text tid="sitedesigntab">Design</text>
-      <text tid="siteprofile">Siteprofiel</text>
-      <text tid="siteprofileerrors">De volgende propertyeditors hebben fouten veroorzaakt</text>
-      <text tid="siteprofiles">Site profielen</text>
-      <text tid="siteprofilestab">Siteprofielen</text>
       <text tid="siteprops">Site-eigenschappen</text>
-      <text tid="sitesettings">Website-instellingen</text>
       <text tid="sitesettingstab">Instellingen</text>
-      <text tid="sitetab">Site</text>
-      <text tid="tag">Tag</text>
-      <text tid="tasksettings">Taken</text>
-      <text tid="taskstab">Taken</text>
-      <text tid="template">Sjabloon</text>
-      <text tid="type">Type</text>
-      <text tid="url">URL</text>
       <text tid="webfeatures">Web features</text>
-      <textgroup gid="tasks">   <!-- commondialogs.siteprops.tasks -->
-        <text tid="notasks">Er zijn geen taken ingesteld</text>
-        <text tid="task">Taak</text>
-        <text tid="when">Tijdstip</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="taskprops">   <!-- commondialogs.taskprops -->
       <text tid="addtask">Voeg taak toe</text>
@@ -949,7 +911,6 @@
         <text tid="zoomouthint">Uitzoomen</text>
         <text tid="zoomresethint">Ware grootte</text>
         <textgroup gid="actions">   <!-- filemanager.main.app.actions -->
-          <text tid="assignsiteprofiles">Siteprofielen toewijzen</text>
           <text tid="baseorderingon">Baseren op</text>
           <text tid="contentlinkto">Kopiëren als contentlink naar</text>
           <text tid="converttofolder">Terugzetten naar map</text>
@@ -1851,8 +1812,6 @@
     </textgroup>
     <textgroup gid="sites">   <!-- monitor.sites -->
       <text tid="linkedtotype">Gekoppeld aan</text>
-      <text tid="linkedtotype-siteprofile">siteprofile (directe link)</text>
-      <text tid="linkedtotype-webdesign">webdesign</text>
       <text tid="linkedtotype-webfeature">webfeature</text>
       <text tid="query">Zoekopdracht</text>
       <text tid="querymatched">Je zoekopdracht gaf <param p="1"/> resultaten</text>
@@ -1870,11 +1829,8 @@
       </textgroup>
       <textgroup gid="sitecolumns">   <!-- monitor.sites.sitecolumns -->
         <text tid="hasactivefeatures">Webfeatures</text>
-        <text tid="haslinkedprofiles">Siteprofiles</text>
         <text tid="name">Site naam</text>
         <text tid="url">Website URL</text>
-        <text tid="webdesign">Webdesign</text>
-        <text tid="webdesign-hint">Webdesign (module:designnaam)</text>
       </textgroup>
     </textgroup>
   </textgroup>

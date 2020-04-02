@@ -447,60 +447,22 @@
       <text tid="selectsitedialog">Select a site</text>
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
-      <text tid="applyindex">Index</text>
       <text tid="cdnbaseurl">CDN base URL</text>
       <text tid="feature">Feature</text>
-      <text tid="folder">Folder</text>
-      <text tid="force_profile_local">Force profile in this folder</text>
-      <text tid="force_profile_recursive">Force profile in subfolders</text>
-      <text tid="force_template_local">Force template in this folder</text>
-      <text tid="force_template_recursive">Force template in subfolders</text>
-      <text tid="forcedbyparent">(Forced by parent folder)</text>
-      <text tid="forceprofile">Force profile</text>
-      <text tid="forcetemplate">Force template</text>
-      <text tid="local">in this folder</text>
-      <text tid="lockreason">Reason for locking:</text>
       <text tid="locksite">Lock the site</text>
       <text tid="module">Module</text>
-      <text tid="nositeprofiles">There are no siteprofiles assigned to this site</text>
       <text tid="nowebfeatures">No 'webfeatures' available</text>
-      <text tid="originallocation">Original locatoin</text>
       <text tid="output">Output</text>
       <text tid="outputfolder">Subfolder in output URL</text>
       <text tid="outputweb">Output URL</text>
-      <text tid="path">Path</text>
       <text tid="productionurl">Production URL</text>
-      <text tid="profile">Profile</text>
-      <text tid="profilename">Siteprofile</text>
-      <text tid="publicationsettings">Publication settings</text>
-      <text tid="recursive">in all subfolders</text>
-      <text tid="restrictions">Restrictions</text>
-      <text tid="secondaryoutput">Secundary output</text>
-      <text tid="secondaryoutputsettings">Secundary output settings</text>
       <text tid="sitedesign">Sitedesign</text>
       <text tid="sitedesign-none">(none)</text>
       <text tid="sitedesignbox">Website design</text>
       <text tid="sitedesigntab">Design</text>
-      <text tid="siteprofile">Siteprofile</text>
-      <text tid="siteprofileerrors">The following property editors caused errors</text>
-      <text tid="siteprofiles">Site profiles</text>
-      <text tid="siteprofilestab">Siteprofiles</text>
       <text tid="siteprops">Site-settings</text>
-      <text tid="sitesettings">Website settings</text>
       <text tid="sitesettingstab">Settings</text>
-      <text tid="sitetab">Site</text>
-      <text tid="tag">Tag</text>
-      <text tid="tasksettings">Tasks</text>
-      <text tid="taskstab">Tasks</text>
-      <text tid="template">Template</text>
-      <text tid="type">Type</text>
-      <text tid="url">URL</text>
       <text tid="webfeatures">Web features</text>
-      <textgroup gid="tasks">   <!-- commondialogs.siteprops.tasks -->
-        <text tid="notasks">No tasks have been planned</text>
-        <text tid="task">Task</text>
-        <text tid="when">Time</text>
-      </textgroup>
     </textgroup>
     <textgroup gid="taskprops">   <!-- commondialogs.taskprops -->
       <text tid="addtask">Add task</text>
@@ -949,7 +911,6 @@
         <text tid="zoomouthint">Zoom out</text>
         <text tid="zoomresethint">Actual size</text>
         <textgroup gid="actions">   <!-- filemanager.main.app.actions -->
-          <text tid="assignsiteprofiles">Assign Site Profiles</text>
           <text tid="baseorderingon">Base on</text>
           <text tid="contentlinkto">Copy as Content Link to</text>
           <text tid="converttofolder">Revert to folder</text>
@@ -1851,8 +1812,6 @@
     </textgroup>
     <textgroup gid="sites">   <!-- monitor.sites -->
       <text tid="linkedtotype">Linked to</text>
-      <text tid="linkedtotype-siteprofile">siteprofile (direct link)</text>
-      <text tid="linkedtotype-webdesign">webdesign</text>
       <text tid="linkedtotype-webfeature">webfeature</text>
       <text tid="query">Query</text>
       <text tid="querymatched">Your query matched <param p="1"/> sites</text>
@@ -1870,11 +1829,8 @@
       </textgroup>
       <textgroup gid="sitecolumns">   <!-- monitor.sites.sitecolumns -->
         <text tid="hasactivefeatures">Webfeatures</text>
-        <text tid="haslinkedprofiles">Siteprofiles</text>
         <text tid="name">Site name</text>
         <text tid="url">Website URL</text>
-        <text tid="webdesign">Webdesign</text>
-        <text tid="webdesign-hint">Webdesign (module:designname)</text>
       </textgroup>
     </textgroup>
   </textgroup>
