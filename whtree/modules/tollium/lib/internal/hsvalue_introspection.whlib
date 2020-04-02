@@ -715,7 +715,6 @@ Work in progress:
             , id   := value->id
             , name := value->name
             , webroot := value->webroot
-            //, isusingsiteprofile := value->isusingsiteprofile // rather not call too complex functions during inspection
             ] INTO objectdescription;
       }
       IF ("WHFSTYPE" in objectdescription.typenames) // defined in module::system/internal/whfs/contenttypes.whlib
