@@ -41,7 +41,7 @@ RECORD ARRAY FUNCTION GetExisting(RECORD ARRAY newcurrentcontents, INTEGER id)
 
 STRING FUNCTION GetTypeTagById(RECORD ARRAY newcurrentcontents, INTEGER id)
 {
-  RETURN SELECT AS STRING tag FROM newcurrentcontents WHERE COLUMN id = VAR id;
+  RETURN (SELECT AS STRING tag FROM newcurrentcontents WHERE COLUMN id = VAR id) ?? "#" || ToString(id);
 }
 
 PUBLIC RECORD ARRAY FUNCTION EnrichLocalLinksAttrEntities(RECORD ARRAY newcurrentcontents, RECORD ARRAY attrs)
@@ -93,6 +93,15 @@ PUBLIC RECORD ARRAY FUNCTION GetKnownBlobs(RECORD ARRAY attrs, RECORD ARRAY data
     }
   }
   RETURN result;
+}
+
+VARIANT FUNCTION ConvertIdGuidLinks(VARIANT links)
+{
+  IF (TypeID(links) = TypeID(RECORD))
+    RETURN RecordExists(links) ? links.wrd_guid : "";
+  IF (TypeID(links) = TypeID(RECORD ARRAY))
+    RETURN SELECT AS STRING ARRAY wrd_guid FROM links;
+  RETURN links;
 }
 
 PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, RECORD ARRAY attrs, RECORD ARRAY data, RECORD ARRAY sortedblobs, STRING fortype)
@@ -171,7 +180,7 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
     {
       FOREVERY (RECORD rec FROM data)
       {
-        STRING link := GetCell(rec, attr.localtag);
+        STRING link := ConvertIdGuidLinks(GetCell(rec, attr.localtag));
         data[#rec] := DEFAULT RECORD;
         rec := CellDelete(rec, attr.localtag);
         INTEGER rewrite;
@@ -190,7 +199,7 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
       FOREVERY (RECORD rec FROM data)
       {
         data[#rec] := DEFAULT RECORD;
-        STRING ARRAY links := GetCell(rec, attr.localtag);
+        STRING ARRAY links := ConvertIdGuidLinks(GetCell(rec, attr.localtag));
         INTEGER ARRAY rewrite;
 
         FOREVERY (STRING link FROM links)
@@ -212,9 +221,9 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
         RECORD payment := GetCell(rec, attr.localtag);
         data[#rec] := DEFAULT RECORD;
         INTEGER top_rewrite;
-        IF (payment.paymentprovider != "")
+        IF (IsValueSet(payment.paymentprovider))
         {
-          RECORD pos := RecordLowerBound(map, [ wrd_guid := payment.paymentprovider ], [ "WRD_GUID" ]);
+          RECORD pos := RecordLowerBound(map, [ wrd_guid := ConvertIdGuidLinks(payment.paymentprovider) ], [ "WRD_GUID" ]);
           IF (NOT pos.found)
             THROW NEW Exception(`Could not find entity of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
           top_rewrite := map[pos.position].wrd_id;
@@ -223,9 +232,9 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
         FOREVERY (RECORD prec FROM payment.payments)
         {
           INTEGER arr_rewrite;
-          IF (prec.paymentprovider != "")
+          IF (IsValueSet(prec.paymentprovider))
           {
-            RECORD pos := RecordLowerBound(map, [ wrd_guid := prec.paymentprovider ], [ "WRD_GUID" ]);
+            RECORD pos := RecordLowerBound(map, [ wrd_guid := ConvertIdGuidLinks(prec.paymentprovider) ], [ "WRD_GUID" ]);
             IF (NOT pos.found)
               THROW NEW Exception(`Could not find entity of type '${GetTypeTagById(newcurrentcontents, attr.domain)}'`);
             arr_rewrite := map[pos.position].wrd_id;
