@@ -195,6 +195,12 @@ MACRO SubPersonTest()
                                    ] );
   TestEq( [[ type := persontype->id, email := "bart@example.net" ]], query2);
 
+  //filter on persons (bart) by tag-based typefilter
+  query2 := persontype->RunQuery( [ typefilter := [ STRING(persontype->tag) ]
+                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+                                   ] );
+  TestEq( [[ type := persontype->id, email := "bart@example.net" ]], query2);
+
   //query subpersons
   query2 := subpersontype->RunQuery( [ outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
                                      ] );
