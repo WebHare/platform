@@ -151,8 +151,6 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->list->borders := description.borders;
     this->list->columnheaders := description.columnheaders;
     this->list->styles := description.styles;
-    this->list->sortascending := description.sortascending;
-    this->list->sortcolumn := description.sortcolumn;
     this->list->empty := description.empty;
     this->list->icons := description.icons;
     this->list->rowiconname := description.rowiconname;
@@ -169,8 +167,12 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
     this->buttons := description.buttons;
 
-    //Set list columns last, custom columntypes may modify other list properties (Eg icons in their SetupColumn)
+    //Set list columns and sortorder last, custom columntypes may modify other list properties (Eg icons in their SetupColumn)
     this->list->columns := description.columns;
+
+    // Setting sortcolumn is only honored when the columns have been set
+    this->list->sortascending := description.sortascending;
+    this->list->sortcolumn := description.sortcolumn;
   }
 
   UPDATE PUBLIC MACRO PreInitComponent()
