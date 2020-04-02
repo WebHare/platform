@@ -21,7 +21,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 */
 PUBLIC OBJECT FUNCTION OpenSiteProfile(STRING name)
 {
-  RETURN NEW SiteProfileObject(0,name);
+  RETURN NEW SiteProfileObject(name);
 }
 
 /** @short Open and prepare a webdesign
