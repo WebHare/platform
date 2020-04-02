@@ -7,7 +7,6 @@
   <messageboxes gid=".messageboxes">
     <messagebox name="succesfullysaved" dontshowagain="ok" buttons="ok" />
     <messagebox name="failedtosave" icon="error" buttons="ok" />
-    <messagebox name="siteprofileerrors" buttons="yes no" />
     <messagebox name="unsavedchanges" buttons="yes no cancel" />
     <messagebox name="saveignoreconflict" buttons="yes no cancel" />
     <messagebox name="cannotopenerroredfile" buttons="ok" />

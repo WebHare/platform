@@ -147,11 +147,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenbase
              , codetype := "html" // Although Witty isn't pure HTML, it's the closest we got
              ]
 
-           , // .siteprl (site profile)
-             [ mimetype := "application/x-webhare-siteprofile"
-             , codetype := "xml"
-             ]
-
            , // .whlib files
              [ mimetype := "application/x-webhare-library"
              , codetype := "harescript"
@@ -185,24 +180,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenbase
     RETURN type;
   }
 
-  RECORD ARRAY FUNCTION CheckSiteprofile(BLOB indata)
-  {
-    OBJECT doc := MakeXMLDocument(indata);
-    RECORD ARRAY errors := doc->GetParseErrors();
-    IF(Length(errors) = 0)
-    {
-      IF(NOT ObjectExists(siteprofschema))
-      {
-        RECORD sdef := __RetrieveCachedXMLSchema("mod::publisher/data/siteprofile.xsd");
-        siteprofschema := sdef.doc;
-      }
-
-      IF(Length(siteprofschema->GetParseErrors()) = 0)
-        errors := siteprofschema->ValidateDocument(doc);
-    }
-    RETURN errors;
-  }
-
   PUBLIC MACRO DoSave()
   {
     this->TrySave();
@@ -215,17 +192,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenbase
 
     BLOB contents := StringToBlob(this->source->value);
     OBJECT fileobj := OpenWHFSObject(this->openfileid);
-
-    IF(fileobj->type = 27) //site profile
-    {
-      RECORD ARRAY inerrors := this->CheckSiteprofile(contents);
-      IF(Length(inerrors) > 0)
-      {
-        STRING errors := Detokenize((SELECT AS STRING ARRAY line || ": " || message FROM inerrors),"\n");
-        IF(this->RunMessageBox(".siteprofileerrors", errors) != "yes")
-          RETURN FALSE; //save aborted
-      }
-    }
 
     // Warn against parallel updates (check mod date)
     WHILE(TRUE)
