@@ -569,18 +569,6 @@ GetTid("missing.module"); GetTid("system:has.module");`);
          ,[ line := 7,  tid := "webhare_testsuite:level1.level2.level3.level4.tid2" ]
          ,[ line := 11,  tid := "webhare_testsuite:level1.widgettype" ]
          ], SELECT line,tid FROM res.tids);
-
-  //verify we don't break old site-based siteprofiles for language handling yet
-  testfw->BeginWork();
-  OBJECT testsiteprl := GetTestsuiteTempFolder()->CreateFile([name := "test.siteprl", typens := "http://www.webhare.net/xmlns/publisher/siteprofilefile", data := siteprofgids ]);
-  testfw->CommitWork();
-  res := ValidateSingleFile(testsiteprl->GetResourceName());
-  TestEq(RECORD[], res.errors);
-  TestEq([[ line := 4,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.newtab" ]
-         ,[ line := 6,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.level4.text" ]
-         ,[ line := 7,  tid := "site::webhare testsuite site/tmp/test.siteprl:level1.level2.level3.level4.tid2" ]
-         ,[ line := 11, tid := "site::webhare testsuite site/tmp/test.siteprl:level1.widgettype" ]
-         ], SELECT line,tid FROM res.tids);
 }
 
 MACRO TestValidateSVG()

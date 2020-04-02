@@ -24,14 +24,6 @@ RECORD FUNCTION GetCachablePreviewableTypes()
       ];
 }
 
-PUBLIC RECORD FUNCTION DefaultAfterContentUpdate(RECORD indata)
-{
-  IF(indata.oldtype = 27 OR indata.newtype = 27)
-    GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
-
-  RETURN indata;
-}
-
 PUBLIC RECORD FUNCTION DefaultAfterMetadataUpdate(RECORD indata)
 {
   INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCachablePreviewableTypes);

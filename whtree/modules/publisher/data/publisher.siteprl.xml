@@ -209,7 +209,6 @@
     <member name="prebuilttag" type="string" />
   </contenttype>
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/wittyfile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/siteprofilefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/webfieldsfile" cloneoncopy="true" />
@@ -574,20 +573,6 @@
   />
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/siteprofilefile"
-      webhare_builtintypeid="27"
-      tid="publisher:filetypes.siteprofile"
-      tolliumicon="tollium:files/application_x-webhare-siteprofile"
-      extensions=".siteprl"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
-      searchcontentprovider="publisher:contentblob"
-  />
-
-  <filetype
       typedef="http://www.webhare.net/xmlns/publisher/templatefile"
       webhare_builtintypeid="28"
       tid="publisher:filetypes.template"
@@ -740,7 +725,6 @@
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/sitesettings" cloneoncopy="true">
-    <member name="siteprofiles" type="whfsrefarray" />
     <member name="sitedesign" type="string" />
     <member name="webfeatures" type="stringarray" />
     <member name="comments" type="string" />
@@ -844,7 +828,6 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/wittyfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/siteprofilefile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/templatefile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/webfieldsfile" />
     <setobjecteditor name="publisher:texteditor" />

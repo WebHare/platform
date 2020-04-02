@@ -62,7 +62,7 @@ PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
 //Scriptable types which can be stored in the publisher, and should be sysop-only editable
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptable :=
   [ ...whconstant_whfstypes_scriptsondisk
-  , 27 //siteprl
+  , 27 //siteprl - we'll keep this here just to be safe
   , 38 //shtml with design file
   ];
 

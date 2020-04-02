@@ -208,7 +208,6 @@ PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
     CASE "application/x-webhare-library"        { RETURN 16; }
     CASE "application/x-shockwave-flash"        { RETURN 17; }
     CASE "text/xml"                             { RETURN 23; }
-    CASE "application/x-webhare-siteprofile"    { RETURN 27; }
     CASE "application/x-webhare-shtmlfile"      { RETURN 25; }
     CASE "audio/mpeg"                           { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/mp3audiofile"); }
     CASE "video/x-flv"                          { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/flvvideofile"); }

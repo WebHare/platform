@@ -309,7 +309,6 @@ STRING ARRAY FUNCTION GetTypeExtension (INTEGER type)
     CASE 23       { RETURN [ ".xml" ]; }
     CASE 25       { RETURN [ ".shtml" ]; }
     CASE 26       { RETURN [ ".witty" ]; }
-    CASE 27       { RETURN [ ".siteprl" ]; }
     DEFAULT       { RETURN DEFAULT STRING ARRAY; }
   }
 }

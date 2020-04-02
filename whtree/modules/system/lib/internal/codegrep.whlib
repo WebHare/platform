@@ -91,7 +91,7 @@ PUBLIC STATIC OBJECTTYPE GlobalTextSearcher
           ]
         , [ name :=   "xml"
           , exts :=   [ ".siteprl", ".xml", ".wsdl", ".xsd", ".webfields" ]
-          , types :=  [ 27, 34 ]
+          , types :=  [ 34 ]
           ]
         ];
 

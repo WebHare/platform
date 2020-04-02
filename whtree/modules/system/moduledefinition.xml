@@ -2338,7 +2338,6 @@ The full base URL on which this site will be published, calculated by combining 
     <target name="devtools_modulecreation" />
     <target name="moduleconfig_afterconnectchange" />
 
-    <intercept name="whfs_file_defaultaftercontentupdate" target="whfs_file_aftercontentupdate" interceptfunction="lib/internal/whfs/hooks.whlib#DefaultAfterContentUpdate" />
     <intercept name="whfs_file_defaultaftermetadataupdate" target="whfs_file_aftermetadataupdate" interceptfunction="lib/internal/whfs/hooks.whlib#DefaultAfterMetadataUpdate" />
     <intercept name="whfs_folder_gallerysettingsreset" target="whfs_folder_aftermetadataupdate" interceptfunction="lib/internal/whfs/hooks.whlib#GallerySettingsReset" />
   </hooking>
