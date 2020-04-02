@@ -16,8 +16,6 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 STRING emptysiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" />';
 
-STRING wpkoopsiteprofile := '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><contenttype namespace="http://www.wpkoop.nl/broken" /></siteprofile>';
-
 //PublisherTestSiteInit(DEFAULT BLOB);
 
 OBJECT testsite;
@@ -513,22 +511,6 @@ MACRO AutoCreateTypes()
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/instance3", [ openorphans := TRUE ])));
 }
 
-MACRO AutoCreateTypesIncompleteMetadata()
-{
-  testfw->BeginWork();
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
-  OBJECT wpkoopsiteprof := testsite->rootobject->CreateFile([name:="wpkoop.siteprl", data := StringToBlob(wpkoopsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(wpkoopsiteprof->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.wpkoop.nl/broken", [ openorphans := TRUE ])));
-  RECORD imp := ImportWHFSArchive(testsite->rootobject, testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/wpkoop_crash.zip"), [ overwrite := TRUE ]);
-
-  testfw->RollbackWork();
-}
-
 MACRO MergeTypeInto()
 {
   OBJECT srctype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfolder", [ openorphans := TRUE ]);
@@ -553,64 +535,6 @@ MACRO MergeTypeInto()
   TestEq(TRUE, converttestfile->publish);
 
   testfw->RollbackWork();
-}
-
-MACRO DupeSiteProfs()
-{
-  testfw->BeginWork();
-
-  STRING siteprofdata1 :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
-        || '<member name="str1" type="string" />'
-        || '<member name="str2" type="string" />'
-      || '</contenttype>'
-      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
-    || '</siteprofile>';
-
-  STRING siteprofdata2 :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-      || '<contenttype namespace="http://www.webhare.net/xmlns/beta/dupesiteproftest">'
-        || '<member name="str1" type="string" />'
-        || '<member name="str3" type="string" />'
-      || '</contenttype>'
-      || '<foldertype typedef="http://www.webhare.net/xmlns/beta/dupesiteproftest" />'
-    || '</siteprofile>';
-
-  TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest")));
-
-  OBJECT siteprof1 := testsite->rootobject->CreateFile([name:="test1.siteprl", data := StringToBlob(siteprofdata1)]);
-  OBJECT siteprof2 := testsite->rootobject->CreateFile([name:="test2.siteprl", data := StringToBlob(siteprofdata2)]);
-
-  TestEq(0, Length(GetSitesUsingSiteProfile(siteprof1->id)));
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof1->id));
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  OBJECT thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(TRUE, ObjectExists(thetype));
-  TestEq(2, Length(thetype->members));
-
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof2->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(2, Length(thetype->members)); // duplicates are now ignored!
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof1->id));
-  TestEq([INTEGER(testsite->Id)], GetSitesUsingSiteProfile(siteprof2->id));
-
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof1->id));
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  thetype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dupesiteproftest");
-  TestEq(2, Length(thetype->members));
-  TestEq(["str1","str3"], SELECT AS STRING ARRAY name FROM thetype->members ORDER BY name);
-
-
-  testfw->CommitWork();
 }
 
 MACRO FindTest()
@@ -1193,11 +1117,9 @@ MACRO TestDirectInstanceData()
 RunTestframework([ PTR Prepare
                  , PTR MockedTypes
                  , PTR AutoCreateTypes
-                 , PTR AutoCreateTypesIncompleteMetadata
                  , PTR MergeTypeInto
                  , PTR FindTest
                  , PTR InplaceUpdateTest
-                 , PTR DupeSiteProfs
                  , PTR TestPhotoAlbum
                  , PTR TestTypeChange
                  , PTR TestArrayMembers

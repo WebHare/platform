@@ -206,29 +206,6 @@ MACRO TestBulkApi()
   testfw->RollbackWork();
 }
 
-MACRO TestGroups()
-{
-  STRING grouptestsiteprofile :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:comp1="urn::comp1">'
-      || '<embeddedobjecttype namespace="http://www.webhare.net/xmlns/beta/grouptest_ct"'
-                         || ' title="embed1"'
-                         || ' editextension="#comp2"'
-                         || ' renderlibrary="module::test/test.whlib"'
-                         || ' renderobjectname="objname">'
-        || '<member name="str" type="string" />'
-        || '<member name="str2" type="string" />'
-        || '<ingroup type="http://www.webhare.net/xmlns/beta/grouptest_grp" />'
-        || '<ingroup type="http://www.webhare.net/xmlns/beta/grouptest_grp2" />'
-      || '</embeddedobjecttype>\n'
-      || '<grouptype namespace="http://www.webhare.net/xmlns/beta/grouptest_grp" title="title" tolliumicon="test/test" />\n'
-    || '</siteprofile>';
-
-  testfw->BeginWork();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testgroups.siteprl", data := StringToBlob(grouptestsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
-  testfw->CommitWork();
-}
 
 RunTestframework([ PTR TestBulkApi
-                 , PTR TestGroups
                  ]);

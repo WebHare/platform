@@ -372,7 +372,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
   INTEGER FUNCTION GetIdFromRow(RECORD row)
   {
-    dumpvalue(row);
     IF(row.id < 0 AND row.modulekey = "publisher:0.1")
       RETURN this->recyclebinid;
     IF(row.id = 0) //root
