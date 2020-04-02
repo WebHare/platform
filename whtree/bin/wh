@@ -553,7 +553,7 @@ git_update_all()
   UPDATEERRORS=""
   UPDATEFATAL=0
 
-  if ! git merge-base --is-ancestor master origin/master ; then
+  if ! git merge-base --is-ancestor master origin/master && ! git merge-base --is-ancestor master upstream/master 2> /dev/null; then
     echo "YOU HAVE MODIFIED THE MASTER BRANCH - but you're not allowed to commit directly"
     echo "Aborting update, fix this first"
     exit 1
