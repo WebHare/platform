@@ -330,8 +330,6 @@ RECORD FUNCTION GuessFileTypeByName(STRING filename, STRING header, STRING ext)
     RETURN MakeFile("text/html");
   IF (ext=".txt")
     RETURN MakeFile("text/plain");
-  IF (ext=".siteprl")
-    RETURN MakeFile("application/x-webhare-siteprofile");
   IF (ext=".pdf")
     RETURN MakeFile("application/pdf");
   IF (ext=".eml")

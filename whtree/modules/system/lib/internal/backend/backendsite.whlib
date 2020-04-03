@@ -27,15 +27,6 @@ PUBLIC MACRO UpdateSystemBackendSite()
   OBJECT backendsite := EnsureSystemBackendSite();
   OBJECT target := backendsite->rootobject;
 
-  //Clean out 'old' webhare backend sites
-  OBJECT designfolder := target->OpenByName("design");
-  IF(ObjectExists(designfolder))
-  {
-    DELETE FROM system.fs_objects WHERE parent = designfolder->id AND name IN ["css","img","js","language","lib","pages","witty","document.rtd","rtd-structure.xml","webharebackend.siteprl"];
-    IF(Length(SELECT FROM system.fs_objects WHERE parent=designfolder->id)=0)
-      DELETE FROM system.fs_objects WHERE id = designfolder->id;
-  }
-
   OBJECT robotstxt := target->EnsureFile( [ name := "robots.txt"
                                           , type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/plaintextfile")->id
                                           , publish := TRUE
@@ -47,8 +38,6 @@ PUBLIC MACRO UpdateSystemBackendSite()
 
   //create a testportal file for external CI tests. notice that even if published, this file will be not work on non-development dtap stages
   target->EnsureFile( [ name := "testportal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := GetDtapStage() = "development" ]);
-
-  DELETE FROM system.fs_objects WHERE parent=whconstant_whfsid_webharebackend AND name IN [ "sites", "favicon.ico", "docs" ];
 
   OBJECT webharefolder := target->EnsureFolder( [ name := "webhare" ]);
   OBJECT checkfolder := webharefolder->EnsureFolder( [ name := "check" ]);

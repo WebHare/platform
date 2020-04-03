@@ -252,24 +252,14 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   PUBLIC RECORD ARRAY FUNCTION GetSiteActivatedProfiles()
   {
     RECORD ARRAY allsites := SELECT id, name FROM system.sites;
-    RECORD ARRAY profileloadlist;
     OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings", [ openorphans := TRUE ]);
 
     RECORD ARRAY allsitedesigns := GetAvailableWebDesigns(FALSE);
     RECORD ARRAY allwebfeatures := GetAvailableWebFeatures();
     RECORD ARRAY sitedesignprofiles;
-    STRING ARRAY getcells := ["siteprofiles", "sitedesign"];
-    BOOLEAN havewebfeatures := RecordExists(SELECT FROM sitesettingstype->members WHERE ToUppercase(name)="WEBFEATURES");
-    IF(havewebfeatures)
-      INSERT "webfeatures" INTO getcells AT END;
 
-    FOREVERY(RECORD setting FROM sitesettingstype->Enrich(allsites, "ID", getcells, [ orphans := TRUE ]))
+    FOREVERY(RECORD setting FROM sitesettingstype->Enrich(allsites, "ID", [ "sitedesign", "webfeatures"], [ orphans := TRUE ]))
     {
-      profileloadlist := profileloadlist CONCAT SELECT siteid := allsites[#setting].id
-                                                     , fileid := siteprofiles.fileid
-                                                  FROM ToRecordArray(setting.siteprofiles, "fileid") AS siteprofiles
-                                                 WHERE siteprofiles.fileid != 0;
-
       IF(setting.sitedesign != "")
       {
         RECORD match := SELECT * FROM allsitedesigns WHERE rowkey = setting.sitedesign;
@@ -290,48 +280,28 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
               ] INTO this->result.warnings AT END;
         }
       }
-      IF(havewebfeatures AND Length(setting.webfeatures)>0)
-        FOREVERY(STRING feature FROM setting.webfeatures)
+      FOREVERY(STRING feature FROM setting.webfeatures)
+      {
+        RECORD match := SELECT * FROM allwebfeatures WHERE rowkey = feature;
+        IF(RecordExists(match) AND match.siteprofile != "")
         {
-          RECORD match := SELECT * FROM allwebfeatures WHERE rowkey = feature;
-          IF(RecordExists(match) AND match.siteprofile != "")
-          {
-            INSERT [ siteid := allsites[#setting].id
-                   , name := match.siteprofile
-                   ] INTO sitedesignprofiles AT END;
-          }
-          ELSE
-          {
-            INSERT
-                [ resourcename :=   ""
-                , line :=           0
-                , col :=            0
-                , message :=        `Webfeature '${feature}' used by site '${setting.name}' does not exist.`
-                ] INTO this->result.warnings AT END;
-          }
+          INSERT [ siteid := allsites[#setting].id
+                 , name := match.siteprofile
+                 ] INTO sitedesignprofiles AT END;
         }
+        ELSE
+        {
+          INSERT
+              [ resourcename :=   ""
+              , line :=           0
+              , col :=            0
+              , message :=        `Webfeature '${feature}' used by site '${setting.name}' does not exist.`
+              ] INTO this->result.warnings AT END;
+        }
+      }
     }
 
-    INTEGER ARRAY validsiteprofiles := SELECT AS INTEGER ARRAY entry.fileid
-                                         FROM system.fs_objects, profileloadlist AS entry
-                                        WHERE fs_objects.id IN (SELECT AS INTEGER ARRAY fileid FROM profileloadlist)
-                                              AND fs_objects.id = entry.fileid
-                                              AND fs_objects.type = 27//siteprofile
-                                              AND fs_objects.isactive;
-
-    DELETE FROM profileloadlist WHERE fileid NOT IN validsiteprofiles;
-
-    RECORD ARRAY filenames := SELECT fileid, name := ToLowercase(GetDirectResourceName(fileid))
-                                FROM profileloadlist
-                            GROUP BY fileid;
-
-    profileloadlist := SELECT name := (SELECT AS STRING name FROM filenames WHERE filenames.fileid = profileloadlist.fileid)
-                            , siteid
-                         FROM profileloadlist;
-    profileloadlist := SELECT * FROM (profileloadlist CONCAT sitedesignprofiles)
-                       ORDER BY ToUppercase(name) LIKE "SITE::REPOSITORY/*" DESC; //Repository goes first!
-
-    RETURN profileloadlist;
+    RETURN sitedesignprofiles;
   }
 
   PUBLIC RECORD ARRAY FUNCTION PreprocessContentTypes(RECORD ARRAY suppliedcontenttypes, RECORD ARRAY currentcontenttypes)

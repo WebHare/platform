@@ -1409,7 +1409,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   TRY
   {
-    siteprof := NEW SiteProfileObject(0, filename, [ xmldoc := options.xmldoc ]);
+    siteprof := NEW SiteProfileObject(filename, [ xmldoc := options.xmldoc ]);
     siteprofcontext := NEW SiteprofileCompilationContext(filename, siteprof, parametersingleton);
     OBJECT realdoc := siteprof->xmldoc;
 

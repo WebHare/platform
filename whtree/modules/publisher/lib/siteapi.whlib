@@ -279,51 +279,6 @@ STATIC OBJECTTYPE SiteObject
     RETURN OpenWHFSObject(this->siterec.root)->OpenByPath(path, options);
   }
 
-  /** Assigns an additional site profile to this site
-      @param siteprofileid WHFS id of the site profile
-      @return Whether the site profile was added successfully
-  */
-  PUBLIC BOOLEAN FUNCTION AssignSiteProfile(INTEGER siteprofileid)
-  {
-    IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE id=siteprofileid AND isactive=TRUE AND type=27))
-      RETURN FALSE;
-
-    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    INTEGER ARRAY cursiteprofiles := sitesettingstype->GetInstanceData(this->id).siteprofiles;
-    IF(siteprofileid NOT IN cursiteprofiles)
-    {
-      INSERT siteprofileid INTO cursiteprofiles AT END;
-      this->UpdateSiteMetadata([siteprofiles := cursiteprofiles]);
-    }
-    RETURN TRUE;
-  }
-
-  /** @short Remove a siteprofile from this site
-      @param siteprofileid ID of site profile to remove
-      @return True if the site profile was succesfully removed. False if it wasn't assigned or cannot be removed (eg assigned to a parent folder) */
-  PUBLIC BOOLEAN FUNCTION UnassignSiteProfile(INTEGER siteprofileid)
-  {
-    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    INTEGER ARRAY cursiteprofiles := sitesettingstype->GetInstanceData(this->id).siteprofiles;
-    IF(siteprofileid IN cursiteprofiles)
-    {
-      DELETE FROM cursiteprofiles AT SearchElement(cursiteprofiles, siteprofileid);
-      this->UpdateSiteMetadata([siteprofiles := cursiteprofiles]);
-    }
-    RETURN TRUE;
-  }
-
-  /** Returns whether the specified siteprofile is currently assigned to this site
-      @param siteprofileid WHFS id of the site profile
-      @return TRUE if the siteprofile assigned to this site
-  */
-  PUBLIC BOOLEAN FUNCTION IsUsingSiteProfile(INTEGER siteprofileid)
-  {
-    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    RECORD cursettings := sitesettingstype->GetInstanceData(this->root);
-    RETURN siteprofileid IN cursettings.siteprofiles;
-  }
-
   /** Updates the current webserver and relative url within that webserver where this site is hosted locally.
       @param newoutputweb Id of the webserver that will host this site, 0 for no hosting
       @param newoutputfolder Output folder, relative to site root where this site is hosted.
@@ -344,7 +299,6 @@ STATIC OBJECTTYPE SiteObject
       @cell(string) metadata.lockreason Reason for locking the site
       @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
       @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
-      @cell(integer array) metadata.siteprofiles List of associated siteprofiles
       @return Update result @includecelldef #TestSiteOutputAvailability.return
       @cell return.success Whether the operation was successful. Can be false when modifying the outputweb or outputfolder
   */
@@ -367,7 +321,6 @@ STATIC OBJECTTYPE SiteObject
                                              , lockreason := ""
                                              , outputweb := 0
                                              , outputfolder := ""
-                                             , siteprofiles := DEFAULT INTEGER ARRAY
                                              ], metadata, [ optional := ["*"], title := "site metadata" ]);
 
     RECORD currentrec := SELECT * FROM system.sites WHERE id = this->id;
@@ -430,11 +383,7 @@ STATIC OBJECTTYPE SiteObject
       IF (Detokenize(currentsettings.webfeatures,'\t') != Detokenize(setwebfeatures,'\t'))
         INSERT CELL webfeatures := setwebfeatures INTO updsettings;
     }
-    IF(CellExists(metadata,"SITEPROFILES") AND NOT ArrayIsSetEqual(metadata.siteprofiles, currentsettings.siteprofiles))
-    {
-      INSERT CELL siteprofiles := metadata.siteprofiles INTO updsettings;
-    }
-    DELETE CELL sitedesign, webdesign, webfeatures, siteprofiles FROM siterecupdate;
+    DELETE CELL sitedesign, webdesign, webfeatures FROM siterecupdate;
 
     UPDATE system.sites SET RECORD siterecupdate WHERE id = this->id;
     this->Refresh();

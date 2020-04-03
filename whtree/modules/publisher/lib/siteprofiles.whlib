@@ -21,7 +21,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 */
 PUBLIC OBJECT FUNCTION OpenSiteProfile(STRING name)
 {
-  RETURN NEW SiteProfileObject(0,name);
+  RETURN NEW SiteProfileObject(name);
 }
 
 /** @short Open and prepare a webdesign
@@ -112,23 +112,6 @@ PUBLIC OBJECT FUNCTION GetWebContext(INTEGER objid)
 PUBLIC STRING FUNCTION GetSiteLanguage(INTEGER objectid)
 {
   RETURN GetApplyTesterForObject(objectid)->GetSiteLanguage();
-}
-
-/** @short List sites using a site profile
-    @param siteprofileid Site profile id to check
-    @return An integer array of sites using the site profile */
-PUBLIC INTEGER ARRAY FUNCTION GetSitesUsingSiteProfile(INTEGER siteprofileid)
-{
-  OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-  RECORD ARRAY allsites := SELECT id, root FROM system.sites;
-
-  //set up a list of (siteid,fileid) pair referring to all the site roots
-  INTEGER ARRAY sitelist;
-  FOREVERY(RECORD setting FROM sitesettingstype->GetBulkData((SELECT AS INTEGER ARRAY root FROM allsites), ["siteprofiles"]))
-    IF(siteprofileid IN setting.siteprofiles)
-      INSERT allsites[#setting].id INTO sitelist AT END;
-
-  RETURN sitelist;
 }
 
 /** @short Gather custom siteprofile settings for an object */

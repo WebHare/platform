@@ -147,7 +147,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     rows := SELECT *, name_order := #row FROM rows AS row;
 
     INTEGER icon_site := this->errors->GetIcon("tollium:filemgr/site");
-    INTEGER icon_siteprofile := this->errors->GetIcon("tollium:files/application_x-webhare-siteprofile");
 
     RECORD ARRAY rows2 :=
           SELECT *

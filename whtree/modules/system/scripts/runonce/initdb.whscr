@@ -42,7 +42,6 @@ MACRO InitializeFileTypes()
                             , [ id := 24, namespace := "http://www.webhare.net/xmlns/publisher/contentlisting",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 25, namespace := "http://www.webhare.net/xmlns/publisher/shtmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 26, namespace := "http://www.webhare.net/xmlns/publisher/wittyfile",  isfoldertype := FALSE, isfiletype := TRUE ]
-                            , [ id := 27, namespace := "http://www.webhare.net/xmlns/publisher/siteprofilefile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 28, namespace := "http://www.webhare.net/xmlns/publisher/templatefile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 29, namespace := "http://www.webhare.net/xmlns/publisher/profilefile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 34, namespace := "http://www.webhare.net/xmlns/publisher/webfieldsfile",  isfoldertype := FALSE, isfiletype := TRUE ]
@@ -59,7 +58,6 @@ MACRO InitializeFileTypes()
                                 [//set up properties needed for siteprofile compiler and backend site
                                  [ name := "sitedesign", type := "string" ]
                                 ,[ name := "webfeatures", type := "stringarray" ]
-                                ,[ name := "siteprofiles", type := "whfsrefarray" ]
                                 ]
                               ]
                             ];

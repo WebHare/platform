@@ -68,8 +68,6 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
   // Variables
   //
 
-  INTEGER whfsid;
-
   // ---------------------------------------------------------------------------
   //
   // Public properties
@@ -89,28 +87,12 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
   // Constructor
   //
 
-  MACRO NEW(INTEGER id, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
+  MACRO NEW(STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ xmldoc := DEFAULT OBJECT ], options);
-    IF(name="" AND id != 0)
-      name := GetDirectResourceName(id);
 
     OBJECT fsobj;
     RECORD profdata;
-
-    IF(id = 0 AND (name LIKE "site::*" OR name LIKE "whfs::*"))
-    {
-      fsobj := OpenWHFSObjectByPath(name);
-      IF(NOT ObjectExists(fsobj) OR fsobj->type != 27)
-        THROW NEW Exception ("No such site profile '" || name || "'");
-      id := fsobj->id;
-    }
-    ELSE IF (id != 0)
-    {
-      fsobj := OpenWHFSObject(id);
-      IF(NOT ObjectExists(fsobj) OR fsobj->type != 27)
-        THROW NEW Exception ("No such site profile '" || name || "' with id " || id);
-    }
 
     this->xmldoc := options.xmldoc;
     IF(NOT ObjectExists(this->xmldoc))
@@ -129,7 +111,6 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
       this->modtime := profdata.modified;
     }
     this->name := name;
-    this->whfsid := id;
 
     //ADDME make siteprofile code robust against corrupt xmldocs (just don't load them)
     IF(NOT ObjectExists(this->xmldoc) OR NOT ObjectExists(this->xmldoc->documentelement))
@@ -1806,7 +1787,7 @@ STATIC OBJECTTYPE ApplyRuleTester
       RECORD ARRAY matchingnodes := SELECT * FROM apply.customnodes WHERE customnodes.namespaceuri = ns AND customnodes.localname = localname;
       IF(Length(matchingnodes)>0)
       {
-        OBJECT siteprof := NEW SiteProfileObject(0, apply.siteprofile);
+        OBJECT siteprof := NEW SiteProfileObject(apply.siteprofile);
         OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->Item(apply.applyindex);
 
         IF(ObjectExists(applynode))

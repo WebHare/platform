@@ -799,7 +799,6 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
     CASE "text/html"                                                                  { RETURN ".html"; }
     CASE "application/x-gzip"                                                         { RETURN ".gz"; }
     CASE "text/plain"                                                                 { RETURN ".txt"; }
-    CASE "application/x-webhare-siteprofile"                                          { RETURN ".siteprl"; }
     CASE "application/pdf"                                                            { RETURN ".pdf"; }
     CASE "message/rfc822"                                                             { RETURN ".eml"; }
     CASE "text/x-vcard"                                                               { RETURN ".vcf"; }
