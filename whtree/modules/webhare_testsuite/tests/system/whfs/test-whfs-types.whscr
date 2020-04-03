@@ -4,7 +4,6 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
 
 LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -157,9 +156,7 @@ MACRO AutoCreateTypes()
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefoldertest")));
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatedynexectest")));
 
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-  OBJECT siteprof_without_str := testsite->rootobject->CreateFile([name:="test_without_str.siteprl", data := StringToBlob(testsiteprofile_without_str)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
   testfw->CommitWork();
 
   TestEq(FALSE, OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatetest")->isdynamicexecution);
@@ -350,7 +347,7 @@ MACRO AutoCreateTypes()
   BLOB arc := testdatafolder->ExportFolder().files[0].data;
 
   testdatafolder->DeleteSelf();
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := STRING[] ]);
 
   testfw->CommitWork();
 
@@ -423,7 +420,7 @@ MACRO AutoCreateTypes()
   TestEq(OpenWHFSType("http://www.webhare.net/xmlns/beta/autocreatefiletest", [ openorphans := TRUE ])->id, testfile->type);
 
   //Associate the site profile again
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -439,7 +436,7 @@ MACRO AutoCreateTypes()
           ]
       ]);
 
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := STRING[] ]);
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(testdatafolder->id);
@@ -474,7 +471,7 @@ MACRO AutoCreateTypes()
 
   //add the second site profile to try to force an internal conflict. this is what siteprofiledelaymode should fix
   testfw->BeginWork();
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_without_str->id));
+  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest_without_str"] ]);
   testfw->CommitWork();
 
 
@@ -493,10 +490,7 @@ MACRO AutoCreateTypes()
   testfw->RollbackWork();
 
   testfw->BeginWork();
-
-  siteprof->RecycleSelf();
-  siteprof_without_str->RecycleSelf();
-  GetWHFSCommitHandler()->TriggerSiteProfileRecompileOnCommit();
+  testsite->UpdateSiteMetadata([webfeatures := STRING[] ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -541,8 +535,7 @@ MACRO FindTest()
 {
   testfw->BeginWork();
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -888,42 +881,27 @@ MACRO TestPhotoAlbum()
 
 MACRO TestTypeChange()
 {
-  STRING pre_siteprofile :=
-     '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/typechangetest">'
-      || '<member name="str_to_url" type="string" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
-  STRING post_siteprofile :=
-     '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/typechangetest">'
-      || '<member name="str_to_url" type="url" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
   testfw->BeginWork();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="testtypechange.siteprl", data := StringToBlob(pre_siteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]); //'<member name="url" type="string" />'
   testfw->CommitWork();
 
   testfw->BeginWork();
   OBJECT testfile1 := testsite->rootobject->CreateFile([ name:="testfile1", type := 0]);
-  testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest",
-      [ str_to_url := "http://example.com"
+  testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest",
+      [ url := "http://example.com"
       ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
-  siteprof->UpdateMetadata([ data := StringToBlob(post_siteprofile) ]);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]); //'<member name="url" type="url" />'
   testfw->CommitWork();
 
   // Test if value didn't change, and whether type change has happened
   testfw->BeginWork();
-  TestEQ([ str_to_url := "http://example.com"
-         ], testfile1->GetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest"));
-  TestThrows(PTR testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/typechangetest",
-      [ str_to_url := "invalid_url"
+  TestEqMembers([ url := "http://example.com"
+                ], testfile1->GetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest"), "url");
+  TestThrowsLike('Incorrect value*url*', PTR testfile1->SetInstanceData("http://www.webhare.net/xmlns/beta/consiliotest",
+      [ url := "invalid_url"
       ]));
   testfw->CommitWork();
 }
@@ -931,22 +909,8 @@ MACRO TestTypeChange()
 MACRO TestArrayMembers()
 {
   // Test finding objects by (array) members values
-  STRING siteprofile :=
-     `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-        <contenttype namespace="http://www.webhare.net/xmlns/beta/arraymembertest">
-          <member name="mystring" type="string" />
-          <member name="myarray" type="array">
-            <member name="mystring" type="string" />
-            <member name="myarray2" type="array">
-              <member name="mystring2" type="string" />
-            </member>
-          </member>
-        </contenttype>
-      </siteprofile>`;
-
   testfw->BeginWork();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="arraymembertest.siteprl", data := StringToBlob(siteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:conversionstest"]]);
   testfw->CommitWork();
 
   TestEq([ mystring := ""
@@ -995,8 +959,7 @@ MACRO TestArrayMembers()
 MACRO TestDirectInstanceData()
 {
   testfw->BeginWork();
-  OBJECT siteprof := testsite->rootobject->EnsureFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:autocreatetest"] ]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -1105,12 +1068,6 @@ MACRO TestDirectInstanceData()
   testfile->Refresh();
   TestEQ(TRUE, testfile->modificationdate < now); // no update to modificationdate
 
-  testfw->CommitWork();
-
-  testfw->BeginWork();
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof->id));
-  siteprof->RecycleSelf();
-  testdatafolder->RecycleSelf();
   testfw->CommitWork();
 }
 

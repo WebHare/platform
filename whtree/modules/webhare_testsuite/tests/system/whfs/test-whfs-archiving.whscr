@@ -258,35 +258,12 @@ MACRO Archiving_Nometa()
   testfw->CommitWork();
 }
 
-STRING addmappedcellsiteprofile_before :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/addmappedcell">'
-      || '<member name="arraytest" type="array">'
-        || '<member name="str" type="string" />'
-      || '</member>'
-    || '</contenttype>'
-  ||'</siteprofile>';
-
-STRING addmappedcellsiteprofile_after :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/addmappedcell">'
-      || '<member name="arraytest" type="array">'
-        || '<member name="str" type="string" />'
-        || '<member name="intlink" type="whfsref" />'
-      || '</member>'
-    || '</contenttype>'
-  ||'</siteprofile>';
-
 MACRO ArchivingAddMappedCell()
 {
-
   testfw->BeginWork();
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
   OBJECT testsite := CreateSiteFromFolder(firstfolder->id);
-
-  OBJECT siteprof_before := firstfolder->CreateFile([name:="addmappedcellsiteprofile_before.siteprl", data := StringToBlob(addmappedcellsiteprofile_before)]);
-  OBJECT siteprof_after := firstfolder->CreateFile([name:="addmappedcellsiteprofile_after.siteprl", data := StringToBlob(addmappedcellsiteprofile_after)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_before->id));
+  testsite->UpdateSiteMetadata([ webfeatures := [ "webhare_testsuite:addmappedcell_before"]]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -298,8 +275,7 @@ MACRO ArchivingAddMappedCell()
   testfw->CommitWork();
 
   testfw->BeginWork();
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof_before->id));
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof_after->id));
+  testsite->UpdateSiteMetadata([ webfeatures := [ "webhare_testsuite:addmappedcell_after"]]);
   addmappedtestfile->RecycleSelf();
   testfw->CommitWork();
 
@@ -314,7 +290,7 @@ MACRO ArchivingAddMappedCell()
   TestEq(0, inst.arraytest[0].intlink);
   TestEq("abc", inst.arraytest[0].str);
 
-  TestEq(TRUE, testsite->UnassignSiteProfile(siteprof_after->id));
+  testsite->UpdateSiteMetadata([ webfeatures := STRING[]]);
   testfw->CommitWork();
 
 }

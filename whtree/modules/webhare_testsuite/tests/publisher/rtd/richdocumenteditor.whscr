@@ -15,17 +15,6 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::webhare_testsuite/lib/publisher/versioning.whlib";
 
 
-STRING testsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
-    || '<richdocumenteditor>'
-    || '  <structuredefinition fullpath="/custompage.structure.xml" />'
-    //       <css fullpath="mod::publisher/data/default.structure.css" />
-    || '</richdocumenteditor>'
-    || '</apply>'
-|| '</siteprofile>';
-
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
@@ -37,16 +26,10 @@ MACRO Create()
   SetTidLanguage("debug");
   testfw->BeginWork();
 
-  testfw->SetupTestWebdesignWebsite(testsiteprofile);
+  testfw->SetupTestWebdesignWebsite();
 
   // Grant read-only right on the test site to user 'reader'
   testfw->GetUserObject("writer")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("reader"), testfw->GetTestSite()->id, FALSE);
-
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  siteroot->CreateFile(
-      [ name := "custompage.structure.xml"
-      , data := GetHarescriptResource("mod::webhare_testsuite/data/test/custompage.structure.xml")
-      ]);
 
   testfw->CommitWork();
 }

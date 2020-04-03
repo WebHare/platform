@@ -1,34 +1,16 @@
 <?wh
-LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-STRING folderindex_siteprofile :=
-'<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-  || '<apply>'
-    || '<to type="folder" pathmask="*/contentlisting/*" />'
-    || '<folderindex indexfile="contentlisting" />'
-  || '</apply>'
-  || '<apply>'
-    || '<to type="folder" pathmask="*/newfile/*" />'
-    || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
-  || '</apply>'
-|| '</siteprofile>';
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
 MACRO TestFolderIndex()
 {
   testfw->BeginWork();
-  testfw->SetupTestWebdesignWebsite(folderindex_siteprofile);
-  testfw->CommitWork();
 
-  TestSiteProfilesNoErrors();
-
-  testfw->BeginWork();
-  OBJECT testsite := testfw->GetTestSite();
-
-  OBJECT folder_contentlisting := testsite->rootobject->CreateFolder([name := "contentlisting" ]);
+  OBJECT folder_contentlisting := GetTestsuiteTempFolder()->CreateFolder([name := "contentlisting" ]);
   AddDefaultIndexToFolder(folder_contentlisting->id);
 
   OBJECT indexfile := folder_contentlisting->OpenByName("index.html");
@@ -36,7 +18,7 @@ MACRO TestFolderIndex()
   TestEq(24, indexfile->type);
   TestEq(TRUE, indexfile->publish);
 
-  OBJECT folder_newfile := testsite->rootobject->CreateFolder([name := "newfile" ]);
+  OBJECT folder_newfile := GetTestsuiteTempFolder()->CreateFolder([name := "newfile" ]);
   TEstEQ(0, folder_newfile->indexdoc);
   AddDefaultIndexToFolder(folder_newfile->id);
 

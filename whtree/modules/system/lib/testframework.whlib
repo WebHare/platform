@@ -1583,8 +1583,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN ImportWHFSArchive(siteroot, archive, [ overwrite := FALSE ]);
   }
 
-  /** Create a test website with the siteprofile passed */
-  PUBLIC OBJECT FUNCTION SetupTestWebdesignWebsite(STRING siteprofile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  /** Create a test website */
+  PUBLIC OBJECT FUNCTION SetupTestWebdesignWebsite(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1]);
 
@@ -1622,19 +1622,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         DumpValue(res,'tree');
         ABORT("Failed to create the testsite, foreign folder conflicts?");
       }
-    }
-
-    IF(siteprofile != "")
-    {
-      OBJECT designfolder := siteroot->CreateFolder( [ type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder")->id, name := "design" ]);
-
-      OBJECT siteprof := designfolder->CreateFile(
-          [ name:=    "testsite.siteprl"
-          , data :=   StringToBlob(siteprofile)
-          , type :=   27 //siteprofile
-          ]);
-      IF(NOT newsite->AssignSiteProfile(siteprof->id))
-        THROW NEW Exception("Setting up siteprofile for testsite failed");
     }
 
     RETURN newsite;

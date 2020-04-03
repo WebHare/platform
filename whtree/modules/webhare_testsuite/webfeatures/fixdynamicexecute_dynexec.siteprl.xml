@@ -1,0 +1,6 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution" />
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/testdynamicexecution" blobiscontent="false" ispublishable="true" ispublishedassubdir="true">
+    <dynamicexecution library="module::webhare_testsuite/publisher/testsitedesign.whlib" webpageobjectname="WebPage" />
+  </filetype>
+</siteprofile>

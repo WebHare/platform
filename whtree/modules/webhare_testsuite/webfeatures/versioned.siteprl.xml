@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/versionedctype">
+    <member name="str" type="string" />
+  </contenttype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/unversionedctype">
+    <member name="str" type="string" />
+  </contenttype>
+
+  <propertyeditor name="versionedctype">
+    <compositions>
+      <p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype" />
+      <p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype" />
+    </compositions>
+    <insert position="settings" where="atend">
+      <t:textedit composition="versionedinstance" cellname="str" title="versionedinstance" />
+      <t:textedit composition="unversionedinstance" cellname="str" title="unversionedinstance" />
+    </insert>
+  </propertyeditor>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
+    <extendproperties name="versionedctype" />
+  </apply>
+
+  <apply>
+    <to type="folder" pathmask="*/indextests/index-contentlisting/*" />
+    <folderindex indexfile="contentlisting" />
+  </apply>
+
+  <apply>
+    <to type="folder" pathmask="*/indextests/index-newfile/*" />
+    <folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+  </apply>
+
+  <apply>
+    <to type="folder" pathmask="*/indextests/index-copy/*" />
+    <folderindex fullpath="/index.html" indexfile="copy_of_file" />
+  </apply>
+
+  <apply>
+    <to type="folder" pathmask="*/indextests/index-contentlink/*" />
+    <folderindex fullpath="/index.html" indexfile="contentlink" />
+  </apply>
+
+</siteprofile>

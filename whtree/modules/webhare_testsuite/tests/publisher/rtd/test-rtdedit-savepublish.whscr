@@ -67,7 +67,7 @@ ASYNC MACRO TestSaveToUnpublishedSite()
 {
   testfw->BeginWork();
   //We need an unpublished site for this test - you need to be able to 'prepare' documents without output so we cant use the testsuite-site
-  testfw->SetupTestWebdesignWebsite("", [ enableoutput := FALSE ]);
+  testfw->SetupTestWebdesignWebsite([ enableoutput := FALSE ]);
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   OBJECT testfile := siteroot->CreateFile(
       [ name :=   "testfile.rtd"

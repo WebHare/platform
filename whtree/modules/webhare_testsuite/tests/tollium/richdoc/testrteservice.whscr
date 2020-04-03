@@ -42,7 +42,7 @@ MACRO RTECreation()
   testfw->BeginWork();
 
   OBJECT doc;
-  OBJECT site := testfw->SetupTestWebdesignWebsite("");
+  OBJECT site := testfw->SetupTestWebdesignWebsite();
   OBJECT siteroot := testfw->GetTestsite()->rootobject;
   OBJECT myrichdoc := NEW EditableRichDocument;
   OBJECT testextralink := siteroot->CreateFile( [ name := "testextralink", publish := TRUE ]);

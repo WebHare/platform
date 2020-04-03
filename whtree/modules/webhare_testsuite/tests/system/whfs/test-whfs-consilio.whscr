@@ -15,27 +15,6 @@ LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 
 
 
-STRING testsiteprofile :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">'
-      || '<member name="str" type="string" />'
-      || '<member name="rich" type="richdocument" />'
-      || '<member name="intextlink" type="intextlink" />'
-      || '<member name="url" type="url" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
-STRING testsiteprofile_nonurl :=
-  '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/consiliotest">'
-      || '<member name="str" type="string" />'
-      || '<member name="rich" type="richdocument" />'
-      || '<member name="intextlink" type="intextlink" />'
-      || '<member name="url" type="string" />'
-    || '</contenttype>'
-  || '</siteprofile>';
-
-
 //OBJECT testsite;
 
 MACRO Prepare()
@@ -54,8 +33,7 @@ MACRO TestCheckedLinks()
 {
   testfw->BeginWork();
   OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -129,7 +107,6 @@ MACRO TestCheckedLinks()
   TestEQ(DEFAULT RECORD ARRAY, SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
 
   testfw->BeginWork();
-  siteprof->DeleteSelf();
   testdatafile->DeleteSelf();
   testfw->CommitWork();
 }
@@ -138,8 +115,7 @@ MACRO TestTypeChange()
 {
   testfw->BeginWork();
   OBJECT testsite := testfw->GetTestSite();
-  OBJECT siteprof := testsite->rootobject->CreateFile([name:="test.siteprl", data := StringToBlob(testsiteprofile_nonurl)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -156,7 +132,7 @@ MACRO TestTypeChange()
   TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));
 
   testfw->BeginWork();
-  siteprof->UpdateMetadata([ data := StringToBlob(testsiteprofile)]);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_withurl"]]);
   testfw->CommitWork();
 
   TestEQ(
@@ -164,7 +140,7 @@ MACRO TestTypeChange()
       ], SELECT url, referrer FROM GetLinksForFSObject(testdatafile->id) ORDER BY url);
 
   testfw->BeginWork();
-  siteprof->UpdateMetadata([ data := StringToBlob(testsiteprofile_nonurl)]);
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:consilio_nonurl"]]);
   testfw->CommitWork();
 
   TestEQ(DEFAULT RECORD ARRAY, GetLinksForFSObject(testdatafile->id));

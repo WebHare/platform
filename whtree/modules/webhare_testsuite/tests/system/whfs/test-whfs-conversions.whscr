@@ -11,17 +11,15 @@ LOADLIB "mod::system/lib/migrations.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/publisher/siteprofiles.whlib";
-
-OBJECT testsite;
+OBJECT testsite, subfile;
 
 MACRO Prepare()
 {
   testfw->BeginWork();
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-
   testsite := CreateSiteFromFolder(firstfolder->id);
+  subfile := testsite->rootobject->CreateFile([name := "testfile"]);
   testfw->CommitWork();
 }
 
@@ -29,10 +27,7 @@ MACRO Prepare()
 MACRO TestConversions()
 {
   testfw->BeginWork();
-
-  OBJECT siteroot := testsite->rootobject;
-  OBJECT siteprof := siteroot->CreateFile([name:="testconversions.siteprl", data := StringToBlob(testconversionssiteprofile)]);
-  TestEq(TRUE, testsite->AssignSiteProfile(siteprof->id));
+  testsite->UpdateSiteMetadata([ webfeatures := ["webhare_testsuite:conversionstest"]]);
   testfw->CommitWork();
 
   testfw->BeginWork();
@@ -43,13 +38,13 @@ MACRO TestConversions()
                     , arr := [ [ data1 := "1&1", data2 := "1&2", data3 := "1&3" ]
                              , [ data1 := "2&1", data2 := "2&2", data3 := "2&3" ]
                              ]
-                    , photos := [ INTEGER(siteprof->id), INTEGER(siteroot->id) ]
+                    , photos := [ INTEGER(subfile->id), INTEGER(testsite->id) ]
                     ];
-  cvtesttype->SetInstanceData(siteroot->id, srcdata);
+  cvtesttype->SetInstanceData(testsite->id, srcdata);
 
   //test simple field copy within a type
   CopyAndConvertWHFSMembers(cvtesttype, "str", cvtesttype, "rich");
-  RECORD data := cvtesttype->GetInstanceData(siteroot->id);
+  RECORD data := cvtesttype->GetInstanceData(testsite->id);
   TestEq("Dit is een <test>\nmet een line feed", data.str);
 
   OBJECT para := MakeXMLDocumentFromHTML(data.rich.htmltext)->GetElement("p");
@@ -60,7 +55,7 @@ MACRO TestConversions()
   //test array copy accross types
   OBJECT cvdesttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionsdest");
   CopyAndConvertWHFSMembers(cvtesttype, "arr", cvdesttype, "arrdest");
-  data := cvdesttype->GetInstanceData(siteroot->id);
+  data := cvdesttype->GetInstanceData(testsite->id);
   TestEq(2,Length(data.arrdest));
   TestEq("2&1", data.arrdest[1].data1);
 
@@ -69,7 +64,7 @@ MACRO TestConversions()
 
   //test whfsrefarray => array conversion
   CopyAndConvertWHFSMembers(cvtesttype, "photos", cvdesttype, "slidephotos.image");
-  data := cvdesttype->GetInstanceData(siteroot->id);
+  data := cvdesttype->GetInstanceData(testsite->id);
   TestEq(2,Length(data.slidephotos));
   TestEq(srcdata.photos[0], data.slidephotos[0].image);
   TestEq(srcdata.photos[1], data.slidephotos[1].image);

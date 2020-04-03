@@ -14,52 +14,6 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-STRING testsiteprofile_versioned :=
-    '<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"'
-             || ' xmlns:t="http://www.webhare.net/xmlns/tollium/screens"'
-             || ' xmlns:p="http://www.webhare.net/xmlns/publisher/components">'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/versionedctype">'
-      || '<member name="str" type="string" />'
-    || '</contenttype>'
-    || '<contenttype namespace="http://www.webhare.net/xmlns/beta/unversionedctype">'
-      || '<member name="str" type="string" />'
-    || '</contenttype>'
-    || '<propertyeditor name="versionedctype">'
-      || '<compositions>'
-        || '<p:whfsinstance name="versionedinstance" typedef="http://www.webhare.net/xmlns/beta/versionedctype"/>'
-        || '<p:whfsinstance name="unversionedinstance" typedef="http://www.webhare.net/xmlns/beta/unversionedctype"/>'
-      || '</compositions>'
-      || '<insert position="settings" where="atend">'
-        || '<t:textedit title="versionedinstance" composition="versionedinstance" cellname="str"/>'
-        || '<t:textedit title="unversionedinstance" composition="unversionedinstance" cellname="str"/>'
-      || '</insert>'
-    || '</propertyeditor>'
-    || '<apply>'
-      || '<to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile"/>'
-      || '<extendproperties name="versionedctype"/>'
-    || '</apply>'
-
-       // index files
-    || '<apply>'
-      || '<to type="folder" pathmask="*/indextests/index-contentlisting/*" />'
-      || '<folderindex indexfile="contentlisting" />'
-    || '</apply>'
-    || '<apply>'
-      || '<to type="folder" pathmask="*/indextests/index-newfile/*" />'
-      || '<folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />'
-    || '</apply>'
-    || '<apply>'
-      || '<to type="folder" pathmask="*/indextests/index-copy/*" />'
-      || '<folderindex indexfile="copy_of_file" fullpath="/index.html" />'
-    || '</apply>'
-    || '<apply>'
-      || '<to type="folder" pathmask="*/indextests/index-contentlink/*" />'
-      || '<folderindex indexfile="contentlink" fullpath="/index.html" />'
-    || '</apply>'
-
-  || '</siteprofile>';
-
-
 PUBLIC OBJECT FUNCTION GetValidatePublicDraft(OBJECT fsobject)
 {
   RECORD ARRAY drafts := GetDrafts(fsobject->id);
@@ -212,16 +166,11 @@ PUBLIC OBJECT FUNCTION UpdateDraftPublish(OBJECT testfile, BOOLEAN newpublish)
 
 PUBLIC MACRO CreateVersioningTestSite()
 {
-  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE ]);
+  PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := TRUE, webfeatures := ["webhare_testsuite:versioned"] ]);
   PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ]);
 
   testfw->BeginWork();
-
   EnableSiteVersionHistory(testfw->GetTestSite(), testfw->GetUserObject("sysop"), "publisher:default");
-
-  OBJECT siteprof := testfw->GetTestSite()->rootobject->CreateFile([name:="test_versioned.siteprl", data := StringToBlob(testsiteprofile_versioned)]);
-  TestEq(TRUE, testfw->GetTestSite()->AssignSiteProfile(siteprof->id));
-
   testfw->CommitWork();
 
   testfw->BeginWork();

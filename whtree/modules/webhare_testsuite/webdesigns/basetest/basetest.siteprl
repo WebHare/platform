@@ -492,6 +492,16 @@
     <sitelanguage lang="xyz-blabla" />
   </apply>
 
+  <!-- folderindex test -->
+  <apply>
+    <to type="folder" pathmask="*/contentlisting/*" />
+    <folderindex indexfile="contentlisting" />
+  </apply>
+  <apply>
+    <to type="folder" pathmask="*/newfile/*" />
+    <folderindex indexfile="newfile" newfiletype="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+  </apply>
+
   <apply>
     <to type="file" pathmask="/testpages/formtest" />
     <to type="file" pathmask="*-nl*" />

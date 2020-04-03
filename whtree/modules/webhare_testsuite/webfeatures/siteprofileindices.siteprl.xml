@@ -1,0 +1,14 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:c="http://www.webhare.net/xmlns/consilio">
+   <sitesettings sitename="betatestindexsite">
+     <c:addtoindex name="webhare_testsuite:consiliotest_1" tag="something" maxgroupobjects="2" />
+   </sitesettings>
+   <sitesettings>
+     <c:addtoindex name="webhare_testsuite:consiliotest_1" tag="something" maxgroupobjects="3" />
+   </sitesettings>
+   <sitesettings sitename="non_existing">
+     <c:addtoindex name="webhare_testsuite:consiliotest_3" />
+   </sitesettings>
+   <c:index name="webhare_testsuite:consiliotest_2">
+     <c:contentsource type="publisher:webhare" folder="site::betatestindexsite/" discardsummaries="true" />
+   </c:index>
+ </siteprofile>
