@@ -46,7 +46,7 @@ PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER fileid)
 PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object, OBJECT whfs_mapper)
 {
   RECORD retval := SplitBlobSetting(setting, blobdata, fs_object);
-  IF (NOT IsDefaultValue(whfs_mapper))
+  IF (IsValueSet(whfs_mapper))
     retval := CELL[ ...retval, source_fsobject := whfs_mapper->MapWHFSRef(retval.source_fsobject) ];
 
   RETURN retval;
@@ -54,10 +54,10 @@ PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INT
 
 PUBLIC RECORD FUNCTION MappedJoinBlobSetting(RECORD fileinfo, OBJECT whfs_mapper)
 {
-  RECORD retval := JoinBlobSetting(fileinfo);
-  IF (NOT IsDefaultValue(whfs_mapper))
-    retval := CELL[ ...retval, fs_object := whfs_mapper->UnmapWHFSRef(retval.fs_object) ];
-  RETURN retval;
+  IF (IsValueSet(whfs_mapper) AND CellExists(fileinfo, "source_fsobject"))
+    fileinfo := CELL[ ...fileinfo, source_fsobject := whfs_mapper->UnmapWHFSRef(fileinfo.source_fsobject) ];
+
+  RETURN JoinBlobSetting(fileinfo);
 }
 
 PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOLEAN isfile, OBJECT linkgetter, OBJECT whfs_mapper)

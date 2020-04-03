@@ -4003,9 +4003,23 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
     INTEGER ARRAY allowedtypes := INTEGER[ obj->wrd_type->id, ...obj->wrd_type->__childtypeids ];
     IF (CellExists(source, "TYPEFILTER"))
     {
-      IF (IsValueSet(ArrayDelete(source.typefilter, allowedtypes)))
+      VARIANT typefilter := source.typefilter;
+      IF (TypeID(typefilter) = TypeID(STRING ARRAY))
+      {
+        INTEGER ARRAY typefilterids;
+        FOREVERY (STRING typefiltertype FROM typefilter)
+        {
+          OBJECT wrdtype := wrdschema->__GetTypeByTag(typefiltertype);
+          IF (NOT ObjectExists(wrdtype))
+            THROW NEW Exception(`No such type ${EncodeHSON(typefiltertype)} found (specified in typefilter)`);
+          INSERT wrdtype->id INTO typefilterids AT END;
+        }
+        typefilter := typefilterids;
+      }
+
+      IF (IsValueSet(ArrayDelete(INTEGER ARRAY(typefilter), allowedtypes)))
         THROW NEW Exception(`The typefilter contains WRD type ids that are not valid for WRD type '${obj->wrd_type->tag}'`);
-      obj->typefilter := source.typefilter;
+      obj->typefilter := typefilter;
     }
     ELSE
       obj->typefilter := allowedtypes;

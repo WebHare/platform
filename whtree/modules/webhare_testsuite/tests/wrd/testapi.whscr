@@ -2690,6 +2690,19 @@ MACRO TestWHFSMapper()
   TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.richie.embedded[0].source_fsobject);
   TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2.testinstance.fsref);
 
+  // Test unmapping images with incomplete info
+  rec.test_image := CellDelete(rec.test_image, "hash");
+  entity_person->UpdateEntity(rec, CELL[ whfsmapper ]);
+
+  RECORD rec2_1 := testfw->GetWRDSchema()->^wrd_person->RunQuery(CELL
+      [ outputcolumns := [ "testintextlink", "richie", "test_image", "test_file", "testinstance" ]
+      , filters := [ [ field := "wrd_id", value := entity_person->id ]
+                   ]
+      , whfsmapper
+      ]);
+
+  TestEQ('site::WebHare testsuite site/testpages/imgeditfile.jpeg', rec2_1.test_image.source_fsobject);
+
   myrichexp.instances :=
       [ [ instanceid := "instanceid-01234"
         , data :=
