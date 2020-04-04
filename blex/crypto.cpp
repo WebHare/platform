@@ -28,17 +28,7 @@
 #endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-//brew isn't ready for 1.01 yet
-EVP_MD_CTX *EVP_MD_CTX_new(void)
-{
-  return (EVP_MD_CTX *)malloc(sizeof(EVP_MD_CTX));
-}
-
-void EVP_MD_CTX_free(EVP_MD_CTX *ctx)
-{
-  EVP_MD_CTX_cleanup(ctx);
-  free(ctx);
-}
+#error openssl < 1.1 is not supported
 #endif
 
 //FIXME Where is the code the below copyright message actually applies to ?
@@ -1333,7 +1323,6 @@ SSLContext::SSLContext(bool is_server, std::string const &ciphersuite)
                 throw std::runtime_error("Cannot initialize SSL context");
         }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10101000L
         if (is_server)
             SSL_CTX_set_min_proto_version((SSL_CTX*)ctx, TLS1_2_VERSION);
 
@@ -1343,14 +1332,6 @@ SSLContext::SSLContext(bool is_server, std::string const &ciphersuite)
                                            | SSL_OP_CIPHER_SERVER_PREFERENCE
                                            | SSL_OP_SINGLE_ECDH_USE
                                            );
-#else
-        SSL_CTX_set_options((SSL_CTX*)ctx, SSL_OP_ALL
-                                           | (is_server ? SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_DTLSv1 : 0)
-                                           | SSL_OP_SINGLE_DH_USE //http://www.opensource.apple.com/source/apache/apache-678/mod_ssl/pkg.sslmod/ssl_engine_init.c doe sit
-                                           | SSL_OP_CIPHER_SERVER_PREFERENCE
-                                           | SSL_OP_SINGLE_ECDH_USE
-                                           );
-#endif
 
         SSL_CTX_set_ecdh_auto((SSL_CTX*)ctx, 1);
 
