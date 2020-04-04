@@ -373,6 +373,14 @@ PUBLIC STATIC OBJECTTYPE ContentsHandlerBase EXTEND ContentsListHandlerBase
     RETURN RECORD[];
   }
 
+  /** @short Run a dialog for deletion of one or more objects
+      @param selection Items to delete
+      @return True if anything was deleted
+  */
+  PUBLIC BOOLEAN FUNCTION RunDeleteDialog(OBJECT parentscreen, RECORD ARRAY selection)
+  {
+    RETURN FALSE;
+  }
 
   //----------------------------------------------------------------------------
   //

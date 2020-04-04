@@ -682,6 +682,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
 
         INSERT [ id               := id
                , contentmode      := addroot.contentmode
+               , contentshandler  := 0
                , name             := GetTid(addroot.title)
                , isfolder         := TRUE
                , filterscreen     := addroot.filterscreen

@@ -152,6 +152,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichObjectListing(OBJECT tolliumuser, RECORD ARRA
                   , isvirtual :=    id <= 0
                   , pvt_iconname
                   , modulekey
+                  , contentshandler
                FROM objects;
 
   // Add tollium-specific extra fields (e.g. icons)
@@ -205,6 +206,7 @@ PUBLIC RECORD ARRAY FUNCTION GetInnerObjectListing(OBJECT tolliumuser, INTEGER p
                                , filterscreen := ""
                                , pvt_iconname := ""
                                , modulekey := ""
+                               , contentshandler := 0
                             FROM system.fs_objects
                            WHERE (listspecificobjects ? id IN getobjects : parent = parentfolder)
                                  AND (showfolders = TRUE AND showfiles = FALSE ? isfolder = TRUE : TRUE)
@@ -342,6 +344,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
               , extension := DEFAULT OBJECT
               , contentmode := ""
               , tag := ""
+              , contentshandler := contentshandler->rootid
            FROM objects
           WHERE id < 0)
         CONCAT
@@ -363,6 +366,7 @@ PUBLIC OBJECTTYPE FSObjectOverviewBase EXTEND TolliumFragmentBase
                , extension := DEFAULT OBJECT
                , contentmode := ""
                , tag := ""
+               , contentshandler := contentshandler->rootid
             FROM system.fs_objects
            WHERE id IN fsobjectids);
 
