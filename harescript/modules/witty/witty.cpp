@@ -1526,15 +1526,16 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedPart::SM_PrintCell(WittyExe
                 {
                         HSVM_VariableId temp = HSVM_AllocateVariable(hsvm);
                         HareScript::JHSONEncode(hsvm, var, temp, false);
+                        if(!HSVM_IsUnwinding(hsvm)) //check if JHSONEncode failed
+                        {
+                                Blex::StringPair data;
+                                HSVM_StringGet(hsvm, temp, &data.begin, &data.end);
 
-                        Blex::StringPair data;
-                        HSVM_StringGet(hsvm, temp, &data.begin, &data.end);
-
-                        if(encoding==CE_Json)
-                                wes->PrintEncoded(data, CE_None);
-                        else
-                                wes->PrintEncoded(data, CE_Value);
-
+                                if(encoding==CE_Json)
+                                        wes->PrintEncoded(data, CE_None);
+                                else
+                                        wes->PrintEncoded(data, CE_Value);
+                        }
                         HSVM_DeallocateVariable(hsvm, temp);
                         return std::make_pair(true, true);
                 }
