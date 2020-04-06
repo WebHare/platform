@@ -1257,7 +1257,7 @@
       </textgroup>
       <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
         <text tid="confirmcleanupresolved">Weet u zeker dat u alle opgeloste onderdelen wilt verwijderen?</text>
-        <text tid="confirmdeleteworklists">Weet u zeker dat u de geselecteerde werklijst(en) wilt verwijderen ?</text>
+        <text tid="confirmdeleteworklists">Weet u zeker dat u de geselecteerde werklijst(en) wilt verwijderen?</text>
         <text tid="confirmresolveitems">Weet u zeker dat u <ifparam p="1" value="1">dit onderdeel<else/>deze <param p="1"/> onderdelen</ifparam> als opgelost wilt markeren?</text>
       </textgroup>
     </textgroup>
