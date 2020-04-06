@@ -684,6 +684,8 @@ MACRO WittyEncoding()
   TestEq('Test: "42"', CaptureWTE(scriptid,[ test := "42" ]));
   TestEq('Test: {"x":42}', CaptureWTE(scriptid,[ test := [ x := 42 ]]));
   TestEq('Test: {"x":"42"}', CaptureWTE(scriptid,[ test := [ x := "42" ]]));
+  TestThrowsLike("Cannot encode*", PTR CaptureWTE(scriptid,[ test := [ x := DEFAULT FUNCTION PTR ]]));
+  TestThrowsLike("Cannot encode*", PTR CaptureWTE(scriptid,[ test := [ x := DEFAULT OBJECT ]]));
 
   scriptid := ParseWitty("Test: [test:jsonvalue]", "HTML");
   TestEq(EncodeValue('Test: 42'), CaptureWTE(scriptid,[ test := 42 ]));

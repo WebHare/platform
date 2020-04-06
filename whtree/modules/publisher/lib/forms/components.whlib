@@ -311,7 +311,7 @@ PUBLIC OBJECTTYPE FormFieldBase
   {
     RECORD fld := this->field;
     IF(NOT CellExists(fld,'firstid'))
-      INSERT CELL firstid := this->form->formidprefix || fld.name INTO fld;
+      INSERT CELL firstid := this->form->formidprefix != "" ? this->form->formidprefix || fld.name : "" INTO fld;
 
     FOREVERY(STRING upd FROM ["placeholder","prefix","suffix"])
       IF(CellExists(fld,upd))

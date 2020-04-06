@@ -218,7 +218,7 @@ PUBLIC OBJECTTYPE FormBase
   /// Applytester for the form
   PUBLIC PROPERTY formapplytester(this->__form.applytester, -);
 
-  /// prefix for ids
+  /// prefix for ids. clear to disable ids
   PUBLIC STRING formidprefix;
 
   /// URL for the the form
