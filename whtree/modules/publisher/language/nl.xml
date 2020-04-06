@@ -2271,7 +2271,7 @@
           <text tid="fileformat-zip">ZIP bestand - bevat alleen bestanden die op uw computer kunnen worden geopend, zoals Word of PDF bestanden.</text>
           <text tid="filename">Bestandsnaam</text>
           <text tid="notrecursive">Voeg alleen bestanden toe die direct in de gekozen map(pen) staan.</text>
-          <text tid="pleaseselectfolder">Selecteer alstublieft een map waar het archief in geplaatst moet worden.</text>
+          <text tid="nowriteaccess">U heeft geen schrijftoegang tot de gekozen map</text>
           <text tid="recursive">Voeg alle submappen van de geselecteerde map(pen) recursief toe.</text>
           <text tid="savefile">Plaats het archief in de map:</text>
           <text tid="subfolders">Onderliggende mappen</text>

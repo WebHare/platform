@@ -19,7 +19,7 @@
       <heading tid=".fileaction" />
       <select type="radio" name="fileaction" onchange="onfileactionchange" title="">
         <option rowkey="savefile" tid=".savefile">
-          <publisher:browseforobject name="savelocation" title="" acceptfiles="false" showclear="false" />
+          <publisher:browseforobject name="savelocation" title="" acceptfiles="false" showclear="false" required="true" />
         </option>
         <option rowkey="downloadfile" tid=".downloadfile" />
       </select>

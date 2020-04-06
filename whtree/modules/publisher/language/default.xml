@@ -2271,7 +2271,7 @@
           <text tid="fileformat-zip">ZIP file - only contains files that are editable on your computer, like Word and PDF files.</text>
           <text tid="filename">File name</text>
           <text tid="notrecursive">Only add files placed directly in the selected folder(s).</text>
-          <text tid="pleaseselectfolder">Please select a folder to place the archive in.</text>
+          <text tid="nowriteaccess">You do not have write access to the specified folder</text>
           <text tid="recursive">Include all subfolders from the selected folder(s) recursively.</text>
           <text tid="savefile">Place the archive in folder:</text>
           <text tid="subfolders">Subfolders</text>

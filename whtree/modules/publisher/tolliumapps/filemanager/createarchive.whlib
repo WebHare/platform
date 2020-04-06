@@ -144,8 +144,8 @@ PUBLIC OBJECTTYPE CreateArchiveFile EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-    IF (^fileaction->value = "savefile" AND this->savelocation->value = 0)
-      work->AddError(this->GetTid(".pleaseselectfolder"));
+    IF (^fileaction->value = "savefile" AND NOT this->contexts->user->HasRightOn("system:fs_fullaccess", ^savelocation->value))
+      work->AddErrorFor(^savelocation, this->GetTid(".nowriteaccess"));
     IF (NOT work->Finish())
       RETURN FALSE;
 
