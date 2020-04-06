@@ -2,75 +2,8 @@
 
 LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 
-PUBLIC OBJECTTYPE BackgroundArchiver EXTEND TolliumBackgroundTask
-< RECORD data;
-
-  MACRO Init(RECORD data)
-  {
-    this->status_freq_limit := 0; //Work around not updating the filename when packing really big files. ADDME get progress updates during AddFile for large files
-    this->data := data;
-  }
-
-  MACRO OnStatusUpdate(FLOAT progress, STRING file)
-  {
-    IF (UCLength(file) > 35)
-      file := UCLeft(file, 16) || "..." || UCRight(file, 16);
-
-    this->status := [ progress := progress * 0.95, status := GetTid("publisher:backgroundtasks.common.file") || file ];
-  }
-
-  MACRO Run()
-  {
-    OBJECT work := this->BeginWork(); //this work is here only to guarantee a consistent view
-
-    this->status := [ progress := 0, status := GetTid("publisher:backgroundtasks.archiver.gatheringfiles") ];
-
-
-    OBJECT source := OpenWHFSObject(this->data.folder);
-    OBJECT exportsource := source->isfolder ? source : source->parentobject;
-    RECORD exportopts := [ recursive := this->data.recursive
-                         , initialname := source->isfolder ? this->data.name : ""
-                         , onprogress := PTR this->OnStatusUpdate
-                         , withmetadata := this->data.withmetadata
-                         ];
-    IF(NOT source->isfolder)
-      exportopts := CELL[ ...exportopts, limitobjects := INTEGER[ source->id ] ];
-
-    RECORD exportresult := exportsource->ExportFolder(exportopts);
-    work->Cancel();
-
-    this->status := [ progress := 95, status := GetTid("publisher:backgroundtasks.archiver.storingarchive") ];
-
-    work := this->BeginWork();
-
-    INTEGER fileid;
-    IF (this->data.storeparent > 0)
-    {
-      OBJECT destfolder := OpenWHFSObject(this->data.storeparent);
-      OBJECT upl := destfolder->CreateFile( [ name := destfolder->GenerateUniqueName(this->data.storename), data := exportresult.files[0].data, publish := FALSE ]);
-      fileid := upl->id;
-    }
-
-    IF (work->Finish())
-    {
-      this->result :=
-          [ status := "ok"
-          , archiveid := fileid
-          , archivedata := fileid = 0 ? exportresult.files[0].data : DEFAULT BLOB
-          ];
-    }
-    ELSE
-    {
-      this->result :=
-          [ status := "fail"
-          , errors := work->errors
-          ];
-    }
-  }
->;
 PUBLIC OBJECTTYPE ScheduleRepublishTask EXTEND TolliumBackgroundTask
 <
   STRING mask;

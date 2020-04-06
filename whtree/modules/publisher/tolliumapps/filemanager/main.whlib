@@ -1329,8 +1329,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO CreateTheArchive(RECORD selection)
   {
-    INTEGER savelocation;
-    OBJECT screen := this->LoadScreen("filemgrdialogs.createarchivefile",
+    OBJECT screen := this->LoadScreen("createarchive.xml#createarchivefile",
           [ /*fs_objects   := ^filelist->selection
           , */folder       := selection
           , savelocation := (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection.id) // If 0
