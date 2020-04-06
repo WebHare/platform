@@ -3,12 +3,9 @@
   <textgroup gid="backgroundtasks">   <!-- backgroundtasks -->
     <textgroup gid="archiver">   <!-- backgroundtasks.archiver -->
       <text tid="archivecorrupt">Kan dit archief niet uitpakken, het is waarschijnlijk corrupt of gedeeltelijk afgebroken.</text>
-      <text tid="gatheringfiles">Bestanden verzamelen</text>
       <text tid="importingfiles">Bestanden importeren</text>
-      <text tid="storingarchive">Archief opslaan</text>
     </textgroup>
     <textgroup gid="common">   <!-- backgroundtasks.common -->
-      <text tid="file">Bestand: <param p="1"/></text>
       <text tid="unpacking">Uitpakken: <param p="1"/></text>
     </textgroup>
     <textgroup gid="schedulerepublishtask">   <!-- backgroundtasks.schedulerepublishtask -->
@@ -1264,24 +1261,7 @@
   </textgroup>
   <textgroup gid="filemgrdialogs">   <!-- filemgrdialogs -->
     <textgroup gid="createarchive">   <!-- filemgrdialogs.createarchive -->
-      <text tid="archiveprogresstitle">Archief '<param p="1"/>' aanmaken</text>
-      <text tid="archivepropertiespanel">Archiefinstellingen</text>
-      <text tid="createarchivefileprogress">Archief aanmaken</text>
-      <text tid="downloadfile">Download het archief naar mijn computer.</text>
       <text tid="extractprogresstitle">Archief '<param p="1"/>' uitpakken</text>
-      <text tid="file">Bestand</text>
-      <text tid="fileaction">Locatie</text>
-      <text tid="fileformat">Bestandsformaat</text>
-      <text tid="fileformat-webhare">WebHare archief - voor backups of overzetten tussen WebHare servers. Uit te pakken door een systeembeheerder.</text>
-      <text tid="fileformat-zip">ZIP bestand - bevat alleen bestanden die op uw computer kunnen worden geopend, zoals Word of PDF bestanden.</text>
-      <text tid="filename">Bestandsnaam</text>
-      <text tid="notrecursive">Voeg alleen bestanden toe die direct in de gekozen map(pen) staan.</text>
-      <text tid="packoptions">Inpakopties</text>
-      <text tid="pleaseselectfolder">Selecteer alstublieft een map waar het archief in geplaatst moet worden.</text>
-      <text tid="recursive">Voeg alle submappen van de geselecteerde map(pen) recursief toe.</text>
-      <text tid="savefile">Plaats het archief in de map:</text>
-      <text tid="subfolders">Onderliggende mappen</text>
-      <text tid="windowtitle">Archief aanmaken van '<param p="1"/>'</text>
     </textgroup>
     <textgroup gid="failedpublish">   <!-- filemgrdialogs.failedpublish -->
       <text tid="col">Kol</text>
@@ -2276,6 +2256,28 @@
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
+      <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->
+        <textgroup gid="bgtask">   <!-- tolliumapps.filemanager.createarchive.bgtask -->
+          <text tid="file">Bestand: <param p="1"/></text>
+          <text tid="gatheringfiles">Bestanden verzamelen</text>
+          <text tid="storingarchive">Archief opslaan</text>
+        </textgroup>
+        <textgroup gid="dialog">   <!-- tolliumapps.filemanager.createarchive.dialog -->
+          <text tid="archiveprogresstitle">Archief '<param p="1"/>' aanmaken</text>
+          <text tid="downloadfile">Download het archief naar mijn computer.</text>
+          <text tid="fileaction">Locatie</text>
+          <text tid="fileformat">Bestandsformaat</text>
+          <text tid="fileformat-webhare">WebHare archief - voor backups of overzetten tussen WebHare servers. Uit te pakken door een systeembeheerder.</text>
+          <text tid="fileformat-zip">ZIP bestand - bevat alleen bestanden die op uw computer kunnen worden geopend, zoals Word of PDF bestanden.</text>
+          <text tid="filename">Bestandsnaam</text>
+          <text tid="notrecursive">Voeg alleen bestanden toe die direct in de gekozen map(pen) staan.</text>
+          <text tid="pleaseselectfolder">Selecteer alstublieft een map waar het archief in geplaatst moet worden.</text>
+          <text tid="recursive">Voeg alle submappen van de geselecteerde map(pen) recursief toe.</text>
+          <text tid="savefile">Plaats het archief in de map:</text>
+          <text tid="subfolders">Onderliggende mappen</text>
+          <text tid="windowtitle">Archief aanmaken van '<param p="1"/>'</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Gesynchroniseerde map</text>
         <text tid="externalfoldersadded">Externe mappen toegevoegd</text>

@@ -26,14 +26,14 @@ PUBLIC OBJECTTYPE BackgroundArchiver EXTEND TolliumBackgroundTask
     IF (UCLength(file) > 35)
       file := UCLeft(file, 16) || "..." || UCRight(file, 16);
 
-    this->status := [ progress := progress * 0.95, status := GetTid("publisher:backgroundtasks.common.file") || file ];
+    this->status := [ progress := progress * 0.95, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.file") || file ];
   }
 
   MACRO Run()
   {
     OBJECT work := this->BeginWork(); //this work is here only to guarantee a consistent view
 
-    this->status := [ progress := 0, status := GetTid("publisher:backgroundtasks.archiver.gatheringfiles") ];
+    this->status := [ progress := 0, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.gatheringfiles") ];
 
 
     OBJECT source := OpenWHFSObject(this->data.folder);
@@ -49,7 +49,7 @@ PUBLIC OBJECTTYPE BackgroundArchiver EXTEND TolliumBackgroundTask
     RECORD exportresult := exportsource->ExportFolder(exportopts);
     work->Cancel();
 
-    this->status := [ progress := 95, status := GetTid("publisher:backgroundtasks.archiver.storingarchive") ];
+    this->status := [ progress := 95, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.storingarchive") ];
 
     work := this->BeginWork();
 

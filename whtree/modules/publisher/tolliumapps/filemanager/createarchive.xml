@@ -1,10 +1,10 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          library="createarchive.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         gid="filemgrdialogs"
+         gid="tolliumapps.filemanager.createarchive"
          >
 
-  <screen name="createarchivefile" gid=".createarchive" title="">
+  <screen name="createarchivefile" gid=".dialog" title="">
     <body layout="left">
       <heading tid=".fileformat" />
       <select type="radio" name="fileformat" onchange="onfileformatchange" title="">
