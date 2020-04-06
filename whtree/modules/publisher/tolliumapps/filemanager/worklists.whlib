@@ -249,6 +249,17 @@ PUBLIC STATIC OBJECTTYPE WorkListsContents EXTEND ContentsHandlerBase
         ];
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION RunDeleteDialog(OBJECT parentscreen, RECORD ARRAY selection)
+  {
+    IF(parentscreen->RunSimpleScreen("confirm", GetTid("publisher:filemanager.worklists.messages.confirmdeleteworklists")) != "yes")
+      RETURN FALSE;
+
+    OBJECT work := parentscreen->BeginUnvalidatedWork();
+    FOREVERY(RECORD list FROM selection)
+      this->api->DeleteWorkList(list.custom_listid);
+
+    RETURN work->Finish();
+  }
 
   //----------------------------------------------------------------------------
   //

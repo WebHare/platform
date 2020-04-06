@@ -190,7 +190,20 @@ ASYNC MACRO TestEvents()
   TestEq(1, Length(TT("filelist")->rows));
   TestEq(TRUE, RecordExists(SELECT FROM TT("filelist")->rows WHERE id = workfile2->id AND custom_listid = testworklistid));
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  // Delete the worklist through foldertree, check that we get to the right handler. Don't delete yet...
+  AWAIT ExpectAndAnswerMessageBox("No", PTR TTClick("editmenu->:Delete", [ menuitem := TRUE ]), [ messagemask := "*delete*worklist*" ]);
+
+  // Delete the worklist through the filelist
+  TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "Work lists";
+  TestEQ(TRUE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Test Work List"));
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "Test Work List";
+  topscreen->frame->focused := TT("filelist");
+  AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick("editmenu->:Delete", [ menuitem := TRUE ]), [ messagemask := "*delete*worklist*" ]);
+
+  TestEQ(FALSE, RecordExists(SELECT FROM TT("filelist")->rows WHERE name = "Test Work List"));
+  TestEQ(FALSE, RecordExists(SELECT FROM TT("foldertree")->rows WHERE name = "Test Work List"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestFrameworK([ PTR Setup

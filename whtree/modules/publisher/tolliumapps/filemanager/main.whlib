@@ -1710,13 +1710,26 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoDeleteTree()
   {
     RECORD newselection := ^foldertree->GetParentRow(^foldertree->value);
-    IF (RunDeleteFSObjectsDialog(this, INTEGER[ ^foldertree->value ]))
+    IF (this->HandleDeletion(RECORD[ ^foldertree->selection ]))
       ^foldertree->selection := newselection;
   }
 
   MACRO DoDeleteList()
   {
-    RunDeleteFSObjectsDialog(this, SELECT AS INTEGER ARRAY id FROM ^filelist->selection);
+    this->HandleDeletion(^filelist->selection);
+  }
+
+  BOOLEAN FUNCTION HandleDeletion(RECORD ARRAY selection)
+  {
+    INTEGER handler := SELECT AS INTEGER contentshandler FROM selection;
+    //don't mix&match, though that shouldn't happen?
+    selection := SELECT * FROM selection WHERE contentshandler = handler;
+
+    IF(handler = 0)
+      RETURN RunDeleteFSObjectsDialog(this, SELECT AS INTEGER ARRAY id FROM selection);
+
+    OBJECT contentshandler := this->contexts->^__contentshandlercontext->GetContentsHandler(handler);
+    RETURN contentshandler->RunDeleteDialog(this, selection);
   }
 
   /// Download the currently selected file

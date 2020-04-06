@@ -1257,6 +1257,7 @@
       </textgroup>
       <textgroup gid="messages">   <!-- filemanager.worklists.messages -->
         <text tid="confirmcleanupresolved">Are you sure you want to delete all resolved items?</text>
+        <text tid="confirmdeleteworklists">Are you sure you want to delete the selected worklist(s)?</text>
         <text tid="confirmresolveitems">Are you sure you want to mark <ifparam p="1" value="1">this item<else/>these <param p="1"/> items</ifparam> as resolved?</text>
       </textgroup>
     </textgroup>
