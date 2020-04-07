@@ -6,7 +6,7 @@
     <description>[description]</description>
     <packaging download="true" requireversion="42700">
     </packaging>
-    <validation options="nowarnings" syntaxlevel="2020">
+    <validation options="nowarnings">
     </validation>
   </meta>
 

@@ -319,19 +319,13 @@ MACRO TestBasicValidate()
 
   res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
                                                                 , onlytids := TRUE
-                                                                , syntaxlevel := ""
                                                                 ]);
 
   TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
   TestEq([[ attrname := "tid",    col := 0, line := 4, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode-filesandfolders" ]
          ], res.tids);
-
-  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
-                                                                , onlytids := TRUE
-                                                                , syntaxlevel := "2020"
-                                                                ]);
-  TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.errors);
+  TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.hints);
 
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := optiontidssynthesis
@@ -405,7 +399,7 @@ MACRO TestValidateWitty()
          ], SELECT col, line, message FROM res.errors ORDER BY line,col,message)  ;
 }
 
-MACRO TestValidateNext()
+MACRO TestValidateModuleDef()
 {
   BLOB moduledef_next := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -415,12 +409,12 @@ MACRO TestValidateNext()
     <services><webservice name="accountapi" library="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib" transports="jsonrpc"><accesscheck /></webservice></services>
   </module>`);
 
-  RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next, syntaxlevel := "next" ]);
+  RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := moduledef_next ]);
   //DumpValue(res.errors);
   TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
-         ,[ line := 5, message := "<wrdschema xmlns=\"http://www.webhare.net/xmlns/wrd/schemadefinition\"> have been deprecated, drop the xmlns" ]
-         ,[ line := 6, message := 'A webservice should define a prefix= to prevent accidental exports (eg prefix=\"RPC_\")' ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.hints ORDER BY line,message)  ;
+  TestEq([[ line := 6, message := 'A webservice should define a prefix= to prevent accidental exports (eg prefix=\"RPC_\")' ]
+         ], SELECT line, message FROM res.warnings ORDER BY line,message)  ;
 }
 
 MACRO TestTidScan()
@@ -800,7 +794,7 @@ ASYNC MACRO TestLoadScreen()
 
 RunTestFramework([ PTR TestBasicValidate
                  , PTR TestValidateWitty
-                 , PTR TestValidateNext
+                 , PTR TestValidateModuleDef
                  , PTR TestValidateSVG
                  , PTR TestValidateForm
                  , PTR TestTidScan

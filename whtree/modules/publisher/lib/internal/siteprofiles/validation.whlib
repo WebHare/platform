@@ -37,12 +37,10 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
     RECORD parseres := ParseSiteProfile(this->respath, [ xmldoc := this->xml ]); //ADDME forwards XSD?
     this->errors := this->errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
     this->warnings := this->warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
-    IF(this->syntaxlevel_2020)
-    {
-      FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
-        this->AddError(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
-      FOREVERY(OBJECT embeddedobjecttype FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","embeddedobjecttype"))
-        this->AddError(embeddedobjecttype, "<embeddedobjecttype>s should be replaced by widgettypes");
-    }
+
+    FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
+      this->AddHint(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
+    FOREVERY(OBJECT embeddedobjecttype FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","embeddedobjecttype"))
+      this->AddHint(embeddedobjecttype, "<embeddedobjecttype>s should be replaced by widgettypes");
   }
 >;

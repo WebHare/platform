@@ -10,7 +10,7 @@ configuration process.
 Eg:
 ```xml
   <meta>
-    <validation options="nowarnings" syntaxlevel="2020"/>
+    <validation options="nowarnings" >
     <exclude mask="data/siteprofile_newsletter.xsd" why="Not understood by WebHare" />
   </meta>
 ```
@@ -24,4 +24,3 @@ Options to tune the validation/CI process:
 completely from validation The `why` attribute is required to explain why this file is being excluded.
 Note that excluded files are also excluded from the language's editor tid scan.
 
-`syntaxlevel="2020"` marks use of some deprecated constructs (since at least before 2020/4.27) as errors

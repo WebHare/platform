@@ -338,7 +338,6 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     @cell(boolean) options.nowarnings  @includecelldef #GetModuleValidationConfig.return.nowarnings
     @cell(boolean) options.documentation  @includecelldef #GetModuleValidationConfig.return.documentation
     @cell(string array) options.eslintmasks  @includecelldef #GetModuleValidationConfig.return.eslintmasks
-    @cell(string) options.syntaxlevel  @includecelldef #GetModuleValidationConfig.return.syntaxlevel
     @return Validation results
     @cell(record array) return.hints List of hints
     @cell(string) return.hints.resourcename Resource name for this message
