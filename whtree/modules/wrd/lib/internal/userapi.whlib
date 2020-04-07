@@ -610,7 +610,30 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichUsers("GRANTEE", rolegrants, [ celltype := "authobjectid" ]);
   }
 
-  /** @short Set the members of a role, removing all unmentioned members
+  PUBLIC INTEGER ARRAY FUNCTION __GetRoleEntityIdsGrantedToUser(INTEGER user_authobjectid)
+  {
+    RECORD ARRAY rolegrants :=
+       SELECT DISTINCT COLUMN role
+         FROM system.rolegrants
+        WHERE COLUMN grantee = user_authobjectid;
+
+    RETURN SELECT AS INTEGER ARRAY entityid FROM this->EnrichRoles("ROLE", rolegrants, [ celltype := "authobjectid" ]);
+  }
+
+  /** @short Get the roles of a user
+      @param user Entity id of the user
+      @return Entity ids of the roles
+  */
+  PUBLIC INTEGER ARRAY FUNCTION GetUserRoles(INTEGER user)
+  {
+    STRING userguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = user;
+    INTEGER userauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid = userguid;
+    IF(userauthobjectid = 0)
+      THROW NEW Exception("No authobject for user #" || user);
+    RETURN this->__GetRoleEntityIdsGrantedToUser(userauthobjectid);
+  }
+
+  /** @short Get the members of a role
       @param role Entity id of the role
       @return Entity ids with this role
   */
@@ -618,7 +641,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
   {
     STRING roleguid := SELECT AS STRING EncodeWRDGUID(guid) FROM wrd.entities WHERE id = role;
     INTEGER roleauthobjectid := SELECT AS INTEGER id FROM system.authobjects WHERE guid=roleguid;
-    IF(roleauthobjectid=0)
+    IF(roleauthobjectid = 0)
       THROW NEW Exception("No authobject for role #" || role);
     RETURN this->__GetRoleMembersByAuthObjectId(roleauthobjectid);
   }
