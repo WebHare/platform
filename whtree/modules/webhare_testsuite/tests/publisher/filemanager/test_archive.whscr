@@ -1,0 +1,53 @@
+<?wh
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO PrepIt()
+{
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), OpenTestsuiteSite()->rootobject->id, FALSE, TRUE);
+  testfw->CommitWork();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// ObjectProps
+//
+ASYNC MACRO CreateArchiveAsReadonly()
+{
+  testfw->SetTestUser("lisa");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
+  TT("foldertree")->value := OpenTestsuiteSite()->id;
+  TT("frame")->focused := TT("foldertree");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("createarchive"));
+  TestEq("downloadfile", TT("fileaction")->value); //should default to download as we have no write access here
+  TT("fileaction")->value := "savefile";
+  TT("savelocation")->value := GetTestsuiteTempFolder()->id;
+
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*no**write access*" ]);
+
+  TT("fileaction")->value := "downloadfile";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  AWAIT ExpectScreenChange(+1, DEFAULT FUNCTION PTR); //download dialog!
+  RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("download"))).file;
+  TestEq(TRUE, RECORDExists(download));
+
+  AWAIT ExpectScreenChange(-2, DEFAULT MACRO PTR); //download and createarchive screens closing
+  AWAIT ExpectScreenChange(-1, PTR TTescape); //close filemgr
+}
+
+RunTestframework([ PTR PRepIt
+                 , PTR CreateArchiveAsReadonly
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "lisa" ]
+                                   ]]);
