@@ -3,12 +3,9 @@
   <textgroup gid="backgroundtasks" limitlanguages="en nl">   <!-- backgroundtasks -->
     <textgroup gid="archiver">   <!-- backgroundtasks.archiver -->
       <text tid="archivecorrupt">Cannot unpack this archive; it is corrupt or truncated.</text>
-      <text tid="gatheringfiles">Gathering files</text>
       <text tid="importingfiles">Importing files</text>
-      <text tid="storingarchive">Storing archive</text>
     </textgroup>
     <textgroup gid="common">   <!-- backgroundtasks.common -->
-      <text tid="file">File: <param p="1"/></text>
       <text tid="unpacking">Unpacking: <param p="1"/></text>
     </textgroup>
     <textgroup gid="schedulerepublishtask">   <!-- backgroundtasks.schedulerepublishtask -->
@@ -1264,24 +1261,7 @@
   </textgroup>
   <textgroup gid="filemgrdialogs" limitlanguages="en nl">   <!-- filemgrdialogs -->
     <textgroup gid="createarchive">   <!-- filemgrdialogs.createarchive -->
-      <text tid="archiveprogresstitle">Creating archive '<param p="1"/>'</text>
-      <text tid="archivepropertiespanel">Archive settings</text>
-      <text tid="createarchivefileprogress">Creating archive</text>
-      <text tid="downloadfile">Download the archive to my computer.</text>
       <text tid="extractprogresstitle">Extracting archive '<param p="1"/>'</text>
-      <text tid="file">File</text>
-      <text tid="fileaction">Location</text>
-      <text tid="fileformat">File format</text>
-      <text tid="fileformat-webhare">WebHare archive - for backups and for moving between WebHare installations. Can be extracted by a system administrator.</text>
-      <text tid="fileformat-zip">ZIP file - only contains files that are editable on your computer, like Word and PDF files.</text>
-      <text tid="filename">File name</text>
-      <text tid="notrecursive">Only add files placed directly in the selected folder(s).</text>
-      <text tid="packoptions">Packing options</text>
-      <text tid="pleaseselectfolder">Please select a folder to place the archive in.</text>
-      <text tid="recursive">Include all subfolders from the selected folder(s) recursively.</text>
-      <text tid="savefile">Place the archive in folder:</text>
-      <text tid="subfolders">Subfolders</text>
-      <text tid="windowtitle">Create archive of '<param p="1"/>'</text>
     </textgroup>
     <textgroup gid="failedpublish">   <!-- filemgrdialogs.failedpublish -->
       <text tid="col">Col</text>
@@ -2276,6 +2256,28 @@
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
+      <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->
+        <textgroup gid="bgtask">   <!-- tolliumapps.filemanager.createarchive.bgtask -->
+          <text tid="file">File: <param p="1"/></text>
+          <text tid="gatheringfiles">Gathering files</text>
+          <text tid="storingarchive">Storing archive</text>
+        </textgroup>
+        <textgroup gid="dialog">   <!-- tolliumapps.filemanager.createarchive.dialog -->
+          <text tid="archiveprogresstitle">Creating archive '<param p="1"/>'</text>
+          <text tid="downloadfile">Download the archive to my computer.</text>
+          <text tid="fileaction">Location</text>
+          <text tid="fileformat">File format</text>
+          <text tid="fileformat-webhare">WebHare archive - for backups and for moving between WebHare installations. Can be extracted by a system administrator.</text>
+          <text tid="fileformat-zip">ZIP file - only contains files that are editable on your computer, like Word and PDF files.</text>
+          <text tid="filename">File name</text>
+          <text tid="notrecursive">Only add files placed directly in the selected folder(s).</text>
+          <text tid="nowriteaccess">You do not have write access to the specified folder</text>
+          <text tid="recursive">Include all subfolders from the selected folder(s) recursively.</text>
+          <text tid="savefile">Place the archive in folder:</text>
+          <text tid="subfolders">Subfolders</text>
+          <text tid="windowtitle">Create archive of '<param p="1"/>'</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Synchronized folder</text>
         <text tid="externalfoldersadded">External folders added</text>

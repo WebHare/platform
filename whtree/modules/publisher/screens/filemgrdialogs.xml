@@ -85,33 +85,6 @@
     </footer>
   </screen>
 
-  <screen name="createarchivefile" gid=".createarchive" title="">
-    <body layout="left">
-      <heading tid=".fileformat" />
-      <select type="radio" name="fileformat" onchange="onfileformatchange" title="">
-        <option rowkey="zip" />
-        <option rowkey="webhare" />
-      </select>
-      <heading name="subfolders" />
-      <select type="radio" rowkeytype="boolean" name="recursive" visible="false"  title="" >
-        <option rowkey="true" tid=".recursive"/>
-        <option rowkey="false" tid=".notrecursive"/>
-      </select>
-      <heading tid=".fileaction" />
-      <select type="radio" name="fileaction" onchange="onfileactionchange" title="">
-        <option rowkey="savefile" tid=".savefile">
-          <publisher:browseforobject name="savelocation" title="" acceptfiles="false" showclear="false" />
-        </option>
-        <option rowkey="downloadfile" tid=".downloadfile" />
-      </select>
-      <textedit name="filename" required="true" width="1pr" />
-
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
   <screen name="failedpublish" gid=".failedpublish"
           allowresize="true" savestate="size">
     <compositions>

@@ -1,0 +1,186 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+
+LOADLIB "mod::tollium/lib/backgroundtask.whlib";
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC OBJECTTYPE BackgroundArchiver EXTEND TolliumBackgroundTask
+< RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->status_freq_limit := 0; //Work around not updating the filename when packing really big files. ADDME get progress updates during AddFile for large files
+    this->data := data;
+  }
+
+  MACRO OnStatusUpdate(FLOAT progress, STRING file)
+  {
+    IF (UCLength(file) > 35)
+      file := UCLeft(file, 16) || "..." || UCRight(file, 16);
+
+    this->status := [ progress := progress * 0.95, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.file") || file ];
+  }
+
+  MACRO Run()
+  {
+    OBJECT work := this->BeginWork(); //this work is here only to guarantee a consistent view
+
+    this->status := [ progress := 0, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.gatheringfiles") ];
+
+
+    OBJECT source := OpenWHFSObject(this->data.folder);
+    OBJECT exportsource := source->isfolder ? source : source->parentobject;
+    RECORD exportopts := [ recursive := this->data.recursive
+                         , initialname := source->isfolder ? this->data.name : ""
+                         , onprogress := PTR this->OnStatusUpdate
+                         , withmetadata := this->data.withmetadata
+                         ];
+    IF(NOT source->isfolder)
+      exportopts := CELL[ ...exportopts, limitobjects := INTEGER[ source->id ] ];
+
+    RECORD exportresult := exportsource->ExportFolder(exportopts);
+    work->Cancel();
+
+    this->status := [ progress := 95, status := GetTid("publisher:tolliumapps.filemanager.createarchive.bgtask.storingarchive") ];
+
+    work := this->BeginWork();
+
+    INTEGER fileid;
+    IF (this->data.storeparent > 0)
+    {
+      OBJECT destfolder := OpenWHFSObject(this->data.storeparent);
+      OBJECT upl := destfolder->CreateFile( [ name := destfolder->GenerateUniqueName(this->data.storename), data := exportresult.files[0].data, publish := FALSE ]);
+      fileid := upl->id;
+    }
+
+    IF (work->Finish())
+    {
+      this->result :=
+          [ status := "ok"
+          , archiveid := fileid
+          , archivedata := fileid = 0 ? exportresult.files[0].data : DEFAULT BLOB
+          ];
+    }
+    ELSE
+    {
+      this->result :=
+          [ status := "fail"
+          , errors := work->errors
+          ];
+    }
+  }
+>;
+
+PUBLIC OBJECTTYPE CreateArchiveFile EXTEND TolliumScreenBase
+< OBJECT selecteditem;
+  PUBLIC INTEGER archiveid;
+  OBJECT savefolder;
+
+  STRING suggestlocalname;
+  STRING suggestdownloadname;
+
+  MACRO Init(RECORD data)
+  {
+    this->selecteditem := OpenWHFSObject(data.folder.id);
+    this->subfolders->visible := this->selecteditem->isfolder;
+    this->recursive->visible := this->selecteditem->isfolder;
+
+    this->frame->title := this->GetTid(".windowtitle", this->selecteditem->name);
+    ^fileformat->value := this->contexts->user->GetRegistryKey("publisher.archiving.fileformat", "zip");
+
+    // Set a nice filename
+    STRING suggestname := this->selecteditem->name;
+    RECORD site := SELECT * FROM system.sites WHERE id = this->selecteditem->parentsite;
+    IF (this->selecteditem->parent = 0 AND RecordExists(site))
+      suggestname := site.name;
+
+    IF (NOT IsValidWHFSName(suggestname, FALSE))
+      suggestname := "archive";
+
+    suggestname := suggestname || (^fileformat->value = "webhare" ? ".wharchive" : ".zip");
+
+    IF(RecordExists(site) AND site.root != data.folder.id) //site subfolder
+      this->suggestdownloadname := site.name || " - " || suggestname;
+    ELSE
+      this->suggestdownloadname := suggestname;
+
+    // If we have a savefolder, make the name unique for the savefolder, and set the location
+    this->savefolder := data.savelocation > 0 ? OpenWHFSObject(data.savelocation) : DEFAULT OBJECT;
+    IF (ObjectExists(this->savefolder))
+    {
+      this->savelocation->value := this->savefolder->id;
+      suggestname := this->savefolder->GenerateUniqueName(suggestname, 0);
+    }
+    this->suggestlocalname := suggestname;
+
+    this->filename->value := suggestname;
+    IF (ObjectExists(this->savefolder) AND NOT data.defaulttodownload)
+      ^fileaction->value := "savefile";
+    ELSE
+      ^fileaction->value := "downloadfile";
+  }
+
+  MACRO OnFileActionChange()
+  {
+    IF(this->filename->value IN [this->suggestdownloadname,this->suggestlocalname])
+      this->filename->value := (^fileaction->value = "savefile" ? this->suggestlocalname : this->suggestdownloadname);
+  }
+
+  MACRO OnFileFormatChange()
+  {
+    STRING ext := ^fileformat->value = "webhare" ? ".wharchive" : ".zip";
+    IF(GetExtensionFromPath(^filename->value) IN [".wharchive",".zip"])
+      ^filename->value := GetBasenameFromPath(^filename->value) || ext;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (^fileaction->value = "savefile" AND NOT this->contexts->user->HasRightOn("system:fs_fullaccess", ^savelocation->value))
+      work->AddErrorFor(^savelocation, this->GetTid(".nowriteaccess"));
+    IF (NOT work->Finish())
+      RETURN FALSE;
+
+    this->contexts->user->SetRegistryKey("publisher.archiving.fileformat", ^fileformat->value);
+
+    OBJECT bgtask := CreateProgressDialog(this, Resolve("createarchive.whlib"), "BackgroundArchiver",
+        [ folder :=     this->selecteditem->id
+        , recursive :=  this->recursive->value
+        , name :=       this->selecteditem->name
+
+        , storeparent := ^fileaction->value = "savefile" AND this->savelocation->value > 0 ? this->savelocation->value : 0
+        , storename :=  this->filename->value
+        , withmetadata := ^fileformat->value = "webhare"
+        ]);
+
+    bgtask->title := this->GetTid(".archiveprogresstitle", this->filename->value);
+    STRING result := bgtask->RunModal();
+    IF (result = "cancel")
+      this->tolliumresult := "cancel";
+
+    IF (result != "ok")
+      RETURN FALSE;
+
+    IF (RecordExists(bgtask->result) AND bgtask->result.status = "ok")
+    {
+      this->archiveid := bgtask->result.archiveid;
+      IF (this->archiveid = 0 AND Length(bgtask->result.archivedata) > 0)
+        this->frame->SendFileToUser(bgtask->result.archivedata, "application/zip", this->filename->value, GetCurrentDateTime());
+      RETURN TRUE;
+    }
+    ELSE
+    {
+      RETURN FALSE;
+    }
+
+  }
+>;
+
