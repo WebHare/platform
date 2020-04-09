@@ -211,7 +211,6 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/wittyfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/webfieldsfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile" cloneoncopy="true">
     <member name="original" type="file" />
@@ -600,21 +599,6 @@
       searchcontentprovider="publisher:contentblob"
   />
 
-  <!-- TODO: remove when blexdev_formsapi goes! -->
-  <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/webfieldsfile"
-      webhare_builtintypeid="34"
-      tid="publisher:filetypes.webfieldsfile"
-      tolliumicon="tollium:files/text_xml"
-      extensions=".webfields"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
-      searchcontentprovider="publisher:contentblob"
-  />
-
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/mp3audiofile"
       tid="publisher:filetypes.mp3audiofile"
@@ -829,7 +813,6 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/wittyfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/templatefile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/webfieldsfile" />
     <setobjecteditor name="publisher:texteditor" />
   </apply>
 

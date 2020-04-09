@@ -44,7 +44,6 @@ MACRO InitializeFileTypes()
                             , [ id := 26, namespace := "http://www.webhare.net/xmlns/publisher/wittyfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 28, namespace := "http://www.webhare.net/xmlns/publisher/templatefile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 29, namespace := "http://www.webhare.net/xmlns/publisher/profilefile",  isfoldertype := FALSE, isfiletype := TRUE ]
-                            , [ id := 34, namespace := "http://www.webhare.net/xmlns/publisher/webfieldsfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 35, namespace := "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 36, namespace := "http://www.webhare.net/xmlns/tollium/applicationportal",  isfoldertype := FALSE, isfiletype := TRUE ]
                             //, [ id := 37, namespace := "http://www.webhare.net/xmlns/tollium/frontendapplication",  isfoldertype := FALSE, isfiletype := TRUE ]
