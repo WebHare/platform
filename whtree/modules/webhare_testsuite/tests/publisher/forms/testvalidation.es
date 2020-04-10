@@ -118,6 +118,7 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
       setRequiredFields();
+      let formhandler = FormBase.getForNode(test.qS('#coreform'));
 
       //1 + 3 are now checked
       test.click('#coretest-checkboxes-2'); //adding 2 to the set
@@ -147,6 +148,14 @@ test.registerTests(
       test.click('#coretest-checkboxes-1'); //selecting #3 - now expecting immediate responses
       await test.wait('ui');
       test.eq('Kies minimaal 1 item.', checkboxgroup.querySelector('.wh-form__error').textContent);
+      let result = await formhandler.validate(checkboxgroup);
+      test.eq(checkboxgroup, result.firstfailed);
+      test.true(result.failed.length==1);
+
+      delete checkboxgroup.dataset.whMin; // Removing required number of selected checkboxes
+      result = await formhandler.validate(checkboxgroup);
+      test.eq(null, result.firstfailed);
+      test.true(result.failed.length==0);
 
       test.click('#coretest-checkboxesvisible');
       test.qS('#coreformsubmitresponse').textContent='';

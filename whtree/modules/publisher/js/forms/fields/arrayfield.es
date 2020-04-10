@@ -25,8 +25,6 @@ export default class ArrayField
     this.valueNode = this.node.querySelector(".wh-form__arrayinput");
     this.valueNode.whUseFormGetValue = true;
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
-    this.minRows = parseInt(this.valueNode.dataset.whMin) || 0;
-    this.maxRows = parseInt(this.valueNode.dataset.whMax) || 0;
 
     // Initialize initial value rows
     for (let rownode of this.node.querySelectorAll(".wh-form__arrayrow"))
@@ -136,16 +134,19 @@ export default class ArrayField
 
   _checkValidity()
   {
-    let numRows = this.node.querySelectorAll(".wh-form__arrayrow").length;
-    if (numRows < this.minRows)
-      this.valueNode.setCustomValidity(getTid("publisher:site.forms.commonerrors.minarray", this.minRows));
-    else if (this.maxRows > 0 && numRows > this.maxRows)
-      this.valueNode.setCustomValidity(getTid("publisher:site.forms.commonerrors.maxarray", this.maxRows));
+    const minRows = parseInt(this.valueNode.dataset.whMin) || 0;
+    const maxRows = parseInt(this.valueNode.dataset.whMax) || 0;
+
+    const numRows = this.node.querySelectorAll(".wh-form__arrayrow").length;
+    if (numRows < minRows)
+      this.valueNode.setCustomValidity(getTid("publisher:site.forms.commonerrors.minarray", minRows));
+    else if (maxRows > 0 && numRows > maxRows)
+      this.valueNode.setCustomValidity(getTid("publisher:site.forms.commonerrors.maxarray", maxRows));
     else
       this.valueNode.setCustomValidity("");
 
     // Disable the add button if the maximum number of rows is reached
-    if (this.maxRows > 0 && numRows >= this.maxRows)
+    if (maxRows > 0 && numRows >= maxRows)
       this.node.classList.add("wh-form__array--maxrows");
     else
       this.node.classList.remove("wh-form__array--maxrows");

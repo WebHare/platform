@@ -47,13 +47,17 @@ test.registerTests(
       test.fill('select[name="twolevel.customselect.select"]', "abc");
       test.false(test.qS('*[data-wh-form-group-for="twolevel.textedit"]').classList.contains("wh-form__fieldgroup--hidden"), "custom textedit should now be visible");
 
-      test.false(test.qS('select[name="toggleselectoptions"] option[value="copt3"]').disabled, "ToggleSelectOpt3 should be available");
+      const toggleselectoptions = test.qS('select[name="toggleselectoptions"]');
+      test.false(toggleselectoptions.querySelector('option[value="copt3"]').disabled, "ToggleSelectOpt3 should be available");
+      dompack.changeValue(toggleselectoptions, "copt3");
+      test.eq("copt3", toggleselectoptions.value, "ToggleSelectOpt3 should be selected");
       test.true(test.canClick('input[name="checkboxes"][value="copt3"]'), "CheckBoxOpt3 should be clickable");
       test.click('input[name="checkboxes"][value="copt3"]');
       test.true(test.canClick('input[name="coptsub3"]'), "CheckBoxOpt3 Subfield should be clickable");
 
       test.click('input[name="togglesomeoptions"]');
-      test.true(test.qS('select[name="toggleselectoptions"] option[value="copt3"]').disabled, "ToggleSelectOpt3 should no longer be available");
+      test.true(toggleselectoptions.querySelector('option[value="copt3"]').disabled, "ToggleSelectOpt3 should no longer be available");
+      test.false(toggleselectoptions.value == "copt3", "ToggleSelectOpt3 should no longer be selected");
       test.false(test.canClick('input[name="checkboxes"][value="copt3"]'), "CheckBoxOpt3 should no longer be clickable");
 
       test.false(test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should not be hidden");

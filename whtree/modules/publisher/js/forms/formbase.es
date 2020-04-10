@@ -687,20 +687,22 @@ export default class FormBase
 
     for(let option of dompack.qSA(this.node, ".wh-form__fieldgroup select > option"))
     {
-      let formgroup = dompack.closest(option, ".wh-form__fieldgroup");
-      let visible = !hiddengroups.includes(formgroup) && this._matchesCondition(option.dataset.whFormVisibleIf);
-      let enabled = visible && enabledgroups.includes(formgroup);
+      let visible = this._matchesCondition(option.dataset.whFormVisibleIf);
 
       //Record initial states
       if (option.propWhFormSavedEnabled === undefined)
         option.propWhFormSavedEnabled = !option.disabled;
 
-      let option_enabled = enabled && option.propWhFormSavedEnabled;
+      let option_enabled = visible && option.propWhFormSavedEnabled;
 
       if(option_enabled !== option.propWhNodeCurrentEnabled)
       {
         option.propWhNodeCurrentEnabled = option_enabled;
         option.disabled = !option_enabled;
+        // If this option was the selected option, but is now disabled, reset the select's value
+        // FIXME option.parentNode will fail with optgroups, but so will this for() loop... formsapi supports <optgroup> but fortunately the formwebtool doesn't expose it yet
+        if (option.disabled && option.selected)
+          option.parentNode.selectedIndex = -1;
 
         if (!isinit && !tovalidate.includes(option.parentNode))
           tovalidate.push(option.parentNode); // to clear errors for this option's select field
