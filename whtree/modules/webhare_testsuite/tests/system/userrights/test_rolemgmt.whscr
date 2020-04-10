@@ -17,6 +17,9 @@ ASYNC MACRO TestAddRoleToUsers()
 
   // Grant to a single user (selecting role)
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="role1";
+  TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
+  TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
+
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Grant to"));
 
   // Test search
@@ -25,6 +28,9 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(["user1@beta.webhare.net"],SELECT AS STRING ARRAY email FROM TT("selectuserrole->unitcontents->userandrolelist")->rows);
   TT("selectuserrole->unitcontents->userandrolelist")->selection := TT("selectuserrole->unitcontents->userandrolelist")->rows;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(INTEGER[testfw->GetUserObject("user1")->entityid], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
+  TestEq(INTEGER[testfw->GetRoleObject("role1")->entityid], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
   TT("userrolerightslist->rightstabs")->selectedtab := TT("userrolerightslist->userstab");
   TestEq(1, Length(TT("userrolerightslist->userlistbyrole")->rows));
