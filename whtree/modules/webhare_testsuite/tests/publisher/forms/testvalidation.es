@@ -118,7 +118,7 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
       setRequiredFields();
-      let formhandler = FormBase.getForNode($qS('#coreform'));
+      let formhandler = FormBase.getForNode(test.qS('#coreform'));
 
       //1 + 3 are now checked
       test.click('#coretest-checkboxes-2'); //adding 2 to the set
