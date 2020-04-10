@@ -11,7 +11,6 @@ PUBLIC RECORD validationoptions := [ perfectcompile := FALSE
                                    , nowarnings := FALSE
                                    , documentation := FALSE
                                    , eslintmasks := STRING[]
-                                   , syntaxlevel := ""
                                    ];
 
 /** Returns the validation configuration for a module
@@ -25,7 +24,6 @@ PUBLIC RECORD validationoptions := [ perfectcompile := FALSE
     @cell(boolean) return.nowarnings Whether to fail validation when any warnings are found
     @cell(boolean) return.documentation Whether to validate documentation
     @cell(string array) return.eslintmasks List of masks for files to validate with eslint
-    @cell(string) return.syntaxlevel Syntax requirements (e.g. 2020)
     @topic testframework/validation
     @public
     @loadlib mod::system/lib/validation.whlib
@@ -52,7 +50,6 @@ PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
     retval.perfectcompile := "perfectcompile" IN options;
     retval.nomissingtids := "nomissingtids" IN options;
     retval.nowarnings := "nowarnings" IN options;
-    retval.syntaxlevel := validation->GetAttribute("syntaxlevel");
 
     FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "exclude")->GetCurrentElements())
     {

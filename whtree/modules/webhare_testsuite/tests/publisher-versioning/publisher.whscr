@@ -1636,6 +1636,7 @@ OBJECT ASYNC FUNCTION PublisherActions()
   topscreen->unpack_options->value := "overwrite";
   AWAIT ExpectScreenChange(+1, PTR topscreen->TolliumExecuteSubmit());
 
+  //FIXME need a nicer way to deal with progress dialogs... both in publisher.whscr and test_archive.whscr tests
   BOOLEAN have_progress := NOT MemberExists(topscreen, "BUTTONMAP"); // Not a messagebox?
   IF (have_progress) // Not a messagebox?
     AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR); // close progress screen, open messagebox

@@ -26,12 +26,6 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   /// Last described library description @includecelldef DescribeCompiledLibrary.return
   RECORD lastlibdescr;
 
-  /// Whether syntaxlevel "2020" is enabled
-  PUBLIC BOOLEAN syntaxlevel_2020;
-
-  /// Whether syntaxlevel "next" is enabled
-  PUBLIC BOOLEAN syntaxlevel_next;
-
   /// Whether only tids should be processed
   PUBLIC BOOLEAN onlytids;
 
@@ -117,20 +111,10 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   /** Add a warning. Depending on validation settings for a module these may turn into errors
       @param linenum Line in the document relevant to the warning
       @param warning Warning message
-      @cell(string) options.failatsyntaxlevel Turn the warning into an error at when this syntax level is enabled.
-          Current values: "2020", "next"
   */
   PUBLIC MACRO AddWarningForLine(INTEGER linenum, STRING warning, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ failatsyntaxlevel := "" ], options);
-    IF( (options.failatsyntaxlevel = "2020" AND this->syntaxlevel_2020)
-        OR
-        (options.failatsyntaxlevel = "next" AND this->syntaxlevel_next))
-    {
-      this->AddErrorForLine(linenum, warning);
-      RETURN;
-    }
-
+    options := ValidateOptions( CELL[], options);
     INSERT [ resourcename :=  this->respath
            , line :=      linenum
            , col :=       0

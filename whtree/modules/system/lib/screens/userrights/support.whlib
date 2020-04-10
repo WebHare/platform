@@ -295,13 +295,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetUsersEntityIdsWithRole(OBJECT authapi, OBJECT r
 
 PUBLIC INTEGER ARRAY FUNCTION GetRoleEntityIdsGrantedToUser(OBJECT authapi, OBJECT user)
 {
-  INTEGER ARRAY authobjectids :=
-     SELECT AS INTEGER ARRAY DISTINCT COLUMN role
-       FROM system.rolegrants
-      WHERE COLUMN grantee = user->authobjectid;
-
-  // FIXME: more efficient?
-  RETURN SELECT AS INTEGER ARRAY obj->entityid FROM ToRecordArray(authapi->GetObjectsByAuthObjectId(authobjectids), "OBJ");
+  RETURN authapi->__GetRoleEntityIdsGrantedToUser(user->authobjectid);
 }
 
 PUBLIC STRING ARRAY FUNCTION GetFieldsFor(STRING ARRAY setfields, STRING type, OBJECT controller)

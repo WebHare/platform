@@ -192,7 +192,6 @@ PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
   {
     CASE "application/x-webhare-wittytemplate"  { RETURN 26; }
     CASE "application/x-webhare-conversionprofile" { RETURN  29; }
-    CASE "application/x-webhare-webfieldsfile"  { RETURN 34; }
     CASE "application/x-webhare-archive"        { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/webharearchivefile"); }
     CASE "application/x-webhare-template"       { RETURN 28; }
     CASE "application/msword"

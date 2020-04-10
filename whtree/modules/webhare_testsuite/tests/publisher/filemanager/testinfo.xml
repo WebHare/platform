@@ -2,4 +2,5 @@
   <test script="test_objectprops.whscr" />
   <test script="test_siteprops.whscr" />
   <test script="test_types.whscr" />
+  <test script="test_archive.whscr" />
 </group>
