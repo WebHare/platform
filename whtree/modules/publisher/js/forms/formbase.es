@@ -702,6 +702,7 @@ export default class FormBase
         option.propWhNodeCurrentEnabled = option_enabled;
         option.disabled = !option_enabled;
         // If this option was the selected option, but is now disabled, reset the select's value
+        // FIXME option.parentNode will fail with optgroups, but so will this for() loop... formsapi supports <optgroup> but fortunately the formwebtool doesn't expose it yet
         if (option.disabled && option.selected)
           option.parentNode.selectedIndex = -1;
 
