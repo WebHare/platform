@@ -687,11 +687,13 @@ export default class FormBase
 
     for(let option of dompack.qSA(this.node, ".wh-form__fieldgroup select > option"))
     {
+      let visible = this._matchesCondition(option.dataset.whFormVisibleIf);
+
       //Record initial states
       if (option.propWhFormSavedEnabled === undefined)
         option.propWhFormSavedEnabled = !option.disabled;
 
-      let option_enabled = option.propWhFormSavedEnabled;
+      let option_enabled = visible && option.propWhFormSavedEnabled;
 
       if(option_enabled !== option.propWhNodeCurrentEnabled)
       {
