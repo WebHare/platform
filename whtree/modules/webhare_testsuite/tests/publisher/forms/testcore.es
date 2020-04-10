@@ -123,7 +123,7 @@ test.registerTests(
         test.true(test.qS('[name=shade2]').disabled, 'should be initially disabled, confused JS code broke that');
 
         let field_pulldowntest_options = field_pulldowntest.querySelectorAll('option');
-        test.true(field_pulldowntest_options[0].selected);
+        test.false(field_pulldowntest_options[0].selected);
         test.true(field_pulldowntest_options[0].disabled);
         test.eq('', field_pulldowntest_options[0].value);
 
