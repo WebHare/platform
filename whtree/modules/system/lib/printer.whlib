@@ -22,9 +22,9 @@ LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
     @cell(integer) options.screenwidth Set the screen width (default: 1920)
     @cell(boolean) options.withalpha Take two screenshots, with different background colors on the body element. Calculates the
         alpha channel from the difference.
-    @cell(record array) options.cutouts Cutouts. If set, returnvalue with look like [ screenshot := ..., cutouts := ... ]
-    @return Promise that resolve to a wrapped blob with the screenshot
+    @cell(record array) options.cutouts Cutouts
     @cell(string) options.cutouts.selector CSS Selector
+    @return Requested screenshot, logs and any requested cutouts
     @cell return.screenshot Wrapped blob with the screenshot
     @cell return.cutouts Informatation about the cutouts
     @cell return.cutouts.selector Selector
@@ -72,9 +72,6 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
                                                                                 , options.screenheight
                                                                                 , printbackground := NOT withalpha
                                                                                 ]) );
-
-  IF (NOT CellExists(options, "CUTOUTS"))
-    RETURN response;
 
   OBJECT finalimage;
   RECORD retval :=
