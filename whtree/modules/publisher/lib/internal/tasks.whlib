@@ -1,6 +1,8 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 
@@ -48,11 +50,27 @@ PUBLIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase
                                 ]);
       RETURN;
     }
+
     RECORD screenshotdata := GenerateBrowserScreenshot(link, [ withalpha := TRUE ]);
+    OBJECT canvas := CreateCanvasFromBlob(screenshotdata.screenshot.data);
+    RECORD bbox := canvas->GetBoundingBox();
+    RECORD previewimage;
+
+    IF(bbox.width = screenshotdata.screenshot.width AND bbox.height = screenshotdata.screenshot.width)
+    {
+      previewimage := screenshotdata.screenshot;
+    }
+    ELSE IF(bbox.width > 0 AND bbox.height > 0)
+    {
+      OBJECT clippedcanvas := canvas->CreateCroppedCanvas(bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height);
+      previewimage := WrapBlob(clippedcanvas->ExportAsPNG(FALSE), "croppedpreview.png");
+      clippedcanvas->Close();
+    }
+    canvas->Close();
 
     previewtype->SetInstanceData(widget.id,
         [ previewmodificationdate :=  widget.modificationdate
-        , previewimage :=             screenshotdata.screenshot
+        , previewimage :=             previewimage
         ]);
 
     this->ResolveByCompletion([ status := "ok"

@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+MACRO TestPreview()
+{
+  testfw->BeginWork();
+
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT htmlwidgettype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/embedhtml");
+
+  OBJECT htmlwidgetobj := testloc->CreateFile([ name := "widget", type := htmlwidgettype->id ]);
+  htmlwidgettype->SetInstanceData(htmlwidgetobj->id,
+    [ html := `<div style="margin:25px;width:16px;height:12px;background:red"></div>` ]);
+
+  OBJECT emptywidgetobj := testloc->CreateFile([ name := "emptywidget", type := htmlwidgettype->id ]);
+  htmlwidgettype->SetInstanceData(emptywidgetobj->id,
+    [ html := `<div></div>` ]);
+
+  testfw->CommitWork();
+
+  DATETIME deadline := AddTimeToDate(60000, GetCurrentDatetime());
+  RECORD preview;
+  Print("Waiting for background tasks to create preview\n");
+  WHILE(TRUE)
+  {
+    IF(GetCurrentDatetime() > deadline)
+      ABORT("Timed out waiting for widget preview to generate");
+
+    IF(htmlwidgetobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/previewinfo").previewmodificationdate != DEFAULT DATETIME
+       AND emptywidgetobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/previewinfo").previewmodificationdate != DEFAULT DATETIME)
+    {
+      BREAK;
+    }
+    sleep(300);
+  }
+  Print("We have the previews\n");
+
+  //ABORT(htmlwidgetobj)
+  preview := htmlwidgetobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/previewinfo");
+  TestEq(16, preview.previewimage.width);
+  TestEq(12, preview.previewimage.height);
+
+  preview := emptywidgetobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/previewinfo");
+  TestEq(FALSE, RecordExists(preview.previewimage));
+}
+
+RunTestframework([ PTR TestPreview
+                 ]);
