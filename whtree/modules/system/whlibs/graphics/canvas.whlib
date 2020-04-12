@@ -21,25 +21,6 @@ PUBLIC CONSTANT INTEGER ColorBlack := 0xFF000000;
 /// Fully opaque white
 PUBLIC CONSTANT INTEGER ColorWhite := 0xFFFFFFFF;
 
-BOOLEAN FUNCTION LineHasPixel(OBJECT incanvas, INTEGER line)
-{
-  INTEGER w := incanvas->width;
-  FOR(INTEGER x := 0; x < w; x:= x+ 1)
-  {
-    IF( (incanvas->GetPixel(x,line) BITAND 0xFF000000) != 0)
-      RETURN TRUE;
-  }
-  RETURN FALSE;
-}
-BOOLEAN FUNCTION RowHasPixel(OBJECT incanvas, INTEGER col)
-{
-  INTEGER h := incanvas->height;
-  FOR(INTEGER y := 0; y < h; y:= y+ 1)
-    IF( (incanvas->GetPixel(col,y) BITAND 0xFF000000) != 0)
-      RETURN TRUE;
-  RETURN FALSE;
-}
-
 /** This object contains a drawable canvas.
 */
 OBJECTTYPE GraphicsCanvas
@@ -616,34 +597,11 @@ OBJECTTYPE GraphicsCanvas
   }
 */
 
+  //Get the painted area
   PUBLIC RECORD FUNCTION GetBoundingBox()
   {
-    INTEGER w := this->width;
-    INTEGER h := this->height;
-
-    INTEGER top,left,bottom,right;
-
-    FOR(top := 0; top < h; top := top + 1)
-      IF(LineHasPixel(this,top))
-        BREAK;
-    IF(top=h) //fully transparent
-      RETURN [ top := 0, width := 0, left := 0, height := 0];
-
-    FOR(bottom := h-1; bottom>0; bottom := bottom-1)
-      IF(LineHasPixel(this,bottom))
-        BREAK;
-    FOR(left := 0;;left:=left+1)
-      IF(RowHasPixel(this,left))
-        BREAK;
-    FOR(right := w-1;;right:=right-1)
-      IF(RowHasPixel(this,right))
-        BREAK;
-
-    RETURN [ top := top
-           , left := left
-           , width := right-left
-           , height := bottom-top
-           ];
+    this->ValidateCanvas();
+    RETURN __DRAWLIB_V2_GETPAINTEDRECTANGLE(this->pvt_canvasid);
   }
 
   /** @short Closes this canvas, and releases it resources.

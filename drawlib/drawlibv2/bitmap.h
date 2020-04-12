@@ -21,6 +21,15 @@ class BLEXLIB_PUBLIC Bitmap32
         unsigned width;
         unsigned height;
 
+        Pixel32 const * GetRawPixels(int scanline) const
+        {
+                return reinterpret_cast<DrawLib::Pixel32*>(pixman_image_get_data(img) + pixman_image_get_stride(img)/4 * scanline);
+        }  //divide by 4, we're adding to a uint32_t!
+        Pixel32* GetRawPixels(int scanline)
+        {
+                return const_cast<Pixel32*>(const_cast<Bitmap32 const*>(this)->GetRawPixels(scanline));
+        }  //divide by 4, we're adding to a uint32_t!
+
         public:
         pixman_image_t *private_getimage() const { return img; } //Don't actually use this outside drawlib, we still need to hide it properly
 
@@ -59,6 +68,7 @@ class BLEXLIB_PUBLIC Bitmap32
 
         unsigned GetHeight() const {return height;}
 
+        IRect GetPaintedRectangle() const;
 };
 
 

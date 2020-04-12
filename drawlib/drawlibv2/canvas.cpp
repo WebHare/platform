@@ -264,6 +264,10 @@ Scanline32 Canvas32::GetScanline32(uint32_t line) const
         return bitmap->GetScanline32(line);
 }
 
+IRect Canvas32::GetPaintedRectangle() const
+{
+        return bitmap->GetPaintedRectangle();
+}
 
 
 void Canvas32::SetAlphaMode(AlphaOperationMode mode)

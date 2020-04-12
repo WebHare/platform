@@ -62,6 +62,9 @@ class BLEXLIB_PUBLIC Canvas32
 
         Scanline32 GetScanline32(uint32_t line) const;
 
+        /** Get box containing all painted pixels */
+        IRect GetPaintedRectangle() const;
+
         /** SetAlphaMode - Set the way the alpha layer is affected by drawing commands (see DrawLib::AlphaOperationMode) */
         void SetAlphaMode (AlphaOperationMode mode);
 

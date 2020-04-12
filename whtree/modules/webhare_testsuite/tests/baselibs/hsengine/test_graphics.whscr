@@ -450,8 +450,22 @@ MACRO ColorDetectTest()
   OBJECT bob := CreateCanvasFromBlob(OpenTestFile("exif/gpstest.jpg"));
   TestEq("FF614429,FF291A12,FFE3E0DA,FF967227,FFBEAF9A,FF897960", Detokenize((SELECT AS STRING ARRAY Right(ToString(c,16),8) FROM ToRecordArray(bob->GetDominantColors([ randomseed := 0.423 ]), "C")), ","));
 
-  OBJECT transparent := CreateEmptyCanvas(100,100,ColorBlackTransparent);
-  TestEq(INTEGER[], transparent->GetDominantColors());
+  OBJECT canvas := CreateEmptyCanvas(90,120,ColorBlackTransparent);
+  TestEq(INTEGER[], canvas->GetDominantColors());
+
+  Testeq([ x := 0, y := 0, width := 0, height := 0], canvas->GetBoundingBox());
+
+  //paint a simple rectangle
+  OBJECT path := Create2DPath();
+  path->MoveTo(9,12);
+  path->LineTo(26,12);
+  path->LineTo(26,35);
+  path->LineTo(9,35);
+  path->ClosePath();
+  path->fillcolor := 0xFFFF0000;
+  path->Draw(canvas);
+
+  Testeq([ x := 9, y := 12, width := 18, height := 24 ], canvas->GetBoundingBox());
 
   CloseTest("ColorDetectTest");
 }

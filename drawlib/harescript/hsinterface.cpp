@@ -76,7 +76,8 @@ public:
         uint32_t  GetAlphaMode(DrawID id);
         uint32_t  GetBinaryMode(DrawID id);
         uint32_t  GetPixel(DrawID id, double x, double y);
-        uint32_t GetRefCount(DrawID id);
+        uint32_t  GetRefCount(DrawID id);
+        DrawLib::IRect GetPaintedRectangle(DrawID id);
 
         //draw options
         void DrawEasterEgg     (DrawID id);         ///Create a mandelbrot
@@ -671,6 +672,11 @@ uint32_t DrawlibInterfaceState::GetPixel(DrawID id, double x, double y)
         return DrawlibtoHSPixel(drawinfo.GetDrawObject().GetPixel(DrawLib::FPPoint(x,y)));
 }
 
+DrawLib::IRect DrawlibInterfaceState::GetPaintedRectangle(DrawID id)
+{
+        DrawInfo const&drawinfo = GetDrawInfoForRead(id);
+        return drawinfo.GetCanvas().GetPaintedRectangle();
+}
 
 void DrawlibInterfaceState::DrawLine (DrawID id, double sx, double sy, double ex, double ey)
 {
@@ -1094,6 +1100,21 @@ void  DLv2_GetPixel(HSVM *vm, HSVM_VariableId id_set)
         uint32_t c = context->GetPixel(id,sx,sy);
 
         HSVM_IntegerSet(vm,id_set, c);
+
+        CLOSE_WRAPPER
+}
+
+void DLv2_GetPaintedRectangle(HSVM *vm, HSVM_VariableId id_set)
+{
+        OPEN_WRAPPER
+        DrawID id = HSVM_IntegerGet(vm,HSVM_Arg(0));
+        IRect rect = context->GetPaintedRectangle(id);
+
+        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "X")), rect.upper_left.x);
+        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "Y")), rect.upper_left.y);
+        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "WIDTH")), rect.lower_right.x - rect.upper_left.x);
+        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "HEIGHT")), rect.lower_right.y - rect.upper_left.y);
 
         CLOSE_WRAPPER
 }
@@ -2259,6 +2280,7 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWELLIPSE:WHMOD_GRAPHICS::IIIII",DLv2_DrawEllipse);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWELLIPSEBORDER:WHMOD_GRAPHICS::IIIII",DLv2_DrawEllipseOutline);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPIXEL:WHMOD_GRAPHICS::IIII", DLv2_DrawPixel);
+        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETPAINTEDRECTANGLE:WHMOD_GRAPHICS:R:I", DLv2_GetPaintedRectangle);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPLANES:WHMOD_GRAPHICS::IIIIS", DLv2_DrawPlanes);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETPIXEL:WHMOD_GRAPHICS:I:III",DLv2_GetPixel);
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_DRAWPATH:WHMOD_GRAPHICS::IRABBFA",DLv2_DrawPath);
