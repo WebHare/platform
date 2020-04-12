@@ -271,8 +271,7 @@ MACRO TestStructuredBlocksRTE()
   blockcomp := doc->GetElementsByTagName("div")->Item(0);
   TestEq(FALSE, ObjectExists(blockcomp->firstchild));
   TestEqLike("*BOLD*HTML*", blockcomp->GetAttribute("data-innerhtml-contents"));
-  TestEq(TRUE, blockcomp->HasAttribute("data-widget-typetext")); //no type texts offered for legacy components
-  TestEq("", blockcomp->GetAttribute("data-widget-typetext")); //no type texts offered for legacy components
+  TestEq("HTML block", blockcomp->GetAttribute("data-widget-typetext"));
 
   OBJECT paracomp := doc->GetElementsByTagName("p")->Item(0);
   OBJECT strikearea := paracomp->GetElementsByTagName("strike")->Item(0); //at some point <strike> was forgottne. we should probably do this in a generic 'test whether structure is applied' test, not here
