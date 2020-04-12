@@ -715,11 +715,6 @@
     <member name="productionurl" type="string" />
   </contenttype>
 
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/widgetpreview">
-    <member name="modificationdate" type="datetime" />
-    <member name="image" type="file" />
-  </contenttype>
-
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/draftmetadata">
     <member name="parent" type="whfsref" />
     <member name="name" type="string" />
