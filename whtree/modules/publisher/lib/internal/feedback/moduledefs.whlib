@@ -1,7 +1,6 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";

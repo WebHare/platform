@@ -2253,6 +2253,17 @@
         <text tid="enabletolliumfeedback">Accept feedback in the WebHare backend</text>
         <text tid="settings">Feedback  scope settings</text>
       </textgroup>
+      <textgroup gid="submitfeedback">   <!-- tolliumapps.feedback.submitfeedback -->
+        <text tid="apptitle">Feedback</text>
+        <text tid="intro">Please provide some extra information.</text>
+        <text tid="remarks">Remarks</text>
+        <text tid="thankyou">Thank you for your feedback!</text>
+        <text tid="type">Type of feedback</text>
+        <text tid="type-bug">Bug</text>
+        <text tid="type-feedback">General feedback</text>
+        <text tid="type-layout">Layout</text>
+        <text tid="type-missingtid">Missing text</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
       <textgroup gid="createarchive">   <!-- tolliumapps.filemanager.createarchive -->

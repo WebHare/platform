@@ -1,12 +1,12 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="feedback.whlib"
+         library="submit.whlib"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
-         gid="tolliumapps"
+         gid="tolliumapps.feedback"
          >
 
-  <screen name="feedback"
-          gid=".feedback"
+  <screen name="submitfeedback"
+          gid=".submitfeedback"
           tid=".apptitle">
     <compositions>
       <record name="extradata" />
