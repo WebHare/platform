@@ -10,7 +10,6 @@
     "eslint-plugin-import": "^2.17.2",
     "eslint-plugin-react": "^7.13.0",
     "eslint-watch": "^5.1.2",
-    "jsdom": "^15.0.0",
     "mocha": "^6.1.4",
     "node-getopt": "^0.3.2",
     "stack-trace": "0.0.10",
