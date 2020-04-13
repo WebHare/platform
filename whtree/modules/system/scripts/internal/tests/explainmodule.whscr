@@ -1,4 +1,10 @@
 <?wh
+
+/*
+  to run:
+  cat moduledefinition.xml | wh run mod::system/scripts/internal/tests/explainmodule.whscr
+*/
+
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
