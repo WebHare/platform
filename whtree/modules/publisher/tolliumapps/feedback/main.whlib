@@ -63,12 +63,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoDelete()
   {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmdeletefeedback")) = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      this->contexts->wrdschema->^feedback->UpdateEntity(^feedback->selection.wrd_id, [ wrd_limitdate := GetCurrentDateTime() ]);
-      work->Finish();
-    }
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmdeletefeedback")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    // Don't archive it, assume deleted feedback may contain PII. If random deletion becomes a problem, solve it with rights
+    this->contexts->wrdschema->^feedback->DeleteEntity(^feedback->value);
+    work->Finish();
   }
 
   MACRO DoExit()
