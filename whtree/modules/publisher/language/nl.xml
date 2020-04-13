@@ -2239,6 +2239,7 @@
         <text tid="browser">Browser</text>
         <text tid="device">Apparaat</text>
         <text tid="feedback">Feedback</text>
+        <text tid="feedbackid">Feedback ID</text>
         <text tid="main">Feedback</text>
         <text tid="reportedby">Gemeld door</text>
         <text tid="scope">Scope</text>

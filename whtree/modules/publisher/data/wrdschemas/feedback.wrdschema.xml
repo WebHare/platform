@@ -10,6 +10,10 @@
     <attributes>
       <!-- Currently 1 -->
       <integer tag="VERSION" title="Version" />
+
+      <!-- Feedback tracking id, eg FB1234 -->
+      <free tag="FEEDBACKID" title="Feedback id" required="true" unique="true" />
+
       <!--
         RECORD ARRAY htmlattrs
           STRING name

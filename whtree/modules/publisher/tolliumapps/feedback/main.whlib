@@ -120,8 +120,9 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->data := data;
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE"] CONCAT ^data->GetComposedCellnames());
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE","FEEDBACKID"] CONCAT ^data->GetComposedCellnames());
     ^data->value := feedback;
+    this->frame->title := this->frame->title || " - " || feedback.feedbackid;
 
     RECORD ARRAY extrafields := GetFeedbackExtraFields(feedback.extradata);
     IF(Length(extrafields) > 0)

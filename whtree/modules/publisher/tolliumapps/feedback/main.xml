@@ -42,9 +42,10 @@
                       wrdtype="feedback"
                       openaction="view"
                       onmaprows="mapfeedbackrows"
-                      requestcolumns="version wrd_creationdate browser device userdata"
+                      requestcolumns="version wrd_creationdate browser device userdata feedbackid"
                       sortcolumn="wrd_creationdate"
                       sortascending="false">
+        <column name="feedbackid" type="text" width="12x" />
         <column name="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" />
         <column name="reportedby" linkname="reportedbylink" type="text" />
         <column name="browser" type="text" />
