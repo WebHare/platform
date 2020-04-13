@@ -41,8 +41,8 @@ async function runTask(taskcontext, data)
   if (!cache.webpack)
   {
     let wpresult = getWebpackCompiler(data.bundle, data.baseconfig, data.directcompile);
-    cache.config = wpresult.config;
-    cache.webpack = wpresult.compiler;
+    cache.compiler = wpresult;
+    cache.webpack = wpresult.webpack;
     cache.envkey = data.envkey;
     fullrecompile = true;
   }
@@ -61,7 +61,7 @@ async function runTask(taskcontext, data)
   let compileresult = await new Promise(resolve =>
   {
     // Don't process stuff within the callback, we lose exception catching in our own processing functions
-    cache.webpack.run((err, stats) => resolve({ err, stats }));
+    cache.compiler.run((err, stats) => resolve({ err, stats }));
   });
 
   const compilation = compileresult.stats.compilation;
@@ -95,7 +95,7 @@ async function runTask(taskcontext, data)
       , stats:                compileresult.stats ? compileresult.stats.toString() : ""
       , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
       , missingdependencies:  compileresult.stats && compileresult.stats.compilation.missingDependencies || []
-      , haserrors:            !!compileresult.err && !result.errors.length
+      , haserrors:            Boolean(compileresult.err || result.errors.length)
       , info:                 result
       , compiletoken:         data.compiletoken
       , fullrecompile
