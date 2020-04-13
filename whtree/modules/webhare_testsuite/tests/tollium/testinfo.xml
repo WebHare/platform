@@ -22,6 +22,5 @@
 
   <test path="comm/" />
   <test path="language/" />
-  <test path="nodejs/" />
 
 </group>

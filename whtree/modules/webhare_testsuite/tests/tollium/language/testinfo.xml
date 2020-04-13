@@ -1,4 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <mochanodetest file="test_langjson.es" />
   <test script="gettid.whscr" />
+  <jstest file="test_gettid.es" />
   <test script="TestLangEdit.whscr" /> <!-- mixed case to allow us to test tid scanner on mixedcase files -->
 </group>
