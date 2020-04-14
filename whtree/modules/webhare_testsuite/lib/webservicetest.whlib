@@ -86,7 +86,7 @@ PUBLIC RECORD FUNCTION RPC_ComplexResults(RECORD x)
 
 PUBLIC RECORD FUNCTION RPC_ComplexResultsSlow(RECORD x)
 {
-  Sleep(1000);
+  Sleep(300);
   RETURN x;
 }
 

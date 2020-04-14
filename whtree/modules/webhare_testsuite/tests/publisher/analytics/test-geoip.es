@@ -4,7 +4,7 @@ let us_ip = '54.70.204.133'; //AWS US-WEST-2 according to https://docs.aws.amazo
 
 function getAnalyticsRPCRequests()
 {
-   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.endsWith("/publisher/rpc/"));
+   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/publisher/rpc/"));
 }
 
 test.registerTests(

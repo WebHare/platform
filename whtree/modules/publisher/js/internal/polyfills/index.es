@@ -540,6 +540,24 @@
 
 })));
 
+if(!window.AbortController) //inspired by https://github.com/mo/abortcontroller-polyfill
+{
+  window.AbortController = class
+  {
+    constructor()
+    {
+      //why build our own event emitter when the browser has one for us
+      this.signal = document.createElement('div');
+    }
+    abort()
+    {
+      var evt = document.createEvent("HTMLEvents");
+      evt.initEvent("abort", false, false);
+      this.signal.dispatchEvent(evt);
+    }
+  }
+}
+
 //
 // end of fetch polyfill
 //

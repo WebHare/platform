@@ -31,7 +31,7 @@ which will setup a function returning a promsie for every function in your libra
 
 Then you can invoke the functions using async/await:
 
-```javacript
+```javascript
 import * as myrpc from "./services.rpc.json";
 async function()
 {
@@ -39,14 +39,70 @@ async function()
 }
 ```
 
-## The JSONRPC object
-To specify options to use when running the request, use the 'rpcOptions' object:
+You can also access the underlying RPCClient here using `myrpc.rpcclient`
+and use the standard `invoke` as `myrpc.invoke` in case you need to specify
+a timeout or abort signal.
+
+## Low-level invocation
+You can also use the low-level APIs for full control over service calls. The
+following example does a call to RPC_Echo as would be defined in the definition above.
+
 ```javascript
- myrpc.rpcOptions.timeout = 30000; // Set timeout to 30 seconds
+import RPCClient from '@mod-system/js/wh/rpc';
+
+let rpc = new RPCClient("modulename:servicename");
+let result = await rpc.invoke("echo", "Hi everybody!");
 ```
 
-If you want more control over the JSONRPC object, for example to add 'requeststart' or 'requestend' event listeners or for
-referencing JSONRPC error codes use the `myrpc.rpcObject` property
+If you need to set a timeout you can use invokeTimed:
+```javascript
+try
+{
+  let result = await rpc.invokeTimed(500, "SleepFunction", "param1", 1000);
+  //do something with result
+}
+catch(e)
+{
+  //handle timeout or error...
+}
+```
+
+Instead of using invokeTimed, you can also pass a `timeout` option to `RPCClient`
+which will then apply to all calls.
+
+To be able to abort calls, use the `invokeControlled` API with an options
+parameter (which is passed as the FIRST element here)
+
+```javascript
+let controller = rpc.invokeControlled({ timeout: 30*1000 }, "SleepFunction", "param1", 100000);
+document.getElementById("stopbutton").addEventListener("click", () => controller.abort());
+let result = await controller.promise; //will throw on timeout or abort
+```
+
+
+## Migrating from the JSONRPC object
+The JSONRPC object has been deprecated in favor of an async-fetch based approach. If you were using the "import rpc.json"
+approach, you will be automatically switched to the new API.
+
+If you were manually invoking JSONRPC objects, here's a quick migration guide:
+
+```javascript
+// Replace the JSONRPC import:
+import JSONRPC from '@mod-system/js/net/jsonrpc';
+// with the RPCClient import:
+import RPCClient from '@mod-system/js/wh/rpc';
+
+// Replace JSONRPC object creation
+let rpc = new JSONRPC({ url:"/wh_services/modulename/servicename/"})
+// with the RPCClient constructor
+let rpc = new RPCClient("modulename:servicename")
+
+// If you were already using async calls, they are easy to replace:
+let result = await rpc.async("echo", "Hi everybody!");
+// would become
+let result = await rpc.invoke("echo", "Hi everybody!");
+```
+
 
 ## HareScript considerations when handling JSON/RPC
 An empty JavaScript arrays shows up as a DEFAULT VARIANT ARRAY in HareScript, which can easily crash code. Arrays with at

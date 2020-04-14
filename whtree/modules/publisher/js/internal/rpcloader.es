@@ -1,34 +1,11 @@
 /*
   This is the RPC loader, which is used by the assetpackmanager to generate JSONRPC binding files based on *.rpc.json
-  JSONRPC specification files. A JSONRPC specification file should contain one object, with a "services" key listing the
-  JSONRPC services to include, e.g.:
-
-  { "imports": [ "tollium:autocomplete" ]
-  }
-
-  This will generate Promise-returning functions for all public functions within the service. These functions can the be used
-  to run JSONRPC requests:
-
-  var autoCompleteService = require("autocomplete.rpc.json");
-  autoCompleteService.autoComplete("ipcport", "query").then(function(result)
-  {
-    console.log("Received result", result.values);
-  });
-
-  To specify options to use when running the request, use the 'rpcOptions' object:
-
-  autoCompleteService.rpcOptions.timeout = 30000; // Set timeout to 30 seconds
-
-  If you want more control over the JSONRPC object, for example to add 'requeststart' or 'requestend' event listeners or for
-  referencing JSONRPC error codes use the 'rpcObject' property:
-
-
+  JSONRPC specification files. See services.md for further documentation
 */
 let bridge = require('@mod-system/js/wh/bridge');
 
 async function getWrappers(context, service)
 {
-  var url = "/wh_services/" + service.replace(":", "/");
   let response = await bridge.invoke("mod::publisher/lib/internal/webdesign/rpcloader.whlib", "GetServiceInfo", service);
   let output='';
 
@@ -57,12 +34,7 @@ async function getWrappers(context, service)
       //note: use ES5 stuff to avoid us requiring a babel polyfill
       output += `exports.${func.name} = /*${func.type}*/function(${args})
 {
-var opts={url:"${url}"+urlappend};
-for (var k in options)
-if(options.hasOwnProperty(k))
-opts[k]=options[k];
-
-return request.promiseRequest("${func.name}",Array.prototype.slice.call(arguments),opts);
+return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slice.call(arguments)));
 }
 `;
     }
@@ -77,19 +49,12 @@ async function runRPCLoader(context, rpcfile, callback)
   {
     rpcfile = JSON.parse(rpcfile);
 
+    let service = rpcfile.services[0];
     let output = `// Auto-generated RPC interface from ${context.resourcePath}
-var JSONRPC = require("@mod-system/js/net/jsonrpc");
-var request = exports.rpcObject = new JSONRPC();
-exports.rpcResolve = function(promise, result) { request._doAsyncAbort(promise, result) };
-exports.rpcReject = function(promise, reject) { request._doAsyncAbort(promise, null, reject) };
-var urlappend = '';
-if(self&&self.location)
-{
-  var urldebugvar = window.location.href.match(new RegExp('[\?&#]wh-debug=([^&#?]*)'));
-  if(urldebugvar)
-    urlappend='?wh-debug='+urldebugvar[1];
-}
-var options = exports.rpcOptions = {};
+var RPCClient = require("@mod-system/js/wh/rpc").default;
+var request = exports.rpcclient = new RPCClient("${service}");
+exports.rpcResolve = function(promise, result) { request._handleLegacyRPCResolve(promise, result) };
+exports.invoke = function() { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
 `;
     // Define JSONRPC error code constants as getter-only properties on the exports object
     [ "HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR"
@@ -100,7 +65,7 @@ var options = exports.rpcOptions = {};
       output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
     });
 
-    output += (await Promise.all(rpcfile.services.map(service => getWrappers(context, service)))).join('');
+    output += await getWrappers(context, service);
     callback(null, output);
   }
   catch(e)

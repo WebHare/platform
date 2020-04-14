@@ -3,7 +3,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 function getFormRPCRequests()
 {
-   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.endsWith("/forms"));
+   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
 }
 
 test.registerTests(
