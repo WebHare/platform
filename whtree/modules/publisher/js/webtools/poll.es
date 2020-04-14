@@ -1,4 +1,3 @@
-import * as cookie from "dompack/extra/cookie";
 import * as dompack from "dompack";
 import * as pollrpc from "@mod-publisher/js/webtools/internal/poll.rpc.json";
 
@@ -32,7 +31,7 @@ export default class PollWebtool
       node => node.addEventListener("click",  e => this.doCheckForHideResultsClick(e)));
 
     //if (localStorage["webtools:"+this._getToolId()] == "voted")
-    let alreadyvoted = !!cookie.read("webtools:"+this._getToolId());
+    let alreadyvoted = localStorage["wh-webtools-votetime:"+this._getToolId()];
     if (alreadyvoted)
     {
       this.node.classList.add("wh-poll--voted");
@@ -140,16 +139,10 @@ export default class PollWebtool
         // FIXME: a setting of the poll should set whether or not
         //        to store what option was voted for..
         //        Then we can store the value in case we give the enduser the option to change their vote.
-        //localStorage["webtools:"+toolid] = "voted";
-
-        // For using cookies because:
-        // - Safari won't block them in private mode
-        //document.cookie = ["webtools:"+toolid] = "voted";
 
         // Store time on which we voted, so we can check if the user is allowed to vote again
         // (not failsafe, just to keep people from accidentally voting again)
-        let votetime = pollrpc.rpcObject.getEstimatedServerTime();
-        cookie.write("webtools:"+toolid, votetime);
+        localStorage["wh-webtools-votetime:"+toolid] = Date.now();
 
         toolnode.classList.add("wh-poll--voted", "wh-poll--justvoted");
         this.applyPollResults(result.pollresults);
@@ -179,14 +172,14 @@ export default class PollWebtool
     {
       let canvote = true; // can vote unless we find a vote cookie which is too recent
 
-      let voteinfo = cookie.read("webtools:"+this._getToolId());
+      let voteinfo = localStorage["wh-webtools-votetime:"+this._getToolId()];
       if (voteinfo)
       {
         let votedtimestamp = parseInt(voteinfo);
 
         if (isNaN(votedtimestamp))
         {
-          cookie.dispose("webtools:"+this._getToolId());
+          localStorage.removeItem("wh-webtools-votetime:"+this._getToolId());
         }
         else if (votedtimestamp != "")
         {
@@ -242,9 +235,6 @@ async function fetchResults()
   let toolids = tofetch.map(poll => poll._getToolId());
   let result = await pollrpc.getResultsForPolls(toolids);
 
-  // Because we communicated with the server we know the time (based on reponse header from the server)
-  // and can let applyPollResults determine whether the user is allowed to vote again.
-  let unixtimestampnow = pollrpc.rpcObject.getEstimatedServerTime();
-
+  let unixtimestampnow = Date.now();
   tofetch.forEach( (poll,idx) => poll.applyPollResults(result[idx], unixtimestampnow));
 }
