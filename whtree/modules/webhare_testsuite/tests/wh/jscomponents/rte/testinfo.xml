@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="rte">
   <jstest file="testdomlevel.es" />
+  <jstest file="test_converthtmltoplaintext.es" />
   <jstest file="testbase.es" />
   <jstest file="testfree-allowtags.es" />
   <jstest file="testtableedit-free.es" />
