@@ -3,14 +3,14 @@
 */
 
 import { createDeferred } from 'dompack';
-import JSONRPC from "@mod-system/js/net/jsonrpc";
+import RPCClient from '@mod-system/js/wh/rpc';
 
 let requestbarrier = null;
 
 async function getIPInfoIntoCache(options)
 {
   let reqoptions = { countrylang: options.countrylang };
-  let result = await new JSONRPC({ url:"/wh_services/publisher/rpc/"}).async("getIPInfo", reqoptions);
+  let result = await new RPCClient("publisher:rpc").invoke("getIPInfo", reqoptions);
   let geoinfo = { countrycode:  result ? result.country : ""
                 , creationdate: Date.now()
                 };
