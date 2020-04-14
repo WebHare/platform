@@ -139,11 +139,9 @@ MACRO TestScreenshots()
   Print("screenshotting " || url || "\n");
 
   RECORD test := GenerateBrowserScreenshot(url,
-        [ cutouts :=    [ [ strategy := "css selector"
-                          , selector := ".outer"
+        [ cutouts :=    [ [ selector := ".outer"
                           ]
-                        , [ strategy := "css selector"
-                          , selector := ".inner"
+                        , [ selector := ".inner"
                           ]
                         ]
         ]);
@@ -154,11 +152,9 @@ MACRO TestScreenshots()
 
   test := GenerateBrowserScreenshot(url,
         [ withalpha :=  TRUE
-        , cutouts :=    [ [ strategy := "css selector"
-                          , selector := ".outer"
+        , cutouts :=    [ [ selector := ".outer"
                           ]
-                        , [ strategy := "css selector"
-                          , selector := ".inner"
+                        , [ selector := ".inner"
                           ]
                         ]
         ]);

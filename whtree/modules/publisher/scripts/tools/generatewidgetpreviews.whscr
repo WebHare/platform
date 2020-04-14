@@ -23,14 +23,14 @@ IF (NOT Recordexists(args))
 
 MACRO Syntax()
 {
-  PRINT("Syntax: runscript generatewidgetpreviews.whscr [ --debug ]\n");
+  PRINT("Syntax: wh run mod::publisher/scripts/tools/generatewidgetpreviews.whscr [ --debug ] [ --force ]\n");
   SetConsoleExitcode(1);
   TerminateScript();
 }
 
 
 RECORD csp := GetCachedSiteProfiles();
-OBJECT previewtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/widgetpreview");
+OBJECT previewtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/previewinfo");
 
 RECORD ARRAY previewable_types :=
     SELECT type :=    id
@@ -51,7 +51,7 @@ RECORD ARRAY all_widgets :=
   ORDER BY id;
 
 INTEGER ARRAY fileids := SELECT AS INTEGER ARRAY id FROM all_widgets;
-RECORD ARRAY existing := previewtype->GetBulkData(fileids, [ "MODIFICATIONDATE"]);
+RECORD ARRAY existing := previewtype->GetBulkData(fileids, [ "PREVIEWMODIFICATIONDATE"]);
 
 RECORD ARRAY taskdata;
 
@@ -63,7 +63,7 @@ FOREVERY (RECORD widget FROM all_widgets)
   IF (NOT args.force)
   {
     RECORD pos := RecordLowerBound(existing, widget, strs_id);
-    IF (pos.found AND existing[pos.position].modificationdate = widget.modificationdate)
+    IF (pos.found AND existing[pos.position].previewmodificationdate = widget.modificationdate)
     {
       PRINT("Skipping unchanged " || widget.whfspath || "\n");
       CONTINUE;

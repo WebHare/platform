@@ -58,7 +58,7 @@ STRING flaginstruction := EncryptForThisServer("publisher:flags",
 STRING flagurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.publisher/backend/flags/?f=" || flaginstruction);
 Print("Flag URL: " || flagurl || '\n');
 
-RECORD screenshotresult := GenerateBrowserScreenshot(flagurl, [ screenwidth := width * pixelratio * Length(flags), screenheight := height*pixelratio]);
+RECORD screenshotresult := GenerateBrowserScreenshot(flagurl, [ screenwidth := width * pixelratio * Length(flags), screenheight := height*pixelratio]).screenshot;
 StoreDiskFile(`${args.outputbase}.png`, screenshotresult.screenshot.data, [overwrite := TRUE]);
 Print(`Written ${args.outputbase}.png\n`);
 

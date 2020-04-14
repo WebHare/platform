@@ -120,6 +120,66 @@ Scanline32 Bitmap32::GetScanline32(unsigned line) const
                 throw(std::runtime_error("Bitmap32::GetScanline32 out-of-bounds 'line'"));
         return Scanline32(img, line, GetWidth());
 }
+
+
+bool IsScanlineEmpty(Pixel32 const* pixelarray, unsigned width)
+{
+        for(;width > 0; --width, ++pixelarray)
+          if(pixelarray->GetA() != 0) //not fully transparent
+            return false;
+
+        return true;
+}
+
+unsigned GetFirstPaintedPixel(Pixel32 const* pixelarray, unsigned limitx)
+{
+        for(unsigned pos = 0; pos < limitx; ++pos, ++pixelarray)
+          if(pixelarray->GetA() != 0) //not fully transparent
+             return pos;
+
+        return limitx;
+}
+
+unsigned GetLimitPaintedPixel(Pixel32 const* pixelarray, unsigned startx, unsigned width)
+{
+        pixelarray += width - 1; //point at last pixel
+
+        //we need to scan pixels [startx .. width-1] and find the first non-transparent one
+        for(unsigned pos = width - 1; pos >= startx; --pos, --pixelarray)
+          if(pixelarray->GetA() != 0) //not fully transparent
+             return pos + 1;//we return the painted limit, so +1
+
+        return startx;
+}
+
+IRect Bitmap32::GetPaintedRectangle() const
+{
+        unsigned firsty=0, limity = height;
+        //find first painted line
+        while(firsty < height && IsScanlineEmpty(GetRawPixels(firsty), width))
+            ++firsty;
+
+        if(firsty == height) //the canvas is empty
+            return IRect();
+
+        //find limit painted line. note that firsty is always >= 0, so limity >= 1, so this is all within bounds;
+        while(limity > firsty && IsScanlineEmpty(GetRawPixels(limity - 1), width))
+            --limity;
+
+        //we now need to figure out the first and last painted x.. and we'll need to test all lines [firsty,limity[
+        unsigned firstx = width, limitx = 0;
+        for(unsigned line = firsty; line < limity; ++line)
+        {
+                Pixel32 const *row = GetRawPixels(line);
+                if(firstx > 0) //the leftside boundary can still be extended
+                    firstx = GetFirstPaintedPixel(row, firstx);
+                if(limitx < width) //the rightside boundary can still be extended
+                    limitx = GetLimitPaintedPixel(row, limitx, width);
+        }
+
+        return IRect(firstx, firsty, limitx, limity);
+}
+
 //ADDME: Drop our separate ProtectArea etc functions, just allow users to interface with the embedded Region...
 ProtectedBitmap32::ProtectedBitmap32(Bitmap32 &basebitmap)
 : Bitmap32(basebitmap.GetWidth(), basebitmap.GetHeight())

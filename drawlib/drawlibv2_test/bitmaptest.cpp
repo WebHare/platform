@@ -13,6 +13,80 @@
 #include "../drawlibv2/drawobject.h"
 #include "../drawlibv2/wmfrenderer.h"
 
+BLEX_TEST_FUNCTION(FindTrimTest)
+{
+        DrawLib::Bitmap32 mybitmap(70,50,DrawLib::Pixel32(0,0,0,0));
+        DrawLib::Canvas32 mycanvas(&mybitmap);
+        DrawLib::DrawObject drobj(&mycanvas);
+
+        mycanvas.SetAlphaMode(DrawLib::Canvas32::COPYALL);
+
+        auto rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(0, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(0, rect.lower_right.y);
+
+        //one square
+        drobj.SetFillColor(DrawLib::Pixel32(0xFF,0x0,0x00,0xFF));
+        drobj.DrawRectangle(DrawLib::FPPoint(10,25),DrawLib::FPPoint(12,27));
+
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(10, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(25, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(12, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(27, rect.lower_right.y);
+
+        //two squares
+        drobj.DrawRectangle(DrawLib::FPPoint(20,15),DrawLib::FPPoint(22,17));
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(10, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(15, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(22, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(27, rect.lower_right.y);
+
+        //fill entire canvas
+        drobj.DrawRectangle(DrawLib::FPPoint(0,0),DrawLib::FPPoint(70,50));
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(70, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(50, rect.lower_right.y);
+
+        //vertical bar
+        drobj.SetFillColor(DrawLib::Pixel32(0,0,0,0));
+        drobj.DrawRectangle(DrawLib::FPPoint(0,0),DrawLib::FPPoint(70,50));
+        drobj.SetFillColor(DrawLib::Pixel32(0xFF,0x0,0x00,0xFF));
+        drobj.DrawRectangle(DrawLib::FPPoint(10,0),DrawLib::FPPoint(11,50));
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(10, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(11, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(50, rect.lower_right.y);
+
+        //horizontal bar
+        drobj.SetFillColor(DrawLib::Pixel32(0,0,0,0));
+        drobj.DrawRectangle(DrawLib::FPPoint(0,0),DrawLib::FPPoint(70,50));
+        drobj.SetFillColor(DrawLib::Pixel32(0xFF,0x0,0x00,0xFF));
+        drobj.DrawRectangle(DrawLib::FPPoint(0,7),DrawLib::FPPoint(70,8));
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(0, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(7, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(70, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(8, rect.lower_right.y);
+
+        //fill all pixels except one px around the edge
+        drobj.SetFillColor(DrawLib::Pixel32(0,0,0,0));
+        drobj.DrawRectangle(DrawLib::FPPoint(0,0),DrawLib::FPPoint(70,50));
+        drobj.SetFillColor(DrawLib::Pixel32(0xFF,0x0,0x00,0xFF));
+        drobj.DrawRectangle(DrawLib::FPPoint(1,1),DrawLib::FPPoint(69,49));
+        rect = mycanvas.GetPaintedRectangle();
+        BLEX_TEST_CHECKEQUAL(1, rect.upper_left.x);
+        BLEX_TEST_CHECKEQUAL(1, rect.upper_left.y);
+        BLEX_TEST_CHECKEQUAL(69, rect.lower_right.x);
+        BLEX_TEST_CHECKEQUAL(49, rect.lower_right.y);
+}
+
 BLEX_TEST_FUNCTION(StreamingResizerSSE2Test)
 {
         std::unique_ptr<Blex::FileStream> ImageFile;

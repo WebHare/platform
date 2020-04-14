@@ -33,7 +33,7 @@ IF (NOT RecordExists(args))
 
 RECORD options :=
     [ withalpha :=    args.withalpha
-    , cutouts :=      (SELECT strategy := "css selector", selector FROM ToRecordArray(args.cutout, "SELECTOR"))
+    , cutouts :=      ToRecordArray(args.cutout, "SELECTOR")
     , getlog :=       TRUE
     , delay :=        ToInteger(args.delay, 0)
     , debug :=        args.debug
@@ -79,7 +79,6 @@ IF (LENGTH(args.cutout) != 0)
   PRINT("\nCutouts\n");
   DumpValue(
         (SELECT nr :=           "#" || #cutouts + 1
-              , strategy
               , selector
               , coordinates :=  "(" || FormatMoney(MONEY(x), 0, ".", "", FALSE) || ", " || FormatMoney(MONEY(y), 0, ".", "", FALSE) || ")-" ||
                                 "(" || FormatMoney(MONEY(x + width), 0, ".", "", FALSE) || ", " || FormatMoney(MONEY(y + height), 0, ".", "", FALSE) || ")"

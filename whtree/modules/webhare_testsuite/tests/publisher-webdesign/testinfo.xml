@@ -10,6 +10,7 @@
   <test script="webfeatures.whscr"/>
   <test script="test_forms.whscr"/>
   <test script="test_widgets.whscr"/>
+  <test script="test_widget_preview.whscr"/>
   <test script="test-nodesign.whscr"/>
   <jstest file="test-common-widgets-online.es"/>
   <test script="test_outputanalyzer.whscr"/>
