@@ -1,3 +1,7 @@
+if(!window.__dompackdeprecated)
+  window.__dompackdeprecated=[];
+window.__dompackdeprecated.push("@mod-system/js/compat/promise.es");
+
 const dompromise = require('dompack/src/promise');
 
 /** @require: const Promise = require('@mod-system/js/compat/promise.es') */

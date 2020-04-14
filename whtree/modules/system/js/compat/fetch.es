@@ -1,3 +1,7 @@
+if(!window.__dompackdeprecated)
+  window.__dompackdeprecated=[];
+window.__dompackdeprecated.push("@mod-system/js/compat/fetch");
+
 /* Fetch polyfill from https://github.com/github/fetch/blob/master/fetch.js
    Usage:  require('@mod-system/js/compat/fetch')
 
