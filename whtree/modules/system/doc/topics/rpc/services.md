@@ -54,11 +54,14 @@ let rpc = new RPCClient("modulename:servicename");
 let result = await rpc.invoke("echo", "Hi everybody!");
 ```
 
-If you need to set a timeout you can use invokeTimed:
+You can also pass options to invoke. These options are passed as the first
+parameter as it would be hard to distinguish them from RPC parameters otherwise
+
+To set a timeout for a single RPC call:
 ```javascript
 try
 {
-  let result = await rpc.invokeTimed(500, "SleepFunction", "param1", 1000);
+  let result = await rpc.invoke({ timeout: 500} , "SleepFunction", "param1", 1000);
   //do something with result
 }
 catch(e)
@@ -67,18 +70,15 @@ catch(e)
 }
 ```
 
-Instead of using invokeTimed, you can also pass a `timeout` option to `RPCClient`
-which will then apply to all calls.
-
-To be able to abort calls, use the `invokeControlled` API with an options
+To be able to abort calls you need to setup an AbortController and pass its
+signal as an option:
 parameter (which is passed as the FIRST element here)
 
 ```javascript
-let controller = rpc.invokeControlled({ timeout: 30*1000 }, "SleepFunction", "param1", 100000);
+let controller = new AbortController;
 document.getElementById("stopbutton").addEventListener("click", () => controller.abort());
-let result = await controller.promise; //will throw on timeout or abort
+let result = await rpc.invoke({ signal: controller.signal }, "SleepFunction", "param1", 100000);
 ```
-
 
 ## Migrating from the JSONRPC object
 The JSONRPC object has been deprecated in favor of an async-fetch based approach. If you were using the "import rpc.json"
