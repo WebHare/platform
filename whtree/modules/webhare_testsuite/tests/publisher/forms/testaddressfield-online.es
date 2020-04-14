@@ -1,8 +1,28 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
+function getFormRPCRequests()
+{
+   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
+}
+
 test.registerTests(
-    [ 'Check required subfields'
+    [ 'Check UX'
+    , async function()
+      {
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
+
+        test.eq(0, getFormRPCRequests().length, "Verify initial state");
+
+        //just changing country on an empty field used to trigger a validation, and then a "Ongeldige postcode"
+        test.fill("#addressform-address\\.country", "BE");
+        await test.wait(50);
+
+        //ensure nothing has the lookup class
+        test.eq([], test.qSA('[data-wh-form-group-for^="address."]').filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+      }
+
+    , 'Check required subfields'
     , async function()
       {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
