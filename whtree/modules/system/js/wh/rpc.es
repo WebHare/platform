@@ -1,5 +1,8 @@
 import * as dompack from 'dompack';
 
+//just number RPCs globally instead of per server, makes debug ouput more useful
+let globalseqnr = 1;
+
 function getDebugAppend()
 {
   let urldebugvar = window.location.href.match(new RegExp('[?&#]wh-debug=([^&#?]*)'));
@@ -62,9 +65,8 @@ class ControlledCall
     }
     catch(exception)
     {
-      console.error(exception);
       if(this.options.debug)
-        console.log(`[rpc] Exception invoking '${method}'`, exception);
+        console.log(`[rpc] #${id} Exception invoking '${method}'`, exception);
 
       if(this.aborted)
         throw new Error(`RPC Aborted`);
@@ -81,12 +83,12 @@ class ControlledCall
     {
       jsonresponse = await response.json();
       if(this.options.debug)
-        console.log(`[rpc] Received response to '${method}'`, jsonresponse);
+        console.log(`[rpc] #${id} Received response to '${method}'`, jsonresponse);
     }
     catch(exception)
     {
       if(this.options.debug)
-        console.warn(`[rpc] Response was not valid JSON`, exception);
+        console.warn(`[rpc] #${id} Response was not valid JSON`, exception);
     }
 
     if(!jsonresponse)
@@ -117,8 +119,6 @@ export default class RPCClient
                    , debug: dompack.debugflags.rpc
                    , ...options
                    };
-
-    this.lastid = 0;
 
     let whservicematch;
     if(url)
@@ -189,13 +189,13 @@ export default class RPCClient
       callurl += `/${method}`;
     callurl += this.urlappend;
 
-    let id = ++this.lastid;
+    let id = ++globalseqnr;
     let stack;
 
     if(options.debug)
     {
       stack = new Error().stack;
-      console.log(`[rpc] Invoking '${method}'`, params, callurl);
+      console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
     }
 
     let fetchoptions = { method: "POST"
