@@ -37,17 +37,22 @@ OBJECTTYPE TestObject EXTEND RemotableObject
 
 
 /** @short Answer difficult questions by reflecting them to the questioneer */
-PUBLIC STRING FUNCTION Echo(STRING indata)
+PUBLIC STRING FUNCTION RPC_Echo(STRING indata)
 {
   RETURN indata;
 }
 
-PUBLIC OBJECT FUNCTION GetObject()
+PUBLIC VARIANT FUNCTION RPC_EchoAny(VARIANT indata)
+{
+  RETURN indata;
+}
+
+PUBLIC OBJECT FUNCTION RPC_GetObject()
 {
   RETURN NEW TestObject;
 }
 
-PUBLIC MACRO IReturnNothing()
+PUBLIC MACRO RPC_IReturnNothing()
 {
 }
 
@@ -56,7 +61,7 @@ PUBLIC INTEGER FUNCTION JSBridge_ITakeNoParams()
   RETURN 42;
 }
 
-PUBLIC OBJECT FUNCTION ObjectsRule(OBJECT inobj)
+PUBLIC OBJECT FUNCTION RPC_ObjectsRule(OBJECT inobj)
 {
   RETURN inobj;
 }
@@ -74,18 +79,18 @@ PUBLIC OBJECT FUNCTION ObjectsRule(OBJECT inobj)
     @cell(record array) return.ra return.ra
     @cell(string array) return.ra.sa return.ra.sa
 */
-PUBLIC RECORD FUNCTION ComplexResults(RECORD x)
+PUBLIC RECORD FUNCTION RPC_ComplexResults(RECORD x)
 {
   RETURN x;
 }
 
-PUBLIC RECORD FUNCTION ComplexResultsSlow(RECORD x)
+PUBLIC RECORD FUNCTION RPC_ComplexResultsSlow(RECORD x)
 {
   Sleep(1000);
   RETURN x;
 }
 
-PUBLIC RECORD FUNCTION CrashTest(STRING type)
+PUBLIC RECORD FUNCTION RPC_CrashTest(STRING type)
 {
   SWITCH (type)
   {
@@ -97,35 +102,13 @@ PUBLIC RECORD FUNCTION CrashTest(STRING type)
 }
 
 
-/** @param spelergegevens
-   @cell(string) spelergegevens.voornaam Voornaam van de speler
-   @cell(string) spelergegevens.tussenvoegsel
-   @cell(string) spelergegevens.achternaam
-   @cell(string) spelergegevens.geslacht
-   @cell(string) spelergegevens.straatnaam
-   @cell(string) spelergegevens.huisnummer
-   @cell(string) spelergegevens.postcode
-   @cell(string) spelergegevens.woonplaats
-   @cell(string) spelergegevens.emailadres
-   @cell(string) spelergegevens.merkauto
-   @cell(boolean) spelergegevens.inschrijven_newsbrief
-   @return
-   @cell(boolean) return.reedsgespeeld
-   @cell(string) return.code
-   @cell(string) return.speelsessie
-*/
-PUBLIC RECORD FUNCTION RegistreerKrablotSpeler(RECORD spelergegevens)
-{
-  RETURN DEFAULT RECORD;
-}
-
-PUBLIC RECORD FUNCTION LoginTest()
+PUBLIC RECORD FUNCTION RPC_LoginTest()
 {
   OBJECT rpcuser := GetEffectiveUser();
   RETURN [ user := ObjectExists(rpcuser) ? rpcuser->entityid : 0 ];
 }
 
-PUBLIC RECORD FUNCTION ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD newdata)
+PUBLIC RECORD FUNCTION RPC_ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD newdata)
 {
   SWITCH (action)
   {
@@ -136,7 +119,7 @@ PUBLIC RECORD FUNCTION ManipWebserverSession(STRING action, STRING sessionid, ST
   RETURN DEFAULT RECORD;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetWebserverUploadedFiles(STRING ARRAY filetokens)
+PUBLIC RECORD ARRAY FUNCTION RPC_GetWebserverUploadedFiles(STRING ARRAY filetokens)
 {
   RETURN
       SELECT *
