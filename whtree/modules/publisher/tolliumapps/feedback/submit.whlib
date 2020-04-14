@@ -1,11 +1,11 @@
 <?wh
 
-LOADLIB "mod::publisher/lib/feedback.whlib";
-
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
-PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
+
+PUBLIC STATIC OBJECTTYPE SubmitFeedback EXTEND TolliumScreenBase
 <
   STRING guid;
 
@@ -16,8 +16,8 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     this->guid := data.target.guid;
 
     ^extradata->^extrafields->value :=
-        [ [ field := "type",    type := "tid",    tid := /*tid*/"tollium:tolliumapps.feedback.type" ]
-        , [ field := "remarks", type := "string", tid := /*tid*/"tollium:tolliumapps.feedback.remarks" ]
+        [ [ field := "type",    type := "tid",    tid := /*tid*/"publisher:tolliumapps.feedback.submitfeedback.type" ]
+        , [ field := "remarks", type := "string", tid := /*tid*/"publisher:tolliumapps.feedback.submitfeedback.remarks" ]
         ];
   }
 

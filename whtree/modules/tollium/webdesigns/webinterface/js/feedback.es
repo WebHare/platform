@@ -64,7 +64,7 @@ export async function run(event, options)
     if (result.success)
     {
       // Ask for extra information
-      window.$shell.startBackendApplication("tollium:feedback", null, { target: { guid: result.guid } });
+      window.$shell.startBackendApplication("publisher:submitfeedback", null, { target: { guid: result.guid } });
     }
   }
 }

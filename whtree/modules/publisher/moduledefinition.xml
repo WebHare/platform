@@ -111,6 +111,10 @@
       </accesscheck>
     </application>
 
+    <application name="submitfeedback" screen="tolliumapps/feedback/submit.xml#submitfeedback">
+      <accesscheck/>
+    </application>
+
     <dashboardgroup name="publisher" tid="module.name" orderafter="system:ap system:tasks" />
     <dashboardpanel group="publisher" name="sites" tid="monitor.sites.title"
                     screen="monitor/sites.sites" />
