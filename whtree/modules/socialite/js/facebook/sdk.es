@@ -1,7 +1,6 @@
 //const SocialiteNetwork = require('./socialitenetwork.es');
 import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
-const Promise = require('@mod-system/js/compat/promise');
 const domtools = require('@mod-system/js/dom/tools');
 const whurl = require('@mod-system/js/internal/url');
 //const PreloadableAsset = require('@mod-system/js/preloadable');
@@ -77,7 +76,7 @@ function load()
 {
   if(!loaddefer)
   {
-    loaddefer = Promise.defer();
+    loaddefer = dompack.createDeferred();
     domtools.onready(doLoad);
   }
   return loaddefer.promise;
@@ -157,8 +156,6 @@ function onready(callback)
 */
 function startShare(link, options)
 {
-  var sharepromise = Promise.defer();
-
   if (!options)
     options = {};
 
