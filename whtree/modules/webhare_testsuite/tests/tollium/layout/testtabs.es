@@ -1,10 +1,9 @@
-import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
 
 
 function getTabs(startnode)
 {
-  return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => dompack.closest(node, 't-tabs') == startnode);
+  return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => node.closest('t-tabs') == startnode);
 }
 function getActiveTab(startnode)
 {
@@ -179,7 +178,7 @@ test.registerTests(
   , { name: 'testanonymoustab'
     , test:function(doc,win)
       {
-        var tablabel = $$t('*[data-tab$=":untitledtab"]')[0];
+        var tablabel = test.qSA('*[data-tab$=":untitledtab"]')[0];
         test.click(tablabel, {x:5,y:5});
         test.true(test.isElementClickable(test.compByName('untitledtabtext')));
       }
@@ -210,7 +209,7 @@ test.registerTests(
         test.eq(openedmenu.querySelector("li").offsetHeight, openedmenu.querySelectorAll("li")[2].offsetHeight); //all the same height, even the anonymous ones
         test.eq(Math.ceil(tablabel.getBoundingClientRect().right), Math.ceil(openedmenu.getBoundingClientRect().right), 'we also expect this menu to be right aligned against the nav-tabs button');
 
-        var tab3 = dompack.qSA(openedmenu,'li').filter(li=>li.textContent.includes("long name for tab 3"))[0];
+        var tab3 = test.qSA(openedmenu,'li').filter(li=>li.textContent.includes("long name for tab 3"))[0];
         test.true(tab3, "No menu item named '... long name for tab 3'");
 
         test.click(tab3);

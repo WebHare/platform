@@ -30,21 +30,21 @@ test.registerTests(
   , { name: 'iframeloadwait'
     , test: function(doc,win)
       {
-        lasttextareavalue = test.$$t('textarea')[0].value;
-        //var iframe = test.$$t('iframe')[0];
+        lasttextareavalue = test.qSA('textarea')[0].value;
+        //var iframe = test.qSA('iframe')[0];
         test.click(test.getMenu(['I00']));
       }
-    , waits: [ function() { return test.$$t('textarea')[0].value != lasttextareavalue; } ]
+    , waits: [ function() { return test.qSA('textarea')[0].value != lasttextareavalue; } ]
     }
 
   , { name: 'iframeinitialcall'
     , wait: function(doc,win,callback)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
         var calls = iframe.contentWindow.document.getElementById('calls');
         test.eq('func1 1 test\n', calls.value);
 
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('{"args":[1,"test"],"type":"receivedcall"}', textarea.value.trim());
 
         test.click(test.getMenu(['I04']));
@@ -56,7 +56,7 @@ test.registerTests(
   , { name: 'serverdataupdate'
     , test: function(doc, win)//, callback)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
         var data = iframe.contentWindow.document.getElementById('data');
         test.eq('datab', data.value);
         //win.addEvent('message:once', callback);
@@ -72,7 +72,7 @@ test.registerTests(
   , { name: 'clientdataupdate_prepare'
     , wait: function(doc, win, callback)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
 
         // Add 'b' to iframe data
         test.click(test.getMenu(['I04']));
@@ -84,7 +84,7 @@ test.registerTests(
   , { name: 'clientdataupdate'
     , test: function(doc, win)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
         var data = iframe.contentWindow.document.getElementById('data');
         test.eq('databab', data.value);
 
@@ -93,7 +93,7 @@ test.registerTests(
       }
     , waits: [ 'ui' , (doc,win) =>
         {
-          var iframe = test.$$t('iframe')[0];
+          var iframe = test.qSA('iframe')[0];
           let source = iframe.contentWindow.document.getElementById('source');
           return source && 'htmlcontent2' == source.dataset.source;
         }
@@ -103,7 +103,7 @@ test.registerTests(
   , { name: 'iframehtmlcontent'
     , test: async function(doc,win)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
 
         // Test html content
         test.eq('htmlcontent2', iframe.contentWindow.document.getElementById('source').dataset.source);
@@ -120,7 +120,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         // Test if call was handled properly
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('{"args":[1,"test"],"type":"receivedcall"}\n' +
                'data:data\n' +
                'data:databa\n' +
@@ -149,7 +149,7 @@ test.registerTests(
   , { name: 'clicklink'
     , test: async function(doc,win)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
         //wait for us to have intercepted the click handler
         await test.wait( () => iframe.contentWindow.whIframeAttached === true);
 
@@ -162,7 +162,7 @@ test.registerTests(
   , { name: 'clicklink verify'
     , test: function(doc,win)
       {
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('{"args":[1,"test"],"type":"receivedcall"}\n' +
                'data:data\n' +
                'data:databa\n' +
@@ -173,15 +173,15 @@ test.registerTests(
 
   , { loadpage: test.getTestScreen('tests/basecomponents.iframetestincontents')
     , waits: [ 'ui', function()
-      { /*var iframe = test.$$t('iframe')[0]; */
-        return !!test.$$t('iframe')[0].contentWindow.document.querySelector('#source, .wh-errorinfo');
+      { /*var iframe = test.qSA('iframe')[0]; */
+        return !!test.qSA('iframe')[0].contentWindow.document.querySelector('#source, .wh-errorinfo');
       }
       ]
     }
   , { name:"test iframe load when component renamed"
     , test:function(doc,win)
       {
-        var iframe = test.$$t('iframe')[0];
+        var iframe = test.qSA('iframe')[0];
         test.eq('htmlcontent1', iframe.contentWindow.document.getElementById('source').dataset.source);
       }
     , xfail: true

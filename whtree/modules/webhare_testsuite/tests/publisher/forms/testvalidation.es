@@ -1,5 +1,4 @@
 import * as test from '@mod-system/js/wh/testframework';
-import { $qS, $qSA } from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import FormBase from '@mod-publisher/js/forms/formbase';
 var domfocus = require('@mod-system/js/dom/focus');
@@ -27,16 +26,16 @@ test.registerTests(
 
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
       test.click('#coretest-email');
-      test.eq(0, $qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
+      test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
 
       test.fill('#coretest-email', 'x');
-      test.eq(0, $qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #1");
+      test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #1");
       test.fill('#coretest-email', '');
-      test.eq(0, $qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #2");
+      test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #2");
 
       await test.pressKey('Tab');
 
-      let emailgroup = dompack.closest($qS('#coretest-email'), '.wh-form__fieldgroup');
+      let emailgroup = dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup');
       test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to be in error mode now");
       test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
 
@@ -61,7 +60,7 @@ test.registerTests(
   , 'Test number field'
   , async function()
     {
-      let numbergroup = dompack.closest($qS('#coretest-number'), '.wh-form__fieldgroup');
+      let numbergroup = dompack.closest(test.qS('#coretest-number'), '.wh-form__fieldgroup');
       test.fill('#coretest-number','5');
       await test.pressKey('Tab', { shiftKey: true });
       test.eq('De waarde mag niet groter zijn dan 2.', numbergroup.querySelector('.wh-form__error').textContent);
@@ -74,7 +73,7 @@ test.registerTests(
     {
       test.eq('', test.qS('#coretest-dateofbirth').validationMessage||'');
 
-      let dateofbirthgroup = dompack.closest($qS('#coretest-dateofbirth'), '.wh-form__fieldgroup');
+      let dateofbirthgroup = dompack.closest(test.qS('#coretest-dateofbirth'), '.wh-form__fieldgroup');
       let sevendayslater = new Date(Date.now()+7*86400*1000).toISOString().substr(0,10);
 
       //FIXME date localization
@@ -93,10 +92,10 @@ test.registerTests(
     {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
 
-      test.eq(false, test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
       test.click('#coretest-showradioy'); //hid e Y
 
-      test.eq(false, test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      test.false(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
       test.click('#coretest-showradioy'); //show Y
 
       setRequiredFields(); //sets all fields (note: selects X)
@@ -131,7 +130,7 @@ test.registerTests(
       test.eq("checkboxes", formevents[1].data.ds_formmeta_errorfields);
       test.eq("client", formevents[1].data.ds_formmeta_errorsource);
 
-      let checkboxgroup = dompack.closest($qS('#coretest-checkboxes-2'), '.wh-form__fieldgroup');
+      let checkboxgroup = dompack.closest(test.qS('#coretest-checkboxes-2'), '.wh-form__fieldgroup');
       test.true(domfocus.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
       test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
@@ -221,7 +220,7 @@ test.registerTests(
 
   , async function()
     {
-      let setvalidatorgroup = dompack.closest($qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
       test.click('#coretest-setvalidator');
       await test.pressKey('Tab');
       await test.wait('ui');
@@ -238,58 +237,58 @@ test.registerTests(
   , { name: 'Test builtin validation API'
     , test: async function (doc,win)
       {
-        let formhandler = FormBase.getForNode($qS('#coreform'));
-        test.eq(0, $qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
+        let formhandler = FormBase.getForNode(test.qS('#coreform'));
+        test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
 
         let result;
         result = await formhandler.validate([]); //empty set
 
-        let emailgroup = dompack.closest($qS('#coretest-email'), '.wh-form__fieldgroup');
+        let emailgroup = dompack.closest(test.qS('#coretest-email'), '.wh-form__fieldgroup');
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
 
         //if we set an error before we start validating...
-        formhandler.setFieldError($qS('#coretest-email'), 'bad email field');
+        formhandler.setFieldError(test.qS('#coretest-email'), 'bad email field');
         //...don't show it. this is more consistent with html5 rendering
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
         test.false(emailgroup.querySelector('.wh-form__error'));
 
         //but if we force show it...
-        formhandler.setFieldError($qS('#coretest-email'), 'really bad email field', { reportimmediately: true });
+        formhandler.setFieldError(test.qS('#coretest-email'), 'really bad email field', { reportimmediately: true });
         test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'));
         test.eq('really bad email field', emailgroup.querySelector('.wh-form__error').textContent);
 
         //and we can hide it
-        formhandler.setFieldError($qS('#coretest-email'), '');
+        formhandler.setFieldError(test.qS('#coretest-email'), '');
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'));
         test.eq('', emailgroup.querySelector('.wh-form__error').textContent);
 
         result = await formhandler.validate(emailgroup);
-        test.eq($qS('#coretest-email'), result.firstfailed);
+        test.eq(test.qS('#coretest-email'), result.firstfailed);
         test.true(result.failed.length==1);
         test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error');
         test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
 
         //test HTML5 custom validation
-        result = await formhandler.validate($qS('#coretest-setvalidator'));
+        result = await formhandler.validate(test.qS('#coretest-setvalidator'));
         test.false(result.valid, 'setvalidator should be seen as invalid');
-        test.eq($qS('#coretest-setvalidator'), result.firstfailed);
+        test.eq(test.qS('#coretest-setvalidator'), result.firstfailed);
         test.true(result.failed.length==1);
 
         //test custom errors
-        $qS('#coretest-email').value='klaas@example.org';
+        test.qS('#coretest-email').value='klaas@example.org';
         result = await formhandler.validate(emailgroup);
         test.true(result.valid);
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should not be marked as error');
 
-        formhandler.setFieldError($qS('#coretest-email'), 'bad email field', { reportimmediately: true });
+        formhandler.setFieldError(test.qS('#coretest-email'), 'bad email field', { reportimmediately: true });
         test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be marked as error after explicit setFieldError');
 
         result = await formhandler.validate(emailgroup);
         test.true(emailgroup.classList.contains('wh-form__fieldgroup--error'),'revalidation may not clear explicit errors, as they have no callback to restore erros');
 
-        formhandler.setFieldError($qS('#coretest-email'), null);
+        formhandler.setFieldError(test.qS('#coretest-email'), null);
         test.false(emailgroup.classList.contains('wh-form__fieldgroup--error'),'email group should be unmarked as error');
-        $qS('#coretest-email').value='';
+        test.qS('#coretest-email').value='';
 
         // Test disabling by condition clearing validation errors
         test.fill("#coretest-condition_not", true);
@@ -309,15 +308,15 @@ test.registerTests(
     , test: function (doc,win)
       {
         win.scrollTo(0,doc.documentElement.scrollHeight - win.innerHeight);
-        test.false(test.canClick($qS('#coretest-email')), '#coretest-email should be out of sight');
-        test.click($qS('.validatebutton'));
+        test.false(test.canClick(test.qS('#coretest-email')), '#coretest-email should be out of sight');
+        test.click(test.qS('.validatebutton'));
       }
     , waits: ['ui']
     }
   , { test: function (doc,win)
       {
-        test.true(test.canClick($qS('#coretest-email')), '#coretest-email should be back in of sight');
-        test.true(domfocus.hasFocus($qS('#coretest-email')),'#coretest-email should have focus');
+        test.true(test.canClick(test.qS('#coretest-email')), '#coretest-email should be back in of sight');
+        test.true(domfocus.hasFocus(test.qS('#coretest-email')),'#coretest-email should have focus');
       }
     }
 
@@ -327,7 +326,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest($qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
@@ -345,7 +344,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest($qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');
@@ -361,7 +360,7 @@ test.registerTests(
 
   , async function (doc,win)
     {
-      let setvalidatorgroup = dompack.closest($qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
+      let setvalidatorgroup = dompack.closest(test.qS('#coretest-setvalidator'), '.wh-form__fieldgroup');
       test.false(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
       test.fill(test.qS('#coretest-email'),'pietje@example.com');

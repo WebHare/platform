@@ -1,7 +1,6 @@
 import * as dompack from 'dompack';
 import * as domfocus from '@mod-system/js/dom/focus';
 import * as test from '@mod-tollium/js/testframework';
-import { $qS } from '@mod-tollium/js/testframework';
 
 test.registerTests(
   [ { loadpage: test.getTestScreen('tests/basecomponents.codeedittest')
@@ -11,9 +10,9 @@ test.registerTests(
   , { name: 'initialselectedline'
     , test: function(doc,win)
       {
-        test.true(domfocus.hasFocus($qS('textarea')));
-        test.false($qS('textarea').scrollTop == 0, 'scrollTop = 0, so no initial selection done');
-        test.false($qS('textarea').readOnly);
+        test.true(domfocus.hasFocus(test.qS('textarea')));
+        test.false(test.qS('textarea').scrollTop == 0, 'scrollTop = 0, so no initial selection done');
+        test.false(test.qS('textarea').readOnly);
 
         // Disable
         test.click(test.getMenu(['I04']));
@@ -24,8 +23,8 @@ test.registerTests(
   , { name: 'disabled'
     , test: function(doc,win)
       {
-        test.true($qS('textarea').readOnly);
-        test.false($qS('textarea').scrollTop == 0);
+        test.true(test.qS('textarea').readOnly);
+        test.false(test.qS('textarea').scrollTop == 0);
 
         // Enable
         test.click(test.getMenu(['I04']));
@@ -36,8 +35,8 @@ test.registerTests(
   , { name: 'reenabled'
     , test: function(doc,win)
       {
-        test.false($qS('textarea').readOnly);
-        test.false($qS('textarea').scrollTop == 0);
+        test.false(test.qS('textarea').readOnly);
+        test.false(test.qS('textarea').scrollTop == 0);
 
         // First line
         test.click(test.getMenu(['I01']));
@@ -48,7 +47,7 @@ test.registerTests(
   , { name: 'firstline'
     , test: function(doc,win)
       {
-        test.true($qS('textarea').scrollTop == 0);
+        test.true(test.qS('textarea').scrollTop == 0);
 
         // Last line
         test.click(test.getMenu(['I02']));
@@ -59,7 +58,7 @@ test.registerTests(
   , { name: 'lastline'
     , test: function(doc,win)
       {
-        var textarea = $qS('textarea');
+        var textarea = test.qS('textarea');
         test.eq(textarea.scrollHeight - textarea.clientHeight, textarea.scrollTop);
 
         // Reset
@@ -71,8 +70,8 @@ test.registerTests(
   , { name: 'reset'
     , test: function(doc,win)
       {
-        test.true($qS('textarea').scrollTop == 0);
-        var textarea = $qS('textarea');
+        test.true(test.qS('textarea').scrollTop == 0);
+        var textarea = test.qS('textarea');
         test.eq('', textarea.value);
       }
     }
@@ -80,7 +79,7 @@ test.registerTests(
   , { name: 'set'
     , test: async function()
       {
-        var textarea = $qS('textarea');
+        var textarea = test.qS('textarea');
         dompack.focus(textarea);
         await test.pressKey('Enter'); //ensure cr doesn't kill us by leaking to parent frame
         test.fill(textarea, "Dit is een test");
@@ -92,14 +91,14 @@ test.registerTests(
   , { name: 'setcheck'
     , test: function(doc,win)
       {
-        var textarea = $qS('textarea');
+        var textarea = test.qS('textarea');
         test.eq("RGl0IGlzIGVlbiB0ZXN0", textarea.value);
       }
     }
 
   , async function testSelectionWhenDisabled()
     {
-      var textarea = $qS('textarea');
+      var textarea = test.qS('textarea');
       dompack.focus(textarea);
       textarea.value = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n";
       test.click(test.getMenu(['I04'])); // toggle enabled

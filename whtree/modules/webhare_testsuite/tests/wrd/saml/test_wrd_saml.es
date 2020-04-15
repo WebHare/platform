@@ -113,11 +113,11 @@ test.registerTests(
     , test: function(doc, win)
       {
         test.true(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@example.com", test.$t("dashboard-user-name").textContent);
+        test.eq("idpaccount@example.com", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
-        test.true(test.$t("dashboard-logout").classList.contains("dashboard-logout--allowed"));
-        test.click(test.$t("dashboard-logout"));
+        test.true(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
+        test.click(test.qS("#dashboard-logout"));
       }
     , waits: [ "ui" ]
     }
@@ -148,10 +148,10 @@ test.registerTests(
     , test: function(doc, win)
       {
         test.true(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@example.com", test.$t("dashboard-user-name").textContent);
+        test.eq("idpaccount@example.com", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
-        test.false(test.$t("dashboard-logout").classList.contains("dashboard-logout--allowed"));
+        test.false(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
       }
     }
 

@@ -157,7 +157,7 @@ test.registerTests(
         test.false(test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
         let rtenode = test.qS('[data-wh-form-name="rtd"] .wh-rtd__stylescope');
-        test.eq(true, rtenode.classList.contains("wh-rtd--disabled"));
+        test.true(rtenode.classList.contains("wh-rtd--disabled"));
 
         test.click(test.qS('#rtdtest-enablefields'));
         test.true(test.qS('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");

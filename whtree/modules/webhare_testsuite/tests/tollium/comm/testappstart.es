@@ -19,9 +19,9 @@ test.registerTests(
     {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
       await test.wait('ui');
-      test.eq(2, test.$$t('.t-apptab').length);
-      test.eq(1, test.$$t('.t-apptab--activeapp').length);
-      test.true(test.$$t('.t-screen.active').length == 1);
+      test.eq(2, test.qSA('.t-apptab').length);
+      test.eq(1, test.qSA('.t-apptab--activeapp').length);
+      test.true(test.qSA('.t-screen.active').length == 1);
       test.eq('app_0_0', test.getDoc().title);
 
       // Start app with target {test:1}
@@ -33,14 +33,14 @@ test.registerTests(
     , test:function(doc,win)
       {
         test.eq('app_1_1', doc.title);
-        var tabs = test.$$t('.t-apptab');
-        var apps = test.$$t('.appcanvas');
+        var tabs = test.qSA('.t-apptab');
+        var apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
         test.eq(3, apps.length);
 
         // Second app must be active
-        test.eq([ tabs[2] ], Array.from(test.$$t('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.$$t('.appcanvas.visible')));
+        test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));
@@ -55,14 +55,14 @@ test.registerTests(
   , { name: 'checkselfmessage'
     , test:function(doc,win)
       {
-        var tabs = test.$$t('.t-apptab');
-        var apps = test.$$t('.appcanvas');
+        var tabs = test.qSA('.t-apptab');
+        var apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
         test.eq(3, apps.length);
 
         // Second app must be active
-        test.eq([ tabs[2] ], Array.from(test.$$t('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.$$t('.appcanvas.visible')));
+        test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));
@@ -76,14 +76,14 @@ test.registerTests(
   , { name: 'checkappswitch'
     , test:function(doc,win)
       {
-        var tabs = test.$$t('.t-apptab');
-        var apps = test.$$t('.appcanvas');
+        var tabs = test.qSA('.t-apptab');
+        var apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
         test.eq(3, apps.length);
 
         // Second app must be active
-        test.eq([ tabs[1] ], Array.from(test.$$t('.t-apptab--activeapp')));
-        test.eq([ apps[1] ], Array.from(test.$$t('.appcanvas.visible')));
+        test.eq([ tabs[1] ], Array.from(test.qSA('.t-apptab--activeapp')));
+        test.eq([ apps[1] ], Array.from(test.qSA('.appcanvas.visible')));
 
         test.click(test.getMenu(['X03']));
       }
@@ -93,14 +93,14 @@ test.registerTests(
   , { name: 'checkmessagetoother'
     , test:function(doc,win)
       {
-        var tabs = test.$$t('.t-apptab');
-        var apps = test.$$t('.appcanvas');
+        var tabs = test.qSA('.t-apptab');
+        var apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
         test.eq(3, apps.length);
 
         // Second app must be active
-        test.eq([ tabs[2] ], Array.from(test.$$t('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.$$t('.appcanvas.visible')));
+        test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));
@@ -114,8 +114,8 @@ test.registerTests(
         test.click(test.getMenu(['X04']));
         await test.wait('ui');
         //both canvas and tab should still be here whilst we deal wit the crash
-        test.eq(3, test.$$t('.appcanvas').length);
-        test.eq(3, test.$$t('.t-apptab').length);
+        test.eq(3, test.qSA('.appcanvas').length);
+        test.eq(3, test.qSA('.t-apptab').length);
         //and the app can't be busy!
         test.false(test.getCurrentApp().isBusy());
 
@@ -134,9 +134,9 @@ test.registerTests(
   , { name: 'checkcrash-appgone'
     , test:function(doc,win)
       {
-        test.eq(2, test.$$t('.appcanvas').length);
-        test.eq(2, test.$$t('.t-apptab').length);
-        test.eq(1, test.$$t('.t-apptab--activeapp').length);
+        test.eq(2, test.qSA('.appcanvas').length);
+        test.eq(2, test.qSA('.t-apptab').length);
+        test.eq(1, test.qSA('.t-apptab--activeapp').length);
       }
     }
   ]);

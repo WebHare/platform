@@ -41,7 +41,7 @@ test.registerTests(
   , { name: "check login result"
     , test:function(doc,win)
       {
-        test.eq("test portal2", test.$t("dashboard-user-name").textContent);
+        test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
       }
     }
 
@@ -80,7 +80,7 @@ test.registerTests(
   , { name: "check login result"
     , test:function(doc,win)
       {
-        test.eq("test portal2", test.$t("dashboard-user-name").textContent);
+        test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
       }
     }
 
@@ -100,8 +100,8 @@ test.registerTests(
   , { name: "access rule portal login #2"
     , test:function(doc,win)
       {
-        test.$qS("#login").value = "test-portal1@example.com";
-        test.$qS("#password").value = "secret";
+        test.qS("#login").value = "test-portal1@example.com";
+        test.qS("#password").value = "secret";
         test.click('input[type=submit]');
       }
     , waits: [ "pageload" ]
@@ -162,8 +162,8 @@ test.registerTests(
   , { name: "access rule portal login - fail"
     , test:function(doc,win)
       {
-        test.fill($t("login"), "external");
-        test.fill($t("password"), "b");
+        test.fill(test.qS("#login"), "external");
+        test.fill(test.qS("#password"), "b");
         test.click('input[type=submit]');
       }
     , waits: [ "ui" ]
@@ -171,11 +171,11 @@ test.registerTests(
   , { name: "access rule portal login - ok"
     , test:function(doc,win)
       {
-        var elts = test.$$t("#loginresult.loginfailed");
+        var elts = test.qSA("#loginresult.loginfailed");
         test.eq(1, elts.length);
 
-        test.fill($t("login"), "external");
-        test.fill($t("password"), "secret");
+        test.fill(test.qS("#login"), "external");
+        test.fill(test.qS("#password"), "secret");
         test.click('input[type=submit]');
       }
     , waits: [ "pageload" ]

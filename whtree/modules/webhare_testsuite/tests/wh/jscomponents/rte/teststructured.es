@@ -69,7 +69,7 @@ test.registerTests(
         test.eq(testrange, range);
 
         // Image button should be disabled, as 'img' is not permitted here
-        var imgbutton = test.$$t('span.wh-rtd-button[data-button=img]')[0];
+        var imgbutton = test.qSA('span.wh-rtd-button[data-button=img]')[0];
         test.true(imgbutton!=null, "No image button");
         test.true(imgbutton.classList.contains('disabled'), "Image button is not disabled");
       }
@@ -349,7 +349,7 @@ test.registerTests(
 
         //selection should now extend over the entire paragraph
         rtetest.testEqSelHTMLEx(win, '<h1 class="heading1">"Kop"</h1><p class="normal">"(*0*)in mijn "<a href="http://b-lex.nl/">"stijl"</a>".(*1*)"</p>');
-//        testEq('in mijn stijl.', rte.getSelectionText());
+//        test.eq('in mijn stijl.', rte.getSelectionText());
 
         rtetest.setStructuredContent(win, '<p class="normal"><b>"a"</b><i>"b"</i></p');
         var range = rte.getSelectionRange();

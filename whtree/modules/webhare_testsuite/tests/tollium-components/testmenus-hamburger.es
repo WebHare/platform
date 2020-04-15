@@ -1,6 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
 import * as dompack from 'dompack';
-import { $qS, $qSA } from '@mod-tollium/js/testframework';
 
 
 test.registerTests(
@@ -12,9 +11,9 @@ test.registerTests(
     , test:function(doc,win)
       {
         test.true(test.getCurrentScreen().qS("ul.wh-menubar"));
-        test.true($qS('li[data-menuitem$="x0b1"]'));
-        test.false($qS('li[data-menuitem$="x0b2"]'));
-        test.eq(1, $qSA('t-toolbar').length);
+        test.true(test.qS('li[data-menuitem$="x0b1"]'));
+        test.false(test.qS('li[data-menuitem$="x0b2"]'));
+        test.eq(1, test.qSA('t-toolbar').length);
 
         //XB01 should be there, XB02 shouldn't
         test.click(test.compByName('b14_toggleforcemenubar'));
@@ -23,14 +22,14 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.eq(1, $qSA('t-toolbar').length);
+        test.eq(1, test.qSA('t-toolbar').length);
         test.click(test.getCurrentScreen().qS("t-button.ismenubutton"));
-        test.true(test.isElementClickable($$t('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu is already gone!");
+        test.true(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu is already gone!");
 
         test.click(test.compByName('b04_submenubutton'));
         test.click(test.compByName('b04_submenubutton'));
         test.click(test.getCurrentScreen().qS("t-button.ismenubutton"));
-        test.true(test.isElementClickable($$t('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu disappeared from the hamburger button after opening it from B04");
+        test.true(test.isElementClickable(test.qSA('li[data-menuitem$=":x01menu"]')[0]), "X01 Menu disappeared from the hamburger button after opening it from B04");
       }
     }
 
@@ -47,13 +46,13 @@ test.registerTests(
         test.false(topmenu.querySelector('li[data-menuitem$=":x0b1"]'));
         test.true(topmenu.querySelector('li[data-menuitem$=":x0b2"]'));
 
-        test.sendMouseGesture([{el: dompack.qSA(topmenu, "li").filter(li=>li.textContent.includes("X01"))[0] }]);
-        let x13item = $qS('li[data-menuitem$=x13]');
+        test.sendMouseGesture([{el: test.qSA(topmenu, "li").filter(li=>li.textContent.includes("X01"))[0] }]);
+        let x13item = test.qS('li[data-menuitem$=x13]');
         test.true(x13item);
         test.true(x13item.hasAttribute("data-menushortcut"));
         test.true(dompack.closest(x13item,'ul').classList.contains('showshortcuts'), 'shortcuts class missing in hamburger, needed to make data-shortcuts appear');
 
-        test.sendMouseGesture([{el: dompack.qSA(topmenu, "li").filter(li=>li.textContent.includes("X03"))[0] }]);
+        test.sendMouseGesture([{el: test.qSA(topmenu, "li").filter(li=>li.textContent.includes("X03"))[0] }]);
 
         test.true(burgerbutton.classList.contains("button--active"));
         test.true(test.getOpenMenu());
@@ -134,7 +133,7 @@ test.registerTests(
 
         let menu = test.getOpenMenu();
         test.true(menu);
-        test.true($qS('li[data-menuitem$=":x07"]'));
+        test.true(test.qS('li[data-menuitem$=":x07"]'));
       }
     }
 

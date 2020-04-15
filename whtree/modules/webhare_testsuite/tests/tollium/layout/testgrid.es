@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-import {$qS,$qSA} from '@mod-tollium/js/testframework';
 
 
 test.registerTests(
@@ -46,8 +45,8 @@ test.registerTests(
   , { name: 'gridupdate'
     , test:function(doc,win)
       {
-        test.eq(0,$qSA('.wh-radiobutton').length);
-        test.eq(2,$qSA('select').length);
+        test.eq(0,test.qSA('.wh-radiobutton').length);
+        test.eq(2,test.qSA('select').length);
         test.click(test.compByName('button')); //converts the select to a radiobutton
       }
     , waits: ['ui']
@@ -55,8 +54,8 @@ test.registerTests(
 
   , { test:function(doc,win)
       {
-        test.eq(2,$qSA('.wh-radiobutton').length);
-        test.eq(1,$qSA('select').length);
+        test.eq(2,test.qSA('.wh-radiobutton').length);
+        test.eq(1,test.qSA('select').length);
       }
     }
   ]);

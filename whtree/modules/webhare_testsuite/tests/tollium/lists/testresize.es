@@ -1,6 +1,5 @@
 import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
-import { $qS } from '@mod-tollium/js/testframework';
 
 
 test.registerTests(

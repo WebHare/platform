@@ -1,4 +1,4 @@
-/* global test.sendMouseGesture testEq */
+/* global test.sendMouseGesture test.eq */
 import * as test from '@mod-tollium/js/testframework';
 var gesture_time = 200;
 
@@ -28,7 +28,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 T1 ontarget move', textarea.value);
+        test.eq('1 T1 ontarget move', textarea.value);
       }
     }
 
@@ -53,7 +53,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -77,7 +77,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('2 T1 ontarget copy', textarea.value);
+        test.eq('2 T1 ontarget copy', textarea.value);
       }
     }
 
@@ -101,7 +101,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -125,7 +125,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -149,7 +149,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('2 n/a ontarget copy', textarea.value);
+        test.eq('2 n/a ontarget copy', textarea.value);
       }
     }
 
@@ -183,7 +183,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('2 n/a ontarget copy', textarea.value);
+        test.eq('2 n/a ontarget copy', textarea.value);
       }
     }
 
@@ -226,7 +226,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1,2 n/a ontarget copy', textarea.value);
+        test.eq('1,2 n/a ontarget copy', textarea.value);
       }
     }
 
@@ -260,7 +260,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -294,7 +294,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('4 T1 ontarget copy', textarea.value);
+        test.eq('4 T1 ontarget copy', textarea.value);
       }
     }
 
@@ -319,7 +319,7 @@ test.registerTests(
 
         await test.wait("ui");
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('4 T3 ontarget link', textarea.value);
+        test.eq('4 T3 ontarget link', textarea.value);
       }
     }
 
@@ -353,7 +353,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -379,7 +379,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -404,7 +404,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('', textarea.value);
+        test.eq('', textarea.value);
       }
     }
 
@@ -429,7 +429,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('R1.1 R1 ontarget move', textarea.value);
+        test.eq('R1.1 R1 ontarget move', textarea.value);
       }
     }
 
@@ -455,7 +455,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('R3 R3 ontarget move', textarea.value);
+        test.eq('R3 R3 ontarget move', textarea.value);
       }
     }
 
@@ -481,7 +481,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1 insertbefore move', textarea.value);
+        test.eq('1 R1 insertbefore move', textarea.value);
       }
     }
 
@@ -507,7 +507,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1.1 insertbefore move', textarea.value);
+        test.eq('1 R1.1 insertbefore move', textarea.value);
       }
     }
 
@@ -533,7 +533,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1.1 insertbefore move', textarea.value);
+        test.eq('1 R1.1 insertbefore move', textarea.value);
       }
     }
 
@@ -559,7 +559,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1.2.1 insertbefore move', textarea.value);
+        test.eq('1 R1.2.1 insertbefore move', textarea.value);
       }
     }
 
@@ -584,7 +584,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R2 insertbefore move', textarea.value);
+        test.eq('1 R2 insertbefore move', textarea.value);
       }
     }
 
@@ -609,7 +609,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1 appendchild move', textarea.value);
+        test.eq('1 R1 appendchild move', textarea.value);
       }
     }
 
@@ -634,7 +634,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1 appendchild move', textarea.value);
+        test.eq('1 R1 appendchild move', textarea.value);
       }
     }
 
@@ -659,7 +659,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1.2 appendchild move', textarea.value);
+        test.eq('1 R1.2 appendchild move', textarea.value);
       }
     }
 
@@ -684,7 +684,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R1.2.1 appendchild move', textarea.value);
+        test.eq('1 R1.2.1 appendchild move', textarea.value);
       }
     }
 
@@ -709,7 +709,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R3 appendchild move', textarea.value);
+        test.eq('1 R3 appendchild move', textarea.value);
       }
     }
 
@@ -734,7 +734,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R3 appendchild move', textarea.value);
+        test.eq('1 R3 appendchild move', textarea.value);
       }
     }
 
@@ -759,7 +759,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 R2.1 ontarget move', textarea.value);
+        test.eq('1 R2.1 ontarget move', textarea.value);
       }
     }
 
@@ -795,7 +795,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         var textarea = test.compByName('log').querySelector('textarea');
-        testEq('1 S18 ontarget move', textarea.value);
+        test.eq('1 S18 ontarget move', textarea.value);
       }
     }
 

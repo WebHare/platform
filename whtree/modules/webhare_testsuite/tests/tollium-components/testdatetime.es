@@ -35,7 +35,7 @@ test.registerTests(
       await test.load(test.getCompTestPage('datetime', { title: '' }));
       await test.wait("ui");
 
-      test.eq(true, test.compByName("thecomponent$*").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
+      test.true(test.compByName("thecomponent$*").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
 
       // test onselect call after user change
       setDate(test.compByName("thecomponent$*"), "13-01-2017");
@@ -96,7 +96,7 @@ test.registerTests(
       setTime(ti1, '8:19');
 
       var ti6 = test.compByName('ti6!dt'); //datetime with minute precision
-      test.eq(true, ti6.classList.contains('required'));
+      test.true(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
 
       var midnight = test.compByName('midnight!dt'); //datetime with minute precision
@@ -243,7 +243,7 @@ test.registerTests(
   , async function(doc,win)
     {
       var ti6 = test.compByName('ti6!dt'); //datetime with minute precision
-      test.eq(true, ti6.classList.contains('required'));
+      test.true(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
 
       setTime(ti6, '01:01:01.001');
@@ -452,7 +452,7 @@ test.registerTests(
   , async function()
     {
       let alternatedefault = test.compByName('alternatedefault');
-      test.eq(false, alternatedefault.classList.contains("default"));
+      test.false(alternatedefault.classList.contains("default"));
 
       let dt3 = test.compByName('dt3');
       let dt2 = test.compByName('dt2');
@@ -460,13 +460,13 @@ test.registerTests(
       await test.wait("events");
 
       test.click(dt3.querySelector(".tollium__datetime__day"));
-      test.eq(true, alternatedefault.classList.contains("default"));
+      test.true(alternatedefault.classList.contains("default"));
 
       test.click(dt2.querySelector(".tollium__datetime__day"));
-      test.eq(false, alternatedefault.classList.contains("default"));
+      test.false(alternatedefault.classList.contains("default"));
 
       test.click(dt3.querySelector(".tollium__datetime__hour"));
-      test.eq(true, alternatedefault.classList.contains("default"));
+      test.true(alternatedefault.classList.contains("default"));
     }
 
   ]);

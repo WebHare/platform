@@ -30,7 +30,7 @@ test.registerTests(
         var select = testpanel.querySelector('select');
         var label = test.qSA(testpanel,"t-text").filter(text=>text.textContent.includes('<title:select>'))[0];
 
-        test.eq(false, select.disabled);
+        test.false(select.disabled);
         test.true(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should be to the right of its label');
         test.fill(select,'second');
 
@@ -44,7 +44,7 @@ test.registerTests(
       {
         var testpanel = test.compByName("componentpanel");
         var select = testpanel.querySelector('select');
-        test.eq(true, select.disabled);
+        test.true(select.disabled);
         test.eq(2,select.options.length);
       }
     }
@@ -64,7 +64,7 @@ test.registerTests(
       {
         var testpanel = test.compByName("componentpanel");
         var select = testpanel.querySelector('select');
-        test.eq(false, select.disabled);
+        test.false(select.disabled);
       }
     }
 

@@ -7,7 +7,7 @@ test.registerTests(
   , { name: 'restart app3'
     , test:function(doc,win)
       {
-        test.eq(2, test.$$t('.t-apptab').length);
+        test.eq(2, test.qSA('.t-apptab').length);
         test.click(test.getMenu(['X03']));
       }
     , waits: [ 'ui' ]
@@ -17,10 +17,10 @@ test.registerTests(
     , test:function(doc,win)
       {
         test.eq('app_1_1', doc.title);
-        test.eq(3, test.$$t('.t-apptab').length);
-        test.eq(1, test.$$t('.t-apptab--activeapp').length);
+        test.eq(3, test.qSA('.t-apptab').length);
+        test.eq(1, test.qSA('.t-apptab--activeapp').length);
 
-        var activeapp = test.$$t('.t-apptab--activeapp')[0];
+        var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
         test.true(closer);
         test.true(test.isElementClickable(closer));
@@ -35,7 +35,7 @@ test.registerTests(
       {
         test.eq(2, test.getCurrentApp().getNumOpenScreens());
 
-        var activeapp = test.$$t('.t-apptab--activeapp')[0];
+        var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
         test.true(closer);
         test.true(test.isElementClickable(closer));
@@ -63,7 +63,7 @@ test.registerTests(
     , test: async function()
       {
         /* opening a noclose window currently -does not- disable the closer on the parent */
-        var activeapp = test.$$t('.t-apptab--activeapp')[0];
+        var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
         test.true(closer);
         test.true(test.isElementClickable(closer),'closer (x) should be clickable');
@@ -90,7 +90,7 @@ test.registerTests(
   , { name: "check toggle allowclose"
     , test:function(doc,win)
       {
-        var activeapp = test.$$t('.t-apptab--activeapp')[0];
+        var activeapp = test.qSA('.t-apptab--activeapp')[0];
         var closer = activeapp.querySelector(".t-apptab__close");
         test.true(closer);
         test.false(test.isElementClickable(closer));
@@ -101,7 +101,7 @@ test.registerTests(
   , { name: "check confirmation"
     , test:function(doc,win)
       {
-        test.click(test.$$t('.t-apptab--activeapp .t-apptab__close')[0]);
+        test.click(test.qSA('.t-apptab--activeapp .t-apptab__close')[0]);
       }
     , waits: [ 'ui' ]
     }
@@ -109,8 +109,8 @@ test.registerTests(
   , { name: "check confirmation"
     , test:function(doc,win)
       {
-        test.click(test.$$t('.t-apptab--activeapp .t-apptab__close')[0]);
-        test.eq(3, test.$$t('.t-apptab').length);
+        test.click(test.qSA('.t-apptab--activeapp .t-apptab__close')[0]);
+        test.eq(3, test.qSA('.t-apptab').length);
       }
     , waits: [ 'ui' ]
     }
@@ -124,7 +124,7 @@ test.registerTests(
   , { name: "app closed?"
     , test:function(doc,win)
       {
-        test.eq(2, test.$$t('.t-apptab').length);
+        test.eq(2, test.qSA('.t-apptab').length);
       }
     }
   ]);

@@ -1,6 +1,5 @@
 import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
-import { $qS, $qSA } from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
@@ -299,12 +298,12 @@ test.registerTests(
         test.eq("img", rte.getSelectionState().actionelements[0].element);
 
         // When settings selection at start of link text, browser puts selection outside of link
-        rte.setCursor($qS('#link').firstChild,0);
+        rte.setCursor(test.qS('#link').firstChild,0);
         //console.log('selected', win.$wh.Rich.getStructuredOuterHTML(rte.getContentBodyNode(), rte.getSelectionRange()));
         test.false(rte.getSelectionState().properties);
 
 
-        rte.setCursor($qS('#link').firstChild,1);
+        rte.setCursor(test.qS('#link').firstChild,1);
         test.true(rte.getSelectionState().properties);
 
         win.apropshandler = function(targetid,target)
@@ -315,15 +314,15 @@ test.registerTests(
         rte.executeAction("action-properties");
         test.eq(null, win.apropshandler); //ensure it was invoked
 
-        rte.setCursor($qS('#anchor').firstChild,0);
+        rte.setCursor(test.qS('#anchor').firstChild,0);
         test.false(rte.getSelectionState().properties);
 
-        rte.setCursor($qS('#link2'),0);
+        rte.setCursor(test.qS('#link2'),0);
         test.false(rte.getSelectionState().properties); //as we're positioned _before_ the image, only <a href matches, so it's okay
 
-        rtetest.setRTESelection(win, rte, {startContainer:$qS('#link2')
+        rtetest.setRTESelection(win, rte, {startContainer:test.qS('#link2')
                          ,startOffset:0
-                         ,endContainer:$qS('#link2')
+                         ,endContainer:test.qS('#link2')
                          ,endOffset:1});
 
         //var selrange = rte.getSelectionRange();
@@ -352,8 +351,8 @@ test.registerTests(
 
         await test.wait("events"); // FF needs to load the image
         await test.wait(100); // chrome needs some extra wait too
-        test.click($qS(rte.getContentBodyNode(), "img"));
-        test.click($qS(rte.getContentBodyNode(), "img")); //doubleclick
+        test.click(test.qS(rte.getContentBodyNode(), "img"));
+        test.click(test.qS(rte.getContentBodyNode(), "img")); //doubleclick
         test.eq(null, win.imgpropshandler); //ensure it was invoked
       }
     }
@@ -413,20 +412,20 @@ test.registerTests(
       {
         var rte=win.rte.getEditor();
         rte.setContentsHTML('<b id="b">Bold tekst</b>');
-        rte.setCursor($qS('#b').firstChild,4);
+        rte.setCursor(test.qS('#b').firstChild,4);
 
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold(*0*)(*1*) tekst"</b>');
 
         rte.insertImage("/tollium_todd.res/webhare_testsuite/tollium/logo.png", 50, 50);
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="50" width="50">(*1*)" tekst"</b>');
 
-        rte.selectNodeOuter($qS(rte.getContentBodyNode(), "img"));
+        rte.selectNodeOuter(test.qS(rte.getContentBodyNode(), "img"));
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="50" width="50" >(*1*)" tekst"</b>');
         rte.insertImage("/tollium_todd.res/webhare_testsuite/tollium/radiobutton.png", 16, 16);
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/radiobutton.png" height="16" width="16">(*1*)"\u00a0tekst"</b>');
 
         rte.setContentsHTML('<b id="b">Bold tekst</b>');
-        rte.setCursor($qS('#b').firstChild,4);
+        rte.setCursor(test.qS('#b').firstChild,4);
 
         rte.insertImage("/tollium_todd.res/webhare_testsuite/tollium/logo.png", 10, 10);
         rtetest.testEqSelHTMLEx(win, '<b id="b">"Bold"(*0*)<img class="wh-rtd__img" src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10">(*1*)" tekst"</b>');

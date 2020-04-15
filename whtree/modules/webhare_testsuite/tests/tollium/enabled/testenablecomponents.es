@@ -9,7 +9,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         // The box's checkbox should be disabled
-        var box_checkbox_node = test.$$t(".wh-checkbox-wrapper")[1];
+        var box_checkbox_node = test.qSA(".wh-checkbox-wrapper")[1];
         var box_checkbox_comp = box_checkbox_node.propTodd;
 
         test.false(box_checkbox_comp.getEnabled());
@@ -25,7 +25,7 @@ test.registerTests(
         test.false(textedit_comp.getEnabled());
 
         // Toggle the 'control box' checkbox, enabling the box
-        var checkbox_node = test.$$t(".wh-checkbox-wrapper")[0];
+        var checkbox_node = test.qSA(".wh-checkbox-wrapper")[0];
         test.click(checkbox_node);
       }
     , waits: [ "ui" ] // enablecomponents are handled serverside at the moment
@@ -43,7 +43,7 @@ test.registerTests(
         textedit_comp = textedit_node.propTodd;
         test.false(textedit_comp.getEnabled());
 
-        var checkbox_node = test.$$t(".wh-checkbox-wrapper")[1];
+        var checkbox_node = test.qSA(".wh-checkbox-wrapper")[1];
         test.click(checkbox_node);
       }
     , waits: [ "ui" ] // enablecomponents are handled serverside at the moment
@@ -56,7 +56,7 @@ test.registerTests(
         var textedit_comp = textedit_node.propTodd;
         test.true(textedit_comp.getEnabled());
 
-        var pulldown_node = test.$$t("select")[1];
+        var pulldown_node = test.qSA("select")[1];
         test.fill(pulldown_node, 'enabled');
       }
     , waits: [ "ui" ] // enablecomponents are handled serverside at the moment
@@ -84,7 +84,7 @@ test.registerTests(
 
         test.false(textedit_comp.getEnabled());
 
-        var button_node = test.$$t("t-button")[0];
+        var button_node = test.qSA("t-button")[0];
         test.click(button_node);
       }
     , waitforgestures: true
@@ -99,7 +99,7 @@ test.registerTests(
 
         test.false(textedit_comp.getEnabled());
 
-        var checkbox_node = test.$$t(".wh-checkbox-wrapper")[0];
+        var checkbox_node = test.qSA(".wh-checkbox-wrapper")[0];
         test.click(checkbox_node);
       }
     , waitforgestures: true
@@ -128,7 +128,7 @@ test.registerTests(
 
         test.false(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[1];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -143,7 +143,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[2];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[2];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -158,7 +158,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[1];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -173,7 +173,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[0];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[0];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -188,7 +188,7 @@ test.registerTests(
 
         test.false(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[3];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -203,7 +203,7 @@ test.registerTests(
 
         test.false(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[4];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -218,7 +218,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[5];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[5];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -233,7 +233,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[4];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
       }
     , waitforgestures: true
@@ -248,7 +248,7 @@ test.registerTests(
 
         test.true(textedit_comp.getEnabled());
 
-        var radio_node = test.$$t(".wh-radiobutton-wrapper")[3];
+        var radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
       }
     , waitforgestures: true

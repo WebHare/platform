@@ -1,4 +1,3 @@
-/* global testEq prepareUploadTest $t */
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as test from '@mod-tollium/js/testframework';
 import JSONRPC from '@mod-system/js/net/jsonrpc';
@@ -13,7 +12,7 @@ test.registerTests(
   , { name: 'testupload'
     , wait: function(doc,win,callback)
       {
-        testEq(false, !window.Blob);
+        test.false(!window.Blob);
 
         // Create a blob
         var blob1 = new Blob([ '1234'  ], { type: "text/plain" });
@@ -26,20 +25,20 @@ test.registerTests(
         group = win.test.runUpload([ blob1, blob2 ], callback);
 
         var items = group.getItems();
-        testEq(2, items.length);
-        testEq('text/plain', items[0].type);
-        testEq(4, items[0].size);
-        testEq('', items[1].type);
-        testEq(5, items[1].size);
+        test.eq(2, items.length);
+        test.eq('text/plain', items[0].type);
+        test.eq(4, items[0].size);
+        test.eq('', items[1].type);
+        test.eq(5, items[1].size);
       }
     }
 
   , { name: 'testupload_checkresult'
     , wait: function(doc,win,callback)
       {
-        testEq('loaded', group.status);
-        testEq('loaded', group.getItems()[0].status);
-        testEq('loaded', group.getItems()[1].status);
+        test.eq('loaded', group.status);
+        test.eq('loaded', group.getItems()[0].status);
+        test.eq('loaded', group.getItems()[1].status);
 
         let rpc = new JSONRPC(
             { url: "/wh_services/webhare_testsuite/testnoauth/"
@@ -57,7 +56,7 @@ test.registerTests(
   , { name: 'testupload_checkuploadedfiles'
     , test: function(doc,win)
       {
-        testEq(
+        test.eq(
             [ { contenttype: "text/plain"
               , data: "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220"
               , filename: "file1.txt"
@@ -73,7 +72,7 @@ test.registerTests(
   , { name: 'testmegafile'
     , wait: function(doc,win,callback)
       {
-        testEq(false, !window.Blob);
+        test.false(!window.Blob);
 
         // Make 2 strings 64MB in length
         var megafile_1 = '12345678';
@@ -95,18 +94,18 @@ test.registerTests(
         group = win.test.runUpload([ blob1, blob2 ], callback);
 
         var items = group.getItems();
-        testEq(2, items.length);
-        testEq(megafile_1.length, items[0].size);
-        testEq(megafile_2.length, items[1].size);
+        test.eq(2, items.length);
+        test.eq(megafile_1.length, items[0].size);
+        test.eq(megafile_2.length, items[1].size);
       }
     }
 
   , { name: 'testmegafile_checkresult'
     , wait: function(doc,win,callback)
       {
-        testEq('loaded', group.status);
-        testEq('loaded', group.getItems()[0].status);
-        testEq('loaded', group.getItems()[1].status);
+        test.eq('loaded', group.status);
+        test.eq('loaded', group.getItems()[0].status);
+        test.eq('loaded', group.getItems()[1].status);
 
         let rpc = new JSONRPC(
             { url: "/wh_services/webhare_testsuite/testnoauth/"
@@ -124,7 +123,7 @@ test.registerTests(
   , { name: 'testmegafile_checkuploadedfiles'
     , test: function(doc,win)
       {
-        testEq(
+        test.eq(
             [ { contenttype: "text/plain"
               , data: '1B656360F31543C2865AF0EC1ABBB1589091E481'
               , filename: "file1.txt"
@@ -140,7 +139,7 @@ test.registerTests(
   , { name: 'testSelectAndUpload'
     , test: async function(doc, win)
       {
-        prepareUploadTest($t('myinput'),[ { url: '/tests/webhare.png'
+        prepareUploadTest(test.qS('#myinput'),[ { url: '/tests/webhare.png'
                                              , filename: 'webhare.png'
                                              } ]);
 
@@ -158,12 +157,12 @@ test.registerTests(
 
         let files = await group.upload();
 
-        testEq([ 'loadstart', 'loadend' ], requestresult.events);
+        test.eq([ 'loadstart', 'loadend' ], requestresult.events);
 
-        testEq(1, files.length);
-        testEq('webhare.png', files[0].name);
-        testEq(4355, files[0].size);
-        testEq('image/png', files[0].type);
+        test.eq(1, files.length);
+        test.eq('webhare.png', files[0].name);
+        test.eq(4355, files[0].size);
+        test.eq('image/png', files[0].type);
       }
     }
 
