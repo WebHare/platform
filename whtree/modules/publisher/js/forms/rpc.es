@@ -3,7 +3,7 @@ import * as focus from 'dompack/browserfix/focus';
 import * as browser from 'dompack/extra/browser';
 import * as merge from './internal/merge';
 import FormBase from './formbase';
-import JSONRPC from '@mod-system/js/net/jsonrpc';
+import RPCClient from '@mod-system/js/wh/rpc';
 import * as formservice from './internal/form.rpc.json';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
@@ -25,6 +25,7 @@ export default class RPCFormBase extends FormBase
                          , formref: formnode.dataset.whFormRef
                          , url: location.href.split('/').slice(3).join('/')
                          };
+    this.pendingrpcs = [];
 
     if(!this.__formhandler.formid)
     {
@@ -35,9 +36,8 @@ export default class RPCFormBase extends FormBase
 
     if(this.__formhandler.formid == '-')
     {
-      this.jsonrpc = new JSONRPC();
-      this.formservice = { callFormService: this._callFormService.bind(this)
-                         };
+      this.rpcclient = new RPCClient();
+      this.formservice = { callFormService: async (method, ...args) => this.rpcclient.invoke("callFormService", method, ...args) };
     }
     else
     {
@@ -53,11 +53,6 @@ export default class RPCFormBase extends FormBase
            };
   }
 
-  async _callFormService(method, ...args)
-  {
-    return await this.jsonrpc.async("callFormService", method, args);
-  }
-
   //Invoke a function on the form on the server
   async _invokeRPC(methodname, args, options)
   {
@@ -71,11 +66,13 @@ export default class RPCFormBase extends FormBase
     try
     {
       let formvalue = await this.getFormValue();
-      let result = await this.formservice.callFormService("invoke", { ...this.getServiceSubmitInfo()
-                                                                    , fields: formvalue
-                                                                    , methodname: methodname
-                                                                    , args: args
-                                                                    });
+      let rpc = this.formservice.callFormService("invoke", { ...this.getServiceSubmitInfo()
+                                                           , fields: formvalue
+                                                           , methodname: methodname
+                                                           , args: args
+                                                           });
+      this.pendingrpcs.push(rpc);
+      let result = await rpc;
       this._processMessages(result.messages);
       return result.result;
     }
@@ -143,6 +140,21 @@ export default class RPCFormBase extends FormBase
     }
   }
 
+  async _flushPendingRPCs()
+  {
+    while(this.pendingrpcs.length)
+    {
+      try
+      {
+        await this.pendingrpcs.pop();
+      }
+      catch(ignore)
+      {
+        //*we* can't handle those...
+      }
+    }
+  }
+
   async submit(extradata)
   {
     //ADDME timeout and free the form after some time
@@ -156,6 +168,7 @@ export default class RPCFormBase extends FormBase
     let eventdetail = { form: this.node
                       , rpchandler: this
                       };
+    await this._flushPendingRPCs();
     try
     {
       this.__formhandler.submitting = true;
@@ -174,6 +187,11 @@ export default class RPCFormBase extends FormBase
                     , ...extrasubmit
                     };
 
+      /* make sure no getFormValue RPCs are still pending, assuming they went through us, eg if an address validation is
+         still running (and could update)
+         TODO probably wiser to have validators take and hold a submission preventing lock in such a case, but this most closely matches original formservice behavior
+      */
+      await this._flushPendingRPCs();
       dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", { bubbles:true, cancelable: false, detail: { extrasubmit: extrasubmit } });
       let submitparameters = { ...this.getServiceSubmitInfo()
                              , fields: formvalue
@@ -327,7 +345,9 @@ export default class RPCFormBase extends FormBase
       }
       else
       {
-        if(! (await emailvalidation.validateField(this, field)))
+        let validation = emailvalidation.validateField(this, field);
+        this.pendingrpcs.push(validation);
+        if(! (await validation))
           return false;
       }
     }

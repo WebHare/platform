@@ -1,4 +1,3 @@
-import * as domcookie from 'dompack/extra/cookie';
 import * as test from "@mod-system/js/wh//testframework";
 import { $qS, $qSA } from "@mod-system/js/wh/testframework";
 //
@@ -16,11 +15,8 @@ test.registerTests(
     {
       //remove all webtool vote blockers locally
       for(let key of Object.keys(localStorage))
-        if(key.startsWith("webtools:poll:"))
-          delete localStorage[key];
-      for(let cookie of domcookie.list())
-        if(cookie.name.startsWith("webtools:poll:"))
-          domcookie.remove(cookie.name);
+        if(key.startsWith("wh-webtools-votetime:"))
+          localStorage.removeItem(key);
 
       let result = await test.invoke('moduleroot::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib', 'resetTestPoll');
       pollurl = result.pollurl;

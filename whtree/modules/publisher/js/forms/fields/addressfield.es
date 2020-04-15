@@ -1,6 +1,8 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 
+let lookupcache = {};
+
 export default class AddressField
 {
   constructor(node, options)
@@ -108,6 +110,11 @@ export default class AddressField
     }
   }
 
+  _clearErrors()
+  {
+    this.allFields.forEach(field => this.form.setFieldError(field.node, "", { reportimmediately: true }));
+  }
+
   async _checkValidity(event)
   {
     /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
@@ -115,21 +122,35 @@ export default class AddressField
        this on base of the country actually changing, not an external checkbox controlling visiblity of the whole country field
        and a stray update event
        */
-    let value = {}, visiblefields = [];
+    let value = {}, visiblefields = [], anyset = false;
     this.allFields.forEach((field, key) =>
     {
       if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden"))
       {
         visiblefields.push(field.node.closest(".wh-form__fieldgroup"));
         value[key] = field.node.value;
+
+        if(!anyset && key != 'country' && field.node.value)
+          anyset = true;
       }
     });
+
+    if(!anyset) //fields are empty..
+    {
+      this._clearErrors();
+      return; //then don't validate
+    }
 
     let result;
     try
     {
       visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
-      result = await this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", value);
+
+      let lookupkey = JSON.stringify(value);
+      if(!lookupcache[lookupkey])
+        lookupcache[lookupkey] = this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", value);
+
+      result = await lookupcache[lookupkey];
     }
     catch (e)
     {
@@ -155,7 +176,7 @@ export default class AddressField
       }
     }
 
-    this.allFields.forEach(field => this.form.setFieldError(field.node, "", { reportimmediately: true }));
+    this._clearErrors();
     switch (result.status)
     {
       case "not_supported": // Address lookup not supported, treat as "ok"

@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
 
 
-PUBLIC RECORD ARRAY FUNCTION GetRestructuringTests()
+PUBLIC RECORD ARRAY FUNCTION RPC_GetRestructuringTests()
 {
   RECORD ARRAY result;
 

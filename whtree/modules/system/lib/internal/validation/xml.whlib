@@ -157,17 +157,6 @@ RECORD FUNCTION ValidateWebRuleData(RECORD rule)
   RETURN retval;
 }
 
-MACRO CheckModuleWebservices(OBJECT validatingdoc)
-{
-  FOREVERY(OBJECT servicenode FROM validatingdoc->xml->ListElements("http://www.webhare.net/xmlns/system/moduledefinition", "services"))
-    FOREVERY(OBJECT webservice FROM servicenode->ListElements("http://www.webhare.net/xmlns/system/moduledefinition", "webservice"))
-    {
-      IF(webservice->GetAttribute("prefix") = "")
-        validatingdoc->AddWarning(webservice, `A webservice should define a prefix= to prevent accidental exports (eg prefix="RPC_")`);
-    }
-
-}
-
 PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 <
   UPDATE PUBLIC MACRO ValidateDocument()
@@ -176,7 +165,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 
     ListModuleWebruleSets(this->modulename, this->xml); //parse <webruleset> titles
     ParseModuleDefRunonce(this);
-    CheckModuleWebservices(this);
 
     ParseModuleDefinition(this->modulename, this->xml);
     CaptureOtherTids(this->modulename, this->xml);

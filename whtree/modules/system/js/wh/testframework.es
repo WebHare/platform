@@ -303,7 +303,7 @@ async function testThrowsAsync(promise, explanation)
   }
   catch (e)
   {
-    return;
+    return e;
   }
 
   if(explanation)
@@ -315,14 +315,15 @@ async function testThrowsAsync(promise, explanation)
   throw new Error("testThrows failed for async function");
 }
 
-window.testThrows = function(func, explanation)
+//test whether the specified call throws. we accept functions, promises, or functions returning promises
+window.testThrows = function(waitfor, explanation)
 {
-  let didthrow;
   try
   {
-    let res = func();
-    if (res && res.then) // thenable?
-      return testThrowsAsync(res, explanation);
+    if(typeof waitfor == "function")
+      waitfor = waitfor();
+    if(waitfor && waitfor.then)  // thenable?
+      return testThrowsAsync(waitfor, explanation);
 
     if(explanation)
       logExplanation(explanation);
@@ -333,10 +334,9 @@ window.testThrows = function(func, explanation)
   }
   catch (e)
   {
-    didthrow=true;
+    return e;
   }
-  if(!didthrow)
-    throw new Error("testThrows failed");
+  throw new Error("testThrows failed");
 };
 
 function findElementWithText(doc, tagname, text)

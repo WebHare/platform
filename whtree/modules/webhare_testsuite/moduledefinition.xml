@@ -97,22 +97,18 @@
   </tollium>
 
   <services>
-    <webservice name="test" transports="jsonrpc whremoting" library="webservicetest.whlib" requirewhaccount="true" primarytrans="auto">
+    <webservice name="test" transports="jsonrpc whremoting" library="webservicetest.whlib" requirewhaccount="true" primarytrans="auto" prefix="RPC_">
       <accesscheck>
         <requireright right="system:sysop"/>
       </accesscheck>
       <addheader header=" X-Test-Header :  * "/>
     </webservice>
-    <webservice name="testnoauth" transports="jsonrpc whremoting" library="webservicetest.whlib">
-      <accesscheck>
-      </accesscheck>
-    </webservice>
-    <webservice name="formservice" transports="jsonrpc whremoting" library="publisher/formservice.whlib">
+    <webservice name="testnoauth" transports="jsonrpc whremoting" library="webservicetest.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
 
-    <webservice name="sharedtests" transports="jsonrpc" library="sharedtests.whlib">
+    <webservice name="sharedtests" transports="jsonrpc" library="sharedtests.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>
