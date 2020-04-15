@@ -1252,3 +1252,42 @@ if (!HTMLSelectElement.prototype.hasOwnProperty("selectedOptions"))
     enumerable: true,
     configurable: true,
   })
+
+///////////////////////////////////////////////////////////////////////////////////
+//
+// Polyfill requestAnimationFrame
+
+/* JavaScript error feedback is commonly reporting 'requestAnimationFrame is not defined'
+   from odd browsers but even from browsers claiming to be 'windows-chrome-45' but
+   we know this version supports it...
+
+   inspired by https://gist.github.com/paulirish/1579671 - but removing all the
+   vendor support (shouldn't be relevant in 2018) and not separating the
+   polyfills (you can't know if clearTimeout will do if you didn't ensure it was
+   a setTimeuot)
+*/
+if(!window.requestAnimationFrame || !window.cancelAnimationFrame)
+{
+  var lastTime = 0;
+  window.requestAnimationFrame = function(callback, element) {
+            var currTime = new Date().getTime();
+            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+            var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+              timeToCall);
+            lastTime = currTime + timeToCall;
+            return id;
+        };
+  window.cancelAnimationFrame = function(id) {
+            clearTimeout(id);
+        };
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+//
+// Polyfill location.origin
+
+/* IE11 _should_ support location.origin, but we've repeatedly seen it not do that
+*/
+if (window.location && !window.location.origin) {
+  window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port: '');
+}

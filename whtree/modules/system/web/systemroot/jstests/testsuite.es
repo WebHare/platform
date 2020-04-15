@@ -5,7 +5,6 @@ import * as browser from 'dompack/extra/browser';
 import { URL } from 'dompack/browserfix/url';
 import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
 import { getFocusableComponents } from "@mod-system/js/dom/focus";
-import fetch from "@mod-system/js/compat/fetch";
 import "./testsuite.css";
 import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";

@@ -1,4 +1,3 @@
-import fetch from '@mod-system/js/compat/fetch';
 import * as dompack from 'dompack';
 import { URL } from 'dompack/browserfix/url';
 import * as toddrpc from "@mod-tollium/js/internal/todd.rpc.json";

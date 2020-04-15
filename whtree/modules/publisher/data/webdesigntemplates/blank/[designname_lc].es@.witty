@@ -8,7 +8,6 @@
    To test the design construction: wh runtest publisher-webdesign.testwebdesign-template
 
 !]import * as dompack from 'dompack';
-import 'dompack/browserfix/baseline';
 import 'dompack/browserfix/reset.css';
 
 import * as whintegration from '@mod-system/js/wh/integration';

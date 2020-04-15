@@ -1,19 +1,54 @@
 <?wh
-/* Hunt for obsolete metadata */
+// command: wh publisher:findwidgets
+// short: Find and optionally republish widget types and users
 
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 OBJECT trans := OpenPrimary();
 RECORD csp := GetCachedSiteProfiles();
 
 RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "showuse", type := "switch" ]
+                                                         , [ name := "republish", type := "switch" ]
                                                          , [ name := "mask", type := "param" ]
                                                          ]);
+
+INTEGER numfolders := 0, numfiles := 0;
+
+MACRO HandleReferrals(RECORD ARRAY referrals)
+{
+  IF(Length(referrals) > 0 AND settings.republish)
+    trans->BeginWork();
+
+  FOREVERY(RECORD referral FROM referrals)
+  {
+    Print("  - " || referral.whfspath || " " || referral.indexurl);
+    IF(referral.indexurl != "")
+    {
+      IF(referral.isfolder)
+      {
+        numfolders := numfolders + 1;
+        ScheduleFolderRepublish(referral.id, TRUE);
+      }
+      ELSE
+      {
+        numfiles := numfiles + 1;
+        ScheduleFileRepublish(referral.id);
+      }
+    }
+    Print("\n");
+  }
+
+  IF(Length(referrals) > 0 AND settings.republish)
+    trans->CommitWork();
+}
+
 IF (NOT RecordExists(settings))
 {
-  Print("Syntax: findwidgets.whscr [--showuse] [type mask]\n");
+  Print("Syntax: findwidgets.whscr [--showuse] [--republish] [type mask]\n");
   SetConsoleexitCode(1);
   RETURN;
 }
@@ -33,38 +68,38 @@ FOREVERY(RECORD contenttype FROM csp.contenttypes)
     Print(Length(settinginstances) || " setting instancetypes ");
     Print(Length(directinstances) || " instances ");
 
-    IF(settings.showuse)
+    IF(settings.showuse OR settings.republish)
     {
       Print("\n");
       INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY DISTINCT instanceid FROM (settinginstances CONCAT directinstances);
-      RECORD ARRAY fsobjects := SELECT whfspath, indexurl
+      RECORD ARRAY fsobjects := SELECT whfspath, indexurl, fs_objects.id, isfolder
                                   FROM system.fs_objects, system.fs_instances
                                  WHERE fs_instances.id IN instanceids
                                        AND fs_instances.fs_object = fs_objects.id
                               ORDER BY ToUppercase(whfspath);
-      FOREVERY(RECORD fsobject FROM fsobjects)
-        Print("- " || fsobject.whfspath || " " || fsobject.indexurl || "\n");
+      HandleReferrals(fsobjects);
     }
 
     RECORD ARRAY objs := SELECT id, whfspath, indexurl FROM system.fs_objects WHERE type = contenttype.id;
     Print(Length(objs) || " files\n");
-    IF(settings.showuse)
+
+    IF(settings.showuse OR settings.republish)
     {
       FOREVERY(RECORD fsobject FROM objs)
       {
         Print("- " || fsobject.whfspath || " " || fsobject.indexurl || "\n");
 
         //Now get anything referring to the widget
-        RECORD ARRAY referrals := SELECT whfspath, indexurl
+        RECORD ARRAY referrals := SELECT whfspath, indexurl, isfolder, fs_objects.id
                                     FROM system.fs_objects, system.fs_settings, system.fs_instances
                                    WHERE fs_settings.fs_object = fsobject.id
                                          AND fs_settings.fs_instance = fs_instances.id
                                          AND fs_instances.fs_object = fs_objects.id;
-        FOREVERY(RECORD referral FROM referrals)
-        {
-          Print("  - " || referral.whfspath || " " || referral.indexurl || "\n");
-        }
+        HandleReferrals(referrals);
       }
     }
   }
 }
+
+IF(settings.republish)
+  Print(`Scheduled ${numfolders} folder(s) and ${numfiles} file(s) for republication\n`);
