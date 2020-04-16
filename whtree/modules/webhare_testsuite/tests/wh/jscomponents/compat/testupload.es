@@ -139,9 +139,9 @@ test.registerTests(
   , { name: 'testSelectAndUpload'
     , test: async function(doc, win)
       {
-        prepareUploadTest(test.qS('#myinput'),[ { url: '/tests/webhare.png'
-                                             , filename: 'webhare.png'
-                                             } ]);
+        test.prepareUploadTest(test.qS('#myinput'),[ { url: '/tests/webhare.png'
+                                                   , filename: 'webhare.png'
+                                                   } ]);
 
         let uploadfiles = await compatupload.selectFiles();
         let group = new compatupload.UploadSession(uploadfiles);

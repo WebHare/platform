@@ -452,7 +452,7 @@ class FakeUploadSession
   }
 }
 
-window.prepareUploadTest = function(node, files, donecallback)
+function prepareUploadTest(node, files, donecallback)
 {
   if(window.top.wh_testapi_fakeupload)
     throw "The window already has a pending upload";
@@ -1066,6 +1066,7 @@ module.exports = { registerTests: registerJSTests
                  , getListViewHeader
                  , getListViewRow
                  , getPxlLog
+                 , prepareUploadTest
                  };
 
 module_exports = module.exports;
