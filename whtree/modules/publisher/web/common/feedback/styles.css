@@ -10,7 +10,7 @@
 .wh-feedback__dompointer::after
 {
   background: rgba(255, 0, 0, .1);
-  /* we need to use outline, not radius, to prevent triggering scrollbars when pointing to body or footer elements */
+  /* we need to use outline, not border, to prevent triggering scrollbars when pointing to body or footer elements */
   outline: 2px solid rgba(255, 0, 0, .9);
   bottom: 0;
   content: "";
