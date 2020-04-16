@@ -10,14 +10,14 @@
 .wh-feedback__dompointer::after
 {
   background: rgba(255, 0, 0, .1);
-  border: 2px solid rgba(255, 0, 0, .9);
-  border-radius: 4px;
-  bottom: -2px;
+  /* we need to use outline, not border, to prevent triggering scrollbars when pointing to body or footer elements */
+  outline: 2px solid rgba(255, 0, 0, .9);
+  bottom: 0;
   content: "";
   display: block;
-  left: -2px;
+  left: 0;
   pointer-events: none;
   position: absolute;
-  right: -2px;
-  top: -2px;
+  right: 0;
+  top: 0;
 }

@@ -67,7 +67,7 @@ function isNodeVisible(node)
   if (!node.getBoundingClientRect)
     return true;
   const rect = node.getBoundingClientRect();
-  return rect.width && rect.height
-      && rect.right >= 0 && rect.bottom >= 0
-      && rect.left <= window.innerWidth && rect.top <= window.innerHeight;
+  return (rect.width || rect.height)
+          && rect.right >= 0 && rect.bottom >= 0
+          && rect.left <= window.innerWidth && rect.top <= window.innerHeight;
 }
