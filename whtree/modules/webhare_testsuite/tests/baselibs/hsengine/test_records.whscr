@@ -673,17 +673,23 @@ MACRO ValidateOptionsTest()
   TestEq([a := 42, b := 43 ], ValidateOptions([ a := 42, b := 43 ], DEFAULT RECORD, [ notypecheck := [ "b", "a" ]]));
   TestEq([a := 42, b := 43 ], ValidateOptions([ a := 42, b := 43 ], [ a := 42 ], [ notypecheck := [ "b", "a" ]]));
 
-  TestEq(CELL[], ValidateOptions( [ fallback := "" ], DEFAULT RECORD, [ optional := ["fallback"], notypecheck := ["fallback" ]]));
+  TestEq(CELL[], ValidateOptions([ fallback := "" ], DEFAULT RECORD, [ optional := ["fallback"], notypecheck := ["fallback" ]]));
 
-  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := "2" ] ])); // enum values not string array
-  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
-  TestThrows(PTR ValidateOptions( [ a := "" ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // empty value as default is allowed, but a value must be passed then
-  TestThrows(PTR ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ c := [ "1", "2" ] ] ])); // no such option 'c'
-  TestThrows(PTR ValidateOptions( [ a := 1 ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // default not a string
-  TestThrows(PTR ValidateOptions( [ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
-  TestEQ([ a := "1" ], ValidateOptions( [ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
-  TestEQ([ a := "2" ], ValidateOptions( [ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
-  TestEQ([ a := "2" ], ValidateOptions( [ a := "" ], [ a := "2"], [ enums := [ a := [ "1", "2", "3" ] ] ])); // empty value is allowed as default
+  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := "2" ] ])); // enum values not string array
+  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
+  TestThrows(PTR ValidateOptions([ a := "" ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // empty value as default is allowed, but a value must be passed then
+  TestThrows(PTR ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ c := [ "1", "2" ] ] ])); // no such option 'c'
+  TestThrows(PTR ValidateOptions([ a := 1 ], DEFAULT RECORD, [ enums := [ a := [ "1", "3" ] ] ])); // default not a string
+  TestThrows(PTR ValidateOptions([ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
+  TestEQ([ a := "1" ], ValidateOptions([ a := "1" ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := "2" ], ValidateOptions([ a := "1" ], [ a := "2" ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := "2" ], ValidateOptions([ a := "" ], [ a := "2"], [ enums := [ a := [ "1", "2", "3" ] ] ])); // empty value is allowed as default
+
+  TestThrows(PTR ValidateOptions([ a := [ "1" ] ], DEFAULT RECORD, [ enums := [ a := [ "2", "3" ] ] ])); // default value not allowed
+  TestThrows(PTR ValidateOptions([ a := STRING[] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "3" ] ] ])); // not allowed value
+  TestEQ([ a := [ "1" ] ], ValidateOptions([ a := [ "1" ] ], DEFAULT RECORD, [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := [ "2" ] ], ValidateOptions([ a := [ "1" ] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
+  TestEQ([ a := [ "2" ] ], ValidateOptions([ a := STRING[] ], [ a := [ "2" ] ], [ enums := [ a := [ "1", "2", "3" ] ] ]));
 }
 
 MACRO EnforceStructureTest()

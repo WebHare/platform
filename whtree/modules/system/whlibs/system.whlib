@@ -4118,12 +4118,14 @@ PUBLIC RECORD FUNCTION ValidateOptions(RECORD defaultoptions, RECORD options, RE
     FOREVERY (RECORD enum FROM UnpackRecord(metaoptions.enums))
       IF (NOT CellExists(defaultoptions, enum.name))
         THROW NEW Exception(`Cell '${enum.name}' does not exist in the default options`);
-      ELSE IF (TypeID(GetCell(defaultoptions, enum.name)) != TypeID(STRING))
-        THROW NEW Exception(`Cell '${enum.name}' must be a STRING in default options`);
+      ELSE IF (TypeID(GetCell(defaultoptions, enum.name)) NOT IN [ TypeID(STRING), TypeID(STRING ARRAY) ])
+        THROW NEW Exception(`Cell '${enum.name}' must be a STRING or STRING ARRAY in default options`);
       ELSE IF (TypeID(enum.value) != TypeID(STRING ARRAY))
         THROW NEW Exception(`The list of allowed values for cell '${enum.name}' must be a STRING ARRAY`);
-      ELSE IF (GetCell(defaultoptions, enum.name) NOT IN [ "", ...enum.value ])
+      ELSE IF (TypeID(GetCell(defaultoptions, enum.name)) = TypeID(STRING) AND GetCell(defaultoptions, enum.name) NOT IN [ "", ...enum.value ])
         THROW NEW Exception(`The default value for cell '${enum.name}' is not a valid value for that cell`);
+      ELSE IF (TypeID(GetCell(defaultoptions, enum.name)) = TypeID(STRING ARRAY) AND RecordExists(SELECT FROM ToRecordArray(GetCell(defaultoptions, enum.name), "value") WHERE value NOT IN enum.value))
+        THROW NEW Exception(`The default value for cell '${enum.name}' contains an invalid value for that cell`);
   }
 
   IF(metaoptions.passthrough AND metaoptions.passthroughin != "")
@@ -4195,8 +4197,15 @@ PUBLIC RECORD FUNCTION ValidateOptions(RECORD defaultoptions, RECORD options, RE
   }
 
   FOREVERY(RECORD enum FROM UnpackRecord(metaoptions.enums))
-    IF(CellExists(result, enum.name) AND GetCell(result, enum.name) NOT IN enum.value)
-      THROW NEW InvalidOptionException(enum.name, `The value for cell '${ToUppercase(enum.name)}' is not allowed (got '${GetCell(result, enum.name)}', allowed are: '${Detokenize(enum.value, `', '`)}')`);
+    IF(CellExists(result, enum.name))
+    {
+      IF (TypeID(GetCell(result, enum.name)) = TypeID(STRING) AND GetCell(result, enum.name) NOT IN enum.value)
+        THROW NEW InvalidOptionException(enum.name, `The value for cell '${ToUppercase(enum.name)}' is not allowed (got '${GetCell(result, enum.name)}', allowed are: '${Detokenize(enum.value, `', '`)}')`);
+      ELSE IF (TypeID(GetCell(result, enum.name)) = TypeID(STRING ARRAY))
+        FOREVERY (STRING value FROM GetCell(result, enum.name))
+          IF (value NOT IN enum.value)
+            THROW NEW InvalidOptionException(enum.name, `A value for cell '${ToUppercase(enum.name)}' is not allowed (got '${value}', allowed are: '${Detokenize(enum.value, `', '`)}')`);
+    }
 
   IF(metaoptions.passthroughin != "")
   {

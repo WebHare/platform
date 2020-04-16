@@ -10,7 +10,7 @@
     <textgroup gid="authorize">   <!-- commondialogs.authorize -->
       <text tid="authorize">Applicatie autoriseren</text>
       <text tid="authorize_text">Autoriseer deze applicatie alstublieft in de popup. Deze popup zou automatisch moeten sluiten wanneer u deze gemachtigd heeft. Als u een verificatiecode heeft ontvangen, kunt u die hier invullen om de machtiging te voltooien.</text>
-      <text tid="norighttoauthorize">U heeft geen rechten gekregen om sessies the authorizeren voor account "<param p="1"/>"</text>
+      <text tid="norighttoauthorize">U heeft geen rechten gekregen om sessies the autorizeren voor account "<param p="1"/>"</text>
       <text tid="retrytext">Machtiging is mislukt (heeft u dit misschien geweigerd?). Probeert u het nogmaals.</text>
       <text tid="verify">Verificatiecode</text>
     </textgroup>
