@@ -8,8 +8,8 @@ test.registerTests(
   , { name: 'testallowtagsbar'
     , test: function(doc,win)
       {
-        var boldbutton = test.$$t('span.wh-rtd-button[data-button=b]')[0];
-        var italicbutton = test.$$t('span.wh-rtd-button[data-button=i]')[0];
+        var boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
+        var italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 
         test.true(boldbutton!=null);
         test.false(italicbutton!=null);

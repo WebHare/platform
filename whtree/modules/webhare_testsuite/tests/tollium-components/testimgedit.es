@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-import { qSA } from 'dompack';
 
 var gesture_time = 25;
 
@@ -47,7 +46,7 @@ var TestImageEditor =
       {
         var editor = test.qS("t-custom[data-name='imageeditor']");
         var toolbar = editor.querySelector(".wh-toolbar");
-        var cropbutton = qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
+        var cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
         test.click(cropbutton);
 
         // Resize the cropbox
@@ -97,7 +96,7 @@ var TestImageEditor =
       {
         var editor = test.qS("t-custom[data-name='imageeditor']");
         var toolbar = editor.querySelector(".wh-toolbar");
-        var cropbutton = qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
+        var cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
         test.click(cropbutton);
 
         // Resize the cropbox

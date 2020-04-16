@@ -93,12 +93,10 @@ test.registerTests(
   , { name: 'visibility checks'
     , test:function(doc,win)
       {
-        var menu = test.$$t('.wh-menubar')[0];
+        var menu = test.qSA('.wh-menubar')[0];
         var X03 = test.qSA(menu,"*").filter(item=>item.textContent.includes('X03'))[0];
         var X01 = test.qSA(menu,"*").filter(item=>item.textContent.includes('X01'))[0];
         var X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
-        var X05 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X05'))[0];
-        var X06 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X06'))[0];
         var X07 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X07'))[0];
         //var X08 = test.qSA(X04,"ul li").filter(item=>item.textContent.includes('X08'));
 
@@ -141,10 +139,10 @@ test.registerTests(
 
         test.eq('1', test.compByName("action1count").textContent); //action was disabled, so nothing should have happened
 
-        var menu = $$t('.wh-menubar')[0];
-        var X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
+        menu = test.qSA('.wh-menubar')[0];
+        X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
         test.click(X04);
-        var X07 = test.qSA(X04.propWhMenuSubmenu,"li").filter(li=>li.textContent.includes("X07"))[0];
+        X07 = test.qSA(X04.propWhMenuSubmenu,"li").filter(li=>li.textContent.includes("X07"))[0];
         test.click(X07);
       }
     , waits: [ 'ui' ]
@@ -153,7 +151,7 @@ test.registerTests(
   , { test:function(doc,win)
       {
         test.eq('1', test.compByName("action1count").textContent); //we didn't even touch it...
-        var menu = $$t('.wh-menubar')[0];
+        var menu = test.qSA('.wh-menubar')[0];
         var X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
         test.click(X04);
         var X05 = test.qSA(test.getOpenMenu(), "li").filter(li=>li.textContent.includes('X05'))[0];

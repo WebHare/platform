@@ -31,7 +31,7 @@ test.registerTests(
         //click on 'belangrijk'. it's in a non-editable area, so clicking there should disable edit mode
         test.click(win.rte.qS("#belangrijk"));
 
-        var italicbutton = test.$$t('span.wh-rtd-button[data-button=i]')[0];
+        var italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
         test.true(italicbutton.classList.contains('disabled'));
 
         //let's click the image. it's inside the editable div anyway

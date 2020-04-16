@@ -30,7 +30,7 @@ test.registerTests(
     , test: function(doc,win)
       {
         //Test whether distribute sizes bothered to make use of all available room for the columns
-        var list = test.$$t('.wh-ui-listview')[0];
+        var list = test.qSA('.wh-ui-listview')[0];
         var headers = test.qSA(list, '.listheader > span');
         var totalwidth = 2; // borders
         headers.forEach(function(el) { totalwidth += el.offsetWidth; });
@@ -360,8 +360,8 @@ test.registerTests(
   , { name: 'empty text is hidden'
     , test: function(doc,win)
       {
-        test.eq(0, test.$$t('.emptytextholder')[0].offsetHeight);
-        test.eq('', test.$$t('.emptytext')[0].textContent);
+        test.eq(0, test.qSA('.emptytextholder')[0].offsetHeight);
+        test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01','M07']));
       }
@@ -371,8 +371,8 @@ test.registerTests(
   , { name: 'empty text is shown but empty'
     , test: function(doc,win)
       {
-        test.false(test.$$t('.emptytextholder')[0].offsetHeight == 0);
-        test.eq('', test.$$t('.emptytext')[0].textContent);
+        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01','M08']));
       }
@@ -382,8 +382,8 @@ test.registerTests(
   , { name: 'empty text is shown and non-empty'
     , test: function(doc,win)
       {
-        test.false(test.$$t('.emptytextholder')[0].offsetHeight == 0);
-        test.eq('empty 1', test.$$t('.emptytext')[0].textContent);
+        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01','M08']));
       }
@@ -393,8 +393,8 @@ test.registerTests(
   , { name: 'empty text is changed, multiline'
     , test: function(doc,win)
       {
-        test.false(test.$$t('.emptytextholder')[0].offsetHeight == 0);
-        test.eq('empty 2\nsecond line', test.$$t('.emptytext')[0].textContent);
+        test.false(test.qSA('.emptytextholder')[0].offsetHeight == 0);
+        test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
         // Show some lines again
         test.click(test.getMenu(['M01','M06']));
@@ -405,7 +405,7 @@ test.registerTests(
   , { name: 'empty text is hidden again'
     , test: function(doc,win)
       {
-        test.true(test.$$t('.emptytextholder')[0].offsetHeight == 0);
+        test.true(test.qSA('.emptytextholder')[0].offsetHeight == 0);
       }
     }
 

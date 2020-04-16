@@ -1,5 +1,4 @@
 import * as test from '@mod-system/js/wh/testframework';
-import { $qS, $qSA } from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
 test.registerTests(

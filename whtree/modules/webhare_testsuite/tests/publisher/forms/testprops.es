@@ -1,7 +1,6 @@
 /* test props like disabled */
 
 import * as test from '@mod-system/js/wh/testframework';
-import { $qS } from '@mod-system/js/wh/testframework';
 
 //FIXME: Test that parlsey backend plus plain POST (not RPC!) works
 
@@ -12,7 +11,7 @@ test.registerTests(
   , { name: 'Study page fields'
     , test: function()
       {
-        test.true($qS("#dynamictest-myradio-15").disabled);
+        test.true(test.qS("#dynamictest-myradio-15").disabled);
       }
     }
   ]);

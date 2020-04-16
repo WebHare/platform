@@ -17,7 +17,7 @@ test.registerTests(
   , { name: 'verifybox'
     , test:function(doc,win)
       {
-        test.eq(2, test.$$t('.t-screen').length);
+        test.eq(2, test.qSA('.t-screen').length);
 
         var emptytext = test.compByName('emptytext');
         var settext = test.compByName('settext');

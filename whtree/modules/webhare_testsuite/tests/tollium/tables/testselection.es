@@ -1,11 +1,10 @@
 import * as test from '@mod-tollium/js/testframework';
 import * as dompack from 'dompack';
-import { qSA } from 'dompack';
 
 
 function getSelection(node_tbl)
 {
-  return qSA(node_tbl,'.todd-table__cell--selected').filter(node => dompack.closest(node, '.todd-table') == node_tbl);
+  return test.qSA(node_tbl,'.todd-table__cell--selected').filter(node => dompack.closest(node, '.todd-table') == node_tbl);
 }
 
 function hasFocus(node)
@@ -45,7 +44,7 @@ test.registerTests(
   , { name: 'reportselect-single'
     , test: function(doc,win)
       {
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('single/single\n1:1', textarea.value.trim());
 
         // Move to multiple selection
@@ -89,7 +88,7 @@ test.registerTests(
   , { name: 'addselect'
     , test: function(doc,win)
       {
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('multiple/single\n1:1', textarea.value.trim());
 
         var node_tbl = test.compByName("tbl");
@@ -111,7 +110,7 @@ test.registerTests(
   , { name: 'reportselect-multiple'
     , test: function(doc,win)
       {
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('multiple/none\n1:1\n2:2', textarea.value.trim());
 
         // Move to select none
@@ -123,7 +122,7 @@ test.registerTests(
   , { name: 'reportselect-none'
     , test: function(doc,win)
       {
-        var textarea = test.$$t('textarea')[0];
+        var textarea = test.qSA('textarea')[0];
         test.eq('none/none', textarea.value.trim());
       }
     }
@@ -139,7 +138,7 @@ test.registerTests(
         test.click(node_tbl.querySelector('[data-todd-cellpos="0:0"]'));
         await test.wait("events");
 
-        test.click(test.$$t('textarea')[0]);
+        test.click(test.qSA('textarea')[0]);
         await test.wait("events");
 
         test.false(hasFocus(node_tbl));

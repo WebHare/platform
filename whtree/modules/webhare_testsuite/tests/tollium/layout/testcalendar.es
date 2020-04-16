@@ -12,22 +12,22 @@ test.registerTests(
         test.true(test.compByName('calendarholder').offsetHeight < 768, 'calendarholder too big'); //should not be escaping the screen
 
         //find our overlay
-        var greenoverlay = test.$$t('[data-overlayid="GREENEVENT"]')[0];
+        var greenoverlay = test.qSA('[data-overlayid="GREENEVENT"]')[0];
         test.true(greenoverlay ,'overlay GREENEVENT not found');
         test.true(test.isElementClickable(greenoverlay));
         test.false(greenoverlay.classList.contains('todd-table--selected'));
 
-        var redoverlay = test.$$t('[data-overlayid="REDEVENT"]')[0];
+        var redoverlay = test.qSA('[data-overlayid="REDEVENT"]')[0];
         test.true(redoverlay ,'overlay REDEVENT not found');
         test.true(test.isElementClickable(redoverlay));
         test.false(redoverlay.classList.contains('todd-table--selected'));
 
-        var yellowoverlay = test.$$t('[data-overlayid="YELLOWEVENT"]')[0];
+        var yellowoverlay = test.qSA('[data-overlayid="YELLOWEVENT"]')[0];
         test.true(yellowoverlay ,'overlay YELLOWEVENT not found');
         test.true(test.isElementClickable(yellowoverlay));
         test.false(yellowoverlay.classList.contains('todd-table--selected'));
 
-        var purpleoverlay = test.$$t('[data-overlayid="PURPLEEVENT"]')[0];
+        var purpleoverlay = test.qSA('[data-overlayid="PURPLEEVENT"]')[0];
         test.true(purpleoverlay ,'overlay PURPLEEVENT not found');
         test.true(test.isElementClickable(purpleoverlay));
         test.false(purpleoverlay.classList.contains('todd-table--selected'));
@@ -35,7 +35,7 @@ test.registerTests(
         test.true(greenoverlay.getBoundingClientRect().left < yellowoverlay.getBoundingClientRect().left, "green and yellow should partially overlap");
 
         //the 04:00 cell contains both green & yellow
-        var overlappedcell = test.$$t('[data-todd-cellpos="9:6"]')[0];
+        var overlappedcell = test.qSA('[data-todd-cellpos="9:6"]')[0];
         test.true(overlappedcell ,'overlapped cell 04:00 (9:6) not found');
         test.eq(Math.round(overlappedcell.getBoundingClientRect().left+1), greenoverlay.getBoundingClientRect().left);
         test.eq(Math.round(overlappedcell.getBoundingClientRect().right), yellowoverlay.getBoundingClientRect().right);

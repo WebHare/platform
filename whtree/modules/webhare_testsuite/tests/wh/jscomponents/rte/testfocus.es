@@ -28,8 +28,8 @@ test.registerTests(
   , { name: "clickfocus"
     , test: async function(doc,win)
       {
-        test.$t('store').focus();
-        test.eq(test.$t('store'), doc.activeElement);
+        test.qS('#store').focus();
+        test.eq(test.qS('#store'), doc.activeElement);
         test.click(test.qS('.wh-rtd-editor'));
         await test.wait("events");
         test.eq(test.qS('.wh-rtd-editor-bodynode'), doc.activeElement);

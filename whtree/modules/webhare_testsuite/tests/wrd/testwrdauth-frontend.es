@@ -118,7 +118,13 @@ test.registerTests(
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     }
-  , testClickElement('#static')
+  , { name:'click #static'
+    , test: async function(doc,win)
+      {
+        test.click("#static");
+        await test.wait("pageload");
+      }
+    }
   , { name:"verify static"
     , test:function(doc,win)
       {

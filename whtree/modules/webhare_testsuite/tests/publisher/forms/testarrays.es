@@ -264,15 +264,15 @@ test.registerTests(
       test.true(result.ok);
 
       test.eq("Name #1", result.value.customarray[0].name);
-      test.eq(false, result.value.customarray[0].customcomp.c1);
-      test.eq(true, result.value.customarray[0].customcomp.c2);
+      test.false(result.value.customarray[0].customcomp.c1);
+      test.true(result.value.customarray[0].customcomp.c2);
       test.eq("Sub #1", result.value.customarray[0].customcomp.subvalue);
       // test.eq("lang-nl", result.value.customarray[0].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 1", result.value.customarray[0].twolevel.field2);
 
       test.eq("Name #2", result.value.customarray[1].name);
-      test.eq(true, result.value.customarray[1].customcomp.c1);
-      test.eq(false, result.value.customarray[1].customcomp.c2);
+      test.true(result.value.customarray[1].customcomp.c1);
+      test.false(result.value.customarray[1].customcomp.c2);
       test.eq("Sub #2", result.value.customarray[1].customcomp.subvalue);
       // test.eq("abc", result.value.customarray[1].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 2", result.value.customarray[1].twolevel.field2);

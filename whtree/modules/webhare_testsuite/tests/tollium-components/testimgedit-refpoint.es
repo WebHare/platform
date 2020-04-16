@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-import { qSA } from 'dompack';
 
 test.registerTests(
   [ "load component test page"
@@ -9,7 +8,7 @@ test.registerTests(
                                                       , height: "250px"
                                                       , imgsize: {setwidth:600, setheight:150, method: "fill", allowedactions: ["crop","refpoint"]}
                                                       }, "sht"));
-      await test.wait("ui")
+      await test.wait("ui");
 
     }
 

@@ -46,9 +46,9 @@ test.registerTests(
 
       // 1 and 3 are now checked, so only 2 should be disabled
       let disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.eq(false, disabled_options.includes("1"));
-      test.eq(true, disabled_options.includes("2"));
-      test.eq(false, disabled_options.includes("3"));
+      test.false(disabled_options.includes("1"));
+      test.true(disabled_options.includes("2"));
+      test.false(disabled_options.includes("3"));
 
       if (replacedcomponents)
       {
@@ -56,17 +56,17 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.eq(false, disabled_options.includes("1"));
-        test.eq(true, disabled_options.includes("2"));
-        test.eq(false, disabled_options.includes("3"));
+        test.false(disabled_options.includes("1"));
+        test.true(disabled_options.includes("2"));
+        test.false(disabled_options.includes("3"));
       }
 
       // enable 2
       test.click('#coretest-checkboxes-2');
       disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.eq(false, disabled_options.includes("1"));
-      test.eq(false, disabled_options.includes("2"));
-      test.eq(false, disabled_options.includes("3"));
+      test.false(disabled_options.includes("1"));
+      test.false(disabled_options.includes("2"));
+      test.false(disabled_options.includes("3"));
 
       if (replacedcomponents)
       {
@@ -74,18 +74,18 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.eq(false, disabled_options.includes("1"));
-        test.eq(false, disabled_options.includes("2"));
-        test.eq(false, disabled_options.includes("3"));
+        test.false(disabled_options.includes("1"));
+        test.false(disabled_options.includes("2"));
+        test.false(disabled_options.includes("3"));
       }
 
       // disable 2 and 3
       test.click('#coretest-checkboxes-2');
       test.click('#coretest-checkboxes-3');
       disabled_options = test.qSA("#coretest-condition_options option[disabled]").map(_ => _.value);
-      test.eq(false, disabled_options.includes("1"));
-      test.eq(true, disabled_options.includes("2"));
-      test.eq(true, disabled_options.includes("3"));
+      test.false(disabled_options.includes("1"));
+      test.true(disabled_options.includes("2"));
+      test.true(disabled_options.includes("3"));
 
       if (replacedcomponents)
       {
@@ -93,9 +93,9 @@ test.registerTests(
         await test.wait('ui');
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
-        test.eq(false, disabled_options.includes("1"));
-        test.eq(true, disabled_options.includes("2"));
-        test.eq(true, disabled_options.includes("3"));
+        test.false(disabled_options.includes("1"));
+        test.true(disabled_options.includes("2"));
+        test.true(disabled_options.includes("3"));
       }
     }
   ]);

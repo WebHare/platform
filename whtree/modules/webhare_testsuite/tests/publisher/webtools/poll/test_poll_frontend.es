@@ -1,9 +1,8 @@
 import * as test from "@mod-system/js/wh//testframework";
-import { $qS, $qSA } from "@mod-system/js/wh/testframework";
 //
 function testVoteCounts(counts)
 {
-  let votecounts = $qSA('.wh-poll__option__votes');
+  let votecounts = test.qSA('.wh-poll__option__votes');
   test.eq(counts.length, votecounts.length);
   counts.forEach( (count,idx) => test.eq(count, parseInt(votecounts[idx].dataset.votes)));
 }
@@ -39,10 +38,10 @@ test.registerTests(
 
   , async function()
     {
-      let voteoptions = $qSA('.wh-poll__option input');
+      let voteoptions = test.qSA('.wh-poll__option input');
       test.eq(2,voteoptions.length);
       test.click(voteoptions[1]);
-      test.click($qS('.wh-poll__votebutton'));
+      test.click(test.qS('.wh-poll__votebutton'));
 
       await test.wait('ui');
 

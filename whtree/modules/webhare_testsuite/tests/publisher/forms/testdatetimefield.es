@@ -118,7 +118,7 @@ test.registerTests(
       test.eq(2, datechangeevents, "keeping it invalid should not be a change #2");
 
       //clear current value - time
-      test.eq(true, test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
+      test.true(test.qS('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--required'), "Time field should be marked as required");
       test.eq("07:09", test.qS("#datetimeform-time").value);
       test.eq(1, timechangeevents, "should still be at one event");
       dompack.changeValue(test.qSA("[data-wh-form-group-for=time] input")[1],'');

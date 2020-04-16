@@ -108,7 +108,7 @@ function logExplanation(explanation)
   console.error(explanation);
   testfw.log("* " + explanation + "\n");
 }
-window.testEq = function(expected, actual, explanation)
+function testEq(expected, actual, explanation)
 {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
@@ -147,7 +147,7 @@ window.testEq = function(expected, actual, explanation)
   }
 
   testDeepEq(expected, actual, '');
-};
+}
 function testEqMatch(regexp, actual, explanation)
 {
   if(actual.match(regexp))
@@ -167,7 +167,7 @@ function testEqMatch(regexp, actual, explanation)
   throw new Error("testEqMatch failed");
 }
 
-window.testEqHTML = function(expected, actual, explanation)
+function testEqHTML(expected, actual, explanation)
 {
   var fixer = document.createElement("div");
 
@@ -199,36 +199,10 @@ window.testEqHTML = function(expected, actual, explanation)
     rewriteNodeAttributes(list[i]);
   actual=fixer.innerHTML;
 
-  window.testEq(expected, actual, explanation);
-};
+  testEq(expected, actual, explanation);
+}
 
-window.testHTMLByRegex = function(regex, actual, explanation)
-{
-  var fixer = document.createElement("div");
-  fixer.innerHTML=actual;
-  actual=fixer.innerHTML;
-
-  if (actual.match(regex))
-    return;
-
-  fixer.innerHTML=regex;
-  regex=fixer.innerHTML;
-
-  if (actual.match(regex))
-    return;
-
-  if(explanation)
-    logExplanation(explanation);
-
-  console.log("testHTMLRegex fails: regex ", regex);
-  testfw.log("testHTMLRegex fails: regex " + regex);
-
-  console.log("testHTMLRegex fails: actual ", actual);
-  testfw.log("testHTMLRegex fails: actual " + actual);
-  throw new Error("testHTMLByRegex failed");
-};
-
-window.testEqIn = function(expected_in, actual, explanation)
+function testEqIn(expected_in, actual, explanation)
 {
   for (var i=0;i<expected_in.length;++i)
     if(isequal(expected_in[i], actual))
@@ -247,9 +221,9 @@ window.testEqIn = function(expected_in, actual, explanation)
   console.log("testEqIn fails: actual ", actual);
   testfw.log("testEqIn fails: actual " + actual);
   throw new Error("testEqIn failed");
-};
+}
 
-window.testEqFloat = function(expected, actual, delta, explanation)
+function testEqFloat(expected, actual, delta, explanation)
 {
   if(Math.abs(expected-actual)<=delta)
     return;
@@ -316,7 +290,7 @@ async function testThrowsAsync(promise, explanation)
 }
 
 //test whether the specified call throws. we accept functions, promises, or functions returning promises
-window.testThrows = function(waitfor, explanation)
+function testThrows(waitfor, explanation)
 {
   try
   {
@@ -337,7 +311,7 @@ window.testThrows = function(waitfor, explanation)
     return e;
   }
   throw new Error("testThrows failed");
-};
+}
 
 function findElementWithText(doc, tagname, text)
 {
@@ -383,14 +357,14 @@ function gesturesDone()
   return new Promise(resolve => window.waitForGestures(resolve));
 }
 
-window.dragTransition = function(pos)
+function dragTransition(pos)
 {
   // Decelerate more than accelerate
   let transition = p => Math.pow(p, 2);
   let easeOut = 1 - transition(1 - pos);
   let easeInOut = (pos <= 0.5 ? transition(2 * pos) : (2 - transition(2 * (1 - pos)))) / 2;
   return easeOut * easeInOut;
-};
+}
 
 window.generateKeyboardEvent = keyboard.generateKeyboardEvent;
 
@@ -445,49 +419,6 @@ async function asyncMouseClick(x, y, options)
   return await testfw.sendDevtoolsRequest({type:"mouseClick", x, y, options});
 }
 
-function debugKeyEvent(event)
-{
-  console.log("KBD " + event.type,"keycode=",event.keyCode,"charcode=",event.charCode,"event=",event);
-}
-
-window.setupKeyboardDebugEvents=function(win)
-{
-  if(win.haskbddebug)
-    return;
-  win.haskbddebug=true;
-
-  if(win.addEventListener)
-  {
-    win.addEventListener('keydown', debugKeyEvent, true);
-    win.addEventListener('keypress', debugKeyEvent, true);
-    win.addEventListener('keyup', debugKeyEvent, true);
-  }
-};
-
-window.checkBSN=function(bsn)
-{
-  bsn=''+bsn;
-  if(bsn.length!=9 || !(parseInt(bsn,10) > 1000000))
-    return false;
-
-  var check= 9*parseInt(bsn[0]) + 8*parseInt(bsn[1]) + 7*parseInt(bsn[2])
-           + 6*parseInt(bsn[3]) + 5*parseInt(bsn[4]) + 4*parseInt(bsn[5])
-           + 3*parseInt(bsn[6]) + 2*parseInt(bsn[7]) - 1*parseInt(bsn[8]);
-  return (check%11)==0;
-};
-window.generateBSN=function()
-{
-  //sofinummers lopen vanaf 00100000x t/m 39999999x
-  var basesofi = Math.floor(Math.random() * (399999900-1000000) + 1000000);
-  while(true)
-  {
-    var propersofi = ('00000000' + basesofi).slice(-9);
-    if(window.checkBSN(propersofi))
-      return propersofi;
-    ++basesofi;
-  }
-};
-
 class FakeUploadSession
 {
   constructor(files, donecallback)
@@ -521,7 +452,7 @@ class FakeUploadSession
   }
 }
 
-window.prepareUploadTest = function(node, files, donecallback)
+function prepareUploadTest(node, files, donecallback)
 {
   if(window.top.wh_testapi_fakeupload)
     throw "The window already has a pending upload";
@@ -538,62 +469,9 @@ async function prepareUpload(files)
   await deferred.promise;
 }
 
-window.testDuplicateSlickIds = function(doc)
-{
-  var ids={};
-  Array.from(doc.getElementsByTagName("*")).forEach(
-    function(el)
-    {
-      if(!el.uniqueNumber)
-        return;
-      if(ids[el.uniqueNumber])
-      {
-        console.log("Duplicate slick #" + el.uniqueNumber, ids[el.uniqueNumber], el);
-      }
-      else
-      {
-        ids[el.uniqueNumber] = el;
-      }
-    });
-};
-
-window.testNLAddressLookup = function(zip, nrdetail, callback)
-{
-  if(zip=='7521 AM')
-  {
-    if(nrdetail == '296')
-    {
-      setTimeout(() => callback({success:true, street: 'Hengelosestraat', city: 'ENSCHEDE' }), 1);
-      return;
-    }
-  }
-  setTimeout(() => callback({success:false}), 1);
-};
-
-window.testClickElement = function(link,name,waits)
-{
-  if(!name)
-    name = "Click: " + link;
-  return { name: name
-         , test: function(doc,win)
-                 {
-                   var elts = $qSA(link);
-                   if(elts.length == 0)
-                     throw new Error("No elements returned by selector: " + link);
-
-                   pointer.click(elts[0]);
-                 }
-         , waits: (waits || ["pageload"])
-         };
-};
-
-var buttonsources = [ { selector:'input[type="submit"],input[type="reset"]', property:'value' }
-                    , { selector:'button', property:'text' }
-                    ];
-
 function getOpenMenu()
 {
-  return $qSA('ul:last-of-type.wh-menulist.open')[0] || null;
+  return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
 function getOpenMenuItem(containstext)
 {
@@ -643,10 +521,10 @@ function _resolveToSingleElement(element)
   }
   else if(typeof element == "string")
   {
-    var elements = $qSA(element);
+    var elements = qSA(element);
     if(elements.length==0)
     {
-      elements = $qSA('*[id="' + element + '"]');
+      elements = qSA('*[id="' + element + '"]');
       if(elements.length != 0)
       {
         console.error(`Invoking _resolveToSingleElement with an id '${element}'`);
@@ -655,7 +533,7 @@ function _resolveToSingleElement(element)
     }
     if(elements.length==0)
     {
-      elements = $qSA('*[name="' + element + '"]');
+      elements = qSA('*[name="' + element + '"]');
       if(elements.length != 0)
       {
         console.error(`Invoking _resolveToSingleElement with a name '${element}'`);
@@ -708,22 +586,16 @@ function getTestSiteRoot()
   return (new URL(topdoc.getAttribute("data-testsiteroot"), location.href)).toString();
 }
 
-let $t = window.parent.$t;
-let $$t = window.parent.$$t;
-
-window.$t = $t;
-window.$$t = $$t;
-
 function getListViewHeader(text)
 {
-  var headers = $qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
+  var headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
   if(headers.length>1)
     console.error("Multiple header matches for '" + text + "'");
   return headers.length==1 ? headers[0] : null;
 }
 function getListViewRow(text) //simply reget it for every test, as list may rerender at unspecifide times
 {
-  var rows = $qSA('#listview .listrow').filter(node => node.textContent.includes(text));
+  var rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
   if(rows.length>1)
     console.error("Multiple row matches for '" + text + "'");
   return rows.length==1 ? rows[0] : null;
@@ -737,7 +609,7 @@ function getListViewExpanded(row)
   return null;
 }
 
-function $qS(node_or_selector, selector)
+function qS(node_or_selector, selector)
 {
   if(typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
@@ -746,7 +618,7 @@ function $qS(node_or_selector, selector)
   return iframe.contentDocument.querySelector(node_or_selector);
 }
 
-function $qSA(node_or_selector, selector)
+function qSA(node_or_selector, selector)
 {
   if(typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
@@ -1139,30 +1011,26 @@ module.exports = { registerTests: registerJSTests
                  , getTestSiteRoot: getTestSiteRoot
                  , selenium: $selenium
                  , findElementWithText: findElementWithText
-                 , $qS
-                 , $qSA
                  , getWebhareVersionNumber
                  , waitForEvent: test.waitForEvent
-                 , eq: window.testEq
+                 , eq: testEq
                  , eqMatch: testEqMatch
-                 , eqIn: window.testEqIn
-                 , eqHTML: window.testEqHTML
+                 , eqIn: testEqIn
+                 , eqHTML: testEqHTML
                  , true: testTrue
                  , false: testFalse
-                 , throws: window.testThrows
+                 , throws: testThrows
                  , canFocus: canFocus
                  , hasFocus: hasFocus
-                 , qS: $qS
-                 , qSA: $qSA
+                 , qS: qS
+                 , qSA: qSA
                  , fail: fail
                  , sendMouseGesture: pointer.sendMouseGesture
                  , gesturesDone: gesturesDone
                  , prepareUpload: prepareUpload
-                 , $t: window.$t
-                 , $$t: window.$$t
                  , pressKey
                  , getValidatedElementFromPoint: pointer.getValidatedElementFromPoint
-                 , dragTransition: window.dragTransition
+                 , dragTransition: dragTransition
                  , generateKeyboardEvent: keyboard.generateKeyboardEvent
                  , simulateTabKey: test.simulateTabKey
                  , focus: test.focus
@@ -1188,8 +1056,6 @@ module.exports = { registerTests: registerJSTests
                  , asyncMouseDown
                  , asyncMouseMove
 
-                 , testClickElement: window.testClickElement
-
                  , startExternalFileDrag: pointer.startExternalFileDrag
                  , getCurrentDragDataStore: pointer.getCurrentDragDataStore
                  , cancelDrag: pointer.cancelDrag
@@ -1200,6 +1066,7 @@ module.exports = { registerTests: registerJSTests
                  , getListViewHeader
                  , getListViewRow
                  , getPxlLog
+                 , prepareUploadTest
                  };
 
 module_exports = module.exports;

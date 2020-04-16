@@ -1,6 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-import { $qS, $qSA } from "@mod-system/js/wh/testframework";
 import { encodeValue } from 'dompack/types/text';
 
 let instanceref; // instance ref at the frontend side
@@ -37,7 +36,7 @@ test.registerTests(
         test.eqIn(['rgb(17, 17, 17)','#111111'], getComputedStyle(h2).color);
 
         // Must have an instance
-        instanceref = $qS(rte.editnode, '.wh-rtd-embeddedobject').dataset.instanceref || '';
+        instanceref = test.qS(rte.editnode, '.wh-rtd-embeddedobject').dataset.instanceref || '';
         test.true(instanceref != '');
 
         //select the paragraph
@@ -435,14 +434,14 @@ test.registerTests(
         await test.wait("ui");
 
         // Immediately copy the image
-        let src = $qS(rte.editnode, 'img').src;
+        let src = test.qS(rte.editnode, 'img').src;
         let imgpaste2 = document.createElement("div");
         imgpaste2.innerHTML = `<img src="${src}" width="27" height="13"/>`;
         rte.getEditor()._pasteContent(imgpaste2); //FIXME white box test...
         await test.wait("ui");
 
         // test stability of image sources
-        let imgs = $qSA(rte.editnode, 'img');
+        let imgs = test.qSA(rte.editnode, 'img');
         test.eq(2, imgs.length);
         test.eq(src, imgs[0].src);
         test.eq(src, imgs[1].src);

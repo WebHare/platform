@@ -1388,37 +1388,5 @@ class TestSuite
   }
 }
 
-window.$qS = function(selector)
-{
-  if(!window.$qS.warned)
-    window.$qS.warned=true, console.warn("$qS is deprecated, switch to test.qS");
-
-  return getTestRoots().doc.querySelector(selector);
-};
-
-window.$qSA = function(selector)
-{
-  if(!window.$qSA.warned)
-    window.$qSA.warned=true, console.warn("$qSA is deprecated, switch to test.qSA");
-
-  return Array.from(getTestRoots().doc.querySelectorAll(selector));
-};
-
-window.$t = function(id)
-{
-  if(!window.$t.warned)
-    window.$t.warned=true, console.warn("$t is deprecated, switch to test.qS('#...'')");
-
-  return getTestRoots().doc.getElementById(id);
-};
-
-window.$$t = function(selector)
-{
-  if(!window.$$t.warned)
-    window.$$t.warned=true, console.warn("$$t is deprecated, switch to test.qSA");
-
-  return Array.from(getTestRoots().doc.querySelectorAll(selector));
-};
-
 new TestSuite;
 

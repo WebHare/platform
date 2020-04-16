@@ -6,7 +6,7 @@ var pietjeguid = '';
 
 function getAppInStartMenuByName(name)
 {
-  return Array.from(test.$$t('li li')).filter(node => node.textContent == name)[0];
+  return Array.from(test.qSA('li li')).filter(node => node.textContent == name)[0];
 }
 
 test.registerTests(
@@ -134,8 +134,8 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true($t('dashboard-user-name'), 'where is the portal? (looking for jantje)');
-        test.eq('jantje@example.com', $t('dashboard-user-name').textContent);
+        test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
+        test.eq('jantje@example.com', test.qS('#dashboard-user-name').textContent);
         test.true(getAppInStartMenuByName('Publisher'),"should be able to see the publisher");
       }
     }
@@ -145,8 +145,8 @@ test.registerTests(
     }
   , { test:function(doc,win)
       {
-        test.true($t('dashboard-user-name'), 'where is the portal? (looking for pietje)');
-        test.eq('pietje@example.com', $t('dashboard-user-name').textContent);
+        test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
+        test.eq('pietje@example.com', test.qS('#dashboard-user-name').textContent);
         test.false(getAppInStartMenuByName('Publisher'),"shouldn't be able to see the publisher. openas failed?");
       }
     }

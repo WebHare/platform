@@ -1,6 +1,5 @@
 import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
-import { $qS } from '@mod-tollium/js/testframework';
 
 var gesture_time = 25;
 var test_win = null;
@@ -15,8 +14,8 @@ let desktopbounds; //, windowbounds;
 function initTestWin()
 {
   // Get the window with the 'subwindow_body' panel
-  desktopbounds = $qS("#desktop").getBoundingClientRect();
-  //windowbounds = $qS("html").getBoundingClientRect();
+  desktopbounds = test.qS("#desktop").getBoundingClientRect();
+  //windowbounds = test.qS("html").getBoundingClientRect();
   test_win = dompack.closest(test.compByName("subwindow_body"), ".t-screen");
 }
 
