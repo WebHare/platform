@@ -26,14 +26,14 @@ MACRO HandleReferrals(RECORD ARRAY referrals)
   FOREVERY(RECORD referral FROM referrals)
   {
     Print("  - " || referral.whfspath || " " || referral.indexurl);
-    IF(referral.indexurl != "")
+    IF(settings.republish)
     {
       IF(referral.isfolder)
       {
         numfolders := numfolders + 1;
         ScheduleFolderRepublish(referral.id, TRUE);
       }
-      ELSE
+      ELSE IF(referral.indexurl != "") //for files, check that they're published
       {
         numfiles := numfiles + 1;
         ScheduleFileRepublish(referral.id);
