@@ -130,7 +130,6 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          [ structuredef := DEFAULT BLOB
          , structure := DEFAULT RECORD
          , cssfiles := DEFAULT RECORD ARRAY
-         , limitlinksroots := DEFAULT INTEGER ARRAY
          , css := ""
          , htmlclass := ""
          , bodyclass := ""
