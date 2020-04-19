@@ -18,6 +18,8 @@ LOADLIB "mod::publisher/lib/internal/blit/support.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/repositorytree.whlib";
 LOADLIB "mod::publisher/lib/internal/blit/conflictresolution.whlib";
 
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
 /* List of types that must be ignored
    These are only ignored when building a tree from whfs, to keep the rest as consistent as possible.
 */
@@ -2006,6 +2008,10 @@ STATIC OBJECTTYPE WHFSDescriptionDiffTree EXTEND WHFSDescriptionTreeBase
           , profile :=                      mapper->UnmapWHFSRef(dtree.basedata.profile)
           , ordering :=                     ToInteger(dtree.basedata.ordering, 0)
           ];
+
+      //workaround for servers with corrupt titles (usually caused by pdf's autodetect). will cause inconsistent compare hashes but better than crashing
+      IF(NOT IsvalidUTF8(metadata_updates.title))
+        metadata_updates.title := DecodeInvalidUTF8Chars(metadata_updates.title, "ISO-8859-15");
 
       IF (NOT dtree.isfolder)
       {
