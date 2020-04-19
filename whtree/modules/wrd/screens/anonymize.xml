@@ -4,12 +4,6 @@
   lib="screens/anonymize.whlib"
   gid="browser">
 
-  <messageboxes gid=".anonymize.messages">
-    <messagebox name="schema_protected"         icon="error" buttons="ok" />
-    <messagebox name="schema_anonymized"        icon="information" buttons="ok" />
-    <messagebox name="sure_anonymize"           icon="question" buttons="yes no" />
-  </messageboxes>
-
   <screen name="anonymize"
           allowresize="true"
           gid=".anonymize"
