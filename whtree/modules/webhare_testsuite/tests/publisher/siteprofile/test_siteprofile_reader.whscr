@@ -12,6 +12,13 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestWHFSType()
 {
+  RECORD htmlfile := DescribeContentTypeById(5);
+  TestEq(TRUE, htmlfile.needstemplate);
+  TestEq(TRUE, htmlfile.ispublishable);
+  TestEQ(TRUE, htmlfile.isacceptableindex);
+  TestEQ(TRUE, htmlfile.blobiscontent);
+  TestEq("http://www.webhare.net/xmlns/publisher/htmlfile", htmlfile.namespace);
+
   RECORD wordtype := DescribeContentTypeById(4);
   TestEq(TRUE, wordtype.needstemplate);
   TestEq(TRUE, wordtype.needsprofile);

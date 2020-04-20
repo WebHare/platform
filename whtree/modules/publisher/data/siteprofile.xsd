@@ -735,7 +735,31 @@
           </xs:simpleType>
         </xs:attribute>
         <xs:attributeGroup ref="IndexTypeAttrs" />
-        <xs:attribute name="blobiscontent" type="xs:boolean" use="required" />
+        <xs:attribute name="kind">
+          <xs:annotation>
+            <xs:documentation>File class, specifies defaults for unset attributes in the type</xs:documentation>
+          </xs:annotation>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="rawfile">
+                <xs:annotation>
+                  <xs:documentation>Raw published file, eg .DOCX (assumes blobiscontent, requirescontent, ispublishable)</xs:documentation>
+                </xs:annotation>
+              </xs:enumeration>
+              <xs:enumeration value="virtualfile">
+                <xs:annotation>
+                  <xs:documentation>Virtual published file, no downloadable content (assumes needstemplate, ispublishable, ispublishedassubdir)</xs:documentation>
+                </xs:annotation>
+              </xs:enumeration>
+              <xs:enumeration value="datafile">
+                <xs:annotation>
+                  <xs:documentation>Data-only unpublished file (assumes no blobcontent, not publishable)</xs:documentation>
+                </xs:annotation>
+              </xs:enumeration>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="blobiscontent" type="xs:boolean" />
         <xs:attribute name="requirescontent" type="xs:boolean" />
         <xs:attribute name="needstemplate" type="xs:boolean" />
         <xs:attribute name="needsprofile" type="xs:boolean" />
