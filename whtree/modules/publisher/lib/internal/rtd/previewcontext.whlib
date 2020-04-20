@@ -3,11 +3,13 @@ LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-PUBLIC OBJECTTYPE PreviewContext
+PUBLIC STATIC OBJECTTYPE PreviewContext
 <
   OBJECT fsobject;
   OBJECT applytester;
@@ -139,5 +141,40 @@ PUBLIC OBJECTTYPE PreviewContext
     LogWarning("publisher:addpublicationwarning", text, [ stacktrace := GetStackTrace()
                                                         , targetfolder := ObjectExists(targetfolder) ? targetfolder->whfspath : ""
                                                         ]);
+  }
+
+  /** @short Render a widget directly
+      @param widgetdata Widget instance data. If unset, renders nothing
+      @cell(string) options.whfstype WHFS Type of the widget to render */
+  PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    //TODO Merge both RenderWidgetInstance implemntations, they mostly share..
+    options := ValidateOptions( [ whfstype := "" ], options);
+
+    IF(NOT RecordExists(widgetdata) AND options.whfstype = "") //accepting default records simplifies usage (similar to WrapCachedImage)
+      RETURN;
+
+    IF(options.whfstype != "")
+    {
+      DELETE CELL whfstype FROM widgetdata;
+      INSERT CELL whfstype := options.whfstype INTO widgetdata;
+    }
+    ELSE
+    {
+      IF(NOT CellExists(widgetdata,'whfstype'))
+        THROW NEW Exception("The passed object does not appear to be a widget instance (did not find whfstype cell, and it wasn't explicitly specified)");
+    }
+
+    IF(NOT CellExists(widgetdata,'whfssettingid'))
+      INSERT CELL whfssettingid := 0 INTO widgetdata;
+    IF(NOT CellExists(widgetdata,'whfsfileid'))
+      INSERT CELL whfsfileid := 0 INTO widgetdata;
+
+    RECORD rtdinfo := GetRTDTypeSettings(this->targetapplytester); //TODO don't we already have this?
+    IF(NOT RecordExists(rtdinfo))
+      THROW NEW Exception("No rtdtype setup for the current object");
+
+    OBJECT embobj := GetEmbeddedObjectRenderer(DEFAULT OBJECT, this->targetapplytester, rtdinfo.rtdtype, widgetdata, this).widget;
+    embobj->Render();
   }
 >;
