@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
+LOADLIB "mod::wrd/lib/anonymize.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 
 
@@ -84,6 +85,20 @@ MACRO HasPersonalDataProperty()
   TestEq(TRUE, schemaobj->^testlinkfromperson->haspersonaldata);
   TestEq(TRUE, schemaobj->^testlinktoperson->haspersonaldata);
 
+  testfw->RollbackWork();
+}
+
+MACRO TestAnonymize()
+{
+  //TODO TestAnonymize should work with personaldata attributes instead of doing its own thing
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  INTEGER sysopid := schemaobj->^wrd_person->Search("wrd_contact_email", "sysop@beta.webhare.net");
+  TestEq("Sysop", schemaobj->^wrd_person->GetEntityField(sysopid,"WRD_FIRSTNAME"));
+
+  testfw->BeginWork();
+  AnonymizeWRDSchema(schemaobj);
+  TestEq(FALSE, schemaobj->^wrd_person->GetEntityField(sysopid,"WRD_FIRSTNAME") = "Sysop");
+  TestEq(FALSE, schemaobj->^wrd_person->GetEntityField(sysopid,"wrd_contact_email") = "sysop@beta.webhare.net");
   testfw->RollbackWork();
 }
 
@@ -171,6 +186,7 @@ ASYNC MACRO TestImportExport()
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR HasPersonalDataProperty
+                 , PTR TestAnonymize
                  , PTR TestImportExport
                  ],
                  [ wrdauth := FALSE
