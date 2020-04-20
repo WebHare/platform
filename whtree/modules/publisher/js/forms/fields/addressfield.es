@@ -7,6 +7,7 @@ export default class AddressField
 {
   constructor(node, options)
   {
+    this.numvaliditycalls = 0;
     this.node = node;
     this.form = dompack.closest(this.node,"form").propWhFormhandler;
 
@@ -124,14 +125,9 @@ export default class AddressField
     this.allFields.forEach(field => this.form.setFieldError(field.node, "", { reportimmediately: true }));
   }
 
-  async _checkValidity(event)
+  _getCurState()
   {
-    /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
-       but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
-       this on base of the country actually changing, not an external checkbox controlling visiblity of the whole country field
-       and a stray update event
-       */
-    let value = {}, visiblefields = [], anyset = false;
+    let value = {}, visiblefields = [], anyset = false, allrequiredset = true;
     this.allFields.forEach((field, key) =>
     {
       if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden"))
@@ -141,25 +137,40 @@ export default class AddressField
 
         if(!anyset && key != 'country' && field.node.value)
           anyset = true;
+        if(field.node.required && !field.node.value)
+          allrequiredset = false;
       }
     });
 
-    if(!anyset) //fields are empty..
+    return { value, visiblefields, anyset, allrequiredset, lookupkey: JSON.stringify(value) };
+  }
+
+  async _checkValidity(event)
+  {
+    /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
+       but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
+       this on base of the country actually changing, not an external checkbox controlling visiblity of the whole country field
+       and a stray update event
+       */
+    let curstate = this._getCurState();
+    if(!curstate.anyset) //fields are empty..
     {
       this._clearErrors();
       return; //then don't validate
     }
+    if(!curstate.allrequiredset)
+      return; //no need to validate if we don't even have the required fields in place
 
     let result;
     try
     {
-      visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
+      curstate.visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
 
-      let lookupkey = JSON.stringify(value);
-      if(!lookupcache[lookupkey])
-        lookupcache[lookupkey] = this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", value);
+      ++this.numvaliditycalls;
+      if(!lookupcache[curstate.lookupkey])
+        lookupcache[curstate.lookupkey] = this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", curstate.value);
 
-      result = await lookupcache[lookupkey];
+      result = await lookupcache[curstate.lookupkey];
     }
     catch (e)
     {
@@ -168,8 +179,11 @@ export default class AddressField
     }
     finally
     {
-      visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
+      if(--this.numvaliditycalls == 0) //we're the last call
+        curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
     }
+    if(this._getCurState().lookupkey != curstate.lookupkey)
+      return; //abandon tbis _checkValidity call, the field has already changed.
 
     if(dompack.debugflags.fhv)
       console.log(`[fhv] Validation result for address '${this.fieldName}': ${result.status}`);

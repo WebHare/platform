@@ -8,7 +8,11 @@ function getFormRPCRequests()
 
 function testNoLookup(fieldname)
 {
-  test.eq([], test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+  test.eq(0, test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length);
+}
+function testHasLookup(fieldname)
+{
+  test.true(test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length > 0);
 }
 
 test.registerTests(
@@ -21,12 +25,14 @@ test.registerTests(
 
         //just changing country on an empty field used to trigger a validation, and then a "Ongeldige postcode"
         test.fill("#addressform-address\\.country", "BE");
+        testNoLookup("address");
         await test.wait(50);
 
         //ensure nothing has the lookup class
         testNoLookup("address");
 
         test.fill("#addressform-address\\.country", "NL");
+        testNoLookup("address");
         await test.wait(50);
 
         //still on lookups
@@ -44,6 +50,21 @@ test.registerTests(
         //STORY: Switching to BE should immediately clear the zip error state. let validation confirm issues first..
         test.fill("#addressform-address\\.country", "BE");
         test.false(test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should be out of error mode");
+      }
+
+    , 'Check UX - BE'
+    , async function()
+      {
+        let initialrequestcount = getFormRPCRequests().length;
+
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
+        test.fill("#addressform-address\\.country", "BE");
+        test.fill("#addressform-address\\.nr_detail", "100");
+        test.fill("#addressform-address\\.zip", "1000");
+        testNoLookup("address");
+
+        await test.wait(50);
+        testNoLookup("address");
       }
 
     , 'Check required subfields'
@@ -196,5 +217,33 @@ test.registerTests(
       test.fill("[id='addressform-visiblegroup']", false); //hide the addreses
       dompack.dispatchDomEvent(test.qS("[id='addressform-address.country']"), 'change'); //this used to trigger a reset because the field was hidden
       test.eq("NL", test.qS("[id='addressform-address.country']").value);
+    }
+    // */
+  , "Regression: modify during validation"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
+      //fill in address2 just so we can submit...
+      test.fill("#addressform-address2\\.country", "BE");
+      test.fill("#addressform-address2\\.city", "Brussel");
+      test.fill("#addressform-address2\\.street", "Rue de la Loi");
+      test.fill("#addressform-address2\\.nr_detail", "6");
+      test.fill("#addressform-address2\\.zip", "1000");
+
+      test.fill("#addressform-address\\.country", "NL");
+      test.fill("#addressform-address\\.zip", "1000");
+      test.fill("#addressform-address\\.nr_detail", "6");
+      testHasLookup("address");
+      //now while the lookup is flying... switch country to one where the above address is VALID
+      test.fill("#addressform-address\\.country", "BE");
+      test.fill("#addressform-address\\.city", "Brussel");
+      test.fill("#addressform-address\\.street", "Rue de la Loi");
+      test.click("button[type=submit]");
+
+      await test.wait("ui");
+      test.false(test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
+      test.eq("1000", test.qS("#addressform-address\\.zip").value);
+      test.false(test.qS('[data-wh-form-group-for="address2.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
+      test.eq("1000", test.qS("#addressform-address2\\.zip").value);
     }
   ]);
