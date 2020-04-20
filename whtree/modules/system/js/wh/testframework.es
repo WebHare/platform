@@ -14,6 +14,7 @@ import { testDeepEq } from 'dompack/testframework/expect';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import * as diff from 'diff';
+import "../internal/util/polyfill-cssescape.es"; //For IE11
 
 let module_exports;
 
@@ -524,7 +525,7 @@ function _resolveToSingleElement(element)
     var elements = qSA(element);
     if(elements.length==0)
     {
-      elements = qSA('*[id="' + element + '"]');
+      elements = qSA(`*[id="${CSS.escape(element)}]`);
       if(elements.length != 0)
       {
         console.error(`Invoking _resolveToSingleElement with an id '${element}'`);
@@ -533,11 +534,11 @@ function _resolveToSingleElement(element)
     }
     if(elements.length==0)
     {
-      elements = qSA('*[name="' + element + '"]');
+      elements = qSA(`*[name="${CSS.escape(element)}"]`);
       if(elements.length != 0)
       {
         console.error(`Invoking _resolveToSingleElement with a name '${element}'`);
-        throw new Error(`Invoking _resolveToSingleElement with an id '${element}'`);
+        throw new Error(`Invoking _resolveToSingleElement with a name '${element}'`);
       }
     }
     if(elements.length==0)

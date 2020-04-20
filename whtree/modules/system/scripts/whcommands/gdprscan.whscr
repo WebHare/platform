@@ -15,7 +15,7 @@ BOOLEAN anydbschema := FALSE;
 FOREVERY (RECORD dbschema FROM trans->GetSchemaListing())
 {
   //FIXME modules (webshop) should explicitly indicate tables as safe
-  IF(ToUppercase(dbschema.schema_name) IN ["SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP","PG_CATALOG","INFORMATION_SCHEMA","WEBHARE_INTERNAL"])
+  IF(ToUppercase(dbschema.schema_name) IN ["SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP","PG_CATALOG","INFORMATION_SCHEMA"])
     CONTINUE;
 
   BOOLEAN printed := FALSE;
@@ -23,7 +23,9 @@ FOREVERY (RECORD dbschema FROM trans->GetSchemaListing())
   {
     IF(tabledef.isview)
       CONTINUE;
-    IF(dbschema.schema_name IN ["WEBPACK"] AND tabledef.table_name NOT IN ["POLL_VOTES","SURVEY_USERS","THREAD_ENTRIES"])
+    IF(ToUppercase(dbschema.schema_name) IN ["WEBPACK"] AND ToUppercase(tabledef.table_name) NOT IN ["POLL_VOTES","SURVEY_USERS","THREAD_ENTRIES"])
+      CONTINUE;
+    IF(ToUppercase(dbschema.schema_name) IN ["WEBHARE_INTERNAL"] AND ToUppercase(tabledef.table_name) IN ["BLOB"])
       CONTINUE;
 
     OBJECT q := NEW DynamicQuery;

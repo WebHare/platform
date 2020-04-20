@@ -439,6 +439,8 @@ export default class FormBase
     this._scrollIntoView(firstgroup || this.node);
   }
 
+  /** Goto a specific page
+      @param pageidx 0-based index of page to jump to */
   async gotoPage(pageidx)
   {
     let state = this._getPageState();
