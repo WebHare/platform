@@ -2,6 +2,7 @@
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
 
 STRING FUNCTION GetMyCustomNodes(INTEGER obj)
 {
@@ -20,6 +21,13 @@ MACRO TestRules()
     Print("applytest1 = " || applytest1->whfspath || "\n");
   TestEq("pathmask-applytest1,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
 
+  applytest1->UpdateMetadata([typens:="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder"]);
+  TestEq("pathmask-applytest1,folderapplytestertest,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
+
+  //even apply rules from OTHER websites should apply to us (ie they should escape automatisch siteid= tagging to their implicit apply rules)
+  applytest1->UpdateMetadata([typens:="http://www.webhare.net/xmlns/webhare_testsuite/alttestfolder"]);
+  TestEqLike("*alttestfolder*", GetMyCustomNodes(applytest1->id));
+
   OBJECT applytest1sub := applytest1->CreateFolder([name:="sub"]);
   TestEq("parentregex-tmp-applytest1,siteregex-webharetestsuitesuite", GetMyCustomNodes(applytest1sub->id));
 
@@ -30,5 +38,6 @@ MACRO TestRules()
   testfw->CommitWork();
 }
 
-RunTestFramework( [ PTR TestRules
+RunTestFramework( [ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:alttest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, sitename := "webhare_testsuite.site2" ])
+                  , PTR TestRules
                   ]);

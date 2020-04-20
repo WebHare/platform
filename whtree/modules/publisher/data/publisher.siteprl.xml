@@ -185,7 +185,6 @@
   <!-- Define the publisher file types
   -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mswordfile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/htmlfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/javascriptfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/semidynamicfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/cssfile" cloneoncopy="true" />
@@ -255,8 +254,9 @@
       needstemplate="true"
       isacceptableindex="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
-      searchcontentprovider="publisher:contentblob"
-  />
+      searchcontentprovider="publisher:contentblob">
+    <setobjecteditor name="publisher:texteditor" />
+  </filetype>
 
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/javascriptfile"
@@ -770,7 +770,6 @@
 
   <!-- enable texteditors -->
   <apply>
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/javascriptfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/semidynamicfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/cssfile" />

@@ -755,9 +755,8 @@
         <!-- A list of extensions for this file type, used for new files -->
         <xs:sequence>
           <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-          <xs:choice minOccurs="0">
-            <xs:element name="dynamicexecution" type="DynamicExecution" />
-          </xs:choice>
+          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1"/>
+          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="extensions">
           <xs:simpleType>
@@ -842,9 +841,8 @@
       <xs:extension base="sp:ObjectType">
         <xs:sequence>
           <xs:element ref="members" minOccurs="0" maxOccurs="1" />
-          <xs:choice minOccurs="0">
-            <xs:element name="dynamicexecution" type="DynamicExecution" />
-          </xs:choice>
+          <xs:element name="dynamicexecution" type="DynamicExecution" minOccurs="0" maxOccurs="1"/>
+          <xs:group ref="ApplyItem" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute name="indexfile" type="FolderIndexFile" />
         <xs:attribute name="indextype" type="xs:string" />

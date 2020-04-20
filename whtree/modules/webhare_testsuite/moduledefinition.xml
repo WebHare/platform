@@ -265,6 +265,8 @@
     <webdesign hidden="true" name="basetest" title="WH testsuite: selftest 'basetest'" siteprofile="webdesigns/basetest/basetest.siteprl">
       <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl xyz" />
     </webdesign>
+    <webdesign hidden="true" name="alttest" title="WH testsuite: selftest 'attest'" siteprofile="webdesigns/basetest/alttest.siteprl.xml">
+    </webdesign>
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
     <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
     <webfeature hidden="true" name="testfeature" title="WH testsuite: Test feature" siteprofile="webfeatures/testfeature.siteprl"/>

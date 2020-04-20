@@ -527,7 +527,12 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       {
         IF(rule.ruletype = "apply")
         {
-          RECORD addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+          RECORD addrule;
+          IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
+            addrule := CELL[...rule, DELETE ruletype, siteids := siteprof.siteids, allsites := siteprof.allsites ];
+          ELSE //<filetype> and <foldertype> are not scoped
+            addrule := CELL[...rule, DELETE ruletype, siteids := INTEGER[], allsites := TRUE ];
+
           INSERT addrule INTO this->result.applies AT END;
         }
         ELSE IF(rule.ruletype = "globalsetting")

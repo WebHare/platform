@@ -123,11 +123,6 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
   // Public API
   //
 
-  PUBLIC OBJECT FUNCTION GetApplyNode(RECORD applyblock)
-  {
-    RETURN this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->Item(applyblock.applyindex);
-  }
-
   PUBLIC OBJECT FUNCTION GetTabsExtension(STRING name)
   {
     FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_t, "tabsextension")->GetCurrentElements())
@@ -968,7 +963,7 @@ STATIC OBJECTTYPE ApplyRuleTester
     FOREVERY (RECORD rec FROM recs)
     {
       FOREVERY (RECORD c FROM UnpackRecord(rec))
-        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "ALLSITES", "SITEIDS", "TOS", "APPLYINDEX" ])
+        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "ALLSITES", "SITEIDS", "TOS", "APPLYINDEX", "APPLYNODETYPE" ])
           rec := CellDelete(rec, c.name);
       rec.tos := this->MinimizeApplies(rec.tos);
       recs[#rec] := rec;
@@ -1260,9 +1255,10 @@ STATIC OBJECTTYPE ApplyRuleTester
         {
           // Only give back requested cell plus a few standard cells
           RECORD result :=
-              [ siteprofile :=  apply.siteprofile
-              , applyindex :=   apply.applyindex
-              , siteids :=      apply.siteids
+              [ siteprofile :=   apply.siteprofile
+              , applyindex :=    apply.applyindex
+              , applynodetype := apply.applynodetype
+              , siteids :=       apply.siteids
               ];
 
           result := CellInsert(result, cellname, GetCell(apply, cellname));
@@ -1788,7 +1784,7 @@ STATIC OBJECTTYPE ApplyRuleTester
       IF(Length(matchingnodes)>0)
       {
         OBJECT siteprof := NEW SiteProfileObject(apply.siteprofile);
-        OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->Item(apply.applyindex);
+        OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, apply.applynodetype)->Item(apply.applyindex);
 
         IF(ObjectExists(applynode))
         {
