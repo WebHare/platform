@@ -69,9 +69,6 @@
   <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfile" cloneoncopy="true">
   </contenttype>
 
-  <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfolder" cloneoncopy="true">
-  </contenttype>
-
   <contenttype namespace="http://www.webhare.net/xmlns/beta/dynfolder2" cloneoncopy="true">
   </contenttype>
 
@@ -84,6 +81,9 @@
   </filetype>
 
   <foldertype typedef="http://www.webhare.net/xmlns/beta/dynfolder" title="TestsuiteDynFolder">
+    <members>
+      <string name="test" />
+    </members>
     <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FolderEntry" />
   </foldertype>
 

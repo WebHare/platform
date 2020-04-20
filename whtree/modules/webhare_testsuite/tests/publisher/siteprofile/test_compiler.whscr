@@ -28,9 +28,8 @@ MACRO TestParsing()
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*validationerror*is not expected*"));
   TestEq(2, Length(SELECT FROM res.errors WHERE message LIKE "*No such resource*"));
   TestEq(2, Length(SELECT DISTINCT line FROM res.errors WHERE message LIKE "*No such resource*"));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*webhare_testsuite/test1folder*is not defined*"));
 
-  TestEq(6, Length(res.errors));
+  TestEq(5, Length(res.errors));
 
 
   STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";

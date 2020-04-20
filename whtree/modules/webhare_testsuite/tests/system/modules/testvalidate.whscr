@@ -414,6 +414,24 @@ MACRO TestValidateModuleDef()
          ], SELECT line, message FROM res.hints ORDER BY line,message)  ;
 }
 
+MACRO TestSiteProfiles()
+{
+  BLOB dupemembers_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" kind="datafile">
+      <members>
+        <file name="original" />
+        <richdocument name="original" />
+      </members>
+    </filetype>
+  </siteprofile>`);
+
+  RECORD res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupemembers_siteprl ]);
+  DumpValue(res.errors);
+  TestEq([[ line := 6, message := "Duplicate member 'original'" ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+}
+
 MACRO TestTidScan()
 {
   //Test validation when limitlangauges used for nonprimary language
@@ -792,6 +810,7 @@ ASYNC MACRO TestLoadScreen()
 RunTestFramework([ PTR TestBasicValidate
                  , PTR TestValidateWitty
                  , PTR TestValidateModuleDef
+                 , PTR TestSiteProfiles
                  , PTR TestValidateSVG
                  , PTR TestValidateForm
                  , PTR TestTidScan

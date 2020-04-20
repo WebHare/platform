@@ -243,19 +243,35 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC MACRO ParseFileFolderTypes(STRING whichtype, FUNCTION PTR parser)
   {
-    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, whichtype)->GetCurrentElements())
+    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->ListChildren(namespace_sp, whichtype))
     {
       TRY
       {
         STRING ns := ftype->GetAttribute("typedef");
         RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
+        OBJECT membersnode := PickFirst(ftype->ListChildren(namespace_sp, "members"));
+        RECORD ctype;
+
         IF(NOT insertpos.found)
-          THROW NEW Exception(`Content type ${ns} is not defined in this file`);
+        {
+          ctype := MakeBasicTypeInfo("contenttype");
+          ctype.namespace := ns;
 
-        RECORD ctype := this->contenttypes[insertpos.position];
-        IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
-          THROW NEW Exception(`Content type ${ns} is already setup as a file or folder type`);
+          IF(ObjectExists(membersnode))
+            INSERT CELL members := this->ReadCTMembers(membersnode, ns).members INTO ctype;
+          ELSE
+            INSERT CELL members := RECORD[] INTO ctype;
 
+          INSERT ctype INTO this->contenttypes AT insertpos.position;
+        }
+        ELSE
+        {
+          ctype := this->contenttypes[insertpos.position];
+          IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
+            this->AddError(ftype, `Content type ${ns} is already setup as a file or folder type`);
+          IF(ObjectExists(membersnode))
+            this->AddError(ftype, `A type cannot define <members> if they were already defined by a previous <contenttype>`);
+        }
         ctype := parser(ctype, ftype);
         this->contenttypes[insertpos.position] := ctype;
       }
@@ -270,21 +286,45 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     ctype.filetype := GetBaseFiletypeRecord();
     IF(ftype->HasAttribute("icon"))
-      this->AddWarning(ftype, "The option 'icon' is obsolete");
+      this->AddWarning(ftype, "The option 'icon' is obsolete and should be removed");
+    IF(ftype->HasAttribute("viewable"))
+      this->AddWarning(ftype, "The attribute 'isviewable' is obsolete and should be removed");
+    if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
+      this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
+
+    SWITCH(ftype->GetAttribute("kind"))
+    {
+      CASE "rawfile"
+      {
+        ctype.filetype.blobiscontent := TRUE;
+        ctype.filetype.requirescontent := TRUE;
+        ctype.fstype.ispublishable := TRUE;
+      }
+      CASE "virtualfile"
+      {
+        ctype.fstype.needstemplate := TRUE;
+        ctype.fstype.ispublishable := TRUE;
+        ctype.fstype.ispublishedassubdir := TRUE;
+      }
+    }
 
     ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
     ctype.filetype.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
-    ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
+    IF(ftype->HasAttribute("blobiscontent"))
+     ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
     ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
-    ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
+    IF(ftype->HasAttribute("needstemplate"))
+      ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
     ctype.fstype.needsprofile := ParseXSBoolean(ftype->GetAttribute("needsprofile"));
     ctype.filetype.requirescontent := ParseXSBoolean(ftype->GetAttribute("requirescontent"));
     ctype.filetype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
     ctype.filetype.siteprofile := this->filename;
     ctype.filetype.line := ftype->linenum;
     ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
-    ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
-    ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
+    IF(ftype->HasAttribute("ispublishedassubdir"))
+      ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
+    IF(ftype->HasAttribute("ispublishable"))
+      ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
     ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
     ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
@@ -415,18 +455,23 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     RECORD ARRAY members;
     RECORD ARRAY groupmemberships;
-    FOR(OBJECT node := memberparent->firstchild;ObjectExists(node);node:=node->nextsibling)
+    STRING ARRAY seennames;
+    FOR(OBJECT node := memberparent->firstelementchild;ObjectExists(node);node:=node->nextelementsibling)
     {
-      IF (node->localname = "member")
+      IF (node->localname = "member" OR node->localname IN whconstant_whfstype_membertypes)
       {
-        RECORD memberinfo := [ name := node->GetAttribute('name')
-                             , type := GetFSMemberTypeID(node->GetAttribute('type'))
+        RECORD memberinfo := [ name := ToLowercase(node->GetAttribute('name'))
+                             , type := GetFSMemberTypeID(node->localname = "member" ? node->GetAttribute('type') : node->localname)
                              , publish := node->GetAttribute("publish") IN ["1","true"]
                              , children := DEFAULT RECORD ARRAY
                              ];
 
         IF(memberinfo.name="")
           this->AddError(node, `Invalid member name '${memberinfo.name}'`);
+        ELSE IF(memberinfo.name IN seennames)
+          this->AddError(node, `Duplicate member '${memberinfo.name}'`);
+
+        INSERT memberinfo.name INTO seennames AT END;
 
         IF(node->HasAttribute("publish") AND NOT memberinfo.publish)
           this->AddError(node, `Member name '${memberinfo.name}' is using publish=false - should be removed`);
@@ -442,9 +487,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         {
           //Some names are grandfathered in, hopefully they can go away at some point
           IF(namespace||"#"||memberinfo.name NOT IN
-             ["http://www.wilminktheater.nl/xmlns/types/serie#whfsref"
-             ,"http://www.wilminktheater.nl/xmlns/types/performance#whfsref"
-             ,"http://www.pthu.nl/v2/mainmenu#whfsitem"
+             ["http://www.pthu.nl/v2/mainmenu#whfsitem"
              ])
           {
             this->AddWarning(node, `Member names starting with 'WHFS' are reserved and should not be used`);

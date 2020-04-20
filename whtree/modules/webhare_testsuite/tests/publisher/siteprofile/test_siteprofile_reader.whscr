@@ -8,6 +8,8 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestWHFSType()
@@ -18,6 +20,13 @@ MACRO TestWHFSType()
   TestEQ(TRUE, htmlfile.isacceptableindex);
   TestEQ(TRUE, htmlfile.blobiscontent);
   TestEq("http://www.webhare.net/xmlns/publisher/htmlfile", htmlfile.namespace);
+
+  OBJECT rtdtype := OpenWHFStype("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  TestEQ([[name:="data",type:=15],[name :="original", type := 5]], SELECT name,type FROM rtdtype->members ORDER BY name);
+  TestEq(TRUE, rtdtype->cloneoncopy);
+
+  OBJECT dynfoldertype := OpenWHFStype("http://www.webhare.net/xmlns/beta/dynfolder");
+  TestEQ([[name:="test",type:=2]], SELECT name,type FROM dynfoldertype->members ORDER BY name);
 
   RECORD wordtype := DescribeContentTypeById(4);
   TestEq(TRUE, wordtype.needstemplate);

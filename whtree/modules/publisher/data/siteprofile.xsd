@@ -48,12 +48,7 @@
       <xs:sequence>
         <xs:choice minOccurs="0" maxOccurs="unbounded">
           <xs:group ref="s:ScreenParts" />
-          <xs:element name="contenttype" type="ContentType">
-            <xs:unique name="membernames">
-              <xs:selector xpath="./sp:member" />
-              <xs:field xpath="@name" />
-            </xs:unique>
-          </xs:element>
+          <xs:element name="contenttype" type="ContentType" />
           <xs:element name="rtdtype" type="RTDType" />
           <xs:element ref="propertyeditor" />
           <xs:element name="filetype" type="FileType" />
@@ -98,16 +93,12 @@
   </xs:element>
 
   <xs:complexType name="ContentType">
-    <xs:sequence>
-      <xs:element name="member" type="Member" minOccurs="0" maxOccurs="unbounded">
-        <xs:unique name="membernames2">
-          <xs:selector xpath="./sp:member" />
-          <xs:field xpath="@name" />
-        </xs:unique>
-      </xs:element>
-    </xs:sequence>
-    <xs:attribute name="namespace" type="xs:anyURI" use="required" />
-    <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
+    <xs:complexContent>
+      <xs:extension base="Members">
+        <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+        <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
+      </xs:extension>
+    </xs:complexContent>
   </xs:complexType>
 
   <xs:complexType name="RTDType">
@@ -640,14 +631,52 @@
 
   <!-- FIXME: enforce no duplicate names between extensions inside a propeditor, even though we don't actually support xrefs yet -->
 
-  <xs:element name="members">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="member" minOccurs="0" maxOccurs="unbounded" type="Member">
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
+  <xs:element name="members" type="Members">
+    <xs:unique name="membernames_members">
+      <xs:selector xpath="./sp:member" />
+      <xs:field xpath="@name" />
+    </xs:unique>
   </xs:element>
+
+  <xs:complexType name="Members">
+    <xs:choice>
+      <xs:element name="member" minOccurs="0" maxOccurs="unbounded" type="Member" />
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element type="SimpleMember" name="boolean" />
+          <xs:element type="SimpleMember" name="datetime" />
+          <xs:element type="SimpleMember" name="integer" />
+          <xs:element type="SimpleMember" name="file" />
+          <xs:element type="SimpleMember" name="float" />
+          <xs:element type="SimpleMember" name="money" />
+          <xs:element type="SimpleMember" name="string" />
+          <xs:element type="RecordMember" name="array" />
+          <xs:element type="SimpleMember" name="whfsref" />
+          <xs:element type="SimpleMember" name="whfsrefarray" />
+          <xs:element type="SimpleMember" name="stringarray" />
+          <xs:element type="SimpleMember" name="richdocument" />
+          <xs:element type="SimpleMember" name="formdefinition" />
+          <xs:element type="SimpleMember" name="formcondition" />
+          <xs:element type="SimpleMember" name="intextlink" />
+          <xs:element type="SimpleMember" name="instance" />
+          <xs:element type="SimpleMember" name="url" />
+          <xs:element type="RecordMember" name="record" />
+        </xs:choice>
+      </xs:sequence>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:complexType name="SimpleMember">
+    <xs:attribute name="name" type="Name" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="RecordMember">
+    <xs:complexContent>
+      <xs:extension base="Members">
+        <xs:attribute name="name" type="Name" use="required"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
 
   <xs:complexType name="Member">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -725,6 +754,7 @@
       <xs:extension base="sp:ObjectType">
         <!-- A list of extensions for this file type, used for new files -->
         <xs:sequence>
+          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
           <xs:choice minOccurs="0">
             <xs:element name="dynamicexecution" type="DynamicExecution" />
           </xs:choice>
@@ -811,6 +841,7 @@
     <xs:complexContent>
       <xs:extension base="sp:ObjectType">
         <xs:sequence>
+          <xs:element ref="members" minOccurs="0" maxOccurs="1" />
           <xs:choice minOccurs="0">
             <xs:element name="dynamicexecution" type="DynamicExecution" />
           </xs:choice>
