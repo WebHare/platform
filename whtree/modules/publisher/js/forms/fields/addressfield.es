@@ -15,6 +15,7 @@ export default class AddressField
     if (!this.countryNode)
       throw new Error("Could not find country select node");
 
+    this.currentcountry = this.countryNode.value;
     this.fieldName = this.countryNode.name.substr(0, this.countryNode.name.lastIndexOf("."));
     this.orderingData = this.countryNode.dataset.orderingdata && JSON.parse(this.countryNode.dataset.orderingdata);
     let prefixLength = this.fieldName.length + 1; // fieldName + "."
@@ -46,6 +47,14 @@ export default class AddressField
   {
     if (this._updatingFields)
       return; // We're updating our own fields
+    console.log(this.countryNode, event.target, this.currentcountry);
+    if(event.target == this.countryNode && this.currentcountry != this.countryNode.value)
+    {
+      //country changed. clear errors on all fields before revalidating.. otherwise the errors will just seem to 'linger' for a while after switching
+      this._clearErrors();
+      this.currentcountry = this.countryNode.value;
+    }
+
     if (this._getFieldValue("country") === "NL")
     {
       if (!this._getFieldValue("zip") || !this._getFieldValue("nr_detail"))
