@@ -6,6 +6,11 @@ function getFormRPCRequests()
    return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
 }
 
+function testNoLookup(fieldname)
+{
+  test.eq([], test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+}
+
 test.registerTests(
     [ 'Check UX'
     , async function()
@@ -19,7 +24,26 @@ test.registerTests(
         await test.wait(50);
 
         //ensure nothing has the lookup class
-        test.eq([], test.qSA('[data-wh-form-group-for^="address."]').filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+        testNoLookup("address");
+
+        test.fill("#addressform-address\\.country", "NL");
+        await test.wait(50);
+
+        //still on lookups
+        testNoLookup("address");
+
+        //set a zipcode and housenumber, bring the NL validator into error mode
+        test.eq(0, getFormRPCRequests().length, "Still no lookups please..");
+        test.fill("#addressform-address\\.nr_detail", "100");
+        test.fill("#addressform-address\\.zip", "1000");
+        await test.wait('ui');
+
+        test.eq(1, getFormRPCRequests().length, "ONE lookup allowed to reject 1000-100");
+        test.true(test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should now be in error mode");
+
+        //STORY: Switching to BE should immediately clear the zip error state. let validation confirm issues first..
+        test.fill("#addressform-address\\.country", "BE");
+        test.false(test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should be out of error mode");
       }
 
     , 'Check required subfields'
@@ -128,21 +152,21 @@ test.registerTests(
         test.fill("#addressform-address\\.country", "NL");
 
         //ensure nothing has the lookup class
-        test.eq([], test.qSA('[data-wh-form-group-for^="address."]').filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+        testNoLookup("address");
         test.fill("#addressform-address\\.zip", "7500 OO");
 
         //no visible element should not have the lookup class
         test.eq([], test.qSA('[data-wh-form-group-for^="address."]:not(.wh-form__fieldgroup--hidden)').filter(el => !el.classList.contains("wh-form__fieldgroup--addresslookup")));
         await test.wait("ui");
         //lookup should be done again
-        test.eq([], test.qSA('[data-wh-form-group-for^="address."]').filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+        testNoLookup("address");
 
         test.fill("#addressform-address\\.nr_detail", "2");
         //no visible element should not have the lookup class
         test.eq([], test.qSA('[data-wh-form-group-for^="address."]:not(.wh-form__fieldgroup--hidden)').filter(el => !el.classList.contains("wh-form__fieldgroup--addresslookup")));
         await test.wait("ui");
         //lookup should be done again
-        test.eq([], test.qSA('[data-wh-form-group-for^="address."]').filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")));
+        testNoLookup("address");
 
         test.eq("Combinatie van postcode en huisnummer komt niet voor.", test.qS('[data-wh-form-group-for="address.zip"] .wh-form__error').textContent);
 
