@@ -34,23 +34,23 @@
   </rtdtype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/errorinfo" cloneoncopy="false">
-    <member name="messages" type="array">
-      <member name="type" type="integer" />
-      <member name="line" type="integer" />
-      <member name="col" type="integer" />
-      <member name="file" type="whfsref" />
-      <member name="filename" type="string" />
-      <member name="code" type="integer" />
-      <member name="param1" type="string" />
-      <member name="param2" type="string" />
-    </member>
-    <member name="trace" type="array">
-      <member name="line" type="integer" />
-      <member name="col" type="integer" />
-      <member name="file" type="whfsref" />
-      <member name="filename" type="string" />
-      <member name="func" type="string" />
-    </member>
+    <array name="messages">
+      <integer name="type" />
+      <integer name="line" />
+      <integer name="col" />
+      <whfsref name="file" />
+      <string name="filename" />
+      <integer name="code" />
+      <string name="param1" />
+      <string name="param2" />
+    </array>
+    <array name="trace">
+      <integer name="line" />
+      <integer name="col" />
+      <whfsref name="file" />
+      <string name="filename" />
+      <string name="func" />
+    </array>
   </contenttype>
 
   <!-- Define the special '0' types
@@ -185,7 +185,6 @@
   <!-- Define the publisher file types
   -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mswordfile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/htmlfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/javascriptfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/semidynamicfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/cssfile" cloneoncopy="true" />
@@ -212,10 +211,6 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile" cloneoncopy="true">
-    <member name="original" type="file" />
-    <member name="data" type="richdocument" />
-  </contenttype>
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/msworddownload" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/designfilessite" cloneoncopy="true" />
@@ -239,13 +234,11 @@
       webhare_builtintypeid="4"
       tid="publisher:filetypes.msword"
       tolliumicon="tollium:files/application_msword"
+      kind="rawfile"
       extensions=".doc"
-      blobiscontent="true"
-      requirescontent="true"
       needstemplate="true"
       needsprofile="true"
       isacceptableindex="true"
-      ispublishable="true"
       ispublishedassubdir="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
@@ -256,15 +249,14 @@
       webhare_builtintypeid="5"
       tid="publisher:filetypes.html"
       tolliumicon="tollium:files/text_html"
+      kind="rawfile"
       extensions=".html .htm"
-      blobiscontent="true"
       needstemplate="true"
-      needsprofile="false"
       isacceptableindex="true"
-      ispublishable="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
-      searchcontentprovider="publisher:contentblob"
-  />
+      searchcontentprovider="publisher:contentblob">
+    <setobjecteditor name="publisher:texteditor" />
+  </filetype>
 
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/javascriptfile"
@@ -614,26 +606,23 @@
       typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile"
       tid="publisher:filetypes.richdocumentfile"
       tolliumicon="tollium:files/application_x-webhare-richdocument"
-      blobiscontent="false"
-      needstemplate="true"
-      needsprofile="false"
-      ispublishable="true"
-      requirescontent="false"
+      kind="virtualfile"
       isacceptableindex="true"
-      ispublishedassubdir="true"
       extensions=".rtd"
       searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
-      searchcontentprovider="publisher:rtd"
-  />
+      searchcontentprovider="publisher:rtd">
+    <members>
+      <file name="original" />
+      <richdocument name="data" />
+    </members>
+  </filetype>
 
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/msworddownload"
       tid="publisher:filetypes.msworddownload"
       tolliumicon="tollium:files/application_msword"
       extensions=".doc"
-      blobiscontent="true"
-      requirescontent="true"
-      ispublishable="true"
+      kind="rawfile"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
@@ -655,36 +644,21 @@
   <filetype
       typedef="http://www.webhare.net/xmlns/wrd/instancefile"
       tid="publisher:filetypes.wrdinstancefile"
-      blobiscontent="false"
-      requirescontent="false"
-      needstemplate="false"
-      needsprofile="false"
-      isacceptableindex="false"
-      ispublishable="false"
+      kind="datafile"
   />
 
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/tagfile"
       tid="publisher:filetypes.tagfile"
       tolliumicon="tollium:mailclient/label"
-      blobiscontent="false"
-      requirescontent="false"
-      needstemplate="false"
-      needsprofile="false"
-      isacceptableindex="false"
-      ispublishable="false"
+      kind="datafile"
   />
 
   <filetype
       typedef="http://www.webhare.net/xmlns/publisher/tagrepository"
       tid="publisher:filetypes.tagrepository"
       tolliumicon="tollium:folders/repository"
-      blobiscontent="false"
-      requirescontent="false"
-      needstemplate="false"
-      needsprofile="false"
-      isacceptableindex="false"
-      ispublishable="false"
+      kind="datafile"
   />
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/reports/publishstatus"
@@ -796,7 +770,6 @@
 
   <!-- enable texteditors -->
   <apply>
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/htmlfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/javascriptfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/semidynamicfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/cssfile" />

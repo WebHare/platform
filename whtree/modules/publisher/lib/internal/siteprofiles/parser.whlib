@@ -243,19 +243,35 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC MACRO ParseFileFolderTypes(STRING whichtype, FUNCTION PTR parser)
   {
-    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, whichtype)->GetCurrentElements())
+    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->ListChildren(namespace_sp, whichtype))
     {
       TRY
       {
         STRING ns := ftype->GetAttribute("typedef");
         RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
-        IF(NOT insertpos.found)
-          THROW NEW Exception(`Content type ${ns} is not defined in this file`);
+        OBJECT membersnode := PickFirst(ftype->ListChildren(namespace_sp, "members"));
+        RECORD ctype;
 
-        RECORD ctype := this->contenttypes[insertpos.position];
-        IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
-          THROW NEW Exception(`Content type ${ns} is already setup as a file or folder type`);
+        IF(NOT insertpos.found) //synthesize contenttype
+        {
+          ctype := MakeBasicTypeInfo("contenttype");
+          ctype.namespace := ns;
 
+          IF(ObjectExists(membersnode))
+            INSERT CELL members := this->ReadCTMembers(membersnode, ns).members INTO ctype;
+          ELSE
+            INSERT CELL members := RECORD[] INTO ctype;
+
+          INSERT ctype INTO this->contenttypes AT insertpos.position;
+        }
+        ELSE
+        {
+          ctype := this->contenttypes[insertpos.position];
+          IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
+            this->AddError(ftype, `Content type ${ns} is already setup as a file or folder type`);
+          IF(ObjectExists(membersnode))
+            this->AddError(ftype, `A type cannot define <members> if they were already defined by a previous <contenttype>`);
+        }
         ctype := parser(ctype, ftype);
         this->contenttypes[insertpos.position] := ctype;
       }
@@ -270,21 +286,45 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     ctype.filetype := GetBaseFiletypeRecord();
     IF(ftype->HasAttribute("icon"))
-      this->AddWarning(ftype, "The option 'icon' is obsolete");
+      this->AddWarning(ftype, "The option 'icon' is obsolete and should be removed");
+    IF(ftype->HasAttribute("viewable"))
+      this->AddWarning(ftype, "The attribute 'isviewable' is obsolete and should be removed");
+    if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
+      this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
+
+    SWITCH(ftype->GetAttribute("kind"))
+    {
+      CASE "rawfile"
+      {
+        ctype.filetype.blobiscontent := TRUE;
+        ctype.filetype.requirescontent := TRUE;
+        ctype.fstype.ispublishable := TRUE;
+      }
+      CASE "virtualfile"
+      {
+        ctype.fstype.needstemplate := TRUE;
+        ctype.fstype.ispublishable := TRUE;
+        ctype.fstype.ispublishedassubdir := TRUE;
+      }
+    }
 
     ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
     ctype.filetype.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
-    ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
+    IF(ftype->HasAttribute("blobiscontent"))
+     ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
     ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
-    ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
+    IF(ftype->HasAttribute("needstemplate"))
+      ctype.fstype.needstemplate := ParseXSBoolean(ftype->GetAttribute("needstemplate"));
     ctype.fstype.needsprofile := ParseXSBoolean(ftype->GetAttribute("needsprofile"));
     ctype.filetype.requirescontent := ParseXSBoolean(ftype->GetAttribute("requirescontent"));
     ctype.filetype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
     ctype.filetype.siteprofile := this->filename;
     ctype.filetype.line := ftype->linenum;
     ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
-    ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
-    ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
+    IF(ftype->HasAttribute("ispublishedassubdir"))
+      ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
+    IF(ftype->HasAttribute("ispublishable"))
+      ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
     ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
     ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
@@ -356,7 +396,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting";
     }
 
-    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(namespace_sp, "dynamicexecution")->Item(0);
+    OBJECT dyninfo := PickFirst(ftype->ListChildren(namespace_sp, "dynamicexecution"));
     IF(ObjectExists(dyninfo))
       ctype.foldertype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
 
@@ -415,18 +455,23 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     RECORD ARRAY members;
     RECORD ARRAY groupmemberships;
-    FOR(OBJECT node := memberparent->firstchild;ObjectExists(node);node:=node->nextsibling)
+    STRING ARRAY seennames;
+    FOR(OBJECT node := memberparent->firstelementchild;ObjectExists(node);node:=node->nextelementsibling)
     {
-      IF (node->localname = "member")
+      IF (node->localname = "member" OR node->localname IN whconstant_whfstype_membertypes)
       {
-        RECORD memberinfo := [ name := node->GetAttribute('name')
-                             , type := GetFSMemberTypeID(node->GetAttribute('type'))
+        RECORD memberinfo := [ name := ToLowercase(node->GetAttribute('name'))
+                             , type := GetFSMemberTypeID(node->localname = "member" ? node->GetAttribute('type') : node->localname)
                              , publish := node->GetAttribute("publish") IN ["1","true"]
                              , children := DEFAULT RECORD ARRAY
                              ];
 
         IF(memberinfo.name="")
           this->AddError(node, `Invalid member name '${memberinfo.name}'`);
+        ELSE IF(memberinfo.name IN seennames)
+          this->AddError(node, `Duplicate member '${memberinfo.name}'`);
+
+        INSERT memberinfo.name INTO seennames AT END;
 
         IF(node->HasAttribute("publish") AND NOT memberinfo.publish)
           this->AddError(node, `Member name '${memberinfo.name}' is using publish=false - should be removed`);
@@ -442,9 +487,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         {
           //Some names are grandfathered in, hopefully they can go away at some point
           IF(namespace||"#"||memberinfo.name NOT IN
-             ["http://www.wilminktheater.nl/xmlns/types/serie#whfsref"
-             ,"http://www.wilminktheater.nl/xmlns/types/performance#whfsref"
-             ,"http://www.pthu.nl/v2/mainmenu#whfsitem"
+             ["http://www.pthu.nl/v2/mainmenu#whfsitem"
              ])
           {
             this->AddWarning(node, `Member names starting with 'WHFS' are reserved and should not be used`);
@@ -761,480 +804,529 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC RECORD ARRAY FUNCTION ImportApplies()
   {
-    /* Reenable this eg to cache addcontenttype e.a.
-
-       ALs deze code weer terugkomt, let er dan ook op dat hij per site wordt aangeroepen maar dit nog niet
-       wordt doorgegeven: toch moet zo'n apply slechts voor die site gelden. Houdt er dus rekening mee dat
-       je nog een lijst van siteids moet doorgeven wwaarvoor dit profiel geldt
-  */
-    BOOLEAN errorsarenowfatal;
-    OBJECT siteprof := this->siteprof;
-    OBJECT ARRAY applies := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "apply")->GetCurrentElements();
+    OBJECT ARRAY applies := this->siteprof->xmldoc->documentelement->ListElements(namespace_sp, "*");
     RECORD ARRAY applyrules;
+    RECORD counters := [ apply := 0, filetype := 0, foldertype := 0 ];
     FOREVERY(OBJECT applyblock FROM applies)
     {
-      RECORD apply := [ tos := this->ParseApplyTosRecurse(applyblock)
-                      , priority := ParseXSInt(applyblock->GetAttribute("priority"))
-                      , siteprofile := siteprof->name
-                      , line := applyblock->linenum
-                      , col := 0
+      STRING applynodetype := applyblock->localname;
 
-                      , allowprofiles := DEFAULT RECORD ARRAY
-                      , allowtemplates := DEFAULT RECORD ARRAY
-                      , applyindex := #applyblock
-                      , baseproperties := DEFAULT RECORD
-                      , bodyrenderer := DEFAULT RECORD
-                      , contentlisting := DEFAULT RECORD
-                      , customnodes := DEFAULT RECORD ARRAY
-                      , defaultsettings := DEFAULT RECORD ARRAY
-                      , disablelegacysitesettings := FALSE
-                      , disabletemplateprofile := FALSE
-                      , extendproperties := DEFAULT RECORD ARRAY
-                      , folderindex := DEFAULT RECORD
-                      , setlibrary := DEFAULT RECORD ARRAY
-                      , modifyfiletypes := DEFAULT RECORD ARRAY
-                      , modifyfoldertypes := DEFAULT RECORD ARRAY
-                      , plugins := DEFAULT RECORD ARRAY
-                      , republishes := DEFAULT RECORD ARRAY
-                      , scheduletasknows := DEFAULT RECORD ARRAY
-                      , setobjecteditor := DEFAULT RECORD
-                      , setwidget := DEFAULT RECORD ARRAY
-                      , sitelanguage := DEFAULT RECORD
-                      , tagsources := DEFAULT RECORD ARRAY
-                      , typemappings := DEFAULT RECORD ARRAY
-                      , uploadtypemapping := DEFAULT RECORD ARRAY
-                      , urlevents := DEFAULT RECORD
-                      , urlhistory := DEFAULT RECORD
-                      , usepublishtemplate := DEFAULT RECORD
-                      , webdesign := DEFAULT RECORD
-                      , formdefinitions := DEFAULT RECORD ARRAY
-                      , prebuiltpages := DEFAULT RECORD ARRAY
-                      , mailtemplates := RECORD[]
-                      , foldersettings := DEFAULT RECORD
-                      , webtoolsformrules := DEFAULT RECORD ARRAY
-                      , rtddoc := DEFAULT RECORD
-                      ];
+      IF(NOT CellExists(counters, applynodetype))
+        CONTINUE; //don't care for this node
+
+
+      INTEGER applyindex := GetCell(counters, applynodetype);
+      counters := CellUpdate(counters, applynodetype, applyindex + 1);
 
       IF(NOT IsNodeApplicableToThisWebHare(applyblock))
         CONTINUE;
 
-      STRING ARRAY seenuniques;
+      RECORD apply := this->ImportApplyItems(applyblock);
+      IF(NOT RecordExists(apply))
+        CONTINUE; //no content
 
-      FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())
+      apply := CELL[ ...apply
+                   , tos := RECORD[]
+                   , priority := ParseXSInt(applyblock->GetAttribute("priority"))
+                   , applyindex
+                   , applynodetype
+                   ];
+
+      IF(applynodetype = "apply")
       {
-        IF(node->localname IN ["bodyrenderer","sitelanguage","folderindex", "contentlisting", "rtddoc"
-                              ,"setobjecteditor"])
-        {
-          IF(node->localname IN seenuniques)
-          {
-            this->AddError(node, "Duplicate <" || node->localname || "> in a single apply block");
-            CONTINUE;
-          }
-          INSERT node->localname INTO seenuniques AT END;
-        }
-
-        TRY
-        {
-          IF(node->namespaceuri = namespace_sp)
-          {
-            SWITCH(node->localname)
-            {
-              CASE "to","not","and","or","xor","testtype","testdata"
-              {
-                CONTINUE; //make sure these do not get recorded as custom nodes
-              }
-              CASE "extendproperties", "undoextendproperties"
-              {
-                STRING extension := this->ParseTolliumRef(node,"extension");
-                STRING contenttype := node->GetAttribute("contenttype");
-                IF(contenttype = "" AND extension != "")
-                  this->AddError(node, "An extendproperties with extension= requires a content type");
-
-                RECORD applynode := [ isundo := node->localname = "undoextendproperties"
-                                    , contenttype := contenttype
-                                    , requireright := node->GetAttribute("requireright")
-                                    , requirewebdesign := ParseXSBoolean(node->GetAttribute("requirewebdesign"))
-                                    , name := node->GetAttribute("name")
-                                    , extension := extension
-                                    , mask := node->GetAttribute("mask")
-                                    ];
-                INSERT applynode INTO apply.extendproperties AT END;
-                CONTINUE;
-              }
-              CASE "allowtemplate"
-              {
-                INSERT [ fullpath := node->GetAttribute("fullpath")
-                       , site := node->GetAttribute("site")
-                       ] INTO apply.allowtemplates AT END;
-                CONTINUE;
-              }
-              CASE "allowprofile"
-              {
-                INSERT [ fullpath := node->GetAttribute("fullpath")
-                       , site := node->GetAttribute("site")
-                       ] INTO apply.allowprofiles AT END;
-                CONTINUE;
-              }
-              CASE "formdefinitions"
-              {
-                INSERT [ path := MakeLegacyAbsoluteResourcePath(this->filename, node->GetAttribute("path"), "data")
-                       , name := node->GetAttribute("name")
-                       ] INTO apply.formdefinitions AT END;
-                CONTINUE;
-              }
-              CASE "webdesign"
-              {
-                apply.webdesign :=  this->ParseWebDesign(node);
-                CONTINUE;
-              }
-              CASE "baseproperties"
-              {
-                apply.baseproperties := [ haslist := GetHasList(node, ["title","description","keywords"])
-                                        , title := ParseXSBoolean(node->GetAttribute("title"))
-                                        , description := ParseXSBoolean(node->GetAttribute("description"))
-                                        , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
-                                        ];
-                CONTINUE;
-              }
-              CASE "urlhistory"
-              {
-                apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","passthrough"])
-                                    , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
-                                    , store := ParseXSBoolean(node->GetAttribute("store"))
-                                    , passthrough := ParseXSList(node->GetAttribute("passthrough"))
-                                    ];
-                CONTINUE;
-              }
-              CASE "urlevents"
-              {
-                apply.urlevents := [ haslist := GetHasList(node, ["enabled"])
-                                   , enabled := ParseXSBoolean(node->GetAttribute("enabled"))
-                                   ];
-                CONTINUE;
-              }
-              CASE "bodyrenderer"
-              {
-                apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
-                                      , rendermacro := node->GetAttribute("rendermacro")
-                                      , preparemacro := node->GetAttribute("preparemacro")
-                                      , objectname  := this->ParseFunctionRef(node, "library", "objectname")
-                                      ];
-                CONTINUE;
-              }
-              CASE "sitelanguage"
-              {
-                apply.sitelanguage := [ lang := node->GetAttribute("lang")
-                                      , has_lang := node->HasAttribute("lang")
-                                      ];
-                CONTINUE;
-              }
-              CASE "usepublishtemplate"
-              {
-                apply.usepublishtemplate := [ script := this->ParseFSPath(node, "script")
-                                            , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
-                                            ];
-
-                IF(apply.usepublishtemplate.script = "")
-                {
-                  apply.usepublishtemplate.script := siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
-                }
-                CONTINUE;
-              }
-              CASE "allowfoldertype", "denyfoldertype"
-              {
-                INSERT [ isallow := node->localname LIKE "allow*"
-                       , typedef := node->GetAttribute("typedef")
-                       ] INTO apply.modifyfoldertypes AT END;
-                CONTINUE;
-              }
-              CASE "allowfiletype", "denyfiletype"
-              {
-                INSERT [ isallow := node->localname LIKE "allow*"
-                       , typedef := node->GetAttribute("typedef")
-                       ] INTO apply.modifyfiletypes AT END;
-                CONTINUE;
-              }
-              CASE "uploadtypemapping"
-              {
-                INSERT [ filenamemask := node->GetAttribute("filenamemask")
-                       , mimetypemask := node->GetAttribute("mimetypemask")
-                       , filetype     := node->GetAttribute("filetype")
-                       ] INTO apply.uploadtypemapping AT END;
-                CONTINUE;
-              }
-              CASE "tagsource"
-              {
-                RECORD rec :=
-                    [ contenttype :=    node->GetAttribute("contenttype")
-                    , membername :=     node->GetAttribute("member")
-                    , tagfolder :=      this->ParseFSPath(node, "tagfolder")
-                    , repository :=     node->GetAttribute("repository")
-                    , allowcreate :=    ParseXSBoolean(node->GetAttribute("allowcreate"))
-                    ];
-                INSERT rec INTO apply.tagsources AT RecordUpperBound(apply.tagsources, rec, [ "CONTENTTYPE", "MEMBERNAME" ]);
-                CONTINUE;
-              }
-              CASE "republish"
-              {
-                INSERT [ onchange := node->GetAttribute("onchange")
-                       , sitemask := node->GetAttribute("sitemask")
-                       , folder   := node->GetAttribute("folder")
-                       , mask     := node->HasAttribute("mask") ? node->GetAttribute("mask") : "*"
-                       , recursive:= ParseXSBoolean(node->GetAttribute("recursive"))
-                       , indexonly:= ParseXSBoolean(node->GetAttribute("indexonly"))
-                       , scope    := node->GetAttribute("scope")
-                       ] INTO apply.republishes AT END;
-                CONTINUE;
-              }
-              CASE "scheduletimedtask"
-              {
-                INSERT [ task := node->GetAttribute("task")
-                       ] INTO apply.scheduletasknows AT END;
-                CONTINUE;
-              }
-              CASE "folderindex"
-              {
-                RECORD data := [ indexfile        := node->GetAttribute("indexfile")
-                               , protectindexfile := ParseXSBoolean(node->GetAttribute("protectindexfile"))
-                               , fullpath         := node->GetAttribute("fullpath")
-                               , site             := node->GetAttribute("site")
-                               , newfiletype      := node->GetAttribute("newfiletype")
-                               , newfilename      := node->GetAttribute("newfilename")
-                               ];
-
-                IF (data.indexfile = "copy_of_file" AND data.fullpath="")
-                {
-                  this->AddError(node, "Folder index definition selected copy_of_file, but does not specify fullpath");
-                  CONTINUE;
-                }
-                IF (data.indexfile = "newfile" AND data.newfiletype="")
-                {
-                  this->AddError(node, "Folder index definition selected newfile, but does not specify a newfiletype");
-                  CONTINUE;
-                }
-                apply.folderindex := data;
-                CONTINUE;
-              }
-              CASE "rtddoc"
-              {
-                RECORD data := [ margins := node->GetAttribute("margins")
-                               , rtdtype := node->GetAttribute("rtdtype")
-                               , htmlclass := node->GetAttribute("htmlclass")
-                               , bodyclass := node->GetAttribute("bodyclass")
-                               ];
-
-                IF(NOT node->HasAttribute("margins") OR data.margins NOT IN whconstant_tollium_rtd_margins)
-                  DELETE CELL margins FROM data;
-                IF(NOT node->HasAttribute("rtdtype"))
-                  DELETE CELL rtdtype FROM data;
-                IF(NOT node->HasAttribute("htmlclass"))
-                  DELETE CELL htmlclass FROM data;
-                IF(NOT node->HasAttribute("bodyclass"))
-                  DELETE CELL bodyclass FROM data;
-
-                apply.rtddoc := data;
-                CONTINUE;
-              }
-              CASE "contentlisting"
-              {
-                RECORD data := [ fullpath := node->GetAttribute("fullpath")
-                               , site := node->GetAttribute("site")
-                               ];
-                IF(data.fullpath="")
-                {
-                  this->AddError(node, "<" || node->localname || "> definition does not specify fullpath");
-                  CONTINUE;
-                }
-
-                apply := CellUpdate(apply, node->localname, data);
-                this->AddWarning(node, "<contentlisting> is only supported by template-v2.whlib designs and will be removed in the future");
-                CONTINUE;
-              }
-              CASE "defaultsettings"
-              {
-                RECORD settings := [ typedef := node->GetAttribute("typedef")
-                                   , members := DEFAULT RECORD ARRAY
-                                   ];
-                FOREVERY(OBJECT memberobj FROM node->GetChildElementsByTagNameNS(namespace_sp, "member")->GetCurrentElements())
-                {
-                  INSERT [ name := memberobj->GetAttribute("name")
-                         , content := memberobj->textcontent
-                         ] INTO settings.members AT END;
-                }
-                INSERT settings INTO apply.defaultsettings AT END;
-                CONTINUE;
-              }
-              CASE "setobjecteditor"
-              {
-                apply.setobjecteditor := [ name := node->GetAttribute("name")
-                                         , screen := MakeAbsoluteScreenReference(this->filename, node->GetAttribute("screen"))
-                                         , separateapp := ParseXSBoolean(node->GetAttribute("separateapp"))
-                                         , supportsversioning := ParseXSBoolean(node->GetAttribute("supportsversioning"))
-                                         ];
-
-                IF(apply.setobjecteditor.name = "" AND apply.setobjecteditor.screen = "")
-                  this->Adderror(node, "<setobjecteditor> lacks both name and screen");
-                ELSE IF(apply.setobjecteditor.name != "" AND apply.setobjecteditor.screen != "")
-                  this->Adderror(node, "<setobjecteditor> has both name and screen, only one is allowed");
-                CONTINUE;
-              }
-              CASE "setwidget"
-              {
-                apply.setwidget := apply.setwidget CONCAT
-                   [[ contenttype := node->GetAttribute("contenttype")
-                    , editor := this->GetWidgetEditor(node)
-                    , renderer := this->GetWidgetRenderer(node)
-                    , wittycomponent := this->ExpandWittyComponent(node, "wittycomponent")
-                    , previewcomponent := this->ExpandWittyComponent(node, "previewcomponent")
-                    , has_wittycomponent := node->HasAttribute("wittycomponent")
-                    , has_previewcomponent := node->HasAttribute("previewcomponent")
-                   ]];
-              }
-              CASE "disablelegacysitesettings"
-              {
-                apply.disablelegacysitesettings := TRUE;
-                apply.disabletemplateprofile := ParseXSBoolean(node->GetAttribute("notemplateprofile"));
-                CONTINUE;
-              }
-              CASE "customplugin"
-              {
-                RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname"));
-                plugin := InstantiatePlugin(plugin);
-                plugin.combine := FALSE;
-
-                INSERT plugin INTO apply.plugins AT END;
-                CONTINUE;
-              }
-              CASE "setlibrary"
-              {
-                INSERT [ name := node->GetAttribute("name")
-                       , sources := this->ParseSources(node)
-                       ] INTO apply.setlibrary AT END;
-                CONTINUE;
-              }
-              CASE "foldersettings"
-              {
-                apply.foldersettings := [ filterscreen := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("filterscreen"))
-                                        , has_filterscreen := node->HasAttribute("filterscreen")
-                                        , ordering := node->GetAttribute("ordering")
-                                        , contentslisthandler := DEFAULT RECORD
-                                        ];
-
-                OBJECT contentslisthandler := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","contentslisthandler")->Item(0);
-                IF(ObjectExists(contentslisthandler))
-                {
-                  apply.foldersettings.contentslisthandler := [ library := MakeAbsoluteResourcePath(this->filename, contentslisthandler->GetAttribute("library"))
-                                                              , objectname := contentslisthandler->GetAttribute("objectname")
-                                                              ];
-                }
-                CONTINUE;
-              }
-              CASE "prebuiltpage"
-              {
-                STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
-                IF("title" NOT IN haslist AND node->HasAttribute("tid"))
-                  INSERT "title" INTO haslist AT END;
-
-
-                INSERT CELL [ type := node->GetAttribute('type')
-                            , tag := node->GetAttribute('tag')
-                            , haslist := haslist
-                            , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
-                            , dynexecute := this->ParseDynamicExecuteData(node)
-                            , capturesubpaths := ParseXSBoolean(node->GetAttribute("capturesubpaths"))
-                            ]
-                       INTO apply.prebuiltpages AT END;
-                CONTINUE;
-              }
-              CASE "mailtemplate"
-              {
-                INSERT CELL[ path := this->siteprof->ParseFSPath(node, "path")
-                           , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
-                           , ordering := ParseXSInt(node->GetAttribute("ordering"))
-                           , sources := this->ParseSources(node)
-                           ] INTO apply.mailtemplates AT END;
-                CONTINUE;
-              }
-              CASE "allowformquestion","denyformquestion"
-              {
-                INSERT
-                    [ comp := "component"
-                    , type := node->GetAttribute("type")
-                    , allow := node->localname LIKE "allow*"
-                    ] INTO apply.webtoolsformrules AT END;
-                CONTINUE;
-              }
-              CASE "allowformhandler","denyformhandler"
-              {
-                INSERT
-                    [ comp := "handler"
-                    , type := node->GetAttribute("type")
-                    , allow := node->localname LIKE "allow*"
-                    ] INTO apply.webtoolsformrules AT END;
-                CONTINUE;
-              }
-              CASE "allowformrtdtype","denyformrtdtype"
-              {
-                INSERT
-                    [ comp := "rtdtype"
-                    , type := node->GetAttribute("type")
-                    , allow := node->localname LIKE "allow*"
-                    ] INTO apply.webtoolsformrules AT END;
-                CONTINUE;
-              }
-            }
-          }
-
-          //Verify it against the list of plugins
-          BOOLEAN matched;
-          FOREVERY(RECORD plugin FROM this->parameters->webdesignplugins)
-            IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname)
-            {
-              //Instantiate the plugin to let it parse its own settings
-              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
-              OBJECT pluginobj := MakeObject(plugin.objectname);
-              plugin := InstantiatePlugin(plugin);
-              errorsarenowfatal := FALSE;
-
-              plugin.data := pluginobj->ParseConfigurationNode(this, node);
-              IF(RecordExists(plugin.data))
-              {
-                INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
-                          , __location := this->filename || ":" || node->linenum
-                       INTO plugin.data;
-              }
-
-              INSERT plugin INTO apply.plugins AT END;
-              matched := TRUE;
-              BREAK;
-            }
-
-          IF(NOT matched)
-            FOREVERY(RECORD siteprofnode FROM this->parameters->customnodes)
-              IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname)
-              {
-                matched := TRUE;
-                INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
-                BREAK;
-              }
-
-          //Anything not processed, is a custom node requestable by GetCustomSiteProfileSettings
-          IF(NOT matched)
-          {
-            this->AddError(node, "Unrecognized or unsupported node " || node->namespaceuri || "#" || node->localname);
-          }
-        }
-        CATCH(OBJECT e)
-        {
-          IF(errorsarenowfatal)
-            THROW;
-
-          this->AddError(node, e->what);
-        }
+        apply.tos := this->ParseApplyTosRecurse(applyblock);
+      }
+      ELSE
+      {
+        apply.tos := [[ type         := "to"
+                      , match_all    := FALSE
+                      , match_file   := applynodetype = "filetype"
+                      , match_index  := FALSE
+                      , match_folder := applynodetype = "folderype"
+                      , pathmask     := ""
+                      , pathregex    := ""
+                      , parentmask   := ""
+                      , parentregex  := ""
+                      , sitemask     := ""
+                      , sitename     := ""
+                      , siteregex    := ""
+                      , parenttype   := ""
+                      , sitetype     := ""
+                      , filetype     := applynodetype = "filetype" ? applyblock->GetAttribute("typedef") : ""
+                      , contentfiletype := ""
+                      , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("typedef") : ""
+                      , typeneedstemplate := FALSE
+                      , prebuiltmasks := STRING[]
+                      , webfeatures  := STRING[]
+                      ]
+                     ];
       }
       INSERT apply INTO applyrules AT END;
     }
     RETURN applyrules;
+  }
+
+  RECORD FUNCTION ImportApplyItems(OBJECT applyblock)
+  {
+    BOOLEAN errorsarenowfatal;
+    BOOLEAN anynode;
+    RECORD apply := [ siteprofile := this->siteprof->name
+                    , line := applyblock->linenum
+                    , col := 0
+
+                    , allowprofiles := DEFAULT RECORD ARRAY
+                    , allowtemplates := DEFAULT RECORD ARRAY
+                    , baseproperties := DEFAULT RECORD
+                    , bodyrenderer := DEFAULT RECORD
+                    , contentlisting := DEFAULT RECORD
+                    , customnodes := DEFAULT RECORD ARRAY
+                    , defaultsettings := DEFAULT RECORD ARRAY
+                    , disablelegacysitesettings := FALSE
+                    , disabletemplateprofile := FALSE
+                    , extendproperties := DEFAULT RECORD ARRAY
+                    , folderindex := DEFAULT RECORD
+                    , setlibrary := DEFAULT RECORD ARRAY
+                    , modifyfiletypes := DEFAULT RECORD ARRAY
+                    , modifyfoldertypes := DEFAULT RECORD ARRAY
+                    , plugins := DEFAULT RECORD ARRAY
+                    , republishes := DEFAULT RECORD ARRAY
+                    , scheduletasknows := DEFAULT RECORD ARRAY
+                    , setobjecteditor := DEFAULT RECORD
+                    , setwidget := DEFAULT RECORD ARRAY
+                    , sitelanguage := DEFAULT RECORD
+                    , tagsources := DEFAULT RECORD ARRAY
+                    , typemappings := DEFAULT RECORD ARRAY
+                    , uploadtypemapping := DEFAULT RECORD ARRAY
+                    , urlevents := DEFAULT RECORD
+                    , urlhistory := DEFAULT RECORD
+                    , usepublishtemplate := DEFAULT RECORD
+                    , webdesign := DEFAULT RECORD
+                    , formdefinitions := DEFAULT RECORD ARRAY
+                    , prebuiltpages := DEFAULT RECORD ARRAY
+                    , mailtemplates := RECORD[]
+                    , foldersettings := DEFAULT RECORD
+                    , webtoolsformrules := DEFAULT RECORD ARRAY
+                    , rtddoc := DEFAULT RECORD
+                    ];
+
+
+    STRING ARRAY seenuniques;
+
+    FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())
+    {
+      //Skip non-aplpyitems (<to> rules and filetype/foldertype nodes)
+      IF(node->localname IN ["to","not","and","or","xor","testtype","testdata","dynamicexecution","members"])
+        CONTINUE;
+
+      anynode := TRUE;
+
+      IF(node->localname IN ["bodyrenderer","sitelanguage","folderindex", "contentlisting", "rtddoc"
+                            ,"setobjecteditor"])
+      {
+        IF(node->localname IN seenuniques)
+        {
+          this->AddError(node, "Duplicate <" || node->localname || "> in a single apply block");
+          CONTINUE;
+        }
+        INSERT node->localname INTO seenuniques AT END;
+      }
+
+      TRY
+      {
+        IF(node->namespaceuri = namespace_sp)
+        {
+          SWITCH(node->localname)
+          {
+            CASE "extendproperties", "undoextendproperties"
+            {
+              STRING extension := this->ParseTolliumRef(node,"extension");
+              STRING contenttype := node->GetAttribute("contenttype");
+              IF(contenttype = "" AND extension != "")
+                this->AddError(node, "An extendproperties with extension= requires a content type");
+
+              RECORD applynode := [ isundo := node->localname = "undoextendproperties"
+                                  , contenttype := contenttype
+                                  , requireright := node->GetAttribute("requireright")
+                                  , requirewebdesign := ParseXSBoolean(node->GetAttribute("requirewebdesign"))
+                                  , name := node->GetAttribute("name")
+                                  , extension := extension
+                                  , mask := node->GetAttribute("mask")
+                                  ];
+              INSERT applynode INTO apply.extendproperties AT END;
+              CONTINUE;
+            }
+            CASE "allowtemplate"
+            {
+              INSERT [ fullpath := node->GetAttribute("fullpath")
+                     , site := node->GetAttribute("site")
+                     ] INTO apply.allowtemplates AT END;
+              CONTINUE;
+            }
+            CASE "allowprofile"
+            {
+              INSERT [ fullpath := node->GetAttribute("fullpath")
+                     , site := node->GetAttribute("site")
+                     ] INTO apply.allowprofiles AT END;
+              CONTINUE;
+            }
+            CASE "formdefinitions"
+            {
+              INSERT [ path := MakeLegacyAbsoluteResourcePath(this->filename, node->GetAttribute("path"), "data")
+                     , name := node->GetAttribute("name")
+                     ] INTO apply.formdefinitions AT END;
+              CONTINUE;
+            }
+            CASE "webdesign"
+            {
+              apply.webdesign :=  this->ParseWebDesign(node);
+              CONTINUE;
+            }
+            CASE "baseproperties"
+            {
+              apply.baseproperties := [ haslist := GetHasList(node, ["title","description","keywords"])
+                                      , title := ParseXSBoolean(node->GetAttribute("title"))
+                                      , description := ParseXSBoolean(node->GetAttribute("description"))
+                                      , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
+                                      ];
+              CONTINUE;
+            }
+            CASE "urlhistory"
+            {
+              apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","passthrough"])
+                                  , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
+                                  , store := ParseXSBoolean(node->GetAttribute("store"))
+                                  , passthrough := ParseXSList(node->GetAttribute("passthrough"))
+                                  ];
+              CONTINUE;
+            }
+            CASE "urlevents"
+            {
+              apply.urlevents := [ haslist := GetHasList(node, ["enabled"])
+                                 , enabled := ParseXSBoolean(node->GetAttribute("enabled"))
+                                 ];
+              CONTINUE;
+            }
+            CASE "bodyrenderer"
+            {
+              apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
+                                    , rendermacro := node->GetAttribute("rendermacro")
+                                    , preparemacro := node->GetAttribute("preparemacro")
+                                    , objectname  := this->ParseFunctionRef(node, "library", "objectname")
+                                    ];
+              CONTINUE;
+            }
+            CASE "sitelanguage"
+            {
+              apply.sitelanguage := [ lang := node->GetAttribute("lang")
+                                    , has_lang := node->HasAttribute("lang")
+                                    ];
+              CONTINUE;
+            }
+            CASE "usepublishtemplate"
+            {
+              apply.usepublishtemplate := [ script := this->ParseFSPath(node, "script")
+                                          , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
+                                          ];
+
+              IF(apply.usepublishtemplate.script = "")
+              {
+                apply.usepublishtemplate.script := this->siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
+              }
+              CONTINUE;
+            }
+            CASE "allowfoldertype", "denyfoldertype"
+            {
+              INSERT [ isallow := node->localname LIKE "allow*"
+                     , typedef := node->GetAttribute("typedef")
+                     ] INTO apply.modifyfoldertypes AT END;
+              CONTINUE;
+            }
+            CASE "allowfiletype", "denyfiletype"
+            {
+              INSERT [ isallow := node->localname LIKE "allow*"
+                     , typedef := node->GetAttribute("typedef")
+                     ] INTO apply.modifyfiletypes AT END;
+              CONTINUE;
+            }
+            CASE "uploadtypemapping"
+            {
+              INSERT [ filenamemask := node->GetAttribute("filenamemask")
+                     , mimetypemask := node->GetAttribute("mimetypemask")
+                     , filetype     := node->GetAttribute("filetype")
+                     ] INTO apply.uploadtypemapping AT END;
+              CONTINUE;
+            }
+            CASE "tagsource"
+            {
+              RECORD rec :=
+                  [ contenttype :=    node->GetAttribute("contenttype")
+                  , membername :=     node->GetAttribute("member")
+                  , tagfolder :=      this->ParseFSPath(node, "tagfolder")
+                  , repository :=     node->GetAttribute("repository")
+                  , allowcreate :=    ParseXSBoolean(node->GetAttribute("allowcreate"))
+                  ];
+              INSERT rec INTO apply.tagsources AT RecordUpperBound(apply.tagsources, rec, [ "CONTENTTYPE", "MEMBERNAME" ]);
+              CONTINUE;
+            }
+            CASE "republish"
+            {
+              INSERT [ onchange := node->GetAttribute("onchange")
+                     , sitemask := node->GetAttribute("sitemask")
+                     , folder   := node->GetAttribute("folder")
+                     , mask     := node->HasAttribute("mask") ? node->GetAttribute("mask") : "*"
+                     , recursive:= ParseXSBoolean(node->GetAttribute("recursive"))
+                     , indexonly:= ParseXSBoolean(node->GetAttribute("indexonly"))
+                     , scope    := node->GetAttribute("scope")
+                     ] INTO apply.republishes AT END;
+              CONTINUE;
+            }
+            CASE "scheduletimedtask"
+            {
+              INSERT [ task := node->GetAttribute("task")
+                     ] INTO apply.scheduletasknows AT END;
+              CONTINUE;
+            }
+            CASE "folderindex"
+            {
+              RECORD data := [ indexfile        := node->GetAttribute("indexfile")
+                             , protectindexfile := ParseXSBoolean(node->GetAttribute("protectindexfile"))
+                             , fullpath         := node->GetAttribute("fullpath")
+                             , site             := node->GetAttribute("site")
+                             , newfiletype      := node->GetAttribute("newfiletype")
+                             , newfilename      := node->GetAttribute("newfilename")
+                             ];
+
+              IF (data.indexfile = "copy_of_file" AND data.fullpath="")
+              {
+                this->AddError(node, "Folder index definition selected copy_of_file, but does not specify fullpath");
+                CONTINUE;
+              }
+              IF (data.indexfile = "newfile" AND data.newfiletype="")
+              {
+                this->AddError(node, "Folder index definition selected newfile, but does not specify a newfiletype");
+                CONTINUE;
+              }
+              apply.folderindex := data;
+              CONTINUE;
+            }
+            CASE "rtddoc"
+            {
+              RECORD data := [ margins := node->GetAttribute("margins")
+                             , rtdtype := node->GetAttribute("rtdtype")
+                             , htmlclass := node->GetAttribute("htmlclass")
+                             , bodyclass := node->GetAttribute("bodyclass")
+                             ];
+
+              IF(NOT node->HasAttribute("margins") OR data.margins NOT IN whconstant_tollium_rtd_margins)
+                DELETE CELL margins FROM data;
+              IF(NOT node->HasAttribute("rtdtype"))
+                DELETE CELL rtdtype FROM data;
+              IF(NOT node->HasAttribute("htmlclass"))
+                DELETE CELL htmlclass FROM data;
+              IF(NOT node->HasAttribute("bodyclass"))
+                DELETE CELL bodyclass FROM data;
+
+              apply.rtddoc := data;
+              CONTINUE;
+            }
+            CASE "contentlisting"
+            {
+              RECORD data := [ fullpath := node->GetAttribute("fullpath")
+                             , site := node->GetAttribute("site")
+                             ];
+              IF(data.fullpath="")
+              {
+                this->AddError(node, "<" || node->localname || "> definition does not specify fullpath");
+                CONTINUE;
+              }
+
+              apply := CellUpdate(apply, node->localname, data);
+              this->AddWarning(node, "<contentlisting> is only supported by template-v2.whlib designs and will be removed in the future");
+              CONTINUE;
+            }
+            CASE "defaultsettings"
+            {
+              RECORD settings := [ typedef := node->GetAttribute("typedef")
+                                 , members := DEFAULT RECORD ARRAY
+                                 ];
+              FOREVERY(OBJECT memberobj FROM node->GetChildElementsByTagNameNS(namespace_sp, "member")->GetCurrentElements())
+              {
+                INSERT [ name := memberobj->GetAttribute("name")
+                       , content := memberobj->textcontent
+                       ] INTO settings.members AT END;
+              }
+              INSERT settings INTO apply.defaultsettings AT END;
+              CONTINUE;
+            }
+            CASE "setobjecteditor"
+            {
+              apply.setobjecteditor := [ name := node->GetAttribute("name")
+                                       , screen := MakeAbsoluteScreenReference(this->filename, node->GetAttribute("screen"))
+                                       , separateapp := ParseXSBoolean(node->GetAttribute("separateapp"))
+                                       , supportsversioning := ParseXSBoolean(node->GetAttribute("supportsversioning"))
+                                       ];
+
+              IF(apply.setobjecteditor.name = "" AND apply.setobjecteditor.screen = "")
+                this->Adderror(node, "<setobjecteditor> lacks both name and screen");
+              ELSE IF(apply.setobjecteditor.name != "" AND apply.setobjecteditor.screen != "")
+                this->Adderror(node, "<setobjecteditor> has both name and screen, only one is allowed");
+              CONTINUE;
+            }
+            CASE "setwidget"
+            {
+              apply.setwidget := apply.setwidget CONCAT
+                 [[ contenttype := node->GetAttribute("contenttype")
+                  , editor := this->GetWidgetEditor(node)
+                  , renderer := this->GetWidgetRenderer(node)
+                  , wittycomponent := this->ExpandWittyComponent(node, "wittycomponent")
+                  , previewcomponent := this->ExpandWittyComponent(node, "previewcomponent")
+                  , has_wittycomponent := node->HasAttribute("wittycomponent")
+                  , has_previewcomponent := node->HasAttribute("previewcomponent")
+                 ]];
+            }
+            CASE "disablelegacysitesettings"
+            {
+              apply.disablelegacysitesettings := TRUE;
+              apply.disabletemplateprofile := ParseXSBoolean(node->GetAttribute("notemplateprofile"));
+              CONTINUE;
+            }
+            CASE "customplugin"
+            {
+              RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname"));
+              plugin := InstantiatePlugin(plugin);
+              plugin.combine := FALSE;
+
+              INSERT plugin INTO apply.plugins AT END;
+              CONTINUE;
+            }
+            CASE "setlibrary"
+            {
+              INSERT [ name := node->GetAttribute("name")
+                     , sources := this->ParseSources(node)
+                     ] INTO apply.setlibrary AT END;
+              CONTINUE;
+            }
+            CASE "foldersettings"
+            {
+              apply.foldersettings := [ filterscreen := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("filterscreen"))
+                                      , has_filterscreen := node->HasAttribute("filterscreen")
+                                      , ordering := node->GetAttribute("ordering")
+                                      , contentslisthandler := DEFAULT RECORD
+                                      ];
+
+              OBJECT contentslisthandler := node->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile","contentslisthandler")->Item(0);
+              IF(ObjectExists(contentslisthandler))
+              {
+                apply.foldersettings.contentslisthandler := [ library := MakeAbsoluteResourcePath(this->filename, contentslisthandler->GetAttribute("library"))
+                                                            , objectname := contentslisthandler->GetAttribute("objectname")
+                                                            ];
+              }
+              CONTINUE;
+            }
+            CASE "prebuiltpage"
+            {
+              STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
+              IF("title" NOT IN haslist AND node->HasAttribute("tid"))
+                INSERT "title" INTO haslist AT END;
+
+
+              INSERT CELL [ type := node->GetAttribute('type')
+                          , tag := node->GetAttribute('tag')
+                          , haslist := haslist
+                          , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                          , dynexecute := this->ParseDynamicExecuteData(node)
+                          , capturesubpaths := ParseXSBoolean(node->GetAttribute("capturesubpaths"))
+                          ]
+                     INTO apply.prebuiltpages AT END;
+              CONTINUE;
+            }
+            CASE "mailtemplate"
+            {
+              INSERT CELL[ path := this->siteprof->ParseFSPath(node, "path")
+                         , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                         , ordering := ParseXSInt(node->GetAttribute("ordering"))
+                         , sources := this->ParseSources(node)
+                         ] INTO apply.mailtemplates AT END;
+              CONTINUE;
+            }
+            CASE "allowformquestion","denyformquestion"
+            {
+              INSERT
+                  [ comp := "component"
+                  , type := node->GetAttribute("type")
+                  , allow := node->localname LIKE "allow*"
+                  ] INTO apply.webtoolsformrules AT END;
+              CONTINUE;
+            }
+            CASE "allowformhandler","denyformhandler"
+            {
+              INSERT
+                  [ comp := "handler"
+                  , type := node->GetAttribute("type")
+                  , allow := node->localname LIKE "allow*"
+                  ] INTO apply.webtoolsformrules AT END;
+              CONTINUE;
+            }
+            CASE "allowformrtdtype","denyformrtdtype"
+            {
+              INSERT
+                  [ comp := "rtdtype"
+                  , type := node->GetAttribute("type")
+                  , allow := node->localname LIKE "allow*"
+                  ] INTO apply.webtoolsformrules AT END;
+              CONTINUE;
+            }
+          }
+        }
+
+        //Verify it against the list of plugins
+        BOOLEAN matched;
+        FOREVERY(RECORD plugin FROM this->parameters->webdesignplugins)
+          IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname)
+          {
+            //Instantiate the plugin to let it parse its own settings
+            errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
+            OBJECT pluginobj := MakeObject(plugin.objectname);
+            plugin := InstantiatePlugin(plugin);
+            errorsarenowfatal := FALSE;
+
+            plugin.data := pluginobj->ParseConfigurationNode(this, node);
+            IF(RecordExists(plugin.data))
+            {
+              INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
+                        , __location := this->filename || ":" || node->linenum
+                     INTO plugin.data;
+            }
+
+            INSERT plugin INTO apply.plugins AT END;
+            matched := TRUE;
+            BREAK;
+          }
+
+        IF(NOT matched)
+          FOREVERY(RECORD siteprofnode FROM this->parameters->customnodes)
+            IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname)
+            {
+              matched := TRUE;
+              INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
+              BREAK;
+            }
+
+        //Anything not processed, is a custom node requestable by GetCustomSiteProfileSettings
+        IF(NOT matched)
+        {
+          this->AddError(node, "Unrecognized or unsupported node " || node->namespaceuri || "#" || node->localname);
+        }
+      }
+      CATCH(OBJECT e)
+      {
+        IF(errorsarenowfatal)
+          THROW;
+
+        this->AddError(node, e->what);
+      }
+    }
+    RETURN anynode ? apply : DEFAULT RECORD;
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GetSiteSettingNodes()

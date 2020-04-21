@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:xyz="urn:xyz">
+
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/alttestfolder">
+    <xyz:test data="alttestfolder" />
+  </foldertype>
+
+</siteprofile>
