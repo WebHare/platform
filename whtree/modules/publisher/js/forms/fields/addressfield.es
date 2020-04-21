@@ -183,7 +183,7 @@ export default class AddressField
         curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
     }
     if(this._getCurState().lookupkey != curstate.lookupkey)
-      return; //abandon tbis _checkValidity call, the field has already changed.
+      return; //abandon this _checkValidity call, the field has already changed.
 
     if(dompack.debugflags.fhv)
       console.log(`[fhv] Validation result for address '${this.fieldName}': ${result.status}`);
