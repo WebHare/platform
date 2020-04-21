@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";

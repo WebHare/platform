@@ -3,9 +3,7 @@
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/webapi/oauth2.whlib";
 LOADLIB "mod::system/lib/webapi/social/twitter.whlib";
 
 

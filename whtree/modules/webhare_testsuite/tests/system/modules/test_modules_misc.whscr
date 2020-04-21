@@ -1,10 +1,7 @@
 <?wh
 
-LOADLIB "wh::util/semver.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 MACRO TestSemvers()
 {
