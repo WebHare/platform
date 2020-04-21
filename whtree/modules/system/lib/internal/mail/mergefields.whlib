@@ -1,8 +1,5 @@
 <?wh
 
-LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-
 
 /** Merge fields for use in (mail) widgets
 */

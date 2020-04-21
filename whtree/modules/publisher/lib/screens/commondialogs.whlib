@@ -4,8 +4,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
-LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";

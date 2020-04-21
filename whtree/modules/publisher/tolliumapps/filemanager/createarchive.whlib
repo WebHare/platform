@@ -3,8 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
-LOADLIB "mod::publisher/lib/control.whlib";
-
 LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

@@ -5,7 +5,6 @@ LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 
 LOADLIB "mod::wrd/lib/anonymize.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
-LOADLIB "mod::wrd/lib/names.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE AnonymizeBGTask EXTEND TolliumBackgroundTask

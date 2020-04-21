@@ -1,9 +1,5 @@
 <?wh
 
-LOADLIB "wh::internet/urls.whlib";
-
-LOADLIB "mod::system/lib/services.whlib";
-
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";

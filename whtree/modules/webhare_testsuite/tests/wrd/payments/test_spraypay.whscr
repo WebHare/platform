@@ -3,11 +3,6 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
-
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 

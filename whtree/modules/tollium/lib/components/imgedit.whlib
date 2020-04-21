@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/filters.whlib";
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

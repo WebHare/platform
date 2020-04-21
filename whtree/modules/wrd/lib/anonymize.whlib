@@ -1,9 +1,5 @@
 <?wh
-LOADLIB "mod::tollium/lib/commondialogs.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/backgroundtask.whlib";
 
-LOADLIB "mod::wrd/lib/objectapi.whlib";
 LOADLIB "mod::wrd/lib/names.whlib";
 
 CONSTANT RECORD examplenames :=

@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
-LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 
