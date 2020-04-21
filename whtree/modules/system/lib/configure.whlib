@@ -223,3 +223,28 @@ PUBLIC RECORD FUNCTION GetSystemConfigurationRecord()
 {
   RETURN __SYSTEM_GETSYSTEMCONFIG();
 }
+
+/** Test if the current WebHare semantic version matches the specified version range
+    @param semverrange Semver range to test against
+    @return True if this WebHare matches */
+PUBLIC BOOLEAN FUNCTION IsWebhareVersionMatch(STRING semverrange)
+{
+  RETURN VersionSatisfiesRange(GetWebhareVersionInfo().version, semverrange);
+}
+
+/** Test if the specified module's semantic version matches the speciified version range
+    @param modulename Module to test
+    @param semverrange Semver range to test against
+    @return True if the module is installed and matches the version range */
+PUBLIC BOOLEAN FUNCTION IsModuleVersionMatch(STRING modulename, STRING semverrange)
+{
+  IF(modulename IN whconstant_builtinmodules)
+    RETURN IsWebhareVersionMatch(semverrange);
+
+  RECORD modinfo := GetWebhareModuleInfo(modulename);
+  IF(NOT RecordExists(modinfo))
+    RETURN FALSE;
+
+  RETURN VersionSatisfiesRange(modinfo.version, semverrange);
+}
+
