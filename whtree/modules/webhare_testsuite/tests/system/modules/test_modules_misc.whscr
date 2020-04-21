@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "wh::util/semver.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+
+MACRO TestSemvers()
+{
+  TestEq(TRUE, IsWebhareVersionMatch(">= 4.25.0"));
+  TestEq(FALSE, IsWebhareVersionMatch("< 4.25.0"));
+  TestEq(TRUE, IsModuleVersionMatch("consilio", ">= 4.25.0"));
+  TestEq(FALSE, IsModuleVersionMatch("consilio", "< 4.25.0"));
+
+  testfw->SetupTestModule();
+  TestEq(TRUE, IsModuleVersionMatch("webhare_testsuite_temp", ">= 0.1.0"));
+  TestEq(FALSE, IsModuleVersionMatch("webhare_testsuite_temp", "< 0.1.0"));
+  TestEq(FALSE, IsModuleVersionMatch("__nosuchmodule__", ">= 0.1.0"));
+}
+
+RunTestframework([ PTR TestSemvers ]);

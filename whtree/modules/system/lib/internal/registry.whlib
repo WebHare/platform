@@ -241,3 +241,34 @@ PUBLIC RECORD ARRAY FUNCTION ReadRegistryNode(STRING confkey)
   }
 }
 
+/** @short Set a registry key if it exists. Module registry keys can be written using the key "modulename.registrykey...".
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param confkey Key name
+    @param newval New value (must be of the same type as the existing key)
+    @cell options.createifneeded Create the registry key if it doesn't exist yet.
+    @cell options.initialcreate is the initial create (don't overwrite, only create)
+    @see ReadRegistryKey DeleteRegistryKey ReadRegistryNode
+*/
+PUBLIC MACRO WriteRegistryKey(STRING confkey, VARIANT newval, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ createifneeded := FALSE
+                              , initialcreate := FALSE
+                              ], options);
+
+  IF(confkey LIKE "<*" AND NOT options.createifneeded AND NOT options.initialcreate)
+    THROW NEW Exception(`Writing a user registry requires you to set either createifneeded or initialcreate`); // as you can't initialize it
+
+  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
+  IF(options.initialcreate AND keyinfo.id != 0)
+    RETURN;
+  IF(keyinfo.id = 0 AND NOT options.createifneeded AND NOT options.initialcreate)
+    THROW NEW Exception(`No such registry key ${confkey}`);
+
+  //No type promotion! It would make your code racy, depending on first value ever written
+  IF(keyinfo.id != 0 AND TypeID(keyinfo.value) != TypeID(newval))
+    THROW NEW Exception(`Invalid type for registry key '${confkey}', got ${GetTypeName(TYPEID(newval))} but expected ${GetTypeName(TYPEID(keyinfo.value))}`);
+
+  __SetRegistryKey(keyinfo, newval);
+}
+

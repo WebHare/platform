@@ -1,4 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_modules_misc.whscr" />
   <test script="testeditorsupport.whscr" />
   <test script="testsourcemanipulation.whscr" />
   <test script="testcheckmodule.whscr" />

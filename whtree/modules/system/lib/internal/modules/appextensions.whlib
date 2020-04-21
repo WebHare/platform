@@ -2,6 +2,7 @@
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 

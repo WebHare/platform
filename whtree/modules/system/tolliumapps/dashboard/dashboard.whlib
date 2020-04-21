@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

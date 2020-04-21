@@ -10,7 +10,7 @@ LOADLIB "wh::xml/validation.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 

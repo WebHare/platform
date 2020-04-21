@@ -4,7 +4,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

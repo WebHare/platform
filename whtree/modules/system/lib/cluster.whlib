@@ -5,8 +5,8 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;

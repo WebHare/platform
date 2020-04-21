@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 /** @private Only two callers left and its pretty low level, so we should just consider just deprecating it (at least no more new callers)
