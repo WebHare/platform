@@ -101,15 +101,6 @@ getmoduledir()
   return 0
 }
 
-list_coremodules()
-{
-  local XMODULES
-
-  XMODULES=$(cd ~/projects/webhare/whtree/modules ; ls)
-  eval $1=\$XMODULES
-  return 0
-}
-
 get_installable_moduledirs()
 {
   local XDIRS
