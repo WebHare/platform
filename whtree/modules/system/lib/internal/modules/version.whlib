@@ -1,0 +1,13 @@
+<?wh
+/**  @topic modules/config
+*/
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetModuleInstallationRoot;
+
+/** @short Get the version number of this WebHare installation
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @return The WebHare version number (eg 42603 for version 4.26.3) */
+PUBLIC INTEGER FUNCTION GetWebhareVersionNumber()
+{
+  RETURN __SYSTEM_WEBHAREVERSION().versionnum;
+}

@@ -2,11 +2,11 @@
 
 LOADLIB "wh::devsupport.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/witty.whlib";
+LOADLIB "mod::system/lib/internal/modules/version.whlib";
 
 STRING FUNCTION GetNodeType(OBJECT node)
 {

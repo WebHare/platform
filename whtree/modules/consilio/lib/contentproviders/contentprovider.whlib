@@ -14,7 +14,7 @@ LOADLIB "mod::consilio/lib/parsers/parser_support.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 RECORD defaultemptysearchrecord := [ score   := 0f
                                    , title   := ""

@@ -1,5 +1,5 @@
 ﻿<?wh
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 PUBLIC RECORD FUNCTION GetLogFiles()

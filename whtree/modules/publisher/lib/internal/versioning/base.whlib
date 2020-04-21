@@ -3,7 +3,7 @@
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 LOADLIB "mod::publisher/lib/internal/versioning/policybase.whlib";
 

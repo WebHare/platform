@@ -6,11 +6,15 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/semver.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, GetRegistryKeyEventMasks;
+LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, WriteRegistryKey, GetRegistryKeyEventMasks;
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetModuleInstallationRoot;
 LOADLIB "mod::system/lib/internal/whconfig.whlib" EXPORT GetDTAPStage, IsNodeApplicableToThisWebHare, IsRestoredWebHare;
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/modules/version.whlib" EXPORT GetWebhareVersionNumber;
 
 /** Base object for custom WebHare checks
 */
@@ -40,7 +44,7 @@ RECORD buildinfo;
 
 /** @short Get WebHare version and branding information
     @return A record describing the version
-    @cell(string) return.version Semantic version (eg v4.26.3)
+    @cell(string) return.version Semantic version (eg 4.26.3)
     @cell(integer) return.versionnum Version as number (eg 42603) - the IFVERSION number which should generally be used for version checks
     @cell(string) return.builddate Build date (not set for developer's builds)
     @cell(string) return.buildtime Build time (not set for developer's builds)
@@ -112,12 +116,6 @@ PUBLIC STRING FUNCTION GetWebhareVersion()
 {
   RETURN "WebHare Platform " || GetWebhareVersionInfo().version;
 }
-/** @short Get the version number of this WebHare installation
-    @return The WebHare version number (eg 42603 for version 4.26.3) */
-PUBLIC INTEGER FUNCTION GetWebhareVersionNumber()
-{
-  RETURN __SYSTEM_WEBHAREVERSION().versionnum;
-}
 /** @short Get the name for this server
     @return The name for this server */
 PUBLIC STRING FUNCTION GetServerName()
@@ -167,35 +165,6 @@ PUBLIC RECORD FUNCTION GetWebHareConfiguration()
                 , use_externaldb := FALSE
                 ];
   RETURN params;
-}
-
-/** @short Set a registry key if it exists. Module registry keys can be written using the key "modulename.registrykey...".
-    @param confkey Key name
-    @param newval New value (must be of the same type as the existing key)
-    @cell options.createifneeded Create the registry key if it doesn't exist yet.
-    @cell options.initialcreate is the initial create (don't overwrite, only create)
-    @see ReadRegistryKey DeleteRegistryKey ReadRegistryNode
-*/
-PUBLIC MACRO WriteRegistryKey(STRING confkey, VARIANT newval, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions( [ createifneeded := FALSE
-                              , initialcreate := FALSE
-                              ], options);
-
-  IF(confkey LIKE "<*" AND NOT options.createifneeded AND NOT options.initialcreate)
-    THROW NEW Exception(`Writing a user registry requires you to set either createifneeded or initialcreate`); // as you can't initialize it
-
-  RECORD keyinfo := __GetRegistryKey(confkey, TRUE);
-  IF(options.initialcreate AND keyinfo.id != 0)
-    RETURN;
-  IF(keyinfo.id = 0 AND NOT options.createifneeded AND NOT options.initialcreate)
-    THROW NEW Exception(`No such registry key ${confkey}`);
-
-  //No type promotion! It would make your code racy, depending on first value ever written
-  IF(keyinfo.id != 0 AND TypeID(keyinfo.value) != TypeID(newval))
-    THROW NEW Exception(`Invalid type for registry key '${confkey}', got ${GetTypeName(TYPEID(newval))} but expected ${GetTypeName(TYPEID(keyinfo.value))}`);
-
-  __SetRegistryKey(keyinfo, newval);
 }
 
 /** @short Get the primary WebHare interface URL

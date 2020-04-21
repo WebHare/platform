@@ -2,7 +2,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
