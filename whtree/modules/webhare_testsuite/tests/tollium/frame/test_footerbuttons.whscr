@@ -1,0 +1,131 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+ASYNC MACRO TestFooterButtons()
+{
+  OBJECT scr;
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none">
+    <body />
+  </screen>
+</screens>#test`);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING[], scr->frame->footerbuttons);
+  TestEq(DEFAULT OBJECT, scr->frame->footernode);
+
+  scr->frame->footerbuttons := ["ok"];
+  TestEq(TRUE, ObjectExists(scr->frame->footernode));
+  TestEq(TRUE, ObjectExists(TT(":OK")));
+  TestEq(FALSE, ObjectExists(TT(":Cancel", [ allowmissing := TRUE ])));
+
+  scr->frame->footerbuttons := ["cancel"];
+  TestEq(TRUE, ObjectExists(TT(":Cancel")));
+  TestEq(FALSE, ObjectExists(TT(":OK", [ allowmissing := TRUE ])));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Cancel"));
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none">
+    <body />
+    <footer />
+  </screen>
+</screens>#test`);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING[], scr->frame->footerbuttons);
+  TestThrows(PTR MemberUpdate(scr->frame, "footerbuttons", ["ok"]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none">
+    <body />
+    <footer>
+      <defaultformbuttons buttons="yes no cancel"/>
+    </footer>
+  </screen>
+</screens>#test`);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING["yes","no","cancel"], scr->frame->footerbuttons);
+  scr->frame->footerbuttons := STRING["ok","close"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none" footerbuttons="yes no">
+    <body />
+  </screen>
+</screens>#test`);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING["yes","no"], scr->frame->footerbuttons);
+  scr->frame->footerbuttons := STRING["ok","close"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none" footerbuttons="yes no">
+    <body />
+    <footer>
+      <grid>
+        <cell width="1pr"><checkbox/></cell>
+        <cell><defaultformbuttons /></cell>
+      </grid>
+    </footer>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING["yes","no"], scr->frame->footerbuttons);
+  scr->frame->footerbuttons := STRING["ok","close"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  //Pin down cornercase: footerbuttons="" empty loses, but if set wins from defaultformbuttons
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none" footerbuttons="">
+    <body />
+    <footer>
+      <defaultformbuttons buttons="yes no cancel"/>
+    </footer>
+  </screen>
+</screens>#test`);
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING["yes","no","cancel"], scr->frame->footerbuttons);
+  scr->frame->footerbuttons := STRING["ok","close"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  //cornercase, setting both explcit defaultformbuttons buttons AND through frame footerbuttons.
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none" footerbuttons="yes no">
+    <body />
+    <footer>
+      <grid>
+        <cell width="1pr"><checkbox/></cell>
+        <cell><defaultformbuttons buttons="ok cancel"/></cell>
+      </grid>
+    </footer>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(STRING["yes","no"], scr->frame->footerbuttons);
+  scr->frame->footerbuttons := STRING["ok","close"];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
+  TestThrowsLike("*already*<footer>*", PTR GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+  <screen name="test" implementation="none" footerbuttons="yes no">
+    <body />
+    <footer />
+  </screen>
+</screens>#test`));
+}
+
+RunTestFramework([ PTR TestFooterButtons ]);

@@ -30,12 +30,14 @@ PUBLIC OBJECTTYPE TolliumDefaultFormButtons EXTEND TolliumPanel
   //
   // Tollium init
   //
+  MACRO NEW()
+  {
+    this->layout := "right";
+  }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     this->TolliumComponentBase_StaticInit(def);
-    this->layout := "right";
-
     this->SetButtons(def.buttons, def."default");
   }
 

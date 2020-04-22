@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/components/panel.whlib";
+LOADLIB "mod::tollium/lib/components/defaultformbuttons.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
@@ -24,8 +25,12 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   OBJECT pvt_menubar;
   BOOLEAN pvt_forcemenubar;
   OBJECT realbody;
-  PUBLIC OBJECT bodynode;
-  PUBLIC OBJECT footernode;
+  OBJECT __bodynode;
+  OBJECT __footernode;
+  STRING ARRAY __footerbuttons;
+  PUBLIC PROPERTY bodynode(__bodynode, -);
+  PUBLIC PROPERTY footernode(__footernode, -);
+  PUBLIC PROPERTY footerbuttons(GetFooterButtons, SetFooterButtons);
   PUBLIC BOOLEAN allowresize;
   PUBLIC STRING ARRAY savestate;
   STRING pvt_gid;
@@ -131,8 +136,8 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     this->realbody->pvt_parent := this; //manual visibility code, as we don't have InsertComponent to help us here
     this->realbody->RecursiveUpdateIsNowVisible();
 
-    this->bodynode   := definition.bodynode[0].component;
-    this->footernode := RecordExists(definition.footernode) ? definition.footernode[0].component : DEFAULT OBJECT;
+    this->__bodynode   := definition.bodynode[0].component;
+    this->__footernode := RecordExists(definition.footernode) ? definition.footernode[0].component : DEFAULT OBJECT;
 
     this->toolbars := SELECT AS OBJECT ARRAY component FROM definition.toolbars;
     this->pvt_menubar := definition.menubar;
@@ -145,6 +150,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
     this->allowclose := definition.allowclose;
     this->oninterval := definition.oninterval;
     this->pvt_interval := definition.interval;
+    this->__footerbuttons := definition.footerbuttons;
     this->onshow := definition.onshow;
     this->onunload := definition.onunload;
     this->onmessage:= definition.onmessage;
@@ -301,15 +307,64 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
       IF(this->bodynode->spacers.usedefault)
         this->bodynode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
     }
-    IF(ObjectExists(this->footernode))
+    IF(ObjectExists(this->__footernode))
     {
-      this->footernode->RemoveFromParent();
-      this->footernode->isfooter := TRUE;
-      this->realbody->InsertComponentAfter(this->footernode, DEFAULT OBJECT, TRUE);
-
-      IF(this->footernode->spacers.usedefault)
-        this->footernode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+      this->__footernode->RemoveFromParent();
+      IF(this->__footernode->spacers.usedefault)
+        this->__footernode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+      this->__footernode->isfooter := TRUE;
+      this->realbody->InsertComponentAfter(this->__footernode, DEFAULT OBJECT, TRUE);
     }
+    this->RefreshFooterButtons(FALSE);
+  }
+
+  OBJECT ARRAY FUNCTION GetAllDefaultFormButtons()
+  {
+    OBJECT ARRAY els;
+    FOREVERY(OBJECT child FROM this->GetTopDownAllComponents())
+      IF(child EXTENDSFROM TolliumDefaultFormButtons)
+        INSERT child INTO els AT END;
+    RETURN els;
+  }
+
+  STRING ARRAY FUNCTION GetFooterButtons()
+  {
+    OBJECT ARRAY defbuttons := this->GetAllDefaultFormButtons();
+    RETURN Length(defbuttons) > 0 ? defbuttons[0]->buttons : this->__footerbuttons;;
+  }
+
+  MACRO SetFooterButtons(STRING ARRAY buttons)
+  {
+    this->__footerbuttons := buttons;
+    this->RefreshFooterButtons(TRUE);
+  }
+
+  MACRO RefreshFooterButtons(BOOLEAN explicitset)
+  {
+    IF(NOT this->pvt_havepreinited)
+      RETURN;
+    IF(Length(this->__footerbuttons) = 0 AND NOT explicitset)
+      RETURN; //we don't overwrite defaultformbuttons UNLESS you explicitly set them
+
+    //TODO support unsetting footerbuttons and remove the footer? but don't really see the usecase for that...
+    OBJECT ARRAY defbuttons := this->GetAllDefaultFormButtons();
+    IF(Length(this->__footerbuttons) > 0 AND Length(defbuttons) = 0)
+    {
+      IF(ObjectExists(this->footernode))
+        THROW NEW Exception(`Cannot set footerbuttons if the screen already contains a <footer> but no <defaultformbuttons>`);
+
+      this->__footernode := this->owner->CreateTolliumComponent("panel");
+      this->__footernode->spacers := [ top := TRUE, bottom := TRUE, left := TRUE, right := TRUE ];
+      this->__footernode->isfooter := TRUE;
+      this->realbody->InsertComponentAfter(this->__footernode, DEFAULT OBJECT, TRUE);
+
+      OBJECT defaultformbuttons := this->owner->CreateTolliumComponent("defaultformbuttons");
+      this->__footernode->InsertComponentAfter(defaultformbuttons, DEFAULT OBJECT, TRUE);
+      defbuttons := [defaultformbuttons];
+    }
+
+    FOREVERY(OBJECT defbutton FROM defbuttons)
+      defbutton->buttons := this->__footerbuttons;
   }
 
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)

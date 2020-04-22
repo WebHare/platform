@@ -1052,7 +1052,11 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>The default button in this screen (may be overridden per foucsable component)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
+    <xs:attribute name="footerbuttons">
+      <xs:simpleType>
+        <xs:list itemType="DefaultButtonName" />
+      </xs:simpleType>
+    </xs:attribute>
 
     <xs:attributeGroup ref="sc:TidOrTitle" />
 
@@ -4423,7 +4427,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
-      <xs:attribute name="buttons" use="required">
+      <xs:attribute name="buttons">
         <xs:simpleType>
           <xs:list itemType="DefaultButtonName" />
         </xs:simpleType>
