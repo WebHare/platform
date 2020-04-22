@@ -96,7 +96,7 @@ MACRO PrintPhotoPageButtons(INTEGER curPhotopage, INTEGER TotalPhotos)
 
 IF (folder.type=3)
 {
-  RECORD photoalbum_props := GetPhotoalbumProps(folder.id);
+  RECORD photoalbum_props := __GetPhotoalbumProps(folder.id);
   INTEGER thumbs_per_page := photoalbum_props.rows * photoalbum_props.columns;
 
   //pass information  -on how many thumbnails there are per page- on to the album-generator.

@@ -576,6 +576,20 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
   RETURN result;
 }
 
+PUBLIC RECORD FUNCTION __GetPhotoalbumProps(INTEGER folderid)
+{
+  RECORD photoalbuminstance := OpenWHFSType("http://www.webhare.net/xmlns/publisher/photoalbum")->GetInstanceData(folderid);
+
+  RETURN [ rows := ToInteger(photoalbuminstance.rows,5) ?? 5
+         , columns := ToInteger(photoalbuminstance.columns,5) ?? 5
+         , photowidth      := photoalbuminstance.picturewidth    ?? 600
+         , photoheight     := photoalbuminstance.pictureheight   ?? 600
+         , thumbnailwidth  := photoalbuminstance.thumbnailwidth  ?? 100
+         , thumbnailheight := photoalbuminstance.thumbnailheight ?? 100
+         , publishoriginals := photoalbuminstance.publishoriginals
+         ];
+}
+
 /** @short Gets the photo album properties a photo album folder
     @param folderid Folder to query
     @return A record describing the folder's photo album properties
@@ -585,18 +599,9 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
     @cell return.thumbnailsize Maximum width/height in pixels for the thumbnails
 */
 
-PUBLIC RECORD FUNCTION GetPhotoalbumProps(INTEGER folderid)
+PUBLIC RECORD FUNCTION GetPhotoalbumProps(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "The v2.0 photoalbum has been deprecated.")
 {
-  RECORD photoalbuminstance := OpenWHFSType("http://www.webhare.net/xmlns/publisher/photoalbum")->GetInstanceData(folderid);
-
-  RETURN [ rows := ToInteger(photoalbuminstance.rows,5)
-         , columns := ToInteger(photoalbuminstance.columns,5)
-         , photowidth      := photoalbuminstance.picturewidth != 0    ? photoalbuminstance.picturewidth    : ToInteger(photoalbuminstance.picturesize,800)
-         , photoheight     := photoalbuminstance.pictureheight != 0   ? photoalbuminstance.pictureheight   : ToInteger(photoalbuminstance.picturesize,800)
-         , thumbnailwidth  := photoalbuminstance.thumbnailwidth != 0  ? photoalbuminstance.thumbnailwidth  : ToInteger(photoalbuminstance.thumbnailsize,100)
-         , thumbnailheight := photoalbuminstance.thumbnailheight != 0 ? photoalbuminstance.thumbnailheight : ToInteger(photoalbuminstance.thumbnailsize,100)
-         , publishoriginals := photoalbuminstance.publishoriginals
-         ];
+  RETURN __GetPhotoalbumProps(folderid);
 }
 
 //limit a picture's size to specific dimensions
@@ -664,7 +669,7 @@ PUBLIC RECORD ARRAY FUNCTION GetPhotoalbumContents(INTEGER folderid) __ATTRIBUTE
 
 PUBLIC RECORD ARRAY FUNCTION __GetPhotoalbumContents(INTEGER folderid)
 {
-  RECORD props := GetPhotoalbumProps(folderid);
+  RECORD props := __GetPhotoalbumProps(folderid);
 
   //The photos are in the current folder and no SetPhotoSet was tried.
   //This is the new v2.3 photoalbum code, so just use the files in this folder as the photoset

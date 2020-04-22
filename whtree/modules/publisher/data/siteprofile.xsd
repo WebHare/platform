@@ -922,7 +922,6 @@
       <xs:element name="setembeddedobjectrenderer" type="SetEmbeddedObjectRenderer" />
       <xs:element name="setwidget" type="SetWidget" />
       <xs:element name="embeddededitor" type="EmbeddedEditor" />
-      <xs:element name="defaultsettings" type="DefaultSettings" />
       <xs:element name="sitelanguage" type="SiteLanguage" />
       <xs:element name="foldersettings" type="FolderSettings" />
       <xs:element name="bodyrenderer" type="BodyRenderer" />
@@ -1196,23 +1195,6 @@
           </xs:enumeration>
         </xs:restriction>
       </xs:simpleType>
-    </xs:attribute>
-  </xs:complexType>
-
-  <xs:complexType name="DefaultSettings">
-    <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="member">
-        <xs:complexType mixed="true">
-          <xs:attribute name="name" type="xs:string" />
-        </xs:complexType>
-      </xs:element>
-    </xs:choice>
-    <xs:attribute name="typedef" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Specify the content type namespace to which these settings apply.
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
   </xs:complexType>
 

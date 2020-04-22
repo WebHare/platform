@@ -762,27 +762,6 @@ PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER ol
     IF (oldprotectindex != newprotectindex AND fsobject->indexdoc != 0)
       OpenWHFSObject(fsobject->indexdoc)->UpdateMetadata([ ispinned := newprotectindex ]);
   }
-
-  // Set default content type settings for the new type
-  OBJECT newcontenttype := OpenWHFSTypeByID(fsobject->type);
-  IF(ObjectExists(newcontenttype))
-  {
-    // Get and apply default settings
-    RECORD defaults := GetDefaultSettingsForType(newcontenttype->namespace, fsobject->parent, fsobject->id, fsobject->isfolder);
-    RECORD value := newcontenttype->GetInstanceData(fsobject->id);
-    FOREVERY (RECORD cellrec FROM UnpackRecord(value))
-    {
-      RECORD memberdef := SELECT * FROM newcontenttype->members WHERE ToUppercase(name) = ToUppercase(cellrec.name);
-      // If the member is found (should always be true) AND the member has a value cell (should always be true)
-      // AND the current cell value is not the default type value, don't set it to the default member value
-      IF (RecordExists(memberdef)
-          AND CellExists(value, memberdef.name)
-          AND CellExists(defaults, memberdef.name)
-          AND GetCell(value, memberdef.name) != GetTypeDefaultValue(GetHareScriptTypeForMember(memberdef)))
-        defaults := CellDelete(defaults, memberdef.name);
-    }
-    newcontenttype->SetInstanceData(fsobject->id, MakeUpdatedRecord(value, defaults));
-  }
 }
 
 

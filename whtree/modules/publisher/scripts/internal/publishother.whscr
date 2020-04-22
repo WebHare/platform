@@ -12,7 +12,7 @@ LOADLIB "wh::files.whlib";
 
 IF (folder.type = 3 /* Fotoalbum */ AND file.type = 12 /* Image */)
 {
-  RECORD props := GetPhotoalbumProps(folder.id);
+  RECORD props := __GetPhotoalbumProps(folder.id);
   OBJECT photocanvas := CreateResizedCanvasFromBlob(file.data, [ method := "fit", setwidth := props.photowidth, setheight := props.photoheight ]);
   IF(NOT ObjectExists(photocanvas))
     ABORT("The image appears to be corrupted");

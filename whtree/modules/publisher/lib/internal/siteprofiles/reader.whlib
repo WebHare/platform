@@ -360,39 +360,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       ];
   RETURN webdesign;
 }
-PUBLIC RECORD FUNCTION GetDefaultSettingsForType(STRING typedef, INTEGER parent, INTEGER objid, BOOLEAN isfile)
-{
-  RECORD csp := GetCachedSiteProfiles();
-  RECORD contenttype := SELECT * FROM system.fs_types WHERE ToUppercase(namespace) = ToUppercase(typedef);
-  IF (NOT RecordExists(contenttype))
-    RETURN DEFAULT RECORD;
-
-  RECORD defaultsettings;
-  OBJECT applytester := objid = 0 ? GetApplyTesterForFakeObject(parent, isfile, contenttype.id)
-                                  : GetApplyTesterForObject(objid);
-
-  FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("DEFAULTSETTINGS"))
-  {
-    RECORD settings := SELECT * FROM apply.defaultsettings WHERE COLUMN typedef=VAR typedef;
-    IF (RecordExists(settings))
-    {
-      // Convert member 'content' fields to member type
-      FOREVERY (RECORD memberrec FROM settings.members)
-      {
-        RECORD memberdef := SELECT * FROM system.fs_members WHERE fs_type = contenttype.id AND ToUppercase(name) = ToUppercase(memberrec.name);
-        IF (RecordExists(memberdef))
-        {
-          IF (NOT CellExists(defaultsettings, memberrec.name))
-            defaultsettings := CellInsert(defaultsettings, memberrec.name, StringToMemberType(memberrec.content, memberdef.type));
-          ELSE
-            defaultsettings := CellUpdate(defaultsettings, memberrec.name, StringToMemberType(memberrec.content, memberdef.type));
-        }
-      }
-    }
-  }
-  RETURN defaultsettings;
-}
-
 OBJECTTYPE RepublishState
 <
   RECORD csp;
