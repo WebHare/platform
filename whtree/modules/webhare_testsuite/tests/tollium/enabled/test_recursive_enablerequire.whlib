@@ -1,0 +1,11 @@
+<?wh
+
+PUBLIC INTEGER FUNCTION OnBrowse(OBJECT contexts, INTEGER curval)
+{
+  RETURN curval + 1;
+}
+
+PUBLIC STRING FUNCTION OnBrowseMapValue(OBJECT screen, INTEGER curval)
+{
+  RETURN "mapped:" || curval;
+}

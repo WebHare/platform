@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+ASYNC MACRO TestCompositionAndInheritance()
+{
+  OBJECT scr := GetTestController()->LoadScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <compositions>
+      <record name="baserecord" />
+    </compositions>
+    <body>
+      <textedit composition="baserecord" name="textedit" />
+      <browsecustom composition="baserecord" name="browsecustom" empty="empty"
+                    onbrowse="${Resolve("test_recursive_enablerequire.whlib#OnBrowse")}"
+                    onmapvalue="${Resolve("test_recursive_enablerequire.whlib#OnBrowseMapValue")}"
+                    valuetype="integer"/>
+    </body>
+  </screen>`, "#test"));
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal);
+  //TestEq(FALSE, TT("baserecord")->isnowreadonly);
+  //TestEq(FALSE, TT("textedit")->isnowreadonly);
+
+  TestEq(TRUE, TT("baserecord")->enabled);
+  TestEq(TRUE, TT("textedit")->enabled);
+  //TestEq(TRUE, TTIsVisible("browsecustom->browsebutton"));
+  //TestEq(TRUE, TTIsVisible("browsecustom->clearbutton"));
+
+  TT("baserecord")->enabled := FALSE;
+
+  //TOOD what we really want is for an 'isnowenabled' and levaing 'enabled' alone...
+  TestEq(FALSE, TT("baserecord")->enabled);
+  TestEq(FALSE, TT("textedit")->enabled);
+
+  TestEq("empty", TT("browsecustom->titletext")->value);
+  TestEq(FALSE, TT("browsecustom->browsebutton")->enabled);
+  TestEq(FALSE, TT("browsecustom->clearbutton")->enabled);
+
+//PRINT("SET READONLY\n");
+//  TT("baserecord")->readonly := TRUE;
+//  TestEq(TRUE, TT("baserecord")->isnowreadonly);
+//  TestEq(TRUE, TT("textedit")->isnowreadonly);
+
+//  TestEq(TRUE, TT("browsecustom->titletext")->isnowreadonly);
+//  TestEq("empty", TT("browsecustom->titletext")->value);
+//  TestEq(FALSE, TTIsVisible("browsecustom->browsebutton"));
+//  TestEq(FALSE, TTIsVisible("browsecustom->clearbutton"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestCompositionAndInheritance
+                 ]);

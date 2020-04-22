@@ -560,13 +560,15 @@ PUBLIC OBJECTTYPE __ScreenBuilder
                 ExplainFunctionSignature(handlerrec.req_retval, expectargs) || ", got " || ExplainFunctionPtrSignature(handler));
       }
 
-      RECORD ARRAY params :=
-        [ [ source :=       0
-          , value :=        obj->contexts
-          ]
-        ];
+      INTEGER ARRAY argpos := [0];//bind the object
+      VARIANT ARRAY args := OBJECT[obj->contexts];
+      FOR(INTEGER i := 1; i <= Length(handlerrec.req_args); i := i + 1)
+      {
+        INSERT i INTO argpos AT END;
+        INSERT 0 INTO args AT END;
+      }
 
-      RETURN __HS_REBINDFUNCTIONPTR2(handler, params, 1, TRUE);
+      RETURN __HS_REBINDFUNCTIONPTR(handler, argpos, args);
     }
     CATCH(OBJECT e)
     {
