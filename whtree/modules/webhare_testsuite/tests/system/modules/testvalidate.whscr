@@ -361,7 +361,7 @@ MACRO TestBasicValidate()
      </screens>`) ]);
 
   TestEq(1,Length(res.errors));
-  TestEqLike("No such library*",res.errors[0].message);
+  TestEqLike("Cannot resolve reference*if no HareScript library is set",res.errors[0].message);
 }
 
 MACRO TestValidateWitty()

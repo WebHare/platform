@@ -942,25 +942,6 @@ PUBLIC OBJECT FUNCTION GetTopLevelScreen(OBJECT currentscreen)
   RETURN currentscreen;
 }
 
-PUBLIC STRING FUNCTION GetLibraryPath(STRING resourcename, OBJECT basenode)
-{
-  FOREVERY(OBJECT node FROM [basenode, basenode->ownerdocument->documentelement])
-  {
-    IF(node->HasAttribute("library"))
-      RETURN MakeAbsoluteResourcePath(resourcename, node->GetAttribute("library"));
-
-    IF(node->HasAttribute("lib"))
-    {
-      STRING callbacklibrary := node->GetAttribute("lib");
-      IF(callbacklibrary != "" AND callbacklibrary NOT LIKE "*::*")
-        RETURN "module::" || GetModuleNameFromResourcePath(resourcename) || "/" || callbacklibrary;
-      ELSE
-       RETURN callbacklibrary;
-    }
-  }
-  RETURN "";
-}
-
 /** Generate an URL to a protected manual
     @param manual Name of the manual
     @param accesstoken Accesstoken for the manual
