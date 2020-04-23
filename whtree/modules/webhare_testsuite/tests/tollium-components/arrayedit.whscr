@@ -24,12 +24,12 @@ MACRO CustomAddAction()
 
 MACRO CustomEditAction()
 {
-  topscreen->comp->UpdateSingleRow([checkbox := FALSE, text := "Custom edited"]);
+  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom edited";
 }
 
 MACRO CustomDeleteAction()
 {
-  topscreen->comp->UpdateSingleRow([checkbox := FALSE, text := "Custom 'deleted'"]);
+  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom 'deleted'";
 }
 
 OBJECT ASYNC FUNCTION TestArrayEdit()

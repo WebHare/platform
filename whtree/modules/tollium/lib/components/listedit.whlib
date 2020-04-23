@@ -1144,17 +1144,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   }
 */
 
-  // FIXME: also use for celledit
-  // FIXME: expose the function (make it PUBLIC)?
-  PUBLIC MACRO UpdateSingleRow(RECORD newdata)
-  {
-    INTEGER pos := (SELECT AS INTEGER #currows + 1 FROM this->currows WHERE rowkey = this->list->value) - 1;
-    IF (pos = -1)
-      THROW NEW Exception("UpdateSingleRow() - rowkey doesn't exist.");
-
-    this->__UpdateSingleRow(newdata, pos);
-  }
-
   MACRO __UpdateSingleRow(RECORD newdata, INTEGER pos)
   {
     RECORD row := this->currows[pos];
