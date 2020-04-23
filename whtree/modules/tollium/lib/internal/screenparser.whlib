@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::money.whlib";
@@ -253,9 +253,9 @@ STATIC OBJECTTYPE PageParser
     }
   }
 
-  PUBLIC STRING FUNCTION ParseGid(OBJECT el, STRING cellname)
+  PUBLIC STRING FUNCTION ParseGid(OBJECT el, STRING ns, STRING cellname)
   {
-    RETURN ParseXMLGid(this->GetCurrentModule(), this->bb_levels[0].gid, el, cellname);
+    RETURN ParseXMLGid(this->GetCurrentModule(), this->bb_levels[0].gid, el, ns, cellname);
   }
 
   PUBLIC STRING FUNCTION GetCurrentModule()
@@ -280,6 +280,10 @@ STATIC OBJECTTYPE PageParser
   PUBLIC STRING FUNCTION ParseTP(OBJECT el, STRING type)
   {
     RETURN ParseXMLTidPtr(this->GetCurrentModule(), this->GetCurrentGid(), el, type);
+  }
+  PUBLIC STRING FUNCTION ParseTPNS(OBJECT el, STRING ns, STRING type)
+  {
+    RETURN ParseXMLTidPtrNS(this->GetCurrentModule(), this->GetCurrentGid(), el, ns, type);
   }
 
   /** Given a component node and its component info, assign a name to the component that it will result in.
@@ -355,7 +359,7 @@ STATIC OBJECTTYPE PageParser
   */
   PUBLIC RECORD FUNCTION StartXMLNode2(OBJECT element)
   {
-    RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+    RECORD compinfo := curpageparser->LookupComponent(element, TRUE, "element");
     IF(NOT RecordExists(compinfo))
       RETURN DEFAULT RECORD;
 
@@ -379,7 +383,7 @@ STATIC OBJECTTYPE PageParser
     BOOLEAN hack_isframe := element->namespaceuri = ns_screens AND element->localname = "screen";
 
     RECORD currentscope := this->tolliumscopes[0];
-    STRING localgid := this->ParseGid(element, "gid"); //Open the new gid... we already need it for any local XML fields
+    STRING localgid := this->ParseGid(element, "", "gid"); //Open the new gid... we already need it for any local XML fields
 
     BOOLEAN transparentnode := compinfo.objtype = "" AND compinfo.fragment="";
 
@@ -506,7 +510,7 @@ STATIC OBJECTTYPE PageParser
     INSERT newscope INTO this->tolliumscopes AT 0;
 
     INSERT this->bb_levels[0] INTO this->bb_levels AT 0;
-    this->bb_levels[0].gid := fragmentdata.fragment->ownerdocument->documentelement->HasAttribute("gid") ? this->ParseGid(fragmentdata.fragment->ownerdocument->documentelement, "gid") : "";
+    this->bb_levels[0].gid := fragmentdata.fragment->ownerdocument->documentelement->HasAttribute("gid") ? this->ParseGid(fragmentdata.fragment->ownerdocument->documentelement, "", "gid") : "";
 
     // Parse the fragment node
     RECORD frag := this->StartXMLNode2(fragmentdata.fragment);
@@ -621,18 +625,22 @@ STATIC OBJECTTYPE PageParser
     RETURN DEFAULT OBJECT;
   }
 
-  PUBLIC RECORD FUNCTION LookupComponent(OBJECT element, BOOLEAN fatal)
+  PUBLIC RECORD FUNCTION LookupComponent(OBJECT element, BOOLEAN fatal, STRING type)
+  {
+    RETURN this->GetComponentDefinition(element->namespaceuri, element->localname, fatal, type, element->linenum);
+  }
+  PUBLIC RECORD FUNCTION GetComponentDefinition(STRING namespaceuri, STRING localname, BOOLEAN fatal, STRING type, INTEGER linenum)
   {
     TRY
     {
-      RECORD def := GetComponentDefinition(element->namespaceuri, element->localname);
+      RECORD def := GetComponentDefinition(namespaceuri, localname, type);
       this->AddFiles(def.files);
       RETURN def;
     }
     CATCH(OBJECT e)
     {
       IF(fatal)
-        this->AddError(element->linenum, e->what);
+        this->AddError(linenum, e->what);
       RETURN DEFAULT RECORD;
     }
   }
@@ -870,13 +878,13 @@ STATIC OBJECTTYPE PageParser
     {
       //WARNING: Be careful when adding extra cells to read here. Custom column parsers may not actually place your new cells into 'colinfo' (eg it crashed the addition of emptyvalue earlier)
 
-      RECORD customcoltype := GetComponentDefinition(col->namespaceuri, col->localname);
+      RECORD customcoltype := this->GetComponentDefinition(col->namespaceuri, col->localname, TRUE, "element", col->linenum);
       IF(customcoltype.placement != "listcolumn") //FIXME PROPERLY validate placement, don't just ignore
         THROW NEW Exception("Element '" || col->localname || "' cannot be placed here"); //ADDME move placement checks into curpageparser lookupcomponent...
 
       //RECORD colinfo := this->StartXMLNode2(col);
 
-      this->bb_levels[0].gid := curpageparser->ParseGid(col,"gid");
+      this->bb_levels[0].gid := curpageparser->ParseGid(col, "", "gid");
 
       RECORD colinfo := ParseXMLFields(col, customcoltype);
       IF(CellExists(colinfo,"gid"))
@@ -998,10 +1006,14 @@ STRING FUNCTION ReadStringAttr(OBJECT el, STRING attrname, STRING defaultvalue)
   ELSE
     RETURN defaultvalue;
 }
+STRING FUNCTION ReadComponentRef(STRING compref)
+{
+  RETURN FixupReferringName(GetScopedName(compref));
+}
 STRING FUNCTION ReadComponentAttr(OBJECT el, STRING attrname)
 {
   IF(el->HasAttribute(attrname))
-    RETURN FixupReferringName(GetScopedName(el->GetAttribute(attrname)));
+    RETURN ReadComponentRef(el->GetAttribute(attrname));
   ELSE
     RETURN "";
 }
@@ -1105,10 +1117,14 @@ STRING FUNCTION ReadNameAttr(OBJECT el)
   ELSE
     RETURN curpageparser->CreateAnonymousName();
 }
+STRING FUNCTION ReadIconRef(STRING iconref)
+{
+  RETURN ParseIconPointer(curpageparser->GetCurrentModule(), iconref);
+}
 STRING FUNCTION ReadIconAttr(OBJECT el, STRING attrname, STRING defaultvalue)
 {
   IF (el->HasAttribute(attrname))
-    RETURN ParseIconPointer(curpageparser->GetCurrentModule(), el->GetAttribute(attrname));
+    RETURN ReadIconRef(el->GetAttribute(attrname));
   ELSE
     RETURN defaultvalue;
 }
@@ -1125,14 +1141,8 @@ STRING FUNCTION ReadGid(OBJECT el, STRING currentmodule, STRING gidsofar)
   RETURN gid;
 }
 
-RECORD FUNCTION ReadBordersSpacersAttr(OBJECT el, STRING cellname)
+RECORD FUNCTION ReadHandlerRef(STRING handlername, INTEGER ARRAY callback_signature)
 {
-  RETURN ParseBordersSpacers(el->GetAttribute(cellname));
-}
-
-RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY callback_signature)
-{
-  STRING handlername := ReadStringAttr(element, fieldname, '');
   IF (handlername = '')
     RETURN DEFAULT RECORD;
 
@@ -1149,6 +1159,11 @@ RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY 
          , req_args   := callback_signature // types of expected arguments
          ];
 }
+RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY callback_signature)
+{
+  RETURN ReadHandlerRef(element->GetAttribute(fieldname), callback_signature);
+}
+
 
 // -----------------------------------------------------------------------------
 //
@@ -1506,7 +1521,7 @@ RECORD ARRAY FUNCTION ParseLines(OBJECT nodeset)
       //save currents ettings and reinvoke us
       RECORD savelayout := curpageparser->bb_levels[0].linesettings;
       STRING savegid := curpageparser->bb_levels[0].gid;
-      curpageparser->bb_levels[0].gid := curpageparser->ParseGid(curnode, "gid");
+      curpageparser->bb_levels[0].gid := curpageparser->ParseGid(curnode, "", "gid");
       curpageparser->bb_levels[0].linesettings := ApplyLineSettings(savelayout, curnode);
       RECORD ARRAY retval := ParseLines(curnode->childnodes);
       curpageparser->bb_levels[0].linesettings := savelayout;
@@ -1520,7 +1535,7 @@ RECORD ARRAY FUNCTION ParseLines(OBJECT nodeset)
        to be able to add lines to the formlayout. Should probably resort to
        a more state-machine instead of stack-based parsing for tollium */
     BOOLEAN isincludefragment := curnode->namespaceuri = ns_screens AND curnode->localname = "includefragment";
-    RECORD compinfo := curpageparser->LookupComponent(curnode, FALSE);
+    RECORD compinfo := curpageparser->LookupComponent(curnode, FALSE, "element");
     //print("4: " || compinfo.fragment || "\n");
     IF(RecordExists(compinfo) AND (compinfo.fragment != "" OR isincludefragment))
     {
@@ -1712,7 +1727,7 @@ RECORD ARRAY FUNCTION ParseArray(OBJECT nodeset)
 
   FOREVERY(OBJECT node FROM nodeset->GetCurrentElements())
   {
-    RECORD compinfo := curpageparser->LookupComponent(node, TRUE);
+    RECORD compinfo := curpageparser->LookupComponent(node, TRUE, "element");
     IF(NOT RecordExists(compinfo))
       CONTINUE;
 
@@ -1722,145 +1737,154 @@ RECORD ARRAY FUNCTION ParseArray(OBJECT nodeset)
   RETURN retval;
 }
 
-RECORD FUNCTION ParseXMLFields(OBJECT element, RECORD compinfo)
+VARIANT FUNCTION GetXMLFieldStoreValue(OBJECT element, STRING ns, STRING attrname, RECORD field, RECORD item)
 {
-  RECORD item := [ __xml_fields := compinfo.xml_fields ];
-  FOREVERY(RECORD field FROM compinfo.xml_fields)
+  BOOLEAN hasattr := ns != "" OR element->HasAttribute(attrname);
+  IF(CellExists(field,'warning') AND hasattr)
+    curpageparser->AddWarning(element->linenum, field.warning);
+
+  STRING recordtype := CellExists(field,"recordtype") ? field.recordtype : "";
+  IF(NOT hasattr AND recordtype != "tid" AND recordtype != "tidptr" AND recordtype != "gid" AND recordtype!="extraparser") //gid has special rules for missing attributes, extraparser nodes don't exist as attribute
+    RETURN field.defaultvalue;
+
+  STRING inputvalue := element->GetAttributeNS(ns, attrname);
+  IF(recordtype = "")
   {
-    STRING cellname := CellExists(field, "CELLNAME") ? field.cellname : field.name;
-
-    IF(CellExists(field,'warning') AND element->HasAttribute(cellname))
-      curpageparser->AddWarning(element->linenum, field.warning);
-
-//    IF(cellname = "name" OR cellname="gid" OR cellname="layout")
-//      CONTINUE; //ADDME just eliminate 'global' fields in components.whlib?
-
-    VARIANT storevalue;
     SWITCH(TypeId(field.defaultvalue))
     {
       CASE TypeId(INTEGER)
       {
-        storevalue := ReadIntAttr(element, cellname, field.defaultvalue);
+        RETURN ParseXSInt(inputvalue);
       }
       CASE TypeId(MONEY)
       {
-        storevalue := ReadMoneyAttr(element, cellname, field.defaultvalue);
+        RETURN ToMoney(inputvalue, 0);
       }
       CASE TypeId(FLOAT)
       {
-        storevalue := ReadFloatAttr(element, cellname, field.defaultvalue);
+        RETURN ToFloat(inputvalue, 0);
       }
       CASE TypeId(BOOLEAN)
       {
-        storevalue := ReadBoolAttr(element, cellname, field.defaultvalue);
+        RETURN ParseXSBoolean(inputvalue);
       }
       CASE TypeId(STRING)
       {
-        storevalue := ReadStringAttr(element, cellname, field.defaultvalue);
-      }
-      CASE TypeId(RECORD)
-      {
-        SWITCH(field.recordtype)
-        {
-          CASE "tid"
-          {
-            storevalue := curpageparser->ParseTP(element, cellname);
-          }
-          CASE "tidptr"
-          {
-            storevalue := curpageparser->ParseTP(element, field.basename);
-          }
-          CASE "componentref"
-          {
-            storevalue := ReadComponentAttr(element, cellname);
-          }
-          CASE "iconpointer"
-          {
-            storevalue := ReadIconAttr(element, cellname, field.defaulticon);
-          }
-          CASE "componentreflist"
-          {
-            STRING ARRAY retval;
-            FOREVERY(STRING val FROM ParseXSList(element->GetAttribute(cellname)))
-              INSERT FixupReferringName(GetScopedName(val)) INTO retval AT END;
-            storevalue := retval;
-          }
-          CASE "bordersspacers"
-          {
-            IF(element->HasAttribute(cellname))
-              storevalue := ReadBordersSpacersAttr(element, cellname);
-            ELSE
-              storevalue := field.defaultvalue;
-          }
-          CASE "screenfragmentref"
-          {
-            storevalue := MakeAbsoluteScreenReference(curpageparser->GetCurrentResourceName(), element->GetAttribute(cellname));
-          }
-          CASE "datafileref"
-          {
-            IF(element->HasAttribute(cellname))
-              storevalue := MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), element->GetAttribute(cellname));
-            ELSE
-              storevalue := "";
-          }
-          CASE "datafilerefs"
-          {
-            storevalue := DEFAULT STRING ARRAY;
-            IF(element->HasAttribute(cellname))
-            {
-              FOREVERY(STRING val FROM ParseXSList(element->GetAttribute(cellname)))
-                INSERT MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), val) INTO storevalue AT END;
-            }
-          }
-          CASE "handler"
-          {
-            storevalue := ReadHandlerAttr(element, cellname, field.callback_signature);
-          }
-          CASE "gid"
-          {
-            storevalue := curpageparser->ParseGid(element, cellname);
-          }
-          CASE "optionalgid"
-          {
-            IF(element->HasAttribute(cellname))
-              storevalue := curpageparser->ParseGid(element, cellname);
-            ELSE
-              storevalue := "";
-          }
-          CASE "color"
-          {
-            storevalue := GetValidColor(element->GetAttribute(cellname));
-          }
-          CASE "extraparser"
-          {
-            storevalue := ParseUsingExtraParser(element, field, item);
-          }
-          DEFAULT
-          {
-            THROW NEW Exception(`Unknown record type '${field.recordtype}' for node '${cellname}'`);
-          }
-        }
+        RETURN inputvalue;
       }
       CASE TypeId(STRING ARRAY)
       {
-        IF(element->HasAttribute(cellname))
-        {
-          storevalue := ParseXSList(element->GetAttribute(cellname));
-        }
-        ELSE
-        {
-          storevalue := field.defaultvalue;
-        }
+        RETURN ParseXSList(inputvalue);
       }
       DEFAULT
       {
-        THROW NEW Exception(`Unrecognized default value for field '${cellname}'`);
+        THROW NEW Exception(`Unrecognized default value for field '${attrname}'`);
       }
     }
+  }
+  ELSE
+  {
+    SWITCH(recordtype)
+    {
+      CASE "tid"
+      {
+        RETURN curpageparser->ParseTPNS(element, ns, attrname);
+      }
+      CASE "tidptr"
+      {
+        RETURN curpageparser->ParseTP(element, field.basename);
+      }
+      CASE "componentref"
+      {
+        RETURN ReadComponentRef(inputvalue);
+      }
+      CASE "iconpointer"
+      {
+        RETURN ReadIconRef(inputvalue);
+      }
+      CASE "componentreflist"
+      {
+        STRING ARRAY retval;
+        FOREVERY(STRING val FROM ParseXSList(inputvalue))
+          INSERT ReadComponentRef(val) INTO retval AT END;
+        RETURN retval;
+      }
+      CASE "bordersspacers"
+      {
+        RETURN ParseBordersSpacers(inputvalue);
+      }
+      CASE "screenfragmentref"
+      {
+        RETURN MakeAbsoluteScreenReference(curpageparser->GetCurrentResourceName(), inputvalue);
+      }
+      CASE "datafileref"
+      {
+        RETURN MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), inputvalue);
+      }
+      CASE "datafilerefs"
+      {
+        STRING ARRAY storevalue := DEFAULT STRING ARRAY;
+        FOREVERY(STRING val FROM ParseXSList(inputvalue))
+          INSERT MakeAbsoluteResourcePath(curpageparser->GetCurrentResourceName(), val) INTO storevalue AT END;
+        RETURN storevalue;
+      }
+      CASE "handler"
+      {
+        RETURN ReadHandlerRef(inputvalue, field.callback_signature);
+      }
+      CASE "gid"
+      {
+        RETURN curpageparser->ParseGid(element, ns, attrname);
+      }
+      CASE "optionalgid"
+      {
+        RETURN curpageparser->ParseGid(element, ns, attrname);
+      }
+      CASE "color"
+      {
+        RETURN GetValidColor(inputvalue);
+      }
+      CASE "extraparser"
+      {
+        RETURN ParseUsingExtraParser(element, field, item);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unknown record type '${field.recordtype}' for node '${attrname}'`);
+      }
+    }
+  }
+}
 
-    IF(cellname!="") //if empty, noone cared to actually store the list of parsed items
+RECORD FUNCTION ParseXMLFields(OBJECT element, RECORD compinfo)
+{
+  RECORD item := [ __xml_fields := compinfo.xml_fields
+                 ];
+  FOREVERY(RECORD field FROM compinfo.xml_fields)
+  {
+    STRING cellname := CellExists(field, "CELLNAME") ? field.cellname : field.name;
+
+    VARIANT storevalue := GetXMLFieldStoreValue(element, "", cellname, field, item);
+    IF(cellname!="") //if empty, noone cared to actually store the list of parsed items - FIXME what does this mean? why would anyone do that?
       item := CellInsert(item, cellname, storevalue);
   }
+
+  FOREVERY(RECORD attr FROM element->ListAttributes())
+    IF(attr.namespaceuri != "" AND attr.namespaceuri != "http://www.w3.org/2000/xmlns/")
+    {
+      IF(NOT CellExists(item,"userattributes"))
+        INSERT CELL userattributes := RECORD[] INTO item;
+
+      RECORD attributedef := curpageparser->GetComponentDefinition(attr.namespaceuri, attr.localname, TRUE, "attribute", element->linenum);
+      IF(NOT RecordExists(attributedef))
+      {
+        curpageparser->AddError(element->linenum, `Cannot find definition for attribute ${attr.namespaceuri}#${attr.localname}`);
+        CONTINUE;
+      }
+
+      VARIANT storevalue := GetXMLFieldStoreValue(element, attr.namespaceuri, attr.localname, attributedef, item);
+      INSERT CELL[ attr.namespaceuri, attr.localname, value := storevalue, fielddescr := attributedef ] INTO item.userattributes AT END;
+    }
 
   IF(compinfo.validator != "")
     MakeFunctionPtr(compinfo.validator)(curpageparser, element, CELl[...item, DELETE __xml_fields]);
@@ -1870,7 +1894,7 @@ RECORD FUNCTION ParseXMLFields(OBJECT element, RECORD compinfo)
 
 STRING FUNCTION ParseBodyNode(OBJECT element, STRING placement)
 {
-  RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+  RECORD compinfo := curpageparser->LookupComponent(element, TRUE, "element");
   IF(NOT RecordExists(compinfo))
     RETURN "";
 
@@ -1885,7 +1909,7 @@ RECORD FUNCTION ParseBodyNodes(OBJECT node, STRING placement)
 
   FOREVERY(OBJECT element FROM node->childnodes->GetCurrentElements())
   {
-      RECORD compinfo := curpageparser->LookupComponent(element, TRUE);
+      RECORD compinfo := curpageparser->LookupComponent(element, TRUE, "element");
       IF(NOT RecordExists(compinfo))
         CONTINUE;
 
@@ -2081,7 +2105,7 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
   }
 
   IF (element->HasAttribute("optiongid"))
-    optiongid := curpageparser->ParseGid(element, "optiongid");
+    optiongid := curpageparser->ParseGid(element, "", "optiongid");
 
   FOREVERY(OBJECT option FROM nodeset->GetCurrentElements())
   {

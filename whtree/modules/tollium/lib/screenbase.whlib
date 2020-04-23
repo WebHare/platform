@@ -730,7 +730,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF(NOT this->tolliumscreenbuilder->HasFailed())
       this->tolliumscreenmanager->DoInitComponents(components, this->tolliumscreenbuilder);
     IF(NOT this->tolliumscreenbuilder->HasFailed())
-      result.rootnode := this->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields);
+      result.rootnode := this->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields, fragment.rootnode.tolliumscope);
 
     this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
     this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
@@ -808,7 +808,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   PUBLIC OBJECT FUNCTION CreateCustomComponent(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ namebase := "tollium_d" ], options);
-    RECORD compinfo := GetComponentDefinition(namespace, type);
+    RECORD compinfo := GetComponentDefinition(namespace, type, "element");
     IF(NOT RecordExists(compinfo))
       RETURN DEFAULT OBJECT;
 
@@ -1183,6 +1183,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
     ^row->composition := data.contextrequestfallback;
     ^row->enabled := NOT data.viewmode;
     this->frame->footerbuttons := data.viewmode ? ["close"] : ["ok","cancel"];
+
     IF(RecordExists(data.row))
       this->SetEditRow(data.row);
   }

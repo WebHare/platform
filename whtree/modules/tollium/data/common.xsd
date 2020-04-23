@@ -214,6 +214,7 @@
     <xs:attribute name="marginleft" type="sc:DeprecatedAttribute" />
     <xs:attribute name="marginright" type="sc:DeprecatedAttribute" />
 
+    <xs:anyAttribute namespace="##any" processContents="strict"/> <!-- permit any attribute in other namespace -->
   </xs:attributeGroup>
 
   <xs:attributeGroup name="IsComposableListener">

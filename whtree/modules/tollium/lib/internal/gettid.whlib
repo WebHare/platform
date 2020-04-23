@@ -310,12 +310,12 @@ PUBLIC OBJECTTYPE LanguageFileSystem
   }
 >;
 
-PUBLIC STRING FUNCTION ParseXMLGid(STRING defaultmodule, STRING currentgid, OBJECT el, STRING cellname)
+PUBLIC STRING FUNCTION ParseXMLGid(STRING defaultmodule, STRING currentgid, OBJECT el, STRING ns, STRING cellname)
 {
-  IF(NOT el->HasAttribute(cellname))
+  IF(NOT el->HasAttributeNS(ns, cellname))
     RETURN currentgid;
 
-  STRING gid := el->GetAttribute(cellname);
+  STRING gid := el->GetAttributeNS(ns, cellname);
   IF(Left(gid,1)=".")
     RETURN currentgid || gid;
   IF(gid != "" AND gid NOT LIKE "*:*")
@@ -355,10 +355,15 @@ PUBLIC STRING FUNCTION ParseXMLTidDirectly(OBJECT el, STRING tid, STRING attrnam
 */
 PUBLIC STRING FUNCTION ParseXMLTidPtr(STRING defaultmodule, STRING currentgid, OBJECT el, STRING attrname)
 {
+  RETURN ParseXMLTidPtrNS(defaultmodule, currentgid, el, "", attrname);
+}
+
+PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING defaultmodule, STRING currentgid, OBJECT el, STRING ns, STRING attrname)
+{
   STRING attrnametid := attrname LIKE "*title" ? Left(attrname, Length(attrname) - 5) || "tid" : attrname || "tid";
-  IF(el->HasAttribute(attrnametid))
+  IF(el->HasAttributeNS(ns, attrnametid))
   {
-    STRING tid := el->GetAttribute(attrnametid);
+    STRING tid := el->GetAttributeNS(ns, attrnametid);
     IF(Left(tid,1)='.')
       tid := currentgid || tid;
     IF(NOT IsAbsoluteTid(tid))
@@ -374,8 +379,8 @@ PUBLIC STRING FUNCTION ParseXMLTidPtr(STRING defaultmodule, STRING currentgid, O
     RETURN tid;
   }
 
-  IF(el->HasAttribute(attrname))
-    RETURN ":" || el->GetAttribute(attrname);
+  IF(el->HasAttributeNS(ns, attrname))
+    RETURN ":" || el->GetAttributeNS(ns, attrname);
 
   IF(currentgid != "" AND attrname LIKE "*title")
   {

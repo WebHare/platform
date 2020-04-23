@@ -199,28 +199,27 @@ PUBLIC OBJECTTYPE __ScreenBuilder
 
   /** @short lookup a component as defined in XML in attributes of type p:Name
   */
-  PUBLIC OBJECT FUNCTION LookupComponent(RECORD def, STRING compname)
+  PUBLIC OBJECT FUNCTION LookupComponent(STRING value, RECORD tolliumscope, STRING attributename)
   {
-    OBJECT lookup := this->GetComponentNoFail(GetCell(def, compname));
+    OBJECT lookup := this->GetComponentNoFail(value);
     IF(NOT ObjectExists(lookup))
     {
-      this->AddError(def.tolliumscope, "Attribute '" || compname || "' refers to non-existing object '" || GetCell(def, compname) || "'");
+      this->AddError(tolliumscope, "Attribute '" || attributename || "' refers to non-existing object '" || value || "'");
     }
     RETURN lookup;
   }
 
   /** @short lookup multiple components as defined in XML in attributes of type p:NameList
   */
-  PUBLIC OBJECT ARRAY FUNCTION LookupComponents(RECORD def, STRING attributename)
+  PUBLIC OBJECT ARRAY FUNCTION LookupComponents(STRINg ARRAY compnames, RECORD tolliumscope, STRING attributename)
   {
     OBJECT ARRAY components;
 
-    STRING ARRAY compnames := GetCell(def, attributename);
     FOREVERY(STRING compname FROM compnames)
     {
       OBJECT lookup := this->GetComponentNoFail(compname);
       IF(NOT ObjectExists(lookup))
-        this->AddError(def.tolliumscope, "Attribute '" || attributename || "' refers to non-existing object '" || compname || "'");
+        this->AddError(tolliumscope, "Attribute '" || attributename || "' refers to non-existing object '" || compname || "'");
       ELSE
         INSERT lookup INTO components AT END;
     }
@@ -303,7 +302,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
       {
         CASE "childcomponents"
         {
-          RETURN SELECT AS RECORD ARRAY this->ReprocessData(obj, CellInsert(fld, "tolliumscope", scope), fld.__xml_fields)
+          RETURN SELECT AS RECORD ARRAY this->ReprocessData(obj, fld, fld.__xml_fields, scope)
                         FROM data AS fld;
         }
         CASE "acceptdrops"
@@ -312,7 +311,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
               RETURN DEFAULT RECORD;
 
             RETURN
-                [ ondrop := this->LookupAndValidateHandler(obj, data, "ondrop", scope)
+                [ ondrop := this->LookupAndValidateHandler(obj, data.ondrop, "ondrop", scope)
                 , acceptmultiple := data.acceptmultiple
                 , accepttypes :=
                       SELECT type
@@ -338,10 +337,10 @@ PUBLIC OBJECTTYPE __ScreenBuilder
                       , COLUMN min
                       , COLUMN max
                       , selectionmatch
-                      , onexecute := this->LookupAndValidateHandler(obj, enableon, "onexecute", scope)
-                      , onwindowopen := this->LookupAndValidateHandler(obj, enableon, "onwindowopen", scope)
-                      , ondownload := this->LookupAndValidateHandler(obj, enableon, "ondownload", scope)
-                      , onupload := this->LookupAndValidateHandler(obj, enableon, "onupload", scope)
+                      , onexecute := this->LookupAndValidateHandler(obj, enableon.onexecute, "onexecute", scope)
+                      , onwindowopen := this->LookupAndValidateHandler(obj, enableon.onwindowopen, "onwindowopen", scope)
+                      , ondownload := this->LookupAndValidateHandler(obj, enableon.ondownload, "ondownload", scope)
+                      , onupload := this->LookupAndValidateHandler(obj, enableon.onupload, "onupload", scope)
                       , requirefocus
                       , requirevisible
                       , frameflags := ParseXSList(frameflags)
@@ -365,7 +364,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
           RECORD ARRAY newval;
           FOREVERY(RECORD col FROM data)
           {
-            col := this->ReprocessData(obj, col, col.__xml_fields);
+            col := this->ReprocessData(obj, col, col.__xml_fields, scope);
             INSERT col INTO newval AT END;
           }
           RETURN newval;
@@ -378,6 +377,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
             RECORD outline := [ items := DEFAULT OBJECT ARRAY
                               , linesettings := line.linesettings
                               ];
+
             FOREVERY(STRING item FROM line.items)
               INSERT this->GetCheckComponent(item) INTO outline.items AT END;
 
@@ -488,58 +488,73 @@ PUBLIC OBJECTTYPE __ScreenBuilder
     THROW NEW TolliumException(obj, `Unrecognized reprocessor ${field.parser.namespaceuri}:${field.parser.localname}`);
   }
 
-  PUBLIC RECORD FUNCTION ReprocessData(OBJECT obj, RECORD data, RECORD ARRAY xml_fields)
+  PUBLIC VARIANT FUNCTION ReprocessDataField(OBJECT obj, VARIANT newval, RECORD field, STRING attributename, RECORD tolliumscope)
+  {
+    IF(CellExists(field, "RECORDTYPE"))
+    {
+      IF(field.recordtype = "tid")
+      {
+        newval := GetTid(newval);
+      }
+      ELSE IF(field.recordtype IN [ "screenfragmentref", "datafileref", "datafilerefs",
+                                    "iconpointer", "gid", "optionalgid",
+                                    "color", "bordersspacers", "tidptr" ])
+      {
+        //already fine
+        newval := newval;
+      }
+      ELSE IF(field.recordtype = "handler")
+      {
+        newval := this->LookupAndValidateHandler(obj, newval, field.name, tolliumscope);
+      }
+      ELSE IF(field.recordtype = "componentref")
+      {
+        newval := newval = "" ? DEFAULT OBJECT : this->LookupComponent(newval, tolliumscope, attributename);
+      }
+      ELSE IF(field.recordtype = "componentreflist")
+      {
+        newval := this->LookupComponents(newval, tolliumscope, attributename);
+      }
+      ELSE IF(field.recordtype = "extraparser")
+      {
+        newval := this->ReprocessExtraParser(obj, field, tolliumscope, newval);
+      }
+      ELSE
+      {
+        THROW NEW Exception(`Unrecognized record type '${field.recordtype}'`);
+      }
+    }
+    RETURN newval;
+  }
+
+  PUBLIC RECORD FUNCTION ReprocessData(OBJECT obj, RECORD data, RECORD ARRAY xml_fields, RECORD tolliumscope)
   {
     RECORD finalfields;
 
     FOREVERY(RECORD field FROM xml_fields)
-    {
-      IF(TypeID(field.defaultvalue)=TypeID(RECORD) AND CellExists(field, "RECORDTYPE"))
+      IF(CellExists(field, "RECORDTYPE"))
       {
-        VARIANT newval;
-
-        IF(field.recordtype = "tid")
-        {
-          newval := GetTid(GetCell(data, field.name));
-        }
-        ELSE IF(field.recordtype IN [ "screenfragmentref", "datafileref", "datafilerefs",
-                                      "iconpointer", "gid", "optionalgid",
-                                      "color", "bordersspacers", "tidptr" ])
-        {
-          //already fine
-          newval := GetCell(data, field.name);
-        }
-        ELSE IF(field.recordtype = "handler")
-        {
-          newval := this->LookupAndValidateHandler(obj, data, field.name, data.tolliumscope);
-        }
-        ELSE IF(field.recordtype = "componentref")
-        {
-          STRING compname := GetCell(data, field.name);
-          newval := compname = "" ? DEFAULT OBJECT : this->LookupComponent(data, field.name);
-        }
-        ELSE IF(field.recordtype = "componentreflist")
-        {
-          newval := this->LookupComponents(data, field.name);
-        }
-        ELSE IF(field.recordtype = "extraparser")
-        {
-          newval := this->ReprocessExtraParser(obj, field, data.tolliumscope, GetCell(data, field.name));
-        }
-        ELSE
-        {
-          THROW NEW Exception(`Unrecognized record type '${field.recordtype}'`);
-        }
-
+        VARIANT val := GetCell(data, field.name);
         data := CellDelete(data, field.name);
-        data := CellInsert(data, field.name, newval);
+        data := CellInsert(data, field.name, this->ReprocessDataField(obj, val, field, field.name, tolliumscope));
+      }
+
+    IF(CellExists(data,"userattributes"))
+    {
+      FOREVERY(RECORD attr FROM data.userattributes)
+      {
+        attr := CELL[ ...attr
+                    , value := this->ReprocessDataField(obj, attr.value, attr.fielddescr, attr.namespaceuri || "#" || attr.localname, tolliumscope)
+                    , DELETE fielddescr
+                    ];
+        data.userattributes[#attr] := attr;
       }
     }
     DELETE CELL __xml_fields FROM data;
     RETURN data;
   }
 
-  FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD definition, RECORD handlerrec, STRING name, RECORD tolliumscope)
+  FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
     IF(this->isvalidating) //FIXME parse the lib without requiring instantiation
       RETURN DEFAULT FUNCTION PTR;
@@ -551,11 +566,8 @@ PUBLIC OBJECTTYPE __ScreenBuilder
 
       IF(NOT ValidateFunctionPtr(handler, handlerrec.req_retval, expectargs))
       {
-        // some objects with handlers, like droptargets, usually don't have a name
-        STRING objname := (CellExists(definition,'name') ? "'" || definition.name || "' " : "");
-
         THROW NEW TolliumException(obj,
-                `The '${name}' handler for object ${objname} points to function '${handlerrec.name}'`
+                `The '${attributename}' handler points to function '${handlerrec.name}'`
                 ||" which has the wrong function signature. Expected " ||
                 ExplainFunctionSignature(handlerrec.req_retval, expectargs) || ", got " || ExplainFunctionPtrSignature(handler));
       }
@@ -572,12 +584,12 @@ PUBLIC OBJECTTYPE __ScreenBuilder
     }
     CATCH(OBJECT e)
     {
-      this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found: ${e->what}`);
+      this->AddError(tolliumscope, `Handler '${handlerrec.name}' cannot be found: ${e->what}`);
       RETURN DEFAULT FUNCTION PTR;
     }
   }
 
-  FUNCTION PTR FUNCTION LookupAndValidateLocalHandler(OBJECT obj, RECORD definition, RECORD handlerrec, STRING name, RECORD tolliumscope)
+  FUNCTION PTR FUNCTION LookupAndValidateLocalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
     STRING scopename, membername;
     IF(handlerrec.name LIKE "*!*")
@@ -615,17 +627,17 @@ PUBLIC OBJECTTYPE __ScreenBuilder
       {
         IF(scope = this->screen AND NOT this->havelib)
         {
-          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found because no screen object was provided`);
+          this->AddError(tolliumscope, `Handler '${handlerrec.name}' cannot be found because no screen object was provided`);
           RETURN DEFAULT FUNCTION PTR;
         }
         IF(res.errorcode = "nomember")
         {
-          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
+          this->AddError(tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
           RETURN DEFAULT FUNCTION PTR;
         }
         IF(res.errorcode = "nofunction")
         {
-          this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' is not a method`);
+          this->AddError(tolliumscope, `Handler '${handlerrec.name}' is not a method`);
           RETURN DEFAULT FUNCTION PTR;
         }
       }
@@ -634,10 +646,8 @@ PUBLIC OBJECTTYPE __ScreenBuilder
     IF(NOT ValidateFunctionPtr(res.handler, handlerrec.req_retval, handlerrec.req_args))
     {
       // some objects with handlers, like droptargets, usually don't have a name
-      STRING objname := (CellExists(definition,'name') ? "'" || definition.name || "' " : "");
-
       THROW NEW TolliumException(obj,
-              `The '${name}' handler for object ${objname} points to function '${handlerrec.name}'`
+              `The '${attributename}' handler points to function '${handlerrec.name}'`
               ||" which has the wrong function signature. Expected " ||
               ExplainFunctionSignature(handlerrec.req_retval, handlerrec.req_args) || ", got " || ExplainFunctionPtrSignature(res.handler));
     }
@@ -648,24 +658,20 @@ PUBLIC OBJECTTYPE __ScreenBuilder
       @param definition
       @param name name of the cell which contains the definition of the handler (name, it's returnvalue type and argument types)
   */
-  PUBLIC FUNCTION PTR FUNCTION LookupAndValidateHandler(OBJECT obj, RECORD definition, STRING name, RECORD tolliumscope DEFAULTSTO DEFAULT RECORD)
+  PUBLIC FUNCTION PTR FUNCTION LookupAndValidateHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
-    IF(NOT RecordExists(tolliumscope))
-      tolliumscope := definition.tolliumscope;
-
-    RECORD handlerrec := GetCell(definition, name);
     IF (NOT RecordExists(handlerrec))
       RETURN DEFAULT FUNCTION PTR;
 
     IF(handlerrec.name = "")
     {
-      this->AddError(definition.tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
+      this->AddError(tolliumscope, `Handler '${handlerrec.name}' cannot be found`);
       RETURN DEFAULT FUNCTION PTR;
     }
     IF(handlerrec.name LIKE "*#*") //freestanding
-      RETURN this->LookupAndValidateGlobalHandler(obj,definition, handlerrec, name, tolliumscope);
+      RETURN this->LookupAndValidateGlobalHandler(obj, handlerrec, attributename, tolliumscope);
     ELSE
-      RETURN this->LookupAndValidateLocalHandler(obj, definition, handlerrec, name, tolliumscope);
+      RETURN this->LookupAndValidateLocalHandler(obj,  handlerrec, attributename, tolliumscope);
   }
 >;
 

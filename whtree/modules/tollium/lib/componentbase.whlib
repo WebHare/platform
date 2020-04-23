@@ -129,6 +129,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
   FUNCTION PTR pvt_onfocusin;
 
+  RECORD ARRAY __userattributes;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -226,6 +228,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
   /// XML Element type, either the localname or namespace#localname if not a tollium screens component
   PUBLIC PROPERTY elementtype(pvt_elementtype, -);
 
+  /// User defined attributes
+  PUBLIC PROPERTY userattributes(__userattributes, -);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor & tollium admin
@@ -277,6 +282,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     this->StaticInitIsComposable(def);
     this->StaticInitCanMakeDirty(def);
 
+    this->__userattributes := CellExists(def, 'userattributes') ? def.userattributes : RECORD[];
     this->pvt_enabled := def.enabled;
     this->pvt_readonly := def.readonly;
     this->pvt_visible := def.visible;

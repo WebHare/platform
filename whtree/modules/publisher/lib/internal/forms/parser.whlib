@@ -21,7 +21,7 @@ PUBLIC STRING FUNCTION FieldNameFromGuid(STRING guid)
 
 RECORD FUNCTION GetGlobalSettings(STRING module, OBJECT doc)
 {
-  RETURN [ gid := ParseXMLGid(module, "", doc, "gid") //from <formsdefinition>
+  RETURN [ gid := ParseXMLGid(module, "", doc, "", "gid") //from <formsdefinition>
          ];
 }
 
@@ -86,7 +86,7 @@ OBJECTTYPE FormParser
     OBJECT formnode := fieldnode;
     WHILE (ObjectExists(formnode) AND formnode->localname != "form")
       formnode := formnode->parentnode;
-    STRING gid := ParseXMLGid(this->module, globalsettings.gid, formnode, "gid"); //from <form>
+    STRING gid := ParseXMLGid(this->module, globalsettings.gid, formnode, "", "gid"); //from <form>
     RETURN this->ParseSingleFormNode(formnode, fieldnode, gid, formdefinitions, formpage, formgroup).field;
   }
 
@@ -239,7 +239,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
   OBJECT parser := NEW FormParser(resourcename, options.validatexmlonly);
   STRING module := GetModuleNameFromResourcePath(resourcename);
   RECORD globalsettings := GetGlobalSettings(module, formnode->ownerdocument->documentelement);
-  STRING gid := ParseXMLGid(module, globalsettings.gid, formnode, "gid"); //from <form>
+  STRING gid := ParseXMLGid(module, globalsettings.gid, formnode, "", "gid"); //from <form>
 
   RECORD formdef := [ fields := RECORD[]
                     , pages := RECORD[]

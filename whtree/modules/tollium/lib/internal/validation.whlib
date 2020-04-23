@@ -76,7 +76,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
             {
               TRY
               {
-                objinfo.data := builder->ReprocessData(DEFAULT OBJECT, objinfo.data, objinfo.data.__xml_fields);
+                objinfo.data := builder->ReprocessData(DEFAULT OBJECT, objinfo.data, objinfo.data.__xml_fields, objinfo.data.tolliumscope);
               }
               CATCH(OBJECT e)
               {

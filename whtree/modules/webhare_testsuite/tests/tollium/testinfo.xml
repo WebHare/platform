@@ -10,6 +10,7 @@
   <jstest file="test_distributesizes.es" />
 
   <test path="layout/" />
+  <test path="component/" />
   <test path="enabled/" />
   <test path="frame/" />
   <test path="dragdrop/" />

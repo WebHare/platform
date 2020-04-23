@@ -1,0 +1,73 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+
+MACRO TestComponentParser()
+{
+  //Lowlevel tests to verify the inner workings of the parser
+
+  RECORD components := GetComponents("mod::webhare_testsuite/data/testcomponents.xsd");
+  RECORD ARRAY attributes := SELECT * FROM components.components WHERE type="attribute";
+  TestEqMembers([ recordtype := "handler" ], attributes[1], "*");
+}
+
+ASYNC MACRO TestUserAttributes()
+{
+  OBJECT scr;
+
+  //basic test. verify that xmlns attributes don't confuse us
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="mytextedit" test:myattr="Hello, world" xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:ignore="urn::igore"/>
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq([[ namespaceuri := 'http://www.webhare.net/xmlns/webhare_testsuite/testcomponents', localname := "myattr", value := "Hello, world" ]],
+         TT("mytextedit")->userattributes);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //advanced attributes test
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="other" />
+      <textedit name="mytextedit" test:myref="other" />
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(TT("other"), TT("mytextedit")->userattributes[0].value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestUserComponents()
+{
+  OBJECT scr;
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="standardtextedit" />
+      <test:emptyfragcomp name="emptyfragcomp" />
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents#emptyfragcomp", TT("emptyfragcomp")->elementtype);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestComponentParser
+                 , PTR TestUserAttributes
+                 , PTR TestUserComponents
+                 ]);
