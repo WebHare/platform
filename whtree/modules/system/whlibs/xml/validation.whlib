@@ -122,6 +122,13 @@ STATIC OBJECTTYPE XSDParserFrameWork
   PUBLIC PROPERTY elements(GetElements, -);
 
 
+  /** Contains the list of parsed attribute types
+      @cell name Name of the complex type
+      @cell namespaceuri Namespace uri of the complex type
+  */
+  PUBLIC PROPERTY attributes(GetAttributes, -);
+
+
   /** Contains the list of parsed modelgroups
       @cell name Name of the complex type
       @cell namespaceuri Namespace uri of the complex type
@@ -184,6 +191,14 @@ STATIC OBJECTTYPE XSDParserFrameWork
             WHERE nodes."2" = "ELEMENT";
   }
 
+  RECORD ARRAY FUNCTION GetAttributes()
+  {
+    RETURN SELECT namespaceuri := nodes."1"
+                , name         := nodes."0"
+                , node
+             FROM this->pvt_registered_nodes AS nodes
+            WHERE nodes."2" = "ATTRIBUTE";
+  }
 
   RECORD ARRAY FUNCTION GetModelGroups()
   {

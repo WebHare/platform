@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
+  xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
+  targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testfile"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:element name="myelement">
+  </xs:element>
+
+  <xs:attribute name="myattr" type="xs:string">
+  </xs:attribute>
+
+</xs:schema>
