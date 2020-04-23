@@ -38,7 +38,7 @@ MACRO CustomDeleteAction()
 OBJECT ASYNC FUNCTION TestArrayEdit()
 {
   OBJECT browser := GetTestController()->LoadScreen(InlineScreens(`
-  <screen name="test" implementation="none" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
     <body>
       <arrayedit name="comp" roweditscreen="mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor" onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter">
         <column type="text" name="text" title="Text" checkboxname="checkbox" />
@@ -193,5 +193,29 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   RETURN TRUE;
 }
 
+ASYNC MACRO TestFragmentsBreakingArrayeditList()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <fragment name="holder" implementation="none">
+      <contents>
+        <arrayedit name="arrayedit" viewifdisabled="true" />
+      </contents>
+    </fragment>
+    <screen name="test" implementation="none">
+      <body>
+        <includefragment name="frag" fragment="#holder" />
+      </body>
+    </screen>`,"#test")));
+
+  Testeq(TRUE, TT("frag")->^arrayedit->^list IN topscreen->frame->GetTopDownUpdatableComponents());
+  topscreen->frag->enabled := FALSE;
+  //the list should NOT leave the GetTopDownUpdatableComponents set. this is because subcomponents setting disabled on its grid
+  //we fixed this by preventing tables and panels from setting themselves as not-updateable (which is recursive)
+  Testeq(TRUE, TT("frag")->^arrayedit->^list IN topscreen->frame->GetTopDownUpdatableComponents());
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR TestArrayEdit
+                 , PTR TestFragmentsBreakingArrayeditList
                  ]);
