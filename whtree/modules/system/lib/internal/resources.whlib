@@ -240,7 +240,6 @@ PUBLIC STRING ARRAY FUNCTION GetResourceEventMasks(STRING ARRAY inpaths)
 
 PUBLIC RECORD FUNCTION OpenXMLDoc(STRING path, BOOLEAN _isschema)
 {
-  RECORD fileinfo := RetrieveWebHareResource(path);
   RECORD doc := GetAdhocCached([ _isschema := _isschema
                                , path := path
                                ], PTR GetCacheableXMLDoc(_isschema, path));
