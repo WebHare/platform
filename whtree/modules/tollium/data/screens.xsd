@@ -1123,31 +1123,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="startmenu" type="ComponentRef">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>The name of the menu to use as a start menu. By default, this menu will be shown at the top left of the browser content screen.</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="startmenuhinttid" type="Tid" default="common.buttons.startmenuhint">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Text shown when hovering over the startmenu button in the top left corner of a portal application.
-          When specified, the startmenuhint attribute will be ignored.</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
-    <xs:attribute name="startmenuhint" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>Text shown when hovering over the startmenu button in the top left corner of a portal application.</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-
     <xs:attribute name="oninterval" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
