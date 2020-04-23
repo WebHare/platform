@@ -101,11 +101,13 @@
       <record name="row" />
     </compositions>
     <body>
-      <checkbox composition="row" cellname="checkbox" visible="false" />
-      <textedit name="virtualized_text" />
+      <checkbox composition="row" cellname="checkbox" visible="false" label="Checkbox" />
+      <textedit title="Other text" composition="row" cellname="othertext" name="othertext" />
+      <textedit title="Virtualized text" composition="row" name="virtualized_text" />
+      <select composition="row" cellname="radio" name="radio" type="radio" title="Radio">
+        <option rowkey="test" title="gaga"/>
+        <option rowkey="test2" title="gugu"/>
+      </select>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 </screens>

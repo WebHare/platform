@@ -5,6 +5,8 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
+CONSTANT STRING ARRAY supportedbuttons := ["add","edit","delete","view"];
+CONSTANT STRING ARRAY defaultbuttons := ["add","edit","delete"];
 
 PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
@@ -29,6 +31,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   OBJECT pvt_addactionoverride;
   OBJECT pvt_editactionoverride;
   OBJECT pvt_deleteactionoverride;
+  STRING ARRAY __buttons;
+  BOOLEAN __isarrayedit;
+  BOOLEAN __viewifdisabled;
 
   // ---------------------------------------------------------------------------
   //
@@ -53,6 +58,8 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY onchangeorder(pvt_onchangeorder, SetOnChangeOrder);
 
+  PUBLIC PROPERTY viewifdisabled(__viewifdisabled, SetViewIfDisabled);
+
   UPDATE PUBLIC PROPERTY height(this->maingrid->height, this->maingrid->height);
 
   UPDATE PUBLIC PROPERTY width(this->maingrid->width, this->maingrid->width);
@@ -69,7 +76,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   PUBLIC PROPERTY savestate(this->list->savestate, this->list->savestate);
 
   ///(string array) Names of buttons to show ('add', 'edit', 'delete')
-  PUBLIC PROPERTY buttons(GetButtons, SetButtons);
+  PUBLIC PROPERTY buttons(__buttons, SetButtons);
 
   PUBLIC PROPERTY showbuttons(this->buttoncell->visible,this->buttoncell->visible);
 
@@ -124,6 +131,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO NEW()
   {
     EXTEND this BY TolliumIsDirtyable;
+    this->__buttons := defaultbuttons;
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)
@@ -133,6 +141,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->onrowedit := description.onrowedit;
     this->onrowdelete := description.onrowdelete;
     this->onrowsdelete := description.onrowsdelete;
+    this->__viewifdisabled := description.viewifdisabled;
 
     this->addactionoverride := description.addactionoverride;
     this->editactionoverride := description.editactionoverride;
@@ -184,7 +193,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->maingrid->minwidth := this->minwidth;
     this->maingrid->minheight := this->minheight;
 
-    this->UpdateDropTarget();
+    this->RefreshActions();
   }
 
   UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
@@ -209,12 +218,12 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO SetOnRowDelete(FUNCTION PTR onrowdelete)
   {
     this->pvt_onrowdelete := onrowdelete;
-    this->CheckDelete();
+    this->RefreshActions();
   }
   MACRO SetOnRowsDelete(FUNCTION PTR onrowsdelete)
   {
     this->pvt_onrowsdelete := onrowsdelete;
-    this->CheckDelete();
+    this->RefreshActions();
   }
 
   MACRO SetAddActionOverride(OBJECT addaction)
@@ -238,7 +247,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
       this->pvt_deleteactionoverride->enableon := this->"delete"->enableon;
     this->deleteitem->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
     this->deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
-    this->CheckDelete();
+    this->RefreshActions();
   }
 
   STRING ARRAY FUNCTION GetFlags()
@@ -266,42 +275,37 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->"delete"->enableon[0].checkflags := flags;
   }
 
-  STRING ARRAY FUNCTION GetButtons()
-  {
-    STRING ARRAY buttons;
-    IF (this->addbutton->visible)
-      INSERT "add" INTO buttons AT END;
-    IF (this->editbutton->visible)
-      INSERT "edit" INTO buttons AT END;
-    IF (this->deletebutton->visible)
-      INSERT "delete" INTO buttons AT END;
-    RETURN buttons;
-  }
-
   MACRO SetButtons(STRING ARRAY buttons)
   {
-    this->add->enabled := this->pvt_enabled AND "add" IN buttons;
-    this->addbutton->visible := "add" IN buttons;
-    this->edit->enabled:= this->pvt_enabled AND "edit" IN buttons;
-    this->editbutton->visible := "edit" IN buttons;
-    this->CheckDelete();
-    this->deletebutton->visible := "delete" IN buttons;
+    STRING ARRAY finalbuttonset;
+
+    FOREVERY(STRING button FROM supportedbuttons)
+      IF(button IN buttons)
+        INSERT button INTO finalbuttonset AT END;
+    FOREVERY(STRING button FROM buttons)
+      IF(button NOT IN supportedbuttons)
+        THROW NEW Exception(`No such button '${button}'`);
+
+    IF("view" IN finalbuttonset AND Length(finalbuttonset) > 1)
+      THROW NEW Exception(`View cannot be mixed with other buttons`);
+
+    this->__buttons := buttons;
+    this->RefreshActions();
   }
 
   UPDATE PUBLIC MACRO SetEnabled(BOOLEAN enable)
   {
-    this->maingrid->enabled := enable;
-    this->list->enabled := enable;
+    TolliumFragmentBase::SetEnabled(enable);
+    this->RefreshActions();
+  }
 
-    STRING ARRAY buttons := this->buttons;
-    this->pvt_enabled := enable;
-    this->add->enabled := enable AND "add" IN buttons;
-    this->edit->enabled := enable AND "edit" IN buttons;
-    this->CheckDelete();
-    this->moveup->enabled := enable;
-    this->movedown->enabled := enable;
+  MACRO SetViewIfDisabled(BOOLEAN newsetting)
+  {
+    IF(this->__viewifdisabled = newsetting)
+      RETURN;
 
-    this->UpdateDropTarget();
+    this->__viewifdisabled := newsetting;
+    this->RefreshActions();
   }
 
   /** Add an action to the the list (button and menu item)
@@ -370,7 +374,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->movedownbutton->visible := newonchangeorder != DEFAULT MACRO PTR;
     this->flags := this->flags; //make sure flag definitions are updated to include moveup/movedown
     this->list->sortable := this->pvt_sortable AND newonchangeorder = DEFAULT MACRO PTR;
-    this->UpdateDropTarget();
+    this->RefreshActions();
   }
 
   MACRO SetSortable(BOOLEAN newvalue)
@@ -550,11 +554,41 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->list->ReloadList();
   }
 
-  MACRO CheckDelete()
+  UPDATE PUBLIC MACRO __ExtUpdatedReadonly()
   {
-    this->"delete"->enabled := this->pvt_enabled AND (this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
+    this->RefreshActions();
+  }
+
+  MACRO RefreshActions()
+  {
     IF (ObjectExists(this->deleteactionoverride))
       this->deleteactionoverride->enabled := this->pvt_enabled;
+
+    BOOLEAN autoviewmode := this->__viewifdisabled AND NOT this->enabled;
+    BOOLEAN inviewmode := "view" IN this->buttons OR autoviewmode;
+    ^addbutton->visible := "add" IN this->__buttons AND NOT inviewmode;
+    ^add->enabled := this->pvt_enabled AND "add" IN this->__buttons;
+
+    ^editbutton->visible := (inviewmode AND NOT autoviewmode ? "view" : "edit") IN this->__buttons;
+    ^edit->enabled := (this->pvt_enabled OR this->__viewifdisabled) AND ^editbutton->visible;
+
+    ^edit->title := inviewmode ? GetTid("~view") : GetTid("~edit");
+    ^editbutton->title := ^edit->title;
+    ^edititem->title := ^edit->title;
+
+    ^deletebutton->visible := "delete" IN this->__buttons AND NOT inviewmode;
+    ^"delete"->enabled := this->pvt_enabled AND ^deletebutton->visible AND (this->__isarrayedit OR this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
+
+    ^list->enabled := this->pvt_enabled OR this->__viewifdisabled;
+
+    this->UpdateDropTarget();
+  }
+
+  /** Return whether the list or arrayedit is in 'view' mode and subscreens should not allow changes
+      @return true when changes should not be made */
+  PUBLIC BOOLEAN FUNCTION InViewMode()
+  {
+    RETURN (this->__viewifdisabled AND NOT this->enabled) OR "view" IN this->buttons;
   }
 >;
 
@@ -691,15 +725,13 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   MACRO NEW()
   {
     EXTEND this BY TolliumIsComposable;
+    this->__isarrayedit := TRUE;
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD description)
   {
     //this->pvt_composition_forwardto := this->list; //FIXME can we remove forward completely again? not sure if we needed it at all?
     ArrayListEditBase::StaticInit(description);
-
-    IF (this->onrowdelete = DEFAULT FUNCTION PTR)
-      this->list->selectmode := "multiple";
 
     IF (description.oncelledit = DEFAULT FUNCTION PTR)
       this->oncelledit := PTR this->DoUpdateValueForEdittedCell;
@@ -738,10 +770,17 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     this->list->ongetchildren := PTR this->GetCurrentRows;
   }
 
+  UPDATE MACRO RefreshActions()
+  {
+    ArrayListEditBase::RefreshActions();
+    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+    this->list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
+  }
+
   MACRO SetMaxRows(INTEGER newmaxrows)
   {
     this->pvt_maxrows := newmaxrows;
-    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+    this->RefreshActions();
   }
 
   BOOLEAN FUNCTION GetOrderable()
@@ -877,8 +916,11 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   PUBLIC MACRO RunAddRow(RECORD basedata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
+    RECORD ARRAY newrows := this->DoRowEdit(basedata);
+    IF(this->InViewMode())
+      RETURN;
 
-    this->AddRows(this->DoRowEdit(basedata), options);
+    this->AddRows(newrows, options);
   }
 
   PUBLIC MACRO AddRows(RECORD ARRAY newdata, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -919,7 +961,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     RECORD row := this->currows[pos];
 
     RECORD newdata := this->DoRowEdit(row);
-    IF(NOT RecordExists(newdata))
+    IF(NOT RecordExists(newdata) OR this->InViewMode())
       RETURN;
 
     this->__UpdateSingleRow(newdata, pos);
@@ -1061,7 +1103,11 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
 
     RECORD screenopts := [ parent := this->owner
                          , screen := roweditscreen
-                         , params := [ calltype := "rowedit", row := row, contextrequestfallback := this->composition ]
+                         , params := [ calltype := "rowedit"
+                                     , row := row
+                                     , viewmode := this->InViewMode()
+                                     , contextrequestfallback := this->composition
+                                     ]
                          , run_init := TRUE
                          ];
 
@@ -1183,7 +1229,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   MACRO RefreshList(BOOLEAN isvaluechange)
   {
     this->list->ReloadList();
-    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+    this->RefreshActions();
 
     //ADDME: Only call when rows have actually changed?
     IF (isvaluechange AND this->onchange != DEFAULT MACRO PTR)
@@ -1217,11 +1263,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   UPDATE PUBLIC MACRO Invalidate()
   {
     this->RefreshList(FALSE);
-  }
-
-  UPDATE MACRO CheckDelete()
-  {
-    this->"delete"->enabled := this->pvt_enabled;
   }
 >;
 

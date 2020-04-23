@@ -1180,6 +1180,8 @@ PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
 
     // Set forward first!
     ^row->composition := data.contextrequestfallback;
+    ^row->enabled := NOT data.viewmode;
+    this->frame->footerbuttons := data.viewmode ? ["close"] : ["ok","cancel"];
     IF(RecordExists(data.row))
       this->SetEditRow(data.row);
   }

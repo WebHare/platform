@@ -1,0 +1,7 @@
+<?wh
+
+PUBLIC INTEGER callcounter;
+PUBLIC MACRO IncCallCounter(OBJECT contexts)
+{
+  callcounter := callcounter + 1;
+}
