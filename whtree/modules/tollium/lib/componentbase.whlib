@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
@@ -631,6 +632,42 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RETURN RecordExists(this->dirtyflags);
   }
 
+  RECORD FUNCTION DescribeUserAttribute(STRING namespace, STRING attr)
+  {
+    RECORD comps := GetComponentsForNamespace(namespace);
+    IF(NOT RecordExists(comps))
+      THROW NEW Exception(`No such component namespace '${namespace}'`);
+
+    RECORD attrdef := SELECT * FROM comps.components WHERE name = attr AND type="attribute";
+    IF(NOT RecordExists(attrdef))
+      THROW NEW Exception(`No such attribute '${attr}' in namespace '${namespace}'`);
+
+    RETURN attrdef;
+  }
+
+  PUBLIC VARIANT FUNCTION GetUserAttribute(STRING namespace, STRING attr)
+  {
+    RECORD match := SELECT * FROM this->__userattributes WHERE namespaceuri = namespace AND localname = attr;
+    IF(RecordExists(match))
+      RETURN match.value;
+
+    RECORD descr := this->DescribeUserAttribute(namespace,attr);
+    RETURN GetTypeDefaultValue(descr.finaltype);
+  }
+
+  PUBLIC MACRO SetUserAttribute(STRING namespace, STRING attr, VARIANT newvalue)
+  {
+    //Record cells
+    RECORD descr := this->DescribeUserAttribute(namespace,attr);
+    RECORD tostore := [ namespaceuri := namespace, localname := attr, value := GetTypeDefaultValue(descr.finaltype) ];
+    tostore.value := newvalue; //using initialized cell to do typecasting for us
+
+    INTEGER pos := (SELECT AS INTEGER #__userattributes+1 FROM this->__userattributes WHERE namespaceuri = namespace AND localname = attr)-1;
+    IF(pos >= 0)
+      this->__userattributes[pos] := tostore;
+    ELSE
+      INSERT tostore INTO this->__userattributes AT END;
+  }
 
   // ---------------------------------------------------------------------------
   //

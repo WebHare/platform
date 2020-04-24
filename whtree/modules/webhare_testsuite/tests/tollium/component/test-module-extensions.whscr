@@ -29,8 +29,23 @@ ASYNC MACRO TestUserAttributes()
 </screens>#test`);
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
-  TestEq([[ namespaceuri := 'http://www.webhare.net/xmlns/webhare_testsuite/testcomponents', localname := "myattr", value := "Hello, world" ]],
+  TestEq([[ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "myattr", value := "Hello, world" ]],
          TT("mytextedit")->userattributes);
+  TestEq("Hello, world", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myattr"));
+  TestEq(DEFAULT OBJECT, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+  TestEq(0m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
+  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/unknown", "myunknown"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 5);
+  TestEq(5m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 9);
+  TestEq(9m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref", TT("mytextedit"));
+  TestEq(TT("mytextedit"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //advanced attributes test
@@ -46,6 +61,9 @@ ASYNC MACRO TestUserAttributes()
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   TestEq(TT("other"), TT("mytextedit")->userattributes[0].value);
+  TestEq(TT("other"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

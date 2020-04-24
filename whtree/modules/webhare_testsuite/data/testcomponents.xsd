@@ -14,6 +14,7 @@
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
   <xs:complexType name="screenimplementation">
     <xs:annotation>
@@ -279,5 +280,6 @@
       </xs:documentation>
     </xs:annotation>
   </xs:attribute>
+  <xs:attribute name="mymoney" type="s:Money"/>
 
 </xs:schema>

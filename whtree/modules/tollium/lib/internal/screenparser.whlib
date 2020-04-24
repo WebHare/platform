@@ -1964,7 +1964,7 @@ RECORD ARRAY FUNCTION ParseChildComponents(OBJECT nodelist, STRING ARRAY adoptfi
 
     //give the reprocessor the datatypes for the adopted fields
     RECORD ARRAY localxmlfields := SELECT * FROM item.__xml_fields WHERE ToUppercase(name) IN adoptfields;
-    INSERT [ defaultvalue := DEFAULT RECORD, name := "component", recordtype := "componentref" ] INTO localxmlfields AT END;
+    INSERT [ defaultvalue := DEFAULT RECORD, name := "component", recordtype := "componentref", finaltype := TYPEID(OBJECT) ] INTO localxmlfields AT END;
 
     RECORD outpanel := [ component := item.name
                        , __xml_fields := localxmlfields

@@ -149,6 +149,7 @@ RECORD FUNCTION ParseAttributeType(OBJECT decl)
        AND (attrtype->name = "Handler" OR attrtype->name="NotimplementedOrHandler"))
     {
       RETURN [ defaultvalue := DEFAULT RECORD
+             , finaltype := TYPEID(FUNCTION PTR)
              , recordtype := "handler"
              , callback_signature := GetCallbackSignature(callbacksignode, "")
              ];
@@ -200,11 +201,11 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     //Deeper analysis...
     IF(attrtype->variety="list")
     {
-      RETURN [ defaultvalue := ParseXSList(defaultval) ];
+      RETURN [ defaultvalue := ParseXSList(defaultval), finaltype := TYPEID(STRING ARRAY) ];
     }
     IF(attrtype->variety="atomic")
     {
-      RETURN [ defaultvalue := defaultval ];
+      RETURN [ defaultvalue := defaultval, finaltype := TYPEID(STRING) ];
     }
     RETURN [ defaultvalue := DEFAULT RECORD, recordtype := "UNRECOGNIZED" ];
   }
@@ -217,15 +218,15 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
 
     IF(attrtype->name IN ["StringList","CheckFlags","Flags","InputValidationCheckList","SizeList","NameList","ValidationChecks"])
     {
-      RETURN [ defaultvalue := ParseXSList(defaultval) ];
+      RETURN [ defaultvalue := ParseXSList(defaultval), finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "Money")
     {
-      RETURN [ defaultvalue := ToMoney(defaultval,0.0) ];
+      RETURN [ defaultvalue := ToMoney(defaultval,0.0), finaltype := TYPEID(MONEY) ];
     }
     IF(attrtype->name = "ImageSrc")
     {
-      RECORD retval := [ defaultvalue := "", recordtype := "iconpointer" ];
+      RECORD retval := [ defaultvalue := "", recordtype := "iconpointer", finaltype := TYPEID(STRING) ];
       IF(defaultval!="")
       {
         IF(defaultval NOT LIKE "*:*")
@@ -237,71 +238,69 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     }
     IF(attrtype->name = "ComponentRef")
     {
-      RETURN [ defaultvalue := "", recordtype := "componentref" ];
+      RETURN [ defaultvalue := "", recordtype := "componentref", finaltype := TYPEID(OBJECT) ];
     }
     IF(attrtype->name = "ComponentRefList")
     {
-      RETURN [ defaultvalue := STRING[], recordtype := "componentreflist" ];
+      RETURN [ defaultvalue := STRING[], recordtype := "componentreflist", finaltype := TYPEID(OBJECT ARRAY) ];
     }
     IF(attrtype->name = "Gid")
     {
-      RETURN [ defaultvalue := "", recordtype := "gid" ];
+      RETURN [ defaultvalue := "", recordtype := "gid", finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "OptionalGid")
     {
-      RETURN [ defaultvalue := "", recordtype := "optionalgid" ];
+      RETURN [ defaultvalue := "", recordtype := "optionalgid", finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "Color")
     {
-      RETURN [ defaultvalue := "", recordtype := "color" ];
+      RETURN [ defaultvalue := "", recordtype := "color", finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "BordersSpacers")
     {
-      RETURN [ defaultvalue := ParseBordersSpacers(defaultval), recordtype := "bordersspacers" ];
+      RETURN [ defaultvalue := ParseBordersSpacers(defaultval), recordtype := "bordersspacers", finaltype := TYPEID(RECORD) ];
     }
     IF(attrtype->name = "ScreenFragmentReference")
     {
-      RETURN [ defaultvalue := "", recordtype := "screenfragmentref" ];
+      RETURN [ defaultvalue := "", recordtype := "screenfragmentref", finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "DataFileRef")
     {
-      RETURN [ defaultvalue := "", recordtype := "datafileref" ];
+      RETURN [ defaultvalue := "", recordtype := "datafileref", finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "DataFileRefs")
     {
-      RETURN [ defaultvalue := STRING[], recordtype := "datafilerefs" ];
+      RETURN [ defaultvalue := STRING[], recordtype := "datafilerefs", finaltype := TYPEID(STRING ARRAY) ];
     }
     IF(attrtype->name = "DeprecatedAttribute")
     {
-      RETURN [ defaultvalue := "", warning := `Attribute '${attrname}' has been deprecated` ];
+      RETURN [ defaultvalue := "", warning := `Attribute '${attrname}' has been deprecated`, finaltype := TYPEID(STRING) ];
     }
-    RETURN [ defaultvalue := defaultval ];
   }
   IF(attrtype->target_namespace = ns_xmlschema)
   {
     IF(attrtype->name = "string")
     {
-      RETURN [ defaultvalue := defaultval ];
+      RETURN [ defaultvalue := defaultval, finaltype := TYPEID(STRING) ];
     }
     IF(attrtype->name = "integer" OR attrtype->name="nonNegativeInteger")
     {
-      RETURN [ defaultvalue := ParseXSInt(defaultval) ];
+      RETURN [ defaultvalue := ParseXSInt(defaultval), finaltype := TYPEID(INTEGER) ];
     }
     IF(attrtype->name = "integer64")
     {
-      RETURN [ defaultvalue := ParseXSInt64(defaultval) ];
+      RETURN [ defaultvalue := ParseXSInt64(defaultval), finaltype := TYPEID(INTEGER64) ];
     }
     IF(attrtype->name = "boolean")
     {
-      RETURN [ defaultvalue := ParseXSBoolean(defaultval) ];
+      RETURN [ defaultvalue := ParseXSBoolean(defaultval), finaltype := TYPEID(BOOLEAN) ];
     }
     IF (attrtype->name = "float")
     {
-      RETURN [ defaultvalue := ToFloat(defaultval,0.0) ];
+      RETURN [ defaultvalue := ToFloat(defaultval,0.0), finaltype := TYPEID(FLOAT) ];
     }
-    RETURN [ defaultvalue := defaultval ];
   }
-  RETURN [ defaultvalue := defaultval ];
+  RETURN [ defaultvalue := defaultval, finaltype := TYPEID(STRING) ];
 }
 
 RECORD FUNCTION GetAnnotiationUserDocumentation(OBJECT node)
@@ -485,6 +484,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
             [ name :=           tid.name
             , basename :=       tid.basename
             , defaultvalue :=   ""
+            , finaltype :=      TYPEID(STRING)
             , recordtype :=     tid.type // 'tid' or 'tidptr'
             ];
 
@@ -529,6 +529,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := extraparser->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
+             , finaltype := 0 //TODO also support extraparsers for userattributes?
              , recordtype := "extraparser"
              , parser := GetNamespacedTarget(extraparser,"type")
              , target := extraparser->GetAttribute("target")
@@ -555,6 +556,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := acceptdrops->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
+             , finaltype := TYPEID(RECORD)
              , recordtype := "extraparser"
              , parser := [ namespaceuri := ns_screens, localname := "acceptdrops" ]
              , ondrop_signature := GetCallbackSignature(acceptdrops, "ondrop_")
@@ -568,6 +570,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := listrows->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
+             , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
              , parser := [ namespaceuri := ns_screens, localname := "listrows" ]
              , columnsfield := listrows->GetAttribute("columnsfield")
@@ -584,6 +587,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := optionsources->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
+             , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
              , parser := [ namespaceuri := ns_screens, localname := "optionsources" ]
              , rowkeytypefield := optionsources->GetAttribute("rowkeytypefield")
@@ -597,6 +601,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := childcomponents->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD ARRAY
+             , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
              , parser := [ namespaceuri := ns_screens, localname := "childcomponents" ]
              , target := childcomponents->GetAttribute("target")
@@ -610,6 +615,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     {
       INSERT [ name := dividedcomponents->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
+             , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
              , parser := [ namespaceuri := ns_screens, localname := "dividedcomponents" ]
              , target := dividedcomponents->GetAttribute("target")
