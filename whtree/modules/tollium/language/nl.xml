@@ -1047,17 +1047,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
-    <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
-      <text tid="apptitle">Feedback</text>
-      <text tid="intro">Geeft u alstublieft wat extra informatie.</text>
-      <text tid="remarks">Opmerkingen</text>
-      <text tid="thankyou">Bedankt voor uw feedback!</text>
-      <text tid="type">Type feedback</text>
-      <text tid="type-bug">Fout</text>
-      <text tid="type-feedback">Algemene feedback</text>
-      <text tid="type-layout">Layout</text>
-      <text tid="type-missingtid">Missende tekst</text>
-    </textgroup>
     <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
       <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
         <text tid="add">Toevoegen</text>

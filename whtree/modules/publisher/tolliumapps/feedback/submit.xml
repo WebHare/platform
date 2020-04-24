@@ -15,13 +15,9 @@
       <line layout="left">
         <text title="" valuetid=".intro" wordwrap="true" />
       </line>
-      <select composition="extradata" cellname="type" type="radio">
-        <option rowkey="feedback" />
-        <option rowkey="bug" />
-        <option rowkey="missingtid" />
-        <option rowkey="layout" />
+      <select name="type" type="radio">
       </select>
-      <textarea composition="extradata" cellname="remarks" name="remarks" />
+      <textarea name="remarks" />
       <arrayedit composition="extradata" cellname="extrafields" visible="false">
         <column name="field" type="text" title="" />
         <column name="type" type="text" title="" />

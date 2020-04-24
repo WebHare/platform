@@ -6,6 +6,14 @@
     </attributes>
   </object>
 
+  <attachment tag="FEEDBACKTYPE" linkfrom="SCOPE">
+    <attributes>
+      <integer tag="WRD_ORDERING" />
+      <free tag="ROWKEY" />
+      <free tag="WRD_TITLE" />
+    </attributes>
+  </attachment>
+
   <attachment tag="FEEDBACK" title="Feedback" linkfrom="SCOPE">
     <attributes>
       <!-- Currently 1 -->
@@ -42,6 +50,11 @@
       <free tag="BROWSER" title="Browser triplet" />
       <free tag="DEVICE" title="Browser device" />
       <free tag="USERAGENT" title="Browser user agent" />
+
+      <domain tag="TYPE" domain="FEEDBACKTYPE" />
+      <free tag="REMARKS" />
+      <enum tag="STATUS" allowedvalues="creating new closed resolved" gid="tolliumapps.feedback.types" required="true"/>
+
       <!--
         When a logged in user is recognized, the result of GetUserDataForLogging
       -->
@@ -50,6 +63,14 @@
         Extra data supplied by the user
       -->
       <record tag="EXTRADATA" title="Extra data" />
+    </attributes>
+  </attachment>
+
+  <attachment tag="LOG" linkfrom="FEEDBACK">
+    <attributes>
+      <enum tag="STATUSCHANGE" allowedvalues="new closed resolved" gid="tolliumapps.feedback.types" />
+      <free tag="TEXT" />
+      <record tag="WEBHAREUSER" required="true" />
     </attributes>
   </attachment>
 

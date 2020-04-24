@@ -38,6 +38,14 @@ FOREVERY(RECORD currentscope FROM currentscopes)
 FOREVERY(RECORD newscope FROM alldefs)
 {
   trans->BeginWork();
-  feedbackschema->^scope->CreateEntity([ wrd_tag := ToUppercase(newscope.tag)]);
+
+  OBJECT fbs := feedbackschema->^scope->CreateEntity([ wrd_tag := ToUppercase(newscope.tag)]);
+
+  //Generate standard type choices
+  feedbackschema->^feedbacktype->CreateEntity([ wrd_leftentity := fbs->id, wrd_ordering := 1, rowkey := "bug",  wrd_title := /*tid*/"publisher:tolliumapps.feedback.types.bug" ]);
+  feedbackschema->^feedbacktype->CreateEntity([ wrd_leftentity := fbs->id, wrd_ordering := 2, rowkey := "feedback",  wrd_title := /*tid*/"publisher:tolliumapps.feedback.types.feedback" ]);
+  feedbackschema->^feedbacktype->CreateEntity([ wrd_leftentity := fbs->id, wrd_ordering := 3, rowkey := "layout",  wrd_title := /*tid*/"publisher:tolliumapps.feedback.types.layout" ]);
+  feedbackschema->^feedbacktype->CreateEntity([ wrd_leftentity := fbs->id, wrd_ordering := 4, rowkey := "missingtid",  wrd_title := /*tid*/"publisher:tolliumapps.feedback.types.missingtid" ]);
+
   trans->CommitWork();
 }
