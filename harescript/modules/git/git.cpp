@@ -179,8 +179,9 @@ void GetRepoInfo(HSVM *hsvm, HSVM_VariableId id_set)
                                 callbacks.payload = &payload;
 
                                 HSVM_StringSetSTD(hsvm, var_remote_url, git_remote_url(remote));
-
-#if LIBGIT2_VER_MINOR < 24
+#if LIBGIT2_VER_MAJOR >= 1
+                                ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks, 0, nullptr);
+#elif LIBGIT2_VER_MINOR < 24
                                 ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks);
 #elif LIBGIT2_VER_MINOR < 25
                                 ret = git_remote_connect(remote, GIT_DIRECTION_FETCH, &callbacks, 0);
