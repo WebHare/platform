@@ -122,7 +122,7 @@ STATIC OBJECTTYPE XSDParserFrameWork
   PUBLIC PROPERTY elements(GetElements, -);
 
 
-  /** Contains the list of parsed attribute types
+  /** Contains the list of top-level attributes
       @cell name Name of the complex type
       @cell namespaceuri Namespace uri of the complex type
   */
