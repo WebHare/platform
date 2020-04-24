@@ -211,7 +211,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
 
   /** @short lookup multiple components as defined in XML in attributes of type p:NameList
   */
-  PUBLIC OBJECT ARRAY FUNCTION LookupComponents(STRINg ARRAY compnames, RECORD tolliumscope, STRING attributename)
+  PUBLIC OBJECT ARRAY FUNCTION LookupComponents(STRING ARRAY compnames, RECORD tolliumscope, STRING attributename)
   {
     OBJECT ARRAY components;
 
