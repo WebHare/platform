@@ -56,6 +56,9 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
 
           FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(value))
           {
+            IF(CellExists(extrafield, 'hidden') AND extrafield.hidden)
+              CONTINUE; //do not offer in UI
+
             INSERT
                 [ name := field.guid || "$" || extrafield.name
                 , title := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]).pathtitle || " – " || extrafield.title

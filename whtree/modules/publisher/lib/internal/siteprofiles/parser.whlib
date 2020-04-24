@@ -548,6 +548,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
     INSERT CELL members := newmembers.members INTO typeinfo;
 
+    IF(nodename = 'maildesigntype')
+      this->AddWarning(ctype, "newsletter maildesigntype in siteprofiles are deprecated");
+
     IF (nodename IN [ "embeddedobjecttype", "maildesigntype", "widgettype" ])
     {
       INSERT CELL editor := this->GetWidgetEditor(ctype)
@@ -943,6 +946,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               STRING contenttype := node->GetAttribute("contenttype");
               IF(contenttype = "" AND extension != "")
                 this->AddError(node, "An extendproperties with extension= requires a content type");
+              IF(node->HasAttribute("name") AND applyblock->localname != "apply") //we really need to deprecate these...
+                this->AddError(node, "Only <extendproperties contenttype=> can be used in a <filetype> or <foldertype>");
 
               RECORD applynode := [ isundo := node->localname = "undoextendproperties"
                                   , contenttype := contenttype
@@ -1228,7 +1233,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               STRING ARRAY haslist := GetHasList(node, ["type","title","capturesubpaths"]) CONCAT ["dynexecute"];
               IF("title" NOT IN haslist AND node->HasAttribute("tid"))
                 INSERT "title" INTO haslist AT END;
-
+              IF(applyblock->localname != "apply") //we really need to deprecate these...
+                this->AddError(node, "<prebuilttype> cannot be used on a <filetype> or <foldertype>");
 
               INSERT CELL [ type := node->GetAttribute('type')
                           , tag := node->GetAttribute('tag')

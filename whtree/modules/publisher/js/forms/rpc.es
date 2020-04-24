@@ -4,7 +4,6 @@ import * as browser from 'dompack/extra/browser';
 import * as merge from './internal/merge';
 import FormBase from './formbase';
 import RPCClient from '@mod-system/js/wh/rpc';
-import * as formservice from './internal/form.rpc.json';
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
@@ -34,15 +33,7 @@ export default class RPCFormBase extends FormBase
       throw new Error("Form does not appear to be a WebHare form");
     }
 
-    if(this.__formhandler.formid == '-')
-    {
-      this.rpcclient = new RPCClient();
-      this.formservice = { callFormService: async (method, ...args) => this.rpcclient.invoke("callFormService", method, ...args) };
-    }
-    else
-    {
-      this.formservice = formservice;
-    }
+    this.formservice = new RPCClient(this.__formhandler.formid == "-" ? "" : "publisher:forms");
   }
 
   getServiceSubmitInfo() //submitinfo as required by some RPCs
@@ -54,10 +45,9 @@ export default class RPCFormBase extends FormBase
   }
 
   //Invoke a function on the form on the server
-  async _invokeRPC(methodname, args, options)
+  async _invokeRPC(background, ...invokeargs)
   {
     let waiter = dompack.createDeferred();
-    let background = !!(options&&options.background);
 
     if(!background)
       this.onRPC(waiter.promise);
@@ -65,12 +55,20 @@ export default class RPCFormBase extends FormBase
     let lock = dompack.flagUIBusy({ ismodal: !background, component: this.node });
     try
     {
+      let options;
+      if(typeof invokeargs[0] == 'object') //receiving optiions first
+        options = invokeargs.shift();
+
       let formvalue = await this.getFormValue();
-      let rpc = this.formservice.callFormService("invoke", { ...this.getServiceSubmitInfo()
-                                                           , fields: formvalue
-                                                           , methodname: methodname
-                                                           , args: args
-                                                           });
+      let methodname = invokeargs.shift();
+      let rpc = this.formservice.invoke( options || {}
+                                       , "callFormService"
+                                       , "invoke"
+                                       , { ...this.getServiceSubmitInfo()
+                                         , fields: formvalue
+                                         , methodname: methodname
+                                         , args: invokeargs
+                                         });
       this.pendingrpcs.push(rpc);
       let result = await rpc;
       this._processMessages(result.messages);
@@ -113,23 +111,25 @@ export default class RPCFormBase extends FormBase
   }
 
   /** Invoke a function on the form on the server
+      @param options RPC invoke options (optional)
       @param methodname Name of the function on the form
       @param args Arguments for the function
       @return Promise that resolves to the result of the rpc call
   */
-  invokeRPC(methodname, ...args)
+  invokeRPC(...args)
   {
-    return this._invokeRPC(methodname, args);
+    return this._invokeRPC(false, ...args);
   }
 
   /** Invoke a function on the form on the server, doesn't call .onRPC or request modality layers
+      @param options RPC invoke options (optional)
       @param methodname Name of the function on the form
       @param args Arguments for the function
       @return Promise that resolves to the result of the rpc call
   */
-  invokeBackgroundRPC(methodname, ...args)
+  invokeBackgroundRPC(...args)
   {
-    return this._invokeRPC(methodname, args, { background: true });
+    return this._invokeRPC(true, ...args);
   }
 
   _processMessages(messages)
@@ -202,7 +202,7 @@ export default class RPCFormBase extends FormBase
         console.log('[fhv] start submission',submitparameters);
 
       insubmitrpc = true; //so we can easily determine exception source
-      let result = await this.formservice.callFormService("submit", submitparameters);
+      let result = await this.formservice.invoke("callFormService", "submit", submitparameters);
       insubmitrpc = false;
 
       if(dompack.debugflags.fhv)
