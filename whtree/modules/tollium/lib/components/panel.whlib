@@ -86,7 +86,7 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
-  { // We often get updated through subcomponents enablement (which is a problem by itself) killing arraeydit lists if the arraeydit is in a fragment. Workaround by always accepting updates
+  { // We often get updated through subcomponents enablement (which is a problem by itself) killing arrayedit lists if the arrayedit is in a fragment. Workaround by always accepting updates
     RETURN TRUE;
   }
 

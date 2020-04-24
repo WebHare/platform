@@ -1170,13 +1170,13 @@ PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
+    data := ValidateOptions([ viewmode := FALSE
+                            , contextrequestfallback := DEFAULT OBJECT
+                            ], data, [ required := ["contextrequestfallback"] ]);
+
     //FIXME Should've caught this while parsing
     IF(NOT MemberExists(this, this->__tolliumscope_isstatic ? "^row" : "row"))
       THROW NEW TolliumException(this->frame,"Screen with implementation 'rowedit' require a composition named 'row'");
-
-    // when changing a roweditscreen to use it through an oneditrow, it can happen a implementation="rowedit" is left on the screen
-    IF (NOT RecordExists(data) OR NOT CellExists(data, "contextrequestfallback"))
-      THROW NEW TolliumException(this->frame,"Screen with implementation 'rowedit' should not be used through LoadScreen (unless implementing a row editting component)");
 
     // Set forward first!
     ^row->composition := data.contextrequestfallback;

@@ -330,7 +330,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
   STRING ARRAY FUNCTION GetFooterButtons()
   {
     OBJECT ARRAY defbuttons := this->GetAllDefaultFormButtons();
-    RETURN Length(defbuttons) > 0 ? defbuttons[0]->buttons : this->__footerbuttons;;
+    RETURN Length(defbuttons) > 0 ? defbuttons[0]->buttons : this->__footerbuttons;
   }
 
   MACRO SetFooterButtons(STRING ARRAY buttons)

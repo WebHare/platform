@@ -1048,7 +1048,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       editor := this->owner->tolliumcontroller->PVT_LoadScreen
                            ([ parent := this->owner
                             , screen := this->rowaddscreen
-                            , params := [ calltype := "rowedit", row := DEFAULT RECORD, contextrequestfallback := this->composition ]
+                            , params := [ contextrequestfallback := this->composition ]
                             , run_init := TRUE
                             ]);
       //IF (NOT ObjectExists(editor))
@@ -1103,8 +1103,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
 
     RECORD screenopts := [ parent := this->owner
                          , screen := roweditscreen
-                         , params := [ calltype := "rowedit"
-                                     , row := row
+                         , params := [ row := row
                                      , viewmode := this->InViewMode()
                                      , contextrequestfallback := this->composition
                                      ]
