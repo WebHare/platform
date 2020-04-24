@@ -1392,6 +1392,12 @@ PUBLIC OBJECT FUNCTION TT(STRING compname, RECORD options DEFAULTSTO DEFAULT REC
   RETURN __LookupComponentByTestReference(topscreen, compname, options);
 }
 
+/// Check whether the requested component is visible */
+PUBLIC BOOLEAN FUNCTION TTIsVisible(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN TT(compname, CELL[...options, findinvisible := TRUE ])->isnowvisible;
+}
+
 PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ chaseaction := FALSE
@@ -1611,4 +1617,9 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
   }
   ELSE
     THROW NEW Exception(`Cannot fill by title for component '${compname}', extendnames: ${Detokenize(extendnames, ", ")}`);
+}
+
+PUBLIC STRING FUNCTION InlineScreens(STRING content, STRING hash DEFAULTSTO "")
+{
+  RETURN `inline-base64::${EncodeBase64(`<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">${content}</screens>`)}${hash}`;
 }

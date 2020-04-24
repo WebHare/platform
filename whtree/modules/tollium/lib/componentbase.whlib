@@ -2165,6 +2165,16 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 
     RETURN retval;
   }
+  UPDATE MACRO SetEnabled(BOOLEAN newstate)
+  {
+    IF(newstate = this->enabled)
+      RETURN;
+
+    //FIXME we want to work with ->enabled, not blindly overwrite it!
+    TolliumComponentBase::SetEnabled(newstate);
+    FOREVERY(OBJECT cellobj FROM this->pvt_cells)
+      cellobj->enabled := this->enabled;
+  }
 >;
 
 PUBLIC OBJECTTYPE TolliumOverlaysComponentBase EXTEND TolliumComponentBase

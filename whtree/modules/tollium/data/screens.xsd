@@ -1052,7 +1052,11 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>The default button in this screen (may be overridden per foucsable component)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-
+    <xs:attribute name="footerbuttons">
+      <xs:simpleType>
+        <xs:list itemType="DefaultButtonName" />
+      </xs:simpleType>
+    </xs:attribute>
 
     <xs:attributeGroup ref="sc:TidOrTitle" />
 
@@ -4423,7 +4427,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
-      <xs:attribute name="buttons" use="required">
+      <xs:attribute name="buttons">
         <xs:simpleType>
           <xs:list itemType="DefaultButtonName" />
         </xs:simpleType>
@@ -4884,11 +4888,7 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attribute name="buttons" default="add edit delete">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>
-            Space separated list with names of the buttons to show.
-          </html:p>
-        </xs:documentation>
+        <xs:documentation>Space separated list with names of the buttons to show.</xs:documentation>
       </xs:annotation>
       <xs:simpleType>
         <xs:list>
@@ -4897,10 +4897,17 @@ To change a <xs:attribute /> for adding descriptions
               <xs:enumeration value="add"/>
               <xs:enumeration value="edit"/>
               <xs:enumeration value="delete"/>
+              <xs:enumeration value="view"/>
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
       </xs:simpleType>
+    </xs:attribute>
+
+    <xs:attribute name="viewifdisabled" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>If set, automatically switch to view mode if disabled (without disabling the list)</xs:documentation>
+      </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
 

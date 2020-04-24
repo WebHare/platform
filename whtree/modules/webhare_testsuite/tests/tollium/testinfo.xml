@@ -11,6 +11,7 @@
 
   <test path="layout/" />
   <test path="enabled/" />
+  <test path="frame/" />
   <test path="dragdrop/" />
   <test path="lists/" />
   <test path="tables/" />

@@ -85,6 +85,11 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumExtendableLinesContainerBase
     this->pvt_acceptdrops := def.acceptdrops;
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  { // We often get updated through subcomponents enablement (which is a problem by itself) killing arrayedit lists if the arrayedit is in a fragment. Workaround by always accepting updates
+    RETURN TRUE;
+  }
+
   UPDATE PUBLIC BOOLEAN FUNCTION IsNowDisplayed()
   {
     IF(NOT this->visible)

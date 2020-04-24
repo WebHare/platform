@@ -1,6 +1,9 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/components/radiobutton.whlib";
+LOADLIB "mod::tollium/lib/components/text.whlib";
+LOADLIB "mod::webhare_testsuite/lib/tollium/handlers.whlib";
 
 INTEGER testhits;
 
@@ -34,17 +37,24 @@ MACRO CustomDeleteAction()
 
 OBJECT ASYNC FUNCTION TestArrayEdit()
 {
-  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
-                                                   [ component := "arrayedit"
-                                                   , settings := DEFAULT RECORD
-                                                   ]);
+  OBJECT browser := GetTestController()->LoadScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <arrayedit name="comp" roweditscreen="mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor" onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter">
+        <column type="text" name="text" title="Text" checkboxname="checkbox" />
+      </arrayedit>
+    </body>
+  </screen>`,"#test"));
+
   AWAIT ExpectScreenChange(+1, PTR browser->RunModal());
-  TestEq(1, browser->onchangecount->value, 'Expecting 1 onchange for when we initialized our value');
+  TestEq(0, callcounter);
+  topscreen->comp->value := [[ text := "Row 1", checkbox := TRUE ]];
+  TestEq(1, callcounter, 'Expecting 1 onchange for when we initialized our value');
 
   TestEq([TRUE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
 
   topscreen->comp->onmaprows := PTR AddDummy;
-  TestEq(1, browser->onchangecount->value, 'onmapsrows may not trigger onchange');
+  TestEq(1, callcounter, 'onmapsrows may not trigger onchange');
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->addbutton->tolliumclick());
   TT("virtualized_text")->value := "My new row";
@@ -53,14 +63,14 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(["Row 1","My new row"],SELECT AS STRING ARRAY text FROM topscreen->comp->value);
   TestEq([TRUE,FALSE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
   Testeq("My new row", topscreen->comp->selection.text);
-  TestEq(2, browser->onchangecount->value, 'Expecting 2 onchanges, +1 for added row');
+  TestEq(2, callcounter, 'Expecting 2 onchanges, +1 for added row');
 
   //ADDME: This relies on the internal list message formats
   topscreen->comp->list->TolliumWeb_FormUpdate("c2\tcheckbox\ttrue");
   topscreen->comp->list->TolliumWeb_ParseEvent("check", "2 checkbox");
 
   TestEq([TRUE,TRUE],SELECT AS BOOLEAN ARRAY checkbox FROM topscreen->comp->value);
-  TestEq(3, browser->onchangecount->value, 'Expecting 3 onchanges');
+  TestEq(3, callcounter, 'Expecting 3 onchanges');
 
   topscreen->frame->focused := topscreen->comp;
   Testeq("My new row", topscreen->comp->value[END-1].text);
@@ -68,7 +78,7 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(INTEGER[Length(topscreen->comp->value)-1], topscreen->comp->GetSelectedRows());
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->comp->deletebutton->TolliumClick());
-  TestEq(4, browser->onchangecount->value, 'Expecting 3 onchanges');
+  TestEq(4, callcounter, 'Expecting 3 onchanges');
   TestEq(1, Length(topscreen->comp->rows));
 
   topscreen->comp->SetSelectedRows([0]);
@@ -82,14 +92,50 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   //Test adding with a prefilled dialog
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->RunAddRow([ text := "Superrow"], [ insertat := 1]));
   TestEq("Superrow", TT("virtualized_text")->value);
+  TestEq(FALSE, TT("virtualized_text")->readonly);
   TT("virtualized_text")->value := "Superrow!!!";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  TT("radio")->value := "test2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   TestEq(3, Length(topscreen->comp->rows));
   TestEq([1], topscreen->comp->GetSelectedRows()); //verify insert pos
   TestEq("Superrow!!!", topscreen->comp->selection.text);
 
+  //Test disabled mode
+  topscreen->comp->enabled := FALSE;
+  TestEq(FALSE, topscreen->comp->add->enabled);
+  TestEq(FALSE, topscreen->comp->edit->enabled);
+  TestEq(FALSE, topscreen->comp->"delete"->enabled);
+  TestEq(FALSE, topscreen->comp->^list->enabled);
+  topscreen->comp->enabled := TRUE;
+  TestEq(TRUE, topscreen->comp->add->enabled);
+  TestEq(TRUE, topscreen->comp->edit->enabled);
+  TestEq(TRUE, topscreen->comp->"delete"->enabled);
+  TestEq(TRUE, topscreen->comp->^list->enabled);
+
+  //Test viewonly mode
+  TestThrowsLike("View cannot be mixed with other buttons", PTR MemberUpdate(topscreen->comp, "buttons", ["add","edit","view","delete"]));
+  TestThrowsLike("View cannot be mixed with other buttons", PTR MemberUpdate(topscreen->comp, "buttons", ["view","delete"]));
+  TestThrowsLike("View cannot be mixed with other buttons", PTR MemberUpdate(topscreen->comp, "buttons", ["view","add"]));
+  topscreen->comp->buttons := ["view"];
+  TestEq(FALSE, topscreen->comp->addbutton->visible);
+  TestEq(TRUE, topscreen->comp->editbutton->visible);
+  TestEq("View", topscreen->comp->editbutton->title);
+  TestEq(TRUE, topscreen->comp->edit->enabled);
+  TestEq(FALSE, topscreen->comp->deletebutton->visible);
+  Testeq(TRUE, topscreen->comp->InViewMode());
+  TestEq(TRUE, topscreen->comp->^list->enabled);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->editbutton"));
+  TestEq(FALSE, TT("othertext")->enabled);
+  TestEq(FALSE, TT("virtualized_text")->enabled);
+  //TestEq(TRUE, TT("othertext")->isnowreadonly);
+  //TestEq(TRUE, TT("virtualized_text")->isnowreadonly);
+
+   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
+
   // Test custom add/edit/delete actions
+  topscreen->comp->buttons := ["add","edit","delete"];
   OBJECT addaction := topscreen->CreateTolliumComponent("action");
   addaction->onexecute := PTR CustomAddAction;
   topscreen->comp->addactionoverride := addaction;
@@ -111,14 +157,65 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   topscreen->comp->editactionoverride := DEFAULT OBJECT;
   topscreen->comp->deleteactionoverride := DEFAULT OBJECT;
 
+  TestEq("Edit", topscreen->comp->editbutton->title);
+
   TestEq(4, Length(topscreen->comp->rows));
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->comp->deletebutton->TolliumClick());
   TestEq(3, Length(topscreen->comp->rows));
 
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->tolliumexecutecancel());
+
+  browser := GetTestController()->LoadScreen(InlineScreens(`
+    <screen name="test" implementation="none">
+      <body>
+        <arrayedit name="comp" roweditscreen="mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor" onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter" viewifdisabled="true">
+          <column type="text" name="text" title="Text" checkboxname="checkbox" />
+        </arrayedit>
+      </body>
+    </screen>`,"#test"));
+
+  AWAIT ExpectScreenChange(+1, PTR browser->RunModal());
+  browser->comp->enabled := FALSE;
+  TestEq(FALSE, topscreen->comp->addbutton->visible);
+  TestEq(TRUE, topscreen->comp->editbutton->visible);
+  TestEq("View", topscreen->comp->editbutton->title);
+  TestEq(TRUE, topscreen->comp->edit->enabled);
+  TestEq(FALSE, topscreen->comp->deletebutton->visible);
+  Testeq(TRUE, topscreen->comp->InViewMode());
+  TestEq(TRUE, topscreen->comp->^list->enabled);
+
+  browser->comp->buttons := ["add","delete"]; //this should also remove the view button
+  TestEq(FALSE, topscreen->comp->editbutton->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   RETURN TRUE;
 }
 
+ASYNC MACRO TestFragmentsBreakingArrayeditList()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <fragment name="holder" implementation="none">
+      <contents>
+        <arrayedit name="arrayedit" viewifdisabled="true" />
+      </contents>
+    </fragment>
+    <screen name="test" implementation="none">
+      <body>
+        <includefragment name="frag" fragment="#holder" />
+      </body>
+    </screen>`,"#test")));
+
+  Testeq(TRUE, TT("frag")->^arrayedit->^list IN topscreen->frame->GetTopDownUpdatableComponents());
+  topscreen->frag->enabled := FALSE;
+  //the list should NOT leave the GetTopDownUpdatableComponents set. this is because subcomponents setting disabled on its grid
+  //we fixed this by preventing tables and panels from setting themselves as not-updateable (which is recursive)
+  Testeq(TRUE, TT("frag")->^arrayedit->^list IN topscreen->frame->GetTopDownUpdatableComponents());
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR TestArrayEdit
+                 , PTR TestFragmentsBreakingArrayeditList
                  ]);

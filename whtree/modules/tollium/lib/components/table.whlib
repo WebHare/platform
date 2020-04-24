@@ -408,6 +408,11 @@ PUBLIC OBJECTTYPE TolliumTable EXTEND TolliumComponentBase
     TolliumComponentBase::TolliumWebRender();
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  { // We often get updated through subcomponents enablement (which is a problem by itself) killing arrayedit lists if the arrayedit is in a fragment. Workaround by always accepting updates
+    RETURN TRUE;
+  }
+
   PUBLIC MACRO TolliumWeb_FormUpdate(STRING inp)
   {
     OBJECT ARRAY newselection;
