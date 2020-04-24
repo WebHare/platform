@@ -73,7 +73,10 @@
                         enabled="false"
                         errorlabeltid=".comment"
                         title=""
-                        required="true" />  <!-- will be enabled once issue is selected -->
+                        required="true"
+                        maxlength="2000"
+                        showcounter="true"
+                        maxlengthmeasure="bytes" />  <!-- will be enabled once issue is selected -->
               <line layout="right">
                 <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
               </line>
