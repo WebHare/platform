@@ -576,12 +576,16 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
         : DEFAULT MACRO PTR;
   }
 
-  /** Run an entity add/edit screen  */
-  PUBLIC INTEGER FUNCTION RunEntityEditScreen(STRING roweditscreen, INTEGER entityid)
+  /** Run an entity add/edit screen
+      @cell(record) options.userdata Additional data sent to the screen's init function
+  */
+  PUBLIC INTEGER FUNCTION RunEntityEditScreen(STRING roweditscreen, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions( [ userdata := DEFAULT RECORD ], options);
     RECORD opts := CELL[ entitycontext :=  this->GetFinalEntityContext(TRUE)
                        , component :=      this
                        , initordering :=   this->orderable
+                       , options.userdata
                        ];
 
     IF(roweditscreen != "")

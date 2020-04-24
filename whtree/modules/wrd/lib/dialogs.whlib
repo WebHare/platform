@@ -130,6 +130,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntitySelectDialog(OBJECT owner, OBJECT wrdtype, I
     @cell(object) options.component Component for error reporting
     @cell(string) options.screen Reference to the screen to use. If not set, runs a default editor
     @cell(boolean) options.initordering If TRUE, initialize WRD_ORDERING for new entities to one higher than other entities matching the entitycontext
+    @cell(record) options.userdata Additional data sent to the screen's init function
     @return The id of the created or edited entity. 0 if the dialog was cancelled
 */
 PUBLIC INTEGER FUNCTION RunWRDEntityEditDialog(OBJECT owner, OBJECT wrdtype, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -139,6 +140,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntityEditDialog(OBJECT owner, OBJECT wrdtype, INT
       , component :=        DEFAULT OBJECT
       , screen :=           "mod::wrd/screens/entity.xml#edit"
       , initordering :=     FALSE
+      , userdata :=         DEFAULT RECORD
       ], options);
 
   OBJECT editor := owner->contexts->opener->LoadScreen(options.screen, CELL[ calltype :=     "wrd:entityedit"
@@ -146,6 +148,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntityEditDialog(OBJECT owner, OBJECT wrdtype, INT
                                                                  , id :=           entityid
                                                                  , options.entitycontext
                                                                  , options.initordering
+                                                                 , options.userdata
                                                                  ]);
 
   IF(NOT ObjectExists(editor))
