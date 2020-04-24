@@ -3,10 +3,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // inconsistentscreen lacks 'badbutton'
 BLOB inconsistentscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>

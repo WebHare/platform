@@ -2,7 +2,6 @@
 /** @topic sitedev/webdesign */
 
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
@@ -33,7 +32,6 @@ LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
-LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";

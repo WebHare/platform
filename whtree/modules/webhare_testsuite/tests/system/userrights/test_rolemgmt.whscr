@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 

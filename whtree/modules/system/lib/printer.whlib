@@ -9,7 +9,6 @@ LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
-LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 
 
 /** Get a screenshot of a page

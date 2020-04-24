@@ -4,7 +4,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::regex.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 

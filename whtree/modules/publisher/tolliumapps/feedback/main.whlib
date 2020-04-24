@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::float.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";

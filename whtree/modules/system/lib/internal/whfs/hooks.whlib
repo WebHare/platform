@@ -6,7 +6,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 

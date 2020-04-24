@@ -19,8 +19,6 @@ LOADLIB "mod::system/lib/internal/debugger/connector.whlib";
 LOADLIB "mod::system/lib/internal/debugger/support.whlib";
 
 
-LOADLIB "mod::publisher/lib/commondialogs.whlib";
-
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

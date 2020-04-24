@@ -4,7 +4,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 
 PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
 {

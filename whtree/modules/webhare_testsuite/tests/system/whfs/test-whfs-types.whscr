@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";

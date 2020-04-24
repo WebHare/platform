@@ -1,7 +1,6 @@
 ﻿<?wh
 /** @topic sitedev/whfs */
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";

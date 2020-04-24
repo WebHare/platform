@@ -9,7 +9,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
@@ -23,7 +22,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 
 PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()

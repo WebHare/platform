@@ -11,7 +11,6 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 // FIXME: ptc_readaccess and ptc_writeaccess are not used??
 // ADDME: use ipc to update upon changes in the synced folder

@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";

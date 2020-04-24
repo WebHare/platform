@@ -20,7 +20,6 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT SetFlagsInPublished, GetFlagsFromPublished, IsPublish, GetErrorFromPublished, GetOncePublishedFromPublished, TestFlagFromPublished
                                                           , PublishedFlag_OncePublished, PublishedFlag_Scheduled, PublishedFlag_Warning, PublishedFlag_HasWebDesign
                                                           , PublishedFlag_StripExtension, PublishedFlag_HasPublicDraft, PublishedFlag_SubmittedForApproval;
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 /** @short See if a document has events scheduled for it
     @param published A file.published cell

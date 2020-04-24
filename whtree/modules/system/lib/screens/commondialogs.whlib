@@ -5,7 +5,6 @@ LOADLIB "wh::internet/mime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
-LOADLIB "mod::system/lib/screenbase.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
