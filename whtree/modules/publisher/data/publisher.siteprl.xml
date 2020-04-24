@@ -78,7 +78,7 @@
     <member name="columns" type="string" />
     <member name="picturewidth" type="integer" />
     <member name="pictureheight" type="integer" />
-     <member name="thumbnailwidth" type="integer" />
+    <member name="thumbnailwidth" type="integer" />
     <member name="thumbnailheight" type="integer" />
     <member name="publishoriginals" type="boolean" />
   </contenttype>
