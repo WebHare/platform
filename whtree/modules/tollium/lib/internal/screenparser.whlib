@@ -76,6 +76,26 @@ RECORD FUNCTION ParseMapping(OBJECT mappingnode, STRING outputtype)
   RETURN mapping;
 }
 
+STRING FUNCTION GetLibraryPath(STRING resourcename, OBJECT basenode)
+{
+  FOREVERY(OBJECT node FROM [basenode, basenode->ownerdocument->documentelement])
+  {
+    IF(node->HasAttribute("library"))
+      RETURN MakeAbsoluteResourcePath(resourcename, node->GetAttribute("library"));
+
+    IF(node->HasAttribute("lib"))
+    {
+      STRING callbacklibrary := node->GetAttribute("lib");
+      IF(callbacklibrary != "" AND callbacklibrary NOT LIKE "*::*")
+        RETURN "module::" || GetModuleNameFromResourcePath(resourcename) || "/" || callbacklibrary;
+      ELSE
+       RETURN callbacklibrary;
+    }
+  }
+  RETURN "";
+}
+
+
 // List of reserved names (ADDME  add a longer list of Fragment reserved names)
 STRING ARRAY reserved_names :=
   [ "BEGINFEEDBACK"
@@ -174,6 +194,17 @@ STATIC OBJECTTYPE PageParser
       IF (NOT pos.found)
         INSERT file INTO this->finalpage.files AT pos.position;
     }
+  }
+
+  PUBLIC STRING FUNCTION ResolveObjType(STRING baseresource, OBJECT node)
+  {
+    STRING lib := GetLibraryPath(baseresource, node);
+    IF(lib = "")
+    {
+      this->AddError(node->linenum, `Cannot resolve reference to objecttype '${node->GetAttribute("name")}' if no HareScript library is set`);
+      RETURN "";
+    }
+    RETURN lib || "#" || node->GetAttribute("name");
   }
 
   PUBLIC STRING FUNCTION ReadImplementationAttribute(OBJECT node)
@@ -515,7 +546,7 @@ STATIC OBJECTTYPE PageParser
     ELSE
     {
       IF (this->ReadImplementationAttribute(fragmentdata.fragment) != ns_screens || "#none")
-        objtype := GetLibraryPath(fragmentdata.fragmentref, fragmentdata.fragment) || "#" || fragmentdata.fragment->GetAttribute("name");
+        objtype := curpageparser->ResolveObjType(fragmentdata.fragmentref, fragmentdata.fragment);
 
       IF (objtype="") //although we set a component for <includefragment> (to prevent it from becoming transparent) this won't affect true components using fragments
         objtype := "module::tollium/screenbase.whlib#TolliumFragmentBase";
@@ -2200,7 +2231,7 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
 
     IF(curpageparser->finalpage.implementation = ns_screens || "#lib")
     {
-      curpageparser->finalpage.objtype := GetLibraryPath(resourcename, screen) || "#" || screen->GetAttribute("name");
+      curpageparser->finalpage.objtype := curpageparser->ResolveObjType(resourcename, screen);
     }
     ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#none")
     {

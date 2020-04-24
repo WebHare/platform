@@ -21,7 +21,6 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   PRIVATE OBJECT pvt_basefsobject;
   PRIVATE OBJECT pvt_applytester;
   PRIVATE INTEGER pvt_saved_parent;
-  PRIVATE RECORD base_defaultvalues;
 
   RECORD savedvalue;
   STRING ARRAY pvt_extracells;
@@ -107,10 +106,8 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
   PUBLIC MACRO SetDefaultInstanceDataForParent(INTEGER parentfolderid, BOOLEAN isfolder, INTEGER newtype)
   {
     this->pvt_saved_parent := parentfolderid;
-    this->base_defaultvalues := GetDefaultSettingsForType(this->type->namespace, parentfolderid, 0, isfolder);
     this->pvt_applytester := GetApplyTesterForFakeObject(parentfolderid, NOT isfolder, newtype);
     this->SignalUpdatedCompositionMetadata();
-    this->value := MakeUpdatedRecord(this->value, this->base_defaultvalues);
   }
 
   PUBLIC MACRO WriteInstanceToFSObject()
@@ -119,15 +116,6 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
     IF(ObjectExists(this->type) AND ObjectExists(loc))
     {
       RECORD setvalue := this->value;
-      IF(RecordExists(this->base_defaultvalues)) //restore missing values (if users forgot to add these cells to their composition)
-      {
-        FOREVERY (RECORD field FROM UnpackRecord(this->base_defaultvalues))
-        {
-          IF (NOT CellExists(setvalue, field.name))
-            setvalue := CellInsert(setvalue, field.name, field.value);
-        }
-      }
-
       loc->SetInstanceDataByType(this->type, setvalue);
     }
   }

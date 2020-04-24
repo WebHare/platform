@@ -34,16 +34,3 @@ PUBLIC RECORD FUNCTION DefaultAfterMetadataUpdate(RECORD indata)
 
   RETURN indata;
 }
-
-
-PUBLIC RECORD FUNCTION GallerySettingsReset(RECORD indata)
-{
-  IF(indata.oldtype != 3 AND indata.newtype = 3)
-  {
-    //work around when changing a folder to a gallery, reapply its base settings
-    RECORD defaults := GetDefaultSettingsForType("http://www.webhare.net/xmlns/publisher/photoalbum", 0, indata.id, FALSE);
-    IF(RecordExists(defaults))
-      OpenWHFSType("http://www.webhare.net/xmlns/publisher/photoalbum")->SetInstanceData(indata.id, defaults);
-  }
-  RETURN indata;
-}

@@ -27,7 +27,7 @@ PUBLIC STATIC OBJECTTYPE PhotoGalleryRenderer EXTEND StaticPageBase
   }
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
-    this->photoalbum_props := GetPhotoalbumProps(webdesign->targetobject->parent);
+    this->photoalbum_props := __GetPhotoalbumProps(webdesign->targetobject->parent);
   }
 
   /*******************************************************************************
