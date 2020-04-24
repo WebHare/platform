@@ -551,7 +551,7 @@ bin/hsrun: harescript/utils/hsrun.o lib/libblex_hscompiler$(DLL_SUFFIX) $(call B
 bin/vmtest: $(HARESCRIPTVMTEST_OBJS) lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
 	$(call LinkExecutable,$(HARESCRIPTVMTEST_OBJS),$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
 
-bin/libdumper: harescript/utils/LibDumper.o lib/libblex_hscompiler$(DLL_SUFFIX)
+bin/libdumper: harescript/utils/LibDumper.o lib/libblex_hscompiler$(DLL_SUFFIX) lib/libblex_hsvm$(DLL_SUFFIX)
 	$(call LinkExecutable,$<,$@,blex_hsvm $(BLEX_LIBS))
 
 # Create module compilation target.
