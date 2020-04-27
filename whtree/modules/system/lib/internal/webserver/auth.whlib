@@ -164,7 +164,7 @@ PUBLIC MACRO TryAppLogin(STRING scope, STRING realm, STRING expectuserprefix, BO
 PUBLIC MACRO TryHTTPLogin(STRING realm, FUNCTION PTR getpassword)
 {
   INTEGER reg_sessionexpiry := 15;
-  BOOLEAN reg_log_extensively := TRUE;
+  BOOLEAN reg_log_extensively := FALSE;
   BOOLEAN offer_basic := TRUE;
   BOOLEAN stale_session;
 
