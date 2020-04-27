@@ -41,6 +41,7 @@
               <checkbox name="enable" label="Enabled" value="true" onchange="onenablechange"/>
               <checkbox name="required" label="Required" value="false" onchange="onrequiredchange"/>
               <checkbox name="readonly" label="Readonly" value="false" onchange="onreadonlychange"/>
+              <checkbox name="indeterminate" label="Indeterminate" value="false" onchange="onindeterminatechange"/>
             </line>
             <line>
               <textedit name="title" title="Title" />

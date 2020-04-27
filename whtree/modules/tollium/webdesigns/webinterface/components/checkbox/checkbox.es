@@ -1,4 +1,5 @@
 import * as dompack from 'dompack';
+import "./checkbox.scss";
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 export default class ObjCheckbox extends ComponentBase
@@ -12,15 +13,10 @@ export default class ObjCheckbox extends ComponentBase
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "checkbox";
-    this.flags = [];
-    this.checkboxnode = null;
-
-    this.setValue(data.value);
-
     this.flags = data.flags || [];
-
     this.buildNode();
 
+    this.setValue(data.value, data.indeterminate);
     this.setReadOnly(data.readonly);
     this.setEnabled(data.enabled);
   }
@@ -32,8 +28,8 @@ export default class ObjCheckbox extends ComponentBase
 
   enabledOn(checkflags, min, max, selectionmatch)
   {
-    return (min > 0 && max != 0 && this.getValue())
-           || (min <= 0 && max == 0 && !this.getValue());
+    return (min > 0 && max != 0 && this.getValue().value)
+           || (min <= 0 && max == 0 && !this.getValue().value);
   }
 
   // ---------------------------------------------------------------------------
@@ -48,25 +44,22 @@ export default class ObjCheckbox extends ComponentBase
 
   getValue()
   {
-    return this.checkboxnode ? this.checkboxnode.checked : this.value;
+    return { indeterminate: this.checkboxnode.indeterminate
+           , value: this.checkboxnode.checked
+           };
   }
 
-  setValue(value)
+  setValue(value, indeterminate)
   {
-    value=!!value;
-    if(value==this.value)
-      return;
-
-    this.value = value;
-    if (this.checkboxnode)
-      this.checkboxnode.checked = this.value;
+    this.checkboxnode.checked = value;
+    this.checkboxnode.indeterminate = indeterminate;
   }
 
   toggle()
   {
     if (this.enabled && !this.readonly)
     {
-      this.setValue( !this.getValue() );
+      this.setValue( !this.getValue().value, false);
       this.gotControlChange();
       this.checkboxnode.focus();
     }
@@ -167,7 +160,7 @@ export default class ObjCheckbox extends ComponentBase
     switch(data.type)
     {
       case 'value':
-        this.setValue(data.value);
+        this.setValue(data.value, data.indeterminate);
         return;
       case 'enablecomponents':
         this.enablecomponents = data.value;

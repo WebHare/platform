@@ -288,94 +288,9 @@ input.withcounter
 
 
 /* checkbox and radio shared */
-.wh-checkbox, .wh-radiobutton
+.wh-radiobutton
 {
   @include wh-form-hidenativecontrol;
-}
-
-
-/* checkbox */
-.wh-checkbox-wrapper
-{
-  width: 16px;
-  height: 16px;
-}
-.wh-checkbox + .wh-checkbox-label
-{
-  position: relative;
-  width: 16px;
-  height: 16px;
-  display: block;
-  border-radius: 2px;
-  border: 1px solid #b3b3b3;
-  background-color: #fbfbfb;
-  cursor: pointer;
-  outline: none;
-}
-.wh-checkbox + .wh-checkbox-label:before
-{
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  content: "";
-  display: block;
-  height: 8px;
-  width: 8px;
-  border-radius: 2px;
-}
-
-.wh-checkbox:focus + .wh-checkbox-label
-{
-  border-color: $focused-border-color;
-}
-.wh-checkbox:checked + .wh-checkbox-label:before
-{
-  background-color: #308fe2;
-}
-.wh-checkbox:required + .wh-checkbox-label
-{
-  border-color: #fcf7c9;
-}
-.error > label > .wh-checkbox + .wh-checkbox-label
-{
-  border-color: #e77d7d;
-}
-.wh-checkbox:disabled + .wh-checkbox-label
-{
-  background-color: #e6e6e6;
-  border-color: #b3b3b3;
-  opacity: 0.5;
-  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVQImWNgQAInT55sIJXDwMAAAIZhC22Wkht8AAAAAElFTkSuQmCC');
-  background-repeat: repeat;
-  cursor: default;
-}
-
-
-/* */
-  .radiogroup > label
-, .checkboxgroup > label
-{
-  line-height: 16px;
-  margin-bottom: 5px;
-  display: block;
-}
-  .radiogroup label span.title
-, .checkboxgroup label span.title
-{
-  display: inline-block;
-  padding-left: 8px;
-}
-  .radiogroup > label > *
-, .checkboxgroup > label > *
-{
-  float: left;
-}
-  .radiogroup > label:after
-, .checkboxgroup > label:after
-{
-  clear: both;
-  content: '';
-  display: block;
 }
 
 /* forms pulldown */

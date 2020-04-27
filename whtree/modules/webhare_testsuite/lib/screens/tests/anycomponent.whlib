@@ -106,6 +106,9 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     IF(MemberExists(this->comp, "defaultbutton"))
       this->comp->defaultbutton := this->alternatedefault;
 
+    ^indeterminate->enabled := MemberExists(^comp, "indeterminate");
+    IF(^indeterminate->enabled)
+      ^indeterminate->value := ^comp->indeterminate;
 
     this->frame->flags.readselection := MemberExists(this->comp,"selection");
     IF(MemberExists(this->comp,"onselect"))
@@ -309,19 +312,23 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
 
   MACRO OnVisibleChange()
   {
-    this->comp->visible := this->visible->value;
+    ^comp->visible := this->visible->value;
   }
   MACRO OnEnableChange()
   {
-    this->comp->enabled := this->enable->value;
+    ^comp->enabled := this->enable->value;
   }
   MACRO OnRequiredChange()
   {
-    this->comp->required := this->required->value;
+    ^comp->required := this->required->value;
   }
   MACRO OnReadonlyChange()
   {
-    this->comp->readonly := ^readonly->value;
+    ^comp->readonly := ^readonly->value;
+  }
+  MACRO OnIndeterminateChange()
+  {
+    ^comp->indeterminate := ^indeterminate->value;
   }
   MACRO GotCallback(STRING type)
   {
@@ -422,6 +429,9 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     {
       this->value->value := "EXCEPTION: " || e->what;
     }
+
+    IF(^indeterminate->enabled)
+      ^indeterminate->value := ^comp->indeterminate;
   }
   MACRO DoWriteValue()
   {
