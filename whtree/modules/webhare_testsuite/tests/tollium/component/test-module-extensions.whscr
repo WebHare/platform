@@ -1,0 +1,91 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+
+MACRO TestComponentParser()
+{
+  //Lowlevel tests to verify the inner workings of the parser
+
+  RECORD components := GetComponents("mod::webhare_testsuite/data/testcomponents.xsd");
+  RECORD ARRAY attributes := SELECT * FROM components.components WHERE type="attribute";
+  TestEqMembers([ recordtype := "handler" ], attributes[1], "*");
+}
+
+ASYNC MACRO TestUserAttributes()
+{
+  OBJECT scr;
+
+  //basic test. verify that xmlns attributes don't confuse us
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="mytextedit" test:myattr="Hello, world" xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:ignore="urn::igore"/>
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq([[ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "myattr", value := "Hello, world" ]],
+         TT("mytextedit")->userattributes);
+  TestEq("Hello, world", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myattr"));
+  TestEq(DEFAULT OBJECT, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+  TestEq(0m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
+  TestThrows(PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/unknown", "myunknown"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 5);
+  TestEq(5m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 9);
+  TestEq(9m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
+
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref", TT("mytextedit"));
+  TestEq(TT("mytextedit"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //advanced attributes test
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="other" />
+      <textedit name="mytextedit" test:myref="other" />
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq(TT("other"), TT("mytextedit")->userattributes[0].value);
+  TestEq(TT("other"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
+
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestUserComponents()
+{
+  OBJECT scr;
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <textedit name="standardtextedit" />
+      <test:emptyfragcomp name="emptyfragcomp" />
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents#emptyfragcomp", TT("emptyfragcomp")->elementtype);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework([ PTR TestComponentParser
+                 , PTR TestUserAttributes
+                 , PTR TestUserComponents
+                 ]);

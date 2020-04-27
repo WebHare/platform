@@ -14,6 +14,7 @@
 
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
   <xs:complexType name="screenimplementation">
     <xs:annotation>
@@ -263,5 +264,22 @@
       <xs:attributeGroup ref="tc:ComponentBase" />
     </xs:complexType>
   </xs:element>
+
+
+  <xs:attribute name="myattr" type="xs:string">
+  </xs:attribute>
+  <xs:attribute name="myref" type="tc:ComponentRef">
+  </xs:attribute>
+  <xs:attribute name="myhandler" type="tc:Handler">
+    <xs:annotation>
+      <xs:appinfo>
+        <tc:callbacksignature />
+      </xs:appinfo>
+      <xs:documentation>
+        The name of the function to perform when a change occurs for this component.
+      </xs:documentation>
+    </xs:annotation>
+  </xs:attribute>
+  <xs:attribute name="mymoney" type="s:Money"/>
 
 </xs:schema>

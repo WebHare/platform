@@ -67,7 +67,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     this->siteprof := siteprof;
     //__GetModuleBaseFromResourceName fallback is needed to support texts in site-based siteprofiles
     this->module := GetModuleNameFromResourcePath(filename) ?? __GetModuleBaseFromResourceName(this->filename);
-    this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "gid");
+    this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "", "gid");
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetErrors()

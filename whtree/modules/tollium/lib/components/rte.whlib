@@ -1173,7 +1173,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
       this->linkhandlerselement := components[0].name;
       this->owner->tolliumscreenmanager->DoInitComponents(components, this->owner->tolliumscreenbuilder);
 
-      RECORD rootnode := this->owner->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields);
+      RECORD rootnode := this->owner->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields, fragment.rootnode.tolliumscope);
       this->rtdtypelinkhandlers := rootnode.linkhandlers;
       this->owner->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
     }

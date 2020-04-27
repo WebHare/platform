@@ -384,7 +384,7 @@ PUBLIC OBJECTTYPE ScreenManager
     {
       RECORD pos := RecordLowerBound(this->registeredcomponents, [ name := ToUppercase(objinfo.data.name) ], [ "NAME" ]);
       OBJECT obj := pos.found ? this->registeredcomponents[pos.position].component : DEFAULT OBJECT;
-      objinfo.data := screenbuilder->ReprocessData(obj, objinfo.data, objinfo.data.__xml_fields);
+      objinfo.data := screenbuilder->ReprocessData(obj, objinfo.data, objinfo.data.__xml_fields, objinfo.data.tolliumscope);
 
       // For fragments, mark the contents as subcomponents
       IF(CellExists(objinfo.data,"__fragmentlines"))

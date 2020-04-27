@@ -136,7 +136,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaDefinitionFile EXTEND XMLValidatorBase
       FOREVERY(STRING enumlikefield FROM ["enum","enumarray","statusrecord"])
         FOREVERY(OBJECT enum FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition",enumlikefield))
       {
-        STRING gid := ParseXMLGid(modulename, "", enum, "gid");
+        STRING gid := ParseXMLGid(modulename, "", enum, "", "gid");
         IF(gid!="")
           FOREVERY(STRING val FROM ParseXSLIst(enum->GetAttribute("allowedvalues")))
             ParseXMLTidDirectly(enum, ToLowercase(gid || "." || val), "allowedvalues");
