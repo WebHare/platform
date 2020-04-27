@@ -4,27 +4,43 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
 
 PUBLIC STATIC OBJECTTYPE SubmitFeedback EXTEND TolliumScreenBase
 <
   STRING guid;
 
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
+  }
+
   MACRO Init(RECORD data)
   {
     IF (NOT RecordExists(data.target))
       THROW NEW Exception("This app is not meant to be run manually");
+
     this->guid := data.target.guid;
 
-    ^extradata->^extrafields->value :=
-        [ [ field := "type",    type := "tid",    tid := /*tid*/"publisher:tolliumapps.feedback.submitfeedback.type" ]
-        , [ field := "remarks", type := "string", tid := /*tid*/"publisher:tolliumapps.feedback.submitfeedback.remarks" ]
-        ];
+    INTEGER feedbackid := this->contexts->wrdschema->^feedback->Search("WRD_GUID", this->guid);
+    RECORD feedbackinfo := this->contexts->wrdschema->^feedback->GetEntityFields(feedbackid, ["WRD_LEFTENTITY"]);
+    RECORD ARRAY types := this->contexts->wrdschema->^feedbacktype->RunQuery(
+        [ outputcolumns := CELL[ "WRD_ID", "WRD_ORDERING","WRD_TITLE" ]
+        , filters := [ [ field := "WRD_LEFTENTITY", value := feedbackinfo.wrd_leftentity  ]
+                     ]
+        ]);
+
+    ^type->options := SELECT rowkey := wrd_id
+                           , title := GetTid(wrd_title)
+                        FROM types
+                    ORDER BY wrd_ordering;
   }
 
   RECORD FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-    StoreFeedbackExtraData(this->guid, ^extradata->value );
+    StoreFeedbackExtraData(this->guid, CELL[ type := ^type->value, remarks := ^remarks->value ]);
     IF (work->Finish())
     {
       this->RunSimpleScreen("info", this->GetTid(".thankyou"));

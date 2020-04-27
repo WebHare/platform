@@ -47,7 +47,7 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING scope, RECORD data)
   GetPrimary()->BeginWork();
   TRY
   {
-    STRING guid := StoreFeedback(scope, CELL[ ...data, userdata ]);
+    STRING guid := StoreFeedback(scope, CELL[ ...data, status := "creating", userdata ]);
     RETURN CELL
         [ success := TRUE
         , guid

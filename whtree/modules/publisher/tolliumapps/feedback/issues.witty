@@ -1,0 +1,56 @@
+[component entries]<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css">
+      html
+      {
+        background: #ffffff;
+        font: 12px Verdana, Helvetica, Arial;
+      }
+      div.issue
+      {
+        background: #ffffff;
+        margin: 10px 9px;
+        padding: 15px;
+        border:1px solid #aaaaaa;
+        box-shadow: 2px 3px 2px rgba(0,0,0,.3);
+        border-radius: 5px;
+        position:relative;
+      }
+      div.header
+      {
+        padding-bottom:4px;
+        border-bottom:1px solid #aaaaaa;
+        margin-bottom:4px;
+      }
+      div.header span.date
+      {
+        color:#7f7f7f;
+        float:right;
+      }
+      div.header:after
+      {
+        content:"";
+        display:block;
+        clear:both;
+      }
+    </style>
+  </head>
+  <body>
+    [forevery log]
+      <div class="issue">
+        <div class="header">
+          <span class="date">[when]</span>
+          <b>[entryby]</b>
+        </div>
+[!]         [if not externalversion]
+          <div class="internalinfo">
+            [if oldstatus]<span class="status">[oldstatus] => [newstatus]</span>[/if]
+          </div>
+        [/if] !]
+
+        [text]
+      </div>
+    [/forevery]
+  </body>
+</html>[/component]

@@ -1,25 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         library="main.whlib"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
          gid="tolliumapps.feedback"
-         >
+         library="main.whlib">
 
-  <screen name="main"
-          allowresize="true"
-          gid=".main"
-          menubar="menubar"
-          icon="tollium:actions/checklist">
+  <screen name="main" allowresize="true" gid=".main" icon="tollium:actions/checklist" menubar="menubar">
     <actions>
-      <action name="view" tid="~view" onexecute="doview">
+      <action name="view" onexecute="doview" tid="~view">
         <enableon source="feedback" min="1" />
       </action>
-      <action name="delete" tid="~delete" onexecute="dodelete" shortcut="del">
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="feedback" min="1" />
       </action>
-      <action name="settings" tid="~settings" onexecute="dosettings" />
-      <action name="exit" tid="~exit" onexecute="doexit" />
+      <action name="addcomment">
+        <enableon source="feedback" min="1" max="1" onexecute="doaddcomment" />
+      </action>
+      <action name="settings" onexecute="dosettings" tid="~settings" />
+      <action name="exit" onexecute="doexit" tid="~exit" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item tid=".feedback">
@@ -31,51 +30,96 @@
         <item action="exit" />
       </menu>
     </menus>
+
+    <compositions>
+      <eventlistener name="loglistener" onevents="onlogevent" />
+    </compositions>
+
     <toolbar>
       <button action="view" icon="tollium:actions/view" />
       <button action="delete" icon="tollium:actions/delete" />
     </toolbar>
-    <body>
+
+    <body spacers="top left bottom">
       <select name="scope" type="pulldown" onchange="onselectscope" />
-      <wrd:entitylist name="feedback"
-                      height="1pr"
-                      wrdtype="feedback"
-                      openaction="view"
-                      onmaprows="mapfeedbackrows"
-                      requestcolumns="version wrd_creationdate browser device userdata feedbackid"
-                      sortcolumn="wrd_creationdate"
-                      sortascending="false">
-        <column name="feedbackid" type="text" width="12x" />
-        <column name="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" />
-        <column name="reportedby" linkname="reportedbylink" type="text" />
-        <column name="browser" type="text" />
-        <column name="device" type="text" />
-      </wrd:entitylist>
+      <split type="horizontal" height="1pr">
+        <part width="2pr">
+          <wrd:entitylist name="feedback"
+                          height="1pr"
+                          borders="top left bottom"
+                          onmaprows="mapfeedbackrows"
+                          onselect="onfeedbackselect"
+                          openaction="view"
+                          requestcolumns="version wrd_creationdate browser device userdata feedbackid remarks status type"
+                          sortascending="false"
+                          sortcolumn="wrd_creationdate"
+                          wrdtype="feedback">
+            <column name="feedbackid" type="text" width="12x" />
+            <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
+            <column name="reportedby" type="text" linkname="reportedbylink" width="20x" />
+            <column name="type" type="text" width="10x" />
+            <column name="remarks" type="text" />
+            <!-- <column name="status" type="text" /> COMING REAL SOON! -->
+          </wrd:entitylist>
+        </part>
+        <part width="1pr">
+          <split type="vertical" height="1pr">
+            <part spacers="left right">
+              <text valuetid=".comment" />
+              <textarea name="comment"
+                        height="1pr"
+                        minheight="4gr"
+                        defaultbutton="addcommentbutton"
+                        enabled="false"
+                        errorlabeltid=".comment"
+                        title=""
+                        required="true"
+                        maxlength="2000"
+                        showcounter="true"
+                        maxlengthmeasure="bytes" />  <!-- will be enabled once issue is selected -->
+              <line layout="right">
+                <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
+              </line>
+            </part>
+            <part height="1pr" spacers="left right">
+              <iframe name="issuelog" height="1pr" />
+            </part>
+          </split>
+        </part>
+      </split>
     </body>
   </screen>
 
-  <screen name="feedback" gid=".feedback" width="1000x" height="100x">
+  <screen name="feedback" width="1000x" height="100x" gid=".feedback">
     <compositions>
       <record name="data" />
-      <record name="userdata" composition="data" cellname="userdata" />
+      <record composition="data" cellname="userdata" name="userdata" />
     </compositions>
+
     <body>
-      <panel borders="all" width="1pr" backgroundcolor="#b6b2b2" height="1pr"><!-- Same background color as RTD -->
+      <panel width="1pr" height="1pr" backgroundcolor="#b6b2b2" borders="all">
+        <!-- Same background color as RTD -->
         <iframe name="screenshot" width="1pr" height="1pr" />
       </panel>
       <line layout="left">
-        <checkbox name="scaled" title="" labeltid=".scaled" onchange="onscaleiframe" value="true" />
+        <checkbox name="scaled" labeltid=".scaled" onchange="onscaleiframe" title="" value="true" />
       </line>
-      <datetime composition="data" cellname="wrd_creationdate" type="datetime" precision="minutes" storeutc="true" readonly="true" />
-      <text composition="data" cellname="browser" wordwrap="true" selectable="true" />
-      <text composition="data" cellname="device" wordwrap="true" selectable="true" />
-      <text composition="data" cellname="useragent" wordwrap="true" selectable="true" />
+      <datetime composition="data"
+                cellname="wrd_creationdate"
+                type="datetime"
+                precision="minutes"
+                readonly="true"
+                storeutc="true" />
+      <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
+      <text composition="data" cellname="device" selectable="true" wordwrap="true" />
+      <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
       <text composition="userdata" cellname="login" selectable="true" />
       <heading tid=".extradata" />
       <line layout="left">
         <text name="noextradata" title="" valuetid=".noextradata" />
       </line>
     </body>
+
     <footer>
       <defaultformbuttons buttons="close" />
     </footer>
@@ -83,8 +127,9 @@
 
   <screen name="settings" gid=".settings">
     <body>
-      <checkbox name="enabletolliumfeedback" title="" labeltid=".enabletolliumfeedback" />
+      <checkbox name="enabletolliumfeedback" labeltid=".enabletolliumfeedback" title="" />
     </body>
+
     <footer>
       <defaultformbuttons buttons="ok cancel" />
     </footer>

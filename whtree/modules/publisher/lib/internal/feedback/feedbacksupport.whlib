@@ -143,15 +143,26 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
     @param guid The feedback's GUID, as returned by %StoreFeedback
     @param extradata @includecelldef #StoreFeedback.data.extradata
 */
-PUBLIC MACRO StoreFeedbackExtraData(STRING guid, RECORD extradata)
+PUBLIC MACRO StoreFeedbackExtraData(STRING guid, RECORD settings)
 {
+  settings := ValidateOptions([ type := 0
+                              , remarks := ""
+                              , extradata := DEFAULT RECORD
+                              ], settings);
+
   OBJECT wrdschema := OpenWRDSchema("publisher:feedback");
   INTEGER feedbackid := wrdschema->^feedback->Search("wrd_guid", guid);
   IF (feedbackid = 0)
     THROW NEW Exception(`No feedback with guid '${guid}'`);
 
-  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata" ]);
-  feedback.extradata := CELL[ ...feedback.extradata, ...extradata ];
+  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity" ]);
+  IF(feedback.status != "creating")
+    THROW NEW Exception(`Feedback with guid '${guid}' has already been completed`);
 
-  wrdschema->^feedback->UpdateEntity(feedbackid, feedback);
+  wrdschema->^feedback->UpdateEntity(feedbackid,
+      CELL[ settings.type
+          , settings.remarks
+          , extradata := CELL[...feedback.extradata, ...settings.extradata ]
+          , status := "new"
+          ]);
 }

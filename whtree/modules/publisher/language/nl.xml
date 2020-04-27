@@ -2236,14 +2236,20 @@
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="addcomment">Voeg toe</text>
         <text tid="browser">Browser</text>
+        <text tid="comment">Opmerking</text>
         <text tid="device">Apparaat</text>
         <text tid="feedback">Feedback</text>
         <text tid="feedbackid">Feedback ID</text>
+        <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="remarks">Opmerkingen</text>
         <text tid="reportedby">Gemeld door</text>
         <text tid="scope">Scope</text>
         <text tid="screenshot-iframe">De inhoud van dit iframe-element kan niet worden weergegeven</text>
+        <text tid="status">Status</text>
+        <text tid="type">Type</text>
         <text tid="wrd_creationdate">Wanneer</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
           <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
@@ -2260,10 +2266,16 @@
         <text tid="remarks">Opmerkingen</text>
         <text tid="thankyou">Bedankt voor uw feedback!</text>
         <text tid="type">Type feedback</text>
-        <text tid="type-bug">Fout</text>
-        <text tid="type-feedback">Algemene feedback</text>
-        <text tid="type-layout">Layout</text>
-        <text tid="type-missingtid">Missende tekst</text>
+      </textgroup>
+      <textgroup gid="types">   <!-- tolliumapps.feedback.types -->
+        <text tid="bug">Fout</text>
+        <text tid="closed">Afgesloten</text>
+        <text tid="creating">Wordt aangemaakt</text>
+        <text tid="feedback">Algemene feedback</text>
+        <text tid="layout">Layout</text>
+        <text tid="missingtid">Missende tekst</text>
+        <text tid="new">Nieuw</text>
+        <text tid="resolved">Opgelost</text>
       </textgroup>
     </textgroup>
     <textgroup gid="filemanager">   <!-- tolliumapps.filemanager -->
