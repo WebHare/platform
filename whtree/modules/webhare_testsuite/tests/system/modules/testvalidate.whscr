@@ -487,7 +487,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
 
   //Test JS
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.es");
-  dumpvalue(res.tids);
+  //dumpvalue(res.tids);
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.unicode_2028" ]
                 ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext" ]
@@ -544,6 +544,28 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);
   TestEq([[line := 12, message := "Invalid placement \'downloadaction\' for element \'downloadaction\'" ]
          ], (SELECT line,message FROM res.errors));
+
+  BLOB componentxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+  targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+  elementFormDefault="qualified">
+
+  <xs:element name="preinittest">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="inline" objecttype="/lib/doesnt.whlib#xist" />
+      </xs:appinfo>
+    </xs:annotation>
+  </xs:element>
+
+  <xs:attribute name="myattr" type="xs:string">
+  </xs:attribute>
+</xs:schema>`);
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := componentxsd ]);
+  TestEq([[line := 12, message := `No such library 'mod::webhare_testsuite/lib/doesnt.whlib' (looking for 'xist')`]], SELECT line,message FROM res.errors);
 
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
   TestEq(RECORD[], res.errors);
