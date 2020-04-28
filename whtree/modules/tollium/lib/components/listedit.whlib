@@ -8,6 +8,9 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 CONSTANT STRING ARRAY supportedbuttons := ["add","edit","delete","view"];
 CONSTANT STRING ARRAY defaultbuttons := ["add","edit","delete"];
 
+//TIDs don't change while a VM is running, so we'll save time in most cases if we cache ~edit and ~view
+RECORD cachetexts;
+
 PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
   //
@@ -138,14 +141,14 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(description);
 
-    this->onrowedit := description.onrowedit;
-    this->onrowdelete := description.onrowdelete;
-    this->onrowsdelete := description.onrowsdelete;
+    this->pvt_onrowedit := description.onrowedit;
+    this->pvt_onrowdelete := description.onrowdelete;
+    this->pvt_onrowsdelete := description.onrowsdelete;
     this->__viewifdisabled := description.viewifdisabled;
 
-    this->addactionoverride := description.addactionoverride;
-    this->editactionoverride := description.editactionoverride;
-    this->deleteactionoverride := description.deleteactionoverride;
+    this->pvt_addactionoverride := description.addactionoverride;
+    this->pvt_editactionoverride := description.editactionoverride;
+    this->pvt_deleteactionoverride := description.deleteactionoverride;
 
     this->onselect := description.onselect;
 
@@ -174,7 +177,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     IF (ObjectExists(description.selectcontextmenu))
       this->list->selectcontextmenu := description.selectcontextmenu;
 
-    this->buttons := description.buttons;
+    this->__buttons := description.buttons;
 
     //Set list columns and sortorder last, custom columntypes may modify other list properties (Eg icons in their SetupColumn)
     this->list->columns := description.columns;
@@ -229,24 +232,16 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO SetAddActionOverride(OBJECT addaction)
   {
     this->pvt_addactionoverride := addaction;
-    this->additem->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
-    this->addbutton->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : this->add;
+    this->RefreshActions();
   }
   MACRO SetEditActionOverride(OBJECT editaction)
   {
     this->pvt_editactionoverride := editaction;
-    IF (ObjectExists(this->pvt_editactionoverride))
-      this->pvt_editactionoverride->enableon := this->edit->enableon;
-    this->edititem->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
-    this->editbutton->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : this->edit;
+    this->RefreshActions();
   }
   MACRO SetDeleteActionOverride(OBJECT deleteaction)
   {
     this->pvt_deleteactionoverride := deleteaction;
-    IF (ObjectExists(this->pvt_deleteactionoverride))
-      this->pvt_deleteactionoverride->enableon := this->"delete"->enableon;
-    this->deleteitem->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
-    this->deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : this->"delete";
     this->RefreshActions();
   }
 
@@ -568,16 +563,30 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     BOOLEAN inviewmode := "view" IN this->buttons OR autoviewmode;
     ^addbutton->visible := "add" IN this->__buttons AND NOT inviewmode;
     ^add->enabled := this->pvt_enabled AND "add" IN this->__buttons;
+    ^additem->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : ^add;
+    ^addbutton->action := ObjectExists(this->pvt_addactionoverride) ? this->pvt_addactionoverride : ^add;
+    IF (ObjectExists(this->pvt_editactionoverride))
+      this->pvt_editactionoverride->enableon := ^edit->enableon;
 
     ^editbutton->visible := (inviewmode AND NOT autoviewmode ? "view" : "edit") IN this->__buttons;
     ^edit->enabled := (this->pvt_enabled OR this->__viewifdisabled) AND ^editbutton->visible;
+    ^edititem->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : ^edit;
+    ^editbutton->action := ObjectExists(this->pvt_editactionoverride) ? this->pvt_editactionoverride : ^edit;
+    IF (ObjectExists(this->pvt_deleteactionoverride))
+      this->pvt_deleteactionoverride->enableon := ^"delete"->enableon;
 
-    ^edit->title := inviewmode ? GetTid("~view") : GetTid("~edit");
+    //profiling shows this to be worth the effort in eg. HOVI Editor which has dozens of arrayedits...
+    IF(NOT CellExists(cachetexts, inviewmode ? "view" : "edit"))
+      cachetexts := CellInsert(cachetexts, inviewmode ? "view" : "edit", inviewmode ? GetTid("~view") : GetTid("~edit"));
+
+    ^edit->title := GetCell(cachetexts, inviewmode ? "view" : "edit");
     ^editbutton->title := ^edit->title;
     ^edititem->title := ^edit->title;
 
     ^deletebutton->visible := "delete" IN this->__buttons AND NOT inviewmode;
     ^"delete"->enabled := this->pvt_enabled AND ^deletebutton->visible AND (this->__isarrayedit OR this->onrowdelete != DEFAULT FUNCTION PTR OR this->onrowsdelete != DEFAULT FUNCTION PTR);
+    ^deleteitem->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : ^"delete";
+    ^deletebutton->action := ObjectExists(this->pvt_deleteactionoverride) ? this->pvt_deleteactionoverride : ^"delete";
 
     ^list->enabled := this->pvt_enabled OR this->__viewifdisabled;
 
@@ -736,9 +745,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     IF (description.oncelledit = DEFAULT FUNCTION PTR)
       this->oncelledit := PTR this->DoUpdateValueForEdittedCell;
 
-    this->SetEnabled(description.enabled);
-
-    this->pvt_roweditscreen := description.roweditscreen;
+    this->roweditscreen := description.roweditscreen;
     this->onchange := description.onchange;
 
     this->rowaddscreen := description.rowaddscreen;
@@ -755,7 +762,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     }
 
     this->minrows := description.minrows;
-    this->maxrows := description.maxrows;
+    this->pvt_maxrows := description.maxrows;
     this->orderable := description.orderable;
 
     // set the rowkeytype so ->GetSelection() doesn't crash when used before our arrayedit had any content
@@ -1228,7 +1235,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   MACRO RefreshList(BOOLEAN isvaluechange)
   {
     this->list->ReloadList();
-    this->RefreshActions();
 
     //ADDME: Only call when rows have actually changed?
     IF (isvaluechange AND this->onchange != DEFAULT MACRO PTR)

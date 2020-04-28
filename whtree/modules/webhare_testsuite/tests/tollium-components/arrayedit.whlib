@@ -1,0 +1,33 @@
+<?wh
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+PUBLIC INTEGER testhits;
+
+PUBLIC RECORD ARRAY FUNCTION AddDummy(RECORD ARRAY rows)
+{
+  IF(RecordExists(SELECT FROM rows WHERE CellExists(rows,'dummy')))
+    ABORT("DUMMY ALREADY EXISTS ?!");
+  RETURN SELECT *, dummy := TRUE FROM rows;
+}
+
+PUBLIC MACRO DuplicateAction()
+{
+  INSERT CELL[ ...topscreen->comp->selection, text := "Duplicated" ] INTO topscreen->comp->value AT END;
+  topscreen->comp->SetSelectedRows([Length(topscreen->comp->value)-1]);
+}
+
+PUBLIC MACRO CustomAddAction(OBJECT contexts)
+{
+  topscreen->comp->AddRows([[checkbox := TRUE, text := "Custom added"]]);
+}
+
+PUBLIC MACRO CustomEditAction(OBJECT contexts)
+{
+  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom edited";
+}
+
+PUBLIC MACRO CustomDeleteAction(OBJECT contexts)
+{
+  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom 'deleted'";
+}
+
