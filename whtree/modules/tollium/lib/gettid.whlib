@@ -9,6 +9,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/map.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -104,32 +105,51 @@ PUBLIC MACRO SetMissingTidCallback(MACRO PTR callback)
   missingtidcallback := callback;
 }
 
+OBJECT tidcache;
+
 STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRING p2, STRING p3, STRING p4, BOOLEAN rich)
 {
-  RECORD retval;
+  /* We make params part of the cachekey, otherwise we have to restructure the language parsers to return tid-records to
+     which we can still apply parameters afterwards. Because if we're going to restructure the parser, might as well turn it
+     into a compiler and get rid of the XML overhead */
+  RECORD cachekey := [ c:= `${langcode}\t${tid}\t${p1}\t${p2}\t${p3}\t${p4}\t${rich?"r":""}` ];
+  IF(NOT ObjectExists(tidcache))
+    tidcache := NEW __Experimental_Map(["c"], "");
+
+  STRING result := tidcache->GetVal(cachekey);
+  IF(result != "")
+    RETURN result;
+
+  RECORD tidnode;
   TRY
   {
-    retval := __GetTIDNodeForLanguage(langcode, tid, FALSE);
+    tidnode := __GetTIDNodeForLanguage(langcode, tid, FALSE);
   }
   CATCH(OBJECT e)
   {
-    retval := [ type := "missing"
+    tidnode := [ type := "missing"
               , wantmodule := Left(tid, SearchLastSubstring(tid,':'))
               , value := "Exception retrieving tid '" || EncodeJava(tid) || "': " || e->what
               ];
   }
 
-  SWITCH (retval.type)
+  SWITCH (tidnode.type)
   {
-    CASE "text"   { RETURN rich ? EncodeHTML(retval.value) : retval.value; }
-    CASE "node"   { RETURN retval.langsystem->EvaluateNodePtr(retval.node, p1, p2, p3, p4, rich); }
+    CASE "text"
+    {
+      result := rich ? EncodeHTML(tidnode.value) : tidnode.value;
+    }
+    CASE "node"
+    {
+      result := tidnode.langsystem->EvaluateNodePtr(tidnode.node, p1, p2, p3, p4, rich);
+    }
     CASE "missing"
     {
       IF(missingtidcallback != DEFAULT MACRO PTR)
-        missingtidcallback ( [ module := retval.wantmodule, langcode := langcode, tid := tid, p1 := p1, p2 := p2, p3 := p3, p4 := p4, stacktrace := ArraySlice(GetStackTrace(), 2) ]);
-      RETURN rich ? EncodeHTML(retval.value) : retval.value;
+        missingtidcallback ( [ module := tidnode.wantmodule, langcode := langcode, tid := tid, p1 := p1, p2 := p2, p3 := p3, p4 := p4, stacktrace := ArraySlice(GetStackTrace(), 2) ]);
+      result := rich ? EncodeHTML(tidnode.value) : tidnode.value;
     }
-    CASE "debug"
+    CASE "debug" //DEPRECATED running tests with english texts is tolerable and much more readable/likely to catch real errors (such as incorrect params)
     {
       IF(__shortfailtid)
         tid := Substring(tid,SearchLastSubstring(tid,'.'));
@@ -142,10 +162,16 @@ STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRIN
                           || "}";
       IF(rich)
         debugtid := EncodeHTML(debugtid);
-      RETURN debugtid;
+      result := debugtid;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown type '${tidnode.type}' received from __GetTIDNodeForLanguage`);
     }
   }
-  ABORT("Unknown type");
+
+  tidcache->SetVal(cachekey, result);
+  RETURN result;
 }
 
 OBJECT FUNCTION GetLanguageSystem(STRING wantmodule)

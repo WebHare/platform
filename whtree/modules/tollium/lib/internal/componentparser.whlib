@@ -644,18 +644,10 @@ RECORD FUNCTION GetCachableComponents(STRING resourcename)
                    ];
 
   RECORD docinfo := __RetrieveCachedXMLSchema(resourcename);
-/*  IF(NOT RecordExists(docinfo) OR NOT ObjectExists(docinfo.doc))
-  {
-    retval.error := "Unable to parse XSD file";
-    IF (RecordExists(docinfo))
-      retval.files := docinfo.files;
-  }
-  ELSE*/
-    retval := ParseComponentsXSD(resourcename, docinfo.doc, docinfo.files);
+  retval := ParseComponentsXSD(resourcename, docinfo.doc, docinfo.files);
 
-  RETURN [ ttl :=         ttl_components
-         , value :=       retval
-         , eventmasks :=  GetResourceEventMasks(SELECT AS STRING ARRAY path FROM retval.files)
+  RETURN [ value :=       retval
+         , eventmasks :=  GetResourceEventMasks(SELECT AS STRING ARRAY path FROM retval.files) CONCAT ["system:modulesupdate"]
          ];
 }
 

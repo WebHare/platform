@@ -25,7 +25,7 @@ This event is fired whenever the servertype (eg. development, production) is cha
 Fired when the webserver configuration (eg. hostnames, accessrules, aliases) is changed
 
 ### system:modulesupdate
-Fired when a new module is installed
+Fired when a new module is installed or a moduledefinition.xml changes
 
 ### system:precalccache.updated
 Fired when the system.precalccache table changed

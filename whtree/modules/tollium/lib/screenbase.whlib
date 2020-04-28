@@ -15,6 +15,7 @@ LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/exclusivity.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib" EXPORT TolliumException;
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
 
 /// Counter for screen ids
@@ -663,7 +664,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     options := ValidateOptions([ objtype := ""], options);
 
     STRING selector := GetSelector(fragmentname);
-    RECORD fragment := this->tolliumcontroller->GetParsedPage(resourcename, selector, "fragment");
+    RECORD fragment := GetParsedPage(resourcename, selector, "fragment");
     RECORD result := [ success := FALSE
                      , errors := fragment.errors
                      , rootnode := DEFAULT RECORD
