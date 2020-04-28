@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="screens">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="screens *.lib">
   <test script="arrayedit.whscr" />
   <test script="basicfields.whscr" />
   <test script="fragments.whscr" />

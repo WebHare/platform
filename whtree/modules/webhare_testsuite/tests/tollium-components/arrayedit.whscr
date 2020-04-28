@@ -1,39 +1,8 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::tollium/lib/components/radiobutton.whlib";
-LOADLIB "mod::tollium/lib/components/text.whlib";
 LOADLIB "mod::webhare_testsuite/lib/tollium/handlers.whlib";
-
-INTEGER testhits;
-
-RECORD ARRAY FUNCTION AddDummy(RECORD ARRAY rows)
-{
-  IF(RecordExists(SELECT FROM rows WHERE CellExists(rows,'dummy')))
-    ABORT("DUMMY ALREADY EXISTS ?!");
-  RETURN SELECT *, dummy := TRUE FROM rows;
-}
-
-MACRO DuplicateAction()
-{
-  INSERT CELL[ ...topscreen->comp->selection, text := "Duplicated" ] INTO topscreen->comp->value AT END;
-  topscreen->comp->SetSelectedRows([Length(topscreen->comp->value)-1]);
-}
-
-MACRO CustomAddAction()
-{
-  topscreen->comp->AddRows([[checkbox := TRUE, text := "Custom added"]]);
-}
-
-MACRO CustomEditAction()
-{
-  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom edited";
-}
-
-MACRO CustomDeleteAction()
-{
-  UPDATE topscreen->comp->value SET checkbox := FALSE, text := "Custom 'deleted'";
-}
+LOADLIB "relative::arrayedit.whlib";
 
 OBJECT ASYNC FUNCTION TestArrayEdit()
 {
@@ -137,13 +106,13 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   // Test custom add/edit/delete actions
   topscreen->comp->buttons := ["add","edit","delete"];
   OBJECT addaction := topscreen->CreateTolliumComponent("action");
-  addaction->onexecute := PTR CustomAddAction;
+  addaction->onexecute := PTR CustomAddAction(topscreen->contexts);
   topscreen->comp->addactionoverride := addaction;
   OBJECT editaction := topscreen->CreateTolliumComponent("action");
-  editaction->onexecute := PTR CustomEditAction;
+  editaction->onexecute := PTR CustomEditAction(topscreen->contexts);
   topscreen->comp->editactionoverride := editaction;
   OBJECT deleteaction := topscreen->CreateTolliumComponent("action");
-  deleteaction->onexecute := PTR CustomDeleteAction;
+  deleteaction->onexecute := PTR CustomDeleteAction(topscreen->contexts);
   topscreen->comp->deleteactionoverride := deleteaction;
 
   topscreen->comp->addbutton->tolliumclick();
@@ -193,6 +162,32 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   RETURN TRUE;
 }
 
+ASYNC MACRO TestXMLAttributes()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" implementation="none">
+      <actions>
+        <action name="addfile" title="" onexecute="${Resolve("arrayedit.whlib#CustomAddAction")}"/>
+        <action name="editfile" title="" onexecute="${Resolve("arrayedit.whlib#CustomEditAction")}"/>
+        <action name="deletefile" title="" onexecute="${Resolve("arrayedit.whlib#CustomDeleteAction")}"/>
+      </actions>
+      <body>
+        <arrayedit name="comp" addactionoverride="addfile" editactionoverride="editfile" deleteactionoverride="deletefile" >
+          <column type="text" name="text" title="Text" checkboxname="checkbox" />
+        </arrayedit>
+      </body>
+    </screen>`,"#test")));
+
+  topscreen->^comp->addbutton->tolliumclick();
+  TestEq([[rowkey := 1, checkbox := TRUE, text := "Custom added"]], topscreen->^comp->selection);
+  topscreen->^comp->editbutton->tolliumclick();
+  TestEq([[rowkey := 1, checkbox := FALSE, text := "Custom edited"]], topscreen->^comp->selection);
+  topscreen->^comp->deletebutton->tolliumclick(); // The custom delete action doesn't actually delete, but changes the title
+  TestEq([[rowkey := 1, checkbox := FALSE, text := "Custom 'deleted'"]], topscreen->^comp->selection);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestFragmentsBreakingArrayeditList()
 {
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
@@ -217,5 +212,6 @@ ASYNC MACRO TestFragmentsBreakingArrayeditList()
 }
 
 RunTestframework([ PTR TestArrayEdit
+                 , PTR TestXMLAttributes
                  , PTR TestFragmentsBreakingArrayeditList
                  ]);
