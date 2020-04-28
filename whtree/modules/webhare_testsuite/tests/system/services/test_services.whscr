@@ -26,4 +26,30 @@ MACRO CryptTest()
   TestEq(EncodeHson(DEFAULT RECORD), DecryptForThisServer("mytest",hson));
 }
 
-RunTestframework([ PTR CryptTest ]);
+MACRO TestRatelimits()
+{
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.4"], 2, [timeperiod := 50 ]).accepted);
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.4"], 2, [timeperiod := 500 ]).accepted);
+
+  Sleep(100);
+  RECORD hit := CheckRateLimit([ ip := "1.2.3.4"], 2, [timeperiod := 500 ]);
+  TestEq(FALSE, hit.accepted);
+  TestEq(TRUE, hit.backoff > 0 AND hit.backoff <= 500, "backoff must be between 0 and 50, was:" || hit.backoff);
+
+  Sleep(hit.backoff);
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.4"], 2, [timeperiod := 500 ]).accepted);
+
+  //A more complex scenario that requires the sliding window to properly function..
+
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.100"], 2, [timeperiod := 200 ]).accepted);        //now: T=0, lasthits=[0], cache till T=200
+  Sleep(50);                                                                  //now: T=50, lasthits=[0]
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.100"], 2, [timeperiod := 200 ]).accepted);        //now: T=50, lasthits=[0,50], cache till T=200
+  Sleep(50);                                                                  //now: T=100, lasthits=[0,50]
+  TestEq(FALSE, CheckRateLimit([ ip := "1.2.3.100"], 2, [timeperiod := 200 ]).accepted);       //rejected!
+  Sleep(101);                                                                 //now: T=201, lasthits=[0,50]
+  TestEq(TRUE, CheckRateLimit([ ip := "1.2.3.100"], 2, [timeperiod := 200 ]).accepted);        //whithout clearing sliding window, this would be rejected
+}
+
+RunTestframework([ PTR CryptTest
+                 , PTR TestRatelimits
+                 ]);

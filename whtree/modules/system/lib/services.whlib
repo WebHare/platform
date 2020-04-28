@@ -259,3 +259,36 @@ PUBLIC MACRO LogAccountingHit(STRING hittype, RECORD hitdata)
 
   ModuleLog("system:accounting", hittype || "\t" || hitdata.account || "\t" || hitdata.source || "\t" || hitdata.requestid || "\t" || hitdata.count || logtail);
 }
+
+/** @short Implements rate limiting
+    @param criterium A record describing this rate limit (hashed to generate a unique key), eg an ip address and/or service name
+    @param numhits Number of hits to accept in the time period
+    @cell(integer) options.timeperiod Time period to which the limit applies in ms. Defaults to 1 minute (60000)
+    @return Limit check result
+    @cell(boolean) options.accepted If TRUE, accept this request, rate limit not hit
+    @cell(integer) options.backoff If >0, recommended backoff time before requests will be accepted again */
+PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ timeperiod := 60000 ], options);
+  RECORD check := (LookupAdhocCached(criterium) ?? [ value := [ hits := DATETIME[] ]]).value;
+  DATETIME now := GetCurrentDatetime();
+  IF(Length(check.hits) > 0)
+  {
+    DATETIME cutoff := AddTimeToDate(-options.timeperiod, now);
+    WHILE(Length(check.hits) > 0 AND check.hits[0] <= cutoff)
+      DELETE FROM check.hits AT 0;
+  }
+
+  IF(Length(check.hits) >= numhits)
+  {
+    // backoff: next valid time = check.hits[0] + options.timeperiod, compare to 'now'
+    RETURN [ accepted := FALSE
+           , backoff := GetMsecsDifference(now, AddTimeToDate(options.timeperiod, check.hits[0]))
+           ];
+  }
+
+  INSERT now INTO check.hits AT END;
+  StoreAdhocCached(criterium, [ ttl := options.timeperiod, value := [ hits := check.hits ] ]);
+  RETURN [ accepted := TRUE, backoff := 0 ];
+}
+

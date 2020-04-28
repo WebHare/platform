@@ -397,8 +397,9 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       CONTINUE; //don't parse imported elements, as that's not what we're being asked to do right now
 
     RECORD fieldrec := ParseAttribute(attribute.node, RECORD[], resourcename);
-    INSERT CELL namespaceuri := attribute.namespaceuri INTO fieldrec;
-    INSERT CELL type := "attribute" INTO fieldrec;
+    INSERT CELL namespaceuri := attribute.namespaceuri
+              , type := "attribute"
+              , objtype := "" INTO fieldrec;
     INSERT fieldrec INTO retval.components AT END;
   }
 
