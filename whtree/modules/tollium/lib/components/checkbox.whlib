@@ -22,6 +22,8 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
   /// Onchange handler
   MACRO PTR pvt_onchange;
 
+  BOOLEAN __indeterminate;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties & variables
@@ -29,6 +31,9 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
 
   /// Current checked state
   PUBLIC PROPERTY value(GetValue, SetValue);
+
+  /// Current indeterminate state
+  PUBLIC PROPERTY indeterminate(__indeterminate, SetIndeterminate);
 
   /// Callback, called when checked state changes
   PUBLIC PROPERTY onchange(pvt_onchange, SetOnChange);
@@ -119,6 +124,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
       RETURN;
 
     this->pvt_checked := newval;
+    this->__indeterminate := FALSE;
     this->UpdateComponentsEnabled();
     this->SetDirtyFlags([ value := TRUE ]);
 
@@ -137,6 +143,18 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     {
       this->inside_onchange := FALSE;
     }
+  }
+
+  MACRO SetIndeterminate(BOOLEAN newvalue)
+  {
+    IF(this->__indeterminate = newvalue)
+      RETURN;
+
+    this->__indeterminate := newvalue;
+    IF(this->onchange != DEFAULT MACRO PTR)
+      this->OnChange();
+
+    this->SetDirtyFlags([ value := TRUE ]);
   }
 
   MACRO SetEnabling(OBJECT ARRAY enabling)
@@ -164,6 +182,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     {
       RECORD compinfo := [ enablecomponents := GetVisibleComponentNames(this->enablecomponents)
                          , value := this->value
+                         , indeterminate := this->__indeterminate
                          , hint := this->hint
                          , unmasked_events := GetUnmask(this,["change"])
                          , readonly := this->readonly
@@ -174,7 +193,7 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     ELSE
     {
       IF (this->dirtyflags.value)
-        this->ToddUpdate([ type := "value", value := this->pvt_checked ]);
+        this->ToddUpdate([ type := "value", value := this->pvt_checked, indeterminate := this->__indeterminate ]);
 
       IF (this->dirtyflags.enablecomponents)
         this->ToddUpdate([ type := "enablecomponents", value := GetVisibleComponentNames(this->enablecomponents) ]);
@@ -182,13 +201,23 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     TolliumComponentBase::TolliumWebRender();
   }
 
-  PUBLIC MACRO TolliumWeb_FormUpdate(BOOLEAN newvalue)
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD newvalue)
   {
-    IF (this->pvt_checked != newvalue)
+    BOOLEAN anychange;
+    IF(this->__indeterminate != newvalue.indeterminate)
     {
-      this->pvt_checked := newvalue;
-      this->UpdateComponentsEnabled();
-      this->owner->tolliumscreenmanager->QueueEvent(this, "change", DEFAULT RECORD);
+      anychange := TRUE;
+      this->__indeterminate := newvalue.indeterminate;
     }
+
+    IF (this->pvt_checked != newvalue.value)
+    {
+      anychange := TRUE;
+      this->pvt_checked := newvalue.value;
+      this->UpdateComponentsEnabled();
+    }
+
+    IF(anychange)
+      this->owner->tolliumscreenmanager->QueueEvent(this, "change", DEFAULT RECORD);
   }
 >;

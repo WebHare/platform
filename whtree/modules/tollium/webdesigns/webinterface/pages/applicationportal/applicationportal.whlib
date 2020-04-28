@@ -87,6 +87,20 @@ RECORD FUNCTION GetCacheableUIFilesKey()
          ];
 }
 
+STRING FUNCTION GetAssetPackCacheBuster(STRING bundletag)
+{
+  DATETIME sharedworker_lastmod := GetBundleLastModDate(bundletag);
+  IF (sharedworker_lastmod = DEFAULT DATETIME)
+  {
+    // The bundle did not exist yet, wait for compilation
+    OBJECT assetpackcontroller := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+    WaitForPromise(assetpackcontroller->WaitForCompile(bundletag, TRUE));
+    assetpackcontroller->CloseService();
+    sharedworker_lastmod := GetBundleLastModDate(bundletag);
+  }
+  RETURN FormatISO8601Datetime(sharedworker_lastmod, "", "", "", FALSE);
+}
+
 PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 <
   PUBLIC STRING initialskin;
@@ -143,17 +157,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   RECORD FUNCTION GetRunData()
   {
     STRING sharedworker_bundletag := "tollium:sharedworker" || (IsWHDebugOptionSet("tol") ? ".dev" : "");
-    DATETIME sharedworker_lastmod := GetBundleLastModDate(sharedworker_bundletag);
-    IF (sharedworker_lastmod = DEFAULT DATETIME)
-    {
-      // The bundle did not exist yet, wait for compilation
-      OBJECT assetpackcontroller := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-      WaitForPromise(assetpackcontroller->WaitForCompile(sharedworker_bundletag, TRUE));
-      assetpackcontroller->CloseService();
-      sharedworker_lastmod :=GetBundleLastModDate(sharedworker_bundletag);
-    }
-
-    //FIXME even caching servers should still serve a 'fixed' moddtime for js versions
     RECORD config :=
       [ toddroot         := this->toddroot
       , toddservice      := "/wh_services/tollium/todd"
@@ -166,7 +169,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , intolerant       := this->intolerant
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
-      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || FormatISO8601Datetime(sharedworker_lastmod)
+      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || GetAssetPackCacheBuster(sharedworker_bundletag)
       , allowinframe     := this->allowinframe
       ];
 
@@ -343,6 +346,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
       Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
 
+    //make sure people can't see "old" tollium interfaces after a recompile;
+    webdesign->assetcachebuster := GetAssetPackCacheBuster("tollium:webinterface" || (IsWHDebugOptionSet("tol") ? ".dev" : ""));
     webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
 
     STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
