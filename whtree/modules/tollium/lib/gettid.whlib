@@ -149,7 +149,7 @@ STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRIN
         missingtidcallback ( [ module := tidnode.wantmodule, langcode := langcode, tid := tid, p1 := p1, p2 := p2, p3 := p3, p4 := p4, stacktrace := ArraySlice(GetStackTrace(), 2) ]);
       result := rich ? EncodeHTML(tidnode.value) : tidnode.value;
     }
-    CASE "debug" //DEPRECATED running tests with english texts is toleraable and much more readable/likely to catch real errors (such as incorrect params)
+    CASE "debug" //DEPRECATED running tests with english texts is tolerable and much more readable/likely to catch real errors (such as incorrect params)
     {
       IF(__shortfailtid)
         tid := Substring(tid,SearchLastSubstring(tid,'.'));
