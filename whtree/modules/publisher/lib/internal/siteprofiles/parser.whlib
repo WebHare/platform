@@ -305,6 +305,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         ctype.fstype.needstemplate := TRUE;
         ctype.fstype.ispublishable := TRUE;
         ctype.fstype.ispublishedassubdir := TRUE;
+        ctype.fstype.isacceptableindex := TRUE;
       }
     }
 
@@ -320,7 +321,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.filetype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
     ctype.filetype.siteprofile := this->filename;
     ctype.filetype.line := ftype->linenum;
-    ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
+    IF(ftype->HasAttribute("isacceptableindex"))
+      ctype.fstype.isacceptableindex := ParseXSBoolean(ftype->GetAttribute("isacceptableindex"));
     IF(ftype->HasAttribute("ispublishedassubdir"))
       ctype.fstype.ispublishedassubdir := ParseXSBoolean(ftype->GetAttribute("ispublishedassubdir"));
     IF(ftype->HasAttribute("ispublishable"))

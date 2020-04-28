@@ -772,17 +772,17 @@
             <xs:restriction base="xs:string">
               <xs:enumeration value="rawfile">
                 <xs:annotation>
-                  <xs:documentation>Raw published file, eg .DOCX (assumes blobiscontent, requirescontent, ispublishable)</xs:documentation>
+                  <xs:documentation>Raw published file, eg .DOCX (implies blobiscontent, requirescontent, ispublishable)</xs:documentation>
                 </xs:annotation>
               </xs:enumeration>
               <xs:enumeration value="virtualfile">
                 <xs:annotation>
-                  <xs:documentation>Virtual published file, no downloadable content (assumes needstemplate, ispublishable, ispublishedassubdir)</xs:documentation>
+                  <xs:documentation>Virtual published file, no downloadable content (implies needstemplate, ispublishable, ispublishedassubdir, isacceptableindex)</xs:documentation>
                 </xs:annotation>
               </xs:enumeration>
               <xs:enumeration value="datafile">
                 <xs:annotation>
-                  <xs:documentation>Data-only unpublished file (assumes no blobcontent, not publishable)</xs:documentation>
+                  <xs:documentation>Data-only unpublished file (implies no blobcontent, not publishable)</xs:documentation>
                 </xs:annotation>
               </xs:enumeration>
             </xs:restriction>
