@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::money.whlib";
@@ -16,9 +17,9 @@ LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-
 //FIXME Make globals locals to PageParser
 OBJECT curpageparser;
+RECORD ARRAY pagecache;
 
 STRING FUNCTION GetScopedName(STRING localname)
 {
@@ -2287,7 +2288,7 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
   }
 }
 
-PUBLIC RECORD FUNCTION GetCacheableParsedPage(STRING resourcename, STRING selector, STRING type)
+RECORD FUNCTION GetCacheableParsedPage(STRING resourcename, STRING selector, STRING type)
 {
   RECORD docinfo := RetrieveCachedValidatedScreen(resourcename);
 
@@ -2305,8 +2306,9 @@ PUBLIC RECORD FUNCTION GetCacheableParsedPage(STRING resourcename, STRING select
       ];
 }
 
+
 STRING ARRAY alreadyvalidated;
-PUBLIC RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
+RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
 {
   RECORD screen := RetrieveCachedXMLResource(resourcename);
   IF(NOT IsDtapLive() AND resourcename NOT IN alreadyvalidated)
@@ -2325,5 +2327,20 @@ PUBLIC RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
     }
   }
   RETURN screen;
+}
+
+
+PUBLIC RECORD FUNCTION GetParsedPage(STRING resourcename, STRING selector, STRING type)
+{
+  //Pages often get re-requested so it makes sense to cache them
+  //(this does break some development workflows where some small changes (eg a width= change) don't require an app restart, but that will then have to be fixed without slowing down live...)
+  RECORD cachekey := CELL [resourcename, selector,type];
+  RECORD cachepos := RecordLowerBound(pagecache, cachekey, ["RESOURCENAME","SELECTOR","TYPE"]);
+  IF(cachepos.found)
+    RETURN pagecache[cachepos.position].page;
+
+  RECORD page := GetAdhocCached([ type := "parsedpage", screenref := resourcename, selector := selector, pagetype := type ], PTR GetCacheableParsedPage(resourcename, selector, type));
+  INSERT CELL[...cachekey, page] INTO pagecache AT cachepos.position;
+  RETURN page;
 }
 

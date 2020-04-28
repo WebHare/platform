@@ -1712,9 +1712,9 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
           STRING screenref := MakeAbsoluteScreenReference("", this->currentapplication.screen);
           STRING screenfile := GetResourceNameFromScreenPath(screenref);
           STRING screenname := Tokenize(screenref || "#", "#")[1];
-          RECORD parsedpage := this->GetParsedPage(screenfile
-                                                , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(screenname) || '"]'
-                                                , "screen");
+          RECORD parsedpage := GetParsedPage(screenfile
+                                            , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(screenname) || '"]'
+                                            , "screen");
 
           lib := Tokenize(parsedpage.objtype,'#')[0];
         }
@@ -1757,11 +1757,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     {
       this->appissues[matchissue].count := this->appissues[matchissue].count  + 1;
     }
-  }
-
-  PUBLIC RECORD FUNCTION GetParsedPage(STRING resourcename, STRING selector, STRING type)
-  {
-    RETURN GetAdhocCached([ type := "parsedpage", screenref := resourcename, selector := selector, pagetype := type ], PTR GetCacheableParsedPage(resourcename, selector, type));
   }
 
   MACRO DeleteScreenFromWindowStack(OBJECT screen)
@@ -1929,9 +1924,9 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RECORD parsedpage;
     TRY
     {
-      parsedpage := this->GetParsedPage(GetResourceNameFromScreenPath(loaddata.screen)
-                                            , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(GetScreenNameFromScreenPath(loaddata.screen)) || '"]'
-                                            , "screen");
+      parsedpage := GetParsedPage(GetResourceNameFromScreenPath(loaddata.screen)
+                                  , '//*[local-name()="screen" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"][@name="' || EncodeJava(GetScreenNameFromScreenPath(loaddata.screen)) || '"]'
+                                  , "screen");
     }
     CATCH (OBJECT< RetrieveResourceException > e)
     {
