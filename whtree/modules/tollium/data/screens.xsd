@@ -2046,7 +2046,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element ref="datetime" />
       <xs:element name="fileedit" type="FileEdit"/>
       <xs:element name="coloredit" type="ColorEdit"/>
-      <xs:element name="image" type="Image"/><!-- woonplaats_digitaal depends on this, don't just move back to BlockNode! -->
+      <xs:element name="image" type="Image"/>
       <xs:element name="imgedit" type="ImgEdit"/>
       <xs:element ref="includefragment" />
       <xs:element ref="progress" />
