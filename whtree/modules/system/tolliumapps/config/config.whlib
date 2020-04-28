@@ -8,16 +8,12 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/tolliumapps/config/deploy.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-
-STRING FUNCTION FormatWHVersion(INTEGER num)
-{
-  RETURN num / 10000 || "." || (num / 100 % 100) || "." || (num % 100);
-}
 
 STRING FUNCTION GetWebsiteForRepository(STRING type, STRING repository_url)
 {
@@ -397,10 +393,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       ^remotemodules->visible := TRUE;
       ^modules->columns := SELECT * FROM this->modulecolumns WHERE name != "description"; //doesn't fit!
 
-      //FIXME peers should be transmitting version strings, not require us to format it... so we can support suffixes eg version 4.21.0-ut
       STRING servername := RecordExists(this->peerconnectinfo.applicability) ? this->peerconnectinfo.applicability.servername : peer->url;
-      ^peerheading->value := `${FormatWHVersion(this->peerconnectinfo.version)}`;
-      ^peerurl->value := `https://${servername}`;
+      //WH 4.28 starts supplying interfaceurl and semver
+      ^peerheading->value := CellExists(this->peerconnectinfo, "semver") ? this->peerconnectinfo.semver : `${GetSemVerFromClassicVersion(this->peerconnectinfo.version)}`;
+      ^peerurl->value := CellExists(this->peerconnectinfo, "interfaceurl") ? this->peerconnectinfo.interfaceurl : `https://${servername}`;
 
       this->RefreshPeerModules();
     }
@@ -528,10 +524,5 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoReviewIncomingCommits()
   {
     this->RunScreen("deploy.xml#reviewincomingcommits", [ module := ^peermodules->value ]);
-  }
-
-  MACRO OnOpenRemoteInterface(OBJECT openhandler)
-  {
-    openhandler->SendURL(this->contexts->^peer->url);
   }
 >;
