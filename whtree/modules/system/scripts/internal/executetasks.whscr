@@ -232,6 +232,7 @@ MACRO RunStartupScripts(STRING modulename)
   uncompleted_startup_scripts := SELECT AS STRING ARRAY tag
                                    FROM system_internal.tasks
                                   WHERE enabled
+                                        AND inapplicable = ""
                                         AND runatstartup;
 
   // If there are still pending scripts from a previous softreset, ignore the modulename for the new updates
@@ -343,8 +344,6 @@ MACRO UpdateScheduler()
       INSERT CELL timeout := task.timeout INTO upd;
     IF(match.inapplicable != task.inapplicable)
       INSERT CELL inapplicable := task.inapplicable INTO upd;
-    IF(task.inapplicable != "")
-      INSERT CELL enabled := FALSE INTO upd;
 
     IF(task.runat != "")
     {
@@ -476,6 +475,7 @@ MACRO CheckNextTask()
   nexttask := SELECT AS DATETIME nexttime
                 FROM system_internal.tasks
                WHERE enabled
+                     AND inapplicable = ""
                      AND nexttime != DEFAULT DATETIME
                      AND tag NOT IN runningtasks
             ORDER BY nexttime;
@@ -506,6 +506,7 @@ MACRO TryExecuteTasks()
   RECORD ARRAY to_execute := SELECT *
                                FROM system_internal.tasks
                               WHERE enabled
+                                    AND inapplicable = ""
                                     AND tag NOT IN runningtasks
                                     AND ( (tag IN uncompleted_startup_scripts)
                                           OR (nexttime != DEFAULT DATETIME AND nexttime < now)
@@ -542,7 +543,7 @@ MACRO KillObsoleteProcesses(DATETIME now)
   INTEGER ARRAY disabled_tasks_ids :=
       SELECT AS INTEGER ARRAY id
         FROM system_internal.tasks
-       WHERE NOT enabled;
+       WHERE NOT (enabled AND inapplicable = "");
 
   FOREVERY(RECORD tokill FROM SELECT * FROM processes WHERE killtime <= now OR task.id IN disabled_tasks_ids)
   {
