@@ -247,31 +247,23 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       TRY
       {
-        STRING ns := ftype->GetAttribute("typedef");
+        BOOLEAN uses_namespace := ftype->HasAttribute("namespace");
+        STRING ns := uses_namespace ? ftype->GetAttribute("namespace") : ftype->GetAttribute("typedef"); //typedef is the 'old' name before we merged contenttype with filetype
+        IF(ns = "")
+            this->AddError(ftype, `No namespace set on <${ftype->localname}>`);
+
         RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
+        IF(NOT insertpos.found)
+          THROW NEW Exception(`Content type ${ns} is not defined in this file`);
+
         OBJECT membersnode := PickFirst(ftype->ListChildren(namespace_sp, "members"));
-        RECORD ctype;
+        IF(ObjectExists(membersnode) AND NOT uses_namespace)
+          this->AddError(ftype, `A type cannot define <members> unless it uses namespace= instead of typedef=`);
 
-        IF(NOT insertpos.found) //synthesize contenttype
-        {
-          ctype := MakeBasicTypeInfo("contenttype");
-          ctype.namespace := ns;
+        RECORD ctype := this->contenttypes[insertpos.position];
+        IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
+          this->AddError(ftype, `Content type ${ns} is already setup as a file or folder type`);
 
-          IF(ObjectExists(membersnode))
-            INSERT CELL members := this->ReadCTMembers(membersnode, ns).members INTO ctype;
-          ELSE
-            INSERT CELL members := RECORD[] INTO ctype;
-
-          INSERT ctype INTO this->contenttypes AT insertpos.position;
-        }
-        ELSE
-        {
-          ctype := this->contenttypes[insertpos.position];
-          IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
-            this->AddError(ftype, `Content type ${ns} is already setup as a file or folder type`);
-          IF(ObjectExists(membersnode))
-            this->AddError(ftype, `A type cannot define <members> if they were already defined by a previous <contenttype>`);
-        }
         ctype := parser(ctype, ftype);
         this->contenttypes[insertpos.position] := ctype;
       }
@@ -291,6 +283,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       this->AddWarning(ftype, "The attribute 'isviewable' is obsolete and should be removed");
     if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
       this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
+    if(ftype->HasAttribute("kind") AND ftype->HasAttribute("typedef"))
+      this->AddError(ftype, "kind= cannot be used with typedef=, you need to switch to namespace=");
 
     SWITCH(ftype->GetAttribute("kind"))
     {
@@ -429,14 +423,22 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         , [ ns := namespace_sp,   name := "widgettype" ]
         , [ ns := newsletter_sp,  name := "maildesigntype" ]
         , [ ns := namespace_sp,   name := "rtdtype" ]
+        , [ ns := namespace_sp,   name := "filetype" ]
+        , [ ns := namespace_sp,   name := "foldertype" ]
         ];
 
     OBJECT ARRAY contenttypes;
     FOREVERY (RECORD rec FROM contenttypeelements)
-      contenttypes := contenttypes CONCAT this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(rec.ns, rec.name)->GetCurrentElements();
+    {
+      //TODO read them in source order so we get the duplicate type errors in order
+      contenttypes := contenttypes CONCAT this->siteprof->xmldoc->documentelement->ListChildren(rec.ns, rec.name);
+    }
 
     FOREVERY(OBJECT ctype FROM contenttypes)
     {
+      IF(NOT ctype->HasAttribute("namespace"))
+        CONTINUE;
+
       TRY
       {
         RECORD typeinfo := this->ReadContentType(ctype);
@@ -857,9 +859,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                       , siteregex    := ""
                       , parenttype   := ""
                       , sitetype     := ""
-                      , filetype     := applynodetype = "filetype" ? applyblock->GetAttribute("typedef") : ""
+                      , filetype     := applynodetype = "filetype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , contentfiletype := ""
-                      , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("typedef") : ""
+                      , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
                       , typeneedstemplate := FALSE
                       , prebuiltmasks := STRING[]
                       , webfeatures  := STRING[]

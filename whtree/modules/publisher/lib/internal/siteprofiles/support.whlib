@@ -102,9 +102,6 @@ PUBLIC RECORD FUNCTION InstantiatePlugin(RECORD plugin)
 
 PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
 {
-  IF(type NOT IN ["embeddedobjecttype", "rtdtype", "contenttype", "maildesigntype", "widgettype"])
-    THROW NEW Exception("Invalid type '" || type || "'");
-
   RETURN [ id := 0
          , namespace := ""
          , type := type

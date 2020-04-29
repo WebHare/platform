@@ -7,7 +7,7 @@
   </apply>
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test1" />
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test1" />
-  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/test1folder" />
+  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/test1" />
 
   <applysiteprofile path="nosuchfile-1.siteprl.xml" />
   <applysiteprofile path="nosuchfile-2.siteprl.xml" />

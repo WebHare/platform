@@ -2,7 +2,7 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
              xmlns:xyz="urn:xyz">
 
-  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/alttestfolder">
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/alttestfolder">
     <xyz:test data="alttestfolder" />
   </foldertype>
 

@@ -97,7 +97,6 @@ MACRO TestCompiler()
   TestEq(TRUE, RecordExists(mswordfile), "MSWord should be there");
   TestEq(4, mswordfile.id, "And picked up as type #4");
   TestEq(TRUE, RecordExists(mswordfile.filetype), "Parsed as a filetype");
-  TestEq(TRUE, mswordfile.filetype.line > mswordfile.line, "<filetype> should be further away in file than <contenttype>");
   TestEq(TRUE, mswordfile.filetype.blobiscontent, "blob is content");
   TestEq([isfiletype := TRUE, ispublishable := TRUE ], mswordfile.toupdate, "Upgrade back to publishable filetype!");
 

@@ -639,7 +639,7 @@
     <to type="folder" pathmask="/tmp/applytest1/" />
     <xyz:test data="pathmask-applytest1" />
   </apply>
-  <foldertype typedef="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder">
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder">
     <xyz:test data="folderapplytestertest" />
   </foldertype>
 
