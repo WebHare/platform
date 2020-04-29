@@ -1557,14 +1557,14 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         OR ((namespace != "" OR membername != "") AND fieldfunc != "")
         OR ((library != "" OR functionname != "") AND fieldfunc != "")
         OR (namespace = "" AND membername = "" AND library = "" AND functionname = "" AND fieldfunc = ""))
-      this->AddError(node, "Either 'namespace' and 'member' or 'library' and 'functionname' should be set");
+      this->AddError(node, "Either 'namespace' and 'member' or 'fieldfunc' should be set");
     ELSE IF (recurse AND ((namespace != "" AND membername = "") OR (namespace = "" AND membername != "")))
       this->AddError(node, "'namespace' and 'member' are both required");
     ELSE IF ((library != "" AND functionname = "") OR (library = "" AND functionname != ""))
       this->AddError(node, "'library' and 'functionname' are both required");
     IF ((library != "" OR fieldfunc != "") AND fieldname = "")
     {
-      this->AddError(node, "'name' is required if 'library' and 'functionname' are used");
+      this->AddError(node, "'name' is required if 'fieldfunc' are used");
       RETURN DEFAULT RECORD;
     }
     ELSE IF (membername != "" AND fieldname = "")
