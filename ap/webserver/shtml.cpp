@@ -912,6 +912,11 @@ bool ConnectionWorkTask::OnExecute(WebServer::Connection *webcon)
                                 }
                         }
                 } break;
+        case ConnectionWorkTask::SetValidatedUsername:
+                {
+                        webcon->SetValidatedUsername(value1);
+
+                } break;
         default: ;
             // FIXME throw
         }

@@ -178,6 +178,7 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
 
         void AuthenticateWebSession(HSVM *hsvm);
         void AuthenticateWebhareUser(HSVM *hsvm);
+        void SetRequestUserName(HSVM *hsvm);
         void AcceptBasicAuthCredentials(HSVM *hsvm);
         void CloseWebSession(HSVM *hsvm);
         void CreateWebSession(HSVM *hsvm, HSVM_VariableId id_set);
@@ -328,7 +329,8 @@ class ConnectionWorkTask : public WebServer::ConnectionTask
         FlushResponse,
         DetachScript,
         SetSessionAuth,
-        SwitchToWebsocket
+        SwitchToWebsocket,
+        SetValidatedUsername
         };
 
         std::string GetTaskDescription();

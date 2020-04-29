@@ -132,6 +132,7 @@ class BLEXLIB_PUBLIC SHTMLCallbacks
 
         virtual void AuthenticateWebSession(HSVM *hsvm)=0;
         virtual void AuthenticateWebhareUser(HSVM *hsvm)=0;
+        virtual void SetRequestUserName(HSVM *hsvm)=0;
         virtual void AcceptBasicAuthCredentials(HSVM *hsvm)=0;
         virtual void CloseWebSession(HSVM *hsvm)=0;
         virtual void CreateWebSession(HSVM *hsvm, HSVM_VariableId id_set)=0;

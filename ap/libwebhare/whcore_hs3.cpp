@@ -1074,6 +1074,7 @@ FORWARD_MACRO(Sendfile)
 FORWARD_MACRO(AddHeader)
 FORWARD_MACRO(AuthenticateWebSession)
 FORWARD_MACRO(AuthenticateWebhareUser)
+FORWARD_MACRO(SetRequestUserName)
 FORWARD_MACRO(AcceptBasicAuthCredentials)
 FORWARD_MACRO(CloseWebSession)
 FORWARD_MACRO(ResetWebResponse)
@@ -1188,6 +1189,8 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
 
         HSVM_RegisterMacro(regdata, "AUTHENTICATEWEBSESSION:::SSSBIIB",WHS_AuthenticateWebSession);
         HSVM_RegisterMacro(regdata, "AUTHENTICATEWEBHAREUSER:::II",WHS_AuthenticateWebhareUser);
+        HSVM_RegisterMacro(regdata, "__WHS_SETREQUESTUSERNAME:::S",WHS_SetRequestUserName);
+
         HSVM_RegisterMacro(regdata, "ACCEPTBASICAUTHCREDENTIALS:::SII",WHS_AcceptBasicAuthCredentials);
         HSVM_RegisterMacro(regdata, "CLOSEWEBSESSION:::SS",WHS_CloseWebSession);
         HSVM_RegisterFunction(regdata, "CREATEWEBSESSION::S:SRIB",WHS_CreateWebSession);
