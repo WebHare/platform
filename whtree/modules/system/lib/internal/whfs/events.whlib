@@ -30,6 +30,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   RECORD ARRAY items;
   RECORD ARRAY completions;
   INTEGER ARRAY emptyupdates;
+  INTEGER ARRAY reindexes; // reindex these objects explicitly, e.g. for invisible updates
   RECORD ARRAY analyzertasks;
 
   RECORD ARRAY historyitems;
@@ -303,8 +304,19 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       //SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
     }
 
-    IF (Length(to_reindex) > 0)
+    IF (Length(to_reindex) > 0 OR Length(this->reindexes) > 0)
     {
+      INTEGER ARRAY additional := ArrayDelete(this->reindexes, SELECT AS INTEGER ARRAY id FROM to_reindex);
+      IF (Length(additional) > 0)
+        to_reindex := to_reindex CONCAT
+            SELECT id
+                 , isfolder
+                 , isdelete := FALSE
+                 , events := [ "update" ]
+              FROM system.fs_objects
+             WHERE id IN additional
+             ORDER BY id;
+
       counter := counter + 1;
       STRING eventid := `${GetCurrentGroupId()}.${counter}`;
       IF (Length(this->deferredindexpromises) > 0)
@@ -462,6 +474,13 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     RECORD pos := LowerBound(this->emptyupdates, fsobj);
     IF (NOT pos.found)
       INSERT fsobj INTO this->emptyupdates AT pos.position;
+  }
+
+  PUBLIC MACRO TriggerReindexOnCommit(INTEGER fsobj)
+  {
+    RECORD pos := LowerBound(this->reindexes, fsobj);
+    IF (NOT pos.found)
+      INSERT fsobj INTO this->reindexes AT pos.position;
   }
 
   PUBLIC MACRO DoDeleteOrRecycle(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN is_recycle)
