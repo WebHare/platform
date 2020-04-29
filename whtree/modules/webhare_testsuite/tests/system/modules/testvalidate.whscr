@@ -299,6 +299,10 @@ MACRO TestBasicValidate()
   TestEq([[ line := 5, message := "permissions= no longer has any effect and should be removed" ]
          ], (SELECT line, message FROM res.warnings));
 
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<textedit nonexistingattribute="true"/>`) ]);
+  TestEq(1, Length(res.errors));
+  TestEqLike('*: The attribute*is not allowed.', res.errors[0].message);
+
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
   TestEq(1, Length(res.errors), "Unexpected errors!");

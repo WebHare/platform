@@ -106,7 +106,7 @@ PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
          ];
 }
 
-STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
+PUBLIC STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
 {
   RETURN `${oldversion/10000}.${oldversion%10000/100}.${oldversion%100}`;
 }

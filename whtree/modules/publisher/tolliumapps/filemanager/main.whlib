@@ -2211,8 +2211,8 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
       STRING whfspath := whfs_pos.found ? whfspaths[whfs_pos.position].whfspath : "";
 
       LogAuditEvent(
-          "publisher:main",
-          [ action :=     "republish"
+          "publisher:app",
+          [ type :=       "REPUBLISH"
           , isfolder :=   rec.isfolder
           , whfspath :=   whfspath
           , id :=         rec.id

@@ -605,7 +605,6 @@
       tid="publisher:filetypes.richdocumentfile"
       tolliumicon="tollium:files/application_x-webhare-richdocument"
       kind="virtualfile"
-      isacceptableindex="true"
       extensions=".rtd"
       searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
       searchcontentprovider="publisher:rtd">

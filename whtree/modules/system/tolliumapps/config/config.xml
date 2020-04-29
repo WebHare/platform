@@ -53,7 +53,6 @@
       </action>
 
       <action name="connectremote" onexecute="doconnectremote" shortcut="ctrl+p" frameflags="developer"/>
-      <windowopenaction name="openremote" frameflags="developer connected" onwindowopen="onopenremoteinterface" tid="~open" />
       <windowopenaction name="openwebsite" onwindowopen="onopenwebsite">
         <enableon source="modules" min="1" max="1" checkflags="havewebsite" />
       </windowopenaction>
@@ -193,9 +192,7 @@
           <panel  backgroundcolor="#f0f0f0" spacers="left">
             <line layout="tabs-space">
               <text name="peerheading" title=""/>
-              <textedit name="peerurl" title="" width="1pr" enabled="false">
-                <button action="openremote" icon="tollium:actions/open" type="icon" hinttid="~open"/>
-              </textedit>
+              <url name="peerurl" title="" width="1pr" />
               <buttongroup layout="horizontal" borders="right">
                 <button action="disconnectremote" icon="tollium:actions/delete" type="icon" hinttid="~disconnect"/>
                 <button action="refresh" icon="tollium:actions/reload" type="icon" hinttid="~refresh"/>
