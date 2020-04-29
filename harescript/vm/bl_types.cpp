@@ -1610,7 +1610,7 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DESCRIBEOBJECTSTRUCTURE::R:OB", DescribeObjectStructure));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_MAKEOBJECTREFERENCEPRIVILEGED::O:O", MakeObjectPrivate));
 
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("COLLECTGARBAGE:::", CollectGarbage));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_COLLECTGARBAGE:::", CollectGarbage));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_OBJECTMATCHESOUID::B:OS", ObjectMatchesOUID));
 }
 

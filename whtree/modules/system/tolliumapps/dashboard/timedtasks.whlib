@@ -1,0 +1,118 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
+<
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    ^tasks->rows := this->GetTasks();
+
+  }
+
+  MACRO OnMessage(RECORD message)
+  {
+    IF (CellExists(message, "TASKID") AND message.taskid > 0)
+      ^tasks->value := message.taskid;
+  }
+
+  INTEGER FUNCTION GetTaskIcon(RECORD task)
+  {
+    STRING iconname;
+
+    IF (NOT task.enabled)
+      iconname := "tollium:status/negative";
+    ELSE IF(task.nexttime != DEFAULT DATETIME AND task.nexttime < GetCurrentDatetime())
+      iconname := "tollium:status/wait";
+    ELSE IF (task.error != "")
+      iconname := "tollium:status/serious_error";
+    ELSE
+      iconname := "tollium:status/checked";
+
+    RETURN ^tasks->GetIcon(iconname);
+  }
+
+  RECORD ARRAY FUNCTION GetTasks()
+  {
+    RECORD ARRAY newlist := SELECT error
+                                 , running :=     currentstart = DEFAULT DATETIME ? 0 : ^GetIcon("tollium:status/neutral")
+                                 , currentstart
+                                 , nexttime
+                                 , script
+                                 , description
+                                 , rowkey := id
+                                 , enabled
+                                 , style := enabled ? "" : "disabled"
+                              FROM system_internal.tasks;
+
+    RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
+  }
+
+  MACRO DoTaskProperties()
+  {
+    this->LoadScreen(".taskproperties", [ id := ^tasks->value ])->RunModal();
+    this->RefreshDashboardPanel();
+  }
+
+  MACRO DoScheduleTaskNow()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id = ^tasks->value;
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    work->Finish();
+    this->RefreshDashboardPanel();
+
+    this->RunSimpleScreen("info", this->GetTid(".taskscheduled"));
+  }
+
+>;
+
+PUBLIC STATIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
+<
+  INTEGER id;
+
+  MACRO Init(RECORD data)
+  {
+    this->id := data.id;
+
+    RECORD taskinfo := SELECT * FROM system_internal.tasks WHERE id=data.id;
+    ^scriptname->value := taskinfo.script;
+    ^description->value := taskinfo.description;
+    ^parameters->value := taskinfo.parameters;
+    ^tag->value := taskinfo.tag;
+    ^lastmessages->value := taskinfo.error;
+    ^nexttime->value := taskinfo.nexttime;
+    ^enabled->enabled := taskinfo.enabled OR taskinfo.inapplicable = "";
+    ^enabled->value := taskinfo.enabled;
+    ^inapplicable->value := taskinfo.inapplicable;
+    ^inapplicable->visible := taskinfo.inapplicable != "";
+
+    ^timeout->value := taskinfo.timeout > 0 ? taskinfo.timeout || " " || GetTid("tollium:common.units.minutes")
+                                                 : this->GetTid(".defaulttimeout", ReadRegistryKey("system.tasks.defaulttimeout") || " " || GetTid("tollium:common.units.minutes"));
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks
+           SET nexttime := ^nexttime->value
+             , enabled := ^enabled->value
+           WHERE id=this->id;
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    RETURN work->Finish();
+  }
+>;

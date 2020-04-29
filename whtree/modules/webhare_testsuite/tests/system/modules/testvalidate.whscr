@@ -418,25 +418,72 @@ MACRO TestValidateModuleDef()
 
 MACRO TestSiteProfiles()
 {
+  BLOB dupetypes_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" />
+    <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest">
+      <blockstyles defaultstyle="NORMAL">
+        <textstyle tag="NORMAL" textstyles=""/>
+      </blockstyles>
+    </rtdtype>
+  </siteprofile>`);
+
+  RECORD res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupetypes_siteprl ]);
+  //DumpValue(res.errors);
+  TestEq([[ line := 4, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
   BLOB dupemembers_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-    <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" kind="datafile">
+    <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" kind="datafile">
       <members>
         <file name="original" />
         <richdocument name="original" />
       </members>
     </filetype>
+    <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest">
+      <blockstyles defaultstyle="NORMAL">
+        <textstyle tag="NORMAL" textstyles=""/>
+      </blockstyles>
+    </rtdtype>
   </siteprofile>`);
 
-  RECORD res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupemembers_siteprl ]);
-  DumpValue(res.errors);
-  TestEq([[ line := 6, message := "Duplicate member 'original'" ]
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupemembers_siteprl ]);
+  //DumpValue(res.errors);
+  TestEq([[ line := 3, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
+         ,[ line := 6, message := "Duplicate member 'original'" ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
+  BLOB incorrect_filetype_namespace := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" />
+    <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" kind="datafile" />
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_namespace ]);
+  TestEq([[ line := 4, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
+  BLOB incorrect_filetype_members := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/validatetest"><members/></filetype>
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest2" />
+    <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/validatetest2" blobiscontent="true"><members/></filetype>
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest3" />
+    <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/validatetest3" kind="rawfile" />
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_members ]);
+  //DumpValue(res.errors);
+  TestEq([[ line := 3, message := 'Content type http://www.webhare.net/xmlns/webhare_testsuite/validatetest is not defined in this file' ]
+         ,[ line := 5, message := 'A type cannot define <members> unless it uses namespace= instead of typedef=' ]
+         ,[ line := 7, message := 'kind= cannot be used with typedef=, you need to switch to namespace=' ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 }
 
 MACRO TestTidScan()
 {
-  //Test validation when limitlangauges used for nonprimary language
+  //Test validation when limitlanguages used for nonprimary language
   //First some sanity checks that the language files still look the way we need m'
   TestEq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", GetTIDForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
   TestEq("IsNLOnly", GetTIDForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));

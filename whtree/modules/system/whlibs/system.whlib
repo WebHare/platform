@@ -3473,7 +3473,10 @@ PUBLIC VARIANT FUNCTION CallAnyPtrVA(FUNCTION PTR v, VARIANT ARRAY args) __ATTRI
           them from memory. Use this function when a lot of objects have been discarded,
           to reclaim the memory they use
 */
-PUBLIC MACRO CollectGarbage() __ATTRIBUTES__(EXTERNAL);
+PUBLIC MACRO CollectGarbage()
+{
+  __HS_COLLECTGARBAGE();
+}
 
 /** Returns the value of a stored script property for the top-level script
     @param propertyname Name of the property ("fileid" or "filecreationdate")

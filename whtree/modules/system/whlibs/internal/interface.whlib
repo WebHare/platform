@@ -2,6 +2,7 @@
 
 PUBLIC STRING FUNCTION GetCallingLibrary(BOOLEAN skip_system) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING FUNCTION __DoEvpCrypt(STRING algo, BOOLEAN encrypt, STRING keydata, STRING data, STRING iv) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, CONSTANT);
+PUBLIC         MACRO    __HS_COLLECTGARBAGE() __ATTRIBUTES__(EXTERNAL);
 PUBLIC OBJECT  FUNCTION __HS_GETRESETTHROWVAR() __ATTRIBUTES__(EXTERNAL);
 PUBLIC         MACRO    __HS_THROWEXCEPTION(OBJECT obj, BOOLEAN isrethrow) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, TERMINATES);
 
@@ -9,6 +10,7 @@ PUBLIC         MACRO    __HS_THROWEXCEPTION(OBJECT obj, BOOLEAN isrethrow) __ATT
 PUBLIC                  MACRO    CLOSEZIPFILE(INTEGER fileid)  __ATTRIBUTES__(EXTERNAL);
 PUBLIC DATETIME         FUNCTION GETBLOBMODTIME(BLOB file) __ATTRIBUTES__(EXTERNAL); //internal api, not guaranteed to return a modtime (eg dbase blob)
 PUBLIC STRING           FUNCTION GETBLOBDESCRIPTION(BLOB file) __ATTRIBUTES__(EXTERNAL);
+
 
 /** @short Returns the timestamp of the current date and time on the server
     @long You can use the @italic AddTimeToDate() function in conjunction with this function to

@@ -739,7 +739,12 @@
   </xs:complexType>
 
   <xs:complexType name="ObjectType">
-    <xs:attribute name="typedef" type="xs:anyURI" use="required"/>
+    <xs:attribute name="namespace" type="xs:anyURI">
+      <xs:annotation>
+        <xs:documentation>The namespace whfstype to define</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="icon" type="xs:string" />
     <xs:attribute name="tolliumicon" type="ImageSrc" />

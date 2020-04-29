@@ -468,7 +468,6 @@
       <text tid="updatewhen">Tijdstip</text>
     </textgroup>
     <textgroup gid="taskproperties">   <!-- monitor.taskproperties -->
-      <text tid="defaulttimeout">Standaard timeout (<param p="1"/>)</text>
       <text tid="enabled">Ingeschakeld</text>
       <text tid="inapplicable">Niet van toepassing</text>
       <text tid="lastmessages">Laatste berichten</text>
@@ -1814,6 +1813,24 @@
         <text tid="targetlang-en">alleen Engelstalige gebruikers</text>
         <text tid="targetlang-nl">alleen Nederlandstalige gebruikers</text>
         <text tid="targetlang-nlen">Nederlands- en Engelstalige gebruikers</text>
+      </textgroup>
+      <textgroup gid="timedtasks">   <!-- tolliumapps.dashboard.timedtasks -->
+        <text tid="defaulttimeout">Standaard timeout (<param p="1"/>)</text>
+        <text tid="description">Omschrijving</text>
+        <text tid="enabled">Ingeschakeld</text>
+        <text tid="inapplicable">Niet van toepassing</text>
+        <text tid="lastmessages">Laatste berichten</text>
+        <text tid="nexttime">Volgende tijdstip</text>
+        <text tid="parameters">Argumenten</text>
+        <text tid="properties">Eigenschappen</text>
+        <text tid="running">Draait</text>
+        <text tid="scheduletasknow">Plan taak nu in</text>
+        <text tid="script">Script</text>
+        <text tid="scriptname">Scriptnaam</text>
+        <text tid="taskproperties">Taakeigenschappen</text>
+        <text tid="taskscheduled">De taak is ingepland</text>
+        <text tid="timedtasks">Geplande taken</text>
+        <text tid="timeout">Script timeout</text>
       </textgroup>
     </textgroup>
     <textgroup gid="dba">   <!-- tolliumapps.dba -->

@@ -647,7 +647,6 @@
       <text tid="updatewhen">Update time</text>
     </textgroup>
     <textgroup gid="taskproperties">   <!-- monitor.taskproperties -->
-      <text tid="defaulttimeout">Default timeout (<param p="1"/>)</text>
       <text tid="enabled">Enabled</text>
       <text tid="inapplicable">Not applicable</text>
       <text tid="lastmessages">Last messages</text>
@@ -2003,6 +2002,24 @@
         <text tid="targetlang-en">English users only</text>
         <text tid="targetlang-nl">Dutch users only</text>
         <text tid="targetlang-nlen">Dutch and English speaking users</text>
+      </textgroup>
+      <textgroup gid="timedtasks">   <!-- tolliumapps.dashboard.timedtasks -->
+        <text tid="defaulttimeout">Default timeout (<param p="1"/>)</text>
+        <text tid="description">Description</text>
+        <text tid="enabled">Enabled</text>
+        <text tid="inapplicable">Not applicable</text>
+        <text tid="lastmessages">Last messages</text>
+        <text tid="nexttime">Next run time</text>
+        <text tid="parameters">Parameters</text>
+        <text tid="properties">Properties</text>
+        <text tid="running">Running</text>
+        <text tid="scheduletasknow">Schedule task now</text>
+        <text tid="script">Script</text>
+        <text tid="scriptname">Script name</text>
+        <text tid="taskproperties">Task properties</text>
+        <text tid="taskscheduled">The task has been scheduled</text>
+        <text tid="timedtasks">Timed tasks</text>
+        <text tid="timeout">Script timeout</text>
       </textgroup>
     </textgroup>
     <textgroup gid="dba">   <!-- tolliumapps.dba -->

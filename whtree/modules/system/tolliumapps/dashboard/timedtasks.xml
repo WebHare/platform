@@ -1,0 +1,58 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="timedtasks.whlib"
+         gid="tolliumapps.dashboard.timedtasks">
+
+  <screen name="timedtasks">
+    <actions>
+      <action name="taskproperties" onexecute="dotaskproperties" tid="tollium:common.actions.properties">
+        <enableon source="tasks" min="1" max="1" />
+      </action>
+      <action name="scheduletasknow" onexecute="doscheduletasknow">
+        <enableon source="tasks" max="1" min="1" checkflags="enabled" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="taskmenu">
+        <item action="taskproperties" />
+        <item action="scheduletasknow" />
+      </menu>
+    </menus>
+    <body height="1pr">
+      <panel height="1pr">
+        <list name="tasks"
+              selectmode="single"
+              borders="top right bottom"
+              openaction="taskproperties"
+              selectcontextmenu="taskmenu"
+              flags="enabled" >
+          <column type="text" name="script" iconname="icon" />
+          <column name="running" type="icon" />
+          <column type="datetime" name="nexttime" storeutc="true" width="16x" />
+          <column type="text" name="description" />
+          <style name="disabled" textcolor="#9a9a9a" />
+        </list>
+      </panel>
+    </body>
+  </screen>
+
+  <screen name="taskproperties" allowresize="true" savestate="size" footerbuttons="ok cancel">
+    <body layout="left">
+      <box tid=".properties" layout="form">
+        <text name="scriptname" />
+        <text name="description" tid="~description" />
+        <text name="parameters" />
+        <text name="tag" tid="~tag" />
+        <text name="timeout" />
+      </box>
+      <box name="enabled" enablecomponents="nexttime" checkbox="true" >
+        <text name="inapplicable" />
+        <datetime name="nexttime" type="datetime" storeutc="true" />
+      </box>
+      <!--      <box tid=".lastmessages" height="1pr" layout="left"> -->
+        <text tid=".lastmessages" />
+        <textarea name="lastmessages" title="" enabled="false" minheight="15x" height="1pr" width="1pr" />
+        <!--      </box> -->
+    </body>
+  </screen>
+
+</screens>

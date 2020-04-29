@@ -41,7 +41,7 @@
     <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve"/>
     <task runat="  33 * * * *" tag="updateconnectinfo" script="scripts/tasks/updateconnectinfo.whscr" runatstartup="true" />
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
-    <task runat="35 0,3,6 * * *" tag="cleanpostgresqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
+    <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" unlessenvironset="WEBHARE_ISRESTORED" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
@@ -127,6 +127,7 @@
     <dashboardgroup name="other" tid="monitor.groups.other" orderafter="ap"/>
 
     <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
+    <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
     <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
     <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />

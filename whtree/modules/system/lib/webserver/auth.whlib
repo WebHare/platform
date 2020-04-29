@@ -6,6 +6,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 /** Require basic login/password verification for a page. Aborts on login failure. This allows you to implement
@@ -46,3 +47,9 @@ PUBLIC STRING FUNCTION RequireHTTPLogin(STRING realm, RECORD ARRAY accounts, REC
   AbortWithHTTPError(401);
 }
 
+/** Set the username to log for this request
+    @param username Username */
+PUBLIC MACRO SetRequestUserName(STRING username)
+{
+  __WHS_SetRequestUserName(username);
+}

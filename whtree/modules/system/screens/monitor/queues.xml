@@ -2,27 +2,7 @@
          lib="screens/monitor/queues.whlib"
          gid="monitor">
 
-  <messageboxes gid=".queuemessages">
-    <messagebox name="verifyruntask" icon="question" buttons="yes no" dontshowagain="yes" />
-    <messagebox name="verifyruntaskbadinstalltype" icon="warning" buttons="yes no" />
-    <messagebox name="taskscheduled" buttons="ok" />
-  </messageboxes>
-
   <screen name="queues" gid=".queues" title="">
-    <actions>
-      <action name="taskproperties" onexecute="dotaskproperties" tid="tollium:common.actions.properties">
-        <enableon source="tasks" min="1" max="1" />
-      </action>
-      <action name="scheduletasknow" onexecute="doscheduletasknow">
-        <enableon source="tasks" max="1" min="1" checkflags="enabled" />
-      </action>
-    </actions>
-    <menus>
-      <menu name="taskmenu">
-        <item action="taskproperties" />
-        <item action="scheduletasknow" />
-      </menu>
-    </menus>
     <body height="1pr">
       <panel spacers="left">
         <heading tid=".workers"/>
@@ -36,23 +16,6 @@
         <column name="starttime" type="text" width="16x" align="right" precision="seconds" storeutc="true" />
         <column name="deadline" type="text" width="16x" align="right" precision="seconds" storeutc="true" />
       </list>
-      <panel spacers="left">
-        <heading tid=".tasks"/>
-      </panel>
-      <panel height="1pr">
-        <list name="tasks"
-              selectmode="single"
-              borders="top right bottom"
-              openaction="taskproperties"
-              selectcontextmenu="taskmenu"
-              flags="enabled" >
-          <column type="text" name="script" iconname="icon" />
-          <column name="running" type="icon" />
-          <column type="datetime" name="nexttime" storeutc="true" width="16x" />
-          <column type="text" name="description" />
-          <style name="disabled" textcolor="#9a9a9a" />
-        </list>
-      </panel>
       <panel spacers="left right">
         <grid>
           <col width="1pr" />
@@ -82,29 +45,6 @@
         </grid>
       </panel>
     </body>
-  </screen>
-
-  <screen name="taskproperties" gid=".taskproperties" allowresize="true" savestate="size">
-    <body layout="left">
-      <box tid=".properties" layout="form">
-        <text name="scriptname" />
-        <text name="description" tid="tollium:common.labels.description" />
-        <text name="parameters" />
-        <text name="tag" />
-        <text name="timeout" />
-      </box>
-      <box name="enabled" enablecomponents="nexttime" checkbox="true" >
-        <text name="inapplicable" />
-        <datetime name="nexttime" type="datetime" storeutc="true" />
-      </box>
-      <!--      <box tid=".lastmessages" height="1pr" layout="left"> -->
-        <text tid=".lastmessages" />
-        <textarea name="lastmessages" title="" enabled="false" minheight="15x" height="1pr" width="1pr" />
-        <!--      </box> -->
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

@@ -786,6 +786,17 @@ void ShtmlContextData::AcceptBasicAuthCredentials(HSVM *vm)
         webcon->SetValidatedUsername(username);
 }
 
+void ShtmlContextData::SetRequestUserName(HSVM *vm)
+{
+        std::unique_ptr< ConnectionWorkTask > task;
+        task.reset(new ConnectionWorkTask(shtml));
+        task->type = ConnectionWorkTask::SetValidatedUsername;
+        task->vm = vm;
+        task->value1 = HSVM_StringGetSTD(vm, HSVM_Arg(0));
+
+        shtml->AsyncRunTask(task, vm, true);
+}
+
 void ShtmlContextData::AuthenticateWebhareUser(HSVM *vm)
 {
         if (!request.get())

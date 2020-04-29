@@ -182,7 +182,6 @@
 
   <!-- Define the publisher file types
   -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mswordfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/javascriptfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/semidynamicfile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/cssfile" cloneoncopy="true" />
@@ -209,18 +208,8 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/templatefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/profilefile" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/msworddownload" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/dynamicfoldercontents" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/designfilessite" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/wrd/instancefile" cloneoncopy="true">
-    <member name="instance" type="instance" />
-  </contenttype>
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagfile" cloneoncopy="true">
-    <member name="belongstorepos" type="whfsrefarray" />
-  </contenttype>
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagrepository" cloneoncopy="true">
-    <member name="tags" type="whfsrefarray" />
-  </contenttype>
   <!-- Tag meta for files: -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/taginfo" cloneoncopy="true">
     <member name="tags" type="whfsrefarray" />
@@ -228,7 +217,7 @@
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/webharearchivefile" cloneoncopy="true" />
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/mswordfile"
+      namespace="http://www.webhare.net/xmlns/publisher/mswordfile"
       webhare_builtintypeid="4"
       tid="publisher:filetypes.msword"
       tolliumicon="tollium:files/application_msword"
@@ -243,7 +232,7 @@
   />
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/htmlfile"
+      namespace="http://www.webhare.net/xmlns/publisher/htmlfile"
       webhare_builtintypeid="5"
       tid="publisher:filetypes.html"
       tolliumicon="tollium:files/text_html"
@@ -601,7 +590,7 @@
   />
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      namespace="http://www.webhare.net/xmlns/publisher/richdocumentfile"
       tid="publisher:filetypes.richdocumentfile"
       tolliumicon="tollium:files/application_x-webhare-richdocument"
       kind="virtualfile"
@@ -615,7 +604,7 @@
   </filetype>
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/msworddownload"
+      namespace="http://www.webhare.net/xmlns/publisher/msworddownload"
       tid="publisher:filetypes.msworddownload"
       tolliumicon="tollium:files/application_msword"
       extensions=".doc"
@@ -639,24 +628,33 @@
   />
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/wrd/instancefile"
+      namespace="http://www.webhare.net/xmlns/wrd/instancefile"
       tid="publisher:filetypes.wrdinstancefile"
-      kind="datafile"
-  />
+      kind="datafile">
+    <members>
+      <instance name="instance" />
+    </members>
+  </filetype>
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/tagfile"
+      namespace="http://www.webhare.net/xmlns/publisher/tagfile"
       tid="publisher:filetypes.tagfile"
       tolliumicon="tollium:mailclient/label"
-      kind="datafile"
-  />
+      kind="datafile">
+    <members>
+      <whfsrefarray name="belongstorepos"/>
+    </members>
+  </filetype>
 
   <filetype
-      typedef="http://www.webhare.net/xmlns/publisher/tagrepository"
+      namespace="http://www.webhare.net/xmlns/publisher/tagrepository"
       tid="publisher:filetypes.tagrepository"
       tolliumicon="tollium:folders/repository"
-      kind="datafile"
-  />
+      kind="datafile">
+    <members>
+      <whfsrefarray name="tags"/>
+    </members>
+  </filetype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/reports/publishstatus"
                cloneoncopy="false">

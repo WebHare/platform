@@ -80,7 +80,7 @@
     <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FileEntry" />
   </filetype>
 
-  <foldertype typedef="http://www.webhare.net/xmlns/beta/dynfolder" title="TestsuiteDynFolder">
+  <foldertype namespace="http://www.webhare.net/xmlns/beta/dynfolder" title="TestsuiteDynFolder">
     <members>
       <string name="test" />
     </members>
