@@ -126,45 +126,6 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     this->workers->rows := this->GetConsilioWorkers() CONCAT this->GetPublisherWorkers();
-    this->tasks->rows := this->GetTasks();
-  }
-
-  PUBLIC MACRO OnMessage(RECORD message)
-  {
-    IF (CellExists(message, "TASKID") AND message.taskid > 0)
-      this->tasks->value := message.taskid;
-  }
-
-  INTEGER FUNCTION GetTaskIcon(RECORD task)
-  {
-    STRING iconname;
-
-    IF (NOT task.enabled)
-      iconname := "tollium:status/negative";
-    ELSE IF(task.nexttime != DEFAULT DATETIME AND task.nexttime < GetCurrentDatetime())
-      iconname := "tollium:status/wait";
-    ELSE IF (task.error != "")
-      iconname := "tollium:status/serious_error";
-    ELSE
-      iconname := "tollium:status/checked";
-
-    RETURN this->tasks->GetIcon(iconname);
-  }
-
-  RECORD ARRAY FUNCTION GetTasks()
-  {
-    RECORD ARRAY newlist := SELECT error
-                                 , running :=     currentstart = DEFAULT DATETIME ? 0 : this->tasks->GetIcon("tollium:status/neutral")
-                                 , currentstart
-                                 , nexttime
-                                 , script
-                                 , description
-                                 , rowkey := id
-                                 , enabled
-                                 , style := enabled ? "" : "disabled"
-                              FROM system_internal.tasks;
-
-    RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
   }
 
   RECORD ARRAY FUNCTION GetConsilioWorkers()
@@ -340,58 +301,5 @@ PUBLIC OBJECTTYPE Queues EXTEND DashboardPanelBase
     }
 
     RETURN workerlist;
-  }
-
-  MACRO DoTaskProperties()
-  {
-    this->LoadScreen(".taskproperties", [ id := this->tasks->value ])->RunModal();
-    this->RefreshDashboardPanel();
-  }
-
-  MACRO DoScheduleTaskNow()
-  {
-    OBJECT work := this->BeginWork();
-    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id = this->tasks->value;
-    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
-    work->Finish();
-    this->RefreshDashboardPanel();
-
-    this->RunMessageBox(".taskscheduled");
-  }
->;
-
-PUBLIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
-<
-  INTEGER id;
-
-  MACRO Init(RECORD data)
-  {
-    this->id := data.id;
-
-    RECORD taskinfo := SELECT * FROM system_internal.tasks WHERE id=data.id;
-    this->scriptname->value := taskinfo.script;
-    this->description->value := taskinfo.description;
-    this->parameters->value := taskinfo.parameters;
-    this->tag->value := taskinfo.tag;
-    this->lastmessages->value := taskinfo.error;
-    this->nexttime->value := taskinfo.nexttime;
-    ^enabled->enabled := taskinfo.enabled OR taskinfo.inapplicable = "";
-    ^enabled->value := taskinfo.enabled;
-    ^inapplicable->value := taskinfo.inapplicable;
-    ^inapplicable->visible := taskinfo.inapplicable != "";
-
-    this->timeout->value := taskinfo.timeout > 0 ? taskinfo.timeout || " " || GetTid("tollium:common.units.minutes")
-                                                 : this->GetTid(".defaulttimeout", ReadRegistryKey("system.tasks.defaulttimeout") || " " || GetTid("tollium:common.units.minutes"));
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    UPDATE system_internal.tasks
-           SET nexttime := this->nexttime->value
-             , enabled := this->enabled->value
-           WHERE id=this->id;
-    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
-    RETURN work->Finish();
   }
 >;

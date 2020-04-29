@@ -127,6 +127,7 @@
     <dashboardgroup name="other" tid="monitor.groups.other" orderafter="ap"/>
 
     <dashboardpanel group="tasks" name="queues" tid="monitor.queues.title" screen="monitor/queues.queues" />
+    <dashboardpanel group="tasks" name="timedtasks" tid="tolliumapps.dashboard.timedtasks.timedtasks" screen="tolliumapps/dashboard/timedtasks.xml#timedtasks" />
     <dashboardpanel group="ap" name="logs" tid="monitor.logs.title" screen="monitor/logs.logs" />
     <dashboardpanel group="ap" name="rpclog" tid="monitor.rpclog.title" screen="monitor/rpclog.rpclog" />
     <dashboardpanel group="ap" name="installedfonts" tid="tolliumapps.dashboard.fonts.installedfonts" screen="tolliumapps/dashboard/fonts.xml#installedfonts" />

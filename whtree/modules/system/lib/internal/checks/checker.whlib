@@ -260,7 +260,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   FOREVERY(RECORD stucktask FROM stucktasks)
   {
     INSERT [ msg := ":Task '" || stucktask.tag || "' has errors"
-           , jumpto := [ app := "system:dashboard", panel := "system:queues", taskid := stucktask.id ]
+           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
            ]
            INTO messages AT END;
   }
