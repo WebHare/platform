@@ -1672,6 +1672,8 @@ STATIC OBJECTTYPE WHFSType
     {
       IF (options.isvisibleedit)
         GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
+      ELSE
+        GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
     }
 
     RETURN instance;

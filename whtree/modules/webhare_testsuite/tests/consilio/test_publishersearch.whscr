@@ -292,6 +292,31 @@ MACRO PublisherSearchTest()
   result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(testroot->id)), 0, -1);
   TestEq(0, result.totalcount);
 
+  // Silently update the testfield
+  testfw->BeginWork();
+
+  publishersearchtesttype->SetInstanceData(file_5->id, [ testfield := file_5->id ], [ isvisibleedit := FALSE ]);
+
+  CommitAndWaitForPublisherIndex();
+
+  // Find 'file_5' by id and check updated custom module field
+  result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_5->id)), 0, -1);
+  TestEq(1, result.totalcount);
+  TestEq(TRUE, CellExists(result.results[0], "contenttypefield@webhare_testsuite"));
+  TestEq(ToString(file_5->id), result.results[0]."contenttypefield@webhare_testsuite");
+  TestEq(TRUE, CellExists(result.results[0], "libraryfield@webhare_testsuite"));
+  TestEq(ToString(file_5->id), result.results[0]."libraryfield@webhare_testsuite");
+
+  // It should now be found again by the file's id and by the libraryfield
+  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  TestEq(1, result.totalcount);
+  result := search_obj->SearchQuery(MakeLiteralQuery("contenttypefield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  TestEq(0, result.totalcount);
+  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(file_5->id)), 0, -1);
+  TestEq(1, result.totalcount);
+  result := search_obj->SearchQuery(MakeLiteralQuery("libraryfield@webhare_testsuite", ToString(testroot->id)), 0, -1);
+  TestEq(0, result.totalcount);
+
   testfw->BeginWork();
 
   publishersearchtesttype->SetInstanceData(file_5->id,
