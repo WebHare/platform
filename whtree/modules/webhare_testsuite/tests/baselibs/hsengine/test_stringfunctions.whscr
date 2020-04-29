@@ -930,7 +930,7 @@ MACRO HsonTest(BOOLEAN viablob)
   TestHareScriptEnDeCode("abc\x80", "abc\\x80"); // invalid UTF-8 at end
   TestHareScriptEnDeCode("a\x80c", "a\\x80c"); // invalid UTF-8 in middle, followed by valid ASCII
   TestHareScriptEnDeCode("a\x80\u00A0", "a\\x80\\u00A0"); // invalid UTF-8 in middle, followed by valid unicode
-  TestHareScriptEnDeCode(`\a\b\n\t'"\\`, `\\a\\b\\n\\t\\'\\"\\\\`);
+  TestHareScriptEnDeCode(`\b\n\t'"\\`, `\\b\\n\\t\\'\\"\\\\`);
 
   CloseTest("TestStringFunctions: HsonTest");
 }

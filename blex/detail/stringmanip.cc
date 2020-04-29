@@ -783,7 +783,6 @@ template <class InputIterator, class OutputIterator, bool encode_invalid_utf8> O
 
                 switch(curch)
                 {
-                case 7:    /* \a */ *output++='\\'; *output++='a'; break;
                 case 8:    /* \b */ *output++='\\'; *output++='b'; break;
                 case 12:   /* \f */ *output++='\\'; *output++='f'; break;
                 case 10:   /* \n */ *output++='\\'; *output++='n'; break;

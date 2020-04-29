@@ -822,6 +822,7 @@ MACRO TestJSON()
   TestEq('"a/b/c"', EncodeJSON("a/b/c"));
   TestEq('"a\\"b"', EncodeJSON("a\"b"));
   TestEq('"a\'b"', EncodeJSON("a\'b")); //single quote should NOT be escaped
+  TestEq('"\\u0007"', EncodeJSON('\a')); //do not encode \a as a \a, just as \u0007.
 
   TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT OBJECT));
   TestEQ("[]", EncodeJSON(DEFAULT OBJECT ARRAY));
