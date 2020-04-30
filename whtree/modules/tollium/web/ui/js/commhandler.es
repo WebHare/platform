@@ -553,10 +553,8 @@ class WebSocketTransport extends TransportBase
 
     $todd.DebugTypedLog("rpc", '** create WebSocket transport');
 
-    var url = new URL('/.tollium/ui/comm.whsock', whintegration.config.obj.toddservice);
-    url.protocol = url.protocol == 'https:' ? 'wss:' : 'ws:';
-
-    this.socket = new WebSocket(url.toString());
+    let url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
+    this.socket = new WebSocket('ws' + url.substr(4));
     this.socket.addEventListener('open', this.gotOpen.bind(this));
     this.socket.addEventListener('message', this.gotMessage.bind(this));
     this.socket.addEventListener("close", e => this.gotClose(e));
@@ -931,5 +929,4 @@ $todd.LinkEndPoint = LinkEndpoint;
 $todd.TransportBase = TransportBase;
 $todd.TransportManager = TransportManager;
 $todd.JSONRPCTransport = JSONRPCTransport;
-$todd.SharedWebSocketTransport = SharedWebSocketTransport;
 $todd.SharedWebSocketTransport = SharedWebSocketTransport;
