@@ -485,7 +485,6 @@
     <text tid="clearaction">Leegmaken</text>
     <text tid="path">Pad</text>
     <textgroup gid="dialogs">   <!-- components.dialogs -->
-      <text tid="cannotshowinsecurecontent">De inhoud van de onbeveiligde URL '<param p="1"/>' kan niet getoond worden binnen een beveiligde site.</text>
       <text tid="nosharedblocksources">Er zijn geen bronnen voor gedeelde blokken beschikbaar</text>
     </textgroup>
     <textgroup gid="embedvideo">   <!-- components.embedvideo -->
@@ -596,58 +595,19 @@
     <textgroup gid="previewbrowser">   <!-- components.previewbrowser -->
       <text tid="cachedversion">Omdat er fouten zijn opgetreden tijdens de publicatie, wordt de laatst correct gepubliceerde versie van het bestand weergegeven.</text>
       <text tid="clickallresults">Klik hier om alle <param p="1"/> resultaten weer te geven.</text>
-      <text tid="clickerrors">Klik hier om de fouten te bekijken.</text>
-      <text tid="clickexternallink">Klik hier om deze link te openen.</text>
       <text tid="clickviewable">Klik hier om toch een voorbeeld van dit bestand weer te geven.</text>
-      <text tid="clickviewsite">Klik hier om de site te bekijken in een nieuw browservenster.</text>
-      <text tid="clickwarnings">Klik hier om de waarschuwingen te bekijken.</text>
-      <text tid="contentlink">Deze contentlink is gekoppeld aan bestand '<param p="1"/>'.</text>
-      <text tid="errors">Er zijn fouten opgetreden tijdens de publicatie.</text>
-      <text tid="externallink">Deze externe link verwijst naar URL '<param p="1"/>'.</text>
-      <text tid="folderwithoutindex">De geselecteerde map '<param p="1"/>' bevat geen indexdocument.</text>
       <text tid="foreignfolder">De geselecteerde map is een externe map.</text>
-      <text tid="internallink">Deze interne link is gekoppeld aan het bestand '<param p="1"/>'.</text>
-      <text tid="internallink-broken">Deze interne link is niet gekoppeld aan een bestaand bestand.</text>
-      <text tid="internallink-cachedversion">Omdat er fouten zijn opgetreden tijdens de publicatie van het gekoppelde bestand, wordt de laatst correct gepubliceerde versie weergegeven.</text>
       <text tid="internallink-errors">Er zijn fouten opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
-      <text tid="internallink-unpublished">Deze interne link is gekoppeld aan het ongepubliceerde bestand '<param p="1"/>'.</text>
       <text tid="internallink-warnings">Er zijn waarschuwingen opgetreden tijdens de publicatie van het gekoppelde bestand.</text>
-      <text tid="nonsecuresite">De site is onbeveiligd en kan niet worden weergegeven binnen de beveiligde WebHare-omgeving.</text>
-      <text tid="nopreviewobject">Het object <param p="1"/>#<param p="2"/> kon niet worden gevonden of is van het verkeerde type.</text>
-      <text tid="notpublished">Dit bestand wordt niet gepubliceerd.</text>
       <text tid="notviewable">Dit bestand wordt mogelijk niet goed door de browser weergegeven.</text>
-      <text tid="previewrefresh">Verversen</text>
       <text tid="previewzoomin">Inzoomen</text>
       <text tid="previewzoomout">Uitzoomen</text>
       <text tid="previewzoomreset">Zoomniveau herstellen</text>
       <text tid="qrlink">QR-code voor voorbeeld tonen</text>
-      <text tid="refreshhint">Verversen</text>
-      <text tid="scheduled">Er is een taak ingeroosterd voor dit bestand.</text>
-      <text tid="scheduleddelete">Dit bestand wordt verwijderd op <param p="1"/>.</text>
-      <text tid="scheduledmove">Dit bestand wordt verplaatst op <param p="1"/>.</text>
-      <text tid="scheduledpublish">Dit bestand wordt gepubliceerd vanaf <param p="1"/>.</text>
-      <text tid="scheduledunpublish">Dit bestand wordt niet meer gepubliceerd na <param p="1"/>.</text>
-      <text tid="showexternallink">Externe link openen</text>
       <text tid="toomanyresults">Alleen de <param p="1"/> meest recent verwijderde objecten worden weergegeven.</text>
-      <text tid="viewsite">Website openen</text>
-      <text tid="warnings">Er zijn waarschuwingen opgetreden tijdens de publicatie.</text>
-      <text tid="widgetpreview">Dit is een voorbeeld van deze widget.</text>
       <text tid="zoominhint">Inzoomen</text>
       <text tid="zoomouthint">Uitzoomen</text>
       <text tid="zoomresethint">Zoomniveau herstellen</text>
-      <textgroup gid="custom">   <!-- components.previewbrowser.custom -->
-        <text tid="height">Hoogte</text>
-        <text tid="previewbrowsercustom">Aangepast formaat</text>
-        <text tid="width">Breedte</text>
-      </textgroup>
-      <textgroup gid="devices">   <!-- components.previewbrowser.devices -->
-        <text tid="custom">Aangepast...</text>
-        <text tid="customsize">Aangepast</text>
-        <text tid="desktop">Desktop</text>
-        <text tid="fill">Standaardweergave</text>
-        <text tid="phone">Telefoon</text>
-        <text tid="tablet">Tablet</text>
-      </textgroup>
       <textgroup gid="showmessage">   <!-- components.previewbrowser.showmessage -->
         <text tid="notviewable-message">Bestanden van het type '<param p="1"/>' worden mogelijk niet goed in dit voorbeeld weergegeven.</text>
         <text tid="notviewable-title">Voorbeeldweergave niet mogelijk</text>
@@ -2646,6 +2606,47 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
+      <text tid="cannotshowinsecurecontent">De inhoud van de onbeveiligde URL '<param p="1"/>' kan niet getoond worden binnen een beveiligde site.</text>
+      <text tid="clickerrors">Klik hier om de fouten te bekijken.</text>
+      <text tid="clickexternallink">Klik hier om deze link te openen.</text>
+      <text tid="clickviewsite">Klik hier om de site te bekijken in een nieuw browservenster.</text>
+      <text tid="clickwarnings">Klik hier om de waarschuwingen te bekijken.</text>
+      <text tid="contentlink">Deze contentlink is gekoppeld aan bestand '<param p="1"/>'.</text>
+      <text tid="errors">Er zijn fouten opgetreden tijdens de publicatie.</text>
+      <text tid="externallink">Deze externe link verwijst naar URL '<param p="1"/>'.</text>
+      <text tid="folderwithoutindex">De geselecteerde map '<param p="1"/>' bevat geen indexdocument.</text>
+      <text tid="internallink">Deze interne link is gekoppeld aan het bestand '<param p="1"/>'.</text>
+      <text tid="internallink-broken">Deze interne link is niet gekoppeld aan een bestaand bestand.</text>
+      <text tid="internallink-cachedversion">Omdat er fouten zijn opgetreden tijdens de publicatie van het gekoppelde bestand, wordt de laatst correct gepubliceerde versie weergegeven.</text>
+      <text tid="internallink-unpublished">Deze interne link is gekoppeld aan het ongepubliceerde bestand '<param p="1"/>'.</text>
+      <text tid="nonsecuresite">De site is onbeveiligd en kan niet worden weergegeven binnen de beveiligde WebHare-omgeving.</text>
+      <text tid="nopreviewobject">Het object <param p="1"/>#<param p="2"/> kon niet worden gevonden of is van het verkeerde type.</text>
+      <text tid="notpublished">Dit bestand wordt niet gepubliceerd.</text>
+      <text tid="previewrefresh">Verversen</text>
+      <text tid="refreshhint">Verversen</text>
+      <text tid="scheduled">Er is een taak ingeroosterd voor dit bestand.</text>
+      <text tid="scheduleddelete">Dit bestand wordt verwijderd op <param p="1"/>.</text>
+      <text tid="scheduledmove">Dit bestand wordt verplaatst op <param p="1"/>.</text>
+      <text tid="scheduledpublish">Dit bestand wordt gepubliceerd vanaf <param p="1"/>.</text>
+      <text tid="scheduledunpublish">Dit bestand wordt niet meer gepubliceerd na <param p="1"/>.</text>
+      <text tid="showexternallink">Externe link openen</text>
+      <text tid="viewsite">Website openen</text>
+      <text tid="warnings">Er zijn waarschuwingen opgetreden tijdens de publicatie.</text>
+      <text tid="widgetpreview">Dit is een voorbeeld van deze widget.</text>
+      <textgroup gid="custom">   <!-- tolliumcomponents.previewbrowser.custom -->
+        <text tid="height">Hoogte</text>
+        <text tid="previewbrowsercustom">Aangepast formaat</text>
+        <text tid="width">Breedte</text>
+      </textgroup>
+      <textgroup gid="devices">   <!-- tolliumcomponents.previewbrowser.devices -->
+        <text tid="customsize">Aangepast</text>
+        <text tid="desktop">Desktop</text>
+        <text tid="fill">Standaardweergave</text>
+        <text tid="phone">Telefoon</text>
+        <text tid="tablet">Tablet</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="selectmailtemplate">   <!-- tolliumcomponents.selectmailtemplate -->
       <text tid="notemplate">Geen design</text>
     </textgroup>

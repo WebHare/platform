@@ -1995,7 +1995,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoCancelDraft()
   {
-    IF (this->RunMessageBox(".confirmcanceldraft") = "yes")
+    IF(this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) = "yes")
     {
       OBJECT work := this->BeginUnvalidatedWork();
 
@@ -2012,7 +2012,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO DoCancelRequest()
   {
-    IF (this->RunMessageBox(".confirmcancelrequest") = "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
     {
       OBJECT work := this->BeginWork();
       OBJECT draftitem := this->draftitem;
