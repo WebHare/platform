@@ -849,6 +849,27 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/externallink" />
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" skipnormalrepublish="true" />
   </apply>
+
+
+  <!-- ======================================================================
+
+       Make sure we can ALWAYS change site root folders back to "noramalfolder"
+       We need this because it's easy to accidentally block switching back if you do this:
+
+       <apply
+         <to type="all" parenttype="http://www.example.net/xmlns/footerfolder" />
+         <denyfoldertype typedef="*" />
+         <allowfoldertype typedef="http://www.example.net/xmlns/footersection" />
+       </apply>
+
+       which seems like a good idea, but because a site root folder tests parenttype= on *itself*
+       changing a root folder's type becomes irreversible. The following rule fixes it
+  ==== -->
+  <apply priority="99999">
+    <to type="folder" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
+  </apply>
+
   <!-- ======================================================================
 
        Folder sync
