@@ -1222,7 +1222,7 @@ STATIC OBJECTTYPE ApplyRuleTester
           RECORD result :=
               [ siteprofile :=   apply.siteprofile
               , applyindex :=    apply.applyindex
-              , applynodetype := apply.applynodetype
+              , applynodetype := CellExists(apply, 'applynodetype') ? apply.applynodetype : "apply" //compatibility with 4.27 compiled siteprofs
               , siteids :=       apply.siteids
               ];
 
