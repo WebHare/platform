@@ -1153,20 +1153,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               this->AddWarning(node, "<contentlisting> is only supported by template-v2.whlib designs and will be removed in the future");
               CONTINUE;
             }
-            CASE "defaultsettings"
-            {
-              RECORD settings := [ typedef := node->GetAttribute("typedef")
-                                 , members := DEFAULT RECORD ARRAY
-                                 ];
-              FOREVERY(OBJECT memberobj FROM node->GetChildElementsByTagNameNS(namespace_sp, "member")->GetCurrentElements())
-              {
-                INSERT [ name := memberobj->GetAttribute("name")
-                       , content := memberobj->textcontent
-                       ] INTO settings.members AT END;
-              }
-              INSERT settings INTO apply.defaultsettings AT END;
-              CONTINUE;
-            }
             CASE "setobjecteditor"
             {
               apply.setobjecteditor := [ name := node->GetAttribute("name")
