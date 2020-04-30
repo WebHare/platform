@@ -1046,14 +1046,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "allowfoldertype", "denyfoldertype"
             {
               INSERT [ isallow := node->localname LIKE "allow*"
-                     , typedef := node->GetAttribute("typedef")
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfoldertypes AT END;
               CONTINUE;
             }
             CASE "allowfiletype", "denyfiletype"
             {
               INSERT [ isallow := node->localname LIKE "allow*"
-                     , typedef := node->GetAttribute("typedef")
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfiletypes AT END;
               CONTINUE;
             }

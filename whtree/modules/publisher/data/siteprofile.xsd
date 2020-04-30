@@ -918,10 +918,10 @@
       <xs:element ref="extendproperties" />
       <xs:element ref="undoextendproperties" />
       <xs:element ref="baseproperties" />
-      <xs:element name="allowfoldertype" type="AllowDenyFolderType" />
-      <xs:element name="denyfoldertype" type="AllowDenyFolderType" />
-      <xs:element name="allowfiletype" type="AllowDenyFileType" />
-      <xs:element name="denyfiletype" type="AllowDenyFileType" />
+      <xs:element name="allowfoldertype" type="AllowDenyType" />
+      <xs:element name="denyfoldertype" type="AllowDenyType" />
+      <xs:element name="allowfiletype" type="AllowDenyType" />
+      <xs:element name="denyfiletype" type="AllowDenyType" />
       <xs:element name="allowwidgettype" type="sc:AllowWidgetType" />
       <xs:element name="setobjecteditor" type="SetObjectEditor" />
       <xs:element name="setembeddedobjectrenderer" type="SetEmbeddedObjectRenderer" />
@@ -1159,12 +1159,13 @@
     </xs:attribute>
   </xs:complexType>
 
-  <xs:complexType name="AllowDenyFolderType">
-    <xs:attribute name="typedef" type="xs:anyURI" />
-  </xs:complexType>
-
-  <xs:complexType name="AllowDenyFileType">
-    <xs:attribute name="typedef" type="xs:anyURI" />
+  <xs:complexType name="AllowDenyType">
+    <xs:attribute name="typedef" type="xs:anyURI" /> <!-- Pre-4.28, deprecate -->
+    <xs:attribute name="typemask" type="xs:anyURI">
+      <xs:annotation>
+        <xs:documentation>A wildcard mask of types to allow/deny</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="Republish">
