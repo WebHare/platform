@@ -49,7 +49,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
   RECORD ARRAY FUNCTION GetTasks()
   {
     RECORD ARRAY newlist := SELECT error
-                                 , running :=     currentstart = DEFAULT DATETIME ? 0 : ^GetIcon("tollium:status/neutral")
+                                 , running :=     currentstart = DEFAULT DATETIME ? 0 : ^tasks->GetIcon("tollium:status/neutral")
                                  , currentstart
                                  , nexttime
                                  , script
