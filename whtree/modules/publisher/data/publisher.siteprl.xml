@@ -853,7 +853,7 @@
 
   <!-- ======================================================================
 
-       Make sure we can ALWAYS change site root folders back to "noramalfolder"
+       Make sure we can ALWAYS change site root folders back to "normalfolder"
        We need this because it's easy to accidentally block switching back if you do this:
 
        <apply
