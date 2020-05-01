@@ -152,7 +152,7 @@ if [ -n "$ISMODULETEST" -a -z "$WEBHAREIMAGE" ]; then
 fi
 
 if [ "$WEBHAREIMAGE" == "head" -o "$WEBHAREIMAGE" == "stable" -o "$WEBHAREIMAGE" == "beta" ]; then
-  WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt`
+  WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#'`
   if [ -z "$WEBHAREIMAGE" ]; then
     echo "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
     exit 1

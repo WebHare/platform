@@ -276,7 +276,7 @@ MACRO TestYoukuProvider()
   RECORD ARRAY searchres := prov->Search("",3);
   TestEq(0, Length(searchres));
 
-  searchres := prov->Search("why love you",3); //'test' was returning only 2 videos all of a sudden
+  searchres := prov->Search("小獵犬",3); //'test' was returning only 2 videos all of a sudden
   TestEq(TRUE, Length(searchres)>0);
 
   RECORD videoinfo := prov->DescribeVideo(searchres[0].videoid);
