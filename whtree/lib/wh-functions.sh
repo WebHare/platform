@@ -285,6 +285,7 @@ get_finaltag()
     # local build. No pushes or deploys
 
     BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
+    WEBHARE_VERSION=${WEBHARE_VERSION}-dev
   fi
 
   echo "Semantic version:     $WEBHARE_VERSION"
