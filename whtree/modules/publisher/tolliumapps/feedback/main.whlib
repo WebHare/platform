@@ -70,7 +70,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->RunSimpleScreen("confirm", this->GetTid(".messages.confirmdeletefeedback")) != "yes")
       RETURN;
 
-    OBJECT work := this->BeginWork();
+    OBJECT work := this->BeginUnvalidatedWork();
     // Don't archive it, assume deleted feedback may contain PII. If random deletion becomes a problem, solve it with rights
     this->contexts->wrdschema->^feedback->DeleteEntity(^feedback->value);
     work->Finish();
