@@ -94,7 +94,11 @@ getmoduledir()
     return
   fi
   if ! getmoduledir_nofail XMODULEDIR "$2" ; then
-    echo "No such module $2" 1>&2
+    if [ "$2" == "dev" ]; then
+      echo "No such module $2 - please see https://www.webhare.dev/manuals/developers/dev-module/" 1>&2
+    else
+      echo "No such module $2" 1>&2
+    fi
     exit 1
   fi
   eval $1=\$XMODULEDIR
