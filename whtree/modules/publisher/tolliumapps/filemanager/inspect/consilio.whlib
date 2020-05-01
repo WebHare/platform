@@ -30,11 +30,7 @@ PUBLIC RECORD ARRAY FUNCTION GetPageList(INTEGER objid)
 {
   OpenPrimary();
 
-  RECORD objinfo := SELECT parent FROM system.fs_objects WHERE id = objid;
-  IF(NOT RecordExists(objinfo))
-    RETURN RECORD[];
-
-  RETURN SELECT link, modificationdate, title FROM GenerateSitemapLinks(objinfo.parent, [ limitobjects := [objid]]);
+  RETURN SELECT link, modificationdate, title, consiliofields FROM GetConsilioPagesForFile(objid);
 }
 
 
