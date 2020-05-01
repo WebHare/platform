@@ -15,7 +15,6 @@ test.registerTests(
       test.setTodd('password', setupdata.sysoppassword);
       test.clickToddButton('Login');
 
-      await test.wait('pageload'); //login refreshes
       await test.wait('ui');
     }
   , "Start feedback app, check if we can control feedback"

@@ -20,7 +20,6 @@ async function tryProtectedURL(gotourl)
   test.setTodd('password', setupdata.sysoppassword);
   test.clickToddButton('Login');
 
-  await test.wait('pageload');
   await test.wait('ui');
 
   test.getWin().addEventListener("message", e => receivedmessage = e.data);

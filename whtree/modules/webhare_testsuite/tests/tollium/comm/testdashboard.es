@@ -16,7 +16,6 @@ test.registerTests(
       test.setTodd('password', setupdata.sysoppassword);
       test.clickToddButton('Login');
 
-      await test.wait('pageload');
       await test.wait('ui');
     }
 

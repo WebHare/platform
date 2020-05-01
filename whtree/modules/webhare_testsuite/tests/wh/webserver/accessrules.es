@@ -6,7 +6,7 @@ test.registerTests(
   [ {
       test:async function()
       {
-        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupAccessRules')
+        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupAccessRules');
       }
     }
 
@@ -35,7 +35,7 @@ test.registerTests(
         test.setTodd('password', "secret");
         test.clickToddButton('Login');
       }
-    , waits: ['pageload', 'ui']
+    , waits: ['ui']
     }
 
   , { name: "check login result"
@@ -48,7 +48,7 @@ test.registerTests(
   , { name: "remove cookies for /portal2" // Leave portal1, so we are still logged in there
     , test: async function()
       {
-        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutportal2path')
+        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutportal2path');
       }
     }
 
@@ -75,7 +75,7 @@ test.registerTests(
         test.setTodd('password', "secret");
         test.clickToddButton('Login');
       }
-    , waits: ['pageload', 'ui']
+    , waits: ['ui']
     }
   , { name: "check login result"
     , test:function(doc,win)
@@ -87,7 +87,7 @@ test.registerTests(
   , { name: "remove cookies for /portal2" // Leave portal1, so we are still logged in there
     , test: async function()
       {
-        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutstaticlogin')
+        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutstaticlogin');
       }
     }
 
@@ -132,7 +132,7 @@ test.registerTests(
   , { name: "reset my session for staticprotected"
     , test: async function()
       {
-        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'staticprotectedresetsession')
+        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'staticprotectedresetsession');
       }
     }
 
@@ -149,7 +149,7 @@ test.registerTests(
   , { name: "remove cookies for staticlogin page"
     , test: async function()
       {
-        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutstaticlogin')
+        await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'logoutstaticlogin');
       }
     }
 
