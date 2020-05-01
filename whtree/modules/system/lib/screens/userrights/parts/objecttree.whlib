@@ -192,6 +192,7 @@ PUBLIC STATIC OBJECTTYPE ObjectTreeRightsExport
 
       users := this->tolliumuser->authapi->EnrichUsers("userid", (SELECT id, type, unit, authobjectparentid, userid := id FROM users), [ celltype := "authobjectid" ] );
       users := EnrichWithUnitPath(users, this->tolliumuser);
+      users := SELECT * FROM users ORDER BY id;
 
       FOREVERY (RECORD rec FROM rows)
       {
