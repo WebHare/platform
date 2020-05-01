@@ -51,7 +51,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF(ObjectExists(targetformapplytester))
     {
       RECORD targetformsettings := targetformapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-      IF(targetformsettings.webtoolformhooks != "")
+      IF(RecordExists(targetformsettings) AND targetformsettings.webtoolformhooks != "")
       {
         RECORD save__passthrough := __passthrough;
         TRY
