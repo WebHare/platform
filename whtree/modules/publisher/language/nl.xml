@@ -2197,7 +2197,7 @@
         <text tid="viewpublished">Gepubliceerde versie</text>
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
-        <text tid="closeeditorafterversionedpublish">Uw wijzigingen zijn ingediend. Voor de beoordeling dient deze applicatie te worden afgesloten.<br/>Wilt u de tekstverwerker nu afsluiten?</text>
+        <text tid="closeeditorafterversionedpublish">Uw wijzigingen zijn ingediend. Voor de beoordeling dient deze applicatie te worden afgesloten.<br/>Wilt u de applicatie nu afsluiten?</text>
         <text tid="confirmcanceldraft">Weet u zeker dat u de conceptversie wilt annuleren en de laatst gepubliceerde versie wilt terugzetten?</text>
         <text tid="confirmcancelrequest">Weet u zeker dat u het publicatieverzoek voor de conceptversie wilt intrekken?</text>
         <text tid="confirmsaveandpublish">Weet u zeker dat u wilt opslaan en publiceren?</text>
