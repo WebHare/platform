@@ -393,14 +393,6 @@ PUBLIC STRING FUNCTION __HS_INTERNAL_CalculateVariableHash(VARIANT variable) __A
 
 PUBLIC STRING FUNCTION Encrypt_Xor(STRING xor_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
-/** @short Encrypt using the blowfish-ecb algorithm
-    @long This function would be equivalent to the PHP function: base64_decode(openssl_encrypt(data,"bf-ecb",bf_key))
-    @param bf_key Encryption key
-    @param data Data to encrypt
-    @return Encryped value */
-PUBLIC STRING FUNCTION __HS_Encrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-PUBLIC STRING FUNCTION __HS_Decrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
 PUBLIC MACRO DoFatalError(INTEGER line, STRING msg1, STRING msg2) __ATTRIBUTES__(SKIPTRACE, TERMINATES)
 {
   TRY

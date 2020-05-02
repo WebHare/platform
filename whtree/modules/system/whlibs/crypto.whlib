@@ -228,16 +228,6 @@ PUBLIC STRING FUNCTION GenerateRandomText(INTEGER len, STRING allowed_chars)
   RETURN result;
 }
 
-PUBLIC STRING FUNCTION Encrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(DEPRECATED "These functions give php-incompatible results with short keys. Please use Encrypt() instead")
-{
-  RETURN __HS_Encrypt_Blowfish(bf_key,data);
-}
-
-PUBLIC STRING FUNCTION Decrypt_Blowfish(STRING bf_key, STRING data) __ATTRIBUTES__(DEPRECATED "These functions give php-incompatible results with short keys. Please use Decrypt() instead")
-{
-  RETURN __HS_Decrypt_Blowfish(bf_key,data);
-}
-
 // Byte-for-byte XOR of two strings of equal length
 STRING FUNCTION StringXOR(STRING value1, STRING value2)
 {
@@ -359,9 +349,6 @@ PUBLIC STRING FUNCTION DecryptSignedData(STRING data, STRING algorithm, STRING e
       RETURN ""; //This is not proper blowfish data (blowfish is always a multiple of 8 bytes so easy to match) - stuff got appended?
 
     trydecode := Decrypt(decodealg.crypt, encryptkey, decodeddata);
-
-    IF(trydecode = "" AND Length(encryptkey)<16) //might be the broken Encrypt_blowfish - use broken decrypt_blowfish to compensate
-      trydecode := Decrypt_Blowfish(encryptkey, decodeddata);
 
     givensalt := Left(trydecode, decodealg.saltlength);
     givenhash := Right(trydecode, hashlen);
