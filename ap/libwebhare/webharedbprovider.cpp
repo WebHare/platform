@@ -1066,8 +1066,6 @@ void WebHareDBTransaction::ReconnectDBTransaction(Connection *new_conn)
             throw VMRuntimeError (Error::DatabaseException, "Database error: Can not reconnect auto transaction: work has been opened" + GetClientNamePostfix(0));
 
         dbase_trans.reset(whdbconn->dbconn->BeginTransaction(restoredata.username, restoredata.password, restoredata.clientname, restoredata.readonly, restoredata.is_auto));
-        if (restoredata.have_set_roles)
-            dbase_trans->SetRoles(restoredata.set_roles);
 }
 
 std::string WebHareDBTransaction::GetClientNamePostfix(Database::Exception const *e)
@@ -1082,24 +1080,6 @@ std::string WebHareDBTransaction::GetClientNamePostfix(Database::Exception const
 
         return clientname;
 }
-
-void WebHareDBTransaction::SetRoles(std::vector< Database::RoleId > const &roles)
-{
-        if (!dbase_trans.get())
-            throw VMRuntimeError (Error::DatabaseException, "Database error: Accessing an already closed transaction" + GetClientNamePostfix(0));
-
-        try
-        {
-                GetDBTrans().SetRoles(roles);
-                restoredata.have_set_roles = true;
-                restoredata.set_roles = roles;
-        }
-        catch (Database::Exception &e)
-        {
-                TranslateException(e);
-        }
-}
-
 
 void WebHareDBTransaction::ExecuteInsert(DatabaseQuery const &query, VarId newrecord)
 {
@@ -1468,25 +1448,6 @@ void WebHareDBTransaction::CloseCursor(CursorId id)
                 TranslateException(e);
         }
         queries.Erase(id);
-}
-
-bool WebHareDBTransaction::KeepAlive()
-{
-        WHDBProviderContext context(vm->GetContextKeeper());
-
-        try
-        {
-                if (context->primary_conn.get())
-                    return context->primary_conn->dbconn->CheckLiveness();
-                else
-                    return false;
-        }
-        catch (Database::Exception &e)
-        {
-                if (e.errorcode != Database::ErrorDisconnect && e.errorcode != Database::ErrorTimeout)
-                    throw;
-        }
-        return false;
 }
 
 //ADDME: Want this to be auto_ptr, but BCB exception bugs intervene
@@ -2391,7 +2352,7 @@ void HS_SQL_WHDB_IsConnectionAlive(VarId id_set, VirtualMachine *vm)
         WHDBProviderContext context(vm->GetContextKeeper());
         VarMemory &varmem = vm->GetStackMachine();
 
-        varmem.SetBoolean(id_set, context->primary_conn.get() && context->primary_conn->dbconn->CheckLiveness());
+        varmem.SetBoolean(id_set, context->primary_conn.get());
 }
 
 

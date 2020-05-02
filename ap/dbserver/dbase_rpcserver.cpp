@@ -78,8 +78,6 @@ static const unsigned MaxBytesPerBlock = 10000;
 static const unsigned BlobCacheSize = 8;
 /** Maximum number of seconds a normal transaction may be open: 1 hour */
 static const unsigned MaxTransactionTime =      ParanoidTimeouts ? 30 : 3600;
-/** Maximum time an ask must be responded to: 10 minutes */
-static const unsigned MaxAskResponseTime = 10 * 60;
 
 //--------------------------------------------------------------------------
 //
@@ -175,7 +173,6 @@ ConnectionManager::ConnectionManager (Backend &backend, bool logtransactions)
 , backend(backend)
 {
         DEBUGONLY(connmgrdata.SetupDebugging("connmgrdata"));
-        LockedData::WriteRef (connmgrdata)->questioncounter=0;
 
         if(ParanoidTimeouts)
              Blex::ErrStream() << "WARNING! Aggressive timeouts have been enabled, transactions may suffer disconnects";
@@ -186,92 +183,12 @@ ConnectionManager::~ConnectionManager() throw()
         //FIXME: Crash if connections are still open
 }
 
-void ConnectionManager::InformListeners(BackendTransactionRef &trans, Connection *sender)
-{
-        IODEBUGPRINTSO("Inform listeners about trans " << trans->GetTransId());
-        LockedData::ReadRef lock(connmgrdata);
-
-        for (Listeners::const_iterator litr=lock->listeners.begin();litr!=lock->listeners.end();++litr)
-        {
-                if ((*litr)->AnyInterestingNotifications(trans))
-                {
-                        std::unique_ptr< Notification > notif;
-                        notif.reset(new Notification);
-                        notif->receiver = (*litr);
-                        notif->trans = trans;
-
-                        std::unique_ptr< RPCTask > task(notif.release());
-                        sender->QueueRemoteTask((*litr), task, false);
-                }
-        }
-}
-
-bool ConnectionManager::SendMsg(std::string const &name, Record recdata, Connection *sender)
-{
-        IODEBUGPRINTSO("Send message to " << name << " rec " << recdata);
-        LockedData::ReadRef lock(connmgrdata);
-        bool success=false;
-
-        for (Listeners::const_iterator litr=lock->listeners.begin();litr!=lock->listeners.end();++litr)
-        {
-                if ( (*litr)->GetClientName() == name || name=="*")
-                {
-                        std::unique_ptr< Tell > tell;
-                        tell.reset(new Tell);
-                        tell->msg = recdata;
-
-                        std::unique_ptr< RPCTask > task(tell.release());
-                        sender->QueueRemoteTask((*litr), task, false);
-
-                        success=true;
-                }
-        }
-        if (!success)
-            IODEBUGPRINTSO("Cannot find listener " << name);
-        return success;
-}
-
-bool ConnectionManager::SendAsk(std::string const &name, std::unique_ptr< Ask > &ask, Connection *replyto)
-{
-        IODEBUGPRINTSO("Ask from " << name << " reply to " << replyto->GetClientName() << " rec " << ask->msg);
-        LockedData::WriteRef lock(connmgrdata);
-        for (Listeners::const_iterator litr=lock->listeners.begin();litr!=lock->listeners.end();++litr)
-        {
-                if ( (*litr)->GetClientName() == name)
-                {
-                        ask->sender = replyto;
-                        ask->receiver = *litr;
-                        ask->msgid = ++lock->questioncounter;
-
-                        IODEBUGPRINTSO("Found client, msgid will be " << lock->questioncounter);
-
-                        std::unique_ptr< RPCTask > rpctask(ask.release());
-
-                        replyto->QueueRemoteTask(*litr, rpctask, true);
-                        return true;
-                }
-        }
-        IODEBUGPRINTSO("Cannot find listener " << name);
-        return false;
-}
-
-void ConnectionManager::RegisterListener(Connection *conn)
-{
-        LockedData::WriteRef locked(connmgrdata);
-        if (std::find(locked->listeners.begin(), locked->listeners.end(), conn) == locked->listeners.end())
-            locked->listeners.push_back(conn);
-}
-
 void ConnectionManager::UnregisterConnection(Connection *conn)
 {
         //Remove any questions
         IODEBUGPRINTSO("Unregister transaction " << conn->GetClientName());
 
         LockedData::WriteRef locked(connmgrdata);
-
-        Listeners::iterator lit = std::find(locked->listeners.begin(),locked->listeners.end(),conn);
-        if (lit != locked->listeners.end())
-            locked->listeners.erase(lit);
 
         for (std::vector< std::pair< Connection *, TransId > >::iterator itr = locked->commitqueue.begin(); itr != locked->commitqueue.end(); ++itr)
             if (itr->first == conn)
@@ -315,12 +232,6 @@ Connection::~Connection()
         ResetConnection(false);
 }
 
-void Connection::ResetNotifyTrans()
-{
-        blobuser.DestroyContext(notify_trans.get());
-        notify_trans.reset();
-}
-
 void Connection::ResetConnection(bool first_time)
 {
         // If we were waiting for a commit, cancel it now.
@@ -340,18 +251,11 @@ void Connection::ResetConnection(bool first_time)
                 conn_rpctimer = Blex::FastTimer(); //reset..
         }
         clientname.clear();
-        if(notify_trans.get())
-            ResetNotifyTrans();
-        notification_queue.clear();
         mgr.UnregisterConnection(this);
         upload.reset();
 
         hooksignal = nullptr;
         scheduled_commit = false;
-        pending_asks.clear();
-        notereqs.Clear();
-        listen_login.clear();
-        listen_passwd.clear();
         connectionsource = "(unknown)";
 
         connstate = ConnectionState::JustConnected;
@@ -530,15 +434,9 @@ RPCResponse::Type Connection::HookHandleMessage(IOBuffer *iobuf)
 
                 switch (opcode)
                 {
-                case RequestOpcode::AnswerException:
-                case RequestOpcode::Answer:                             responsetype = RemoteAnswer(iobuf, trans); break;
                 case RequestOpcode::TransactionStart:                   responsetype = RemoteTransactionStart(iobuf, trans); break;
                 case RequestOpcode::TransactionExplicitOpen:            responsetype = RemoteTransactionExplicitOpen(iobuf, trans); break;
                 case RequestOpcode::TransactionCommitRollbackClose:     responsetype = RemoteTransactionCommitRollbackClose(iobuf, trans); break;
-                case RequestOpcode::NotifyOpen:                         responsetype = RemoteNotifyOpen(iobuf, trans); break;
-                case RequestOpcode::NotifyScan:                         responsetype = RemoteNotifyScan(iobuf, trans); break;
-                case RequestOpcode::NotifyClose:                        responsetype = RemoteNotifyClose(iobuf, trans); break;
-                case RequestOpcode::TransactionSetRoles:                responsetype = RemoteTransactionSetRoles(iobuf, trans); break;
                 case RequestOpcode::ResultSetAdvance:                   responsetype = RemoteResultSetAdvance(iobuf, trans); break;
                 case RequestOpcode::ResultSetLock:                      responsetype = RemoteResultSetLock(iobuf, trans); break;
                 case RequestOpcode::ResultSetUnlock:                    responsetype = RemoteResultSetUnlock(iobuf, trans); break;
@@ -549,7 +447,6 @@ RPCResponse::Type Connection::HookHandleMessage(IOBuffer *iobuf)
                 case RequestOpcode::ResultSetClose:                     responsetype = RemoteResultSetClose(iobuf, trans); break;
                 case RequestOpcode::RecordInsert:                       responsetype = RemoteRecordInsert(iobuf, trans); break;
                 case RequestOpcode::ScanStart:                          responsetype = RemoteScanStart(iobuf, trans); break;
-                case RequestOpcode::ScanNotificationsStart:             responsetype = RemoteScanNotificationsStart(iobuf, trans); break;
                 case RequestOpcode::MetadataGet:                        responsetype = RemoteMetadataGet(iobuf, trans); break;
                 case RequestOpcode::AutonumberGet:                      responsetype = RemoteAutonumberGet(iobuf, trans); break;
                 case RequestOpcode::BlobUpload:                         responsetype = RemoteBlobUpload(iobuf, trans); break;
@@ -558,12 +455,8 @@ RPCResponse::Type Connection::HookHandleMessage(IOBuffer *iobuf)
                 case RequestOpcode::BlobMarkPersistent:                 responsetype = RemoteBlobMarkPersistent(iobuf, trans); break;
                 case RequestOpcode::BlobDismiss:                        responsetype = RemoteBlobDismiss(iobuf, trans); break;
                 case RequestOpcode::SQLCommand:                         responsetype = RemoteSQLCommand(iobuf, trans); break;
-                case RequestOpcode::SubscribeAsListener:                responsetype = RemoteSubscribeAsListener(iobuf, trans); break;
-                case RequestOpcode::Ask:                                responsetype = RemoteAsk(iobuf, trans); break;
-                case RequestOpcode::Tell:                               responsetype = RemoteTell(iobuf, trans); break;
                 case RequestOpcode::ResetConnection:                    responsetype = RemoteResetConnection(iobuf, trans); break;
                 case RequestOpcode::BeginConnection:                    responsetype = RemoteBeginConnection(iobuf); break;
-                case RequestOpcode::KeepAlive:                          responsetype = RemoteKeepAlive(iobuf, trans); break;
                 default:
                     throw Exception(ErrorInternal, "Could not find handler for RPC " + GetName(opcode));
                 }
@@ -701,7 +594,6 @@ RPCResponse::Type Connection::RemoteResultSetLock(IOBuffer *iobuf, TransData *IO
         {
                 TransData const &data = *resultset.trans;
                 if ((data.type == DBTransactionType::Normal) ||
-                    (data.type == DBTransactionType::Ask) ||
                     (data.type == DBTransactionType::Auto && data.is_explicitly_started))
                 {
                         RPCResponse::Type result = TryLock(iobuf, *resultset.set, row);
@@ -1021,8 +913,7 @@ void Connection::RemoveResultSet(unsigned query_id)
         if (trans && !AnyResultSetsActive(trans))
         {
                 // Last resultset closed; finish updates to make everything visible (not for notification transactions!)
-                if (trans->type != DBTransactionType::Notification)
-                    trans->transref->FinishCommand();
+                trans->transref->FinishCommand();
 
                 // Deactivate auto transactions
                 if (trans->type == DBTransactionType::Auto && !trans->is_explicitly_started)
@@ -1126,71 +1017,6 @@ void Connection::HookIncomingConnection()
 void Connection::HookDisconnectReceived(Blex::Dispatcher::Signals::SignalType /*signal*/)
 {
         // Do nothing, everything is handled in connectionclosed
-}
-
-RPCResponse::Type Connection::RemoteAnswer(IOBuffer *iobuf, TransData *IODEBUGONLYARG(trans))
-{
-        uint32_t messageid = iobuf->Read<uint32_t>();
-
-        IODEBUG(trans, "Answer m:" << messageid);
-
-        std::map< uint32_t, Ask * >::iterator it = pending_asks.find(messageid);
-        if (it == pending_asks.end())
-            throw Exception(ErrorInvalidArg, "Invalid question id specified");
-
-        Ask *ask = it->second;
-        pending_asks.erase(it);
-
-        iobuf->ReadIn(&ask->msg);
-
-        // Recalculate timeouts for other pending_asks
-        ReSetTimeouts();
-
-        // Remove the new trans from this transaction
-        DeleteTransaction(GetTransaction(ask->trans_external_id,true));
-
-        MarkTaskFinished(ask, true);
-
-        return RPCResponse::DontRespond; //nothing to send..
-}
-
-bool Connection::AnyInterestingNotifications(BackendTransactionRef const &trans) const
-{
-        // Send for all requested tables if they have changes
-        for (NotificationRequests::Requests::const_iterator it = notereqs.requests.begin(); it != notereqs.requests.end(); ++it)
-        {
-                std::pair< TableDef const *, TableMods const * > data = GetTableDefAndNotifications(trans, it->schema, it->table);
-                if (data.first && data.second)
-                    return true;
-        }
-        return false;
-}
-
-std::pair< TableDef const *, TableMods const * > Connection::GetTableDefAndNotifications(BackendTransactionRef const &trans, std::string const &schemaname, std::string const &tablename) const
-{
-        // Get metadata
-        Metadata const &metadata = trans->GetMetadata();
-
-        // Lookup table
-        ObjectId schemaid = metadata.GetRootObject().GetObjectId(schemaname);
-        ObjectId tableid = schemaid==0 ? 0 : metadata.GetObjectDef(schemaid)->GetObjectId(tablename);
-        if (tableid == 0)
-            return std::make_pair((TableDef const *)0, (TableMods const *)0);
-
-        TableDef const *tabledef = metadata.GetTableDef(tableid);
-
-        // Lookup notifications, check if they are there
-        NotificationList const *tnotifs = trans->GetModifications().GetNotifications();
-        NotificationList::Mods::const_iterator it;
-        if (tnotifs)
-        {
-                it = tnotifs->mods.find(tableid);
-                if (it != tnotifs->mods.end())
-                    return std::make_pair(tabledef, &it->second);
-        }
-
-        // Got table, but no changes
-        return std::make_pair(tabledef, (TableMods const *)0);
 }
 
 TransData * Connection::AllocateTransaction()
@@ -1360,14 +1186,6 @@ std::pair< Blex::DateTime, bool > Connection::CalculateTimeouts()
                         timeout = this_timeout;
             }
 
-        // Check for pending questions (MaxAskResponseTime timeout from start of earliest queued ask)
-        for (std::map< uint32_t, Ask * >::const_iterator it = pending_asks.begin(), end = pending_asks.end(); it != end; ++it)
-        {
-                Blex::DateTime this_timeout = it->second->GetQueueingTime() + Blex::DateTime::Seconds(MaxAskResponseTime);
-                if (this_timeout < timeout)
-                    timeout = this_timeout;
-        }
-
         return std::make_pair(timeout, true);
 }
 
@@ -1482,110 +1300,6 @@ RPCResponse::Type Connection::RemoteTransactionStart(IOBuffer *iobuf, TransData 
                 throw;
         }
         return RPCResponse::Respond;
-}
-
-RPCResponse::Type Connection::RemoteNotifyOpen(IOBuffer *iobuffer, TransData *)
-{
-        IODEBUG(0, "NotifyOpen");
-        if (notification_queue.empty())
-           throw Exception(ErrorInvalidArg, "Opening of notification transaction failed; no notifications pending");
-
-        notify_trans = notification_queue.front();
-        notification_queue.pop_front();
-        iobuffer->ResetForSending();
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Connection::RemoteNotifyScan(IOBuffer *iobuf, TransData *)
-{
-        uint32_t tableidx = iobuf->Read<uint32_t>();
-
-        if (tableidx >= notereqs.requests.size())
-            throw Exception(ErrorInvalidArg,"Table index out of bounds (caller " + clientname + ")");
-
-        std::shared_ptr< NotificationsResultSet > rset;
-        if (!notify_trans.get())
-            throw Exception(ErrorInternal,"Notification get requested without outstanding finished transaction");
-
-        IODEBUG(0, "GetNotifications trans: " << notify_trans->GetTransId() << ", table " << tableidx);
-
-        // Get metadata from transaction (const function, no problems)
-        Metadata const &metadata = notify_trans->GetMetadata();
-
-        iobuf->ResetForSending();
-
-        // Get transid from transaction (const function, no problems)
-
-        NotificationRequests::Request const &req = notereqs.requests[tableidx];
-        ObjectId schemaid = metadata.GetRootObject().GetObjectId(req.schema);
-        ObjectId tableid = schemaid==0 ? 0 : metadata.GetObjectDef(schemaid)->GetObjectId(req.table);
-        if (tableid==0)
-        {
-                SendEmptyResultSet(iobuf);
-                return RPCResponse::Respond;
-        }
-
-        TableDef const *tabledef = metadata.GetTableDef(tableid);
-
-        std::vector< ColumnDef const * > columns;
-        for (std::vector< std::string >::const_iterator it = req.columns.begin(); it != req.columns.end(); ++it)
-        {
-                ColumnId columnid = tabledef->GetColumnId(*it);
-                ColumnDef const *columndef = tabledef->GetColumnDef(columnid);
-                if (columndef)
-                    columns.push_back(tabledef->GetColumnDef(columnid));
-                else
-                    columns.push_back(0);
-        }
-
-        /* Get notificationlist from transaction (const function, no problems)
-           No inserts, deletes and updates are possible when a transaction is
-           in notifications mode, so notificationlist cannot be updated con-
-           currently */
-        NotificationList const *tnotifs = notify_trans->GetModifications().GetNotifications();
-        bool is_empty = true;
-        NotificationList::Mods::const_iterator it;
-        if (tnotifs)
-        {
-                it = tnotifs->mods.find(tableid);
-                if (it != tnotifs->mods.end())
-                    is_empty = false;
-        }
-
-        if (is_empty)
-        {
-                SendEmptyResultSet(iobuf);
-                return RPCResponse::Respond;
-        }
-
-        // Create new NotificationsResultSet, safe
-        rset.reset(new NotificationsResultSet(*notify_trans, tableid, it->second, columns, notify_trans.get()));
-
-        ResultSet &query = RegisterResultSet(rset, /*trans=*/0);
-        rset.reset(); //just drop our reference to make sure that any destruction can take place
-
-        SendResultSetStart(iobuf, query, true);
-        if (query.is_finished)
-        {
-                IODEBUGPRINT(" (Query ended)");
-                RemoveResultSet(query.query_id);
-        }
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Connection::RemoteNotifyClose(IOBuffer *iobuf, TransData *)
-{
-        IODEBUG(0, "NotifyClose");
-        ResetNotifyTrans();
-        iobuf->ResetForSending();
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Connection::RemoteScanNotificationsStart(IOBuffer *, TransData *)
-{
-        throw Exception(ErrorInternal, "Opening of notification scans has not been implemented");
 }
 
 RPCResponse::Type Connection::RemoteTransactionExplicitOpen(IOBuffer *iobuf, TransData *trans)
@@ -1828,9 +1542,6 @@ RPCResponse::Type Connection::DoCommit(IOBuffer *iobuf, TransData *trans, bool c
         }
         mgr.FinishedCommit(this, true);
 
-        //Let the connection manager inform listeners, and release the transaction
-        mgr.InformListeners(trans->transref, this);
-
         if (logtransactions)
         {
                 // ADDME: time per transaction, not per connection
@@ -1863,8 +1574,6 @@ RPCResponse::Type Connection::RemoteTransactionCommitRollbackClose(IOBuffer *iob
 
         if (trans->type == DBTransactionType::Normal)
             close = true;
-        if (trans->type == DBTransactionType::Ask)
-            throw Exception(ErrorInvalidArg,"Transaction passed through an ask may not be committed or rolled back");
         if (AnyResultSetsActive(trans))
             throw Exception(ErrorInvalidArg,"A query using this transaction is still active");
 
@@ -1986,20 +1695,6 @@ RPCResponse::Type Connection::RemoteBlobRead(IOBuffer *iobuf, TransData *IODEBUG
         return RPCResponse::Respond;
 }
 
-RPCResponse::Type Connection::RemoteSubscribeAsListener(IOBuffer *iobuf, TransData *IODEBUGONLYARG(trans))
-{
-        mgr.RegisterListener(this);
-
-        iobuf->ReadIn(&clientname);
-        iobuf->ReadIn(&notereqs);
-        iobuf->ReadIn(&listen_login);
-        iobuf->ReadIn(&listen_passwd);
-
-        iobuf->ResetForSending();
-        IODEBUG(trans, "SubscribeAsListener");
-        return RPCResponse::Respond;
-}
-
 // Connection-specific
 RPCResponse::Type Connection::RemoteResetConnection(IOBuffer *iobuf, TransData *IODEBUGONLYARG(trans))
 {
@@ -2012,208 +1707,6 @@ RPCResponse::Type Connection::RemoteResetConnection(IOBuffer *iobuf, TransData *
         iobuf->FinishForRequesting(ResponseOpcode::Reset);
 
         return RPCResponse::RespondAsync;
-}
-
-// Connection-specific
-RPCResponse::Type Connection::RemoteTell(IOBuffer *iobuf, TransData *trans)
-{
-        EnsureTransactionOpened(trans);
-
-        // FIXME: make trans-specific??
-        std::string listenername;
-
-        iobuf->ReadIn(&listenername);
-        iobuf->ReadIn(&scratch_record);
-
-        IODEBUG(trans, "Tell " << listenername << " " << scratch_record.GetRawLength() << " bytes");
-
-        bool foundlistener = mgr.SendMsg(listenername, scratch_record, this);
-        iobuf->ResetForSending();
-        iobuf->Write(foundlistener);
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Ask::HookExecuteTask(IOBuffer *iobuf, bool *is_finished)
-{
-        IOTASKDEBUG(receiver, "Ask::Execute m:" << msgid);
-
-        /* We must swap the security data in the transaction data out, and replace
-            it with the crudentials of this connection */
-
-        BackendTransaction::RoleIds const &rolelist = transref->GetEnabledRoleList();
-        std::vector<uint8_t> roles(rolelist.size()*4);
-        for(unsigned i=0;i<rolelist.size();++i)
-            Blex::puts32lsb(&roles[i*4], rolelist[i]);
-
-        Connection::SaveSecurityData(*transref, original_security_data);
-
-        TransData *trans = receiver->AllocateTransaction();
-        trans->type = DBTransactionType::Ask;
-        trans->is_readonly = transref->GetState() == TransactionState::ReadOnly;
-        trans->is_explicitly_started = true;
-        trans->is_initialized = true;
-        trans->trans_started = Blex::DateTime::Now();
-        trans->transref = transref;
-        trans->clientname = "ask-passed: " + clientname;
-
-        // Set new crudentials
-        if (receiver->listen_login == "~webhare" && receiver->listen_passwd == "")
-                transref->AddBaseRole(MetaRole_SYSTEM);
-
-        msg.SetColumn(65532, roles.size(), &roles[0]);
-        msg.SetInteger(65533, trans->external_id);
-        msg.SetDateTime(65534, trans->transref->GetMetadataRef()->GetStartTimeStamp());
-        msg.SetInteger(65535, trans->transref->GetMetadataRef()->GetVersionId()); // FIXME: uint32_t/int32_t problem!
-
-        transref->backend.lockmanager.SetTransactionConnection(transref.get(), receiver);
-
-        /* The message has been augmented, now send the ask rpc to the listener. This one will respond with an answer
-           and finish the task, after which hooktaskfinished is called which will respond to the asker */
-        iobuf->ResetForSending();
-        iobuf->Write<uint32_t>(msgid);
-        iobuf->Write(msg);
-        iobuf->FinishForRequesting(ResponseOpcode::Ask);
-
-        trans_external_id = trans->external_id;
-        receiver->pending_asks.insert(std::make_pair(msgid, this));
-
-        // Reset timeouts for pending_asks
-        receiver->ReSetTimeouts();
-
-        *is_finished = false;
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Ask::HookTaskFinished(IOBuffer *iobuf, bool success)
-{
-        IOTASKDEBUG(sender, "Ask::Finished m:" << msgid << " s:" << (success?"Y":"N"));
-
-        // Restore original security data (it was safe, so skip security checks
-        Connection::RestoreSecurityData(*transref, original_security_data, true);
-
-        transref->backend.lockmanager.SetTransactionConnection(transref.get(), sender);
-
-        iobuf->ResetForSending();
-
-        // Send the response back
-        if (success)
-        {
-                iobuf->Write<bool>(true);
-                iobuf->Write(msg);
-        }
-        else
-            iobuf->Write<bool>(false);
-
-        iobuf->FinishForReplying(false); //all went ok
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Tell::HookExecuteTask(IOBuffer *iobuf, bool *is_finished)
-{
-        iobuf->ResetForSending();
-        iobuf->Write(msg);
-        iobuf->FinishForRequesting(ResponseOpcode::Message);
-
-        *is_finished = true;
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Tell::HookTaskFinished(IOBuffer *, bool)
-{
-        return RPCResponse::DontRespond;
-}
-
-RPCResponse::Type Notification::HookExecuteTask(IOBuffer *iobuf, bool *is_finished)
-{
-        iobuf->ResetForSending();
-
-        iobuf->Write<uint32_t>(receiver->notereqs.requests.size());
-        for (NotificationRequests::Requests::const_iterator it = receiver->notereqs.requests.begin(); it != receiver->notereqs.requests.end(); ++it)
-        {
-                std::pair< TableDef const *, TableMods const * > data = receiver->GetTableDefAndNotifications(trans, it->schema, it->table);
-                if (data.first && data.second)
-                    iobuf->Write<uint8_t>(1);
-                else
-                    iobuf->Write<uint8_t>(0);
-        }
-        iobuf->FinishForRequesting(ResponseOpcode::Notify);
-
-        receiver->notification_queue.push_back(trans);
-
-        *is_finished = true;
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Notification::HookTaskFinished(IOBuffer *, bool)
-{
-        return RPCResponse::DontRespond;
-}
-
-
-// Connection-specific
-RPCResponse::Type Connection::RemoteAsk(IOBuffer *iobuf, TransData *trans)
-{
-        EnsureTransactionOpened(trans);
-
-        // FIXME: make trans-specific??
-        std::string listenername;
-        std::unique_ptr< Ask > ask(new Ask);
-        ask->transref = trans->transref;
-        ask->clientname = trans->clientname;
-
-        iobuf->ReadIn(&listenername);
-        iobuf->ReadIn(&ask->msg);
-
-        IODEBUG(trans, "Ask " << listenername << " " << scratch_record.GetRawLength() << " bytes");
-
-        bool foundlistener = mgr.SendAsk(listenername, ask, this);
-
-        if (!foundlistener)
-        {
-                //Nope - just queue a failure..
-                iobuf->ResetForSending();
-                iobuf->Write<bool>(false);
-                return RPCResponse::Respond;
-        }
-        return RPCResponse::DontRespond;
-}
-
-RPCResponse::Type Connection::RemoteTransactionSetRoles(IOBuffer *iobuf, TransData *trans)
-{
-        IODEBUG(trans, "TransactionSetRoles");
-        EnsureTransactionExists(trans);
-
-        std::vector< RoleId > newroles;
-
-        unsigned numroles = iobuf->Read<uint32_t>();
-        newroles.reserve(numroles);
-        for (unsigned i=0;i<numroles;++i)
-            newroles.push_back(iobuf->Read<RoleId>());
-
-        iobuf->ResetForSending();
-
-        if (trans->transref.get())
-        {
-                Metadata const &metadata = trans->transref->GetMetadata();
-                for (std::vector< RoleId >::iterator it = newroles.begin(); it != newroles.end(); ++it)
-                    if (!metadata.Privs().GetRoleDef(*it))
-                        throw Exception(ErrorInvalidArg,"Trying to add non-existing role #" + Blex::AnyToString(*it));
-
-                trans->transref->SetBaseRoles(newroles, false);
-        }
-        else
-        {
-                for (std::vector< RoleId >::iterator it = newroles.begin(); it != newroles.end(); ++it)
-                    if (*it == 0)
-                        throw Exception(ErrorInvalidArg,"Trying to add non-existing role #" + Blex::AnyToString(*it));
-
-                trans->saved_security_data.base_roles = newroles;
-        }
-
-        return RPCResponse::Respond;
 }
 
 RPCResponse::Type Connection::RemoteSQLCommand(IOBuffer *iobuf, TransData *trans)
@@ -2410,15 +1903,6 @@ RPCResponse::Type Connection::RemoteRecordInsert(IOBuffer *iobuf, TransData *tra
         case TransactionState::ReadOnlyAfterError:    return RPCResponse::Respond; // ignore
         case TransactionState::ReadOnly:              throw Exception(ErrorInvalidArg,"INSERT issued in a readonly-transaction");
         }
-
-        return RPCResponse::Respond;
-}
-
-RPCResponse::Type Connection::RemoteKeepAlive(IOBuffer *iobuf, TransData *IODEBUGONLYARG(trans))
-{
-        IODEBUG(trans, "KeepAlive");
-
-        iobuf->ResetForSending();
 
         return RPCResponse::Respond;
 }

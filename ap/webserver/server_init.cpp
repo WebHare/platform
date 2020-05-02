@@ -335,8 +335,6 @@ void WebHareServer::Shutdown()
             shtml->Shutdown();
 
         maintenancethread.WaitFinish();
-
-        servernotify.reset(NULL);
 }
 
 void WebHareServer::LogManagementScriptErrors(HareScript::VMGroup *group)
@@ -456,9 +454,6 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
 
         //ADDME: Clean this whole config stuff up a LOT. Just agree with the WebInterface to send us a signal when we must refresh our config. Would claer up spurious reloads on config change too
 
-        DEBUGPRINT("Starting the notification thread");
-        servernotify.reset (new ServerNotify(this,webhare->GetDbase()));
-
         // Create the script running job manager, start with (numdispatchers / 2) threads of execution
         jobmgr.reset(new HareScript::JobManager(shtml->environment.GetEnvironment()));
 
@@ -483,35 +478,6 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         //Shutdown the async loop
         Shutdown();
         return 0;
-}
-
-void WebHareServer::ServerNotify::ReceiveTell(Database::Record data)
-{
-        if(data.GetCell(1).Integer()==65534) //instruction ADDME: add enumeration
-        {
-                std::vector <std::string> toks;
-                Blex::TokenizeString(data.GetCell(2).String(), ' ', &toks);
-                if (std::count(toks.begin(), toks.end(), "MODULES"))
-                    server->webhare->ReloadPluginConfig();
-
-                DEBUGPRINT("Got remote config flush");
-        }
-        else
-        {
-                DEBUGPRINT("asyncthread: got unknown message type");
-        }
-}
-
-void WebHareServer::ServerNotify::NotifyConnected()
-{
-        assert(server);
-        server->webhare->ReloadPluginConfig();
-}
-
-void WebHareServer::ServerNotify::NotifyDisconnected()
-{
-        // Expire all sessions, requiring reauthentication through the authentication script
-        server->shtml->FlushCache();
 }
 
 template <typename T> void HSVM_LoadIn(T&dest, HSVM *hsvm, HSVM_VariableId toload);

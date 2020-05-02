@@ -28,8 +28,6 @@ enum Type
 {
 Normal=0,               ///< Normal opened transaction (not auto)
 Auto,                   ///< This is an auto-transaction
-Ask,                    ///< This is a transaction passed for an ask
-Notification            ///< This is an already committed transaction that is read for notifications
 };
 } // End of namespace DBTransactionType
 
@@ -165,76 +163,6 @@ struct TransData
 
 class Connection;
 
-/** Ask task: used to implement asks to listeners
-*/
-class Ask : public RPCTask
-{
-    public:
-        /// Function run to execute the task in the connection that is asked a question
-        virtual RPCResponse::Type HookExecuteTask(IOBuffer *iobuf, bool *is_finished);
-
-        /// Function run when the task has finished in the asking connection
-        virtual RPCResponse::Type HookTaskFinished(IOBuffer *iobuf, bool success);
-
-        /// Asking connection
-        Connection *sender;
-
-        /// Connection that is asked a question
-        Connection *receiver;
-
-        /// Record used to transfer the question and the reply
-        WritableRecord msg;
-
-        /// Transaction from which the question was asked
-        BackendTransactionRef transref;
-
-        /// Original security data of the transaction
-        TransSecurityData original_security_data;
-
-        /// Client name of the original transaction
-        std::string clientname;
-
-        /// Question id
-        unsigned msgid;
-
-        /// Id of the transdata that is newly created in the asked connection
-        unsigned trans_external_id;
-};
-
-/** Ask task: used to implement tells to listeners
-*/
-class Tell : public RPCTask
-{
-    public:
-        /// Function run to execute the task in the connection that is told something
-        virtual RPCResponse::Type HookExecuteTask(IOBuffer *iobuf, bool *is_finished);
-
-        /// Function run when the task has finished in the telling connection
-        virtual RPCResponse::Type HookTaskFinished(IOBuffer *iobuf, bool success);
-
-        /// Record used to transfer the message
-        WritableRecord msg;
-};
-
-/** Ask task: used to implement sending commit notifications to listeners
-*/
-class Notification : public RPCTask
-{
-    public:
-        /// Function run to execute the task in the connection that is notified
-        virtual RPCResponse::Type HookExecuteTask(IOBuffer *iobuf, bool *is_finished);
-
-        /// Function run when the task has finished in the notifying connection
-        virtual RPCResponse::Type HookTaskFinished(IOBuffer *iobuf, bool success);
-
-        /// Notified connection
-        Connection *receiver;
-
-        /// Commited transaction
-        BackendTransactionRef trans;
-};
-
-
 /** Connection implements a connection from the client to the database, over
     which multiple transactions (normal and listening) may run
 */
@@ -278,9 +206,6 @@ class Connection : public RPCConnection
 
         /// Returns the name of the client of this connection
         std::string const & GetClientName() { return clientname; }
-
-        /** Returns whether a transaction has notifications the client is interested in */
-        bool AnyInterestingNotifications(BackendTransactionRef const &trans) const;
 
         /// Saves all securitydata in a transaction
         static void SaveSecurityData(BackendTransaction &trans, TransSecurityData &data);
@@ -331,13 +256,9 @@ class Connection : public RPCConnection
         void ReadAndCheckVersion(IOBuffer *iobuf);
 
         // Functions that handle resultset rpcs
-        RPCResponse::Type RemoteAnswer(IOBuffer *iobuffer, TransData *trans); // For Answer and AnswerException
         RPCResponse::Type RemoteTransactionStart(IOBuffer *iobuffer, TransData *);
         RPCResponse::Type RemoteTransactionExplicitOpen(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteTransactionCommitRollbackClose(IOBuffer *iobuffer, TransData *trans);
-        RPCResponse::Type RemoteNotifyOpen(IOBuffer *iobuffer, TransData *);
-        RPCResponse::Type RemoteNotifyScan(IOBuffer *iobuffer, TransData *);
-        RPCResponse::Type RemoteNotifyClose(IOBuffer *iobuffer, TransData *);
         RPCResponse::Type RemoteTransactionSetRoles(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteResultSetAdvance(IOBuffer *iobuffer, TransData *);
         RPCResponse::Type RemoteResultSetLock(IOBuffer *iobuffer, TransData *);
@@ -349,7 +270,6 @@ class Connection : public RPCConnection
         RPCResponse::Type RemoteResultSetClose(IOBuffer *iobuffer, TransData *);
         RPCResponse::Type RemoteRecordInsert(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteScanStart(IOBuffer *iobuffer, TransData *trans);
-        RPCResponse::Type RemoteScanNotificationsStart(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteMetadataGet(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteAutonumberGet(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteBlobUpload(IOBuffer *iobuffer, TransData *);
@@ -358,12 +278,8 @@ class Connection : public RPCConnection
         RPCResponse::Type RemoteBlobMarkPersistent(IOBuffer *iobuffer, TransData *);
         RPCResponse::Type RemoteBlobDismiss(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteSQLCommand(IOBuffer *iobuffer, TransData *trans);
-        RPCResponse::Type RemoteSubscribeAsListener(IOBuffer *iobuffer, TransData *);
-        RPCResponse::Type RemoteAsk(IOBuffer *iobuffer, TransData *trans);
-        RPCResponse::Type RemoteTell(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteResetConnection(IOBuffer *iobuffer, TransData *trans);
         RPCResponse::Type RemoteBeginConnection(IOBuffer *iobuffer);
-        RPCResponse::Type RemoteKeepAlive(IOBuffer *iobuffer, TransData *trans);
 
         RPCResponse::Type HandleException(IOBuffer *iobuffer, Exception &e, unsigned trans_id);
 
@@ -372,8 +288,6 @@ class Connection : public RPCConnection
         /// Checks whether a specific blob may be accessed by this transaction
         static void CheckBlobAccessible(BlobUser *blobuser, BlobId blobid);
 
-        ///Reset the current notify transaction
-        void ResetNotifyTrans();
         ///Reset this connection structure and clear all transaction data
         void ResetConnection(bool first_time);
 
@@ -399,10 +313,6 @@ class Connection : public RPCConnection
             @param send_info If true, immediately send the column info of the resultset
             @return Number of rows returned */
         unsigned SendResultSetStart(IOBuffer *iobuffer, ResultSet &resultset, bool send_info);
-
-        /** Returns GetTableDefAndNotifications for a specific table and schema
-            FIXME: params and return values? */
-        std::pair< TableDef const *, TableMods const * > GetTableDefAndNotifications(BackendTransactionRef const &trans, std::string const &schemaname, std::string const &tablename) const;
 
         /** Sends resultset info to an iobuffer */
         void SendResultSetColumnInfo(IOBuffer *iobuffer, ResultSetBase &resultset);
@@ -494,9 +404,6 @@ class Connection : public RPCConnection
         /// Contains a name that identifies the source of this connection
         std::string connectionsource;
 
-        // FIXME: add a timeout if the client reacts in time (don't let the queue get too long)
-        std::list< BackendTransactionRef > notification_queue;
-
         /// Timer used to time message handling
         Blex::FastTimer conn_rpctimer;
 
@@ -511,9 +418,6 @@ class Connection : public RPCConnection
 
         /// Contains a name that identifies the client of this connection
         std::string clientname;
-
-        /// Current transaction opened for notification
-        BackendTransactionRef notify_trans;
 
         /** Function that will be called if a signal is received. This is used to trigger operations
             that have to wait on other transactions (record locks, transaction commits). The function
@@ -552,21 +456,7 @@ class Connection : public RPCConnection
         typedef std::map< unsigned, TransData > Transactions;
         Transactions transactions;
 
-        std::map< uint32_t, Ask * > pending_asks;
-
-        ///Notifications that listener wants to receive
-        NotificationRequests notereqs;
-
-        /// Login for listening transactions
-        std::string listen_login;
-
-        /// Password for listening transactions
-        std::string listen_passwd;
-
         ConnectionState::Type connstate;
-
-        friend class Ask;
-        friend class Notification;
 };
 
 /** The connection manager supports RPC encoding/decoding, manages incoming
@@ -587,32 +477,12 @@ class ConnectionManager
         /** Destroy the database, commit all changes, release all files */
         ~ConnectionManager() throw();
 
-        /** Called by the constructor of ListenConnection to add us to the
-            internal lists (intended for internal use only)
-        */
-        void RegisterListener(Connection *conn);
-
         /** Called by the destructor of TransactConnection to remove us from the
             internal lists (intended for internal use only)
             FIXME: WHAT?
         */
         void UnregisterConnection(Connection *conn);
 
-        /** Inform listeners of modifications made by a committed transaction. Takes ownage
-            of the transaction, deletes it when all notifications have been sent
-        */
-        void InformListeners(BackendTransactionRef &trans, Connection *sender);
-
-        /** One way messaging to a listener, without waiting for confirmation
-            @param name Name of the listener to send to
-            @param datalen Length of the data to send to the listener
-            @param data Data to send to the listener
-            @return false if no listener with the specified name could be found
-        */
-        bool SendMsg(std::string const &name, Record data, Connection *sender);
-
-        bool SendAsk(std::string const &name, std::unique_ptr< Ask > &ask, Connection *replyto);
-        void ReceivedReply(uint32_t msgid, Record data, Connection *listener);
 
         /// Return backend for access to lockmanager (make private???)
         Backend & GetBackend() { return backend; }
@@ -633,8 +503,6 @@ class ConnectionManager
         /** Shared data */
         struct Data
         {
-                Listeners listeners;
-                unsigned questioncounter;
                 std::vector< std::pair< Connection *, TransId > > commitqueue;
         };
 #ifdef DEBUG
@@ -643,9 +511,6 @@ class ConnectionManager
         typedef Blex::InterlockedData<Data, Blex::Mutex> LockedData;
 #endif
         LockedData connmgrdata;
-
-        void IncreaseNotificationRef(BackendTransaction *trans);
-        void DecreaseNotificationRef(BackendTransaction *trans);
 
         //-- the data below never changes after the database has been opened --
 
