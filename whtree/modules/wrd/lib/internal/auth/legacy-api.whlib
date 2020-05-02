@@ -581,7 +581,7 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER account, STRING
                          , data := RecordExists(message) ? EncodeHSON(message) : ""
                          ];
 
-  LogAuditEventBy("wrd:auth", CELL[ authobjectid := account, login ],
+  LogAuditEventBy("wrd:auth", CELL[ entityid := account, login ],
       CELL[ type
           , ip
           , login
