@@ -211,9 +211,10 @@ PUBLIC VARIANT FUNCTION RPC_Invoke(STRING lib, STRING func, VARIANT ARRAY params
          WHERE liburi LIKE "mod::*/*"
            AND SubString(Tokenize(liburi, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
 
-    INSERT CELL __outputtoolsdata := CELL
-        [ resources :=      GetSortedSet(resources)
-        ] INTO result;
+    result := CELL[ ...result
+                  ,  __outputtoolsdata := CELL[ resources :=GetSortedSet(resources)
+                                              ]
+                  ];
   }
   RETURN result;
 }

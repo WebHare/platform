@@ -17,6 +17,7 @@
   <test name="userrights" path="userrights/" />
   <test name="whfs" path="whfs/" />
   <test name="queues" path="queues/" />
+  <test name="twohare" path="twohare/" />
   <test script="logfile.whscr" />
   <test script="testwebhareservice.whscr" />
   <test script="testresources.whscr" />

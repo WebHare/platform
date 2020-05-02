@@ -88,6 +88,9 @@ points to may be executed by the test runner as well.
 This variable can be setup as eg a [GitLab CI/CD environment variable](https://gitlab.com/help/ci/variables/README).
 Please make sure you protect it !
 
+### TESTFW_TWOHARES
+If set, two separate WebHares are running. This enables some additional tests
+
 # Tips and tricks
 
 ## Multiple installs

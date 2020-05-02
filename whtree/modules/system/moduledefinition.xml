@@ -2368,7 +2368,7 @@ The full base URL on which this site will be published, calculated by combining 
       <accesscheck>
       </accesscheck>
     </webservice>
-    <webservice name="jstests" transports="jsonrpc" maxservertype="development" library="internal/jstests/service.whlib" prefix="RPC_">
+    <webservice name="jstests" transports="whremoting jsonrpc" maxservertype="development" library="internal/jstests/service.whlib" prefix="RPC_">
       <accesscheck>
       </accesscheck>
     </webservice>

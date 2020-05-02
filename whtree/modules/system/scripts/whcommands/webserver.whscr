@@ -118,6 +118,9 @@ MACRO AddBackend(STRING ARRAY params)
     webserver_port_id := matchport[0].id;
   }
 
+  IF(RecordExists(SELECT FROM system_internal.webservers WHERE baseurl = subargs.url))
+    TerminateScriptWithError(`A backend ${subargs.url} already exists`);
+
   INTEGER webserverid := MakeAutoNumber(system_internal.webservers,"id");
   INSERT INTO system_internal.webservers(id, port, type, baseurl, outputextension)
          VALUES (webserverid, webserver_port_id, 1, subargs.url, '.html');
