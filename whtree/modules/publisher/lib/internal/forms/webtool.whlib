@@ -47,28 +47,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->__form.externalformname := "-";
     this->formvariables := CELL[...this->formvariables, formsubmittype := "new" ];
 
-    OBJECT targetformapplytester := GetApplyTesterForObject(this->__form.webtoolformid); //TODO we could cache endresult of this lookup while parsing formdef ?
-    IF(ObjectExists(targetformapplytester))
-    {
-      RECORD targetformsettings := targetformapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-      IF(RecordExists(targetformsettings) AND targetformsettings.webtoolformhooks != "")
-      {
-        RECORD save__passthrough := __passthrough;
-        TRY
-        {
-          __passthrough := [ form := this ];
-          this->directhookobject := MakeObject(targetformsettings.webtoolformhooks);
-
-          IF(NOT (this->directhookobject EXTENDSFROM WebtoolFormHooks))
-            THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
-        }
-        FINALLY
-        {
-          __passthrough := save__passthrough;
-        }
-      }
-    }
-
     // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
     IF(ObjectExists(this->formcontext))
     {
@@ -106,6 +84,28 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       INSERT CELL[...handler
                  , handlerobject := InstantiateFormHandler(this, handler, this->__form.webtoolformid)
                  ] INTO this->formhandlers AT END;
+
+    OBJECT targetformapplytester := GetApplyTesterForObject(this->__form.webtoolformid); //TODO we could cache endresult of this lookup while parsing formdef ?
+    IF(ObjectExists(targetformapplytester))
+    {
+      RECORD targetformsettings := targetformapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      IF(RecordExists(targetformsettings) AND targetformsettings.webtoolformhooks != "")
+      {
+        RECORD save__passthrough := __passthrough;
+        TRY
+        {
+          __passthrough := [ form := this ];
+          this->directhookobject := MakeObject(targetformsettings.webtoolformhooks);
+
+          IF(NOT (this->directhookobject EXTENDSFROM WebtoolFormHooks))
+            THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
+        }
+        FINALLY
+        {
+          __passthrough := save__passthrough;
+        }
+      }
+    }
   }
 
   //get either explicit or page hook object
