@@ -289,8 +289,6 @@ testsftp:
   except:
     - /^docs\/.*$/
   allow_failure: true
-  only:
-    - schedules
   script:
     - whtree/bin/wh testdocker --tag=-external wh.sftp
   artifacts:
