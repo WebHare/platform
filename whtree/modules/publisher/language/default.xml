@@ -2197,7 +2197,7 @@
         <text tid="viewpublished">Published version</text>
       </textgroup>
       <textgroup gid="messageboxes">   <!-- tolliumapps.editdocument.messageboxes -->
-        <text tid="closeeditorafterversionedpublish">The document was submitted for review, we recommend you close the application.<br/>Do you want to close the appliaction?</text>
+        <text tid="closeeditorafterversionedpublish">The document was submitted for review, we recommend you close the application.<br/>Do you want to close the application?</text>
         <text tid="confirmcanceldraft">Are you sure you want to revert the draft document to the last published version?</text>
         <text tid="confirmcancelrequest">Are you sure you want to withdraw the publication request for this draft document?</text>
         <text tid="confirmsaveandpublish">Are you sure you want to save and publish?</text>
