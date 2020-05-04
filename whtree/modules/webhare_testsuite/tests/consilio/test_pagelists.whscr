@@ -32,22 +32,27 @@ MACRO TestSitemapLinks()
 //  dumpvalue(links,'boxed');
 
   INTEGER pagelistfile := OpenTestsuiteSite()->OpenByPath("testpages/pagelisttest")->id;
-  TestEq(10, Length(SELECT FROM links WHERE fileid = pagelistfile));
+  TestEq(11, Length(SELECT FROM links WHERE fileid = pagelistfile));
+  //dumpvalue(links,'boxed');
   TestEq(TRUE, RecordExists(SELECT FROM links WHERE link LIKE "*/formtest/"));
   TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/staticpage/");
   TestEq([[ changefreq := "daily",   priority := 1.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/");
   TestEq([[ changefreq := "monthly", priority := 0.8 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub1.html");
   TestEq([[ changefreq := "yearly",  priority := 0.6 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub2.html");
+  //sub10 only exists as hash
+  TestEq([[ changefreq := "",        priority := 0.0 ]], SELECT changefreq, priority FROM links WHERE link = baseurl || "testpages/pagelisttest/sub10.html");
   TestEq(RECORD[], SELECT * FROM links WHERE link NOT LIKE baseurl || "*");
+  TestEq(RECORD[], SELECT * FROM links WHERE link LIKE "*#*");
   //of the link types (18-20) only the contentlink deserves a place in the site map
   TestEq([[ link := baseurl || "testpages/foldertemplate/sub/contentlink/" ]], SELECT link FROM links WHERE filetype IN [18,19,20]);
 }
+
 
 MACRO TestSubpageIndexing()
 {
   testfw->BeginWork();
 
-  AddFolderToCatalog(OpenTestsuiteSite()->id, testfw->GetCatalogName_1(), "", "");
+  AddFolderToCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id, testfw->GetCatalogName_1(), "", "");
 
   testfw->CommitWork();
 
@@ -65,6 +70,11 @@ MACRO TestSubpageIndexing()
   RECORD sub7 := SELECT * FROM result.results WHERE title = "pagelistfile - sub7";
   TestEq("Seven", sub7.myfield1);
   TestEq("", sub7.myfield2);
+
+  result := RunConsilioSearch(testfw->GetCatalogName_1(), CQParseUserQuery("FP_sub10_piece6"), [ mapping := [ myfield1 := "", myfield2 := "", title := "" ]]);
+  TestEq(2, result.totalcount);
+  TestEqMembers([ title := "Subdocument sub10 piece6", summary := 'This is an overwritten body: FP_sub10_piece6' ], result.results[0], "*");
+  TestEqLike("http*sub10.html#piece6", result.results[0].objectid);
 }
 
 RunTestframework([ PTR TestSitemapLinks

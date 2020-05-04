@@ -2,7 +2,6 @@
 Pagelists allow you to setup sitemaps to help robots and Consilio find the pages
 to index
 
-## Getting links for a sitemap
 You can use %GenerateSitemapLinks to get the sitemap links for a folder or site.
 
 ## Configuring a pagelist
@@ -22,7 +21,7 @@ LOADLIB "mod::consilio/lib/pagelists.whlib";
 
 PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
 <
-  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSitemapLinks(RECORD fileinfo)
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetPages(RECORD fileinfo, RECORD context)
   {
     RETURN [[ link := fileinfo.link
             , title := fileinfo.title
@@ -38,13 +37,23 @@ PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
             , changefreq := "yearly"
             , consiliofields := [ birthdayfor := "Bob" ]
             ]
-           ]
+           ];
   }
 >;
 ```
 
-See %PagelistProviderBase::GetSitemapLinks for the cells in the record your filehandler will receive.
+See %PagelistProviderBase::GetPages for the cells in the record your filehandler will receive.
 
-## Providing additional fields
-`GetSiteMapLinks` can provide additional fields that will be stored with the
+
+### Additional fields
+`GetPages` can provide additional fields that will be stored with the
 indexed pages by specifying a record containing these in `consiliofields`.
+
+If `consiliofields` contains a `body` it will overwrite the body for the document
+which consilio would normally parse from the page output itself.
+
+### Pages with hashes
+GetPages can also return URLs with hashes. This is mostly useful in combination
+with overwriting `consiliofields.body` to index fragments as individual pages.
+
+Hashes are ignored for the sitemap.
