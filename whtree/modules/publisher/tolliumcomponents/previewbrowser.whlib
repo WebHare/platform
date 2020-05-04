@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -89,27 +89,27 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     TolliumFragmentBase::PostInitComponent();
 
     RECORD ARRAY devices;
-    devices := [ [ title := GetTid("publisher:components.previewbrowser.devices.phone")
+    devices := [ [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.phone")
                  // iPhone 4
                  , width := 320, height := 480, pixelratio := 2
                  ]
-               , [ title := GetTid("publisher:components.previewbrowser.devices.phone")
+               , [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.phone")
                  // iPhone 6(s)+
                  , width := 414, height := 736, pixelratio := 3
                  ]
-               , [ title := GetTid("publisher:components.previewbrowser.devices.tablet")
+               , [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.tablet")
                  // iPad landscape
                  , width := 1024, height := 768, pixelratio := 2
                  ]
-               , [ title := GetTid("publisher:components.previewbrowser.devices.tablet")
+               , [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.tablet")
                  // iPad portrait
                  , width := 768, height := 1024, pixelratio := 2
                  ]
-               , [ title := GetTid("publisher:components.previewbrowser.devices.desktop")
+               , [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.desktop")
                  // Desktop 4:3
                  , width := 1280, height := 960, pixelratio := 1
                  ]
-               , [ title := GetTid("publisher:components.previewbrowser.devices.desktop")
+               , [ title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.desktop")
                  // Desktop HD
                  , width := 1920, height := 1080, pixelratio := 1
                  ]
@@ -122,17 +122,17 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                  FROM devices;
 
     INSERT [ rowkey := "f"
-           , title := GetTid("publisher:components.previewbrowser.devices.fill")
+           , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.fill")
            ] INTO devices AT 0;
     INSERT [ isdivider := TRUE ] INTO devices AT 1;
     INSERT [ rowkey := "c"
-           , title := GetTid("publisher:components.previewbrowser.devices.custom")
+           , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.customsize") || "…"
            ] INTO devices AT END;
 
     STRING selected := this->tolliumuser->GetRegistryKey("publisher.previewbrowser.device", "f");
     IF (selected LIKE "c-*")
       INSERT [ rowkey := selected
-             , title := GetTid("publisher:components.previewbrowser.devices.customsize") || " (" || Tokenize(selected, "-")[1] || ")"
+             , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.customsize") || " (" || Tokenize(selected, "-")[1] || ")"
              ] INTO devices AT END;
 
     this->deviceselect->options := devices;
@@ -170,7 +170,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     IF (this->owner->tolliumcontroller->secure AND this->currenturl LIKE "http://*")
     {
       INSERT [ level := 0
-             , message := GetTid("publisher:components.previewbrowser.nonsecuresite") || ' <a href="preview:showsite">' || GetTid("publisher:components.previewbrowser.clickviewsite") || '</a>'
+             , message := GetTid("publisher:tolliumcomponents.previewbrowser.nonsecuresite") || ' <a href="preview:showsite">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickviewsite") || '</a>'
              ] INTO this->previewmessages AT END;
       this->suppressrendering := TRUE; // Cannot show unsecure content within secure WebHare, show default page
     }
@@ -210,7 +210,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       ELSE
       {
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.nopreviewobject", typedata.previewlibrary, typedata.previewobjectname)
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.nopreviewobject", typedata.previewlibrary, typedata.previewobjectname)
                ] INTO this->previewmessages AT END;
         this->suppressrendering := TRUE; // Nothing to show
       }
@@ -236,9 +236,9 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       {
         // Show link target
         RECORD site := SELECT name FROM system.sites WHERE id = target.parentsite;
-        STRING message := selectedfile.type = 19 ? (target.indexurl = "" ? GetTid("publisher:components.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
-                                                                         : GetTid("publisher:components.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
-                                                 : GetTid("publisher:components.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
+        STRING message := selectedfile.type = 19 ? (target.indexurl = "" ? GetTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
+                                                                         : GetTid("publisher:tolliumcomponents.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
+                                                 : GetTid("publisher:tolliumcomponents.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
         INSERT [ level := 0
                , message := message
                ] INTO this->previewmessages AT END;
@@ -249,13 +249,13 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           {
             // Publication errors
             INSERT [ level := 2
-                   , message := GetTid("publisher:components.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:components.previewbrowser.clickerrors") || '</a>'
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickerrors") || '</a>'
                    ] INTO this->previewmessages AT END;
 
             IF (GetOncePublishedFromPublished(target.published))
             {
               INSERT [ level := 0
-                     , message := GetTid("publisher:components.previewbrowser.internallink-cachedversion")
+                     , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-cachedversion")
                      ] INTO this->previewmessages AT END;
             }
             ELSE
@@ -267,7 +267,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           {
             // Publication warnings
             INSERT [ level := 1
-                   , message := GetTid("publisher:components.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:components.previewbrowser.clickwarnings") || '</a>'
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
                    ] INTO this->previewmessages AT END;
 
           }
@@ -277,7 +277,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       {
         // Internal link not found
         INSERT [ level := 1
-               , message := GetTid("publisher:components.previewbrowser.internallink-broken")
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-broken")
                ] INTO this->previewmessages AT END;
       }
     }
@@ -285,7 +285,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       // Show external link target
       INSERT [ level := 0
-             , message := GetTid("publisher:components.previewbrowser.externallink", EncodeHTML(selectedfile.externallink)) || ' <a href="preview:showexternallink">' || GetTid("publisher:components.previewbrowser.clickexternallink") || '</a>'
+             , message := GetTid("publisher:tolliumcomponents.previewbrowser.externallink", EncodeHTML(selectedfile.externallink)) || ' <a href="preview:showexternallink">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickexternallink") || '</a>'
              ] INTO this->previewmessages AT END;
       this->suppressrendering := TRUE; // Don't show the external link within the preview browser
     }
@@ -302,7 +302,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       {
         // The selected file is a widget preview
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.widgetpreview")
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.widgetpreview")
                ] INTO this->previewmessages AT END;
 
         this->currenturl := CreateWidgetPreviewLink(AddTimeToDate(publisher_settings.widget_preview_expiry, GetCurrentDateTime()), "", fileid, fileid);
@@ -312,7 +312,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       {
         // The selected file is not published
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.notpublished")
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.notpublished")
                ] INTO this->previewmessages AT END;
         this->suppressrendering := TRUE; // Nothing to show
       }
@@ -321,13 +321,13 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       // Publication errors
       INSERT [ level := 2
-             , message := GetTid("publisher:components.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:components.previewbrowser.clickerrors") || '</a>'
+             , message := GetTid("publisher:tolliumcomponents.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickerrors") || '</a>'
              ] INTO this->previewmessages AT END;
 
       IF (GetOncePublishedFromPublished(selectedfile.published))
       {
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.internallink-cachedversion")
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-cachedversion")
                ] INTO this->previewmessages AT END;
       }
       ELSE
@@ -339,7 +339,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       // Publication warnings
       INSERT [ level := 1
-             , message := GetTid("publisher:components.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:components.previewbrowser.clickwarnings") || '</a>'
+             , message := GetTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
              ] INTO this->previewmessages AT END;
 
     }
@@ -355,25 +355,25 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           CASE 1
           {
             INSERT [ level := 0
-                   , message := GetTid("publisher:components.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO this->previewmessages AT END;
           }
           CASE 2
           {
             INSERT [ level := 0
-                   , message := GetTid("publisher:components.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO this->previewmessages AT END;
           }
           CASE 3
           {
             INSERT [ level := 0
-                   , message := GetTid("publisher:components.previewbrowser.scheduledmove", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledmove", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO this->previewmessages AT END;
           }
           CASE 4
           {
             INSERT [ level := 0
-                   , message := GetTid("publisher:components.previewbrowser.scheduleddelete", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduleddelete", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
                    ] INTO this->previewmessages AT END;
           }
         }
@@ -381,7 +381,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       ELSE
       {
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.scheduled")
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduled")
                ] INTO this->previewmessages AT END;
       }
     }
@@ -551,7 +551,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       IF(url != "" AND RecordExists(baseinfo))
       {
         INSERT [ level := 0
-               , message := GetTid("publisher:components.previewbrowser.folderwithoutindex", baseinfo.name)
+               , message := GetTid("publisher:tolliumcomponents.previewbrowser.folderwithoutindex", baseinfo.name)
                ] INTO this->previewmessages AT END;
       }
       this->previewfileid := 0;
@@ -585,7 +585,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
         IF (data.uri = "")
           RETURN;
 
-        this->owner->RunMessageBox("publisher:components.cannotshowinsecurecontent", data.uri);
+        this->owner->RunSimpleScreen("info", GetTid("publisher:tolliumcomponents.previewbrowser.cannotshowinsecurecontent", data.uri));
       }
     }
   }
@@ -614,7 +614,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       {
         DELETE FROM this->deviceselect->options WHERE rowkey LIKE "c-*";
 
-        OBJECT dlg := this->owner->LoadScreen("publisher:components.previewbrowsercustom");
+        OBJECT dlg := this->owner->LoadScreen(Resolve("previewbrowser.xml#previewbrowsercustom"));
         dlg->width->value := this->devicewidth;
         dlg->height->value := this->deviceheight;
         IF (dlg->RunModal() = "ok" AND dlg->width->value > 0 AND dlg->height->value > 0)
@@ -623,7 +623,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           this->deviceheight := dlg->height->value;
           selected := "c-" || this->devicewidth || "x" || this->deviceheight;
           INSERT [ rowkey := selected
-                 , title := GetTid("publisher:components.previewbrowser.devices.customsize") || " (" || this->devicewidth || "x" || this->deviceheight || ")"
+                 , title := GetTid("publisher:tolliumcomponents.previewbrowser.devices.customsize") || " (" || this->devicewidth || "x" || this->deviceheight || ")"
                  , width := this->devicewidth
                  , height := this->deviceheight
                  ] INTO this->deviceselect->options AT END;
@@ -757,7 +757,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoCancelDraft()
   {
-    IF (this->owner->RunMessageBox("commondialogs/objectprops.confirmcanceldraft") = "yes")
+    IF (this->owner->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcanceldraft")) = "yes")
     {
       OBJECT work := this->owner->BeginUnvalidatedWork();
 
@@ -770,7 +770,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoCancelRequest()
   {
-    IF (this->owner->RunMessageBox("commondialogs/objectprops.confirmcancelrequest") = "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("publisher:tolliumapps.editdocument.messageboxes.confirmcancelrequest")) = "yes")
     {
       OBJECT work := this->owner->BeginUnvalidatedWork();
       OBJECT source := OpenWHFSObject(this->previewfileid);

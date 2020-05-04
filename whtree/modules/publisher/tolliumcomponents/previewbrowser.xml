@@ -1,0 +1,60 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumcomponents.previewbrowser"
+         library="previewbrowser.whlib">
+
+  <fragment name="previewbrowser">
+    <actions>
+      <windowopenaction name="showexternallink" onwindowopen="doshowexternallink" />
+      <windowopenaction name="viewsite" onwindowopen="doviewsite" />
+      <action name="previewrefresh" onexecute="dopreviewrefresh" />
+
+      <action name="submitforapproval" onexecute="dosubmitforapproval" tid="publisher:versioning.submitforapproval" />
+      <action name="canceldraft" onexecute="docanceldraft" tid="publisher:versioning.revertdraft" />
+      <action name="cancelrequest" onexecute="docancelrequest" tid="publisher:versioning.withdrawrequest" />
+    </actions>
+    <compositions>
+      <eventlistener name="previewlistener" onevents="onpreviewupdateevents" />
+      <eventlistener name="versioneventslistener" onevents="onpreviewversionevents" />
+    </compositions>
+    <contents>
+      <panel name="urlpanel" backgroundcolor="#f0f0f0" spacers="left" borders="bottom">
+        <line layout="tabs-space">
+          <url name="previewurl" title="" width="1pr" />
+          <select name="deviceselect" type="pulldown" title="" onchange="ondevicechange" rowkeytype="string">
+          </select>
+          <buttongroup layout="horizontal" borders="left">
+            <button type="icon" icon="tollium:actions/reload" action="previewrefresh" hinttid=".refreshhint"/>
+          </buttongroup>
+        </line>
+      </panel>
+      <panel name="versioninginfo" backgroundcolor="#FEFFDE" visible="false" spacers="left right" borders="bottom">
+        <line>
+          <text name="versioningmessage" title="" value="" wordwrap="true" width="1pr" />
+          <text name="submitdraft" title="" valuetid="publisher:versioning.submitforapproval" action="submitforapproval" visible="false" />
+          <text name="revertdraft" title="" valuetid="publisher:versioning.revertdraft" action="canceldraft" visible="false" />
+          <text name="withdrawrequest" title="" valuetid="publisher:versioning.withdrawrequest" action="cancelrequest" visible="false" />
+        </line>
+      </panel>
+      <panel name="info" backgroundcolor="#FEFFDE" visible="false" spacers="left" borders="bottom">
+        <line>
+          <text name="previewmessage" title="" value="" wordwrap="true" onclicklink="onpreviewmessageclick" />
+        </line>
+      </panel>
+      <panel name="browserpanel" backgroundcolor="#b6b2b2" height="1pr"><!-- Same background color as RTD -->
+        <iframe name="browserframe" height="1pr" oncallback="onbrowserframecallback" />
+      </panel>
+    </contents>
+  </fragment>
+
+  <screen name="previewbrowsercustom" implementation="none" gid=".custom">
+    <body>
+      <textedit name="width" valuetype="integer" width="10x" public="true" minvalue="0" />
+      <textedit name="height" valuetype="integer" width="10x" public="true" minvalue="0" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
+
+</screens>

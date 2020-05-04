@@ -59,7 +59,7 @@
   <xs:element name="previewbrowser">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.previewbrowser" />
+        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/previewbrowser.xml#previewbrowser" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

@@ -13,7 +13,6 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 
 MACRO PrepIt()
 {
-  SetTidLanguage("debug");
   testfw->BeginWork();
   testfw->GetUserObject("lisa")->GrantRightToOn("system:fs_browse", testfw->GetUserObject("lisa"), testfw->GetTestSite()->rootobject->id, FALSE, TRUE);
   testfw->CommitWork();
@@ -90,7 +89,7 @@ OBJECT ASYNC FUNCTION WalkTheTree()
     // and the test site is not
     TestEq("", pvs.browserurl);
     TestEq(TRUE, pvs.showingmessages);
-    TestEqLike('*{publisher:components.previewbrowser.nonsecuresite}*', pvs.messages);
+    TestEqLike(`*The site is unsecure*<a *`, pvs.messages);
   }
 
   //Set headless controller to http
@@ -142,7 +141,7 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq(testfw->GetTestSite()->webroot || "loadlib.html", pvs.displayurl);
   TestEq("", pvs.browserurl); // Target was never published
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.internallink|webhare_testsuite.site:/loadlib.html}*', pvs.messages);
+  TestEqLike('*internal link*webhare_testsuite.site:/loadlib.html*', pvs.messages);
   TestEqLike('*<a *errors*', pvs.messages);
 
   link := MakeXMLDocumentFromHTML(StringToBlob(pvs.messages))->GetElementsByTagName('a')->Item(0);
@@ -183,7 +182,7 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.browserurl); // No index document
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.folderwithoutindex|emptyfolder}*', pvs.messages);
+  TestEqLike(`The selected folder 'emptyfolder' does not have an index document.`, pvs.messages);
 
   //Let's hit the content link
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="contentlink.shtml";
@@ -191,10 +190,10 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq(testfw->GetTestSite()->webroot || "contentlink.shtml", pvs.displayurl);
   TestEqLike(testfw->GetTestSite()->webroot || "contentlink.shtml*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.contentlink|webhare_testsuite.site:/dynamicpage.shtml}*', pvs.messages);
+  TestEqLike(`This content link links to URL 'webhare_testsuite.site:/dynamicpage.shtml'.`, pvs.messages);
 
   TestEQ(FALSE, TT("filelist")->selection.canwrite);
-  AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("filelist")->openaction->TolliumClick(), [messagemask := "{publisher:commondialogs.messageboxes.norightstoeditfile}"]);
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TT("filelist")->openaction->TolliumClick(), [messagemask := "You don't have enough rights to edit this file."]);
 
   //Let's hit the external link
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="externallink.shtml";
@@ -202,7 +201,7 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq("http://www.b-lex.nl/", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.externallink|http://www.b-lex.nl/*', pvs.messages);
+  TestEqLike(`This external link links to URL 'http://www.b-lex.nl/'. <a href="preview:showexternallink">Click here to open this link.</a>`, pvs.messages);
 
   //Test internal links to various types of files
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-empty.shtml";
@@ -210,22 +209,22 @@ OBJECT ASYNC FUNCTION WalkTheTree()
   TestEq("", pvs.displayurl);
   TestEq("", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.internallink-broken}*', pvs.messages);
+  TestEqLike(`This external link does not seem to be linked to an existing file.<br />Warnings have occurred while publishing this file. <a href="preview:showwarnings">Click here to show the warnings.</a>`, pvs.messages);
 
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-published.shtml";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(testfw->GetTestSite()->webroot || "dynamicpage.shtml", pvs.displayurl);
   TestEqLike(testfw->GetTestSite()->webroot || "dynamicpage.shtml*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.internallink|webhare_testsuite.site:/dynamicpage.shtml}*', pvs.messages);
+  TestEqLike(`This internal link links to file 'webhare_testsuite.site:/dynamicpage.shtml'.`, pvs.messages);
 
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="internallink-unpublished.shtml";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(testfw->GetTestSite()->webroot || "dynamicpage.witty", pvs.displayurl);
   TestEqLike(testfw->GetTestSite()->webroot || "dynamicpage.witty*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
-  TestEqLike('*{publisher:components.previewbrowser.internallink-unpublished|webhare_testsuite.site:/dynamicpage.witty}*', pvs.messages);
-  TestEqLike('*{publisher:components.previewbrowser.warnings}*', pvs.messages);
+  TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.site:/dynamicpage.witty'*`, pvs.messages);
+  TestEqLike(`*Warnings have occurred while publishing this file.*<a*`, pvs.messages);
 
   //Let's hit the redirection
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="redirect.shtml";

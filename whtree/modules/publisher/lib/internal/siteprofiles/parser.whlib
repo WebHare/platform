@@ -1046,14 +1046,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "allowfoldertype", "denyfoldertype"
             {
               INSERT [ isallow := node->localname LIKE "allow*"
-                     , typedef := node->GetAttribute("typedef")
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfoldertypes AT END;
               CONTINUE;
             }
             CASE "allowfiletype", "denyfiletype"
             {
               INSERT [ isallow := node->localname LIKE "allow*"
-                     , typedef := node->GetAttribute("typedef")
+                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
                      ] INTO apply.modifyfiletypes AT END;
               CONTINUE;
             }
@@ -1151,20 +1151,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
               apply := CellUpdate(apply, node->localname, data);
               this->AddWarning(node, "<contentlisting> is only supported by template-v2.whlib designs and will be removed in the future");
-              CONTINUE;
-            }
-            CASE "defaultsettings"
-            {
-              RECORD settings := [ typedef := node->GetAttribute("typedef")
-                                 , members := DEFAULT RECORD ARRAY
-                                 ];
-              FOREVERY(OBJECT memberobj FROM node->GetChildElementsByTagNameNS(namespace_sp, "member")->GetCurrentElements())
-              {
-                INSERT [ name := memberobj->GetAttribute("name")
-                       , content := memberobj->textcontent
-                       ] INTO settings.members AT END;
-              }
-              INSERT settings INTO apply.defaultsettings AT END;
               CONTINUE;
             }
             CASE "setobjecteditor"

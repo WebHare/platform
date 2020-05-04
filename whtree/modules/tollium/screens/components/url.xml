@@ -4,12 +4,14 @@
   <fragment name="tolliumurl">
     <actions>
       <copyaction name="copylink" title="" source="previewurl" />
+      <windowopenaction name="openlink" title="" onwindowopen="onopenlink" />
       <action name="qrlink" onexecute="doqrlink" title="" />
     </actions>
     <contents>
       <textedit width="1pr" name="previewurl" enabled="false" title="">
         <button name="copybutton" type="icon" icon="tollium:actions/copy" action="copylink" title="" />
         <button name="qrbutton" type="icon" icon="tollium:objects/qr" action="qrlink" title="" />
+        <button name="openbutton" type="icon" icon="tollium:actions/openlink" action="openlink" title="" />
       </textedit>
     </contents>
   </fragment>

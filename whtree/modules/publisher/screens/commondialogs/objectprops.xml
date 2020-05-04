@@ -15,8 +15,6 @@
     <messagebox name="cannotreplacepinnedindex" icon="error" buttons="ok" />
     <messagebox name="contentlinkpointstononindex" icon="error" buttons="ok" />
     <messagebox name="noversionedfieldswerechanged" icon="information" buttons="ok" />
-    <messagebox name="confirmcanceldraft" icon="question" buttons="yes no" />
-    <messagebox name="confirmcancelrequest" icon="question" buttons="yes no" />
     <messagebox name="confirmrestore" icon="question" buttons="yes no" />
     <messagebox name="draftcancelled" buttons="close" />
     <messagebox name="requestcancelled" buttons="close" />

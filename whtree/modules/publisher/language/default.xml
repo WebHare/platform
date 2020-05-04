@@ -485,7 +485,6 @@
     <text tid="clearaction">Clear</text>
     <text tid="path">Path</text>
     <textgroup gid="dialogs">   <!-- components.dialogs -->
-      <text tid="cannotshowinsecurecontent">The content of the insecure URL '<param p="1"/>' cannot be shown within a secure site.</text>
       <text tid="nosharedblocksources">There are no shared block sources available</text>
     </textgroup>
     <textgroup gid="embedvideo">   <!-- components.embedvideo -->
@@ -596,58 +595,19 @@
     <textgroup gid="previewbrowser">   <!-- components.previewbrowser -->
       <text tid="cachedversion">Because errors occurred while publishing, the last correctly published version of this file is displayed.</text>
       <text tid="clickallresults">Click here to see all <param p="1"/> results.</text>
-      <text tid="clickerrors">Click here to view the errors.</text>
-      <text tid="clickexternallink">Click here to open this link.</text>
       <text tid="clickviewable">Click here to preview the file anyway.</text>
-      <text tid="clickviewsite">Click here to view the site in a new browser window.</text>
-      <text tid="clickwarnings">Click here to show the warnings.</text>
-      <text tid="contentlink">This content link links to URL '<param p="1"/>'.</text>
-      <text tid="errors">Errors have occurred during publication.</text>
-      <text tid="externallink">This external link links to URL '<param p="1"/>'.</text>
-      <text tid="folderwithoutindex">The selected folder '<param p="1"/>' does not have an index document.</text>
       <text tid="foreignfolder">The selected folder is a foreign folder.</text>
-      <text tid="internallink">This internal link links to file '<param p="1"/>'.</text>
-      <text tid="internallink-broken">This external link does not seem to be linked to an existing file.</text>
-      <text tid="internallink-cachedversion">Because errors occurred while publishing the linked file, the last correctly published version is displayed.</text>
       <text tid="internallink-errors">Errors have occurred while publishing the linked file.</text>
-      <text tid="internallink-unpublished">This internal link links to unpublished file '<param p="1"/>'.</text>
       <text tid="internallink-warnings">Warnings have occurred while publishing the linked file.</text>
-      <text tid="nonsecuresite">The site is unsecure and cannot be displayed within the secure WebHare environment.</text>
-      <text tid="nopreviewobject">The object <param p="1"/>#<param p="2"/> could not be found or has the wrong type.</text>
-      <text tid="notpublished">This file is not published.</text>
       <text tid="notviewable">This file may not be displayed correctly by the browser.</text>
-      <text tid="previewrefresh">Refresh</text>
       <text tid="previewzoomin">Zoom in</text>
       <text tid="previewzoomout">Zoom out</text>
       <text tid="previewzoomreset">Reset zoom level</text>
       <text tid="qrlink">Show QR code for example</text>
-      <text tid="refreshhint">Refresh</text>
-      <text tid="scheduled">A task has been scheduled for this file.</text>
-      <text tid="scheduleddelete">This file will be deleted at <param p="1"/>.</text>
-      <text tid="scheduledmove">This file will be moved at <param p="1"/>.</text>
-      <text tid="scheduledpublish">This file will be published starting <param p="1"/>.</text>
-      <text tid="scheduledunpublish">This file will no longer be published starting <param p="1"/>.</text>
-      <text tid="showexternallink">Open external link</text>
       <text tid="toomanyresults">Only the most recently deleted <param p="1"/> objects are shown.</text>
-      <text tid="viewsite">View site</text>
-      <text tid="warnings">Warnings have occurred while publishing this file.</text>
-      <text tid="widgetpreview">This is a preview for this widget.</text>
       <text tid="zoominhint">Zoom in</text>
       <text tid="zoomouthint">Zoom out</text>
       <text tid="zoomresethint">Reset zoom level</text>
-      <textgroup gid="custom">   <!-- components.previewbrowser.custom -->
-        <text tid="height">Height</text>
-        <text tid="previewbrowsercustom">Custom size</text>
-        <text tid="width">Width</text>
-      </textgroup>
-      <textgroup gid="devices">   <!-- components.previewbrowser.devices -->
-        <text tid="custom">Custom...</text>
-        <text tid="customsize">Custom</text>
-        <text tid="desktop">Desktop</text>
-        <text tid="fill">Default view</text>
-        <text tid="phone">Phone</text>
-        <text tid="tablet">Tablet</text>
-      </textgroup>
       <textgroup gid="showmessage">   <!-- components.previewbrowser.showmessage -->
         <text tid="notviewable-message">Files of type '<param p="1"/>' may not be displayed correctly in this preview.</text>
         <text tid="notviewable-title">This file has no preview</text>
@@ -2646,6 +2606,47 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents" limitlanguages="en nl">   <!-- tolliumcomponents -->
+    <textgroup gid="previewbrowser">   <!-- tolliumcomponents.previewbrowser -->
+      <text tid="cannotshowinsecurecontent">The content of the insecure URL '<param p="1"/>' cannot be shown within a secure site.</text>
+      <text tid="clickerrors">Click here to view the errors.</text>
+      <text tid="clickexternallink">Click here to open this link.</text>
+      <text tid="clickviewsite">Click here to view the site in a new browser window.</text>
+      <text tid="clickwarnings">Click here to show the warnings.</text>
+      <text tid="contentlink">This content link links to URL '<param p="1"/>'.</text>
+      <text tid="errors">Errors have occurred during publication.</text>
+      <text tid="externallink">This external link links to URL '<param p="1"/>'.</text>
+      <text tid="folderwithoutindex">The selected folder '<param p="1"/>' does not have an index document.</text>
+      <text tid="internallink">This internal link links to file '<param p="1"/>'.</text>
+      <text tid="internallink-broken">This external link does not seem to be linked to an existing file.</text>
+      <text tid="internallink-cachedversion">Because errors occurred while publishing the linked file, the last correctly published version is displayed.</text>
+      <text tid="internallink-unpublished">This internal link links to unpublished file '<param p="1"/>'.</text>
+      <text tid="nonsecuresite">The site is unsecure and cannot be displayed within the secure WebHare environment.</text>
+      <text tid="nopreviewobject">The object <param p="1"/>#<param p="2"/> could not be found or has the wrong type.</text>
+      <text tid="notpublished">This file is not published.</text>
+      <text tid="previewrefresh">Refresh</text>
+      <text tid="refreshhint">Refresh</text>
+      <text tid="scheduled">A task has been scheduled for this file.</text>
+      <text tid="scheduleddelete">This file will be deleted at <param p="1"/>.</text>
+      <text tid="scheduledmove">This file will be moved at <param p="1"/>.</text>
+      <text tid="scheduledpublish">This file will be published starting <param p="1"/>.</text>
+      <text tid="scheduledunpublish">This file will no longer be published starting <param p="1"/>.</text>
+      <text tid="showexternallink">Open external link</text>
+      <text tid="viewsite">View site</text>
+      <text tid="warnings">Warnings have occurred while publishing this file.</text>
+      <text tid="widgetpreview">This is a preview for this widget.</text>
+      <textgroup gid="custom">   <!-- tolliumcomponents.previewbrowser.custom -->
+        <text tid="height">Height</text>
+        <text tid="previewbrowsercustom">Custom size</text>
+        <text tid="width">Width</text>
+      </textgroup>
+      <textgroup gid="devices">   <!-- tolliumcomponents.previewbrowser.devices -->
+        <text tid="customsize">Custom</text>
+        <text tid="desktop">Desktop</text>
+        <text tid="fill">Default view</text>
+        <text tid="phone">Phone</text>
+        <text tid="tablet">Tablet</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="selectmailtemplate">   <!-- tolliumcomponents.selectmailtemplate -->
       <text tid="notemplate">No design</text>
     </textgroup>
