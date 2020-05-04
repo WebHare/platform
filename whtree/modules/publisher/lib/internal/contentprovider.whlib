@@ -115,7 +115,7 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
         OBJECT pagelistprovider;
         IF (typeinfo.filetype.pagelistprovider != "")
-          pagelistprovider := MakeObject(typeinfo.filetype.pagelistprovider, typedetails);
+          pagelistprovider := __MakePagelistProvider(typeinfo.filetype.pagelistprovider, typedetails);
 
         typeinfo := CELL
             [ typeinfo.id
@@ -164,14 +164,14 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
     IF (RecordExists(typeinfo) AND ObjectExists(typeinfo.pagelistprovider))
     {
-      RECORD ARRAY subfiles := typeinfo.pagelistprovider->GetSitemapLinks(CELL
+      RECORD ARRAY subfiles := typeinfo.pagelistprovider->GetPages(CELL
           [ id := cachedfile.fileid
           , cachedfile.file.type
           , cachedfile.file.title
           , cachedfile.link
           , cachedfile.subpagebaseurl
           , cachedfile.file.modificationdate
-          ]);
+          ], [ forsitemap := FALSE, forconsilio := TRUE ]);
 
       cachedfile.havesetsubfiles := TRUE;
       cachedfile.subfiles := SELECT id :=               link
@@ -443,11 +443,20 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
           fields := CellInsert(fields, fld.name, fld.value);
       }
 
-      IF(RecordExists(subfileinfo))
-        fields := CELL[...fields, ...subfileinfo.consiliofields];
-
       // Use parsed text as document body
       body := page.parsed_page.text;
+
+      IF(RecordExists(subfileinfo))
+      {
+        //Any body overwrites the indexed body
+        IF(CellExists(subfileinfo.consiliofields, "BODY"))
+        {
+          body := subfileinfo.consiliofields.body;
+          DELETE CELL body FROM subfileinfo.consiliofields;
+        }
+
+        fields := CELL[...fields, ...subfileinfo.consiliofields];
+      }
 
       // Add boost keywords
       STRING ARRAY boostwords := this->boostwords_type->GetInstanceData(cachedfile.fileid).words;
