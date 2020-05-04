@@ -61,7 +61,7 @@ PUBLIC MACRO LogAuditEventBy(STRING logsource, RECORD userdata, RECORD data)
       , entityid := 0
       ], userdata);
 
-  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "=";
+  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "-";
   STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || auth;
 
   STRING encodeddata := EncodeHSON(data);
