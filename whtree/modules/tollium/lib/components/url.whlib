@@ -45,6 +45,11 @@ PUBLIC OBJECTTYPE TolliumURL EXTEND TolliumFragmentBase
     CreateQRPromise(this->owner)->Then(PTR this->OpenQRLink(#1, ^previewurl->value));
   }
 
+  MACRO OnOpenLink(OBJECT urlreceiver)
+  {
+    urlreceiver->SendURL(^previewurl->value);
+  }
+
   MACRO OpenQRLink(OBJECT handler, STRING url)
   {
     handler->SendURL(url);
