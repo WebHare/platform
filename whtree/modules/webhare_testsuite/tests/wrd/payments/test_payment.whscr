@@ -231,7 +231,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 
   TestEq("failed", pd2c->GetField("DATA").status);
 
-  // STORY: Pendign payments ALWAYS expire after 2 weeks
+  // STORY: Pending payments ALWAYS expire after 2 weeks
   testfw->BeginWork();
   OBJECT pd2c_twoweeks := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C-2weeks"]);
   testfw->CommitWork();
