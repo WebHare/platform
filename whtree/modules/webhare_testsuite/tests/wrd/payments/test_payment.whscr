@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/testfw/payments.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
@@ -218,7 +218,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   RECORD status := DecodeJSONBlob(testfw->browser->content);
   TestEq(pd2b->id, status.returninfo.paymentid);
 
-  // Create a payment we'll expire
+  // STORY: Create a payment we'll expire
   testfw->BeginWork();
   OBJECT pd2c := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C"]);
   testfw->CommitWork();
@@ -230,6 +230,22 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   PollPaymentStatuses(TRUE, TRUE);
 
   TestEq("failed", pd2c->GetField("DATA").status);
+
+  // STORY: Pending payments ALWAYS expire after 2 weeks
+  testfw->BeginWork();
+  OBJECT pd2c_twoweeks := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C-2weeks"]);
+  testfw->CommitWork();
+
+  paymentapi->StartPayment(pd2c_twoweeks->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", returnurl := "https://www.example.net/" ]);
+  testfw->BeginWork();
+  UPDATE wrd.pendingpayments SET creationdate := AddDaysToDate(-14, creationdate) WHERE paymententity = pd2c_twoweeks->id;
+  testfw->CommitWork();
+
+  TestEq("pending", pd2c_twoweeks->GetField("DATA").status);
+  Sleep(10); //just in case, but we're probably not that fast
+  PollPaymentStatuses(TRUE, TRUE);
+
+  TestEq("failed", pd2c_twoweeks->GetField("DATA").status);
 
   // Create a payment we'll cancel out of impatience
   testfw->BeginWork();
@@ -313,7 +329,7 @@ MACRO TestPaymentOverview()
   RECORD ARRAY payments := wrdschema->^paydata->RunQuery([ outputcolumns := [ id := "WRD_ID", data := "DATA", creationdate := "WRD_CREATIONDATE" ]]);
   payments := SELECT * FROM payments ORDER BY creationdate;
 
-  TestEq(7, Length(payments));
+  TestEq(8, Length(payments));
   TestEq("pending", payments[0].data.status);
   TestEq(0m, payments[0].data.amountpayable);
   TestEq(DEFAULT DATETIME, payments[0].data.paymentdate);

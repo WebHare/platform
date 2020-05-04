@@ -89,7 +89,11 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
         ELSE
         {
           IF(paymentrecord.creationdate <= AddDaysToDate(-14, GetCurrentDatetime()))
-            seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} hasn't been able to leave 'pending' status for more than two weeks\n` || seterror;
+          {
+            //cancel payment after two weeks
+            api->CancelPendingPayment(paymentrecord.paymententity);
+            CONTINUE;
+          }
 
           DATETIME setnextcheck;
           RECORD diff := GetDatetimeDifference(paymentrecord.creationdate, GetCurrentDatetime());

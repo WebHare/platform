@@ -797,6 +797,10 @@ PUBLIC STRING FUNCTION __whdb_GetHarescriptType(STRING dbase_type)
     {
       RETURN "INTEGER";
     }
+    CASE "int8"
+    {
+      RETURN "INTEGER64";
+    }
     CASE "timestamp"
     {
       RETURN "DATETIME";

@@ -1,3 +1,4 @@
+# WRDAuth setup
 You need to update your wrdschema definition to import the authentication schema, and specify the accounttype and fields to use. An example that uses the emailfield for both login and email:
 
 ```xml

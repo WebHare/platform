@@ -163,6 +163,8 @@ STRING FUNCTION CalcTIDForLanguage(STRING langcode, STRING tid, STRING p1, STRIN
       IF(rich)
         debugtid := EncodeHTML(debugtid);
       result := debugtid;
+
+      PrintTo(2, `Phase out deprecated 'debug' language:\n  debug: ${debugtid}\n  en: ${GetTidForLanguage("en", tid, p1, p2, p3, p4)}\n\n`);
     }
     DEFAULT
     {

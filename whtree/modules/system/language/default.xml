@@ -966,7 +966,7 @@
           <text tid="creationdate">Queued at</text>
           <text tid="flush">Retry all now</text>
           <text tid="nextattempt">Next attempt</text>
-          <text tid="reschedule">Reschedule task</text>
+          <text tid="reschedule">Duplicate and reschedule task</text>
           <text tid="showcompletedtasks">Show completed tasks</text>
           <text tid="status">Status</text>
           <text tid="tasktype">Task type</text>
