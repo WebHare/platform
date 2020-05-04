@@ -26,6 +26,7 @@ STRING FUNCTION GetOutputUntilTermination(OBJECT proc)
       BREAK;
 
     alloutput := alloutput || output;
+    Print(output);
   }
   proc->Close();
   RETURN alloutput;
@@ -42,6 +43,9 @@ MACRO WithArguments()
   TestEq("2",TrimWhitespace(GetOutputUntilTermination(proc)));
   proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--user", "webhare_testsuite_user2", "--showmode","json","select from system.fs_objects limit 1"],FALSE,TRUE,TRUE,TRUE);
   TestEq("[{}]",TrimWhitespace(GetOutputUntilTermination(proc))); //one empty record..
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--user", "webhare_testsuite_user2", "--showmode","json","select * from wrd.entity_settings limit 1"],FALSE,TRUE,TRUE,TRUE);
+  RECORD res := DecodeJSON(GetOutputUntilTermination(proc));
+  TestEq(TRUE, RecordExists(res));
 
   DATETIME testend := GetCurrentDatetime();
 
@@ -60,7 +64,7 @@ MACRO WithArguments()
   }
   stream->Close();
 
-  TestEQ(2, LENGTH(items));
+  TestEQ(3, LENGTH(items));
   TestEQ('hson:{\"query\":\"? 1 + 1\"}', items[0].parts[4]);
   TestEQ('hson:{\"query\":\"select from system.fs_objects limit 1\"}', items[1].parts[4]);
 }
