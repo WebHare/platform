@@ -1223,10 +1223,20 @@ PUBLIC OBJECT FUNCTION GetTestController()
 //
 // Test api clean
 
-//TTLaunchApplication
+/** Launch an application */
 PUBLIC ASYNC MACRO TTLaunchApp(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   GetTestController()->LaunchApplication(appname, options);
+}
+
+/** Launch the most recently requested application (eg after a click) */
+PUBLIC ASYNC MACRO TTLaunchStartedApp()
+{
+  RECORD ARRAY applaunchinstructions := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="sendappmessage";
+  IF(NOT RecordExists(applaunchinstructions))
+    THROW NEW Exception(`No applaunch pending`);
+
+  AWAIT TTLaunchApp(applaunchinstructions[END-1].app, CELL[applaunchinstructions[END-1].target]);
 }
 
 OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen)
