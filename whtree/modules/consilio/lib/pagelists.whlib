@@ -245,7 +245,7 @@ PUBLIC RECORD ARRAY FUNCTION GetConsilioPagesForFile(INTEGER fileid, RECORD opti
 {
   options := ValidateOptions(CELL[], options);
 
-  RECORD ARRAY finallinks := GatherPages((SELECT AS INTEGER parent FROM system.fs_objects WHERE id = fileid), [fileid], CELL[ ...basecontext, forsitemap := TRUE ]);
+  RECORD ARRAY finallinks := GatherPages((SELECT AS INTEGER parent FROM system.fs_objects WHERE id = fileid), [fileid], CELL[ ...basecontext, forconsilio := TRUE ]);
 
   //Sanitize
   finallinks := EnforceStructure([[ changefreq := ""
