@@ -37,7 +37,7 @@ PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
             , changefreq := "yearly"
             , consiliofields := [ birthdayfor := "Bob" ]
             ]
-           ]
+           ];
   }
 >;
 ```
