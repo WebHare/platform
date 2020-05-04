@@ -391,7 +391,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->frame->flags.connected := TRUE;
       this->peerconnectinfo := peer->InvokeAdminService("Connect");
       ^remotemodules->visible := TRUE;
+
+      STRING selection := ^modules->value;
       ^modules->columns := SELECT * FROM this->modulecolumns WHERE name != "description"; //doesn't fit!
+      ^modules->value := selection; //prevent selection loss
 
       STRING servername := RecordExists(this->peerconnectinfo.applicability) ? this->peerconnectinfo.applicability.servername : peer->url;
       //WH 4.28 starts supplying interfaceurl and semver

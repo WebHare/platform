@@ -382,34 +382,6 @@ class BLEXLIB_PUBLIC RC4CryptingStream : public Blex::Stream
         Blex::Stream &in;
 };
 
-/** Blowfish crypt class. Blowfish is symmetric - the same key is used for both encryption
-    and decryption */
-class BLEXLIB_PUBLIC Blowfish
-{
-        public:
-        /** Construct a Blowfish cryptor, waiting for a 'InitKey' */
-        Blowfish();
-        /** Construct and initialize a Blowfish cryptor */
-        Blowfish(const unsigned char *inkey, int keylen);
-        /** Reset the Blowfish cryptor and initialize with a key */
-        void SetKey(const unsigned char *inkey, int keylen);
-        /** Encrypt the data */
-        void Encrypt(const unsigned char* in_start, const unsigned char* in_limit, unsigned char* out_start, unsigned char* out_limit);
-        /** Decrypt the data */
-        void Decrypt(const unsigned char* in_start, const unsigned char* in_limit, unsigned char* out_start, unsigned char* out_limit);
-        /** Get padded size */
-        unsigned GetPaddedSize(unsigned length);
-        /** Get unpadded size */
-        unsigned GetUnpaddedSize(const unsigned char* start, const unsigned char* limit);
-        /** Pad the data with PKCS5Padding */
-        void Pad(unsigned char* start, unsigned orig_length);
-
-        private:
-        BF_KEY key;
-        void Crypt(const unsigned char* in_start, const unsigned char* in_limit, unsigned char* out_start, unsigned char* out_limit, int enc);
-        //void Unpad(char* start, char* limit);
-};
-
 /** Calculate the MD5 hash of a buffer of byte data
     @param hash Location where to store the hash (must be MD5HashLen bytes in length)*/
 void BLEXLIB_PUBLIC GetMD5Hash(const void *data, unsigned len, void *hashstore);

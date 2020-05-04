@@ -232,35 +232,6 @@ BLEX_TEST_FUNCTION(TestRC4)
         }
 }
 
-BLEX_TEST_FUNCTION(TestBlowfish)
-{
-        // test vectors taken from http://www.schneier.com/code/vectors.txt
-
-        unsigned char key[8] = {0x01, 0x31, 0xD9, 0x61, 0x9D, 0xC1, 0x37, 0x6E};
-        unsigned char data[8] = {0x5C, 0xD5, 0x4C, 0xA8, 0x3D, 0xEF, 0x57, 0xDA};
-        unsigned char cipher[8] = {0xB1, 0xB8, 0xCC, 0x0B, 0x25, 0x0F, 0x09, 0xA0};
-        unsigned char padtest[8] = {4,4,4,4,0,0,0,0};
-        unsigned char out[8];
-
-        Blex::Blowfish bf(key, 8);
-
-        bf.Encrypt(data, data + 8, out, out + 8);
-
-        for (unsigned i = 0; i < 8; i++)
-          BLEX_TEST_CHECKEQUAL(out[i], cipher[i]);
-
-        bf.Decrypt(cipher, cipher + 8, out, out + 8);
-
-        for (unsigned i = 0; i < 8; i++)
-          BLEX_TEST_CHECKEQUAL(out[i], data[i]);
-
-        // test padding
-        bf.Pad(padtest, 4);
-
-        for (unsigned i = 0; i < 8; i++)
-          BLEX_TEST_CHECKEQUAL(padtest[i], 4);
-}
-
 std::string QuickMD5Crypt(std::string const &key, std::string const &salt)
 {
         std::vector<uint8_t> result;

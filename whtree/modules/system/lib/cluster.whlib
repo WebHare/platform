@@ -58,9 +58,11 @@ PUBLIC MACRO LogAuditEventBy(STRING logsource, RECORD userdata, RECORD data)
   userdata := ValidateOptions(
       [ login :=        ""
       , authobjectid := 0
+      , entityid := 0
       ], userdata);
 
-  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || (userdata.authobjectid=0?"-":"wh:"||userdata.authobjectid);
+  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "-";
+  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || auth;
 
   STRING encodeddata := EncodeHSON(data);
   IF(Length(msg)+Length(encodeddata)>127*1024)

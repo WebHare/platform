@@ -303,70 +303,6 @@ void HS_DoEvpCrypt(HSVM *vm, HSVM_VariableId id_set)
         ERR_clear_error();
 }
 
-void  HS_EncryptBlowfish(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair key;
-        HSVM_StringGet(vm, HSVM_Arg(0), &key.begin, &key.end);
-        if(key.begin==key.end) //empty key
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_String);
-                return;
-        }
-
-        std::string input = HSVM_StringGetSTD(vm, HSVM_Arg(1));
-        Blex::PodVector<char> &output = SystemContext(GetVirtualMachine(vm)->GetContextKeeper())->scratchpad;
-
-        Blex::Blowfish bf((const unsigned char *)key.begin, key.size());
-
-        unsigned old_length = input.size();
-
-        // resize string to account for padding
-        unsigned new_data_length = bf.GetPaddedSize(old_length);
-        input.resize(new_data_length);
-
-        output.resize(new_data_length);
-
-        // pad and encrypt
-        bf.Pad(reinterpret_cast<uint8_t*>(&input[0]), old_length);
-
-        bf.Encrypt(reinterpret_cast<uint8_t*>(&input[0]), reinterpret_cast<uint8_t*>(&input[input.size()])
-                  ,reinterpret_cast<uint8_t*>(&output[0]), reinterpret_cast<uint8_t*>(&output[output.size()]));
-
-        HSVM_StringSet(vm, id_set, output.begin(), output.end());
-}
-
-void  HS_DecryptBlowfish(HSVM *vm, HSVM_VariableId id_set)
-{
-        Blex::StringPair key, input;
-        HSVM_StringGet(vm, HSVM_Arg(0), &key.begin, &key.end);
-        if(key.begin==key.end) //empty key
-        {
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_String);
-                return;
-        }
-
-        HSVM_StringGet(vm, HSVM_Arg(1), &input.begin, &input.end);
-
-        Blex::PodVector<char> &output = SystemContext(GetVirtualMachine(vm)->GetContextKeeper())->scratchpad;
-
-        Blex::Blowfish bf((const unsigned char *)key.begin, key.size());
-
-        output.resize(input.size());
-
-        // decrypt
-        bf.Decrypt(
-          (unsigned char *)input.begin,
-          (unsigned char *)input.end,
-          (unsigned char *)output.begin(),
-          (unsigned char *)output.end());
-
-        // remove padding
-        unsigned new_output_length = bf.GetUnpaddedSize((unsigned char *)output.begin(), (unsigned char *)output.end());
-        output.resize(new_output_length);
-
-        HSVM_StringSet(vm, id_set, output.begin(), output.end());
-}
-
 void HS_EncryptXor(HSVM *vm, HSVM_VariableId id_set)
 {
         StackMachine &stackm = GetVirtualMachine(vm)->GetStackMachine();
@@ -744,8 +680,6 @@ void InitCrypto(struct HSVM_RegData *regdata)
         HSVM_RegisterFunction(regdata, "VERIFY_RSA_HASH::B:SSSS",HS_VerifyRSASignature);
         HSVM_RegisterFunction(regdata, "CREATE_RSA_HASH::S:SSSS",HS_CreateRSASignature);
         HSVM_RegisterFunction(regdata, "GETCERTIFICATEDATA::R:S",HS_GetCertificateData);
-        HSVM_RegisterFunction(regdata, "__HS_ENCRYPT_BLOWFISH::S:SS",HS_EncryptBlowfish);
-        HSVM_RegisterFunction(regdata, "__HS_DECRYPT_BLOWFISH::S:SS",HS_DecryptBlowfish);
         HSVM_RegisterFunction(regdata, "ENCRYPT_XOR::S:SS",HS_EncryptXor);
         HSVM_RegisterFunction(regdata, "GENERATEUFS128BITID::S:",HS_GenerateUFS128BitId);
         HSVM_RegisterFunction(regdata, "__EVP_GENERATEKEY::I:SIS",HS_GenerateKey);

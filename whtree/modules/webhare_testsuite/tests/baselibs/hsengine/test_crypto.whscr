@@ -216,14 +216,12 @@ O1t8+FbRGplZNW0qXQIDAQAB
   TestEq("Beagle", DecryptSignedData(encryptedbeagle, "SHA-1,BLOWFISH+ECB,8", "secret"));
   TestEq("", DecryptSignedData(encryptedbeagle, "SHA-1,BLOWFISH+ECB,8", "secret2"));
   TestEq(TRUE, encryptedbeagle != EncryptAndSignData("Beagle", "SHA-1,BLOWFISH+ECB,8", "secret")); //check random salt
-  TestEq("Beagle",DecryptSignedData("vU1UajS3C6sUi4-BbQZLPP1cc_qxF4wFrEG0Ve0I4njhPFjXnuSL3D-l9ZPcALvU", "SHA-1,BLOWFISH+ECB,8", "secret")); //note - the signeddata here is corrupt encrypt_blowfish
 
   STRING encryptedbeagle2 := EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,8", "secret");
   TestEq(75, length(encryptedbeagle2));
   TestEq("Beagle", DecryptSignedData(encryptedbeagle2, "SHA-256,BLOWFISH+ECB,8", "secret"));
   TestEq("", DecryptSignedData(encryptedbeagle2, "SHA-256,BLOWFISH+ECB,8", "secret2"));
   TestEq(TRUE, encryptedbeagle2 != EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,8", "secret")); //check random salt
-  TestEq("Beagle",DecryptSignedData("ANIO3l21WbpBBIqs9l5AJajptqzpK_lkgW3Zfmf90cS3MurZUQsWHsjtDG8WhTPwxl2zdGMlxsc", "SHA-256,BLOWFISH+ECB,8", "secret"));
 
   STRING encryptedbeagle3 := EncryptAndSignData("Beagle", "SHA-256,BLOWFISH+ECB,1", "secret");
   TestEq(64, length(encryptedbeagle3));
@@ -241,8 +239,6 @@ O1t8+FbRGplZNW0qXQIDAQAB
   TestEq(43, length(encryptedbeagle6));
   TestEq(RepeatText("Beagle",100), DecryptSignedData(encryptedbeagle6, "MD5,BLOWFISH+ECB,0,ZLIB", "secret"));
 
-  TestEq("", Decrypt_Blowfish("KEY", "")); //Will only fail on valgrind, if ever.
-
   STRING cbcbeagle1 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+CBC,8", "secret");
   STRING cbcbeagle2 := EncryptAndSignData(RepeatText("Beagle",100), "MD5,BLOWFISH+CBC,8", "secret");
   TestEq(TRUE, cbcbeagle1 != cbcbeagle2);
@@ -259,24 +255,6 @@ MACRO BlowfishTest()
   STRING bf_data := DecodeBase16("5CD54CA83DEF57DA");
   STRING bf_cipher := DecodeBase16("B1B8CC0B250F09A0");
 
-  STRING out1 := Encrypt_Blowfish(bf_key, bf_data);
-  STRING out2 := Decrypt_Blowfish(bf_key, out1);
-
-  TestEq(Left(out1, 8), bf_cipher);
-  TestEq(out2, bf_data);
-
-  STRING out3 := EncodeBase16(Encrypt_Blowfish(bf_key, bf_data));
-  STRING out4 := Decrypt_Blowfish(bf_key, DecodeBase16(out3)) ;
-
-  TestEq(Left(DecodeBase16(out3), 8), bf_cipher);
-  TestEq(out4, bf_data);
-
-  //crash regression
-  TestEq("", EncodeBase16(Encrypt_Blowfish("","")));
-  TestEq("", EncodeBase16(Decrypt_Blowfish("","")));
-  TestEq("", EncodeBase16(Encrypt_Blowfish("","ABC")));
-  TestEq("", EncodeBase16(Decrypt_Blowfish("","ABC")));
-
   /* reference values
    php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","bf-ecb","0131D9619DC1376E") . "\n";'
    XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==
@@ -286,17 +264,12 @@ MACRO BlowfishTest()
    ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==
   */
 
-  TestEq("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
   TestEq("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestEq("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376EF","abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
   TestEq("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376EF","abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  //our key derivation doesn't match PHP for shorter keys, bug!
-  //TestEq("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==", EncodeBase64(Encrypt_Blowfish("0131D9619DC1376", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
+
   TestEq("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==", EncodeBase64(Encrypt("bf-ecb","0131D9619DC1376",  "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
 
-  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt_Blowfish("0131D9619DC1376E",  Decodebase64("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==")));
   TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376E",  Decodebase64("XZ/CsNCsR8uvGTvFUSOEoTWf8TB8ykrpZvCbJkSNhFBbmQw8MX4aKa6qX7rkTtVjx4+CZ/DdGp9pGSYOLuj4jQ==")));
-  TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt_Blowfish("0131D9619DC1376EF", Decodebase64("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==")));
   TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376EF", Decodebase64("oTMdMBaimLJImjEEost0EYu41aqvwGrsUqbfqPgfvWdwZJrNc/DiEYRtHDWoKksMuQjHyNUxUhka2TiMDE3v5g==")));
   TestEq("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", Decrypt("bf-ecb","0131D9619DC1376",   Decodebase64("ypc3F51alWCpQvojE5H3UFa1LZAy8JF7jpX7tJvQQzPXm5yn/B+QnHo8ITJRsp+HTiv73ny9lsw9RwZIirSRfw==")));
 

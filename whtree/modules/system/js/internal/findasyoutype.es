@@ -47,6 +47,7 @@ export default class FindAsYouType
       return true; // Let browser handle the event
     }
 
+    dompack.stop(event);
     this._updateFindAsYouType(key);
   }
   _updateFindAsYouType(toadd)
