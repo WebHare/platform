@@ -26,21 +26,6 @@ class Search;
 class SearchData;
 } // End of namespace Client
 
-namespace AsyncEventType
-{
-/// List of types of different database events
-enum Type
-{
-        None,                   ///< No event
-        Connected,              ///< A connection to the database has just been established
-        Disconnected,           ///< The connection to the database has just lost
-        Notify,                 ///< A transaction in which we were interested has committed
-        Message,                ///< Another connection has sent a message
-        Ask                     ///< Another connection has sent a question, we must answer
-//        Ping                    ///< This connection has been silent too long, please acknowledge the client is still alive
-};
-} // End of namespace AsyncRequestType
-
 /** DBClientColumnInfos hold the metadata of the existing columns */
 class ClientColumnInfo
 {
@@ -495,27 +480,12 @@ class BLEXLIB_PUBLIC TransFrontend
             @param commit True to commit the transaction */
         void Finish(bool commit);
 
-        /** Tell something to a remote server
-            @param name Listener to talk to
-            @param data Data to send to listener
-            @return false if the no listener by that name is present*/
-        bool Tell(std::string const &name, WritableRecord const &data);
-
-        /** Ask something from a remote server
-            @param name Listener to talk to
-            @param data In/out parameter: record to send, record to receive
-            @return false if the no listener by that name is present, or if the listener timed out*/
-        bool Ask(std::string const &name, WritableRecord *inout);
-
         /** Database writing and metadata modifications.
             Functions to create, update and delete records, columns and tables */
         //@{
 
         /** Send a SQL command to the database */
         SQLResultScanner * SendSQLCommand(std::string const &cmd);
-
-        /** Recreate the transaction with the specified roles */
-        void SetRoles(std::vector< RoleId > const &roles);
 
         /** (re)create a view with the specified roles */
 //        int32_t CreateView (std::vector<RoleId> const &roles, bool recreate_view);
@@ -541,12 +511,6 @@ class BLEXLIB_PUBLIC TransFrontend
             (used for transactions passed from an ask)
         */
         void DisableRollbackOnDestruction();
-
-        /** Check whether the connection under this transaction is still alive
-            (also react on pings that have been received, so inactivity timeouts
-            won't be invoked)
-        */
-        bool CheckLiveness();
 
         // Returns the underlying connection
         inline TransactConnection & GetConnection() { return *remoteconn; }
@@ -859,34 +823,6 @@ class BLEXLIB_PUBLIC ClientScanner : public ResultSetScanner
         }
 };
 
-struct BLEXLIB_PUBLIC NotificationScanner
-{
-    private:
-        IOBuffer iobuf;
-
-        ResultSetScanner scanner;
-
-        uint16_t action_cell;
-
-        Actions current_action;
-
-        WritableRecord record_copy;
-
-        NotificationScanner(TransactConnection &conn, IOBuffer const &initial_buffer);
-    public:
-        /** Get action of current row (ActionInsert, ActionDelete, ActionUpdate | ActionInsert, ActionUpdate | ActionDelete */
-        Actions GetAction();
-
-        Record const & GetAddedRow();
-        Record const & GetDeletedRow();
-
-        bool Next();
-
-        void Close();
-
-        friend class AsyncThread;
-};
-
 class SQLResultScanner : public ResultSetScanner
 {
     public:
@@ -897,106 +833,6 @@ class SQLResultScanner : public ResultSetScanner
         void Close();
 };
 
-/** The async thread is a virtual baseclass that must be used to implement
-    a database async receiver. It implements the main loop of an async
-    waiter, and will properly shutdown when the database is shut down.
-
-    The class itself is completely controlled by TCPFrontend, but is
-    created to make it easier to implement a notify handler. Only one async
-    thread can be installed per database connection.
-
-    Multithreading considerations:
-    \begin{itemize}
-      \item Most AsyncThread code runs in a seperate thread.
-      \item QueueNotification and StopNotify can be called asynchronously by RemoteConnection.
-      \item AsyncThread is Locked/Unlocked for all member access.
-      \item AsyncThread is signalled when it needs to terminate, or when a notification comes in.
-    \end
-*/
-class BLEXLIB_PUBLIC AsyncThread
-{
-    public:
-        /** AsyncThread constructor */
-        AsyncThread(NotificationRequests const &notes, std::string const &listenername, TCPFrontend &dbase);
-
-        /** Tell AsyncThread to start connecting (should be called only once)*/
-        void StartConnecting();
-
-        /** Tell AsyncThread to stop. ALso terminates the subthread */
-        void Stop(bool wait_for_finish);
-
-        /** AsyncThread destructor */
-        virtual ~AsyncThread();// throw();
-
-        /** AsyncThread notification handler. These need to be overriden
-            by the class that wants notifications. */
-        virtual void NotifyConnected();
-        virtual void NotifyDisconnected();
-        virtual void NotifyTableChange();
-
-        /** AsyncThread receive one-way message handler
-            @param authid Authentication ID of the sender
-            @param rec Record received */
-        virtual void ReceiveTell(Database::Record data);
-
-        /** AsyncThread receive request/response message handler
-            @param authid Authentication ID of the sender
-            @param msgid Message ID for this message
-            @param data Data sent by requester */
-        virtual void ReceiveAsk(uint32_t msgid, Database::Record data);
-
-        /** Send a reply to a question */
-        void SendReply(uint32_t msgid, Database::Record reply);
-
-        std::unique_ptr< NotificationScanner > GetNotifications(unsigned tableidx);
-
-        inline NotificationRequests const & GetRequests() const { return reqs; }
-
-        /** The actual connection */
-        std::unique_ptr< TransactConnection > dbconn; //FIXME: Should be private
-    private:
-        /** Async state */
-        struct State
-        {
-                ///Should we abort? (no more disconnects!)
-                bool must_stop;
-                ///Do we have an alive connection?
-                bool is_connected;
-        };
-
-        /** The inner loop implementation, used when we are connected */
-        void AsyncLoop();
-
-        /** The thread implementation */
-        void ThreadCode();
-
-        void ProcessNotify(IOBuffer &buf);
-        void ProcessMessage(IOBuffer &buf);
-        void ProcessAsk(IOBuffer &buf);
-//        void ProcessPing();
-
-        typedef Blex::InterlockedData<State,Blex::ConditionMutex> LockedState;
-
-        /** The database to which we are connected */
-        TCPFrontend &dbase;
-
-        /** Requested notifications */
-        NotificationRequests const reqs;
-
-        /** Asynchronous state */
-        LockedState state;
-
-        ///List of changed tables
-        std::vector< bool > changed_tables;
-
-        ///Name of this listener
-        std::string const listenername;
-
-        //TCPFrontend sets us up and starts us
-        friend class TCPFrontend;
-
-        Blex::Thread threadrunner;
-};
 
 /** A transactconnection is a connection over which multiple transactions can be
     multiplexed.
@@ -1022,22 +858,10 @@ class BLEXLIB_PUBLIC TransactConnection
             @return The opened transaction*/
         TransFrontend * BeginTransaction(std::string const &username, std::string const &password, std::string const &clientname, bool readonly, bool autotrans);
 
-        /** Keeps the current transaction connection alive
-        */
-        void KeepAlive();
-
         /** Open a blob in the database
             @param blobid Blob to open
             @return A stream containing the blob, or NULL on open error */
         Blex::RandomStream * OpenBlob(BlobId blob, Blex::FileOffset cached_length, bool backup_transaction);
-
-        /** Retrieves type of next async event
-            @param block If no event is available and block is set, this function waits until the next event is available
-            @return Type of next async event (None if none available and block is false)
-        */
-        AsyncEventType::Type GetNextAsyncEventType(bool block);
-
-        void AsyncSendReply(uint32_t msgid, Record const &reply);
 
         /** Subscribe as listener
             @param name of the listener
@@ -1069,26 +893,8 @@ class BLEXLIB_PUBLIC TransactConnection
 
         bool IsReadSignalled(Blex::PipeWaiter &waiter);
 
-        void ReceiveAsk(uint32_t *messageid, WritableRecord *rec, std::unique_ptr< TransFrontend > *trans);
-        void ReceiveMessage(WritableRecord *rec);
-        void ReceiveNotify(std::vector< bool > *changed_tables);
-        void ReceiveAsyncEvent();
-
         /** Read directly from the database (using the advance buffer where possible). Never read more than 16384 bytes! */
         std::size_t ReadBlobFromDbase(BlobId blobid, Blex::FileOffset startpos,void *buf,std::size_t maxbufsize, bool backup_transaction);
-
-        /** Returns a scanner over the changes in a table (which must be in the set of listened to transactions
-            @param schema Schema in which the table resides
-            @param table Table to get the changes for
-            @return Scanner over the changes (or 0 if no changes)
-        */
-        std::unique_ptr< ResultSetScanner > GetNotifications(std::string const &schema, std::string const &table);
-
-        void CloseNotifications();
-
-        /** Check whether this connection is still alive
-        */
-        bool CheckLiveness();
 
         /** Check whether the connections has already failed (so rollbacks can be ignored)
         */

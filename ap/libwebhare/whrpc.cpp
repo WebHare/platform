@@ -373,19 +373,6 @@ void TCPConnection::Loop(bool send, IOBuffer *receive, Blex::DateTime timeout)
         return;
 }
 
-void TCPConnection::ReceivePacketIgnoreAsync(IOBuffer *iobuf, Blex::DateTime timeout)
-{
-        assert(timeout != Blex::DateTime::Invalid());
-        while (true)
-        {
-                ReceivePacket(iobuf, timeout);
-                // Either async or normal answer
-
-                if (!(iobuf->GetOpcode() & ResponseOpcode::AsyncMask))
-                    return;
-        }
-}
-
 void TCPConnection::SignalConnection()
 {
         // Write true to trigger

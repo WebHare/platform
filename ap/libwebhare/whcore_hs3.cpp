@@ -565,23 +565,6 @@ void PUB_ValidName(HSVM *vm, HSVM_VariableId id_set)
         HSVM_BooleanSet(vm, id_set, WHCore::ValidName(namepair.begin,namepair.end,slashes_ok));
 }
 
-void SYS_Restart(HSVM *vm)
-{
-        ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
-
-        const std::unique_ptr<Database::TransactConnection> conn( scriptcontext->GetWebHare().GetDbase().BeginTransactConnection("whcore sys_restart") );
-
-        const std::unique_ptr<Database::TransFrontend> trans( conn->BeginFullyPrivilegedTransaction(false/*readwrite*/, false/*non-auto*/) );
-
-        Database::WritableRecord modulechange;
-        modulechange.SetInteger(1,65534);
-        modulechange.SetString(2,HSVM_StringGetSTD(vm, HSVM_Arg(0)));
-        trans->Tell("*",modulechange);
-
-        //ADDME: Should have a way to prevent the doubleflush (as _we_ will receive the Tell too!)
-        scriptcontext->GetWebHare().ReloadPluginConfig();
-}
-
 void SYSTEM_GetIntalledModuleNames(HSVM *vm, HSVM_VariableId id_set)
 {
         ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
@@ -1142,7 +1125,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterContext (regdata, ScriptGroupContextId, context_ptr, &CreateWHCoreGroupContext, &DestroyWHCoreGroupContext);
 
         HSVM_RegisterFunction(regdata, "__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion);
-        HSVM_RegisterMacro   (regdata, "RELOADWEBHARECONFIG3:::S", SYS_Restart);
 
         HSVM_RegisterFunction(regdata, "ISVALIDWHFSNAME::B:SB", PUB_ValidName);
 

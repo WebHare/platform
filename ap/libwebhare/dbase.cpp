@@ -18,15 +18,9 @@ std::string GetName(uint8_t type)
 {
         switch (type)
         {
-        case Answer:                            return "Answer";
-        case AnswerException:                   return "AnswerException";
         case TransactionStart:                  return "TransactionStart";
         case TransactionExplicitOpen:           return "TransactionExplicitOpen";
         case TransactionCommitRollbackClose:    return "TransactionCommitRollbackClose";
-        case NotifyOpen:                        return "NotifyOpen";
-        case NotifyScan:                        return "NotifyScan";
-        case NotifyClose:                       return "NotifyClose";
-        case TransactionSetRoles:               return "TransactionSetRoles";
         case ResultSetAdvance:                  return "ResultSetAdvance";
         case ResultSetLock:                     return "ResultSetLock";
         case ResultSetUnlock:                   return "ResultSetUnlock";
@@ -37,7 +31,6 @@ std::string GetName(uint8_t type)
         case ResultSetClose:                    return "ResultSetClose";
         case RecordInsert:                      return "RecordInsert";
         case ScanStart:                         return "ScanStart";
-        case ScanNotificationsStart:            return "ScanNotificationsStart";
         case MetadataGet:                       return "MetadataGet";
         case AutonumberGet:                     return "AutonumberGet";
         case BlobUpload:                        return "BlobUpload";
@@ -45,12 +38,8 @@ std::string GetName(uint8_t type)
         case BlobMarkPersistent:                return "BlobMarkPersistent";
         case BlobDismiss:                       return "BlobDismiss";
         case SQLCommand:                        return "SQLCommand";
-        case SubscribeAsListener:               return "SubscribeAsListener";
-        case Ask:                               return "Ask";
-        case Tell:                              return "Tell";
         case ResetConnection:                   return "ResetConnection";
         case BeginConnection:                   return "BeginConnection";
-        case KeepAlive:                         return "KeepAlive";
         default:
                 {
                         std::string retval = "Invalid opcode (" + Blex::AnyToString((int)type) + ")";
@@ -69,10 +58,6 @@ std::string GetName(Database::ResponseOpcode::Type type)
         case Reset:             return "Reset";
         case Answer:            return "Answer";
         case AnswerException:   return "AnswerException";
-        case Ask:               return "Ask";
-        case Notify:            return "Notify";
-        case Message:           return "Message";
-        case Ping:              return "Ping";
         default:
 //            throw Exception(ErrorInternal, "Attempting to send invalid response");
             return "Invalid (" + Blex::AnyToString((int)type) + ")";

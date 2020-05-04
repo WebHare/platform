@@ -181,18 +181,13 @@ void TransactConnection::FinishAdvanceRequest()
 
                         dbconn->ReceivePacket(iobuffer, timeout);
 
-                        if (iobuffer->GetOpcode() & ResponseOpcode::AsyncMask)
-                            async_packets.push_back(*iobuffer);
-                        else
+                        if (advance_iterator)
                         {
-                                if (advance_iterator)
-                                {
-                                        DBC_PRINT("Finished advance read for iterator " << advance_iterator);
-                                        advance_iterator->have_advance_read = true;
-                                        advance_iterator = 0;
-                                }
-                                break; //got the right response
+                                DBC_PRINT("Finished advance read for iterator " << advance_iterator);
+                                advance_iterator->have_advance_read = true;
+                                advance_iterator = 0;
                         }
+                        break; //got the right response
                 }
                 expect_advance_response=false;
         }
@@ -216,9 +211,7 @@ void TransactConnection::RemoteRequest(IOBuffer *iobuf)
                         : iobuf;
                 dbconn->ReceivePacket(curbuffer, timeout);
 
-                if (curbuffer->GetOpcode() & ResponseOpcode::AsyncMask)
-                    async_packets.push_back(*curbuffer);
-                else if(expect_advance_response)
+                if(expect_advance_response)
                 {
                         if (advance_iterator)
                         {
@@ -338,103 +331,6 @@ Blex::RandomStream * TransactConnection::OpenBlob(BlobId blob, Blex::FileOffset 
         return newblob.release();
 }
 
-AsyncEventType::Type TransactConnection::GetNextAsyncEventType(bool block)
-{
-        if (expect_advance_response)
-        {
-                DBC_PRINT("Swallowing superfluous FinishAdvanceRequest (we are waiting for an async event)");
-                FinishAdvanceRequest(); //just kill it
-        }
-
-        if (async_packets.empty())
-        {
-                try
-                {
-                        if (!dbconn->ReceivePacket(&iobuf, block ? Blex::DateTime::Max() : Blex::DateTime::Invalid()))
-                            return AsyncEventType::None;
-                }
-                catch (Exception &e)
-                {
-                        // Disconnects and timeouts can be viewed as disconnects.
-                        if (e.errorcode == ErrorDisconnect || e.errorcode == ErrorTimeout)
-                            return AsyncEventType::Disconnected;
-                        else
-                            throw;
-                }
-                if (!(iobuf.GetOpcode() & ResponseOpcode::AsyncMask))
-                {
-                        throw Exception(ErrorInternal, "Received a synchronous reply when waiting on an asynchronous one! ("+ResponseOpcode::GetName(ResponseOpcode::Type(iobuf.GetOpcode())) + ")");
-                }
-
-                async_packets.push_back(iobuf);
-        }
-
-        switch (async_packets[0].GetOpcode())
-        {
-        case ResponseOpcode::Ask:       return AsyncEventType::Ask;
-        case ResponseOpcode::Notify:    return AsyncEventType::Notify;
-        case ResponseOpcode::Message:   return AsyncEventType::Message;
-        default:
-            throw Exception(ErrorProtocol, "Received illegal asynchronous RPC code");
-        }
-}
-
-/*
-AsyncEventType::Type TransactConnection::GetAsyncEvent(IOBuffer *iobuf)
-{
-        AsyncEventType::Type type = IsAsyncEventAvailable();
-        if (type == AsyncEventType::None)
-        {
-                dbconn->ReceivePacket(iobuf);
-                if (!(iobuf->GetOpcode() & ResponseOpcode::AsyncMask))
-                {
-                        throw Exception(ErrorInternal, "Received a synchronous reply when waiting on an asynchronous one! ("+ResponseOpcode::GetName(ResponseOpcode::Type(iobuf->GetOpcode())) + ")");
-                }
-
-                // FIXME: code duplication with IsAsyncEventAvailable
-                switch (iobuf->GetOpcode())
-                {
-                case ResponseOpcode::Ask:       return AsyncEventType::Ask;
-                case ResponseOpcode::Notify:    return AsyncEventType::Notify;
-                case ResponseOpcode::Message:   return AsyncEventType::Message;
-                default:
-                    throw Exception(ErrorProtocol, "Received illegal asynchronous RPC code");
-                }
-        }
-
-        *iobuf = async_packets[0]; // FIXME: swap!
-        async_packets.erase(async_packets.begin());
-        return type;
-} */
-
-void TransactConnection::AsyncSendReply(uint32_t msgid, Record const &reply)
-{
-        IOBuffer mybuf;
-
-        mybuf.ResetForSending();
-        mybuf.Write<uint32_t>(0);
-        mybuf.Write(msgid);
-        mybuf.Write(reply);
-        mybuf.FinishForReplying(false);
-
-        // Send the packet, but we don't care if it has been sent, we just want to return.
-        dbconn->SendPacket(mybuf, Blex::DateTime::Invalid());
-}
-
-void TransactConnection::SubscribeAsListener(std::string const &name, NotificationRequests const &notes, std::string const &login, std::string const &passwd)
-{
-        iobuf.ResetForSending();
-        iobuf.Write<uint32_t>(0); //View
-        iobuf.Write(name);
-        iobuf.Write(notes);
-        iobuf.Write(login);
-        iobuf.Write(passwd);
-        iobuf.FinishForRequesting(RequestOpcode::SubscribeAsListener);
-        RemoteRequest(&iobuf);
-
-        current_notifs = notes;
-}
-
 void TransactConnection::MakeBlobsPersistent(std::vector< BlobId > const &blobs)
 {
         unsigned current = 0;
@@ -473,9 +369,6 @@ void TransactConnection::MakeBlobsUnused(std::vector< BlobId > const &blobs)
 
 bool TransactConnection::AddToWaiterRead(Blex::PipeWaiter &waiter)
 {
-        if (GetNextAsyncEventType(false) != AsyncEventType::None)
-            return true;
-
         dbconn->AddToWaiterRead(waiter);
         return false;
 }
@@ -483,129 +376,6 @@ bool TransactConnection::AddToWaiterRead(Blex::PipeWaiter &waiter)
 bool TransactConnection::IsReadSignalled(Blex::PipeWaiter &waiter)
 {
         return dbconn->IsReadSignalled(waiter);
-}
-
-void TransactConnection::ReceiveAsk(uint32_t *messageid, WritableRecord *rec, std::unique_ptr< TransFrontend > *trans)
-{
-        assert(!async_packets.empty() && async_packets[0].GetOpcode() == ResponseOpcode::Ask);
-        if (notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications must be closed before accepting another asynchronous event");
-
-        *messageid = async_packets[0].Read<uint32_t>();
-        async_packets[0].ReadIn(rec);
-
-        int32_t view_id = rec->GetCell(65533).Integer();
-        Blex::DateTime metadataclock = rec->GetCell(65534).DateTime();
-        uint32_t metadataversion = rec->GetCell(65535).Integer();
-        if (trans)
-        {
-                trans->reset(new TransFrontend(dbase, *this, view_id, false, false));
-                GetMetadata(trans->get(), metadataversion, metadataclock);
-        }
-
-        async_packets.erase(async_packets.begin());
-}
-
-void TransactConnection::ReceiveMessage(WritableRecord *rec)
-{
-        assert(!async_packets.empty() && async_packets[0].GetOpcode() == ResponseOpcode::Message);
-        if (notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications must be closed before accepting another asynchronous event");
-
-        async_packets[0].ReadIn(rec);
-
-        async_packets.erase(async_packets.begin());
-}
-
-void TransactConnection::ReceiveNotify(std::vector< bool > *changed_tables)
-{
-        assert(!async_packets.empty() && async_packets[0].GetOpcode() == ResponseOpcode::Notify);
-        if (notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications must be closed before accepting another asynchronous event");
-
-        // Read number of changed tables
-        uint32_t tablecount = async_packets[0].Read<uint32_t>();
-
-        changed_tables->resize(tablecount);
-        for (unsigned idx = 0; idx < tablecount; ++idx)
-            (*changed_tables)[idx] = async_packets[0].Read<uint8_t>() != 0;
-
-        async_packets.erase(async_packets.begin());
-
-        iobuf.ResetForSending();
-        iobuf.Write<uint32_t>(0);
-        iobuf.FinishForRequesting(RequestOpcode::NotifyOpen);
-        RemoteRequest(&iobuf);
-
-        notifications_opened = true;
-}
-
-void TransactConnection::ReceiveAsyncEvent()
-{
-        assert(!async_packets.empty());
-        if (async_packets[0].GetOpcode() == ResponseOpcode::Notify)
-            throw Exception(ErrorInvalidArg, "Notifications must be processed using ReceiveNotify!");
-        if (notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications must be closed before accepting another asynchronous event");
-
-        async_packets.erase(async_packets.begin());
-}
-
-std::unique_ptr< ResultSetScanner > TransactConnection::GetNotifications(std::string const &schema, std::string const &table)
-{
-        if (!notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications cannot be received until a notification has been opened");
-
-        std::unique_ptr< ResultSetScanner > scanner;
-
-        for (unsigned idx = 0, end = current_notifs.requests.size(); idx < end; ++idx)
-            if (Blex::StrCaseCompare(current_notifs.requests[idx].schema, schema) == 0 &&
-                Blex::StrCaseCompare(current_notifs.requests[idx].table, table) == 0)
-            {
-                    iobuf.ResetForSending();
-                    iobuf.Write<uint32_t>(0);
-                    iobuf.Write((uint32_t)idx);
-                    iobuf.FinishForRequesting(RequestOpcode::NotifyScan);
-                    RemoteRequest(&iobuf);
-
-                    scanner.reset(new ResultSetScanner(new RawScanIterator(iobuf, *this, 0)));
-                    break;
-            }
-        return scanner;
-}
-
-void TransactConnection::CloseNotifications()
-{
-        if (!notifications_opened)
-            throw Exception(ErrorInvalidArg, "Notifications transactions cannot be closed when not opened first");
-
-        iobuf.ResetForSending();
-        iobuf.Write<uint32_t>(0);
-        iobuf.FinishForRequesting(RequestOpcode::NotifyClose);
-        RemoteRequest(&iobuf);
-
-        notifications_opened = false;
-}
-
-bool TransactConnection::CheckLiveness()
-{
-        try
-        {
-                // Check if an async event is in queue. Will detect a broken connection
-                AsyncEventType::Type type = GetNextAsyncEventType(false);
-
-                // If a disconnect was received then the connectionsly obviously ain't alive anymore
-                if (type == AsyncEventType::Disconnected)
-                    return false;
-        }
-        catch (Database::Exception &)
-        {
-                // If any exceptions here, the connection must be dead.
-                return false;
-        }
-
-        // No disconnect, requested pings are satisfied; the connection seems alive.
-        return true;
 }
 
 bool TransactConnection::HasConnectionFailed()
@@ -735,278 +505,11 @@ bool TransactConnection::RemoteBlob::SetFileLength(Blex::FileOffset )
         throw Database::Exception(ErrorInternal,"Database blobs are read-only");
 }
 
-// -----------------------------------------------------------------------------
-//
-// AsyncThread
-//
-// -----------------------------------------------------------------------------
-
-
-AsyncThread::AsyncThread(NotificationRequests const &notes,std::string const &_listener,TCPFrontend &dbase)
-: dbase(dbase)
-, reqs(notes)
-, listenername(_listener)
-, threadrunner(std::bind(&AsyncThread::ThreadCode,this))
-{
-        //DEBUGONLY(state.SetupDebugging("AsyncThread::stopflag"));
-        LockedState::WriteRef lock(state);
-        lock->must_stop=false;
-        lock->is_connected=false;
-}
-
-AsyncThread::~AsyncThread() //throw()
-{
-        Stop(true);
-}
-
-void AsyncThread::StartConnecting()
-{
-        if (!threadrunner.Start())
-            throw Exception(ErrorInternal,"Cannot spawn thread for asynchronous notifications");
-}
-
-void AsyncThread::Stop(bool wait_for_finish)
-{
-        {
-                LockedState::WriteRef lock(state);
-                lock->must_stop=true;
-                if (lock->is_connected)
-                    dbconn->dbconn->AsyncClose();
-        }
-        state.SignalAll();
-        if (wait_for_finish)
-            threadrunner.WaitFinish();
-}
-
-
-void AsyncThread::ProcessNotify(IOBuffer &)
-{
-        dbconn->ReceiveNotify(&changed_tables);
-
-        NotifyTableChange();
-
-        dbconn->CloseNotifications();
-}
-
-void AsyncThread::ProcessMessage(IOBuffer &)
-{
-        WritableRecord indata; //ADDME: Scratch buffer for async threads?
-
-        dbconn->ReceiveMessage(&indata);
-        ReceiveTell(indata);
-}
-
-void AsyncThread::ProcessAsk(IOBuffer &)
-{
-        uint32_t messageid;
-        WritableRecord indata; //ADDME: Scratch buffer for async threads?
-
-        dbconn->ReceiveAsk(&messageid, &indata, 0);
-        ReceiveAsk(messageid,indata);
-}
-
-std::unique_ptr< NotificationScanner > AsyncThread::GetNotifications(unsigned tableidx)
-{
-        std::unique_ptr< NotificationScanner > scanner;
-        if (tableidx < changed_tables.size() && !changed_tables[tableidx])
-            return scanner;
-
-//        DBC_PRINT("Querying notifications for " << reqs.requests[tableidx].table);
-
-        IOBuffer mybuf;
-        mybuf.ResetForSending();
-        mybuf.Write<uint32_t>(0);
-        mybuf.Write((uint32_t)tableidx);
-        mybuf.FinishForRequesting(RequestOpcode::NotifyScan);
-        dbconn->RemoteRequest(&mybuf);
-        scanner.reset(new NotificationScanner(*dbconn, mybuf));
-        return scanner;
-}
-
-void AsyncThread::SendReply(uint32_t msgid, Database::Record reply)
-{
-/*        IOBuffer mybuf;
-
-        mybuf.ResetForSending();
-        mybuf.Write<uint32_t>(0);
-        mybuf.Write(msgid);
-        mybuf.Write(reply);
-        mybuf.FinishForReplying(false);*/
-
-        {
-                LockedState::WriteRef lock(state);
-                if (!lock->is_connected)
-                    return;
-        }
-        dbconn->AsyncSendReply(msgid, reply);
-//        AsyncSendPacket(mybuf);
-}
-
-//*
-void AsyncThread::AsyncLoop()
-{
-        IOBuffer iobuf;
-
-        DBC_PRINT("AsyncThread: have database connection");
-
-        while (true)
-        {
-                // FIXME: what happens on disconnect?
-                AsyncEventType::Type type = dbconn->GetNextAsyncEventType(true);
-                switch (type)
-                {
-                case AsyncEventType::Disconnected:
-                        return;
-                case AsyncEventType::Notify:
-                        ProcessNotify(iobuf);
-                        break;
-                case AsyncEventType::Message:
-                        ProcessMessage(iobuf);
-                        break;
-                case AsyncEventType::Ask:
-                        ProcessAsk(iobuf);
-                        break;
-                default:
-                        throw Database::Exception(ErrorProtocol,"Unknown notification type");
-                }
-        }
-}//*/
-//*
-void AsyncThread::ThreadCode()
-{
-        while (true)
-        {
-                if (LockedState::ReadRef(state)->must_stop)
-                    return; //we should disconnect...
-
-                //Connect to the database
-                try
-                {
-                        {
-                                LockedState::WriteRef lock(state);
-
-                                dbconn.reset(dbase.BeginTransactConnection(listenername/*,reqs*/));
-                                dbconn->SubscribeAsListener(listenername, reqs, "~webhare", "");
-
-                                //There is a race condition - we will miss a TCP abort
-                                if (lock->must_stop)
-                                    return; //we should disconnect...
-
-                                lock->is_connected=true;
-                        }
-
-                        NotifyConnected();
-                        AsyncLoop();
-
-                        {
-                                LockedState::WriteRef lock(state);
-                                lock->is_connected=false;
-                        }
-                        NotifyDisconnected();
-                }
-                catch (Exception &e)
-                {
-                        DBC_PRINT("AsyncThread: Failed to connect to the database:" << e.what());
-                        LockedState::ReadRef stoplock(state);
-
-                       if (stoplock->must_stop)
-                            return;
-
-                        stoplock.TimedWait(Blex::DateTime::Now() + Blex::DateTime::Seconds(5)); //wait 5 seconds before reconnection
-//                        continue; //retry to connect
-                }
-                catch (std::exception &e)
-                {
-                        DBC_PRINT("Exception in async thread: " << e.what());
-                        LockedState::ReadRef stoplock(state);
-
-                        if (stoplock->must_stop)
-                            return;
-
-                        stoplock.TimedWait(Blex::DateTime::Now() + Blex::DateTime::Seconds(5)); //wait 5 seconds before reconnection
-//                        continue;
-                }
-        }
-}
-
-void AsyncThread::NotifyTableChange()
-{
-        DBC_PRINT("Database connection: Thread dropped notification");
-}
-void AsyncThread::NotifyConnected()
-{
-        DBC_PRINT("Database connection: Thread dropped connection message");
-}
-void AsyncThread::NotifyDisconnected()
-{
-        DBC_PRINT("Database connection: Thread dropped disconnection message");
-}
-
-void AsyncThread::ReceiveTell(Database::Record )
-{
-        DBC_PRINT("Database connection: Thread dropped tell message");
-}
-
-void AsyncThread::ReceiveAsk(uint32_t,Database::Record)
-{
-        DBC_PRINT("Database connection: Thread dropped ask message");
-} //*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // ViewFrontend
 //
-
-
-bool TransFrontend::Tell(std::string const &name, WritableRecord const &inout)
-{
-        if (remoteconn==NULL)
-            throw Exception(ErrorInternal,"Trying to use a closed transaction");
-
-        iobuf.ResetForSending();
-        iobuf.Write<uint32_t>(trans_dbid);
-        iobuf.Write(name);
-        iobuf.Write(inout);
-        iobuf.FinishForRequesting(RequestOpcode::Tell);
-        remoteconn->RemoteRequest(&iobuf);
-
-        ///\todo Report listener not found errors
-        return iobuf.Read<bool>();
-}
-
-bool TransFrontend::Ask(std::string const &name, WritableRecord *inout)
-{
-        if (remoteconn==NULL)
-            throw Exception(ErrorInternal,"Trying to use a closed transaction");
-
-        iobuf.ResetForSending();
-        iobuf.Write<uint32_t>(trans_dbid);
-        iobuf.Write(name);
-        iobuf.Write(*inout);
-        iobuf.FinishForRequesting(RequestOpcode::Ask);
-        remoteconn->RemoteRequest(&iobuf);
-
-        if (!iobuf.Read<bool>())
-            return false;
-
-        iobuf.ReadIn(inout);
-        return true;
-}
-
-void TransFrontend::SetRoles(std::vector<RoleId> const &roles)
-{
-        if (remoteconn==NULL)
-            throw Exception(ErrorInternal,"Trying to use a closed transaction");
-
-        iobuf.ResetForSending();
-        iobuf.Write< uint32_t >(trans_dbid);
-        iobuf.Write< int32_t >(roles.size());
-        for (unsigned i=0; i<roles.size(); ++i)
-            iobuf.Write(roles[i]);
-        iobuf.FinishForRequesting(RequestOpcode::TransactionSetRoles);
-
-        remoteconn->RemoteRequest(&iobuf);
-}
 
 //ADDME: I want this to return an auto_ptr, but BCB crashes on exceptions
 SQLResultScanner * TransFrontend::SendSQLCommand(std::string const &cmd)
@@ -1140,18 +643,6 @@ void TransFrontend::DisableRollbackOnDestruction()
 {
         rollback_on_destruction = false;
 }
-
-bool TransFrontend::CheckLiveness()
-{
-        return remoteconn->CheckLiveness();
-}
-
-//ViewFrontend &TransFrontend::GetView(int32_t viewid)
-//{
-//        if(static_cast<unsigned>(viewid) >= views.size())
-//            throw Exception(ErrorInternal,"No such view " +Blex::AnyToString(viewid));
-//        return *views[viewid];
-//}
 
 void TransFrontend::RefreshMetadata()
 {
@@ -2013,57 +1504,6 @@ SQLResultScanner::SQLResultScanner(TransactConnection &conn, IOBuffer &initial_b
 
 }
 
-
-NotificationScanner::NotificationScanner(TransactConnection &conn, IOBuffer const &initial_buffer)
-: iobuf(initial_buffer)
-, scanner(new RawScanIterator(iobuf, conn, /*trans=*/0))
-, action_cell(0)
-{
-}
-
-bool NotificationScanner::Next()
-{
-        if (!scanner.NextRow())
-            return false;
-
-        if (action_cell == 0)
-            action_cell = static_cast< uint16_t >(scanner.GetRowRecord().GetNumCells() - 1);
-
-        current_action = (Actions)scanner.GetCell(action_cell).Integer();
-        if (current_action == (ActionUpdate | ActionInsert))
-        {
-                record_copy = scanner.GetRowRecord();
-                current_action = ActionUpdate;
-                if (!scanner.NextRow() || (Actions)scanner.GetCell(action_cell).Integer() != (ActionUpdate | ActionDelete))
-                    throw Exception(ErrorInternal,"Illegal notification sending order");
-
-                return true;
-        }
-        return true;
-}
-
-Actions NotificationScanner::GetAction()
-{
-        return current_action;
-}
-
-Record const & NotificationScanner::GetAddedRow()
-{
-        if (current_action == ActionUpdate)
-            return record_copy;
-        else
-            return scanner.GetRowRecord();
-}
-
-Record const & NotificationScanner::GetDeletedRow()
-{
-        return scanner.GetRowRecord();
-}
-
-void NotificationScanner::Close()
-{
-        scanner.Close();
-}
 
 namespace Client
 {

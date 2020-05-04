@@ -99,15 +99,13 @@ struct SQLQueryData
 /** Data needed to support restorateion of a timed-out auto-transaction */
 struct RestoreData
 {
-        inline RestoreData() : readonly(true), is_auto(false), have_set_roles(false) {}
+        inline RestoreData() : readonly(true), is_auto(false) {}
 
         std::string username;
         std::string password;
         std::string clientname;
         bool readonly;
         bool is_auto;
-        bool have_set_roles;
-        std::vector< Database::RoleId > set_roles;
 };
 
 /** The WebHareTransaction class represents a transaction in the webhare database.
@@ -160,13 +158,10 @@ class WebHareDBTransaction : public DatabaseTransactionDriverInterface
 
         static void Unregister(SQLSupport &sqlsupport, WebHareDBTransaction *trans);
 
-        void SetRoles(std::vector<Database::RoleId> const &roles);
-
         void ExecuteInsert(DatabaseQuery const &query, VarId newrecord);
 
         CursorId OpenCursor(DatabaseQuery &query, CursorType cursortype);
         void CloseCursor(CursorId id);
-        bool KeepAlive();
 
         Database::SQLResultScanner* SQL(std::string const &command);
 

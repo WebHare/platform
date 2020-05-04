@@ -52,31 +52,11 @@ class WebHareServer
         void ManagementScriptTerminated(HareScript::VMGroup *group);
         void LogManagementScriptErrors(HareScript::VMGroup *group);
 
-        class ServerNotify : public Database::AsyncThread
-        {
-                public:
-                ServerNotify(WebHareServer *_server,
-                             Database::TCPFrontend &dbase)
-                : Database::AsyncThread(Database::NotificationRequests(), "webserver", dbase)
-                , server(_server)
-                {
-                        StartConnecting();
-                }
-
-                void ReceiveTell(Database::Record data);
-                void NotifyConnected();
-                void NotifyDisconnected();
-
-                private:
-                WebHareServer *server;
-        };
-
         std::unique_ptr<WHCore::Connection> webhare;
         std::unique_ptr<WebServer::Server> webserver;
         std::unique_ptr<WHCore::EventServer> eventserver;
         std::unique_ptr< WHCore::EventServerBroadcastListener > eventserverlistener;
         std::unique_ptr<Shtml> shtml;
-        std::unique_ptr<ServerNotify> servernotify;
         std::unique_ptr< HareScript::JobManager > jobmgr;
         std::unique_ptr< WHCore::JobManagerIntegrator > jobmgrintegrator;
 
@@ -100,7 +80,6 @@ class WebHareServer
         LockedData state;
 
         ToDo GetTask();
-        friend class ServerNotify;
         Blex::Thread maintenancethread;
         uint16_t onlyinterfaceport;
 

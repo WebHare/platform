@@ -83,41 +83,29 @@ namespace RequestOpcode
 /// Opcodes for requests to the database
 enum Type
 {
-        Answer = 0,                     ///< Send an answer to a received async ask
-        AnswerException,                ///< Send an exception as answer to a received async ask
-        TransactionStart,               ///< Start a new transaction
+        TransactionStart = 0,           ///< Start a new transaction
         TransactionExplicitOpen,        ///< Explicitly open an auto-transaction
         TransactionCommitRollbackClose, ///< Commit/rollback and/or close a transaction
-        NotifyOpen = 5,                 ///< Open the next notification transaction from the queue
-        NotifyScan,                     ///< Do a scan of a table of the notification transaction
-        NotifyClose,                    ///< Close the current notification transaction
-        TransactionSetRoles,            ///< Set the role in a transaction
         ResultSetAdvance,               ///< Advance the cursor to the next block (auto-close on no more data)
-        ResultSetLock = 10,             ///< Lock a row in the current block
+        ResultSetLock,                  ///< Lock a row in the current block
         ResultSetUnlock,                ///< Unlocks a row in the current block
         ResultSetUpdate,                ///< Updates a locked row in the current block (releases lock)
         ResultSetDelete,                ///< Deletes a locked row in the current block (releases lock)
         ResultSetFase2,                 ///< Get fase2 data for selected rows in current block (may auto-close if requested)
-        ResultSetGetInfo = 15,          ///< Get info about a resultset
+        ResultSetGetInfo,               ///< Get info about a resultset
         ResultSetClose,                 ///< Closes the resultset (may close temp-transaction of auto-transaction when it is the last remaining resultset)
         RecordInsert,                   ///< Inserts a new record
         ScanStart,                      ///< Start a scan
-        ScanNotificationsStart,         ///< Start a scan of notifications
-        MetadataGet = 20,               ///< Retrieve the current metadata
+        MetadataGet,                    ///< Retrieve the current metadata
         AutonumberGet,                  ///< Allocate a new autonumber for a specific table
         BlobUpload,                     ///< Upload a blob
-        UNUSED_23,                      ///< Retrieves the length of a blob
         BlobRead,                       ///< Reads part of a blob. Another part will be sent immediately after this.
-        BlobMarkPersistent = 25,        ///< Indicates that certain blob ids will be used by the client, and may NOT be freed.
+        BlobMarkPersistent,             ///< Indicates that certain blob ids will be used by the client, and may NOT be freed.
         BlobDismiss,                    ///< Indicates that certain blob ids won't be used anymore by the client, and may be freed.
         SQLCommand,                     ///< Execute an SQL command on the server
-        SubscribeAsListener,            ///< Subscribe as listener, set notification list
-        Ask,                            ///< Send an ask to a specific listener
-        Tell = 30,                      ///< Send a message to a specific listener
         ResetConnection,                ///< Reset the connection for reuse (free all resources)
         BeginConnection,                ///< RPC reserved for initial handshake
-        KeepAlive,                      ///< Keep this connection alive
-        _max = 34                       ///< This must be the last opcode!
+        _max                            ///< This must be the last opcode!
 };
 std::string BLEXLIB_PUBLIC GetName(uint8_t type);
 } /// End of namespace DBRequestOpcode
@@ -126,16 +114,10 @@ namespace ResponseOpcode
 {
 enum Type
 {
-        Answer = (int)RequestOpcode::Answer, ///< Normal response to a request
-        AnswerException =  (int)RequestOpcode::AnswerException, ///< Exception has triggered!
+        Answer,                         ///< Normal response to a request
+        AnswerException,                ///< Exception has triggered!
         Reset,                          ///< Reset response code (after this code, connection can be reused)
-
-        AsyncMask = 128,                ///< Mask for asynchronous opcodes
-        Ask = AsyncMask,                ///< Asynchronous ask (please respond by calling the dbase with RequestOpcode::Answer
-        Notify,                         ///< Asynchronous notification that notifications are available
-        Message,                        ///< Asynchronous message (no need to respond)
-        Ping,                           ///< Asynchronous ping (please respond with request pong)
-        _max                            ///< This must be the last opcode!
+        _max
 };
 std::string GetName(Type type);
 } // End of namespace DBAnswerOpcode
@@ -263,7 +245,7 @@ class BLEXLIB_PUBLIC IOBuffer
 
         /** Does this RPC contain an exception? */
         bool IsException() const
-        { return GetOpcode()==RequestOpcode::AnswerException; }
+        { return GetOpcode()==ResponseOpcode::AnswerException; }
 
         /** Finish the buffer for transmission by setting up the length bytes
             properly (should only be used by I/O code filling this buffer) */
@@ -378,10 +360,6 @@ class TCPConnection
         unsigned TryReceiveIncoming(LockedAData::WriteRef &lock);
         void PopPacket(LockedAData::WriteRef &lock, IOBuffer *iobuf);
         void Loop(bool send, IOBuffer *receive, Blex::DateTime timeout);
-
-
-        void ReceivePacketIgnoreAsync(IOBuffer *iobuf, Blex::DateTime timeout);
-
 
         void SignalConnection();
 

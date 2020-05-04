@@ -65,8 +65,6 @@ PUBLIC STRING FUNCTION ReloadWebhareConfig2(STRING toreload, RECORD options DEFA
   options := ValidateOptions( [ isdelete := FALSE, nowait := FALSE ], options);
 
   STRING id := GenerateUFS128BitId();
-  IF (GetDatabaseType() = "whdb")
-    ReloadWebhareConfig3(toreload);
   STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
   IF("AUTHDATA" IN parts OR "ALL" IN parts)
     RefreshGlobalWebserverConfig([ nowait := options.nowait ]);
