@@ -24,8 +24,8 @@ test.registerTests(
         test.setTodd('loginname', setupdata.sysopuser);
         test.setTodd('password', setupdata.sysoppassword);
         test.clickToddButton('Login');
+        await test.wait("ui");
       }
-    , waits: ['pageload', 'ui'] //login currently refreshes
     }
   , { test: async function()
       {

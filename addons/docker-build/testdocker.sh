@@ -103,6 +103,13 @@ while true; do
   elif [ "$1" == "--postgres" ] || [ "$1" == "--postgresql" ] ; then
     TESTPOSTGRESQL=1
     shift
+  elif [ "$1" == "--twohares" ] ; then
+    TESTFW_TWOHARES=1
+    shift
+  elif [ "$1" == "--testscript" ] ; then
+    shift
+    TESTSCRIPT=$1
+    shift
   elif [[ $1 =~ ^- ]]; then
     echo "Illegal option '$1'"
     exit 1
@@ -197,17 +204,28 @@ set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
 
 # Cleanup
 TEMPBUILDROOT=
-CONTAINER=
+TESTENV_CONTAINER1=
+
 function cleanup()
 {
-  if [ -n "$CONTAINER" ]; then
+  if [ -n "$TESTENV_CONTAINER1" ]; then
     if [ -z "$NOCLEANUP" ]; then
-      echo "`date` Cleanup: stop container $CONTAINER"
-      $SUDO docker stop $CONTAINER
-      # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $CONTAINER
-      $SUDO docker rm $CONTAINER
+      echo "`date` Cleanup: stop container $TESTENV_CONTAINER1"
+      $SUDO docker stop $TESTENV_CONTAINER1
+      # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
+      $SUDO docker rm $TESTENV_CONTAINER1
     else
-      echo "Not cleaning up, so don't forget to: $SUDO docker stop $CONTAINER"
+      echo "Not cleaning up, so don't forget to: $SUDO docker stop $TESTENV_CONTAINER1"
+    fi
+  fi
+  if [ -n "$TESTENV_CONTAINER2" ]; then
+    if [ -z "$NOCLEANUP" ]; then
+      echo "`date` Cleanup: stop container $TESTENV_CONTAINER2"
+      $SUDO docker stop $TESTENV_CONTAINER2
+      # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
+      $SUDO docker rm $TESTENV_CONTAINER2
+    else
+      echo "Not cleaning up, so don't forget to: $SUDO docker stop $TESTENV_CONTAINER2"
     fi
   fi
   if [ -n "$TEMPBUILDROOT" ]; then
@@ -353,66 +371,78 @@ do
   ANYMODS=1
 done
 
-echo "`date` Creating container $CONTAINER (using image $WEBHAREIMAGE)"
+create_container()
+{
+  local CONTAINERID NR CONTAINERDOCKERARGS USERSERVERCONFIG
 
-if [ -n "$JSTESTBROWSER" ] && [ -z "$EXPLICITPORT" ] ; then
-  DOCKERARGS="$DOCKERARGS -p 8000"
-fi
-#######################
-#
-# Create the environment file
-set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' > ${TEMPBUILDROOT}/env-file
+  NR=$1
+  CONTAINERDOCKERARGS="$DOCKERARGS"
+  if [ -n "$ISMODULETEST" ]; then
+    USERSERVERCONFIG=1
+  fi
 
-# Switch to DTAP development - most test refuse to run without this option for safety reasons
-echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
+  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
 
-# Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
-echo "WEBHARE_CI=1" >> ${TEMPBUILDROOT}/env-file
+  if [ "$NR" == "1" -a -n "$JSTESTBROWSER" -a -z "$EXPLICITPORT" ] ; then
+    CONTAINERDOCKERARGS="$CONTAINERDOCKERARGS -p 8000"
+  fi
 
-# Allow whdata to be mounted on ephemeral (overlayfs) storage
-echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
+  #######################
+  #
+  # Create the environment file
+  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' > ${TEMPBUILDROOT}/env-file
 
-if [ "$COVERAGE" == "1" ]; then
-  echo "WEBHARE_DEBUG=cov" >> ${TEMPBUILDROOT}/env-file
-  echo "WEBHARE_DEBUGSESSION=coverage" >> ${TEMPBUILDROOT}/env-file
-elif [ "$PROFILE" == "1" ]; then
-  echo "WEBHARE_DEBUG=apr" >> ${TEMPBUILDROOT}/env-file
-  echo "WEBHARE_DEBUGSESSION=functionprofile" >> ${TEMPBUILDROOT}/env-file
-fi
+  # Switch to DTAP development - most test refuse to run without this option for safety reasons
+  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
 
-if [ -n "$SELENIUMHOST" ]; then
-  echo "WH_SELENIUMHOST=$SELENIUMHOST" >> ${TEMPBUILDROOT}/env-file
-fi
+  # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
+  echo "WEBHARE_CI=1" >> ${TEMPBUILDROOT}/env-file
 
-if [ -z "$ISMODULETEST" ]; then #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
-  echo "WH_EXTRACTTESTSUITE=1" >> ${TEMPBUILDROOT}/env-file
-else
-  echo "WEBHARE_CONFIGURL=file:///config/serverconfig.xml" >> ${TEMPBUILDROOT}/env-file
-fi
+  # Allow whdata to be mounted on ephemeral (overlayfs) storage
+  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
 
-CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file --tmpfs /opt/whdata $WEBHAREIMAGE"
-echo "Executing: $CMDLINE"
-CONTAINER=`$CMDLINE`
+  if [ "$COVERAGE" == "1" ]; then
+    echo "WEBHARE_DEBUG=cov" >> ${TEMPBUILDROOT}/env-file
+    echo "WEBHARE_DEBUGSESSION=coverage" >> ${TEMPBUILDROOT}/env-file
+  elif [ "$PROFILE" == "1" ]; then
+    echo "WEBHARE_DEBUG=apr" >> ${TEMPBUILDROOT}/env-file
+    echo "WEBHARE_DEBUGSESSION=functionprofile" >> ${TEMPBUILDROOT}/env-file
+  fi
 
-if [ -z "$CONTAINER" ]; then
-  echo Container creating failed
-  exit 1
-fi
+  if [ -n "$SELENIUMHOST" ]; then
+    echo "WH_SELENIUMHOST=$SELENIUMHOST" >> ${TEMPBUILDROOT}/env-file
+  fi
 
-echo "`date` Created container with id: $CONTAINER"
+  if [ -n "$USERSERVERCONFIG" ]; then
+    echo "WEBHARE_CONFIGURL=file:///config/serverconfig.xml" >> ${TEMPBUILDROOT}/env-file
+  else #not a module test? then we probably need the webhare_testsuite module too  TODO can we cp/grab this from the checked out source tree instead of embedded targz
+    echo "WH_EXTRACTTESTSUITE=1" >> ${TEMPBUILDROOT}/env-file
+  fi
 
-if [[ "$CI_RUNNER_DESCRIPTION" =~ ^.+\.docker$ ]]; then # Running on our infra, so predictable paths
-  echo ""
-  echo "To access the runner:    SV ssh ${CI_RUNNER_DESCRIPTION/.*}"
-  echo "To access the container: SV ssh ${CI_RUNNER_DESCRIPTION/-*} docker exec -ti ${CONTAINER} /bin/bash"
-  echo ""
-fi
+  CMDLINE="$SUDO docker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file ${TEMPBUILDROOT}/env-file --tmpfs /opt/whdata $WEBHAREIMAGE"
+  echo "Executing: $CMDLINE"
+  CONTAINERID=`$CMDLINE`
 
-if [ -n "$ISMODULETEST" ]; then # for module tests, configure a primary interface URL
-  echo "`date` Add serverconfiguration to create a primary interface"
+  if [ -z "$CONTAINERID" ]; then
+    echo Container creating failed
+    exit 1
+  fi
 
-  mkdir "${TEMPBUILDROOT}/config"
-  cat > "${TEMPBUILDROOT}/config/serverconfig.xml" << HERE
+  echo "`date` Created container with id: $CONTAINERID"
+  eval TESTENV_CONTAINER$NR=\$CONTAINERID
+
+  if [[ "$CI_RUNNER_DESCRIPTION" =~ ^.+\.docker$ ]]; then # Running on our infra, so predictable paths
+    echo ""
+    echo "To access the runner:    SV ssh ${CI_RUNNER_DESCRIPTION/.*}"
+    echo "To access the container: SV ssh ${CI_RUNNER_DESCRIPTION/-*} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
+    echo ""
+  fi
+
+  if [ -n "$USERSERVERCONFIG" ]; then # for module tests, configure a primary interface URL
+    echo "`date` Add serverconfiguration to create a primary interface"
+
+    mkdir "${TEMPBUILDROOT}/config"
+    cat > "${TEMPBUILDROOT}/config/serverconfig.xml" << HERE
 <serverconfig xmlns="http://www.webhare.net/xmlns/system/serverconfig">
   <bindings>
     <binding name="http" port="80" virtualhost="true" />
@@ -423,54 +453,70 @@ if [ -n "$ISMODULETEST" ]; then # for module tests, configure a primary interfac
   <setregistrykey module="system" key="services.smtp.mailfrom" value="defaultmailfrom@beta.webhare.net" />
 </serverconfig>
 HERE
-  if ! $SUDO docker cp "${TEMPBUILDROOT}/config" $CONTAINER:/; then
-    TESTFAIL=1
-    echo "Failed installing the server configuration"
-  fi
-fi
 
-if [ -n "$ADDMODULES" ]; then
-  echo "`date` Copy modules from ${TEMPBUILDROOT}/docker-tests/modules/"
-  if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINER:/opt/whmodules/; then
-    TESTFAIL=1
+    if ! $SUDO docker cp "${TEMPBUILDROOT}/config" $CONTAINERID:/; then
+      TESTFAIL=1
+      echo "Failed installing the server configuration"
+    fi
   fi
-fi
 
-if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
-  echo "`date` Copying artifacts into $CONTAINER"
-  if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINER:/ ; then
-    echo "Copy failed!"
+  if [ -n "$ADDMODULES" ]; then
+    echo "`date` Copy modules from ${TEMPBUILDROOT}/docker-tests/modules/"
+    if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINERID:/opt/whmodules/; then
+      TESTFAIL=1
+    fi
+  fi
+
+  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
+    echo "`date` Copying artifacts into $CONTAINERID"
+    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
+      echo "Copy failed!"
+      exit 1
+    fi
+  fi
+
+  echo "`date` Starting container$NR $CONTAINERID"
+  if ! $SUDO docker start $CONTAINERID ; then
+    echo Container start failed
     exit 1
   fi
-fi
-
-echo "`date` Starting container $CONTAINER"
-if ! $SUDO docker start $CONTAINER ; then
-  echo Container start failed
-  exit 1
-fi
 
 if [ -n "$ISMODULETEST" ]; then
-  echo "`date` Fixup modules (npm etc)"
-  if ! $SUDO docker exec $CONTAINER chown -R root:root /opt/whmodules/; then
-    TESTFAIL=1
+    echo "`date` Fixup modules (npm etc)"
+    if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
+      TESTFAIL=1
+    fi
+    FIXPARAMS=--onlymodules
+    if ! $SUDO docker exec $CONTAINERID wh fixmodules $FIXPARAMS ; then
+      echo ""
+      echo "$(c red)****** FIXMODULES FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+      echo ""
+      TESTFAIL=1
+    fi
   fi
-  FIXPARAMS=--onlymodules
-  if ! $SUDO docker exec $CONTAINER wh fixmodules $FIXPARAMS ; then
-    echo ""
-    echo "$(c red)****** FIXMODULES FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-    echo ""
-    TESTFAIL=1
-  fi
+
+}
+
+create_container 1
+echo "Container 1: $TESTENV_CONTAINER1"
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  create_container 2
+  echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
-echo "`date` Wait for poststartdone"
-$SUDO docker exec $CONTAINER wh waitfor poststartdone
+echo "`date` Wait for poststartdone container1"
+$SUDO docker exec $TESTENV_CONTAINER1 wh waitfor poststartdone
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  echo "`date` Wait for poststartdone container2"
+  $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor poststartdone
+fi
 
 if [ -n "$ISMODULETEST" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   echo "`date` Check assetpacks"
-  if ! $SUDO docker exec $CONTAINER wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
+  if ! $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     echo ""
     echo "$(c red)****** WAIT ASSETPACKS FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
     echo ""
@@ -479,7 +525,7 @@ if [ -n "$ISMODULETEST" ]; then
 
   if [ -z "$RUNEXPLICITTESTS" ]; then
     echo "`date` Check module"
-    if ! $SUDO docker exec $CONTAINER wh checkmodule --color $TESTINGMODULENAME ; then
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --color $TESTINGMODULENAME ; then
       echo ""
       echo "$(c red)****** CHECK FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
       echo ""
@@ -487,7 +533,7 @@ if [ -n "$ISMODULETEST" ]; then
     fi
 
     echo "`date` System-wide check (eg against siteprofile inconsistencies)"
-    if ! $SUDO docker exec $CONTAINER wh checkwebhare ; then
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkwebhare ; then
       echo ""
       echo "$(c red)****** WEBHARE CHECK FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
       echo ""
@@ -498,17 +544,35 @@ fi
 
 if [ -n "$GENERATEXMLTESTS" ]; then
   echo "`date` Generate XML tests"
-  $SUDO docker exec $CONTAINER wh run modulescript::webhare_testsuite/tests/createxmldomtestscripts.whscr
+  $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::webhare_testsuite/tests/createxmldomtestscripts.whscr
 fi
 
-echo "`date` --- servicemanager log ---"
-$SUDO docker logs $CONTAINER
-echo "`date` --- end of servicemanager log ---"
+echo "`date` --- container1 servicemanager log ---"
+$SUDO docker logs $TESTENV_CONTAINER1
+echo "`date` ^^^ container1 servicemanager log ^^^"
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  echo "`date` --- container2 servicemanager log ---"
+  $SUDO docker logs $TESTENV_CONTAINER2
+  echo "`date` ^^^ container2 servicemanager log ^^^"
+fi
 
 echo "`date` Start the actual test"
 
-if [ -n "$JSTESTBROWSER" ]; then
-  PORTMAPPING=$(docker port $CONTAINER | grep -e "^8000/" | grep -o "[0-9]*$")
+if [ -n "$TESTSCRIPT" ]; then
+
+  echo "`date` Executing custom test script: $TESTSCRIPT"
+
+  export TESTENV_CONTAINER1
+  export TESTENV_CONTAINER2
+
+  if ! $TESTSCRIPT ; then
+      echo "$(c red)Tests failed!$(c reset)"
+      TESTFAIL=1
+  fi
+
+elif [ -n "$JSTESTBROWSER" ]; then
+  PORTMAPPING=$(docker port $TESTENV_CONTAINER1 | grep -e "^8000/" | grep -o "[0-9]*$")
   SKIPS="designfiles $SKIPS"
   HOSTNAME=$(hostname -f)
   ARGS=
@@ -517,14 +581,14 @@ if [ -n "$JSTESTBROWSER" ]; then
   done
   echo "wh run modulescript::webhare_testsuite/runjstests.whscr --browsers \"$JSTESTBROWSER\" --host $HOSTNAME --port $PORTMAPPING --noinit $SKIPARGS $TESTLIST"
 
-  if ! $SUDO docker exec $CONTAINER wh run modulescript::webhare_testsuite/runjstests.whscr --browsers "$JSTESTBROWSER" --noinit --host $HOSTNAME --port $PORTMAPPING --noinit $SKIPARGS $TESTLIST; then
+  if ! $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::webhare_testsuite/runjstests.whscr --browsers "$JSTESTBROWSER" --noinit --host $HOSTNAME --port $PORTMAPPING --noinit $SKIPARGS $TESTLIST; then
     echo "$(c red)Tests failed!$(c reset)"
     TESTFAIL=1
   fi
 else
   # When module testing, only run runtest if there actually appear to be any tests
   if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-    if ! $SUDO docker exec $CONTAINER wh runtest --outputdir /output --autotests $TERSE $STOPONFAIL $DEBUG $RUNTESTARGS $TESTLIST; then
+    if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $STOPONFAIL $DEBUG $RUNTESTARGS $TESTLIST; then
       echo "$(c red)Tests failed!$(c reset)"
       TESTFAIL=1
     fi
@@ -532,8 +596,8 @@ else
 fi
 
 if [ "$TESTFAIL" == "1" -a "$ENTERSHELL" == "1" ]; then
-  echo "Entering shell in container $CONTAINER"
-  $SUDO docker exec -ti $CONTAINER /bin/bash
+  echo "Entering shell in container $TESTENV_CONTAINER1"
+  $SUDO docker exec -ti $TESTENV_CONTAINER1 /bin/bash
 fi
 
 echo "`date` Done with tests"
@@ -550,25 +614,37 @@ fi
 
 # Can't use docker cp due to the volume at /opt/whdata/
 mkdir -p $ARTIFACTS/whdata
-$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $CONTAINER tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata/
-$SUDO docker exec $CONTAINER tar -c -C / tmp | tar -x -C $ARTIFACTS/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata/
+$SUDO docker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  mkdir -p $ARTIFACTS/whdata2
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output | tar -x -C $ARTIFACTS/whdata2/
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ log | tar -x -C $ARTIFACTS/whdata2/
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ tmp | tar -x -C $ARTIFACTS/whdata2/
+  $SUDO docker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/whdata2/
+fi
 
 if [ -n "$COVERAGE" ]; then
-  $SUDO docker exec $CONTAINER wh run modulescript::system/debug/analyze_coverage.whscr
-  $SUDO docker exec $CONTAINER tar -zc -C /opt/whdata/ephemeral/profiles coverage > $ARTIFACTS/coverage.tar.gz
+  $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::system/debug/analyze_coverage.whscr
+  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles coverage > $ARTIFACTS/coverage.tar.gz
   echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
 fi
 
 if [ -n "$PROFILE" ]; then
-  $SUDO docker exec $CONTAINER tar -zc -C /opt/whdata/ephemeral/profiles functionprofile > $ARTIFACTS/functionprofile.tar.gz
+  $SUDO docker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles functionprofile > $ARTIFACTS/functionprofile.tar.gz
   echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
 fi
 
-if [ "`$SUDO docker ps -q -f id=$CONTAINER`" == "" ]; then
-  echo "Container exited early!"
-  $SUDO docker logs $CONTAINER
+if [ "`$SUDO docker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
+  echo "Container1 exited early!"
+  $SUDO docker logs $TESTENV_CONTAINER1
+fi
+if [ -n "$TESTFW_TWOHARES" -a "`$SUDO docker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
+  echo "Container2 exited early!"
+  $SUDO docker logs $TESTENV_CONTAINER2
 fi
 
 if [ "$TESTFAIL" = "0" ]; then

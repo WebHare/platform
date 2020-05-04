@@ -322,8 +322,19 @@ class LoginApp
       let result = await $shell.wrdauth.login(loginname,password, { persistent: savelogin });
       if (result.submitinstruction)
       {
-        whintegration.executeSubmitInstruction(result.submitinstruction);
-        return;
+        if (result.submitinstruction.type == "reload")
+        {
+          //no need to execute the submit instruction, it just redirects back to the shell..
+          this.app.terminateApplication();
+          $shell.executeShell();
+          callback();
+          return;
+        }
+        else
+        {
+          whintegration.executeSubmitInstruction(result.submitinstruction);
+          return;
+        }
       }
 
       let text = result.code == "LOGINCLOSED" ? getTid("tollium:shell.login.closedlogin")

@@ -211,6 +211,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
       IF(setting.node->HasAttribute("applicationmasks"))
         this->applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
+      IF(setting.node->HasAttribute("__insert") AND webdesign EXTENDSFROM WebdesignBase) //temporary hack for testsuite TODO a real <inserthtml> siteprofile node might be useful ?
+        webdesign->InsertHTML(setting.node->GetAttribute("__insert"), "dependencies-bottom");
 
       FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
         INSERT forceapp->GetAttribute("name") INTO this->apps AT END;

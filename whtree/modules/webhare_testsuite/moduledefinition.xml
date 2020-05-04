@@ -238,6 +238,7 @@
       <string name="response" />
       <string name="alttestsitehost" />
       <string name="hashedpassword" />
+      <string name="secondhareinterface" />
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
       <datetime name="tempfailretryat" />
@@ -270,6 +271,7 @@
     <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
     <addtowebdesign webdesign="webhare_testsuite:basetest" siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml" />
     <webfeature hidden="true" name="testfeature" title="WH testsuite: Test feature" siteprofile="webfeatures/testfeature.siteprl"/>
+    <webfeature hidden="true" name="insecure_interface" title="WH testsuite: Unprotected WebHare backend" siteprofile="webfeatures/insecure_interface.siteprl.xml"/>
     <webfeature hidden="true" name="siteprofileindices" title="WH testsuite: siteprofileindices" siteprofile="webfeatures/siteprofileindices.siteprl.xml"/>
     <webfeature hidden="true" name="siteprl_datastorage" title="WH testsuite: siteprl_datastorage" siteprofile="webfeatures/siteprl_datastorage.siteprl.xml"/>
     <webfeature hidden="true" name="siteprl_datastorage2" title="WH testsuite: siteprl_datastorage2" siteprofile="webfeatures/siteprl_datastorage2.siteprl.xml"/>

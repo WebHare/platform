@@ -33,7 +33,7 @@ OBJECT ASYNC FUNCTION PublisherNewFileProperties()
 
   OBJECT testfolder, testfile;
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := [ "/webhare_testsuite.testfolder/webhare_testsuite.site/" ] ]));
 
   // Open the new file screen
   rec := AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
@@ -115,8 +115,10 @@ OBJECT ASYNC FUNCTION PublisherNewFileProperties()
   AWAIT rec.expectcallreturn();
 
   testfile := OpenWHFSObject(TT("filelist")->selection.id);
+  TT("filelist")->openaction->TolliumClick();
+
   // Open rich document editor
-  rec := AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
+  rec := AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp);
   // Insert some content and save as draft
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is new content saved as draft</p>');
   RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?

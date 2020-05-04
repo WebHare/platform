@@ -1,0 +1,46 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+
+OpenPrimary()->BeginWork();
+
+OBJECT userapi := GetPrimaryWebhareUserApi();
+
+INTEGER beta_sysop := userapi->wrdschema->^wrd_person->Search("wrd_contact_email", "twoharetest@beta.webhare.net");
+IF(beta_sysop = 0)
+{
+  IF(RecordExists(userapi->wrdschema->^wrd_person->RunQuery(CELL[])))
+  {
+    ABORT("this server is not empty");
+  }
+}
+
+IF(beta_sysop = 0)
+{
+  INTEGER usersunit := userapi->wrdschema->^whuser_unit->Search("WRD_TITLE","Users", [ matchcase := FALSE ]);
+  IF(usersunit = 0)
+    usersunit := userapi->wrdschema->^whuser_unit->CreateEntity([wrd_title := "Users"])->id;
+  OBJECT sysop := userapi->wrdschema->^wrd_person->CreateEntity(
+    [ whuser_password := "PLAIN:secret"
+    , wrd_contact_email := "twoharetest@beta.webhare.net"
+    , wrd_firstname := "Sysop"
+    , wrd_lastname := "Twohare"
+    , whuser_unit := usersunit
+    ]);
+
+
+  userapi->ResyncToSystemTables();
+
+  OBJECT sysopobj := userapi->GetUser(sysop->id);
+  sysopobj->GrantRightTo("system:sysop", sysopobj, TRUE, TRUE, "Granted by WebHare during initial setup");
+  WriteRegistryKey("system.backend.security.needsysop", FALSE);
+}
+
+OpenSiteByName("WebHare backend")->UpdateSiteMetadata([webfeatures := ["webhare_testsuite:insecure_interface"] ]);
+
+GetPrimary()->CommitWork();

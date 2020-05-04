@@ -298,6 +298,19 @@ testsftp:
     expire_in: 1 week
   interruptible: true
 
+testtwohares:
+  stage: test
+  except:
+    - /^docs\/.*$/
+  script:
+    - whtree/bin/wh testdocker --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
+  artifacts:
+    paths:
+      - artifacts
+    when: on_failure
+    expire_in: 1 week
+  interruptible: true
+
 calculatecoverage:
   stage: test
   when: manual

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <apply>
+    <to type="all" pathmask="/portal" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium"
+            __insert='&lt;script src="/.webhare_testsuite/tests/system/remotecontrol.js">&lt;/script>'
+            allowinframe="true" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" samesitecookie="none" />  <!-- to get the cookies to work in the iframe -->
+  </apply>
+
+</siteprofile>

@@ -10,10 +10,12 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -1272,7 +1274,16 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                              , preprtd := FALSE
                              , requirealternatesite := FALSE
                              , protectroot := FALSE
+                             , prepmodule := FALSE
+                             , onpeerserver := FALSE
                              ], options);
+
+  IF(options.onpeerserver)
+  {
+    OpenPrimary();
+    STRING peerserver := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface");
+    RETURN InvokeRemoteFunction(ResolveToAbsoluteURL(peerserver,"/wh_services/system/jstests/invoke"), Resolve(""), "SetupForTestSetup", VARIANT[CELL[ ...options, DELETE onpeerserver ]]);
+  }
 
   RECORD testfwoptions := [ testusers := RECORD[]
                           , wrdauth := TRUE
@@ -1288,6 +1299,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                    , testportalurl := GetTestTolliumPortalURL()
                    , rtdid         := 0
                    , alternatesite := ""
+                   , peerserver    := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface")
                    ];
 
   IF(options.preprtd)
@@ -1323,6 +1335,10 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
            VALUES ("altsite access rule",altsite->outputweb,options.protectroot ? "/" : "/requirewhaccount/",1/*initial match*/,1/*any webhare user*/,TRUE,OpenTestsuiteSite()->rootobject->OpenByPath("portal1")->id);
     GetPrimary()->CommitWork();
     RefreshGlobalWebserverConfig();
+  }
+  IF(options.prepmodule)
+  {
+    testfw->SetupTestModule();
   }
 
   RETURN retval;

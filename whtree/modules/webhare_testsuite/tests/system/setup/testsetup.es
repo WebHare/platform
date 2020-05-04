@@ -128,9 +128,11 @@ test.registerTests(
       {
         test.setTodd('loginname', 'jantje@example.com');
         test.setTodd('password', 'xecret2');
+        console.error("GO LOGIN");
         test.clickToddButton('Login');
+        console.error("GO WAIT");
       }
-    , waits: ['pageload', 'ui'] //login currently refreshes
+    , waits: ['ui']
     }
   , { test:function(doc,win)
       {
