@@ -200,7 +200,15 @@ PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
                                , modificationdate := MakeDate(2018,1,#subs + 1)
                                , priority := #subs=0 ? 0.8 : 0.6
                                , changefreq := #subs=0 ? "monthly" : "yearly"
-                            FROM TORecordArray(["sub1","sub2","sub3","sub4","sub5","sub6","sub7","sub8","sub9"],"filename") AS subs;
+                            FROM TORecordArray(["sub1","sub2","sub3","sub4","sub5","sub6","sub7","sub8","sub9"],"filename") AS subs
+                          CONCAT
+                          SELECT link := `${fileinfo.subpagebaseurl}${subs.filename}.html#${pieces.piece}`
+                               , title := `Subdocument ${subs.filename} ${pieces.piece}`
+                               , modificationdate := MakeDate(2018,2,#pieces + 1)
+                               , consiliofields := [ body := `This is an overwritten body: FP_${subs.filename}_${pieces.piece}`
+                                                   ]
+                            FROM ToRecordArray(["piece1","piece2","piece3","piece4","piece5","piece6","piece7","piece8","piece9"],"piece") AS pieces
+                               , TORecordArray(["sub1","sub2","sub10"],"filename") AS subs;
 
     INSERT CELL consiliofields := [ myfield1 := "Seven"
                                   ] INTO pages[7];
