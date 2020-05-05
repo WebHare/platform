@@ -1,4 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="select.whlib" gid="webhare_testsuite:dummy">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="select.whlib">
   <screen name="testselect" implementation="none">
     <body name="body">
       <select name="comp" type="radio" rowkeytype="integer">
@@ -51,15 +51,15 @@
         <option rowkey="false" enablecomponents="nl_shorttext nl_mediatype" />
       </select>
       <panel height="16x">
-        <heading tid=".shorttext"/>
-        <textarea title="" composition="contentitem_nl" cellname="shorttext" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
+        <heading title="shorttext"/>
+        <textarea title="" composition="contentitem_nl" cellname="shorttext" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabel="shorttext_nl" />
         <line>
-          <select composition="contentitem_nl" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
+          <select composition="contentitem_nl" cellname="mediatype" name="nl_mediatype" type="pulldown" title="mediatype">
             <option rowkey="video" enablecomponents="nl_mediaurl" />
             <option rowkey="image" enablecomponents="nl_mediaurl" />
             <option rowkey="website" enablecomponents="nl_mediaurl" />
           </select>
-          <textedit composition="contentitem_nl" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
+          <textedit composition="contentitem_nl" cellname="mediaurl" name="nl_mediaurl" title="mediaurl" width="1pr" maxlength="4096" />
           <!-- <s:selectvideo composition="contentblock" cellname="videourl" name="videourl" /> -->
         </line>
       </panel>
@@ -78,15 +78,15 @@
         <option rowkey="false" enablecomponents="nl_shorttext nl_mediatype" />
       </select>
       <panel height="16x">
-        <heading tid=".shorttext"/>
-        <textarea title="" composition="theitem" cellname="shorttext2" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabeltid=".shorttext_nl" />
+        <heading title="shorttext"/>
+        <textarea title="" composition="theitem" cellname="shorttext2" name="nl_shorttext" height="1pr" maxlength="500" showcounter="true" errorlabel="shorttext_nl" />
         <line>
-          <select composition="theitem" cellname="mediatype" name="nl_mediatype" type="pulldown" tid=".mediatype">
+          <select composition="theitem" cellname="mediatype" name="nl_mediatype" type="pulldown" title="mediatype">
             <option rowkey="video" enablecomponents="nl_mediaurl" />
             <option rowkey="image" enablecomponents="nl_mediaurl" />
             <option rowkey="website" enablecomponents="nl_mediaurl" />
           </select>
-          <textedit composition="theitem" cellname="mediaurl" name="nl_mediaurl" tid=".mediaurl" width="1pr" maxlength="4096" />
+          <textedit composition="theitem" cellname="mediaurl" name="nl_mediaurl" title="mediaurl" width="1pr" maxlength="4096" />
           <!-- <s:selectvideo composition="contentblock" cellname="videourl" name="videourl" /> -->
         </line>
       </panel>

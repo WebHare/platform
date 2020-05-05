@@ -5,7 +5,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-LOADLIB "mod::tollium/lib/headless/controller.whlib";
+LOADLIB "mod::tollium/lib/internal/headlesscontroller.whlib";
 
 STATIC OBJECTTYPE Validating
 <

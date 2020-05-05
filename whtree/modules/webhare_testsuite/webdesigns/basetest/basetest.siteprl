@@ -762,7 +762,7 @@
     </compositions>
     <newtab gid="editors" tid=".betatest">
       <t:textedit composition="fsinstance" cellname="stringtest" />
-      <t:select composition="fsinstance" cellname="_whfsarray" type="checkboxlist" height="8x">
+      <t:select composition="fsinstance" cellname="_whfsarray" type="checkboxlist" height="8x" title="_whfsarray">
         <p:fsobjects composition="fsinstance" titlecell="whfspath" />
         <p:fsobjects composition="fsinstance" fullpath="/" titlecell="whfspath" />
       </t:select>
@@ -785,7 +785,7 @@
     </compositions>
     <body>
       <textedit composition="row" cellname="textcell" name="textcell" />
-      <select composition="row" cellname="_whfscell" type="pulldown" height="8x" name="_whfscell">
+      <select composition="row" cellname="_whfscell" type="pulldown" height="8x" name="_whfscell" title="_whfscell">
         <p:fsobjects composition="row" titlecell="whfspath" />
         <p:fsobjects composition="row" fullpath="/" titlecell="whfspath" />
       </select>

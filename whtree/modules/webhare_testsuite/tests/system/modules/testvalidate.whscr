@@ -290,6 +290,7 @@ MACRO TestBasicValidate()
   //siteprofiles should also warn about broken screens
   res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
   TestEq(RECORD[], res.errors);
+  dumpvalue(res,'tree');
   TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml.siteprl" AND line = 8));
   TestEq(1, Length(res.warnings));
 
@@ -878,6 +879,12 @@ ASYNC MACRO TestLoadScreen()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+MACRO FinalizeTests()
+{
+  //clear missing tids so they dont break this test, as that was what we were actually testing for...
+  GetTestController()->missingtids := RECORD[];
+}
+
 RunTestFramework([ PTR TestBasicValidate
                  , PTR TestValidateWitty
                  , PTR TestValidateModuleDef
@@ -888,4 +895,5 @@ RunTestFramework([ PTR TestBasicValidate
                  , PTR TestESLint
                  , PTR OptionGids
                  , PTR TestLoadScreen
+                 , PTR FinalizeTests
                  ]);

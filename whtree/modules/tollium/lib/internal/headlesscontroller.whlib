@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";

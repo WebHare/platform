@@ -2,7 +2,7 @@
   xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
   lib="screens/tests/wrd.whlib">
 
-  <screen name="edit" gid="main.entityeditor" allowresize="true">
+  <screen name="edit" allowresize="true">
     <compositions>
       <wrd:entity name="entity" />
     </compositions>

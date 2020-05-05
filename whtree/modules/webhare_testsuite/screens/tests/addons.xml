@@ -25,8 +25,8 @@
   <screen name="youtubecomponent" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components" gid="youtubecomponent">
     <body>
       <select name="selectcomponent" type="radio" title="">
-        <option rowkey="youtube">
-          <p:browseforobject required="true" errorlabeltid=".youtube_videoid" name="youtubecomponent" public="true"/>
+        <option rowkey="youtube" title="Youtube">
+          <p:browseforobject required="true" errorlabel="youtube_videoid" name="youtubecomponent" public="true"/>
         </option>
       </select>
     </body>
