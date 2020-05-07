@@ -1,13 +1,8 @@
 [component main]
-  <script>
-    // Check for old IE versions (<= 10), check for other old browsers (not supporting the <progress> element)
-    if (document.all || !("max" in document.createElement("progress")))
-      document.write('<p class="tollium-unsupported"><b>Unsupported browser</b><br /><br />Please update your browser.</p>');
-  </script>
   <noscript>
-    <p class="tollium-unsupported">
+    <p style="position:absolute;top:0;bottom:0;left:0;right:0;padding:20%;text-align:center;z-index:999999;background:#ffffff">
       <b>Unsupported browser</b><br /><br />
-      Your browser is not supported. You may need to enable JavaScript if you have manually disabled it.<br/><br/>
+      Your browser is not supported by WebHare. You may need to enable JavaScript if you have manually disabled it.<br/><br/>
     </p>
   </noscript>
 
