@@ -356,7 +356,7 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
           [ wrdschema :=        this->contexts->wrdschema->id
           , peerinfo :=         peer->GetMarshallableInfo()
           , syncpoint :=        tosync.data
-          , syncoptions.excludetypes
+          , syncoptions.includetypes
           ];
       OBJECT screen := CreateProgressDialog(this,
                                             "module::wrd/internal/tollium-bgtasks.whlib",
