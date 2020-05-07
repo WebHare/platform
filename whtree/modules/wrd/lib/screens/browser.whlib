@@ -172,12 +172,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       DATETIME now := GetCurrentDateTime();
 
       OBJECT exporter := MakeWRDSchemaExporter(this->contexts->wrdschema);
-      exporter->SkipTypes(SELECT AS INTEGER ARRAY id FROM this->contexts->wrdschema->ListTypes() WHERE tag IN syncoptions.excludetypes);
+      exporter->SkipTypes(SELECT AS INTEGER ARRAY id FROM this->contexts->wrdschema->ListTypes() WHERE tag NOT IN syncoptions.includetypes);
       BLOB file := exporter->RunExport();
 
       LogAuditEvent("wrd:schemaexport", CELL
           [ wrdschema := this->contexts->wrdschema->tag
-          , syncoptions.excludetypes
+          , syncoptions.includetypes
           ]);
 
       STRING filename := GetSafeFilename("wrd_export_" || this->contexts->wrdschema->tag || "." || FormatDateTime("%Y%m%d", now)) || ".wrdschema";
