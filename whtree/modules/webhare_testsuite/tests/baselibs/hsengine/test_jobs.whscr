@@ -111,7 +111,8 @@ MACRO TestIPCLinkGoneAfterCrash()
   }
 
   RECORD rec := job->ipclink->ReceiveMessage(AddTimeToDate(1000, GetCurrentDateTime()));
-  TestEQ("gone", rec.status);
+  TestEq("gone", rec.status);
+  TestEq(-1, job->GetConsoleExitCode());
 
   port->Close();
   link->Close();

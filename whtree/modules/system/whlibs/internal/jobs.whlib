@@ -414,6 +414,9 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
 
     __HS_SetJobArguments(this->pvt_handle, arguments);
   }
+
+  /** Get the exit code of a job set using %SetConsoleExitCode
+      @return The exit code, or -1 if the job crashed */
   PUBLIC INTEGER FUNCTION GetConsoleExitCode()
   {
     IF(NOT this->IsSignalled())

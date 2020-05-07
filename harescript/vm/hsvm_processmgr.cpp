@@ -2728,8 +2728,16 @@ void GetExitCode(VarId id_set, VirtualMachine *vm)
         if (!islocked)
             throw VMRuntimeError(Error::InternalError, "Unable to lock target job");
 
-        VirtualMachine *target = jobmgr->GetGroupMainVM(*it->second->GetVMGroup());
-        int32_t retval = HSVM_GetConsoleExitCode(*target);
+        int32_t retval;
+        if(it->second->GetVMGroup()->GetErrorHandler().AnyErrors())
+        {
+                retval = -1;
+        }
+        else
+        {
+                VirtualMachine *target = jobmgr->GetGroupMainVM(*it->second->GetVMGroup());
+                retval = HSVM_GetConsoleExitCode(*target);
+        }
         jobmgr->UnlockVMGroup(it->second->GetVMGroup());
 
         HSVM_IntegerSet(*vm, id_set, retval);
