@@ -558,6 +558,7 @@ PUBLIC BOOLEAN FUNCTION QueueMail(STRING origin, STRING ARRAY receivers, STRING 
     @cell options.statusdata Informational string passed to the status callback
     @cell options.rawheaders No postprocessing of headers like To, Subject
     @cell options.priority Mail task priority. Defaults to 'interactive'. Set to 'normal' or 'background' for mass/bulk mails (which shouldn't block eg. password resets)
+    @cell options.ignorerecipientwhitelist Don't honor the recipient whitelist. This should only be used for user-triggered emails (eg password reset)
     @return IDs of the generated task, one per receiver
 */
 PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receivers, STRING sender, RECORD ARRAY mimeheaders, RECORD toppart, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -566,6 +567,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                              , statusdata := ""
                              , rawheaders := FALSE
                              , priority := "interactive"
+                             , ignorerecipientwhitelist := FALSE
                              ], options);
 
   IF (NOT GetPrimary()->IsWorkOpen())
@@ -592,11 +594,12 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
     IF(options.rawheaders)
       subjectheader := DecodeMimeEncodedWords(subjectheader); //for presentation purposes
 
-    RECORD task := [ origin := origin
-                   , senderemail := SplitEmailName(sender).email
-                   , subject := UCTruncate(subjectheader,300)
-                   , receiver := email
-                   ];
+    RECORD task := CELL[ origin
+                       , senderemail := SplitEmailName(sender).email
+                       , subject := UCTruncate(subjectheader,300)
+                       , receiver := email
+                       , options.ignorerecipientwhitelist
+                       ];
     IF(options.statuscallback != "")
       INSERT CELL callback := [ func := options.statuscallback, data := options.statusdata ] INTO task;
     INSERT task INTO tasks AT END;
@@ -617,7 +620,7 @@ PUBLIC INTEGER ARRAY FUNCTION QueueMailInWork(STRING origin, STRING ARRAY receiv
                     , rawheaders := options.rawheaders
                     ];
 
-  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, [ auxdata := auxdata, taskids := taskids, priority := options.priority ]);
+  RETURN ScheduleManagedTasks("system:outgoingmail", tasks, CELL [ auxdata, taskids, options.priority ]);
 }
 
 
