@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test-tollium-fragmentcomps.whscr" />
   <test script="test-module-extensions.whscr" />
 </group>
