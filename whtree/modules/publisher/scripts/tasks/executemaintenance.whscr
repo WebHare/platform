@@ -4,12 +4,16 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+LOADLIB "mod::tollium/lib/maintenance.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 
 OBJECT trans;
@@ -115,11 +119,26 @@ MACRO RemoveObsoleteAutosaves()
   trans->CommitWork();
 }
 
+RECORD ARRAY FUNCTION GetRemovableTargets(RECORD ARRAY intargets)
+{
+  DELETE FROM intargets WHERE folderid <= 0; //virtual folders, never cleanup
+  INTEGER ARRAY toget := SELECT AS INTEGER ARRAY folderid FROM intargets;
+  IF(Length(toget) = 0)
+    RETURN RECORD[];
+
+  RECORD ARRAY sources := SELECT id, creationdate := EncodeDateTime(creationdate)
+                            FROM system.fs_objects
+                           WHERE id IN toget AND isactive;
+  DELETE FROM intargets WHERE RecordExists(SELECT FROM sources WHERE sources.id = intargets.folderid AND sources.creationdate = intargets.foldercreationdate);
+  RETURN intargets; //unmatched folders can go
+}
+
 CheckScheduledTasks();
 CheckPublicDrafts();
 RemoveObsoleteBundledAssets();
 RemoveObsoleteCacheFolders();
 RemoveObsoleteAutosaves();
+CleanupObsoleteFavorites("publisher:app", PTR GetRemovableTargets);
 
 trans->BeginWork();
 ExecuteLifecycleCleanup();

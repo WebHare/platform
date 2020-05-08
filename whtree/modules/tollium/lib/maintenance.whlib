@@ -1,0 +1,42 @@
+<?wh
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+
+
+/** @short Cleanup obsolete favorites
+    @param forapp Applicction name
+    @param getremovabletargets Filter to return the targets that cna be remvoed */
+PUBLIC MACRO CleanupObsoleteFavorites(STRING forapp, FUNCTION PTR getremovabletargets)
+{
+   IF(GetPrimary()->IsWorkOpen())
+     THROW NEW Exception("CleanupObsoleteFavorites cannot be invoked with open work");
+
+  OBJECT userapi := GetPrimaryWebhareUserApi();
+  FOREVERY(RECORD shortcuts FROM ReadRegistryKeysByMask("<wrd:*>.tollium.dashboard.shortcuts"))
+  {
+    RECORD ARRAY checkableshortcuts := SELECT * FROM shortcuts.value WHERE app = forapp;
+    IF(Length(checkableshortcuts) = 0)
+      CONTINUE;
+
+    RECORD ARRAY toremove := getremovabletargets(SELECT AS RECORD ARRAY target FROM checkableshortcuts);
+    IF(Length(toremove) = 0)
+      CONTINUE;
+
+    STRING ARRAY toremovetargets := SELECT AS STRING ARRAY EncodeHSON(toremove) FROM toremove;
+
+    GetPrimary()->BeginWork();
+    RECORD ARRAY finalshortcuts := ReadRegistryKey(shortcuts.name, [ fallback := RECORD[] ]);
+    DELETE FROM finalshortcuts WHERE app = forapp AND EncodeHSON(target) IN toremovetargets;
+    WriteRegistryKey(shortcuts.name, finalshortcuts, [ createifneeded := TRUE ]);
+    GetPrimary()->CommitWork();
+
+
+    //TODO Walk all user apis and look for the user objects to inform
+    STRING userguid := "wrd:" || ToUppercase(Substring(shortcuts.name, 5, SearchSubstring(shortcuts.name,'>') - 5));
+    OBJECT user := userapi->GetUserByGUID(userguid);
+    IF(ObjectExists(user))
+      user->BroadcastToClient( [ type := "tollium:shell.refreshmenu" ]);
+  }
+}

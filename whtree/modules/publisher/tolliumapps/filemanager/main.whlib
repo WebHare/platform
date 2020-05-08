@@ -43,10 +43,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 // Initial maximum number of trash search results
 INTEGER searchlimit := 100;
 
-STRING FUNCTION EncodeDateTime(DATETIME dt)
-{
-  RETURN FormatDateTime("%Y%m%d%H%M%S%Q", dt);
-}
 STRING FUNCTION GetPathForAppURL(INTEGER objid)
 {
   STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = objid;
