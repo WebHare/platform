@@ -156,6 +156,30 @@ PUBLIC VARIANT FUNCTION ReadRegistryKey(STRING confkey, RECORD options DEFAULTST
   RETURN keyinfo.value;
 }
 
+
+/** @short Read registry keys by mask
+    @public
+    @loadlib mod::system/lib/configure.whlib
+    @param keymask Mask to use (to search the temporary anonymous registry, the mask must look like an anonymous key ie start with <anonymous>.)
+    @return Registry keys
+    @cell(string) node.name Registry key name
+    @cell(variant) node.value Registry key value */
+PUBLIC RECORD ARRAY FUNCTION ReadRegistryKeysByMask(STRING keymask)
+{
+  IF(IsAnonymousConfKey(keymask)) //we simulate the <anonymous> registry
+  {
+    RETURN SELECT name, value := ReadAnyFromDatabase(data, blobdata)
+             FROM anonymousregistry
+            WHERE ToUppercase(name) LIKE ToUppercase(keymask);
+  }
+  ELSE
+  {
+    RETURN SELECT name, value := ReadAnyFromDatabase(data, blobdata)
+             FROM system.flatregistry
+            WHERE ToUppercase(name) LIKE ToUppercase(keymask);
+  }
+}
+
 /** @short Deletes a registry key. Module registry keys can be read using the key "modulename.registrykey...".
     @public
     @loadlib mod::system/lib/configure.whlib
@@ -271,4 +295,3 @@ PUBLIC MACRO WriteRegistryKey(STRING confkey, VARIANT newval, RECORD options DEF
 
   __SetRegistryKey(keyinfo, newval);
 }
-
