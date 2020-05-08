@@ -628,6 +628,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   }
 
   /** Broadcasts a message to the frontend
+      @long This message will be sent as "broadcast" event by the tollium shell object
       @param message Message to broadcast
   */
   PUBLIC MACRO BroadcastToClient(RECORD message)

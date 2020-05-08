@@ -226,17 +226,17 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginUnvalidatedWork();
     STRING title := this->contexts->wrdschema->title ?? this->contexts->wrdschema->tag;
-    IF (this->tolliumcontroller->FavoriteExists(title))
+    IF (this->contexts->user->FavoriteExists(title))
     {
       INTEGER num := 1;
       STRING basetitle := title;
-      WHILE (this->tolliumcontroller->FavoriteExists(title))
+      WHILE (this->contexts->user->FavoriteExists(title))
       {
         num := num + 1;
         title := basetitle || " (" || num || ")";
       }
     }
-    IF (NOT this->tolliumcontroller->AddFavorite("wrd:browser",
+    IF (NOT this->contexts->user->AddFavorite("wrd:browser",
                                                  [ schemaname := this->contexts->wrdschema->tag ], // Open by name rather than id
                                                  DEFAULT RECORD,
                                                  title,

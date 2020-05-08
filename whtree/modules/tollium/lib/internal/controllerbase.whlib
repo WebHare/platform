@@ -2395,56 +2395,10 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     ABORT("Unexpected message type " || msg.type);
   }
 
-
-  /** @short Send a message to all sessions run by the current user
-      @long This message will be sent as "broadcast" event by the tollium shell object
-      @param message Message to send
-      */
-  PUBLIC MACRO BroadcastToCurrentUser(RECORD message)
-  {
-    IF(ObjectExists(this->user))
-      this->user->BroadcastToClient(message);
-  }
-
+  //needed for legacy apps, but we should probably provide a new/proper component outside of portalcomponents namesapce
   PUBLIC BOOLEAN FUNCTION AddFavorite(STRING app, RECORD target, RECORD message, STRING title, STRING icon)
   {
-    //FIXME move favorite API to tolliumuser object?
-    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
-    IF(RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message])))
-      RETURN FALSE; //aleady added
-
-    //FIXME Allow specification of names
-    INSERT [ title := title
-           , icon := icon
-           , app := app
-           , target := target
-           , message := message
-           ] INTO shortcuts AT END; //FIXME insert sorted position ?
-    this->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
-
-    BroadcastEvent("tollium:dashboard.shortcuts." || this->user->entityid, DEFAULT RECORD);
-    this->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
-    RETURN TRUE;
-  }
-  PUBLIC MACRO RemoveFavorite(STRING app, RECORD target, RECORD message)
-  {
-    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
-    DELETE FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]);
-    this->user->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
-
-    BroadcastEvent("tollium:dashboard.shortcuts." || this->user->entityid, DEFAULT RECORD);
-    this->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
-  }
-  PUBLIC BOOLEAN FUNCTION IsFavoriteAdded(STRING app, RECORD target, RECORD message)
-  {
-    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
-    RETURN RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]));
-  }
-
-  PUBLIC BOOLEAN FUNCTION FavoriteExists(STRING title)
-  {
-    RECORD ARRAY shortcuts := this->user->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
-    RETURN RecordExists(SELECT FROM shortcuts WHERE shortcuts.title=title);
+    RETURN this->user->AddFavorite(app, target, message, title, icon);
   }
 
   PUBLIC MACRO SendComponentReadonly(OBJECT comp, STRING value, BOOLEAN wordwrap)
