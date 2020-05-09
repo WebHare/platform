@@ -11,6 +11,7 @@ const utilerror = require('@mod-system/js/wh/errorreporting');
 import * as whconnect from '@mod-system/js/wh/connect';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import LinkEndPoint from './comm/linkendpoint.es';
 const toddImages = require("@mod-tollium/js/icons");
 
 require("../common.lang.json");
@@ -694,7 +695,7 @@ $todd.BackendApplication = class extends $todd.Application
     if (this.timeformat)
       $todd.fallback.timeformat = this.timeformat;
 
-    this.appcomm = new $todd.LinkEndPoint({ linkid: this.whsid, commhost: this.commhost, frontendid: this.frontendid });
+    this.appcomm = new LinkEndPoint({ linkid: this.whsid, commhost: this.commhost, frontendid: this.frontendid });
     this.appcomm.onmessage = this.processMessage.bind(this);
     this.appcomm.onclosed = this._gotLinkClosed.bind(this);
     this.appcomm.registerManuallyReceivedMessage(this.lastinitmessage);
