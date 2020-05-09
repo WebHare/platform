@@ -835,6 +835,8 @@
     <text tid="openedas">Opened as '<param p="1"/>'</text>
     <text tid="personalmenu">Favorites</text>
     <text tid="restartapp">Restart application</text>
+    <text tid="webhareupdated">WebHare updated</text>
+    <text tid="webhareupdated_description">The webpage restarted because the WebHare server received an update</text>
     <textgroup gid="checks">   <!-- shell.checks -->
       <text tid="errors"><ifparam p="1" value="0"><param p="2"/><else/>'<param p="2"/>' and <param p="1"/> more <ifparam p="1" value="1">error<else/>errors</ifparam></ifparam></text>
       <text tid="unresolvedissues">There are unresolved issues!</text>

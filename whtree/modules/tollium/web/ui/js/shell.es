@@ -28,7 +28,6 @@ import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import * as domfocus from '@mod-system/js/dom/focus';
 import * as whintegration from '@mod-system/js/wh/integration';
-import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import './debugging/magicmenu';
 
 var EventServerConnection = require('@mod-system/js/net/eventserver');
@@ -90,7 +89,7 @@ class IndyShell
     dompack.onDomReady(() => this.onDomReady());
     document.documentElement.addEventListener("tollium-shell:broadcast", evt => this.onBroadcast(evt));
     window.addEventListener("hashchange", evt => this._onHashChange(evt));
- }
+  }
 
   _onHashChange()
   {
@@ -319,8 +318,8 @@ class IndyShell
     this.versioninfo = data.version;
     this.isloggedin = data.isloggedin;
 
-    var wasjustupdated = this.checkWasJustUpdated();
     this.applyShellSettings(data.settings);
+    setInterval( () => this.checkVersion(), 5*60*1000); //check for version updates etc every 5 minutes
 
     this.invitetype = (new URL(location.href)).searchParams.get("wrd_pwdaction");
     let runinviteapp = ["resetpassword"].includes(this.invitetype);
@@ -361,13 +360,13 @@ class IndyShell
       this.placeholderapp = null;
     }
 
-    if(wasjustupdated)
+    if(this.checkWasJustUpdated())
     {
       var notification = { id: -987654321
-                         , description: "This server was just updated to a new version, which necessitated all your application sessions to be terminated. We apologize for any inconvenience."
-                         , timeout: 0
+                         , timeout: 15000 //this is just a "why did we flash". if you weren't looking, not really relevant, so go away after 15 secs
                          , icon: "tollium:messageboxes/information"
-                         , title: "This server was just updated."
+                         , title: getTid("tollium:shell.webhareupdated")
+                         , description: getTid("tollium:shell.webhareupdated_description")
                          };
 
       $todd.towl.showNotification(notification);
@@ -404,6 +403,10 @@ class IndyShell
       else
         window.close();
     }
+    else if(!this.anyConnectedApplications())
+    {
+      this.checkVersion(); //poll for new version when all apps are closed
+    }
   }
 
   doLogoff()
@@ -425,70 +428,33 @@ class IndyShell
   {
     return this.settings;
   }
-  checkWebHareUpdate()
+  ///Any applications with a backedn connection running?
+  anyConnectedApplications()
   {
-    return; //this never worked properly and now we're receiving reports that it had triggered days after an upgrade. DISABLE IT until we restore it, probably with smarter version fetching and not using sessionstorage
+    return $todd.applications.some(app => app.frontendid);
+  }
+  checkVersion()
+  {
+    if(this.anyConnectedApplications())
+      return; //no point if appa are open
 
-    try
-    {
-      var rev = this.settings.version.committag;
-      var knownrev = sessionStorage.getItem("WebHare-lastInitVersion-commit");
+    this.tolliumservice.request('GetCurrentVersion', [], this.gotCurrentVersion.bind(this));
+  }
+  gotCurrentVersion(res)
+  {
+    if(this.anyConnectedApplications() || res.jsversion == whintegration.config.obj.jsversion)
+      return;
 
-      if(knownrev == undefined || knownrev == null || knownrev == "")
-      {
-        //We've never received a revision; let's see if we can set one:
-        if(rev != "")
-          sessionStorage.setItem("WebHare-lastInitVersion-commit", rev);
-        else
-          console.info("No committag available for this version. Assuming development build and ignoring versioning checks.");
-      }
-      else
-      {
-        if(knownrev != rev)
-        {
-          ///This is an updated WebHare version; use that info
-          console.warn("The WebHare installation on this server has been updated since you started your session.");
-          console.info("Your working version was loaded using", knownrev, "but the server now runs version", rev);
-          sessionStorage.removeItem("WebHare-lastInitVersion-commit");
-          sessionStorage.setItem("WebHare-lastInitVersion-updated", true);
-          $shell.dashboardapp.activateApp();
-          //var lock = $todd.applications[0].getBusyLock();
-          //var modalitylayer = new $wh.PopupManager.ModalityLayer();
-          runSimpleScreen( $todd.applications[0]
-                                , { title: "Refresh required"
-                                  , text: "The WebHare installation on this server has been updated since you started your session.\nAll your application will be terminated and your browser will automatically refresh\nafter you close this dialog. We apologize for any inconvenience this may cause."
-                                  , buttons: [ { name: 'ok'
-                                               , title: getTid("tollium:common.actions.ok")
-                                               }
-                                             ]
-                                   , onclose: function(btnname){ window.location.reload(true); }
-                                   });
-        }
-      }
-
-    }
-    catch(ignore)
-    {
-      console.log("checkWebareUpdate",ignore);
-      return; //usually this is a safari private mode error
-    }
+    ///This is an updated WebHare version; use that info
+    console.warn("Have to update, detected change to the JS code and no apps are running!");
+    sessionStorage["WebHare-lastInitVersion-updated"] = "1";
+    location.reload(true);
   }
   checkWasJustUpdated()
   {
-    try
-    {
-      /// Ensure that we don't get a reboot instruction because of sessionStorage persistence:
-      if(sessionStorage.getItem("WebHare-lastInitVersion-commit") != null || sessionStorage.getItem("WebHare-lastInitVersion-commit") != undefined)
-        sessionStorage.removeItem("WebHare-lastInitVersion-commit");
-
-      var wasjustupdated = sessionStorage.getItem("WebHare-lastInitVersion-updated");
-      sessionStorage.removeItem("WebHare-lastInitVersion-updated");
-      return wasjustupdated;
-    }
-    catch(ignore)
-    {
-      return false;
-    }
+    let wasjustupdated = sessionStorage.getItem("WebHare-lastInitVersion-updated") == "1";
+    sessionStorage.removeItem("WebHare-lastInitVersion-updated");
+    return wasjustupdated;
   }
 
   _updateFeedbackHandler(scope)
@@ -515,8 +481,6 @@ class IndyShell
     this.broadcaststart = Date.parse(settings.now);
     this.eventsconnection.start();
     $todd.towl.setNotificationLocation(settings.notificationslocation);
-
-    this.checkWebHareUpdate();
 
     dompack.dispatchCustomEvent(window, 'tollium:settingschange', {bubbles:true, cancelable:false});
     if(document.getElementById('openinfo'))
@@ -711,6 +675,8 @@ class IndyShell
 
       $todd.towl.showNotification(notification);
     }
+
+    this.checkVersion();
   }
 
   onSelectStart(event)
