@@ -21,3 +21,23 @@ PUBLIC STRING FUNCTION FixupZipCodeNL(STRING incode)
      Schrijfwijze postcode: 1 spatie tussen de cijfers en letters van de postcode */
   RETURN Left(incode,4) || " " || Right(incode,2);
 }
+
+PUBLIC STRING FUNCTION FixupNRDetailNL(STRING indata)
+{
+  STRING prefix;
+  indata := TrimWhitespace(indata);
+
+  FOREVERY(STRING woonbootprefix FROM ["tegenover", "t.o.", "t/o", "t.o", "to", "to."])
+    IF(ToUppercase(indata) LIKE ToUppercase(woonbootprefix || "*"))
+    {
+      prefix := "t/o ";
+      indata := Substring(indata, Length(woonbootprefix));
+      indata := TrimWhitespace(indata);
+      BREAK;
+    }
+
+  IF(NOT (Left(indata,1) >= "1" AND Left(indata,1) <= "9"))
+    RETURN ""; //invalid start
+
+ RETURN prefix || indata;
+}

@@ -230,7 +230,7 @@
     </page>
   </form>
 
-  <form name="addressform" objectname="formtest.whlib#AddressForm" gid=".addressform">
+  <form name="addressform" objectname="formtest.whlib#AddressForm" gid=".addressform" jshandler="anyformhandler">
     <page>
       <checkbox name="visiblegroup" title="" label="VisibleGroup" value="true" />
       <checkbox name="enablegroup" title="" label="EnableGroup" value="true" />
@@ -241,7 +241,7 @@
           <fieldtitle tag="nr_detail" title="Number and Addition" />
           <fieldtitle tag="zip" /><!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
         </address>
-        <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2></body></richtext>
+        <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
         <address name="address2" countrylist="NL BE DE" options="nl-zip-suggest">
           <fieldtitle tag="country" title="Address2" />
           <fieldtitle tag="nr_detail" title="Number and Addition2" />
