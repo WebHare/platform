@@ -829,7 +829,12 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
           AND CellExists(this->value, "country"))
       {
         FOREVERY (RECORD field FROM this->allfields)
-          IF (field.tag = "ZIP")
+        {
+          IF (field.tag = "NR_DETAIL" AND checked.status = "invalid_nr_detail")
+          {
+            work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.addressfield.invalid_nr_detail"));
+          }
+          IF (field.tag = "ZIP" AND checked.status != "invalid_nr_detail")
           {
             // Only use show code for which we have translations
             STRING status := checked.status IN [ "address_not_found", "invalid_nr_detail", "invalid_zip", "zip_not_found" ]
@@ -846,6 +851,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
             work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.addressfield." || status));
             BREAK;
           }
+        }
 
         RETURN;
       }

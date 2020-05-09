@@ -157,10 +157,18 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
     addressdata := FixupAddress(addressdata);
 
     RECORD data := this->ParseAddress(addressdata);
-    RECORD orginput := data.input;
 
-    IF (data.input.zip = "" AND orginput.zip != "") // invalid NL zip code?
-      RETURN CELL[ status := "invalid_zip", data, looked_up := [ status := "invalid_zip" ] ];
+    //TODO Various country-specific prechecks we can do without consulting an address provider
+    IF(addressdata.country = "NL")
+    {
+      //some services fixup missing fields, so we only reject invalid data
+      IF(addressdata.zip != "" AND FixupZipCodeNL(addressdata.zip) = "") //reject invalid NL zips immediately
+        RETURN CELL[ status := "invalid_zip", data := data.output, looked_up := [ status := "invalid_zip" ] ];
+      IF(addressdata.nr_detail != "" AND FixupNRDetailNL(addressdata.nr_detail) = "")
+        RETURN CELL[ status := "invalid_nr_detail", data := data.output, looked_up := [ status := "invalid_nr_detail" ] ];
+    }
+
+    RECORD orginput := data.input;
 
     IF(data.input.country = "NL" AND ToUppercase(Substitute(data.input.zip, " ", "")) = "7500OO")
     {
@@ -411,6 +419,10 @@ PUBLIC RECORD FUNCTION FixupAddress(RECORD inaddress)
     STRING fixedzip := FixupZipCodeNL(inaddress.zip);
     IF(fixedzip != "")
       inaddress.zip := fixedzip;
+
+    STRING fixed_nrdetail := FixupNRDetailNL(inaddress.zip);
+    IF(fixed_nrdetail != "")
+      inaddress.zip := fixed_nrdetail;
   }
 
   RETURN inaddress;

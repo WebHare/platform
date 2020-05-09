@@ -1938,7 +1938,7 @@
       <text tid="submit">Submit</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">The address could not be found.</text>
-        <text tid="invalid_nr_detail">Invalid house number with addition.</text>
+        <text tid="invalid_nr_detail">Invalid house number.</text>
         <text tid="invalid_zip">Invalid ZIP or postal code.</text>
         <text tid="zip_not_found">Unknown combination of postal code and house number.</text>
       </textgroup>
