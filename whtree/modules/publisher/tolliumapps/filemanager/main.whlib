@@ -43,10 +43,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 // Initial maximum number of trash search results
 INTEGER searchlimit := 100;
 
-STRING FUNCTION EncodeDateTime(DATETIME dt)
-{
-  RETURN FormatDateTime("%Y%m%d%H%M%S%Q", dt);
-}
 STRING FUNCTION GetPathForAppURL(INTEGER objid)
 {
   STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = objid;
@@ -765,20 +761,20 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginUnvalidatedWork();
     STRING title := folder.name;
-    IF (this->tolliumcontroller->FavoriteExists(title))
+    IF (this->contexts->user->FavoriteExists(title))
     {
       RECORD site := SELECT name FROM system.sites WHERE id = folder.parentsite;
       IF (RecordExists(site))
         title := title || " (" || site.name || ")";
       INTEGER num := 1;
       STRING basetitle := title;
-      WHILE (this->tolliumcontroller->FavoriteExists(title))
+      WHILE (this->contexts->user->FavoriteExists(title))
       {
         num := num + 1;
         title := basetitle || " (" || num || ")";
       }
     }
-    IF (NOT this->tolliumcontroller->AddFavorite("publisher:app",
+    IF (NOT this->contexts->user->AddFavorite("publisher:app",
                                                  [ folderid := folder.id, foldercreationdate := EncodeDateTime(folder.creationdate) ],
                                                  DEFAULT RECORD,
                                                  title,

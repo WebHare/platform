@@ -9,7 +9,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, WriteRegistryKey, GetRegistryKeyEventMasks;
+LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, WriteRegistryKey, GetRegistryKeyEventMasks, ReadRegistryKeysByMask;
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetModuleInstallationRoot;
 LOADLIB "mod::system/lib/internal/whconfig.whlib" EXPORT GetDTAPStage, IsNodeApplicableToThisWebHare, IsRestoredWebHare;

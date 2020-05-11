@@ -37,6 +37,10 @@ PUBLIC OBJECTTYPE PropertyEditorException EXTEND Exception
   }
 >;
 
+PUBLIC STRING FUNCTION EncodeDateTime(DATETIME dt) //used to encode creationdates for favorites...
+{
+  RETURN FormatDateTime("%Y%m%d%H%M%S%Q", dt);
+}
 
 PUBLIC BOOLEAN FUNCTION IsObjectHiddenForMe(OBJECT user, INTEGER objid)
 {

@@ -185,7 +185,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     IF(entityid = 0)
       RETURN DEFAULT OBJECT;
 
-    RETURN NEW WRDAuthUser(this, this->wrdschema->accounttype->GetEntity(entityid), 0);
+    RETURN this->GetUser(entityid);
   }
 
   PUBLIC OBJECT FUNCTION GetRole(INTEGER entityid)

@@ -86,7 +86,7 @@ STRING FUNCTION MyFormatFileSize(INTEGER64 fsize, INTEGER decimals, STRING decim
 
 /** @short The Tollium user object
 */
-PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
+PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -839,5 +839,43 @@ PUBLIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   PUBLIC BOOLEAN FUNCTION ShowDeveloperOptions()
   {
     RETURN this->HasRight("system:sysop") AND this->GetRegistryKey("system.prefs.showdeveloperapps", FALSE);
+  }
+
+  PUBLIC BOOLEAN FUNCTION AddFavorite(STRING app, RECORD target, RECORD message, STRING title, STRING icon)
+  {
+    RECORD ARRAY shortcuts := this->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    IF(RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message])))
+      RETURN FALSE; //aleady added
+
+    //FIXME Allow specification of names
+    INSERT [ title := title
+           , icon := icon
+           , app := app
+           , target := target
+           , message := message
+           ] INTO shortcuts AT END; //FIXME insert sorted position ?
+    this->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+
+    this->BroadcastToClient( [ type := "tollium:shell.refreshmenu" ]);
+    RETURN TRUE;
+  }
+  PUBLIC MACRO RemoveFavorite(STRING app, RECORD target, RECORD message)
+  {
+    RECORD ARRAY shortcuts := this->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    DELETE FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]);
+    this->SetRegistryKey("tollium.dashboard.shortcuts", shortcuts);
+
+    this->BroadcastToClient( [ type := "tollium:shell.refreshmenu" ]);
+  }
+  PUBLIC BOOLEAN FUNCTION IsFavoriteAdded(STRING app, RECORD target, RECORD message)
+  {
+    RECORD ARRAY shortcuts := this->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RETURN RecordExists(SELECT FROM shortcuts WHERE EncodeHSON(VARIANT[app,target,message]) = EncodeHSON(VARIANT[shortcuts.app, shortcuts.target, shortcuts.message]));
+  }
+
+  PUBLIC BOOLEAN FUNCTION FavoriteExists(STRING title)
+  {
+    RECORD ARRAY shortcuts := this->GetRegistryKey("tollium.dashboard.shortcuts", RECORD[]);
+    RETURN RecordExists(SELECT FROM shortcuts WHERE shortcuts.title=title);
   }
 >;

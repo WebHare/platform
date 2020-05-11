@@ -50,7 +50,7 @@ PUBLIC OBJECTTYPE AddToStartMenu EXTEND TolliumMenuItem
     {
       this->myaction->enabled := TRUE;
       OBJECT work := this->owner->BeginUnvalidatedWork();
-      onportal := this->owner->tolliumcontroller->IsFavoriteAdded(this->pvt_application, this->pvt_target, this->pvt_message);
+      onportal := this->contexts->user->IsFavoriteAdded(this->pvt_application, this->pvt_target, this->pvt_message);
       work->Cancel();
     }
     ELSE
@@ -64,7 +64,7 @@ PUBLIC OBJECTTYPE AddToStartMenu EXTEND TolliumMenuItem
   MACRO DoAddRemove()
   {
     OBJECT work := this->owner->BeginUnvalidatedWork();
-    BOOLEAN todelete := NOT this->owner->tolliumcontroller->AddFavorite(this->pvt_application,
+    BOOLEAN todelete := NOT this->contexts->user->AddFavorite(this->pvt_application,
                                                                         this->pvt_target,
                                                                         this->pvt_message,
                                                                         this->menuitemname ?? this->owner->frame->title,
@@ -72,14 +72,13 @@ PUBLIC OBJECTTYPE AddToStartMenu EXTEND TolliumMenuItem
     IF (todelete)
     {
       // If the item wasn't added, delete it
-      this->owner->tolliumcontroller->RemoveFavorite(this->pvt_application, this->pvt_target, this->pvt_message);
+      this->owner->contexts->user->RemoveFavorite(this->pvt_application, this->pvt_target, this->pvt_message);
     }
     work->Finish();
     this->CheckMenuItem();
     IF (todelete)
     {
-      BroadcastEvent("tollium:dashboard.shortcuts." || this->owner->tolliumuser->entityid, DEFAULT RECORD);
-      this->owner->tolliumcontroller->BroadcastToCurrentUser( [ type := "tollium:shell.refreshmenu" ]);
+      this->owner->tolliumuser->BroadcastToClient( [ type := "tollium:shell.refreshmenu" ]);
     }
   }
 
