@@ -1169,16 +1169,24 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 */
 PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
 <
+  OBJECT __openingcomponent;
+
+  ///Which component opened us ?
+  PUBLIC PROPERTY openingcomponent(__openingcomponent, -);
+
   MACRO Init(RECORD data)
   {
     data := ValidateOptions([ viewmode := FALSE
                             , contextrequestfallback := DEFAULT OBJECT
                             , row := DEFAULT RECORD
+                            , openingcomponent := DEFAULT OBJECT
                             ], data, [ required := ["contextrequestfallback"] ]);
 
     //FIXME Should've caught this while parsing
     IF(NOT MemberExists(this, this->__tolliumscope_isstatic ? "^row" : "row"))
       THROW NEW TolliumException(this->frame,"Screen with implementation 'rowedit' require a composition named 'row'");
+
+    this->__openingcomponent := data.openingcomponent;
 
     // Set forward first!
     ^row->composition := data.contextrequestfallback;
