@@ -1055,7 +1055,9 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       editor := this->owner->tolliumcontroller->PVT_LoadScreen
                            ([ parent := this->owner
                             , screen := this->rowaddscreen
-                            , params := [ contextrequestfallback := this->composition ]
+                            , params := [ contextrequestfallback := this->composition
+                                        , openingcomponent := this
+                                        ]
                             , run_init := TRUE
                             ]);
       //IF (NOT ObjectExists(editor))
@@ -1066,7 +1068,9 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       editor := this->owner->tolliumcontroller->PVT_LoadScreen
                              ([ parent := this->owner
                               , screen := "mod::tollium/screens/components/listedit.xml#arrayedit_addscreen"
-                              , params := [ datatypes := this->datatypes ]
+                              , params := [ datatypes := this->datatypes
+                                          , openingcomponent := this
+                                          ]
                               , run_init := TRUE
                               ]);
     }
