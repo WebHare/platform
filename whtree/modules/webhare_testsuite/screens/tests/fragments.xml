@@ -1,8 +1,7 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
          xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
-         lib="screens/tests/fragments.whlib"
-         gid="tests.fragments">
+         lib="screens/tests/fragments.whlib">
 
   <fragment name="commonlist">
     <actions>
@@ -12,14 +11,14 @@
       <record name="test" />
     </compositions>
     <contents>
-      <text valuetid=".seebelow" />
+      <text value="seebelow" />
       <list name="thelist" openaction="open" public="true" selectmode="single">
         <column name="title" type="text" />
         <row>
           <element name="title" data="test" />
         </row>
       </list>
-      <text valuetid=".seeabove" />
+      <text value="seeabove" />
 
       <box checkbox="true" enablecomponents="enableme3">
         <textarea name="enableme3" />
@@ -67,7 +66,7 @@
       </tabs>
       <textedit composition="test" cellname="textedit1" />
       <line layout="left">
-        <checkbox composition="test" cellname="checkbox1" labeltid=".checkbox1" />
+        <checkbox composition="test" cellname="checkbox1" label="checkbox1" />
       </line>
     </body>
     <footer>

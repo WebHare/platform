@@ -4,7 +4,7 @@
          lib="screens/tests/layout.whlib"
          gid="tests.layout">
 
-  <screen name="layouttest" menubar="menubar" allowresize="true">
+  <screen name="layouttest" menubar="menubar" allowresize="true" title="Layouttest">
     <actions>
       <action name="openwizard" onexecute="doopenwizard" title="A01 Open wizard" />
       <action name="opentabs" onexecute="doopentabs" title="A02 Open tabs" shortcut="ctrl+t" />
@@ -1006,7 +1006,7 @@
     </body>
   </screen>
 
-  <screen name="layouttest_autosuggest" allowresize="true">
+  <screen name="layouttest_autosuggest" allowresize="true" title="Layouttest autosuggest">
     <body>
       <!-- we're trying to phase out combobox, but it'll take a while -->
       <combobox name="legacystatic" title="LegacyStatic">

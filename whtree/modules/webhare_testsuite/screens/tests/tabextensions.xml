@@ -1,7 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          lib="screens/tests/tabextensions.whlib"
-         xmlns:blex_alpha="http://www.webhare.net/xmlns/beta/components"
-         gid="selftest">
+         xmlns:blex_alpha="http://www.webhare.net/xmlns/beta/components">
 
   <screen name="test">
     <compositions>

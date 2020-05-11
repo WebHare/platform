@@ -121,6 +121,13 @@
     <text tid="richtext">Dit is <html:b>bold</html:b></text>
     <text tid="richtext_params">param:<html:i><param p="1"/></html:i></text>
     <text tid="unicode_2028"> unicode line separator, another separator</text>
+    <text tid="addedgroup_k2">Added group K2</text>
+    <text tid="beschikbaarheid">Beschikbaarheid</text>
+    <text tid="beschikbaarheid-beschikbaar">Beschikbaar</text>
+    <text tid="beschikbaarheid-binnenkort">Binnenkort</text>
+    <text tid="beschikbaarheid-verkocht">Verkocht</text>
+    <text tid="mainedit">Mainedit</text>
+    <text tid="yattab">Yet Another Tab</text>
   </textgroup>
   <textgroup gid="testfallback">   <!-- testfallback -->
     <text tid="anothertext">Another text</text>

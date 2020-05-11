@@ -212,7 +212,7 @@ PUBLIC VARIANT FUNCTION RPC_Invoke(STRING lib, STRING func, VARIANT ARRAY params
            AND SubString(Tokenize(liburi, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
 
     result := CELL[ ...result
-                  ,  __outputtoolsdata := CELL[ resources :=GetSortedSet(resources)
+                  ,  __outputtoolsdata := CELL[ resources := GetSortedSet(resources)
                                               ]
                   ];
   }

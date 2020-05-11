@@ -75,8 +75,7 @@
   <filetype typedef="http://www.webhare.net/xmlns/beta/dynfile" title="TestsuiteDynFile"
             blobiscontent="false"
             ispublishable="true"
-            extensions=".shtml"
-            tid="siteprofile.dynfile">
+            extensions=".shtml">
     <dynamicexecution library="module::webhare_testsuite/publisher/dynamicexecute.whlib" startmacro="FileEntry" />
   </filetype>
 

@@ -20,7 +20,7 @@ MACRO TestTabExtensions()
   TestEQ(TRUE, loadinfo.fragment EXTENDSFROM TolliumTabsExtensionBase);
 
   OBJECT comp := SELECT AS OBJECT obj FROM ToRecordArray(loadinfo.components,"obj") AS objs WHERE objs.obj->name LIKE "*beschikbaarheid";
-  TestEq('(cannot find text: webhare_testsuite:test.beschikbaarheid)',comp->title); //it's outside tidscanner sight too... but it's a hack!
+  TestEq('Beschikbaarheid',comp->title);
   scr->tabs->RemoveTabsExtension(loadinfo);
 
   // Load extension with code

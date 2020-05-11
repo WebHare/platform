@@ -24,7 +24,7 @@ LOADLIB "mod::tollium/lib/components/text.whlib";
 LOADLIB "mod::tollium/lib/components/panel.whlib";
 LOADLIB "mod::tollium/lib/components/menuitem.whlib";
 LOADLIB "mod::tollium/lib/components/select.whlib";
-LOADLIB "mod::tollium/lib/headless/controller.whlib" EXPORT GetTestTolliumPortalURL;
+LOADLIB "mod::tollium/lib/internal/headlesscontroller.whlib" EXPORT GetTestTolliumPortalURL;
 LOADLIB "mod::tollium/lib/internal/components.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
@@ -1194,6 +1194,17 @@ MACRO CheckScreensAllClosed()
   THROW NEW Exception(msg);
 }
 
+MACRO CheckTolliumIssues()
+{
+  CheckScreensAllClosed();
+  IF(Length(controller->missingtids) > 0)
+  {
+    Print("There were missing tids!\n");
+    DumpValue(controller->missingtids,'boxed');
+    SetConsoleExitCode(1);
+  }
+}
+
 PUBLIC OBJECT FUNCTION GetTestController()
 {
   IF(NOT ObjectExists(controller))
@@ -1213,6 +1224,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
     controller->user->language := "debug";
 
     testfw->RegisterBeforeEachTest(PTR CheckScreensAllClosed);
+    testfw->RegisterAtTermination(PTR CheckTolliumIssues);
 
     controller->ActivateWebController();
   }

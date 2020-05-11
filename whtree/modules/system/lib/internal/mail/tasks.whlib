@@ -106,6 +106,9 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
     IF(NOT ObjectExists(smtpmgr))
       smtpmgr := NEW WebHareSMTPManager;
 
+    taskdata := EnforceStructure([ ignorerecipientwhitelist := FALSE //pre 4.28 tasks won't have this flag
+                                 ], taskdata);
+
     IF(NOT smtpmgr->HasMailroutes())
     {
       this->ResolveByTemporaryFailure( [ serverip := ""
@@ -147,7 +150,7 @@ PUBLIC OBJECTTYPE OutgoingMailTask EXTEND ManagedTaskBase
       RETURN;
     }
 
-    IF(NOT IsAllowedEmailReceiver(taskdata.receiver))
+    IF(NOT taskdata.ignorerecipientwhitelist AND NOT IsAllowedEmailReceiver(taskdata.receiver))
     {
       this->ResolveByTemporaryFailure( [ serverip := ""
                                        , route := ""

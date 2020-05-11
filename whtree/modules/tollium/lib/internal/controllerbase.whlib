@@ -1356,7 +1356,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   STRING browsertitleprefix;
 
   // List of any missing tids
-  RECORD ARRAY missingtids;
+  PUBLIC RECORD ARRAY missingtids;
 
   // List of issues with the application
   RECORD ARRAY appissues;

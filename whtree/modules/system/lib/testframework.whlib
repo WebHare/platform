@@ -489,6 +489,13 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   ///When did the current test run start?
   PUBLIC PROPERTY starttime(__testfwstart,-);
 
+  /// Checks to run before each teast
+  MACRO PTR ARRAY beforeeachtest;
+
+  /// Checks to run at termination
+  MACRO PTR ARRAY attermination;
+
+
   MACRO NEW(RECORD options)
   {
     this->__testfwstart := GetCurrentDatetime();
@@ -1198,11 +1205,14 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     INSERT [ name := testname, func := func ] INTO this->tests AT END;
   }
 
-  MACRO PTR ARRAY beforeeachtest;
-
   PUBLIC MACRO RegisterBeforeEachTest(MACRO PTR func)
   {
     INSERT func INTO this->beforeeachtest AT END;
+  }
+
+  PUBLIC MACRO RegisterAtTermination(MACRO PTR func)
+  {
+    INSERT func INTO this->attermination AT END;
   }
 
   OBJECT FUNCTION * RunSerie(RECORD ARRAY serie)
@@ -1348,6 +1358,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC MACRO PrepareForTermination()
   {
+    FOREVERY(MACRO PTR torun FROM this->attermination)
+      torun();
   }
 
   PUBLIC MACRO RunTests()
