@@ -7,7 +7,6 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-
 PUBLIC MACRO TestAddressField()
 {
   OBJECT addressform := OpenForm("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml", "addressform");
@@ -227,6 +226,40 @@ PUBLIC MACRO TestAddressField()
                       , [ name := "address2.street",    message := "Dit veld is verplicht." ]
                       , [ name := "address2.zip",       message := "Ongeldige postcode." ]
                       , [ name := "address2.city",      message := "Dit veld is verplicht." ]
+                      ]
+      ], formresult, "*");
+
+  formdata.fields."address.zip" := "7521 AM";
+  //For some reason a lonely bad ZIP was't rejected if all other fields are good for a nl-zip-suggest
+  formdata.fields."address2.city" := "Stad";
+  formdata.fields."address2.street" := "Straat";
+
+  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEQMembers(
+      [ errors :=     [ [ name := "address2.zip",       message := "Ongeldige postcode." ]
+                      ]
+      ], formresult, "*");
+
+  formdata.fields."address2.city" := "Stad";
+  formdata.fields."address2.street" := "Straat";
+
+  //We also need to reject overlong nr_details because they point to someone pasting a phonenumber into a nr_detail
+  formdata.fields."address2.city" := "Stad";
+  formdata.fields."address2.street" := "Straat";
+
+  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEQMembers(
+      [ errors :=     [ [ name := "address2.zip",       message := "Ongeldige postcode." ]
+                      ]
+      ], formresult, "*");
+
+  //Some NL incorrect housenumber are also easy to reject
+  formdata.fields."address2.zip" := "7521 AM";
+  formdata.fields."address2.nr_detail" := "Eh";
+
+  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEQMembers(
+      [ errors :=     [ [ name := "address2.nr_detail",       message := "Ongeldig huisnummer." ]
                       ]
       ], formresult, "*");
 

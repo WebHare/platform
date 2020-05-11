@@ -143,6 +143,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   STRING ARRAY applicationmasks;
   STRING ARRAY dashboardmenuupdaters;
   BOOLEAN runwebhareinstall;
+  STRING jsversion;
 
   MACRO NEW()
   {
@@ -152,11 +153,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->frontendid := GenerateUFS128BitId();
 
     this->personalsettingsapp := "system:personalsettings";
+    this->jsversion := GetAssetPackCacheBuster("tollium:webinterface" || (AreOutputToolsActive() ? ".dev" : ""));
   }
 
   RECORD FUNCTION GetRunData()
   {
-    STRING sharedworker_bundletag := "tollium:sharedworker" || (IsWHDebugOptionSet("tol") ? ".dev" : "");
+    STRING sharedworker_bundletag := "tollium:sharedworker" || (AreOutputToolsActive() ? ".dev" : "");
     RECORD config :=
       [ toddroot         := this->toddroot
       , toddservice      := "/wh_services/tollium/todd"
@@ -171,6 +173,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , checkered_background := checkered_background
       , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || GetAssetPackCacheBuster(sharedworker_bundletag)
       , allowinframe     := this->allowinframe
+      , jsversion        := this->jsversion
       ];
 
     RECORD data :=
@@ -349,7 +352,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
 
     //make sure people can't see "old" tollium interfaces after a recompile;
-    webdesign->assetcachebuster := GetAssetPackCacheBuster("tollium:webinterface" || (IsWHDebugOptionSet("tol") ? ".dev" : ""));
+    webdesign->assetcachebuster := this->jsversion;
     webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
 
     STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
@@ -699,6 +702,11 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         portalsettings.displayname := ReadRegistryKey("system.backend.layout.title");
     }
     RETURN portalsettings;
+  }
+
+  PUBLIC RECORD FUNCTION WCS_GetCurrentVersion(OBJECT webcontext)
+  {
+    RETURN CELL[ jsversion := this->jsversion ];
   }
 
   PUBLIC RECORD FUNCTION WDS_GetCurrentShellSettings(OBJECT webcontext, RECORD options)

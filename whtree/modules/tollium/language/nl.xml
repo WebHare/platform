@@ -804,6 +804,8 @@
     <text tid="openedas">Geopend als '<param p="1"/>'</text>
     <text tid="personalmenu">Favorieten</text>
     <text tid="restartapp">Applicatie herstarten</text>
+    <text tid="webhareupdated">WebHare bijgewerkt</text>
+    <text tid="webhareupdated_description">De webpagina is opnieuw gestart omdat de WebHare server een update ontvangen heeft</text>
     <textgroup gid="checks">   <!-- shell.checks -->
       <text tid="errors"><ifparam p="1" value="0"><param p="2"/><else/>'<param p="2"/>' en nog <ifparam p="1" value="1">1 fout<else/><param p="1"/> fouten</ifparam></ifparam></text>
       <text tid="unresolvedissues">Er zijn nog onopgeloste fouten!</text>

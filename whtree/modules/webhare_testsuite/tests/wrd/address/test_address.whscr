@@ -55,6 +55,18 @@ MACRO NLCodes()
   TestEq("", FixupZipCodeNL("NL-752 2M"));
   TestEq("", FixupZipCodeNL("NL-752 23 M"));
 
+  TestEq("", FixupNRDetailNL("Eh"));
+  TestEq("123", FixupNRDetailNL("123"));
+  TestEq("t/o 123", FixupNRDetailNL("tegenover 123"));
+  TestEq("t/o 123", FixupNRDetailNL("tegenover 123"));
+  TestEq("t/o 123", FixupNRDetailNL("to 123"));
+  TestEq("t/o 123", FixupNRDetailNL("t.o. 123"));
+  TestEq("t/o 123", FixupNRDetailNL("t/o 123"));
+  TestEq("t/o 123a", FixupNRDetailNL("t/o 123a"));
+  TestEq("123a", FixupNRDetailNL("123a"));
+  TestEq("123-6", FixupNRDetailNL("123-6"));
+  TestEq("", FixupNRDetailNL("06-123"));
+
   RECORD format := GetAddressFormat("nl");
   TestEq(4, Length(format.fields));
   TestEq('Number', format.fields[1].title);
