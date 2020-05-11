@@ -54,6 +54,12 @@
   <!-- on test and above, /testportal just blocks -->
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" >
+      <webrule path="/" match="initial">
+        <!-- <addheader header="X-Frame-Options" value="DENY"/>  applicationportal.whlib controls this currently -->
+        <addheader header="X-XSS-Protection" value="1; mode=block"/>
+        <addheader header="X-Content-Type-Options" value="nosniff"/>
+        <addheader header="Referrer-Policy" value="no-referrer"/>
+      </webrule>
       <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
     </webruleset>
   </sitesettings>

@@ -269,6 +269,30 @@ STRING FUNCTION RewriteAlias(STRING hostname, STRING newhostname)
   RETURN HostnameToLabel(hostname) || newhostname;
 }
 
+MACRO BumpHSTS(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "minduration", type := "stringopt"  ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh webserver bumphsts [--minduration]\n");
+    Print("  --minduration:  Minimum HSTS duration (in seconds)\n");
+    TerminateScriptWithError("");
+  }
+
+  INTEGER minduration := ToIntegeR(subargs.minduration ?? "31536000",-1);
+  IF(minduration < 0)
+    THROW NEW Exception(`Invalid duration '${subargs.minduration}'`);
+
+  GetPrimary()->BeginWork();
+  UPDATE system_internal.webservers SET stricttransportsecurity := minduration WHERE stricttransportsecurity < minduration AND baseurl LIKE "https:*";
+  GetPrimary()->CommitWork();
+  ReloadWebhareConfig(TRUE, FALSE);
+  Print("Reloaded webserver configuration\n");
+}
+
 MACRO RewriteHosts(STRING ARRAY params)
 {
   RECORD subargs := ParseArguments(params,
@@ -381,6 +405,10 @@ MACRO Main()
     {
       RewriteHosts(cmdargs.params);
     }
+    CASE "bumphsts"
+    {
+      BumpHSTS(cmdargs.params);
+    }
     DEFAULT
     {
       Print("Syntax: wh webserver <command>\n");
@@ -391,6 +419,7 @@ MACRO Main()
       Print("  listports:                  List configured webserver ports\n");
       Print("  reset [--dryrun] [--force]: Reset proxies and listening ports\n");
       Print("  rewritehosts <newhost>:     Rewrite all webserver URL hostnames under a new host\n");
+      Print("  bumphsts:                   Bump all HSTS settings to a minimum of 1 year\n");
       TerminateScriptWithError("");
     }
   }
