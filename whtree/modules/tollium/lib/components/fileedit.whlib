@@ -72,6 +72,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
   {
     this->filename->title := this->title;
     this->UpdateFileInfo(this->pvt_fileinfo);
+    this->RefreshActions();
   }
 
 
@@ -149,17 +150,24 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
   UPDATE MACRO SetEnabled(BOOLEAN newstate)
   {
     TolliumFragmentBase::SetEnabled(newstate);
+    this->RefreshActions();
+  }
 
-    this->replace->enabled := newstate;
-    this->remove->enabled := newstate AND RecordExists(this->pvt_fileinfo);
+  MACRO RefreshActions()
+  {
+    BOOLEAN enabled := this->enabled AND NOT this->readonly;
+
+    ^replacefile->enabled := enabled;
+    ^removefile->enabled := enabled AND RecordExists(this->pvt_fileinfo);
+    ^replace->visible := NOT this->readonly;
+    ^remove->visible := NOT this->readonly;
+    ^savefile->enabled := RecordExists(this->pvt_fileinfo);
   }
 
   UPDATE MACRO SetReadOnly(BOOLEAN newstate)
   {
     TolliumFragmentBase::SetReadOnly(newstate);
-
-    this->replace->visible := NOT newstate;
-    this->remove->visible := NOT newstate;
+    this->RefreshActions();
   }
 
   //ADDME: Does this have to be public? It's a property getter function...
@@ -247,9 +255,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
       this->replace->title := GetTid("tollium:common.actions.replace");
       this->replace->hint := GetTid("tollium:components.fileedit.hints.replace_file");
       this->replace->icon := "tollium:actions/replace";
-
-      this->save->enabled := TRUE;
-      this->remove->enabled := this->enabled;
+      this->RefreshActions();
     }
     ELSE
     {
@@ -258,9 +264,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
       this->replace->title := GetTid("tollium:common.actions.add");
       this->replace->hint := GetTid("tollium:components.fileedit.hints.add_file");
       this->replace->icon := "tollium:actions/add";
-
-      this->save->enabled := FALSE;
-      this->remove->enabled := this->enabled;
+      this->RefreshActions();
     }
   }
 

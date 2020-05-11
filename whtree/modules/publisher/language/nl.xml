@@ -1978,7 +1978,7 @@
       <text tid="submit">Versturen</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">Het adres kon niet worden gevonden.</text>
-        <text tid="invalid_nr_detail">Ongeldig huisnummer met toevoeging.</text>
+        <text tid="invalid_nr_detail">Ongeldig huisnummer.</text>
         <text tid="invalid_zip">Ongeldige postcode.</text>
         <text tid="zip_not_found">Combinatie van postcode en huisnummer komt niet voor.</text>
       </textgroup>

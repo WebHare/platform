@@ -1,0 +1,51 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+///tests tollium fragmentbased components
+
+ASYNC MACRO TestFileEdit()
+{
+  //<fileedit enabled> was reported to be broken, not disabling subcomponents when set through XML
+  OBJECT scr;
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <fileedit name="myfileedit" enabled="false"/>
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+
+  TestEq(FALSE, TT("myfileedit->replacefile")->enabled);
+  TT("myfileedit")->enabled := TRUE;
+  TestEq(TRUE, TT("myfileedit->replacefile")->enabled);
+  TT("myfileedit")->enabled := FALSE;
+  TestEq(FALSE, TT("myfileedit->replacefile")->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  scr := GetTestController()->LoadScreen(`inline::
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+  <screen name="test" implementation="none">
+    <body>
+      <fileedit name="myfileedit" readonly="true"/>
+    </body>
+  </screen>
+</screens>#test`);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+
+  TestEq(FALSE, TT("myfileedit->replace", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
+RunTestframework([ PTR TestFileEdit ]);

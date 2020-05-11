@@ -108,8 +108,7 @@ MACRO TestWebservicesAPI_External()
   TestEq('incomplete',res.status);
   TestEq('7522 NB',res.data.zip);
 
-  //ADDME want API to set this stuff
-  //testfw->GetWRDSchema()->SetSchem
+  testfw->CommitWork();
 }
 
 /* APIKEY
