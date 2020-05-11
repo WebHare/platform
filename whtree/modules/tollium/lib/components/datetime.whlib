@@ -128,7 +128,7 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
   {
     IF (this->pvt_storeutc AND this->type = "date")
       THROW NEW TolliumException(this, `UTC stored values are not supported for datetime components of type "date"`);
-    this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(this->value) : this->value;
+    this->value := this->pvt_storeutc ? this->owner->tolliumuser->LocalToUTC(newval) : newval;
   }
 
   DATETIME FUNCTION GetValue()
