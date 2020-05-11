@@ -436,7 +436,7 @@ class IndyShell
   checkVersion()
   {
     if(this.anyConnectedApplications())
-      return; //no point if appa are open
+      return; //no point if apps are open
 
     this.tolliumservice.request('GetCurrentVersion', [], this.gotCurrentVersion.bind(this));
   }
