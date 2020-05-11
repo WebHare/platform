@@ -428,7 +428,7 @@ class IndyShell
   {
     return this.settings;
   }
-  ///Any applications with a backedn connection running?
+  ///Any applications with a backend connection running?
   anyConnectedApplications()
   {
     return $todd.applications.some(app => app.frontendid);
