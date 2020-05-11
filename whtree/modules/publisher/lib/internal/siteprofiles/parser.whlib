@@ -279,7 +279,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.filetype := GetBaseFiletypeRecord();
     IF(ftype->HasAttribute("icon"))
       this->AddWarning(ftype, "The option 'icon' is obsolete and should be removed");
-    IF(ftype->HasAttribute("viewable"))
+    IF(ftype->HasAttribute("isviewable"))
       this->AddWarning(ftype, "The attribute 'isviewable' is obsolete and should be removed");
     if(NOT ftype->HasAttribute("blobiscontent") AND NOT ftype->HasAttribute("kind"))
       this->AddError(ftype, "At least one of 'blobiscontent' and 'kind' attributes must be set");
