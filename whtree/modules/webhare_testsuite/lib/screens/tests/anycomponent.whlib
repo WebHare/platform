@@ -5,6 +5,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -553,6 +555,7 @@ PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase
   {
     ^row->RegisterVirtualCell("text", PTR this->GetVirtualText, PTR this->SetVirtualText);
     TolliumRowEditScreenBase::Init(data);
+    TestEq("mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor", this->openingcomponent->roweditscreen, "test if openingcomponent appears to be our arrayedit");
   }
   STRING FUNCTION GetVirtualText()
   {
