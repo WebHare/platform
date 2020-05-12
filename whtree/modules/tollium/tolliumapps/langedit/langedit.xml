@@ -187,7 +187,7 @@
     </body>
   </screen>
 
-  <screen name="langtext" savestate="position size" allowresize="true">
+  <screen name="langtext" savestate="position size" allowresize="true" defaultbutton="submitbutton">
     <actions>
       <action name="act_submit" onexecute="submit" shortcut="ctrl+enter" tid="tollium:common.actions.ok" />
       <action name="act_cancel" onexecute="cancel" tid="tollium:common.actions.cancel" />
@@ -205,7 +205,7 @@
       <line layout="right">
         <button action="previous"/>
         <button action="next"/>
-        <button action="act_submit" isdefault="true" />
+        <button name="submitbutton" action="act_submit" tid="~ok" />
         <button action="act_cancel" />
       </line>
     </footer>

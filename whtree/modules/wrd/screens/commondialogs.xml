@@ -213,7 +213,7 @@
     </footer>
   </screen>
 
-  <screen name="editaddress" gid="wrd:commondialogs.editaddress" tid=".pagetitle">
+  <screen name="editaddress" gid="wrd:commondialogs.editaddress" tid=".pagetitle" defaultbutton="okbutton">
     <actions>
       <action name="checkverify" title="" onexecute="docheckverify" />
     </actions>
@@ -226,7 +226,7 @@
     <footer>
       <line layout="right">
         <button name="btn_verify" action="checkverify" />
-        <button tid="tollium:common.actions.ok" tolliumresult="ok" isdefault="true"/>
+        <button name="okbutton" tid="tollium:common.actions.ok" tolliumresult="ok" />
         <button tid="tollium:common.actions.cancel" tolliumresult="cancel" />
       </line>
     </footer>

@@ -19,6 +19,7 @@
           width="95x"
           height="35x"
           allowresize="true" savestate="true"
+          defaultbutton="openschemabutton"
           >
     <actions gid=".actions">
       <action name="openschema" onexecute="doopenschema" tid="tollium:common.actions.open">
@@ -76,7 +77,7 @@
     </body>
     <footer>
       <line layout="right">
-        <button action="openschema" isdefault="true" />
+        <button name="openschemabutton" action="openschema" tid="~open" />
         <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
       </line>
     </footer>
