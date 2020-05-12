@@ -129,7 +129,6 @@
               selectcontextmenu="questioncontext"
               newcontextmenu="questioncontextnew"
               selectmode="multiple"
-              rowselect="true"
               openaction="edititem"
               icons="tollium:status/required tollium:status/pinned tollium:status/conditionalrequired tollium:actions/save"
               sortable="false"

@@ -111,7 +111,6 @@
                 </line>
               </panel>
               <list name="actionlist"
-                    rowselect="true"
                     borders="none"
                     icons="tollium:actions/edit
                            tollium:actions/trash
@@ -233,7 +232,6 @@
           <list name="versionevents"
                 sortcolumn="when"
                 sortascending="false"
-                rowselect="true"
                 rowlayout="tworows"
                 icons="tollium:actions/accept
                        tollium:objects/meredians

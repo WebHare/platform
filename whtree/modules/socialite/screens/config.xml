@@ -116,7 +116,6 @@
                 borders="left top bottom"
                 flags="isaccount isapp"
                 selectmode="single"
-                rowselect="true"
                 selectcontextmenu="apps_context_menu"
                 savestate="expanded"
                 newcontextmenu="apps_new_menu"
@@ -132,7 +131,6 @@
               <panel height="1pr">
                 <list name="persistent_list"
                       selectmode="single"
-                      rowselect="true"
                       openaction="editpersistent"
                       selectcontextmenu="persistent_context_menu"
                       newcontextmenu="persistent_new_menu"
@@ -148,7 +146,6 @@
               <panel height="1pr">
                 <list name="session_list"
                       selectmode="single"
-                      rowselect="true"
                       icons="tollium:actions/accept"
                       height="1pr">
                   <column name="authorized" type="icon" />
@@ -234,7 +231,6 @@
         <panel height="1pr">
           <list name="sessionkeys"
                 selectmode="single"
-                rowselect="true"
                 height="1pr">
             <column name="tag" type="text" />
             <column name="value" type="text" />

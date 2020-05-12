@@ -7,7 +7,6 @@
     <body>
      <listedit name="tags"
                height="1pr"
-               rowselect="true"
                ongetchildren="loadtags"
                onrowedit="editrow"
                onrowdelete="deleterow"

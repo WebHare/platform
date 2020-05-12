@@ -4754,13 +4754,9 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attribute name="rowselect">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>
-            Whether to highlight to whole selected row(s).
-            (default behaviour since Webhare V4)
-            FIXME: is it still relevant. does setting it to FALSE work?
-          </html:p>
-        </xs:documentation>
+        <xs:appinfo>
+          <sc:deprecated>We always select the whole row since 4.03</sc:deprecated>
+        </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
 

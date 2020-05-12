@@ -63,8 +63,7 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY rows(^entities->rows, -);
 
-  /// Rowselect option. No longer has any meaning
-  PUBLIC BOOLEAN rowselect;
+  PUBLIC PROPERTY rowselect(this->^entities->rowselect, this->^entities->rowselect); //list->rowselect will handle the deprecation
 
   /// Filters to apply to the list
   PUBLIC PROPERTY listfilters(pvt_listfilters, SetListFilters);

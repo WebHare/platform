@@ -54,7 +54,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   PUBLIC PROPERTY oncelledit(this->list->oncelledit, this->list->oncelledit);
   PUBLIC PROPERTY onselect(this->list->onselect, this->list->onselect);
   PUBLIC PROPERTY onfocusin(this->list->onfocusin, this->list->onfocusin);
-  PUBLIC BOOLEAN rowselect;
+  PUBLIC PROPERTY rowselect(this->list->rowselect, this->list->rowselect); //list->rowselect will handle the deprecation
   PUBLIC PROPERTY selectcontextmenu(this->list->selectcontextmenu, this->list->selectcontextmenu);
   PUBLIC PROPERTY newcontextmenu(this->list->newcontextmenu, this->list->newcontextmenu);
   PUBLIC PROPERTY eventmasks(this->list->eventmasks, this->list->eventmasks);

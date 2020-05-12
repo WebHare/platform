@@ -23,7 +23,6 @@
           <cell>
             <list name="feeds"
                   selectmode="multiple"
-                  rowselect="true"
                   height="1pr"
                   minwidth="400px"
                   minheight="400px"
@@ -68,7 +67,6 @@
           <cell>
             <list name="feedentries"
                   selectmode="multiple"
-                  rowselect="true"
                   height="1pr"
                   minwidth="400px"
                   minheight="400px"

@@ -407,7 +407,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   /** Deprecated
   */
-  PUBLIC BOOLEAN rowselect;
+  PUBLIC PROPERTY rowselect(GetRowselect, SetRowselect);
 
 
   /** Context menu shown when the user right-clicks on empty space
@@ -745,6 +745,18 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   //
   // Property getters/setters
   //
+
+  BOOLEAN FUNCTION GetRowSelect()
+  {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception("The List::rowselect property will be removed in the future"); //since May 2020
+    RETURN TRUE; //it's on by definition, rowselect was a WH 3 thing where we only selected the first column (like Windows Explorer did)
+  }
+  MACRO SetRowSelect(BOOLEAN newsetting)
+  {
+    IF(GetDtapStage() = "development")
+      THROW NEW Exception("The List::rowselect property will be removed in the future"); //since May 2020
+  }
 
 
   STRING ARRAY FUNCTION GetEventMasks()

@@ -366,7 +366,6 @@
               sortable="false"
               columnheaders="false"
               selectmode="multiple"
-              rowselect="true"
               openaction="copy">
             <column name="title" title="" type="text" tree="true" />
           </list>
@@ -382,7 +381,6 @@
               sortable="false"
               columnheaders="false"
               selectmode="multiple"
-              rowselect="true"
               flags="canmoveup canmovedown">
             <column name="title" title="" type="text" />
           </list>

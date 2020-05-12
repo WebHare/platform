@@ -55,7 +55,7 @@
         <spacer width="1pr" />
         <textedit name="filter" onchange="onfilterchange" visible="false" />
       </line>
-      <list name="typeslist" width="1pr" height="1pr" selectmode="multiple" rowselect="true">
+      <list name="typeslist" width="1pr" height="1pr" selectmode="multiple">
         <column name="title" iconname="icon" type="text" />
         <column name="namespace" type="text" />
       </list>
