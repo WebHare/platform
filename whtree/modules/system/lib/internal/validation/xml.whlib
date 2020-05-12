@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -185,6 +186,15 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       {
         TRY GetNextCronTime(GetCurrentDatetime(), task.runat);
         CATCH(OBJECT e) { this->AddErrorForLine(task.line, `Invalid runat '${task.runat}': '${e->what}`); }
+      }
+    }
+
+    RECORD taskinfo := ParseModuleTasks(this->modulename, this->respath, this->xml);
+    FOREVERY(RECORD task FROM taskinfo.tasktypes)
+    {
+      IF(NOT task.isnode)
+      {
+        this->VerifyObjectExistence(task.linenum, task.objectname);
       }
     }
 

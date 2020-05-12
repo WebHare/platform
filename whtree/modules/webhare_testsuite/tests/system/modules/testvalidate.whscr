@@ -184,7 +184,7 @@ BLOB badplacementxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 </xs:schema>
 `);
 
-BLOB moduledefwarning := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+BLOB moduledefissues := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta/>
   <hooking>
@@ -200,6 +200,9 @@ BLOB moduledefwarning := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
       <d:integer name="id" unique="1" nullable="1" />
     </d:table>
   </databaseschema>
+  <servicemanager>
+    <managedtask type="pdfmailflow" library="formcomponents/pdfmailflow.whlib" objectname="PDFMailFlowTask"/>
+  </servicemanager>
 </module>`);
 
 BLOB FUNCTION WrapAsScreenBody(STRING innercode)
@@ -231,9 +234,10 @@ MACRO TestBasicValidate()
   Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.testsite.title"), "Cannot find webhare_testsuite:module.testsite.title");
 
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
-  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefwarning ]);
-  TestEq(RECORD[],res.errors);
-  Testeq([[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
+  TestEq([[ line := 18, message := "No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\' (looking for \'PDFMailFlowTask\')" ]
+         ], (SELECT line, message FROM res.errors));
+  TestEq([[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
          ,[ line := 9, message := "permissions= no longer has any effect and should be removed" ]
          ], (SELECT line, message FROM res.warnings));
 
@@ -289,8 +293,8 @@ MACRO TestBasicValidate()
 
   //siteprofiles should also warn about broken screens
   res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
-  TestEq(RECORD[], res.errors);
   dumpvalue(res,'tree');
+  TestEq(RECORD[], res.errors);
   TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml.siteprl" AND line = 8));
   TestEq(1, Length(res.warnings));
 

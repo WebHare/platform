@@ -58,18 +58,42 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
     objectname := MakeAbsoluteResourcePath(resourcename, objectname);
   }
 
-  RETURN CELL
-      [ library :=      objectname = "" ? libname : ""
-      , objectname :=   objectname LIKE "*#*" ? objectname : libname || "#" || objectname
-      , tasktype :=     mod || ":" || type
-      , isnode :=       isnode
-      , workertype :=   isnode ? 1 : 0
-      , applyerror :=   applyerror
-      , cluster
-      , ephemeral :=    options.ephemeral
-      , priority
-      , maxfailures
-      ];
+  RETURN CELL[ library :=      objectname = "" ? libname : ""
+             , objectname :=   objectname LIKE "*#*" ? objectname : libname || "#" || objectname
+             , tasktype :=     mod || ":" || type
+             , isnode :=       isnode
+             , workertype :=   isnode ? 1 : 0
+             , applyerror :=   applyerror
+             , cluster
+             , ephemeral :=    options.ephemeral
+             , priority
+             , maxfailures
+             , linenum := tasknode->linenum
+             ];
+}
+
+PUBLIC RECORD FUNCTION ParseModuleTasks(STRING modulename, STRING resname, OBJECT xmldoc)
+{
+  RECORD ARRAY clusters;
+  RECORD ARRAY tasktypes;
+
+  FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "managedtask")->GetCurrentElements())
+    INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := FALSE ]) INTO tasktypes AT END;
+
+  FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ephemeraltask")->GetCurrentElements())
+    INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := TRUE ]) INTO tasktypes AT END;
+
+  FOREVERY(OBJECT clusternode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "taskcluster")->GetCurrentElements())
+  {
+    INSERT
+        [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
+        , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
+        , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
+        , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
+        ] INTO clusters AT END;
+  }
+
+  RETURN CELL [ clusters, tasktypes ];
 }
 
 /** Returns all task types and taskclusters, for adhoccache
@@ -101,23 +125,10 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
     STRING resname := GetModuleDefinitionXMLResourceName(modulename);
     OBJECT xmldoc := GetModuleDefinitionXML(modulename);
 
+    RECORD parsed := ParseModuleTasks(modulename, resname, xmldoc);
+    clusters := clusters CONCAT parsed.clusters;
+    tasktypes := tasktypes CONCAT parsed.tasktypes;
     INSERT resname INTO resources AT END;
-
-    FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "managedtask")->GetCurrentElements())
-      INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := FALSE ]) INTO tasktypes AT END;
-
-    FOREVERY(OBJECT tasknode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ephemeraltask")->GetCurrentElements())
-      INSERT ParseTaskNode(resname, tasknode, modulename, [ ephemeral := TRUE ]) INTO tasktypes AT END;
-
-    FOREVERY(OBJECT clusternode FROM xmldoc->GetElementsByTagnameNS("http://www.webhare.net/xmlns/system/moduledefinition", "taskcluster")->GetCurrentElements())
-    {
-      INSERT
-          [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
-          , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
-          , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
-          , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
-          ] INTO clusters AT END;
-    }
   }
 
   // Fix task types to remove clusters that aren't available anymore (or set the default when not provided)
