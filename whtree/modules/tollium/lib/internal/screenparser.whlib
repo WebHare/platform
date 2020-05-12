@@ -1741,6 +1741,8 @@ RECORD ARRAY FUNCTION ParseArray(OBJECT nodeset)
 VARIANT FUNCTION GetXMLFieldStoreValue(OBJECT element, STRING ns, STRING attrname, RECORD field, RECORD item)
 {
   BOOLEAN hasattr := ns != "" OR element->HasAttribute(attrname);
+  IF(hasattr AND CellExists(field,'deprecationwarning') AND field.deprecationwarning != "") //TODO all fields should have the field deprecationwarning? we should stabilize it a bit and probably need to add it to tidptrs and fixed fields
+    curpageparser->AddWarning(element->linenum, `Attribute '${attrname}' has been deprecated: ${field.deprecationwarning}`);
   IF(CellExists(field,'warning') AND hasattr)
     curpageparser->AddWarning(element->linenum, field.warning);
 

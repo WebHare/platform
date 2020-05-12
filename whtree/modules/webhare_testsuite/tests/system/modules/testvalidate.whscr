@@ -72,18 +72,6 @@ BLOB badwebrules_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   </sitesettings>
 </siteprofile>`);
 
-STRING base_customwarning :=
-`  <screen name="testscreen" implementation="rowedit" xmlns="http://www.webhare.net/xmlns/tollium/screens">
-    <body>
-      <inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />
-    </body>
-  </screen>`;
-
-BLOB customwarningscreen := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
-  ${base_customwarning}
-</screens>`);
-
 //test option/rowkey tids synthhesis
 BLOB optiontidssynthesis := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="testgid">
@@ -283,9 +271,13 @@ MACRO TestBasicValidate()
   TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 8));
   TestEq(1, Length(res.warnings));
 
-  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := customwarningscreen ]);
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" deprecated="" />`) ]);
   TestEq(RECORD[], res.errors);
-  TestEq([[ line := 5, message := "Warning!" ]], SELECT line,message FROM res.warnings);
+  TestEq([[ line := 1, message := "Attribute \'deprecated\' has been deprecated: Deprecated attribute" ]], SELECT line,message FROM res.warnings);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />`) ]);
+  TestEq(RECORD[], res.errors);
+  TestEq([[ line := 1, message := "Warning!" ]], SELECT line,message FROM res.warnings);
 
   //siteprofiles should also warn about broken screens
   res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);

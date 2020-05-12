@@ -224,6 +224,13 @@
       <xs:attribute name="textcomp1" type="tc:ComponentRef" />
       <xs:attribute name="textcomp2" type="tc:ComponentRef" />
       <xs:attribute name="nowarning" type="xs:boolean" default="true"/> <!-- setting default so we can also test that -->
+      <xs:attribute name="deprecated">
+        <xs:annotation>
+          <xs:appinfo>
+            <sc:deprecated>Deprecated attribute</sc:deprecated>
+          </xs:appinfo>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 

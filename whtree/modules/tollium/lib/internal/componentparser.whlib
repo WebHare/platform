@@ -321,6 +321,7 @@ RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcena
   BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon);
 
   RECORD fieldrec := ParseAttributeType(decl);
+
   IF(RecordExists(SELECT FROM tids WHERE namespaceuri = decl->target_namespace AND basename = decl->name))
   {
     //This one is not directly interesting, but it still shouldn't conflict
@@ -338,6 +339,11 @@ RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcena
     RETURN DEFAULT RECORD; //already dealt with tids
 
   INSERT CELL name := decl->name INTO fieldrec;
+
+  //TODO also support deprecation warnings for TidPtrs (once we need 'm) - they skip this path
+  OBJECT deprecationnode := GetAppinfoNode([decl], ns_systemcommon, "deprecated");
+  INSERT CELL deprecationwarning := ObjectExists(deprecationnode) ? deprecationnode->textcontent : "" INTO fieldrec;
+
   RETURN fieldrec;
 }
 
