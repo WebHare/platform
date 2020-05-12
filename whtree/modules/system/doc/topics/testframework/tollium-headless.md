@@ -58,9 +58,15 @@ TT(":Title");
 
 // Find a element of elementyype 'arrayedit' with errorlabel 'Answers'
 TT("{arrayedit}:answers");
+
+/* Select the first of the the 3 elements with title 'Add'.
+   This only works for title matches.
+*/
+TT(":Add[1/3]");
+
+// Select the 2nd of 4 arrayedits, ignore the title ('*' can be used to match all titles)
+TT("{arrayedit}:*[2/4]");
 ```
-
-
 
 ## Common actions
 
