@@ -169,4 +169,20 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="multimergefield2">
+    <xs:complexType>
+        <xs:annotation>
+        <xs:appinfo>
+          <forms:formcomponent
+            tolliumicon="tollium:forms/textedit"
+            title="Custom Form Field"
+            editdefaults="name title hidetitle required groupclasses"
+            fieldobject="mod::webhare_testsuite/webdesigns/basetest/pages/customform/customform2.whlib#multimergefield2"
+            />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="forms:BaseAttributes" />
+    </xs:complexType>
+  </xs:element>
+
 </xs:schema>

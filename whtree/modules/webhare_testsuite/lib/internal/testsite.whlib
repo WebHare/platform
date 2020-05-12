@@ -965,6 +965,38 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
          ];
 }
 
+PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
+{
+  options := ValidateOptions( testformfileoptions, options);
+  options := CELL[...options, iscustom := TRUE ];
+
+  testfw->BeginWork();
+
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  OBJECT customformfile := webtoolsfolder->OpenByName("customform"); //clean old version to prevent V2 test hitting V1 custom form
+  IF(ObjectExists(customformfile))
+    customformfile->RecycleSelf();
+
+  OBJECT customformfile2 := webtoolsfolder->OpenByName("customform2"); //clean old version to prevent V2 test hitting V1 custom form
+  IF(ObjectExists(customformfile2))
+    customformfile2->RecycleSelf();
+
+  OBJECT customformtype2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/customform2");
+  TestEq(TRUE, ObjectExists(customformtype2), "My customtype http://www.webhare.net/xmlns/webhare_testsuite/customform2 is not registered");
+  customformfile2 := webtoolsfolder->CreateFile( [ name := "customform2", type := customformtype2->id, publish := options.publish ]);
+
+  FillTestFormFile(customformfile2, options);
+
+  testfw->CommitWork();
+  IF(options.publish)
+    testfw->WaitForPublishCompletion(webtoolsfolder->id);
+
+  RETURN [ url := customformfile2->indexurl
+         , formfile := customformfile2
+         ];
+}
+
+
 PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(CELL[...testformfileoptions,  which := "" ], options);
