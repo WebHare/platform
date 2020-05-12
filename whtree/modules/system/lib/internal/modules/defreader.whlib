@@ -414,11 +414,10 @@ RECORD FUNCTION GetCacheableAllModules()
 ///Get all webhare modules
 PUBLIC RECORD ARRAY FUNCTION GetWebHareModules()
 {
-  RETURN SELECT *
-           FROM GetAdhocCached([type := "allmodules"], PTR GetCacheableAllModules).modules;
+  RETURN GetAdhocCached([type := "allmodules"], PTR GetCacheableAllModules()).modules;
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetLoadErrors()
+PUBLIC RECORD ARRAY FUNCTION GetLoadErrors() //we cache this for wh check efficiency. this caching can go once wh check writes errors to the database and can do the check on its own time
 {
   RETURN GetAdhocCached([type := "allmodules"], PTR GetCacheableAllModules).loaderrors;
 }

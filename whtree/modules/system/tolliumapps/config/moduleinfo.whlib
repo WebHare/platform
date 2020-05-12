@@ -101,6 +101,7 @@ PUBLIC OBJECTTYPE ModuleVersions EXTEND TolliumScreenBase
       STRING source_revision;
       BOOLEAN packagingdownload;
 
+      //Can't read this from cache (eg GetWebhareModules) at least not for the archive.
       BLOB moduledef := GetDiskResource(rec.path || "/moduledefinition.xml", [ allowmissing := TRUE ]);
       IF (LENGTH(moduledef) != 0)
       {

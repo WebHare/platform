@@ -164,8 +164,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 
     ListModuleWebruleSets(this->respath, this->xml); //parse <webruleset> titles
     ParseModuleDefRunonce(this);
-
-    ParseModuleDefinition(this->modulename, this->xml);
     CaptureOtherTids(this->modulename, this->xml);
 
     FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "databaseschema")->GetCurrentElements())
