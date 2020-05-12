@@ -209,10 +209,34 @@
     </xs:attribute>
 
     <!-- obsolete and ignored attributes -->
-    <xs:attribute name="margintop" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginbottom" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginleft" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginright" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="margintop">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginbottom">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginleft">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginright">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:anyAttribute namespace="##other" processContents="strict"/> <!-- permit any attribute in other namespace -->
   </xs:attributeGroup>

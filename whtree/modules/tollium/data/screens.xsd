@@ -1982,11 +1982,41 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Layout" />
 
     <!-- obsolete and ignored attributes -->
-    <xs:attribute name="margintop" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginbottom" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginleft" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginright" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="reserveheight" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="margintop">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginbottom">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginleft">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginright">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="reserveheight">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Reserveheight has been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="Lines">
@@ -3416,7 +3446,13 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="InlineBlockAttributes" />
     <xs:attributeGroup ref="Gid" />
 
-    <xs:attribute name="border" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="border">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>border has been ignored since WH 4.03, we now use borders</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:attribute name="spacers" type="BordersSpacers" default="default">
       <xs:annotation>

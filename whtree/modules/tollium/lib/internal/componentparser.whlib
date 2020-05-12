@@ -272,10 +272,6 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     {
       RETURN [ defaultvalue := STRING[], recordtype := "datafilerefs", finaltype := TYPEID(STRING ARRAY) ];
     }
-    IF(attrtype->name = "DeprecatedAttribute")
-    {
-      RETURN [ defaultvalue := "", warning := `Attribute '${attrname}' has been deprecated`, finaltype := TYPEID(STRING) ];
-    }
   }
   IF(attrtype->target_namespace = ns_xmlschema)
   {
