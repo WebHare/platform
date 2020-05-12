@@ -247,7 +247,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                   , sp_tag :=     sp_tag
                   , ordering :=   ToInteger(loginmethod->GetAttribute("ordering"), 99999)
                   , autologin :=  loginmethod->GetAttribute("autologin") IN [ "true", "1" ]
-                  , tid :=        ParseXMLTIDPtr(GetModuleNameFromResourcePath(resourcename), gid, loginmethod, "title")
+                  , tid :=        ParseXMLTIDPtr(resourcename, gid, loginmethod, "title")
                   , icon :=       loginmethod->GetAttribute("icon")
                   , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
                   , loginprompt := loginmethod->GetAttribute("loginprompt")

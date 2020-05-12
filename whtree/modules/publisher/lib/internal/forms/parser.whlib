@@ -116,7 +116,7 @@ OBJECTTYPE FormParser
     RECORD addfield := basefieldstructure;
     addfield.guid := fld->GetAttribute("guid");
     addfield.name := fld->GetAttribute("name");
-    addfield.title := ParseXMLTidPtr(this->module, gid, fld, "title");
+    addfield.title := ParseXMLTidPtr(this->resourcename, gid, fld, "title");
     addfield.hidetitle := ParseXSBoolean(fld->GetAttribute("hidetitle"));
     addfield.visible := fld->HasAttribute("visible") ? ParseXSBoolean(fld->GetAttribute("visible")) : TRUE;
     addfield.required := ParseXSBoolean(fld->GetAttribute("required"));
@@ -165,8 +165,8 @@ OBJECTTYPE FormParser
         addfield.fieldobject := PTR MakeObject(fieldobject, #1, #2, #3);
       IF (comptype.parserfunc != "")
         addfield := MakeFunctionPtr(comptype.parserfunc)(addfield, fld,
-            [ parsexmltidptr := PTR ParseXMLTidPtr(this->module, gid, #1, #2)
-            , parsexmltiddirectly := PTR ParseXMLTidDirectly
+            [ parsexmltidptr := PTR ParseXMLTidPtr(this->resourcename, gid, #1, #2)
+            , parsexmltiddirectly := PTR ParseXMLTidDirectly(this->resourcename, #1, #2, #3)
             , parsesubnode := PTR this->ParseFormContent(root, #1, gid, formdefinitions, formpage)
             , getinstance := this->validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
             ]);
@@ -253,9 +253,9 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
                     , defs := formdefinitions
                     , legacymode := FALSE
                     , jshandler := ""
-                    , prevlabel := ParseXMLTidPtr(module, gid, formnode, "prevlabel")
-                    , nextlabel := ParseXMLTidPtr(module, gid, formnode, "nextlabel")
-                    , submitlabel := ParseXMLTidPtr(module, gid, formnode, "submitlabel")
+                    , prevlabel := ParseXMLTidPtr(resourcename, gid, formnode, "prevlabel")
+                    , nextlabel := ParseXMLTidPtr(resourcename, gid, formnode, "nextlabel")
+                    , submitlabel := ParseXMLTidPtr(resourcename, gid, formnode, "submitlabel")
                     , warnings := RECORD[]
                     , errors := RECORD[]
                     ];
@@ -311,7 +311,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
           [ name := page->GetAttribute("name")
           , guid := page->GetAttribute("guid")
           , role := page->GetAttribute("role")
-          , title := ParseXMLTidPtr(module, gid, page, "pagetitle")
+          , title := ParseXMLTidPtr(resourcename, gid, page, "pagetitle")
           , redirect := page->GetAttribute("redirect")
           , fields := parseres.fields
           , visiblecondition := DEFAULT RECORD
@@ -334,7 +334,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
       INSERT addpage INTO formdef.pages AT END;
     }
 
-    formdef.handlers := ParseFormHandlers(formnode, module, gid, formdefinitions, options.validatexmlonly);
+    formdef.handlers := ParseFormHandlers(formnode, resourcename, gid, formdefinitions, options.validatexmlonly);
   }
 
   formdef.warnings := formdef.warnings CONCAT parser->warnings;

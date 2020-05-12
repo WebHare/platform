@@ -21,7 +21,7 @@ RECORD ARRAY FUNCTION GetAvailableModuleRoleSets()
     IF(NOT ObjectExists(xmlfile) OR NOT ObjectExists(xmlfile->documentelement))
       CONTINUE;
 
-    retval := retval CONCAT ListModuleWebruleSets(mod.name, xmlfile);
+    retval := retval CONCAT ListModuleWebruleSets(GetModuleDefinitionXMLResourceName(mod.name), xmlfile);
   }
 
   retval := SELECT *, title := GetTid(title) ?? rowkey FROM retval;

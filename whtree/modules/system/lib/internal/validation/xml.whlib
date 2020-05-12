@@ -21,9 +21,8 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 RECORD ARRAY schemata;
 RECORD ARRAY captured_tids;
 
-MACRO OnTid(STRING resourcename, RECORD tiddata)
+MACRO OnTid(RECORD tiddata)
 {
-  tiddata := CELL [ resourcename, ...tiddata ];
   INSERT tiddata INTO captured_tids AT END;
 }
 
@@ -34,7 +33,7 @@ PUBLIC RECORD ARRAY FUNCTION RunAndExtractTids(STRING resourcename, FUNCTION PTR
   TRY
   {
     captured_tids := RECORD[];
-    onparsedtid := PTR OnTid(resourcename, #1);
+    onparsedtid := PTR OnTid;
     tocall();
     RETURN captured_tids;
   }
@@ -163,7 +162,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
   {
     RECORD md := this->ParseAndValidate();
 
-    ListModuleWebruleSets(this->modulename, this->xml); //parse <webruleset> titles
+    ListModuleWebruleSets(this->respath, this->xml); //parse <webruleset> titles
     ParseModuleDefRunonce(this);
 
     ParseModuleDefinition(this->modulename, this->xml);
