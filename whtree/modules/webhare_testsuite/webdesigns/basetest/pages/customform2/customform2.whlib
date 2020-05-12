@@ -87,29 +87,6 @@ PUBLIC OBJECTTYPE CustomFormPage2 EXTEND WebtoolFormPage
   {
     //work->addwarning("yeay?");
   }
-
-  UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
-  {
-    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
-    // When testing duplicate submission, we don't want to overwrite existing results
-    BOOLEAN overwriteexisting := GetFormWebVariable("testduplicate") != "1";
-    this->form->SetIDField(emailfield.obj->value, CELL[ overwriteexisting ]);
-
-    this->form->pagedata := CELL[ ...this->form->pagedata
-                                , editlink := UpdateURLVariables(GetFormRequestURL(), [ editguid := EncryptForThisServer("webhare_testsuite:customform", this->form->resultguid) ])
-                                ];
-
-    IF(emailfield.obj->value = "testfw+dontmailme@beta.webhare.net")
-      FOREVERY(RECORD resulthandler FROM SELECT * FROM this->form->ListHandlers() WHERE handlertype = "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler")
-        this->form->DeleteHandlerByGUID(resulthandler.guid);
-
-    IF(MemberExists(this->form,"^pm"))
-    {
-      TestEq(TRUE, RecordExists(this->form->^pm->selection));
-    }
-
-    RETURN DEFAULT RECORD;
-  }
 >;
 
 PUBLIC STATIC OBJECTTYPE MultiMergeField2 EXTEND ComposedFormFieldBase
@@ -173,5 +150,35 @@ PUBLIC OBJECTTYPE CustomFormWidget2 EXTEND WidgetBase
     Print(`<div class="custom-form-widget">Custom Form Widget with value '${EncodeHTML(field.value.text)}'</div>`);
 
     this->context->mailcomposer->AddAttachment(StringToBlob(`Hi ${field.value.text}`), [filename := "test.txt", mimetype := "text/plain" ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
+<
+  MACRO NEW()
+  {
+    TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
+  }
+  UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
+  {
+    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
+    // When testing duplicate submission, we don't want to overwrite existing results
+    BOOLEAN overwriteexisting := GetFormWebVariable("testduplicate") != "1";
+    this->form->SetIDField(emailfield.obj->value, CELL[ overwriteexisting ]);
+
+    this->form->pagedata := CELL[ ...this->form->pagedata
+                                , editlink := UpdateURLVariables(GetFormRequestURL(), [ editguid := EncryptForThisServer("webhare_testsuite:customform", this->form->resultguid) ])
+                                ];
+
+    IF(emailfield.obj->value = "testfw+dontmailme@beta.webhare.net")
+      FOREVERY(RECORD resulthandler FROM SELECT * FROM this->form->ListHandlers() WHERE handlertype = "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler")
+        this->form->DeleteHandlerByGUID(resulthandler.guid);
+
+    IF(MemberExists(this->form,"^pm"))
+    {
+      TestEq(TRUE, RecordExists(this->form->^pm->selection));
+    }
+
+    RETURN DEFAULT RECORD;
   }
 >;

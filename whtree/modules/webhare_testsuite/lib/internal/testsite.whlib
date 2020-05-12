@@ -430,11 +430,9 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   {
     OBJECT prefillhandler := formdef->AddHandler("http://www.webhare.net/xmlns/wrd/forms#wrdauthprefillhandler");
   }
-  ELSE
-  {
-    OBJECT testsuitehandler := formdef->AddHandler("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler");
-    testsuitehandler->SetAttribute("x","42@webhare.net");
-  }
+
+  OBJECT testsuitehandler := formdef->AddHandler("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler");
+  testsuitehandler->SetAttribute("x","42@webhare.net");
 
   IF(options.addtslinecomp)
   {

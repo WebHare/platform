@@ -22,7 +22,7 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
     <extendformeditor settingsextension="customform2.xml#props" />
-    <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2" />
+    <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2" webtoolformhooks="customform2.whlib#CustomFormHooks" /><!--  -->
     <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield2" />
     <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#matchattributes?attr1=type2&amp;attr2=true" />
     <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />

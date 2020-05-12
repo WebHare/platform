@@ -10,6 +10,10 @@ LOADLIB "mod::publisher/lib/webtools/formcomponents/textedit.whlib";
 
 PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
 <
+  MACRO NEW()
+  {
+    INSERT CELL testsuitehandlerproof := "TSHANDLERPROOF-41" INTO this->form->formdataset;
+  }
   UPDATE PUBLIC MACRO PrepareRendering()
   {
     FOREVERY(RECORD field FROM this->form->ListFields())
