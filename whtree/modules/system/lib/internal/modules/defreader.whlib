@@ -6,6 +6,7 @@ LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 PUBLIC RECORD FUNCTION OrderIntercepts(RECORD ARRAY intercepts)
 {
@@ -325,6 +326,10 @@ RECORD FUNCTION GetCacheableAllModules()
   FOREVERY(STRING module FROM allmodules)
     allmodules[#module] := ToLowercase(module);
 
+  // Do not report tid errors from the caching parser. They often leak through validation if any moduledefinition is broken
+  MACRO PTR save_onparsedtid := onparsedtid;
+  onparsedtid := DEFAULT MACRO PTR;
+
   FOREVERY(STRING module FROM allmodules)
   {
     IF (module LIKE "system_*")
@@ -360,7 +365,6 @@ RECORD FUNCTION GetCacheableAllModules()
       INSERT modinfo INTO modlist AT 0;
     ELSE
       INSERT modinfo INTO modlist AT END;
-
   }
 
   // Place the base modules first in the ordering.
@@ -402,6 +406,8 @@ RECORD FUNCTION GetCacheableAllModules()
   orderedmodlist := GlobalCheckModules(orderedmodlist);
   FOREVERY(RECORD mod FROM orderedmodlist)
     loaderrors := loaderrors CONCAT mod.errors;
+
+  onparsedtid := save_onparsedtid;
 
   RETURN [ ttl := 24 * 60 * 60 * 1000
          , value := [ modules := orderedmodlist
