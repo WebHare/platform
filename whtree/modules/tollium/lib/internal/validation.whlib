@@ -23,7 +23,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
 
         FOREVERY(OBJECT messagebox FROM topnode->childnodes->GetCurrentElements())
         {
-          RECORD node := GetMessageBoxFromNode(messagebox, this->modulename);
+          RECORD node := GetMessageBoxFromNode(this->respath, messagebox, this->modulename);
           STRING replacement;
           STRING suggesttype;
 
