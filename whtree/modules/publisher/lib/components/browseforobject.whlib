@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -288,10 +289,11 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
     {
       IF(ObjectExists(this->contexts->applytester))
       {
-        OBJECT targetsiteroot := OpenWHFSObject(this->contexts->applytester->objsite);
-        IF(ObjectExists(targetsiteroot))
+        OBJECT targetsite := OpenSite(this->contexts->applytester->objsite);
+        IF(ObjectExists(targetsite))
         {
-          OBJECT target := targetsiteroot->OpenByPath(this->fullpath);
+          //NOTE: Site::OpenByPath accept fullpaths starting with a slash
+          OBJECT target := targetsite->OpenByPath(this->fullpath);
           IF(ObjectExists(target) AND target->isfolder)
             RETURN target->id;
         }

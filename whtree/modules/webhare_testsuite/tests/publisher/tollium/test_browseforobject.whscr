@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -64,23 +65,25 @@ ASYNC MACRO TestBrowseForObject()
   OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([ name := "deleteme.txt" ]);
   testfw->CommitWork();
 
-  STRING simple_browse_comp := `inline::
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
-  <screen name="test" implementation="none">
+  OBJECT scr := GetTestController()->LoadScreen(InlineScreens(
+    `<screen name="test" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
     <body>
       <p:browseforobject name="comp" site="webhare testsuite site" fullpath="/portal1/"/>
     </body>
-  </screen>
-</screens>#test`;
+  </screen>`, "#test"));
 
-  OBJECT scr := GetTestController()->LoadScreen(simple_browse_comp);
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   AWAIT ExpectScreenChange(+1, PTR TTClick("comp->browseaction"));
   TestEq("portal1", TT("folders")->selection.name);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  scr := GetTestController()->LoadScreen(simple_browse_comp);
+  scr := GetTestController()->LoadScreen(InlineScreens(
+    `<screen name="test" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+    <body>
+      <p:browseforobject name="comp" site="webhare testsuite site" fullpath="/portal1/"/>
+    </body>
+  </screen>`, "#test"));
   scr->comp->value := testfile->id;
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
@@ -94,11 +97,30 @@ ASYNC MACRO TestBrowseForObject()
   testfile->RecycleSelf();
   testfw->CommitWork();
 
-  scr := GetTestController()->LoadScreen(simple_browse_comp);
+  scr := GetTestController()->LoadScreen(InlineScreens(
+    `<screen name="test" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+    <body>
+      <p:browseforobject name="comp" site="webhare testsuite site" fullpath="/portal1/"/>
+    </body>
+  </screen>`, "#test"));
   scr->comp->value := testfile->id;
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   TestEq("deleteme.txt (deleted)", scr->comp->^path->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+
+  scr := GetTestController()->LoadScreen(InlineScreens(
+    `<screen name="test" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+    <body>
+      <p:browseforobject name="comp" fullpath="/portal1/"/>
+    </body>
+  </screen>`, "#test"), DEFAULT RECORD, [ contexts := [ applytester := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)
+                                        ]]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->browseaction"));
+  TestEq("portal1", TT("folders")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }
 
