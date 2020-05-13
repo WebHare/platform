@@ -1302,9 +1302,23 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
     text := Substring(text,1);
   }
 
+  INTEGER expectmatches := 1;
+  INTEGER selectmatch := 1;
+
+  IF (text LIKE "*[*/*]")
+  {
+    INTEGER qpos := SearchLastSubString(text, "[");
+    STRING ARRAY parts := Tokenize(SubString(text, qpos + 1, LENGTH(text) - qpos - 2), "/");
+    text := Left(text, qpos);
+    expectmatches := ToInteger(parts[1], 0);
+    selectmatch := ToInteger(parts[0], 0);
+    IF (expectmatches <= 0 OR selectmatch <= 0 OR selectmatch > expectmatches)
+      THROW NEW Exception(`Illegal match nr selector: ${EncodeJSON(`[${Detokenize(parts, "/")}]`)}`);
+  }
+
   FOREVERY(OBJECT obj FROM comps)
   {
-    BOOLEAN titlematch := ToUppercase(obj->title ?? obj->errorlabel) = ToUppercase(text);
+    BOOLEAN titlematch := ToUppercase(obj->title ?? obj->errorlabel) = ToUppercase(text) OR text = "*";
 
     IF(matchelementtype != "")
     {
@@ -1323,7 +1337,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
 
       IF(NOT titlematch //title match
          AND
-           (obj->componenttype != "text" OR NOT ObjectExists(obj->action) OR ToUppercase(obj->value) != ToUppercase(text)) //value match
+           (obj->componenttype != "text" OR NOT ObjectExists(obj->action) OR (ToUppercase(obj->value) != ToUppercase(text) AND text != "*")) //value match
           )
       CONTINUE;
     }
@@ -1347,11 +1361,6 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
     INSERT obj INTO matches AT END;
   }
 
-  IF(Length(matches) > 1)
-  {
-    STRING ARRAY matchnames := SELECT AS STRING ARRAY obj->toddname FROM ToRecordArray(matches,'obj');
-    THROW NEW Exception(`${Length(matches)} objects with title '${text}' in '${pathstr}': ${Detokenize(matchnames,', ')}`);
-  }
   IF(Length(matches) = 0)
   {
     IF (options.allowmissing)
@@ -1373,8 +1382,13 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
     STRING didyoumean := GetBestMatch(text, GetSortedSet(alltexts));
     THROW NEW Exception(`No objects with title '${text}' in '${pathstr}'${didyoumean=""?"":`, did you mean '${didyoumean}'?`}`);
   }
+  IF(Length(matches) != expectmatches)
+  {
+    STRING ARRAY matchnames := SELECT AS STRING ARRAY obj->toddname FROM ToRecordArray(matches,'obj');
+    THROW NEW Exception(`Expected ${expectmatches}, got ${Length(matches)} objects with title '${text}' in '${pathstr}': ${Detokenize(matchnames,', ')}`);
+  }
 
-  RETURN matches[0];
+  RETURN matches[selectmatch - 1];
 }
 
 /** @short Look for a component in the current toplevel screen
