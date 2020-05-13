@@ -22,7 +22,7 @@
     <messagebox name="submitversionedfiletoapplychanges" icon="information" buttons="ok" dontshowagain="ok" />
   </messageboxes>
 
-  <screen name="objectprops" gid=".objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned">
+  <screen name="objectprops" gid=".objectprops" title="" allowresize="true" savestate="size" minwidth="70x" width="80x" height="30x" flags="ispinned" defaultbutton="ok_button">
     <actions>
       <action name="addtask" tid="tollium:common.actions.add" onexecute="doaddtask" frameflags="!ispinned" />
       <action name="edittask" tid="tollium:common.actions.edit" onexecute="doedittask" frameflags="!ispinned">
@@ -156,7 +156,7 @@
     <footer layout="right">
       <line>
         <button name="requestapproval_button" action="requestapproval" tid=".requestapproval" visible="false" />
-        <button name="ok_button" tid="tollium:common.actions.ok" tolliumresult="ok" isdefault="true" />
+        <button name="ok_button" tid="tollium:common.actions.ok" tolliumresult="ok" />
         <button name="cancel_button" tid="tollium:common.actions.cancel" tolliumresult="cancel" />
       </line>
     </footer>

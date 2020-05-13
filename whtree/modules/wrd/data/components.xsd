@@ -714,7 +714,13 @@
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="rowselect" />
+    <xs:attribute name="rowselect">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Whether to highlight to whole selected row(s). (default behaviour since Webhare V4)</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:attribute name="sortable" type="xs:boolean" default="true">
       <xs:annotation>

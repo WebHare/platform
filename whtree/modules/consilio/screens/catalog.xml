@@ -350,7 +350,7 @@
   </screen>
 
   <screen name="contentsourceeditor" gid=".contentsourceeditor" title=""
-          minwidth="70x" minheight="25x">
+          minwidth="70x" minheight="25x" defaultbutton="settingsnext">
     <actions>
       <action name="next" onexecute="donext" tid="tollium:common.actions.next" />
       <action name="previous" title="" onexecute="doprevious" />
@@ -394,7 +394,7 @@
           </panel>
           <line layout="right">
             <button name="settingsprev" action="previous" tid="tollium:common.actions.previous" />
-            <button name="settingsnext" title="" tolliumresult="ok" isdefault="true" />
+            <button name="settingsnext" title="" tolliumresult="ok" />
             <button tolliumresult="cancel" tid="tollium:common.actions.cancel" />
           </line>
         </tab>

@@ -27,7 +27,7 @@
         <col />
         <row height="1pr">
           <cell>
-            <list name="providers" selectmode="single" minheight="8x" height="1pr" width="1pr" rowselect="true" openaction="editprovider" selectcontextmenu="selectcontextmenu" ongetrows="GetProviders">
+            <list name="providers" selectmode="single" minheight="8x" height="1pr" width="1pr" openaction="editprovider" selectcontextmenu="selectcontextmenu" ongetrows="GetProviders">
               <column name="title" type="text" tid="tollium:common.labels.title" />
               <column name="type" type="text" />
               <column name="tag" type="text" />

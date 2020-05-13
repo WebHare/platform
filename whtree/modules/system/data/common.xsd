@@ -5,14 +5,6 @@
            elementFormDefault="qualified"
            xml:lang="en">
 
-  <xs:simpleType name="DeprecatedAttribute">
-    <xs:annotation>
-      <xs:documentation>This attribute is deprecated and using it will trigger a warning</xs:documentation>
-    </xs:annotation>
-    <xs:restriction base="xs:string">
-     </xs:restriction>
-  </xs:simpleType>
-
   <xs:simpleType name="InstanceId">
     <xs:restriction base="xs:string">
       <xs:minLength value="1"/>

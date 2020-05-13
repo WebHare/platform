@@ -1093,7 +1093,7 @@ To change a <xs:attribute /> for adding descriptions
               <xs:enumeration value="true">
                 <xs:annotation>
                   <xs:appinfo>
-                    <deprecated>Use the 'position' and/or 'size' values</deprecated>
+                    <sc:deprecated>Use the 'position' and/or 'size' values</sc:deprecated> <!-- TODO validate doesn't warn about deprecated enum values yet -->
                   </xs:appinfo>
                 </xs:annotation>
               </xs:enumeration>
@@ -1259,7 +1259,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="isdefault" type="xs:boolean">
       <xs:annotation>
         <xs:appinfo>
-          <deprecated>Use the 'defaultbutton' attribute on the screen</deprecated>
+          <sc:deprecated>Use the 'defaultbutton' attribute on the screen</sc:deprecated>
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
@@ -1982,11 +1982,41 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Layout" />
 
     <!-- obsolete and ignored attributes -->
-    <xs:attribute name="margintop" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginbottom" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginleft" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="marginright" type="sc:DeprecatedAttribute" />
-    <xs:attribute name="reserveheight" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="margintop">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginbottom">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginleft">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="marginright">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Margins have been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="reserveheight">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>Reserveheight has been ignored since WH 4.03</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="Lines">
@@ -2450,28 +2480,28 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="imagemaxwidth" type="AbsSize">
       <xs:annotation>
         <xs:appinfo>
-          <deprecated>imagemaxwidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</deprecated>
+          <sc:deprecated>imagemaxwidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="imagemaxheight" type="AbsSize">
       <xs:annotation>
         <xs:appinfo>
-          <deprecated>imagemaxheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</deprecated>
+          <sc:deprecated>imagemaxheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="imageforcewidth" type="AbsSize">
       <xs:annotation>
         <xs:appinfo>
-          <deprecated>imageforcewidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</deprecated>
+          <sc:deprecated>imageforcewidth is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="imageforceheight" type="AbsSize">
       <xs:annotation>
         <xs:appinfo>
-          <deprecated>imageforceheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</deprecated>
+          <sc:deprecated>imageforceheight is deprecated since v2.38, use imagesetwidth, imagesetheight and imageresizemethod instead</sc:deprecated>
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
@@ -2893,7 +2923,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="allowformatting" default="all">
           <xs:annotation>
             <xs:appinfo>
-              <deprecated>allowformatting doesn't work anymore. Use the tagfilter attribute instead.</deprecated>
+              <sc:deprecated>allowformatting doesn't work anymore. Use the tagfilter attribute instead.</sc:deprecated>
             </xs:appinfo>
           </xs:annotation>
           <xs:simpleType>
@@ -3416,7 +3446,13 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="InlineBlockAttributes" />
     <xs:attributeGroup ref="Gid" />
 
-    <xs:attribute name="border" type="sc:DeprecatedAttribute" />
+    <xs:attribute name="border">
+      <xs:annotation>
+        <xs:appinfo>
+          <sc:deprecated>border has been ignored since WH 4.03, we now use borders</sc:deprecated>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:attribute name="spacers" type="BordersSpacers" default="default">
       <xs:annotation>
@@ -4718,13 +4754,9 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attribute name="rowselect">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>
-            Whether to highlight to whole selected row(s).
-            (default behaviour since Webhare V4)
-            FIXME: is it still relevant. does setting it to FALSE work?
-          </html:p>
-        </xs:documentation>
+        <xs:appinfo>
+          <sc:deprecated>We always select the whole row since 4.03</sc:deprecated>
+        </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
 

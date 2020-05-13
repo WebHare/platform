@@ -49,13 +49,13 @@
   </fragment>
 
   <screen name="selecttype" gid=".filterpanel.types"
-          width="40x" height="20x" allowresize="true" savestate="size">
+          width="40x" height="20x" allowresize="true" savestate="size" defaultbutton="ok_button">
     <body>
       <line>
         <spacer width="1pr" />
         <textedit name="filter" onchange="onfilterchange" visible="false" />
       </line>
-      <list name="typeslist" width="1pr" height="1pr" selectmode="multiple" rowselect="true">
+      <list name="typeslist" width="1pr" height="1pr" selectmode="multiple">
         <column name="title" iconname="icon" type="text" />
         <column name="namespace" type="text" />
       </list>
@@ -64,7 +64,7 @@
       <line>
         <checkbox name="showall" title="" labeltid=".showall" onchange="onshowallchange" />
         <spacer width="1pr" />
-        <button tid="~ok" tolliumresult="ok" isdefault="true" />
+        <button name="ok_button" tid="~ok" tolliumresult="ok" />
         <button tid="~cancel" tolliumresult="cancel" />
       </line>
     </footer>

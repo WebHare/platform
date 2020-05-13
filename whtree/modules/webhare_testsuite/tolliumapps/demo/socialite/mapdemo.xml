@@ -102,7 +102,6 @@
               <panel height="1pr">
                 <list name="mapcontents"
                       selectmode="multiple"
-                      rowselect="true"
                       onselect="doshowitem"
                       openaction="centeronitem"
                       height="1pr"
