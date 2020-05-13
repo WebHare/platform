@@ -308,6 +308,7 @@
     <text tid="addressfield">Adres</text>
     <text tid="addressfield_incomplete">Veld '<param p="1"/>' bevat een incompleet adres</text>
     <text tid="cannotdeletereferredentity">Kan dit element niet verwijderen, er zijn nog andere elementen die een referentie naar dit element hebben.</text>
+    <text tid="confirmdeleteentities">Weet u zeker dat u deze element wil verwijderen?</text>
     <text tid="confirmdeleteentity">Weet u zeker dat u dit element wilt verwijderen?</text>
     <text tid="gender">Geslacht</text>
     <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
