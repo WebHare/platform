@@ -262,7 +262,19 @@
     </xs:annotation>
 
     <xs:all>
-      <xs:element name="version" type="xs:string" minOccurs="0" />
+      <xs:element name="version" minOccurs="0">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="excludefromfeedbackversions" type="xs:boolean">
+                <xs:annotation>
+                  <xs:documentation>If set, this module version will not be reported in feedback reports. Commonly used for eg. globally installed policy modules</xs:documentation>
+                </xs:annotation>
+              </xs:attribute>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
       <xs:element name="description" type="xs:string" minOccurs="0" />
       <xs:element name="copyright" type="xs:string" minOccurs="0" />
       <xs:element name="packaging" type="Packaging" minOccurs="0" />
