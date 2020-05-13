@@ -1093,7 +1093,7 @@ To change a <xs:attribute /> for adding descriptions
               <xs:enumeration value="true">
                 <xs:annotation>
                   <xs:appinfo>
-                    <sc:deprecated>Use the 'position' and/or 'size' values</sc:deprecated> <!-- TODO validate doesn't wan about deprecated enum values yet -->
+                    <sc:deprecated>Use the 'position' and/or 'size' values</sc:deprecated> <!-- TODO validate doesn't warn about deprecated enum values yet -->
                   </xs:appinfo>
                 </xs:annotation>
               </xs:enumeration>
