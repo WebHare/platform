@@ -67,7 +67,7 @@ RECORD FUNCTION ValidateTidsSyntax(RECORD ARRAY intids)
     @cell(integer) return.line Relevant line number
     @cell(integer) return.col Relevant column
 */
-RECORD ARRAY FUNCTION ValidateTidsExistence(STRING resourcename, RECORD ARRAY tids)
+RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
 {
   RECORD ARRAY warnings;
 
@@ -78,7 +78,7 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(STRING resourcename, RECORD ARRAY ti
     {
       STRING attr := CellExists(tid, "ATTRNAME") ? tid.attrname : "";
       INSERT
-          [ resourcename :=   resourcename
+          [ resourcename :=   tid.resourcename
           , message :=    "Missing tid" || (attr != "" ? " from attribute '" || attr || "'" : "") || ": '" || tid.tid || "'"
           , line :=       tid.line
           , col :=        tid.col
@@ -263,7 +263,7 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
 
   IF(NOT options.onlytids)
   {
-    RECORD ARRAY tidissues := ValidateTidsExistence(resourcename, result.tids);
+    RECORD ARRAY tidissues := ValidateTidsExistence(result.tids);
     IF(options.nomissingtids)
       result.errors := result.errors CONCAT tidissues;
     ELSE

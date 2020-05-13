@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC MACRO PTR onparsedtid;
 PUBLIC RECORD modulelangs;
@@ -341,10 +342,12 @@ PUBLIC RECORD FUNCTION GetXMLTidFromName(STRING defaultmodule, STRING currentgid
   RETURN DEFAULT RECORD;
 }
 
-PUBLIC STRING FUNCTION ParseXMLTidDirectly(OBJECT el, STRING tid, STRING attrnametid)
+PUBLIC STRING FUNCTION ParseXMLTidDirectly(STRING resourcename, OBJECT el, STRING tid, STRING attrnametid)
 {
+  IF(resourcename != "" AND resourcename NOT LIKE "*::*") //no exceptions, noone externally should use this
+    THROW NEW Exception("ParseXMLTidDirectly call with invalid resource name");
   IF(onparsedtid != DEFAULT MACRO PTR)
-    onparsedtid(CELL[ tid, line := el->linenum, col := 0, attrname := attrnametid ]);
+    onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid ]);
   RETURN tid;
 }
 
@@ -353,13 +356,18 @@ PUBLIC STRING FUNCTION ParseXMLTidDirectly(OBJECT el, STRING tid, STRING attrnam
     @loadlib mod::tollium/lib/gettid.whlib
     @short Parse a title/tid combination, considering any groupid, default module and name/cellname rules. Returns an empty string if unset, ':' prefixed string for untranslated texts, and otherwise a module:tid combination
 */
-PUBLIC STRING FUNCTION ParseXMLTidPtr(STRING defaultmodule, STRING currentgid, OBJECT el, STRING attrname)
+PUBLIC STRING FUNCTION ParseXMLTidPtr(STRING resourcename, STRING currentgid, OBJECT el, STRING attrname)
 {
-  RETURN ParseXMLTidPtrNS(defaultmodule, currentgid, el, "", attrname);
+  RETURN ParseXMLTidPtrNS(resourcename, currentgid, el, "", attrname);
 }
 
-PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING defaultmodule, STRING currentgid, OBJECT el, STRING ns, STRING attrname)
+PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING resourcename, STRING currentgid, OBJECT el, STRING ns, STRING attrname)
 {
+  /* validate resourcename, as we used to accept modulename for now we'll tolerate it for old code, but only if targetted at
+     an external module (eg embedded blexdev_formsapi). this check can probably go away post 4.29 */
+  IF(resourcename != "" AND resourcename NOT LIKE "*::*" AND resourcename IN (whconstant_builtinmodules CONCAT ["webhare_testsuite"]))
+    THROW NEW Exception("ParseXMLTidPtr call with invalid resource name");
+
   STRING attrnametid := attrname LIKE "*title" ? Left(attrname, Length(attrname) - 5) || "tid" : attrname || "tid";
   IF(el->HasAttributeNS(ns, attrnametid))
   {
@@ -368,13 +376,13 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING defaultmodule, STRING currentgid,
       tid := currentgid || tid;
     IF(NOT IsAbsoluteTid(tid))
     {
-      IF(defaultmodule = "")
+      IF(resourcename = "")
         THROW NEW Exception("ParseXMLTidPtr requires a set module if the tid/gid doesn't specify one");
-      tid := defaultmodule || ":" || tid;
+      tid := __GetModuleNameFromResourcePath(resourcename) || ":" || tid;
     }
 
     IF(onparsedtid != DEFAULT MACRO PTR)
-      onparsedtid(CELL[ tid, line := el->linenum, col := 0, attrname := attrnametid ]);
+      onparsedtid(CELL[ resourcename, tid, line := el->linenum, col := 0, attrname := attrnametid ]);
 
     RETURN tid;
   }
@@ -384,11 +392,11 @@ PUBLIC STRING FUNCTION ParseXMLTidPtrNS(STRING defaultmodule, STRING currentgid,
 
   IF(currentgid != "" AND attrname LIKE "*title")
   {
-    RECORD trygidfromname := GetXMLTidFromName(defaultmodule, currentgid, el);
+    RECORD trygidfromname := GetXMLTidFromName(__GetModuleNameFromResourcePath(resourcename), currentgid, el);
     IF(RecordExists(trygidfromname))
     {
       IF(onparsedtid != DEFAULT MACRO PTR AND trygidfromname.tid!="")
-        onparsedtid(CELL[ tid := trygidfromname.tid, line := el->linenum, col := 0, attrname := trygidfromname.attr ]);
+        onparsedtid(CELL[ resourcename, tid := trygidfromname.tid, line := el->linenum, col := 0, attrname := trygidfromname.attr ]);
 
       RETURN trygidfromname.tid;
     }
@@ -415,19 +423,7 @@ PUBLIC STRING FUNCTION DetermineNodeGid(STRING resourcename, OBJECT node) // FIX
     IF (localgid LIKE ".*")
       RETURN parentgid || localgid;
 
-    RETURN __GetModuleBaseFromResourceName(resourcename) || ':' || localgid;
+    RETURN __GetModuleNameFromResourcePath(resourcename) || ':' || localgid;
   }
   RETURN "";
-}
-
-/** Return a module name suitable for adding ':screenfile.screenname'
-    eg returns 'publisher' from modulescreens::publisher/a/b/c
-       and returns ':site::x/y/z' from site::x/y/z
-*/
-PUBLIC STRING FUNCTION __GetModuleBaseFromResourceName(STRING resourcename)
-{
-  STRING modname := __GetModuleNameFromResourcePath(resourcename);
-  IF(modname != "")
-    RETURN modname;
-  RETURN ToLowercase(Tokenize(resourcename,'#')[0]); //this is for legacy site paths. we can remove this as soon as site-based languaage files are dead
 }

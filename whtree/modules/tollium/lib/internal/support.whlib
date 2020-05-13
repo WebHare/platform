@@ -11,7 +11,7 @@ LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::tollium/lib/internal/gettid.whlib" EXPORT __GetModuleBaseFromResourceName;
+LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 PUBLIC RECORD __screenbuildinfo;
 PUBLIC STRING ns_screens := "http://www.webhare.net/xmlns/tollium/screens";
@@ -861,7 +861,7 @@ PUBLIC STRING FUNCTION GetScreenNameFromScreenPath(STRING screenpath)
 }
 PUBLIC STRING FUNCTION GetModuleNameFromScreenPath(STRING screenpath)
 {
-  RETURN __GetModuleBaseFromResourceName(GetResourceNameFromSCreenPath(screenpath));
+  RETURN GetModuleNameFromResourcePath(GetResourceNameFromSCreenPath(screenpath));
 }
 
 PUBLIC STRING FUNCTION GetBroadcastAllTarget()

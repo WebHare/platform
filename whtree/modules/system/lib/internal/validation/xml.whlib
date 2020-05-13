@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -21,20 +22,19 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 RECORD ARRAY schemata;
 RECORD ARRAY captured_tids;
 
-MACRO OnTid(STRING resourcename, RECORD tiddata)
+MACRO OnTid(RECORD tiddata)
 {
-  tiddata := CELL [ resourcename, ...tiddata ];
   INSERT tiddata INTO captured_tids AT END;
 }
 
-PUBLIC RECORD ARRAY FUNCTION RunAndExtractTids(STRING resourcename, FUNCTION PTR tocall)
+PUBLIC RECORD ARRAY FUNCTION RunAndExtractTids(FUNCTION PTR tocall)
 {
   RECORD ARRAY save_captured_tids := captured_tids;
   MACRO PTR save_capture := onparsedtid;
   TRY
   {
     captured_tids := RECORD[];
-    onparsedtid := PTR OnTid(resourcename, #1);
+    onparsedtid := PTR OnTid;
     tocall();
     RETURN captured_tids;
   }
@@ -163,10 +163,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
   {
     RECORD md := this->ParseAndValidate();
 
-    ListModuleWebruleSets(this->modulename, this->xml); //parse <webruleset> titles
+    ListModuleWebruleSets(this->respath, this->xml); //parse <webruleset> titles
     ParseModuleDefRunonce(this);
-
-    ParseModuleDefinition(this->modulename, this->xml);
     CaptureOtherTids(this->modulename, this->xml);
 
     FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "databaseschema")->GetCurrentElements())
@@ -188,6 +186,15 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       {
         TRY GetNextCronTime(GetCurrentDatetime(), task.runat);
         CATCH(OBJECT e) { this->AddErrorForLine(task.line, `Invalid runat '${task.runat}': '${e->what}`); }
+      }
+    }
+
+    RECORD taskinfo := ParseModuleTasks(this->modulename, this->respath, this->xml);
+    FOREVERY(RECORD task FROM taskinfo.tasktypes)
+    {
+      IF(NOT task.isnode)
+      {
+        this->VerifyObjectExistence(task.linenum, task.objectname);
       }
     }
 
@@ -281,8 +288,8 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
 
   validator->onlytids := options.onlytids;
 
-  RECORD ARRAY tids := RunAndExtractTids(resourcename, PTR validator->ValidateDocument());
-  tids := SELECT DISTINCT resourcename := VAR resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;
+  RECORD ARRAY tids := RunAndExtractTids(PTR validator->ValidateDocument());
+  tids := SELECT DISTINCT COLUMN resourcename, line, col, attrname, tid FROM tids ORDER BY line, col;
   RETURN CELL[ errors := validator->errors
              , warnings := validator->warnings
              , hints := validator->hints

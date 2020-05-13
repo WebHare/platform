@@ -32,7 +32,7 @@ RECORD FUNCTION GetFormInstance(OBJECT formdefinitions, STRING id)
   RETURN ObjectExists(formdefinitions) ? formdefinitions->GetInstance(id) : DEFAULT RECORD;
 }
 
-PUBLIC RECORD ARRAY FUNCTION ParseFormHandlers(OBJECT root, STRING module, STRING gid, OBJECT formdefinitions, BOOLEAN validatexmlonly)
+PUBLIC RECORD ARRAY FUNCTION ParseFormHandlers(OBJECT root, STRING resourcename, STRING gid, OBJECT formdefinitions, BOOLEAN validatexmlonly)
 {
   OBJECT handlerholder := root->GetChildElementsByTagNameNS(xmlns_forms, "handlers")->Item(0);
   IF(NOT ObjectExists(handlerholder))
@@ -56,7 +56,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseFormHandlers(OBJECT root, STRING module, STRIN
     IF (match.parserfunc != "")
     {
       handler.settings := MakeFunctionPtr(match.parserfunc)(handler.settings, handlernode,
-          [ parsexmltidptr := PTR ParseXMLTidPtr(module, gid, #1, #2)
+          [ parsexmltidptr := PTR ParseXMLTidPtr(resourcename, gid, #1, #2)
           , getinstance := validatexmlonly ? DEFAULT MACRO PTR : PTR GetFormInstance(formdefinitions, #1)
           ]);
     }

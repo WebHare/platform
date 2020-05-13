@@ -256,14 +256,8 @@ STRING FUNCTION FixSpacesInTid(STRING intid)
 
 PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD options)
 {
-  IF (resourcename LIKE "whfs::*") // Can't recompile within whfs::, translate to site::
-  {
-    OBJECT obj := OpenWHFSObjectByPath(resourcename);
-    IF (NOT ObjectExists(obj) OR obj->highestparent = 0)
-      THROW NEW Exception(ObjectExists(obj) ? "Can only recompile files within a site" : "File not found");
-
-    resourcename := "site::" || obj->highestparentobject->name || obj->fullpath;
-  }
+  IF (resourcename LIKE "whfs::*" OR resourcename LIKE "site::*")
+    THROW NEW Exception("Validation of HareScript code in the Publisher is no longer supported - future versions of WebHare will remove support for WHFS/site HareScript code completely!");
 
   RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[] ];
 

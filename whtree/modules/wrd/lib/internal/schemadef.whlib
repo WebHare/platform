@@ -139,7 +139,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaDefinitionFile EXTEND XMLValidatorBase
         STRING gid := ParseXMLGid(modulename, "", enum, "", "gid");
         IF(gid!="")
           FOREVERY(STRING val FROM ParseXSLIst(enum->GetAttribute("allowedvalues")))
-            ParseXMLTidDirectly(enum, ToLowercase(gid || "." || val), "allowedvalues");
+            ParseXMLTidDirectly(this->respath, enum, ToLowercase(gid || "." || val), "allowedvalues");
       }
     }
   }

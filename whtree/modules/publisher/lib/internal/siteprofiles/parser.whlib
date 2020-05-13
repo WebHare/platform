@@ -66,7 +66,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     this->filename := filename;
     this->siteprof := siteprof;
     //__GetModuleBaseFromResourceName fallback is needed to support texts in site-based siteprofiles
-    this->module := GetModuleNameFromResourcePath(filename) ?? __GetModuleBaseFromResourceName(this->filename);
+    this->module := GetModuleNameFromResourcePath(filename);
     this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "", "gid");
   }
 
@@ -304,7 +304,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     }
 
     ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
-    ctype.filetype.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
+    ctype.filetype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
     IF(ftype->HasAttribute("blobiscontent"))
      ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
     ctype.filetype.pagelistprovider := this->ParseFSPath(ftype, "pagelistprovider");
@@ -367,7 +367,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
     //Now construct the final folder type information record
     ctype.foldertype := [ tolliumicon := tolliumicon
-                        , title := ParseXMLTIDPtr(this->module, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace
+                        , title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace
                         , isdevelopertype := ftype->GetAttribute("isdevelopertype") IN [ "true", "1" ]
                         , indexfile := ""
                         , protectindexfile := ftype->GetAttribute("protectindexfile") IN [ "true", "1" ]
@@ -546,7 +546,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.siteprofile := this->filename;
     typeinfo.line := ctype->linenum;
     typeinfo.col := 0;
-    typeinfo.title := ParseXMLTIDPtr(this->module, this->toplevelgid, ctype, "title") ?? ":" || ns;
+    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || ns;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon");
     typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
@@ -1229,7 +1229,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               INSERT CELL [ type := node->GetAttribute('type')
                           , tag := node->GetAttribute('tag')
                           , haslist := haslist
-                          , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                          , title := ParseXMLTidPtr(this->filename, this->toplevelgid, node, "title")
                           , dynexecute := this->ParseDynamicExecuteData(node)
                           , capturesubpaths := ParseXSBoolean(node->GetAttribute("capturesubpaths"))
                           ]
@@ -1239,7 +1239,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "mailtemplate"
             {
               INSERT CELL[ path := this->siteprof->ParseFSPath(node, "path")
-                         , title := ParseXMLTidPtr(this->module, this->toplevelgid, node, "title")
+                         , title := ParseXMLTidPtr(this->filename, this->toplevelgid, node, "title")
                          , ordering := ParseXSInt(node->GetAttribute("ordering"))
                          , sources := this->ParseSources(node)
                          ] INTO apply.mailtemplates AT END;
@@ -1409,7 +1409,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       RECORD typeinfo :=
           [ namespace :=          gtype->GetAttribute("namespace")
-          , title :=              ParseXMLTIDPtr(this->module, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
+          , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
           , tolliumicon :=        gtype->GetAttribute("tolliumicon")
           , members :=            DEFAULT RECORD ARRAY
           ];

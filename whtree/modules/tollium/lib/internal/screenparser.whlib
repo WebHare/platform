@@ -142,7 +142,7 @@ STATIC OBJECTTYPE PageParser
   MACRO NEW(STRING resourcename, STRING topgid, BOOLEAN allpublic, STRING scope, STRING objectname)
   {
     this->resourcename := resourcename;
-    STRING modulename := __GetModuleBaseFromResourceName(resourcename); //the siteprofile supporting version
+    STRING modulename := GetModuleNameFromResourcePath(resourcename);
     // Make sure the topgid is fully qualified with the modulename
     IF (topgid != "" AND topgid NOT LIKE "*:*")
     {
@@ -280,11 +280,11 @@ STATIC OBJECTTYPE PageParser
    */
   PUBLIC STRING FUNCTION ParseTP(OBJECT el, STRING type)
   {
-    RETURN ParseXMLTidPtr(this->GetCurrentModule(), this->GetCurrentGid(), el, type);
+    RETURN ParseXMLTidPtr(this->GetCurrentResourceName(), this->GetCurrentGid(), el, type);
   }
   PUBLIC STRING FUNCTION ParseTPNS(OBJECT el, STRING ns, STRING type)
   {
-    RETURN ParseXMLTidPtrNS(this->GetCurrentModule(), this->GetCurrentGid(), el, ns, type);
+    RETURN ParseXMLTidPtrNS(this->GetCurrentResourceName(), this->GetCurrentGid(), el, ns, type);
   }
 
   /** Given a component node and its component info, assign a name to the component that it will result in.
@@ -505,7 +505,7 @@ STATIC OBJECTTYPE PageParser
     // Setup the scope && gid lookups for parsing
     RECORD newscope := this->tolliumscopes[0];
     newscope.scope := nameinfo.fullname;
-    newscope.module := __GetModuleBaseFromResourceName(fragmentdata.fragmentref);
+    newscope.module := GetModuleNameFromResourcePath(fragmentdata.fragmentref);
     newscope.resourcename := fragmentdata.fragmentref;
     //newscope.pagefile := fragmentdata.parsedref.screenfile;
     INSERT newscope INTO this->tolliumscopes AT 0;
@@ -1209,7 +1209,8 @@ STRING FUNCTION ParseTidPointer(STRING module, OBJECT el, STRING type, STRING gi
 PUBLIC RECORD FUNCTION GetMessageBox(STRING name)
 {
   //Locate the messageboxes node
-  RECORD docinfo := RetrieveCachedXMLResource(GetResourceNameFromScreenPath(name));
+  STRING resourcename := GetResourceNameFromScreenPath(name);
+  RECORD docinfo := RetrieveCachedXMLResource(resourcename);
   STRING dialogname := GetScreenNameFromScreenPath(name);
   OBJECT dialognode := docinfo.doc->GetElementsByTagNameNS(ns_screens, "messageboxes")->item(0);
   IF(NOT ObjectExists(Dialognode))
@@ -1219,11 +1220,11 @@ PUBLIC RECORD FUNCTION GetMessageBox(STRING name)
 
   FOREVERY (OBJECT node FROM dialognode->childnodes->GetCurrentElements())
     IF(node->localname="messagebox" AND node->GetAttribute("name")=dialogname)
-      RETURN GetMessageBoxFromNode(node, module);
+      RETURN GetMessageBoxFromNode(resourcename, node, module);
   RETURN DEFAULT RECORD;
 }
 
-PUBLIC RECORD FUNCTION GetMessageBoxFromNode(OBJECT node, STRING module)
+PUBLIC RECORD FUNCTION GetMessageBoxFromNode(STRING resourcename, OBJECT node, STRING module)
 {
   STRING gid := ReadGid(node, module, ReadGid(node->parentnode, module, ReadGid(node->parentnode->parentnode, module, "")));
 
@@ -1231,7 +1232,7 @@ PUBLIC RECORD FUNCTION GetMessageBoxFromNode(OBJECT node, STRING module)
   FOREVERY (OBJECT button FROM node->childnodes->GetCurrentElements())
     IF(button->localname="button")
       INSERT [ name          := ReadStringAttr(button, "tolliumresult", "")
-             , tp            := ParseXMLTIDPtr(module, gid, button, "title")
+             , tp            := ParseXMLTIDPtr(resourcename, gid, button, "title")
              , icon          := ""
              , isdefault     := ReadBoolAttr(button, "isdefault", FALSE)
              , tolliumresult := ReadStringAttr(button, "tolliumresult", "")
@@ -1259,7 +1260,7 @@ PUBLIC RECORD FUNCTION GetMessageBoxFromNode(OBJECT node, STRING module)
   ELSE IF("close" IN defaultbuttons)
     defaultbutton := "close";
 
-  RETURN [ msgdef            := ParseXMLTIDPtr(module, gid, node, "title")
+  RETURN [ msgdef            := ParseXMLTIDPtr(resourcename, gid, node, "title")
          , msg               := ""
          , icon              := msgicon
          , dontshowagain     := dontshowagain != "" ? Tokenize(dontshowagain, " ") : DEFAULT STRING ARRAY
@@ -2095,7 +2096,7 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
   // in case an option doen't have any title or tid yet.
 
   STRING gid := curpageparser->GetCurrentGid();
-  STRING parentitemtid := ParseXMLTIDPtr(curpageparser->GetCurrentModule(), gid, element, "title");
+  STRING parentitemtid := ParseXMLTIDPtr(curpageparser->GetCurrentResourceName(), gid, element, "title");
   STRING optiongid;
 
   IF(parentitemtid IN ["",":"] AND (element->HasAttribute("name") OR element->HasAttribute("cellname")) AND gid != "")
@@ -2137,12 +2138,12 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
         IF (optiongid != '')
         {
           // when using an optiongid we implicitely use tid's within the specified group as title
-          subitem.tp := ParseXMLTidDirectly(option, optiongid || "." || FixupSynthesizedTid(rowkeyval), "rowkey");
+          subitem.tp := ParseXMLTidDirectly(curpageparser->GetCurrentResourceName(), option, optiongid || "." || FixupSynthesizedTid(rowkeyval), "rowkey");
         }
         ELSE IF(parentitemtid NOT LIKE ":*") //don't use simple texts as a tid base
         {
           // when using titlefromrowkey="true", the tid used as title will be 'gid.tid-rowkey'
-          subitem.tp := ParseXMLTidDirectly(option, parentitemtid || "-" || FixupSynthesizedTid(rowkeyval), "rowkey");
+          subitem.tp := ParseXMLTidDirectly(curpageparser->GetCurrentResourceName(), option, parentitemtid || "-" || FixupSynthesizedTid(rowkeyval), "rowkey");
         }
       }
 
