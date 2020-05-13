@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
          gid="tolliumapps.feedback"
@@ -56,9 +55,10 @@
                           wrdtype="feedback">
             <column name="feedbackid" type="text" width="12x" />
             <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
-            <column name="reportedby" type="text" linkname="reportedbylink" width="20x" />
+            <column name="reportedby" type="text" width="20x" linkname="reportedbylink" />
             <column name="type" type="text" width="10x" />
             <column name="remarks" type="text" />
+
             <!-- <column name="status" type="text" /> COMING REAL SOON! -->
           </wrd:entitylist>
         </part>
@@ -72,11 +72,11 @@
                         defaultbutton="addcommentbutton"
                         enabled="false"
                         errorlabeltid=".comment"
-                        title=""
-                        required="true"
                         maxlength="2000"
+                        maxlengthmeasure="bytes"
+                        required="true"
                         showcounter="true"
-                        maxlengthmeasure="bytes" />  <!-- will be enabled once issue is selected -->
+                        title="" />  <!-- will be enabled once issue is selected -->
               <line layout="right">
                 <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
               </line>
@@ -104,20 +104,31 @@
       <line layout="left">
         <checkbox name="scaled" labeltid=".scaled" onchange="onscaleiframe" title="" value="true" />
       </line>
-      <datetime composition="data"
-                cellname="wrd_creationdate"
-                type="datetime"
-                precision="minutes"
-                readonly="true"
-                storeutc="true" />
-      <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
-      <text composition="data" cellname="device" selectable="true" wordwrap="true" />
-      <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
-      <text composition="userdata" cellname="login" selectable="true" />
-      <heading tid=".extradata" />
-      <line layout="left">
-        <text name="noextradata" title="" valuetid=".noextradata" />
-      </line>
+      <grid>
+        <cell width="1pr">
+          <datetime composition="data"
+                    cellname="wrd_creationdate"
+                    type="datetime"
+                    precision="minutes"
+                    readonly="true"
+                    storeutc="true" />
+          <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
+          <text composition="data" cellname="device" selectable="true" wordwrap="true" />
+          <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
+          <text composition="userdata" cellname="login" selectable="true" />
+          <heading tid=".extradata" />
+          <line layout="left">
+            <text name="noextradata" title="" valuetid=".noextradata" />
+          </line>
+        </cell>
+        <cell width="1pr">
+          <heading tid=".appversions" />
+          <list name="appversions" height="1pr">
+            <column name="name" type="text" width="1pr" />
+            <column name="version" type="text" width="1pr" />
+          </list>
+        </cell>
+      </grid>
     </body>
 
     <footer>

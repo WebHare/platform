@@ -194,7 +194,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->data := data;
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE","FEEDBACKID"] CONCAT ^data->GetComposedCellnames());
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey, ["EXTRADATA","SIZE","FEEDBACKID","APPVERSIONS"] CONCAT ^data->GetComposedCellnames());
     ^data->value := feedback;
     this->frame->title := this->frame->title || " - " || feedback.feedbackid;
 
@@ -225,6 +225,8 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
         }
       }
     }
+
+    ^appversions->rows := feedback.appversions;
 
     // Load the stored screenshot into the container iframe
     ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL

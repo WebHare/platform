@@ -237,9 +237,10 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
   TestEq([[ line := 18, message := "No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\' (looking for \'PDFMailFlowTask\')" ]
          ], (SELECT line, message FROM res.errors));
-  TestEq([[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
+  TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
          ,[ line := 9, message := "permissions= no longer has any effect and should be removed" ]
-         ], (SELECT line, message FROM res.warnings));
+         ,[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
+         ], (SELECT line, message FROM res.warnings ORDER BY line));
 
   res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
   TestEq(1,Length(res.errors));
