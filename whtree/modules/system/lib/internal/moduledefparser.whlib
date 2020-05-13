@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -871,6 +872,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
               CASE "version"
               {
                 this->moduledef.version := subchild->textcontent;
+
+                IF(this->modulename IN whconstant_builtinmodules)
+                  this->AddErrorForLine(child->linenum, "Builtin modules should not specify a version number");
+                ELSE IF(NOT IsValidSemanticVersion(this->moduledef.version))
+                  this->AddWarningForLine(child->linenum, `'${this->moduledef.version}' is not a valid semantic version (such as 3.14.1 or 4.28.0-dev)`);
               }
               CASE "packaging"
               {
@@ -908,6 +914,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   }
               }
             }
+
+          IF(this->moduledef.version = "" AND this->modulename NOT IN whconstant_builtinmodules)
+            this->AddWarningForLine(child->linenum, "Module should have a (semantic) version number, please add a <version>...</version>");
         }
 
         CASE "portal"
