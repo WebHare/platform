@@ -625,12 +625,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       @return(object %WebtoolFormBase) The requested form */
   PUBLIC OBJECT FUNCTION OpenWebtoolForm(OBJECT formobject)
   {
-    /* OpenWebtoolForm sets up a route through the general form rpc straight
-       to the webtool handlers. But custom form filetypes have their own validate
-       and submit handlers in the WebPage object so they only work on their own page */
-    IF(formobject->typens NOT IN [ "http://www.webhare.net/xmlns/publisher/formwebtool", "http://www.webhare.net/xmlns/publisher/formwidget"])
-      THROW NEW Exception(`OpenWebtoolForm is not supported for files of type '${formobject->typens}`);
-
     RETURN this->DoOpenWebtoolForm(formobject, FALSE);
   }
 

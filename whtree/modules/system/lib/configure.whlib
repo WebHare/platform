@@ -111,7 +111,7 @@ PUBLIC STRING FUNCTION GetModuleStorageRoot(STRING modulename)
 }
 
 /** @short Get the version of this WebHare installation
-    @return The WebHare version (eg "WebHare Platform v4.26.3") */
+    @return The WebHare version (eg "WebHare Platform 4.26.3") */
 PUBLIC STRING FUNCTION GetWebhareVersion()
 {
   RETURN "WebHare Platform " || GetWebhareVersionInfo().version;

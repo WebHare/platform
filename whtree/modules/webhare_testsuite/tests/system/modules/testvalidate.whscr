@@ -286,7 +286,6 @@ MACRO TestBasicValidate()
 
   //siteprofiles should also warn about broken screens
   res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
-  dumpvalue(res,'tree');
   TestEq(RECORD[], res.errors);
   TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::system/nosuchscreen.xml.siteprl" AND line = 8));
   TestEq(1, Length(res.warnings));
