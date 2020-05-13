@@ -2184,15 +2184,18 @@
     <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
       <text tid="apptitle">Feedback</text>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="appversions">Application versions</text>
         <text tid="browser">Browser</text>
         <text tid="device">Device</text>
         <text tid="download">Download HTML</text>
         <text tid="extradata">Additional data</text>
         <text tid="feedback">Feedback</text>
         <text tid="login">Username</text>
+        <text tid="name">Name</text>
         <text tid="noextradata">There is no additional data available</text>
         <text tid="scaled">Fit the screenshot to the screen</text>
         <text tid="useragent">User-Agent</text>
+        <text tid="version">Version</text>
         <text tid="wrd_creationdate">When</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->

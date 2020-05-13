@@ -63,6 +63,11 @@
         Extra data supplied by the user
       -->
       <record tag="EXTRADATA" title="Extra data" />
+
+      <array tag="APPVERSIONS">
+        <free tag="name" required="true" title="Module/item name" description="The described item, currently 'webhare' or an installed module"/>
+        <free tag="version" title="Item version" description="The (hopefully) semantic version"/>
+      </array>
     </attributes>
   </attachment>
 

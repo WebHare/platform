@@ -658,6 +658,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , description          := ""
       , configscreen         := ""
       , version              := ""
+      , excludefromfeedbackversions := FALSE
       , basesiteprofiles     := DEFAULT STRING ARRAY
       //, tolliumcomponents    := DEFAULT RECORD ARRAY
       , packagingdownload    := FALSE
@@ -872,6 +873,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
               CASE "version"
               {
                 this->moduledef.version := subchild->textcontent;
+                this->moduledef.excludefromfeedbackversions := ParseXSBoolean(subchild->GetAttribute("excludefromfeedbackversions"));
 
                 IF(this->modulename IN whconstant_builtinmodules)
                   this->AddErrorForLine(child->linenum, "Builtin modules should not specify a version number");
