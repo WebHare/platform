@@ -1,6 +1,6 @@
 # Backup and restore
 
-To backup WebHare remotely, use https://github.com/WebHare/webhare-backup/
+To backup WebHare remotely, use https://gitlab.com/webhare/backup/
 
 ## Restore
 

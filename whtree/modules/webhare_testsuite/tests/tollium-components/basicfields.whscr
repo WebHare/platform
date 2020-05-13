@@ -59,6 +59,24 @@ MACRO DateTimeClamping() //test precision clamping
   TestEq(MAX_DATETIME, scr->maxdt->value, "maxdt != MAX_DATETIME");
 }
 
+MACRO DateTimeLocalTZValue()
+{
+  testfw->SetTestUser("sysop");
+  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/basecomponents.datetimetest");
+
+  TestEq(DEFAULT DATETIME, scr->bigdt->value, "bigdt = MAX_DATETIME"); //was never initted to max_datetime
+  SetValue(scr->bigdt, MakeDatetime(2020,5,11,9,0,0));
+  TestEq(MakeDatetime(2020,5,11,9,0,0), scr->bigdt->value);
+  TestEq(MakeDatetime(2020,5,11,9,0,0), scr->bigdt->localtzvalue);
+  scr->bigdt->storeutc := TRUE;
+  TestEq(MakeDatetime(2020,5,11,11,0,0), scr->bigdt->localtzvalue);
+  scr->bigdt->localtzvalue := MakeDatetime(2020,5,11,12,0,0);
+  TestEq(MakeDatetime(2020,5,11,12,0,0), scr->bigdt->localtzvalue);
+  TestEq(MakeDatetime(2020,5,11,10,0,0), scr->bigdt->value);
+  scr->bigdt->value := MakeDatetime(2020,5,11,9,0,0);
+  TestEq(MakeDatetime(2020,5,11,11,0,0), scr->bigdt->localtzvalue);
+}
+
 MACRO TestBasicFieldsRegressions()
 {
   //detect textedit incorrectly parsing XML given value using user personal settings
@@ -73,5 +91,7 @@ MACRO TestBasicFieldsRegressions()
 
 Runtestframework( [ PTR InputValidations
                   , PTR DateTimeClamping
+                  , PTR DateTimeLocalTZValue
                   , PTR TestBasicFieldsRegressions
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]
                   ]);
