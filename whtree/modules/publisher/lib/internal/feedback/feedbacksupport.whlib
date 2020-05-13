@@ -135,8 +135,9 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
                               CONCAT
                               SELECT name, version
                                 FROM GetWebhareModules()
-                               WHERE NOT excludefromfeedbackversions
-                                         OR name IN whconstant_builtinmodules
+                               WHERE version != ""
+                                     AND NOT excludefromfeedbackversions
+                                     AND name NOT IN whconstant_builtinmodules
                             ORDER BY name;
 
   data := CELL[ ...data
