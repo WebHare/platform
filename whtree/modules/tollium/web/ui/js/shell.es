@@ -11,6 +11,8 @@ let todd_components = {};
 import { components as FrameComponents } from './frame';
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback.es';
+import LinkEndPoint from './comm/linkendpoint.es';
+import TransportManager from './comm/transportmanager.es';
 
 todd_components = { ...FrameComponents
                   , ...getComponents()
@@ -38,7 +40,6 @@ import * as whconnect from '@mod-system/js/wh/connect';
 import { setupWHCheck } from './shell/whcheck';
 
 var $todd = require('./support');
-require('./commhandler');
 require('./application');
 require('./desktop');
 require('./apps/dashboard');
@@ -210,7 +211,7 @@ class IndyShell
 
     if(!seenfrontend) //FIXME should we register an endpoint if it wasn't an appstart? (what else could it be)? Decided to do it anyway, as the original code _did_ include the frontendid into $tdod.frontendids no matter what..
     {
-      var metacomm = new $todd.LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
+      var metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
       metacomm.onmessage = this._gotMetaMessage.bind(this.shell);
       metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
       metacomm.register($todd.transportmgr);
@@ -284,7 +285,7 @@ class IndyShell
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));
 
-    $todd.transportmgr = new $todd.TransportManager(
+    $todd.transportmgr = new TransportManager(
         { ononline: () => this._gotOnline()
         , onoffline: () => this._gotOffline()
         });
