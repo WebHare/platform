@@ -2224,15 +2224,18 @@
     <textgroup gid="feedback">   <!-- tolliumapps.feedback -->
       <text tid="apptitle">Feedback</text>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="appversions">Applicatieversies</text>
         <text tid="browser">Browser</text>
         <text tid="device">Apparaat</text>
         <text tid="download">HTML downloaden</text>
         <text tid="extradata">Aanvullende gegevens</text>
         <text tid="feedback">Feedback</text>
         <text tid="login">Gebruikersnaam</text>
+        <text tid="name">Naam</text>
         <text tid="noextradata">Er zijn geen aanvullende gegevens beschikbaar</text>
         <text tid="scaled">Maak de schermafbeelding passend</text>
         <text tid="useragent">User-Agent</text>
+        <text tid="version">Versie</text>
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->

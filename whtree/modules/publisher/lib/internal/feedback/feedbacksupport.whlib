@@ -5,6 +5,8 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -128,11 +130,21 @@ PUBLIC STRING FUNCTION StoreFeedback(STRING scope, RECORD data)
   IF (scopeid = 0)
     THROW NEW Exception(`No such scope '${scope}'`);
 
+  //TODO commit hash, branch?
+  RECORD ARRAY appversions := [[ name := "webhare", version := GetWebhareVersionInfo().version ]]
+                              CONCAT
+                              SELECT name, version
+                                FROM GetWebhareModules()
+                               WHERE NOT excludefromfeedbackversions
+                                         OR name IN whconstant_builtinmodules
+                            ORDER BY name;
+
   data := CELL[ ...data
               , wrd_leftentity := scopeid
               , feedbackid := GetWRDSequenceNext(wrdschema->id, "publisher:feedbackid", [ mutex := "publisher:feedbackid"
                                                                                         , nrformat := "FB%04n"
                                                                                         ])
+              , appversions
               ];
 
   OBJECT entity := wrdschema->^feedback->CreateEntity(data);
