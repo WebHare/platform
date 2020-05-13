@@ -40,17 +40,19 @@ PUBLIC OBJECT FUNCTION CustomFormRouter2(OBJECT webdesign)
   RETURN NEW CustomFormPage2;
 }
 
-PUBLIC OBJECTTYPE CustomFormPage2 EXTEND WebtoolFormPage
+PUBLIC STATIC OBJECTTYPE CustomFormPage2 EXTEND WebPageBase
 <
+  OBJECT form;
+
   MACRO NEW()
   {
+    this->form := this->webdesign->OpenWebtoolForm(this->webdesign->contentobject);
     this->form->pagedata := [ ihavegot := "something"
                             , electric := 6
                             ];
 
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
     TestEq("", emailfield.obj->value); //not prefilled yet
-    INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
 
     STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
     IF(editguid != "")
@@ -80,7 +82,7 @@ PUBLIC OBJECTTYPE CustomFormPage2 EXTEND WebtoolFormPage
       this->form->CancelExistingResult(this->form->editingguid);
       GetPrimary()->CommitWork();
     }
-    RETURN WebtoolFormPage::GetPageBody();
+    RETURN this->form->GetFormBody();
   }
 
   UPDATE PUBLIC MACRO Validate(OBJECT work)
@@ -157,6 +159,9 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
   MACRO NEW()
   {
+    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
+    INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
+
     TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
   }
   UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
