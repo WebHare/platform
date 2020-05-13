@@ -797,6 +797,7 @@
 
 
   <applysiteprofile path="pages/customform/customform.siteprl.xml" />
+  <applysiteprofile path="pages/customform2/customform2.siteprl.xml" />
 
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">

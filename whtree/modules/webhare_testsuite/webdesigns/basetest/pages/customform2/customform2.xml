@@ -1,0 +1,11 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/compontents"
+         library="customform2.whlib">
+
+  <tabsextension name="props" implementation="lib">
+    <insert position="settings" where="after">
+      <textedit title="Some data" name="somedata" />
+    </insert>
+  </tabsextension>
+
+</screens>
