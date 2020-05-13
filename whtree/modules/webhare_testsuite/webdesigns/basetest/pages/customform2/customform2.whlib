@@ -1,0 +1,184 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/widgets.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+PUBLIC OBJECTTYPE Props EXTEND FormSettingsExtensionBase
+<
+  MACRO NEW()
+  {
+    INSERT "http://www.webhare.net/xmlns/webhare_testsuite/customform" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
+  }
+  UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
+  {
+    this->somedata->value := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform").somedata;
+  }
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform", [ somedata := this->somedata->value ]);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION CustomFormRouter2(OBJECT webdesign)
+{
+  IF (GetFormWebVariable("error") = "formunavailable")
+    RETURN NEW SimpleWebPage(PTR EmbedWittyComponent("formunavailable", [ why := "The form is currently unavailable" ]));
+  RETURN NEW CustomFormPage2;
+}
+
+PUBLIC OBJECTTYPE CustomFormPage2 EXTEND WebtoolFormPage
+<
+  MACRO NEW()
+  {
+    this->form->pagedata := [ ihavegot := "something"
+                            , electric := 6
+                            ];
+
+    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
+    TestEq("", emailfield.obj->value); //not prefilled yet
+    INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
+
+    STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
+    IF(editguid != "")
+    {
+      //test availability of api - this broke because of complex file openings in the code, and some users will try to open a result directly without using the load API
+      RECORD existingresult := this->webdesign->webtoolform->formresults->GetSingleResult(editguid);
+      IF(RecordExists(existingresult))
+        TestEq(TRUE, CellExists(existingresult, "submittype"));
+    }
+    IF (editguid != "" AND this->form->EditExistingResult(editguid))
+      emailfield.obj->enabled := FALSE;
+
+    IF(MemberExists(this->form,"^PM"))
+    {
+      this->form->^pm->filters := [[ field := "WRD_CREATIONDATE", matchtype := ">=", value := MakeDate(2010,1,1) ]]; //filters shouldn't crash things....
+
+      UPDATE this->form->^pm->options SET htmltitle := Substitute(htmltitle, "TestWithIssuer","Test<b>WITH</b>Issuer") WHERE htmltitle LIKE "TestWithIssuer*";
+      TestEq(DEFAULT RECORD, this->form->^pm->selection);
+    }
+  }
+
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
+  {
+    IF (this->form->IsEditing() AND GetFormWebVariable("cancel") = "1")
+    {
+      GetPrimary()->BeginWork();
+      this->form->CancelExistingResult(this->form->editingguid);
+      GetPrimary()->CommitWork();
+    }
+    RETURN WebtoolFormPage::GetPageBody();
+  }
+
+  UPDATE PUBLIC MACRO Validate(OBJECT work)
+  {
+    //work->addwarning("yeay?");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MultiMergeField2 EXTEND ComposedFormFieldBase
+<
+  OBJECT textfield;
+
+  PUBLIC PROPERTY value(this->textfield->value, this->textfield->value);
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : ComposedFormFieldBase(form, parent, field)
+  {
+    this->textfield := this->CreateSubField("textedit", "text");
+    this->SetupComposition([this->textfield]);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetExtraMergeFields(RECORD value)
+  {
+    STRING reversed;
+    IF (RecordExists(value))
+    {
+      FOR (INTEGER i := UCLength(value.raw) - 1; i >= 0; i := i - 1)
+        reversed := reversed || UCSubstring(value.raw, i, 1);
+    }
+    RETURN
+        [ [ name := "reversed"
+          , title := "Reversed"
+          , value := CELL[ ...value, text := reversed ]
+          ]
+        ];
+  }
+>;
+
+PUBLIC OBJECTTYPE EditCustomFormWidget2 EXTEND TolliumTabsExtensionBase
+<
+  UPDATE PUBLIC MACRO InitExtension(OBJECT linecontainer)
+  {
+    ^fieldname->options :=
+        SELECT rowkey := name
+             , title
+          FROM this->contexts->mergefields->mergefields
+         WHERE NOT isadditional;
+  }
+>;
+
+PUBLIC OBJECTTYPE CustomFormWidget2 EXTEND WidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    STRING fieldtitle := SELECT AS STRING title FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
+    Print(`Custom Form Widget for field '${EncodeHTML(fieldtitle ?? this->data.fieldname)}'`);
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    RECORD field := SELECT * FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
+    IF (NOT RecordExists(field))
+      THROW NEW Exception(`Field '${this->data.fieldname}' not found`);
+    IF (NOT RecordExists(field.value))
+      THROW NEW Exception(`Field '${this->data.fieldname}' does not have a value`);
+
+    Print(`<div class="custom-form-widget">Custom Form Widget with value '${EncodeHTML(field.value.text)}'</div>`);
+
+    this->context->mailcomposer->AddAttachment(StringToBlob(`Hi ${field.value.text}`), [filename := "test.txt", mimetype := "text/plain" ]);
+  }
+>;
+
+PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
+<
+  MACRO NEW()
+  {
+    TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
+  }
+  UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
+  {
+    RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
+    // When testing duplicate submission, we don't want to overwrite existing results
+    BOOLEAN overwriteexisting := GetFormWebVariable("testduplicate") != "1";
+    this->form->SetIDField(emailfield.obj->value, CELL[ overwriteexisting ]);
+
+    this->form->pagedata := CELL[ ...this->form->pagedata
+                                , editlink := UpdateURLVariables(GetFormRequestURL(), [ editguid := EncryptForThisServer("webhare_testsuite:customform", this->form->resultguid) ])
+                                ];
+
+    IF(emailfield.obj->value = "testfw+dontmailme@beta.webhare.net")
+      FOREVERY(RECORD resulthandler FROM SELECT * FROM this->form->ListHandlers() WHERE handlertype = "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler")
+        this->form->DeleteHandlerByGUID(resulthandler.guid);
+
+    IF(MemberExists(this->form,"^pm"))
+    {
+      TestEq(TRUE, RecordExists(this->form->^pm->selection));
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+>;

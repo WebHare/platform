@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/customform2">
+    <member name="somedata" type="string" />
+  </contenttype>
+
+  <filetype typedef="http://www.webhare.net/xmlns/webhare_testsuite/customform2"
+            blobiscontent="false"
+            extensions=".customform2"
+            isacceptableindex="true"
+            ispublishable="true"
+            ispublishedassubdir="true"
+            needsprofile="false"
+            needstemplate="true"
+            title="WebHare testsuite customform2 type"
+            tolliumicon="tollium:files/application_x-webhare-survey">
+    <dynamicexecution routerfunction="customform2.whlib#CustomFormRouter2" />
+  </filetype>
+
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
+    <setobjecteditor name="publisher:webtoolform" separateapp="true" />
+    <extendformeditor settingsextension="customform2.xml#props" />
+    <formintegration allowsubmittype="true" mailrtdtype="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2" webtoolformhooks="customform2.whlib#CustomFormHooks" /><!--  -->
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#multimergefield2" />
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#matchattributes?attr1=type2&amp;attr2=true" />
+    <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
+  </apply>
+
+  <apply>
+    <to type="file" parentmask="/webtools/" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
+  </apply>
+
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/custommailrtdtype2">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="b i a-href img sup sub strike" />
+    </blockstyles>
+    <widgets ignoresiteprofilewidgets="true">
+      <allowtype type="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget2" />
+    </widgets>
+  </rtdtype>
+
+  <widgettype editextension="#editcustomformwidget2"
+              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget2"
+              renderobjectname="customform2.whlib#customformwidget2"
+              requiremergefieldscontext="true"
+              title="Custom Form Widget">
+    <members>
+      <member name="fieldname" type="string" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+            name="editcustomformwidget2"
+            implementation="lib"
+            library="customform2.whlib">
+    <newtab>
+      <select composition="contentdata" cellname="fieldname" name="fieldname" type="pulldown" required="true" />
+    </newtab>
+  </tabsextension>
+
+</siteprofile>
