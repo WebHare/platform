@@ -1,0 +1,87 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
+
+
+ PUBLIC STATIC OBJECTTYPE VariableInspector EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT job;
+
+  INTEGER id;
+
+  INTEGER vm;
+
+  STRING path;
+
+  OBJECT tree;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->job := data.job;
+    this->id := data.id;
+    this->vm := data.vm;
+    this->path := data.path;
+
+    this->tree := NEW ExternVariable(PRIVATE this, this->path, this->path);
+    this->tree->HandleValue([ type := -2, id := data.id ], TRUE);
+    this->tree->GetData(DEFAULT RECORD);
+
+    this->frame->title := this->GetTid(".variables", this->path);
+
+    this->RenderTree();
+  }
+
+  MACRO RenderTree(STRING autoexpand DEFAULTSTO "")
+  {
+    RECORD render := RECORD(this->tree->Render("root"));
+
+    RECORD rootrow := render.row;
+    ^contents->rows := [ rootrow ];
+
+    STRING ARRAY expanded := ^contents->expanded;
+    INSERT rootrow.rowkey INTO expanded AT END;
+    IF (autoexpand != "")
+      INSERT autoexpand INTO expanded AT END;
+    ^contents->expanded := expanded;
+  }
+
+  MACRO DoRetrieveFull()
+  {
+    RECORD sel := ^contents->selection;
+    sel.obj->GetData([ getall := TRUE ]);
+  }
+
+  MACRO DoSwitchEncoding()
+  {
+    RECORD sel := ^contents->selection;
+    sel.obj->encoding := sel.obj->encoding = "" ? "base16" : "";
+  }
+
+  MACRO DoShowText()
+  {
+    RECORD sel := ^contents->selection;
+    this->LoadScreen(".variabletext", [ text := sel.obj->result.value, name := sel.name ])->RunModal();
+  }
+
+  MACRO DoDownload(OBJECT handler)
+  {
+    RECORD sel := ^contents->selection;
+
+    RECORD wrapped := WrapBlob(StringToBlob(sel.obj->result.value), sel.name || ".bin");
+    handler->SendWrappedFile(wrapped);
+  }
+>;
+
