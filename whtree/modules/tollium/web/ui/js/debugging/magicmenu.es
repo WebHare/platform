@@ -51,10 +51,9 @@ function onMagicMenu(event)
 
   if(component)
   {
-    submenu.append(dompack.create("li", { className: "divider" })
-                  , dompack.create("li", { textContent: "Edit element '" + component.dataset.name + "'"
-                                         , on: { click: () => editElement(component) }
-                                         }));
+    submenu.append( <li class="divider" />
+                  , <li onClick={ () => editElement(component) }>Edit element {component.dataset.name}</li>
+                  );
   }
   dompack.dispatchCustomEvent(event.target, 'tollium:magicmenu', { bubbles: true, cancelable: true, detail: { submenu: submenu }});
   menu.openAt(submenu, event);

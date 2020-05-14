@@ -2235,7 +2235,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   MACRO ExecuteMagicAction(STRING type, RECORD row)
   {
-    IF (NOT this->contexts->user->hasRight("system:sysop") AND GetDTAPStage() != "development")
+    IF(NOT this->contexts->controller->IsTrustedToDebug())
       RETURN;
 
     IF(type="inspectrow")

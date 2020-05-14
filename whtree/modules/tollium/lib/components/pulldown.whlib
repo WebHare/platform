@@ -95,6 +95,20 @@ PUBLIC OBJECTTYPE TolliumPulldown EXTEND TolliumComponentBase
         ];
   }
 
+  UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
+  {
+    SWITCH(type)
+    {
+      CASE "inspectoptions"
+      {
+        IF(this->contexts->controller->IsTrustedToDebug())
+          Reflect(this->options);
+        RETURN;
+      }
+    }
+    TolliumComponentBase::ProcessInboundMessage(type, msgdata);
+  }
+
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
     IF (this->dirtyflags.fully)

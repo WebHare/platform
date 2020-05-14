@@ -28,6 +28,7 @@ export default class ObjPulldown extends HTMLComponentBase
     });
 
     this.buildNode();
+    this.node.addEventListener("tollium:magicmenu", e => this.onMagicMenu(e));
     this.setRequired(data.required);
     this.setEnabled(data.enabled);
   }
@@ -94,6 +95,12 @@ export default class ObjPulldown extends HTMLComponentBase
   gotControlChange(ev)
   {
     this.setDirty();
+  }
+
+  onMagicMenu(event)
+  {
+    event.stopPropagation();
+    event.detail.submenu.prepend(<li onClick={ () => this.queueMessage("inspectoptions", {}, true) }>Inspect options</li>);
   }
 
   enabledOn(checkflags, min, max, selectionmatch)
