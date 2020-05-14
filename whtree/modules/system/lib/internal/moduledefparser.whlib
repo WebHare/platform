@@ -713,7 +713,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   , appcontexts :=    RECORD[]
                   ];
 
-    IF(app.screen LIKE "*#*") //it's a new style path
+    IF(app.screen LIKE "*#*" OR app.screen LIKE "*.xml") //it's a new style path. we expect a # or a .xml termination to resolve amibguity with old style screen names
     {
       app.screen := MakeAbsoluteScreenReference(this->respath, app.screen);
     }

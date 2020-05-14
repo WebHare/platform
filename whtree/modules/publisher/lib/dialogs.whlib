@@ -130,8 +130,8 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
                                                        , parentfolder := parentfolder
                                                        , type := createtype
                                                        , fsobj := template
-                                                       ], options.issite ? "publisher:commondialogs/siteprops.siteprops"
-                                                                         : "publisher:commondialogs/objectprops.objectprops");
+                                                       ], options.issite ? "mod::publisher/screens/commondialogs/siteprops.xml"
+                                                                         : "mod::publisher/screens/commondialogs/objectprops.xml");
 
   IF(creationdialog->RunModal() != "ok")
     RETURN 0;

@@ -223,11 +223,17 @@ MACRO SupportLIbrary()
   TestEq("webhare_testsuite", GetModuleNameFromResourcePath("storage::webhare_testsuite/xyz"));
 
   TestThrows(PTR GetResourceNameFromScreenPath('publisher:a/b.c'));
+  TestEq(TRUE, IsOldStyleScreenReference('publisher:a/b.c'));
   TestEq("mod::publisher/screens/a/b.xml#c", MakeAbsoluteScreenReference("", 'publisher:a/b.c'));
 
-  TestEq('mod::publisher/screens/a/b.xml', GetResourceNameFromScreenPath('moduleroot::publisher/screens/a/b.xml#c'));
-  TestThrowS(PTR GetScreenNameFromSCreenPath('publisher:a/b.c'));
-  TestEq('screeb1', GetScreenNameFromSCreenPath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+  TestThrows(PTR GetResourceNameFromScreenPath('moduleroot::publisher/screens/a/b.xml'));
+  TestEq('mod::publisher/screens/a/b.xml', GetResourceNameFromScreenPath('mod::publisher/screens/a/b.xml'));
+  TestEq(FALSE, IsOldStyleScreenReference('mod::publisher/screens/a/b.xml'));
+  TestThrowS(PTR GetScreenNameFromScreenPath('publisher:a/b.c'));
+  TestEq('screeb1', GetScreenNameFromScreenPath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+  TestThrows(PTR GetScreenNameFromScreenPath('moduleroot::publisher/screens/a/b/c.xml'));
+  TestEq('', GetScreenNameFromScreenPath('mod::publisher/screens/a/b/c.xml'));
+  TestEq('', GetScreenNameFromScreenPath('mod::publisher/screens/a/b/c.xml#'));
 
 
   TestThrows(PTR GetResourceNameFromScreenPath("tollium:components/listedit.arrayedit"));
@@ -235,6 +241,8 @@ MACRO SupportLIbrary()
   TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml", "#arraylisteditbase"));
   TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#abc", ".arraylisteditbase"));
   TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "#arraylisteditbase"));
+
+  TestEq("mod::publisher/tolliumapps/filemanager/main.xml", MakeAbsoluteScreenReference("mod::publisher/moduledefinition.xml", "/tolliumapps/filemanager/main.xml"));
 
   TestEq("mod::tollium/screens/screen.xml#other", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "screen.other"));
 
@@ -273,6 +281,20 @@ MACRO TestInline()
   TestEq("Hi!", BlobToString(GetWebhareResource("inline-base64::SGkh")));
   TestEq("inline-base64::SGkh",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline-base64::SGkh"));
   TestEq("inline-base64::SGkh#bla",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","inline-base64::SGkh#bla"));
+
+  TestEq("inline::Hi!",GetResourceNameFromScreenPath("inline::Hi!"));
+  TestEq("inline::Hi!",GetResourceNameFromScreenPath("inline::Hi!#"));
+  TestEq("inline::Hi!",GetResourceNameFromScreenPath("inline::Hi!#bla"));
+  TestEq("inline-base64::SGkh",GetResourceNameFromScreenPath("inline-base64::SGkh"));
+  TestEq("inline-base64::SGkh",GetResourceNameFromScreenPath("inline-base64::SGkh#"));
+  TestEq("inline-base64::SGkh",GetResourceNameFromScreenPath("inline-base64::SGkh#bla"));
+
+  TestEq("",GetScreenNameFromScreenPath("inline::Hi!"));
+  TestEq("",GetScreenNameFromScreenPath("inline::Hi!#"));
+  TestEq("bla",GetScreenNameFromScreenPath("inline::Hi!#bla"));
+  TestEq("",GetScreenNameFromScreenPath("inline-base64::SGkh"));
+  TestEq("",GetScreenNameFromScreenPath("inline-base64::SGkh#"));
+  TestEq("bla",GetScreenNameFromScreenPath("inline-base64::SGkh#bla"));
 
   TestEq(STRING[], GetResourceEventMasks(["inline::"]));
 }
