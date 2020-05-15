@@ -45,7 +45,6 @@ UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
 trans->BeginWork();
 
 OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
-OBJECT testsiteholder := backendsite->rootobject->EnsureFolder ( [ name := "webhare-testsuite.site", type := 1 ]);
 
 OBJECT testsite := OpenTestsuiteSite();
 IF(NOT ObjectExists(testsite))
@@ -80,7 +79,7 @@ ELSE
   FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = testsite->id)
     OpenWHFSObject(subobj.id)->RecycleSelf();
 }
-testsite->SetPrimaryOutput(backendsite->outputweb, "/webhare-testsuite.site/");
+SetupSiteTestOutput(testsite, "webhare_testsuite");
 
 testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
                      [ sitedesign := "webhare_testsuite:basetest"
