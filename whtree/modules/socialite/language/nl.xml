@@ -37,7 +37,7 @@
     <text tid="novideoselected">Er was geen Vimeo filmpje geselecteerd.</text>
     <text tid="vimeounavailable">Het zoeken naar videos is niet gelukt. De systeembeheer moet mogelijk controleren of de Vimeo toegang correct ingesteld is.</text>
     <textgroup gid="movieplayer">   <!-- components_vimeo.movieplayer -->
-      <text tid="screentitle">Vimeo media player</text>
+      <text tid="screentitle">Media player</text>
     </textgroup>
     <textgroup gid="searchmovie">   <!-- components_vimeo.searchmovie -->
       <text tid="creationdate">Geplaatst op</text>

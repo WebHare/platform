@@ -509,7 +509,7 @@
         <text tid="textedit">Video</text>
       </textgroup>
       <textgroup gid="playvideo">   <!-- components.embedvideo.playvideo -->
-        <text tid="screentitle">Vimeo media player</text>
+        <text tid="screentitle">Media player</text>
       </textgroup>
       <textgroup gid="searchvideo">   <!-- components.embedvideo.searchvideo -->
         <text tid="creationdate">Geplaatst op</text>
@@ -2822,6 +2822,13 @@
       <text tid="rtdleft">Linkerkolom</text>
       <text tid="rtdright">Rechterkolom</text>
       <text tid="title">Twee kolommen</text>
+    </textgroup>
+    <textgroup gid="video">   <!-- widgets.video -->
+      <text tid="embedvideo">Video</text>
+      <text tid="endbeforestart">De stoptijd moet na de starttijd liggen</text>
+      <text tid="endtime">Stop afspelen op</text>
+      <text tid="starttime">Start afspelen vanaf</text>
+      <text tid="starttimepastend">De starttijd ligt na het einde van de video</text>
     </textgroup>
   </textgroup>
 </language>

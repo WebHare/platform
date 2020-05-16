@@ -2823,5 +2823,12 @@
       <text tid="rtdright">Right column</text>
       <text tid="title">Two columns</text>
     </textgroup>
+    <textgroup gid="video">   <!-- widgets.video -->
+      <text tid="embedvideo">Video</text>
+      <text tid="endbeforestart">The stop time must be later than the start time</text>
+      <text tid="endtime">Stop playback at</text>
+      <text tid="starttime">Start playback at</text>
+      <text tid="starttimepastend">The start time is past the end of the video</text>
+    </textgroup>
   </textgroup>
 </language>
