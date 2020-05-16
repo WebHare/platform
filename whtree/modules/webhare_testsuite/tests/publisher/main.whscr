@@ -190,7 +190,7 @@ MACRO LookupTest()
   TestEq(lookuptest.webservers[0].id, lookupresult.webserver);
 
   OBJECT webharetestsuitesite := OpenTestsuiteSite();
-  lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/webhare-testsuite.site/testpages/formtest/"));
+  lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/testoutput/webhare_testsuite/testpages/formtest/"));
   TestEq(webharetestsuitesite->id, lookupresult.site);
   TestEq(webharetestsuitesite->outputweb, lookupresult.webserver);
 
