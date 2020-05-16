@@ -29,7 +29,7 @@ INTEGER ARRAY FUNCTION GetIndexedWHFSObjects(INTEGER folderid)
 PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD ARRAY results;
-  options := ValidateOptions([ eventid := "", debug := FALSE ], options);
+  options := ValidateOptions([ eventid := "", debug := FALSE, progress := FALSE ], options);
 
   IF (publisher_index = 0)
   {
@@ -88,7 +88,13 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
         ];
 
     DeleteGroup(data, [ refresh := TRUE ]);
+
+    IF(options.progress)
+      Print(`Deleting ${#objid}/${Length(to_delete)}: #${objid}\r`);
   }
+  IF(options.progress AND Length(to_delete) > 0)
+    Print(`\n`);
+
   FOREVERY (INTEGER objid FROM to_update)
   {
     RECORD data :=
@@ -99,12 +105,17 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
         , groupid := "fsobj_" || objid
         ];
 
+    IF(options.progress)
+      Print(`Updating ${#objid}/${Length(to_update)}: #${objid}\r`);
+
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                       , refresh := TRUE
                                       ]);
     INSERT CELL[ objid, result ] INTO results AT END;
   }
 
+  IF(options.progress AND Length(to_update) > 0)
+    Print(`\n`);
   IF (options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
 

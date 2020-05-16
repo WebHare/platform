@@ -3,12 +3,14 @@
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
 
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR IsRunningInEditor() ]
+    , [ name := "recursive", type := "switch" ]
     , [ name := "ids", type := "paramlist" ]
     ]);
 IF (NOT RecordExists(args))
@@ -38,12 +40,15 @@ FOREVERY (STRING idstr FROM args.ids)
       , isfolder := obj.isfolder
       , isdelete := NOT obj.isactive
       ] INTO to_reindex AT END;
+
+  IF(args.recursive AND obj.isfolder)
+    to_reindex := to_reindex CONCAT SELECT id, isfolder, isdelete := NOT isactive FROM system.fs_objects WHERE parent IN OpenWHFSObject(objid)->GetDescendantFolderids();
 }
 
 IF (Length(to_reindex) > 0)
 {
-  RECORD ARRAY results := ReindexWHFSChanges(to_reindex);
-  IF(args.debug AND Length(results) > 0 AND Length(results[0].errors) > 0)
+  RECORD ARRAY results := ReindexWHFSChanges(to_reindex, CELL[args.debug, progress := TRUE]);
+  IF(args.debug AND Length(results) > 0)
     DumpValue(results,'tree');
 }
 ELSE
