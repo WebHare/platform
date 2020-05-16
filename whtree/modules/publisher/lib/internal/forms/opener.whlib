@@ -47,6 +47,7 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
                        , options.webcontext
                        , options.languagecode
                        , options.formref
+                       , options.forcewebtoolformbase
                        ];
 
   RECORD savesettings := __passthrough;

@@ -85,6 +85,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
                  , handlerobject := InstantiateFormHandler(this, handler, this->__form.webtoolformid)
                  ] INTO this->formhandlers AT END;
 
+    IF(this->__form.forcewebtoolformbase)
+      RETURN; //no need to load hooks if we're doing a results-only load
+
     OBJECT targetformapplytester := GetApplyTesterForObject(this->__form.webtoolformid); //TODO we could cache endresult of this lookup while parsing formdef ?
     IF(ObjectExists(targetformapplytester))
     {
