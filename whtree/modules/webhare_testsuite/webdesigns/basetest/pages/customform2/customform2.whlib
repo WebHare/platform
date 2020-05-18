@@ -159,6 +159,9 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
   MACRO NEW()
   {
+    RECORD ARRAY trace := getstacktrace();
+    IF(RecordExists(SELECT FROM trace WHERE filename LIKE "*results.whlib*"))
+      THROW NEW Exception(`Results processing should not load custom formhooks`);
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
     INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
 
