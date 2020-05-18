@@ -108,6 +108,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
     IF(options.progress)
       Print(`Updating ${#objid}/${Length(to_update)}: #${objid}\r`);
 
+    //TODO pass queueing priority based on startingpoint ordering
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                       , refresh := TRUE
                                       ]);

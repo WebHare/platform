@@ -72,10 +72,24 @@ MACRO TestWHFSContentHandler()
   RECORD initdata := provider->__GetCCPInitData();
   OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
   RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
-  TestEq(1, startingpoints[0].folder, "Repository should be high priority (highest even?)");
-  TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
-  print("counting... ");
 
+  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforesites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/aftersites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/anywhere")->id
+                                                  ];
+
+  //Test that the expected folders are indeed their in their expected order
+  TestEq(expected_addtowhfsindex, SELECT AS INTEGER ARRAY folder FROM startingpoints WHERE folder IN expected_addtowhfsindex);
+  TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
+
+  INTEGER ARRAY expected_offsets := SELECT AS INTEGER ARRAY #startingpoints FROM startingpoints WHERE folder IN expected_addtowhfsindex;
+  TestEq(TRUE, expected_offsets[0] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforerepository should be before repository");
+  TestEq(TRUE, expected_offsets[1] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforesites should be AFTER repository");
+  TestEq(TRUE, expected_offsets[1] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our beforesites should be BEFORE the test site");
+  TestEq(TRUE, expected_offsets[2] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our aftersites should be AFTER the test site");
+
+  print("counting... ");
   STRING ARRAY groupids := SELECT AS STRING ARRAY id FROM realprovider->ListGroups(DEFAULT DATETIME).groups ORDER BY id;
   TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_repository) != -1);
   TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_lostandfound) != -1);

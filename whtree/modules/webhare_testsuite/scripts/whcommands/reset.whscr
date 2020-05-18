@@ -79,7 +79,14 @@ ELSE
   FOREVERY(RECORD subobj FROM SELECT id FROM system.fs_objects WHERE parent = testsite->id)
     OpenWHFSObject(subobj.id)->RecycleSelf();
 }
+
 SetupSiteTestOutput(testsite, "webhare_testsuite");
+
+OBJECT addtowhfsindex := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "addtowhfsindex"]);
+addtowhfsindex->EnsureFolder([name := "beforerepository"]);
+addtowhfsindex->EnsureFolder([name := "beforesites"]);
+addtowhfsindex->EnsureFolder([name := "aftersites"]);
+addtowhfsindex->EnsureFolder([name := "anywhere"]);
 
 testsite->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
                      [ sitedesign := "webhare_testsuite:basetest"
