@@ -37,7 +37,7 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
 {
   options := ValidateOptions([ applytester := DEFAULT OBJECT
                              , webcontext := DEFAULT OBJECT
-                             , forcewebtoolformbase := FALSE
+                             , nowebtoolextensions := FALSE
                              , languagecode := ""
                              , formref := ""
                              ], options);
@@ -47,7 +47,7 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
                        , options.webcontext
                        , options.languagecode
                        , options.formref
-                       , options.forcewebtoolformbase
+                       , options.nowebtoolextensions
                        ];
 
   RECORD savesettings := __passthrough;
@@ -56,8 +56,8 @@ PUBLIC OBJECT FUNCTION OpenFormByDef(RECORD formdef, RECORD options DEFAULTSTO D
   {
     __passthrough := parsed;
 
-    STRING toopen := options.forcewebtoolformbase ? "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase"
-                                                  : parsed.objectname ?? "mod::publisher/lib/forms/base.whlib#FormBase";
+    STRING toopen := options.nowebtoolextensions ? "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase"
+                                                 : parsed.objectname ?? "mod::publisher/lib/forms/base.whlib#FormBase";
 
     formobj := MakeObject(toopen);
     formobj->__EnsurePreInit();
