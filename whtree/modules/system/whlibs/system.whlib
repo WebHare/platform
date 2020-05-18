@@ -2687,19 +2687,26 @@ MACRO __PrintAnyTo(INTEGER output, VARIANT data, STRING format)
     @cell(string) options.name Function name to use in header. Set to empty string for no header
     @cell(string) options.format Formatting to use ("boxed", "html", "csv", "tree", "tree:<depth>", "htmltree", "htmltree:<depth>")
     @cell(integer) options.callerlevel How far to look back in the stacktrace to get linenumber information
+    @cell(integer) options.outputid Output device to write the data to. By default we print to stderr (output 2)
 */
 PUBLIC MACRO DumpValue(VARIANT data, VARIANT options DEFAULTSTO DEFAULT RECORD)
 {
   IF (TypeID(options) = TypeID(STRING))
     options := [ format := options ];
-  options := ValidateOptions( [ callerlevel := 1, name := "DumpValue", format := "tree:3" ], options);
+
+  options := ValidateOptions( [ callerlevel := 1
+                              , name := "DumpValue"
+                              , format := "tree:3"
+                              , outputid := 2
+                              ], options);
 
   RECORD caller := GetStackTrace()[options.callerlevel];
   IF(options.name != "")
-    Print(`${options.name} from ${caller.filename}:${caller.line}:${caller.col} (${caller.func})\n`);
-  __PrintAnyTo(0,data,options.format);
+    PrintTo(options.outputid, `${options.name} from ${caller.filename}:${caller.line}:${caller.col} (${caller.func})\n`);
+
+  __PrintAnyTo(options.outputid, data, options.format);
   IF(options.name != "")
-    Print("\n");
+    PrintTo(options.outputid, "\n");
 }
 
 /** @short Convert any type to a string for debugging
