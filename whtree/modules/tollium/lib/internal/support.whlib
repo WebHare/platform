@@ -843,10 +843,17 @@ PUBLIC OBJECT FUNCTION CreateMessageBox(OBJECT parent, STRING name, STRING p1 DE
                                                                 ]);
 }
 
+MACRO ValidateScreenPath(STRING screenpath)
+{
+  IF(screenpath NOT LIKE "*::*#*"
+     AND screenpath NOT LIKE "mod::*" //we allow #-less paths, but only for modern namespaces that are expected to contain screens
+     AND screenpath NOT LIKE "inline:*"
+     AND screenpath NOT LIKE "inline-base64::*")
+    THROW NEW Exception(`Invalid screen path '${screenpath}'`);
+}
 PUBLIC STRING FUNCTION GetResourceNameFromScreenPath(STRING screenpath)
 {
-  IF(screenpath NOT LIKE "*::*#*")
-    THROW NEW Exception("Invalid screen path '" || screenpath || "'");
+  ValidateScreenPath(screenpath);
   RETURN MakeAbsoluteResourcePath("", Tokenize(screenpath,'#')[0]);
 }
 /** Return the screen name for a screen path, eg "publisher:a/b.c" becomes "c"
@@ -855,9 +862,9 @@ PUBLIC STRING FUNCTION GetResourceNameFromScreenPath(STRING screenpath)
 */
 PUBLIC STRING FUNCTION GetScreenNameFromScreenPath(STRING screenpath)
 {
-  IF(screenpath NOT LIKE "*::*#*")
-    THROW NEW Exception("Invalid screen path '" || screenpath || "'");
-  RETURN Tokenize(screenpath,'#')[1];
+  ValidateScreenPath(screenpath);
+  INTEGER hash := SearchSubstring(screenpath,'#');
+  RETURN hash = -1 ? "" : Substring(screenpath, hash+1);
 }
 PUBLIC STRING FUNCTION GetModuleNameFromScreenPath(STRING screenpath)
 {
@@ -966,6 +973,9 @@ PUBLIC STRING FUNCTION GenerateProtectedManualURL(STRING manual, STRING accessto
 
 PUBLIC BOOLEAN FUNCTION IsOldStyleScreenReference(STRING screenref)
 {
+  IF(screenref LIKE "*::*.xml")
+    RETURN FALSE;
+
   RETURN screenref NOT LIKE "*#*"
          OR (screenref LIKE ".*")
          OR (screenref NOT LIKE "*::*" AND screenref LIKE "*:*.*");

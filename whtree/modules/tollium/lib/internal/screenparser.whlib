@@ -2333,6 +2333,13 @@ RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
 }
 
 
+PUBLIC STRING FUNCTION MakeSelector(STRING tolliumtype, STRING screenref)
+{
+  STRING sel := `//*[local-name()="${tolliumtype}" and namespace-uri() = "http://www.webhare.net/xmlns/tollium/screens"]`;
+  IF(screenref != "")
+    sel := sel || `[@name="${EncodeJava(screenref)}"]`;
+  RETURN sel;
+}
 PUBLIC RECORD FUNCTION GetParsedPage(STRING resourcename, STRING selector, STRING type)
 {
   //Pages often get re-requested so it makes sense to cache them

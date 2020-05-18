@@ -116,7 +116,7 @@ ASYNC MACRO TestIntExtLink_WithLinkHandlers()
   </screens>`;
 
   // test loadscreen rejecting these - must see a load error
-  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(`inline::${intextlink_withlinkhandlers}#firstscreen`));
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(`inline::${intextlink_withlinkhandlers}`));
 
   TestEq(["External link","custom link handler"], SELECT AS STRING ARRAY title FROM TT("link")->^linktype->options);
   TT("link")->value := MakeIntExtExternalLink("x-webharetestsuite-customlink:15");

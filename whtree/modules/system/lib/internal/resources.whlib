@@ -441,7 +441,7 @@ PUBLIC STRING FUNCTION MakeAbsoluteScreenReference(STRING baseresource, STRING s
       RETURN MakeAbsoluteResourcePath("", Tokenize(baseresource,'#')[0] || "#" || Substring(screenref,1));
     }
 
-    IF(screenref LIKE "*.*" AND screenref NOT LIKE "*#*") //assume a "x.y" link
+    IF(screenref LIKE "*.*" AND screenref NOT LIKE "*#*" AND screenref NOT LIKE "*.xml") //assume a "x.y" link
     {
       IF(baseresource="")
         THROW NEW Exception("Cannot interpret screenref '" || screenref || "' without a baseresource");
@@ -451,7 +451,7 @@ PUBLIC STRING FUNCTION MakeAbsoluteScreenReference(STRING baseresource, STRING s
     }
   }
 
-  IF(screenref NOT LIKE "*#*")
+  IF(screenref NOT LIKE "*#*" AND screenref NOT LIKE "*.xml")
     THROW NEW Exception("Invalid screen reference '" || screenref || "'");
 
   RETURN MakeAbsoluteResourcePath(baseresource, screenref);
