@@ -38,12 +38,6 @@ INTEGER no_forward_progress_longloop := 10000; // trigger forward progress detec
 INTEGER no_forward_progress_wait := 2000; // wait 2 seconds for forward progress
 INTEGER gc_waitperiod := 60000; // collect garbage every 1 minute after a wait has been started
 
-BOOLEAN FUNCTION IsTrustedForDeepAccess()
-{
-  //ADDME trust non-sysops being impersonated by sysops too ?
-  RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
-}
-
    /** Check internal callbacks
       @param handle Optional signalled handle (use -1 to ignore)
       @param docheck Whether check is needed (ignored when handle is set)
@@ -1739,6 +1733,13 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RETURN this->pvt_connectenabled;
   }
 
+  /** Would we trust this user with the debugger or other 'raw' access ? */
+  PUBLIC BOOLEAN FUNCTION IsTrustedToDebug()
+  {
+    //TODO  trust non-sysops being impersonated by sysops too ?
+    RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
+  }
+
   MACRO AddAppIssue(STRING issuetag)
   {
     INTEGER matchissue := (SELECT AS INTEGER #appissues+1 FROM this->appissues WHERE tag = issuetag)-1;
@@ -2139,7 +2140,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?
 
     this->ValidateControllerSetup();
-    IF(Length(this->pvt_inapppath) > 0 AND NOT IsTrustedForDeepAccess())
+    IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug())
       this->pvt_inapppath := STRING[];
 
     IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND NOT this->tolliumuser->HasRight("system:supervisor"))
@@ -2174,7 +2175,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
       this->RunMessageBox("tollium:commondialogs.applaunchfailure_nosuchapp", toks[0], appname);
       RETURN;
     }
-    IF(Length(data.params) >0 AND NOT app.allowuntrustedparams AND NOT IsTrustedForDeepAccess())
+    IF(Length(data.params) >0 AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
     {
       this->RunSimpleScreen("error", GetTid("tollium:shell.controller.untrustedparams"));
       RETURN;

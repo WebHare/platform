@@ -618,16 +618,9 @@ export default class ObjList extends ComponentBase
     if(!row)
       return;
 
-    var actions = [dompack.create("li", { textContent: "Inspect row #" + row.rownum
-                                        , on: { click: () => this._requestMagicAction('inspectrow', row.rownum) }
-                                        })];
-    this.debugactions.forEach( (action,idx) =>
-    {
-      actions.push(dompack.create("li", { textContent: action.type
-                                        , on: { click: () => this._requestMagicAction('debugaction:' + idx, row.rownum) }
-                                        }));
-
-    });
+    let actions = [ <li onClick={ () => this._requestMagicAction('inspectrow', row.rownum) }>Inspect row #{row.rownum}</li>
+                  , ...this.debugactions.map( (action,idx) => <li onClick={ () => this._requestMagicAction('debugaction:' + idx, row.rownum) }>{action.type}</li>)
+                  ];
     event.detail.submenu.prepend(...actions);
   }
 
