@@ -405,5 +405,9 @@
       <record name="unspecified_record" strict="false" />
     </fieldgroup>
 
+    <addtowhfsindex privatefolder="addtowhfsindex/aftersites" priority="aftersites" />
+    <addtowhfsindex privatefolder="addtowhfsindex/beforerepository" priority="beforerepository" />
+    <addtowhfsindex privatefolder="addtowhfsindex/beforesites" priority="beforesites" />
+    <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
   </consilio>
 </module>

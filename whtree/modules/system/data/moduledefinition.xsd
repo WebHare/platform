@@ -2094,6 +2094,30 @@
         <xs:element name="contentprovider" type="ContentProvider" />
         <xs:element name="index" type="Index" />
         <xs:element name="fieldgroup" type="FieldGroup" />
+        <xs:element name="addtowhfsindex">
+          <xs:annotation>
+            <xs:documentation>Add a /webhare-private/ folder to the whfs index</xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:attribute name="privatefolder" use="required">
+              <xs:annotation>
+                <xs:documentation>Path to add (relative to /webhare-private/&lt;modulename&gt;/) </xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="priority">
+              <xs:annotation>
+                <xs:documentation>Indexing priority</xs:documentation>
+              </xs:annotation>
+              <xs:simpleType>
+                <xs:restriction base="xs:string">
+                  <xs:enumeration value="beforerepository"/>
+                  <xs:enumeration value="beforesites"/>
+                  <xs:enumeration value="aftersites"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
       </xs:choice>
     </xs:sequence>
   </xs:complexType>
