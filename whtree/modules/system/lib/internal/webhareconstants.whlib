@@ -29,6 +29,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_registerslots := 20;
 //Folder/site id of the Repository site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_repository := 1;
 
+//Folder/site id of Lost & Found, a Repository site folder
+PUBLIC CONSTANT INTEGER whconstant_whfsid_lostandfound := 6;
+
 //Folder id storing autosaves
 PUBLIC CONSTANT INTEGER whconstant_whfsid_autosaves := 14;
 
@@ -49,6 +52,15 @@ PUBLIC CONSTANT INTEGER whconstant_webservertype_interface := 1;
 
 //'Webserver' type of a webserver group
 PUBLIC CONSTANT INTEGER whconstant_webservertype_group := 6;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/normafolder
+PUBLIC CONSTANT INTEGER whconstant_whfstype_normalfolder := 0;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/systemfolder
+PUBLIC CONSTANT INTEGER whconstant_whfstype_systemfolder := 2;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/shtmlfile
+PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 
 //Scriptable types which are reflected to disk so the compiler can see them
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
@@ -79,9 +91,6 @@ PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_invalidtemplate :=
   , 34 //webfields file (deprecated)
   , 35 //dynamic folder contents (does not make sense to duplicate)
   ];
-
-/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/shtmlfile
-PUBLIC CONSTANT INTEGER whconstant_whfstype_shtmlfile := 25;
 
 /* WHFS type member names
     1 unused, was: Single choice (default value: STRING)

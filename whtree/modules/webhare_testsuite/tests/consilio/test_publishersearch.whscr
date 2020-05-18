@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -18,6 +19,7 @@ LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -28,12 +30,13 @@ INTEGER testsiteid;
 OBJECT file_1, file_3, file_2, file_4, file_5;
 OBJECT subfolder;
 
-MACRO Prepare()
+MACRO TestWHFSContentHandler()
 {
   // Create and fill the test site
   testfw->BeginWork();
 
-  testroot := GetTestsuiteTempFolder();
+  //test in a subfolder of temp so we don't rely on an earlier publisher index to have indexed the tempfolder
+  testroot := GetTestsuiteTempFolder()->EnsureFolder([name := "publishersearch"]);
   subfolder := testroot->CreateFolder([ name := "subfolder", title := "blafolder <>" ]);
   testsiteid := testroot->parentsite;
 
@@ -57,7 +60,36 @@ MACRO Prepare()
   RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
   TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
 
-  CommitAndWaitForPublisherIndex();
+  OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
+  testfw->CommitWork();
+
+  // While we wait for the background contenthandlers to do their work.. we can inspect it directly too
+  OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  Testeq(TRUE, ObjectExists(catalog), `Catalog '${whconstant_consilio_catalog_whfs}' gone?`);
+
+  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
+  // The proxy object CustomContentProvider we get is pretty useless for deeper testing
+  RECORD initdata := provider->__GetCCPInitData();
+  OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
+  RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
+  TestEq(1, startingpoints[0].folder, "Repository should be high priority (highest even?)");
+  TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
+  print("counting... ");
+
+  STRING ARRAY groupids := SELECT AS STRING ARRAY id FROM realprovider->ListGroups(DEFAULT DATETIME).groups ORDER BY id;
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_repository) != -1);
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_lostandfound) != -1);
+  TestEq(FALSE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_private_system) != -1);
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || testroot->id) != -1, "Test folder should be in scope of publisher search");
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || file_1->id) != -1, "For now individual files are still in sope");
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || subfolder->id) != -1, "Test subfolder should also be in scope of publisher search");
+
+  RECORD ARRAY resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testroot->id, RECORD[], [ rebuild := TRUE ]).objects;
+  TestEq(TRUE, RecordExists(SELECT FROM resultobjects WHERE id = "fsobj_" || testroot->id));
+
+  Print("waiting for our preparation to be indexed...\n");
+  WaitForPromise(promise);
+  Print("it's indexed\n");
 }
 
 MACRO PublisherSearchTest()
@@ -89,7 +121,7 @@ MACRO PublisherSearchTest()
   TestEq("file", resultobj.whfsobject);
   TestEq(testroot->id, resultobj.whfsparent);
   TestEq(file_5->whfspath, resultobj.whfspath);
-  TestEq(`${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
+  TestEq(`${testroot->parentobject->parent} ${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEq(richdoctype->id, resultobj.whfstype);
@@ -452,7 +484,7 @@ ASYNC MACRO InspectConsilio()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-RunTestframework([ PTR Prepare
+RunTestframework([ PTR TestWHFSContentHandler
                  , PTR InspectConsilio
                  , PTR PublisherSearchTest
                  ]
