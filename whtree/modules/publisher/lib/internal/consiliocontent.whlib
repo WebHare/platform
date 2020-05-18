@@ -28,6 +28,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 
@@ -249,13 +250,26 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     this->trans := OpenPrimary();
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetWHFSStartingPoints()
+  {
+    RETURN SELECT folder := id
+             FROM system.sites
+            WHERE id != whconstant_whfsid_webharebackend
+         ORDER BY id = whconstant_whfsid_repository DESC
+                , outputweb = 0 DESC        // anything not being published can't be important ?
+                , locked = FALSE DESC       // don't rush to index locked sites, that indicates them are likely being unmaintained and probaly less important
+                , Length(outputfolder);     // prefer 'homepages' over deeper sites
+  }
+
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
   {
-    RECORD ARRAY groups :=
-        SELECT id := "fsobj_" || id
-          FROM system.fs_objects
-         WHERE isactive
-         ORDER BY modificationdate DESC, id;
+    RECORD ARRAY groups;
+    FOREVERY(RECORD startingpoint FROM this->GetWHFSStartingPoints())
+    {
+      INTEGER ARRAY sitefolders := INTEGER[startingpoint.folder] CONCAT GetWHFSDescendantIds(startingpoint.folder, TRUE, TRUE, 32, FALSE); //folders: true, files: TRUE, maxdepth: 32, onlypublished: false
+      groups := groups CONCAT SELECT id := "fsobj_" || id FROM ToRecordArray(sitefolders,"id");
+    }
+
 
     RETURN [ status := "result"
            , groups := groups
