@@ -1,0 +1,12 @@
+<?wh
+/* a 2017 migrationscript converted but did not remove old keys (those that don't contain a ':' module seprarator)
+   let's do that now, these keys are inaccessible anyway. this generally only affects ADDRESSVERIFICATION.SERVICE
+   */
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+DELETE FROM wrd.keyvaluestore WHERE name NOT LIKE '?*:?*';
+trans->CommitWork();

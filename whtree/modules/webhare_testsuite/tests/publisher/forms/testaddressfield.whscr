@@ -37,7 +37,7 @@ PUBLIC MACRO TestAddressField()
                      , fields :=          DEFAULT RECORD
                      //can formapi give us this data?
                      , formid :=          "addressform"
-                     , url :=             "webhare-testsuite.site/testpages/formtest/?address=1"
+                     , url :=             "testoutput/webhare_testsuite/testpages/formtest/?address=1"
                      ];
 
   RECORD formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
