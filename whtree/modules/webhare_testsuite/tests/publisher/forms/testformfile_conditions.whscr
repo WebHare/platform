@@ -44,7 +44,7 @@ PUBLIC MACRO TestFormConditions()
   STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   TestEq(TRUE, emailfieldname!="", "Email field not found");
 
-  RECORD submitrec := CELL[];
+  RECORD submitrec := CELL[ toggleselectoptions_withplaceholder := "copt1" ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
 
   RECORD res := tester->SubmitForm(submitrec);
@@ -55,7 +55,7 @@ PUBLIC MACRO TestFormConditions()
   res := tester->SubmitForm(submitrec);
   TestEq(TRUE, res.success);
 
-  submitrec := CELL[ hidefirstname := "1"];
+  submitrec := CELL[ hidefirstname := "1", toggleselectoptions_withplaceholder := "copt1" ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
 
   res := tester->SubmitForm(submitrec);
@@ -63,6 +63,7 @@ PUBLIC MACRO TestFormConditions()
 
   submitrec := CELL[ enablefirstname := STRING[]
                    , checkboxes := ["copt1"] //trigger a mail
+                   , toggleselectoptions_withplaceholder := "copt1"
                    ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
 

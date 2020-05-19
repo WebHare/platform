@@ -743,7 +743,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
         // Add a 'placeholder' option if set
         IF (fielddescription.placeholderisset)
         {
-          Print(`<option value="" ${fielddescription.required ? "disabled" : ""} class="wh-form__pulldownplaceholder" selected>`);
+          Print(`<option value=""${fielddescription.required ? " disabled" : ""} class="wh-form__pulldownplaceholder" selected data-wh-placeholder>`);
           IF(fielddescription.placeholder != "")
             Print(EncodeHTML(fielddescription.placeholder));
           Print(`</option>`);

@@ -701,13 +701,19 @@ export default class FormBase
       {
         option.propWhNodeCurrentEnabled = option_enabled;
         option.disabled = !option_enabled;
-        // If this option was the selected option, but is now disabled, reset the select's value
-        // FIXME option.parentNode will fail with optgroups, but so will this for() loop... formsapi supports <optgroup> but fortunately the formwebtool doesn't expose it yet
-        if (option.disabled && option.selected)
-          option.parentNode.selectedIndex = -1;
 
-        if (!isinit && !tovalidate.includes(option.parentNode))
-          tovalidate.push(option.parentNode); // to clear errors for this option's select field
+        // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
+        let selectnode = option.closest("select");
+        if (option.disabled && option.selected && option.dataset.whPlaceholder === undefined)
+        {
+          if(selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
+            selectnode.selectedIndex = 0;
+          else
+            selectnode.selectedIndex = -1;
+        }
+
+        if (!isinit && !tovalidate.includes(selectnode))
+          tovalidate.push(selectnode); // to clear errors for this option's select field
       }
     }
 
