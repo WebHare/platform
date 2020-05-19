@@ -288,7 +288,7 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
                               FROM system.sites
                              WHERE id != whconstant_whfsid_webharebackend
                           ORDER BY id = whconstant_whfsid_repository DESC
-                                 , outputweb = 0 DESC        // anything not being published can't be important ?
+                                 , outputweb != 0 DESC       // anything not being published can't be important ?
                                  , locked = FALSE DESC       // don't rush to index locked sites, that indicates them are likely being unmaintained and probaly less important
                                  , Length(outputfolder);     // prefer 'homepages' over deeper sites
 
