@@ -38,6 +38,8 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 ///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
 CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword"];
+///Expected protocol version. Bump if we break backwards compatible with JS code
+CONSTANT INTEGER expecttoddprotocolversion := 1;
 
 RECORD FUNCTION GetRawAppLaunchInstruction(STRING appname)
 {
@@ -793,6 +795,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                                , goparam := ""
                                , browser := ""
                                , isloginapp := FALSE
+                               , protocolversion := 0
                                ], EnforceStructure([webvars := RECORD[]], options));
 
     this->SetupPortal(webcontext);
@@ -805,7 +808,14 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
        AND NOT ObjectExists(this->currentuser)
        AND appname NOT IN loginapps
        AND (appname != "system:needsysop" OR NOT this->runwebhareinstall))
-      THROW NEW Exception("You are not logged in");
+    {
+      RETURN [ error := "notloggedin" ];
+    }
+
+    IF(options.protocolversion <= 0) //NOTE we only need this until there are no more 4.27s and 4.28.0s - we hijack the error path to show our message
+      RETURN [ errors := [[ message :=  GetTid("tollium:shell.login.unexpectedprotocolversion"), line := 0 , file := 0, col := 0, filename := "" ]]];
+    IF(options.protocolversion != expecttoddprotocolversion)
+      RETURN [ error := "unexpectedprotocolversion" ];
 
     RECORD parsedappname := this->ParseAppName(appname);
 

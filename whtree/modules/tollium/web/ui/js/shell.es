@@ -13,6 +13,7 @@ import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback.es';
 import LinkEndPoint from './comm/linkendpoint.es';
 import TransportManager from './comm/transportmanager.es';
+import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
 todd_components = { ...FrameComponents
                   , ...getComponents()
@@ -755,8 +756,23 @@ class IndyShell
 }
 
 
-$todd.handleApplicationErrors = function(app,data)
+$todd.handleApplicationErrors = async function(app,data)
 {
+  if(data.error === "notloggedin") //StartApp error
+  {
+    await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    if(!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+      $shell.doLogoff();
+    return;
+  }
+  if(data.error === "unexpectedprotocolversion") //StartApp error
+  {
+    await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("tollium:common.actions.ok") }] });
+    if(!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+      location.reload(true);
+    return;
+  }
+
   if(!data.errors.length)
   {
     //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!

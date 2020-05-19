@@ -16,6 +16,8 @@ const toddImages = require("@mod-tollium/js/icons");
 
 require("../common.lang.json");
 
+const ToddProtocolVersion = 1;
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  APPLICATION                                                                                                             *
@@ -1129,6 +1131,7 @@ $todd.BackendApplication = class extends $todd.Application
                   , container: undefined
                   , inbackground: undefined
                   , browser: browser.getTriplet()
+                  , protocolversion: ToddProtocolVersion
                   };
 
     try
@@ -1158,7 +1161,6 @@ $todd.BackendApplication = class extends $todd.Application
     //ADDME dealing with subapps?
 
     //destroy any screens - FIXME why??
-
     if (data.status != 'ok')
     {
       this.setAppTitle('Application');
