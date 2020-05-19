@@ -9,7 +9,9 @@ PUBLIC STATIC OBJECTTYPE EditMergeField EXTEND TolliumTabsExtensionBase
 <
   UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)
   {
-    ^fieldname->options := SELECT rowkey := name, title FROM this->contexts->mergefields->mergefields;
+    ^fieldname->options := SELECT rowkey := name, title
+                             FROM this->contexts->mergefields->mergefields
+                            WHERE NOT hidden;
   }
 >;
 
