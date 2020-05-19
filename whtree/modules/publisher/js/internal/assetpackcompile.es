@@ -72,7 +72,7 @@ async function runTask(taskcontext, data)
       , missingDependencies:  [...compilation.missingDependencies]
       };
 
-  let result = translateCompileResult(compileresult.err, compileresult.stats);
+  let result = translateCompileResult(compileresult.stats);
   result = killCycles(result);
 
   //create asset list
@@ -111,7 +111,7 @@ module.exports = runTask;
 
 /** Translate compilation results for Harescript consumption
 */
-function translateCompileResult(err,stats)
+function translateCompileResult(stats)
 {
   let result = { errors: []
                , modules: [] //included modules
@@ -125,12 +125,6 @@ function translateCompileResult(err,stats)
 
    console.log(err.toString(),Object.keys(err)); process.exit(1);
  */
-  if(err)
-  {
-    result.errors = [{ source:'webpack:fatal.error'
-                     , message:err.toString()
-                    }];
-  }
 
   //A bit of api about stats: https://webpack.github.io/docs/node.js-api.html#watching
   if(stats)
@@ -143,12 +137,8 @@ function translateCompileResult(err,stats)
          , missing: err.missing
          })));
 
-    var tojson = stats.toJson({ modules: true, cached: true, reasons: true });
-    result.modules = tojson.modules.map( mod => ({ identifier: mod.identifier
-                                                 }));
-    result.assets = tojson.assets.map( asset => ({ name:asset.name
-                                                 }));
-
+    result.modules = stats.modules;
+    result.assets = stats.assets;
     result.dependencies = stats.wh_timestamps;
   }
 
