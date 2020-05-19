@@ -24,6 +24,9 @@ This event is fired whenever the servertype (eg. development, production) is cha
 ### system:config.webserver
 Fired when the webserver configuration (eg. hostnames, accessrules, aliases) is changed
 
+### system:sitesupdate
+Fired when a site is added or removed
+
 ### system:modulesupdate
 Fired when a new module is installed or a moduledefinition.xml changes
 
