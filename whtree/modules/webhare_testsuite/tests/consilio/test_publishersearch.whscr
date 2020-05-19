@@ -20,6 +20,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -27,7 +28,8 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 OBJECT testroot;
 INTEGER testsiteid;
-OBJECT file_1, file_3, file_2, file_4, file_5;
+OBJECT file_1, file_3, file_2, file_4, file_5, file_7;
+OBJECT beforerepositoryfolder, privatetestfile1;
 OBJECT subfolder;
 
 MACRO TestWHFSContentHandler()
@@ -60,6 +62,17 @@ MACRO TestWHFSContentHandler()
   RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
   TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
 
+  beforerepositoryfolder := OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository");
+  IF(ObjectExists(beforerepositoryfolder->OpenByName("privatetestfile1.txt")))
+    beforerepositoryfolder->OpenByName("privatetestfile1.txt")->RecycleSelf();
+  privatetestfile1 :=  beforerepositoryfolder->EnsureFile([name:="privatetestfile1.txt", title := "private blafile", data := StringToBlob("blabliblo"), publish := TRUE]);
+
+  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ beforerepositoryfolder->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforesites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/aftersites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/anywhere")->id
+                                                  ];
+
   OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
   testfw->CommitWork();
 
@@ -72,12 +85,6 @@ MACRO TestWHFSContentHandler()
   RECORD initdata := provider->__GetCCPInitData();
   OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
   RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
-
-  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository")->id
-                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforesites")->id
-                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/aftersites")->id
-                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/anywhere")->id
-                                                  ];
 
   //Test that the expected folders are indeed their in their expected order
   TestEq(expected_addtowhfsindex, SELECT AS INTEGER ARRAY folder FROM startingpoints WHERE folder IN expected_addtowhfsindex);
@@ -385,7 +392,7 @@ MACRO PublisherSearchTest()
   publishersearchtesttype->SetInstanceData(file_5->id, DEFAULT RECORD ARRAY);
 
   // Create a file with the test filetype and initialize its array member
-  OBJECT file_7 := testroot->CreateFile(
+  file_7 := testroot->CreateFile(
       [ name:="testfile7.txt"
       , title := "blafile7"
       , type := publishersearchtesttype->id
@@ -466,12 +473,52 @@ MACRO PublisherSearchTest()
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
+}
 
+ASYNC MACRO InspectConsilio()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
+  TTClick(":Reindex");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_5->id));
+  TestEq(1, result.totalcount);
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  TestEq(1, result.totalcount);
+
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), privatetestfile1->id));
+  TTClick(":Reindex");
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  TestEq(1, result.totalcount);
+
+  testfw->BeginWork();
+  OBJECT tokill := beforerepositoryfolder->parentobject->OpenByName(privatetestfile1->name);
+  IF(ObjectExists(tokill))
+    tokill->DeleteSelf(); //destroy remnant from a previous test
+
+  //Manually move our testfile away .. so no consilio events trigger
+  UPDATE system.fs_objects SET parent := beforerepositoryfolder->parent WHERE id=privatetestfile1->id;
+  testfw->CommitWork();
+
+  //A reindex of a file outside a starting point should delete it`
+  TTClick(":Reindex");
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  dumpvalue(result,'tree');
+  TestEq(0, result.totalcount);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO TestUpdateCheckIndex()
+{
+  //moved these tests to the end as they can be slow on a large database
   // Update the index, both objects should still be present
   INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
   UpdateConsilioIndex(catalogid);
   testfw->WaitIndexDone(catalogid);
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 
   // Check the index, both objects should still be present
@@ -487,20 +534,15 @@ MACRO PublisherSearchTest()
 
   CommitAndWaitForPublisherIndex();
 
+  OBJECT search_obj := OpenSearchObject("en", whconstant_consilio_catalog_whfs);
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_7->id)), 0, -1);
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");
-}
-
-ASYNC MACRO InspectConsilio()
-{
-  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
-  TTClick(":Reindex");
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR TestWHFSContentHandler
                  , PTR InspectConsilio
                  , PTR PublisherSearchTest
+                 , PTR TestUpdateCheckIndex
                  ]
                  , [ consilio := TRUE
                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]

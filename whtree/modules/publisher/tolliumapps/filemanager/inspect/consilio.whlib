@@ -57,7 +57,7 @@ PUBLIC STATIC OBJECTTYPE ConsilioTab EXTEND TolliumFragmentBase
   {
     RECORD ARRAY results := ReindexWHFSChanges([[ id := this->objid
                                                 , isfolder := this->fsobj->isfolder
-                                                , isdelete := NOT this->fsobj->isactive
+                                                , isdelete := FALSE
                                                 ]]);
 
     /* We receive errorinfo in a nonstandard format (string, no trace).. we should
