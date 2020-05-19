@@ -851,9 +851,11 @@
       <text tid="loginidentityservices">Inloggen met identiteitsservices</text>
       <text tid="logintitle">Inloggen</text>
       <text tid="loginwithwebhareaccount">Inloggen met een WebHare account</text>
+      <text tid="notloggedin">U lijkt niet meer ingelogd te zijn. Mogelijk moet u deze pagina opnieuw inladen om weer in te loggen.</text>
       <text tid="nowebhareaccount">Er is geen gekoppeld WebHare account gevonden. Neem contact op met uw systeembeheerder.</text>
       <text tid="password">Wachtwoord</text>
       <text tid="savelogin">Onthoud mij</text>
+      <text tid="unexpectedprotocolversion">Het lijkt erop dat uw browser een verouderde versie van deze webpagina heeft ingeladen. Probeer Shift-F5 (of Shift-Cmd-R op een Mac) om deze pagina opnieuw in te laden.<br/><br/>Mocht dit niet werken probeer dan uw browser opnieuw te starten.</text>
       <text tid="username">Gebruikersnaam</text>
     </textgroup>
     <textgroup gid="logout">   <!-- shell.logout -->
