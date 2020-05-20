@@ -2,10 +2,6 @@
   xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
   gid="components">
 
-  <messageboxes>
-    <messagebox name="confirmdeleteentity" buttons="yes no" />
-    <messagebox name="cannotdeletereferredentity" buttons="ok" />
-  </messageboxes>
 
   <fragment name="quickfilter" gid=".quickfilter" lib="components/quickfilter.whlib">
     <actions>

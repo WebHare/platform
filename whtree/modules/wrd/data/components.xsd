@@ -754,6 +754,13 @@
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="selectmultiple" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attributeGroup ref="ContextAndType" />
     <xs:attributeGroup ref="s:ListContextMenus" />
   </xs:complexType>
@@ -909,13 +916,6 @@
             <xs:annotation>
               <xs:documentation>
                 <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-
-          <xs:attribute name="selectmultiple" type="xs:boolean">
-            <xs:annotation>
-              <xs:documentation>
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>

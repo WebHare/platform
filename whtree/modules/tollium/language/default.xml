@@ -882,9 +882,11 @@
       <text tid="loginidentityservices">Login using identity services</text>
       <text tid="logintitle">Login</text>
       <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
+      <text tid="notloggedin">You no longer seem to be logged in. You may need to reload this webpage to relogin.</text>
       <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
       <text tid="password">Password</text>
       <text tid="savelogin">Remember me</text>
+      <text tid="unexpectedprotocolversion">It looks like your browser is running an outdated version of this webpage. Please try Shift-F5 (or Shift-Cmd-R on a Mac or Alt-Cmd-R in Safari) to reload this page.<br/><br/>If that doesn't work please try restarting your browser.</text>
       <text tid="username">Username</text>
     </textgroup>
     <textgroup gid="logout">   <!-- shell.logout -->

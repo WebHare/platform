@@ -284,6 +284,11 @@ PUBLIC OBJECTTYPE CustomContentProvider EXTEND ConsilioContentProvider
     defaultemptysearchrecord := this->defaultemptysearchrecord;
   }
 
+  PUBLIC RECORD FUNCTION __GetCCPInitData()
+  {
+    RETURN this->initdata;
+  }
+
   UPDATE PUBLIC STRING FUNCTION GetContentSourceTitle()
   {
     RECORD res := this->DoJobRequest([ command := "gettitle"

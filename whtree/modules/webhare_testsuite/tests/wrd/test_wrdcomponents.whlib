@@ -11,12 +11,8 @@ PUBLIC OBJECTTYPE TestRunQuery EXTEND TolliumScreenBase
 
 PUBLIC OBJECTTYPE TestEntitiesEdit EXTEND TolliumScreenBase
 <
-  PUBLIC INTEGER ARRAY __lastchangeorderlist;
-
   MACRO GotChangeOrder(OBJECT wrdtype, INTEGER ARRAY rowkeys)
   {
-    this->__lastchangeorderlist := rowkeys;
-
     OBJECT work := this->BeginUnvalidatedWork();
     FOREVERY (INTEGER rowkey FROM rowkeys)
       wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);

@@ -28,8 +28,40 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
+RECORD FUNCTION GetCacheableModuleStartingPoints()
+{
+  RECORD ARRAY spoints;
+  RECORD ARRAY added := GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "addtowhfsindex");
+  FOREVERY(RECORD toadd FROM added)
+  {
+    STRING basepath := `/webhare-private/${toadd.module}/`;
+    STRING targetpath := MergePath(basepath, toadd.node->GetAttribute("privatefolder"));
+    IF(targetpath NOT LIKE basepath || "*") //scope escape?
+      CONTINUE;
+
+    OBJECT targetfolder := OpenWHFSObjectByPath(targetpath);
+    IF(NOT ObjectExists(targetfolder) OR NOT targetfolder->isfolder)
+      CONTINUE;
+
+    INTEGER toadd_priority := SearchElement(["beforerepository","beforesites","aftersites"], toadd.node->GetAttribute("priority"));
+    //map it to sortable priority, with -1 mapped to 'after sites'
+    toadd_priority := [4,0,2,4][toadd_priority+1];
+    INSERT [ folder := targetfolder->id, whfspath := targetfolder->whfspath, priority := toadd_priority ] INTO spoints AT END;
+  }
+
+  RETURN [ ttl := 15 * 60 * 1000
+         , value := spoints
+         , eventmasks := ["system:modulesupdate"]
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetWHFSIndexModuleStartingPoints()
+{
+  RETURN GetAdhocCached([tyoe := "GetWHFSIndexModuleStartingPoints"], PTR GetCacheableModuleStartingPoints);
+}
 
 /** looks up a second level named node by qualified name */
 PUBLIC OBJECT FUNCTION LookupModuleDefNamedNode(STRING topnodename, STRING subnodename, STRING qualifiedname, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -249,13 +281,29 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     this->trans := OpenPrimary();
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetWHFSStartingPoints()
+  {
+    RECORD ARRAY spoints := SELECT folder := id
+                                 , priority := id = whconstant_whfsid_repository ? 1 : 3
+                              FROM system.sites
+                             WHERE id != whconstant_whfsid_webharebackend
+                          ORDER BY id = whconstant_whfsid_repository DESC
+                                 , outputweb != 0 DESC       // anything not being published can't be important ?
+                                 , locked = FALSE DESC       // don't rush to index locked sites, that indicates them are likely being unmaintained and probaly less important
+                                 , Length(outputfolder);     // prefer 'homepages' over deeper sites
+
+    RETURN SELECT * FROM (spoints CONCAT GetWHFSIndexModuleStartingPoints()) ORDER BY priority;
+  }
+
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
   {
-    RECORD ARRAY groups :=
-        SELECT id := "fsobj_" || id
-          FROM system.fs_objects
-         WHERE isactive
-         ORDER BY modificationdate DESC, id;
+    RECORD ARRAY groups;
+    FOREVERY(RECORD startingpoint FROM this->GetWHFSStartingPoints())
+    {
+      INTEGER ARRAY sitefolders := INTEGER[startingpoint.folder] CONCAT GetWHFSDescendantIds(startingpoint.folder, TRUE, TRUE, 32, FALSE); //folders: true, files: TRUE, maxdepth: 32, onlypublished: false
+      groups := groups CONCAT SELECT id := "fsobj_" || id FROM ToRecordArray(sitefolders,"id");
+    }
+
 
     RETURN [ status := "result"
            , groups := groups
@@ -267,6 +315,14 @@ PUBLIC OBJECTTYPE WHFSObjectContentSource EXTEND CustomContentBase
     STRING ARRAY parts := Tokenize(groupid, "_");
     INTEGER fsobjid := Length(parts) >= 2 AND parts[0] = "fsobj" ? ToInteger(parts[1], 0) : 0;
     OBJECT fsobj := OpenWHFSObject(fsobjid);
+
+    IF(NOT fsobj->isactive AND NOT RecordExists(SELECT FROM GetWHFSIndexModuleStartingPoints() AS spoint WHERE ToUppercase(fsobj->whfspath) LIKE ToUppercase(spoint.whfspath) || "*"))
+    {
+      RETURN [ status := "result"
+             , objects := RECORD[]
+             ];
+    }
+
     RECORD ARRAY objects;
     IF (ObjectExists(fsobj))
     {

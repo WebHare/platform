@@ -108,6 +108,9 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY empty(^entities->empty, ^entities->empty);
 
+  /// Set the list's selection mode to multiple rows
+  PUBLIC PROPERTY selectmultiple(GetSelectMultiple, SetSelectMultiple);
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -144,12 +147,15 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
     ^entities->sortable := definition.sortable;
     ^entities->sortascending := definition.sortascending;
     ^entities->sortcolumn := definition.sortcolumn;
-    ^entities->selectcontextmenu := definition.selectcontextmenu;
-    ^entities->newcontextmenu := definition.newcontextmenu;
+    IF(ObjectExists(definition.selectcontextmenu))
+      ^entities->selectcontextmenu := definition.selectcontextmenu;
+    IF(ObjectExists(definition.newcontextmenu))
+      ^entities->newcontextmenu := definition.newcontextmenu;
     ^entities->debugactions := [[ type := "wrd:entity", cellname := "rowkey" ]];
     ^entities->onselect := definition.onselect;
     ^entities->onfocusin := definition.onfocusin;
     ^entities->empty := definition.empty;
+    ^entities->selectmode := definition.selectmultiple ? "multiple" : "single";
 
     IF(definition.openaction != DEFAULT OBJECT)
       ^entities->openaction := definition.openaction;
@@ -199,6 +205,14 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
   //
   // Getters & setters
   //
+  BOOLEAN FUNCTION GetSelectMultiple()
+  {
+    RETURN ^entities->selectmode = "multiple";
+  }
+  MACRO SetSelectMultiple(BOOLEAN setting)
+  {
+    ^entities->selectmode := setting ? "multiple" : "single";
+  }
 
   BOOLEAN FUNCTION GetFalse()
   {
@@ -431,7 +445,6 @@ PUBLIC STATIC OBJECTTYPE EntityList EXTEND EntityListBase
     EntityListBase::StaticInit(definition);
 
     this->orderable := definition.orderable;
-    ^entities->selectmode := definition.selectmultiple ? "multiple" : "single";
   }
 
   // ---------------------------------------------------------------------------
@@ -469,6 +482,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
   STRING pvt_deletemode;
 
   MACRO PTR pvt_onentitydelete;
+  MACRO PTR pvt_onentitiesdelete;
 
 
   // ---------------------------------------------------------------------------
@@ -481,6 +495,8 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
   /// Override for standard entity delete (signature: MACRO func(OBJECT wrdtype, INTEGER wrd_id) ).
   PUBLIC PROPERTY onentitydelete(pvt_onentitydelete, SetOnEntityDelete);
+
+  PUBLIC PROPERTY onentitiesdelete(pvt_onentitiesdelete, SetOnEntitiesDelete);
 
   /// Screen used to edit the entity. Should extend WRDEntityEditScreenBase (or implement the same interface)
   PUBLIC STRING entityeditscreen;
@@ -554,6 +570,12 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
     this->ReapplyDeleteHandler();
   }
 
+  MACRO SetOnEntitiesDelete(MACRO PTR onentitiesdelete)
+  {
+    this->pvt_onentitiesdelete := onentitiesdelete;
+    this->ReapplyDeleteHandler();
+  }
+
   BOOLEAN FUNCTION GetOrderable()
   {
     RETURN ^entities->onchangeorder != DEFAULT FUNCTION PTR;
@@ -571,9 +593,8 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
   MACRO ReapplyDeleteHandler()
   {
-    ^entities->onrowdelete := this->pvt_deletemode != "" OR this->pvt_onentitydelete != DEFAULT FUNCTION PTR
-        ? PTR this->dorowdelete
-        : DEFAULT MACRO PTR;
+    ^entities->onrowdelete := this->pvt_deletemode != "" OR this->pvt_onentitydelete != DEFAULT FUNCTION PTR ? PTR this->dorowdelete : DEFAULT MACRO PTR;
+    ^entities->onrowsdelete := this->pvt_deletemode != "" OR this->pvt_onentitiesdelete != DEFAULT FUNCTION PTR ? PTR this->dorowsdelete : DEFAULT MACRO PTR;
   }
 
   /** Run an entity add/edit screen
@@ -593,7 +614,11 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
     INTEGER newentityid := RunWRDEntityEditDialog(this->owner, this->pvt_wrdtype, entityid, opts);
     IF (entityid = 0)
-      ^entities->value := newentityid;
+      IF(this->selectmultiple)
+        ^entities->value := INTEGER[newentityid];
+      ELSE
+        ^entities->value := newentityid;
+
     RETURN entityid ?? newentityid;
   }
 
@@ -635,10 +660,24 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
       RETURN;
     }
 
-    IF(this->owner->RunMessageBox("wrd:components.confirmdeleteentity") != "yes")
+    IF(this->owner->RunSimpleScreen("confirm", GetTid("wrd:components.confirmdeleteentity")) != "yes")
       RETURN;
 
-    this->DeleteRowAccordingToMode(inrow.rowkey);
+    this->DeleteRowsAccordingToMode(INTEGER[inrow.rowkey]);
+  }
+
+  MACRO DoRowsDelete(RECORD ARRAY inrows)
+  {
+    IF (this->onentitiesdelete != DEFAULT MACRO PTR)
+    {
+      this->onentitiesdelete(this->pvt_wrdtype, SELECT AS INTEGER ARRAY rowkey FROM inrows);
+      RETURN;
+    }
+
+    IF(this->owner->RunSimpleScreen("confirm", GetTid("wrd:components.confirmdeleteentities")) != "yes")
+      RETURN;
+
+    this->DeleteRowsAccordingToMode(SELECT AS INTEGER ARRAY rowkey FROM inrows);
   }
 
   MACRO ApplyNewOrdering(INTEGER ARRAY rowkeys)
@@ -666,17 +705,19 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
   }
 
   /** Delete the specified according to the current mode. Will popup up a 'cannotdeletereferredentity' dialog if the mode requires it!
-      @param rowkey WRD_ID of the entity to delete
   */
-  PUBLIC MACRO DeleteRowAccordingToMode(INTEGER rowkey)
+  MACRO DeleteRowsAccordingToMode(INTEGER ARRAY rowkeys)
   {
     OBJECT work := this->owner->BeginUnvalidatedWork();
-    OBJECT killentity := this->pvt_wrdtype->GetEntity(rowkey);
-    IF(ObjectExists(killentity) AND NOT killentity->RemoveEntity(this->deletemode))
+    FOREVERY(INTEGER rowkey FROM rowkeys)
     {
-      work->Cancel();
-      this->owner->RunMessageBox("wrd:components.cannotdeletereferredentity");
-      RETURN;
+      OBJECT killentity := this->pvt_wrdtype->GetEntity(rowkey);
+      IF(ObjectExists(killentity) AND NOT killentity->RemoveEntity(this->deletemode))
+      {
+        work->Cancel();
+        this->owner->RunSimpleScreen("info", GetTid("wrd:components.cannotdeletereferredentity"));
+        RETURN;
+      }
     }
     work->Finish();
   }
