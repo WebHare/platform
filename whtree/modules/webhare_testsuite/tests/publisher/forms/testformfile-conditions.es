@@ -18,6 +18,10 @@ test.registerTests(
     {
       test.true(dompack.closest(test.qS('input[name="firstname"]'),'.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
 
+      const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
+      test.eq(0, select_with_placeholder.selectedIndex, "Placeholder should remain selected");
+      test.true(select_with_placeholder.options[0].hasAttribute("data-wh-placeholder"), "Placeholder option should be marked as such");
+
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
       test.true(domfocus.hasFocus(test.qS('input[name="firstname"]')), "firstname should be focused");
@@ -55,10 +59,20 @@ test.registerTests(
       test.click('input[name="checkboxes"][value="copt3"]');
       test.true(test.canClick('input[name="coptsub3"]'), "CheckBoxOpt3 Subfield should be clickable");
 
+      const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
+      test.false(select_with_placeholder.querySelector('option[value="copt3"]').disabled, "select_with_placeholder: ToggleSelectOpt3 should be available");
+      dompack.changeValue(select_with_placeholder, "copt3");
+      test.eq("copt3", select_with_placeholder.value, "select_with_placeholder: ToggleSelectOpt3 should be selected");
+
       test.click('input[name="togglesomeoptions"]');
       test.true(toggleselectoptions.querySelector('option[value="copt3"]').disabled, "ToggleSelectOpt3 should no longer be available");
       test.false(toggleselectoptions.value == "copt3", "ToggleSelectOpt3 should no longer be selected");
       test.false(test.canClick('input[name="checkboxes"][value="copt3"]'), "CheckBoxOpt3 should no longer be clickable");
+      test.eq(-1, toggleselectoptions.selectedIndex, "Pulldown should be unselected (selectedIndex -1)");
+
+      test.true(select_with_placeholder.querySelector('option[value="copt3"]').disabled, "select_with_placeholder: ToggleSelectOpt3 should no longer be available");
+      test.false(select_with_placeholder.value == "copt3", "select_with_placeholder: ToggleSelectOpt3 should no longer be selected");
+      test.eq(0, select_with_placeholder.selectedIndex, "select_with_placeholder: Pulldown should be back to placeholder (selectedIndex 0)");
 
       test.false(test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should not be hidden");
       let extraoptions = test.qS('select[name="extraoptions.select"]');
@@ -69,6 +83,7 @@ test.registerTests(
       dompack.changeValue(extraoptions, 1);
       test.false(test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should be visible again");
 
+      test.fill(select_with_placeholder,"copt1");
       test.click(test.qSA('[type=submit]')[0]);
 
       // The thankyou node is only filled after submission, so check for the empty richtext node

@@ -17,6 +17,7 @@ FOREVERY(RECORD badsite FROM badsites)
 {
   Print("Site #" || badsite.id || ":" || badsite.name || " has a deleted root folder #" || badsite.root || ": removing system.sites record\n");
   DELETE FROM system.sites WHERE id=badsite.id;
+  GetPrimary()->BroadcastOnCommit("system:sites", [ siteid := badsite.id ]);
 }
 
 errors := trans->CommitWork();

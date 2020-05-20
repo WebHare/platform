@@ -609,6 +609,8 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
   PUBLIC PROPERTY value(this->list->value, this->list->value);
   /// Selection of the list edit
   PUBLIC PROPERTY selection(this->list->selection, this->list->selection);
+  /// Select mode of the list edit
+  PUBLIC PROPERTY selectmode(this->list->selectmode, this->list->selectmode);
 
   FUNCTION PTR ongetchildren;
   FUNCTION PTR ongetrows;
@@ -668,7 +670,10 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
 
   MACRO DeleteValue()
   {
-    this->onrowdelete(this->list->selection);
+    IF(this->list->selectmode = "multiple")
+      this->onrowsdelete(this->list->selection);
+    ELSE
+      this->onrowdelete(this->list->selection);
     this->SetDirty();
     this->list->ReloadList();
   }

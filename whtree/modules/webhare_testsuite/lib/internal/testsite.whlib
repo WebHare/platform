@@ -157,24 +157,33 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
               , value := [1]
               ]);
 
-    OBJECT toggleselectoptions := formpage->AppendComponent("select");
-    toggleselectoptions->SetAttribute("name", "toggleselectoptions");
-    toggleselectoptions->SetAttribute("type", "pulldown");
-    toggleselectoptions->SetAttribute("title", "Toggle options");
-    FOREVERY(INTEGER suffix FROM [1,2,3])
+    FOREVERY(STRING el FROM ["","_withplaceholder"])
     {
-      OBJECT toggleselectopt := toggleselectoptions->ownerdocument->CreateElementNS(toggleselectoptions->namespaceuri, "option");
-      toggleselectopt->SetAttribute("rowkey", "copt" || suffix);
-      toggleselectopt->SetAttribute("title", "ToggleSelectOpt" || suffix);
-      toggleselectoptions->AppendChild(toggleselectopt);
-
-      IF(options.addconditions AND suffix = 3)
+      OBJECT toggleselectoptions := formpage->AppendComponent("select");
+      toggleselectoptions->SetAttribute("name", "toggleselectoptions" || el);
+      toggleselectoptions->SetAttribute("type", "pulldown");
+      toggleselectoptions->SetAttribute("title", "Toggle options");
+      FOREVERY(INTEGER suffix FROM [1,2,3])
       {
-        formdefs->SetConditionAttribute(toggleselectopt, "visibleconditionid",
-                  [ field := togglesomeoptions->GetAttribute("guid")
-                  , matchtype := "HASVALUE"
-                  , value := FALSE
-                  ]);
+        OBJECT toggleselectopt := toggleselectoptions->ownerdocument->CreateElementNS(toggleselectoptions->namespaceuri, "option");
+        toggleselectopt->SetAttribute("rowkey", "copt" || suffix);
+        toggleselectopt->SetAttribute("title", "ToggleSelectOpt" || suffix);
+        toggleselectoptions->AppendChild(toggleselectopt);
+
+        IF(options.addconditions AND suffix = 3)
+        {
+          formdefs->SetConditionAttribute(toggleselectopt, "visibleconditionid",
+                    [ field := togglesomeoptions->GetAttribute("guid")
+                    , matchtype := "HASVALUE"
+                    , value := FALSE
+                    ]);
+        }
+      }
+
+      IF(#el = 1)
+      {
+        toggleselectoptions->SetAttribute("required", "true");
+        toggleselectoptions->SetAttribute("placeholder", "(placeholder)");
       }
     }
   }

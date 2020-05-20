@@ -97,6 +97,8 @@ ASYNC MACRO TestEntitiesEdit()
   TT(":Title")->value := "new domain value";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
+  TestEq("new domain value", TT("entities")->selection.wrd_title);
+
   RECORD ARRAY allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
       [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
@@ -107,9 +109,54 @@ ASYNC MACRO TestEntitiesEdit()
 
   TTFillByTitle("entities->entities->list", "new domain value");
   TTClick(":Up");
-  TestEQ(INTEGER[ allvals[0].wrd_id, allvals[1].wrd_id, allvals[3].wrd_id, allvals[2].wrd_id ], testscreen->__lastchangeorderlist);
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+  allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
+  TestEQMembers(
+      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      , [ wrd_title := "Domain value 1.2", wrd_ordering := 2 ]
+      , [ wrd_title := "new domain value", wrd_ordering := 3 ]
+      , [ wrd_title := "Domain value 1.3", wrd_ordering := 4 ]
+      ], allvals, "*");
+
+  TT("entities")->selection := SELECT * FROM TT("entities")->rows WHERE wrd_title = "Domain value 1.2";
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Delete"), [ messagemask := "Are you sure you want to delete this item?" ]);
+
+  allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
+  TestEQMembers(
+      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      , [ wrd_title := "new domain value", wrd_ordering := 3 ]
+      , [ wrd_title := "Domain value 1.3", wrd_ordering := 4 ]
+      ], allvals, "*");
+
+  TT("entities")->selectmultiple := TRUE;
+  TT("entities")->selection := SELECT * FROM TT("entities")->rows WHERE wrd_title != "Domain value 1.1";
+  TestEq(2, Length(TT("entities")->selection)); //should succeed!
+
+  TTClick(":Up");
+
+  allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
+  TestEQMembers(
+      [ [ wrd_title := "new domain value", wrd_ordering := 1 ]
+      , [ wrd_title := "Domain value 1.3", wrd_ordering := 2 ]
+      , [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
+      ], allvals, "*");
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Delete"), [ messagemask := "Are you sure you want to delete these items?"]);
+
+  allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
+  TestEQMembers(
+      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
+      ], allvals, "*");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT(":Title")->value := "new domain value 2";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("new domain value 2", TT(":Title")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestFramework([ PTR CreateWRDTestSchema
