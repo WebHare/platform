@@ -882,7 +882,7 @@
       <text tid="loginidentityservices">Login using identity services</text>
       <text tid="logintitle">Login</text>
       <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
-      <text tid="notloggedin">You do not appear to be logged in anymore. You may need to reload this webpage to relogin</text>
+      <text tid="notloggedin">You no longer seem to be logged in. You may need to reload this webpage to relogin.</text>
       <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
       <text tid="password">Password</text>
       <text tid="savelogin">Remember me</text>
