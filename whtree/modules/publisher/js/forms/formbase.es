@@ -806,7 +806,20 @@ export default class FormBase
 
   _getVariableValueForConditions(conditionfield)
   {
+    if(this.node.hasAttribute("data-wh-form-var-" + conditionfield))
+      return this.node.getAttribute("data-wh-form-var-" + conditionfield);
+
     let fields = conditionfield.split("$");
+
+    if (fields.length > 1)
+    {
+      // If the condition field has a subfield, check if it's available through a form var
+      // The '$' in the attribute name is replaced with ':' to make the attribute name valid
+      const attrname = conditionfield.split("$").join(":");
+      if(this.node.hasAttribute("data-wh-form-var-" + attrname))
+        return this.node.getAttribute("data-wh-form-var-" + attrname);
+    }
+
     let currentvalue = this._getConditionRawValue(fields[0]);
     if(fields.length === 1 || currentvalue === null) //no subs to process
       return currentvalue;
