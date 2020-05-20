@@ -28,20 +28,14 @@ FOREVERY (STRING idstr FROM args.ids)
     CONTINUE;
   }
 
-  RECORD obj := SELECT isfolder, isactive FROM system.fs_objects WHERE id = objid AND isactive;
-  IF (NOT RecordExists(obj))
-  {
-    Print(`Cannot find object with id ${objid}\n`);
-    CONTINUE;
-  }
-
+  RECORD obj := SELECT isfolder, isactive FROM system.fs_objects WHERE id = objid;
   INSERT
       [ id := objid
-      , isfolder := obj.isfolder
-      , isdelete := NOT obj.isactive
+      , isfolder := RecordExists(obj) ? obj.isfolder : TRUE //if unknown, assume it was a folder
+      , isdelete := FALSE
       ] INTO to_reindex AT END;
 
-  IF(args.recursive AND obj.isfolder)
+  IF(args.recursive AND RecordExists(obj) AND obj.isfolder)
     to_reindex := to_reindex CONCAT SELECT id, isfolder, isdelete := NOT isactive FROM system.fs_objects WHERE parent IN OpenWHFSObject(objid)->GetDescendantFolderids();
 }
 

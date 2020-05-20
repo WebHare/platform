@@ -38,16 +38,13 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
       THROW NEW Exception(`Publisher index '${whconstant_consilio_catalog_whfs}' not available`);
 
     publisher_source := GetContentSourceIdByTag("publisher:fsobjects");
-
   }
 
   INTEGER ARRAY to_update, to_delete;
-  to_reindex := EnrichWithTable(to_reindex, "id", system.fs_objects, CELL[ "whfspath" ], [ rightouterjoin := TRUE]);
+  to_reindex := EnrichWithTable(to_reindex, "id", system.fs_objects, CELL[ "parentsite", "whfspath" ], [ rightouterjoin := TRUE]);
+
   FOREVERY (RECORD obj FROM to_reindex)
   {
-    IF(obj.whfspath LIKE "/webhare-private/whfs-autosaves/*")
-      CONTINUE; //never index autosaves, they always get Delete()d and often conflict
-
     IF (obj.isfolder)
     {
       // This will re-index the folder object contents recursively
@@ -108,6 +105,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
     IF(options.progress)
       Print(`Updating ${#objid}/${Length(to_update)}: #${objid}\r`);
 
+    //TODO pass queueing priority based on startingpoint ordering
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
                                       , refresh := TRUE
                                       ]);

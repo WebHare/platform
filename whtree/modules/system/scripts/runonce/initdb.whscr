@@ -90,15 +90,27 @@ MACRO InitializeFileTypes()
   }
 }
 
-RECORD ARRAY folderchecklist:= [ [ id := 1,  parent := 0, name := "Repository",      type := 0 ]
-                               , [ id := 6,  parent := 1, name := "lost & found",    type := 2 ]
+RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder #1
+                                 , parent := 0
+                                 , name := "Repository"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
+                               , [ id := whconstant_whfsid_lostandfound /*6*/
+                                 , parent := 1
+                                 , name := "lost & found"
+                                 , type := whconstant_whfstype_systemfolder
+                                 ]
                                //, [ id := 9,  parent := 1, name := "examples",        type := 0 ]
                                , [ id := whconstant_whfsid_private
                                  , parent := 0
                                  , name := "webhare-private"
-                                 , type := 2
+                                 , type := whconstant_whfstype_systemfolder
                                  ]
-                               , [ id := 11, parent := whconstant_whfsid_private, name := "whfs-versions",  type := 0 ]
+                               , [ id := 11
+                                 , parent := whconstant_whfsid_private
+                                 , name := "whfs-versions"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
                                //, [ id := 12, parent := 0, name := "webhare-moduledata", type := 2 ] //stopped autocreating sep 2019. TODO at some point start cleaning up existing ID 12 folders, once we're sure newsletter is gone everywhere
                                , [ id := 13, parent := whconstant_whfsid_private, name := "wrd",            type := 0 ]
                                , [ id := 14, parent := whconstant_whfsid_private, name := "whfs-autosaves",  type := 0 ]
@@ -109,17 +121,17 @@ RECORD ARRAY folderchecklist:= [ [ id := 1,  parent := 0, name := "Repository", 
                                , [ id := whconstant_whfsid_private_system
                                  , parent := whconstant_whfsid_private
                                  , name := "system"
-                                 , type := 0
+                                 , type := whconstant_whfstype_normalfolder
                                  ]
                                , [ id := whconstant_whfsid_registerslots
                                  , parent := whconstant_whfsid_private_system
                                  , name := "whfs-register-slots"
-                                 , type := 0
+                                 , type := whconstant_whfstype_normalfolder
                                  ]
                                , [ id := whconstant_whfsid_private_rootsettings
                                  , parent := whconstant_whfsid_private_system
                                  , name := "webhare-publisher-rootsettings"
-                                 , type := 0
+                                 , type := whconstant_whfstype_normalfolder
                                  ]
                                ];
 

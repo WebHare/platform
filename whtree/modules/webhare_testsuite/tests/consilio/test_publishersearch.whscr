@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -18,6 +19,8 @@ LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -25,15 +28,17 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 OBJECT testroot;
 INTEGER testsiteid;
-OBJECT file_1, file_3, file_2, file_4, file_5;
+OBJECT file_1, file_3, file_2, file_4, file_5, file_7;
+OBJECT beforerepositoryfolder, privatetestfile1;
 OBJECT subfolder;
 
-MACRO Prepare()
+MACRO TestWHFSContentHandler()
 {
   // Create and fill the test site
   testfw->BeginWork();
 
-  testroot := GetTestsuiteTempFolder();
+  //test in a subfolder of temp so we don't rely on an earlier publisher index to have indexed the tempfolder
+  testroot := GetTestsuiteTempFolder()->EnsureFolder([name := "publishersearch"]);
   subfolder := testroot->CreateFolder([ name := "subfolder", title := "blafolder <>" ]);
   testsiteid := testroot->parentsite;
 
@@ -57,7 +62,55 @@ MACRO Prepare()
   RECORD indexable := GetRichDocumentIndexableContent(myrichdoc->ExportAsRecord(), CELL[applytester]);
   TestEqLike("*blabla5*", BlobToString(indexable.htmltext));
 
-  CommitAndWaitForPublisherIndex();
+  beforerepositoryfolder := OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforerepository");
+  IF(ObjectExists(beforerepositoryfolder->OpenByName("privatetestfile1.txt")))
+    beforerepositoryfolder->OpenByName("privatetestfile1.txt")->RecycleSelf();
+  privatetestfile1 :=  beforerepositoryfolder->EnsureFile([name:="privatetestfile1.txt", title := "private blafile", data := StringToBlob("blabliblo"), publish := TRUE]);
+
+  INTEGER ARRAY expected_addtowhfsindex := INTEGER[ beforerepositoryfolder->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/beforesites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/aftersites")->id
+                                                  , OpenWHFSPrivateFolder("webhare_testsuite")->OpenByPath("addtowhfsindex/anywhere")->id
+                                                  ];
+
+  OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
+  testfw->CommitWork();
+
+  // While we wait for the background contenthandlers to do their work.. we can inspect it directly too
+  OBJECT catalog := OpenConsilioCatalog(whconstant_consilio_catalog_whfs);
+  Testeq(TRUE, ObjectExists(catalog), `Catalog '${whconstant_consilio_catalog_whfs}' gone?`);
+
+  OBJECT provider := catalog->OpenContentSource("publisher:fsobjects")->OpenProvider();
+  // The proxy object CustomContentProvider we get is pretty useless for deeper testing
+  RECORD initdata := provider->__GetCCPInitData();
+  OBJECT realprovider := MakeObject(`${initdata.library}#${initdata.contentobject}`, initdata);
+  RECORD ARRAY startingpoints := realprovider->GetWHFSStartingPoints();
+
+  //Test that the expected folders are indeed their in their expected order
+  TestEq(expected_addtowhfsindex, SELECT AS INTEGER ARRAY folder FROM startingpoints WHERE folder IN expected_addtowhfsindex);
+  TestEq(FALSE, RecordExists(SELECT FROM startingpoints WHERE folder = whconstant_whfsid_webharebackend), "WebHare backend is secret and should not be indexed");
+
+  INTEGER ARRAY expected_offsets := SELECT AS INTEGER ARRAY #startingpoints FROM startingpoints WHERE folder IN expected_addtowhfsindex;
+  TestEq(TRUE, expected_offsets[0] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforerepository should be before repository");
+  TestEq(TRUE, expected_offsets[1] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = whconstant_whfsid_repository), "our beforesites should be AFTER repository");
+  TestEq(TRUE, expected_offsets[1] < (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our beforesites should be BEFORE the test site");
+  TestEq(TRUE, expected_offsets[2] > (SELECT AS INTEGER #startingpoints FROM startingpoints WHERE folder = testroot->parentsite), "our aftersites should be AFTER the test site");
+
+  print("counting... ");
+  STRING ARRAY groupids := SELECT AS STRING ARRAY id FROM realprovider->ListGroups(DEFAULT DATETIME).groups ORDER BY id;
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_repository) != -1);
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_lostandfound) != -1);
+  TestEq(FALSE, BinaryFind(groupids, "fsobj_" || whconstant_whfsid_private_system) != -1);
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || testroot->id) != -1, "Test folder should be in scope of publisher search");
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || file_1->id) != -1, "For now individual files are still in sope");
+  TestEq(TRUE, BinaryFind(groupids, "fsobj_" || subfolder->id) != -1, "Test subfolder should also be in scope of publisher search");
+
+  RECORD ARRAY resultobjects := realprovider->ListObjects3(DEFAULT DATETIME, "fsobj_" || testroot->id, RECORD[], [ rebuild := TRUE ]).objects;
+  TestEq(TRUE, RecordExists(SELECT FROM resultobjects WHERE id = "fsobj_" || testroot->id));
+
+  Print("waiting for our preparation to be indexed...\n");
+  WaitForPromise(promise);
+  Print("it's indexed\n");
 }
 
 MACRO PublisherSearchTest()
@@ -89,7 +142,7 @@ MACRO PublisherSearchTest()
   TestEq("file", resultobj.whfsobject);
   TestEq(testroot->id, resultobj.whfsparent);
   TestEq(file_5->whfspath, resultobj.whfspath);
-  TestEq(`${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
+  TestEq(`${testroot->parentobject->parent} ${testroot->parent} ${testroot->id} ${file_5->id}`, resultobj.whfstree);
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEq(richdoctype->id, resultobj.whfstype);
@@ -339,7 +392,7 @@ MACRO PublisherSearchTest()
   publishersearchtesttype->SetInstanceData(file_5->id, DEFAULT RECORD ARRAY);
 
   // Create a file with the test filetype and initialize its array member
-  OBJECT file_7 := testroot->CreateFile(
+  file_7 := testroot->CreateFile(
       [ name:="testfile7.txt"
       , title := "blafile7"
       , type := publishersearchtesttype->id
@@ -420,12 +473,52 @@ MACRO PublisherSearchTest()
   TestEq(1, Length(SELECT FROM result.results WHERE whfsid = file_7->id));
   TestEq(FALSE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_bla"));
   TestEq(TRUE, RecordExists(SELECT FROM result.results WHERE results."arrayfield.arrayfield@webhare_testsuite" = file_7->id || "_test"));
+}
 
+ASYNC MACRO InspectConsilio()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
+  TTClick(":Reindex");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_5->id));
+  TestEq(1, result.totalcount);
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  TestEq(1, result.totalcount);
+
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), privatetestfile1->id));
+  TTClick(":Reindex");
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  TestEq(1, result.totalcount);
+
+  testfw->BeginWork();
+  OBJECT tokill := beforerepositoryfolder->parentobject->OpenByName(privatetestfile1->name);
+  IF(ObjectExists(tokill))
+    tokill->DeleteSelf(); //destroy remnant from a previous test
+
+  //Manually move our testfile away .. so no consilio events trigger
+  UPDATE system.fs_objects SET parent := beforerepositoryfolder->parent WHERE id=privatetestfile1->id;
+  testfw->CommitWork();
+
+  //A reindex of a file outside a starting point should delete it`
+  TTClick(":Reindex");
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", privatetestfile1->id));
+  dumpvalue(result,'tree');
+  TestEq(0, result.totalcount);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+MACRO TestUpdateCheckIndex()
+{
+  //moved these tests to the end as they can be slow on a large database
   // Update the index, both objects should still be present
   INTEGER catalogid := (SELECT AS INTEGER id FROM consilio.indices WHERE name = whconstant_consilio_catalog_whfs);
   UpdateConsilioIndex(catalogid);
   testfw->WaitIndexDone(catalogid);
-  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
+  RECORD result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfsid", "=", file_7->id));
   TestEq(2, result.totalcount, `testfile7.txt #${file_7->id} splits into two subfiles, so we expect 2 results`);
 
   // Check the index, both objects should still be present
@@ -441,20 +534,15 @@ MACRO PublisherSearchTest()
 
   CommitAndWaitForPublisherIndex();
 
+  OBJECT search_obj := OpenSearchObject("en", whconstant_consilio_catalog_whfs);
   result := search_obj->SearchQuery(MakeLiteralQuery("whfsid", ToString(file_7->id)), 0, -1);
   TestEq(0, result.totalcount, "This test may have failed because of a race condition, you may wish to retry");
 }
 
-ASYNC MACRO InspectConsilio()
-{
-  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), file_5->id));
-  TTClick(":Reindex");
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-}
-
-RunTestframework([ PTR Prepare
+RunTestframework([ PTR TestWHFSContentHandler
                  , PTR InspectConsilio
                  , PTR PublisherSearchTest
+                 , PTR TestUpdateCheckIndex
                  ]
                  , [ consilio := TRUE
                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
