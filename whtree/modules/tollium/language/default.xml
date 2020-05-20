@@ -886,7 +886,7 @@
       <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
       <text tid="password">Password</text>
       <text tid="savelogin">Remember me</text>
-      <text tid="unexpectedprotocolversion">It looks like your browser is running an outdated version of this webpage. Please try Shift-F5 (or Shift-Cmd-R on a Mac) to reload this page.<br/><br/>If that doesn't work please try restarting your browser.</text>
+      <text tid="unexpectedprotocolversion">It looks like your browser is running an outdated version of this webpage. Please try Shift-F5 (or Shift-Cmd-R on a Mac or Alt-Cmd-R in Safari) to reload this page.<br/><br/>If that doesn't work please try restarting your browser.</text>
       <text tid="username">Username</text>
     </textgroup>
     <textgroup gid="logout">   <!-- shell.logout -->
