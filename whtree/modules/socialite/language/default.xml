@@ -37,7 +37,7 @@
     <text tid="novideoselected">No Vimeo movie was selected.</text>
     <text tid="vimeounavailable">Searching for videos failed. The system administrator may have to verify whether Vimeo permissions have been correctly set up.</text>
     <textgroup gid="movieplayer">   <!-- components_vimeo.movieplayer -->
-      <text tid="screentitle">Vimeo media player</text>
+      <text tid="screentitle">Media player</text>
     </textgroup>
     <textgroup gid="searchmovie">   <!-- components_vimeo.searchmovie -->
       <text tid="creationdate">Creation date</text>

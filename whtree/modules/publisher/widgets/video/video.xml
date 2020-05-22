@@ -1,0 +1,18 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         gid="widgets.video"
+         library="video.whlib">
+
+  <screen name="editvideo" footerbuttons="ok cancel" tid="siteprofile.widgets.embedvideo">
+    <body>
+      <p:embedvideo name="embedvideo" required="true" onchange="onvideochange"/>
+      <time precision="seconds" name="starttime" />
+      <time precision="seconds" name="endtime" />
+      <lines layout="left">
+        <checkbox name="loop" title="" labeltid=".loop"/>
+        <checkbox name="mutedautoplay" title="" labeltid=".mutedautoplay"/>
+      </lines>
+    </body>
+  </screen>
+
+</screens>
