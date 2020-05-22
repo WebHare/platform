@@ -901,7 +901,7 @@ ASYNC MACRO TestLoadScreen()
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(BlobToString(badglobalhandler))}#testbadglobalhandler`));
   TestEq(2, Length(tt("errors")->rows));
   TesteqLIke("*NoSuchFunction*was not found*", tt("errors")->rows[0].message);
-  TesteqLIke("*BadFreeOptionsHandler*wrong function signature*", tt("errors")->rows[1].message);
+  TesteqLIke("*BadFreeOptionsHandler*wrong function signature*Expected*RECORD FUNCTION*(OBJECT *)*got*RECORD FUNCTION BADFREEOPTIONSHANDLER*(OBJECT param1, STRING param2)*", tt("errors")->rows[1].message);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
