@@ -15,6 +15,18 @@ OBJECT FUNCTION Rte()
   RETURN TT("doceditor")->contents->rte;
 }
 
+RECORD FUNCTION SimulateClientSideInsertWidget()
+{
+  //Perform insertion
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
+  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  RTE()->__debug_simulatedirty();
+
+  RETURN insertdata;
+}
+
 ASYNC MACRO TestEmptyWidget()
 {
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
@@ -31,13 +43,8 @@ ASYNC MACRO TestEmptyWidget()
   TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
-  //Perform insertion
-  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
-  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
-  RECORD insertdata := insertedobjectinstr.messages[0].data;
+  RECORD insertdata := SimulateClientSideInsertWidget();
   TestEq(FALSE, insertdata.canedit);
-  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
-  RTE()->__debug_simulatedirty();
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -54,6 +61,40 @@ ASYNC MACRO TestEmptyWidget()
 
   OBJECT dom := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
   TestEQ(TRUE, ObjectExists(dom->GetElementById("emptywidget")), "Missing emptywidget in output");
+}
+
+ASYNC MACRO TestVideoWidget()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
+
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-video" ]));
+
+  TT("movietext")->value := "BAf7lcYEXag";
+  TTClick("searchbutton");
+  TestEq(TRUE, ObjectExists(TT("searchresults")->selection)); //first hit should be selected
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  RECORD insertdata := SimulateClientSideInsertWidget();
+
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
+  TestEq(0, TT("starttime")->value);
+  TT("starttime")->value := 5000;
+  TT("endtime")->value :=   10000;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps";
+  TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the UpdateProps instruction in the outgoing instruction stream");
+  STRING instanceref := insertedobjectinstr.messages[0].data.newdata.data.instanceref;
+  //Officially we should also update the RTD with the new instanceid
+
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := instanceref, targetid := "XX" ]));
+  TestEq(5000, TT("starttime")->value);
+  TestEq(10000, TT("endtime")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 ASYNC MACRO TestAnchorWidget()
@@ -77,6 +118,7 @@ ASYNC MACRO TestAnchorWidget()
 }
 
 RunTestframework([ PTR TestEmptyWidget
+                 , PTR TestVideoWidget
                  , PTR TestAnchorWidget
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]

@@ -22,7 +22,7 @@ function initYouTube(node, video, playback)
   if(playback.autoplay)
     args.push("autoplay=1");
 
-  if(playback.mute)
+  if(video.mute || playback.mute)
     args.push("mute=1");
 
   if (video.starttime)
@@ -34,7 +34,7 @@ function initYouTube(node, video, playback)
   if (typeof playback.controls != "undefined" && !playback.controls)
     args.push("controls=0");
 
-  if (playback.loop)
+  if (video.loop || playback.loop)
   {
     /* from the documentation: https://developers.google.com/youtube/player_parameters
         Note: This parameter has limited support in the AS3 player and in IFrame embeds, which could load either
@@ -75,13 +75,16 @@ function initVimeo(node,video, playback)
   if(playback.autoplay)
     args.push("autoplay=1");
 
+  if(video.mute || playback.mute)
+    args.push("muted=1");
+
   if (video.endtime)
     console.warn("setting an endtime doesn't work for Vimeo video's");
 
   if (typeof playback.controls != "undefined" && !playback.controls)
     console.warn("disabling video controls not possible for Vimeo video's");
 
-  if (playback.loop)
+  if (video.loop || playback.loop)
     args.push("loop=1");
 
   if (playback.background)

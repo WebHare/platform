@@ -146,7 +146,19 @@ PUBLIC RECORD FUNCTION GetVideoEmbedInfo(RECORD video)
 {
   IF(NOT CellExists(video, 'whfstype') OR video.whfstype != 'http://www.webhare.net/xmlns/publisher/embedvideo')
     THROW NEW Exception("GetVideoEmbedInfo expects an http://www.webhare.net/xmlns/publisher/embedvideo instance");
-  RETURN [ network := video.network, id := video.videoid ];
+
+  RECORD videoinfo := CELL[ video.network, id := video.videoid ];
+  IF(video.starttime > 0)
+    INSERT CELL starttime := video.starttime/1000m INTO videoinfo;
+  IF(video.endtime > video.starttime)
+    INSERT CELL endtime := video.endtime/1000m INTO videoinfo;
+  IF(video.autoplay)
+    INSERT CELL autoplay := TRUE INTO videoinfo;
+  IF(video.mute)
+    INSERT CELL mute := TRUE INTO videoinfo;
+  IF(video.loop)
+    INSERT CELL loop := TRUE INTO videoinfo;
+  RETURN videoinfo;
 }
 
 /** @short Get the data to store in a video embed instance */
@@ -193,5 +205,10 @@ PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
          , duration :=     described.duration
          , location :=     LatLngToString(described.location)
          , playratio :=    16f/9f //FIXME properly calculate this, but simply
+         , starttime :=    0
+         , endtime :=      0
+         , autoplay :=     FALSE
+         , loop :=         FALSE
+         , mute :=        FALSE
          ];
 }
