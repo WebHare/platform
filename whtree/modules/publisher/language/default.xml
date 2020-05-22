@@ -2827,6 +2827,8 @@
       <text tid="embedvideo">Video</text>
       <text tid="endbeforestart">The stop time must be later than the start time</text>
       <text tid="endtime">Stop playback at</text>
+      <text tid="loop">Play video in loop</text>
+      <text tid="mutedautoplay">Autoplay (muted)</text>
       <text tid="starttime">Start playback at</text>
       <text tid="starttimepastend">The start time is past the end of the video</text>
     </textgroup>

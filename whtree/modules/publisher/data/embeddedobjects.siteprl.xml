@@ -58,6 +58,9 @@
     <member name="endtime" type="integer" />
     <member name="location" type="string" />
     <member name="playratio" type="float" />
+    <member name="loop" type="boolean" />
+    <member name="mute" type="boolean" />
+    <member name="autoplay" type="boolean" />
     <ingroup type="http://www.webhare.net/xmlns/publisher/generalwidgets" />
   </embeddedobjecttype>
 

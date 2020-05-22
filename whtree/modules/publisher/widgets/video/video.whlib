@@ -21,8 +21,13 @@ PUBLIC STATIC OBJECTTYPE EditVideo EXTEND TolliumScreenBase
     ^starttime->visible := video.network IN ["youtube","vimeo"];
     ^endtime->visible := video.network IN ["youtube"];
 
+    ^loop->visible := video.network IN ["youtube","vimeo"];
+    ^mutedautoplay->visible := video.network IN ["youtube","vimeo"];
+
     ^starttime->value := video.starttime;
     ^endtime->value := video.endtime ?? -1;
+    ^mutedautoplay->value := video.autoplay AND video.mute;
+    ^loop->value := video.loop;
   }
 
   RECORD FUNCTION Submit()
@@ -40,6 +45,9 @@ PUBLIC STATIC OBJECTTYPE EditVideo EXTEND TolliumScreenBase
     RETURN CELL [ ...^embedvideo->value
                 , starttime := ^starttime->value
                 , endtime := ^endtime->value > 0 ? ^endtime->value : 0
+                , mute := ^mutedautoplay->value
+                , autoplay := ^mutedautoplay->value
+                , loop := ^loop->value
                 ];
   }
 >;

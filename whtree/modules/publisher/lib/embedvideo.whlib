@@ -152,6 +152,12 @@ PUBLIC RECORD FUNCTION GetVideoEmbedInfo(RECORD video)
     INSERT CELL starttime := video.starttime/1000m INTO videoinfo;
   IF(video.endtime > video.starttime)
     INSERT CELL endtime := video.endtime/1000m INTO videoinfo;
+  IF(video.autoplay)
+    INSERT CELL autoplay := TRUE INTO videoinfo;
+  IF(video.mute)
+    INSERT CELL mute := TRUE INTO videoinfo;
+  IF(video.loop)
+    INSERT CELL loop := TRUE INTO videoinfo;
   RETURN videoinfo;
 }
 
@@ -201,5 +207,8 @@ PUBLIC RECORD FUNCTION MakeVideoEmbedInstance(STRING network, STRING videoid)
          , playratio :=    16f/9f //FIXME properly calculate this, but simply
          , starttime :=    0
          , endtime :=      0
+         , autoplay :=     FALSE
+         , loop :=         FALSE
+         , mute :=        FALSE
          ];
 }

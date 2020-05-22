@@ -8,6 +8,10 @@
       <p:embedvideo name="embedvideo" required="true" onchange="onvideochange"/>
       <time precision="seconds" name="starttime" />
       <time precision="seconds" name="endtime" />
+      <lines layout="left">
+        <checkbox name="loop" title="" labeltid=".loop"/>
+        <checkbox name="mutedautoplay" title="" labeltid=".mutedautoplay"/>
+      </lines>
     </body>
   </screen>
 

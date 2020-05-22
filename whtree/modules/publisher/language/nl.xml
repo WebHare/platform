@@ -2827,6 +2827,8 @@
       <text tid="embedvideo">Video</text>
       <text tid="endbeforestart">De stoptijd moet na de starttijd liggen</text>
       <text tid="endtime">Stop afspelen op</text>
+      <text tid="loop">Speel video in lus af</text>
+      <text tid="mutedautoplay">Automatisch afspelen (zonder geluid)</text>
       <text tid="starttime">Start afspelen vanaf</text>
       <text tid="starttimepastend">De starttijd ligt na het einde van de video</text>
     </textgroup>
