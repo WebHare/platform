@@ -289,7 +289,7 @@ STRING FUNCTION CalculateIV(RECORD decodealg, STRING salt)
 
 /** @short Salt, eencrypt and sign a string
     @param data Data to sign
-    @param algorithm Algorithm to use. <SHA-1|SHA-256>,BLOWFISH+<CBC|ECB>,<hashwords>[,ZLIB] eg SHA-256,BLOWFISH+<CBC|ECB>,8
+    @param algorithm Algorithm to use. <SHA-1|SHA-256>,BLOWFISH+<CBC|ECB>,<hashwords>[,ZLIB] eg SHA-256,BLOWFISH+CBC,8
     @param key Key to use with the algorithm
     @return UFS encoded encrypted data */
 PUBLIC STRING FUNCTION EncryptAndSignData(STRING data, STRING algorithm, STRING encryptkey)
