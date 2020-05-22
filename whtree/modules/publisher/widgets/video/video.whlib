@@ -1,0 +1,67 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditVideo EXTEND TolliumScreenBase
+<
+  STRING ARRAY limitnetworks;
+
+  MACRO Init(RECORD data)
+  {
+    this->limitnetworks := data.limitnetworks;
+    ^embedvideo->value := data.value;
+  }
+
+  MACRO OnVideoChange()
+  {
+    RECORD video := ^embedvideo->value;
+
+    //TODO videoproviders should inform us about their capabilities
+    ^starttime->visible := video.network IN ["youtube","vimeo"];
+    ^endtime->visible := video.network IN ["youtube"];
+
+    ^loop->visible := video.network IN ["youtube","vimeo"];
+    ^mutedautoplay->visible := video.network IN ["youtube","vimeo"];
+
+    ^starttime->value := video.starttime;
+    ^endtime->value := video.endtime ?? -1;
+    ^mutedautoplay->value := video.autoplay AND video.mute;
+    ^loop->value := video.loop;
+  }
+
+  RECORD FUNCTION Submit()
+  {
+    OBJECT work := this->BeginFeedback();
+    iF(^embedvideo->value.duration > 0 AND ^starttime->value / 1000 > ^embedvideo->value.duration)
+      work->AddErrorFor(^starttime, this->GetTid(".starttimepastend"));
+
+    IF(^endtime->value != -1 AND ^endtime->value <= ^starttime->value)
+      work->AddErrorFor(^endtime, this->GetTid(".endbeforestart"));
+
+    IF(NOT work->Finish())
+      RETURN DEFAULT RECORD;
+
+    RETURN CELL [ ...^embedvideo->value
+                , starttime := ^starttime->value
+                , endtime := ^endtime->value > 0 ? ^endtime->value : 0
+                , mute := ^mutedautoplay->value
+                , autoplay := ^mutedautoplay->value
+                , loop := ^loop->value
+                ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION EditEmbeddedVideoInstance(OBJECT parent, RECORD currentinstance)
+{
+  IF(NOT RecordExists(currentinstance)) //creating
+  {
+    OBJECT dlg := parent->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
+    RETURN dlg->RunModal() = "ok" ? dlg->selectedvideo : DEFAULT RECORD;
+  }
+  ELSE
+  {
+    currentinstance := parent->RunScreen(Resolve("video.xml#editvideo"), [ value := currentinstance, limitnetworks := STRING[] ]);
+    RETURN currentinstance;
+  }
+}

@@ -40,7 +40,7 @@
   <!-- RTD Video component -->
   <embeddedobjecttype
     namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
-    editlibrary="mod::publisher/lib/screens/components/embedvideo.whlib"
+    editlibrary="mod::publisher/widgets/video/video.whlib"
     editfunctionname="EditEmbeddedVideoInstance"
     renderlibrary="mod::publisher/lib/internal/embedvideo.whlib"
     tid="siteprofile.widgets.embedvideo"
@@ -54,8 +54,13 @@
     <member name="title" type="string" />
     <member name="description" type="string" />
     <member name="duration" type="integer" />
+    <member name="starttime" type="integer" />
+    <member name="endtime" type="integer" />
     <member name="location" type="string" />
     <member name="playratio" type="float" />
+    <member name="loop" type="boolean" />
+    <member name="mute" type="boolean" />
+    <member name="autoplay" type="boolean" />
     <ingroup type="http://www.webhare.net/xmlns/publisher/generalwidgets" />
   </embeddedobjecttype>
 

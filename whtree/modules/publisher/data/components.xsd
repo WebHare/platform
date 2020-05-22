@@ -1164,28 +1164,7 @@
 
   <xs:element name="embedvideo">
     <xs:annotation>
-      <xs:documentation>
-        <html:p>
-          Component to select video.
-          When the 'socialite' module is installed, you'll have support for 'youtube', 'vimeo' and 'youku' video's.
-        </html:p>
-        <html:p>
-          Extra videoproviders can be defined in modules.
-          For example Socialite does this:
-
-          &lt;embedvideoproviders xmlns="http://www.webhare.net/publisher/embedvideoproviders"&gt;
-            &lt;detector library="internal/embedvideo/support.whlib" functionname="guessfromcode" /&gt;
-            &lt;provider name="youtube" tid="embedvideo.network.youtube" localservice="youtubeprovider" /&gt;
-            &lt;provider name="vimeo" tid="embedvideo.network.vimeo" localservice="vimeoprovider" /&gt;
-            &lt;provider name="youku" tid="embedvideo.network.youku" localservice="youkuprovider" /&gt;
-          &lt;/embedvideoproviders>
-        </html:p>
-      </xs:documentation>
-
-      <!--
-           Please note, we are inline because, as soon as we stop caring about 3.10
-           we want this to be like imageedit - a preview thumbnail/image with an overlay of buttons
-      -->
+      <xs:documentation>Search for video and offers the accompanying metadata as an embedvideo instance</xs:documentation>
       <xs:appinfo>
         <s:tolliumcomponent placement="inline" fragment="components/embedvideo.embedvideocomponent" />
       </xs:appinfo>
@@ -1199,6 +1178,13 @@
       <xs:attribute name="limitnetworks">
         <xs:annotation>
           <xs:documentation>Space separated list of network masks to which we should limit our network selection</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="onchange" type="tc:Handler">
+        <xs:annotation>
+          <xs:appinfo>
+            <s:callbacksignature />
+          </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>

@@ -43,6 +43,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
   //
 
   PUBLIC STRING ARRAY limitnetworks;
+  PUBLIC MACRO PTR onchange;
   PUBLIC PROPERTY value(pvt_value, SetValue);
   UPDATE PUBLIC PROPERTY title(this->thumbnail->title, this->thumbnail->title);
   UPDATE PUBLIC PROPERTY width(this->thumbnail->width, this->thumbnail->width);
@@ -70,6 +71,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
     this->required := def.required;
     this->errorlabel := def.errorlabel;
     this->limitnetworks := ParseXSList(def.limitnetworks);
+    this->onchange := def.onchange;
 
 /*
     this->SetReadonly(def.readonly);
@@ -151,6 +153,9 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
       this->SetDirty();
     ELSE
       this->initialvalueset := TRUE;
+
+    IF(this->onchange != DEFAULT MACRO PTR)
+      this->onchange();
   }
 
 /*
@@ -203,7 +208,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
     IF (RecordExists(this->value))
     {
       this->preview->enabled := TRUE;
-      this->clear->enabled := NOT this->readonly;
+      this->clear->enabled := NOT this->readonly AND NOT this->required;
 
       this->previewbutton->visible := this->enabled;
       this->clearbutton->visible := this->enabled AND this->clear->enabled;
@@ -493,9 +498,3 @@ PUBLIC OBJECTTYPE PlayVideo EXTEND TolliumScreenBase
     this->movieplayer->src := GetVideoEmbedProvider(data.video.network)->GetIFramePlayerURL(data.video.videoid);
   }
 >;
-
-PUBLIC RECORD FUNCTION EditEmbeddedVideoInstance(OBJECT parent, RECORD currentinstance)
-{
-  OBJECT dlg := parent->LoadScreen("publisher:components/embedvideo.searchvideo", [ value := currentinstance, limitnetworks := STRING[] ]);
-  RETURN dlg->RunModal() = "ok" ? dlg->selectedvideo : DEFAULT RECORD;
-}
