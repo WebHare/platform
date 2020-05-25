@@ -131,7 +131,7 @@ export default class RPCClient
     }
     else
     {
-      this.url = "";  //invoke ourselves directly if no path specified
+      this.url = location.href;  //invoke ourselves directly if no path specified
     }
 
     //if shorthand syntax is used, we know we're talking to our local webhare. add function names and the profiling flag if needed
