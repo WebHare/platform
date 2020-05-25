@@ -13,7 +13,7 @@ MACRO Get(STRING ARRAY params)
 
   IF(NOT RecordExists(subargs))
   {
-    Print("Syntax: wh get <id|hash>\n");
+    Print("Syntax: wh precalc get <id|hash>\n");
     TerminateScriptWithError("");
   }
 
