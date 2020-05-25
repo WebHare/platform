@@ -690,10 +690,7 @@ class Screen extends ComponentBase
     {
       var enableon = checkenableons[j];
 
-      $todd.DebugTypedLog("actionenabler", "- Checking rule with action source '"+enableon.source+"' " +
-        "frameflags:"+enableon.frameflags.join(' ')+" flags:"+enableon.checkflags.join(',')+' min:'+enableon.min+' max:'+enableon.max+' selmatch:'+enableon.selectionmatch
-
-      );
+      $todd.DebugTypedLog("actionenabler", `- Checking against rule #${j}, rule:`,enableon);
 
       // Lookup the source component
       sourceobj = this.getComponent(enableon.source);
@@ -711,13 +708,16 @@ class Screen extends ComponentBase
       }
 
       if(enableon.frameflags.length>=1 && !this.enabledOn(enableon.frameflags, 1, 1, "all"))
+      {
+        $todd.DebugTypedLog("actionenabler", "- - Selection does not meet Frame constraints");
         continue;
-
+      }
 
       // Check whether the selection meets the constraints
+      $todd.DebugTypedLog("actionenabler", `- - Invoke sourceobj.enabledOn("${enableon.checkflags.join(",")}", ${enableon.min}, ${enableon.max}, ${enableon.selectionmatch}) on `,sourceobj);
       if (!sourceobj.enabledOn(enableon.checkflags, enableon.min, enableon.max, enableon.selectionmatch))
       {
-        $todd.DebugTypedLog("actionenabler", "- - Selection does not meet constraints - skipping rule");
+        $todd.DebugTypedLog("actionenabler", "- - Selection does not meet Source constraints - skipping rule");
         continue;
       }
 
