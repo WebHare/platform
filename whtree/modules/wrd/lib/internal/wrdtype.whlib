@@ -2355,34 +2355,58 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   }
 
   /** @short Get an entity, create if it doesn't exist.
-      @param requiredmetadata The required metadata. Any required and set unique fields are used to look up the existing entity
-      @param optionalmetadata Optional metadata, to apply if the entity is created
+      @param requiredfields The values to set on the entity
+      @cell(string array) options.entitykey List of fields that must be unique for the entity to match
+      @cell(record) options.ifnew Additional fields to set if the entity is newly created
       @return(object %WRDEntity2017) The entity */
-  PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredfields, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RECORD ARRAY filters;
-    FOREVERY(RECORD cellrec FROM UnpackRecord(requiredmetadata))
+    IF(NOT CellExists(options,'entitykey') AND NOT CellExists(options,'ifnew')) //4.28- style call
     {
-      RECORD attr := this->GetAttribute(cellrec.name);
-      IF(NOT RecordExists(attr))
-        THROW NEW Exception(`No such attribute '${cellrec.name}' in type '${this->tag}'`);
+      STRING ARRAY entitykey;
+      FOREVERY(RECORD cellrec FROM UnpackRecord(requiredfields))
+      {
+        RECORD attr := this->GetAttribute(cellrec.name);
+        IF(NOT RecordExists(attr))
+          THROW NEW Exception(`No such attribute '${cellrec.name}' in type '${this->tag}'`);
 
-      IF(attr.isrequired OR (attr.isunique AND NOT IsDefaultvalue(cellrec.value)))
-        INSERT [ field := cellrec.name, value := cellrec.value ] INTO filters AT END;
+        IF(attr.isrequired OR (attr.isunique AND NOT IsDefaultvalue(cellrec.value)))
+          INSERT cellrec.name INTO entitykey AT END;
+      }
+
+      IF(Length(entitykey) = 0)
+        THROW NEW Exception("No filter sufficient to establish uniqueness");
+
+      options := [ entitykey := entitykey
+                 , ifnew := options
+                 ];
     }
 
-    IF(Length(filters)=0)
-      THROW NEW Exception("No filter sufficient to establish uniqueness");
+    options := ValidateOptions([ entitykey := STRING[]
+                               , ifnew := DEFAULT RECORD
+                               ], options, [ required := ["entitykey"]]);
+
+    RECORD ARRAY filters;
+    IF(Length(options.entitykey) = 0)
+      THROW NEW Exception(`EnsureEntity requires an explicit entitykey`);
+
+    FOREVERY(STRING keyname FROM options.entitykey)
+    {
+      IF(NOT CellExists(requiredfields, keyname))
+        THROW NEW Exception(`Missing field '${keyname}'`);
+
+      INSERT [ field := keyname, value := GetCell(requiredfields, keyname) ] INTO filters AT END;
+    }
 
     RECORD ARRAY matches := this->RunQuery([ outputcolumns := [ id := "WRD_ID" ], filters := filters]);
     IF(Length(matches)>1)
       THROW NEW Exception("Multiple matches for ensured data");
 
     IF(Length(matches)=0)
-      RETURN this->__DoCreateEntity(MakeMergedREcord(requiredmetadata, optionalmetadata));
+      RETURN this->__DoCreateEntity(CELL[...requiredfields, ...options.ifnew]);
 
     OBJECT match := this->GetEntity(matches[0].id);
-    match->UpdateEntity(requiredmetadata);
+    match->UpdateEntity(requiredfields);
     RETURN match;
   }
 
