@@ -1788,7 +1788,7 @@ $todd.ObjProxy = class extends components.ToddCompBase
       this.checkcomponents.forEach(name =>
       {
         var comp = this.owner.getComponent(name);
-        if (comp && comp.flags && comp.getValue())
+        if (comp && comp.flags && comp.getValue().value)
           flags.push(comp.flags);
       });
     }
