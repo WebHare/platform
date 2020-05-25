@@ -814,8 +814,8 @@ export default class FormBase
     if (fields.length > 1)
     {
       // If the condition field has a subfield, check if it's available through a form var
-      // The '$' in the attribute name is replaced with ':' to make the attribute name valid
-      const attrname = conditionfield.split("$").join(":");
+      // The '$' in the attribute name is replaced with '.' to make the attribute name valid
+      const attrname = conditionfield.split("$").join(".");
       if(this.node.hasAttribute("data-wh-form-var-" + attrname))
         return this.node.getAttribute("data-wh-form-var-" + attrname);
     }
