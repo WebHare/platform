@@ -129,7 +129,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllModulesAndVersionDirs()
     }
   }
 
-  moduledirs := SELECT * FROM moduledirs WHERE RecordExists(GetDiskFileProperties(path || "/moduledefinition.xml"));
+  moduledirs := SELECT DISTINCT * FROM moduledirs WHERE RecordExists(GetDiskFileProperties(path || "/moduledefinition.xml"));
   RETURN moduledirs;
 }
 
