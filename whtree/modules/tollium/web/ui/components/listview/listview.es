@@ -4,8 +4,7 @@ import ScrollMonitor from '@mod-tollium/js/internal/scrollmonitor';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 
 import Keyboard from 'dompack/extra/keyboard';
-const domfocus = require('@mod-system/js/dom/focus');
-var domevents = require('@mod-system/js/dom/events');
+import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 require('./listview.css');
 var ListColumn = require('./listcolumns');
@@ -838,15 +837,12 @@ export default class ListView
 
   _runOpenAction(row)
   {
-    var event = new domevents.CustomEvent("open", //FIXME namespace event name
-        { bubbles: false
-        , cancelable: true
-        , detail:
-              {}
-        });
-
-    this.node.dispatchEvent(event);
-    if (event.defaultPrevented)
+    if(!dompack.dispatchCustomEvent(this.node, "open", //FIXME namespace event name
+                                      { bubbles: false
+                                      , cancelable: true
+                                      , detail:
+                                            {}
+                                      }))
       return;
 
     // If the row is expandable, toggle expandability
@@ -1025,7 +1021,7 @@ export default class ListView
         return;
       }
 
-      anyfocussable = anyfocussable || domfocus.canFocus(selectnode);
+      anyfocussable = anyfocussable || domfocus.canFocusTo(selectnode);
       if(selectnode.classList.contains("listrow"))
       {
         listrow = selectnode;

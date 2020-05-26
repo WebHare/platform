@@ -29,7 +29,7 @@ todd_components = { ...FrameComponents
 
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
-import * as domfocus from '@mod-system/js/dom/focus';
+import * as domfocus from 'dompack/browserfix/focus';
 import * as whintegration from '@mod-system/js/wh/integration';
 import './debugging/magicmenu';
 
@@ -52,7 +52,6 @@ require('../skins/default/skin.scss');
 require('../skins/default/controls.scss');
 import "./loginrequests.es"; //process preview panel login requests
 var toddImages = require("@mod-tollium/js/icons");
-var domevents = require('@mod-system/js/dom/events');
 
 require('@mod-system/js/compat/iefocusfix'); //it'll autorun, no need to use any export
 import TowlNotifications from './shell/towl';
@@ -63,7 +62,7 @@ require("../common.lang.json");
 function getClosestValidFocusTarget(node)
 {
   for(;node;node=node.parentNode)
-    if(node.nodeName === 'LABEL' || domfocus.canFocus(node) || (node.classList && node.classList.contains('selectable')))
+    if(node.nodeName === 'LABEL' || domfocus.canFocusTo(node) || (node.classList && node.classList.contains('selectable')))
       return node;
   return null;
 }
@@ -591,8 +590,7 @@ class IndyShell
       if(new Date(data.now) < this.broadcaststart)
         return;
 
-      var event = new domevents.CustomEvent("tollium-shell:broadcast", { bubbles:true, cancelable: false, detail: data.message});
-      document.documentElement.dispatchEvent(event);
+      dompack.dispatchCustomEvent(document.documentElement, "tollium-shell:broadcast", { bubbles:true, cancelable: false, detail: data.message} );
     });
   }
   onBroadcast(event)

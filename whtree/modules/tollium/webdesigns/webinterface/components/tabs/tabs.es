@@ -4,9 +4,7 @@ import ObjText from '../text/text.es';
 
 var $todd = require('@mod-tollium/web/ui/js/support');
 var menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
-var domscroll = require('@mod-system/js/dom/scroll');
-
-let skinsettings = {};
+import * as domscroll from 'dompack/browserfix/scroll';
 
 /****************************************************************************************************************************
 * Global tabs settings

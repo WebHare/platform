@@ -1,8 +1,7 @@
-﻿import * as browser from 'dompack/extra/browser';
-import * as dompack from 'dompack';
+﻿import * as dompack from 'dompack';
 var $todd = require("./support");
 import Keyboard from 'dompack/extra/keyboard';
-var domscroll = require('@mod-system/js/dom/scroll');
+import * as domscroll from 'dompack/browserfix/scroll';
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 require("../common.lang.json");
 var toddImages = require("@mod-tollium/js/icons");

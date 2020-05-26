@@ -10,7 +10,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 var $todd = require("./support");
 require("../common.lang.json");
 require("../components/imageeditor/imageeditor.lang.json");
-var domfocus = require("@mod-system/js/dom/focus");
+import * as domfocus from 'dompack/browserfix/focus';
 var focuszones = require('../components/focuszones');
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');

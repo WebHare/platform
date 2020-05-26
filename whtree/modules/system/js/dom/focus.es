@@ -1,6 +1,7 @@
 /** @require: var domfocus = require('@mod-system/js/dom/focus');
 */
 
+import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from "dompack";
 import * as domfocus from "dompack/browserfix/focus";
 
@@ -54,3 +55,11 @@ module.exports = { getFocusableElement: getFocusableElement
                  , getAllFocusableComponents: domfocus.getAllFocusableComponents
                  , getFocusableComponents: domfocus.getFocusableComponents
                  };
+
+const error = "@mod-system/js/dom/focus is unmaintained and should not be used for new projects.\n\nThis library was mostly used for the mootools-based wh.component framework. You can find cleaner alternatives in dompack and dompack/browserfix/focus";
+console.error(error);
+if(whintegration.config.dtapstage == "development" && !sessionStorage.alertedDomFocus)
+{
+  sessionStorage.alertedDomFocus = true;
+  alert(error);
+}

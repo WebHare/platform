@@ -1,6 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
 var testurl = '/.webhare_testsuite/tests/pages/focuszones/';
-var domfocus = require('@mod-system/js/dom/focus');
 
 async function asyncClick(el)
 {
@@ -20,7 +19,7 @@ test.registerTests(
       {
         test.true(doc.hasFocus(), "This test requires the browser to have focus");
         test.eq("Focused focuszone2", test.qS('#log').lastElementChild.textContent, 'make sure the test has focus');
-        test.true(domfocus.hasFocus(test.qS('#input2_2')));
+        test.true(test.hasFocus(test.qS('#input2_2')));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id);
 
         test.subtest("Focusing zone 1 by button from zone 2");
@@ -30,7 +29,7 @@ test.registerTests(
         console.log('(after fz 1 select) current focus zone id', win.focusZones.getCurrentFocusZone().id);
         test.eq('focuszone1', win.focusZones.getCurrentFocusZone().id);
         test.eq("Zone focuszone2 lost focus", test.qS('#log').lastElementChild.textContent);
-        test.true(domfocus.hasFocus(test.qS('#input1_1')));
+        test.true(test.hasFocus(test.qS('#input1_1')));
 
         test.subtest('Focusing zone 3 by button from zone 1');
         await asyncClick(test.qS("#focuszone1 .tozone3"));
@@ -44,7 +43,7 @@ test.registerTests(
 
         test.eq("Zone focuszone3 lost focus", test.qS('#log').lastElementChild.textContent);
         test.eq('focuszone1', win.focusZones.getCurrentFocusZone().id);
-        test.true(domfocus.hasFocus(test.qS('#input1_1')), "Focus was not returned to input1_1");
+        test.true(test.hasFocus(test.qS('#input1_1')), "Focus was not returned to input1_1");
 
         test.subtest('Clicking steal button');
         await asyncClick(test.qS('.steal_input2_3'));
@@ -53,7 +52,7 @@ test.registerTests(
         test.subtest('Focusing zone2 by button from zone 1');
         await asyncClick(test.qS('#focuszone1 .tozone2'));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id);
-        test.true(domfocus.hasFocus(test.qS('#input2_3')), 'focus not returned to $wh.focused element while zone was inactive');
+        test.true(test.hasFocus(test.qS('#input2_3')), 'focus not returned to $wh.focused element while zone was inactive');
       }
     }
 
@@ -64,7 +63,7 @@ test.registerTests(
   , { name: 'focus zones programmatically'
     , test: async function(doc,win)
       {
-        test.true(domfocus.hasFocus(test.qS('#input2_2')));
+        test.true(test.hasFocus(test.qS('#input2_2')));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id, 'verifying initial state');
         win.focusZones.focusZone(test.qS('#focuszone1'));
         await test.wait("events");
@@ -73,7 +72,7 @@ test.registerTests(
         test.subtest("focus zone 2");
         win.focusZones.focusZone(test.qS('#focuszone2'));
         await test.wait("events");
-        test.true(domfocus.hasFocus(test.qS('#input2_2')), 'focus not returned to $wh.focused element while zone was inactive');
+        test.true(test.hasFocus(test.qS('#input2_2')), 'focus not returned to $wh.focused element while zone was inactive');
       }
     }
 

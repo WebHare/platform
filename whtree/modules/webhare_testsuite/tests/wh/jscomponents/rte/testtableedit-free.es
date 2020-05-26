@@ -1,6 +1,5 @@
 import * as dompack from 'dompack';
 import * as test from "@mod-tollium/js/testframework";
-var domscroll = require('@mod-system/js/dom/scroll');
 
 var gesture_time = 25;
 var rte = null,table = null;
@@ -449,7 +448,7 @@ test.registerTests(
 
         // Scroll to the last td
         var last_td = Array.from(rte.getContentBodyNode().getElementsByTagName('td')).slice(-1)[0];
-        domscroll.scrollToElement(last_td);
+        last_td.scrollIntoView();
 
         // See if we really scrolled
         test.true(rte.getContentBodyNode().parentNode.scrollTop > 100);

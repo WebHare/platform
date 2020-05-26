@@ -1,7 +1,6 @@
 import * as dompack from "dompack";
 import * as test from "@mod-tollium/js/testframework";
-var domfocus = require('@mod-system/js/dom/focus');
-/*! LOAD: wh.util.jstests, webhare_testsuite:tollium/test.js !*/
+import * as domfocus from 'dompack/browserfix/focus';
 
 /* WARNING
    test failures here may just as well mean that the simulation of tabfocus

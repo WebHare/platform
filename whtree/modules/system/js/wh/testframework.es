@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import { URL } from 'dompack/browserfix/url';
 
-var domfocus = require('@mod-system/js/dom/focus');
+import * as domfocus from "dompack/browserfix/focus";
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');
 import jstestsrpc from '@mod-system/js/internal/jstests.rpc.json';
 
@@ -561,7 +561,7 @@ function _resolveToSingleElement(element)
 function fill(element,newvalue)
 {
   element = _resolveToSingleElement(element);
-  domfocus.getFocusableElement(element).focus();
+  element.focus();
   dompack.changeValue(element, newvalue);
 }
 function fillUpload(element, files)
@@ -972,13 +972,13 @@ function createFileObject(data, name, opts)
 function canFocus(element)
 {
   element = pointer._resolveToSingleElement(element);
-  return domfocus.canFocus(element);
+  return domfocus.canFocusTo(element);
 }
 
 function hasFocus(element)
 {
   element = pointer._resolveToSingleElement(element);
-  return domfocus.hasFocus(element);
+  return element == domfocus.getActiveElement(element.ownerDocument);
 }
 
 /** Get pxl log entries
