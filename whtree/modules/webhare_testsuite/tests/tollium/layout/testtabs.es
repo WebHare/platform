@@ -62,7 +62,7 @@ test.registerTests(
         //verify tab1 is now the selected tab
         activetab = getActiveTab(test.compByName('tabs'));
         test.eq('Tab 1', getTabSheetLabel(activetab).textContent);
-        var elt = test.compByName('tab1').querySelector("select");
+        var elt = test.compByName("typepulldown");
         elt.propTodd.setValue('P02');
       }
     , waits: [ 'ui' ] //we need to wait for the animation at least
