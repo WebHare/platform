@@ -38,10 +38,10 @@ If you will be using client credentials you probably don't need an authorization
 
   <screen name="config">
     <compositions>
-      <s:registrynode name="registry" key="mymodule" />
+      <s:registrynode name="registry" node="mymodule" />
     </compositions>
     <body>
-      <webapis:oauth2client composition="registry" ellname="myclient" />
+      <webapis:oauth2client composition="registry" cellname="myclient" name="myclient" />
       <webapis:oauth2authorization composition="registry" cellname="myauth" onauthorize="onauthorize"/>
     </body>
     <footer>
@@ -70,7 +70,7 @@ PUBLIC STATIC OBJECTTYPE Config EXTEND TolliumScreenBase
     OBJECT api := NEW Oauth2Connection(
       [ authorizeurl := "https://accounts.google.com/o/oauth2/v2/auth"
       , authtokenurl := "https://www.googleapis.com/oauth2/v4/token"
-      , clientcomponent := ^registry->myclient
+      , clientcomponent := ^myclient
       , rpclogsource := "mymodule:googleoauth"
       ]);
 
@@ -101,5 +101,26 @@ be updated or FALSE to reject it. It should handle any error messages itself,eg
       this->RunSimpleScreen("error", e->what);
       RETURN FALSE;
     }
+  }
+```
+
+## Library code
+
+After authorizing, to set up the oauth connection:
+
+```harescript
+OBJECT oauth2 := NEW Oauth2Connection([ clientregistrykey := "mymodule.myclient" ]);
+oauth2->SetupTokenUsingRegistryKey("mymodule.myauth");
+```
+
+An example function:
+
+```
+  PUBLIC RECORD ARRAY FUNCTION GetAccounts()
+  {
+    IF(NOT oauth2->browser->GotoWebPage("https://www.googleapis.com/analytics/v3/management/accountSummaries"))
+      THROW NEW Exception("request failed");
+
+    RETURN RECORD ARRAY(DecodeJSONBlob(oauth2->browser->content).items);
   }
 ```
