@@ -98,6 +98,12 @@
           <tabs name="tabs" selectedtab="tab2" onselect="ontabselect">
             <tab name="tab1" width="400px" height="250px">
               <box title="selector" name="selector"  hr="false">
+                <select name="selectortype" title="Selector" type="pulldown" onchange="onselectortypechange">
+                  <option rowkey="pulldown" title="pulldown" />
+                  <option rowkey="radio" title="radio" />
+                  <option rowkey="checkbox" title="checkbox" />
+                  <option rowkey="checkboxlist" title="checkboxlist" />
+                </select>
                 <select name="typepulldown"
                         title="Type"
                         type="pulldown"
