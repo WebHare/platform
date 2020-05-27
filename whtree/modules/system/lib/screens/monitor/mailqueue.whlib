@@ -60,7 +60,7 @@ PUBLIC OBJECTTYPE MailqueuePanel EXTEND DashboardPanelBase
                               , nextattempt := finished = DEFAULT DATETIME ? nextattempt : DEFAULT DATETIME
                               , creationdate
                               , taskdata := DecodeHSON(taskdata)
-                              , shortretval := shortretval != "" ? DecodeHSON(shortretval) : DEFAULT RECORD
+                              , shortretval := shortretval = "" ? DEFAULT RECORD : shortretval="long" ? DecodeHSONBlob(longretval) : DecodeHSON(shortretval)
                               , lasterrors
                               , finished
                               , iscancelled
