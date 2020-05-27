@@ -62,31 +62,10 @@ test.registerTests(
         //verify tab1 is now the selected tab
         activetab = getActiveTab(test.compByName('tabs'));
         test.eq('Tab 1', getTabSheetLabel(activetab).textContent);
-      }
-    , waits: [ 'ui' ] //we need to wait for the animation at least
-    }
-
-  , { name: 'visibleon'
-    , test:function(doc,win)
-      {
-        test.eq('tab1', test.compByName('selectedtab').textContent);
-
-        test.eq('P01', test.compByName('tab1').querySelector("select").value);
-        test.true(test.isElementClickable(test.compByName('productsku')));
-        test.false(test.isElementClickable(test.compByName('type_imagetext_title')));
-
         var elt = test.compByName('tab1').querySelector("select");
         elt.propTodd.setValue('P02');
       }
     , waits: [ 'ui' ] //we need to wait for the animation at least
-    }
-
-  , { name: 'visibleon2'
-    , test:function(doc,win)
-      {
-        test.false(test.isElementClickable(test.compByName('productsku')));
-        test.true(test.isElementClickable(test.compByName('type_imagetext_title')));
-      }
     }
 
   , { name: 'stackedtabs'

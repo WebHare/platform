@@ -9,6 +9,7 @@
   <jstest file="testboxesingrid.es"/>
   <jstest file="testwizard.es"/>
   <jstest file="testtabs.es"/>
+  <jstest file="testtabs_visibleon.es"/>
   <jstest file="testtable.es"/>
   <jstest file="testtable2.es"/>
   <jstest file="testcalendar.es"/>
