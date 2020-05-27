@@ -1788,8 +1788,17 @@ $todd.ObjProxy = class extends components.ToddCompBase
       this.checkcomponents.forEach(name =>
       {
         var comp = this.owner.getComponent(name);
-        if (comp && comp.flags && comp.getValue().value)
-          flags.push(comp.flags);
+        if (comp && comp.flags)
+        {
+          let val = comp.getValue();
+          /* We USED to check whether the value is truthy. That broke with checkbox getValue() returning an object
+             Now we check for explicitly true (will work for radio) or for .value === true (will work with new checkbox)
+             This should be cleaner but then we need to add a isTrueForEnableOn() or something to all components? this needs
+             to be through through more and i wonder if, rather than going that way, we shouldn't just eliminate the Proxy
+             all together and move this problem back to Tollium <select> (have it rewrite visibleons/enableons) */
+          if(val === true || (val.value && val.value === true))
+            flags.push(comp.flags);
+        }
       });
     }
     else

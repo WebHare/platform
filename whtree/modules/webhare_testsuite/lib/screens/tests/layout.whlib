@@ -152,9 +152,21 @@ PUBLIC OBJECTTYPE LayoutTest_Wizard EXTEND TolliumScreenBase
 PUBLIC OBJECTTYPE LayoutTest_tabs EXTEND TolliumScreenBase
 <
   BOOLEAN longtabnames;
+  RECORD ARRAY saveoptions;
+
   MACRO Init(RECORD data)
   {
     this->SetTabNames(this->longtabnames);
+    this->saveoptions := ^typepulldown->options;
+  }
+  MACRO OnSelectorTypeChange()
+  {
+    ^typepulldown->type := ^selectortype->value;
+    ^typepulldown->options := this->saveoptions;
+    IF(^selectortype->value IN ["checkbox","checkboxlist"])
+      ^typepulldown->value := ["P01"];
+    ELSE
+      ^typepulldown->value := "P01";
   }
   MACRO DoShowappholder()
   {

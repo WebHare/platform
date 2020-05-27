@@ -122,6 +122,20 @@ ASYNC MACRO TestBrowseForObject()
   TestEq("portal1", TT("folders")->selection.name);
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
+
+  scr := GetTestController()->LoadScreen(InlineScreens(
+    `<screen name="test" implementation="none" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+    <body>
+      <p:browseforobject name="comp" fullpath="/"/>
+    </body>
+  </screen>`, "#test"), DEFAULT RECORD, [ contexts := [ applytester := GetApplyTesterForObject(GetTestsuiteTempFolder()->id)
+                                        ]]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->browseaction"));
+  TestEq("WebHare testsuite site", TT("folders")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }
 
 ASYNC MACRO TestBrowseForObjectArray()
