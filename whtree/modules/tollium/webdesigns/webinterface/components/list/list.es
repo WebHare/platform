@@ -10,6 +10,14 @@ var toddImages = require("@mod-tollium/js/icons");
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";
 
+function collectFlags(iterable)
+{
+  let flags = [];
+  for(const row of iterable)
+    flags.push(row[0].flags);
+  return flags;
+}
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  LIST                                                                                                                    *
@@ -1217,117 +1225,53 @@ export default class ObjList extends ComponentBase
   // ???
   //
 
+  //check enabledon. colidx == 1 for selection, or a checkboxcolumn otherwise
+  isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, colidx)
+  {
+    console.error(colidx, this.flatrows, Array.from(this.getSelectedRows(colidx)));
+    let flags = collectFlags(this.getSelectedRows(colidx));
+    $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
+
+    if ($todd.Screen.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
+    {
+      $todd.DebugTypedLog("actionenabler","- accepted");
+      return true;
+    }
+    return false;
+  }
+
   enabledOn(checkflags, min, max, selectionmatch)
   {
     if (this.selectmode != "none")
     {
       $todd.DebugTypedLog("actionenabler","- Checking action enabled for "+this.name+".'"+checkflags.join(",") +"' ["+min+", "+(max>0?max+"]":"->")+" ("+selectionmatch+") by selection");
-
-      // Read flags for the action source selection
-      let flags = [];
-      for(let i=0;i<this.flatrows.length;++i)
-        if(this.flatrows[i][1] && !flags.includes(this.flatrows[i][0].flags)) //isselected
-          flags.push(this.flatrows[i][0].flags);
-
-      $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
-
-      //toddDebugLog(toddEncodeJSON(flags));
-      if ($todd.Screen.checkEnabledFlags(flags, checkflags, min, max, selectionmatch))
-      {
-        $todd.DebugTypedLog("actionenabler","- accepted");
-        return true;
-      }
-      return false;
+      return this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, 1);
     }
     else //FIXME reimplement adn test checkbox enabledon..
     {
       $todd.DebugTypedLog("actionenabler","- Checking action enabled for "+this.name+".'"+checkflags.join(',') +"' ["+min+", "+(max>0?max+"]":"->")+" ("+selectionmatch+") by checkboxes/radios");
 
-      // Collect columns with checkboxes
-      var cbcolumns = [];
       for (let i=0; i<this.datacolumns.length; ++i)
         if (this.datacolumns[i].type != "todd_scroll" && this.datacolumns[i].checkbox)
-          cbcolumns.push(
-            { name:     this.datacolumns[i].checkbox
-            , selected: []
-            });
-
-      $todd.DebugTypedLog("actionenabler","- Nr of checkbox columns: " + cbcolumns.length);
-
-      if (cbcolumns.length)
-      {
-        // Push all checkbox state into flags
-        var rowflags = [];
-        var ce = cbcolumns.length;
-        for (let i=0, ie = this.rows.length; i < ie; ++i)
         {
-          var row = this.rows[i];
-
-          // Copy flags into new object
-          let flags = {};
-          var orgflags = row.flags;
-          for (var key in orgflags)
-            flags[key] = orgflags[key];
-
-          // Update checkbox state, gather list of selected rows per checkbox column
-          for (let c = 0; c < ce; ++c)
-          {
-            if (!row.checkboxes)
-              continue;
-            var checkboxname = cbcolumns[c].name;
-            var checked = row.checkboxes[checkboxname] && row.checkboxes[checkboxname].checked;
-
-            /*if (checked)
-              toddDebugLog("- - Adding selected item " + row.rowkey + " (checkbox: " + checkboxname + ")");
-  */
-            flags[checkboxname] = checked;
-            if (checked)
-              cbcolumns[c].selected.push(flags);
-          }
-          rowflags.push(flags);
-        }
-
-        for (let c = 0; c < ce; ++c)
-        {
-          //toddDebugLog("- Check checkboxcolumn " + cbcolumns[c].name + ", selected: " + cbcolumns[c].selected.length + ")");
-          if ($todd.Screen.checkEnabledFlags(cbcolumns[c].selected, checkflags, min, max, selectionmatch))
-          {
-          //  toddDebugLog("- accepted");
+          let match = this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, this.datacolumns[i].checkboxidx)
+          $todd.DebugTypedLog("actionenabler",`- Matching by checkboxcolumn '${this.datacolumns[i].name}', result = `,match);
+          if(match)
             return true;
-          }
         }
-      }
+
+      $todd.DebugTypedLog("actionenabler",`- No checkboxcolumn matched`);
       return false;
     }
-  /*
-    // Read checkboxes for each of the columns
-    for (var i=0; i<this.datacolumns.length; ++i)
-    {
-      if (this.datacolumns[i].type == "todd_scroll")
-        continue;
+  }
 
-      flags = new Array();
-
-      if (this.datacolumns[i].checkbox)
-      {
-        toddDebugLog("- - Checking column checkbox "+this.datacolumns[i].checkbox);
-        flags = new Array();
-        for (var j=0; j<this.rows.length; ++j)
-        {
-          if (this.rows[j].checkboxes[this.datacolumns[i].checkbox] && this.rows[j].checkboxes[this.datacolumns[i].checkbox].checked)
-          {
-            toddDebugLog("- - Adding checked item "+this.rows[j].rowkey);
-            var f = toddDecodeJSONUnchecked(toddEncodeJSON(this.rows[j].flags));
-            f[this.datacolumns[i].checkbox] = true;
-            flags.push(f);
-          }
-        }
-        if (toddCheckEnabledFlags(flags, checkflags, min, max, selectionmatch))
-          return true;
-      }
-    }
-    return false;
-  */
+  /** yield selected rows
+      @param checkcolidx Column to check. Normaly '1' for selection, but can be set to a checkbox column */
+  *getSelectedRows(checkcolidx = 1)
+  {
+    for(let i=0;i<this.flatrows.length;++i)
+      if(this.flatrows[i][checkcolidx])
+        yield this.flatrows[i];
   }
 
   getFirstSelectedRow()
