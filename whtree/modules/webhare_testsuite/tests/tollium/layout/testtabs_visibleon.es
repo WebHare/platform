@@ -94,4 +94,36 @@ test.registerTests(
       test.true(test.isElementClickable(test.compByName('productsku')));
       test.false(test.isElementClickable(test.compByName('type_imagetext_title')));
     }
+
+  , "Test checkboxlist visibleon"
+  , async function(doc,win)
+    {
+      test.fill(test.compByName("selectortype"), "checkboxlist");
+      await test.wait("ui");
+
+      test.eq(2, test.compByName("tab1").querySelectorAll("input[type=checkbox]").length, "Ensure our checkbox buttons are there");
+      test.eq(true, test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0].checked, "And P01 got reselected");
+      test.eq(false, test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1].checked, "And P02 not yet");
+
+      test.true(test.isElementClickable(test.compByName('productsku')));
+      test.false(test.isElementClickable(test.compByName('type_imagetext_title')));
+
+      //switch from ["P01"] to ["P02"]
+      test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0]);
+      await test.wait('ui');
+      test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1]);
+      await test.wait('ui');
+
+      test.false(test.isElementClickable(test.compByName('productsku')));
+      test.true(test.isElementClickable(test.compByName('type_imagetext_title')));
+
+      //switch from ["P02"] back to ["P02"]
+      test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0]);
+      await test.wait('ui');
+      test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1]);
+      await test.wait('ui');
+      test.true(test.isElementClickable(test.compByName('productsku')));
+      test.false(test.isElementClickable(test.compByName('type_imagetext_title')));
+    }
+
   ]);
