@@ -1,7 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as testwrd from "@mod-wrd/js/testframework";
-import * as dompack from 'dompack';
-import * as domfocus from '@mod-system/js/dom/focus';
 
 var setupdata;
 
@@ -22,7 +20,7 @@ test.registerTests(
 
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('[name="password"]')));
+      test.true(test.hasFocus(test.qS('[name="password"]')));
     }
 
   , "Start forgot password sequence"
@@ -62,13 +60,13 @@ test.registerTests(
       test.false(test.canClick('.wh-wrdauth-passwordchange__done'));
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('#passwordchange-currentpassword')));
+      test.true(test.hasFocus(test.qS('#passwordchange-currentpassword')));
       test.fill('#passwordchange-currentpassword', 'mylittlesecret');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('#passwordchange-passwordnew')));
+      test.true(test.hasFocus(test.qS('#passwordchange-passwordnew')));
       test.fill('#passwordchange-passwordnew', 'secret3');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
@@ -87,7 +85,7 @@ test.registerTests(
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('[name="password"]')));
+      test.true(test.hasFocus(test.qS('[name="password"]')));
       test.fill(test.qS('[name="password"]'), 'secret3');
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('pageload');
@@ -110,7 +108,7 @@ test.registerTests(
 
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('#emailchange-email')),"as this is our current email, the field should be refocussed and no submission taking place");
+      test.true(test.hasFocus(test.qS('#emailchange-email')),"as this is our current email, the field should be refocussed and no submission taking place");
       test.true(test.canClick(test.qS('.wh-wrdauth-emailchange__changebutton')), "change button should still be here");
 
       test.fill(test.qS('#emailchange-email'), 'pietjenieuw@beta.webhare.net');
@@ -166,7 +164,7 @@ test.registerTests(
 
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('[name="password"]')));
+      test.true(test.hasFocus(test.qS('[name="password"]')));
       test.true(test.canClick(test.qS('.wh-wrdauth-login__loginbutton')), "Shouldn't be able to log in");
     }
 

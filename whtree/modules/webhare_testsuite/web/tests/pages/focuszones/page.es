@@ -1,6 +1,5 @@
 /* global focusZones */
 import * as dompack from 'dompack';
-var domfocus = require('@mod-system/js/dom/focus');
 window.focusZones = require('@mod-tollium/web/ui/components/focuszones');
 
 function onZoneFocus(event)

@@ -1,6 +1,5 @@
 import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
-var domevents = require('@mod-system/js/dom/events');
 var isValidEmailAddress = require("@mod-system/js/util/emailvalidation");
 
 
@@ -178,15 +177,14 @@ export class BaseEditable extends Base
                                          , newvalue: value
                                          });
       // Fire an event with the new value
-      var celleditevent = new domevents.CustomEvent("wh:listview-celledit",
+      if(!dompack.dispatchCustomEvent(this._state.list.node, "wh:listview-celledit",
                                { bubbles: true
                                , cancelable: true
                                , detail: { cellidx: this._state.cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
                                          , row: this._state.row.cells
                                          , newvalue: value
                                          }
-                               });
-      if(!this._state.list.node.dispatchEvent(celleditevent)) //cancelled
+                               })) //cancelled
       {
         this._stopEditing();
         return;

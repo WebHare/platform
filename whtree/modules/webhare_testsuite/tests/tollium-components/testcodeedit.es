@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import * as domfocus from '@mod-system/js/dom/focus';
 import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
@@ -10,7 +9,7 @@ test.registerTests(
   , { name: 'initialselectedline'
     , test: function(doc,win)
       {
-        test.true(domfocus.hasFocus(test.qS('textarea')));
+        test.true(test.hasFocus(test.qS('textarea')));
         test.false(test.qS('textarea').scrollTop == 0, 'scrollTop = 0, so no initial selection done');
         test.false(test.qS('textarea').readOnly);
 

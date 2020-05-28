@@ -1,6 +1,5 @@
 import * as dompack from 'dompack';
-const domfocus = require('@mod-system/js/dom/focus');
-
+import * as domfocus from 'dompack/browserfix/focus';
 
 /// Zone history, element 0 is current focused zone
 let zonehistory = [];

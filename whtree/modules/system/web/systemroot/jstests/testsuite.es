@@ -2,9 +2,9 @@ import * as dompack from 'dompack';
 import { qS, qSA } from 'dompack';
 import * as dombusy from 'dompack/src/busy';
 import * as browser from 'dompack/extra/browser';
+import * as domfocus from "dompack/browserfix/focus";
 import { URL } from 'dompack/browserfix/url';
 import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
-import { getFocusableComponents } from "@mod-system/js/dom/focus";
 import "./testsuite.css";
 import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";
@@ -688,7 +688,7 @@ class TestFramework
     //if(getActiveElement(document) != pageframe) //needed for IE8 test
       //pageframe.contentWindow.focus();
 
-    var focusable = getFocusableComponents(this.pageframedoc.documentElement);
+    var focusable = domfocus.getFocusableComponents(this.pageframedoc.documentElement);
     for (var i=0;i<focusable.length;++i)
     {
       if(focusable[i].autofocus)

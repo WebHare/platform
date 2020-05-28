@@ -2,6 +2,7 @@
 */
 
 //http://www.backalleycoder.com/2013/03/18/cross-browser-event-based-element-resize-detection/
+import * as whintegration from '@mod-system/js/wh/integration';
 var attachEvent = document.attachEvent;
 import * as browser from 'dompack/extra/browser';
 
@@ -67,3 +68,15 @@ function disableResizeEvents(element)
 module.exports = { enableEvents: enableResizeEvents
                  , disableEvents: disableResizeEvents
                  };
+
+//////////////////////////////////////////////////////////////////////////////////
+//
+// REMOVE EVERYTHING BELOW THIS LINE IF YOU CLONE TIHS FILE TO YOUR OWN PROJECT
+//
+const error = "@mod-system/js/dom/resizelistener is unmaintained and should not be used for new projects.\n\nWe recommend looking for alternatives that are mobile-friendly, as our approach heavily polled the browser\n\nIf you wish to keep using this library, that's... really not recommended... but please move it to your own module and then you can remove this message";
+console.error(error);
+if(whintegration.config.dtapstage == "development" && !sessionStorage.alertedDomResizeListener)
+{
+  sessionStorage.alertedDomResizeListener = true;
+  alert(error);
+}

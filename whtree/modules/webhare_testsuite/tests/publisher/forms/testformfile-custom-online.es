@@ -1,9 +1,7 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
-import * as domfocus from '@mod-system/js/dom/focus';
 
 let setupdata;
-let rand = Math.floor(100000000*Math.random())
+let rand = Math.floor(100000000*Math.random());
 let testemail = rand + '-testformfile-online+jstest@beta.webhare.net';
 let testemail2 = rand + '-testformfile2-online+jstest@beta.webhare.net';
 let editlink;
@@ -46,7 +44,7 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      test.true(domfocus.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
+      test.true(test.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
       test.eq("Kies de 2e optie. Sub: filledsub", test.qS('[data-wh-form-group-for="tscustom"] .wh-form__error').textContent);
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);

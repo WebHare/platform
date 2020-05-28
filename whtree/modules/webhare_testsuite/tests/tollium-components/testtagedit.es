@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-import * as domfocus from '@mod-system/js/dom/focus';
 
 test.registerTests(
   [ 'create first tag'
@@ -55,7 +54,7 @@ test.registerTests(
       test.click(holder.querySelectorAll('.wh-tagedit-tag')[0]);
       test.eq('abc', holder.querySelector('.wh-tagedit-tag.wh-tagedit-selected').textContent);
       await test.pressKey('Tab');
-      test.true(domfocus.hasFocus(holder.querySelector(".wh-tagedit-input")));
+      test.true(test.hasFocus(holder.querySelector(".wh-tagedit-input")));
 
       await test.pressKey('Backspace');
       tags = holder.querySelectorAll('.wh-tagedit-tag');

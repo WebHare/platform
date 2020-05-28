@@ -238,8 +238,14 @@ module.exports = { importTemplate: importTemplate
                  , instantiate: instantiateTemplate
                  };
 
-if(!whintegration.config.islive)
+//////////////////////////////////////////////////////////////////////////////////
+//
+// REMOVE EVERYTHING BELOW THIS LINE IF YOU CLONE TIHS FILE TO YOUR OWN PROJECT
+//
+const error = "@mod-system/js/dom/template is unmaintained and should not be used for new projects.\n\nWe recommend using JSX (so your JS code is always in sync with your template) or if you have to, content.cloneNode(true) on <template> (we auto polyfill that for IE11)\n\nIf you wish to keep using this library, that's okay... but please move it to your own module and remove this message";
+console.error(error);
+if(whintegration.config.dtapstage == "development" && !sessionStorage.alertedDomTemplate)
 {
-  console.warn("domtemplate.js has been deprecated and should not be used for new projects");
-  console.log("We recommend using either content.cloneNode(true) on <template> (we auto polyfill that for IE11) or using JSX");
+  sessionStorage.alertedDomTemplate = true;
+  alert(error);
 }

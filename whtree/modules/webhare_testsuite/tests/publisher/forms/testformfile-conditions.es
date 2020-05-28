@@ -1,6 +1,5 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
-import * as domfocus from '@mod-system/js/dom/focus';
 
 var setupdata;
 
@@ -24,7 +23,7 @@ test.registerTests(
 
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
-      test.true(domfocus.hasFocus(test.qS('input[name="firstname"]')), "firstname should be focused");
+      test.true(test.hasFocus(test.qS('input[name="firstname"]')), "firstname should be focused");
 
       test.click(test.qSA('[name=checkboxfield]')[0]);
       test.click(test.qSA('[type=submit]')[0]);

@@ -1,9 +1,5 @@
-/* global DOMEvent */ // is rewritten in legacybase.es, so can't import
 import * as dompack from 'dompack';
-
-require ('./menu.css');
-var domevents = require('@mod-system/js/dom/events');
-var domscroll = require('@mod-system/js/dom/scroll');
+import './menu.css';
 
 /* Display and handle menus.
 
@@ -654,11 +650,10 @@ class MenuBase
   _fireOpenCloseEvent(isopen)
   {
     var eventname = isopen ? "wh:menu-open" : "wh:menu-close";
-    var evt = new domevents.CustomEvent(eventname, { bubbles: true, cancelable: isopen, detail: { menu: this.el, depth:this.depth }});
     var eventnode = controller.getEventNode();
     if(dompack.debugflags.men)
       console.log("[men] dispatching " + eventname + " for ", this.el, " to " , eventnode, " tree ", getParents(eventnode));
-    return eventnode.dispatchEvent(evt);
+    return dompack.dispatchCustomEvent(eventnode, eventname, { bubbles: true, cancelable: isopen, detail: { menu: this.el, depth:this.depth }});
   }
 
   _selectItem(li, scroll)
@@ -690,12 +685,12 @@ class MenuBase
     if(!li.classList.contains('divider'))
     {
       this.selecteditem = li;
-      if(domevents.dispatchCustomEvent(li, 'wh:menu-selectitem', {bubbles:true, cancelable:true}))
+      if(dompack.dispatchCustomEvent(li, 'wh:menu-selectitem', {bubbles:true, cancelable:true}))
         li.classList.add("selected");
     }
 
     if (scroll)
-      domscroll.scrollToElement(li);
+      li.scrollIntoView();
 
     if(li.classList.contains("hassubmenu"))
     {
@@ -756,9 +751,7 @@ class MenuBase
     if (!li)
       return;
 
-    var menuevent = new domevents.CustomEvent("wh:menu-activateitem", { bubbles: true, cancelable: true, detail: { menuitem: li }});
     var eventnode = controller.getEventNode();
-
     if(dompack.debugflags.men)
         console.log("[men] dispatching wh-menu-activateitem for menuitem ", li, " to ", eventnode, " in tree ", getParents(eventnode));
 
@@ -774,7 +767,7 @@ class MenuBase
     if(li.classList.contains("hassubmenu") || li.classList.contains("disabled"))
       return; //ignore clicks on things with a submenu or disabled items
 
-    if(!eventnode.dispatchEvent(menuevent))
+    if(!dompack.dispatchCustomEvent(eventnode, "wh:menu-activateitem", { bubbles: true, cancelable: true, detail: { menuitem: li }}))
     {
       if(dompack.debugflags.men)
         console.log("[men] menu close cancelled by event");
@@ -1228,11 +1221,9 @@ class MenuList extends MenuBase
   */
   _handleMenuOpen()
   {
-    var evt = new domevents.CustomEvent("wh:menu-opened", { bubbles: true, cancelable: true, detail: { menu: this.el }});
     if(dompack.debugflags.men)
         console.log("[men] dispatching wh-menu-opened to ", this.el, " in tree ", getParents(this.el));
-    if(!this.el.dispatchEvent(evt))
-      return;
+    dompack.dispatchCustomEvent(this.el, "wh:menu-opened", { bubbles: true, cancelable: true, detail: { menu: this.el }});
   }
 
   // ---------------------------------------------------------------------------
@@ -1383,11 +1374,10 @@ class MenuList extends MenuBase
     closingmenus.push(this.el);
     setTimeout(cleanClosingMenus, 0);
 
-    var evt = new domevents.CustomEvent("wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el }});
     var eventnode = controller.getEventNode();
     if(dompack.debugflags.men)
         console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", eventnode, " in tree ", getParents(eventnode));
-    eventnode.dispatchEvent(evt);
+    dompack.dispatchCustomEvent(eventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el }});
 
     //make their relations clear for users iterating through the DOM
     var parentmenu = this.el.propWhMenuParentmenu;

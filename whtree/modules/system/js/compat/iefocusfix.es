@@ -1,5 +1,5 @@
 import * as browser from 'dompack/extra/browser';
-var domfocus = require('@mod-system/js/dom/focus');
+import * as domfocus from "dompack/browserfix/focus";
 
 /* IE FOCUS FIX - IE allows <divs> and some other elements to receive focus, if directly clicked.
    Debugged it using:
@@ -11,7 +11,7 @@ if(browser.getName() == "ie")
 {
   window.addEventListener("focus", function(event)
   {
-    for(var settarget = event.target; settarget && !domfocus.canFocus(settarget); settarget=settarget.parentNode)
+    for(var settarget = event.target; settarget && !domfocus.canFocusTo(settarget); settarget=settarget.parentNode)
       ; //iterate until we find a target
 
     if(settarget && settarget != event.target && !settarget.isContentEditable)

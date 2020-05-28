@@ -1,5 +1,4 @@
 import * as test from '@mod-tollium/js/testframework';
-var domevents = require('@mod-system/js/dom/events');
 
 
 test.registerTests(

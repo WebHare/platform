@@ -1,7 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import FormBase from '@mod-publisher/js/forms/formbase';
-var domfocus = require('@mod-system/js/dom/focus');
 
 function setRequiredFields() //fill them with a value so we can submit
 {
@@ -131,7 +130,7 @@ test.registerTests(
       test.eq("client", formevents[1].data.ds_formmeta_errorsource);
 
       let checkboxgroup = dompack.closest(test.qS('#coretest-checkboxes-2'), '.wh-form__fieldgroup');
-      test.true(domfocus.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
+      test.true(test.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
       test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
       test.click('#coretest-checkboxes-3'); //deselecting #3
@@ -316,7 +315,7 @@ test.registerTests(
   , { test: function (doc,win)
       {
         test.true(test.canClick(test.qS('#coretest-email')), '#coretest-email should be back in of sight');
-        test.true(domfocus.hasFocus(test.qS('#coretest-email')),'#coretest-email should have focus');
+        test.true(test.hasFocus(test.qS('#coretest-email')),'#coretest-email should have focus');
       }
     }
 

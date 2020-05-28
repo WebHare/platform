@@ -2,7 +2,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-var domfocus = require('@mod-system/js/dom/focus');
+import * as domfocus from 'dompack/browserfix/focus';
 
 class ClipBoardEmul
 {
