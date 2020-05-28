@@ -1266,7 +1266,7 @@ export default class ObjList extends ComponentBase
   }
 
   /** yield selected rows
-      @param checkcolidx Column to check. Normaly '1' for selection, but can be set to a checkbox column */
+      @param checkcolidx Column to check. Normally '1' for selection, but can be set to a checkbox column */
   *getSelectedRows(checkcolidx = 1)
   {
     for(let i=0;i<this.flatrows.length;++i)
