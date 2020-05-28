@@ -1228,7 +1228,6 @@ export default class ObjList extends ComponentBase
   //check enabledon. colidx == 1 for selection, or a checkboxcolumn otherwise
   isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, colidx)
   {
-    console.error(colidx, this.flatrows, Array.from(this.getSelectedRows(colidx)));
     let flags = collectFlags(this.getSelectedRows(colidx));
     $todd.DebugTypedLog("actionenabler","flags = " + JSON.stringify(flags));
 
