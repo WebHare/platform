@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="" elementFormDefault="qualified" xml:lang="en">
+  <xs:import namespace="http://www.w3.org/2001/XMLSchema" schemaLocation="whres::xml/xmlschema-strict.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/appinfo" schemaLocation="mod::tollium/data/appinfo.xsd" />
+
+  <!-- imports to support pre-4.29 component names -->
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+</xs:schema>

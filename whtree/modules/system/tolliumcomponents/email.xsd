@@ -4,6 +4,7 @@
   xmlns:email="http://www.webhare.net/xmlns/system/email"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/system/email"
@@ -16,7 +17,7 @@
   <xs:element name="attachments">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/email.xml#emailattachments" />
+        <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/email.xml#emailattachments" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

@@ -157,17 +157,35 @@ BLOB badplacementxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   targetNamespace="http://www.webhare.net/xmlns/tollium/screens"
   xmlns="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   >
-
   <xs:element name="downloadaction">
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="downloadaction" objecttype="mod::tollium/lib/components/action.whlib#TolliumDownloadAction" />
+          <tai:tolliumcomponent placement="downloadaction" objecttype="mod::tollium/lib/components/action.whlib#TolliumDownloadAction" />
         </xs:appinfo>
       </xs:annotation>
     </xs:complexType>
   </xs:element>
+
+</xs:schema>
+`);
+
+BLOB badsignaturexsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema elementFormDefault="qualified" xml:lang="en"
+  targetNamespace="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  >
+    <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+    <xs:attribute name="ongetoptions">
+      <xs:annotation>
+        <xs:appinfo>
+          <callbacksignature xmlns="http://www.webhare.net/xmlns/tollium/appinfo" returnvalue="record" />
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
 
 </xs:schema>
 `);
@@ -209,6 +227,14 @@ MACRO TestTidsForInconsistentScreen(RECORD validateres)
           ,[ line := fragmentstart+6, tid := "system:testgid.testfragment.type-checkbox" ]
           ,[ line := fragmentstart+7, tid := "system:testgid.testfragment.type-radiogagabutton" ]
           ], SELECT line,tid FROM validateres.tids ORDER BY line,tid);
+}
+
+MACRO TestValidationValidates()
+{
+  //Test whether our core schemas and resources actually validate, or other tests may prematurely fail
+  TestEq(RECORD[], ValidateSingleFile("whres::xml/xmlschema.xsd").errors);
+  TestEq(RECORD[], ValidateSingleFile("mod::tollium/data/tolliumcomponents.xsd.xsd").errors);
+  TestEq(RECORD[], ValidateSingleFile("mod::system/moduledefinition.xml").errors);
 }
 
 MACRO TestBasicValidate()
@@ -264,8 +290,7 @@ MACRO TestBasicValidate()
   //even if the screen on disk doesn't exist, i should still be allowed to validate it
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
   TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*not expected*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
-  //TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such implementation*in namespace*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 3));
@@ -590,13 +615,17 @@ GetTid("missing.module"); GetTid("system:has.module");`);
          ], (SELECT *, DELETE resourcename FROM res.tids));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);
-  TestEq([[line := 12, message := "Invalid placement \'downloadaction\' for element \'downloadaction\'" ]
+  TestEqLike("*placement*downloadaction*", SELECT AS STRING message FROM res.errors WHERE line=12);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badsignaturexsd ]);
+  TestEq([[line := 11, message := "Element \'{http://www.webhare.net/xmlns/tollium/appinfo}callbacksignature\', attribute \'returnvalue\': The attribute \'returnvalue\' is not allowed." ]
          ], (SELECT line,message FROM res.errors));
 
   BLOB componentxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   elementFormDefault="qualified">
@@ -604,7 +633,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   <xs:element name="preinittest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/doesnt.whlib#xist" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/doesnt.whlib#xist" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -613,7 +642,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   </xs:attribute>
 </xs:schema>`);
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := componentxsd ]);
-  TestEq([[line := 12, message := `No such library 'mod::webhare_testsuite/lib/doesnt.whlib' (looking for 'xist')`]], SELECT line,message FROM res.errors);
+  TestEq([[line := 13, message := `No such library 'mod::webhare_testsuite/lib/doesnt.whlib' (looking for 'xist')`]], SELECT line,message FROM res.errors);
 
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
   TestEq(RECORD[], res.errors);
@@ -881,7 +910,8 @@ MACRO FinalizeTests()
   GetTestController()->missingtids := RECORD[];
 }
 
-RunTestFramework([ PTR TestBasicValidate
+RunTestFramework([ PTR TestValidationValidates
+                 , PTR TestBasicValidate
                  , PTR TestValidateWitty
                  , PTR TestValidateModuleDef
                  , PTR TestSiteProfiles

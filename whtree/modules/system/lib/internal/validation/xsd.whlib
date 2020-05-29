@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 
@@ -17,7 +18,8 @@ PUBLIC STATIC OBJECTTYPE XSDValidator EXTEND XMLValidatorBase
       this->errors := this->errors CONCAT res.errors;
       this->warnings := this->warnings CONCAT res.warnings;
     }
-    IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
+    IF(this->xml->GetElementsByTagNameNS(whconstant_xmlns_tolliumcommon, "tolliumcomponent")->length > 0
+       OR this->xml->GetElementsByTagNameNS(whconstant_xmlns_tolliumappinfo, "tolliumcomponent")->length > 0)
     {
       res := ParseComponentsXSD(this->respath, this->xml, RECORD[]);
       this->errors := this->errors CONCAT res.errors;

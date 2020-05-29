@@ -6,6 +6,7 @@
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns="http://www.webhare.net/xmlns/publisher/components"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/publisher/components"
   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
@@ -25,16 +26,16 @@
   <xs:element name="foldertree" type="FolderTree">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.foldertree" />
-        <s:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:tolliumcomponent placement="block" fragment="components.foldertree" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
   <xs:element name="filelist" type="FileList">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.filelist" />
-        <s:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:tolliumcomponent placement="block" fragment="components.filelist" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -43,7 +44,7 @@
   <xs:element name="thumbnailview" type="ThumbnailView">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.thumbnailview" />
+        <tai:tolliumcomponent placement="block" fragment="components.thumbnailview" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -51,7 +52,7 @@
   <xs:element name="browseforobjectarray" type="BrowseForObjectArray">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" objecttype="/lib/components/browseforobjectarray.whlib#PublisherBrowseForObjectArray" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/browseforobjectarray.whlib#PublisherBrowseForObjectArray" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -59,7 +60,7 @@
   <xs:element name="previewbrowser">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="/tolliumcomponents/previewbrowser.xml#previewbrowser" />
+        <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/previewbrowser.xml#previewbrowser" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -67,7 +68,7 @@
       <xs:attribute name="onurlchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature arguments="string"/>
+            <tai:callbacksignature arguments="string"/>
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -81,8 +82,8 @@
   <xs:element name="sharedblocks">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components/sharedblocks.sharedblocks" validator="mod::publisher/lib/screens/components/sharedblocks.whlib#ValidateSharedBlocks" />
-        <s:extraparser field="sources" type="s:array" target="./p:source" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
+        <tai:tolliumcomponent placement="block" fragment="components/sharedblocks.sharedblocks" validator="mod::publisher/lib/screens/components/sharedblocks.whlib#ValidateSharedBlocks" />
+        <tai:extraparser field="sources" type="s:array" target="./p:source" />  <!-- reference to namespace MUST be explicit, otherwise xpath will be evaluating using the xmlns of the target node -->
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -97,7 +98,7 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature/>
+            <tai:callbacksignature/>
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -107,7 +108,7 @@
   <xs:element name="source"> <!-- ADDME can't we avoid having to declare this top level? we don't really want a p:source component -->
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent />
+        <tai:tolliumcomponent />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -130,7 +131,7 @@
   <xs:complexType name="WHFSInstance">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" objecttype="/lib/components/whfsinstance.whlib#WHFSInstance" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/whfsinstance.whlib#WHFSInstance" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:CompositionBase" />
@@ -146,7 +147,7 @@
         <xs:documentation>
           This option source can be used to use an array member from an instance as options for a select.
         </xs:documentation>
-        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/whfsinstanceoptions.whlib#WHFSInstanceOptions" />
+        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/whfsinstanceoptions.whlib#WHFSInstanceOptions" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -299,7 +300,7 @@
   <xs:complexType name="FSObjects">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSObjects" />
+        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSObjects" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -325,7 +326,7 @@
   <xs:complexType name="FSLibrary">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSLibrary" />
+        <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/fsobjects.whlib#FSLibrary" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -343,7 +344,7 @@
   <xs:complexType name="InternalLinks">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="rte" objecttype="/lib/components/internallinks.whlib#InternalLinks" />
+        <tai:tolliumcomponent placement="rte" objecttype="/lib/components/internallinks.whlib#InternalLinks" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComponentBase" />
@@ -408,7 +409,7 @@
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -421,7 +422,7 @@
     <xs:attribute name="oncontentupdate" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature arguments="integerarray" />
+          <tai:callbacksignature arguments="integerarray" />
         </xs:appinfo>
         <xs:documentation>
           Callback for external content updates
@@ -438,7 +439,7 @@
     <xs:attribute name="filteritems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature returntype="recordarray" arguments="recordarray" />
+          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           A callback function to filter out items or add extra fields (like user-defined flags)
@@ -563,7 +564,7 @@
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -576,7 +577,7 @@
     <xs:attribute name="oncontentupdate" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature arguments="integerarray" />
+          <tai:callbacksignature arguments="integerarray" />
         </xs:appinfo>
         <xs:documentation>
           Callback for external content updates
@@ -586,7 +587,7 @@
     <xs:attribute name="onstatusclick" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <!-- FIXME: Doc -->
@@ -596,7 +597,7 @@
     <xs:attribute name="onsortorderchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature arguments="" />
+          <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -643,7 +644,7 @@
     <xs:attribute name="filteritems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature returntypes="recordarray" arguments="recordarray" />
+          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <!-- FIXME: Doc -->
@@ -699,8 +700,8 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="/tolliumcomponents/intextlink.xml#intextlink" />
-          <s:extraparser field="linkhandlers" type="s:bodynode" target="./s:linkhandlers" />
+          <tai:tolliumcomponent placement="inline" fragment="/tolliumcomponents/intextlink.xml#intextlink" />
+          <tai:extraparser field="linkhandlers" type="s:bodynode" target="./s:linkhandlers" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -724,8 +725,8 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/intextlinkcolumn.whlib#IntExtLinkColumn" />
-          <s:fixedfield field="type" type="xs:string" value="text" />
+          <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/intextlinkcolumn.whlib#IntExtLinkColumn" />
+          <tai:fixedfield field="type" type="xs:string" value="text" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -787,7 +788,7 @@
   <xs:complexType name="BrowseForObject">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="components.browseforobject" />
+        <tai:tolliumcomponent placement="inline" fragment="components.browseforobject" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:ComposableComponentBase" />
@@ -848,7 +849,7 @@
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           Function that needs to be executed when something changes in the component. The function you must give into your screen(xml)
@@ -955,7 +956,7 @@
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -980,8 +981,8 @@
   <xs:complexType name="WHFSRefColumn">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/whfsrefcolumn.whlib#WHFSRefColumn" />
-        <s:fixedfield field="type" type="xs:string" value="text" />
+        <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/whfsrefcolumn.whlib#WHFSRefColumn" />
+        <tai:fixedfield field="type" type="xs:string" value="text" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -1121,7 +1122,7 @@
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           Function that needs to be executed when something changes in the component. The function you must give into your screen(xml)
@@ -1166,7 +1167,7 @@
     <xs:annotation>
       <xs:documentation>Search for video and offers the accompanying metadata as an embedvideo instance</xs:documentation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="components/embedvideo.embedvideocomponent" />
+        <tai:tolliumcomponent placement="inline" fragment="components/embedvideo.embedvideocomponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -1183,7 +1184,7 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -1196,7 +1197,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.managedtagedit" />
+          <tai:tolliumcomponent placement="inline" fragment="components.managedtagedit" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -1207,7 +1208,7 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -1239,7 +1240,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.formcondition" />
+          <tai:tolliumcomponent placement="inline" fragment="components.formcondition" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -1249,7 +1250,7 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature/>
+            <tai:callbacksignature/>
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -1261,7 +1262,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.singleformcondition" />
+          <tai:tolliumcomponent placement="inline" fragment="components.singleformcondition" />
         </xs:appinfo>
       </xs:annotation>
     </xs:complexType>
@@ -1271,8 +1272,8 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/formcondition.whlib#FormConditionColumn" />
-          <s:fixedfield field="type" type="xs:string" value="text" />
+          <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/formcondition.whlib#FormConditionColumn" />
+          <tai:fixedfield field="type" type="xs:string" value="text" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -1288,7 +1289,7 @@
           <html:p>This is an internal component used by Publisher search</html:p>
         </xs:documentation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="block" fragment="/tolliumapps/filemanager/search.xml#searchfilter" />
+          <tai:tolliumcomponent placement="block" fragment="/tolliumapps/filemanager/search.xml#searchfilter" />
         </xs:appinfo>
       </xs:annotation>
 
@@ -1311,7 +1312,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="block" fragment="mod::publisher/tolliumapps/forum/components.xml#postings" />
+          <tai:tolliumcomponent placement="block" fragment="mod::publisher/tolliumapps/forum/components.xml#postings" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
@@ -1321,7 +1322,7 @@
   <xs:element name="selectmailtemplate">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="mod::publisher/tolliumcomponents/siteprofcomps.xml#selectmailtemplate" />
+        <tai:tolliumcomponent placement="inline" fragment="mod::publisher/tolliumcomponents/siteprofcomps.xml#selectmailtemplate" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

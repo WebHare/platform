@@ -4,6 +4,8 @@
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/publisher/siteprofile"
@@ -17,10 +19,10 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="screens"/>
-          <s:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
-          <s:childcomponents field="newtabs" target="./sp:newtab" />
-          <s:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+          <tai:tolliumcomponent placement="screens"/>
+          <tai:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <tai:childcomponents field="newtabs" target="./sp:newtab" />
+          <tai:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>

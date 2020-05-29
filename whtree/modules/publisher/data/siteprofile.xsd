@@ -8,6 +8,7 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
   xmlns:c="http://www.webhare.net/xmlns/consilio"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
@@ -610,10 +611,10 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="screens"/>
-          <s:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
-          <s:childcomponents field="newtabs" target="./sp:newtab" />
-          <s:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
+          <tai:tolliumcomponent placement="screens"/>
+          <tai:childcomponents field="compositions" target="./sp:compositions" adoptfields="compositions" />
+          <tai:childcomponents field="newtabs" target="./sp:newtab" />
+          <tai:childcomponents field="inserts" target="./sp:insert" adoptfields="lines position where" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -750,7 +751,7 @@
     <xs:attribute name="tolliumicon" type="ImageSrc" />
     <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
-    <xs:attribute name="searchprovider" type="s:ScreenFragmentReference" />
+    <xs:attribute name="searchprovider" type="tc:ScreenFragmentReference" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 

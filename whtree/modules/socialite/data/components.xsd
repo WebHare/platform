@@ -4,6 +4,7 @@
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/socialite/components"
@@ -84,8 +85,8 @@
   <xs:element name="map">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" objecttype="/lib/screens/components/map.whlib#GoogleMapComponent" />
-        <s:extraparser field="icons" type="s:array" target="./socialite:icon" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/screens/components/map.whlib#GoogleMapComponent" />
+        <tai:extraparser field="icons" type="s:array" target="./socialite:icon" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -108,42 +109,42 @@
       <xs:attribute name="onclick" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature arguments="record" />
+            <tai:callbacksignature arguments="record" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onmove" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature  />
+            <tai:callbacksignature  />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onzoom" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature  />
+            <tai:callbacksignature  />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onselect" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature  />
+            <tai:callbacksignature  />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onmoveoverlay" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature arguments="record record" />
+            <tai:callbacksignature arguments="record record" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="ondirections" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature arguments="string" />
+            <tai:callbacksignature arguments="string" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -153,7 +154,7 @@
   <xs:element name="icon">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="mapicon" />
+        <tai:tolliumcomponent placement="mapicon" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -174,7 +175,7 @@
   <xs:element name="locationedit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/screens/components/locationedit.whlib#GoogleLocationEdit" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/screens/components/locationedit.whlib#GoogleLocationEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

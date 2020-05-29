@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://www.webhare.net/xmlns/tollium/appinfo"
+           targetNamespace="http://www.webhare.net/xmlns/tollium/appinfo"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+           elementFormDefault="qualified"
+           xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+
+  <xs:element name="callbacksignature" type="__AppinfoCallbackSignature" />
+  <xs:complexType name="__AppinfoCallbackSignature">
+    <xs:attribute name="returntype" type="sc:HareScriptVariableTypes" />
+    <xs:attribute name="arguments">
+      <xs:simpleType>
+        <xs:list itemType="sc:HareScriptVariableTypes" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="acceptdrops" type="__AppinfoAcceptDrops" />
+  <xs:complexType name="__AppinfoAcceptDrops">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="ondrop_arguments">
+      <xs:simpleType>
+        <xs:list itemType="sc:HareScriptVariableTypes" />
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:element name="tolliumimplementation" type="__AppinfoTolliumImplementation" />
+  <xs:complexType name="__AppinfoTolliumImplementation">
+    <xs:attribute name="objecttype" use="required" />
+  </xs:complexType>
+
+  <xs:element name="tolliumcomponent" type="__AppinfoTolliumComponent" />
+  <xs:complexType name="__AppinfoTolliumComponent">
+    <xs:attribute name="placement">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="action"/>
+          <xs:enumeration value="autosuggest"/>
+          <xs:enumeration value="block"/>
+          <xs:enumeration value="composition"/>
+          <xs:enumeration value="fragment"/>
+          <xs:enumeration value="inline"/>
+          <xs:enumeration value="listcolumn"/>
+          <xs:enumeration value="mapicon"/> <!-- socialite only ... -->
+          <xs:enumeration value="menu"/>
+          <xs:enumeration value="optionsource"/>
+          <xs:enumeration value="row"/>
+          <xs:enumeration value="rte"/>
+          <xs:enumeration value="screens"/>
+          <xs:enumeration value="tabsextension"/>
+          <xs:enumeration value="toolbar"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="objecttype" />
+    <xs:attribute name="fragment" type="tc:ScreenFragmentReference" />
+    <xs:attribute name="validator" />
+  </xs:complexType>
+
+  <xs:element name="extraparser" type="__AppinfoExtraParser" />
+  <xs:complexType name="__AppinfoExtraParser">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="type" use="required" />
+  </xs:complexType>
+
+  <xs:element name="tolliumextraparser" type="__AppinfoTolliumExtraParser" />
+  <xs:complexType name="__AppinfoTolliumExtraParser">
+    <xs:attribute name="parsefunc" use="required" />
+    <xs:attribute name="processfunc" use="required" />
+  </xs:complexType>
+
+  <xs:element name="childcomponents" type="__AppinfoChildComponents" />
+  <xs:complexType name="__AppinfoChildComponents">
+    <xs:attribute name="field"  />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="adoptfields" />
+  </xs:complexType>
+
+  <xs:element name="dividedcomponents" type="__AppinfoDividedComponents" />
+  <xs:complexType name="__AppinfoDividedComponents">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="divider" use="required" />
+  </xs:complexType>
+
+  <xs:element name="optionsources" type="__AppinfoOptionSources" />
+  <xs:complexType name="__AppinfoOptionSources">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="type" use="required" />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="rowkeytypefield"/>
+    <xs:attribute name="flagsfield"  />
+  </xs:complexType>
+
+  <xs:element name="fixedfield" type="__AppinfoFixedField" />
+  <xs:complexType name="__AppinfoFixedField">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="type" use="required" />
+    <xs:attribute name="value" use="required" />
+  </xs:complexType>
+
+  <xs:element name="listrows" type="__AppinfoListRows" />
+  <xs:complexType name="__AppinfoListRows">
+    <xs:attribute name="field" use="required" />
+    <xs:attribute name="target" use="required" />
+    <xs:attribute name="rowkeytypefield" use="required" />
+    <xs:attribute name="flagsfield" use="required"  />
+    <xs:attribute name="columnsfield" use="required" />
+    <xs:attribute name="rowiconnamefield" use="required" />
+  </xs:complexType>
+
+
+</xs:schema>

@@ -5,6 +5,7 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
@@ -19,7 +20,7 @@
   <xs:complexType name="screenimplementation">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#screenimplementation" />
+        <tai:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#screenimplementation" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -27,7 +28,7 @@
   <xs:complexType name="fragmentimplementation">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#fragmentimplementation" />
+        <tai:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#fragmentimplementation" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -35,7 +36,7 @@
   <xs:complexType name="tabsextensionimplementation">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#tabsextensionimplementation" />
+        <tai:tolliumimplementation objecttype="/lib/screens/components/customparser.whlib#tabsextensionimplementation" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -43,8 +44,8 @@
   <xs:complexType name="testextraparser">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumextraparser parsefunction="/lib/screens/components/customparser.whlib#testextraparser"
-                              processfunction="/lib/screens/components/customparser.whlib#testextraprocessor" />
+        <tai:tolliumextraparser parsefunction="/lib/screens/components/customparser.whlib#testextraparser"
+                                processfunction="/lib/screens/components/customparser.whlib#testextraprocessor" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -52,8 +53,8 @@
   <xs:element name="extraparsercomponent">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="/screens/tests/customparser.xml#extraparsercomponent" />
-        <s:extraparser field="children" type="testextraparser" target="./test:child" />
+        <tai:tolliumcomponent placement="block" fragment="/screens/tests/customparser.xml#extraparsercomponent" />
+        <tai:extraparser field="children" type="testextraparser" target="./test:child" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -75,7 +76,7 @@
   <xs:element name="block_multilinecomponent">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="tests/components.multilinecomponent" />
+        <tai:tolliumcomponent placement="block" fragment="tests/components.multilinecomponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -87,7 +88,7 @@
   <xs:element name="inline_multilinecomponent">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="tests/components.multilinecomponent" />
+        <tai:tolliumcomponent placement="inline" fragment="tests/components.multilinecomponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -280,7 +281,7 @@
   <xs:attribute name="myhandler" type="tc:Handler">
     <xs:annotation>
       <xs:appinfo>
-        <tc:callbacksignature />
+        <tai:callbacksignature />
       </xs:appinfo>
       <xs:documentation>
         The name of the function to perform when a change occurs for this component.

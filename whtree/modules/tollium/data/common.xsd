@@ -409,5 +409,14 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="ScreenFragmentReference">
+    <xs:annotation>
+      <xs:documentation>Relative or absolute reference to a screen or a fragment</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string" />
+  </xs:simpleType>
 
+
+  <!-- used for xs:documentation? seems a bit of a corner case ? -->
+  <xs:attribute name="component" />
 </xs:schema>

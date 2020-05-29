@@ -6,6 +6,7 @@
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   targetNamespace="http://www.webhare.net/xmlns/system/components"
   elementFormDefault="qualified"
   xml:lang="en">
@@ -22,7 +23,7 @@
   <xs:element name="rightobjecttree">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" objecttype="/lib/components/rightobjecttree.whlib#RightObjectTreeComponent" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/rightobjecttree.whlib#RightObjectTreeComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -33,14 +34,14 @@
       <xs:attribute name="onextendchildren" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature returntype="recordarray" arguments="recordarray record" />
+            <tai:callbacksignature returntype="recordarray" arguments="recordarray record" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="onselect" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -50,7 +51,7 @@
   <xs:element name="registrynode">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" objecttype="/lib/components/registrynode.whlib#RegistryNode" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/registrynode.whlib#RegistryNode" />
         <xs:documentation>
           A registrynode composition points to a node in the registry, and allows you to access the keys by cellname
         </xs:documentation>
@@ -72,7 +73,7 @@
   <xs:element name="selectuser">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="userrights/components.selectuser" />
+        <tai:tolliumcomponent placement="inline" fragment="userrights/components.selectuser" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
