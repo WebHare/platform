@@ -265,8 +265,13 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
       {
         STRING targetns := doc->documentelement->GetAttribute("targetNamespace");
         RECORD matchingcomponentsource := SELECT * FROM GetComponentSources("") WHERE namespace = targetns;
-        IF(RecordExists(matchingcomponentsource) AND matchingcomponentsource.type = "tolliumcomponents")
-          useschema := "mod::tollium/data/tolliumcomponents.xsd.xsd";
+        IF(RecordExists(matchingcomponentsource))
+        {
+          IF(matchingcomponentsource.type = "tolliumcomponents")
+            useschema := "mod::tollium/data/tolliumcomponents.xsd.xsd";
+          ELSE IF(matchingcomponentsource.type = "formcomponents")
+            useschema := "mod::publisher/data/forms/formcomponents.xsd.xsd";
+        }
       }
 
       schemarec := __RetrieveCachedXMLSchema(useschema);

@@ -391,8 +391,8 @@ PUBLIC RECORD FUNCTION ParseFormDefComponents(STRING resourcename, OBJECT doc, R
       FOREVERY (OBJECT annotation FROM node->annotations)
         FOREVERY (OBJECT appinfo FROM annotation->application_information)
         {
-          OBJECT ARRAY compinfos := appinfo->GetElementsByTagNameNS(xmlns_forms, "formcomponent")->GetCurrentElements();
-          OBJECT ARRAY handlerinfos := appinfo->GetElementsByTagNameNS(xmlns_forms, "formhandler")->GetCurrentElements();
+          OBJECT ARRAY compinfos := appinfo->ListElements("*", "formcomponent");
+          OBJECT ARRAY handlerinfos := appinfo->ListElements("*", "formhandler");
 
           IF(Length(compinfos) + Length(handlerinfos) = 0)
             CONTINUE;

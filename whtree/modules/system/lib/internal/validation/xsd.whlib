@@ -9,10 +9,11 @@ PUBLIC STATIC OBJECTTYPE XSDValidator EXTEND XMLValidatorBase
 <
   UPDATE PUBLIC MACRO ValidateDocument()
   {
-    //ADDME generalize?
     RECORD res;
     IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
-       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms/appinfo", "formcomponent")->length > 0
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms/appinfo", "formhandler")->length > 0)
     {
       res := ParseFormDefComponents(this->respath, this->xml);
       this->errors := this->errors CONCAT res.errors;

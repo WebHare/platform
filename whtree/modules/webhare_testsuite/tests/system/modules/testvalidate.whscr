@@ -1,4 +1,4 @@
-<?wh
+2<?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -574,13 +574,14 @@ GetTid("missing.module"); GetTid("system:has.module");`);
     xmlns:xs="http://www.w3.org/2001/XMLSchema"
     targetNamespace="http://www.webhare.net/xmlns/publisher/forms"
     elementFormDefault="qualified"
+    xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
     xml:lang="en">
 
     <xs:element name="comp1">
       <xs:complexType>
         <xs:annotation>
           <xs:appinfo>
-            <formcomponent
+            <fai:formcomponent
               tid="comp.name"
               />
           </xs:appinfo>
@@ -592,7 +593,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
       <xs:complexType>
         <xs:annotation>
           <xs:appinfo>
-            <formcomponent
+            <fai:formcomponent
               tid="publisher:formcomponents.textedit.name"
               descriptiontid="publisher:formcomponents.textedit.description"
               />
@@ -611,7 +612,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
 
   res := ValidateSingleFile("mod::webhare_testsuite/tests/publisher/forms/data/testformcomponents.xsd");
-  TestEq([[line := 27, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
+  TestEq([[line := 28, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
          ], (SELECT *, DELETE resourcename FROM res.tids));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);
