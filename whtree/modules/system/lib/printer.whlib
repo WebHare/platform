@@ -240,7 +240,7 @@ PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO
 RECORD FUNCTION RunPDFBox(STRING ARRAY instructions)
 {
   STRING app;
-  FOREVERY(STRING javapath FROM ["/usr/local/bin/java", "/usr/bin/java"])
+  FOREVERY(STRING javapath FROM ["/usr/local/opt/openjdk/bin/java", "/usr/local/bin/java", "/usr/bin/java"])
     IF(RecordExists(GetDiskFileProperties(javapath)))
     {
       app := javapath;
