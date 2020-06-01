@@ -113,6 +113,7 @@ INTEGER ARRAY dynamic_types :=
 to_recheck := SELECT contentsources.id
                    , contentsources.contentprovider
                    , contentsources.data
+                   , contentsources.fsobject
                    , indices.name
                 FROM consilio.contentsources
                    , consilio.indices
@@ -148,9 +149,9 @@ FOREVERY (RECORD contentsource FROM to_recheck)
       Print(`Last checked at ${FormatDateTime("%Y-%m-%d %H:%M:%S", lastcontentscheck)}\n`);
   }
 
-  INTEGER ARRAY dynamicpages := CollectDynamicPages(data.folder);
+  INTEGER ARRAY dynamicpages := CollectDynamicPages(contentsource.fsobject);
   IF (settings.debug)
-    Print(`Checking ${Length(dynamicpages)} dynamic pages within folder ${data.folder}\n`);
+    Print(`Checking ${Length(dynamicpages)} dynamic pages within folder ${contentsource.fsobject}\n`);
   BOOLEAN res := TRUE;
   FOREVERY (INTEGER page FROM dynamicpages)
   {

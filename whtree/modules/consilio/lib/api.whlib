@@ -711,6 +711,7 @@ STATIC OBJECTTYPE Catalog
       @cell(integer) return.id Id of the contentsource
       @cell(string) return.tag Tag of the contentsource
       @cell(string) return.title Title of the contentsource
+      @cell(integer) return.fsobject Associated filesystem object
       @cell(boolean) return.isorphan Whether the contentsource is an orphan
   */
   PUBLIC RECORD ARRAY FUNCTION ListContentSources(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -720,12 +721,15 @@ STATIC OBJECTTYPE Catalog
         SELECT id
              , tag
              , title
+             , fsobject
              , isorphan := orphansince != DEFAULT DATETIME
+             , isdeleted := tag LIKE "$consilio$deleted$*" OR (publishercontent AND fsobject = 0)
           FROM consilio.contentsources
-         WHERE indexid = this->catalog.id
-               AND (options.__withdeleted OR tag NOT LIKE "$consilio$deleted$*");
-    IF (options.__withdeleted)
-      sources := SELECT *, isdeleted := tag LIKE "$consilio$deleted$*" FROM sources;
+         WHERE indexid = this->catalog.id;
+
+    IF (NOT options.__withdeleted)
+      sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
+
     RETURN sources;
   }
 

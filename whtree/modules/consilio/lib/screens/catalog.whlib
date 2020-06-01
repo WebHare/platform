@@ -514,6 +514,10 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                    AND indices.name NOT LIKE "$consilio$deleted$"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
+    RECORD ARRAY fsobjects := SELECT id, whfspath
+                                FROM system.fs_objects
+                               WHERE id IN (SELECT AS INTEGER ARRAY fsobject FROM sources WHERE fsobject != 0);
+
     RECORD ARRAY rows;
     RECORD ARRAY lasterrors;
     IF(RecordExists(this->laststatus))
@@ -569,7 +573,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       RECORD ARRAY catalogsources := SELECT *
                                           , rowkey := "source_" || id
                                           , icon := catalog.id < 0 ? ^catalogs->GetIcon("consilio:consilio") : iconname != "" ? ^catalogs->GetIcon(iconname) : 0
-                                          , tag := tag ?? title
+                                          , tag := (contentprovider = "publisher:webhare" ? (SELECT AS STRING whfspath FROM fsobjects WHERE fsobjects.id = sources.fsobject) : tag) ?? title
                                           , title
                                           , size := ""
                                           , statushint := GetStatusHint(status)

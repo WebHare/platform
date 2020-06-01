@@ -1264,11 +1264,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
         INSERT rec INTO result.sources AT END;
       ELSE
       {
-        RECORD data := DecodeHSON(rec.data);
-        IF (NOT RecordExists(data) OR NOT CellExists(data, "FOLDER"))
-          CONTINUE;
-
-        IF (data.folder NOT IN path)
+        IF (rec.fsobject NOT IN path)
           CONTINUE;
 
         INSERT rec INTO result.sources AT END;

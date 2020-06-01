@@ -281,12 +281,7 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     ConsilioContentProvider::Init(contentsource);
 
     // Set and check root folder id
-    IF (NOT CellExists(contentsource.data, "folder"))
-      THROW NEW Exception("Tried to initialize without folder");
-    this->rootfolder := SELECT AS INTEGER id
-                          FROM system.fs_objects
-                         WHERE isfolder AND isactive
-                               AND id = contentsource.data.folder;
+    this->rootfolder := contentsource.fsobject;
     IF (this->rootfolder = 0)
       THROW NEW Exception("Tried to initialize with non-existing folder, maybe it was deleted");
 
