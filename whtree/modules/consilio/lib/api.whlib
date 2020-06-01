@@ -10,12 +10,15 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/queries.whlib" EXPORT require_allowed, require_required, require_prohibited;
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/indexing.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
@@ -673,6 +676,15 @@ STATIC OBJECTTYPE ContentSource
     RETURN cpobj;
   }
 
+  /** Rebuild this index */
+  PUBLIC MACRO RebuildIndex()
+  {
+    //FIXME Log
+    STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
+    LogDebug("consilio", "ContentSource::RebuildIndex", [ catalog := this->catalog->id, contentsource := this->id ]);
+    SendQueueManagerData(GetQueueDataFromCommand(command));
+  }
+
   /// Delete this content source
   PUBLIC MACRO DeleteSelf()
   {
@@ -683,6 +695,21 @@ STATIC OBJECTTYPE ContentSource
 
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove deleted contentsources async
   }
+
+  /// Wait for index being completey done
+  PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    DoWaitForContentSourceDone(this->id, options);
+  }
+
+  /// Get the path this source refers to
+  PUBLIC STRING FUNCTION GetWHFSPath()
+  {
+    IF(this->contentsource.fsobject = 0)
+      RETURN "";
+    RETURN SELECT AS STRING whfspath FROM system.fs_objects WHERE id = this->contentsource.fsobject;
+  }
+
 >;
 
 /** Catalog object
@@ -731,6 +758,36 @@ STATIC OBJECTTYPE Catalog
       sources := SELECT *, DELETE isdeleted FROM sources WHERE NOT isdeleted;
 
     RETURN sources;
+  }
+
+  /** Add a publisher content source
+      @param targetfolder Folder to index
+      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
+      @cell options.discardsummaries Whether to discard summaries
+      @cell options.definedby Use to describe who added this custom content source was added
+      @cell options.contentcheckinterval Override interval between rechecks
+      @rreutn Newly created content source
+  */
+  PUBLIC OBJECT FUNCTION AddPublisherContentSource(INTEGER targetfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options :=  ValidateOptions(
+        [ maxgroupobjects :=      0
+        , discardsummaries :=     FALSE
+        , definedby :=            "AddPublisherContentSource from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
+        , contentcheckinterval := 0
+        ], options);
+
+    IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
+      THROW NEW Exception(`A contentsource for folder #${targetfolder} already exists in this catalog`);
+
+    INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
+    INSERT INTO consilio.contentsources(id, indexid, contentprovider, maxgroupobjects, discardsummaries, definedby, fsobject, publishercontent, data)
+            VALUES(srcid, this->catalog.id, "publisher:webhare", options.maxgroupobjects, options.discardsummaries, options.definedby, targetfolder, TRUE, EncodeHSON(DEFAULT RECORD));
+
+    //TODO CheckFolderInIndex ?
+    OBJECT contentsource := this->OpenContentSourceById(srcid);
+    INSERT PTR contentsource->RebuildIndex() INTO GetConsilioFinishHandler()->execoncommit AT END;
+    RETURN contentsource;
   }
 
   /** Add a new custom content source to a index
