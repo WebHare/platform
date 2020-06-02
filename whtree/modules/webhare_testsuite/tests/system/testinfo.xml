@@ -14,6 +14,7 @@
   <test script="promises.whscr" />
   <test script="promises2.whscr" />
   <test script="ipcremoter.whscr" />
+  <test script="statskeeper.whscr" />
   <test name="userrights" path="userrights/" />
   <test name="whfs" path="whfs/" />
   <test name="queues" path="queues/" />
