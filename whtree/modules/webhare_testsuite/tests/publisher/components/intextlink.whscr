@@ -104,7 +104,11 @@ ASYNC MACRO TestIntExtLink()
   topscreen->comp->SetLinkType("internal");
   TestEQ([ append := "#jo", externallink := "", internallink := whfs_publishedfile->id ], topscreen->comp->value);
 
-
+  //Test limiting internallinkroots.
+  topscreen->comp->internallinkroots := INTEGER[ whfs_folderwithindex->id ];
+  AWAIT ExpectScreenChange(+1, PTR TTClick("comp->internal->browse"));
+  TestEq(["tmp"], (SELECT AS STRING ARRAY name FROM TT("folders")->rows), "should only offer 'tmp' folder due to limited roots");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
