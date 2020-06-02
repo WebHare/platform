@@ -27,7 +27,7 @@
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" fragment="components.foldertree" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -35,7 +35,7 @@
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" fragment="components.filelist" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>

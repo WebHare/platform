@@ -3403,7 +3403,7 @@ To change a <xs:attribute /> for adding descriptions
                                    and local-name()!='backgroundimage'
                                    and local-name()!='acceptdrops'
                                   )]" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3883,7 +3883,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" objecttype="/lib/components/table.whlib#TolliumTable" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -4040,7 +4040,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" objecttype="/lib/components/calendar.whlib#TolliumCalendar" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record datetime datetime string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record datetime datetime string" target="./s:acceptdrops" />
         <tai:extraparser field="categories" type="array" target="./s:category" />
       </xs:appinfo>
     </xs:annotation>
@@ -5225,7 +5225,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="block" objecttype="/lib/components/list.whlib#TolliumList" />
-        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
         <!-- columns matches <s:column> and everything outside our namespace -->
         <tai:extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
         <tai:extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
@@ -6543,5 +6543,6 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="extraparser" type="tai:__AppinfoExtraParser"/>
   <xs:element name="callbacksignature" type="tai:__AppinfoCallbackSignature"/>
   <xs:element name="fixedfield" type="tai:__AppinfoFixedField"/>
+  <xs:element name="acceptdropsparser" type="tai:__AppinfoAcceptDropsParser"/>
 
 </xs:schema>
