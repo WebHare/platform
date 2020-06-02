@@ -1193,7 +1193,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   , settingsscreen        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "settingsscreen"))
                   , title                 := this->ParseXMLTidTitle(subchild, "title", subchildgid)
                   , icon                  := ParseXMLModuleNamed(modulename, subchild, "icon")
-                  , publishercontent      := subchild->GetAttribute("publishercontent") IN [ "true", "1" ]
                   ];
 
                 INSERT contentprovider INTO this->moduledef.contentproviders AT END;

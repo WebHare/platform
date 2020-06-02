@@ -201,11 +201,7 @@
       <d:varchar name="definedby" maxlength="512">
         <d:documentation>Source where we last saw this contentsource</d:documentation>
       </d:varchar>
-      <d:boolean name="publishercontent">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="publishercontent" />
     </d:table>
 
     <d:obsoletetable name="mapping" />

@@ -14,8 +14,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-/* IMPORTANT: If changes are made to this screen, make sure all other 'publishercontent' contentproviders are still compatible! */
-
 // Content provider for WebHare documents
 PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 < INTEGER rootfolder;

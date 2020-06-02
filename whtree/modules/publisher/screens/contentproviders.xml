@@ -2,7 +2,6 @@
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="contentproviders">
 
-  <!-- IMPORTANT: If changes are made to this screen, make sure all other 'publishercontent' contentproviders are still compatible! -->
   <screen name="webhare" gid=".webhare" lib="internal/contentprovider.whlib" title="">
     <compositions>
       <record name="mysettings" />

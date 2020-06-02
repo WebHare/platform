@@ -33,7 +33,6 @@ PUBLIC SCHEMA
     , DATETIME "last_indexed"
     , DATETIME "orphansince"
     , STRING "definedby"
-    , BOOLEAN "publishercontent"
     , INTEGER "fsobject" NULL := 0
     ; KEY id
     > contentsources

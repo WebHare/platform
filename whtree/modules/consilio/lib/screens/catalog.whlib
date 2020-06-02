@@ -262,9 +262,8 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
         OBJECT work := this->BeginWork();
         INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-        BOOLEAN publishercontent := SELECT AS BOOLEAN COLUMN publishercontent FROM this->contentproviders WHERE name = src.contentprovider;
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries)
-               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, publishercontent, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
+               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
         this->UpdateContentSourceFields(work, srcid, src, data);
 
         IF (work->Finish())

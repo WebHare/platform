@@ -1966,7 +1966,7 @@ RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restric
     RECORD ARRAY contentsource := SELECT fsobject
                                     FROM consilio.contentsources
                                    WHERE indexid = idx
-                                         AND publishercontent
+                                         AND contentprovider = "publisher:webhare"
                                          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
     IF (Length(contentsource) = 1)
     {

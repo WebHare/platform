@@ -270,8 +270,8 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
             SELECT id, COLUMN tag, fsobject
               FROM consilio.contentsources
              WHERE COLUMN indexid = VAR indexid
-                   AND COLUMN contentprovider = VAR contentprovider.name
-                   AND publishercontent
+                   AND contentsources.contentprovider = VAR contentprovider.name
+                   AND contentsources.contentprovider = "publisher:webhare"
                    AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
         {
           IF (ToUppercase(contentsource.tag) = ToUppercase(tag) OR (contentsource.fsobject = startfolder) OR IsFolderAncestorOf(contentsource.fsobject, startfolder)) // folder is already covered by searchroot
@@ -332,7 +332,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
         // Update the existing content source
         IF (existing.contentprovider != contentprovider.name
-            OR existing.publishercontent != contentprovider.publishercontent
             OR ToUppercase(existing.tag) != ToUppercase(tag)
             OR existing.data != EncodeHSON(data)
             OR existing.fsobject != startfolder
@@ -343,7 +342,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           UPDATE consilio.contentsources
              SET contentprovider :=  VAR contentprovider.name
-               , publishercontent := VAR contentprovider.publishercontent
                , tag :=              ToUppercase(VAR tag)
                , data :=             EncodeHSON(VAR data)
                , fsobject :=         VAR startfolder
@@ -358,8 +356,8 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       {
         // Add the content source
         srcid := MakeAutonumber(consilio.contentsources, "id");
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
-              VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(tag), EncodeHSON(data), maxgroupobjects, discardsummaries, definedby, startfolder);
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
+              VALUES(srcid, indexid, contentprovider.name, ToUppercase(tag), EncodeHSON(data), maxgroupobjects, discardsummaries, definedby, startfolder);
       }
 
       // Remove obsolete content sources
@@ -424,7 +422,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
             FROM consilio.contentsources
            WHERE COLUMN indexid = VAR indexid
                  AND contentprovider = "publisher:webhare"
-                 AND publishercontent
                  AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
       {
         IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.fsobject = siteid) OR IsFolderAncestorOf(contentsource.fs_objects.id, siteid)) // folder is already covered by searchroot
@@ -496,7 +493,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
           // Update the existing content source
           IF (existing.contentprovider != contentprovider.name
-              OR existing.publishercontent != contentprovider.publishercontent
               OR ToUppercase(existing.tag) != ToUppercase(addtoindex.tag)
               OR existing.data != EncodeHSON(data)
               OR existing.fsobject != siteid
@@ -508,7 +504,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
             srcid := existing.id;
             UPDATE consilio.contentsources
                SET contentprovider :=  VAR contentprovider.name
-                 , publishercontent := VAR contentprovider.publishercontent
                  , tag :=              ToUppercase(addtoindex.tag)
                  , data :=             EncodeHSON(VAR data)
                  , fsobject :=         VAR siteid
@@ -526,8 +521,8 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           // Add the content source
           srcid := MakeAutonumber(consilio.contentsources, "id");
-          INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
-                VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(addtoindex.tag), EncodeHSON(data), addtoindex.maxgroupobjects, addtoindex.discardsummaries, definedby, siteid);
+          INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
+                VALUES(srcid, indexid, contentprovider.name, ToUppercase(addtoindex.tag), EncodeHSON(data), addtoindex.maxgroupobjects, addtoindex.discardsummaries, definedby, siteid);
         }
 
         // Remove obsolete content sources

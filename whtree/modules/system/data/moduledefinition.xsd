@@ -2132,7 +2132,6 @@
     <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="contentproviderobject" type="xs:string" />
     <xs:attribute name="settingsscreen" type="xs:string" />
-    <xs:attribute name="publishercontent" type="xs:boolean" />
   </xs:complexType>
 
   <xs:complexType name="Catalog">

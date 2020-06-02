@@ -582,7 +582,6 @@ PUBLIC RECORD ARRAY FUNCTION GetContentProviders()
               , library
               , settings
               , createcontentprovider := PTR MakeObject(library, contentproviderobject)
-              , publishercontent
            FROM contentproviders;
 }
 
@@ -599,7 +598,6 @@ RECORD FUNCTION GetContentProviders_Uncached()
              , library := cp.library
              , settings := cp.settingsscreen
              , contentproviderobject := cp.contentproviderobject
-             , publishercontent := cp.publishercontent
              ] INTO contentproviders AT END;
     }
   }

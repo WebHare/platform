@@ -107,8 +107,8 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
                  , http_password := http_password
                  ];
   INTEGER srcid := MakeAutoNumber(consilio.contentsources, "id");
-  INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, data, fsobject)
-         VALUES (srcid, indexrec.id, contentprovider, TRUE, EncodeHSON(data), folder);
+  INSERT INTO consilio.contentsources(id, indexid, contentprovider, data, fsobject)
+         VALUES (srcid, indexrec.id, contentprovider, EncodeHSON(data), folder);
 
   UpdateContentSourceFieldsById(srcid);
   STRING result := EnsureIndexManagerContentSource(indexrec.id, srcid);
@@ -187,7 +187,7 @@ INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER s
         FROM consilio.contentsources
        WHERE id != searchid
              AND contentsources.indexid = VAR indexid
-             AND publishercontent
+             AND contentprovider = "publisher:webhare"
              AND tag NOT LIKE "$consilio$deleted$*"))
   {
     IF ((contentsource.fsobject = folderid) OR IsFolderAncestorOf(contentsource.fsobject, folderid)) // folderid is already covered by searchroot

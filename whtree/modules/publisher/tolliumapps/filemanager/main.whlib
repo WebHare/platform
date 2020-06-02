@@ -866,7 +866,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   RECORD FUNCTION GetCacheableSiteHighlights()
   {
-    INTEGER ARRAY consilio_folders := SELECT AS INTEGER ARRAY fsobject FROM consilio.contentsources WHERE publishercontent AND tag NOT LIKE "$consilio$deleted$*";
+    INTEGER ARRAY consilio_folders := SELECT AS INTEGER ARRAY fsobject FROM consilio.contentsources WHERE contentprovider = "publisher:webhare" AND tag NOT LIKE "$consilio$deleted$*";
     INTEGER ARRAY indexed_sites;
     FOREVERY (RECORD site FROM SELECT id FROM system.sites)
     {
