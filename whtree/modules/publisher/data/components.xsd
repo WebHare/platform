@@ -26,7 +26,8 @@
     <xs:annotation>
       <xs:appinfo>
         <s:tolliumcomponent placement="block" fragment="components.foldertree" />
-        <s:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <!-- NOTE we renamed only ONE of the two acceptdrops to ensure 4.28.2 will accept both names -->
+        <s:acceptdropsparser field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
