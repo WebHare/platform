@@ -1,7 +1,7 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Consilio"
        shortdescription="WebHare Consilio"
-       docorder="custom-sources pxl robotsplugin elasticsearch module-indices pagelists publisherindex">
+       docorder="setup custom-sources pxl robotsplugin elasticsearch module-indices pagelists publisherindex">
   <section name="api"
            title="Consilio API"
            description="API for searching in consilio"

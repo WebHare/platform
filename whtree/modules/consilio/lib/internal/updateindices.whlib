@@ -21,6 +21,99 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+RECORD ARRAY FUNCTION GetRequiredCatalogs()
+{
+  //Figure out which catalogs to create..
+  RECORD ARRAY wantcatalogs;
+  FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "catalog"))
+  {
+    STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
+    INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
+
+    INSERT CELL[ tag
+               , priority
+               , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+               , contentsources := RECORD[]
+               ] INTO wantcatalogs AT END;
+  }
+
+  RECORD siteprofs := GetCachedSiteProfiles();
+  FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
+  {
+    INTEGER matchcatalog := (SELECT AS INTEGER #wantcatalogs + 1 FROM wantcatalogs WHERE wantcatalogs.tag = addtocatalog.catalog)-1;
+    IF(matchcatalog = -1)
+    {
+      //TODO make sure the error goes somewhere recorded/validateable/reportable
+      PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to undefined catalog '${addtocatalog.catalog}'\n`);
+      CONTINUE;
+    }
+
+    INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
+    FOREVERY(INTEGER site FROM addtocatalog.siteids)
+    {
+      INSERT CELL[ ...addtocatalog, fsobject := site ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+    }
+  }
+
+  RETURN wantcatalogs;
+}
+
+PUBLIC MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ reportmissing := FALSE
+      ], options);
+
+  OBJECT trans := GetPrimary();
+  IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
+    RETURN; //consilio is not initialized yet!
+
+  INTEGER builtin_indexmanager := GetDefaultIndexManager();
+  IF(builtin_indexmanager = 0)
+    RETURN; //consilio is not initialized yet!
+
+  RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
+  trans->BeginWork();
+  FOREVERY(RECORD want FROM wantcatalogs)
+  {
+    //TODO allow a way to select 'raw'/no-ngram mode so we can adopt <index> too
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag);
+    IF(catalog->definedby != want.definedby)
+      catalog->UpdateCatalog( CELL[ want.definedby ]);
+    RECORD ARRAY currentsources := catalog->ListContentSources();
+
+    FOREVERY(RECORD source FROM want.contentsources)
+    {
+      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1 FROM currentsources WHERE contentprovider = "publisher:webhare" AND fsobject = source.fsobject) - 1;
+      IF(matchpos >= 0)
+      {
+        IF(currentsources[matchpos].definedby != source.definedby)
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[source.definedby]);
+        IF(currentsources[matchpos].isorphan)
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
+
+        DELETE FROM currentsources AT matchpos; //remove from cleanup list
+        CONTINUE;
+      }
+
+      TRY
+      {
+        catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2,`Failed to add catalog from ${source.definedby}: ${e->what}\n`);
+        CONTINUE;
+      }
+    }
+
+    //mark unreferred catalogs as orphan
+    FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
+      catalog->OpenContentSourceById(makeorphansource.id)->MarkAsOrphan();
+  }
+  trans->CommitWork();
+}
 
 PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {

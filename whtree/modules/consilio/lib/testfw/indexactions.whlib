@@ -1,7 +1,15 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+LOADLIB "mod::consilio/lib/queuemgmt.whlib";
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+LOADLIB "mod::consilio/lib/internal/indexing.whlib";
 
 
 PUBLIC MACRO CommitAndWaitForPublisherIndex()
@@ -11,5 +19,23 @@ PUBLIC MACRO CommitAndWaitForPublisherIndex()
   Print("waiting for changes indexed...\n");
   WaitForPromise(promise);
   Print("it's indexed\n");
+}
+
+
+PUBLIC MACRO WaitForContentSourceDone(OBJECT catalog, INTEGER contentsourceid)
+{
+  DoWaitForContentSourceDone(contentsourceid, [ verbose := TRUE
+                                              , deadline := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime())
+                                              ]);
+
+  INTEGER indexmgrid := SELECT AS INTEGER COLUMN indexmanager FROM consilio.indices WHERE id = catalog->id;
+  IF (indexmgrid != 0)
+    RefreshIndexManager(indexmgrid, contentsourceid);
+}
+
+PUBLIC MACRO WaitForCatalogDone(OBJECT catalog)
+{
+  FOREVERY(RECORD contentsource FROM catalog->ListContentSources())
+    WaitForContentSourceDone(catalog, contentsource.id);
 }
 

@@ -21,6 +21,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -647,6 +648,17 @@ STATIC OBJECTTYPE ContentSource
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
   }
 
+  /// Reactivate this content source
+  PUBLIC MACRO ReactivateContentSource()
+  {
+    UPDATE consilio.contentsources
+           SET orphansince := DEFAULT DATETIME
+           WHERE id = this->contentsource.id;
+
+    //FIXME schedule recheck on this countent source
+    //GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
+  }
+
   /** Construct the provider for this source
       @return Contentprovider object
   */
@@ -674,6 +686,19 @@ STATIC OBJECTTYPE ContentSource
                   ];
     cpobj->Init(source);
     RETURN cpobj;
+  }
+
+  /** Update content source settings
+      @record settings Settings to apply
+      @cell(string) settings.definedby Definition location */
+  PUBLIC MACRO UpdateContentSource(RECORD settings)
+  {
+    settings := ValidateOptions([ definedby := ""
+                                ], settings, [ optional := [ "definedby" ]
+                                             , title := "settings"
+                                             ]);
+    UPDATE consilio.contentsources SET RECORD settings WHERE id = this->id;
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
   /** Rebuild this index */
@@ -728,6 +753,9 @@ STATIC OBJECTTYPE Catalog
   /// @type(integer) Type of the catalog (0 for managed index, 1 for module index)
   PUBLIC PROPERTY type(this->catalog.type,-);
 
+  /// @type(string) Where was this catalog defined?
+  PUBLIC PROPERTY definedby(this->catalog.definedby,-);
+
   MACRO NEW(RECORD catalog)
   {
     this->catalog := catalog;
@@ -736,6 +764,7 @@ STATIC OBJECTTYPE Catalog
   /** List the contentsources in this catalog
       @return List of contentsources
       @cell(integer) return.id Id of the contentsource
+      @cell(string) return.contentprovider Content provider type
       @cell(string) return.tag Tag of the contentsource
       @cell(string) return.title Title of the contentsource
       @cell(integer) return.fsobject Associated filesystem object
@@ -746,11 +775,13 @@ STATIC OBJECTTYPE Catalog
     options := ValidateOptions([ __withdeleted := FALSE ], options);
     RECORD ARRAY sources :=
         SELECT id
+             , contentprovider
              , tag
              , title
              , fsobject
              , isorphan := orphansince != DEFAULT DATETIME
              , isdeleted := tag LIKE "$consilio$deleted$*" OR (publishercontent AND fsobject = 0)
+             , definedby
           FROM consilio.contentsources
          WHERE indexid = this->catalog.id;
 
@@ -778,7 +809,10 @@ STATIC OBJECTTYPE Catalog
         ], options);
 
     IF (RecordExists(SELECT FROM consilio.contentsources WHERE indexid = this->catalog.id AND fsobject = VAR targetfolder))
-      THROW NEW Exception(`A contentsource for folder #${targetfolder} already exists in this catalog`);
+    {
+      STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = targetfolder;
+      THROW NEW Exception(`A contentsource for folder #${targetfolder} (${path}) already exists in catalog '${this->tag}'`);
+    }
 
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
     INSERT INTO consilio.contentsources(id, indexid, contentprovider, maxgroupobjects, discardsummaries, definedby, fsobject, publishercontent, data)
@@ -797,7 +831,8 @@ STATIC OBJECTTYPE Catalog
       @cell options.discardsummaries Whether to discard summaries
       @cell options.definedby Use to describe who added this custom content source was added
       @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
-      @cell options.title Title fot the content source
+      @cell options.folder Associated folder
+      @cell options.title Title for the content source
   */
   PUBLIC MACRO AddCustomContentSource(STRING tag, STRING contentsourceobject, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -859,6 +894,18 @@ STATIC OBJECTTYPE Catalog
       RETURN NEW ContentSource(this, match);
     ELSE
       RETURN DEFAULT OBJECT;
+  }
+
+  /** Update catalog settings
+      @record settings Settings to apply
+      @cell(string) settings.definedby Definition location */
+  PUBLIC MACRO UpdateCatalog(RECORD settings)
+  {
+    settings := ValidateOptions([ definedby := ""], settings, [ optional := ["definedby"]
+                                                              , title := "settings"
+                                                              ]);
+    UPDATE consilio.indices SET RECORD settings WHERE id = this->id;
+    GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
   /// Delete this catalog
@@ -1087,6 +1134,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , priority := 0
                               , indexmanager := 0
                               , title := ""
+                              , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
                               ], options, [ optional := ["indexmanager"] ]);
 
   INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : GetDefaultIndexManager();
@@ -1109,9 +1157,11 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   INSERT CELL[ id := indexid
              , name := tag
              , description := options.title
-             , loglevel := options.loglevel
-             , priority := options.priority
+             , options.loglevel
+             , options.priority
+             , options.definedby
              , indexmanager
+             , type := whconstant_consilio_catalogtype_siteprofindex //default type..
              ] INTO consilio.indices;
 
   STRING result := EnsureIndexManagerIndex(indexid);
@@ -1120,6 +1170,8 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     DELETE FROM consilio.indices WHERE id=indexid;
     THROW NEW Exception("Index creation failed (EnsureIndexManagerIndex failed)");
   }
+
+  GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   RETURN NEW Catalog(SELECT * FROM consilio.indices WHERE id=indexid);
 }
 

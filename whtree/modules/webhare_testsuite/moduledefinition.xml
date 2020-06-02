@@ -313,6 +313,10 @@
   </publisher>
 
   <consilio>
+    <!-- modern syntax -->
+    <catalog tag="testsitecatalog" />
+
+    <!-- legacy syntax -->
     <index tag="testindex">
       <datetime name="@timestamp" />
       <text name="title" />

@@ -140,6 +140,9 @@
       <d:varchar name="indexname" maxlength="128">
         <d:documentation>Index name (elasticsearch)</d:documentation>
       </d:varchar>
+      <d:varchar name="definedby" maxlength="512">
+        <d:documentation>Source where we last saw this index</d:documentation>
+      </d:varchar>
     </d:table>
 
     <d:table name="contentsources" primarykey="id">

@@ -1,10 +1,29 @@
 <?wh
 
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/testfw/indexactions.whlib";
 
-PUBLIC MACRO TestSiteProfileIndices()
+
+PUBLIC MACRO TestModernSiteProfileIndices()
+{
+  OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
+  Testeq(TRUE, ObjectExists(maincatalog));
+
+  RECORD ARRAY contentsources := maincatalog->ListContentSources();
+  contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources;
+  TestEq(['/WebHare testsuite site/'], SELECT AS STRING ARRAY whfspath FROM contentsources);
+
+  WaitForCatalogDone(maincatalog);
+
+  RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
+  TestEq(TRUE, Length(result.results) > 0);
+}
+
+PUBLIC MACRO TestLegacySiteProfileIndices()
 {
   testfw->BeginWork();
   OBJECT site := testfw->SetupTestWebdesignWebsite([ sitename := "betatestindexsite", webfeatures := ["webhare_testsuite:siteprofileindices"] ]);
@@ -53,7 +72,8 @@ PUBLIC MACRO TestSiteProfileIndices()
 }
 
 
-RunTestFramework( [ PTR TestSiteProfileIndices
+RunTestFramework( [ PTR TestModernSiteProfileIndices
+                  , PTR TestLegacySiteProfileIndices
                   ],
                   [ consilio := TRUE
                   ]);

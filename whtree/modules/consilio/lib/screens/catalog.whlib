@@ -591,7 +591,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , haserrors := FALSE
                                           , contentsourceid := id
                                           , definedby := definedby
-                                          , style := orphansince != DEFAULT DATETIME ? "inactive" : ""
                                        FROM sources
                                       WHERE indexid = catalog.id
                                       ORDER BY (status < 0), failed // Show active sources first, then failed sources
@@ -644,11 +643,11 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                          , manageable := TRUE
                          , inactive := inactive OR srcinactive
                          , readonly := catalog.id < 0
-                         , style := catalog.id < 0 ? "readonly" : (inactive OR srcinactive) ? "inactive" : ""
+                         , style := catalog.id < 0 ? "readonly" : (inactive OR srcinactive OR orphansince != DEFAULT DATETIME) ? "inactive" : ""
                          ] FROM catalogsources AS src)
                  : RECORD[]
              , contentsourceid := 0
-             , definedby := ""
+             , definedby := catalog.definedby
              ] INTO rows AT END;
     }
     work->Cancel();

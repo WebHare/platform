@@ -15,6 +15,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/towl.whlib";
 
@@ -118,7 +119,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = 1)
+    IF (catalog.type = whconstant_consilio_catalogtype_moduleindex)
       RETURN result; // Unmanaged index, nothing to do
 
     // If rebuilding a specific index, check if it should be rebuilt completely (i.e. if it should be deleted first)

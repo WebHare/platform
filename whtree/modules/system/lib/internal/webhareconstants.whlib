@@ -156,6 +156,7 @@ PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
 
 //common namespaces
 PUBLIC CONSTANT STRING whconstant_xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
+PUBLIC CONSTANT STRING whconstant_xmlns_publisher := "http://www.webhare.net/xmlns/publisher/siteprofile";
 PUBLIC CONSTANT STRING whconstant_xmlns_tolliumappinfo := "http://www.webhare.net/xmlns/tollium/appinfo";
 PUBLIC CONSTANT STRING whconstant_xmlns_tolliumcommon := "http://www.webhare.net/xmlns/tollium/common";
 PUBLIC CONSTANT STRING whconstant_xmlns_screens := "http://www.webhare.net/xmlns/tollium/screens";

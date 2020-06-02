@@ -12,6 +12,7 @@ PUBLIC SCHEMA
     , INTEGER "indexmanager" NULL := 0
     , STRING "name"
     , STRING "description"
+    , STRING "definedby"
     , INTEGER "loglevel"
     , INTEGER "priority"
     , BOOLEAN "rebuild"
