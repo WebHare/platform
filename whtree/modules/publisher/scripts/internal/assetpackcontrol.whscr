@@ -487,6 +487,7 @@ STATIC OBJECTTYPE AssetPackController
   {
     IF(debug)
       Print("Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || " recompile because " || recompilereason || "\n");
+    LogDebug("publisher:assetpackcontrol", "Marking bundle " || bundle.outputtag || " for " || (forcecompile?"forced ":"") || " recompile because " || recompilereason);
 
     UPDATE this->bundles
        SET requirecompile :=  TRUE
