@@ -87,6 +87,9 @@
         <requireright right="read" />
       </accesscheck>
     </application>
+
+    <dashboardgroup name="wrd" tid="tolliumapps.common.wrd" orderafter="publisher:*" />
+    <dashboardpanel group="wrd" name="payments" tid="tolliumapps.payments.dashboard.paymentsdashboard" screen="/tolliumapps/payments/dashboard.xml#paymentsdashboard" />
   </portal>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">

@@ -890,15 +890,16 @@
   <textgroup gid="siteprofiles">   <!-- siteprofiles -->
     <text tid="loginpage">Standaard inlogpagina</text>
   </textgroup>
-  <textgroup gid="terminology">   <!-- terminology -->
-    <text tid="attrtype">Attribuuttype</text>
-    <text tid="domain">Domein</text>
-    <text tid="metatype">Metatype</text>
-    <text tid="schema">Schema</text>
-    <text tid="tag">Tag</text>
-    <text tid="type">Type</text>
-  </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="common">   <!-- tolliumapps.common -->
+      <text tid="attrtype">Attribuuttype</text>
+      <text tid="entity">Entiteit</text>
+      <text tid="metatype">Metatype</text>
+      <text tid="schema">Schema</text>
+      <text tid="tag">Tag</text>
+      <text tid="type">Type</text>
+      <text tid="wrd">WRD</text>
+    </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->
       <text tid="selectcertificate">Kies certificaat</text>
       <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
@@ -947,6 +948,13 @@
         <text tid="surecancelpayment">Weet u zeker dat u deze betaling wil annuleren?</text>
         <text tid="tag">Tag</text>
         <text tid="type">Type</text>
+      </textgroup>
+      <textgroup gid="dashboard">   <!-- tolliumapps.payments.dashboard -->
+        <text tid="error">Foutmelding</text>
+        <text tid="nextcheck">Volgende controle</text>
+        <text tid="openinwrd">Open in WRD</text>
+        <text tid="paymentdate">Betaaldatum</text>
+        <text tid="paymentsdashboard">Recente betalingen</text>
       </textgroup>
       <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
         <text tid="acquirer">Verwerker</text>

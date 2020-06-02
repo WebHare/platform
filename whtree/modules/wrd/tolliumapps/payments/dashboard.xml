@@ -1,0 +1,33 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="dashboard.whlib"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.payments.dashboard"
+         >
+
+  <screen name="paymentsdashboard">
+    <actions>
+      <action name="openinwrd" onexecute="doopeninwrd">
+        <enableon source="payments" min="1" max="1" />
+      </action>
+    </actions>
+    <body>
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="payments" selectmode="single" ongetrows="OnGetPayments" borders="right">
+            <column name="rowkey" type="integer" tid="~id" width="10x" align="right"/>
+            <column name="paymentdate" type="datetime" storeutc="true" width="20x"/>
+            <column name="nextcheck" type="datetime" storeutc="true" width="20x"/>
+            <column name="wrdschema" type="text" width="25x" tid="tolliumapps.common.schema"/>
+            <column name="wrdtype" type="text" width="25x" tid="tolliumapps.common.type"/>
+            <column name="paymententity" type="integer" width="10x" align="right" tid="tolliumapps.common.entity"/>
+            <column name="error" type="text" width="1pr"/>
+          </list>
+        </cell>
+        <cell spacers="left top right">
+          <button action="openinwrd" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+</screens>

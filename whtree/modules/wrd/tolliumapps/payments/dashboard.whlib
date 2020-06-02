@@ -1,0 +1,48 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE PaymentsDashboard EXTEND DashboardPanelBase
+<
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
+  {
+    RETURN 15;
+  }
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    ^payments->Invalidate();
+  }
+  RECORD ARRAY FUNCTION OnGetPayments()
+  {
+    RECORD ARRAY payments := SELECT rowkey := id
+                                  , paymentdate := creationdate
+                                  , paymententity
+                                  , nextcheck
+                                  , error
+                               FROM wrd.pendingpayments;
+
+    RECORD ARRAY wrdtypeinfo := SELECT wrdschema := schemas.name
+                                     , wrdtype := types.tag
+                                     , paymententity := entities.id
+                                  FROM wrd.schemas
+                                     , wrd.types
+                                     , wrd.entities
+                                 WHERE schemas.id = types.wrd_schema
+                                       AND types.id = entities.type
+                                       AND entities.id IN (SELECT AS INTEGER ARRAY paymententity FROM payments);
+
+    payments := JoinArrays(payments, "PAYMENTENTITY", wrdtypeinfo, [ wrdschema := "", wrdtype := ""], [rightouterjoin := TRUE]);
+    payments := SELECT *, wrdschema := ToLowercase(wrdschema), wrdtype := ToLowercase(wrdtype) FROM payments;
+
+    RETURN payments;
+  }
+  MACRO DoOpenInWRD()
+  {
+    this->tolliumcontroller->SendApplicationMessage("wrd:browser", [ entityid := ^payments->selection.paymententity ], DEFAULT RECORD, FALSE);
+  }
+>;

@@ -702,6 +702,13 @@ ASYNC MACRO TestFailedPaymentSucceeding()
   runner->CloseService();
 }
 
+ASYNC MACRO TestDashboard()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:dashboard", [ params := ["wrd:payments"]]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR Prep
                  , PTR TestPaymentFields
@@ -718,4 +725,5 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR RunStandardPaymentMethodTests
                  , PTR TestPaymentOptions
                  , PTR TestFailedPaymentSucceeding
+                 , PTR TestDashboard
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);
