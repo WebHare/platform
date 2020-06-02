@@ -9,7 +9,7 @@
   xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:html="http://www.w3.org/1999/xhtml"
-    xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
+  xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
   targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
   elementFormDefault="qualified"
   xml:lang="en">
