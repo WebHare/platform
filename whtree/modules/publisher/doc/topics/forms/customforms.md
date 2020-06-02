@@ -35,6 +35,7 @@ Create a bit of HTML/Witty to render it:
 ```witty
 [component myform]
   <form id="myformid" class="wh-form wh-styledinput" [form.formattributes]>
+    [form.formprologue]
     <div class="wh-form__page">
       [form.field1.render]
       [form.field2.render]

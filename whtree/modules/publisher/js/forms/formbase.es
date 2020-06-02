@@ -433,10 +433,17 @@ export default class FormBase
     return state.curpage >= 0 ? state.pages[state.curpage] : null;
   }
 
-  scrollToFormTop()
+  /** Position the specified element's group or the form itself into view, using `.wh-anchor` nodes to correct for fixed headers
+      @param scrollto Element to position into view. If not set, the form it scrolled into view */
+  scrollIntoView(scrollto)
   {
-    let firstgroup = this.node.querySelector('.wh-form__page--visible .wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden)');
-    this._scrollIntoView(firstgroup || this.node);
+    let origscrollto = scrollto;
+    scrollto = (scrollto ? scrollto.closest('.wh-form__fieldgroup') : null) || this.node;
+    scrollto = scrollto.querySelector('.wh-anchor') || scrollto;
+    if(origscrollto && scrollto != origscrollto && dompack.debugflags.fhx)
+      console.log('[fhx] Modified scroll target from ', origscrollto, ' to anchor ', scrollto);
+
+    dompack.scrollIntoView(scrollto, dompack.debugflags.fhx ? { debugusingflag:'fhx' } : null);
   }
 
   /** Goto a specific page
@@ -462,7 +469,7 @@ export default class FormBase
     this._updatePageNavigation();
 
     //scroll back up
-    this.scrollToFormTop();
+    this.scrollIntoView();
 
     /* tell the page it's now visible - note that we specifically don't fire this on init, as it's very likely
        users would 'miss' the event anyway - registerHandler usually executes faster than your wh:form-pagechange
@@ -1371,7 +1378,7 @@ export default class FormBase
         if(!this._dovalidation && !validationcancelled)
           reportValidity(tofocus);
 
-        this._scrollIntoView(result.firstfailed);
+        this.scrollIntoView(result.firstfailed);
       }
 
       if(dompack.debugflags.fhv)
@@ -1383,18 +1390,6 @@ export default class FormBase
     {
       lock.release();
     }
-  }
-
-  _scrollIntoView(scrollto)
-  {
-    let group = scrollto.closest('.wh-form__fieldgroup');
-    if(group)
-    {
-      let groupanchor = group.querySelector('.wh-anchor');
-      if(groupanchor)
-        scrollto = groupanchor;
-    }
-    dompack.scrollIntoView(scrollto);
   }
 
   reset()

@@ -71,6 +71,15 @@ class DynamicForm extends AnyFormHandler
   }
 }
 
+class MultiPageForm extends AnyFormHandler
+{
+  constructor(node)
+  {
+    super(node);
+    this.node.querySelector(".wh-form__prologue").prepend(<div class="multipageform__prefix">This block should always be in view eg for page navigation</div>);
+  }
+}
+
 class RTDForm extends RPCFormBase
 {
   constructor(node)
@@ -170,6 +179,7 @@ function initForms()
 {
   registerHandler('coretest', node => new CoreForm(node));
   registerHandler('globalform', node => new GlobalForm(node));
+  registerHandler('multipageform', node => new MultiPageForm(node));
   dompack.register('#dynamicform', node => new DynamicForm(node));
   registerHandler("rtdform", node => new RTDForm(node));
   dompack.register('#insertvideo__submit', node => node.addEventListener("click",onInsertVideoSubmit));

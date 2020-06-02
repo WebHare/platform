@@ -23,13 +23,13 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
 <
-  UPDATE PUBLIC MACRO PrepareForRendering()
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
     IF(GetWebVariable("scrollzone")="1")
       INSERT "scrollzone" INTO this->webdesign->htmlclasses AT END;
-  }
-  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
-  {
+    IF(GetWebVariable("cookiebar")="1")
+      INSERT "cookiebar" INTO this->webdesign->htmlclasses AT END;
+
     IF(GetWebVariable("email")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")

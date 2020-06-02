@@ -31,10 +31,11 @@
       <option tag="rpc" title="RPC request and responses" />
       <option tag="aut" title="wrd.auth" />
     </debugsettings>
-    <debugsettings title="Formhandler">
-      <option tag="fhv" title="wh.form validation" />
-      <option tag="fhp" title="wh.form prefiller" />
-      <option tag="fdv" title="wh.form disable client-side validation" />
+    <debugsettings title="Formsapi">
+      <option tag="fhv" title="Validation" />
+      <option tag="fhp" title="Enable prefiller" />
+      <option tag="fdv" title="Disable client-side validation" />
+      <option tag="fhx" title="Form UI/UX" />
     </debugsettings>
     <debugsettings title="Designfiles components">
       <option tag="men" title="wh.menu debugging" />
