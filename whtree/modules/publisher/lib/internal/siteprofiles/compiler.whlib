@@ -638,8 +638,7 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
     LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.errors ]);
 
   // ADDME use recompilation result directly, UpdateConsilioIndices goes through GetCSP but the data should be in 'response'
-  UpdateConsilioIndices([ reportmissing := reportmissing ]);
-  UpdateModuleIndices([ reportmissing := reportmissing ]); //FIXME currently there doesn't really seem to be anything reporting to reportmissing
+  FixConsilioIndices([ reportmissing := reportmissing ]);
 
   RETURN [ errors := response.errors
          , warnings := response.warnings

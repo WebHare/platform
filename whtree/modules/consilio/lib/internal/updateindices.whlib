@@ -58,7 +58,7 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
   RETURN wantcatalogs;
 }
 
-PUBLIC MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ reportmissing := FALSE
@@ -115,7 +115,7 @@ PUBLIC MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->CommitWork();
 }
 
-PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ reportmissing := FALSE ], options);
 
@@ -558,7 +558,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
 }
 
-PUBLIC MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ modules := STRING[]
@@ -621,4 +621,17 @@ PUBLIC MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->CommitWork();
   // Broadcast indexfields event to reset cached module index fields (publisher search)
 //  BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
+}
+
+PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //Combines three generations of index generation. hopefully we can replace everything with UpdateModuleCatalogs in the future
+
+  options := ValidateOptions(
+      [ reportmissing := FALSE
+      ], options);
+
+  UpdateModuleCatalogs(CELL[options.reportmissing]);
+  UpdateConsilioIndices(CELL[options.reportmissing]);
+  UpdateModuleIndices(CELL[options.reportmissing]);
 }

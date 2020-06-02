@@ -56,7 +56,7 @@ IF (status != SearchOk)
 IF(debugstartup)
   Print("Autocreated indexmanager is online\n");
 
-UpdateConsilioIndices();
+FixConsilioIndices();
 
 IF(debugstartup)
   Print("Autocreated indexmanager is configured\n");
