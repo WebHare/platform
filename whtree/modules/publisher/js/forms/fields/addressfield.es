@@ -212,6 +212,12 @@ export default class AddressField
         // Nothing to check yet
         break;
       }
+      case "invalid_city":
+      {
+        // We'll target the right field but we don't want to supply N translations for 'invalid city'
+        this.form.setFieldError(this.allFields.get("city").node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
+        break;
+      }
       case "invalid_zip":
       {
         this.form.setFieldError(this.allFields.get("zip").node, getTid("publisher:site.forms.addressfield.invalid_zip"), { reportimmediately: true });

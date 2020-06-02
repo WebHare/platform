@@ -278,6 +278,22 @@ PUBLIC MACRO TestAddressField()
                       ]
       ], formresult, "*");
 
+  // incorrect city names
+  formdata.fields :=  [ "address.country" :=    "BE"
+                      , "address.street" :=     "Baron Opsomerlaan"
+                      , "address.nr_detail" :=  "Lier"
+                      , "address.zip" :=        "2500"
+                      , "address.city" :=       "1"
+                      ];
+
+  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEQMembers(
+      [ errors :=     [ [ name := "address.city",       message :="Het adres kon niet worden gevonden." ]
+                      , [ name := "address2.country",   message :="Dit veld is verplicht." ]
+                      ]
+      ], formresult, "*");
+
+
 }
 
 RunTestframework([ PTR TestAddressField

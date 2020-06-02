@@ -140,6 +140,7 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
       @cell(string) return.status Lookup Status
           - "ok" (the address is valid or addresses for this country cannot be checked)
           - "not_enough_data" (NL: not enough data to do an address lookup)
+          - "invalid_city" city is not correct (eg a number)
           - "invalid_zip" (NL: the supplied zip is invalid)
           - "invalid_nr_detail" (NL: the nr_detail is invalid)
           - "different_citystreet" (NL: given city and street are different from the city and street that are found for the given zip and nr_detail)
@@ -167,6 +168,10 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
       IF(addressdata.nr_detail != "" AND FixupNRDetailNL(addressdata.nr_detail) = "")
         RETURN CELL[ status := "invalid_nr_detail", data := data.output, looked_up := [ status := "invalid_nr_detail" ] ];
     }
+
+    //TODO we should probably reject more suspicious city names, but number + alpha does exist: https://en.wikipedia.org/wiki/List_of_places_with_numeric_names
+    IF(addressdata.city != "" AND ToInteger(addressdata.city,-1) != -1) //numeric city, swapped with house number?  this is a very common error at least
+      RETURN CELL[ status := "invalid_city", data := data.output, looked_up := [ status := "invalid_city" ] ];
 
     RECORD orginput := data.input;
 

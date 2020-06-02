@@ -285,7 +285,19 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     OBJECT browser := GetBrowser();
 
     IF(NOT browser->GotoWebPage(`${apibase}orders/${EncodeURL(this->paymentref)}`, [ headers := GetHeaders(this->settings.apikey) ]))
+    {
+      IF(browser->GetHTTPStatusCode() = 404)
+      {
+        RECORD res := DecodeJSONBlob(browser->content);
+        IF(RecordExists(res)) //we did get valid JSON...
+        {
+          //MSP reports a 404 for transaction that never made it to the server.
+          this->pvt_status := "failed";
+          RETURN;
+        }
+      }
       THROW NEW Exception("Order status retrieval failed");
+    }
 
     RECORD result := DecodeJSONBlob(browser->content);
     IF(NOT result.success)
