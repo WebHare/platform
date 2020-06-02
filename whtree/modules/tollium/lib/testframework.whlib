@@ -1196,11 +1196,15 @@ MACRO CheckScreensAllClosed()
 
 MACRO CheckTolliumIssues()
 {
+  IF (testfw->HasFailed())
+    RETURN;
+
   CheckScreensAllClosed();
   IF(Length(controller->missingtids) > 0)
   {
     Print("There were missing tids!\n");
     DumpValue(controller->missingtids,'boxed');
+    testfw->SetFailed();
     SetConsoleExitCode(1);
   }
 }

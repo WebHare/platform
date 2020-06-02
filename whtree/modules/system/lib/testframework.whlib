@@ -429,6 +429,7 @@ MACRO DispatchCallbacks()
 OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO just move them to their own whlib/object/freestanding functions
 <
   BOOLEAN didruntests;
+  BOOLEAN _hasfailed;
   RECORD ARRAY tests;
   RECORD ARRAY credentials;
   RECORD ARRAY roles;
@@ -1268,7 +1269,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         IF(IsRequest()) //we were invoked from a RPC or something.. just handle normally
           THROW;
 
-        SetConsoleExitCode(1);
+        this->SetFailed();
         IF(NOT (e EXTENDSFROM TestFailException))
         {
           Print(" ** UNEXPECTED EXCEPTION: " || e->what || "\n");
@@ -1926,6 +1927,21 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RECORD ARRAY retval := this->modulelog;
     this->modulelog := RECORD[];
     RETURN retval;
+  }
+
+  /** Returns TRUE if a test has failed
+      @return TRUE if any test has failed
+  */
+  PUBLIC BOOLEAN FUNCTION HasFailed()
+  {
+    RETURN this->_hasfailed;
+  }
+
+  /// Sets the testframework in failed mode
+  PUBLIC MACRO SetFailed()
+  {
+    this->_hasfailed := TRUE;
+    SetConsoleExitCode(1);
   }
 >;
 
