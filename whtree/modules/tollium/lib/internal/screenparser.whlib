@@ -1634,7 +1634,7 @@ VARIANT FUNCTION ParseUsingExtraParser(OBJECT element, RECORD field, RECORD item
       {
         RETURN ParseChildComponents(nodeset, field.adoptfields);
       }
-      CASE "acceptdrops"
+      CASE "acceptdropsparser"
         {
           OBJECT acceptdrops := nodeset->Item(0);
           IF(ObjectExists(acceptdrops))
