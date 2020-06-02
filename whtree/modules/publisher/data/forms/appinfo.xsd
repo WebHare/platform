@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns="http://www.webhare.net/xmlns/publisher/forms/appinfo"
+           targetNamespace="http://www.webhare.net/xmlns/publisher/forms/appinfo"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:sc="http://www.webhare.net/xmlns/system/common"
+           elementFormDefault="qualified"
+           xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
+
+  <xs:element name="formcomponent" type="__Appinfoformcomponent"/>
+  <xs:complexType name="__Appinfoformcomponent">
+    <xs:attribute name="tolliumicon" />
+    <xs:attribute name="tid" />
+    <xs:attribute name="title" />
+    <xs:attribute name="descriptiontid" />
+    <xs:attribute name="description" />
+    <xs:attribute name="matchattribute" />
+    <xs:attribute name="linecomponent" type="xs:boolean" />
+    <xs:attribute name="editdefaults" />
+    <xs:attribute name="editextension" />
+    <xs:attribute name="defaultvalue" />
+    <xs:attribute name="parserfunc" />
+    <xs:attribute name="fieldobject" />
+    <xs:attribute name="supportedvaluesfunc" />
+    <xs:attribute name="ordering" type="xs:integer" />
+  </xs:complexType>
+
+  <xs:element name="formhandler" type="__Appinfoformhandler"/>
+  <xs:complexType name="__Appinfoformhandler">
+    <xs:attribute name="tolliumicon" />
+    <xs:attribute name="tid" />
+    <xs:attribute name="title" />
+    <xs:attribute name="descriptiontid" />
+    <xs:attribute name="description" />
+    <xs:attribute name="editextension" />
+    <xs:attribute name="editdefaults" />
+    <xs:attribute name="parserfunc" />
+    <xs:attribute name="handlerobject" />
+    <xs:attribute name="handlertask" />
+    <xs:attribute name="handlertaskfor" />
+  </xs:complexType>
+</xs:schema>

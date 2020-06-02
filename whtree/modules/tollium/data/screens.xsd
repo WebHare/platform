@@ -18,6 +18,7 @@ To change a <xs:attribute /> for adding descriptions
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns="http://www.webhare.net/xmlns/tollium/screens"
   elementFormDefault="qualified"
   xml:lang="en">
@@ -32,6 +33,7 @@ To change a <xs:attribute /> for adding descriptions
 <!--  <xs:import namespace="http://www.w3.org/1999/xhtml" schemaLocation="http://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd"/> -->
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/common" schemaLocation="mod::tollium/data/common.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/appinfo" schemaLocation="mod::tollium/data/appinfo.xsd" />
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
 
   <!-- The screens file root node -->
@@ -116,15 +118,6 @@ To change a <xs:attribute /> for adding descriptions
 
   <xs:simpleType name="ComponentRef">
     <xs:restriction base="tc:ComponentRef" />
-  </xs:simpleType>
-
-  <xs:simpleType name="ScreenFragmentReference">
-    <xs:annotation>
-      <xs:documentation>
-        <html:p>Relative or absolute reference to a screen or a fragment</html:p>
-      </xs:documentation>
-    </xs:annotation>
-    <xs:restriction base="xs:string" />
   </xs:simpleType>
 
   <!-- A color: #000000-#ffffff, #00000000-#ffffffff (with last two digits specifying alpha) or 'transparent' -->
@@ -493,7 +486,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onclick" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function to call when someone has clicked on the component. A record containing the X and Y coordinates (relative to the original imagesize) will be passed as argument to the onclick function.</html:p>
@@ -544,7 +537,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           The name of the function to call when the overlay selection has changed.
@@ -555,7 +548,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchangeoverlays" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           The name of the function to call when one or more overlays have changed (in size or position).
@@ -566,7 +559,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oncreateoverlay" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="record" arguments="record" />
+          <tai:callbacksignature returntype="record" arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           The name of the function to call when the user tries to create an new overlay by click and dragging over the image.
@@ -601,7 +594,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="rowedit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumimplementation objecttype="/lib/screenbase.whlib#TolliumRowEditScreenBase" />
+        <tai:tolliumimplementation objecttype="/lib/screenbase.whlib#TolliumRowEditScreenBase" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -636,12 +629,12 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TabsExtension">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="screens"/>
-        <childcomponents field="actions" target="./s:actions" />
-        <childcomponents field="menus" target="./s:menus" />
-        <childcomponents field="compositions" target="./s:compositions" adoptfields="compositions" />
-        <childcomponents field="newtabs" target="./s:newtab" />
-        <childcomponents field="inserts" target="./s:insert" adoptfields="lines position where" />
+        <tai:tolliumcomponent placement="screens"/>
+        <tai:childcomponents field="actions" target="./s:actions" />
+        <tai:childcomponents field="menus" target="./s:menus" />
+        <tai:childcomponents field="compositions" target="./s:compositions" adoptfields="compositions" />
+        <tai:childcomponents field="newtabs" target="./s:newtab" />
+        <tai:childcomponents field="inserts" target="./s:insert" adoptfields="lines position where" />
       </xs:appinfo>
     <xs:documentation>A TabsExtension organizes one or more extra tabs to load into an existing &lt;tabs> component</xs:documentation>
     </xs:annotation>
@@ -677,7 +670,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TabsExtensionInsert">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="tabsextension" />
+        <tai:tolliumcomponent placement="tabsextension" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexContent>
@@ -934,11 +927,11 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Fragment">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="screens"/>
-        <childcomponents field="actions" target="./s:actions" />
-        <childcomponents field="menus" target="./s:menus" />
-        <childcomponents field="compositions" target="./s:compositions" />
-        <childcomponents field="contents" target="./s:contents" adoptfields="lines" />
+        <tai:tolliumcomponent placement="screens"/>
+        <tai:childcomponents field="actions" target="./s:actions" />
+        <tai:childcomponents field="menus" target="./s:menus" />
+        <tai:childcomponents field="compositions" target="./s:compositions" />
+        <tai:childcomponents field="contents" target="./s:contents" adoptfields="lines" />
       </xs:appinfo>
       <xs:documentation>
         <html:p>
@@ -1000,13 +993,13 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Screen">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="screens" objecttype="/lib/components/frame.whlib#TolliumFrame" />
-        <childcomponents field="actions" target="./s:actions" />
-        <childcomponents field="menus" target="./s:menus" />
-        <childcomponents field="compositions" target="./s:compositions" />
-        <childcomponents field="toolbars" target="./s:toolbar" />
-        <childcomponents field="bodynode" target="./s:body" />
-        <childcomponents field="footernode" target="./s:footer" />
+        <tai:tolliumcomponent placement="screens" objecttype="/lib/components/frame.whlib#TolliumFrame" />
+        <tai:childcomponents field="actions" target="./s:actions" />
+        <tai:childcomponents field="menus" target="./s:menus" />
+        <tai:childcomponents field="compositions" target="./s:compositions" />
+        <tai:childcomponents field="toolbars" target="./s:toolbar" />
+        <tai:childcomponents field="bodynode" target="./s:body" />
+        <tai:childcomponents field="footernode" target="./s:footer" />
       </xs:appinfo>
       <xs:documentation>
         <html:p>This is a screen element. Its child elements describe its layout.</html:p>
@@ -1130,7 +1123,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oninterval" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Function pointer to the macro to call every specified interval.</html:p>
@@ -1149,7 +1142,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onshow" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>onshow is fired after initialization of a screen (after the init())</html:p>
@@ -1160,7 +1153,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onunload" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Function that needs to be executed when the screen is unloading. Note that this handler may not be invoked if an application closes unexpectedly (crashed or abandoned by user)</html:p>
@@ -1171,7 +1164,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onmessage" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Function that needs to be executed when a message is send to the application</html:p>
@@ -1216,7 +1209,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Button">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/button.whlib#TolliumButton" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/button.whlib#TolliumButton" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -1310,8 +1303,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ButtonGroup">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/buttongroup.whlib#TolliumButtonGroup" />
-        <childcomponents field="buttons" target="./s:button" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/buttongroup.whlib#TolliumButtonGroup" />
+        <tai:childcomponents field="buttons" target="./s:button" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -1351,7 +1344,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumForward" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumForward" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -1366,10 +1359,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumAction" />
           <!-- FIXME can we decide to parse the sequeence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
-          <extraparser field="enableon" type="enableons" target="./s:enableon" />
+          <tai:extraparser field="enableon" type="enableons" target="./s:enableon" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>An action allows you to execute commands in your application, and to set up client-side checking
@@ -1390,10 +1383,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumDownloadAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumDownloadAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
-          <extraparser field="enableon" type="enableons" target="./s:enableon" />
+          <tai:extraparser field="enableon" type="enableons" target="./s:enableon" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>An action to start a download. When activated, this action will already start the download before sending the instruction to
@@ -1410,7 +1403,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="ondownloadstarted" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
           <xs:documentation>This callback is invoked when the user has started the download (when the webbrowser is starting to respond to the actual download request)</xs:documentation>
         </xs:annotation>
@@ -1422,10 +1415,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumUploadAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumUploadAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
-          <extraparser field="enableon" type="enableons" target="./s:enableon" />
+          <tai:extraparser field="enableon" type="enableons" target="./s:enableon" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1460,11 +1453,11 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumImageAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumImageAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
-          <extraparser field="enableon" type="enableons" target="./s:enableon" />
-          <extraparser field="imgsize" type="imgsize" target="." />
+          <tai:extraparser field="enableon" type="enableons" target="./s:enableon" />
+          <tai:extraparser field="imgsize" type="imgsize" target="." />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1475,15 +1468,15 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="onresend" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <callbacksignature arguments="" />
+            <tai:callbacksignature arguments="" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
 
       <xs:attributeGroup ref="OnUploadGroup" />
       <xs:attributeGroup ref="UploadTypes" />
-      <xs:attributeGroup ref="ImgSizeSpec" />
-      <xs:attribute name="useimgsizepreset" type="ScreenFragmentReference" />
+      <xs:attributeGroup ref="sc:ImageEditSettings" />
+      <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
     </xs:complexType>
   </xs:element>
 
@@ -1491,10 +1484,10 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumWindowOpenAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumWindowOpenAction" />
           <!-- FIXME can we decide to parse the seuqence ourselves?
                      or is it perhaps useful to specify an xpath explaining the nodes to grab? -->
-          <extraparser field="enableon" type="enableons" target="./s:enableon" />
+          <tai:extraparser field="enableon" type="enableons" target="./s:enableon" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1518,7 +1511,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumHelpAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumHelpAction" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1556,7 +1549,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumFeedbackAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumFeedbackAction" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1574,7 +1567,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumCopyAction" />
+          <tai:tolliumcomponent placement="action" objecttype="/lib/components/action.whlib#TolliumCopyAction" />
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
@@ -1689,7 +1682,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onexecute" type="NotimplementedOrHandler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function from the accompanying library to run when calling this action.</html:p>
@@ -1709,7 +1702,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ondownload" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="object" />
+          <tai:callbacksignature arguments="object" />
         </xs:appinfo>
         <xs:documentation>The name of the function from the accompanying library to run to handle downloads.</xs:documentation>
       </xs:annotation>
@@ -1720,7 +1713,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onupload" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="recordarray" />
+          <tai:callbacksignature arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function from the accompanying library to run to handle uploads. It will receive a record array of (filename, data, mimetype) of the uploaded files. The mimetypes are those as reported by the uploader, not as detected by ScanBlob.</html:p>
@@ -1755,7 +1748,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onwindowopen" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="object" />
+          <tai:callbacksignature arguments="object" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function from the accompanying library to run to handle window opens. This function, of signature MACRO onwindowopen(OBJECT openhandler) should invoke the SendURL function on the openhandler with the URL to open.</html:p>
@@ -1800,8 +1793,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="toolbar">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="toolbar" objecttype="/lib/components/toolbar.whlib#TolliumToolbar" />
-        <dividedcomponents field="items" target="./*" divider="s:divider" />
+        <tai:tolliumcomponent placement="toolbar" objecttype="/lib/components/toolbar.whlib#TolliumToolbar" />
+        <tai:dividedcomponents field="items" target="./*" divider="s:divider" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -1821,8 +1814,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="menus">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" />
-        <childcomponents target="./s:menu" />
+        <tai:tolliumcomponent placement="fragment" />
+        <tai:childcomponents target="./s:menu" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -1836,8 +1829,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Menu">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuItem" />
-        <dividedcomponents field="items" target="./*" divider="s:divider" />
+        <tai:tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuItem" />
+        <tai:dividedcomponents field="items" target="./*" divider="s:divider" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -1852,8 +1845,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="MenuItem">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuitem" />
-<!--        <dividedcomponents field="items" target="./*" divider="s:divider" /> -->
+        <tai:tolliumcomponent placement="menu" objecttype="/lib/components/menuitem.whlib#TolliumMenuitem" />
+<!--        <tai:dividedcomponents field="items" target="./*" divider="s:divider" /> -->
       </xs:appinfo>
     </xs:annotation>
     <xs:complexContent>
@@ -1893,8 +1886,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Compositions">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" />
-        <childcomponents field="compositions" target="./*" />
+        <tai:tolliumcomponent placement="fragment" />
+        <tai:childcomponents field="compositions" target="./*" />
       </xs:appinfo>
       <xs:documentation>
         Compositions are invisible elements that 'group' related visible components together.
@@ -1917,7 +1910,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Record">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/record.whlib#TolliumRecord" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/record.whlib#TolliumRecord" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="tc:CompositionBase" />
@@ -1927,7 +1920,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RadioGroup">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/radiogroup.whlib#TolliumRadioGroup" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/radiogroup.whlib#TolliumRadioGroup" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2118,7 +2111,7 @@ To change a <xs:attribute /> for adding descriptions
 
   <xs:attributeGroup name="TextEditBaseAttributes">
     <xs:annotation>
-      <xs:documentation s:component="readonly">
+      <xs:documentation tc:component="readonly">
         <html:p>If set to true, the value of this component will be shown as normal text instead of a textedit field.</html:p>
       </xs:documentation>
     </xs:annotation>
@@ -2260,7 +2253,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="PasswordField">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/passwordfield.passwordfield" />
+        <tai:tolliumcomponent placement="inline" fragment="components/passwordfield.passwordfield" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -2296,7 +2289,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onpolicycheck" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="boolean" arguments="string"/>
+          <tai:callbacksignature returntype="boolean" arguments="string"/>
         </xs:appinfo>
         <xs:documentation>
           Verify whether a password complies with a policy
@@ -2328,9 +2321,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TextEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/textedit.whlib#TolliumTextEdit" />
-        <childcomponents field="buttons" target="./s:button" />
-        <optionsources field="optionsources" type="optionsources" target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens' or (local-name()!='button')]" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/textedit.whlib#TolliumTextEdit" />
+        <tai:childcomponents field="buttons" target="./s:button" />
+        <tai:optionsources field="optionsources" type="optionsources" target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens' or (local-name()!='button')]" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -2370,7 +2363,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Image">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/image.whlib#TolliumImage" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/image.whlib#TolliumImage" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2434,7 +2427,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ImageEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/imageedit.whlib#TolliumImageEdit" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/imageedit.whlib#TolliumImageEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2527,8 +2520,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ImgEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/imgedit.tolliumimgedit" />
-        <extraparser field="imgsize" type="imgsize" target="." />
+        <tai:tolliumcomponent placement="inline" fragment="components/imgedit.tolliumimgedit" />
+        <tai:extraparser field="imgsize" type="imgsize" target="." />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2537,7 +2530,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Required" />
     <xs:attributeGroup ref="sc:Errorlabel" />
     <xs:attributeGroup ref="ImgSizeSpec" />
-    <xs:attribute name="useimgsizepreset" type="ScreenFragmentReference" />
+    <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
     <xs:attribute name="upload" type="xs:boolean" default="true">
       <xs:annotation>
         <xs:documentation>
@@ -2565,7 +2558,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CheckBox">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/checkbox.whlib#TolliumCheckbox" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/checkbox.whlib#TolliumCheckbox" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2602,7 +2595,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RadioButton">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/radiobutton.whlib#TolliumRadioButton" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/radiobutton.whlib#TolliumRadioButton" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2658,7 +2651,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onset" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -2688,7 +2681,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TextArea">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/textarea.whlib#TolliumTextArea" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/textarea.whlib#TolliumTextArea" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2820,8 +2813,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RichDocument">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichDocument" />
-        <extraparser field="allowwidgettypes" type="allowwidgettypes" target="./s:allowwidgettype" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichDocument" />
+        <tai:extraparser field="allowwidgettypes" type="allowwidgettypes" target="./s:allowwidgettype" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexContent>
@@ -2856,8 +2849,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RichArea">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichArea" />
-        <extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRichArea" />
+        <tai:extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -2893,8 +2886,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="RTE">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRTE" />
-        <extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/rte.whlib#TolliumRTE" />
+        <tai:extraparser field="linkhandlers" type="bodynode" target="./s:linkhandlers" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -2911,7 +2904,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:attribute name="onbuttonclick" type="tc:Handler">
           <xs:annotation>
             <xs:appinfo>
-              <callbacksignature arguments="string" />
+              <tai:callbacksignature arguments="string" />
             </xs:appinfo>
           </xs:annotation>
         </xs:attribute>
@@ -2984,7 +2977,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="block" fragment="components/hsvalue.hsvalue" />
+          <tai:tolliumcomponent placement="block" fragment="components/hsvalue.hsvalue" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComposableComponentBase" />
@@ -2994,14 +2987,14 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Iframe">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/iframe.whlib#TolliumIFrame" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/iframe.whlib#TolliumIFrame" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComponentBase" />
     <xs:attribute name="onclicklink" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="string" />
+          <tai:callbacksignature arguments="string" />
         </xs:appinfo>
         <xs:documentation>
           Triggered when a link within the iframe is clicked
@@ -3011,7 +3004,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oncallback" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           Triggered when javascripts calls DoCallback. Deprecated
@@ -3021,7 +3014,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ondata" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           Deprecated
@@ -3031,7 +3024,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onmessage" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="variant string" />
+          <tai:callbacksignature arguments="variant string" />
         </xs:appinfo>
         <xs:documentation>
           Triggered when iframe sends a postMessage.
@@ -3060,7 +3053,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CodeEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/codeedit.whlib#TolliumCodeEdit" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/codeedit.whlib#TolliumCodeEdit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3086,7 +3079,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ongutterclick" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="integer" />
+          <tai:callbacksignature arguments="integer" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called when clicked on the gutter, passes the line number (1-based!).</html:p>
@@ -3100,7 +3093,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="FileEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/fileedit.fileedit" />
+        <tai:tolliumcomponent placement="inline" fragment="components/fileedit.fileedit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -3112,7 +3105,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onbeforechange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="boolean" arguments="record" />
+          <tai:callbacksignature returntype="boolean" arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name a function to call when the contents are about to change.</html:p>
@@ -3141,7 +3134,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ColorEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/colorpicker.coloredit" />
+        <tai:tolliumcomponent placement="inline" fragment="components/colorpicker.coloredit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -3177,7 +3170,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Date">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="sc:TidOrTitle" />
@@ -3188,7 +3181,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called if the the date value is changed using the date picker.</html:p>
@@ -3209,9 +3202,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="DateTime">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/datetime.whlib#TolliumDateTime" />
       </xs:appinfo>
-      <xs:documentation s:component="readonly">
+      <xs:documentation tc:component="readonly">
         <html:p>If set to true, the value of this component will be shown as normal text instead of a date time field.</html:p>
       </xs:documentation>
     </xs:annotation>
@@ -3224,7 +3217,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called if the the date value is changed using the date picker.</html:p>
@@ -3288,7 +3281,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Time">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/timefield.tolliumtime" />
+        <tai:tolliumcomponent placement="inline" fragment="components/timefield.tolliumtime" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3310,7 +3303,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="BrowseServerPath">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/browseserverpath.whlib#TolliumBrowseServerPath" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/browseserverpath.whlib#TolliumBrowseServerPath" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3374,8 +3367,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ComboBox">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/combobox.whlib#TolliumComboBox" />
-        <optionsources field="optionsources" type="optionsources" target="./*" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/combobox.whlib#TolliumComboBox" />
+        <tai:optionsources field="optionsources" type="optionsources" target="./*" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -3401,16 +3394,16 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="mod::tollium/lib/components/panel.whlib#TolliumPanel" /> <!-- FIXME shouldnt need abspath but it breaks siteprofilecomponents.xsd NewTab -->
-        <extraparser field="visibleon" type="enableons" target="./s:visibleon" />
-        <extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
-        <extraparser field="lines" type="lines"
+        <tai:tolliumcomponent placement="block" objecttype="mod::tollium/lib/components/panel.whlib#TolliumPanel" /> <!-- FIXME shouldnt need abspath but it breaks siteprofilecomponents.xsd NewTab -->
+        <tai:extraparser field="visibleon" type="enableons" target="./s:visibleon" />
+        <tai:extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
+        <tai:extraparser field="lines" type="lines"
                       target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens'
                                or (local-name()!='visibleon'
                                    and local-name()!='backgroundimage'
                                    and local-name()!='acceptdrops'
                                   )]" />
-        <acceptdrops field="acceptdrops" ondrop_arguments="record string" target="./s:acceptdrops" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3472,8 +3465,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Split">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/split.whlib#TolliumSplit" />
-        <childcomponents field="children" target="./s:part" adoptfields="height width minheight minwidth" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/split.whlib#TolliumSplit" />
+        <tai:childcomponents field="children" target="./s:part" adoptfields="height width minheight minwidth" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3500,8 +3493,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Wizard">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/wizard.whlib#TolliumWizard" />
-        <childcomponents field="pages" target="./s:page" adoptfields="oninit onnext isfinish" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/wizard.whlib#TolliumWizard" />
+        <tai:childcomponents field="pages" target="./s:page" adoptfields="oninit onnext isfinish" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3537,9 +3530,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Tabs">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/tabs.whlib#TolliumTabs" />
-        <childcomponents field="line" target="./s:line/*" /><!-- Match all elements within <line> -->
-        <childcomponents field="pages" target="./s:tab" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/tabs.whlib#TolliumTabs" />
+        <tai:childcomponents field="line" target="./s:line/*" /><!-- Match all elements within <line> -->
+        <tai:childcomponents field="pages" target="./s:tab" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3559,7 +3552,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function to use from the accompanying library when the user selects one of the tabs.</html:p>
@@ -3615,7 +3608,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Box">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/boxheading.box" />
+        <tai:tolliumcomponent placement="block" fragment="components/boxheading.box" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexContent>
@@ -3662,7 +3655,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Heading">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/boxheading.heading" />
+        <tai:tolliumcomponent placement="block" fragment="components/boxheading.heading" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -3699,7 +3692,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="block" objecttype="/lib/components/hr.whlib#TolliumHR" />
+          <tai:tolliumcomponent placement="block" objecttype="/lib/components/hr.whlib#TolliumHR" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -3709,20 +3702,12 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AcceptDropsTypeBase">
     <xs:attribute name="frameflags" type="CheckFlags">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>Check these flags on the frame before permitting the drop at all.
-             If these flags flags evaluate to 'true', the action will be enabled.
-             To check if a flag evaluates to 'false' prepand it with !.</html:p>
-        </xs:documentation>
+        <xs:documentation>>Check these flags on the frame before permitting the drop at all. If these flags flags evaluate to 'true', the action will be enabled. To check if a flag evaluates to 'false' prepand it with !.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="targetflags" type="CheckFlags">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>Check the flags of the target item in the list.
-            If these flags evaluate to 'true', the action will be enabled.
-            To check if a flag evaluates to 'false' prepend it with !.</html:p>
-        </xs:documentation>
+        <xs:documentation>Check the flags of the target item in the list. If these flags evaluate to 'true', the action will be enabled. To check if a flag evaluates to 'false' prepend it with !.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 
@@ -3745,7 +3730,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="requiretarget" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p></html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -3754,26 +3738,18 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AcceptDrops">
     <xs:annotation>
       <xs:documentation>
-        <html:p>
-          To make local (within an application) drag &amp; drop working:<html:br />
-          (doesn't work in siteprofiles due to you needed to register drag types in code)
-          <html:ul>
-            <html:li>The type must be activated on a screen using this->RegisterLocalDragType before it will start to work.</html:li>
-            <html:li>The row must have a draginfo RECORD</html:li>
-            <html:li>The flags being checked in sourceflags must be within the draginfo RECORD</html:li>
-          </html:ul>
-        </html:p>
+          To make local (within an application) drag &amp; drop working:
 
-        <html:p>
+          - The type must be activated on a screen using this->RegisterLocalDragType before it will start to work.
+          - The row must have a draginfo RECORD
+          - The flags being checked in sourceflags must be within the draginfo RECORD
+
           To make global drag &amp; drop working:
-          <html:ul>
-            <html:li>Pray that it works</html:li>
-            <html:li>Specify in moduledefinition.xml (ADDME: document how)</html:li>
-          </html:ul>
-        </html:p>
+          - Pray that it works
+          - Specify in moduledefinition.xml (ADDME: document how)
       </xs:documentation>
       <xs:appinfo>
-        <extraparser field="imgsize" type="imgsize" target="." />
+        <tai:extraparser field="imgsize" type="imgsize" target="." />
       </xs:appinfo>
     </xs:annotation>
 
@@ -3785,12 +3761,10 @@ To change a <xs:attribute /> for adding descriptions
               <xs:attribute name="type" type="xs:string">
                 <xs:annotation>
                   <xs:documentation>
-                    <html:p>
-                      Type of item to accept.<br />
-                      <br />
-                      (FIXME: assumption on have typenames work) The typename should start with an origin (usually the modulename) and semicolon. For example: "mytestmodule:testrow".
-                      If dragged rows are only used within the module itself, use local as origin: "local:country".
-                    </html:p>
+                    Type of item to accept.
+
+                    (FIXME: assumption on have typenames work) The typename should start with an origin (usually the modulename) and semicolon. For example: "mytestmodule:testrow".
+                    If dragged rows are only used within the module itself, use local as origin: "local:country".
                   </xs:documentation>
                 </xs:annotation>
               </xs:attribute>
@@ -3798,19 +3772,16 @@ To change a <xs:attribute /> for adding descriptions
               <xs:attribute name="sourceflags" type="CheckFlags">
                 <xs:annotation>
                   <xs:documentation>
-                    <html:p>
                       Checks the flags (in the draginfo RECORD of the dragged row) of the dragged items of this type.
                       If these flags evaluate to 'true', the action will be enabled.
-                      To check if a flag evaluates to 'false' prepend it with !.</html:p>
+                      To check if a flag evaluates to 'false' prepend it with !.
                   </xs:documentation>
                 </xs:annotation>
               </xs:attribute>
 
               <xs:attribute name="dropeffects">
                 <xs:annotation>
-                  <xs:documentation>
-                    <html:p>Allowed drop effects (or 'all').</html:p>
-                  </xs:documentation>
+                  <xs:documentation>Allowed drop effects (or 'all').</xs:documentation>
                 </xs:annotation>
                 <xs:simpleType>
                   <xs:list>
@@ -3849,28 +3820,24 @@ To change a <xs:attribute /> for adding descriptions
     </xs:choice>
     <xs:attribute name="acceptmultiple" type="xs:boolean" default="true">
       <xs:annotation>
-        <xs:documentation>
-          <html:p>Whether multiple items can be dropped at a time.</html:p>
-        </xs:documentation>
+        <xs:documentation>Whether multiple items can be dropped at a time.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="ondrop" type="tc:Handler">
+    <xs:attribute name="ondrop" type="Handler">
       <xs:annotation>
         <!-- no callback signature, may vary per location -->
-        <xs:documentation>
-          <html:p>The name of the function from the accompanying library to run to handle drops.</html:p>
-        </xs:documentation>
+        <xs:documentation>The name of the function from the accompanying library to run to handle drops.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attributeGroup ref="ImgSizeSpec" />
-    <xs:attribute name="useimgsizepreset" type="ScreenFragmentReference" />
+    <xs:attributeGroup ref="sc:ImageEditSettings" />
+    <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
   </xs:complexType>
 
   <xs:complexType name="Grid">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/grid.whlib#TolliumGrid" />
-        <extraparser field="grid" type="grid" target="./*" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/grid.whlib#TolliumGrid" />
+        <tai:extraparser field="grid" type="grid" target="./*" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice>
@@ -3915,8 +3882,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Table">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/table.whlib#TolliumTable" />
-        <acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/table.whlib#TolliumTable" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -3956,7 +3923,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p></html:p>
@@ -3968,7 +3935,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onoverlayresize" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="object record string"/>
+          <tai:callbacksignature arguments="object record string"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -4072,9 +4039,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Calendar">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/calendar.whlib#TolliumCalendar" />
-        <acceptdrops field="acceptdrops" ondrop_arguments="record datetime datetime string" target="./s:acceptdrops" />
-        <extraparser field="categories" type="array" target="./s:category" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/calendar.whlib#TolliumCalendar" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record datetime datetime string" target="./s:acceptdrops" />
+        <tai:extraparser field="categories" type="array" target="./s:category" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -4089,7 +4056,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onloaditems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="recordarray" arguments="datetime datetime" />
+          <tai:callbacksignature returntype="recordarray" arguments="datetime datetime" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function from the accompanying library to use upon loading the calendar.</html:p>
@@ -4172,7 +4139,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function to perform when a change occurs for this component, as defined in the &lt;actions&gt; section.</html:p>
@@ -4257,7 +4224,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Text">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/text.whlib#TolliumText" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/text.whlib#TolliumText" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4268,7 +4235,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onclicklink" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="string" />
+          <tai:callbacksignature arguments="string" />
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
@@ -4300,7 +4267,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="URL">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="/screens/components/url.xml#tolliumurl" />
+        <tai:tolliumcomponent placement="inline" fragment="/screens/components/url.xml#tolliumurl" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4311,7 +4278,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Slider">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/slider.whlib#TolliumSlider" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/slider.whlib#TolliumSlider" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4329,7 +4296,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
@@ -4351,8 +4318,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="TagEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/tagedit.whlib#TolliumTagEdit" />
-        <optionsources field="optionsources" type="optionsources" target="./*" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/tagedit.whlib#TolliumTagEdit" />
+        <tai:optionsources field="optionsources" type="optionsources" target="./*" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -4369,7 +4336,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
       </xs:annotation>
     </xs:attribute>
@@ -4382,7 +4349,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onvalidatetags" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="stringarray" arguments="stringarray"/>
+          <tai:callbacksignature returntype="stringarray" arguments="stringarray"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called to validate tags before accepting them in the frontend. Return the (filtered) list of allowed tags.</html:p>
@@ -4419,7 +4386,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Progress">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/progress.whlib#TolliumProgress" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/progress.whlib#TolliumProgress" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComposableComponentBase" />
@@ -4431,7 +4398,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Spacer">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/spacer.whlib#TolliumSpacer" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/spacer.whlib#TolliumSpacer" />
       </xs:appinfo>
         <xs:documentation>
           <html:p>Creates space between two inline components. Defaults to 1pr width.</html:p>
@@ -4459,7 +4426,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <tolliumcomponent placement="block" objecttype="/lib/components/defaultformbuttons.whlib#TolliumDefaultFormButtons" />
+          <tai:tolliumcomponent placement="block" objecttype="/lib/components/defaultformbuttons.whlib#TolliumDefaultFormButtons" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="ComponentBase" />
@@ -4555,8 +4522,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Select">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/select.whlib#TolliumSelect" />
-        <optionsources field="optionsources" type="optionsources" target="./*" rowkeytypefield="rowkeytype" flagsfield="flags" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/select.whlib#TolliumSelect" />
+        <tai:optionsources field="optionsources" type="optionsources" target="./*" rowkeytypefield="rowkeytype" flagsfield="flags" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice minOccurs="0" maxOccurs="unbounded" >
@@ -4695,7 +4662,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onfocusin" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>Invoked when this list receives focus</xs:documentation>
       </xs:annotation>
@@ -4815,7 +4782,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -4829,7 +4796,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oncelledit" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="boolean" arguments="record string string"/>
+          <tai:callbacksignature returntype="boolean" arguments="record string string"/>
         </xs:appinfo>
         <xs:documentation>The oncelleditevent will fire when a cell with an edittype is modified</xs:documentation>
       </xs:annotation>
@@ -4877,7 +4844,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ongetpath" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="variant" arguments="variant"/>
+          <tai:callbacksignature returntype="variant" arguments="variant"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>Defines which function of the screen is used to retrieve list of rowkeys which define the path to the row. The list starts at the row in the root and ends with the rowkey of the node for which the path was requested.</html:p>
@@ -4887,7 +4854,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ongetrows" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="recordarray" />
+          <tai:callbacksignature returntype="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Defines which function of the screen is used to get all rows.</html:p>
@@ -4897,7 +4864,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ongetchildren" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="recordarray" arguments="record"/>
+          <tai:callbacksignature returntype="recordarray" arguments="record"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>Defines which function of the screen is used to get subnodes of a list row.
@@ -5008,7 +4975,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onrowedit" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5023,9 +4990,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ListEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ListEdit" />
-        <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
+        <tai:tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ListEdit" />
+        <tai:extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice minOccurs="0" maxOccurs="unbounded" >
@@ -5042,7 +5009,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onrowdelete" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record" />
+          <tai:callbacksignature arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5060,7 +5027,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onrowsdelete" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="recordarray" />
+          <tai:callbacksignature arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5076,7 +5043,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchangeorder" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="variant"/>
+          <tai:callbacksignature arguments="variant"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5092,10 +5059,10 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ArrayEdit">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ArrayEdit" />
-        <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
-        <extraparser field="rowdatatypes" type="rowdatatypes" target="./s:rowdatatype" />
+        <tai:tolliumcomponent placement="block" fragment="components/listedit.listedit" objecttype="/lib/components/listedit.whlib#ArrayEdit" />
+        <tai:extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
+        <tai:extraparser field="rowdatatypes" type="rowdatatypes" target="./s:rowdatatype" />
       </xs:appinfo>
     </xs:annotation>
     <xs:choice minOccurs="0" maxOccurs="unbounded" >
@@ -5121,7 +5088,7 @@ To change a <xs:attribute /> for adding descriptions
             </xs:annotation>
           </xs:attribute>
 
-          <xs:attribute name="screen" type="ScreenFragmentReference" default="">
+          <xs:attribute name="screen" type="tc:ScreenFragmentReference" default="">
             <xs:annotation>
               <xs:documentation>
                 <html:p>The (row)editscreen to edit this type of data. If no screen is specified, adding a row of this type gives a RECORD containing only the type field (with the cell name as specified in rowtypename and the type of this rowdatatype as value)</html:p>
@@ -5142,7 +5109,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>The name of the function to perform when the ordering of rows changes</html:p>
@@ -5153,7 +5120,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onrowdelete" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="boolean" arguments="record" />
+          <tai:callbacksignature returntype="boolean" arguments="record" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5172,7 +5139,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onrowsdelete" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="boolean" arguments="recordarray" />
+          <tai:callbacksignature returntype="boolean" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5186,9 +5153,9 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="rowaddscreen" type="ScreenFragmentReference" default="" />
+    <xs:attribute name="rowaddscreen" type="tc:ScreenFragmentReference" default="" />
 
-    <xs:attribute name="roweditscreen" type="ScreenFragmentReference" default="">
+    <xs:attribute name="roweditscreen" type="tc:ScreenFragmentReference" default="">
       <xs:annotation>
         <xs:documentation>
           <html:p>
@@ -5225,7 +5192,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onmaprows" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="recordarray" arguments="recordarray" />
+          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5257,13 +5224,13 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="List">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/list.whlib#TolliumList" />
-        <acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/list.whlib#TolliumList" />
+        <tai:acceptdrops field="acceptdrops" ondrop_arguments="record record string string" target="./s:acceptdrops" />
         <!-- columns matches <s:column> and everything outside our namespace -->
-        <extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
-        <extraparser field="rowlayouts" type="listrowlayouts" target="./s:rowlayout" />
-        <listrows field="rows" target="./s:row" columnsfield="columns" rowkeytypefield="rowkeytype" rowiconnamefield="rowiconname" flagsfield="flags" />
+        <tai:extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="liststyles" target="./s:style|./s:layout" />
+        <tai:extraparser field="rowlayouts" type="listrowlayouts" target="./s:rowlayout" />
+        <tai:listrows field="rows" target="./s:row" columnsfield="columns" rowkeytypefield="rowkeytype" rowiconnamefield="rowiconname" flagsfield="flags" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -5310,7 +5277,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oncheck" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record string"/>
+          <tai:callbacksignature arguments="record string"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5323,7 +5290,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oniconclick" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="record string"/>
+          <tai:callbacksignature arguments="record string"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5394,7 +5361,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onsortorderchange" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="" />
+          <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5445,7 +5412,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="ListColumn">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="listcolumn" />
+        <tai:tolliumcomponent placement="listcolumn" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -5726,7 +5693,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onmapvalue" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature returntype="variant" arguments="variant"/>
+          <tai:callbacksignature returntype="variant" arguments="variant"/>
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -5850,7 +5817,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="AutoSuggest">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#TolliumAutoSuggestComponent" />
+        <tai:tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#TolliumAutoSuggestComponent" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -5901,12 +5868,12 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="includefragment">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/screenbase.whlib#TolliumFragmentBase" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/screenbase.whlib#TolliumFragmentBase" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
       <xs:attributeGroup ref="ComponentBase" />
-      <xs:attribute name="fragment" type="ScreenFragmentReference" use="required" />
+      <xs:attribute name="fragment" type="tc:ScreenFragmentReference" use="required" />
     </xs:complexType>
   </xs:element>
   <xs:element name="line" type="Line" />
@@ -5941,7 +5908,7 @@ To change a <xs:attribute /> for adding descriptions
           <xs:attribute name="oninit" type="tc:Handler">
             <xs:annotation>
               <xs:appinfo>
-                <callbacksignature arguments="record" />
+                <tai:callbacksignature arguments="record" />
               </xs:appinfo>
               <xs:documentation>
                 <html:p><!-- FIXME: Doc --></html:p>
@@ -5952,7 +5919,7 @@ To change a <xs:attribute /> for adding descriptions
           <xs:attribute name="onnext" type="tc:Handler">
             <xs:annotation>
               <xs:appinfo>
-                <callbacksignature returntype="boolean" />
+                <tai:callbacksignature returntype="boolean" />
               </xs:appinfo>
               <xs:documentation>
                 <html:p>The name of the function to use from the accompanying library when the user presses the "next"
@@ -5992,13 +5959,13 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="url" type="URL"/>
   <xs:element name="wizard" type="Wizard"/>
 
-  <!-- helper elements -->
+  <!-- We need acceptdrops as a global element so p:foldertree (and p:filelist) can accept <acceptdrops>  -->
   <xs:element name="acceptdrops" type="AcceptDrops" />
 
   <xs:element name="pulldown">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/pulldown.whlib#TolliumPulldown" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/pulldown.whlib#TolliumPulldown" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6006,8 +5973,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="actions">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" />
-        <childcomponents field="actions" target="./*" />
+        <tai:tolliumcomponent placement="fragment" />
+        <tai:childcomponents field="actions" target="./*" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -6038,7 +6005,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="body" type="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
+        <tai:tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6046,7 +6013,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="footer" type="Panel">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
+        <tai:tolliumcomponent placement="fragment" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6054,7 +6021,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="LinesContainer">
     <xs:annotation>
       <xs:appinfo>
-        <extraparser field="lines" type="lines" target="./*" />
+        <tai:extraparser field="lines" type="lines" target="./*" />
       </xs:appinfo>
     </xs:annotation>
     <xs:sequence>
@@ -6067,7 +6034,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Contents">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="fragment" />
+        <tai:tolliumcomponent placement="fragment" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexContent>
@@ -6082,7 +6049,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="cell">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="row" objecttype="/lib/components/panel.whlib#TolliumPanel" />
+        <tai:tolliumcomponent placement="row" objecttype="/lib/components/panel.whlib#TolliumPanel" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -6123,9 +6090,9 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="inlineblock">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" objecttype="/lib/components/inlineblock.whlib#TolliumInlineBlock" />
-        <extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
-        <extraparser field="lines" type="lines"
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/inlineblock.whlib#TolliumInlineBlock" />
+        <tai:extraparser field="backgroundimages" type="backgroundimages" target="./s:backgroundimage" />
+        <tai:extraparser field="lines" type="lines"
                       target="./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens'
                                or (local-name()!='backgroundimage')]" />
       </xs:appinfo>
@@ -6143,7 +6110,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="countbadge">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="block" objecttype="/lib/components/countbadge.whlib#TolliumCountBadge" />
+        <tai:tolliumcomponent placement="block" objecttype="/lib/components/countbadge.whlib#TolliumCountBadge" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6151,7 +6118,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="proxy" type="Proxy">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="action" objecttype="/lib/componentbase.whlib#TolliumProxyComponent" />
+        <tai:tolliumcomponent placement="action" objecttype="/lib/componentbase.whlib#TolliumProxyComponent" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -6159,7 +6126,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="category">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent />
+        <tai:tolliumcomponent />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -6171,7 +6138,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="backgroundimage">
     <!--xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent />
+        <tai:tolliumcomponent />
       </xs:appinfo>
     </xs:annotation-->
     <xs:complexType>
@@ -6251,7 +6218,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="EventListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/eventlistener.whlib#TolliumEventListener" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/eventlistener.whlib#TolliumEventListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6273,7 +6240,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="CallbackListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/callbacklistener.whlib#TolliumCallbackListener" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/callbacklistener.whlib#TolliumCallbackListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6281,7 +6248,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="oncallback" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature arguments="object" />
+          <tai:callbacksignature arguments="object" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called if the callback url is opened.</html:p>
@@ -6297,7 +6264,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="DirtyListener">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/dirtylistener.whlib#TolliumDirtyListener" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/dirtylistener.whlib#TolliumDirtyListener" />
       </xs:appinfo>
     </xs:annotation>
 
@@ -6305,7 +6272,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="ondirty" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>
           <html:p>Called once if one of the registered fields is marked dirty.</html:p>
@@ -6317,7 +6284,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:complexType name="Proxy">
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="composition" objecttype="/lib/components/componentbase.whlib#TolliumProxy" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/componentbase.whlib#TolliumProxy" />
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="ComponentBase" />
@@ -6331,7 +6298,7 @@ To change a <xs:attribute /> for adding descriptions
   <!--xs:element name="browsecustom"-->
     <xs:annotation>
       <xs:appinfo>
-        <tolliumcomponent placement="inline" fragment="components/browsecustom.browsecustom" />
+        <tai:tolliumcomponent placement="inline" fragment="components/browsecustom.browsecustom" />
       </xs:appinfo>
     </xs:annotation>
     <!--xs:complexType-->
@@ -6365,7 +6332,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="onbrowse" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <callbacksignature returntype="variant" arguments="variant"/>
+            <tai:callbacksignature returntype="variant" arguments="variant"/>
           </xs:appinfo>
           <xs:documentation>
             <html:p>
@@ -6379,7 +6346,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:attribute name="onmapvalue" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <callbacksignature returntype="variant" arguments="variant"/>
+            <tai:callbacksignature returntype="variant" arguments="variant"/>
           </xs:appinfo>
           <xs:documentation>
             <html:p>
@@ -6397,35 +6364,13 @@ To change a <xs:attribute /> for adding descriptions
         </xs:annotation>
       </xs:attribute>
 
-      <xs:attribute name="valuetype" default="string"><!-- type="VariableTypes"  -->
+      <xs:attribute name="valuetype" type="sc:HareScriptValueTypes" default="string"><!-- type="VariableTypes"  -->
 
         <xs:annotation>
           <xs:documentation>
             <html:p>The variable type to use when submitting the value. Default is "string". (almost all variable and array types are possible)</html:p>
           </xs:documentation>
         </xs:annotation>
-
-        <xs:simpleType><!-- name="VariableTypes" -->
-          <xs:restriction base="xs:string">
-            <xs:enumeration value="blob"/>
-            <xs:enumeration value="datetime"/>
-            <xs:enumeration value="float"/>
-            <xs:enumeration value="integer"/>
-            <xs:enumeration value="integer64"/>
-            <xs:enumeration value="money"/>
-            <xs:enumeration value="record"/>
-            <xs:enumeration value="string"/>
-
-            <xs:enumeration value="blobarray"/>
-            <xs:enumeration value="datetimearray"/>
-            <xs:enumeration value="floatarray"/>
-            <xs:enumeration value="integerarray"/>
-            <xs:enumeration value="integer64array"/>
-            <xs:enumeration value="moneyarray"/>
-            <xs:enumeration value="recordarray"/>
-            <xs:enumeration value="stringarray"/>
-          </xs:restriction>
-        </xs:simpleType>
       </xs:attribute>
   <!--
     </xs:complexType>
@@ -6456,7 +6401,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/diskobjects.whlib#DiskObjects" />
+          <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/diskobjects.whlib#DiskObjects" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
@@ -6539,14 +6484,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/optionsource.whlib#TolliumOptionSource" />
+          <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/optionsource.whlib#TolliumOptionSource" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComponentBase" />
       <xs:attribute name="ongetoptions" type="tc:Handler" use="required">
         <xs:annotation>
           <xs:appinfo>
-            <callbacksignature returnvalue="record" />
+            <tai:callbacksignature returntype="record" />
           </xs:appinfo>
           <xs:documentation>
             Callback which generates the options. Must return a RECORD with an 'options' cell
@@ -6560,8 +6505,8 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="rte" objecttype="/lib/components/linkhandlers.whlib#TolliumLinkHandlers" />
-          <extraparser field="linkhandlers" type="linkhandlers" target="./*" />
+          <tai:tolliumcomponent placement="rte" objecttype="/lib/components/linkhandlers.whlib#TolliumLinkHandlers" />
+          <tai:extraparser field="linkhandlers" type="linkhandlers" target="./*" />
         </xs:appinfo>
       </xs:annotation>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -6574,12 +6519,29 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="emailcontents">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="mod::tollium/screens/components/emailcontents.xml#emailcontents" />
+        <tai:tolliumcomponent placement="block" fragment="mod::tollium/screens/components/emailcontents.xml#emailcontents" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
       <xs:attributeGroup ref="tc:ComponentBase" />
     </xs:complexType>
   </xs:element>
+
+  <!-- appinfo forwards for backwards compatibility -->
+  <xs:element name="tolliumcomponent">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="tai:__AppinfoTolliumComponent">
+          <xs:attribute name="lib" /> <!-- legacy nodes can still refer to lib=... -->
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- appinfo forwards for backwards compatibility -->
+  <xs:element name="tolliumimplementation" type="tai:__AppinfoTolliumImplementation"/>
+  <xs:element name="extraparser" type="tai:__AppinfoExtraParser"/>
+  <xs:element name="callbacksignature" type="tai:__AppinfoCallbackSignature"/>
+  <xs:element name="fixedfield" type="tai:__AppinfoFixedField"/>
 
 </xs:schema>

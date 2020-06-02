@@ -11,6 +11,7 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
@@ -258,7 +259,22 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
   {
     TRY
     {
-      schemarec := __RetrieveCachedXMLSchema(srec.schemalocation);
+      STRING useschema := srec.schemalocation;
+
+      IF(useschema = "whres::xml/xmlschema.xsd") //we might need a specialized parser for tollium or form component XSDs, and we can't detect that just by looking at the root element
+      {
+        STRING targetns := doc->documentelement->GetAttribute("targetNamespace");
+        RECORD matchingcomponentsource := SELECT * FROM GetComponentSources("") WHERE namespace = targetns;
+        IF(RecordExists(matchingcomponentsource))
+        {
+          IF(matchingcomponentsource.type = "tolliumcomponents")
+            useschema := "mod::tollium/data/tolliumcomponents.xsd.xsd";
+          ELSE IF(matchingcomponentsource.type = "formcomponents")
+            useschema := "mod::publisher/data/forms/formcomponents.xsd.xsd";
+        }
+      }
+
+      schemarec := __RetrieveCachedXMLSchema(useschema);
       eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM schemarec.files);
     }
     CATCH(OBJECT e)

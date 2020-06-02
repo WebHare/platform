@@ -6,6 +6,7 @@
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   targetNamespace="http://www.webhare.net/xmlns/system/webapis"
   elementFormDefault="qualified"
   xml:lang="en">
@@ -16,7 +17,7 @@
   <xs:element name="oauth2client">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="webapis.xml#oauth2client" />
+        <tai:tolliumcomponent placement="inline" fragment="webapis.xml#oauth2client" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -31,7 +32,7 @@
   <xs:element name="oauth2authorization">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="webapis.xml#oauth2authorization" />
+        <tai:tolliumcomponent placement="inline" fragment="webapis.xml#oauth2authorization" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -43,7 +44,7 @@
       <xs:attribute name="onauthorize" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tc:callbacksignature returnvalue="record" />
+            <tai:callbacksignature returntype="record" />
           </xs:appinfo>
           <xs:documentation>Callback which should return the authorization context</xs:documentation>
         </xs:annotation>
@@ -51,7 +52,7 @@
       <xs:attribute name="oncheck" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <tc:callbacksignature returnvalue="boolean" arguments="record" />
+            <tai:callbacksignature returntype="boolean" arguments="record" />
           </xs:appinfo>
           <xs:documentation>Callback which should check the received authorization</xs:documentation>
         </xs:annotation>
@@ -62,7 +63,7 @@
   <xs:element name="timezoneedit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="webapis.xml#timezoneedit" />
+        <tai:tolliumcomponent placement="inline" fragment="webapis.xml#timezoneedit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

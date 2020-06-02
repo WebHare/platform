@@ -1,0 +1,7 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="" elementFormDefault="qualified" xml:lang="en">
+  <xs:import namespace="http://www.w3.org/2001/XMLSchema" schemaLocation="whres::xml/xmlschema-strict.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms/appinfo" schemaLocation="mod::publisher/data/forms/appinfo.xsd" />
+
+  <!-- imports to support pre-4.29 component names -->
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms" schemaLocation="mod::publisher/data/forms/formdef.xsd" />
+</xs:schema>

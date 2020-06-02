@@ -70,7 +70,7 @@ RECORD FUNCTION GetCachableComponentSourceList()
 PUBLIC RECORD ARRAY FUNCTION GetComponentSources(STRING gettype)
 {
   RECORD ARRAY sourcelist := GetAdhocCached([ type := "componentsourcelist" ], PTR GetCachableComponentSourceList);
-  RETURN SELECT * FROM sourcelist WHERE type = gettype;
+  RETURN SELECT * FROM sourcelist WHERE gettype="" OR type = gettype;
 }
 
 PUBLIC STRING FUNCTION GetComponentDefinitions(STRING gettype, STRING getnamespace)

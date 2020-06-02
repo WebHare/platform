@@ -5,6 +5,7 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:html="http://www.w3.org/1999/xhtml"
   xmlns="http://www.webhare.net/xmlns/consilio/components"
   targetNamespace="http://www.webhare.net/xmlns/consilio/components"
@@ -23,7 +24,7 @@
   <xs:element name="autosuggest">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#ConsilioAutoSuggestComponent" />
+        <tai:tolliumcomponent placement="autosuggest" objecttype="/lib/components/autosuggest.whlib#ConsilioAutoSuggestComponent" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

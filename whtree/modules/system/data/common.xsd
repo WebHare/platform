@@ -552,4 +552,59 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="HareScriptValueTypes">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="boolean"/>
+      <xs:enumeration value="blob"/>
+      <xs:enumeration value="datetime"/>
+      <xs:enumeration value="float"/>
+      <xs:enumeration value="integer"/>
+      <xs:enumeration value="integer64"/>
+      <xs:enumeration value="money"/>
+      <xs:enumeration value="record"/>
+      <xs:enumeration value="string"/>
+
+      <xs:enumeration value="booleanarray"/>
+      <xs:enumeration value="blobarray"/>
+      <xs:enumeration value="datetimearray"/>
+      <xs:enumeration value="floatarray"/>
+      <xs:enumeration value="integerarray"/>
+      <xs:enumeration value="integer64array"/>
+      <xs:enumeration value="moneyarray"/>
+      <xs:enumeration value="recordarray"/>
+      <xs:enumeration value="stringarray"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="HareScriptVariableTypes">
+    <xs:restriction base="xs:string"> <!-- note: there's a xs:union that might combine this and the above list, but I see too many warnings about limited support in tooling so for now... -->
+      <xs:enumeration value="boolean"/>
+      <xs:enumeration value="blob"/>
+      <xs:enumeration value="datetime"/>
+      <xs:enumeration value="float"/>
+      <xs:enumeration value="integer"/>
+      <xs:enumeration value="integer64"/>
+      <xs:enumeration value="money"/>
+      <xs:enumeration value="record"/>
+      <xs:enumeration value="string"/>
+      <xs:enumeration value="object"/>
+      <xs:enumeration value="variant"/>
+
+      <xs:enumeration value="booleanarray"/>
+      <xs:enumeration value="blobarray"/>
+      <xs:enumeration value="datetimearray"/>
+      <xs:enumeration value="floatarray"/>
+      <xs:enumeration value="integerarray"/>
+      <xs:enumeration value="integer64array"/>
+      <xs:enumeration value="moneyarray"/>
+      <xs:enumeration value="recordarray"/>
+      <xs:enumeration value="stringarray"/>
+      <xs:enumeration value="objectarray"/>
+      <xs:enumeration value="variantarray"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- APPINFO -->
+  <xs:element name="deprecated" type="xs:string" />
+
 </xs:schema>

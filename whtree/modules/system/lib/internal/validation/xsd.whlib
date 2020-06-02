@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 
@@ -8,16 +9,18 @@ PUBLIC STATIC OBJECTTYPE XSDValidator EXTEND XMLValidatorBase
 <
   UPDATE PUBLIC MACRO ValidateDocument()
   {
-    //ADDME generalize?
     RECORD res;
     IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formcomponent")->length > 0
-       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0)
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms", "formhandler")->length > 0
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms/appinfo", "formcomponent")->length > 0
+       OR this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/forms/appinfo", "formhandler")->length > 0)
     {
       res := ParseFormDefComponents(this->respath, this->xml);
       this->errors := this->errors CONCAT res.errors;
       this->warnings := this->warnings CONCAT res.warnings;
     }
-    IF(this->xml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tolliumcomponent")->length > 0)
+    IF(this->xml->GetElementsByTagNameNS(whconstant_xmlns_tolliumcommon, "tolliumcomponent")->length > 0
+       OR this->xml->GetElementsByTagNameNS(whconstant_xmlns_tolliumappinfo, "tolliumcomponent")->length > 0)
     {
       res := ParseComponentsXSD(this->respath, this->xml, RECORD[]);
       this->errors := this->errors CONCAT res.errors;

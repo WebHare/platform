@@ -5,6 +5,7 @@
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
+  xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
   xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/wrd/components"
   elementFormDefault="qualified"
@@ -23,7 +24,7 @@
   <xs:complexType name="entityedit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumimplementation objecttype="/lib/screenbase.whlib#WRDEntityEditScreenBase" />
+        <tai:tolliumimplementation objecttype="/lib/screenbase.whlib#WRDEntityEditScreenBase" />
       </xs:appinfo>
     </xs:annotation>
   </xs:complexType>
@@ -96,7 +97,7 @@
   <xs:element name="entity">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="composition" objecttype="/lib/components/entity.whlib#TolliumWRDEntity" />
+        <tai:tolliumcomponent placement="composition" objecttype="/lib/components/entity.whlib#TolliumWRDEntity" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -105,7 +106,7 @@
       <xs:attribute name="onstorevalue" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature returntype="record" arguments="object record" />
+            <tai:callbacksignature returntype="record" arguments="object record" />
           </xs:appinfo>
           <xs:documentation>
             Update the record as passed to CreateEntity/UpdateFields. Receives the current work object and the offered updates, should return the new update record
@@ -130,7 +131,7 @@
       <xs:attribute name="onupdate" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
           <xs:documentation>
             Called when the entity is updated, either through Load or an autoupdate
@@ -143,7 +144,7 @@
   <xs:element name="gender">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="components.gender" />
+        <tai:tolliumcomponent placement="inline" fragment="components.gender" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -156,7 +157,7 @@
   <xs:element name="domaintagedit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="components.domaintagedit" />
+        <tai:tolliumcomponent placement="inline" fragment="components.domaintagedit" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -167,7 +168,7 @@
       <xs:attribute name="onchange" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -190,7 +191,7 @@
   <xs:element name="field">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/components/field.whlib#TolliumWRDField" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/field.whlib#TolliumWRDField" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -284,7 +285,7 @@
       <xs:attribute name="onpolicycheck" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature returntype="boolean" arguments="string" />
+            <tai:callbacksignature returntype="boolean" arguments="string" />
           </xs:appinfo>
           <xs:documentation>
           </xs:documentation>
@@ -359,8 +360,8 @@
   <xs:element name="arraybox">
     <xs:annotation>
       <xs:appinfo>
-        <!-- <s:tolliumcomponent placement="block" objecttype="/lib/components/arraybox.whlib#TolliumWRDArrayBox" /> -->
-        <s:tolliumcomponent placement="block" fragment="components.arraybox" />
+        <!-- <tai:tolliumcomponent placement="block" objecttype="/lib/components/arraybox.whlib#TolliumWRDArrayBox" /> -->
+        <tai:tolliumcomponent placement="block" fragment="components.arraybox" />
       </xs:appinfo>
       <xs:documentation>
         ADDME: what is an arraybox??
@@ -401,8 +402,8 @@
   <xs:element name="selectentity">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/components/selectentity.whlib#TolliumWRDEntitySelectionField" />
-        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/selectentity.whlib#TolliumWRDEntitySelectionField" />
+        <tai:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -451,7 +452,7 @@
   <xs:element name="addressfield">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" fragment="components.tolliumwrdaddressfield" />
+        <tai:tolliumcomponent placement="inline" fragment="components.tolliumwrdaddressfield" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -469,7 +470,7 @@
   <xs:element name="countryfields">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/components/countryfields.whlib#TolliumWRDCountryFields" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/countryfields.whlib#TolliumWRDCountryFields" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -487,7 +488,7 @@
   <xs:element name="paramfield">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="inline" objecttype="/lib/components/queryparameterfield.whlib#TolliumWRDQueryParameterField" />
+        <tai:tolliumcomponent placement="inline" objecttype="/lib/components/queryparameterfield.whlib#TolliumWRDQueryParameterField" />
       </xs:appinfo>
     </xs:annotation>
   </xs:element>
@@ -496,7 +497,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="inline" fragment="components.quickfilter" />
+          <tai:tolliumcomponent placement="inline" fragment="components.quickfilter" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
@@ -505,7 +506,7 @@
       <xs:attribute name="onsearch" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature arguments="recordarray" />
+            <tai:callbacksignature arguments="recordarray" />
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
@@ -549,7 +550,7 @@
           <xs:documentation>
             This option source can be used to select the results of a query.
           </xs:documentation>
-          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/runquery.whlib#RunQuery" />
+          <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/runquery.whlib#RunQuery" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="QueryAttributes" />
@@ -577,7 +578,7 @@
           <xs:documentation>
             This option source can be used to select the results of a query.
           </xs:documentation>
-          <s:tolliumcomponent placement="optionsource" objecttype="/lib/components/queryresults.whlib#QueryResults" />
+          <tai:tolliumcomponent placement="optionsource" objecttype="/lib/components/queryresults.whlib#QueryResults" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="QueryAttributes" />
@@ -624,7 +625,7 @@
     <xs:attribute name="onfocusin" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature />
+          <tai:callbacksignature />
         </xs:appinfo>
         <xs:documentation>Invoked when this list receives focus</xs:documentation>
       </xs:annotation>
@@ -633,7 +634,7 @@
     <xs:attribute name="onmaprows" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature returntype="recordarray" arguments="recordarray" />
+          <tai:callbacksignature returntype="recordarray" arguments="recordarray" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -656,7 +657,7 @@
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <s:callbacksignature arguments="" />
+          <tai:callbacksignature arguments="" />
         </xs:appinfo>
         <xs:documentation>
           <html:p>
@@ -815,7 +816,7 @@
           </xs:annotation>
         </xs:attribute>
 
-        <xs:attribute name="entityeditscreen" type="s:ScreenFragmentReference" default="">
+        <xs:attribute name="entityeditscreen" type="tc:ScreenFragmentReference" default="">
           <xs:annotation>
             <xs:documentation>
               <html:p>
@@ -828,7 +829,7 @@
         <xs:attribute name="onentityedit" type="tc:Handler">
           <xs:annotation>
             <xs:appinfo>
-              <s:callbacksignature returnvalue="integer" arguments="object record integer" />
+              <tai:callbacksignature returntype="integer" arguments="object record integer" />
             </xs:appinfo>
             <xs:documentation>
               <html:p>
@@ -841,7 +842,7 @@
         <xs:attribute name="onentitydelete" type="tc:Handler">
           <xs:annotation>
             <xs:appinfo>
-              <s:callbacksignature arguments="object integer" />
+              <tai:callbacksignature arguments="object integer" />
             </xs:appinfo>
             <xs:documentation>
               <html:p>
@@ -855,7 +856,7 @@
         <xs:attribute name="onchangeorder" type="tc:Handler">
           <xs:annotation>
             <xs:appinfo>
-              <s:callbacksignature arguments="object integerarray" />
+              <tai:callbacksignature arguments="object integerarray" />
             </xs:appinfo>
             <xs:documentation>The name of the function to perform when the ordering of rows changes</xs:documentation>
           </xs:annotation>
@@ -870,9 +871,9 @@
   <xs:element name="entitiesedit" type="EntitiesEdit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.entitiesedit" />
-        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+        <tai:tolliumcomponent placement="block" fragment="components.entitiesedit" />
+        <tai:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
       </xs:appinfo>
     </xs:annotation>
     <xs:unique name="uniquecolumnnames_entitiesedit">
@@ -889,9 +890,9 @@
   <xs:element name="entitybrowser" type="EntitiesEdit">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.entitiesedit" />
-        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+        <tai:tolliumcomponent placement="block" fragment="components.entitiesedit" />
+        <tai:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
       </xs:appinfo>
       <xs:documentation>
         deprecated, use &lt;entitiesedit&gt; element
@@ -910,9 +911,9 @@
   <xs:element name="entitylist">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.entitylist" />
-        <s:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <s:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
+        <tai:tolliumcomponent placement="block" fragment="components.entitylist" />
+        <tai:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+        <tai:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -941,7 +942,7 @@
   <xs:element name="entityrefcolumn">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="listcolumn" objecttype="/lib/components/entityrefcolumn.whlib#EntityRefColumn" />
+        <tai:tolliumcomponent placement="listcolumn" objecttype="/lib/components/entityrefcolumn.whlib#EntityRefColumn" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>
@@ -985,7 +986,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:appinfo>
-          <s:tolliumcomponent placement="composition"
+          <tai:tolliumcomponent placement="composition"
                               objecttype="/lib/components/entitylistener.whlib#TolliumWRDEntityListener"
                               />
         </xs:appinfo>
@@ -994,7 +995,7 @@
       <xs:attribute name="onupdate" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>
-            <s:callbacksignature />
+            <tai:callbacksignature />
           </xs:appinfo>
           <xs:documentation>
             Called when the entity is updated
@@ -1014,7 +1015,7 @@
   <xs:element name="addressvalidation">
     <xs:annotation>
       <xs:appinfo>
-        <s:tolliumcomponent placement="block" fragment="components.addressvalidation" />
+        <tai:tolliumcomponent placement="block" fragment="components.addressvalidation" />
       </xs:appinfo>
     </xs:annotation>
     <xs:complexType>

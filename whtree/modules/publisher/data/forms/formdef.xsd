@@ -9,10 +9,12 @@
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:fai="http://www.webhare.net/xmlns/publisher/forms/appinfo"
   targetNamespace="http://www.webhare.net/xmlns/publisher/forms"
   elementFormDefault="qualified"
   xml:lang="en">
 
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms/appinfo" schemaLocation="mod::publisher/data/forms/appinfo.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
 
   <!--FIXME: Remove when all form definition files refer to system common instead of tollium screens -->
@@ -311,7 +313,7 @@
           @topic forms/standardhandlers
         </xs:documentation>
         <xs:appinfo>
-          <formhandler
+          <fai:formhandler
             tolliumicon="tollium:actions/send"
             tid="formhandlers.mailresults.name"
             descriptiontid="formhandlers.mailresults.description"
@@ -363,7 +365,7 @@
           @topic forms/standardhandlers
         </xs:documentation>
         <xs:appinfo>
-          <formhandler
+          <fai:formhandler
             tolliumicon="tollium:mailclient/replied"
             tid="formhandlers.mailfeedback.name"
             descriptiontid="formhandlers.mailfeedback.description"
@@ -391,7 +393,7 @@
           @topic forms/standardhandlers
         </xs:documentation>
         <xs:appinfo>
-          <formhandler
+          <fai:formhandler
             tolliumicon="tollium:objects/envelope+tollium:status/checked"
             tid="formhandlers.mailconfirmation.name"
             descriptiontid="formhandlers.mailconfirmation.description"
@@ -431,7 +433,7 @@
           @topic forms/standardhandlers
         </xs:documentation>
         <xs:appinfo>
-          <formhandler
+          <fai:formhandler
             tid="formhandlers.custom.name"
             parserfunc="/lib/webtools/internal/formhandlers.whlib#ParseCustomHandler"
             />
@@ -450,7 +452,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'role':''}"
             linecomponent="false"
             tolliumicon="tollium:files/normal"
@@ -459,7 +461,7 @@
             editdefaults=""
             defaultvalue=""
             />
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'role':'overview'}"
             linecomponent="false"
             tolliumicon="tollium:files/normal"
@@ -468,7 +470,7 @@
             editdefaults=""
             defaultvalue=""
             />
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'role':'thankyou'}"
             linecomponent="false"
             tolliumicon="tollium:files/normal"
@@ -503,7 +505,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:folders/normal"
             tid="formcomponents.group.name"
@@ -530,7 +532,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tid="formcomponents.custom.name"
             />
@@ -554,7 +556,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'valuetype':sa['integer','money','float']}"
             linecomponent="true"
             tolliumicon="tollium:forms/numeric"
@@ -567,7 +569,7 @@
             fieldobject="/lib/webtools/formcomponents/textedit.whlib#NumericTextEditField"
             ordering="4"
             />
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'validationchecks':sa['email']}"
             linecomponent="true"
             tolliumicon="tollium:forms/email"
@@ -579,7 +581,7 @@
             fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
             ordering="3"
             />
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/textedit"
             tid="formcomponents.textedit.name"
@@ -622,7 +624,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/textarea"
             tid="formcomponents.textarea.name"
@@ -658,7 +660,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="false"
             tolliumicon="tollium:forms/rtd"
             tid="formcomponents.rtd.name"
@@ -683,7 +685,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="false"
             tolliumicon="tollium:forms/image"
             tid="formcomponents.imgedit.name"
@@ -706,7 +708,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/password"
             tid="formcomponents.password.name"
@@ -731,7 +733,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/date"
             tid="formcomponents.date.name"
@@ -760,7 +762,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/time"
             tid="formcomponents.time.name"
@@ -794,7 +796,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/upload"
             tid="formcomponents.upload.name"
@@ -825,7 +827,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'type':'pulldown'}"
             linecomponent="true"
             tolliumicon="tollium:forms/pulldown"
@@ -838,7 +840,7 @@
             fieldobject="/lib/webtools/formcomponents/select.whlib#SelectField"
             ordering="6"
             />
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'type':'radio'}"
             linecomponent="true"
             tolliumicon="tollium:forms/radio"
@@ -851,7 +853,7 @@
             fieldobject="/lib/webtools/formcomponents/select.whlib#SelectField"
             ordering="5"
             />
-          <formcomponent
+          <fai:formcomponent
             matchattribute="hson:{'type':'checkbox'}"
             linecomponent="true"
             tolliumicon="tollium:forms/checkboxes"
@@ -925,7 +927,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <formcomponent
+          <fai:formcomponent
             linecomponent="true"
             tolliumicon="tollium:forms/checkbox"
             tid="formcomponents.checkbox.name"
@@ -951,7 +953,7 @@
         @topic forms/standardcomponents
       </xs:documentation>
       <xs:appinfo>
-        <formcomponent
+        <fai:formcomponent
           linecomponent="false"
           tolliumicon="tollium:forms/richtext"
           tid="formcomponents.richtext.name"
@@ -997,7 +999,7 @@
         @topic forms/standardcomponents
       </xs:documentation>
       <xs:appinfo>
-        <formcomponent
+        <fai:formcomponent
           linecomponent="false"
           tolliumicon="tollium:forms/address"
           tid="formcomponents.address.name"
@@ -1035,7 +1037,7 @@
         @topic forms/standardcomponents
       </xs:documentation>
       <xs:appinfo>
-        <formcomponent
+        <fai:formcomponent
           linecomponent="false"
           tid="formcomponents.captcha.name"
           descriptiontid="formcomponents.captcha.description"
@@ -1056,7 +1058,7 @@
         @topic forms/standardcomponents
       </xs:documentation>
       <xs:appinfo>
-        <formcomponent
+        <fai:formcomponent
           linecomponent="false"
           tolliumicon="tollium:forms/array"
           tid="formcomponents.array.name"
@@ -1086,5 +1088,10 @@
     <xs:attribute name="buttons" type="sc:NameList" use="required" />
     <xs:attribute name="default" type="sc:Name" />
   </xs:complexType>
+
+  <!-- pre 429 appinfo compatibility -->
+  <xs:element name="formcomponent" type="fai:__Appinfoformcomponent"/>
+  <xs:element name="formhandler" type="fai:__Appinfoformhandler"/>
+
 
 </xs:schema>

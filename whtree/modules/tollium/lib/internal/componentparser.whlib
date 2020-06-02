@@ -59,7 +59,7 @@ INTEGER FUNCTION GetHSTypeId(STRING typename)
   }
 }
 
-RECORD FUNCTION GetAppinfoNodeWithSource(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+RECORD FUNCTION GetAppinfoNodeWithSource(OBJECT ARRAY node_priority_list, STRING nodename)
 {
   OBJECT comp;
   OBJECT match;
@@ -70,14 +70,12 @@ RECORD FUNCTION GetAppinfoNodeWithSource(OBJECT ARRAY node_priority_list, STRING
     FOREVERY(OBJECT annotation FROM node->annotations)
       FOREVERY(OBJECT appinfo FROM annotation->application_information)
       {
-        OBJECT ARRAY candidates := appinfo->ListElements(ns, nodename);
-        IF(ns = ns_tolliumcommon AND Length(candidates) = 0)
-          candidates := appinfo->ListElements(ns_screens, nodename); //if we're looking for ns_tolliumcommon, we also accept ns_screens
+        OBJECT ARRAY candidates := appinfo->ListElements("*", nodename);
 
         FOREVERY(OBJECT compinfo FROM candidates)
         {
           IF(ObjectExists(comp))
-            THROW NEW Exception("Duplicate {" || ns || "}" || nodename || " in element");
+            THROW NEW Exception("Duplicate {" || compinfo->namespaceuri || "}" || compinfo->localname || " in element");
           comp := compinfo;
           match := node;
           comment := GetAnnotiationUserDocumentation(node);
@@ -95,21 +93,19 @@ RECORD FUNCTION GetAppinfoNodeWithSource(OBJECT ARRAY node_priority_list, STRING
   ELSE
     RETURN DEFAULT RECORD;
 }
-OBJECT FUNCTION GetAppinfoNode(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+OBJECT FUNCTION GetAppinfoNode(OBJECT ARRAY node_priority_list, STRING nodename)
 {
-  RECORD res := GetAppInfoNodeWithSource(node_priority_list, ns, nodename);
+  RECORD res := GetAppInfoNodeWithSource(node_priority_list, nodename);
   RETURN RecordExists(res) ? res.comp : DEFAULT OBJECT;
 }
-RECORD ARRAY FUNCTION GetAppinfoNodesWithSources(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+RECORD ARRAY FUNCTION GetAppinfoNodesWithSources(OBJECT ARRAY node_priority_list, STRING nodename)
 {
   RECORD ARRAY comps;
   FOREVERY(OBJECT node FROM node_priority_list)
     FOREVERY(OBJECT annotation FROM node->annotations)
       FOREVERY(OBJECT appinfo FROM annotation->application_information)
       {
-        OBJECT ARRAY candidates := appinfo->ListElements(ns, nodename);
-        IF(ns = ns_tolliumcommon AND Length(candidates) = 0)
-          candidates := appinfo->ListElements(ns_screens, nodename); //if we're looking for ns_tolliumcommon, we also accept ns_screens
+        OBJECT ARRAY candidates := appinfo->ListElements("*", nodename);
 
         FOREVERY(OBJECT comp FROM candidates)
           INSERT [ comp := comp
@@ -119,9 +115,9 @@ RECORD ARRAY FUNCTION GetAppinfoNodesWithSources(OBJECT ARRAY node_priority_list
 
   RETURN comps;
 }
-OBJECT ARRAY FUNCTION GetAppinfoNodes(OBJECT ARRAY node_priority_list, STRING ns, STRING nodename)
+OBJECT ARRAY FUNCTION GetAppinfoNodes(OBJECT ARRAY node_priority_list, STRING nodename)
 {
-  RETURN SELECT AS OBJECT ARRAY comp FROM GetAppinfoNodesWithSources(node_priority_list, ns, nodename);
+  RETURN SELECT AS OBJECT ARRAY comp FROM GetAppinfoNodesWithSources(node_priority_list, nodename);
 }
 
 INTEGER ARRAY FUNCTION GetCallbackSignature(OBJECT el, STRING baseattr)
@@ -142,7 +138,7 @@ RECORD FUNCTION ParseAttributeType(OBJECT decl)
   IF(RecordExists(decl->value_constraint) AND decl->value_constraint.type='default')
     defaultval := decl->value_constraint.value;
 
-  OBJECT callbacksignode := GetAppinfoNode([decl], ns_tolliumcommon, "callbacksignature");
+  OBJECT callbacksignode := GetAppinfoNode([decl],"callbacksignature");
   IF(ObjectExists(callbacksignode))
   {
     IF((attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_tolliumcommon)
@@ -337,7 +333,7 @@ RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcena
   INSERT CELL name := decl->name INTO fieldrec;
 
   //TODO also support deprecation warnings for TidPtrs (once we need 'm) - they skip this path
-  OBJECT deprecationnode := GetAppinfoNode([decl], ns_systemcommon, "deprecated");
+  OBJECT deprecationnode := GetAppinfoNode([decl], "deprecated");
   INSERT CELL deprecationwarning := ObjectExists(deprecationnode) ? deprecationnode->textcontent : "" INTO fieldrec;
 
   RETURN fieldrec;
@@ -372,7 +368,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
   FOREVERY (RECORD type FROM parser->datatypes)
   {
     OBJECT ARRAY nodelist := OBJECT[ type.node ];
-    RECORD tolliumimplinfo := GetAppinfoNodeWithSource(nodelist, ns_screens, "tolliumimplementation");
+    RECORD tolliumimplinfo := GetAppinfoNodeWithSource(nodelist, "tolliumimplementation");
     IF (RecordExists(tolliumimplinfo))
     {
       INSERT
@@ -381,7 +377,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
           , objtype := MakeAbsoluteResourcePath(resourcename, tolliumimplinfo.comp->GetAttribute("objecttype"))
           ] INTO retval.implementations AT END;
     }
-    RECORD tolliumparserinfo := GetAppinfoNodeWithSource(nodelist, ns_screens, "tolliumextraparser");
+    RECORD tolliumparserinfo := GetAppinfoNodeWithSource(nodelist, "tolliumextraparser");
     IF (RecordExists(tolliumparserinfo))
     {
       INSERT
@@ -437,7 +433,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       walkext := walkext->base_type_definition;
     }
 
-    RECORD tolliumcompinfo := GetAppinfoNodeWithSource(node_priority_list, ns_screens, "tolliumcomponent");
+    RECORD tolliumcompinfo := GetAppinfoNodeWithSource(node_priority_list, "tolliumcomponent");
     IF(NOT RecordExists(tolliumcompinfo))
       CONTINUE; //ignore elements without a <tolliumcomponent> declaration
 
@@ -527,7 +523,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     }
 
     //FIXME simply iterate ALL info nodes and skip tolliumcomponent....
-    OBJECT ARRAY extraparsers := GetAppinfoNodes(node_priority_list, ns_screens, "extraparser");
+    OBJECT ARRAY extraparsers := GetAppinfoNodes(node_priority_list, "extraparser");
     FOREVERY(OBJECT extraparser FROM extraparsers)
     {
       INSERT [ name := extraparser->GetAttribute("field")
@@ -542,7 +538,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       //ADDME validate extra parser type
     }
 
-    FOREVERY(RECORD field FROM GetAppinfoNodesWithSources(node_priority_list, ns_screens, "fixedfield"))
+    FOREVERY(RECORD field FROM GetAppinfoNodesWithSources(node_priority_list, "fixedfield"))
     {
       //FIXME should mark this as never-parse, not rely on the XSD preventing the attribute being added
       RECORD typeinfo := GetNamespacedTarget(field.comp, "type");
@@ -554,7 +550,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       INSERT fieldrec INTO elrec.xml_fields AT END;
     }
 
-    OBJECT acceptdrops := GetAppinfoNode(node_priority_list, ns_screens, "acceptdrops");
+    OBJECT acceptdrops := GetAppinfoNode(node_priority_list, "acceptdrops");
     IF(ObjectExists(acceptdrops))
     {
       INSERT [ name := acceptdrops->GetAttribute("field")
@@ -568,7 +564,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              ] INTO elrec.xml_fields AT END;
     }
 
-    OBJECT listrows := GetAppinfoNode(node_priority_list, ns_screens, "listrows");
+    OBJECT listrows := GetAppinfoNode(node_priority_list, "listrows");
     IF(ObjectExists(listrows))
     {
       INSERT [ name := listrows->GetAttribute("field")
@@ -585,7 +581,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              ] INTO elrec.xml_fields AT END;
     }
 
-    OBJECT optionsources := GetAppinfoNode(node_priority_list, ns_screens, "optionsources");
+    OBJECT optionsources := GetAppinfoNode(node_priority_list, "optionsources");
     IF(ObjectExists(optionsources))
     {
       INSERT [ name := optionsources->GetAttribute("field")
@@ -600,7 +596,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              ] INTO elrec.xml_fields AT END;
     }
 
-    FOREVERY(OBJECT childcomponents FROM GetAppinfoNodes(node_priority_list, ns_screens, "childcomponents"))
+    FOREVERY(OBJECT childcomponents FROM GetAppinfoNodes(node_priority_list, "childcomponents"))
     {
       INSERT [ name := childcomponents->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD ARRAY
@@ -613,7 +609,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              ] INTO elrec.xml_fields AT END;
     }
 
-    OBJECT dividedcomponents := GetAppinfoNode(node_priority_list, ns_screens, "dividedcomponents");
+    OBJECT dividedcomponents := GetAppinfoNode(node_priority_list, "dividedcomponents");
     IF(ObjectExists(dividedcomponents))
     {
       INSERT [ name := dividedcomponents->GetAttribute("field")
