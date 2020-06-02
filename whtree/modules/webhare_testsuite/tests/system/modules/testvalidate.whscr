@@ -1,4 +1,4 @@
-2<?wh
+<?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
