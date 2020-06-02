@@ -299,7 +299,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
           RETURN SELECT AS RECORD ARRAY this->ReprocessData(obj, fld, fld.__xml_fields, scope)
                         FROM data AS fld;
         }
-        CASE "acceptdrops"
+        CASE "acceptdropsparser"
           {
             IF(NOT RecordExists(data))
               RETURN DEFAULT RECORD;

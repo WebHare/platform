@@ -550,14 +550,14 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
       INSERT fieldrec INTO elrec.xml_fields AT END;
     }
 
-    OBJECT acceptdrops := GetAppinfoNode(node_priority_list, "acceptdrops");
+    OBJECT acceptdrops := GetAppinfoNode(node_priority_list, "acceptdropsparser") ?? GetAppinfoNode(node_priority_list, "acceptdrops");
     IF(ObjectExists(acceptdrops))
     {
       INSERT [ name := acceptdrops->GetAttribute("field")
              , defaultvalue := DEFAULT RECORD
              , finaltype := TYPEID(RECORD)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "acceptdrops" ]
+             , parser := [ namespaceuri := ns_screens, localname := "acceptdropsparser" ]
              , ondrop_signature := GetCallbackSignature(acceptdrops, "ondrop_")
              , target := acceptdrops->GetAttribute("target")
              , target_namespaces := acceptdrops->GetVisibleNamespaces()

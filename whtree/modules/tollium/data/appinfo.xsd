@@ -20,8 +20,8 @@
     </xs:attribute>
   </xs:complexType>
 
-  <xs:element name="acceptdrops" type="__AppinfoAcceptDrops" />
-  <xs:complexType name="__AppinfoAcceptDrops">
+  <xs:element name="acceptdropsparser" type="__AppinfoAcceptDropsParser" />
+  <xs:complexType name="__AppinfoAcceptDropsParser">
     <xs:attribute name="field" use="required" />
     <xs:attribute name="target" use="required" />
     <xs:attribute name="ondrop_arguments">
