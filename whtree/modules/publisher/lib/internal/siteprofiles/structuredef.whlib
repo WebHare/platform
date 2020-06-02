@@ -1578,6 +1578,8 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForFile(INTEGER basefileid)
     }
     IF(NOT ObjectExists(basefolder))
       THROW NEW Exception("Unable to find link limit root '" || limitlinks.root || "'");
+
+    retval.internallinkroots := [ INTEGER(basefolder->id) ];
   }
   RETURN retval;
 }

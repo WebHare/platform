@@ -356,12 +356,14 @@ PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECO
     @cell(boolean) options.forceintegrated Do not launch a separate application
     @cell(boolean) options.assumereadaccess Assume the user has write access (requires forceintegrated)
     @cell(boolean) options.assumewriteaccess Assume the user has write access (requires forceintegrated)
+    @cell(integer array) options.internallinkroots Limit RTE internal links to these subfolders (requires forceintegrated)
 */
 PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ forceintegrated := FALSE
                              , assumereadaccess := FALSE
                              , assumewriteaccess := FALSE
+                             , internallinkroots := INTEGER[]
                              ], options);
 
   OBJECT fileobj := OpenWHFSObject(objectid);

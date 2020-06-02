@@ -168,6 +168,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   PUBLIC PROPERTY linkhandlers(GetLinkHandlers, -);
 
+  /// Limit RTE internal links to these subfolders
+  PUBLIC INTEGER ARRAY internallinkroots;
+
   //PUBLIC PROPERTY structuredef(this->cleaner->structuredef, this->cleaner->structuredef);
 
   ///How often we sent a value to the client. The initial empty value is #0, the inital set value is #1
