@@ -368,6 +368,9 @@ MACRO TestFallbackAPI()
 
   checkres := api->CheckAddress([ zip := "999", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
   TestEq('invalid_zip', checkres.status);
+
+  checkres := api->CheckAddress([ zip := "2500", nr_detail := "Lier", country := "BE", street := "Baron Opsomerlaan", city := "1"], [ alwaysverify := TRUE ]);
+  TestEq('invalid_city', checkres.status);
   testfw->RollbackWork();
 }
 

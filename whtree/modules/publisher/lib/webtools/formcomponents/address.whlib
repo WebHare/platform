@@ -834,7 +834,11 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
           {
             work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.addressfield.invalid_nr_detail"));
           }
-          IF (field.tag = "ZIP" AND checked.status != "invalid_nr_detail")
+          IF (field.tag = "CITY" AND checked.status = "invalid_city")
+          {
+            work->AddErrorFor(field.fieldobj, GetTid("publisher:site.forms.addressfield.address_not_found"));
+          }
+          IF (field.tag = "ZIP" AND checked.status NOT IN [ "invalid_nr_detail", "invalid_city" ])
           {
             // Only use show code for which we have translations
             STRING status := checked.status IN [ "address_not_found", "invalid_nr_detail", "invalid_zip", "zip_not_found" ]
