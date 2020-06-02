@@ -1107,7 +1107,7 @@ PUBLIC OBJECT FUNCTION OpenConsilioCatalogById(INTEGER id)
 RECORD FUNCTION GetCacheableIndexlist(INTEGER indexmanager)
 {
   RECORD checkindices := GetIndexManagerIndexList(indexmanager);
-  RETURN [ ttl := checkindices.status = SearchOk ? 15 * 60 * 60 * 1000 : 1000
+  RETURN [ ttl := checkindices.status = SearchOk ? 15 * 60 * 60 * 1000 : 1
          , value := checkindices
          ];
 }
@@ -1139,10 +1139,12 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
 
   INTEGER indexmanager := CellExists(options,'indexmanager') ? options.indexmanager : GetDefaultIndexManager();
 
-  // Figure out currently used indexids - we don't want to accidentally revive old content. This call is pretty slow, hurting some tests, so we'll cache the results
+  /* Figure out currently used indexids - we don't want to accidentally revive old content.
+     This call is pretty slow, hurting some tests, so we'll cache the results which should be reasonable safe given we always
+     increment the attempted indexid (unless you restart the dbserver) */
   RECORD checkindices := GetAdhocCached([checkindices := indexmanager], PTR GetCacheableIndexlist(indexmanager));
-  IF(checkindices.status != SearchOk)
-    THROW NEW Exception(`Unable to retrieve the list of existing catalog ids from index manager #${indexmanager}`);
+  IF(checkindices.status != SearchOk AND checkindices.status != SearchIndexNotFound) //an empty consilio returns SearchIndexNotFound to us
+    THROW NEW Exception(`Unable to retrieve the list of existing catalog ids from index manager #${indexmanager}, status returned: ${checkindices.status}`);
 
   // Find an ID free in both database and the actual index
   INTEGER indexid;
