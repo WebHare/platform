@@ -1,0 +1,66 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/statskeeper.whlib";
+
+
+MACRO TestStatsKeeper()
+{
+  DATETIME now := GetCurrentDateTime();
+  WaitUntil(DEFAULT RECORD, AddTimeToDate((100 - (GetMsecondCount(now) % 100)), now));
+
+  now := GetCurrentDateTime();
+
+  OBJECT k := NEW ActiveStatsKeeper(
+      [ fields :=
+            [ [ name :=     "lev"
+              , type :=     "level"
+              ]
+            , [ name :=     "ev"
+              , type :=     "event"
+              ]
+            ]
+      , interval := 100
+      ]);
+
+  k->SetLevel("lev", 40);
+  k->SetLevel("lev", 60);
+  k->AddEvent("ev");
+  k->SetLevel("lev", 50);
+
+  TestEQ(
+      [ intervalstart :=  GetRoundedDateTime(now, 100)
+      , lev :=            [ firstvalue :=   40
+                          , lastvalue :=    50
+                          , minvalue :=     40
+                          , maxvalue :=     60
+                          ]
+      , ev :=             1
+      ], k->GetStats().currentstatus);
+
+  // goto next interval
+  now := GetCurrentDateTime();
+  WaitUntil(DEFAULT RECORD, AddTimeToDate((100 - (GetMsecondCount(now) % 100)), now));
+
+  now := GetCurrentDateTime();
+
+  k->SetLevel("lev", 41);
+  k->AddEvent("ev");
+  k->SetLevel("lev", 49);
+  k->AddEvent("ev");
+
+  TestEQ(
+      [ intervalstart :=  GetRoundedDateTime(now, 100)
+      , lev :=            [ firstvalue :=   50
+                          , lastvalue :=    49
+                          , minvalue :=     41
+                          , maxvalue :=     50
+                          ]
+      , ev :=             2
+      ], k->GetStats().currentstatus);
+}
+
+RunTestframework([ PTR TestStatsKeeper
+                 ]);

@@ -115,6 +115,7 @@ PUBLIC STATIC OBJECTTYPE PublisherQueueController EXTEND PersistentQueueControll
         , runnable :=   LENGTH(state.runnable)
         , timedwait :=  LENGTH(state.timedwait)
         , expectedtimetocompletion := totaltime / runners
+        , state.queuestats
         ];
   }
 

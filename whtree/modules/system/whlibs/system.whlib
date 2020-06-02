@@ -3753,8 +3753,52 @@ PUBLIC            MACRO __HS_SetPrivateMember(OBJECT obj, STRING membername, VAR
 PUBLIC OBJECT  FUNCTION __HS_INTERNAL_MakeObjectReferencePrivileged(OBJECT obj) __ATTRIBUTES__(EXTERNAL);
 //PUBLIC FUNCTION PTR FUNCTION __HS_CreateGetter(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
 //PUBLIC FUNCTION PTR FUNCTION __HS_CreateSetter(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL);
+
+/** Rebinds a function pointer
+    @param fptr Function pointer to rebind
+    @param passthroughs Per parameter of the rebound function, the source of the
+       value. All required arguments should be described.
+       - 0: use the corresponding value from args
+       - +N: use the N'th parameter to the rebound function
+       - -N: use the N'th parameter to the rebound function, use the corresponding
+         value froms args as a default
+    @param args Fixed/default values. Must be the same length as passthroughs
+    @return Rebound function pointer
+*/
 PUBLIC FUNCTION PTR FUNCTION __HS_REBINDFUNCTIONPTR(FUNCTION PTR fptr, INTEGER ARRAY passthroughs, VARIANT ARRAY args) __ATTRIBUTES__(EXTERNAL);
+
+/** Rebinds a function pointer
+    @param fptr Function pointer to rebind
+    @param arguments Description where arguments for the original function ptr
+        must be read from. All required parameters should be described.
+    @cell(integer) arguments.source Source for the argument
+      - 0: use the value in the 'value' cell
+      - +N: use the N'th passed argument
+      - -N: use the N'th passed argument, use the value in the 'value' cell
+        as default if not provided
+    @cell(integer) arguments.type If set, convert the passed argument to this type.
+    @cell arguments.value Default/fixed value (used when source <= 0)
+    @param firstunusedsource Number of first passed argument that isn't used by
+      a source. If this number of arguments (or more) are passed for a normal
+      function (not vararg) an error is issued
+    @param keep_vararg If the original function is a vararg function (the
+      last parameter is vararg), copy all passed arguments starting at the
+      firstunusedsource into the vararg argument.
+    @return Rebound function pointer
+    @example
+
+MACRO ToRebind(STRING fixed, VARIANT ARRAY ...other) { ... }
+
+// To make a function pointer that binds the first parameter, and passes the
+// rest to the bound function
+FUNCTION PTR rebound := __HS_REBINDFUNCTIONPTR2(
+    PTR ToRebind,
+    [ [ source := 0, value := "fixedvalue" ] ],
+    2,
+    TRUE);
+*/
 PUBLIC FUNCTION PTR FUNCTION __HS_REBINDFUNCTIONPTR2(FUNCTION PTR fptr, RECORD ARRAY arguments, INTEGER firstunusedsource, BOOLEAN keepvararg) __ATTRIBUTES__(EXTERNAL);
+
 PUBLIC BOOLEAN FUNCTION __HS_OBJECTMATCHESOUID(OBJECT obj, STRING ouid) __ATTRIBUTES__(EXTERNAL);
 PUBLIC VARIANT FUNCTION __HS_SQL_DEBUG_GetVarAsOptimized(VARIANT v) { RETURN v; }
 PUBLIC SCHEMA FUNCTION __HS_SQL_RebindSchemaWithTypeInfo(SCHEMA bound_schema, INTEGER typeinfo) __ATTRIBUTES__(EXTERNAL);

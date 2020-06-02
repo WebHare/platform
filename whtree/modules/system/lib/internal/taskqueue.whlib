@@ -4,6 +4,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::system/lib/internal/statskeeper.whlib";
+
 /**
 */
 
@@ -157,6 +159,12 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   /// Whether the #FireCallbacks task has been scheduled
   BOOLEAN callbacksscheduled;
 
+  /// Current number of items in running, runnable or timedwait
+  INTEGER queuelength;
+
+  /// @type(object #ActiveStatsKeeper) Stats keeper
+  OBJECT pvt_statskeeper;
+
   /** List of scheduled callbacks
       @cell type 'gotrunnable', 'itemfinished'
       @cell item Task item
@@ -166,10 +174,25 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   /// Called when a queue just got its first runnable item
   PUBLIC FUNCTION PTR ongotrunnable;
 
+  ///@type(object #ActiveStatsKeeper) Stats keeper
+  PUBLIC PROPERTY statskeeper(pvt_statskeeper, -);
+
   /// Builds a new task queue
   MACRO NEW()
   {
     this->nextscheduled := MAX_DATETIME;
+    this->pvt_statskeeper := NEW ActiveStatsKeeper(
+        [ fields :=
+              [ [ name := "queuelength"
+                , type := "level"
+                ]
+              , [ name := "finished"
+                , type := "event"
+                ]
+              ]
+        ]);
+
+    this->pvt_statskeeper->SetLevel("queuelength", 0);
   }
 
   /** Updates the base data of a queue item
@@ -197,7 +220,10 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
     IF (newstate.stage = "running" AND IsDefaultValue(newstate.date_running))
       newstate.date_running := now;
     IF (newstate.stage = "finished" AND IsDefaultValue(newstate.date_finished))
+    {
       newstate.date_finished := now;
+      this->pvt_statskeeper->AddEvent("finished");
+    }
 
     item->pvt_curdata := newstate;
 
@@ -216,6 +242,8 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
       this->nextscheduled := item->pvt_curdata.scheduledate;
       this->updatescheduled_cb := RegisterTimedCallback(this->nextscheduled, PTR this->ProcessDueTasks);
     }
+
+    this->pvt_statskeeper->SetLevel("queuelength", this->queuelength);
   }
 
   MACRO FireCallbacks()
@@ -302,6 +330,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
     {
       CASE "unqueued"
       {
+        // Return immediately, no queuelength update
         RETURN;
       }
       CASE "timedwait"
@@ -364,6 +393,8 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
         ABORT(`Illegal queuestate ${data.queuestate}`);
       }
     }
+
+    this->queuelength := this->queuelength + (add ? 1 : -1);
   }
 
   /** Returns the next runnable item in a queue
@@ -394,10 +425,11 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   {
     RETURN
         [ running :=    (SELECT AS OBJECT ARRAY item FROM this->running)
-        , queues :=     SELECT queuename
-                             , runnable
-                             , timedwait
-                          FROM this->queues
+        , queues :=     (SELECT queuename
+                              , runnable
+                              , timedwait
+                           FROM this->queues)
+        , stats :=      this->pvt_statskeeper->GetStats()
         ];
   }
 >;

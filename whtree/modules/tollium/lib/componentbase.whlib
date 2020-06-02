@@ -322,10 +322,16 @@ PUBLIC OBJECTTYPE TolliumComponentBase
                                FROM ToRecordArray(this->GetChildComponents(),'child');
     DELETE FROM children WHERE NOT RecordExists(children);
 
-    RETURN [ id := this->GetComponentIdentification()
-           , title := this->title ?? this->errorlabel
-           , children := children
-           ];
+    RECORD retval :=
+         [ id := this->GetComponentIdentification()
+         , title := this->title ?? this->errorlabel
+         , children := children
+         ];
+
+    IF (MemberExists(this, "cellname"))
+      INSERT CELL cellname := GetMember(this, "cellname") INTO retval;
+
+    RETURN retval;
   }
 
   PUBLIC STRING FUNCTION GetComponentIdentification()

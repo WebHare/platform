@@ -200,6 +200,9 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   /// Whether there are any dirty components
   BOOLEAN havedirtycomponents;
 
+  /// Is the reflect window active?
+  BOOLEAN reflectactive;
+
   /// Current signalled state
 //  BOOLEAN issignalled;
 
@@ -577,6 +580,11 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
 
   MACRO OnReflect(VARIANT val, RECORD reflectoptions)
   {
+    // Ignore recursive reflects, will only cause stack overflows
+    IF (this->reflectactive)
+      RETURN;
+    this->reflectactive := TRUE;
+
     RECORD contexts;
     IF (NOT ObjectExists(this->tolliumuser))
       contexts := [ user := NEW TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, 0, "<anonymous>") ];
@@ -590,5 +598,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
 
     IF(dialog->RunModal() = "") //the user disconnected
       TerminateScript(); //then STOP ourselves too - users do not expect 'Reflect(); DoSomething();' to actually do something if they abort during Reflect
+    this->reflectactive := FALSE;
   }
 >;

@@ -2334,6 +2334,71 @@ void GetJobErrors(VarId id_set, VirtualMachine *vm)
         jobmgr->UnlockVMGroup(it->second->GetVMGroup());
 }
 
+void GetJobLoadedLibrariesInfo(VarId id_set, VirtualMachine *vm)
+{
+        if(!vm->GetVMGroup()->GetJobManager())
+            throw VMRuntimeError(Error::InternalError, "Job management not available");
+        int32_t procid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
+        bool onlydirectloaded = HSVM_BooleanGet(*vm, HSVM_Arg(1));
+
+        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
+        JobManagerContext context(vm->GetContextKeeper());
+
+        std::map< int32_t, std::shared_ptr< Job > >::iterator it = context->jobs.find(procid);
+        if (it == context->jobs.end())
+            throw VMRuntimeError(Error::InternalError, "Job with this id does not exist");
+
+        bool islocked = jobmgr->TryLockVMGroup(it->second->GetVMGroup(), 0);
+        if (!islocked)
+        {
+                HSVM_ThrowException(*vm, "Cannot request job errors of a running job");
+                return;
+        }
+
+        VirtualMachine *target = jobmgr->GetGroupMainVM(*it->second->GetVMGroup());
+
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
+        HSVM_VariableId var_errors = HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "ERRORS"));
+        HSVM_SetDefault(*vm, var_errors, HSVM_VAR_RecordArray);
+
+        HSVM_VariableId var_libraries = HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "LIBRARIES"));
+        HSVM_SetDefault(*vm, var_libraries, HSVM_VAR_RecordArray);
+
+        std::vector< LibraryInfo > info;
+        try
+        {
+                if (onlydirectloaded)
+                    target->GetLoadedLibrariesInfo(&info);
+                else
+                    target->GetAllLibrariesInfo(&info);
+        }
+        catch (VMRuntimeError &e)
+        {
+                vm->GetErrorHandler().AddMessage(e);
+                HSVM_GetMessageList(*vm, var_errors);
+
+                vm->GetErrorHandler().Reset();
+        }
+        catch (std::exception &)
+        {
+                jobmgr->UnlockVMGroup(it->second->GetVMGroup());
+                throw;
+        }
+
+        jobmgr->UnlockVMGroup(it->second->GetVMGroup());
+
+        for (std::vector< LibraryInfo >::iterator it = info.begin(); it != info.end(); ++it)
+        {
+                HSVM_VariableId var_elt = HSVM_ArrayAppend(*vm, var_libraries);
+
+                HSVM_StringSetSTD(*vm, HSVM_RecordCreate(*vm, var_elt, HSVM_GetColumnId(*vm, "LIBURI")),  it->uri);
+                HSVM_BooleanSet(*vm, HSVM_RecordCreate(*vm, var_elt, HSVM_GetColumnId(*vm, "OUTOFDATE")), it->outofdate);
+                HSVM_DateTimeSet(*vm, HSVM_RecordCreate(*vm, var_elt, HSVM_GetColumnId(*vm, "COMPILE_ID")), it->compile_id.GetDays(), it->compile_id.GetMsecs());
+        }
+
+}
+
+
 namespace
 {
 
@@ -3584,6 +3649,7 @@ void InitIPC(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SETJOBAUTHENTICATIONRECORD:::IR", SetJobAuthenticationRecord));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_GETJOBENVIRONMENT::RA:I", GetJobEnvironment));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SETJOBENVIRONMENT:::IRA", SetJobEnvironment));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_GETJOBLOADEDLIBRARIESINFO::R:IB", GetJobLoadedLibrariesInfo));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATENAMEDIPCPORT::I:S", CreateNamedIPCPort));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CLOSENAMEDIPCPORT:::I", CloseNamedIPCPort));
