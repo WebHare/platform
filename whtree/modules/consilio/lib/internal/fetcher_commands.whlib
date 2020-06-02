@@ -1429,7 +1429,7 @@ BOOLEAN FUNCTION RemoveOutdatedGroupObjects(INTEGER indexid, INTEGER contentsour
 
 /** Fetch the given object and index it
     @param existing_indexdate Indexdate of current object in index (DEFAULT DATETIME for unconditional add)
-    @param existing_commanddate Commanddate of current object in index (DAFAULT DATETIME for unconditional add), otherwise added only when older than commanddate
+    @param existing_commanddate Commanddate of current object in index (DEFAULT DATETIME for unconditional add), otherwise added only when older than commanddate
 */
 RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING groupid, STRING objectid, RECORD objectdata, DATETIME commanddate, DATETIME existing_indexdate, DATETIME existing_commanddate, BOOLEAN force)
 {

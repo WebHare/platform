@@ -288,7 +288,7 @@ PUBLIC RECORD ARRAY FUNCTION LookupManagedTasks(STRING type, RECORD searchparame
     @param maxwait Wait until this time
     @cell(boolean) options.acceptcancel Don't throw if the task is cancelled
     @cell(boolean) options.accepttempfailure Don't throw if the task is temporarily failed but will still retry
-    @cell(boolean) options.accepttimeout In case of timeout, just return a dafeult record
+    @cell(boolean) options.accepttimeout In case of timeout, just return a default record
     @return Task result
 */
 PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwait, RECORD options DEFAULTSTO DEFAULT RECORD)
