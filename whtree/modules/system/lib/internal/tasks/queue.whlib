@@ -531,6 +531,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
         , timedwait :=        OBJECT[]
         , ...queuedata
         , this->stats
+        , queuestats :=       state.stats
         ];
   }
 
@@ -596,6 +597,7 @@ PUBLIC STATIC OBJECTTYPE PersistentQueueControllerBase
         , running :=    (SELECT AS RECORD ARRAY CELL[ item->taskdata, item->date_running ] FROM ToRecordArray(state.running, "ITEM"))
         , runnable :=   LENGTH(state.runnable)
         , timedwait :=  LENGTH(state.timedwait)
+        , queuestats := state.queuestats
         ];
   }
 
