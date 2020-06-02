@@ -571,6 +571,25 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
     __HS_SETJOBENVIRONMENT(this->pvt_handle, environment);
   }
 
+  /** Returns a list of all libraries referenced in the job (only available
+      after the job has finished)
+      @return List of all libraries
+      @cell return.liburi Library resource name
+      @cell return.outofdate If the library has been changed since it was loaded into this script
+      @cell return.compile_id Current compile id of the library
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetAllUsedHarescriptLibraries()
+  {
+    IF (this->pvt_handle = 0)
+      THROW NEW Exception("Cannot get the used HareScript libraries of a closed job");
+    IF (NOT this->IsSignalled())
+      THROW NEW Exception("Cannot get exit code of a running job");
+
+    RECORD info := __HS_GETJOBLOADEDLIBRARIESINFO(this->pvt_handle, FALSE);
+    IF (RecordExists(info.errors))
+      THROW NEW HarescriptErrorException(info.errors);
+    RETURN info.libraries;
+  }
 >;
 
 
@@ -1003,3 +1022,4 @@ PUBLIC INTEGER FUNCTION __HS_CaptureJobOutput(INTEGER handle) __ATTRIBUTES__(EXT
 
 INTEGER FUNCTION __HS_GETIPCLINKTOJOB(INTEGER jobid) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_SETGROUPPRIORITY(INTEGER jobid, BOOLEAN highpriority) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION __HS_GETJOBLOADEDLIBRARIESINFO(INTEGER jobid, BOOLEAN onlyloadedlibraries) __ATTRIBUTES__(EXTERNAL);
