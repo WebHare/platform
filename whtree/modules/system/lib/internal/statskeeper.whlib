@@ -1,0 +1,169 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+/**
+*/
+
+/** Keeps statistics over intervals. Has two types of values:
+    - 'level': start/end/min/max value of a value
+    - 'event': countsnumber of events in the period\
+*/
+PUBLIC STATIC OBJECTTYPE ActiveStatsKeeper
+<
+  /** List of fields
+      @cell(string) name Field name
+      @cell(string) type Field type ('event'/'level')
+  */
+  RECORD ARRAY fields;
+
+  /** Current status. Every field has a cell with the current status
+      - 'level': A record with the cells minvalue, maxvalue, firstvalue, lastvalue
+      - 'event': An integer with the event count
+      @cell(datetime) intervalstart Start of the interval
+  */
+  RECORD currentstatus;
+
+  /** List of last historic items
+  */
+  RECORD ARRAY history;
+
+  /// Lewngth of an interval in msecs
+  INTEGER interval;
+
+  /// Callback for interval timer
+  INTEGER cb;
+
+  /** @param config Configuration
+      @cell(integer array) config.interval Interval (in milliseconds)
+      @cell(record array) config.fields List of fields
+      @cell(string) config.fields.name Name of the field
+      @cell(string) config.fields.type Field type: 'event' or 'level'
+  */
+  MACRO NEW(RECORD config)
+  {
+    config := ValidateOptions(
+        [ fields :=   RECORD[]
+        , interval := 60 * 1000
+        ], config,
+        [ required := [ "fields" ]
+        ]);
+
+    FOREVERY (RECORD field FROM config.fields)
+    {
+      config.fields[#field] := ValidateOptions(
+          [ name :=     ""
+          , type :=     ""
+          ], field,
+          [ required := [ "name", "type" ]
+          , enums :=    [ type := [ "level", "event" ] ]
+          ]);
+    }
+
+    this->fields := config.fields;
+    this->interval := config.interval;
+
+    this->currentstatus :=
+        [ intervalstart := GetRoundedDateTime(GetCurrentDateTime(), this->interval)
+        ];
+
+    FOREVERY (RECORD rec FROM this->fields)
+    {
+      SWITCH (rec.type)
+      {
+        CASE "event"
+        {
+          this->currentstatus := CellInsert(this->currentstatus, rec.name, 0);
+        }
+        CASE "level"
+        {
+          this->currentstatus := CellInsert(this->currentstatus, rec.name, DEFAULT RECORD);
+        }
+      }
+    }
+
+    this->cb := RegisterTimedCallback(AddTimeToDate(this->interval, this->currentstatus.intervalstart), PTR this->GotNewInterval());
+  }
+
+  /** Sets the current level for a level field
+      @param name Field name
+      @param level New level
+  */
+  PUBLIC MACRO SetLevel(STRING name, INTEGER level)
+  {
+    RECORD curval := GetCell(this->currentstatus, name);
+    IF (NOT RecordExists(curval))
+      curval := [ minvalue := level, maxvalue := level, firstvalue := level, lastvalue := level ];
+    ELSE
+    {
+      curval.lastvalue := level;
+      IF (curval.minvalue > level)
+        curval.minvalue := level;
+      IF (curval.maxvalue < level)
+        curval.maxvalue := level;
+    }
+    this->currentstatus := CellUpdate(this->currentstatus, name, curval);
+  }
+
+  /** Adds a hit for a 'event' field
+      @param name Field name
+  */
+  PUBLIC MACRO AddEvent(STRING name)
+  {
+    INTEGER curval := GetCell(this->currentstatus, name);
+    this->currentstatus := CellUpdate(this->currentstatus, name, curval + 1);
+  }
+
+  MACRO GotNewInterval()
+  {
+    // send status
+    RECORD newfields :=
+        [ intervalstart := GetRoundedDateTime(GetCurrentDateTime(), this->interval)
+        ];
+
+    FOREVERY (RECORD rec FROM this->fields)
+      IF (rec.type = "level")
+      {
+        RECORD curval := GetCell(this->currentstatus, rec.name);
+        IF (RecordExists(curval))
+        {
+          curval :=
+              [ firstvalue :=   curval.lastvalue
+              , lastvalue :=    curval.lastvalue
+              , minvalue :=     curval.lastvalue
+              , maxvalue :=     curval.lastvalue
+              ];
+        }
+        newfields := CellInsert(newfields, rec.name, curval);
+      }
+      ELSE
+        newfields := CellInsert(newfields, rec.name, 0);
+
+    // ADDME: send currentstatus to stats service
+    INSERT this->currentstatus INTO this->history AT END;
+    this->currentstatus := newfields;
+    IF (LENGTH(this->history) > 60) // keep an hour of stats
+      DELETE FROM this->history AT 0;
+
+    this->cb := RegisterTimedCallback(AddTimeToDate(this->interval, newfields.intervalstart), PTR this->GotNewInterval());
+  }
+
+  /** Returns current status
+      @return Current status
+      @cell return.fields List of fields @includecelldef #ActiveStatsKeeper::NEW.config.fields
+      @cell(integer) return.interval Interval (in milliseconds)
+      @cell(record array) return.history Last 60 intervals
+      @cell(record) return.currentstatus Current interval data
+      @cell(datetime) return.currentstatus.intervalstart Start of interval
+  */
+  PUBLIC RECORD FUNCTION GetStats()
+  {
+    RETURN CELL
+        [ this->fields
+        , this->interval
+        , this->history
+        , this->currentstatus
+        ];
+  }
+>;

@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -13,6 +14,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
@@ -93,6 +95,15 @@ RECORD ARRAY FUNCTION RunDevelopmentChecks()
         FROM node_issues;
 }
 
+ASYNC FUNCTION RunAsyncChecks()
+{
+  OBJECT publishercheckpromise := GetPersistentQueueStatus("publisher:publication", 15000);
+  OBJECT outputanalyzercheckpromise := GetPersistentQueueStatus("publisher:outputanalyzer", 15000);
+
+  RETURN AWAIT publishercheckpromise CONCAT AWAIT outputanalyzercheckpromise;
+
+}
+
 RECORD ARRAY FUNCTION GetHotFixCheckResult()
 {
   RECORD ARRAY messages;
@@ -113,12 +124,89 @@ RECORD ARRAY FUNCTION GetHotFixCheckResult()
   RETURN messages;
 }
 
+ASYNC FUNCTION GetPersistentQueueStatus(STRING service, INTEGER timeout)
+{
+  RECORD defer := CreateDeferredPromise();
+
+  RegisterTimedCallback(AddTimeToDate(timeout, GetCurrentDatetime()), PTR defer.resolve("timeout"));
+  GetPersistentQueueStatusInternal(service)->Then(defer.resolve);
+
+  STRING res := AWAIT defer.promise;
+
+  SWITCH (res)
+  {
+    CASE ""             { RETURN RECORD[]; }
+    CASE "error"
+    {
+      RETURN
+          [ [ msg := `:Error contacting service '${service}'`
+            , jumpto := [ app := "system:dashboard", panel := "system:queues" ]
+            ]
+          ];
+    }
+    CASE "timeout"
+    {
+      RETURN
+          [ [ msg := `:Timeout contacting service '${service}' (waited ${timeout}ms)`
+            , jumpto := [ app := "system:dashboard", panel := "system:queues" ]
+            ]
+          ];
+    }
+    CASE "no_progress"
+    {
+      RETURN
+          [ [ msg := `:Service '${service}' is reporting no progress in the last 10 minutes`
+            , jumpto := [ app := "system:dashboard", panel := "system:queues" ]
+            ]
+          ];
+    }
+  }
+  RETURN RECORD[];
+}
+
+ASYNC FUNCTION GetPersistentQueueStatusInternal(STRING serviceport)
+{
+  RECORD ARRAY messages;
+
+  RECORD res;
+  TRY
+  {
+    OBJECT service := AWAIT OpenWebHareService(serviceport);
+    TRY
+      res := AWAIT service->GetState();
+    FINALLY
+      service->CloseService();
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN "error";
+  }
+
+  RECORD ARRAY allstats := RECORD[ ...res.queuestats.history, res.queuestats.currentstatus ];
+  IF (LENGTH(allstats) < 10)
+    RETURN "";
+
+  RECORD ARRAY laststats := ArraySlice(allstats, LENGTH(allstats) - 11);
+
+  RECORD state :=
+      SELECT finished :=        Sum(finished)
+           , maxqueuelength :=  MAX(queuelength.maxvalue)
+           , minqueuelength :=  MAX(queuelength.minvalue)
+        FROM laststats;
+
+  IF (state.minqueuelength > 0 AND state.finished = 0)
+    RETURN "no_progress";
+  RETURN "";
+}
+
 PUBLIC RECORD ARRAY FUNCTION RunChecks()
 {
   RECORD ARRAY messages;
 
   OBJECT validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib", "ValidateModules");
   OBJECT deletetaskpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/checks/checker.whlib", "DeleteOldSnoozes");
+  OBJECT asynccheckspromise := RunAsyncChecks();
 
   IF (NOT IsDatabaseWritable())
   {
@@ -269,6 +357,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   messages := messages CONCAT RunConsilioChecks();
   messages := messages CONCAT GetHotFixCheckResult();
   messages := messages CONCAT SELECT *, msg := ":" || msg FROM WaitForPromise(validationpromise);
+  messages := messages CONCAT WaitForPromise(asynccheckspromise);
 
   IF (GetDTAPStage() = "development")
     messages := messages CONCAT RunDevelopmentChecks();
