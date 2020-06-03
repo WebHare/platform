@@ -1123,11 +1123,14 @@ STATIC OBJECTTYPE ApplyRuleTester
         IF (CellExists(element, "WEBFEATURES") AND Length(element.webfeatures) > 0 AND NOT this->MatchWebfeatures(element.webfeatures))
           RETURN FALSE;
 
-        IF (CellExists(element, "SITENAME") AND element.sitename!="" AND (NOT RecordExists(site) OR ToUppercase(site.name) != ToUppercase(element.sitename)))
+        //TODO can we somehow share with GetMatchesBySiteFilter ?
+        IF (CellExists(element, "SITENAME") AND (NOT RecordExists(site) OR ToUppercase(site.name) != ToUppercase(element.sitename)))
             RETURN FALSE;
-        IF (CellExists(element, "SITEMASK") AND element.sitemask!="" AND (NOT RecordExists(site) OR ToUppercase(site.name) NOT LIKE ToUppercase(element.sitemask)))
+        IF (CellExists(element, "SITEMASK") AND (NOT RecordExists(site) OR ToUppercase(site.name) NOT LIKE ToUppercase(element.sitemask)))
             RETURN FALSE;
-        IF (CellExists(element, "SITEREGEX") AND element.siteregex!="" AND (NOT RecordExists(site) OR NOT MatchPathRegex(element.siteregex, site.name)))
+        IF (CellExists(element, "SITEREGEX") AND (NOT RecordExists(site) OR NOT MatchPathRegex(element.siteregex, site.name)))
+            RETURN FALSE;
+        IF (CellExists(element, "WEBROOTREGEX") AND (NOT RecordExists(site) OR NOT MatchPathRegex(element.webrootregex, site.webroot)))
             RETURN FALSE;
 
         IF (NOT this->TestPathConstraint(element, site, folder))
