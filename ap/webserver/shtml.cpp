@@ -162,11 +162,6 @@ bool HandleRedirectSendfile(WebServer::Connection *webcon, HSVM *vm)
 
 bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket)
 {
-        return ContentHandlerInternal(webcon, path, path_is_direct, errors_for_errorpage, errors_groupid, websocket);
-}
-
-bool Shtml::ContentHandlerInternal(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket)
-{
         (void)websocket;
 
         ShtmlWebContext webcontext(webcon->GetRequestKeeper());
