@@ -701,8 +701,8 @@ STATIC OBJECTTYPE ContentSource
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
 
-  /** Rebuild this index */
-  PUBLIC MACRO RebuildIndex()
+  /** Rebuild this content source's catalog */
+  PUBLIC MACRO RebuildCatalog()
   {
     //FIXME Log
     STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
