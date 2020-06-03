@@ -706,7 +706,7 @@ STATIC OBJECTTYPE ContentSource
   {
     //FIXME Log
     STRING command := "CHECKINDEX " || this->catalog->id || " " || this->id;
-    LogDebug("consilio", "ContentSource::RebuildIndex", [ catalog := this->catalog->id, contentsource := this->id ]);
+    LogDebug("consilio", "ContentSource::RebuildCatalog", [ catalog := this->catalog->id, contentsource := this->id ]);
     SendQueueManagerData(GetQueueDataFromCommand(command));
   }
 
@@ -820,7 +820,7 @@ STATIC OBJECTTYPE Catalog
 
     //TODO CheckFolderInIndex ?
     OBJECT contentsource := this->OpenContentSourceById(srcid);
-    INSERT PTR contentsource->RebuildIndex() INTO GetConsilioFinishHandler()->execoncommit AT END;
+    INSERT PTR contentsource->RebuildCatalog() INTO GetConsilioFinishHandler()->execoncommit AT END;
     RETURN contentsource;
   }
 
