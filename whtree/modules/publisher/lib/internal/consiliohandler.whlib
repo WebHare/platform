@@ -87,7 +87,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
     DeleteGroup(data, [ refresh := TRUE ]);
 
     IF(options.progress)
-      Print(`Deleting ${#objid}/${Length(to_delete)}: #${objid}\r`);
+      Print(`Deleting ${#objid+1}/${Length(to_delete)}: #${objid}\r`);
   }
   IF(options.progress AND Length(to_delete) > 0)
     Print(`\n`);
@@ -103,7 +103,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
         ];
 
     IF(options.progress)
-      Print(`Updating ${#objid}/${Length(to_update)}: #${objid}\r`);
+      Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
 
     //TODO pass queueing priority based on startingpoint ordering
     RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
