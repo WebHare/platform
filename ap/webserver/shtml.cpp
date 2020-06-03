@@ -195,10 +195,6 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         }
 
         SRHRunningAppPtr app(new SRHRunningApp(this));
-
-        if (webcon->GetRequestParser().GetHeaderValue("X-Webhare-Todd-Termination-Request") == "yes")
-            app->abort_on_disconnect = false;
-
         // High priority request?
         bool highpriority = webcon->GetRequestParser().GetVariableValue("$tolliumhighpriority") == "true";
 
@@ -967,7 +963,6 @@ std::string ConnectionWorkTask::GetTaskDescription()
 SRHRunningApp::SRHRunningApp(Shtml *_shtml)
 : shtml(_shtml)
 , is_detached(false)
-, abort_on_disconnect(true)
 {
         abortflag.reset(new unsigned);
 }
@@ -1000,15 +995,9 @@ SRHRunningApp::~SRHRunningApp()
 
 
 //        void SetSessionAutoIncrement(Session *session, unsigned auto_increment);
-        if (abort_on_disconnect)
-        {
-                SHTML_PRINT("Destroying SRHRunningApp " << sessionid);
-                *abortflag = HSVM_ABORT_DISCONNECT;
-        }
-        else
-        {
-                SHTML_PRINT("Not aborting SRHRunningApp " << sessionid << " on specific request");
-        }
+        SHTML_PRINT("Destroying SRHRunningApp " << sessionid);
+        *abortflag = HSVM_ABORT_DISCONNECT;
+
         vmgroup.reset();
 }
 

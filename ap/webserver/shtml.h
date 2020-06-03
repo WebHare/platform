@@ -49,8 +49,6 @@ class SRHRunningApp
         HareScript::ErrorHandler errorhandler;
         ///is detached (running srh)
         bool is_detached;
-        ///If the running VM group must be aborted when this structure is destroyed.
-        bool abort_on_disconnect;
 };
 typedef std::shared_ptr<SRHRunningApp> SRHRunningAppPtr;
 

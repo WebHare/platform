@@ -65,9 +65,8 @@ void Connection::HookSignal(Blex::Dispatcher::Signals::SignalType signal)
 
                                 if (!protocol.is_websocket)
                                 {
-                                        // FIXME: Should we read X-Webhare-Todd-Termination-Request and terminate running request when not present?
                                         // HTTP 1.1 specs that connection close should abort the request (but a termination should always run to cleanup)
-                                        WS_PRINT(" Received EOF on running request, termination request: " << ( GetRequestParser().GetHeaderValue("X-Webhare-Todd-Termination-Request") == "yes" ? "yes" : "no"));
+                                        WS_PRINT(" Received EOF on running request");
                                 }
                         }
                 }
