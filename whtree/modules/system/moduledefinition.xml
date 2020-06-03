@@ -1069,7 +1069,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
         </d:documentation>
       </d:varchar>
       <d:integer name="stricttransportsecurity">
-        <d:documentation>Seconds to set a HSTST header for</d:documentation>
+        <d:documentation>Seconds to set a HSTS header for</d:documentation>
       </d:integer>
     </d:table>
     <d:table name="webservers_aliases" primarykey="id">

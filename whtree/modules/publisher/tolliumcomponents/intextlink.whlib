@@ -53,6 +53,9 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY internallinks(__internallinks, SetInternalLinks);
 
+  /// @type(integer array) Limit the root folders for internal links in the browse dialog, leave empty to show all accessible folders
+  PUBLIC PROPERTY internallinkroots(^internal->roots, ^internal->roots);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor

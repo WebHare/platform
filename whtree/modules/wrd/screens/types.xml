@@ -61,9 +61,9 @@
                   flags="isdomain"
                   ongetrows="ongettypes"
                   >
-              <column name="tag"      type="text" tid="terminology.tag" />
-              <column name="title"    type="text" tid="terminology.type" />
-              <column name="metatype" type="text" tid="terminology.metatype" optiongid="common.metatypes" width="14x" /><!-- object, classification, link, domain -->
+              <column name="tag"      type="text" tid="tolliumapps.common.tag" />
+              <column name="title"    type="text" tid="tolliumapps.common.type" />
+              <column name="metatype" type="text" tid="tolliumapps.common.metatype" optiongid="common.metatypes" width="14x" /><!-- object, classification, link, domain -->
             </list>
           </cell>
           <cell>
@@ -176,9 +176,9 @@
                   flags="canaddchildren base"
                   openaction="editattr"
                   ongetrows="ongetattrs">
-              <column name="tag" type="text" tree="true" tid="terminology.tag" />
-              <column name="title" type="text" tid="tollium:common.labels.title" />
-              <column name="type" type="text" width="20x" tid="terminology.attrtype" />
+              <column name="tag" type="text" tree="true" tid="tolliumapps.common.tag" />
+              <column name="title" type="text" tid="~title" />
+              <column name="type" type="text" width="20x" tid="tolliumapps.common.attrtype" />
               <!--column name="required" type="text" width="5x" /-->
               <!-- <column name="uniquetxt" type="text" width="5x" /> -->
               <column name="reqicon" type="icon" />
