@@ -10,6 +10,7 @@
   </meta>
 
   <servicemanager>
+    <runonce tag="setcontentsourcefsobjects" script="scripts/runonce/setcontentsourcefsobjects.whscr" when="poststart" />
     <runonce tag="setupindexmanager" script="scripts/runonce/setupindexmanager.whscr" when="poststart" />
     <task runat="*/15   * * * *"  tag="indextasks" script="scripts/tasks/executeindextasks.whscr" runatstartup="true" />
     <task runat="17 */8 * * *"  tag="linkchecker" script="scripts/tasks/executelinkcheck.whscr" description="Check links on indexed pages" /> <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
@@ -139,6 +140,9 @@
       <d:varchar name="indexname" maxlength="128">
         <d:documentation>Index name (elasticsearch)</d:documentation>
       </d:varchar>
+      <d:varchar name="definedby" maxlength="512">
+        <d:documentation>Source where we last saw this index</d:documentation>
+      </d:varchar>
     </d:table>
 
     <d:table name="contentsources" primarykey="id">
@@ -148,9 +152,9 @@
 
         </d:documentation>
       </d:varchar>
-      <d:varchar name="data" maxlength="4096">
+      <d:varchar name="data" maxlength="4096" nullable="false">
         <d:documentation>
-          HSON encoded
+          HSON encoded. required because not setting it wil lcurrently crash a lot of code
         </d:documentation>
       </d:varchar>
       <d:boolean name="discardsummaries">
@@ -166,6 +170,11 @@
       <d:integer name="maxgroupobjects">
         <d:documentation>
 
+        </d:documentation>
+      </d:integer>
+      <d:integer name="fsobject" references="system.fs_objects" ondelete="set default">
+        <d:documentation>
+          Associated WHFS object. For publisher:webhare content sources, the publisher folder where indexing starts
         </d:documentation>
       </d:integer>
       <d:varchar name="tag" maxlength="64">
@@ -192,11 +201,7 @@
       <d:varchar name="definedby" maxlength="512">
         <d:documentation>Source where we last saw this contentsource</d:documentation>
       </d:varchar>
-      <d:boolean name="publishercontent">
-        <d:documentation>
-
-        </d:documentation>
-      </d:boolean>
+      <d:obsoletecolumn name="publishercontent" />
     </d:table>
 
     <d:obsoletetable name="mapping" />

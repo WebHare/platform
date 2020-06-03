@@ -92,6 +92,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                     , globalsettings       := RECORD[]
                     , webrules             := RECORD[]
                     , addtoindices         := RECORD[]
+                    , addtocatalogs        := RECORD[]
                     , prebuilttag_typeid   := 0
                     , prebuilttag_memberid := 0
                     , hiddenfoldertypes    := INTEGER[]
@@ -550,8 +551,9 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
           IF(Length(siteids) = 0)
             CONTINUE; //No matches!
 
-          this->result.webrules     := this->result.webrules     CONCAT SELECT *, siteids := VAR siteids FROM rule.webrules;
-          this->result.addtoindices := this->result.addtoindices CONCAT SELECT *, siteids := VAR siteids FROM rule.addtoindices;
+          this->result.webrules      := this->result.webrules     CONCAT SELECT *, siteids := VAR siteids FROM rule.webrules;
+          this->result.addtoindices  := this->result.addtoindices CONCAT SELECT *, siteids := VAR siteids FROM rule.addtoindices;
+          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteids := VAR siteids FROM rule.addtocatalogs;
         }
       }
     }
@@ -636,8 +638,7 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
     LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.errors ]);
 
   // ADDME use recompilation result directly, UpdateConsilioIndices goes through GetCSP but the data should be in 'response'
-  UpdateConsilioIndices([ reportmissing := reportmissing ]);
-  UpdateModuleIndices([ reportmissing := reportmissing ]); //FIXME currently there doesn't really seem to be anything reporting to reportmissing
+  FixConsilioIndices([ reportmissing := reportmissing ]);
 
   RETURN [ errors := response.errors
          , warnings := response.warnings

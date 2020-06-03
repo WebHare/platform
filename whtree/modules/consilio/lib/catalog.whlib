@@ -103,13 +103,12 @@ PUBLIC INTEGER FUNCTION AddFolderToCatalog(INTEGER folder, STRING catalog_name, 
     RETURN CatalogFolderAlreadyIndexed;
 
   STRING contentprovider := "publisher:webhare";
-  RECORD data := [ folder := folder
-                 , http_username := http_user
+  RECORD data := [ http_username := http_user
                  , http_password := http_password
                  ];
   INTEGER srcid := MakeAutoNumber(consilio.contentsources, "id");
-  INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, data)
-         VALUES (srcid, indexrec.id, contentprovider, TRUE, EncodeHSON(data));
+  INSERT INTO consilio.contentsources(id, indexid, contentprovider, data, fsobject)
+         VALUES (srcid, indexrec.id, contentprovider, EncodeHSON(data), folder);
 
   UpdateContentSourceFieldsById(srcid);
   STRING result := EnsureIndexManagerContentSource(indexrec.id, srcid);
@@ -184,25 +183,22 @@ INTEGER FUNCTION CheckFolderInIndex(INTEGER indexid, INTEGER folderid, INTEGER s
 {
   INTEGER res;
   FOREVERY (RECORD contentsource FROM (
-      SELECT id, data := DecodeHSON(data)
+      SELECT id, fsobject
         FROM consilio.contentsources
        WHERE id != searchid
              AND contentsources.indexid = VAR indexid
-             AND publishercontent
+             AND contentprovider = "publisher:webhare"
              AND tag NOT LIKE "$consilio$deleted$*"))
   {
-    IF (NOT RecordExists(contentsource.data))
-      CONTINUE; // Should not happen, but prevent crashes when it does
-
-    IF ((contentsource.data.folder = folderid) OR IsFolderAncestorOf(contentsource.data.folder, folderid)) // folderid is already covered by searchroot
+    IF ((contentsource.fsobject = folderid) OR IsFolderAncestorOf(contentsource.fsobject, folderid)) // folderid is already covered by searchroot
     {
       res := -1;
       BREAK;
     }
-    ELSE IF (IsFolderAncestorOf(folderid, contentsource.data.folder)) // folderid contains searchroot
+    ELSE IF (IsFolderAncestorOf(folderid, contentsource.fsobject)) // folderid contains searchroot
     {
       res := 1;
-      UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.data.id; // remove contained folder
+      UPDATE consilio.contentsources SET tag := "$consilio$deleted$" || id || ":" || tag WHERE id = contentsource.fsobject; // remove contained folder
     }
   }
   RETURN res;

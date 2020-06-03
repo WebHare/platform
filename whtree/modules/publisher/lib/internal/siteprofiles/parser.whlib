@@ -1350,6 +1350,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       RECORD sitesetting := [ sitefilter := ReadSiteFilter(siteset)
                             , webrules := DEFAULT RECORD ARRAY
                             , addtoindices := DEFAULT RECORD ARRAY
+                            , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
                             ];
 
@@ -1369,7 +1370,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CONTINUE;
 
           RECORD therule := [ rule :=         parsed.rule
-                            , module :=       GetModuleNameFromResourcePath(this->siteprof->name)
+                            , module :=       this->module
                             , siteprofile :=  this->siteprof->name
                             , line :=         webrule->linenum
                             , col :=          0
@@ -1396,6 +1397,32 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
         INSERT theindex INTO sitesetting.addtoindices AT END;
       }
+
+      OBJECT ARRAY addtocatalogs := siteset->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "addtocatalog")->GetCurrentElements();
+      FOREVERY(OBJECT addtocatalog FROM addtocatalogs)
+      {
+        RECORD theindex := [ catalog := QualifyName(this->module, addtocatalog->GetAttribute("catalog"))
+                           /* FIXME
+                              Are these two parameters actually used?
+
+                              and do we *want* usernames and passwords in a site profile? We ought to accept a callback or
+                              look in a registry key. (and then probably do it when we need the password, not when caching
+                              a siteprofile)
+
+                           , maxgroupobjects := ParseXSInt(addtocatalog->GetAttribute("maxgroupobjects"))
+                           , discardsummaries := ParseXSBoolean(addtocatalog->GetAttribute("discardsummaries"))
+                           , http_username := addtocatalog->GetAttribute("http_username")
+                           , http_password := addtocatalog->GetAttribute("http_password")
+                           */
+                           , module := module
+                           , siteprofile := this->siteprof->name
+                           , line := addtocatalog->linenum
+                           , col := 0
+                           ];
+
+        INSERT theindex INTO sitesetting.addtocatalogs AT END;
+      }
+
       INSERT sitesetting INTO sitesettings AT END;
     }
     RETURN sitesettings;

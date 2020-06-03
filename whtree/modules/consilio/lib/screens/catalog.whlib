@@ -262,9 +262,8 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
         OBJECT work := this->BeginWork();
         INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-        BOOLEAN publishercontent := SELECT AS BOOLEAN COLUMN publishercontent FROM this->contentproviders WHERE name = src.contentprovider;
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries)
-               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, publishercontent, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
+               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
         this->UpdateContentSourceFields(work, srcid, src, data);
 
         IF (work->Finish())
@@ -514,6 +513,10 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                    AND indices.name NOT LIKE "$consilio$deleted$"
                                    AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
+    RECORD ARRAY fsobjects := SELECT id, whfspath
+                                FROM system.fs_objects
+                               WHERE id IN (SELECT AS INTEGER ARRAY fsobject FROM sources WHERE fsobject != 0);
+
     RECORD ARRAY rows;
     RECORD ARRAY lasterrors;
     IF(RecordExists(this->laststatus))
@@ -569,7 +572,7 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
       RECORD ARRAY catalogsources := SELECT *
                                           , rowkey := "source_" || id
                                           , icon := catalog.id < 0 ? ^catalogs->GetIcon("consilio:consilio") : iconname != "" ? ^catalogs->GetIcon(iconname) : 0
-                                          , tag := tag ?? title
+                                          , tag := (contentprovider = "publisher:webhare" ? (SELECT AS STRING whfspath FROM fsobjects WHERE fsobjects.id = sources.fsobject) : tag) ?? title
                                           , title
                                           , size := ""
                                           , statushint := GetStatusHint(status)
@@ -587,7 +590,6 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                                           , haserrors := FALSE
                                           , contentsourceid := id
                                           , definedby := definedby
-                                          , style := orphansince != DEFAULT DATETIME ? "inactive" : ""
                                        FROM sources
                                       WHERE indexid = catalog.id
                                       ORDER BY (status < 0), failed // Show active sources first, then failed sources
@@ -640,11 +642,11 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
                          , manageable := TRUE
                          , inactive := inactive OR srcinactive
                          , readonly := catalog.id < 0
-                         , style := catalog.id < 0 ? "readonly" : (inactive OR srcinactive) ? "inactive" : ""
+                         , style := catalog.id < 0 ? "readonly" : (inactive OR srcinactive OR orphansince != DEFAULT DATETIME) ? "inactive" : ""
                          ] FROM catalogsources AS src)
                  : RECORD[]
              , contentsourceid := 0
-             , definedby := ""
+             , definedby := catalog.definedby
              ] INTO rows AT END;
     }
     work->Cancel();

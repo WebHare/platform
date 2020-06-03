@@ -15,6 +15,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/towl.whlib";
 
@@ -118,7 +119,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     IF (NOT RecordExists(catalog))
       RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = 1)
+    IF (catalog.type = whconstant_consilio_catalogtype_moduleindex)
       RETURN result; // Unmanaged index, nothing to do
 
     // If rebuilding a specific index, check if it should be rebuilt completely (i.e. if it should be deleted first)
@@ -1257,18 +1258,14 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
 
     FOREVERY (RECORD rec FROM candidates)
     {
-      IF (NOT rec.publishercontent)
+      IF (rec.contentprovider != "publisher:webhare")
         CONTINUE;
 
       IF (rec.id IN mustinclude)
         INSERT rec INTO result.sources AT END;
       ELSE
       {
-        RECORD data := DecodeHSON(rec.data);
-        IF (NOT RecordExists(data) OR NOT CellExists(data, "FOLDER"))
-          CONTINUE;
-
-        IF (data.folder NOT IN path)
+        IF (rec.fsobject NOT IN path)
           CONTINUE;
 
         INSERT rec INTO result.sources AT END;
@@ -1276,7 +1273,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
     }
 
     // No content source was specified, so we're adding a WebHare fs_object for which only publisher content sources are needed
-    result.sources := SELECT * FROM result.sources WHERE publishercontent;
+    result.sources := SELECT * FROM result.sources WHERE contentprovider = "publisher:webhare";
   }
 
   // Do we have any content sources for adding the group?

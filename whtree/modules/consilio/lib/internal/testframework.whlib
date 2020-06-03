@@ -152,7 +152,7 @@ PUBLIC OBJECTTYPE ConsilioTestExtensions
          WHERE indices.name = catalogname
            AND indexid = indices.id
            AND contentprovider = "publisher:webhare"
-           AND DecodeHSON(data).folder = folderid
+           AND fsobject = folderid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
   }
 

@@ -12,6 +12,7 @@ PUBLIC SCHEMA
     , INTEGER "indexmanager" NULL := 0
     , STRING "name"
     , STRING "description"
+    , STRING "definedby"
     , INTEGER "loglevel"
     , INTEGER "priority"
     , BOOLEAN "rebuild"
@@ -32,7 +33,7 @@ PUBLIC SCHEMA
     , DATETIME "last_indexed"
     , DATETIME "orphansince"
     , STRING "definedby"
-    , BOOLEAN "publishercontent"
+    , INTEGER "fsobject" NULL := 0
     ; KEY id
     > contentsources
   , TABLE

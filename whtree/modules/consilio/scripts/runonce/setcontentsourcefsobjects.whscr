@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+INTEGER FUNCTION GetFolder(STRING data)
+{
+  INTEGER folder := DecodeHSON(data).folder;
+  IF(SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = folder AND isactive)
+    RETURN folder;
+  RETURN 0;
+}
+
+OpenPrimary()->BeginWork();
+UPDATE consilio.contentsources
+       SET fsobject := GetFolder(data)
+         , data := EncodeHSON(CELL[...DecodeHSON(data),DELETE folder])
+     WHERE contentprovider="publisher:webhare"
+           AND data != ""
+           AND CellExists(DecodeHSON(data),"folder");
+GetPrimary()->CommitWork();

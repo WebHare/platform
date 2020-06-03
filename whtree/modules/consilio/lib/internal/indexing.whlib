@@ -1,0 +1,81 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+
+LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
+LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
+
+RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
+{
+  STRING args := Detokenize(options, " ");
+  STRING command := "STATUS" || (args != "" ? " " || args : "");
+  RETURN SendQueueManagerData(GetQueueDataFromCommand(command));
+}
+
+
+PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ verbose := FALSE
+                             , deadline := MAX_DATETIME
+                             ], options);
+
+  RECORD contentsource := SELECT * FROM consilio.contentsources WHERE id = contentsourceid AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+  IF(NOT RecordExists(contentsource))
+    THROW NEW Exception(`WaitContentSourceDone: No such content source #${contentsourceid}`);
+
+  STRING describesource := `content source #${contentsourceid} (${contentsource.tag})`;
+
+  OBJECT eventmgr := NEW EventManager;
+  TRY
+  {
+    eventmgr->RegisterInterest("consilio:contentsource." || contentsourceid);
+
+    INTEGER addsecs := 1;
+
+    DATETIME currentwaitlimit := AddTimeToDate(1000,GetCurrentDatetime());
+
+    INTEGER timeoutcount;
+    BOOLEAN warnedwait;
+    WHILE (TRUE)
+    {
+      RECORD status := __ConsilioGetQueueManagerStatus([ "contentsources", "queue" ]);
+      IF(NOT RecordExists(status))
+        THROW NEW Exception("Did not receive a status from the queue mgr");
+
+      //Check if any items are there for our source, unconnected but affecting our index, or affecting something global
+      IF(NOT RecordExists(SELECT FROM status.deduped WHERE (deduped.contentsourceid = contentsourceid)
+                                                           OR (deduped.contentsourceid = 0 AND indexid = contentsource.indexid)
+                                                           OR (indexid=0)))
+        BREAK;
+
+      RECORD event := eventmgr->ReceiveEvent(currentwaitlimit);
+      IF(event.status = "timeout")
+      {
+        IF(GetCurrentDatetime() >= options.deadline)
+          THROW NEW Exception(`Index checking for ${describesource} isn't completing`);
+
+        IF(GetCurrentDatetime() >= currentwaitlimit)
+        {
+          IF(options.verbose)
+          {
+            Print(`Index checking for ${describesource} isn't complete, still waiting...\n`);
+            warnedwait := TRUE;
+          }
+          addsecs := addsecs < 5 ? addsecs + 1 : addsecs;
+          currentwaitlimit := AddTimeToDate(addsecs * 1000,GetCurrentDatetime());
+
+          timeoutcount := timeoutcount + 1;
+          IF (timeoutcount % 10 = 0 AND options.verbose)
+            DumpValue(status, "tree");
+        }
+      }
+    }
+    IF(warnedwait)
+      Print("it's complete\n"); //make sure we don't think we were still waiting and that THAT's the issue..
+  }
+  FINALLY
+  {
+    eventmgr->Close();
+  }
+}

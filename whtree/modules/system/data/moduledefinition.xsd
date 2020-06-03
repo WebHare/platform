@@ -2094,6 +2094,7 @@
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element name="contentprovider" type="ContentProvider" />
+        <xs:element name="catalog" type="Catalog" />
         <xs:element name="index" type="Index" />
         <xs:element name="fieldgroup" type="FieldGroup" />
         <xs:element name="addtowhfsindex">
@@ -2131,7 +2132,15 @@
     <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="contentproviderobject" type="xs:string" />
     <xs:attribute name="settingsscreen" type="xs:string" />
-    <xs:attribute name="publishercontent" type="xs:boolean" />
+  </xs:complexType>
+
+  <xs:complexType name="Catalog">
+    <xs:annotation>
+      <xs:documentation>A consilio catalog (backed by either indexmanager or elasticsearch index)</xs:documentation>
+    </xs:annotation>
+    <!-- FIXME I'm not yet sure if we should explicitly add fields here (IndexField), if it should be wrapepd like <members> or if we should point to a fieldgroup -->
+    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="priority" type="xs:integer" />
   </xs:complexType>
 
   <xs:complexType name="Index">

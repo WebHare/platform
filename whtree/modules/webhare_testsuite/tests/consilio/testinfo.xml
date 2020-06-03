@@ -6,13 +6,16 @@
   <!-- TODO except for testindexmanager, all tests should eventually drop their unlessenvironset="TESTFW_SETUP_ELASTICSEARCH" and xfail version-->
 
   <test script="test_queryparser.whscr" />
-  <test script="test_siteprofile_indices.whscr" />
 
   <test script="test_indexmanager.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH">
     <arg param="consilio_binary"/>
     <arg param="listenport"/>
     <arg param="indexdir"/>
   </test>
+  <test script="test_siteprofile_indices.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
+  <test script="test_siteprofile_indices.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
+  <test script="test_consilioapi.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
+  <test script="test_consilioapi.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_robots.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>
   <test script="test_robots.whscr" unlessenvironset="TESTFW_SETUP_ELASTICSEARCH"/>
   <test script="test_customcontent.whscr" ifenvironset="TESTFW_SETUP_ELASTICSEARCH" xfail="true"/>

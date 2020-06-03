@@ -2,9 +2,10 @@
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
-OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
+STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 <
   PUBLIC BOOLEAN mustcleanupindices;
+  PUBLIC MACRO PTR ARRAY execoncommit;
 
   UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
   {
@@ -14,7 +15,8 @@ OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 
   UPDATE PUBLIC MACRO OnCommit()
   {
-
+    FOREVERY(MACRO PTR todo FROM this->execoncommit)
+      todo();
   }
 >;
 

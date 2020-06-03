@@ -840,4 +840,8 @@
     </webruleset>
   </sitesettings>
 
+  <sitesettings sitename="WebHare testsuite site"> <!-- and not: alt test host -->
+    <addtocatalog catalog="testsitecatalog" />
+  </sitesettings>
+
 </siteprofile>

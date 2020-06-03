@@ -8,5 +8,4 @@ LOADLIB "mod::system/lib/database.whlib";
 
 
 OpenPrimary();
-UpdateConsilioIndices();
-UpdateModuleIndices();
+FixConsilioIndices();

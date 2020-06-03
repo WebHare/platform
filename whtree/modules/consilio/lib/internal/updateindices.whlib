@@ -21,8 +21,101 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+RECORD ARRAY FUNCTION GetRequiredCatalogs()
+{
+  //Figure out which catalogs to create..
+  RECORD ARRAY wantcatalogs;
+  FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "catalog"))
+  {
+    STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
+    INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
 
-PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+    INSERT CELL[ tag
+               , priority
+               , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+               , contentsources := RECORD[]
+               ] INTO wantcatalogs AT END;
+  }
+
+  RECORD siteprofs := GetCachedSiteProfiles();
+  FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
+  {
+    INTEGER matchcatalog := (SELECT AS INTEGER #wantcatalogs + 1 FROM wantcatalogs WHERE wantcatalogs.tag = addtocatalog.catalog)-1;
+    IF(matchcatalog = -1)
+    {
+      //TODO make sure the error goes somewhere recorded/validateable/reportable
+      PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to undefined catalog '${addtocatalog.catalog}'\n`);
+      CONTINUE;
+    }
+
+    INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
+    FOREVERY(INTEGER site FROM addtocatalog.siteids)
+    {
+      INSERT CELL[ ...addtocatalog, fsobject := site ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+    }
+  }
+
+  RETURN wantcatalogs;
+}
+
+MACRO UpdateModuleCatalogs(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ reportmissing := FALSE
+      ], options);
+
+  OBJECT trans := GetPrimary();
+  IF (NOT trans->ColumnExists("consilio", "indexmanagers", "id"))
+    RETURN; //consilio is not initialized yet!
+
+  INTEGER builtin_indexmanager := GetDefaultIndexManager();
+  IF(builtin_indexmanager = 0)
+    RETURN; //consilio is not initialized yet!
+
+  RECORD ARRAY wantcatalogs := GetRequiredCatalogs();
+  trans->BeginWork();
+  FOREVERY(RECORD want FROM wantcatalogs)
+  {
+    //TODO allow a way to select 'raw'/no-ngram mode so we can adopt <index> too
+    OBJECT catalog := OpenConsilioCatalog(want.tag) ?? CreateConsilioCatalog(want.tag);
+    IF(catalog->definedby != want.definedby)
+      catalog->UpdateCatalog( CELL[ want.definedby ]);
+    RECORD ARRAY currentsources := catalog->ListContentSources();
+
+    FOREVERY(RECORD source FROM want.contentsources)
+    {
+      INTEGER matchpos := (SELECT AS INTEGER #currentsources + 1 FROM currentsources WHERE contentprovider = "publisher:webhare" AND fsobject = source.fsobject) - 1;
+      IF(matchpos >= 0)
+      {
+        IF(currentsources[matchpos].definedby != source.definedby)
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->UpdateContentSource(CELL[source.definedby]);
+        IF(currentsources[matchpos].isorphan)
+          catalog->OpenContentSourceById(currentsources[matchpos].id)->ReactivateContentSource();
+
+        DELETE FROM currentsources AT matchpos; //remove from cleanup list
+        CONTINUE;
+      }
+
+      TRY
+      {
+        catalog->AddPublisherContentSource(source.fsobject, CELL[ source.definedby ]);
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        PrintTo(2,`Failed to add catalog from ${source.definedby}: ${e->what}\n`);
+        CONTINUE;
+      }
+    }
+
+    //mark unreferred catalogs as orphan
+    FOREVERY(RECORD makeorphansource FROM SELECT * FROM currentsources WHERE NOT isorphan)
+      catalog->OpenContentSourceById(makeorphansource.id)->MarkAsOrphan();
+  }
+  trans->CommitWork();
+}
+
+MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ reportmissing := FALSE ], options);
 
@@ -109,6 +202,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       BOOLEAN discardsummaries;
       BOOLEAN haserrors;
       STRING whfspath;
+      INTEGER startfolder;
       FOREVERY (OBJECT attr FROM subnode->attributes->GetCurrentNodes())
       {
         SWITCH (ToLowercase(attr->nodename))
@@ -152,7 +246,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
               haserrors := TRUE;
               BREAK;
             }
-            INSERT CELL folder := folder->id INTO data;
+            startfolder := folder->id;
           }
           CASE "contentcheckinterval"
           {
@@ -170,25 +264,22 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       // If a folder was specified, check if it's not already covered within the index
       RECORD existing;
       INTEGER ARRAY obsoletesources; // Sources for folders contained by the new folder, can be removed after this content source is added
-      IF (CellExists(data, "folder"))
+      IF (startfolder != 0)
       {
         FOREVERY (RECORD contentsource FROM (
-            SELECT id, COLUMN tag, data := DecodeHSON(COLUMN data)
+            SELECT id, COLUMN tag, fsobject
               FROM consilio.contentsources
              WHERE COLUMN indexid = VAR indexid
-                   AND COLUMN contentprovider = VAR contentprovider.name
-                   AND publishercontent
+                   AND contentsources.contentprovider = VAR contentprovider.name
+                   AND contentsources.contentprovider = "publisher:webhare"
                    AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
         {
-          IF (NOT RecordExists(contentsource.data))
-            CONTINUE;
-
-          IF (ToUppercase(contentsource.tag) = ToUppercase(tag) OR (contentsource.data.folder = data.folder) OR IsFolderAncestorOf(contentsource.data.folder, data.folder)) // folder is already covered by searchroot
+          IF (ToUppercase(contentsource.tag) = ToUppercase(tag) OR (contentsource.fsobject = startfolder) OR IsFolderAncestorOf(contentsource.fsobject, startfolder)) // folder is already covered by searchroot
           {
             existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
             BREAK;
           }
-          ELSE IF (IsFolderAncestorOf(data.folder, contentsource.data.folder)) // folder contains searchroot
+          ELSE IF (IsFolderAncestorOf(startfolder, contentsource.fsobject)) // folder contains searchroot
           {
             INSERT contentsource.id INTO obsoletesources AT END;
           }
@@ -241,9 +332,9 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
         // Update the existing content source
         IF (existing.contentprovider != contentprovider.name
-            OR existing.publishercontent != contentprovider.publishercontent
             OR ToUppercase(existing.tag) != ToUppercase(tag)
             OR existing.data != EncodeHSON(data)
+            OR existing.fsobject != startfolder
             OR existing.maxgroupobjects != maxgroupobjects
             OR existing.discardsummaries != discardsummaries
             OR existing.orphansince != DEFAULT DATETIME
@@ -251,9 +342,9 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           UPDATE consilio.contentsources
              SET contentprovider :=  VAR contentprovider.name
-               , publishercontent := VAR contentprovider.publishercontent
                , tag :=              ToUppercase(VAR tag)
                , data :=             EncodeHSON(VAR data)
+               , fsobject :=         VAR startfolder
                , maxgroupobjects :=  VAR maxgroupobjects
                , discardsummaries := VAR discardsummaries
                , orphansince :=      DEFAULT DATETIME
@@ -265,8 +356,8 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       {
         // Add the content source
         srcid := MakeAutonumber(consilio.contentsources, "id");
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby)
-              VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(tag), EncodeHSON(data), maxgroupobjects, discardsummaries, definedby);
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
+              VALUES(srcid, indexid, contentprovider.name, ToUppercase(tag), EncodeHSON(data), maxgroupobjects, discardsummaries, definedby, startfolder);
       }
 
       // Remove obsolete content sources
@@ -312,7 +403,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       // <contentsource> tag has a 'folder' attribute, then it's treated as a FS path string (e.g. "site::path/to/folder")
       // and resolved to a folder id. See the documentation of the content provider's Init function to see which attributes
       // are required and supported.
-      RECORD data := [ folder := siteid ];
+      RECORD data;
       IF (Length(addtoindex.tag) > 64 OR addtoindex.tag LIKE "*:*")
       {
         Print("Invalid tag value '" || addtoindex.tag || "' in " || definedby || "\n");
@@ -326,28 +417,21 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       // If a folder was specified, check if it's not already covered within the index
       RECORD existing;
       INTEGER ARRAY obsoletesources; // Sources for folders contained by the new folder, can be removed after this content source is added
-      IF (CellExists(data, "folder"))
+      FOREVERY (RECORD contentsource FROM (
+          SELECT id, COLUMN tag, fsobject
+            FROM consilio.contentsources
+           WHERE COLUMN indexid = VAR indexid
+                 AND contentprovider = "publisher:webhare"
+                 AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
       {
-        FOREVERY (RECORD contentsource FROM (
-            SELECT id, COLUMN tag, data := DecodeHSON(COLUMN data)
-              FROM consilio.contentsources
-             WHERE COLUMN indexid = VAR indexid
-                   AND contentprovider = "publisher:webhare"
-                   AND publishercontent
-                   AND contentsources.tag NOT LIKE "$consilio$deleted$*"))
+        IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.fsobject = siteid) OR IsFolderAncestorOf(contentsource.fs_objects.id, siteid)) // folder is already covered by searchroot
         {
-          IF (NOT RecordExists(contentsource.data))
-            CONTINUE;
-
-          IF (ToUppercase(contentsource.tag) = ToUppercase(addtoindex.tag) OR (contentsource.data.folder = data.folder) OR IsFolderAncestorOf(contentsource.data.folder, data.folder)) // folder is already covered by searchroot
-          {
-            existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
-            BREAK;
-          }
-          ELSE IF (IsFolderAncestorOf(data.folder, contentsource.data.folder)) // folder contains searchroot
-          {
-            INSERT contentsource.id INTO obsoletesources AT END;
-          }
+          existing := SELECT * FROM consilio.contentsources WHERE id = contentsource.id AND contentsources.tag NOT LIKE "$consilio$deleted$*";
+          BREAK;
+        }
+        ELSE IF (IsFolderAncestorOf(siteid, contentsource.fsobject)) // folder contains searchroot
+        {
+          INSERT contentsource.id INTO obsoletesources AT END;
         }
       }
 
@@ -358,7 +442,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       {
         TRY
         {
-          cp->Init([ id := 0, data := data ]);
+          cp->Init([ id := 0, data := data, fsobject := siteid]);
         }
         CATCH (OBJECT e)
         {
@@ -409,9 +493,9 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 
           // Update the existing content source
           IF (existing.contentprovider != contentprovider.name
-              OR existing.publishercontent != contentprovider.publishercontent
               OR ToUppercase(existing.tag) != ToUppercase(addtoindex.tag)
               OR existing.data != EncodeHSON(data)
+              OR existing.fsobject != siteid
               OR existing.maxgroupobjects != addtoindex.maxgroupobjects
               OR existing.discardsummaries != addtoindex.discardsummaries
               OR existing.orphansince != DEFAULT DATETIME
@@ -420,9 +504,9 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
             srcid := existing.id;
             UPDATE consilio.contentsources
                SET contentprovider :=  VAR contentprovider.name
-                 , publishercontent := VAR contentprovider.publishercontent
                  , tag :=              ToUppercase(addtoindex.tag)
                  , data :=             EncodeHSON(VAR data)
+                 , fsobject :=         VAR siteid
                  , maxgroupobjects :=  addtoindex.maxgroupobjects
                  , discardsummaries := addtoindex.discardsummaries
                  , orphansince :=      DEFAULT DATETIME
@@ -437,8 +521,8 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           // Add the content source
           srcid := MakeAutonumber(consilio.contentsources, "id");
-          INSERT INTO consilio.contentsources(id, indexid, contentprovider, publishercontent, tag, data, maxgroupobjects, discardsummaries, definedby)
-                VALUES(srcid, indexid, contentprovider.name, contentprovider.publishercontent, ToUppercase(addtoindex.tag), EncodeHSON(data), addtoindex.maxgroupobjects, addtoindex.discardsummaries, definedby);
+          INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, definedby, fsobject)
+                VALUES(srcid, indexid, contentprovider.name, ToUppercase(addtoindex.tag), EncodeHSON(data), addtoindex.maxgroupobjects, addtoindex.discardsummaries, definedby, siteid);
         }
 
         // Remove obsolete content sources
@@ -469,7 +553,7 @@ PUBLIC MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
 }
 
-PUBLIC MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ modules := STRING[]
@@ -532,4 +616,17 @@ PUBLIC MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   trans->CommitWork();
   // Broadcast indexfields event to reset cached module index fields (publisher search)
 //  BroadcastEvent("consilio:indexfields", DEFAULT RECORD);
+}
+
+PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //Combines three generations of index generation. hopefully we can replace everything with UpdateModuleCatalogs in the future
+
+  options := ValidateOptions(
+      [ reportmissing := FALSE
+      ], options);
+
+  UpdateModuleCatalogs(CELL[options.reportmissing]);
+  UpdateConsilioIndices(CELL[options.reportmissing]);
+  UpdateModuleIndices(CELL[options.reportmissing]);
 }

@@ -9,13 +9,13 @@ LOADLIB "mod::system/lib/database.whlib";
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "debug", type := "switch" ]
                               , [ name := "limit", type := "stringopt" ]
-                              , [ name := "indextag", type := "param", required := TRUE ]
+                              , [ name := "catalogtag", type := "param", required := TRUE ]
                               , [ name := "contentsourcetag", type := "param", required := FALSE ]
                               ]);
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] <indextag> [contentsourcetag]\n");
+  Print("Syntax: wh consilio:manualindex [--debug] [--limit <num>] <catalogtag> [contentsourcetag]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
@@ -26,15 +26,15 @@ INTEGER numdone;
 DATETIME start := GetCurrentDateTime();
 OpenPrimary();
 
-OBJECT catalog := OpenConsilioCatalog(args.indextag);
+OBJECT catalog := OpenConsilioCatalog(args.catalogtag);
 IF(NOT ObjectExists(catalog))
-  THROW NEW Exception(`No such catalog '${args.indextag}'`);
+  THROW NEW Exception(`No such catalog '${args.catalogtag}'`);
 
 STRING contentsourcemask := args.contentsourcetag ?? "*";
 FOREVERY(RECORD csource FROM SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask))
 {
   OBJECT contentsource := catalog->OpenContentSourceById(csource.id);
-  Print(`Processing content source '${contentsource->tag}'\n`);
+  Print(`Processing content source '${contentsource->tag ?? contentsource->GetWHFSPath()}'\n`);
 
   DATETIME commanddate := GetCurrentDatetime();
 

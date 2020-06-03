@@ -1963,19 +1963,17 @@ RECORD FUNCTION SaveQuery(RECORD sess, RECORD query, INTEGER idx, STRING restric
   IF (site = 0)
   {
     // Try to determine the searched site
-    RECORD ARRAY contentsource := SELECT data
+    RECORD ARRAY contentsource := SELECT fsobject
                                     FROM consilio.contentsources
                                    WHERE indexid = idx
-                                         AND publishercontent
+                                         AND contentprovider = "publisher:webhare"
                                          AND contentsources.tag NOT LIKE "$consilio$deleted$*";
     IF (Length(contentsource) = 1)
     {
-      RECORD data := DecodeHSON(contentsource[0].data);
-
       // Only one site added to index, use it
       site := SELECT AS INTEGER parentsite
                 FROM system.fs_objects
-               WHERE VAR data.folder = fs_objects.id
+               WHERE fs_objects.id = VAR contentsource[0].fsobject
                      AND fs_objects.isfolder = TRUE;
     }
     ELSE

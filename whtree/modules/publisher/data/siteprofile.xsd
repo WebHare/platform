@@ -1590,6 +1590,15 @@
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="m:webruleset" />
         <xs:element ref="c:addtoindex" />
+        <xs:element name="addtocatalog">
+          <xs:complexType>
+            <xs:attribute name="catalog" use="required">
+              <xs:annotation>
+                <xs:documentation>Target catalog name</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
       </xs:choice>
     </xs:sequence>
     <xs:attribute name="sitename" />
