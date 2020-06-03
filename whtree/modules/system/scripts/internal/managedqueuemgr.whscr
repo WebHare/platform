@@ -139,6 +139,7 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
       @cell(record) options Ephemeral task options (ephemeral tasks only)
       @cell(function ptr) resolve Function called when the ephemeral task completes (ephemeral tasks only)
       @cell(function ptr) reject Function called when the ephemeral task fails (ephemeral tasks only)
+      @cell(integer) timeout Timeout in milliseconds (0 for no timeout)
   */
   PUBLIC RECORD taskdata;
 
@@ -147,6 +148,9 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
 
   /// Identification string
   PUBLIC PROPERTY identification(GetIdentification, -);
+
+  /// @type(integer) Timeout in milliseconds, 0 for no timeout
+  PUBLIC PROPERTY timeout(this->taskdata.timeout, -);
 
   MACRO NEW(OBJECT queuekeeper, RECORD taskdata)
   : QueueItem(queuekeeper, CELL[ taskdata.priority, taskdata.queuename, taskdata.scheduledate, taskdata.onfinished ])
@@ -195,6 +199,9 @@ STATIC OBJECTTYPE ManagedWorker
 
   /// First task time
   DATETIME workerfirsttask;
+
+  /// Id for timeout callback
+  INTEGER timeoutcb;
 
   // ---------------------------------------------------------------------------
   //
@@ -279,6 +286,32 @@ STATIC OBJECTTYPE ManagedWorker
     }
   }
 
+  MACRO ResetActiveTask()
+  {
+    this->pvt_activetask := DEFAULT OBJECT;
+    IF (this->timeoutcb != 0)
+    {
+      UnregisterCallback(this->timeoutcb);
+      this->timeoutcb := 0;
+    }
+    this->outputline := "";
+    this->fulloutput := "";
+  }
+
+  MACRO GotTimeout()
+  {
+    this->timeoutcb := 0;
+    IF(debug)
+      Print(`Worker #${this->uid} got timeout on ${this->GetCurrentTaskLabel()}\n`);
+
+    STRING timeoutstr := (this->activetask->timeout % 1000) = 0 ? `${this->activetask->timeout / 1000}s` : `${this->activetask->timeout}ms`;
+    FailTask(this->activetask, `Task has timed out after ${timeoutstr}`, RECORD[], FALSE);
+
+    // Terminate the process immediately, and make sure no other tasks are accepted anymore
+    this->proc->Terminate();
+    this->RequestShutdown();
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -323,6 +356,8 @@ STATIC OBJECTTYPE ManagedWorker
     this->taskresolve := DEFAULT MACRO PTR;
     this->pvt_state := "terminated";
 
+    IF (this->timeoutcb != 0)
+      UnregisterCallback(this->timeoutcb);
     DELETE FROM managedworkers AT SearchElement(managedworkers, this);
     UnregisterCallback(this->listener);
     IF (NOT graceful)
@@ -410,6 +445,9 @@ STATIC OBJECTTYPE ManagedWorker
     IF(this->workerfirsttask = DEFAULT DATETIME)
       this->workerfirsttask := GetCurrentDatetime(); //now the countdown for garbage collection starts
 
+    IF (task->timeout != 0)
+      this->timeoutcb := RegisterTimedCallback(AddTimeToDate(task->timeout, GetCurrentDatetime()), PTR this->GotTimeout);
+
     this->taskresolve(task->taskdata.executeinfo);
     this->taskresolve := DEFAULT MACRO PTR;
   }
@@ -424,7 +462,7 @@ STATIC OBJECTTYPE ManagedWorker
     IF (ObjectExists(this->pvt_activetask))
     {
       controller->RegisterOutOfDateUnprocessedTask(this->pvt_activetask);
-      this->pvt_activetask := DEFAULT OBJECT;
+      this->ResetActiveTask();
     }
 
     // Make sure no more requests are accepted
@@ -477,9 +515,7 @@ STATIC OBJECTTYPE ManagedWorker
       ABORT(status,'tree');
     }
 
-    this->pvt_activetask := DEFAULT OBJECT;
-    this->outputline := "";
-    this->fulloutput := "";
+    this->ResetActiveTask();
 
     if (this->pvt_state = "terminating")
     {
@@ -540,7 +576,7 @@ STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
 >;
 
 STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
-<
+< /// Number of worker threads
   PUBLIC INTEGER threads;
 
   /** @return Worker type (0: harescript, 1: javascript)
@@ -763,6 +799,7 @@ STATIC OBJECTTYPE QueueMgr
              , iterations
              , failures
              , found :=       TRUE
+             , timeout
           FROM system_internal.managedtasks
          WHERE finished = DEFAULT DATETIME
                AND NOT iscancelled
@@ -817,6 +854,7 @@ STATIC OBJECTTYPE QueueMgr
         , maxfailures :=    rec.maxfailures
         , failures :=       rec.failures
         , onfinished :=     PTR this->FinishedManagedTaskItem
+        , rec.timeout
         ];
 
     RETURN NEW TaskQueueItem(this->queue, taskinfo);
@@ -1158,6 +1196,7 @@ OBJECTTYPE QueueMgrClientConnection
        , resolve :=         defer.resolve
        , reject :=          defer.reject
        , onfinished :=      DEFAULT FUNCTION PTR
+       , timeout :=         0
        ];
 
     NEW TaskQueueItem(controller->queue, taskinfo);

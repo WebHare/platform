@@ -705,6 +705,11 @@
               <xs:documentation>Maximum number of failures. Set to 0 to never retry. By default tasks are retried indefinitely</xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="timeout" type="xs:nonNegativeInteger">
+            <xs:annotation>
+              <xs:documentation>Timeout in milliseconds for this task</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
     </xs:choice>

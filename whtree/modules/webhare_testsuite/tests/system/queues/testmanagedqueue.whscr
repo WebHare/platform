@@ -105,6 +105,19 @@ ASYNC MACRO TestWaitableAction()
 
   RECORD msg := AWAIT link->AsyncReceiveMessage(AddTimeToDate(30 * 1000, GetCurrentDatetime()));
   TestEQ("gone", msg.status, "Task should have been killed by the cancel");
+
+  // test timeout handling
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD, [ timeout := 100 ]);
+  INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ]);
+  INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ], [ timeout := 100 ]);
+  INTEGER taskid4 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 400 ]);
+  testfw->CommitWork();
+
+  TestThrowsLike("Task #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME));
+  TestEQ([ sleep := 200 ], RetrieveManagedTaskResult(taskid2, MAX_DATETIME));
+  TestThrowsLike("Task #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid3, MAX_DATETIME));
+  TestThrowsLike("Task #* has failed: Task has timed out after 300ms", PTR RetrieveManagedTaskResult(taskid4, MAX_DATETIME));
 }
 
 RECORD FUNCTION WaitForError(INTEGER taskid)

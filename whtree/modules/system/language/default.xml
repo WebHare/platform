@@ -961,6 +961,7 @@
           <text tid="metadatatab">Metadata</text>
           <text tid="nextattempt">Next attempt at</text>
           <text tid="returnvaluetab">Return value</text>
+          <text tid="timeout">Time limit</text>
         </textgroup>
         <textgroup gid="panel">   <!-- screens.monitor.managedtasks.panel -->
           <text tid="creationdate">Queued at</text>

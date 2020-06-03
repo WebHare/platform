@@ -131,6 +131,7 @@ PUBLIC SCHEMA
     , BOOLEAN "iscancelled"
     , INTEGER failures
     , INTEGER priority
+    , INTEGER timeout
     ; KEY id
     > managedtasks
   , TABLE

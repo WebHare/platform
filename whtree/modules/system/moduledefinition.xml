@@ -829,6 +829,11 @@ True if this port should support virtual hosting.
           Task priority, a lower number means higher priority.
         </d:documentation>
       </d:integer>
+      <d:integer name="timeout">
+        <d:documentation>
+          Maximum duration of the task in milliseconds
+        </d:documentation>
+      </d:integer>
     </d:table>
 
     <d:table name="managedtasksmeta" primarykey="id">

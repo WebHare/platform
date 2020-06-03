@@ -153,6 +153,7 @@ PUBLIC SCHEMA
     , INTEGER iterations
     , BOOLEAN "iscancelled"
     , INTEGER "priority"
+    , INTEGER "timeout"
     ; KEY id
     > managedtasks
   , TABLE

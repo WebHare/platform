@@ -194,5 +194,6 @@ PUBLIC OBJECTTYPE ManagedTask EXTEND TolliumScreenBase
     this->retval->value := task.retval;
     this->manualcall->value := "wh tasks run m" || this->taskid;
     this->metadata->value := task.metadata;
+    this->timeout->value := task.timeout = 0 ? GetTid("tollium:common.labels.none") : (task.timeout % 1000) = 0 ? `${task.timeout / 1000} s` : `${task.timeout} ms`;
   }
 >;

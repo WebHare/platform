@@ -25,6 +25,7 @@
     <managedtask   type="pingretry2" objectname="lib/internal/tasks.whlib#pingtask" maxfailures="1"/>
     <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
     <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
+    <managedtask   type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask"/>
     <ephemeraltask type="nodetask" library="js/task.es" />
   </servicemanager>
