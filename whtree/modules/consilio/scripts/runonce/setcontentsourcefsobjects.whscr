@@ -19,5 +19,4 @@ UPDATE consilio.contentsources
      WHERE contentprovider="publisher:webhare"
            AND data != ""
            AND CellExists(DecodeHSON(data),"folder");
-dumpvalue((select id, fsobject, data from consilio.contentsources),'boxed');
 GetPrimary()->CommitWork();
