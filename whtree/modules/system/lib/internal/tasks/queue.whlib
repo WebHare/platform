@@ -468,6 +468,8 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
 
     STRING taskcontentid := this->GetTaskContentId(taskdata);
 
+    OBJECT ARRAY blockers;
+
     RECORD ARRAY items := RecordRange(this->queueitems, CELL[ taskcontentid ], [ "TASKCONTENTID" ]);
     FOREVERY (RECORD rec FROM items)
     {
@@ -483,6 +485,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
         }
         RETURN FALSE;
       }
+      INSERT rec.item INTO blockers AT END;
     }
 
     OBJECT item := NEW PersistentQueueItem(this->queue, CELL
@@ -492,10 +495,19 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
         , queuename :=      this->queuename
         , options.scheduledate
         , onfinished :=     PTR this->GotItemFinished
+        , stage :=          "new"
         ]);
 
+    FOREVERY (OBJECT b FROM blockers)
+      INSERT item INTO b->blocks AT END;
+
+    item->stage := "scheduled";
+
     IF (this->debuglevel >= debuglevel_all)
-      this->DebugLog("  Scheduled item #" || item->id);
+    {
+      STRING ARRAY blockerids := SELECT AS STRING ARRAY ToString(blocker->id) FROM ToRecordArray(blockers, "blocker");
+      this->DebugLog("  Scheduled item #" || item->id || (IsValueSet(blockers) ? `, must run after ${Detokenize(blockerids, ", ")}` : ""));
+    }
 
     RECORD rec := CELL
         [ taskcontentid
