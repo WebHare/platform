@@ -138,6 +138,9 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
 
   rule.ignorepaths := rulenode->HasAttribute("ignorepaths") ? ParseXSList(rulenode->GetAttribute("ignorepaths")) : DEFAULT STRING ARRAY;
   rule.errorpath := rulenode->GetAttribute("errorpath");
+  IF(rule.errorpath != "" AND rule.errorpath NOT LIKE "*:*") //seems to be a relative path
+    rule.errorpath := MakeAbsoluteResourcePath(baseresource, rule.errorpath);
+
   rule.finalerrorpath := ParseXSBoolean(rulenode->GetAttribute("finalerrorpath"));
   //Do we have an 'all methods' activator? ADDME: Support explicit methods
   rule.allowallmethods := ParseXSBoolean(rulenode->GetAttribute("allowallmethods"));
