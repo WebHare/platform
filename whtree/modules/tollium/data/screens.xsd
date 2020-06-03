@@ -6527,6 +6527,12 @@ To change a <xs:attribute /> for adding descriptions
     </xs:complexType>
   </xs:element>
 
+  <!-- TC forwards for backwards compatibility -->
+  <xs:simpleType name="ScreenFragmentReference">
+    <xs:restriction base="tc:ScreenFragmentReference" />
+  </xs:simpleType>
+
+
   <!-- appinfo forwards for backwards compatibility -->
   <xs:element name="tolliumcomponent">
     <xs:complexType>
