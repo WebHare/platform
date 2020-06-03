@@ -333,7 +333,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
     Print(`<form class="${EncodeValue(Detokenize(form.formclasses,' '))}" `);
     form.formattributes();
     Print('>');
-    form.formhiddenfields();
+    form.formprologue();
     form.formallpages();
     form.formrendernav();
     Print("</form>");

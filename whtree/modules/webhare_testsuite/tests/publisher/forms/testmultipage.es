@@ -3,7 +3,7 @@ import * as test from '@mod-system/js/wh/testframework';
 test.registerTests(
   [  async function()
     {
-      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1`);
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
 
       let firstpage = test.qS('.wh-form__page');
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
@@ -100,7 +100,7 @@ test.registerTests(
       test.false(test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     }
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1'
+  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
     }
   , async function()
     {
@@ -150,7 +150,7 @@ test.registerTests(
       test.false(test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     }
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1'
+  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
     }
   , async function()
     {
@@ -250,7 +250,7 @@ test.registerTests(
       test.false(test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     }
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1'
+  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
     }
   , async function()
     {
@@ -355,7 +355,7 @@ test.registerTests(
       test.false(test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
     }
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1'
+  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
     }
   , "Test scrolling back up on error"
   , async function()
@@ -370,7 +370,7 @@ test.registerTests(
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      test.true(test.canClick(test.qS('#multipagetest-firstname')),'firstname field should be back in sight because it caused submission failure');
+      test.true(test.canClick('#multipagetest-firstname'),'firstname field should be back in sight because it caused submission failure');
 
       test.fill(test.qS('#multipagetest-firstname'), 'Homer');
       test.fill(test.qS('input[name="email"]'), 'multipage2@beta.webhare.net');
@@ -383,7 +383,8 @@ test.registerTests(
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      test.true(test.canClick(test.qS('input[name="text"]')),'text field is on page #3 and should be back in sight after page navigation');
+      test.true(test.canClick('input[name="text"]'),'text field is on page #3 and should be back in sight after page navigation');
+      test.true(test.canClick('.multipageform__prefix'),'we also want the form top to be visible');
       test.fill(test.qS('input[name="text"]'), 'Text');
 
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext2"]').getBoundingClientRect().bottom);
@@ -396,7 +397,7 @@ test.registerTests(
   ,"Test disabled radio buttons not evaluating to a value"
   , async function()
     {
-      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1`);
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
       test.fill('input[name="firstname"]', 'Homer');
       test.fill('input[name="email"]', 'multipage@beta.webhare.net');
       test.fill('#multipagetest-fillmaybe', true);

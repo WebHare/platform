@@ -41,6 +41,12 @@
   color:red;
 }
 
+.multipageform__prefix
+{
+  padding:10px;
+  border:1px solid black;
+}
+
 /////////////  datepicker
 .datetime__picker__previous:after
 {
@@ -51,4 +57,28 @@
 {
   display:inline-block;
   content:">>";
+}
+
+/////////////   simulate an annoying bar overlapping content
+html.cookiebar body:before //placeholder to reserve space
+{
+  content: "";
+  display:block;
+  height:166px;
+}
+html.cookiebar body:after //the actual cookie bar
+{
+  content:"I'm a sort of cookiebar overlay";
+  display:block;
+  position:fixed;
+  top:0;
+  height:166px;
+  width:100%;
+  background:blue;
+  color:#ffffff;
+}
+html.cookiebar .wh-anchor //fix anchors for proper scroll positioning when a cookiebar is present
+{
+  height:166px;
+  margin-top:-166px;
 }

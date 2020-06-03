@@ -345,8 +345,10 @@ PUBLIC OBJECTTYPE FormBase
     }
   }
 
-  MACRO __FormHiddenFields() //renders all toplevel fields not allocated to a page
+  MACRO __FormPrologue() //renders anchors, all toplevel fields not allocated to a page
   {
+    Print(`<a class="wh-anchor"></a>`);
+
     //TODO just assign objects to their page (make it their parent) to simplify finding the unmatched fields
     IF(Length(this->__formpages) = 0)
       RETURN;
@@ -359,6 +361,8 @@ PUBLIC OBJECTTYPE FormBase
     }
     FOREVERY(RECORD renderit FROM torender)
       renderit.obj->RenderField();
+
+    Print(`<div class="wh-form__prologue"></div>`);
   }
 
   MACRO __FormAllPages()
@@ -601,7 +605,7 @@ PUBLIC OBJECTTYPE FormBase
   {
     RECORD wittydata := [ formattributes := PTR this->__FormAttributes
                         , formallfields := PTR this->__FormAllFields
-                        , formhiddenfields := PTR this->__FormHiddenFields
+                        , formprologue := PTR this->__FormPrologue
                         , formallpages := PTR this->__FormAllPages
                         , formrender := PTR this->RenderForm
                         , formrendernav := PTR this->__FormNavigation
