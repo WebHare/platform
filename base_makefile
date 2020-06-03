@@ -33,10 +33,12 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 
+
 	ifneq (,$(wildcard /usr/local/lib/libocci.dylib))
 		#OCI detected, enable it if WHBUILD_OCI is not yet set
 		WHBUILD_OCI ?= 1
 	endif
+
 else
 	BUILDSYSTEM ?= gcc
 	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/
@@ -493,7 +495,7 @@ endif
 lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_OBJS) | $(LINKCONFIG)
 	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS) $(BLEX_STATIC_LIBS))
 
-blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.o | icu-i18n.pc
+blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.o
 	$(call LinkModule,$^,$@)
 
 bin/$(RUNTEST): $(BLEXTEST_OBJS) lib/libblex_base$(DLL_SUFFIX)
@@ -570,6 +572,7 @@ endef
 
 harescript_HsMod_AddDeps = lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
 harescript_HsMod_AddLibs = $(HS_LIBS)
+
 $(foreach mod,$(HS_HS_MODULES),$(eval $(call HsModTarget,$(mod),wh_,harescript)))
 
 clean-icu-provider:
@@ -821,8 +824,13 @@ clean-deps:
 #
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
+
+# We need to find dependencies in a fixed location, because brew's "adding/deleting, not updating" files is not detected by make
+
 harescript/modules/git/git.o: /usr/local/lib/libgit2.dylib
-endif
+$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: /usr/local/opt/icu4c/INSTALL_RECEIPT.json
+
+endif # end darwin check
 
 ###
 # Aliases for easy building
