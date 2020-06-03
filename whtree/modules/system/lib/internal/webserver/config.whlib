@@ -361,10 +361,12 @@ OBJECTTYPE WebConfigBuilder
 
   STRING FUNCTION ConvertWebDir(STRING module, STRING data, RECORD ARRAY hosts)
   {
+    IF(data = "")
+      RETURN ""; //nothing to see here
     IF(ToUppercase(data) LIKE "SITE:*")
     {
       INTEGER res := LookupWHFSObject(0, data);
-      IF(res != 0)
+      IF(res > 0)
       {
         //ADDME why don't we have a call mapping an id to an on-disk-ptah ? §
         RECORD resinfo := SELECT webservers.diskfolder
@@ -385,8 +387,9 @@ OBJECTTYPE WebConfigBuilder
             path := path || "/";
           RETURN path;
         }
+        THROW NEW Exception(`Couldn't interpret path "${data}" - target fsobject #${res} doesn't appear to be hosted`);
       }
-      RETURN "";
+      THROW NEW Exception(`Couldn't interpret path "${data}" - target not found`);
     }
     IF(ToUppercase(data) LIKE "WEB:*")
     {
@@ -427,27 +430,7 @@ OBJECTTYPE WebConfigBuilder
     {
       RETURN GetWebHareResourceDiskPath(data);
     }
-    IF(ToUppercase(data) LIKE "DESIGNFILES:*")
-    {
-      STRING designfilespath := ReadRegistryKey("system.backend.development.designfiles");
-      IF (designfilespath = "")
-        RETURN "";
-
-      OBJECT whfsobj := OpenWHFSObjectByPath(designfilespath);
-      IF (NOT ObjectExists(whfsobj) OR NOT whfsobj->isfolder OR whfsobj->parentsite = 0)
-        RETURN "";
-
-      OBJECT site := OpenSite(whfsobj->parentsite);
-      IF (NOT ObjectExists(site))
-        RETURN "";
-
-      STRING pathsofar := this->FixPath(hosts, "site::" || site->name || MergePath("/", SubString(data, 12)));
-      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
-        pathsofar := pathsofar || "/";
-
-      RETURN pathsofar;
-    }
-    RETURN "";
+    THROW NEW Exception(`Couldn't interpret path "${data}" - path format unrecognized`);
   }
 
   RECORD FUNCTION GetBaseRule(STRING path, INTEGER priority, STRING source)

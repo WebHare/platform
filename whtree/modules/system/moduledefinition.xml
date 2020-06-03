@@ -2313,7 +2313,7 @@ The full base URL on which this site will be published, calculated by combining 
           <integer name="takeovertime" description="The number of seconds to allow another user to decline a takeover request" initialval="30" />
         </node>
         <node name="development">
-          <string name="designfiles" description="Use public designfiles from specified WHFS location" initialval="" />
+          <obsoletekey name="designfiles" />
           <boolean name="manualdebugmgr" description="Don't run the debugmanager from the apprunner (when TRUE)" initialval="false" />
           <integer name="zombietimeout" description="Zombie timeout in msecs" initialval="60000" />
           <obsoletekey name="indexsourcecode" />
