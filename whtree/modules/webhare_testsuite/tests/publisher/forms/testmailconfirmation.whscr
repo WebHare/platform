@@ -111,6 +111,5 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
 
 RunTestframework([ PTR BuildForm
                  , PTR MailConfirmationHandler
-                 ], [ canceltasks := [ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ]
-                    , testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
+                 ], [ testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
                     ]);

@@ -1009,7 +1009,7 @@ PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEF
   options := ValidateOptions(CELL[...testformfileoptions,  which := "" ], options);
 
   OpenPrimary();
-  RunTestFramework(DEFAULT MACRO PTR ARRAY, [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"] ]);
+  RunTestFramework(DEFAULT MACRO PTR ARRAY);
 
   RECORD formoptions := CELL[...options, DELETE which];
   RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions) : BuildWebtoolForm(formoptions);

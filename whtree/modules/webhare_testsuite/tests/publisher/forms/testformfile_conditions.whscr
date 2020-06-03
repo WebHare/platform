@@ -84,4 +84,4 @@ PUBLIC MACRO TestFormConditions()
 
 RunTestframework([ PTR BuildForm
                  , PTR TestFormConditions
-                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"] ]);
+                 ]);

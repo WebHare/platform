@@ -167,5 +167,4 @@ RunTestframework([ PTR BuildForm
                  , PTR VerifyAndCleanupMail
                  , PTR WorkHandlingErrors
                  , PTR TestAttributeMatching
-                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
-                    ]);
+                 ]);
