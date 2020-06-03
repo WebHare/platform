@@ -721,7 +721,7 @@ STATIC OBJECTTYPE ContentSource
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove deleted contentsources async
   }
 
-  /// Wait for index being completey done
+  /// Wait for catalog being completey done
   PUBLIC MACRO WaitForIndexingDone(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     DoWaitForContentSourceDone(this->id, options);
