@@ -356,7 +356,7 @@ PUBLIC MACRO CreateFileFromBlob(STRING filename, BLOB filedata)
   IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
     THROW NEW NotAPublishingContextException;
 
-  INTEGER newfileid := OpenOutputFile(filename, FALSE);
+  INTEGER newfileid := OpenOutputFile(filename, TRUE);
   SendBlobTo(newfileid, filedata);
   PUBLISHER_CloseOutput(newfileid);
 }
@@ -640,14 +640,14 @@ PUBLIC MACRO AddHTMLPostProcessor(MACRO PTR postprocfunc)
   INSERT postprocfunc INTO postprochtmlfuncs AT END;
 }
 
-MACRO __Internal_CreateFile(STRING pagename, INTEGER pageid, BOOLEAN dbfile, BOOLEAN systemredirect)
+MACRO __Internal_CreateFile(STRING pagename, INTEGER pageid, BOOLEAN dbfile)
 {
   IF(NOT dbfile AND NOT IsValidWHFSName(pagename,FALSE))
     THROW NEW Exception("'" || pagename || "' is not a valid filename for a published filed");
   IF(NOT ObjectExists(publishingbackendlink) OR NOT cached_publish_info.istemplaterun)
     THROW NEW NotAPublishingContextException;
 
-  INTEGER newfileid := dbfile ? OpenDBOutputFile(pagename) : OpenOutputFile(pagename, systemredirect);
+  INTEGER newfileid := dbfile ? OpenDBOutputFile(pagename) : OpenOutputFile(pagename, TRUE);
   IF (newfileid=0)
     ABORT("Illegal/duplicate filename '" || pagename || "'");
 
@@ -675,7 +675,7 @@ MACRO __Internal_CreateFile(STRING pagename, INTEGER pageid, BOOLEAN dbfile, BOO
   INSERT INTO openpages(number, name, fileid, formatter, formatterid, dbfile, postprocstream, htmldest)
          VALUES(pageid, pagename, newfileid, newformatter, newformatter->id, dbfile, postprocstream, htmldest) AT 0;
 
-  IF(NOT systemredirect AND ToUppercase(pagename) LIKE "*.SHTML" AND Length(__pageloadlibs) > 0)
+  IF(ToUppercase(pagename) LIKE "*.SHTML" AND Length(__pageloadlibs) > 0)
   {
     STRING code := '<?wh ';
     FOREVERY(STRING loadlibpath FROM __pageloadlibs)
@@ -786,13 +786,13 @@ FOREVERY (RECORD thispage FROM allpages)
 */
 PUBLIC MACRO CreateFile(STRING pagename)
 {
-  __Internal_CreateFile(pagename, 0, FALSE, FALSE);
+  __Internal_CreateFile(pagename, 0, FALSE);
 }
 
 
 PUBLIC MACRO CreateDBFile(STRING pagename)
 {
-  __Internal_CreateFile(pagename, 0, TRUE, FALSE);
+  __Internal_CreateFile(pagename, 0, TRUE);
 }
 
 
@@ -865,24 +865,8 @@ PUBLIC MACRO OpenFile(INTEGER pagenum)
 
   IF (NOT RECORDEXISTS (PageToOpen))
     ABORT("No such page " || pagenum);
-  __Internal_CreateFile(pagetoopen.name, pagenum, FALSE, FALSE);
+  __Internal_CreateFile(pagetoopen.name, pagenum, FALSE);
 }
-
-/*
-PUBLIC MACRO __InitSystemRedirectFile(INTEGER pagenum)
-{
-  RECORD PageToOpen := FindPage(pagenum);
-
-  IF (NOT RECORDEXISTS (PageToOpen))
-    ABORT("No such page " || pagenum);
-
-  IF(NOT IsValidWHFSName(pagetoopen.name,FALSE))
-    THROW NEW Exception("'" || pagetoopen.name || "' is not a valid filename for a published file");
-
-  __Internal_CreateFile(pagetoopen.name, 1, FALSE, TRUE);
-  CloseFile();
-}
-*/
 
 /** @short   Print all docobjects on the current page
     @long    PrintPageBody prints all docobjects to the last file opened with the OpenFile function.

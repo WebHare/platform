@@ -1321,7 +1321,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INTEGER outputid;
     TRY
     {
-      outputid := OpenOutputFile(filename, FALSE);
+      outputid := OpenOutputFile(filename, TRUE);
       SendBLobTo(outputid,data);
     }
     FINALLY
@@ -1342,7 +1342,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INTEGER outputid;
     TRY
     {
-      outputid := OpenOutputFile(filename, FALSE);
+      outputid := OpenOutputFile(filename, TRUE);
       saveredirect := RedirectOutputTo(outputid);
       contentgenerator();
     }

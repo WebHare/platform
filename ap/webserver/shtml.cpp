@@ -14,8 +14,10 @@
 #include <iostream>
 #include <sstream>
 #include <blex/logfile.h>
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
 
-//#define SHTML_DEBUG    //Define to enable debugging
+#define SHTML_DEBUG    //Define to enable debugging
 
 #if defined(SHTML_DEBUG) && defined(DEBUG)
  #define SHTML_PRINT(x) DEBUGPRINT(x)
@@ -160,6 +162,75 @@ bool HandleRedirectSendfile(WebServer::Connection *webcon, HSVM *vm)
         return false;
 }
 
+/* The magic webserver signature, which we still wantd to be readable! 32 bytes long
+   8:  'WBHRWS::' = WebHare Webserver followed by two colons because, well we had room for 2 to get to 32.
+   22: v0dmzc5chW4AxhbiSdDpJQ = the 128bit uid we selected
+   2:  \r\n - a CRLF to be nice to text readers
+   */
+static const unsigned MagicSignatureLen = 32;
+static const char MagicSignature[MagicSignatureLen+1] = "WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n";
+
+struct MagicHeader
+{
+        MagicHeader() : iswhfsexecute(false)
+        {
+        }
+
+        bool iswhfsexecute;
+        int32_t fileid;
+};
+
+MagicHeader ReadMagicHeader(std::string const &path)
+{
+        /* NOTE: Any error we get here we can't FailRequest because we'd break
+                 possible existing error handler paths. Additionally, the stuff
+                 we would find here is WebHare-core-level bad, so the develoeper
+                 probably can't fix it anyway. So we use ErrStream */
+        MagicHeader retval;
+
+        // Open the SHTML file to see if it's a magic header.
+        std::unique_ptr<Blex::FileStream> infile(Blex::FileStream::OpenRead(path));
+        if(!infile.get())
+        {
+                //This is a very weird race? But it could happen. We can't fail it because we might break an active error path
+                Blex::ErrStream() << "shtml file '" << path << "' disappeared just when we wanted to read it";
+                return retval;
+        }
+
+        // Read the header (TODO webserver could consider passing us an open handle, so we don't race to open. even better if the webserver did the reading for us and allowed us to peaK)
+        char fileheader[1024];
+        std::size_t bytesread = infile->Read(fileheader, sizeof fileheader);
+        if(bytesread < MagicSignatureLen || memcmp(fileheader, MagicSignature, MagicSignatureLen) != 0)
+            return retval; //no header
+
+        // Find the linefeed. We only read one line after the signature and expect all the JSON data to fit int here
+        char* start_json_data = fileheader + MagicSignatureLen;
+        char* end_json_data = std::find(start_json_data, fileheader + bytesread, '\r');
+        if(end_json_data >= fileheader + bytesread)
+        {
+                Blex::ErrStream() << "Magic signature found in file '" << path << "' but incorrect or too large header";
+                return retval;
+        }
+
+        //Might be a rapidjson::Parse that accepts iterators? but it's no problem for us to null terminate it
+        *end_json_data = 0;
+        rapidjson::Document indoc;
+        indoc.Parse(start_json_data);
+
+        if (indoc.HasParseError())
+        {
+                Blex::ErrStream() << "JSON parse error in file '" << path << "' at offset " <<indoc.GetErrorOffset() << ": " << rapidjson::GetParseError_En(indoc.GetParseError());
+                return retval;
+        }
+
+        if(indoc.IsObject() && indoc.HasMember("whfsexecute") && indoc["whfsexecute"].IsInt())
+        {
+                retval.iswhfsexecute = true;
+                retval.fileid = indoc["whfsexecute"].GetInt();
+        }
+        return retval;
+}
+
 bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket)
 {
         (void)websocket;
@@ -170,6 +241,10 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
            so we can start a new script immediately
         */
         SHTML_PRINT("Webcon " << webcon << " starting new script for path " << path);
+
+        MagicHeader magicinfo;
+        if(path_is_direct) //it's actually something on disk (apaparently we can also run for other things?)
+            magicinfo = ReadMagicHeader(path);
 
         // Print incoming request in debugmode
         if (debugmode)
@@ -222,9 +297,17 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         SHTML_PRINT("Created VM group " << group);
 
         // Load the needed script
-        std::string runpath(path);
-        if (path_is_direct)
-            runpath = "direct::" + runpath;
+        std::string runpath;
+        if(magicinfo.iswhfsexecute)
+        {
+                runpath = "mod::system/scripts/internal/webserver/whfsexecute.whscr";
+        }
+        else
+        {
+                runpath = path;
+                if (path_is_direct)
+                    runpath = "direct::" + runpath;
+        }
 
         SHTML_PRINT("Loading script " << runpath);
         if(!HSVM_LoadScript(app->hsvm, runpath.c_str()))
@@ -328,9 +411,14 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         // Don't allow webhare:webserver environments in jobs
         HSVM_VariableId authrec = HSVM_AllocateVariable(app->hsvm);
         HSVM_GetAuthenticationRecord(app->hsvm, authrec);
+
         HSVM_VariableId cell_allowedjobenvironments = HSVM_RecordCreate(app->hsvm, authrec, HSVM_GetColumnId(app->hsvm, "ALLOWEDJOBENVIRONMENTS"));
         HSVM_SetDefault(app->hsvm, cell_allowedjobenvironments, HSVM_VAR_StringArray);
         HSVM_StringSetSTD(app->hsvm, HSVM_ArrayAppend(app->hsvm, cell_allowedjobenvironments), "WEBHARE");
+
+        HSVM_VariableId cell_whfsexecute = HSVM_RecordCreate(app->hsvm, authrec, HSVM_GetColumnId(app->hsvm, "WHFSEXECUTE"));
+        HSVM_IntegerSet(app->hsvm, cell_whfsexecute, magicinfo.iswhfsexecute ? magicinfo.fileid : 0);
+
         HSVM_VariableId auth_cell_webserverrequest = HSVM_RecordCreate(app->hsvm, authrec, col_webserverrequest);
         HSVM_CopyFrom(app->hsvm, auth_cell_webserverrequest, cell_webserverrequest);
         HSVM_SetAuthenticationRecord(app->hsvm, authrec);
@@ -377,7 +465,7 @@ void Shtml::VMGroupTerminated(HSVM *vm)
         WHCore::ScriptGroupContextData *scriptcontext=static_cast<WHCore::ScriptGroupContextData*>(HSVM_GetGroupContext(vm, WHCore::ScriptGroupContextId,true));
         ShtmlContextData *shtmlcontext = static_cast<ShtmlContextData*>(scriptcontext->shtml.get());
 
-        SHTML_PRINT("Group " << group << " has finished, abortflag value: " << abortflag << ", errors: " << (group->GetErrorHandler().AnyErrors() ? "yes" : "no"));
+        SHTML_PRINT("Group " << group << " has finished, abortflag value: " << (group->GetAbortFlag() ? *group->GetAbortFlag() : -999) << ", errors: " << (group->GetErrorHandler().AnyErrors() ? "yes" : "no"));
 
         std::unique_ptr< ConnectionWorkTask > task;
         task.reset(new ConnectionWorkTask(shtmlcontext->shtml));

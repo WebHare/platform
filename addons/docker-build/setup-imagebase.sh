@@ -99,6 +99,7 @@ PACKAGES="ccache
     postgresql-client-11
     procps
     python
+    rapidjson-dev
     rsync
     samba-client
     software-properties-common
