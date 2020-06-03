@@ -1590,24 +1590,40 @@
         <xs:element ref="c:addtoindex" />
       </xs:choice>
     </xs:sequence>
-    <xs:attribute name="sitename" />
+    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
+    <xs:attributeGroup ref="SiteFilter" />
+  </xs:complexType>
+
+  <xs:attributeGroup name="SiteFilter">
+    <xs:attribute name="sitename">
+      <xs:annotation>
+        <xs:documentation>
+          Limit sitesettings case-insensitively to a specific site. Eg `sitename="MySite"`
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="sitemask" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          Mask against which the site (in which the object resides) it's name is case-insensitively matched.
+          Glob mask (? and *) against which the sitename is case-insensitively matched. Eg `sitemask="Corporate *"`
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="siteregex" type="xs:string">
       <xs:annotation>
         <xs:documentation>
-          Regular expression against which the site (in which the object resides) it's name is case-insensitively matched.
+          Regular expression against which the sitename is case-insensitively matched. Eg `siteregex="Corporate Homepage (EN|NL|DE) - *"`
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attributeGroup ref="m:ApplicabletoWebHare" />
-  </xs:complexType>
-
+    <xs:attribute name="webrootregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the site's webroot is case-insensitively matched. Eg `webrootregex="^https://[^/]+/$"` to match sites published to secure webserver roots only
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
 
   <xs:complexType name="ApplyTo">
     <xs:attribute name="type" use="required">
@@ -1686,22 +1702,7 @@
     <xs:attribute name="contentfiletype" type="xs:string" />
     <xs:attribute name="filetype" type="xs:string" />
     <xs:attribute name="foldertype" type="xs:string" />
-    <xs:attribute name="sitename" type="xs:string" />
-
-    <xs:attribute name="sitemask" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Mask against which the site (in which the object resides) it's name is case-insensitively matched.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="siteregex" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>
-          Regular expression against which the site (in which the object resides) it's name is case-insensitively matched.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
+    <xs:attributeGroup ref="SiteFilter" />
 
     <xs:attribute name="typeneedstemplate" type="xs:boolean">
       <xs:annotation>

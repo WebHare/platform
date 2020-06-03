@@ -17,19 +17,21 @@ LOADLIB "wh::xml/xsd.whlib";
 
 PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
 {
-  BOOLEAN hasname := matchnode->HasAttribute("sitename");
-  BOOLEAN hasmask := matchnode->HasAttribute("sitemask");
-  BOOLEAN hasregex := matchnode->HasAttribute("siteregex");
-  IF(NOT hasname AND NOT hasmask AND NOT hasregex)
-    RETURN DEFAULT RECORD;
+  RECORD retval;
 
-  RETURN CELL[ matchname := matchnode->GetAttribute("sitename")
-             , matchmask := matchnode->GetAttribute("sitemask")
-             , matchregex := matchnode->GetAttribute("siteregex")
-             , hasname
-             , hasmask
-             , hasregex
-             ];
+  IF(matchnode->HasAttribute("sitename"))
+    INSERT CELL sitename := matchnode->GetAttribute("sitename") INTO retval;
+
+  IF(matchnode->HasAttribute("sitemask"))
+    INSERT CELL sitemask := matchnode->GetAttribute("sitemask") INTO retval;
+
+  IF(matchnode->HasAttribute("siteregex"))
+    INSERT CELL siteregex := matchnode->GetAttribute("siteregex") INTO retval;
+
+  IF(matchnode->HasAttribute("webrootregex"))
+    INSERT CELL webrootregex := matchnode->GetAttribute("webrootregex") INTO retval;
+
+  RETURN retval;
 }
 
 STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
@@ -747,7 +749,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           {
             STRING type := crit->GetAttribute("type");
 
-            applyto := [ type         := "to"
+            applyto :=
+                  CELL [ ...ReadSiteFilter(crit)
+                       , type         := "to"
                        , match_all    := type="all"
                        , match_file   := type="file" OR type="index"
                        , match_index  := type="index"
@@ -756,9 +760,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , pathregex    := crit->GetAttribute("pathregex")
                        , parentmask   := crit->GetAttribute("parentmask")
                        , parentregex  := crit->GetAttribute("parentregex")
-                       , sitemask     := crit->GetAttribute("sitemask")
-                       , sitename     := crit->GetAttribute("sitename")
-                       , siteregex    := crit->GetAttribute("siteregex")
                        , parenttype   := crit->GetAttribute("parenttype")
                        , sitetype     := crit->GetAttribute("sitetype")
                        , filetype     := crit->GetAttribute("filetype")
