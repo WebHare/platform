@@ -1,13 +1,14 @@
 ﻿<?wh
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 PUBLIC MACRO FileEntry()
 {
   OBJECT trans := GetPrimaryWebhareTransactionObject();
   IF (NOT ObjectExists(trans)) ABORT("No transaction");
   IF (NOT trans->HasWorkSupport()) ABORT("No auto-transaction");
-  PRINT("dynfile:" || GetStoredScriptProperty("FILEID") || "\n" ||
+  PRINT("dynfile:" || GetCurrentWHFSScriptId() || "\n" ||
       AnyToString(-1 IN trans->GetEnabledRoles() ? [-1] : SortArray(trans->GetEnabledRoles()), "tree"));
 }
 
@@ -16,7 +17,7 @@ PUBLIC MACRO FileOverrideEntry()
   OBJECT trans := GetPrimaryWebhareTransactionObject();
   IF (NOT ObjectExists(trans)) ABORT("No transaction");
   IF (NOT trans->HasWorkSupport()) ABORT("No auto-transaction");
-  PRINT("dynoverride:" || GetStoredScriptProperty("FILEID") || "\n" ||
+  PRINT("dynoverride:" || GetCurrentWHFSScriptId() || "\n" ||
       AnyToString(-1 IN trans->GetEnabledRoles() ? [-1] : SortArray(trans->GetEnabledRoles()), "tree"));
 }
 
@@ -25,6 +26,6 @@ PUBLIC MACRO FolderEntry()
   OBJECT trans := GetPrimaryWebhareTransactionObject();
   IF (NOT ObjectExists(trans)) ABORT("No transaction");
   IF (NOT trans->HasWorkSupport()) ABORT("No auto-transaction");
-  PRINT("dynfolder:" || GetStoredScriptProperty("FILEID") || "\n" ||
+  PRINT("dynfolder:" || GetCurrentWHFSScriptId() || "\n" ||
       AnyToString(-1 IN trans->GetEnabledRoles() ? [-1] : SortArray(trans->GetEnabledRoles()), "tree"));
 }

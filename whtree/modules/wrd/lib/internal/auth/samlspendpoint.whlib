@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
@@ -41,7 +42,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
 {
   RECORD pageparams := GetDynamicPageParameters();
 
-  STRING filename := SELECT AS STRING name FROM system.fs_objects WHERE id = GetStoredScriptProperty("FILEID");
+  STRING filename := SELECT AS STRING name FROM system.fs_objects WHERE id = GetCurrentWHFSScriptId();
   IF (filename NOT LIKE "saml-sp-*")
     THROW NEW Exception("This file's name must be like 'saml-sp-<tag>");
 

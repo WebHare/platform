@@ -38,7 +38,7 @@ STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
     }
     ELSE
     {
-      INTEGER baseid := GetStoredScriptProperty("FILEID");
+      INTEGER baseid := GetStoredScriptProperty("FILEID"); //FIXME this is no longer available ... but do we even need this currentsite:: support anymore ? should currentsite:: just GO ?
       IF(baseid=0)
         THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
 

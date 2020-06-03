@@ -118,6 +118,7 @@ PUBLIC MACRO __Dummy() //exists only to make systemredirect.whlib happy
 }
 
 currentfileid := GetAuthenticationRecord().whfsexecute;
+__currentwhfsscriptid := currentfileid;
 
 // Get the library data for the library
 RECORD rec := GetAdhocCached([ fileid := currentfileid ], PTR GetCachableFileData(currentfileid));
