@@ -84,6 +84,7 @@ MACRO SetupHyperlinkOptions(OBJECT screen, OBJECT rte, RECORD linkdata, OBJECT c
 {
   OBJECT ARRAY handlers := rte->linkhandlers;
   comp_linktype->internallinks := RecordExists(SELECT FROM ToRecordArray(handlers,"handler") WHERE handler EXTENDSFROM InternalLinks);
+  comp_linktype->internallinkroots := rte->internallinkroots;
   comp_linktype->linkhandlers := SELECT AS OBJECT ARRAY handler FROM ToRecordArray(handlers,"handler") WHERE handler NOT EXTENDSFROM InternalLinks;
 
   RECORD linkvalue;

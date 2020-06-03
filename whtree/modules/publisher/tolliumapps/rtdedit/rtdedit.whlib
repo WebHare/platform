@@ -24,6 +24,9 @@ PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
     IF(NOT this->did_init_subtree) //ADDME move back to Init(), but this requires us to be able to generate download urls to components that don't rename for the CSS
     {
       this->did_init_subtree := TRUE;
+
+      IF(Length(this->contexts->editdocumentapi->internallinkroots) > 0) //subapp mode, explicitly set limitlinks
+        this->rte->internallinkroots := this->contexts->editdocumentapi->internallinkroots;
     }
 
     RECORD filedata := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");

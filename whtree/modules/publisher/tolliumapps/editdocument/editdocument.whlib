@@ -73,6 +73,9 @@ STATIC OBJECTTYPE EditDocumentAPI
   /// Callback MACRO (OBJECT work, BOOLEAN ispublish) invoked when we've saved the document. ispublish is FALSE if we're saving as draft (currently incompatible with versioning!)
   PUBLIC MACRO PTR onsave;
 
+  /// Root folders to add for internal link dialogs
+  PUBLIC INTEGER ARRAY internallinkroots;
+
   PUBLIC PROPERTY baseobject(GetBaseObject, -);
   PUBLIC PROPERTY editobject(GetEditObject, -);
 
@@ -208,6 +211,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF(CellExists(data,'assumewriteaccess'))
       this->assumewriteaccess := data.assumewriteaccess;
 
+    this->editdocapi->internallinkroots := data.internallinkroots;
     this->fileid := data.id;
     this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
     IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->fileid)) //not even browse access?

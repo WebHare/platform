@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -72,9 +74,30 @@ OBJECT ASYNC FUNCTION InsertLink()
   RETURN TRUE;
 }
 
+ASYNC MACRO TestLimitRoot()
+{
+  testfw->SetTestUser("norights");
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectEditApplication(GetTestController(), testrtd->id, [ assumereadaccess := TRUE
+                                                                                                , assumewriteaccess := TRUE
+                                                                                                , forceintegrated := TRUE
+                                                                                                , internallinkroots := INTEGER[ testrtd->parent ]
+                                                                                                ]));
+
+  OBJECT myrte := TT("doceditor")->contents->rte;
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("buttonclick", [ button := "a-href" ]));
+
+  //Test whether the limit setting was properly transferred. We'll trust <intextlink> to implement it correctly
+  TestEq(INTEGER[ testrtd->parent ], TT("link")->internallinkroots);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+}
+
 RunTestframework([ PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [ istemplate := FALSE, witherrors := FALSE, withcontent := FALSE, waitpublish := FALSE])
                  , PTR PrepIt
                  , PTR InsertLink
+                 , PTR TestLimitRoot
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ,[ login := "norights"]
                                    ]
                     ]);
