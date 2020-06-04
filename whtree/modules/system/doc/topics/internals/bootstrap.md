@@ -69,3 +69,8 @@ It will then proceed to recompile all site profiles, and wait for it to complete
 
 Broadcasts various events so everyone know there has been a softreset. This will trigger the webserver to
 reload its configuration, the adhoccahe to flush, etc
+
+### Debugging
+If WebHare doesn't seem to fully start (eg 'Online' doesnt appear and the webhareservice-startup script doesn't
+finish) you may be able to debug it by manually starting the debugmanager with `wh run mod::system/scripts/internal/debugmgr.whscr`
+and opening the debugger in the webserver.
