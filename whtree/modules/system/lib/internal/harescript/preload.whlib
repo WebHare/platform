@@ -39,7 +39,7 @@ STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
     }
     ELSE
     {
-      //scriptproperty FILEID is no longer always available ... witty loading still uses it for currnetsite:: support
+      //scriptproperty FILEID is no longer always available ... witty loading still uses it for currentsite:: support
       INTEGER baseid := __currentwhfsscriptid ?? GetStoredScriptProperty("FILEID");
       IF(baseid=0)
         THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
