@@ -172,7 +172,7 @@ static const char MagicSignature[MagicSignatureLen+1] = "WBHRWS::v0dmzc5chW4Axhb
 
 struct MagicHeader
 {
-        MagicHeader() : iswhfsexecute(false)
+        MagicHeader() : iswhfsexecute(false), fileid(0)
         {
         }
 
