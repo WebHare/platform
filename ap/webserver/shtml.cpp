@@ -203,7 +203,7 @@ MagicHeader ReadMagicHeader(std::string const &path)
         if(bytesread < MagicSignatureLen || memcmp(fileheader, MagicSignature, MagicSignatureLen) != 0)
             return retval; //no header
 
-        // Find the linefeed. We only read one line after the signature and expect all the JSON data to fit int here
+        // Find the linefeed. We only read one line after the signature and expect all the JSON data to fit in there
         char* start_json_data = fileheader + MagicSignatureLen;
         char* end_json_data = std::find(start_json_data, fileheader + bytesread, '\r');
         if(end_json_data >= fileheader + bytesread)
