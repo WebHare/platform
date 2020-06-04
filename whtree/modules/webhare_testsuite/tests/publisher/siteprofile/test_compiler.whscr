@@ -38,7 +38,7 @@ MACRO TestParsing()
   RECORD ARRAY sitesettings := SELECT * FROM res.rules WHERE ruletype = "sitesetting";
   TestEq(2, Length(sitesettings));
   TestEq(DEFAULT RECORD, sitesettings[0].sitefilter);
-  TestEq([ matchname := "SomeOtherSite", matchmask:="",matchregex:="",hasname:=TRUE,hasmask:=FALSE,hasregex:=FALSE], sitesettings[1].sitefilter);
+  TestEq([ sitename := "SomeOtherSite" ], sitesettings[1].sitefilter);
 
   TestEq(1,Length(SELECT FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3")); //even though test3 is dupe, should see only one
   RECORD test3type := SELECT * FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3";
