@@ -215,7 +215,7 @@ MagicHeader ReadMagicHeader(std::string const &path)
         //Might be a rapidjson::Parse that accepts iterators? but it's no problem for us to null terminate it
         *end_json_data = 0;
         rapidjson::Document indoc;
-        indoc.Parse(start_json_data);
+        indoc.ParseInsitu(start_json_data);
 
         if (indoc.HasParseError())
         {
