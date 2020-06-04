@@ -197,7 +197,7 @@ MagicHeader ReadMagicHeader(std::string const &path)
                 return retval;
         }
 
-        // Read the header (TODO webserver could consider passing us an open handle, so we don't race to open. even better if the webserver did the reading for us and allowed us to peaK)
+        // Read the header (TODO webserver could consider passing us an open handle, so we don't race to open. even better if the webserver did the reading for us and allowed us to peek)
         char fileheader[1024];
         std::size_t bytesread = infile->Read(fileheader, sizeof fileheader);
         if(bytesread < MagicSignatureLen || memcmp(fileheader, MagicSignature, MagicSignatureLen) != 0)
