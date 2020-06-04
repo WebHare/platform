@@ -840,7 +840,7 @@
     </webruleset>
   </sitesettings>
 
-  <sitesettings sitename="WebHare testsuite site"> <!-- and not: alt test host -->
+  <sitesettings sitename="WebHare testsuite site" webrootregex="^https?://[^/]+/testoutput/webhare_testsuite/$"> <!-- and not: alt test host -->
     <addtocatalog catalog="testsitecatalog" />
   </sitesettings>
 

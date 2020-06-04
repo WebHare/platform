@@ -36,15 +36,20 @@ INTEGER ARRAY FUNCTION GetMatchesBySiteFilter(RECORD sitefilter, INTEGER ARRAY l
     RETURN limitids;
 
   OBJECT compiledpattern;
-  IF(sitefilter.hasregex)
+  IF(CellExists(sitefilter, "siteregex"))
     compiledpattern := NEW RegEx(sitefilter.siteregex, "i"); //case insensitive
+
+  OBJECT compiledwebrootpattern;
+  IF(CellExists(sitefilter, "webrootregex"))
+    compiledwebrootpattern := NEW RegEx(sitefilter.webrootregex, "i"); //case insensitive
 
   RETURN SELECT AS INTEGER ARRAY id
            FROM system.sites
           WHERE id IN limitids
-                AND (sitefilter.hasname ? ToUppercase(name) = ToUppercase(sitefilter.matchname) : TRUE)
-                AND (sitefilter.hasmask ? ToUppercase(name) LIKE ToUppercase(sitefilter.matchmask) : TRUE)
-                AND (sitefilter.hasregex ? compiledpattern->Test(name) : TRUE);
+                AND (CellExists(sitefilter, "sitename") ? ToUppercase(sites.name) = ToUppercase(sitefilter.sitename) : TRUE)
+                AND (CellExists(sitefilter, "sitemask") ? ToUppercase(sites.name) LIKE ToUppercase(sitefilter.sitemask) : TRUE)
+                AND (CellExists(sitefilter, "siteregex") ? compiledpattern->Test(sites.name) : TRUE)
+                AND (CellExists(sitefilter, "webrootregex") ? compiledwebrootpattern->Test(sites.webroot) : TRUE);
 }
 
 INTEGER ARRAY FUNCTION GetMatchingSiteids(OBJECT matchnode, INTEGER ARRAY limitids)
