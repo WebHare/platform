@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
