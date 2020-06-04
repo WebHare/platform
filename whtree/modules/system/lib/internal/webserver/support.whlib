@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 /// current http headers
@@ -121,4 +122,11 @@ PUBLIC STRING FUNCTION PrettyIPMask(STRING standardmask, BOOLEAN use_cidr_notati
       RETURN "*.*.*.*";
   }
   RETURN quad1 || "." || quad2 || "." || quad3 || "." || quad4 || "/" || cidr_count;
+}
+
+
+//TODO This is a temporary workaround to deal with the lack of GetStoredScriptProperty under whfsexecute. Ideally GetStoredScriptProperty just goes away and we don't do magic globals for the file id
+PUBLIC INTEGER FUNCTION GetCurrentWHFSScriptId()
+{
+  RETURN __currentwhfsscriptid ?? GetStoredScriptProperty("FILEID");
 }

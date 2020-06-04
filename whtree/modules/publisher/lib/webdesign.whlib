@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -1321,7 +1322,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INTEGER outputid;
     TRY
     {
-      outputid := OpenOutputFile(filename, FALSE);
+      outputid := OpenOutputFile(filename, TRUE);
       SendBLobTo(outputid,data);
     }
     FINALLY
@@ -1342,7 +1343,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INTEGER outputid;
     TRY
     {
-      outputid := OpenOutputFile(filename, FALSE);
+      outputid := OpenOutputFile(filename, TRUE);
       saveredirect := RedirectOutputTo(outputid);
       contentgenerator();
     }
@@ -1818,7 +1819,7 @@ PUBLIC OBJECTTYPE DynamicPageBase
 
   PUBLIC MACRO RunPage()
   {
-    this->RunPageForWHFSId(GetStoredScriptProperty("FILEID"));
+    this->RunPageForWHFSId(GetCurrentWHFSScriptId());
   }
 
 >;

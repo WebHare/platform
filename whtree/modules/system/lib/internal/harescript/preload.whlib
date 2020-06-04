@@ -21,6 +21,7 @@ STRING FUNCTION MergePath(STRING first, STRING second) __ATTRIBUTES__ (EXTERNAL)
 
 PUBLIC STRING __forcecurrentsite; //used by publishjob.whscr to set the proper resolution base for currentsite::
 FUNCTION PTR __logdebug;
+PUBLIC INTEGER __currentwhfsscriptid; //we need our storedscriptproperty FILEID to support currentsite:: witty loads from SHTML files. see basetest-moduledesign test
 
 BLOB FUNCTION GetWebhareResource(STRING path)
 {
@@ -38,7 +39,8 @@ STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
     }
     ELSE
     {
-      INTEGER baseid := GetStoredScriptProperty("FILEID");
+      //scriptproperty FILEID is no longer always available ... witty loading still uses it for currentsite:: support
+      INTEGER baseid := __currentwhfsscriptid ?? GetStoredScriptProperty("FILEID");
       IF(baseid=0)
         THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
 

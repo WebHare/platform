@@ -49,8 +49,6 @@ class SRHRunningApp
         HareScript::ErrorHandler errorhandler;
         ///is detached (running srh)
         bool is_detached;
-        ///If the running VM group must be aborted when this structure is destroyed.
-        bool abort_on_disconnect;
 };
 typedef std::shared_ptr<SRHRunningApp> SRHRunningAppPtr;
 
@@ -272,12 +270,10 @@ class Shtml
         bool TrySession(WebServer::Connection *webcon, Session &sess, WebServer::AccessRule const &rule);
         void ExecuteAccessScript(WebServer::Connection *webcon, std::string const &scriptpath, int32_t accessruleid);
 
-        bool ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket);
-
         /** Starts the SHTML content handler
             @return Whether an asynchronous script has been started
         */
-        bool ContentHandlerInternal(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket);
+        bool ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket);
 
         /// Logs all errors to the error log
         void LogErrors(std::string const &groupid, std::string const &externalsessiondata, std::string const &contextinfo, const HareScript::ErrorHandler &errors, WebServer::Request const &request);

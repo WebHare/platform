@@ -98,8 +98,8 @@ opened_firstpage := TRUE;
 MACRO CreateSystemRedirect()
 {
   SwitchToIndexSHTML();
-  INTEGER redirectoutputid := OpenOutputFile("index.shtml",FALSE);
-  PrintTrustedCodeTo(redirectoutputid, "<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
+  INTEGER redirectoutputid := OpenOutputFile("index.shtml", FALSE);
+  PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([whfsexecute := publishfile.id])}\r\n`);
   PUBLISHER_CloseOutput(redirectoutputid);
 }
 
@@ -113,7 +113,7 @@ FOREVERY(RECORD page FROM webdesign->__staticpages)
 {
   STRING pagename := #page = 0 ? firstpagename : page.name;
 
-  outputid := OpenOutputFile(pagename, FALSE);
+  outputid := OpenOutputFile(pagename, TRUE);
 
   RedirectOutputTo(outputid);
 

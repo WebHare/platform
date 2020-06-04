@@ -5,6 +5,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/template-v2.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 
 
 /* This files emits the systemredirect for 'dynamicfoldercontents' and 'shtmlfile'
@@ -26,6 +27,6 @@ IF (RecordExists(webdesigninfo))
 
 __SetCaptureSubPaths(capturesubpaths);
 
-OpenFile(1);
-PrintTrustedCode("<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
-CloseFile();
+INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
+PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([whfsexecute := file.id])}\r\n`);
+PUBLISHER_CloseOutput(redirectoutputid);

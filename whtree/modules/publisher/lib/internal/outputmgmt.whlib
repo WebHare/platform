@@ -195,7 +195,7 @@ PUBLIC INTEGER FUNCTION OpenDBOutputFile(STRING filename)
   RETURN id;
 }
 
-PUBLIC INTEGER FUNCTION OpenOutputFile(STRING filename, BOOLEAN systemredirect)
+PUBLIC INTEGER FUNCTION OpenOutputFile(STRING filename, BOOLEAN shtmlprologue)
 {
   //Check for a dupe name
   BOOLEAN isfirstpage := IsFirstPagename(filename);
@@ -218,20 +218,11 @@ PUBLIC INTEGER FUNCTION OpenOutputFile(STRING filename, BOOLEAN systemredirect)
   INTEGER id := PUBLISHER_OPENOUTPUT(filename, FALSE, isfirstpage, isshtml);
   //Check for auto fileid filename
 
-  IF(ext!="")
+  IF(ext != "" AND isshtml AND shtmlprologue)
   {
-    IF(isshtml)
-    {
-      PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILEID'" || publishfile.id || "*)?>");
-      PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILECREATIONDATE'" || GetDayCount(publishfile.creationdate) || ' ' || GetMsecondCount(publishfile.creationdate) || "*)?>");
-      IF (systemredirect)
-        PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
-    }
-    ELSE IF (systemredirect)
-      THROW NEW Exception("File '" || filename || "' must have an .shtml extension");
+    PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILEID'" || publishfile.id || "*)?>");
+    PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILECREATIONDATE'" || GetDayCount(publishfile.creationdate) || ' ' || GetMsecondCount(publishfile.creationdate) || "*)?>");
   }
-  ELSE IF (systemredirect)
-    THROW NEW Exception("File '" || filename || "' must have an .shtml extension");
 
   RETURN id;
 }
