@@ -162,7 +162,7 @@ bool HandleRedirectSendfile(WebServer::Connection *webcon, HSVM *vm)
         return false;
 }
 
-/* The magic webserver signature, which we still wantd to be readable! 32 bytes long
+/* The magic webserver signature, which we still want to be readable! 32 bytes long
    8:  'WBHRWS::' = WebHare Webserver followed by two colons because, well we had room for 2 to get to 32.
    22: v0dmzc5chW4AxhbiSdDpJQ = the 128bit uid we selected
    2:  \r\n - a CRLF to be nice to text readers
