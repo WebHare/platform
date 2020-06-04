@@ -243,7 +243,7 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         SHTML_PRINT("Webcon " << webcon << " starting new script for path " << path);
 
         MagicHeader magicinfo;
-        if(path_is_direct) //it's actually something on disk (apaparently we can also run for other things?)
+        if(path_is_direct) //it's actually something on disk (apparently we can also run for other things?)
             magicinfo = ReadMagicHeader(path);
 
         // Print incoming request in debugmode
