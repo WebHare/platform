@@ -1,7 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" lib="screens/exchange.whlib" gid="exchange">
 
   <messageboxes gid=".messageboxes">
-    <messagebox name="apparentlynotcsv" buttons="yes no" />
     <messagebox name="distinctoverflow" buttons="ok" />
   </messageboxes>
 
