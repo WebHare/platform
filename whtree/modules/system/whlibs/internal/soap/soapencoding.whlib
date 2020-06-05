@@ -1541,7 +1541,17 @@ STATIC OBJECTTYPE SOAPCodecBase EXTEND CodecBase
         STRING missingtype := "defaultvalue";
 
         IF (NOT RecordExists(type.content_type))
+        {
+          IF (RecordExists(SELECT FROM this->pvt_overrides WHERE ignore_parse_issues))
+          {
+            RETURN
+                [ exists :=       TRUE
+                , value :=        DEFAULT RECORD
+                ];
+          }
+
           ABORT("FIXME: not implemented");
+        }
 
         IF (type.target_namespace = ns_soap11enc AND type.name = "Array")
         {
