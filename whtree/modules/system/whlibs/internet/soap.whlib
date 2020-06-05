@@ -152,9 +152,23 @@ STATIC OBJECTTYPE __Soap11ServicePortImplementation
     this->pvt_wsa10_address := wsa10_address;
 
     this->soapclient := soapclient;
-    this->pvt_overrides :=
-        [ codecoverrides :=     CellExists(overrides, "CODECOVERRIDES") ? overrides.codecoverrides : DEFAULT RECORD ARRAY
-        ];
+
+    RECORD ARRAY codecoverrides;
+    IF (CellExists(overrides, "CODECOVERRIDES"))
+    {
+      codecoverrides := EnforceStructure([[ operation := ""
+                                          , type := ""
+                                          , namespaceuri := ""
+                                          , path := ""
+                                          , name := ""
+                                          , hstype := 0
+                                          , decodefunction := DEFAULT FUNCTION PTR
+                                          , encodefunction := DEFAULT FUNCTION PTR
+                                          , ignore_parse_issues := FALSE
+                                         ]], overrides.codecoverrides);
+
+      this->pvt_overrides := CELL[ codecoverrides ];
+    }
 
     FOREVERY (RECORD encoded_op FROM encoded_ops)
     {
