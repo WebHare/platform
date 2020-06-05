@@ -143,15 +143,15 @@ TESTLIST="$@"
 BUILDDIR="$PWD"
 cd `dirname $0`
 
-if [ -n "$TESTFW_SECRETSURL" ]; then
+if [ -n "$TESTSECRET_SECRETSURL" ]; then
   DOWNLOADPATH=`mktemp`
-  if ! curl --fail -o $DOWNLOADPATH "$TESTFW_SECRETSURL"; then
+  if ! curl --fail -o $DOWNLOADPATH "$TESTSECRET_SECRETSURL"; then
     echo "Cannot retrieve secrets"
     exit 1
   fi
   source "$DOWNLOADPATH"
   rm "$DOWNLOADPATH"
-  unset TESTFW_SECRETSURL
+  unset TESTSECRET_SECRETSURL
 fi
 
 if [ -n "$ISMODULETEST" -a -z "$WEBHAREIMAGE" ]; then
