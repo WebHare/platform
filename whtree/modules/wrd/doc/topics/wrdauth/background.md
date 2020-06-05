@@ -36,7 +36,7 @@ the `_c` cookie with the requested user information.
 
 The `_j` and `_c` cookies are not marked `httpOnly` so JavaScript can access their contents and restore loginstate when
 needed even on static HTML pages. These cookies do not contain actual login state so leaking their data will not allow third
-parties to access login sessions. However, they may still contain personal information so your code should still be save from
+parties to access login sessions. However, they may still contain personal information so your code should still be safe from
 XSS vulnerabilities. (But this applies to all data available to JavaScript)
 
 
