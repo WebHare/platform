@@ -153,19 +153,19 @@ STATIC OBJECTTYPE __Soap11ServicePortImplementation
 
     this->soapclient := soapclient;
 
-    RECORD ARRAY codecoverrides;
     IF (CellExists(overrides, "CODECOVERRIDES"))
     {
-      codecoverrides := EnforceStructure([[ operation := ""
-                                          , type := ""
-                                          , namespaceuri := ""
-                                          , path := ""
-                                          , name := ""
-                                          , hstype := 0
-                                          , decodefunction := DEFAULT FUNCTION PTR
-                                          , encodefunction := DEFAULT FUNCTION PTR
-                                          , ignore_parse_issues := FALSE
-                                         ]], overrides.codecoverrides);
+      RECORD ARRAY codecoverrides := EnforceStructure(
+          [[ operation := ""
+           , type := ""
+           , namespaceuri := ""
+           , path := ""
+           , name := ""
+           , hstype := 0
+           , decodefunction := DEFAULT FUNCTION PTR
+           , encodefunction := DEFAULT FUNCTION PTR
+           , ignore_parse_issues := FALSE
+          ]], overrides.codecoverrides);
 
       this->pvt_overrides := CELL[ codecoverrides ];
     }
