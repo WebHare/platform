@@ -1601,15 +1601,3 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     RETURN feedback->Finish();
   }
 >;
-
-
-PUBLIC MACRO EditWebToolForm(OBJECT parent, RECORD target)
-{
-  parent->tolliumcontroller->SendApplicationMessage(
-      "publisher:webtoolform",
-      [ type := "editform"
-      , id   := target.id
-      ],
-      DEFAULT RECORD,
-      TRUE);
-}
