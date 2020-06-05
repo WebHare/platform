@@ -368,7 +368,7 @@ OBJECTTYPE WebConfigBuilder
       INTEGER res := LookupWHFSObject(0, data);
       IF(res > 0)
       {
-        //ADDME why don't we have a call mapping an id to an on-disk-ptah ? §
+        //ADDME why don't we have a call mapping an id to an on-disk-ptah ?
         RECORD resinfo := SELECT webservers.diskfolder
                                , siteoutputfolder := sites.outputfolder
                                , fs_objects.fullpath
