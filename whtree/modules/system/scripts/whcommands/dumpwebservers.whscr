@@ -38,18 +38,18 @@ IF (args.proxy)
 }
 
 Print("\nPorts\n\n");
-DumpValue((SELECT *, DELETE privatekey, DELETE certificatechain FROM data.ports),'boxed');
+DumpValue((SELECT *, DELETE privatekey, DELETE certificatechain FROM data.ports), [ format := 'boxed', outputid := 1]);
 
 Print("\nHosts\n\n");
-DumpValue(data.hosts,'boxed');
-DumpValue(data.hosts,'tree');
+DumpValue(data.hosts, [ format := 'boxed', outputid := 1]);
+DumpValue(data.hosts, [ format := 'tree', outputid := 1 ]);
 
 Print("\nRules\n\n");
-DumpValue(data.rules,'boxed');
-DumpValue(data.rules,'tree');
+DumpValue(data.rules, [ format := 'boxed', outputid := 1]);
+DumpValue(data.rules, [ format := 'tree', outputid := 1 ]);
 
 Print("\nTypes\n\n");
-DumpValue(data.types,'boxed');
+DumpValue(data.types, [ format := 'boxed', outputid := 1]);
 
 DELETE CELL ports FROM data;
 DELETE CELL hosts FROM data;
@@ -57,4 +57,4 @@ DELETE CELL rules FROM data;
 DELETE CELL types FROM data;
 
 Print("\nRemains\n\n");
-DumpValue(data,'tree');
+DumpValue(data, [ format := 'tree', outputid := 1 ]);

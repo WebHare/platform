@@ -185,4 +185,4 @@ MACRO TestMarkAsTemporaryFailure()
 
 RunTestframework([ PTR TestWaitableAction
                  , PTR TestMarkAsTemporaryFailure
-                 ], [ canceltasks := ["webhare_testsuite:*"]]);
+                 ]);

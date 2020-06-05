@@ -65,5 +65,4 @@ MACRO MailPerformanceTest()
 
 RunTestframework([ PTR Prepare
                  , PTR MailPerformanceTest
-                 ], [ canceltasks := [ "system:outgoingmail" ]
-                    ] );
+                 ]);

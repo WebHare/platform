@@ -957,6 +957,16 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     IF(NOT this->usedatabase)
       RETURN;
 
+    //Cancel any pending tasks. They are considered a big source of unneeded testfailures - webhare/platform#15
+    INTEGER ARRAY taskids := SELECT AS INTEGER ARRAY id FROM LookupManagedTasks("*", [ unfinished := TRUE ]);
+    IF(Length(taskids)>0)
+    {
+      GetPrimary()->BeginWork();
+      OBJECT cancelpromise := CancelManagedTasks(taskids);
+      GetPrimary()->CommitWork();
+      WaitForPromise(cancelpromise);
+    }
+
     //Find and remove any interface test webservers/ports. They are marked by having a security access rule pointing to "/" || test_prefix || "/betatestaccessrule/"
     INTEGER ARRAY ourwebservers := SELECT AS INTEGER ARRAY webserver
                                      FROM system.access
@@ -2118,7 +2128,6 @@ STRING FUNCTION GenerateName(MACRO PTR test)
     @cell(boolean) options.consilio
     @cell(string array) options.addinterfacealiases
     @cell(boolean) options.mailwhitelists
-    @cell(string array) options.canceltasks Array of masks of task types to clean up before testing
 */
 PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -2137,7 +2146,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , consilio := FALSE
                               , addinterfacealiases := STRING[]
                               , mailwhitelists := TRUE
-                              , canceltasks := STRING[]
+                              , canceltasks := STRING[] //ignored and deprecated - tests always cancel all tasks.
                               , debugflags := STRING[]
                               ], options);
 
@@ -2164,20 +2173,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
     OpenPrimary();
 
   testfw := NEW TestFramework(options);
-  IF(Length(options.canceltasks) > 0)
-  { //clean the tasks, if any
-    INTEGER ARRAY taskids;
-    FOREVERY(STRING tokill FROM options.canceltasks)
-      taskids := taskids CONCAT SELECT AS INTEGER ARRAY id FROM LookupManagedTasks(tokill, [ unfinished := TRUE ]);
 
-    IF(Length(taskids)>0)
-    {
-      testfw->BeginWork();
-      OBJECT cancelpromise := CancelManagedTasks(taskids);
-      testfw->CommitWork();
-      WaitForPromise(cancelpromise);
-    }
-  }
   testfw->addinterfacealiases := addinterfacealiases;
 
   IF(options.consilio)

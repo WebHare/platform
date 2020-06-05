@@ -423,6 +423,7 @@
       <text tid="map">&lt;&lt;</text>
       <text tid="mapbox">Velden koppelen</text>
       <text tid="mapexplain">Koppel de beschikbare velden uit de rechterlijst aan de kolommen van het geïmporteerde bestand met behulp van de knoppen of door ze te verslepen van rechts naar links.</text>
+      <text tid="pleaseuploadxlsx">Het geüploade bestand is geen valide Excel (XLSX) of CSV bestand</text>
       <text tid="previewexplainbox">Voorbeeldresultaten</text>
       <text tid="previewing">Voorbeeld</text>
       <text tid="processingline">Verwerken regel <param p="1"/></text>
@@ -440,8 +441,8 @@
       </textgroup>
     </textgroup>
     <textgroup gid="importresults">   <!-- exchange.importresults -->
-      <text tid="downloadduplicate">(Downloaden als CSV bestand)</text>
-      <text tid="downloadinvalid">(Downloaden als CSV bestand)</text>
+      <text tid="downloadduplicate">Download dubbele waarden</text>
+      <text tid="downloadinvalid">Download ongeldige waarden</text>
       <text tid="importresults">Importresultaat</text>
       <text tid="numduplicate">Dubbele waarden</text>
       <text tid="numinvalid">Ongeldige waarden</text>
@@ -463,7 +464,6 @@
       <text tid="unmap">&gt;&gt;</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- exchange.messageboxes -->
-      <text tid="apparentlynotcsv">Weet u zeker dat dit een kommagescheiden tekstbestand (CSV) is?</text>
       <text tid="distinctoverflow">De gekoppelde kolom bevat teveel uniek waarden om te worden gekoppeld.</text>
     </textgroup>
     <textgroup gid="syncoptions">   <!-- exchange.syncoptions -->

@@ -15,6 +15,18 @@ LOADLIB "wh::ooxml/internal/utils.whlib";
 LOADLIB "wh::ooxml/internal/ooxml.whlib";
 
 CONSTANT STRING xmlns_main := "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+CONSTANT RECORD exportrowsoptions :=
+    [ alltostring := TRUE
+    , processheaders := TRUE
+    , floatmode := "float"
+    , dotrimwhitespace := TRUE
+    , onprogress := DEFAULT MACRO PTR
+    ];
+
+CONSTANT RECORD exportrowsmeta :=
+    [ enums := [ floatmode := ["float","money","integer"]
+                              ]
+    ];
 VARIANT ARRAY tempstore;
 
 BOOLEAN FUNCTION AddToTempStore(VARIANT ARRAY rowcells)
@@ -361,12 +373,24 @@ PUBLIC STATIC OBJECTTYPE ExcelDoc
     }
   }
 
+  /** List the sheets in the opened XLSX file
+      @return The sheets in source file order
+      @cell(integer) return.sheetnr 0-based sheet number (passed to eg #OpenSheet)
+      @cell(string) return.name Excel-user specified name of the sheet
+      @cell(string) return.sheetid Excel's sheet id
+  */
   PUBLIC RECORD ARRAY FUNCTION GetSheets()
   {
     this->EnsureSheetsRead();
-    RETURN this->sheets;
+    RETURN SELECT sheetnr := #sheets
+                , name
+                , sheetid
+             FROm this->sheets AS sheets;
   }
 
+  /** Open an individual sheet
+      @param seqnum 'sheetnr' to open. 0 for the first sheet
+      @return(object %ExcelSheet) Opened excelsheet, or a DEFAULT OBJECT if the seqnum is out of range */
   PUBLIC OBJECT FUNCTION OpenSheet(INTEGER seqnum)
   {
     IF(seqnum < 0 OR seqnum >= Length(this->GetSheets()))
@@ -385,6 +409,9 @@ PUBLIC STATIC OBJECTTYPE ExcelDoc
     RETURN this->sheets[seqnum].sheet;
   }
 
+  /** Open an individul sheet by name
+      @param sheetname Name of the sheet to open
+      @return(object %ExcelSheet) Opened excelsheet, or a DEFAULT OBJECT if the sheet was not found */
   PUBLIC OBJECT FUNCTION OpenSheetByName(STRING sheetname)
   {
     INTEGER sheetpos := SELECT AS INTEGER #sheets + 1 FROM this->GetSheets() AS sheets WHERE name = sheetname;
@@ -731,6 +758,35 @@ PUBLIC STATIC OBJECTTYPE ExcelSheet
       }
     }
   }
+
+  /** Return the rows in an excel hseet
+      @param options Options @includecelldef %GetOOXMLSpreadsheetRows.options
+
+      @cell options.alltostring Return all columns as strings (defaults to TRUE)
+      @cell options.processheaders Process the first row as headers (defaults to TRUE)
+      @cell options.dotrimwhitespace Trim all whitespace from strings (defaults to true)
+      @cell options.floatmode How to convert numbers: "integer", "money" (rounds to money and omits trailing zeroes) or "float"
+      @cell(function ptr) options.onprogress Callback that will periodically receive progress records as we import the file. Progress records contain 'cur'(rent) row (0-baesd) and 'total' and do not count the header row
+      @return Extracted rows */
+  PUBLIC RECORD ARRAY FUNCTION ExportRows(RECORD options)
+  {
+    options := ValidateOptions(exportrowsoptions, options, exportrowsmeta);
+
+    OBJECT getter := NEW TokenRowReceiver(this, options);
+    this->ExportRowsToCallback(PTR getter->ReceiveRow, CELL[...options, DELETE onprogress]);
+
+    IF(options.onprogress != DEFAULT MACRO PTR) //send final event, we might not receive row callback for the last few rows
+    {
+      RECORD progress := this->GetParseProgress();
+      IF(options.processheaders)
+        progress.total := progress.total - 1;
+
+      progress.cur := progress.total;
+      options.onprogress(progress);
+    }
+    RETURN getter->Finalize();
+  }
+
   PUBLIC VARIANT ARRAY FUNCTION GetAllRows(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     VARIANT ARRAY savetempstore := tempstore;
@@ -1345,7 +1401,7 @@ PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols)
   RETURN importxlsxsheet->MakeColumnReader(cols);
 }
 
-/** Read an Excel (XLSX) file
+/** Export the first sheet of an Excel (XLSX) file
     @param xlsxdoc Document to load
     @cell options.alltostring Return all columns as strings (defaults to TRUE)
     @cell options.processheaders Process the first row as headers (defaults to TRUE)
@@ -1355,29 +1411,11 @@ PUBLIC OBJECT FUNCTION MakeOOXMLColumnReader(BLOB xlsdoc, RECORD ARRAY cols)
     @return Extracted rows */
 PUBLIC RECORD ARRAY FUNCTION GetOOXMLSpreadsheetRows(BLOB xlsxdoc, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ alltostring := TRUE
-                             , processheaders := TRUE
-                             , floatmode := "float"
-                             , dotrimwhitespace := TRUE
-                             , onprogress := DEFAULT MACRO PTR
-                             ], options, [ enums := [ floatmode := ["float","money","integer"]]]);
+  options := ValidateOptions(exportrowsoptions, options, exportrowsmeta);
 
   OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(xlsxdoc);
   OBJECT importxlsxsheet := importxlsxfile->OpenSheet(0);
-  OBJECT getter := NEW TokenRowReceiver(importxlsxsheet, options);
-
-  importxlsxsheet->ExportRowsToCallback(PTR getter->ReceiveRow, CELL[...options, DELETE onprogress]);
-
-  IF(options.onprogress != DEFAULT MACRO PTR) //send final event, we might not receive row callback for the last few rows
-  {
-    RECORD progress := importxlsxsheet->GetParseProgress();
-    IF(options.processheaders)
-      progress.total := progress.total - 1;
-
-    progress.cur := progress.total;
-    options.onprogress(progress);
-  }
-  RETURN getter->Finalize();
+  RETURN importxlsxsheet->ExportRows(options);
 }
 
 PUBLIC OBJECT FUNCTION MakeNewOOXMLSpreadSheetFile()

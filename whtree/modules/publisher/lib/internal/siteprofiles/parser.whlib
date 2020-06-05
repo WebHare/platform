@@ -1340,11 +1340,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC RECORD ARRAY FUNCTION ImportSiteSettings()
   {
-    // Get the module from the siteprofile path
-    STRING module;
-    IF (this->siteprof->name LIKE "mod*::*/*")
-      module := Tokenize(Tokenize(this->siteprof->name, ":")[2], "/")[0];
-
     RECORD ARRAY sitesettings;
     FOREVERY(OBJECT siteset FROM this->GetSiteSettingNodes())
     {
@@ -1363,7 +1358,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         FOREVERY(OBJECT webrule FROM GetWebRuleNodes(webruleset))
         {
           RECORD baserule := GetBaseWebRule(-9999999, webrule->GetAttribute("path"), priority, this->siteprof->name || ":" || webrule->linenum);
-          RECORD parsed := ParseWebRuleData(module, baserule, webrule, this->siteprof->name);
+          RECORD parsed := ParseWebRuleData(this->module, baserule, webrule, this->siteprof->name);
           this->errormessages := this->errormessages CONCAT parsed.errors;
           this->warnings := this->warnings CONCAT parsed.warnings;
 
@@ -1390,7 +1385,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                            , discardsummaries := ParseXSBoolean(addtoindex->GetAttribute("discardsummaries"))
                            , http_username := addtoindex->GetAttribute("http_username")
                            , http_password := addtoindex->GetAttribute("http_password")
-                           , module := module
+                           , module := this->module
                            , siteprofile := this->siteprof->name
                            , line := addtoindex->linenum
                            , col := 0
@@ -1415,7 +1410,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                            , http_username := addtocatalog->GetAttribute("http_username")
                            , http_password := addtocatalog->GetAttribute("http_password")
                            */
-                           , module := module
+                           , module := this->module
                            , siteprofile := this->siteprof->name
                            , line := addtocatalog->linenum
                            , col := 0

@@ -423,6 +423,7 @@
       <text tid="map">&lt;&lt;</text>
       <text tid="mapbox">Map fields</text>
       <text tid="mapexplain">Map the fields to the columns in the uploaded file by moving them from the left to the right list using the buttons or by dragging.</text>
+      <text tid="pleaseuploadxlsx">The file you uploaded is not a proper Excel (XLSX) or CSV file</text>
       <text tid="previewexplainbox">Result preview</text>
       <text tid="previewing">Previewing</text>
       <text tid="processingline">Processing line <param p="1"/></text>
@@ -463,7 +464,6 @@
       <text tid="unmap">&gt;&gt;</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- exchange.messageboxes -->
-      <text tid="apparentlynotcsv">Are you sure this is a comma separated values (CSV) text file?</text>
       <text tid="distinctoverflow">The mapped column contains too many unique values to be mapped.</text>
     </textgroup>
     <textgroup gid="syncoptions">   <!-- exchange.syncoptions -->

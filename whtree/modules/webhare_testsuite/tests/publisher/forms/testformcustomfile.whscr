@@ -499,7 +499,6 @@ RunTestframework([ PTR BuildForm
                  , PTR CustomForm_NL
                  , PTR EditCustomForm
                  , PTR ProcessExpiredResults
-                 ], [ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
-                    , testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

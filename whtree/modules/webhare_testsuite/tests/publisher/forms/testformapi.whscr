@@ -56,5 +56,4 @@ PUBLIC MACRO FormApitest()
 }
 
 RunTestframework([ PTR FormApitest
-                 ] ,[ canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
-                    ]);
+                 ]);

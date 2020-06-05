@@ -61,6 +61,5 @@ PUBLIC ASYNC MACRO TestMailOptions()
 
 RunTestframework([ PTR BuildForm
                  , PTR TestMailOptions
-                 ], [ canceltasks := [ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ]
-                    , testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
+                 ], [ testusers := [ [ login := "sysop", grantrights := [ "system:sysop" ] ] ]
                     ]);

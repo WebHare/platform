@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/csv.whlib";
@@ -405,7 +405,8 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
     IF(newfilevalue.mimetype LIKE "text/*" AND newfilevalue.mimetype NOT LIKE "text/html")
       RETURN TRUE;
 
-    RETURN this->RunMessageBox(".apparentlynotcsv")="yes";
+    this->RunSimpleScreen("info", this->GetTid(".pleaseuploadxlsx"));
+    RETURN FALSE;
   }
   MACRO OnImportFileChange()
   {

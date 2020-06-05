@@ -547,5 +547,4 @@ RunTestframework([ PTR BuildForm
                  ]
                 ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                 ]
-                 , canceltasks := ["publisher:mailfeedback","publisher:mailresults"]
                  ]);
