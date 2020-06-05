@@ -423,7 +423,7 @@
       <text tid="map">&lt;&lt;</text>
       <text tid="mapbox">Velden koppelen</text>
       <text tid="mapexplain">Koppel de beschikbare velden uit de rechterlijst aan de kolommen van het geïmporteerde bestand met behulp van de knoppen of door ze te verslepen van rechts naar links.</text>
-      <text tid="pleaseuploadxlsx">Het geuploade bestand is geen valide Excel (XLSX) of CSV bestand</text>
+      <text tid="pleaseuploadxlsx">Het geüploade bestand is geen valide Excel (XLSX) of CSV bestand</text>
       <text tid="previewexplainbox">Voorbeeldresultaten</text>
       <text tid="previewing">Voorbeeld</text>
       <text tid="processingline">Verwerken regel <param p="1"/></text>
