@@ -1513,6 +1513,7 @@ PUBLIC STATIC OBJECTTYPE SoapClient
       @cell(integer) codecoverrides.hstype hstype: HareScript type to decode the variable in
       @cell(function ptr) codecoverrides.decodefunction hstype: Optional function ptr to decode the variable
       @cell(function ptr) codecoverrides.encodefunction hstype: Optional function ptr to encode the variable
+      @cell(boolean) codecoverrides.ignore_parse_issues If set to TRUE, the SOAP encoder will ignore any parse issues for this service. Defaults to FALSE.
   */
   PUBLIC RECORD overrides;
 
