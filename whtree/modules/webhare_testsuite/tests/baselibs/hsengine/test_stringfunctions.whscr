@@ -369,12 +369,6 @@ STRING FUNCTION MyTestTokenize(STRING tokenstring, STRING tokenseparator)
   RETURN retval;
 }
 
-/** @short Truncate a text if it's too long, adding an ellipsis ('…') if truncated
-    @param text Text to check
-    @param maxlen Maximum text length
-    @return Truncated text */
-
-
 /*** Length [54] ***/
 /*** Tokenize [57] ***/
 /*** ToLowercase [58] ***/
@@ -439,6 +433,13 @@ MACRO MiscTest()
   TestEq('Doc!…', UCTruncate('Doc!…',5));
   TestEq('Doc!…', UCTruncate('Doc!……',5));
   TestEq('Doc!……', UCTruncate('Doc!………',6));
+
+  TestEq('12€!', LimitUTF8Bytes('12€!',6));
+  TestEq('12€', LimitUTF8Bytes('12€!',5));
+  TestEq('12', LimitUTF8Bytes('12€!',4));
+  TestEq('12..', LimitUTF8Bytes('12€!',4,".."));
+  TestEq('1€', LimitUTF8Bytes('12€!',4,"€"));
+  TestThrows(PTR LimitUTF8Bytes('12€!',4,"€€"));
 
   TestEqualString(30, 'Hello,\xC2\xA0World', TrimWhitespace('\r\t\n Hello,\xC2\xA0World\t\t \r \n '));
   TestEqual(31, DEFAULT STRING ARRAY, Tokenize("",""));

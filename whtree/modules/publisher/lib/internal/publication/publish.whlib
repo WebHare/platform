@@ -282,14 +282,14 @@ PUBLIC STATIC OBJECTTYPE Reader
                                                 , line
                                                 , col
                                                 , code
-                                                , param1 := Left(param1, 4096)
-                                                , param2 := Left(param2, 4096)
+                                                , param1 := LimitUTF8Bytes(param1, 4096, "…")
+                                                , param2 := LimitUTF8Bytes(param2, 4096, "…")
                                                 , type := iserror ? 0 : 1
                                            FROM hs_errors
                                           WHERE code>=0)
                                            CONCAT
                                            (SELECT file := fileid
-                                                 , param1 := Left(warning, 4096)
+                                                 , param1 := LimitUTF8Bytes(warning, 4096, "…")
                                                  , type := 2
                                            FROM ToRecordArray(warnings, "warning")
                                            )
