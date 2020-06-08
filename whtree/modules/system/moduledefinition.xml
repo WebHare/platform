@@ -252,11 +252,11 @@
     <right name="supervisor" tid="rights.supervisor" descriptiontid="rights.supervisor-descr" showafter="sysop">
       <impliedby right="sysop" />
     </right>
-    <right name="openas" objecttype="units" tid="rights.openas" descriptiontid="rights.openas-descr" >
+    <right name="openas" objecttype="units" tid="rights.openas" descriptiontid="rights.openas-descr" showafter="manageunit browseunits">
       <impliedby right="sysop" />
     </right>
     <right name="manageunit" objecttype="units" tid="rights.manageunit" descriptiontid="rights.manageunit-descr" >
-      <impliedby right="openas" />
+      <impliedby right="sysop" />
     </right>
     <right name="manageroles" objecttype="units" tid="rights.manageroles" descriptiontid="rights.manageroles-descr" showafter="manageunit" >
       <impliedby right="manageunit" />
