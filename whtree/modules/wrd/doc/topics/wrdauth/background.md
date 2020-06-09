@@ -27,9 +27,18 @@ This cookie has `_p` suffix, eg `webharelogin-backend_p`. This cookie has a conf
 
 ### JavaScript cookies
 Some information about the loggedin user is made visible to JavaScript so static pages can eg. show
-the user's firstname or email address as part of a 'logged in' indication.
+the user's firstname or email address as part of a 'logged in' indication. This data is stored in the `_j` and `_c` cookies.
 
-This data is stored in the `_j` and `_c` cookies, which are made visible to JavaScript.
+The `_c` cookie is a session cookie which contains the requested userinfo for use by JavaScript. The `_j` cookie is a
+long lived cookie which is used by the JavaScript code as a hint that the current user is logged in. The presence of `_j`
+but not `_c` may trigger a redirect to restoresession.shtml to verify that the login session is still valid and to rebuild
+the `_c` cookie with the requested user information.
+
+The `_j` and `_c` cookies are not marked `httpOnly` so JavaScript can access their contents and restore loginstate when
+needed even on static HTML pages. These cookies do not contain actual login state so leaking their data will not allow third
+parties to access login sessions. However, they may still contain personal information so your code should still be safe from
+XSS vulnerabilities. (But this applies to all data available to JavaScript)
+
 
 ## Login flow examples
 
