@@ -73,7 +73,11 @@ void NotificationEventQueue::FilterQueue(LockedData::WriteRef &lock)
 {
         auto itr = std::remove_if(lock->queue.begin(), lock->queue.end(), [this, &lock](auto const &event) {return !MatchesSubscription(lock, event); });
         if (itr != lock->queue.end())
-            lock->queue.erase(itr, lock->queue.end());
+        {
+                lock->queue.erase(itr, lock->queue.end());
+                if (lock->queue.empty())
+                    SetSignalled(false);
+        }
 }
 
 void NotificationEventQueue::ModifySubscription(LockedData::WriteRef &lock, std::string const &mask, bool active)
