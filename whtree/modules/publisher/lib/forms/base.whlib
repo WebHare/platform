@@ -201,6 +201,9 @@ PUBLIC OBJECTTYPE FormBase
   STRING __formlanguagecode;
   OBJECT __formlastwork;
 
+  /// Callbacks that may add to the form dataset
+  FUNCTION PTR ARRAY __formattributescallbacks;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties and variables
@@ -256,6 +259,7 @@ PUBLIC OBJECTTYPE FormBase
 
   /// Form reference (persisted over RPCs, seen and possible modifyable by clients so should not contain sensitive or replayable data)
   PUBLIC STRING formref;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -345,23 +349,9 @@ PUBLIC OBJECTTYPE FormBase
     }
   }
 
-  MACRO __FormPrologue() //renders anchors, all toplevel fields not allocated to a page
+  MACRO __FormPrologue() //renders anchors and prologue
   {
     Print(`<a class="wh-anchor"></a>`);
-
-    //TODO just assign objects to their page (make it their parent) to simplify finding the unmatched fields
-    IF(Length(this->__formpages) = 0)
-      RETURN;
-
-    RECORD ARRAY torender := SELECT * FROM this->__formfields WHERE NOT ObjectExists(obj->parent); //get only top level fields
-    FOREVERY(RECORD page FROM this->__formpages)
-    {
-      STRING ARRAY fieldnames := SELECT AS STRING ARRAY ToUppercase(name) FROM page.fields;
-      DELETE FROM torender WHERE ToUppercase(name) IN fieldnames;
-    }
-    FOREVERY(RECORD renderit FROM torender)
-      renderit.obj->RenderField();
-
     Print(`<div class="wh-form__prologue"></div>`);
   }
 
@@ -647,6 +637,13 @@ PUBLIC OBJECTTYPE FormBase
       }
 
     Print(GetDatasetAsString(this->formdataset));
+    FOREVERY(FUNCTION PTR callback FROM this->__formattributescallbacks)
+    {
+      STRING toadd := TrimWhitespace(callback());
+      IF(toadd != "")
+        Print(" " || toadd);
+    }
+
   }
 
   MACRO __FormNavigation()
@@ -667,6 +664,13 @@ PUBLIC OBJECTTYPE FormBase
       RETURN DEFAULT OBJECT;
 
     RETURN SELECT AS OBJECT obj FROM this->__formfields WHERE ToUppercase(name) = ToUppercase(VAR findname);
+  }
+
+  /** Register form attributes callbacks, use by fields that (only) need to add data to the `<form>`
+      @param toadd Callback to add which will be invoked when the formattributes are rendered */
+  PUBLIC MACRO AddFormAttributesCallback(MACRO PTR toadd)
+  {
+    INSERT toadd INTO this->__formattributescallbacks AT END;
   }
 
   /** Append a new field to the form
