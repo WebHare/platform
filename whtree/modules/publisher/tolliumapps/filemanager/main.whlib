@@ -1175,7 +1175,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
 
   MACRO DoManageURLHistory()
   {
-    this->LoadScreen("commondialogs/urlhistory.urlhistory", [ id := ^filelist->selection[0].id ])->RunModal();
+    RunFSObjectHistoryDialog(this, ^filelist->selection[0].id);
   }
 
   MACRO OnReportURLHistory_foldertree(OBJECT downloadhandler)
