@@ -306,9 +306,9 @@ class LoginApp
 
   async executePasswordLogin(data,callback)
   {
-    var loginname = this.topscreen.getComponent('loginname').getSubmitValue();
-    var password = this.topscreen.getComponent('password').getSubmitValue();
-    var savelogin = this.topscreen.getComponent('savelogin').getSubmitValue();
+    let loginname = this.topscreen.getComponent('loginname').getSubmitValue();
+    let password = this.topscreen.getComponent('password').getSubmitValue();
+    let savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
     if(!loginname || !password)
     {
