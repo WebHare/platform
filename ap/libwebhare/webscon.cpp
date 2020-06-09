@@ -224,8 +224,9 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
                         return false;
                 }
 
-                std::string testpath = base_file_path;
+                std::string testpath = base_file_path; //start at webserver root
                 std::string::iterator itr = disk_file_path.begin() + base_file_path.size();
+                std::string capturing_index_folder;
                 for (unsigned i = 0; i < 15; ++i) // test max 15 path components
                 {
                         if (request->header_debugging)
@@ -233,10 +234,7 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
 
                         Blex::PathStatus marker(testpath + "^^useindex");
                         if(marker.Exists())
-                        {
-                                disk_file_path = testpath;
-                                return ExpandDefaultPages();
-                        }
+                                capturing_index_folder = testpath;
 
                         std::string::iterator compend = std::find(itr, disk_file_path.end(), '/');
                         if (compend == disk_file_path.end())
@@ -245,6 +243,11 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
                         ++compend;
                         std::copy(itr, compend, std::back_inserter(testpath));
                         itr = compend;
+                }
+                if(!capturing_index_folder.empty())
+                {
+                        disk_file_path = capturing_index_folder;
+                        return ExpandDefaultPages();
                 }
         }
         return false;
