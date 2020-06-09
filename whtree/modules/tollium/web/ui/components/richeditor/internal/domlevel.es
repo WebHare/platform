@@ -2143,7 +2143,7 @@ class Locator
   {
     if (tocorrect.element == locator.element && tocorrect.offset > locator.offset)
       --tocorrect.offset;
-    else if (tocorrect.element == removed || removed.contains(tocorrect.element))
+    else if (tocorrect.element == removed || (removed.contains && removed.contains(tocorrect.element))) //contains doesn't always exist on IE11? is this a textnode issue or just a bug?
       tocorrect.assign(locator);
   }
 
