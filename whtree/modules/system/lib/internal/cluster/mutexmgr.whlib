@@ -471,13 +471,18 @@ PUBLIC STATIC OBJECTTYPE MutexPortHandler EXTEND IPCPortHandlerBase
   /// For every untaken mutex, notify the first candidate that the link is now free.
   MACRO NotifyCandidates()
   {
+    BOOLEAN havedeletecandidate;
+
     FOREVERY (RECORD mutex FROM this->mutexes)
     {
       IF (RecordExists(mutex.owner))
         CONTINUE;
 
       IF (LENGTH(mutex.candidates) = 0)
+      {
+        havedeletecandidate := TRUE;
         CONTINUE;
+      }
 
       RECORD primecandidate := mutex.candidates[0];
       OBJECT link := primecandidate.link;
@@ -489,6 +494,9 @@ PUBLIC STATIC OBJECTTYPE MutexPortHandler EXTEND IPCPortHandlerBase
       this->mutexes[#mutex].owner := primecandidate;
       DELETE FROM this->mutexes[#mutex].candidates AT 0;
     }
+
+    IF (havedeletecandidate)
+      DELETE FROM this->mutexes WHERE IsDefaultValue(owner) AND IsDefaultValue(candidates);
   }
 >;
 
