@@ -4,17 +4,18 @@ This guide assumes you already have setup a module for your work
 
 Step 1: add an <application> to your moduledefinition's <portal> node
 
-```
+```xml
 <portal>
   <application name="mynewapp" screen="tolliumapps/mynewapp/main.xml#main">
     <accesscheck>
-      <requireright right="system:sysop" />
+      <requireright right="supervisor" />
     </accesscheck>
   </application>
 </portal>
 ```
 
-This registers a simple application which can be accessed by adding `?app=<modulename>:<newapname>` to the URL (eg ?app=mymodule:myapp).
+This registers a simple application which can be accessed by adding `?app=<modulename>:<newapname>` to the URL (eg ?app=mymodule:myapp)
+and which is accessible to anyone with the module's `supervisor` right.
 
 The application will not appear in the WebHare menu until you add a 'group' and a 'title' or 'tid' attribute
 
