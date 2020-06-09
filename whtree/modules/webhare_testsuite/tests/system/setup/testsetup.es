@@ -139,6 +139,7 @@ test.registerTests(
         test.true(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
         test.eq('jantje@example.com', test.qS('#dashboard-user-name').textContent);
         test.true(getAppInStartMenuByName('Publisher'),"should be able to see the publisher");
+        test.true(test.canClick('#dashboard-logout'));
       }
     }
   , { name: "login as pietje"

@@ -326,6 +326,8 @@ class LoginApp
         {
           //no need to execute the submit instruction, it just redirects back to the shell..
           this.app.terminateApplication();
+          $shell.wrdauth.refresh();
+          $shell.wrdauth.setupPage();
           $shell.executeShell();
           callback();
           return;
