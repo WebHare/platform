@@ -596,8 +596,10 @@ PUBLIC OBJECT FUNCTION ScheduleEphemeralTask(STRING tasktype, RECORD taskdata, R
       [ auxdata := DEFAULT RECORD
       , priority := ""
       , persistentcachekey := ""
+      , timeout := -1
       ], options,
       [ enums := [ priority := [ "", "background", "normal", "interactive", "update", "updateinteractive" ] ]
+      , optional := [ "timeout" ]
       ]);
 
   RECORD taskinfo := GetTaskTypeSettings(tasktype, TRUE);

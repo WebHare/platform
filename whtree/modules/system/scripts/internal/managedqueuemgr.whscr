@@ -446,7 +446,11 @@ STATIC OBJECTTYPE ManagedWorker
       this->workerfirsttask := GetCurrentDatetime(); //now the countdown for garbage collection starts
 
     IF (task->timeout != 0)
+    {
+      IF (debug)
+        Print(`Worker #${this->uid} set timeout ${task->timeout} for task ${task->id}\n`);
       this->timeoutcb := RegisterTimedCallback(AddTimeToDate(task->timeout, GetCurrentDatetime()), PTR this->GotTimeout);
+    }
 
     this->taskresolve(task->taskdata.executeinfo);
     this->taskresolve := DEFAULT MACRO PTR;
@@ -1165,6 +1169,7 @@ OBJECTTYPE QueueMgrClientConnection
       @param priority Task priority
       @param options Options
       @cell(string) options.persistentcachekey Key for the persistent cache of the task (available via `taskcontext.persistentcache`)
+      @cell(integer) options.timeout Task timeout override (0 for no timeout, omit for keeping default)
       @return Promise for task result
   */
   PUBLIC OBJECT FUNCTION RunEphemeralTask(STRING tasktype, RECORD taskdata, INTEGER workertype, INTEGER priority, RECORD options)
@@ -1192,11 +1197,11 @@ OBJECTTYPE QueueMgrClientConnection
        , queueid :=         `ephemeral task ${nextephemeralid}, ${tasktype}`
        , id :=              nextephemeralid
        , taskdata :=        taskdata
-       , options :=         options
+       , options :=         CELL[ ...options, DELETE timeout ]
        , resolve :=         defer.resolve
        , reject :=          defer.reject
        , onfinished :=      DEFAULT FUNCTION PTR
-       , timeout :=         0
+       , timeout :=         CellExists(options, "timeout") ? options.timeout :  tasktypeinfo.timeout
        ];
 
     NEW TaskQueueItem(controller->queue, taskinfo);

@@ -27,7 +27,7 @@
 
     <taskcluster tag="publicationqueue" harescriptworkers="4" harescriptworkerthreads="2" /> <!-- word publication requires at least 2 threads -->
     <ephemeraltask type="assetpackcompile" library="js/internal/assetpackcompile.es" priority="update" />
-    <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" />
+    <ephemeraltask type="publication" objectname="lib/internal/publication/publish.whlib#PublishTask" priority="normal" cluster="publicationqueue" timeout="600000" />
 
     <managedtask type="generatewidgetpreview" objectname="lib/internal/tasks.whlib#generatewidgetpreviewtask" />
     <managedtask type="mailresults" objectname="lib/webtools/formhandlers/mailhandler.whlib#MailResultsTask" />
