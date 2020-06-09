@@ -488,6 +488,7 @@ MACRO Run(STRING ARRAY loadlibs)
 
 RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
                                                      , [ name := "showmode", type := "stringopt" ]
+                                                     , [ name := "t", type := "switch" ]
                                                      , [ name := "user", type := "stringopt" ]
                                                      , [ name := "query", type := "param", required := FALSE ]
                                                      ]);
@@ -498,6 +499,8 @@ IF(NOT RecordExists(call))
 }
 IF(call.showmode != "")
   showmode := call.showmode;
+ELSE IF(call.t)
+  showmode := "tree";
 
 BOOLEAN havecmd := call.query != "";
 
