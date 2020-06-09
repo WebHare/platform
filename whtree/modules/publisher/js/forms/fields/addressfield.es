@@ -48,7 +48,7 @@ export default class AddressField
   {
     if (this._updatingFields)
       return; // We're updating our own fields
-    console.log(this.countryNode, event.target, this.currentcountry);
+
     if(event.target == this.countryNode && this.currentcountry != this.countryNode.value)
     {
       //country changed. clear errors on all fields before revalidating.. otherwise the errors will just seem to 'linger' for a while after switching
