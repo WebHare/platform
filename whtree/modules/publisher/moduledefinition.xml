@@ -95,12 +95,6 @@
       </accesscheck>
     </application>
 
-    <application name="webtoolform" screen="tolliumapps/formedit/formedit.xml#editor" icon="tollium:files/application_x-webhare-survey">
-      <accesscheck>
-        <requireright right="system:sysop"/>
-      </accesscheck>
-    </application>
-
     <application name="feedback"
                  group="system:setup"
                  screen="tolliumapps/feedback/main.xml#main"

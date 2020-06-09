@@ -78,9 +78,9 @@ Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlay
 ## Testframework
 `wh testdocker` and `wh testmodule` support some extra variables that are useful in CI environments
 
-### TESTFW_SECRETSURL
+### TESTSECRET_SECRETSURL
 A URL whose contents will be sourced by the tests and from which any environment variables starting
-with `TESTFW_` or `WEBHARE_` will be set in the CI environment (except for `TESTFW_SECRETSURL` itself).
+with `TESTFW_`, `TESTSECRET_` or `WEBHARE_` will be passed on to the CI environment (except for `TESTSECRET_SECRETSURL` itself).
 
 You need to make sure you fully control and trust whatever the URL points to as any shell code in the script it
 points to may be executed by the test runner as well.

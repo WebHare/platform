@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -635,7 +636,11 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
           ^entities->value := newid;
       }
       ELSE
+      {
+        IF(NOT IsDtapLive())
+          THROW NEW Exception("Incorrect onentityedit= handler - we expect it to return an INTEGER, the id of the newly added entity");
         this->onentityedit(this->pvt_wrdtype, this->GetFinalEntityContext(TRUE), toedit);
+      }
     }
     ELSE
     {

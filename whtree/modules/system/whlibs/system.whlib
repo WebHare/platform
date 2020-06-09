@@ -1132,14 +1132,24 @@ PUBLIC STRING FUNCTION UCTruncate(STRING text, INTEGER maxlen)
 /** @short Limit a UTF-8 encoded string to a maximum byte length
     @param text Text to limit
     @param numbytes Maximum length in bytes
+    @param addiftruncated Text to add if any data is truncated. Will never cause the string to exceed numbytes.
     @return Text with a maximum length of _numbytes_ bytes.
 */
-PUBLIC STRING FUNCTION LimitUTF8Bytes(STRING text, INTEGER numbytes)
+PUBLIC STRING FUNCTION LimitUTF8Bytes(STRING text, INTEGER numbytes, STRING addiftruncated DEFAULTSTO "")
 {
-  text := Left(text, numbytes);
-  WHILE (NOT (IsValidUTF8(text)))
+  INTEGER leniftruncated := Length(addiftruncated);
+  IF(leniftruncated > numbytes) //there was never a way to add the 'if truncated' give the number of bytes
+    THROW NEW Exception(`The text we have to add if we have to truncate is itself longer than the number of bytes we are allowed to return`);
+
+  INTEGER textlen := Length(text);
+  IF(textlen <= numbytes)
+    RETURN text;
+
+  text := Left(text, numbytes - leniftruncated);
+  WHILE (NOT IsValidUTF8(text))
     text := Left(text, Length(text) - 1);
-  RETURN text;
+
+  RETURN text || addiftruncated;
 }
 
 
