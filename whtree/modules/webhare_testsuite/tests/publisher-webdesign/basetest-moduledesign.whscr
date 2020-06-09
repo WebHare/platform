@@ -266,6 +266,14 @@ MACRO TestCaptureSubPaths()
         ]);
   file_prebuilt_dynamic->SetInstanceData("http://www.webhare.net/xmlns/publisher/prebuiltpage", [ prebuilttag := "prebuiltshtml_csp" ]);
 
+  OBJECT capture_in_capturedir := captureindexdir->CreateFolder([name := "indexdir"]);
+  OBJECT capture_in_captureindex := capture_in_capturedir->CreateFile(
+        [ name := "capture_in_captureindex"
+        , type := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/dynamiccontent")->id
+        , publish := TRUE
+        ], [ setindex := TRUE ]);
+
+
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(testfw->GetTestSite()->rootobject->id);
@@ -291,7 +299,13 @@ MACRO TestCaptureSubPaths()
 
   TestEQ(TRUE, testfw->browser->GotoWebPage(file_capture_index->url));
   TestEQ(TRUE, testfw->browser->GotoWebPage(file_capture_index->url || "with_subpath"));
+  TestEQ(ToString(file_capture_index->id), testfw->browser->QS("#wcsresult")->textcontent);
+  TestEQ("with_subpath", testfw->browser->document->GetElementById("subpath")->textcontent);
 
+  TestEQ(TRUE, testfw->browser->GotoWebPage(capture_in_capturedir->url));
+  TestEQ(TRUE, testfw->browser->GotoWebPage(capture_in_capturedir->url || "with_subpath"));
+  TestEQ(ToString(capture_in_captureindex->id), testfw->browser->QS("#wcsresult")->textcontent);
+  TestEQ("with_subpath", testfw->browser->document->GetElementById("subpath")->textcontent); //ensure we matched the INNER file
 }
 
 RunTestframework([ PTR TestTestSite
