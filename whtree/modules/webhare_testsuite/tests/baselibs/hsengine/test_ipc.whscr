@@ -418,6 +418,17 @@ ASYNC MACRO TestEventManager()
   e->Close();
 }
 
+MACRO TestEventStream()
+{
+  // test eventstream not becoming un-signalled when subscription removes last event from queue
+  INTEGER stream := __HS_EVENT_CREATESTREAM();
+  __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(stream, STRING[ "webhare_testsuit:testevent" ], STRING[], FALSE);
+  BroadCastEvent("webhare_testsuit:testevent",  DEFAULT RECORD);
+  TestEQ(stream, WaitForMultiple([ stream ], INTEGER[], 0));
+  __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(stream, STRING[], STRING[ "webhare_testsuit:testevent" ], FALSE);
+  TestEQ(-1, WaitForMultiple([ stream ], INTEGER[], 0));
+}
+
 PRINT("\n === Running TestIPC\n");
 ThrowTest();
 PorthandlerTest();
@@ -426,3 +437,4 @@ CallbackTest();
 ImmediateBroadcastCallbackTest();
 AsyncFunctionsTest();
 TestEventManager();
+TestEventStream();
