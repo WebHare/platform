@@ -88,6 +88,9 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   mv $PSROOT/tmp_initdb/ $PSROOT/db/
+else
+  # Ensure configuration file is set
+  cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/db/postgresql.conf"
 fi
 
 echo "Starting PostgreSQL"
