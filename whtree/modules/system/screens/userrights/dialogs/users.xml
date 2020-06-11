@@ -6,10 +6,6 @@
          gid="userrights">
 
   <screen name="edituser" flags="cangrantany" gid=".edituser">
-    <actions>
-      <action name="selectunit" onexecute="doselectunit" ellipsis="true"/>
-      <action name="autodetect" onexecute="@notimplemented" />
-    </actions>
     <compositions>
       <wrd:entity name="userobj" />
     </compositions>
@@ -30,10 +26,6 @@
             </box>
           </tab>
           <tab name="advanced">
-            <line>
-              <textedit name="unitname" enabled="false" required="true"/>
-              <button name="selectunitbutton" action="selectunit" tid=".selectunit" />
-            </line>
             <datetime readonly="true" name="creationdate" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="wrd_creationdate"  />
             <datetime readonly="true" name="lastlogin" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="" tid=".lastlogin" />
             <textedit readonly="true" name="lastip" enabled="false" tid=".lastip" visible="false" />

@@ -31,7 +31,6 @@
             <textedit name="fullname" cellname="wrd_title" composition="userobj" readonly="true" tid=".fullname" />
             <textedit name="username" tid=".username" />
             <passwordfield name="password" composition="userobj" cellname="whuser_password" />
-            <textedit name="unitname" enabled="false" required="true"/>
             <line>
               <text valuetid=".appaccountstab" action="openapppasswords" title="" />
             </line>

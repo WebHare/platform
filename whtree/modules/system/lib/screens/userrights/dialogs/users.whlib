@@ -120,8 +120,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
     IF (isnew) // new user
     {
-      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-
       // change appearance of screen to 'New user'
       ^creationdate->visible  := FALSE;
 
@@ -131,8 +129,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     ELSE        // edit/properties user
     {
       ^lastlogin->visible     := TRUE;
-
-      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
     }
 
     ^advanced->visible := this->tolliumuser->HasRight("system:sysop");
@@ -153,16 +149,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
   //
   // Actions
   //
-
-  MACRO DoSelectUnit()
-  {
-    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", FALSE);
-    IF (dialog->RunModal() = "ok")
-    {
-      this->pvt_parent := dialog->value;
-      ^unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-    }
-  }
 
   BOOLEAN FUNCTION Submit()
   {

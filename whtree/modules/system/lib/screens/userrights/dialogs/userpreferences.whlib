@@ -57,13 +57,10 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->ConfigurePrefsTab();
     this->LoadFavorites();
 
-    this->unitname->readonly := TRUE;
-
     IF(this->username->value = "")
       this->username->value := this->pvt_user->login;
 
     this->username->readonly := TRUE;
-    this->unitname->visible := FALSE;
     this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
 
     ConfigurePasswordFieldForPolicy(^password, this->policy);
@@ -96,7 +93,6 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     }
 
     RECORD locale := this->pvt_user->GetLocale();
-    this->unitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
 
     this->language->SetValueIfValid(locale.language);
     this->timezone->SetValueIfValid(locale.timezone);
