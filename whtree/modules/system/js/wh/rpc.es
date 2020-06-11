@@ -199,6 +199,7 @@ export default class RPCClient
     }
 
     let fetchoptions = { method: "POST"
+                       , credentials: 'same-origin' //this is the default since 2017-08-25, but Edge pre-18 is still around and will fail here
                        , headers: { "Accept": "application/json"
                                   , "Content-Type": "application/json; charset=utf-8"
                                   }
