@@ -7,6 +7,9 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 ASYNC MACRO Setup()
 {
   INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
@@ -153,20 +156,12 @@ ASYNC MACRO TestExport()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-MACRO VerifyNoLooseEnds()
-{
-  testfw->BeginWork();
-  testfw->EnsureUserMgmtClean();
-  testfw->CommitWork();
-}
-
 RunTestframework( [ PTR Setup
                   , PTR TestExport
-                  , PTR VerifyNoLooseEnds
+                  , PTR EnsureUserMgmtStateClean
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "lisa"]
                                     ]
                      , testroles := [[ role := "powerplantmanagers" ]]
-                     , debug := TRUE
                      ]
                   );

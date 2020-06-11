@@ -8,6 +8,9 @@ LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 MACRO Prepare()
 {
   testfw->BeginWork();
@@ -65,8 +68,8 @@ ASYNC MACRO TestProblemRights()
 
 MACRO TestFixUnconnectedItems()
 {
+  EnsureUserMgmtStateClean(); //make sure all is okay before we start. also verifies no loose ends left above
   testfw->BeginWork();
-  testfw->EnsureUserMgmtClean(); //make sure all is okay before we start. also verifies no loose ends left above
 
   OBJECT deletedunit :=      testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_title := "Deletable unit" ]);
   OBJECT expiredunit :=      testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_title := "Expirable unit" ]);

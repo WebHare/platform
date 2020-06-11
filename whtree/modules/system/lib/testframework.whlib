@@ -1841,25 +1841,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   }
 
 
-  PUBLIC MACRO EnsureUserMgmtClean()
-  {
-    RECORD ARRAY resync := this->userapi->ResyncToSystemTables();
-    IF(Length(resync)>0)
-    {
-      PRINT("UNEXPECTED RESYNC ACTIONS\n");
-      DumpValue(resync,'tree');
-      ABORT("There were unexpected changes made by ResyncToSystemTables - our incremental updates might be bad");
-    }
-
-    RECORD ARRAY reconnects := FixUnconnectedItems(this->userapi->wrdschema);
-    IF(Length(reconnects)>0)
-    {
-      PRINT("UNEXPECTED RECONNECT ACTIONS\n");
-      DumpValue(reconnects,'tree');
-      ABORT("There were unexpected changes made by FixUnconnectedItems");
-    }
-  }
-
   PUBLIC MACRO MockRegistryKey(STRING keyname, VARIANT newvalue)
   {
     //Mock the specified registry key for the current test (does not necessarily apply to jobs/subvms!)
