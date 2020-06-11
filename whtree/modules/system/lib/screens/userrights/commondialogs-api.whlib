@@ -515,13 +515,19 @@ PUBLIC OBJECT FUNCTION MakeUserRoleSelectionDialog(OBJECT parent)
   RETURN screen;
 }
 
-/** Makes a screen to add/edit a unit
-    @return
-    @cell return.unit New/edited unit
+/** Run a screen to add a unit
+    @return Id of the new/edited unit, 0 if cancelled
 */
-PUBLIC OBJECT FUNCTION MakeAddEditUnitDialog(OBJECT parent, OBJECT unit, OBJECT parentunit)
+PUBLIC INTEGER FUNCTION RunAddUnitDialog(OBJECT parent, INTEGER parentunit)
 {
-  RETURN parent->LoadScreen("system:userrights/dialogs/editauthobject.editunit", [ unit := unit, parent := parentunit ]);
+  RETURN parent->RunScreen("mod::system/screens/userrights/dialogs/editauthobject.xml#editunit", CELL[ unit := 0 , parent := parentunit ]);
+}
+
+/** Run a screen to edit a unit
+*/
+PUBLIC MACRO RunEditUnitDialog(OBJECT parent, INTEGER unit)
+{
+  parent->RunScreen("mod::system/screens/userrights/dialogs/editauthobject.xml#editunit", CELL[ unit ]);
 }
 
 /** Makes a screen to add/edit a user

@@ -231,15 +231,14 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
 
   MACRO DoAddUnit()
   {
-    OBJECT parent := this->value ?? this->contexts->userapi->GetUnit(0);
-    OBJECT dialog := MakeAddEditUnitDialog(this->owner, DEFAULT OBJECT, parent);
-    IF (dialog->RunModal() = "ok")
-      this->unitlist->value := dialog->unit->entityid;
+    INTEGER newunit := RunAddUnitDialog(this->owner, ^unitlist->value = -1 ? 0 : ^unitlist->value);
+    IF(newunit != 0)
+      ^unitlist->value := newunit;
   }
 
   MACRO DoEditUnit()
   {
-    MakeAddEditUnitDialog(this->owner, this->value, this->contexts->userapi->GetUnitOf(this->value))->RunModal();
+    RunEditUnitDialog(this->owner, ^unitlist->value);
   }
 
   MACRO DoDeleteUnit()
