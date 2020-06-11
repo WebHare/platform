@@ -2425,9 +2425,27 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
       THROW NEW Exception("Invalid parameters");
 
     INTEGER fileid;
+    RECORD options := [ forceintegrated := TRUE ];
     IF(RecordExists(data.target))
     {
       fileid := data.target.id;
+      IF(data.target.appoptions != "")
+      {
+        RECORD appoptions := DecryptForThisServer("publisher:runfsobjecteditapplication", data.target.appoptions);
+        OBJECT target := OpenWHFSObject(fileid);
+        IF(fileid != appoptions.objectid
+            OR AddTimeToDate(whconstant_trust_sendapplicationmessage, appoptions.now) < GetCurrentDatetime() //expired. test this by simply restarting the app after the timeout
+            OR appoptions.creationdate != target->creationdate)
+        {
+          THROW NEW Exception(`Invalid runfsobjecteditapplication token`);
+        }
+
+        options := CELL[ ...options
+                       , appoptions.assumereadaccess
+                       , appoptions.assumewriteaccess
+                       , appoptions.internallinkroots
+                       ];
+      }
     }
     ELSE IF(data.params[0] LIKE "/*")
     {
@@ -2441,7 +2459,7 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
       fileid := ToInteger(data.params[0],0);
     }
 
-    RunFSObjectEditApplication(controller, fileid, [ forceintegrated := TRUE ]);
+    RunFSObjectEditApplication(controller, fileid, options);
   }
   CATCH(OBJECT err)
   {
