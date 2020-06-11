@@ -2,6 +2,8 @@
 /** @topic publisher-apps/tollium
 */
 
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -12,6 +14,7 @@ LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
@@ -354,9 +357,9 @@ PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECO
     @param parentscreen Screen invoking us
     @param objectid Object to edit
     @cell(boolean) options.forceintegrated Do not launch a separate application
-    @cell(boolean) options.assumereadaccess Assume the user has write access (requires forceintegrated)
-    @cell(boolean) options.assumewriteaccess Assume the user has write access (requires forceintegrated)
-    @cell(integer array) options.internallinkroots Limit RTE internal links to these subfolders (requires forceintegrated)
+    @cell(boolean) options.assumereadaccess Assume the user has write access
+    @cell(boolean) options.assumewriteaccess Assume the user has write access
+    @cell(integer array) options.internallinkroots Limit RTE internal links to these subfolders
 */
 PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -404,8 +407,25 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
      AND ((RecordExists(editorinfo) AND editorinfo.separateapp)
           OR (RecordExists(objeditor) AND objeditor.documenteditor != "")))
   {
-    //restart as separate application
-    parentscreen->contexts->controller->SendApplicationMessage("publisher:edit", [ id := objectid ], DEFAULT RECORD, TRUE);
+    /* restart us as a separate application. note that applicationmessages currently go through the client so they are NOT
+       a safe messaging channel.*/
+
+    STRING appoptions;
+    IF(options.assumereadaccess OR options.assumewriteaccess OR Length(options.internallinkroots) > 0)
+    {
+      appoptions := EncryptForThisServer("publisher:runfsobjecteditapplication",
+                                          CELL[ //verification
+                                                now := GetCurrentDatetime() //allow us to limit lifetime to help prevent replay attacks
+                                              , objectid
+                                              , creationdate := fileobj->creationdate
+                                                // the optinos
+                                              , options.assumereadaccess
+                                              , options.assumewriteaccess
+                                              , options.internallinkroots
+                                              ]);
+    }
+
+    parentscreen->contexts->controller->SendApplicationMessage("publisher:edit", CELL[ id := objectid, appoptions ], DEFAULT RECORD, TRUE);
     RETURN;
   }
 

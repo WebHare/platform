@@ -137,6 +137,9 @@ PUBLIC CONSTANT INTEGER whconstant_consilio_catalogtype_fieldgroup := 2; //depre
 //separates modulename from indexname
 PUBLIC CONSTANT STRING whconstant_consilio_module_sep := "__";
 
+//timeout after which we don't trust sendapplicationmessage tokens for direct editor app
+PUBLIC CONSTANT INTEGER whconstant_trust_sendapplicationmessage := 5 * 60 * 1000;
+
 //valid settings for RTD margins
 PUBLIC CONSTANT STRING ARRAY whconstant_tollium_rtd_margins := [ "none", "compact", "wide" ];
 
