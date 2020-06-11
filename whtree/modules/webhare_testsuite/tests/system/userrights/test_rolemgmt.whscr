@@ -19,7 +19,7 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->addusertorole"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
   // Test search
   TT("selectuserrole->searchfor")->value := "user1";
@@ -40,7 +40,7 @@ ASYNC MACRO TestAddRoleToUsers()
 
   // Grant to a single user (selecting user)
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE email="user1@beta.webhare.net";
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Grant role"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->addroletousers"));
 
   TT("selectuserrole->unittree->unitlist")->value := unit->entityid;
   TT("selectuserrole->unitcontents->userandrolelist")->value := testfw->GetRoleObject("role1")->entityid;
