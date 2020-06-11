@@ -1287,6 +1287,7 @@ if(!window.requestAnimationFrame || !window.cancelAnimationFrame)
 // Polyfill location.origin
 
 /* IE11 _should_ support location.origin, but we've repeatedly seen it not do that
+   Seems to have to do with compatibility view
 */
 if (window.location && !window.location.origin) {
   window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port: '');
