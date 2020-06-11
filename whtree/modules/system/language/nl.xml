@@ -2127,7 +2127,6 @@
       <textgroup gid="select">   <!-- userrights.commondialogs.select -->
         <text tid="selectrole">Selecteer een rol</text>
         <text tid="selectroles">Selecteer één of meerdere rollen</text>
-        <text tid="selectunit">Selecteer een eenheid</text>
         <text tid="selectuser">Selecteer een gebruiker</text>
         <text tid="selectuserorrole">Selecteer een gebruiker of een rol</text>
         <text tid="selectusers">Selecteer één of meerdere gebruikers</text>
@@ -2217,19 +2216,9 @@
     </textgroup>
     <textgroup gid="editrole">   <!-- userrights.editrole -->
       <text tid="editrole">Rol aanpassen</text>
-      <text tid="name">Naam</text>
-      <text tid="parentunit">Eenheid</text>
-      <text tid="selectunit">Wijzig</text>
-      <text tid="whuser_comment">Opmerking</text>
-      <text tid="wrd_title">Naam</text>
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
-      <text tid="change">Aanpassen</text>
       <text tid="editunit">Eenheid aanpassen</text>
-      <text tid="parentunitname">In eenheid</text>
-      <text tid="unitname">Naam</text>
-      <text tid="whuser_comment">Opmerking</text>
-      <text tid="wrd_title">Naam</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
@@ -2300,7 +2289,6 @@
       <text tid="schemaname">Schema</text>
       <text tid="scope">Scope</text>
       <text tid="selectmethod">Geef aan hoe u de gebruiker wilt toevoegen</text>
-      <text tid="selectunit">Wijzig</text>
       <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
       <text tid="showiedownloadwarning">Omzeil IE's download blokkering via download dialoog</text>
       <text tid="showpdfpreview">Toon PDF voorvertoningen</text>
@@ -2324,8 +2312,6 @@
       <text tid="timezone-pacific">Grote Oceaan</text>
       <text tid="timezone-unknown">Onbekend</text>
       <text tid="title">Titel</text>
-      <text tid="unitname">Eenheid</text>
-      <text tid="unitnamenew">Eenheid</text>
       <text tid="userinfo">Gebruikersinformatie</text>
       <text tid="username">Gebruikersnaam</text>
       <text tid="usernamenew">Inlognaam</text>
