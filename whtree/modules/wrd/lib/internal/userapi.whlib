@@ -265,7 +265,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       @param work Work object
       @return TRUE if the name is ok, FALSE (and work errors) if any problem was found
   */
-  PUBLIC BOOLEAN FUNCTION CheckName(OBJECT unit, STRING name, INTEGER existing_id, BOOLEAN foruser, OBJECT work)
+  PUBLIC BOOLEAN FUNCTION __CheckName(OBJECT unit, STRING name, INTEGER existing_id, BOOLEAN foruser, OBJECT work)
   {
     INTEGER parent := unit->entityid;
     WHILE (parent != 0)
@@ -349,7 +349,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     {
       INTEGER unitid := data.whuser_unit;
       OBJECT unit := this->GetUnit(data.whuser_unit);
-      this->CheckName(unit, GetCell(data, this->wrdschema->accountlogintag), 0, TRUE, DEFAULT OBJECT);
+      this->__CheckName(unit, GetCell(data, this->wrdschema->accountlogintag), 0, TRUE, DEFAULT OBJECT);
 
       OBJECT work := StartLocalWork(trans);
 
@@ -393,7 +393,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       IF (CellExists(data, this->wrdschema->accountlogintag) OR CellExists(data, "WHUSER_UNIT"))
       {
         STRING name := CellExists(data, this->wrdschema->accountlogintag) ? GetCell(data, this->wrdschema->accountlogintag) : entity->GetField(this->wrdschema->accountlogintag);
-        this->CheckName(this->GetUnit(newunit), name, id, TRUE, DEFAULT OBJECT);
+        this->__CheckName(this->GetUnit(newunit), name, id, TRUE, DEFAULT OBJECT);
       }
 
       OBJECT work := StartLocalWork(trans);
@@ -450,7 +450,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     TRY
     {
       INTEGER unitid := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : 0;
-      this->CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
+      this->__CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
 
       OBJECT work := StartLocalWork(trans);
 
@@ -491,7 +491,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       {
         INTEGER unit := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : entity->GetField("WRD_LEFTENTITY");
         STRING name := CellExists(data, "WRD_TITLE") ? data.wrd_title : entity->GetField("WRD_TITLE");
-        this->CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
+        this->__CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
       }
 
       OBJECT work := StartLocalWork(trans);
@@ -541,7 +541,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
     TRY
     {
       INTEGER unitid := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : 0;
-      this->CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
+      this->__CheckName(this->GetUnit(unitid), data.wrd_title, 0, FALSE, DEFAULT OBJECT);
 
       OBJECT work := StartLocalWork(trans);
 
@@ -580,7 +580,7 @@ PUBLIC STATIC OBJECTTYPE WHUserApi
       {
         INTEGER unit := CellExists(data, "WRD_LEFTENTITY") ? data.wrd_leftentity : entity->GetField("WRD_LEFTENTITY");
         STRING name := CellExists(data, "WRD_TITLE") ? data.wrd_title : entity->GetField("WRD_TITLE");
-        this->CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
+        this->__CheckName(this->GetUnit(unit), name, id, FALSE, DEFAULT OBJECT);
       }
 
       OBJECT work := StartLocalWork(trans);

@@ -71,7 +71,9 @@ PUBLIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
     {
       IF (work->HasFailed())
         RETURN work->Finish();
-      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
+
+
+      this->contexts->userapi->__CheckName(this->pvt_parent, this->entity->^wrd_title->value, this->entity->entityid, FALSE, work);
       id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
       IF (id != 0)
         this->contexts->userapi->SyncUnitAfterUpdate(id);
@@ -171,7 +173,7 @@ PUBLIC OBJECTTYPE EditRole EXTEND TolliumScreenBase
     {
       IF (work->HasFailed())
         RETURN work->Finish();
-      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
+      this->contexts->userapi->__CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
       id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
       IF (id != 0)
         this->contexts->userapi->SyncRoleAfterUpdate(id);

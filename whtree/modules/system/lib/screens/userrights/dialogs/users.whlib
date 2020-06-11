@@ -175,7 +175,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     IF (LENGTH(^password->value) > 256)
       work->AddError(GetTid("system:userrights.dialogues.passwordtoolong"));
 
-    this->contexts->userapi->CheckName(this->pvt_parent, ^username->value, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0, TRUE, work);
+    this->contexts->userapi->__CheckName(this->pvt_parent, ^username->value, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0, TRUE, work);
 
     IF (NOT ValidateWRDGUID(^wrd_guid->value))
       work->AddErrorFor(^wrd_guid, GetTid("system:userrights.dialogues.invalidguid"));
