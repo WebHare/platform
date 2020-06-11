@@ -7,6 +7,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/asynctools.whlib";
 
 LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
 
@@ -23,6 +24,7 @@ LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
         alpha channel from the difference.
     @cell(record array) options.cutouts Cutouts
     @cell(string) options.cutouts.selector CSS Selector
+    @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
     @return Requested screenshot, logs and any requested cutouts
     @cell return.screenshot Wrapped blob with the screenshot
     @cell return.cutouts Informatation about the cutouts
@@ -48,6 +50,7 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
                              , debug := FALSE
                              , screenwidth := 1920
                              , screenheight := 1080
+                             , timeout := 30 * 1000
                              ], options);
 
   options.cutouts := SELECT AS RECORD ARRAY
@@ -64,13 +67,15 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     INSERT CELL adjustbackground := TRUE INTO options;
 
   OBJECT pdfgen := NEW ChromePDFAPI([ debug := options.debug]);
-  RECORD response := WaitForPromise( pdfgen->GenerateScreenshotFromURL(url, CELL[ options.media
-                                                                                , options.delay
-                                                                                , options.cutouts
-                                                                                , options.screenwidth
-                                                                                , options.screenheight
-                                                                                , printbackground := NOT withalpha
-                                                                                ]) );
+  RECORD response := WaitForPromise(
+                       WrapPromiseInTimeout(
+                         pdfgen->GenerateScreenshotFromURL(url, CELL[ options.media
+                                                                    , options.delay
+                                                                    , options.cutouts
+                                                                    , options.screenwidth
+                                                                    , options.screenheight
+                                                                    , printbackground := NOT withalpha
+                                                                    ]), options.timeout));
 
   OBJECT finalimage;
   RECORD retval :=
@@ -146,6 +151,7 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     @cell(boolean) options.displayheaderfooter Display header and footer. Defaults to FALSE
     @cell(string) options.headertemplate Header template HTML code
     @cell(string) options.footertemplate Header template HTML code
+    @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
     @return Wrapped file containing the PDF (or ZIP, if getsource is used)
 */
 PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[])
@@ -163,6 +169,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                              , headertemplate := ""
                              , footertemplate := ""
                              , margin := DEFAULT RECORD
+                             , timeout := 30 * 1000
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
@@ -198,12 +205,14 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
     }
     ELSE
     {
-      filedata := WaitForPromise(pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
-                                                               , options.headertemplate
-                                                               , options.footertemplate
-                                                               , options.margin
-                                                               ]));
-        }
+      filedata := WaitForPromise(
+                    WrapPromiseInTimeout(
+                      pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
+                                                    , options.headertemplate
+                                                    , options.footertemplate
+                                                    , options.margin
+                                                    ]), options.timeout));
+    }
     RETURN WrapBlob(filedata, options.filename);
   }
 
@@ -217,6 +226,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
     @cell options.media Media to use - 'screen' or 'print' (default)
     @cell options.filename Output filename.
     @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
+    @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
     @return Wrapped file containing the PDF
 */
 PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO CELL[])
@@ -226,13 +236,14 @@ PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO
                              , media := "print"
                              , filename := "output.pdf"
                              , delay := 0
+                             , timeout := 30 * 1000
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
                                          ]);
 
   OBJECT pdfgen := NEW ChromePDFAPI();
-  BLOB pdfdata := WaitForPromise( pdfgen->GeneratePDFFromURL(link, [ media := options.media ]) );
+  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFromURL(link, CELL[ options.media]), options.timeout));
   RETURN WrapBlob(pdfdata, options.filename);
 }
 
