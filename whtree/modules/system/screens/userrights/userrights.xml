@@ -113,7 +113,10 @@
     <toolbar>
       <button menu="newmenu" tid=".new" icon="tollium:actions/add" ellipsis="true"/>
       <divider/>
-      <button icon="tollium:security/grants" menu="grantsmenu"  tid=".menus.grants"/>
+      <!-- button icon="tollium:security/grants" menu="grantsmenu"  tid=".menus.grants"/-->
+      <button action="unitcontents->addroletousers" icon="tollium:users/addrole"/>
+      <button action="grant" icon="tollium:users/addright" name="grantbutton" tid=".actions.grant"/>
+      <button action="unitcontents->adduserstorole" icon="tollium:users/adduser"/>
       <button action="delete" icon="tollium:actions/delete" />
       <button action="edit" icon="tollium:actions/properties" />
       <divider />
