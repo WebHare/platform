@@ -225,6 +225,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableRoles(OBJECT wrdroletype, INTEGER ARRAY 
 {
   RECORD ARRAY roles := wrdroletype->RunQuery(
         [ outputcolumns := [ "WRD_ID", "WRD_GUID", "WRD_TITLE", "WRD_LEFTENTITY", "WRD_CREATIONDATE" ]
+        , historymode := "all"
         , filters := Length(limitroles)>0 ? [[ field := "WRD_ID", matchtype := "IN", value := limitroles ]]
                                           : DEFAULT RECORD ARRAY
         ]);

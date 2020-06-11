@@ -1,6 +1,9 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 
 ASYNC MACRO TestAddRoleToUsers()
@@ -126,6 +129,7 @@ MACRO TestExport()
 
 RunTestframework( [ PTR TestAddRoleToUsers
                   , PTR TestEditRole
+                  , PTR EnsureUserMgmtStateClean
                   , PTR TestExport
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "user1"]
