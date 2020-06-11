@@ -414,7 +414,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
   IF(clientwebserver = -1)
     webserver := LookupWebserver(GetHostedSites(), up.host, up.port);
   ELSE
-    webserver := SELECT id, baseurl, isinterface := type=1 FROM system.webservers WHERE id = clientwebserver;
+    webserver := SELECT id, baseurl, isinterface := type=1 FROM EnumerateAllWebservers(FALSE) WHERE id = clientwebserver;
 
   IF(NOT RecordExists(webserver))
     RETURN result; //probably not even hosted here
