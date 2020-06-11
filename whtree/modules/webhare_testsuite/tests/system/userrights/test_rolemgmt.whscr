@@ -19,7 +19,7 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Grant to"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->addusertorole"));
 
   // Test search
   TT("selectuserrole->searchfor")->value := "user1";

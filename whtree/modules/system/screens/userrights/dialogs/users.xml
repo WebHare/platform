@@ -25,6 +25,9 @@
             <textedit cellname="wrd_lastname" composition="userobj" />
             <passwordfield name="password" composition="userobj" cellname="whuser_password" entercurrentpassword="false" defaulthash="*" />
             <select name="language" type="pulldown" tid="userrights.edituser.prefslang" width="1pr" />
+            <box checkbox="true" layout="left" hr="false" name="whuser_disabled" composition="userobj" cellname="whuser_disabled" title="" tid=".whuser_disabled" enablecomponents="whuser_disablereason" >
+              <textarea name="whuser_disablereason" composition="userobj" cellname="whuser_disablereason" required="true" />
+            </box>
           </tab>
           <tab name="advanced">
             <line>
@@ -34,10 +37,7 @@
             <datetime readonly="true" name="creationdate" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="wrd_creationdate"  />
             <datetime readonly="true" name="lastlogin" enabled="false" type="datetime" storeutc="true" composition="userobj" cellname="" tid=".lastlogin" />
             <textedit readonly="true" name="lastip" enabled="false" tid=".lastip" visible="false" />
-            <line layout="left">
-              <checkbox name="whuser_disabled" composition="userobj" cellname="whuser_disabled" title="" labeltid=".whuser_disabled" enablecomponents="whuser_disablereason" />
-            </line>
-            <textarea name="whuser_disablereason" composition="userobj" cellname="whuser_disablereason" required="true" />
+
             <line layout="left">
               <text valuetid=".explainguid" wordwrap="true" />
             </line>

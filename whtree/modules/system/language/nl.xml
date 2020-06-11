@@ -2333,7 +2333,7 @@
       <text tid="utc">UTC</text>
       <text tid="warnings">Waarschuwingen</text>
       <text tid="whuser_disabled">Blokkeer dit account</text>
-      <text tid="whuser_disablereason">Blokkeerreden</text>
+      <text tid="whuser_disablereason">Reden</text>
       <text tid="whuser_password">Wachtwoord</text>
       <text tid="windowtitle">Wijzig persoonlijke voorkeuren</text>
       <text tid="wizardfinishmessage">De wizard is voltooid</text>

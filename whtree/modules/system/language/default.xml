@@ -2522,7 +2522,7 @@
       <text tid="utc">UTC</text>
       <text tid="warnings">Warnings</text>
       <text tid="whuser_disabled">Block this account</text>
-      <text tid="whuser_disablereason">Block reason</text>
+      <text tid="whuser_disablereason">Reason</text>
       <text tid="whuser_password">Password</text>
       <text tid="windowtitle">Edit personal preferences</text>
       <text tid="wizardfinishmessage">You have finished this wizard</text>

@@ -103,17 +103,10 @@
         <divider />
         <item action="exit" />
       </menu>
-      <menu name="grantsmenu">
-        <item action="unitcontents->addroletousers" />
-        <item action="grant" />
-        <item action="unitcontents->adduserstorole" tid="userrights.actions.adduserstorole" ellipsis="true" />
-      </menu>
-
     </menus>
     <toolbar>
       <button menu="newmenu" tid=".new" icon="tollium:actions/add" ellipsis="true"/>
       <divider/>
-      <!-- button icon="tollium:security/grants" menu="grantsmenu"  tid=".menus.grants"/-->
       <button action="unitcontents->addroletousers" icon="tollium:users/addrole"/>
       <button action="grant" icon="tollium:users/addright" name="grantbutton" tid=".actions.grant"/>
       <button action="unitcontents->adduserstorole" icon="tollium:users/adduser"/>
