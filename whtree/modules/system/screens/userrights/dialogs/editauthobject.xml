@@ -15,26 +15,16 @@
     </body>
   </screen>
 
-  <screen name="editrole" gid="userrights.editrole" allowresize="true">
-    <actions>
-      <action name="selectunit" onexecute="doselectunit" ellipsis="true" />
-    </actions>
+  <screen name="editrole" gid="userrights.editrole" allowresize="true" footerbuttons="ok cancel">
     <compositions>
-      <wrd:entity name="entity" />
+      <wrd:entity name="entity" wrdtype="WHUSER_ROLE" />
     </compositions>
     <body>
       <panel height="1pr">
         <textedit composition="entity" cellname="wrd_title" required="true" maxlength="256" />
-        <line>
-          <textedit tid=".parentunit" name="parentunitname" enabled="false" required="true"/>
-          <button name="selectunitbutton" action="selectunit" tid=".selectunit" ellipsis="true" />
-        </line>
         <textarea composition="entity" cellname="whuser_comment" height="1pr"  />
       </panel>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel"/>
-    </footer>
   </screen>
 
 </screens>

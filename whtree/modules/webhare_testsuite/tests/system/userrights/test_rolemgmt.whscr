@@ -87,6 +87,12 @@ ASYNC MACRO TestEditRole()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
 
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="webhare_testsuite.unit";
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->newrole"));
+  TT(":Name")->value := "role1-new";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("role1-new", TT("unitcontents->userandrolelist")->selection[0].name);
+
   topscreen->frame->focused := TT("unitcontents->userandrolelist");
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="role1";
 

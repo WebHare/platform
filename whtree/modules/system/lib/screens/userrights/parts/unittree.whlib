@@ -321,7 +321,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
 
   MACRO DoAddRole()
   {
-    MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->value)->RunModal();
+    RunAddRoleDialog(this->owner, ^unitlist->value);
   }
 
   // ---------------------------------------------------------------------------
