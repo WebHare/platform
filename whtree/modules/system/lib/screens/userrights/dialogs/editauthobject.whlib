@@ -17,7 +17,7 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
   {
     ^entity->Load(data.unit);
     IF(data.unit = 0)
-       ^entity->extradata := [ wrd_leftentity := data.parent ];
+      ^entity->extradata := [ wrd_leftentity := data.parent ];
   }
 
   INTEGER FUNCTION Submit()
