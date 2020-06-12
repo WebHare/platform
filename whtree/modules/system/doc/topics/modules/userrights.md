@@ -6,7 +6,7 @@ Rights are hierarchical with the hierarchie defined by their "implied by" proper
 All rights in the userrights application are directly or indirectly implied by
 the Sysop (system:sysop) right.
 
-For most modules one simple right directly implied by `system:sysop` (conventionally named 'speruser') will be sufficient.
+For most modules one simple right directly implied by `system:sysop` (conventionally named 'superuser') will be sufficient.
 The following example shows how to define such a right in the moduledefinition:
 
 ```xml
