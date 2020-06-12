@@ -9,195 +9,73 @@ LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 
 
-PUBLIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  OBJECT pvt_unit;
-  OBJECT pvt_parent;
-  OBJECT pvt_orgparent;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Properties
-  //
-
-  PUBLIC PROPERTY unit(pvt_unit, -);
-  PUBLIC PROPERTY parent(pvt_parent, SetParent);
-
-  // ---------------------------------------------------------------------------
-  //
-  // Tollium init
-  //
+PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
+<
+  INTEGER parent;
 
   MACRO Init(RECORD data)
   {
-    this->entity->LoadEntity(this->contexts->userapi->wrd_unit, ObjectExists(data.unit) ? data.unit->entityid : 0);
-    IF (ObjectExists(this->entity->wrdentity))
-    {
-      this->pvt_parent := this->contexts->userapi->GetUnitOf(data.unit);
-      this->pvt_orgparent := this->pvt_parent;
-    }
-    ELSE
-      this->pvt_parent := data.parent;
-
-    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    ^entity->Load(data.unit);
+    IF(data.unit = 0)
+      ^entity->extradata := [ wrd_leftentity := data.parent ];
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // Getters & setters
-  //
-
-  MACRO SetParent(OBJECT newparent)
+  INTEGER FUNCTION Submit()
   {
-    this->pvt_parent := newparent;
-    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-  }
+    OBJECT work := this->BeginWork( [ mutex := "wrd:usermgmt" ]);
+    INTEGER parent := ^entity->entityid = 0 ? ^entity->extradata.wrd_leftentity : ^entity->wrdentity->GetField("WRD_LEFTENTITY");
 
-  // ---------------------------------------------------------------------------
-  //
-  // Submit
-  //
+    this->contexts->userapi->__CheckName(this->contexts->userapi->GetUnit(parent)
+                                        ,^entity->^wrd_title->value
+                                        ,^entity->entityid
+                                        ,FALSE //foruser
+                                        ,work);
 
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
-    OBJECT work := this->BeginWork();
-    INTEGER id;
-    TRY
-    {
-      IF (work->HasFailed())
-        RETURN work->Finish();
-      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
-      id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
-      IF (id != 0)
-        this->contexts->userapi->SyncUnitAfterUpdate(id);
-      IF (work->Finish())
-      {
-        this->pvt_unit := this->contexts->userapi->GetUnit(id);
-        RETURN TRUE;
-      }
-      RETURN FALSE;
-    }
-    FINALLY
-    {
-      lock->Close();
-      BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
-      IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
-        BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
-    }
-  }
+    INTEGER unitid := ^entity->Store(work);
+    IF(NOT work->HasFailed())
+      this->contexts->userapi->SyncUnitAfterUpdate(unitid);
 
-  // ---------------------------------------------------------------------------
-  //
-  // Actions
-  //
+    IF(NOT work->Finish())
+      RETURN 0;
 
-  MACRO DoSelectUnit()
-  {
-    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageunit", TRUE);
-    IF (dialog->RunModal() = "ok")
-    {
-      this->pvt_parent := dialog->value;
-      this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-    }
+    //TODO should become obsolete, WRD events should suffice?
+    BroadcastEvent("system:unit.change." || parent, DEFAULT RECORD);
+    RETURN unitid;
   }
 >;
 
 
-PUBLIC OBJECTTYPE EditRole EXTEND TolliumScreenBase
-< // -----------------------------------------------------------------------------
-  //
-  // Global variables and such
-  //
-
-  OBJECT pvt_roleobj;
-  OBJECT pvt_parent;
-  OBJECT pvt_orgparent;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Properties
-  //
-
-  PUBLIC PROPERTY roleobj(pvt_roleobj, -);
-
-  PUBLIC PROPERTY parent(pvt_parent, SetParent);
-
-  // -----------------------------------------------------------------------------
-  //
-  // Tollium init
-  //
+PUBLIC STATIC OBJECTTYPE EditRole EXTEND TolliumScreenBase
+<
+  INTEGER parent;
 
   MACRO Init(RECORD data)
   {
-    this->entity->LoadEntity(this->contexts->userapi->wrd_role, ObjectExists(data.roleobj) ? data.roleobj->entityid : 0);
-    IF (ObjectExists(this->entity->wrdentity))
-    {
-      this->pvt_parent := this->contexts->userapi->GetUnitOf(data.roleobj);
-      this->pvt_orgparent := this->pvt_parent;
-    }
-    ELSE
-      this->pvt_parent := data.parent;
-
-    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
+    ^entity->Load(data.role);
+    IF(data.role = 0)
+       ^entity->extradata := [ wrd_leftentity := data.parent ];
   }
 
-  // -----------------------------------------------------------------------------
-  //
-  // Getters & setters
-  //
-
-  MACRO SetParent(OBJECT newparent)
+  INTEGER FUNCTION Submit()
   {
-    this->pvt_parent := newparent;
-    this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-  }
+    OBJECT work := this->BeginWork( [ mutex := "wrd:usermgmt" ]);
+    INTEGER parent := ^entity->entityid = 0 ? ^entity->extradata.wrd_leftentity : ^entity->wrdentity->GetField("WRD_LEFTENTITY");
 
-  // -----------------------------------------------------------------------------
-  //
-  // Other
-  //
+    this->contexts->userapi->__CheckName(this->contexts->userapi->GetUnit(parent)
+                                        ,^entity->^wrd_title->value
+                                        ,^entity->entityid
+                                        ,FALSE //foruser
+                                        ,work);
 
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT lock := OpenLockManager()->LockMutex("wrd:usermgmt");
-    OBJECT work := this->BeginWork();
-    INTEGER id;
-    TRY
-    {
-      IF (work->HasFailed())
-        RETURN work->Finish();
-      this->contexts->userapi->CheckName(this->pvt_parent, this->entity->GetFieldByTag("WRD_TITLE")->value, this->entity->entityid, FALSE, work);
-      id := this->entity->StoreEntity(work, [ wrd_leftentity := this->pvt_parent->entityid ]);
-      IF (id != 0)
-        this->contexts->userapi->SyncRoleAfterUpdate(id);
-      IF (work->Finish())
-      {
-        this->pvt_roleobj := this->contexts->userapi->GetRole(id);
-        RETURN TRUE;
-      }
-      RETURN FALSE;
-    }
-    FINALLY
-    {
-      lock->Close();
-      BroadcastEvent("system:unit.change." || this->pvt_parent->entityid, DEFAULT RECORD);
-      IF (ObjectExists(this->pvt_orgparent) AND this->pvt_orgparent->entityid != this->pvt_parent->entityid)
-        BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
-    }
-  }
+    INTEGER unitid := ^entity->Store(work);
+    IF(NOT work->HasFailed())
+      this->contexts->userapi->SyncRoleAfterUpdate(unitid);
 
-  MACRO DoSelectUnit()
-  {
-    OBJECT dialog := MakeSelectUnitDialog(this, this->pvt_parent, "system:manageroles", FALSE);
-    IF (dialog->RunModal() = "ok")
-    {
-      this->pvt_parent := dialog->value;
-      this->parentunitname->value := GetUnitPath(this->contexts->userapi, this->pvt_parent, this->tolliumuser);
-    }
+    IF(NOT work->Finish())
+      RETURN 0;
+
+    //TODO should become obsolete, WRD events should suffice?
+    BroadcastEvent("system:unit.change." || parent, DEFAULT RECORD);
+    RETURN unitid;
   }
 >;

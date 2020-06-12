@@ -1,6 +1,9 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 
 ASYNC MACRO TestAddRoleToUsers()
@@ -19,7 +22,7 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Grant to"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
   // Test search
   TT("selectuserrole->searchfor")->value := "user1";
@@ -40,7 +43,7 @@ ASYNC MACRO TestAddRoleToUsers()
 
   // Grant to a single user (selecting user)
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE email="user1@beta.webhare.net";
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Grant role"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->addroletousers"));
 
   TT("selectuserrole->unittree->unitlist")->value := unit->entityid;
   TT("selectuserrole->unitcontents->userandrolelist")->value := testfw->GetRoleObject("role1")->entityid;
@@ -87,6 +90,12 @@ ASYNC MACRO TestEditRole()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
 
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="webhare_testsuite.unit";
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->newrole"));
+  TT(":Name")->value := "role1-new";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("role1-new", TT("unitcontents->userandrolelist")->selection[0].name);
+
   topscreen->frame->focused := TT("unitcontents->userandrolelist");
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="role1";
 
@@ -120,6 +129,7 @@ MACRO TestExport()
 
 RunTestframework( [ PTR TestAddRoleToUsers
                   , PTR TestEditRole
+                  , PTR EnsureUserMgmtStateClean
                   , PTR TestExport
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "user1"]

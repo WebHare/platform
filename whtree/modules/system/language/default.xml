@@ -2316,7 +2316,6 @@
       <textgroup gid="select">   <!-- userrights.commondialogs.select -->
         <text tid="selectrole">Select a role</text>
         <text tid="selectroles">Select one or more roles</text>
-        <text tid="selectunit">Select a unit</text>
         <text tid="selectuser">Select a user</text>
         <text tid="selectuserorrole">Select a user or a role</text>
         <text tid="selectusers">Select one or more users</text>
@@ -2406,19 +2405,9 @@
     </textgroup>
     <textgroup gid="editrole">   <!-- userrights.editrole -->
       <text tid="editrole">Edit role</text>
-      <text tid="name">Name</text>
-      <text tid="parentunit">Parent unit</text>
-      <text tid="selectunit">Change</text>
-      <text tid="whuser_comment">Comment</text>
-      <text tid="wrd_title">Name</text>
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
-      <text tid="change">Change</text>
       <text tid="editunit">Edit unit</text>
-      <text tid="parentunitname">Parent unit</text>
-      <text tid="unitname">Name</text>
-      <text tid="whuser_comment">Comment</text>
-      <text tid="wrd_title">Name</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
@@ -2489,7 +2478,6 @@
       <text tid="schemaname">Schema</text>
       <text tid="scope">Scope</text>
       <text tid="selectmethod">Please select how you want to add the user</text>
-      <text tid="selectunit">Change</text>
       <text tid="showdeveloperapps">Show developer applications</text>
       <text tid="showiedownloadwarning">Avoid IE's download blocker using the dowload dialog</text>
       <text tid="showpdfpreview">Show PDF previews</text>
@@ -2513,8 +2501,6 @@
       <text tid="timezone-pacific">Pacific Ocean</text>
       <text tid="timezone-unknown">Unknown</text>
       <text tid="title">Title</text>
-      <text tid="unitname">Unit</text>
-      <text tid="unitnamenew">Unit</text>
       <text tid="userinfo">User information</text>
       <text tid="username">Username</text>
       <text tid="usernamenew">Login name</text>
@@ -2522,7 +2508,7 @@
       <text tid="utc">UTC</text>
       <text tid="warnings">Warnings</text>
       <text tid="whuser_disabled">Block this account</text>
-      <text tid="whuser_disablereason">Block reason</text>
+      <text tid="whuser_disablereason">Reason</text>
       <text tid="whuser_password">Password</text>
       <text tid="windowtitle">Edit personal preferences</text>
       <text tid="wizardfinishmessage">You have finished this wizard</text>

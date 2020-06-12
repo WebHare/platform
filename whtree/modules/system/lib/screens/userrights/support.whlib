@@ -247,15 +247,10 @@ PUBLIC STRING FUNCTION GetAuthObjectPresentationName(OBJECT context, OBJECT wrda
   RETURN GetTid("system:userrights.commondialogs.rights.authobjectfullid",
         ToString(wrdauthobj->type),
         wrdauthobj->GetUserRightsName(),
-        GetParentUnitPath(context->controller->userapi, wrdauthobj, context->user));
+        GetUnitPath(context->controller->userapi, context->controller->userapi->GetUnitOf(wrdauthobj), context->user));
 }
 
-STRING FUNCTION GetParentUnitPath(OBJECT authapi, OBJECT wrdauthobj, OBJECT browseuser)
-{
-  RETURN GetUnitPath(authapi, authapi->GetUnitOf(wrdauthobj), browseuser);
-}
-
-PUBLIC STRING FUNCTION GetUnitPath(OBJECT authapi, OBJECT unitobj, OBJECT browseuser)
+STRING FUNCTION GetUnitPath(OBJECT authapi, OBJECT unitobj, OBJECT browseuser)
 {
   // Gather list of units toward root
   RECORD ARRAY units;

@@ -259,11 +259,11 @@ PUBLIC OBJECTTYPE UserRoleRightsList EXTEND TolliumFragmentBase
 
   MACRO DoMakeRoleFromRights()
   {
-    OBJECT dialog := MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->pvt_wrdauthobject->authapi->GetUnit(this->pvt_wrdauthobject->GetParentUnitId()));
-    IF(dialog->RunModal() = "ok")
+    INTEGER newroleid := RunAddRoleDialog(this->owner, this->pvt_wrdauthobject->GetParentUnitId());
+    IF(newroleid != 0)
     {
-      OBJECT newrole := dialog->roleobj;
       OBJECT work := this->owner->BeginWork();
+      OBJECT newrole := this->contexts->userapi->GetRole(newroleid);
       FOREVERY(RECORD right FROM this->directpermissions->selection)
         TolliumGrantRightTo(work, this->rightsinfo, this->owner->tolliumuser, newrole, right.rightname, [ INTEGER(right.objectid) ], FALSE, ""); //FIXME need to set a comment for these grants - ^comment->value);
 

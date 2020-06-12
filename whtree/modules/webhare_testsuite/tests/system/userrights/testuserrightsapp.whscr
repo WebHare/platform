@@ -7,6 +7,9 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
 ASYNC MACRO Setup()
 {
   INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
@@ -15,7 +18,7 @@ ASYNC MACRO Setup()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
   TestEqLike("Rights problem", topscreen->title);
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   testfw->BeginWork();
   testfw->GetUserObject("sysop")->GrantRightToOn("system:manageunit", testfw->GetUserObject("lisa"), GetTestController()->userapi->GetUnit(lisaunit)->authobjectid, TRUE);
@@ -24,18 +27,23 @@ ASYNC MACRO Setup()
 
   //Create a unit
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
-  AWAIT ExpectScreenChange(+1, PTR TT("unittree->newunit")->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unittree->newunit"));
   TT("wrd_title")->value := "Lisa's new unit";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   //Select the new unit
-  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's new unit";
+  TestEq("Lisa's new unit", TT("unittree->unitlist")->selection.title);
+
+  //Verify edit works
+  AWAIT ExpectScreenChange(+1, PTR TT("unittree->unitlist")->openaction->TolliumClick());
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
 
   //Add a user
   AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
 
   TT("username")->value := "bart@example.net";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   //Select the new user
   TestEq(TRUE, RecordExists(SELECT FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net"));
@@ -43,7 +51,7 @@ ASYNC MACRO Setup()
   AWAIT ExpectScreenChange(+1, PTR topscreen->unitcontents->move->TolliumClick);
 
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   OBJECT bartuser := GetTestController()->userapi->GetTolliumUserByLogin("bart@example.net");
   TestEq(TRUE, ObjectExists(bartuser));
@@ -148,20 +156,12 @@ ASYNC MACRO TestExport()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-MACRO VerifyNoLooseEnds()
-{
-  testfw->BeginWork();
-  testfw->EnsureUserMgmtClean();
-  testfw->CommitWork();
-}
-
 RunTestframework( [ PTR Setup
                   , PTR TestExport
-                  , PTR VerifyNoLooseEnds
+                  , PTR EnsureUserMgmtStateClean
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "lisa"]
                                     ]
                      , testroles := [[ role := "powerplantmanagers" ]]
-                     , debug := TRUE
                      ]
                   );

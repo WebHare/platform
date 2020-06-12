@@ -46,6 +46,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
     this->frame->flags.anygrantablerights := this->contexts->user->HasAnyGrantableRight();
     ^objectstab->visible := this->frame->flags.anygrantablerights;
+    ^grantbutton->visible := this->frame->flags.anygrantablerights;
 
     this->RefreshApp();
 

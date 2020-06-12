@@ -2,6 +2,9 @@
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
+
 PUBLIC OBJECT FUNCTION OpenTestsuiteSite()
 {
   RETURN OpenSiteByName("WebHare testsuite site");
@@ -15,3 +18,25 @@ PUBLIC OBJECT FUNCTION OpenTestsuiteAltSite()
 {
   RETURN OpenSiteByName("WebHare testsuite site - alt host");
 }
+
+PUBLIC MACRO EnsureUserMgmtStateClean()
+{
+  testfw->BeginWork();
+  RECORD ARRAY resync := testfw->userapi->ResyncToSystemTables();
+  IF(Length(resync)>0)
+  {
+    PRINT("UNEXPECTED RESYNC ACTIONS\n");
+    DumpValue(resync,'tree');
+    ABORT("There were unexpected changes made by ResyncToSystemTables - our incremental updates might be bad. (Once this state is triggered you may need to manually resync userrights)");
+  }
+
+  RECORD ARRAY reconnects := FixUnconnectedItems(testfw->userapi->wrdschema);
+  IF(Length(reconnects)>0)
+  {
+    PRINT("UNEXPECTED RECONNECT ACTIONS\n");
+    DumpValue(reconnects,'tree');
+    ABORT("There were unexpected changes made by FixUnconnectedItems. (Once this state is triggered you may need to manually resync userrights)");
+  }
+  testfw->CommitWork();
+}
+

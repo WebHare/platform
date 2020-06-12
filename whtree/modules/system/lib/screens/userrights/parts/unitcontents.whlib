@@ -132,6 +132,21 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
       this->userandrolelist->value := SELECT AS INTEGER ARRAY obj->entityid FROM ToRecordArray(OBJECT ARRAY(newvalue), "OBJ");
   }
 
+  INTEGER FUNCTION GetValueById()
+  {
+    IF (^userandrolelist->selectmode = "single")
+      RETURN ^userandrolelist->value;
+    ELSE
+      RETURN PickFirst(^userandrolelist->value);
+  }
+  MACRO SetValueById(INTEGER toselect)
+  {
+    IF (^userandrolelist->selectmode = "single")
+      ^userandrolelist->value := toselect;
+    ELSE
+      ^userandrolelist->value := toselect != 0 ? [ toselect ] : INTEGER[];
+  }
+
   MACRO SetFilterOnType(INTEGER newtype)
   {
     IF (newtype NOT IN [0, 1, 3])
@@ -369,9 +384,9 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
 
   MACRO DoAddRole()
   {
-    OBJECT dialog := MakeAddEditRoleDialog(this->owner, DEFAULT OBJECT, this->pvt_unit);
-    IF (dialog->RunModal() = "ok")
-      this->SetSelectedWRDAuthObjects(dialog->roleobj);
+    INTEGER newrole := RunAddRoleDialog(this->owner, this->pvt_unit->entityid);
+    IF(newrole != 0)
+      this->SetValueById(newrole);
   }
 
 
@@ -409,7 +424,7 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
 
   MACRO DoEditRole()
   {
-    MakeAddEditRoleDialog(this->owner, this->GetSelectedWRDAuthobject(), this->pvt_unit)->RunModal();
+    RunEditRoleDialog(this->owner, this->GetValueById());
   }
 
   MACRO DoEditUser()

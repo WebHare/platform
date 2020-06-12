@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
@@ -33,9 +35,9 @@ INTEGER ARRAY FUNCTION FilterByKnownUsers(INTEGER ARRAY a)
 
 MACRO InitDB()
 {
+  EnsureUserMgmtStateClean();
   testfw->StartTrans("sysop", TRUE);
   testfw->BeginWork();
-  testfw->EnsureUserMgmtClean();
 
   DELETE FROM webhare_testsuite.rights_tree;
 
@@ -668,15 +670,13 @@ MACRO EnumTest()
 
 MACRO UnitTest()
 {
-  testfw->BeginWork();
+  EnsureUserMgmtStateClean();
 
-  testfw->EnsureUserMgmtClean();
+  testfw->BeginWork();
 
   TestThrows(PTR testfw->userapi->CreateUnit([name := "testunit"]));
 
   testfw->userapi->CreateUnit([wrd_title := "testunit"]);
-
-  testfw->EnsureUserMgmtClean();
 
   testfw->RollbackWork();
 }

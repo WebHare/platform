@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 22.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 32 32" style="enable-background:new 0 0 32 32;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#FFFFFF;}
+	.st1{fill:#4A4A4A;}
+</style>
+<rect x="3" y="5" class="st0" width="24" height="18"/>
+<polygon class="st0" points="11,28 11,22 18,22 "/>
+<g>
+	<g>
+		<path class="st1" d="M26.1,4H3.9C2.9,4,2,4.9,2,5.9v16.1C2,23.1,2.9,24,3.9,24H10v7l9-7h7.1c1.1,0,1.9-0.9,1.9-1.9V5.9
+			C28,4.9,27.1,4,26.1,4z M26,20.1c0,1.1-0.9,1.9-1.9,1.9H18l-6,5v-5H5.9C4.9,22,4,21.1,4,20.1V7.9C4,6.9,4.9,6,5.9,6h18.1
+			C25.1,6,26,6.9,26,7.9V20.1z"/>
+	</g>
+</g>
+<path class="st1" d="M9,16L9,16c-0.6,0-1-0.4-1-1V9c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v6C10,15.6,9.6,16,9,16z"/>
+<path class="st1" d="M9,20L9,20c-0.6,0-1-0.4-1-1v0c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v0C10,19.6,9.6,20,9,20z"/>
+<path class="st1" d="M21,16L21,16c-0.6,0-1-0.4-1-1V9c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v6C22,15.6,21.6,16,21,16z"/>
+<path class="st1" d="M21,20L21,20c-0.6,0-1-0.4-1-1v0c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v0C22,19.6,21.6,20,21,20z"/>
+<path class="st1" d="M15,16L15,16c-0.6,0-1-0.4-1-1V9c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v6C16,15.6,15.6,16,15,16z"/>
+<path class="st1" d="M15,20L15,20c-0.6,0-1-0.4-1-1v0c0-0.6,0.4-1,1-1h0c0.6,0,1,0.4,1,1v0C16,19.6,15.6,20,15,20z"/>
+<polygon class="st0" points="-19,4 -19,4 -19,4 -19,4 "/>
+</svg>
