@@ -141,7 +141,6 @@ export function setup(form)
     //TODO add something like virtualfields to forms but that is too much for a backport.
     let captchanode = <wh-form-captcha data-wh-form-name={form.dataset.whFormCaptcha} />;
     form.appendChild(captchanode);
-    console.error(captchanode);
     new CaptchaField(captchanode);
   }
 }
