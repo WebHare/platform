@@ -810,6 +810,18 @@ OBJECTTYPE WebConfigBuilder
 
     INTEGER ARRAY validports := SELECT AS INTEGER ARRAY id FROM ports;
 
+    //Add the rescue/restore port
+    INTEGER rescueport := GetWebHareConfiguration().baseport + 9;
+    INSERT [ id := -4
+           , ip := "127.0.0.1"
+           , privatekey := ""
+           , certificatechain := ""
+           , port := rescueport
+           , virtualhost := FALSE
+           , ciphersuite := ""
+           , istrustedport := FALSE
+           ] INTO ports AT END;
+
     //Add the loopback port
     INTEGER loopbackport := GetWebHareConfiguration().baseport + 4;
     INSERT [ id := -1
@@ -822,30 +834,13 @@ OBJECTTYPE WebConfigBuilder
            , istrustedport := FALSE
            ] INTO ports AT END;
 
-    RECORD ARRAY hosts;
+    RECORD ARRAY hosts := EnumerateAllWebservers(this->minimalconfig);
+    DELETE FROM hosts WHERE port != 0  AND port != -4 AND port NOT IN validports;
+
     RECORD ARRAY hostaccessrules;
 
     IF(NOT this->minimalconfig)
     {
-      STRING interfacebasefolder := GetWebhareBackendServerFolder();
-      hosts
-            := SELECT TEMPORARY forcehttps := port = 0 AND baseurl LIKE "https:*"
-                    , TEMPORARY unpackedbaseurl := UnpackURL(baseurl)
-                    , id
-                    , defaultpages := whconstant_webserver_indexpages
-                    , is_interface_webserver := type=1
-                    , baseurl
-                    , port := webservers.port
-                    , lowercasemode := TRUE
-                    , forcehttps := forcehttps
-                    , forcehttpsport := forcehttps ? unpackedbaseurl.port : 0
-                    , type
-                    , diskfolder
-                    , stricttransportsecurity
-                 FROM system.webservers
-                WHERE type IN [0,1]
-                      AND (port = 0 OR port IN validports);
-
       //Add HSTS headers
       FOREVERY(RECORD host FROM hosts)
         IF(host.stricttransportsecurity >0)

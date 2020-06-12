@@ -319,7 +319,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
           loggedin := this->wrdauthplugin->GetLoggedinEntity();
       }
 
-      IF(loggedin != 0 AND loggedin != -1)
+      IF(loggedin != 0 AND (loggedin != -1 OR openas != ""))
       {
         RECORD res := this->wrdauthplugin->userapi->GetTolliumUserByIdAndImpersonation(loggedin, openas);
         IF(NOT ObjectExists(res.userobject))

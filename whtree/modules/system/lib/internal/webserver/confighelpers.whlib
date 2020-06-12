@@ -3,6 +3,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
 {
@@ -13,14 +14,52 @@ BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
 }
 
 
+PUBLIC RECORD ARRAY FUNCTION EnumerateAllWebservers(BOOLEAN minimalconfig)
+{
+  RECORD ARRAY hosts;
+  INTEGER rescueport := GetWebHareConfiguration().baseport + 9;
+  INSERT CELL[ id := -5
+             , defaultpages := whconstant_webserver_indexpages
+             , is_interface_webserver := TRUE
+             , baseurl := `http://127.0.0.1:${rescueport}/`
+             , port := -4
+             , lowercasemode := TRUE
+             , forcehttps := FALSE
+             , forcehttpsport := 0
+             , type := 1
+             , diskfolder := ""
+             , stricttransportsecurity := 0
+             ] INTO hosts AT END;
+
+  IF(NOT minimalconfig)
+  {
+    hosts := hosts CONCAT
+             SELECT TEMPORARY forcehttps := port = 0 AND baseurl LIKE "https:*"
+                  , TEMPORARY unpackedbaseurl := UnpackURL(baseurl)
+                  , id
+                  , defaultpages := whconstant_webserver_indexpages
+                  , is_interface_webserver := type=1
+                  , baseurl
+                  , port := webservers.port
+                  , lowercasemode := TRUE
+                  , forcehttps := forcehttps
+                  , forcehttpsport := forcehttps ? unpackedbaseurl.port : 0
+                  , type
+                  , diskfolder
+                  , stricttransportsecurity
+               FROM system.webservers
+              WHERE type IN [0,1];
+  }
+  RETURN hosts;
+}
+
 PUBLIC RECORD FUNCTION GetCacheableHostedSites()
 {
   RECORD ARRAY hosts := SELECT id
                              , baseurl
                              , port
                              , isinterface := type = 1
-                          FROM system.webservers
-                         WHERE type IN [0,1];
+                          FROM EnumerateAllWebservers(FALSE);
   RECORD ARRAY ports := SELECT id
                              , virtualhost
                              , port

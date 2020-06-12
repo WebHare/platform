@@ -273,3 +273,14 @@ PUBLIC OBJECT ASYNC FUNCTION *MixAsyncIterators(OBJECT ARRAY vals, RECORD option
   }
   RETURN DEFAULT RECORD;
 }
+
+MACRO GotTimeout(INTEGER timeout)
+{
+  THROW NEW Exception(`Timeout of ${timeout}ms exceeded`);
+}
+PUBLIC ASYNC FUNCTION WrapPromiseInTimeout(OBJECT promise, INTEGER timeout)
+{
+  OBJECT ARRAY promises := [promise];
+  INSERT NEW WaitableTimer(timeout)->WaitSignalled()->Then(PTR GotTimeout(timeout)) INTO promises AT END;
+  RETURN CreatePromiseRace(promises);
+}

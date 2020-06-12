@@ -1,14 +1,20 @@
 <?wh
-/* public urlhistory APIs */
+/** @public urlhistory APIs
+    @topic sitedev/whfs
+*/
 
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib" EXPORT AddURLHistoryEntry;
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
-/** Redirect if a history URL is available. This function is intended for custom 404 pages */
+/** Redirect if a history URL is available. This function is intended for custom 404 pages
+    @cell(function ptr) options.oninactivetarget Invoked if the target of the urlhistory is not active (eg in recyclebon
+                or /webhare-private/). Receives the ID and should return the URL if found.
+*/
 PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ passthrough := DEFAULT STRING ARRAY ], options); //FIXME obsolete passthrough, remove from UT first
+  options := ValidateOptions( [ oninactivetarget := DEFAULT FUNCTION PTR
+                              ], options);
 
   OBJECT trans;
   TRY
@@ -17,7 +23,8 @@ PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD
       trans := OpenPrimary();
 
     STRING requrl := GetRequestURL();
-    RECORD dest := GetURLHistoryRedirect(requrl, FALSE, FALSE);
+    RECORD dest := GetURLHistoryRedirect(requrl, FALSE, TRUE);
+
     IF(NOT RecordExists(dest))
     {
       //If normal url failed, see if its worthwhile to use the client's URL. This may happen for non-virtualhosted requests
@@ -25,16 +32,23 @@ PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD
       IF(clientrequrl != requrl)
       {
         //TODO normalize host/server part ourselves instead of relying on client
-        dest := GetURLHistoryRedirect(clientrequrl, FALSE, FALSE);
+        dest := GetURLHistoryRedirect(clientrequrl, FALSE, TRUE);
       }
     }
+
+    STRING gotourl;
     IF(RecordExists(dest) AND dest.desturl != "")
-      Redirect(dest.desturl, 301);
- }
+      gotourl := dest.desturl;
+
+    IF(RecordExists(dest) AND gotourl = "" AND NOT dest.isactive AND options.oninactivetarget != DEFAULT MACRO PTR)
+      gotourl := options.oninactivetarget(dest.destid);
+
+    IF(gotourl != "")
+      Redirect(gotourl, 301);
+  }
   FINALLY
   {
     IF(ObjectExists(trans))
       trans->Close();
   }
-
 }

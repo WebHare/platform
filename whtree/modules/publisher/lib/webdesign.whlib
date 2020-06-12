@@ -641,7 +641,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   /** Generate a breadcrum trail useful for structured data. Override this
       function if you want to overwrite the initial breadcrumb (or just modify
       this->structuredbreadcrumb in GetPageConfig or later)
-      @return breadcrum*/
+      @return breadcrumb centries, ordered from start of the site to the current page
+      @cell(string) return.title Breadcrum entry title
+      @cell(string) return.link Link (the cannoical url recmomended) */
   PUBLIC RECORD ARRAY FUNCTION GetStructuredBreadcrumb()
   {
     // TODO move path generation to a free or WHFS function, with options... so users can invoke an efficient implementation when the standard one doesn't do
@@ -699,6 +701,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , isindexdoc    := ObjectExists(this->targetsite) AND this->targetobject->id = this->targetfolder->indexdoc
                    , isrtdpreview  := FALSE
                    , sitelanguage  := GetSiteLanguageRecord(PRIVATE this)
+                   , structuredbreadcrumb := this->structuredbreadcrumb
                    ];
 
     IF(this->pvt_linkmode = "absolute")

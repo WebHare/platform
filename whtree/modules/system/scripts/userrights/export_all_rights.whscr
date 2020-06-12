@@ -43,32 +43,34 @@ trans->BeginWork();
 OBJECT user := EnsureCreatedMagicSysop("<shelluser>");
 trans->CommitWork();
 
-Print("id;name;realname;email;unitid;unitname;right;grantoption;objecttype;objectid;objectname\n");
+Print("id;name;realname;email;unitid;unitname;right;grantoption;objecttype;objectid;objectname;grantor;grantorname;grantorrealname;grantoremail\n");
 
 FOREVERY(RECORD r FROM allrights)
 {
   RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
   FOREVERY(RECORD grant FROM grants)
   {
-    RECORD granteerec := SELECT * FROM allobjs WHERE grant.grantee = allobjs.id;
-    IF(NOT RecordExists(granteerec))
-    {
-      PrintTo(2,"Grantee #" || grant.grantee || " missing\n");
-      CONTINUE;
-    }
+    RECORD grantorrec := SELECT * FROM allobjs WHERE id = grant.grantor;
+    IF(NOT RecordExists(grantorrec))
+      PrintTo(2,"Grantor #" || grant.grantor || " missing\n");
 
-    STRING line := granteerec.id || ";"
-          || EncodeExcelCSV(granteerec.name) || ";"
-          || EncodeExcelCSV(granteerec.realname) || ";"
-          || EncodeExcelCSV(granteerec.email) || ";"
-          || granteerec.unitid || ";"
-          || EncodeExcelCSV(granteerec.unitname) || ";"
+    RECORD granteerec := SELECT * FROM allobjs WHERE id = grant.grantee;
+    IF(NOT RecordExists(granteerec))
+      PrintTo(2,"Grantee #" || grant.grantee || " missing\n");
+
+    STRING line := grant.grantee || ";"
+          || EncodeExcelCSV(RecordExists(granteerec) ? granteerec.name : "") || ";"
+          || EncodeExcelCSV(RecordExists(granteerec) ? granteerec.realname : "") || ";"
+          || EncodeExcelCSV(RecordExists(granteerec) ? granteerec.email : "") || ";"
+          || (RecordExists(granteerec) ? granteerec.unitid : 0) || ";"
+          || EncodeExcelCSV(RecordExists(granteerec) ? granteerec.unitname : "") || ";"
           || EncodeExcelCSV(r.rightname) || ";"
-          || EncodeExcelCSV(grant.withgrantoption?"true":"false") || ";";
+          || EncodeExcelCSV(grant.withgrantoption?"true":"false") || ";"
+          ;
 
     IF(r.isglobal)
     {
-      Print(line || ";;");
+      line := line || ";;";
     }
     ELSE
     {
@@ -79,10 +81,9 @@ FOREVERY(RECORD r FROM allrights)
           CONTINUE;
 
         STRING ARRAY pathitems := SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0;
-        PRINT(line);
-        Print(EncodeExcelCSV(r.objecttypename) || ";");
-        Print(grant."object" || ";");
-        Print(EncodeExcelCSV(Detokenize(pathitems,"/")));
+        line := line || EncodeExcelCSV(r.objecttypename) || ";";
+        line := line || grant."object" || ";";
+        line := line || EncodeExcelCSV(Detokenize(pathitems,"/")) || ";";
       }
       CATCH (OBJECT e)
       {
@@ -91,6 +92,11 @@ FOREVERY(RECORD r FROM allrights)
         CONTINUE;
       }
     }
-    Print("\n");
+    line := line
+          || grant.grantor || ";"
+          || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.name : "") || ";"
+          || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.realname : "") || ";"
+          || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.email : "") || ";";
+    Print(line || "\n");
   }
 }
