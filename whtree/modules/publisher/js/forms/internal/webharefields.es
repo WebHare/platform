@@ -1,3 +1,4 @@
+import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import CheckboxGroupField from '@mod-publisher/js/forms/fields/checkboxgroup';
@@ -135,6 +136,11 @@ export function setup(form)
     new ArrayField(arrayfieldgroup);
 
   // Setup on-demand captcha
-  for (let addresscontrol of qSA(form, "wh-form-captcha"))
-    new CaptchaField(addresscontrol);
+  if(form.dataset.whFormCaptcha)
+  {
+    //TODO add something like virtualfields to forms but that is too much for a backport.
+    let captchanode = <wh-form-captcha data-wh-form-name={form.dataset.whFormCaptcha} />;
+    form.appendChild(captchanode);
+    new CaptchaField(captchanode);
+  }
 }

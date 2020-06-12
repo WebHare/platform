@@ -251,6 +251,13 @@ class WRDAuthenticationProvider
 
     return defer.promise;
   }
+
+  //Setup the page with loginstate. automatically invoked on the default auth provider
+  setupPage()
+  {
+    document.documentElement.classList.toggle("wh-wrdauth-loggedin", this.isLoggedIn()); //legacy! will be removed
+    document.documentElement.classList.toggle("wh-wrdauth--isloggedin", this.isLoggedIn());
+  }
 }
 
 WRDAuthenticationProvider.getDefaultAuth = function()
@@ -273,11 +280,7 @@ if(window.$wh && window.$wh.WRDAuthenticationProvider)
 else if(whintegration.config["wrd:auth"])
 {
   defaultauth = new WRDAuthenticationProvider(whintegration.config["wrd:auth"]);
-  if(defaultauth.isLoggedIn())
-  {
-    document.documentElement.classList.add("wh-wrdauth-loggedin"); //legacy! will be removed
-    document.documentElement.classList.add("wh-wrdauth--isloggedin");
-  }
+  defaultauth.setupPage();
 
   dompack.register('.wh-wrdauth__logout, .whplugin-wrdauth-logout', node =>
   {

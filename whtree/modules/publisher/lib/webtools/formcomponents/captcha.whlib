@@ -15,6 +15,7 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
+    form->AddFormAttributesCallback(PTR this->GetFormAttributes);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
@@ -27,12 +28,16 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
     this->value := this->form->formcontext->VerifyCaptchaResponse(jsdata);
   }
 
-  UPDATE PUBLIC MACRO RenderField() //combine our properties with the subfields, and start rendering stuff
+  STRING FUNCTION GetFormAttributes()
   {
     IF(NOT this->IsFrontendVisible())
-      RETURN;
+      RETURN "";
 
-    Print(`<wh-form-captcha data-wh-form-name="${EncodeValue(this->field.name)}"></wh-form-captcha>`);
+    RETURN `data-wh-form-captcha="${EncodeValue(this->field.name)}"`;
+  }
+
+  UPDATE PUBLIC MACRO RenderField()
+  {
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)

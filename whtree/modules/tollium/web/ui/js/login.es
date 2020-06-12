@@ -306,9 +306,9 @@ class LoginApp
 
   async executePasswordLogin(data,callback)
   {
-    var loginname = this.topscreen.getComponent('loginname').getSubmitValue();
-    var password = this.topscreen.getComponent('password').getSubmitValue();
-    var savelogin = this.topscreen.getComponent('savelogin').getSubmitValue();
+    let loginname = this.topscreen.getComponent('loginname').getSubmitValue();
+    let password = this.topscreen.getComponent('password').getSubmitValue();
+    let savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
     if(!loginname || !password)
     {
@@ -326,6 +326,8 @@ class LoginApp
         {
           //no need to execute the submit instruction, it just redirects back to the shell..
           this.app.terminateApplication();
+          $shell.wrdauth.refresh();
+          $shell.wrdauth.setupPage();
           $shell.executeShell();
           callback();
           return;

@@ -1,6 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Modules"
-       docorder="setup moduledefinition services-tasks">
+       docorder="setup moduledefinition userrights services-tasks">
   <section name="config" title="WebHare Configuration and registry" />
   <section name="resources" title="WebHare resources" />
   <section name="services" title="System services" />
