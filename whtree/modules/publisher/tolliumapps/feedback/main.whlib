@@ -5,6 +5,7 @@ LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
@@ -175,6 +176,61 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RefreshLog();
   }
 
+  MACRO DoExport()
+  {
+    RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(
+        [ outputcolumns := CELL[ "wrd_id", "feedbackid", "userdata", "type", "remarks", "wrd_creationdate" ]
+        , filters := [ [ field := "wrd_leftentity", value := ^scope->value ]
+                     ]
+        ]);
+
+    rows := SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
+                 , *
+                 , reportedby      := reportinfo.realname ?? reportinfo.login
+                 , reportedbyemail := reportinfo.emailaddress
+              FROM rows;
+
+    rows := this->contexts->wrdschema->^feedbacktype->Enrich(rows, "TYPE", [ type := "wrd_title" ], [ rightouterjoin := TRUE ]);
+    rows := SELECT *, type := GetTid(type) FROM rows ORDER BY wrd_creationdate;
+
+    RECORD ARRAY log := this->contexts->wrdschema->^log->RunQuery(
+        [ outputcolumns := CELL[ "WRD_CREATIONDATE", "WRD_LEFTENTITY", "TEXT", "WEBHAREUSER" ]
+        , filters := [ [ field := "WRD_LEFTENTITY", value := SELECT AS INTEGER ARRAY wrd_id FROM rows ]
+                     ]
+        ]);
+
+    log := SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], webhareuser)
+                 , *
+                 , reportedby      := reportinfo.realname ?? reportinfo.login
+                 , reportedbyemail := reportinfo.emailaddress
+              FROM log;
+
+    FOREVERY(RECORD row FROM rows)
+    {
+      RECORD ARRAY logentries := SELECT * FROM log WHERE wrd_leftentity = row.wrd_id ORDER BY wrd_creationdate;
+      STRING logtext;
+
+      FOREVERY(RECORD entry FROM logentries)
+      {
+        //Spaces to show properly when excel puts all on one line
+        logtext := `${logtext}${entry.reportedby} ${this->tolliumuser->FormatDatetime(entry.wrd_creationdate, "minutes", TRUE, TRUE)}   \n${entry.text}   \n\n`;
+      }
+      INSERT CELL issuelog := logtext INTO rows[#row];
+    }
+
+    RunColumnFileExportDialog(this,
+      CELL[ rows
+          , columns := [[ type := "text",     name := "feedbackid",       title := this->GetTid(".feedbackid") ]
+                       ,[ type := "datetime", name := "wrd_creationdate", title := this->GetTid(".wrd_creationdate"), storeutc := TRUE ]
+                       ,[ type := "text",     name := "reportedby",       title := this->GetTid(".reportedby") ]
+                       ,[ type := "text",     name := "reportedbyemail",  title := GetTid("~email") ]
+                       ,[ type := "text",     name := "type",             title := this->GetTid(".type") ]
+                       ,[ type := "text",     name := "remarks",          title := this->GetTid(".remarks") ]
+                       ,[ type := "text",     name := "issuelog",         title := this->GetTid(".issuelog") ]
+                       ]
+          , exporttitle := "Feedback"
+          ]);
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
