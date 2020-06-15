@@ -276,13 +276,17 @@ STATIC OBJECTTYPE ManagedWorker
         RETURN;
       }
 
-      this->CloseProcess(TRUE); //also scheduled CheckMoreWorkers
 
       IF (ObjectExists(this->pvt_activetask))
       {
+        IF(debug)
+          Print("Failing crashing task of " || this->GetType() || " worker #" || this->uid || `, active task: ${this->GetCurrentTaskId()}\n`);
         RECORD out := ParseOutputForStackTrace(this->fulloutput);
         FailTask(this->pvt_activetask, out.output, out.trace, FALSE);
+        this->pvt_activetask := DEFAULT OBJECT;
       }
+
+      this->CloseProcess(TRUE); //also scheduled CheckMoreWorkers
     }
   }
 
@@ -365,6 +369,16 @@ STATIC OBJECTTYPE ManagedWorker
     this->proc->Close();
     this->proc := DEFAULT OBJECT;
     ScheduleMicroTask(PTR CheckMoreWorkers);
+
+    IF (ObjectExists(this->pvt_activetask))
+    {
+      IF(debug)
+        Print(`Worker #${this->uid} was terminated while running ${this->GetCurrentTaskLabel()}, scheduling call to mark as failed\n`);
+
+      // Schedule a FailTask call (it opens work, but this call can also be run inside of work)
+      ScheduleMicroTask(PTR FailTask(this->pvt_activetask, "Task was cancelled or removed from the database", RECORD[], FALSE));
+      this->pvt_activetask := DEFAULT OBJECT;
+    }
   }
 
   /** @return Worker type (0: harescript, 1: javascript)
@@ -496,6 +510,9 @@ STATIC OBJECTTYPE ManagedWorker
   */
   PUBLIC MACRO SendTaskStatus(RECORD status)
   {
+    IF (NOT ObjectExists(this->activetask)) // task was removed from worker due to cancellation/deletion
+      RETURN;
+
     IF (status.type = "taskfailed")
     {
       FailTask(this->activetask, status.error, status.trace, status.isfatal);
@@ -931,42 +948,35 @@ STATIC OBJECTTYPE QueueMgr
       }
     }
 
-    RECORD ARRAY testcancel;
+    INTEGER64 ARRAY toterminatetasks;
     FOREVERY (RECORD task FROM gonetasks)
     {
       IF (debug)
-        PRINT(`Removed task ${task.item->taskdata.id} from DB\n`);
+        PRINT(`Removed task ${task.item->taskdata.id} from DB (state: ${task.item->stage}\n`);
 
       task.item->taskdata.removed := TRUE;
       IF (task.item->stage != "running")
         task.item->stage := "finished";
       ELSE
-        INSERT task INTO testcancel AT END;
+        INSERT task.item->id INTO toterminatetasks AT END;
     }
 
-    // Terminate cancelled tasks that are currently running
-    IF (LENGTH(testcancel) != 0)
+    IF (IsValueSet(toterminatetasks))
     {
-      // Get ids of cancelled tasks
-      INTEGER ARRAY cancelled :=
-          SELECT AS INTEGER ARRAY id
-            FROM system.managedtasks
-           WHERE id IN (SELECT AS INTEGER ARRAY id FROM testcancel)
-             AND iscancelled;
-
-      FOREVERY (RECORD task FROM testcancel)
-        IF (task.id IN cancelled)
+      // Terminate the worker of a cancelled item
+      INTEGER64 ARRAY terminatedtasks;
+      FOREVERY (OBJECT worker FROM managedworkers)
+      {
+        INTEGER64 taskid := worker->GetCurrentTaskId();
+        IF (taskid IN toterminatetasks)
         {
-          // Terminate the worker of a cancelled item
-          FOREVERY (OBJECT worker FROM managedworkers)
-            IF (worker->GetCurrentTaskId() = task.item->id)
-            {
-              IF (debug)
-                PRINT(`Terminating worker ${worker->uid} for managed task ${task.item->taskdata.id}\n`);
+          IF (debug)
+            PRINT(`Terminating worker ${worker->uid} for managed task ${taskid}\n`);
 
-              worker->CloseProcess(FALSE);
-            }
+          worker->CloseProcess(FALSE);
+          INSERT taskid INTO toterminatetasks AT END;
         }
+      }
     }
 
     RETURN newtaskslist;
