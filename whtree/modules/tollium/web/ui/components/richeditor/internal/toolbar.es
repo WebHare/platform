@@ -175,7 +175,7 @@ class MenuButton extends SimpleToggleButton
     if (!this.available || !this.toolbar.rte.isEditable() || !this.listnode.childNodes.length)
       return;
 
-    menu.openAt(this.listnode, this.node, { direction: "down" }, false);
+    menu.openAt(this.listnode, event, { direction: "down" }, false);
     this.updateState(this.toolbar.rte.getSelectionState());
   }
 

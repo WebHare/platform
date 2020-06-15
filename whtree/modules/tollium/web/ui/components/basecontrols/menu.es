@@ -969,7 +969,7 @@ class MenuBase
   }
 }
 
-class MenuBar extends MenuBase
+export class MenuBar extends MenuBase
 { constructor(el, options)
   {
     options = {openonhover: false, ...menuoptions, ...options};
@@ -1414,11 +1414,11 @@ class MenuList extends MenuBase
     options.direction 'down', 'right', 'up'
     options.forcenooverlap
 */
-function openMenuAt(el, at, options)
+export function openAt(el, at, options)
 {
-  options = Object.assign({}, options);
+  options = { ...options };
   if(typeof el != 'object')
-    throw new Error("openMenuAt requires an object, not an #id");
+    throw new Error("openAt requires an object, not an #id");
 
   if('pageX' in at && 'pageY' in at)
   {
@@ -1427,23 +1427,16 @@ function openMenuAt(el, at, options)
     if(!options.eventnode)
       options.eventnode = at.target; //make sure events are injected at the click location
   }
-  else if(window.DOMEvent && at instanceof window.DOMEvent)
-  {
-    options.direction="right";
-    coords = { left: at.page.x, right: at.page.x, top: at.page.y, bottom: at.page.y };
-    if(!options.eventnode)
-      options.eventnode = at.target; //make sure events are injected at the click location
-  }
   else
   {
-    var coords = dompack.getRelativeBounds(at);
+    var coords = dompack.getRelativeBounds(at.target || at);
     if(!options.direction)
     {
       options.direction="right";
       coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom };
     }
     if(!options.eventnode)
-       options.eventnode = at;
+       options.eventnode = at.target || at;
   }
 
   var openoptions =
@@ -1477,13 +1470,8 @@ function openMenuAt(el, at, options)
   return ml;
 }
 
-function setMenuOptions(options)
+export function setOptions(options)
 {
   // Override existing menuoptions with options
   menuoptions = {...menuoptions, ...options};
 }
-
-module.exports = { setOptions: setMenuOptions
-                 , openAt: openMenuAt
-                 , MenuBar: MenuBar
-                 };
