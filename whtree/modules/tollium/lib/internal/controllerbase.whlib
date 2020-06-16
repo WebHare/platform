@@ -119,10 +119,10 @@ STRING FUNCTION DescribeAccessCheck(RECORD accesscheck)
 }
 
 /* The screenbuilder holds our state for screen construction */
-PUBLIC OBJECTTYPE __ScreenBuilder
+PUBLIC STATIC OBJECTTYPE __ScreenBuilder
 <
   PUBLIC BOOLEAN allpublic;
-  PUBLIC BOOLEAN isvalidating;
+  PUBLIC OBJECT validator;
 
   OBJECT screen;
   OBJECT screenmgr;
@@ -130,14 +130,15 @@ PUBLIC OBJECTTYPE __ScreenBuilder
   BOOLEAN havelib;
   RECORD ARRAY localrefs;
   RECORD ARRAY localhandlers;
+  STRING objtype;
 
-  MACRO NEW(OBJECT controller, RECORD parsedpage, BOOLEAN run_init)
+  MACRO NEW(OBJECT controller, RECORD parsedpage, OBJECT validator)
   {
     OBJECT newscreen;
     this->errors := parsedpage.errors;
-    this->isvalidating := NOT run_init;
+    this->validator := validator;
 
-    IF(run_init)
+    IF(NOT ObjectExists(this->validator))
       newscreen := this->GetCustomScreen(parsedpage);
 
     IF(NOT ObjectExists(newscreen))
@@ -151,6 +152,7 @@ PUBLIC OBJECTTYPE __ScreenBuilder
 
     this->screenmgr->resourcename := parsedpage.resourcename;
     this->screenmgr->screenname := parsedpage.name;
+    this->objtype := parsedpage.objtype;
   }
 
   ///Temporary override resolving of names & handlers (allow resolving against external symbols in fragments)
@@ -554,8 +556,11 @@ PUBLIC OBJECTTYPE __ScreenBuilder
 
   FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
-    IF(this->isvalidating) //FIXME parse the lib without requiring instantiation
+    IF(ObjectExists(this->validator))
+    {
+      this->validator->ValidateGlobalHandler(handlerrec, attributename, tolliumscope);
       RETURN DEFAULT FUNCTION PTR;
+    }
 
     TRY
     {
@@ -614,9 +619,9 @@ PUBLIC OBJECTTYPE __ScreenBuilder
       IF(NOT ObjectExists(scope)) //we already gave an error for this...
         RETURN DEFAULT FUNCTION PTR;
 
-      IF(this->isvalidating)
+      IF(ObjectExists(this->validator))
       {
-        //FIXME parse the object without requiring instantiation
+        this->validator->ValidateLocalHandler(handlerrec, attributename, tolliumscope, this->objtype);
         RETURN DEFAULT FUNCTION PTR;
       }
       res := scope->__tolliumscope_lookuphandler(membername);
@@ -1951,7 +1956,8 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
                            , initdata := loaddata.params
                            , contextparent := loaddata.contextparent
                            ];
-      builder := NEW __ScreenBuilder(this, parsedpage, TRUE);
+
+      builder := NEW __ScreenBuilder(this, parsedpage, DEFAULT OBJECT);
       screen := __screenbuildinfo.privateptr;
     }
     FINALLY

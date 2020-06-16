@@ -156,6 +156,19 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
            ] INTO this->errors AT END;
   }
 
+  /** Add an error using scope information
+      @param linenum Line in the document relevant to the error
+      @param error Error message
+  */
+  PUBLIC MACRO AddErrorForScope(RECORD scope, STRING error)
+  {
+    INSERT CELL[ scope.resourcename
+               , scope.line
+               , scope.col
+               , message :=   error
+               ] INTO this->errors AT END;
+  }
+
   /** Adds a list of errors
       @param errors List of errors
       @cell errors.resourcename Resource name
@@ -266,24 +279,26 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   /** Verifies the existence of a reference to a function
       @param linenum Line number of the reference
       @param objtype Reference to the objecttype
-      @return TRUE if the objecttype exists
+      @return Object description if it exists
   */
-  BOOLEAN FUNCTION VerifyObjectExistence(INTEGER linenum, STRING objtype)
+  RECORD FUNCTION VerifyObjectExistence(INTEGER linenum, STRING objtype)
   {
     STRING ARRAY objtoks := Tokenize(objtype,'#');
     RECORD lib := this->GetLibDescription(objtoks[0]);
     IF(NOT RecordExists(lib))
     {
       this->AddErrorForLine(linenum, `No such library '${objtoks[0]}' (looking for '${objtoks[1]}')`);
-      RETURN FALSE;
-    }
-    IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(objtoks[1] || "#NEW")))
-    {
-      this->AddErrorForLine(linenum, `Object '${objtoks[1]}' not found in '${objtoks[0]}'`);
-      RETURN FALSE;
+      RETURN DEFAULT RECORD;
     }
 
-    RETURN TRUE;
+    RECORD match := SELECT * FROM lib.objecttypes WHERE name = ToUppercase(objtoks[1]);
+    IF(NOT RecordExists(match))
+    {
+      this->AddErrorForLine(linenum, `Object '${objtoks[1]}' not found in '${objtoks[0]}'`);
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN match;
   }
 
   /** Verify the existence of a reference to a screens file thingy
@@ -334,24 +349,95 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
   /** Verifies the existence of a reference to a function
       @param linenum Line number of the reference
       @param func Reference to the function
-      @return TRUE if the function exists
+      @return Function definition if it exists
   */
-  BOOLEAN FUNCTION VerifyFunctionExistence(INTEGER linenum, STRING func)
+  RECORD FUNCTION VerifyFunctionExistence(RECORD tolliumscope, STRING func)
   {
     STRING ARRAY functoks := Tokenize(func,'#');
     RECORD lib := this->GetLibDescription(functoks[0]);
     IF(NOT RecordExists(lib))
     {
-      this->AddErrorForLine(linenum, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
-      RETURN FALSE;
-    }
-    IF(NOT RecordExists(SELECT FROM lib.functions WHERE name = ToUppercase(functoks[1])))
-    {
-      this->AddErrorForLine(linenum, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
-      RETURN FALSE;
+      this->AddErrorForScope(tolliumscope, `No such library '${functoks[0]}' (looking for '${functoks[1]}')`);
+      RETURN DEFAULT RECORD;
     }
 
-    RETURN TRUE;
+    RECORD match := SELECT * FROM lib.functions WHERE name = ToUppercase(functoks[1]);
+    IF(NOT RecordExists(match))
+    {
+      this->AddErrorForScope(tolliumscope, `Function '${functoks[1]}' not found in '${functoks[0]}'`);
+      RETURN DEFAULT RECORD;
+    }
+
+    RETURN match;
+  }
+
+  RECORD FUNCTION FindObjectMember(STRING objtype, STRING membername)
+  {
+    WHILE(objtype != "")
+    {
+      STRING ARRAY objtoks := Tokenize(objtype,'#');
+      RECORD lib := this->GetLibDescription(objtoks[0]);
+      IF(NOT RecordExists(lib))
+        RETURN DEFAULT RECORD;
+
+      RECORD matchobj := SELECT * FROM lib.objecttypes WHERE name = ToUppercase(objtoks[1]);
+      IF(NOT RecordExists(matchobj))
+        RETURN DEFAULT RECORD;
+
+      RECORD match := SELECT * FROM matchobj.members WHERE ToUppercase(name) = ToUppercase(membername);
+      IF(RecordExists(match))
+        RETURN match;
+
+      //chase the extend. if it starts with '#', stay in this lib
+      objtype := matchobj.objectextend LIKE "#*" ? objtoks[0] || matchobj.objectextend : matchobj.objectextend;
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO ValidateLocalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope, STRING objtype)
+  {
+    IF(handlerrec.name LIKE "*!*" OR ToUppercase(handlerrec.name) IN ["CANCEL","SUBMIT","@NOTIMPLEMENTED"])
+      RETURN; //no support for scoped names (yet?)
+
+    RECORD match := this->FindObjectMember(objtype, handlerrec.name);
+    IF(NOT RecordExists(match) OR NOT match.ismethod)
+    {
+      this->AddErrorForScope(tolliumscope, `No such method '${handlerrec.name}' in objecttype ${objtype}`);
+      RETURN;
+    }
+
+    IF(NOT __ValidateFunctionPtrSignature([ excessargstype := 0
+                                          , returntype := match.resulttype
+                                          , parameters := SELECT source := (#parameters + 1) * (hasdefault ? -1 : 1)
+                                                               , type
+                                                            FROM match.parameters
+                                          ], handlerrec.req_retval, handlerrec.req_args))
+    {
+      this->AddErrorForScope(tolliumscope,
+              `The '${attributename}' handler points to function '${handlerrec.name}'`
+              ||" which has the wrong function signature. Expected " ||
+              ExplainFunctionSignature(handlerrec.req_retval, handlerrec.req_args) || ", got " || ExplainFunctionSignature(match.resulttype, SELECT AS INTEGER ARRAY type FROM match.parameters));
+    }
+  }
+  PUBLIC MACRO ValidateGlobalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope)
+  {
+    RECORD match := this->VerifyFunctionExistence(tolliumscope, handlerrec.name);
+    IF(NOT RecordExists(match))
+      RETURN; //already handled
+
+    INTEGER ARRAY expectargs := [TYPEID(OBJECT)] CONCAT handlerrec.req_args;
+    IF(NOT __ValidateFunctionPtrSignature([ excessargstype := 0
+                                          , returntype := match.resulttype
+                                          , parameters := SELECT source := (#parameters + 1) * (hasdefault ? -1 : 1)
+                                                               , type
+                                                            FROM match.parameters
+                                          ], handlerrec.req_retval, expectargs))
+    {
+      this->AddErrorForScope(tolliumscope,
+              `The '${attributename}' handler points to function '${handlerrec.name}'`
+              ||" which has the wrong function signature. Expected " ||
+              ExplainFunctionSignature(handlerrec.req_retval, expectargs) || ", got " || ExplainFunctionSignature(match.resulttype, SELECT AS INTEGER ARRAY type FROM match.parameters));
+    }
   }
 
   /** Hook for additional resource validation for XML documents */

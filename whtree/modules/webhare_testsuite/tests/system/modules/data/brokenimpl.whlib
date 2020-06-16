@@ -1,0 +1,23 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE testbadlocalhandlerparent EXTEND TolliumScreenBase
+<
+  PUBLIC RECORD FUNCTION GoodOptionsHandlerInParent(STRING invalidparamrequest DEFAULTSTO "")
+  {
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+PUBLIC OBJECTTYPE testbadlocalhandler EXTEND testbadlocalhandlerparent
+<
+  PUBLIC RECORD FUNCTION BadOptionsHandler(STRING invalidparamrequest)
+  {
+    RETURN DEFAULT RECORD;
+  }
+  PUBLIC RECORD FUNCTION GoodOptionsHandler(STRING invalidparamrequest DEFAULTSTO "")
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+>;
