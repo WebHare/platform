@@ -879,6 +879,13 @@ MACRO LibdumpTest()
   TestEq(46, SELECT AS INTEGER line FROM dump.functions WHERE name = "PUBLICMACRO");
   TestEq(1, SELECT AS INTEGER line FROM dump.functions WHERE name = "Main HareScript code");
 
+  RECORD objtype := SELECT * FROM dump.objecttypes WHERE name = "DOCUMENTEDOBJECTTYPE";
+  TestEQ(TRUE, RecordExists(objtype));
+
+  RECORD docfunction := SELECT * FROM objtype.members WHERE name = "OBJ_DOCFUNCTION";
+  TestEQ(TRUE, RecordExists(docfunction));
+  TestEq([[ hasdefault := FALSE, name := "PARAM1", type := TYPEID(INTEGER) ]], docfunction.parameters);
+
   CloseTest("DocgenTest::LibdumpTest");
 }
 
