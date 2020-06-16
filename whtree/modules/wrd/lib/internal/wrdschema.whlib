@@ -986,11 +986,13 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
   /** Update this WRD schema's metadata
       @cell(string) options.schemaresource Schema resource to use (if not set, we'll use the moduldedefinition's specified schema)
       @cell(boolean) options.force Always update, even if the schema resources haven't changed
+      @cell(boolean) options.reportupdates Log update informatino to stderr
   */
   PUBLIC MACRO ApplySchemaDefinition(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ schemaresource := ""
                                , force := FALSE
+                               , reportupdates := FALSE
                                ], options);
 
     IF(this->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]) = "")
@@ -1017,8 +1019,14 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
     }
 
     IF (NOT options.force AND NOT this->TestSchemaResourcesChanged(schemaresource))
+    {
+      IF(options.reportupdates)
+        Print(`Not updating '${this->tag}': schema definition not changed\n`);
       RETURN;
+    }
 
+    IF(options.reportupdates)
+      Print(`Updating schema '${this->tag}'\n`);
     RECORD schemadef := OpenWRDSchemaDefFile(schemaresource);
     UpdateSchema(this, schemadef);
   }

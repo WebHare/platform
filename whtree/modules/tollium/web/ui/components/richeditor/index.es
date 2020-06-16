@@ -13,7 +13,7 @@ import RTEToolbar from './internal/toolbar';
 import './richeditor.scss';
 import './internal/buttons.scss';
 import './internal/widgets.scss';
-let menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
+import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import getTid from "@mod-tollium/js/gettid";
 require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json");
 
@@ -247,7 +247,7 @@ export class RTE
       }
     }
 
-    menu.openAt(contextmenu, event.target, {eventnode:this.node});
+    menu.openAt(contextmenu, event, { eventnode: this.node });
   }
 
   _activateRTDMenuItem(evt)

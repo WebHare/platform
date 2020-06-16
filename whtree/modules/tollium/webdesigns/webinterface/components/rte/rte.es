@@ -5,10 +5,8 @@ import { Counter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import { getUTF8Length } from "@mod-system/js/internal/utf8";
 
 var $todd = require("@mod-tollium/web/ui/js/support");
-var getTid = require("@mod-tollium/js/gettid").getTid;
 import { RTE } from '@mod-tollium/web/ui/components/richeditor';
 var TableEditor = require('@mod-tollium/web/ui/components/richeditor/internal/tableeditor');
-var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 
 
 /* our new dirty/change protocol:

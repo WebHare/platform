@@ -1154,6 +1154,11 @@
           </xs:documentation>
         </xs:annotation>
       </xs:element>
+      <xs:element name="csp" minOccurs="0" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Reserved for future use.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
       <xs:element name="account" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="username" />

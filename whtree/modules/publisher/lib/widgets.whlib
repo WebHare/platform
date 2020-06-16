@@ -127,21 +127,24 @@ PUBLIC OBJECTTYPE WidgetBase
     this->Render();
   }
 
-  /** @short Run this widget's wittycomponent (as specified in siteprofile) with this data */
-  PUBLIC MACRO EmbedComponent(RECORD data)
+  /** @short Run this widget's wittycomponent (as specified in siteprofile) with this data
+      @oaram data Data for the witty component
+      @cell(string) options.component Override component to use */
+  PUBLIC MACRO EmbedComponent(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ component := "" ], options);
     IF(this->__pvt_widgetsettings.wittycomponent = "")
       THROW NEW Exception("WidgetBase::EmbedComponent requires the wittycomponent to be defined on its widgettype");
 
     IF(this->context->IsRTDPreview())
     {
-      IF(NOT ObjectExists(emptywitty))
+      IF(NOT ObjectExists(emptywitty)) // we need a context for EmbedWittyComponent
       {
-        emptywitty := NEW WittyTemplate("HTML-NI"); //we'll guess people will want html-ci from now on...
+        emptywitty := NEW WittyTemplate("HTML-NI"); //we'll guess people will want html-ni from now on...
         emptywitty->LoadCodeDirect("");
       }
 
-      STRING wittycomponent := this->__pvt_widgetsettings.previewcomponent ?? this->__pvt_widgetsettings.wittycomponent;
+      STRING wittycomponent := options.component ?? this->__pvt_widgetsettings.previewcomponent ?? this->__pvt_widgetsettings.wittycomponent;
       emptywitty->CallWithScope(PTR EmbedWittyComponent(wittycomponent, data),
                                 [ languagecode := this->context->languagecode
                                 , isrtdpreview := TRUE
@@ -150,7 +153,7 @@ PUBLIC OBJECTTYPE WidgetBase
     }
     ELSE
     {
-      EmbedWittyComponent(this->__pvt_widgetsettings.wittycomponent, data);
+      EmbedWittyComponent(options.component ?? this->__pvt_widgetsettings.wittycomponent, data);
     }
   }
 

@@ -44,29 +44,28 @@ MACRO CleanupDiversions()
 
 MACRO CleanupUsermgmt()
 {
-  INTEGER retention := ReadRegistrykey("system.userrights.retention");
-  IF(retention <= 0)
-    RETURN;
-
   OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
   IF(NOT ObjectExists(usermgmtschema))
     RETURN;
 
-  DATETIME cutoff := AddDaysToDate(-retention, GetCurrentDatetime());
-
-  trans->BeginWork();
-  FOREVERY(RECORD type FROM usermgmtschema->ListTypes())
+  INTEGER retention := ReadRegistrykey("system.userrights.retention");
+  IF(retention > 0)
   {
-    OBJECT wrdtype := usermgmtschema->GetTypeById(type.id);
-    RECORD ARRAY tokill := wrdtype->RunQuery([ outputcolumns := [ "WRD_ID" ]
-                                             , filters := [[ field := "WRD_LIMITDATE", matchtype := "<", value := cutoff ]]
-                                             , historymode := "all"
+    DATETIME cutoff := AddDaysToDate(-retention, GetCurrentDatetime());
+    trans->BeginWork();
+    FOREVERY(RECORD type FROM usermgmtschema->ListTypes())
+    {
+      OBJECT wrdtype := usermgmtschema->GetTypeById(type.id);
+      RECORD ARRAY tokill := wrdtype->RunQuery([ outputcolumns := [ "WRD_ID" ]
+                                               , filters := [[ field := "WRD_LIMITDATE", matchtype := "<", value := cutoff ]]
+                                               , historymode := "all"
 
-                                             ]);
-    IF(Length(tokill) > 0)
-      wrdtype->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM tokill);
+                                               ]);
+      IF(Length(tokill) > 0)
+        wrdtype->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM tokill);
+    }
+    trans->CommitWork();
   }
-  trans->CommitWork();
 
   trans->BeginWork();
   FixUnconnectedItems(usermgmtschema);

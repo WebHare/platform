@@ -33,6 +33,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, STRING resource
 {
   options := ValidateOptions(
       [ force :=    FALSE
+      , reportupdates := FALSE
       ], options);
 
   GetPrimary()->BeginWork([ mutex := GetUpdateSchemaLockName(candidate) ]);
@@ -61,7 +62,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, STRING resource
 PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ schemamasks := STRING[]
-                             , output := FALSE
+                             , reportupdates := FALSE
                              , force := FALSE
                              ], options);
 
@@ -69,16 +70,20 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
   FOREVERY(STRING module FROM GetInstalledModuleNames())
     alldefs := alldefs CONCAT GetModuleDefinedWRDSchemas(module);
 
-  BOOLEAN allsuccess := TRUE;
+  BOOLEAN allsuccess := TRUE, anymatch;
   STRING ARRAY candidates := GetWRDSchemaDefCandidates(alldefs);
 
   FOREVERY(STRING candidate FROM candidates)
   {
     IF(Length(options.schemamasks) > 0 AND NOT MatchCommonXMLWildcardMasks(candidate, options.schemamasks))
       CONTINUE;
-    IF(NOT UpdateACandidateSchema(candidate, "", CELL[ options.force ]))
+
+    anymatch := TRUE;
+    IF(NOT UpdateACandidateSchema(candidate, "", CELL[ options.force, options.reportupdates ]))
       allsuccess := FALSE;
   }
+  IF(NOT anymatch AND options.reportupdates)
+    PrintTo(2, `No schemas matched the specified masks\n`);
 
   RETURN allsuccess;
 }
