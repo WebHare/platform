@@ -20,5 +20,5 @@ IF (NOT RecordExists(args))
 
 OpenPrimary();
 
-IF(NOT UpdateAllModuleSchemas(CELL[ schemamasks := args.schemamasks, args.force ]))
+IF(NOT UpdateAllModuleSchemas(CELL[ schemamasks := args.schemamasks, reportupdates := TRUE, args.force ]))
   SetConsoleExitCode(1);
