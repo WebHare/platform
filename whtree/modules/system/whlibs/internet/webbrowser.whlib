@@ -232,6 +232,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   STRING pvt_connectingto;
 
   RECORD ARRAY pvt_hostnameoverrides;
+  RECORD ARRAY __proxies; //connection proxyies
 
   /** List of macro ptrs that will be called for every request
       Signature: MACRO hook(BOOLEAN beforerequest, STRING method, STRING url, INTEGER transactionid, RECORD data);
@@ -784,6 +785,16 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     }
   }
 
+  //EXPERIMENTAL SetProxyFor - little or no test coverage yet
+  PUBLIC MACRO SetProxyFor(STRING proxy, STRING urlmask)
+  {
+    IF(proxy NOT LIKE "socks4://*")
+      THROW NEW Exception(`Unsupported proxy type`); //probably shouldn't dump the URI, obvious candidates for containing passwords..
+
+    DELETE FROM this->__proxies WHERE __proxies.urlmask = proxy;
+    INSERT CELL[ proxy, urlmask ] INTO this->__proxies AT END;
+  }
+
   /** Set up for use of trusted ports (ADDME convert this to 'generic' reconfiguration and routing)
       @param ip IP address of the trusted port
       @param port Port number of the trusted port
@@ -850,35 +861,88 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       STRING connecttohost := RecordExists(override) ? override.overridewith : server;
       INTEGER connecttoport := RecordExists(override) AND override.outport != 0 ? override.outport : port;
 
+      RECORD proxy := SELECT * FROM this->__proxies WHERE url LIKE urlmask;
+      IF(RecordExists(proxy))
+      {
+        IF(this->debug OR __webbrowser_debugall)
+          Print(`Proxy! Connect through ${proxy.proxy} to ${url}\n`);
+
+        RECORD proxyurl := UnpackURL(proxy.proxy);
+        BOOLEAN connectresult := isasync
+            ? YIELD AsyncConnectSocket(connid, proxyurl.host, proxyurl.port)
+            : ConnectSocket(connid, proxyurl.host, proxyurl.port);
+
+        IF (NOT connectresult)
+        {
+          this->pvt_sockerr := GetLastSocketError(connid);
+          this->MyErrorHandler("Could not connect to proxy " || connecttohost || ":" || connecttoport || " (for " || url || ")");
+          CloseSocket(connid);
+          RETURN 0;
+        }
+
+        STRING connectpacket := EncodePacket("ver:C,cmd:C,dstport:n,destip:P,userid:a*,domain:a*",
+                                              CELL[ ver := 4
+                                                  , cmd := 1
+                                                  , dstport := connecttoport
+                                                  , destip := 1 //socks4a : send domain name
+                                                  , userid := "socks"
+                                                  , domain := connecttohost //FIXME shouldn't we use destip if this is a IP?
+                                                  ]);
+
+
+        PrintTo(connid, connectpacket);
+        STRING response := ReadFrom(connid,8);
+        IF(Substring(response,1,1) != "\x5A") //5A is 'request granted'
+        {
+          this->MyErrorHandler("SOCKS4 onnection to " || connecttohost || ":" || connecttoport || " failed (for " || url || ")");
+          CloseSocket(connid);
+          RETURN 0;
+        }
+      }
+      ELSE
+      {
+        IF(this->debug OR __webbrowser_debugall)
+          Print(`Connecting to ${connecttohost}:${connecttoport} (for ${url})\n`);
+
+        BOOLEAN connectresult := isasync
+            ? YIELD AsyncConnectSocket(connid, connecttohost, connecttoport)
+            : ConnectSocket(connid, connecttohost, connecttoport);
+
+        IF (NOT connectresult)
+        {
+          this->pvt_sockerr := GetLastSocketError(connid);
+          this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
+          CloseSocket(connid);
+          RETURN 0;
+        }
+      }
+
       BOOLEAN requires_secure := RecordExists(this->webharetrustedport) ? FALSE
                                  : RecordExists(override) AND override.overridesecure ? override.setsecure
                                  : CellExists(options,'connectssl') ? options.connectssl : url LIKE 'https://*';
       this->pvt_connectingto := (requires_secure ? "https://" : "http://") || connecttohost || ":" || connecttoport;
 
-      BOOLEAN connectresult := isasync
-          ? YIELD AsyncConnectSocket(connid, connecttohost, connecttoport)
-          : ConnectSocket(connid, connecttohost, connecttoport);
-
-      IF (NOT connectresult)
-      {
-        this->pvt_sockerr := GetLastSocketError(connid);
-        this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
-        CloseSocket(connid);
-        RETURN 0;
-      }
 
       IF (this->__socketsendbuffersize > 0)
         SetSocketSendBufferSize(connid, this->__socketsendbuffersize);
 
-      IF (requires_secure AND NOT SetSecureConnection(connid, TRUE, [ hostname := server ]))
+      IF (requires_secure)
       {
-        this->pvt_sockerr := GetLastSocketError(connid);
-        this->MyErrorHandler("Could not establish secure connection");
-        CloseSocket(connid);
-        RETURN 0;
+        IF(this->debug OR __webbrowser_debugall)
+          Print(`Securing connection...\n`);
+
+        IF(NOT SetSecureConnection(connid, TRUE, [ hostname := server ]))
+        {
+          this->pvt_sockerr := GetLastSocketError(connid);
+          this->MyErrorHandler("Could not establish secure connection");
+          CloseSocket(connid);
+          RETURN 0;
+        }
       }
 
       connid := OpenHTTPServerOnSocket(connid, requires_secure, server, port);
+      IF(this->debug OR __webbrowser_debugall)
+        Print(`Opened HTTP server on socket ${connid}\n`);
 
       this->pvt_server := server;
       this->pvt_port := port;
