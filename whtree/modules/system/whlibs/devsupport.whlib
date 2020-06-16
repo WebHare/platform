@@ -516,6 +516,18 @@ RECORD ARRAY FUNCTION DescribeMembers(RECORD ARRAY inmembers)
   RETURN res;
 }
 
+STRING FUNCTION GetObjectExtend(RECORD info, STRING objectextend)
+{
+  IF(objectextend = "")
+    RETURN "";
+
+  RECORD source := SELECT * FROM info.objs WHERE ToUppercase(name) = ToUppercase(objectextend);
+  IF(NOT RecordExists(source))
+    THROW NEW Exception(`Cannot find import location for '${objectextend}'`);
+
+  RETURN source.importfrom || "#" || objectextend;
+}
+
 /** Returns the functions defined in a library from the compiled version
     @param resourcename Resource name for the library
     @return List of functions defined in the library
@@ -543,8 +555,10 @@ PUBLIC RECORD FUNCTION DescribeCompiledLibrary(STRING resourcename)
   RECORD ARRAY objecttypes := SELECT name
                                    , ispublic
                                    , members := DescribeMembers(members)
+                                   , objectextend := GetObjectExtend(info, objectextend)
                                 FROM info.objs
                                WHERE importfrom = ""; //ignore the imported objects
+
   RECORD result := CELL[ functions := funcs
                        , objecttypes
                        ];

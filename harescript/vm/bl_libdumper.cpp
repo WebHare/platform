@@ -58,6 +58,7 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
         HSVM_ColumnId col_members      = HSVM_GetColumnId(vm, "MEMBERS");
         HSVM_ColumnId col_name         = HSVM_GetColumnId(vm, "NAME");
         HSVM_ColumnId col_objs         = HSVM_GetColumnId(vm, "OBJS");
+        HSVM_ColumnId col_objectextend = HSVM_GetColumnId(vm, "OBJECTEXTEND");
         HSVM_ColumnId col_onexception  = HSVM_GetColumnId(vm, "ONEXCEPTION");
         HSVM_ColumnId col_paramcount   = HSVM_GetColumnId(vm, "PARAMCOUNT");
         HSVM_ColumnId col_position     = HSVM_GetColumnId(vm, "POSITION");
@@ -191,6 +192,11 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
                 HSVM_BooleanSet(  vm, HSVM_RecordCreate(vm, objrec, col_isdeprecated), it->symbolflags & SymbolFlags::Deprecated);
                 HSVM_BooleanSet(  vm, HSVM_RecordCreate(vm, objrec, col_ispublic),     it->symbolflags & SymbolFlags::Public);
                 HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_deprecated),   wlib.linkinfo.GetNameStr(it->deprecation_index));
+
+                if (it->base != -1)
+                    HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_objectextend), wlib.linkinfo.GetNameStr(wlib.linkinfo.objecttypes[it->base].name_index));
+                else
+                    HSVM_SetDefault(vm, HSVM_RecordCreate(vm, objrec, col_objectextend), HSVM_VAR_String);
 
                 if (it->symbolflags & SymbolFlags::Imported)
                         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_importfrom), LibraryPath(wlib, it->library));

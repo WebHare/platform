@@ -834,7 +834,7 @@ MACRO BasicTest()
   TestEq(functions, script.functions);
 
   // Test objecttypes
-  TestEq(objecttypes, script.objecttypes);
+  TestEq(objecttypes, ArraySlice(script.objecttypes,0,4));
 
   //ADDME actually index schema/table
   TestEq(5, Length(script.variables));
@@ -875,16 +875,22 @@ MACRO LibdumpTest()
   OpenTest("DocgenTest::LibdumpTest");
   TestEq(DEFAULT RECORD, DescribeCompiledLibrary("wh::bestaatniet.whlib"));
 
+  //DumpValue(__HS_LIBDUMP("test::testdata_docgen_lib.whlib"),"tree");
   RECORD dump := DescribeCompiledLibrary("test::testdata_docgen_lib.whlib");
   TestEq(46, SELECT AS INTEGER line FROM dump.functions WHERE name = "PUBLICMACRO");
   TestEq(1, SELECT AS INTEGER line FROM dump.functions WHERE name = "Main HareScript code");
 
   RECORD objtype := SELECT * FROM dump.objecttypes WHERE name = "DOCUMENTEDOBJECTTYPE";
   TestEQ(TRUE, RecordExists(objtype));
+  Testeq("wh::system.whlib#EXCEPTION", objtype.objectextend);
 
   RECORD docfunction := SELECT * FROM objtype.members WHERE name = "OBJ_DOCFUNCTION";
   TestEQ(TRUE, RecordExists(docfunction));
+  TestEQ(TRUE, docfunction.ismethod);
   TestEq([[ hasdefault := FALSE, name := "PARAM1", type := TYPEID(INTEGER) ]], docfunction.parameters);
+
+  objtype := SELECT * FROM dump.objecttypes WHERE name = "DOCUMENTEDOBJECTTYPEEXT";
+  TestEq("#DOCUMENTEDOBJECTTYPE", objtype.objectextend);
 
   CloseTest("DocgenTest::LibdumpTest");
 }
