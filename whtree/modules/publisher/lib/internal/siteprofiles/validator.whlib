@@ -182,28 +182,6 @@ STATIC OBJECTTYPE Validating
           this->ValidateWittyComponent(this->GetApplyErrorContext(apply), setwidget.previewcomponent);
         }
       }
-
-      IF(RecordExists(apply.setobjecteditor))
-      {
-        IF(apply.setobjecteditor.screen != "") //ADDME should we also debug 'name', or not care anymore?
-        {
-          TRY
-          {
-            OBJECT testscreen := this->controller->PVT_LoadScreen(
-                                   [ parent     := DEFAULT OBJECT
-                                   , screen     := apply.setobjecteditor.screen
-                                   , params     := DEFAULT RECORD
-                                   , run_init   := FALSE
-                                   , options    := DEFAULT RECORD
-                                   ]);
-          }
-          CATCH(OBJECT e)
-          {
-            this->AddError(this->GetApplyErrorContext(apply), "Loading screen " || apply.setobjecteditor.screen || ": " || e->what);
-            CONTINUE;
-          }
-        }
-      }
     }
     RETURN [ errors := this->errors ];
   }

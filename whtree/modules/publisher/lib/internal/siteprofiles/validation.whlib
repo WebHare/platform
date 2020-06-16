@@ -38,6 +38,15 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
     this->errors := this->errors CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.errors;
     this->warnings := this->warnings CONCAT SELECT code := 0, col, line, message, resourcename FROM parseres.value.warnings;
 
+    FOREVERY(RECORD apply FROM parseres.value.rules)
+    {
+      IF(CellExists(apply,"setobjecteditor") AND RecordExists(apply.setobjecteditor))
+      {
+        IF(apply.setobjecteditor.screen != "")
+          this->VerifyScreenReferenceExistence(apply.line, apply.setobjecteditor.screen, "screen");
+      }
+    }
+
     FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
       this->AddHint(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
     FOREVERY(OBJECT embeddedobjecttype FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","embeddedobjecttype"))

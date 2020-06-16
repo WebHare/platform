@@ -626,7 +626,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     RECORD screendata := [ parent := this
                          , screen := name
                          , params := params
-                         , run_init := TRUE
                          , options := options
                          , contextparent := this
                          ];

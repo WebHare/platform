@@ -1631,7 +1631,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         OBJECT errorpage := this->PVT_LoadScreen([ parent := parent
                                                  , screen := MakeAbsoluteScreenReference("","tollium:commondialogs.loaderror")
                                                  , params := DEFAULT RECORD
-                                                 , run_init := TRUE
                                                  , options := DEFAULT RECORD
                                                  ]);
         IF(NOT ObjectExists(errorpage))
@@ -1909,7 +1908,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         [ screen :=        ""
         , parent :=        DEFAULT OBJECT
         , params :=        DEFAULT RECORD
-        , run_init :=      TRUE
         , options :=       DEFAULT RECORD
         , contextparent := DEFAULT OBJECT
         ],
@@ -1928,9 +1926,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     {
       IF (LENGTH(e->xmlerrors) != 0)
       {
-        IF(loaddata.run_init)
-          this->HandleLoadError(loaddata.parent, e->xmlerrors, loaddata.screen);
-
+        this->HandleLoadError(loaddata.parent, e->xmlerrors, loaddata.screen);
         RETURN DEFAULT OBJECT;
       }
       THROW;
@@ -1955,7 +1951,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
                            , initdata := loaddata.params
                            , contextparent := loaddata.contextparent
                            ];
-      builder := NEW __ScreenBuilder(this, parsedpage, loaddata.run_init);
+      builder := NEW __ScreenBuilder(this, parsedpage, TRUE);
       screen := __screenbuildinfo.privateptr;
     }
     FINALLY
@@ -1965,17 +1961,14 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
     TRY
     {
-      IF(loaddata.run_init)
-      {
-        RECORD ARRAY allcomponents := screen->DoLoadComponents(parsedpage.formobjects, builder);
-        //stored component info doesn't have a screenname yet, so add it, as the fragment code (InnerCreateFragment) adds one too
-        allcomponents := screen->tolliumscreenmanager->ScopeFormObjects(allcomponents);
-        IF(NOT builder->HasFailed())
-          screen->tolliumscreenmanager->DoInitComponents(allcomponents, builder);
+      RECORD ARRAY allcomponents := screen->DoLoadComponents(parsedpage.formobjects, builder);
+      //stored component info doesn't have a screenname yet, so add it, as the fragment code (InnerCreateFragment) adds one too
+      allcomponents := screen->tolliumscreenmanager->ScopeFormObjects(allcomponents);
+      IF(NOT builder->HasFailed())
+        screen->tolliumscreenmanager->DoInitComponents(allcomponents, builder);
 
-        IF(NOT builder->HasFailed())
-          screen->TolliumInitializeScreen(loaddata.params);
-      }
+      IF(NOT builder->HasFailed())
+        screen->TolliumInitializeScreen(loaddata.params);
     }
     CATCH(OBJECT<TolliumException> e)
     {
@@ -2020,13 +2013,11 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
     IF(builder->HasFailed())
     {
-      IF(loaddata.run_init)
-        this->HandleLoadError(loaddata.parent, builder->GetErrors(), loaddata.screen);
-
+      this->HandleLoadError(loaddata.parent, builder->GetErrors(), loaddata.screen);
       RETURN DEFAULT OBJECT;
     }
 
-    RETURN loaddata.run_init ? screen : DEFAULT OBJECT;
+    RETURN screen;
   }
 
 
@@ -2062,7 +2053,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RETURN this->PVT_LoadScreen([ parent := DEFAULT OBJECT
                                 , screen := name
                                 , params:= params
-                                , run_init:=TRUE
                                 , options := options
                                 ]);
   }
