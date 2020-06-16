@@ -154,7 +154,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntityEditDialog(OBJECT owner, OBJECT wrdtype, INT
   IF(NOT ObjectExists(editor))
     THROW NEW TolliumException(options.component, `Screen '${options.screen}' could not be loaded`);
   IF(entityid = 0 AND NOT MemberExists(editor,"GetNewEntityId"))
-    THROW NEW TolliumException(options.component, `Screen '${options.screen}' does not implement GetNewEntityId`);
+    THROW NEW TolliumException(options.component, `Screen '${options.screen}' does not implement GetNewEntityId, make sure the implementation is (based on) WRDEntityEditScreenBase`);
 
   IF(editor->RunModal() != "ok")
     RETURN 0;
