@@ -108,6 +108,19 @@ ASYNC MACRO TestTaskQueue()
   i5->queuename := "queue-2";
   AWAIT Delay(1);
   TestEQ(4, gotrunnablecounter); // first in queue queue-2
+
+  // Force queue-1 record to exist
+  OBJECT i6 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 2 ]
+      , stage :=      "scheduled"
+      , priority :=   7
+      , queuename :=  "queue-1"
+      , scheduledate := MakeDate(2100, 1, 1)
+      ]);
+
+  i5->queuename := "queue-1"; // again first in queue queue-1
+  AWAIT Delay(1);
+  TestEQ(5, gotrunnablecounter); // first in queue queue-2
 }
 
 RunTestframework([ PTR TestTaskQueue

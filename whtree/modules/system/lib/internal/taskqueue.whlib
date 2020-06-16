@@ -370,7 +370,9 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   /** Place/remove an item from the queue
       @param(object #QueueItem) item Queue item
       @param add TRUE to add, FALSE to remove from all queues
-  */
+      @return
+      @cell return.firstrunnable If this was the first runnable item added to the queue
+   */
   RECORD FUNCTION HandleItemUpdate(OBJECT item, BOOLEAN add)
   {
     RECORD retval := [ firstrunnable := FALSE ];
@@ -447,7 +449,10 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
             retval.firstrunnable := TRUE;
           }
           ELSE
+          {
+            retval.firstrunnable := IsDefaultValue(this->queues[pos.position].runnable);
             INSERT rec INTO this->queues[pos.position].runnable AT RecordUpperBound(this->queues[pos.position].runnable, rec, [ "PRIORITY", "SCHEDULEDATE", "ID" ]);
+          }
         }
         ELSE
         {
