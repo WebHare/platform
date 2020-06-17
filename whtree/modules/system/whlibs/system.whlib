@@ -3334,7 +3334,7 @@ PUBLIC BOOLEAN FUNCTION ValidateFunctionPtr(MACRO PTR funcptr, INTEGER returntyp
   RETURN __ValidateFunctionPtrSignature(x, returntypeid, parametertypeids);
 }
 
-//Keep private for now. Let's first make sure that the returend structure given by __INTERNAL_DEBUGFUNCTIONPTRTORECORD is fully comptaible with DescribeCompiledLibrary (Libdump)
+//Keep private for now. Let's first make sure that the returned structure given by __INTERNAL_DEBUGFUNCTIONPTRTORECORD is fully compatible with DescribeCompiledLibrary (Libdump)
 PUBLIC BOOLEAN FUNCTION __ValidateFunctionPtrSignature(RECORD x, INTEGER returntypeid, INTEGER ARRAY parametertypeids)
 {
   // Check return value
