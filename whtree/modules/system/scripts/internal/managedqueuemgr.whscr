@@ -112,6 +112,12 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
     LogError("managedqueuemgr", "javascript-error", details);
   }
 
+  IF (item->stage = "finished")
+  {
+    Print("Task " || item->taskdata.queueid || " crashed (but was already marked as finished, last errors: '" || EncodeJava(Left(error,1024)) || "'\n");
+    RETURN;
+  }
+
   Print("Task " || item->taskdata.queueid || " crashed, last errors: '" || EncodeJava(Left(error,1024)) || "'\n");
   IF(item->isephemeral)
   {
