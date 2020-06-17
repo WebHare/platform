@@ -912,7 +912,7 @@ STATIC OBJECTTYPE QueueMgr
     {
       IF (NOT rec.found) // finished/cancelled/deleted task
       {
-        INSERT CELL[ ...rec.item->taskdata, rec.item ] INTO gonetasks AT END;
+        INSERT CELL[ ...rec.item->taskdata, rec.item, rec.item->taskdata.id ] INTO gonetasks AT END;
       }
       ELSE
       {
@@ -954,7 +954,7 @@ STATIC OBJECTTYPE QueueMgr
       }
     }
 
-    INTEGER64 ARRAY toterminatetasks;
+    RECORD ARRAY runninggonetasks;
     FOREVERY (RECORD task FROM gonetasks)
     {
       IF (debug)
@@ -964,23 +964,45 @@ STATIC OBJECTTYPE QueueMgr
       IF (task.item->stage != "running")
         task.item->stage := "finished";
       ELSE
-        INSERT task.item->id INTO toterminatetasks AT END;
+        INSERT task INTO runninggonetasks AT END;
     }
 
-    IF (IsValueSet(toterminatetasks))
+    IF (IsValueSet(runninggonetasks))
     {
-      // Terminate the worker of a cancelled item
-      INTEGER64 ARRAY terminatedtasks;
-      FOREVERY (OBJECT worker FROM managedworkers)
-      {
-        INTEGER64 taskid := worker->GetCurrentTaskId();
-        IF (taskid IN toterminatetasks)
-        {
-          IF (debug)
-            PRINT(`Terminating worker ${worker->uid} for managed task ${taskid}\n`);
+      /* There can be 3 reasons that a task is gone from the list
+         - task is cancelled (task exists with iscancelled=true, finished != default datetime)
+         - it is finished (normal flow, task exists in db with finished != default datetime)
+         - task is deleted (task is gone from db)
+         In the last 2 cases, we terminate the worker immediately
+      */
+      INTEGER ARRAY taskids := SELECT AS INTEGER ARRAY id FROM runninggonetasks;
 
-          worker->CloseProcess(FALSE);
-          INSERT taskid INTO toterminatetasks AT END;
+      INTEGER ARRAY finishedtasks :=
+          SELECT AS INTEGER ARRAY id
+            FROM system.managedtasks
+           WHERE id IN taskids
+             AND finished != DEFAULT DATETIME
+             AND NOT iscancelled;
+
+      INTEGER64 ARRAY terminatetaskids;
+      FOREVERY (RECORD rec FROM runninggonetasks)
+        IF (rec.id IN finishedtasks)
+          rec.item->stage := "finished";
+        ELSE
+          INSERT rec.item->id INTO terminatetaskids AT END;
+
+      IF (IsValueSet(terminatetaskids))
+      {
+        FOREVERY (OBJECT worker FROM managedworkers)
+        {
+          INTEGER64 taskid := worker->GetCurrentTaskId();
+          IF (taskid IN terminatetaskids)
+          {
+            IF (debug)
+              PRINT(`Terminating worker ${worker->uid} for managed task ${taskid}\n`);
+
+            worker->CloseProcess(FALSE);
+          }
         }
       }
     }
