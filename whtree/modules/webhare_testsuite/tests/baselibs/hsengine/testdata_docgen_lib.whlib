@@ -175,3 +175,7 @@ PRINT(`${1}b${`${2 || "3"}`}`);
 PUBLIC CONSTANT INTEGER constint := 5;
 
 PUBLIC __CONSTREF INTEGER constrefint := 5;
+
+OBJECTTYPE DocumentedObjectTypeExt EXTEND DocumentedObjectType
+<
+>;

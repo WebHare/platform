@@ -1063,7 +1063,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
                             , params := [ contextrequestfallback := this->composition
                                         , openingcomponent := this
                                         ]
-                            , run_init := TRUE
                             ]);
       //IF (NOT ObjectExists(editor))
       //  THROW NEW Exception("Could not load rowaddscreen");
@@ -1076,7 +1075,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
                               , params := [ datatypes := this->datatypes
                                           , openingcomponent := this
                                           ]
-                              , run_init := TRUE
                               ]);
     }
 
@@ -1124,7 +1122,6 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
                                      , contextrequestfallback := this->composition
                                      , openingcomponent := this
                                      ]
-                         , run_init := TRUE
                          ];
 
     OBJECT editor := this->owner->tolliumcontroller->PVT_LoadScreen(screenopts);

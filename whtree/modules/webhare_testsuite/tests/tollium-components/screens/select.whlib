@@ -44,6 +44,10 @@ PUBLIC RECORD FUNCTION BadFreeOptionsHandler(OBJECT contexts, STRING invalidpara
 {
   RETURN DEFAULT RECORD;
 }
+PUBLIC RECORD FUNCTION GoodFreeOptionsHandler(OBJECT contexts, STRING invalidparamrequest DEFAULTSTO "") //used by testvalidate.whscr
+{
+  RETURN DEFAULT RECORD;
+}
 
 PUBLIC RECORD FUNCTION GetFreeOptions(OBJECT contexts)
 {

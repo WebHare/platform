@@ -626,7 +626,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     RECORD screendata := [ parent := this
                          , screen := name
                          , params := params
-                         , run_init := TRUE
                          , options := options
                          , contextparent := this
                          ];
@@ -964,7 +963,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       }
 
       OBJECT parent;
-      IF(objinfo.data.tolliumscope.parent != "" AND NOT screenbuilder->isvalidating) //if we're validating, we're not constructing so we won't find a parent
+      IF(objinfo.data.tolliumscope.parent != "" AND NOT ObjectExists(screenbuilder->validator)) //if we're validating, we're not constructing so we won't find a parent
       {
         STRING parentname := ToUppercase(objinfo.data.tolliumscope.parent); //FIXME might as well move parent outside data..
         //parent := SELECT AS OBJECT component FROM allcomponents WHERE name = parentname;
@@ -978,7 +977,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
         composedname := ToUppercase(objinfo.data.composition || "." || objinfo.data.cellname);
 
       BOOLEAN isframe := addtoscope = "" AND objname_upcase = "FRAME";
-      STRING createtype := screenbuilder->isvalidating AND NOT isframe ? "mod::tollium/lib/componentbase.whlib#TolliumComponentBase" : objinfo.objtype;
+      STRING createtype := ObjectExists(screenbuilder->validator) AND NOT isframe ? "mod::tollium/lib/componentbase.whlib#TolliumComponentBase" : objinfo.objtype;
 
       OBJECT obj := this->tolliumscreenmanager->CreateComponent(createtype
                                                                ,fullobjname, objinfo.data.tolliumscope.line, parent, composedname, objinfo.fragmentgid, objinfo.elementtype);

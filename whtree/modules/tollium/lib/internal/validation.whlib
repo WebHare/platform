@@ -51,7 +51,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
           this->warnings := this->warnings CONCAT parsedelement.warnings;
 
           INTEGER elline := parsedelement.rootnode.tolliumscope.line;
-          IF(NOT this->VerifyObjectExistence(elline, parsedelement.objtype))
+          IF(NOT RecordExists(this->VerifyObjectExistence(elline, parsedelement.objtype)))
             CONTINUE;
 
           //any errors would throw a RetrieveResourceException
@@ -67,7 +67,7 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
                                  , initdata := DEFAULT RECORD
                                  , contextparent := DEFAULT OBJECT
                                  ];
-            OBJECT builder := NEW __ScreenBuilder(DEFAULT OBJECT, parsedelement, FALSE);
+            OBJECT builder := NEW __ScreenBuilder(DEFAULT OBJECT, parsedelement, this);
             OBJECT screen := __screenbuildinfo.privateptr;
             RECORD ARRAY allcomponents := screen->DoLoadComponents(parsedelement.formobjects, builder);
             allcomponents := screen->tolliumscreenmanager->ScopeFormObjects(allcomponents);

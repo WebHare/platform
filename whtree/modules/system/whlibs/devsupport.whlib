@@ -501,10 +501,38 @@ RECORD FUNCTION GetPosition(RECORD ARRAY sourcemap, INTEGER codeptr)
 
 }
 
+RECORD ARRAY FUNCTION DescribeMembers(RECORD ARRAY inmembers)
+{
+  RECORD ARRAY res;
+  FOREVERY(RECORD memberrec FROM inmembers)
+  {
+    INSERT CELL[ memberrec.name
+               , memberrec.resulttype
+               , ismethod := memberrec.type="METHOD"
+               , parameters := memberrec.type="METHOD" ? ArraySlice(memberrec.parameters,1) //Remove :THIS
+                                                       : RECORD[]
+               ] INTO res AT END;
+  }
+  RETURN res;
+}
+
+STRING FUNCTION GetObjectExtend(RECORD info, STRING objectextend)
+{
+  IF(objectextend = "")
+    RETURN "";
+
+  RECORD source := SELECT * FROM info.objs WHERE ToUppercase(name) = ToUppercase(objectextend);
+  IF(NOT RecordExists(source))
+    THROW NEW Exception(`Cannot find import location for '${objectextend}'`);
+
+  RETURN source.importfrom || "#" || objectextend;
+}
+
 /** Returns the functions defined in a library from the compiled version
     @param resourcename Resource name for the library
     @return List of functions defined in the library
-    @cell return.functions The functions defined in the library */
+    @cell return.functions The functions defined in the library
+    @cell return.objecttypes The objecttypes defined in the library */
 PUBLIC RECORD FUNCTION DescribeCompiledLibrary(STRING resourcename)
 {
   RECORD info := __HS_LIBDUMP(resourcename);
@@ -519,10 +547,21 @@ PUBLIC RECORD FUNCTION DescribeCompiledLibrary(STRING resourcename)
                              , name := name = ":INITFUNCTION:::" ? "Main HareScript code" : Tokenize(name,':')[0]
                              , line
                              , col
+                             , parameters
+                             , resulttype
                           FROM info.funcs
                          WHERE importfrom = ""; //strip imports from funcs
 
-  RECORD result := [ functions := funcs ];
+  RECORD ARRAY objecttypes := SELECT name
+                                   , ispublic
+                                   , members := DescribeMembers(members)
+                                   , objectextend := GetObjectExtend(info, objectextend)
+                                FROM info.objs
+                               WHERE importfrom = ""; //ignore the imported objects
+
+  RECORD result := CELL[ functions := funcs
+                       , objecttypes
+                       ];
   RETURN result;
 }
 

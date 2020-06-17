@@ -147,10 +147,32 @@ BLOB badglobalhandler := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
       <select name="pulldown" type="pulldown">
         <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#NoSuchFunction" />
         <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler" />
+        <optionsource name="os3" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#GoodFreeOptionsHandler" />
       </select>
     </body>
   </screen>
 </screens>`);
+
+BLOB badlocalhandler := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="${Resolve("data/brokenimpl.whlib")}">
+  <screen name="testbadlocalhandler">
+    <actions> <!-- cancel and submit are exceptions for handler resolutino, they always exist -->
+      <action name="actcancel" onexecute="cancel"/>
+      <action name="actsubmit" onexecute="submit"/>
+      <action name="notimplemented" onexecute="@notimplemented"/>
+    </actions>
+    <body>
+      <select name="pulldown" type="pulldown">
+        <optionsource name="os1" ongetoptions="NoSuchFunction" />
+        <optionsource name="os2" ongetoptions="BadOptionsHandler" />
+        <optionsource name="os3" ongetoptions="GoodOptionsHandler" />
+        <optionsource name="os4" ongetoptions="GoodOptionsHandlerInParent" />
+      </select>
+      <url /> <!-- test a field with fragment-scoped handlers. shouldnt break anything -->
+    </body>
+  </screen>
+</screens>`);
+
 
 BLOB badplacementxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema elementFormDefault="qualified" xml:lang="en"
@@ -327,7 +349,8 @@ MACRO TestBasicValidate()
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
-  TestEq(1, Length(res.errors), "Unexpected errors!");
+  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*NOSUCHHANDLER*" AND resourcename = "mod::system/nosuchscreen.xml" AND line = 5));
+  TestEq(2, Length(res.errors), "Unexpected errors!");
   TestTidsForInconsistentScreen(res);
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := inconsistentscreen, onlytids := TRUE ]);
@@ -365,7 +388,15 @@ MACRO TestBasicValidate()
 
   //We can't detect bad handlers yet as we cannot instantiate during validation
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
-  TestEq(RECORD[],res.errors);
+  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib\'' ]
+                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
+                ],res.errors, "*");
+  TestEq(RECORD[],res.warnings);
+
+  res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badlocalhandler ]);
+  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 11, message := 'No such method \'NOSUCHFUNCTION\' in objecttype mod::webhare_testsuite/tests/system/modules/data/brokenimpl.whlib#testbadlocalhandler' ]
+                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 12, message := 'The \'ongetoptions\' handler points to function \'BADOPTIONSHANDLER\' which has the wrong function signature. Expected RECORD FUNCTION (), got RECORD FUNCTION (STRING param1)' ]
+                ],res.errors, "*");
   TestEq(RECORD[],res.warnings);
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
@@ -898,6 +929,7 @@ ASYNC MACRO TestLoadScreen()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  // this validation might become obsolete or at least less thorough if we can sucessfully move the checks to parse-time validation (which are cachable)
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(BlobToString(badglobalhandler))}#testbadglobalhandler`));
   TestEq(2, Length(tt("errors")->rows));
   TesteqLIke("*NoSuchFunction*was not found*", tt("errors")->rows[0].message);

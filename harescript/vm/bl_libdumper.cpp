@@ -16,6 +16,25 @@ std::string LibraryPath(WrappedLibrary const &wlib, int32_t id)
         return wlib.linkinfo.GetNameStr(wlib.LibraryList()[id].liburi_index);
 }
 
+void DescibeFunctionParameters(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib, FunctionDef::Parameters const &parameters)
+{
+        HSVM_ColumnId col_hasdefault   = HSVM_GetColumnId(vm, "HASDEFAULT");
+        HSVM_ColumnId col_name         = HSVM_GetColumnId(vm, "NAME");
+        HSVM_ColumnId col_parameters   = HSVM_GetColumnId(vm, "PARAMETERS");
+        HSVM_ColumnId col_type         = HSVM_GetColumnId(vm, "TYPE");
+
+        HSVM_VariableId parametersarray = HSVM_RecordCreate(vm, id_set, col_parameters);
+        HSVM_SetDefault(vm, parametersarray, HSVM_VAR_RecordArray);
+        for (auto it3 = parameters.begin(); it3 != parameters.end(); ++it3)
+        {
+                HSVM_VariableId paramrec = HSVM_ArrayAppend(vm, parametersarray);
+                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, paramrec, col_name), wlib.linkinfo.GetNameStr(it3->name_index));
+                HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, paramrec, col_type), it3->type);
+                HSVM_BooleanSet(vm, HSVM_RecordCreate(vm, paramrec, col_hasdefault), it3->defaultid != -1);
+                // if (it3->defaultid != -1) std::cout << ":= "<<CWrapperPrinter(&stackm, &marshaller, &wlib, it3->defaultid);
+        }
+}
+
 void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
 {
         HSVM_ColumnId col_code         = HSVM_GetColumnId(vm, "CODE");
@@ -36,11 +55,14 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
         HSVM_ColumnId col_ispublic     = HSVM_GetColumnId(vm, "ISPUBLIC");
         HSVM_ColumnId col_line         = HSVM_GetColumnId(vm, "LINE");
         HSVM_ColumnId col_loadlibs     = HSVM_GetColumnId(vm, "LOADLIBS");
+        HSVM_ColumnId col_members      = HSVM_GetColumnId(vm, "MEMBERS");
         HSVM_ColumnId col_name         = HSVM_GetColumnId(vm, "NAME");
         HSVM_ColumnId col_objs         = HSVM_GetColumnId(vm, "OBJS");
+        HSVM_ColumnId col_objectextend = HSVM_GetColumnId(vm, "OBJECTEXTEND");
         HSVM_ColumnId col_onexception  = HSVM_GetColumnId(vm, "ONEXCEPTION");
         HSVM_ColumnId col_paramcount   = HSVM_GetColumnId(vm, "PARAMCOUNT");
         HSVM_ColumnId col_position     = HSVM_GetColumnId(vm, "POSITION");
+        HSVM_ColumnId col_resulttype   = HSVM_GetColumnId(vm, "RESULTTYPE");
         HSVM_ColumnId col_sourcemap    = HSVM_GetColumnId(vm, "SOURCEMAP");
         HSVM_ColumnId col_sourcetime   = HSVM_GetColumnId(vm, "SOURCETIME");
         HSVM_ColumnId col_stacksize    = HSVM_GetColumnId(vm, "STACKSIZE");
@@ -122,6 +144,10 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
                 HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, funcrec, col_line), it->definitionposition.line);
                 HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, funcrec, col_col), it->definitionposition.column);
 
+                HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, funcrec, col_resulttype), it->resulttype);
+                DescibeFunctionParameters(vm, funcrec, wlib, it->parameters);
+
+
                 /* ADDME
                 if (it->symbolflags & SymbolFlags::Public) std::cout << "PUBLIC ";
                 if (it->symbolflags & SymbolFlags::Deprecated) std::cout << "DEPRECATED ";
@@ -138,13 +164,6 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
                 if (it->dllname_index != 0)  std::cout << "\"" << wlib.linkinfo.GetNameStr(it->dllname_index) << "\" ";
                 std::cout << std::endl;
                 std::cout << "   parameters: ";
-                for (FunctionDef::Parameters::iterator it2 = it->parameters.begin();
-                        it2 != it->parameters.end(); ++it2)
-                {
-                        if (it2 != it->parameters.begin()) std::cout << ", ";
-                        std::cout << it2->type << " " << wlib.linkinfo.GetNameStr(it2->name_index);
-                        if (it2->defaultid != -1) std::cout << ":= "<<CWrapperPrinter(&stackm, &marshaller, &wlib, it2->defaultid);
-                }
                 if (it->parameters.empty())
                     std::cout << "none";
                 std::cout << std::endl;
@@ -174,17 +193,61 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
                 HSVM_BooleanSet(  vm, HSVM_RecordCreate(vm, objrec, col_ispublic),     it->symbolflags & SymbolFlags::Public);
                 HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_deprecated),   wlib.linkinfo.GetNameStr(it->deprecation_index));
 
+                if (it->base != -1)
+                    HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_objectextend), wlib.linkinfo.GetNameStr(wlib.linkinfo.objecttypes[it->base].name_index));
+                else
+                    HSVM_SetDefault(vm, HSVM_RecordCreate(vm, objrec, col_objectextend), HSVM_VAR_String);
+
                 if (it->symbolflags & SymbolFlags::Imported)
                         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, objrec, col_importfrom), LibraryPath(wlib, it->library));
                 else
                         HSVM_SetDefault(vm, HSVM_RecordCreate(vm, objrec, col_importfrom), HSVM_VAR_String);
+
+                HSVM_VariableId members = HSVM_RecordCreate(vm, objrec, col_members);
+                HSVM_SetDefault(vm, members, HSVM_VAR_RecordArray);
+
+                for (auto it2 = it->cells.begin(); it2 != it->cells.end(); ++it2)
+                {
+                        HSVM_VariableId memberrec = HSVM_ArrayAppend(vm, members);
+
+                        HSVM_VariableId vartype = HSVM_RecordCreate(vm, memberrec, col_type);
+                        HSVM_SetDefault(vm, vartype, HSVM_VAR_String);
+
+                        switch (it2->type)
+                        {
+                        case ObjectCellType::Member:   HSVM_StringSetSTD(vm, vartype, "MEMBER"); break;
+                        case ObjectCellType::Method:   HSVM_StringSetSTD(vm, vartype, "METHOD"); break;
+                        case ObjectCellType::Property: HSVM_StringSetSTD(vm, vartype, "PROPERTY"); break;
+                        default: break;
+                        }
+
+                        HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, memberrec, col_resulttype), it2->resulttype);
+                        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, memberrec, col_name), wlib.linkinfo.GetNameStr(it2->name_index));
+
+
+                        if (it2->type == ObjectCellType::Method)
+                                DescibeFunctionParameters(vm, memberrec, wlib, it2->parameters);
+
+                        // if (it2->symbolflags & SymbolFlags::Deprecated) std::cout << " DEPRECATED";
+                        // if (it2->is_update) std::cout << " UPDATE";
+                        // if (it2->is_private) std::cout << " PRIVATE";
+                        // if (it2->method != -1) std::cout << " <" << it2->method << ">";
+                        // if (it2->type == ObjectCellType::Property)
+                        // {
+                        //         std::cout << " (";
+                        //         std::string getter = wlib.linkinfo.GetNameStr(it2->getter_name_index);
+                        //         std::cout << (getter.empty() ? "-" : getter.c_str());
+                        //         std::cout << ", ";
+                        //         std::string setter = wlib.linkinfo.GetNameStr(it2->setter_name_index);
+                        //         std::cout << (setter.empty() ? "-" : setter.c_str());
+                        //         std::cout << ")";
+                        // }
+                        // std::cout << std::endl;
+                }
+
 /* ADDME
                 if (it->base != -1)
                     std::cout << "EXTEND " << wlib.linkinfo.GetNameStr(wlib.linkinfo.objecttypes[it->base].name_index) << " ";
-                if (it->symbolflags & SymbolFlags::Public) std::cout << "PUBLIC ";
-                if (it->symbolflags & SymbolFlags::Deprecated) std::cout << "DEPRECATED ";
-                if (it->symbolflags & SymbolFlags::Imported)
-                        std::cout << "IMPORTED from '"<<LibraryPath(wlib, it->library)<<"' (lib:"<<it->library<<")";
                 std::cout << std::endl;
                 std::cout << "   Constructor: ";
                 std::cout << "function "<<it->constructor<<": "<<wlib.linkinfo.GetNameStr(wlib.linkinfo.functions[it->constructor].name_index)<<std::endl;
