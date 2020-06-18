@@ -1576,6 +1576,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
            AND pg_namespace.oid = pg_class.relnamespace
            AND ToUppercase(nspname) = ToUppercase(schema_name)
            AND ToUppercase(relname) = ToUppercase(table_name)
+           AND atttypid != 0
            AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ] // hide system columns
       ORDER BY attname;
 

@@ -246,4 +246,18 @@ test.registerTests(
       test.false(test.qS('[data-wh-form-group-for="address2.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
       test.eq("1000", test.qS("#addressform-address2\\.zip").value);
     }
+
+  , "Regression: addressfield nl-optional broke (incorrectly waiting for allrequiredset)"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
+      test.fill("#addressform-address2\\.country", "NL");
+      test.fill("#addressform-address2\\.zip", "7521AM");
+      test.fill("#addressform-address2\\.nr_detail", "296");
+      await test.pressKey('Tab');
+      //wait for completion
+      await test.wait( () => test.qS("#addressform-address2\\.street").value);
+      test.eq("Hengelosestraat", test.qS("#addressform-address2\\.street").value);
+      test.eq("Enschede", test.qS("#addressform-address2\\.city").value);
+    }
   ]);
