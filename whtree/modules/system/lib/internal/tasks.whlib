@@ -34,6 +34,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   STRING library := tasknode->GetAttribute("library");
   STRING objectname := tasknode->GetAttribute("objectname");
   STRING cluster := tasknode->GetAttribute("cluster");
+  INTEGER timeout := ToInteger(tasknode->GetAttribute("timeout"), 0);
   BOOLEAN isnode := library LIKE "*.js" OR library LIKE "*.es";
   INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
   STRING libname;
@@ -69,6 +70,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
              , priority
              , maxfailures
              , linenum := tasknode->linenum
+             , timeout
              ];
 }
 

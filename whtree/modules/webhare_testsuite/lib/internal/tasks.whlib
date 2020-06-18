@@ -99,3 +99,12 @@ PUBLIC OBJECTTYPE TemporaryFailingTask EXTEND ManagedTaskBase
     this->ResolveByTemporaryFailure(data, "Temporary failure", nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ nextretry ]);
   }
 >;
+
+PUBLIC OBJECTTYPE TimeLimitedTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    Sleep(data.sleep);
+    this->ResolveByCompletion(data);
+  }
+>;

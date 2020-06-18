@@ -104,7 +104,8 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   RECORD pvt_schedulinginfo;
 
   /** @type(record) Scheduling info
-      @cell concurrenttasks Nr of tasks to run concurrently
+      @cell(integer) concurrenttasks Nr of tasks to run concurrently
+      @cell(integer) timeout Timeout override (-1 to keep task default)
   */
   PUBLIC PROPERTY schedulinginfo(pvt_schedulinginfo, -);
 
@@ -158,6 +159,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
   {
     this->pvt_schedulinginfo := ValidateOptions(
         [ concurrenttasks :=  1
+        , timeout := -1
         ], data);
 
     this->AssignWork();
@@ -222,7 +224,16 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
       IF (this->debuglevel >= debuglevel_queue)
         this->DebugLog(`> Running task #${item->id}`, EncodeHSON(item->taskdata));
 
-      promise := RunInSeparatePrimary(PTR ScheduleEphemeralTask(this->tasktype, CELL[ debug := this->debuglevel > debuglevel_task, task := item->taskdata ]));
+      RECORD taskdata := CELL
+          [ debug := this->debuglevel > debuglevel_task
+          , task := item->taskdata
+          ];
+      RECORD taskoptions;
+
+      IF (this->pvt_schedulinginfo.timeout >= 0)
+        INSERT CELL timeout := this->pvt_schedulinginfo.timeout INTO taskoptions;
+
+      promise := RunInSeparatePrimary(PTR ScheduleEphemeralTask(this->tasktype, taskdata, taskoptions));
 
       // No AWAITs before this point, this instruction needs to run synchronously with function invokation!
       INSERT promise INTO this->running_actions AT END;
@@ -468,6 +479,8 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
 
     STRING taskcontentid := this->GetTaskContentId(taskdata);
 
+    OBJECT ARRAY blockers;
+
     RECORD ARRAY items := RecordRange(this->queueitems, CELL[ taskcontentid ], [ "TASKCONTENTID" ]);
     FOREVERY (RECORD rec FROM items)
     {
@@ -483,6 +496,7 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
         }
         RETURN FALSE;
       }
+      INSERT rec.item INTO blockers AT END;
     }
 
     OBJECT item := NEW PersistentQueueItem(this->queue, CELL
@@ -492,10 +506,19 @@ PUBLIC STATIC OBJECTTYPE PersistentDiskQueue
         , queuename :=      this->queuename
         , options.scheduledate
         , onfinished :=     PTR this->GotItemFinished
+        , stage :=          "new"
         ]);
 
+    FOREVERY (OBJECT b FROM blockers)
+      INSERT item INTO b->blocks AT END;
+
+    item->stage := "scheduled";
+
     IF (this->debuglevel >= debuglevel_all)
-      this->DebugLog("  Scheduled item #" || item->id);
+    {
+      STRING ARRAY blockerids := SELECT AS STRING ARRAY ToString(blocker->id) FROM ToRecordArray(blockers, "blocker");
+      this->DebugLog("  Scheduled item #" || item->id || (IsValueSet(blockers) ? `, must run after ${Detokenize(blockerids, ", ")}` : ""));
+    }
 
     RECORD rec := CELL
         [ taskcontentid

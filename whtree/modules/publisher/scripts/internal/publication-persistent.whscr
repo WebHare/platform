@@ -36,11 +36,20 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
     this->GotConfigUpdate("", RECORD[]);
   }
 
+  RECORD FUNCTION GetConfig()
+  {
+    RETURN
+        [ runners :=    ReadRegistryKey("publisher.publication.numworkers")
+        , timeout :=    ReadRegistryKey("publisher.publication.maxpublishtime") * 1000
+        ];
+  }
+
   MACRO GotConfigUpdate(STRING event, RECORD ARRAY data)
   {
-    INTEGER runners := RunInSeparatePrimary(PTR ReadRegistryKey("publisher.publication.numworkers"));
+    RECORD config := RunInSeparatePrimary(PTR this->GetConfig());
     this->SetSchedulingInfo(
-        [ concurrenttasks :=    Min[]([ 4, runners ]) // only 4 runners available
+        [ concurrenttasks :=    Min[]([ 4, config.runners ]) // only 4 runners available
+        , timeout :=            config.timeout
         ]);
   }
 

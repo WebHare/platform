@@ -112,6 +112,12 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
     LogError("managedqueuemgr", "javascript-error", details);
   }
 
+  IF (item->stage = "finished")
+  {
+    Print("Task " || item->taskdata.queueid || " crashed (but was already marked as finished, last errors: '" || EncodeJava(Left(error,1024)) || "'\n");
+    RETURN;
+  }
+
   Print("Task " || item->taskdata.queueid || " crashed, last errors: '" || EncodeJava(Left(error,1024)) || "'\n");
   IF(item->isephemeral)
   {
@@ -139,6 +145,7 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
       @cell(record) options Ephemeral task options (ephemeral tasks only)
       @cell(function ptr) resolve Function called when the ephemeral task completes (ephemeral tasks only)
       @cell(function ptr) reject Function called when the ephemeral task fails (ephemeral tasks only)
+      @cell(integer) timeout Timeout in milliseconds (0 for no timeout)
   */
   PUBLIC RECORD taskdata;
 
@@ -147,6 +154,9 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
 
   /// Identification string
   PUBLIC PROPERTY identification(GetIdentification, -);
+
+  /// @type(integer) Timeout in milliseconds, 0 for no timeout
+  PUBLIC PROPERTY timeout(this->taskdata.timeout, -);
 
   MACRO NEW(OBJECT queuekeeper, RECORD taskdata)
   : QueueItem(queuekeeper, CELL[ taskdata.priority, taskdata.queuename, taskdata.scheduledate, taskdata.onfinished ])
@@ -195,6 +205,9 @@ STATIC OBJECTTYPE ManagedWorker
 
   /// First task time
   DATETIME workerfirsttask;
+
+  /// Id for timeout callback
+  INTEGER timeoutcb;
 
   // ---------------------------------------------------------------------------
   //
@@ -269,14 +282,44 @@ STATIC OBJECTTYPE ManagedWorker
         RETURN;
       }
 
-      this->CloseProcess(TRUE); //also scheduled CheckMoreWorkers
 
       IF (ObjectExists(this->pvt_activetask))
       {
+        IF(debug)
+          Print("Failing crashing task of " || this->GetType() || " worker #" || this->uid || `, active task: ${this->GetCurrentTaskId()}\n`);
         RECORD out := ParseOutputForStackTrace(this->fulloutput);
         FailTask(this->pvt_activetask, out.output, out.trace, FALSE);
+        this->pvt_activetask := DEFAULT OBJECT;
       }
+
+      this->CloseProcess(TRUE); //also scheduled CheckMoreWorkers
     }
+  }
+
+  MACRO ResetActiveTask()
+  {
+    this->pvt_activetask := DEFAULT OBJECT;
+    IF (this->timeoutcb != 0)
+    {
+      UnregisterCallback(this->timeoutcb);
+      this->timeoutcb := 0;
+    }
+    this->outputline := "";
+    this->fulloutput := "";
+  }
+
+  MACRO GotTimeout()
+  {
+    this->timeoutcb := 0;
+    IF(debug)
+      Print(`Worker #${this->uid} got timeout on ${this->GetCurrentTaskLabel()}\n`);
+
+    STRING timeoutstr := (this->activetask->timeout % 1000) = 0 ? `${this->activetask->timeout / 1000}s` : `${this->activetask->timeout}ms`;
+    FailTask(this->activetask, `Task has timed out after ${timeoutstr}`, RECORD[], FALSE);
+
+    // Terminate the process immediately, and make sure no other tasks are accepted anymore
+    this->proc->Terminate();
+    this->RequestShutdown();
   }
 
   // ---------------------------------------------------------------------------
@@ -323,6 +366,8 @@ STATIC OBJECTTYPE ManagedWorker
     this->taskresolve := DEFAULT MACRO PTR;
     this->pvt_state := "terminated";
 
+    IF (this->timeoutcb != 0)
+      UnregisterCallback(this->timeoutcb);
     DELETE FROM managedworkers AT SearchElement(managedworkers, this);
     UnregisterCallback(this->listener);
     IF (NOT graceful)
@@ -330,6 +375,16 @@ STATIC OBJECTTYPE ManagedWorker
     this->proc->Close();
     this->proc := DEFAULT OBJECT;
     ScheduleMicroTask(PTR CheckMoreWorkers);
+
+    IF (ObjectExists(this->pvt_activetask))
+    {
+      IF(debug)
+        Print(`Worker #${this->uid} was terminated while running ${this->GetCurrentTaskLabel()}, scheduling call to mark as failed\n`);
+
+      // Schedule a FailTask call (it opens work, but this call can also be run inside of work)
+      ScheduleMicroTask(PTR FailTask(this->pvt_activetask, "Task was cancelled or removed from the database", RECORD[], FALSE));
+      this->pvt_activetask := DEFAULT OBJECT;
+    }
   }
 
   /** @return Worker type (0: harescript, 1: javascript)
@@ -410,6 +465,13 @@ STATIC OBJECTTYPE ManagedWorker
     IF(this->workerfirsttask = DEFAULT DATETIME)
       this->workerfirsttask := GetCurrentDatetime(); //now the countdown for garbage collection starts
 
+    IF (task->timeout != 0)
+    {
+      IF (debug)
+        Print(`Worker #${this->uid} set timeout ${task->timeout} for task ${task->id}\n`);
+      this->timeoutcb := RegisterTimedCallback(AddTimeToDate(task->timeout, GetCurrentDatetime()), PTR this->GotTimeout);
+    }
+
     this->taskresolve(task->taskdata.executeinfo);
     this->taskresolve := DEFAULT MACRO PTR;
   }
@@ -424,7 +486,7 @@ STATIC OBJECTTYPE ManagedWorker
     IF (ObjectExists(this->pvt_activetask))
     {
       controller->RegisterOutOfDateUnprocessedTask(this->pvt_activetask);
-      this->pvt_activetask := DEFAULT OBJECT;
+      this->ResetActiveTask();
     }
 
     // Make sure no more requests are accepted
@@ -454,6 +516,9 @@ STATIC OBJECTTYPE ManagedWorker
   */
   PUBLIC MACRO SendTaskStatus(RECORD status)
   {
+    IF (NOT ObjectExists(this->activetask)) // task was removed from worker due to cancellation/deletion
+      RETURN;
+
     IF (status.type = "taskfailed")
     {
       FailTask(this->activetask, status.error, status.trace, status.isfatal);
@@ -477,9 +542,7 @@ STATIC OBJECTTYPE ManagedWorker
       ABORT(status,'tree');
     }
 
-    this->pvt_activetask := DEFAULT OBJECT;
-    this->outputline := "";
-    this->fulloutput := "";
+    this->ResetActiveTask();
 
     if (this->pvt_state = "terminating")
     {
@@ -540,7 +603,7 @@ STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
 >;
 
 STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
-<
+< /// Number of worker threads
   PUBLIC INTEGER threads;
 
   /** @return Worker type (0: harescript, 1: javascript)
@@ -763,6 +826,7 @@ STATIC OBJECTTYPE QueueMgr
              , iterations
              , failures
              , found :=       TRUE
+             , timeout
           FROM system_internal.managedtasks
          WHERE finished = DEFAULT DATETIME
                AND NOT iscancelled
@@ -817,6 +881,7 @@ STATIC OBJECTTYPE QueueMgr
         , maxfailures :=    rec.maxfailures
         , failures :=       rec.failures
         , onfinished :=     PTR this->FinishedManagedTaskItem
+        , rec.timeout
         ];
 
     RETURN NEW TaskQueueItem(this->queue, taskinfo);
@@ -847,7 +912,7 @@ STATIC OBJECTTYPE QueueMgr
     {
       IF (NOT rec.found) // finished/cancelled/deleted task
       {
-        INSERT CELL[ ...rec.item->taskdata, rec.item ] INTO gonetasks AT END;
+        INSERT CELL[ ...rec.item->taskdata, rec.item, rec.item->taskdata.id ] INTO gonetasks AT END;
       }
       ELSE
       {
@@ -889,42 +954,57 @@ STATIC OBJECTTYPE QueueMgr
       }
     }
 
-    RECORD ARRAY testcancel;
+    RECORD ARRAY runninggonetasks;
     FOREVERY (RECORD task FROM gonetasks)
     {
       IF (debug)
-        PRINT(`Removed task ${task.item->taskdata.id} from DB\n`);
+        PRINT(`Removed task ${task.item->taskdata.id} from DB (state: ${task.item->stage}\n`);
 
       task.item->taskdata.removed := TRUE;
       IF (task.item->stage != "running")
         task.item->stage := "finished";
       ELSE
-        INSERT task INTO testcancel AT END;
+        INSERT task INTO runninggonetasks AT END;
     }
 
-    // Terminate cancelled tasks that are currently running
-    IF (LENGTH(testcancel) != 0)
+    IF (IsValueSet(runninggonetasks))
     {
-      // Get ids of cancelled tasks
-      INTEGER ARRAY cancelled :=
+      /* There can be 3 reasons that a task is gone from the list
+         - task is cancelled (task exists with iscancelled=true, finished != default datetime)
+         - it is finished (normal flow, task exists in db with finished != default datetime)
+         - task is deleted (task is gone from db)
+         In the last 2 cases, we terminate the worker immediately
+      */
+      INTEGER ARRAY taskids := SELECT AS INTEGER ARRAY id FROM runninggonetasks;
+
+      INTEGER ARRAY finishedtasks :=
           SELECT AS INTEGER ARRAY id
             FROM system.managedtasks
-           WHERE id IN (SELECT AS INTEGER ARRAY id FROM testcancel)
-             AND iscancelled;
+           WHERE id IN taskids
+             AND finished != DEFAULT DATETIME
+             AND NOT iscancelled;
 
-      FOREVERY (RECORD task FROM testcancel)
-        IF (task.id IN cancelled)
+      INTEGER64 ARRAY terminatetaskids;
+      FOREVERY (RECORD rec FROM runninggonetasks)
+        IF (rec.id IN finishedtasks)
+          rec.item->stage := "finished";
+        ELSE
+          INSERT rec.item->id INTO terminatetaskids AT END;
+
+      IF (IsValueSet(terminatetaskids))
+      {
+        FOREVERY (OBJECT worker FROM managedworkers)
         {
-          // Terminate the worker of a cancelled item
-          FOREVERY (OBJECT worker FROM managedworkers)
-            IF (worker->GetCurrentTaskId() = task.item->id)
-            {
-              IF (debug)
-                PRINT(`Terminating worker ${worker->uid} for managed task ${task.item->taskdata.id}\n`);
+          INTEGER64 taskid := worker->GetCurrentTaskId();
+          IF (taskid IN terminatetaskids)
+          {
+            IF (debug)
+              PRINT(`Terminating worker ${worker->uid} for managed task ${taskid}\n`);
 
-              worker->CloseProcess(FALSE);
-            }
+            worker->CloseProcess(FALSE);
+          }
         }
+      }
     }
 
     RETURN newtaskslist;
@@ -1127,6 +1207,7 @@ OBJECTTYPE QueueMgrClientConnection
       @param priority Task priority
       @param options Options
       @cell(string) options.persistentcachekey Key for the persistent cache of the task (available via `taskcontext.persistentcache`)
+      @cell(integer) options.timeout Task timeout override (0 for no timeout, omit for keeping default)
       @return Promise for task result
   */
   PUBLIC OBJECT FUNCTION RunEphemeralTask(STRING tasktype, RECORD taskdata, INTEGER workertype, INTEGER priority, RECORD options)
@@ -1154,10 +1235,11 @@ OBJECTTYPE QueueMgrClientConnection
        , queueid :=         `ephemeral task ${nextephemeralid}, ${tasktype}`
        , id :=              nextephemeralid
        , taskdata :=        taskdata
-       , options :=         options
+       , options :=         CELL[ ...options, DELETE timeout ]
        , resolve :=         defer.resolve
        , reject :=          defer.reject
        , onfinished :=      DEFAULT FUNCTION PTR
+       , timeout :=         CellExists(options, "timeout") ? options.timeout :  tasktypeinfo.timeout
        ];
 
     NEW TaskQueueItem(controller->queue, taskinfo);

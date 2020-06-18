@@ -56,6 +56,12 @@ PUBLIC STATIC OBJECTTYPE QueueItem
   /// Time when the item entered the stage 'finished'
   PUBLIC PROPERTY date_finished(this->pvt_curdata.date_finished, -);
 
+  /// @type(object array #QueueItem) List of items this item blocks
+  PUBLIC PROPERTY blocks(this->pvt_curdata.blocks, SetBlocks);
+
+  /// @type(integer) Number of items that block this item
+  PUBLIC PROPERTY activeblockers(this->pvt_curdata.activeblockers, -);
+
   /** Constructs a new item
       @param(object #QueueKeeper) queuekeeper Queue keeper
       @param initialdata Scheduling data
@@ -81,12 +87,14 @@ PUBLIC STATIC OBJECTTYPE QueueItem
         [ id :=             idcounter
         , stage :=          ""
         , queuestate :=     "unqueued"
-        , cluster :=        ""
+        , queuename :=      ""
         , scheduledate :=   MAX_DATETIME
         , priority :=       0
         , onfinished :=     DEFAULT FUNCTION PTR
         , date_running :=   DEFAULT DATETIME
         , date_finished :=  DEFAULT DATETIME
+        , blocks :=         DEFAULT OBJECT ARRAY
+        , activeblockers := 0
         ];
 
     this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, initialdata);
@@ -121,6 +129,15 @@ PUBLIC STATIC OBJECTTYPE QueueItem
       this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ priority ]);
   }
 
+  MACRO SetBlocks(OBJECT ARRAY blocks)
+  {
+    this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ blocks ]);
+  }
+
+  PUBLIC MACRO __UpdateActiveBlockers(INTEGER change)
+  {
+    this->pvt_queuekeeper->__UpdateItemData(PRIVATE this, CELL[ activeblockers := this->activeblockers + change ]);
+  }
 >;
 
 /** Keep multiple prioritized queues for task items (which must derive from [QueueItem](#QueueItem))
@@ -195,6 +212,20 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
     this->pvt_statskeeper->SetLevel("queuelength", 0);
   }
 
+  RECORD ARRAY FUNCTION GatherBlockers(RECORD ARRAY curlist, RECORD itemdata, INTEGER adjust)
+  {
+    FOREVERY (OBJECT item FROM itemdata.blocks)
+    {
+      INTEGER64 id := item->id;
+      RECORD pos := RecordLowerBound(curlist, CELL[ id ], [ "ID" ]);
+      IF (pos.found)
+        curlist[pos.position].diff := curlist[pos.position].diff + adjust;
+      ELSE
+        INSERT CELL[ id, item, diff := adjust ] INTO curlist AT pos.position;
+    }
+    RETURN SELECT * FROM curlist WHERE COLUMN diff != 0;
+  }
+
   /** Updates the base data of a queue item
       @param(object #QueueItem) item Queue item
       @param updates Updates to the item state. The cell queuestate will be recalculated
@@ -204,16 +235,13 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   {
     now := now ?? GetCurrentDateTime();
 
-    // Remove from queues
-    this->HandleItemUpdate(item, FALSE);
-
     RECORD oldstate := item->pvt_curdata;
     RECORD newstate := CELL[ ...oldstate, ...updates ];
     SWITCH (newstate.stage)
     {
       CASE "new", "finished"    { newstate.queuestate := "unqueued"; }
       CASE "running"            { newstate.queuestate := "running"; }
-      CASE "scheduled"          { newstate.queuestate := newstate.scheduledate <= now ? "runnable" : "timedwait"; }
+      CASE "scheduled"          { newstate.queuestate := newstate.activeblockers > 0 ? "blocked" : newstate.scheduledate <= now ? "runnable" : "timedwait"; }
       DEFAULT                   { THROW NEW Exception(`Illegal item stage '${item->pvt_curdata.stage}'`); }
     }
 
@@ -225,10 +253,30 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
       this->pvt_statskeeper->AddEvent("finished");
     }
 
+    // Remove from queues
+    this->HandleItemUpdate(item, FALSE);
+
     item->pvt_curdata := newstate;
 
     // Insert into new position
-    this->HandleItemUpdate(item, TRUE);
+    RECORD retval := this->HandleItemUpdate(item, TRUE);
+
+    // Signal when an items enters another runnable queue as its first item
+    IF ((newstate.queuestate != oldstate.queuestate OR newstate.queuename != oldstate.queuename) AND retval.firstrunnable)
+      this->ScheduleCallback("gotrunnable", DEFAULT OBJECT);
+
+    // Update activeblockers if moved on/off queues or blocks has changed
+    IF ((oldstate.queuestate = "unqueued") != (newstate.queuestate = "unqueued") OR CellExists(updates, "blocks"))
+    {
+      RECORD ARRAY blockchanges;
+      IF (oldstate.queuestate != "unqueued")
+        blockchanges := this->GatherBlockers(blockchanges, oldstate, -1);
+      IF (newstate.queuestate != "unqueued")
+        blockchanges := this->GatherBlockers(blockchanges, newstate, +1);
+
+      FOREVERY (RECORD rec FROM blockchanges)
+        rec.item->__UpdateActiveBlockers(rec.diff);
+    }
 
     // Schedule a callback when the item got finished
     IF (newstate.stage = "finished" AND oldstate.stage != "finished")
@@ -322,16 +370,42 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
   /** Place/remove an item from the queue
       @param(object #QueueItem) item Queue item
       @param add TRUE to add, FALSE to remove from all queues
-  */
-  MACRO HandleItemUpdate(OBJECT item, BOOLEAN add)
+      @return
+      @cell return.firstrunnable If this was the first runnable item added to the queue
+   */
+  RECORD FUNCTION HandleItemUpdate(OBJECT item, BOOLEAN add)
   {
+    RECORD retval := [ firstrunnable := FALSE ];
+
     RECORD data := item->pvt_curdata;
     SWITCH (data.queuestate)
     {
       CASE "unqueued"
       {
         // Return immediately, no queuelength update
-        RETURN;
+        RETURN retval;
+      }
+      CASE "blocked"
+      {
+        RECORD pos := RecordLowerBound(this->queues, data, [ "QUEUENAME" ]);
+        IF (add)
+        {
+          RECORD rec := CELL[ data.id, item ];
+          IF (NOT pos.found)
+            INSERT CELL[ data.queuename, runnable := RECORD[], timedwait := RECORD[], blocked := [ rec ] ] INTO this->queues AT pos.position;
+          ELSE
+            INSERT rec INTO this->queues[pos.position].blocked AT RecordUpperBound(this->queues[pos.position].blocked, rec, [ "ID" ]);
+        }
+        ELSE
+        {
+          DELETE
+            FROM this->queues[pos.position].blocked
+              AT RecordLowerBound(this->queues[pos.position].blocked, data, [ "ID" ]).position;
+
+          // Remove queue if empty
+          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0 AND LENGTH(this->queues[pos.position].blocked) = 0)
+            DELETE FROM this->queues AT pos.position;
+        }
       }
       CASE "timedwait"
       {
@@ -340,7 +414,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
         {
           RECORD rec := CELL[ data.scheduledate, data.id, item ];
           IF (NOT pos.found)
-            INSERT CELL[ data.queuename, runnable := RECORD[], timedwait := [ rec ] ] INTO this->queues AT pos.position;
+            INSERT CELL[ data.queuename, runnable := RECORD[], timedwait := [ rec ], blocked := RECORD[] ] INTO this->queues AT pos.position;
           ELSE
             INSERT rec INTO this->queues[pos.position].timedwait AT RecordUpperBound(this->queues[pos.position].timedwait, rec, [ "SCHEDULEDATE", "ID" ]);
         }
@@ -351,7 +425,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
               AT RecordLowerBound(this->queues[pos.position].timedwait, data, [ "SCHEDULEDATE", "ID" ]).position;
 
           // Remove queue if empty
-          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0)
+          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0 AND LENGTH(this->queues[pos.position].blocked) = 0)
             DELETE FROM this->queues AT pos.position;
         }
       }
@@ -370,12 +444,15 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
         {
           RECORD rec := CELL[ data.priority, data.scheduledate, data.id, item ];
           IF (NOT pos.found)
-            INSERT CELL[ data.queuename, runnable := [ rec ], timedwait := RECORD[] ] INTO this->queues AT pos.position;
+          {
+            INSERT CELL[ data.queuename, runnable := [ rec ], timedwait := RECORD[], blocked := RECORD[] ] INTO this->queues AT pos.position;
+            retval.firstrunnable := TRUE;
+          }
           ELSE
+          {
+            retval.firstrunnable := IsDefaultValue(this->queues[pos.position].runnable);
             INSERT rec INTO this->queues[pos.position].runnable AT RecordUpperBound(this->queues[pos.position].runnable, rec, [ "PRIORITY", "SCHEDULEDATE", "ID" ]);
-
-          IF (LENGTH(this->queues[pos.position].runnable) = 1)
-            this->ScheduleCallback("gotrunnable", DEFAULT OBJECT);
+          }
         }
         ELSE
         {
@@ -384,7 +461,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
               AT RecordLowerBound(this->queues[pos.position].runnable, data, [ "PRIORITY", "SCHEDULEDATE", "ID" ]).position;
 
           // Remove queue if empty
-          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0)
+          IF (LENGTH(this->queues[pos.position].runnable) = 0 AND LENGTH(this->queues[pos.position].timedwait) = 0 AND LENGTH(this->queues[pos.position].blocked) = 0)
             DELETE FROM this->queues AT pos.position;
         }
       }
@@ -395,6 +472,7 @@ PUBLIC STATIC OBJECTTYPE QueueKeeper
     }
 
     this->queuelength := this->queuelength + (add ? 1 : -1);
+    RETURN retval;
   }
 
   /** Returns the next runnable item in a queue

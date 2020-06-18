@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="taskqueue.whscr" />
   <test script="testmanagedqueue.whscr" />
 </group>

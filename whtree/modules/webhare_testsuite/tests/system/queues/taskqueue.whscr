@@ -1,0 +1,127 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/taskqueue.whlib";
+
+
+INTEGER gotrunnablecounter;
+
+MACRO GotRunnable()
+{
+  gotrunnablecounter := gotrunnablecounter + 1;
+}
+
+OBJECTTYPE TestQueueItem EXTEND QueueItem
+<
+  PUBLIC RECORD taskdata;
+
+  MACRO NEW(OBJECT queuekeeper, RECORD initialdata)
+  : QueueItem(queuekeeper, CELL[ ...initialdata, DELETE taskdata ])
+  {
+    initialdata := ValidateOptions(
+        [ taskdata :=   DEFAULT RECORD
+        ], initialdata,
+        [ passthroughin := "initialdata" ]);
+
+    this->taskdata := initialdata.taskdata;
+  }
+
+>;
+
+ASYNC MACRO Delay(INTEGER ms)
+{
+  RECORD rec := CreateDeferredPromise();
+  RegisterTimedCallback(AddTimeToDate(ms, GetCurrentDateTime()), PTR rec.resolve(TRUE));
+  AWAIT rec.promise;
+}
+
+
+ASYNC MACRO TestTaskQueue()
+{
+  OBJECT k := NEW QueueKeeper();
+  k->ongotrunnable := PTR GotRunnable;
+
+  // Create new item - immediately runnable
+  OBJECT i1 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 1 ]
+      ]);
+
+  TestEQ("runnable", i1->queuestate);
+  AWAIT Delay(1);
+  TestEQ(1, gotrunnablecounter);
+
+  OBJECT i2 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 2 ]
+      , stage :=      "new"
+      , priority :=   7
+      ]);
+
+  TestEQ(1, gotrunnablecounter);
+  TestEQ("unqueued", i2->queuestate);
+  AWAIT Delay(1);
+  TestEQ(1, gotrunnablecounter);
+
+  i1->blocks := [ i2 ];
+  i2->stage := "scheduled";
+
+  TestEQ("blocked", i2->queuestate);
+
+  i1->stage := "finished";
+
+  TestEQ("runnable", i2->queuestate);
+  AWAIT Delay(1);
+  TestEQ(2, gotrunnablecounter);
+
+  OBJECT i3 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 3 ]
+      , priority :=   5
+      ]);
+
+  OBJECT i4 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 3 ]
+      , priority :=   8
+      ]);
+
+  TestEQ("runnable", i3->queuestate);
+
+  // i3 has a higher priority
+  TestEQ(i3, k->GetNextRunnable(""));
+  i3->stage := "finished";
+  TestEQ(i2, k->GetNextRunnable(""));
+  i2->stage := "finished";
+  TestEQ(i4, k->GetNextRunnable(""));
+  i4->stage := "finished";
+  TestEQ(DEFAULT OBJECT, k->GetNextRunnable(""));
+
+  OBJECT i5 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 2 ]
+      , stage :=      "scheduled"
+      , priority :=   7
+      , queuename :=  "queue-1"
+      ]);
+  AWAIT Delay(1);
+  TestEQ(3, gotrunnablecounter); // first in queue queue-1
+  i5->queuename := "queue-2";
+  AWAIT Delay(1);
+  TestEQ(4, gotrunnablecounter); // first in queue queue-2
+
+  // Force queue-1 record to exist
+  OBJECT i6 := NEW TestQueueItem(k,
+      [ taskdata :=   [ nr := 2 ]
+      , stage :=      "scheduled"
+      , priority :=   7
+      , queuename :=  "queue-1"
+      , scheduledate := MakeDate(2100, 1, 1)
+      ]);
+
+  i5->queuename := "queue-1"; // again first in queue queue-1
+  AWAIT Delay(1);
+  TestEQ(5, gotrunnablecounter); // first in queue queue-2
+}
+
+RunTestframework([ PTR TestTaskQueue
+                 ]);

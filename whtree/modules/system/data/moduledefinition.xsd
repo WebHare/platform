@@ -751,7 +751,11 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-
+    <xs:attribute name="timeout" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>Timeout in milliseconds for this task</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="VirtualFS">
