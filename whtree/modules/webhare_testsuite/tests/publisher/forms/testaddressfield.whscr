@@ -263,6 +263,14 @@ PUBLIC MACRO TestAddressField()
                       ]
       ], formresult, "*");
 
+  formdata.fields."address2.zip" := "7521 AM";
+  formdata.fields."address2.nr_detail" := "31533053003";
+  formresult := testfw->browser->CallJSONRPC(formservice,"CallFormservice","Submit",formdata);
+  TestEQMembers(
+      [ errors :=     [ [ name := "address2.nr_detail",       message := "Ongeldig huisnummer." ]
+                      ]
+      ], formresult, "*");
+
   // real invalid zip - BE
   formdata.fields :=  [ "address.country" :=    "BE"
                       , "address.street" :=     "Brusselsestraat"
