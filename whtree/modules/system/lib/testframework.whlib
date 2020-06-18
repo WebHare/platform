@@ -2262,3 +2262,19 @@ PUBLIC RECORD FUNCTION ExtractWebdesignRenderingSummary(OBJECT htmldoc)
     RETURN DEFAULT RECORD;
   RETURN DecodeJSON(whconfig->textcontent);
 }
+
+/** Setup test output for a site
+    @param site Our testsite
+    @param subfolder Subfolder to use. Must be either of the form <testingmodule> or <testingmodule>.<subfolder> */
+PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
+{
+  IF(NOT IsValidWHFSName(subfolder, FALSE) OR ToLowercase(subfolder) != subfolder)
+    THROW NEW Exception(`Invalid output subfolder name '${subfolder}'`);
+
+  STRING modulename := Tokenize(subfolder,'.')[0];
+  IF(NOT IsModuleInstalled(modulename))
+    THROW NEW Exception(`No such module '${modulename}'`);
+
+  OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
+  site->SetPrimaryOutput(backendsite->outputweb, `/testoutput/${subfolder}/`);
+}
