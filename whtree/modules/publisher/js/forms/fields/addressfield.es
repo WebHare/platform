@@ -137,7 +137,7 @@ export default class AddressField
 
         if(!anyset && key != 'country' && field.node.value)
           anyset = true;
-        if(field.node.required && !field.node.value)
+        if(field.node.required && !field.node.value && !field.node.hasAttribute("data-wh-form-skipnativevalidation"))
           allrequiredset = false;
       }
     });

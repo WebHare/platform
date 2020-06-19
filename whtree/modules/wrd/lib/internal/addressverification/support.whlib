@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::regex.whlib";
 
 /** Normalize a NL zipcode
     @return Zipcode in "NNNN XX" form, with uppercase letters, or an empty string if this is not a valid NL zip code */
@@ -36,8 +37,9 @@ PUBLIC STRING FUNCTION FixupNRDetailNL(STRING indata)
       BREAK;
     }
 
-  IF(NOT (Left(indata,1) >= "1" AND Left(indata,1) <= "9"))
-    RETURN ""; //invalid start
+  RECORD ARRAY nrpart := NEW RegEx("^[1-9][0-9]*")->Exec(indata);
+  IF(Length(nrpart) = 0 OR Length(nrpart[0].value)>5) //too many digits for NL
+    RETURN "";
 
- RETURN prefix || indata;
+  RETURN prefix || indata;
 }
