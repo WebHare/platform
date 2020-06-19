@@ -991,9 +991,13 @@ STATIC OBJECTTYPE ApplyRuleTester
       RETURN FALSE;
     IF (CellExists(rec, "PARENTTYPE") AND rec.parenttype!="" AND (NOT RecordExists(parentitem) OR NOT this->MatchType(parentitem.type, rec.parenttype,TRUE)))
       RETURN FALSE;
+    IF (CellExists(rec, "WHFSPATHMASK") AND rec.whfspathmask!="" AND (ToUppercase(this->objinfo.obj.whfspath) NOT LIKE ToUppercase(rec.whfspathmask)))
+      RETURN FALSE;
     IF (CellExists(rec, "SITETYPE") AND rec.sitetype != "" AND (NOT RecordExists(site) OR NOT this->MatchType(site.type, rec.sitetype, TRUE)))
       RETURN FALSE;
     IF (CellExists(rec, "PATHREGEX") AND rec.pathregex!="" AND NOT MatchPathRegex(rec.pathregex, this->objinfo.obj.fullpath))
+      RETURN FALSE;
+    IF (CellExists(rec, "WHFSPATHREGEX") AND rec.whfspathregex!="" AND NOT MatchPathRegex(rec.whfspathregex, this->objinfo.obj.whfspath))
       RETURN FALSE;
     IF (CellExists(rec, "PARENTREGEX") AND rec.parentregex!="" AND (NOT RecordExists(parentitem) OR NOT MatchPathRegex(rec.parentregex, parentitem.fullpath)))
       RETURN FALSE;
