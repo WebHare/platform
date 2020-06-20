@@ -479,6 +479,17 @@ OBJECT ASYNC FUNCTION LegacyFormatCleanup()
   RETURN DEFAULT RECORD;
 }
 
+ASYNC MACRO PinnedPublish()
+{
+  testfw->BeginWork();
+  OpenWHFSObject(testrtd2fileid)->UpdateMetadata([publish := FALSE,ispinned := TRUE]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testrtd2fileid) ] ]));
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("publishbutton"), [ messagemask := "*not publish*protected*"]); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR PrepIt
                  , PTR TestAllowedWidgets
                  , PTR NewFileProps
@@ -488,6 +499,7 @@ RunTestframework([ PTR PrepIt
                  , PTR ModifyLink
                  , PTR CleanupLink
                  , PTR LegacyFormatCleanup
+                 , PTR PinnedPublish
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

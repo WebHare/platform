@@ -738,6 +738,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           //Warn if publishing to an unpublished site (but not if publishing outside a site)
           IF(fsobj->parentsite !=0 AND OpenSite(fsobj->parentsite)->outputweb = 0)
             work->AddWarning(this->GetTid(".sitenotpublished"));
+          IF(savemode = "unversioned-unpublished" AND fsobj->ispinned)
+            work->AddError(this->GetTid(".cannotpublishpinnedfile"));
           fsobj->UpdateMetadata([ publish := TRUE ]);
         }
         ELSE IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
@@ -896,15 +898,21 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   {
     RECORD metadata;
     STRING savemode := this->GetSaveMode();
+    OBJECT targetfile := OpenWHFSObject(this->fileid);
     IF (savemode IN [ "versioned-editlive", "versioned-editdraft" ])
     {
-      metadata := GetSubmitRequestApprovalMetadata(this, OpenWHFSObject(this->fileid));
+      metadata := GetSubmitRequestApprovalMetadata(this, targetfile);
       IF (NOT RecordExists(metadata))
         RETURN;
     }
     ELSE IF (savemode = "versioned-locked-editlive")
     {
       RETURN; //should not be reachable, unless someone manages to race it?
+    }
+    ELSE IF(savemode = "unversioned-unpublished" AND targetfile->ispinned)
+    {
+      this->RunSimpleScreen("error", this->GetTid(".cannotpublishpinnedfile"));
+      RETURN;
     }
     ELSE
     {
