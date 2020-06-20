@@ -735,8 +735,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         IF (savemode IN [ "unversioned-unpublished", "unversioned-published" ])
         {
           OBJECT fsobj := OpenWHFSObject(this->fileid);
-          BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
-          IF (NOT canpublish)
+          //Warn if publishing to an unpublished site (but not if publishing outside a site)
+          IF(fsobj->parentsite !=0 AND OpenSite(fsobj->parentsite)->outputweb = 0)
             work->AddWarning(this->GetTid(".sitenotpublished"));
           fsobj->UpdateMetadata([ publish := TRUE ]);
         }
