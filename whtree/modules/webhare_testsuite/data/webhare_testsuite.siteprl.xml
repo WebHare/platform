@@ -107,7 +107,7 @@
   </apply>
 
   <apply>
-    <to type="all" whfspathregex="^/WebHare testsuite site/.*/applytest(0|1)/$" /> <!-- just teesting a bit of regex, applytest0 doesnt exist -->
+    <to type="all" whfspathregex="^/WebHare testsuite site/.*/applytest(0|1)/$" /> <!-- just testing a bit of regex, applytest0 doesn't exist -->
     <xyz:test data="applytest-whfsregex" />
   </apply>
 
