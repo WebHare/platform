@@ -60,6 +60,7 @@ PUBLIC BOOLEAN __withinasyncrunner;
     If you need to wait on a incoming link request, you can use the @a handle property
     as a parameter to WaitForMultiple. The handle is signalled when a link request is
     in queue.
+    @public
 */
 STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
 < // ---------------------------------------------------------------------------
@@ -99,8 +100,9 @@ STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
   // Public interface
   //
 
-  /** Accepts an incoming connection on the port
-      @return New endpoint if an incoming connection was present
+  /** Accepts an incoming link on the port
+      @param wait_until Timeout when no link has arrived at this time.
+      @return(object %IPCLinkEndPoint) New endpoint if an incoming link was present
   */
   PUBLIC OBJECT FUNCTION Accept(DATETIME wait_until)
   {
@@ -120,6 +122,7 @@ STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
 
 
   /** Returns whether this object is signalled.
+      @return TRUE if there is an incoming link that can be accepted.
   */
   UPDATE PUBLIC BOOLEAN FUNCTION IsSignalled()
   {
@@ -150,16 +153,17 @@ STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
 // Public interface, global functions
 //
 
-//create a random, free port name, that will not be affected by future namespaces
-
+/** create a random, free port name, that will not be affected by future namespaces
+    @return Random name
+*/
 PUBLIC STRING FUNCTION GenerateTemporaryIPCPortName()
 {
   RETURN "tempport_" || GenerateUFS128BitId();
 }
 
 /** Creates a new named IPC port
-    @param name
-    @return New port, throws when a port with that name already exists
+    @param name Name for the port
+    @return(object #IPCPort) New port, throws when a port with that name already exists
 */
 PUBLIC OBJECT FUNCTION CreateIPCPort(STRING name)
 {
@@ -222,7 +226,13 @@ PUBLIC MACRO __INTERNAL_KeepPortGlobal(OBJECT port)
 }
 
 
-
+/** Creates a new named global IPC port, that is reachable from other processes to
+    (using ConnectToGlobalIPCPort). A local port with the same name is also created.
+    No errors are reporting when the registration as global port fails. Also, callback
+    events need to be processed.
+    @param name Name for the port
+    @return(object #IPCPort) New port, throws when a port with that name already exists
+*/
 PUBLIC OBJECT FUNCTION CreateGlobalIPCPort(STRING name)
 {
   OBJECT port := CreateIPCPort(name);
@@ -231,7 +241,8 @@ PUBLIC OBJECT FUNCTION CreateGlobalIPCPort(STRING name)
 }
 
 /** Connects to an IPC port. If the port exists, a link is established immediately.
-    @return New link endpoint, DEFAULT OBJECT when port does not exist
+    @param name Name of the port to connect to
+    @return(object %IPCLinkEndPoint) New link endpoint, DEFAULT OBJECT when port does not exist.
 */
 PUBLIC OBJECT FUNCTION ConnectToIPCPort(STRING name)
 {
@@ -243,7 +254,8 @@ PUBLIC OBJECT FUNCTION ConnectToIPCPort(STRING name)
 }
 
 /** Connects to a global IPC port. If the port exists, a link is established immediately.
-    @return New link endpoint, DEFAULT OBJECT when port does not exist
+    @param name Name of the global port to connect to
+    @return(object %IPCLinkEndPoint)  New link endpoint, DEFAULT OBJECT when port does not exist.
 */
 PUBLIC OBJECT FUNCTION ConnectToGlobalIPCPort(STRING name)
 {
@@ -261,6 +273,7 @@ PUBLIC OBJECT FUNCTION ConnectToGlobalIPCPort(STRING name)
 }
 
 /** @short Returns the endpoint of the link to the parent
+    @return(object %IPCLinkEndPoint) Endpoint of link to parent job
 */
 PUBLIC OBJECT FUNCTION GetIPCLinkToParent()
 {
@@ -276,6 +289,8 @@ PUBLIC OBJECT FUNCTION GetIPCLinkToParent()
 }
 
 /** Formats a message id
+    @param messageid Message id
+    @return Formatted message id
 */
 PUBLIC STRING FUNCTION FormatIPCMessageId(INTEGER64 messageid)
 {
@@ -283,7 +298,9 @@ PUBLIC STRING FUNCTION FormatIPCMessageId(INTEGER64 messageid)
 }
 
 
-/// Returns Harescript group ID of current script
+/** Returns Harescript group ID of current script
+    @return Id that is unique for this job
+*/
 PUBLIC STRING FUNCTION GetCurrentGroupId()
 {
   RETURN __HS_GetCurrentGroupID();
@@ -353,13 +370,21 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   // Helper functions
   //
 
-  /// Returns whether a record contains a specific cell, and wither that cell has a specific type
+  /** Returns whether a record contains a specific cell, and wither that cell has a specific type
+      @param rec Record
+      @param cellname Name of the cell to get
+      @param type Harescript type of the expected type
+      @return TRUE if the cell exists and its value the expected type
+  */
   BOOLEAN FUNCTION IsCellOk(RECORD rec, STRING cellname, INTEGER type)
   {
     RETURN CellExists(rec, cellname) AND TypeID(GetCell(rec, cellname)) = type;
   }
 
-  /// Encodes an exception
+  /** Encodes an exception
+      @param e Exception to encode
+      @return Encoded exception
+  */
   RECORD FUNCTION EncodeExceptionInternal(OBJECT e)
   {
     IF (this->flat_responses)
@@ -378,7 +403,10 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
     }
   }
 
-  /// Encodes an error
+  /** Encodes an error
+      @param what Error string
+      @return Encoded exception
+  */
   RECORD FUNCTION EncodeError(STRING what)
   {
     IF (this->flat_responses)
@@ -398,6 +426,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   }
 
   /** Close a faulted link
+      @param link Link to close
   */
   MACRO CloseLink(OBJECT link)
   {
@@ -408,7 +437,9 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
     link->Close();
   }
 
-  /** Do we want to do work when idle? */
+  /** Do we want to do work when idle?
+      @return TRUE if there is work to do
+  */
   BOOLEAN FUNCTION HaveIdleWork()
   {
     RETURN FALSE;
@@ -420,6 +451,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
   }
 
   /** Handles an incoming connection
+      @param port Port to accept the link on
   */
   MACRO HandleIncomingConnection(OBJECT port)
   {
@@ -683,7 +715,7 @@ PUBLIC STATIC OBJECTTYPE IPCPortHandlerBase
 /** Creates a new job. SUPER rights are required.
     @param script Script to run
     @param environment Environment. No longer used
-    @return
+    @return Job creation result
     @cell return.job Job object, if it doesn't exist some errors have occurred.
     @cell return.errors List of errors.
     @cell return.warnings List of warnings.
@@ -770,6 +802,18 @@ STATIC OBJECTTYPE LocalLock EXTEND __HS_INTERNAL_OutputObject
   }
 >;
 
+/** Creates a new mutexmanager object for process-local locks
+    @return(object %LockManager) Lock manager
+    @topic modules/services
+    @example
+
+OBJECT lockmgr := OpenLocalLockManager();
+OBJECT lock := lockmgr->LockLocalMutex("mutex:name");
+
+// mutual exclusive stuff
+
+lock->Close();
+*/
 PUBLIC OBJECT FUNCTION OpenLocalLockManager()
 {
   IF (NOT ObjectExists(lockmgr))
@@ -779,6 +823,10 @@ PUBLIC OBJECT FUNCTION OpenLocalLockManager()
 }
 
 
+/** Mutual exclusion manager for process-local locks
+    @topic modules/services
+    @public
+*/
 STATIC OBJECTTYPE LocalLockManager
 < // ---------------------------------------------------------------------------
   //
@@ -810,7 +858,7 @@ STATIC OBJECTTYPE LocalLockManager
   /** Create a semaphore lock and put it into the lock queue
       @param name Name of the semaphore to lock
       @param maxconcurrent Max nr. of concurrent lock-keepers during the requested lock
-      @return
+      @return Lock info
       @cell return.locked Whether the lock is active (if not, wait for the lock to become signalled)
       @cell return.lock Lock object
   */

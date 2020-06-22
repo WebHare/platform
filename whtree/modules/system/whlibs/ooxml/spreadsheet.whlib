@@ -759,7 +759,7 @@ PUBLIC STATIC OBJECTTYPE ExcelSheet
     }
   }
 
-  /** Return the rows in an excel hseet
+  /** Return the rows in an excel sheet
       @param options Options @includecelldef %GetOOXMLSpreadsheetRows.options
 
       @cell options.alltostring Return all columns as strings (defaults to TRUE)
