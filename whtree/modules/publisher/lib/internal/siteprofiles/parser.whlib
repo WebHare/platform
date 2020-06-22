@@ -1281,7 +1281,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               RECORD intercept := ParseIntercept(this, this->filename, node);
               IF(RecordExists(intercept))
                 INSERT intercept INTO apply.hookintercepts AT END;
-              }
+              CONTINUE;
+            }
           }
         }
 
