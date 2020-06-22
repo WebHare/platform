@@ -57,34 +57,6 @@
     </xs:union>
   </xs:simpleType>
 
-  <xs:simpleType name="OptionallyQualifiedName">
-    <xs:annotation>
-      <xs:documentation>
-        This type describes a name in a specific module. The module part is optional,
-        its default is the current module.
-      </xs:documentation>
-    </xs:annotation>
-    <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <xs:simpleType name="OptionallyQualifiedWildcardedName">
-    <xs:annotation>
-      <xs:documentation>
-        This type describes a name in a specific module, with optional wildcards. The module
-        part is optional, its default is the current module.
-      </xs:documentation>
-    </xs:annotation>
-    <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_\*][\p{L}\p{N}_\*]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <xs:simpleType name="OptionallyQualifiedWildcardedNameList">
-    <xs:list itemType="OptionallyQualifiedWildcardedName" />
-  </xs:simpleType>
-
   <xs:simpleType name="TableName">
     <xs:restriction base="xs:string">
       <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*)?\.[\p{L}_][\p{L}\p{N}_]*"/>
@@ -351,7 +323,7 @@
             </xs:sequence>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
             <xs:attribute name="name" type="Name" use="required" />
-            <xs:attribute name="rightsgroup" type="OptionallyQualifiedName" />
+            <xs:attribute name="rightsgroup" type="sc:OptionallyQualifiedName" />
             <xs:attribute name="table" type="TableName" use="required" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
@@ -374,20 +346,20 @@
             <xs:sequence minOccurs="1" maxOccurs="1">
               <xs:element name="impliedby">
                 <xs:complexType>
-                  <xs:attribute name="right" type="OptionallyQualifiedName" use="required" />
+                  <xs:attribute name="right" type="sc:OptionallyQualifiedName" use="required" />
                 </xs:complexType>
               </xs:element>
             </xs:sequence>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
             <xs:attribute name="name" type="Name" use="required" />
-            <xs:attribute name="rightsgroup" type="OptionallyQualifiedName" use="optional" />
+            <xs:attribute name="rightsgroup" type="sc:OptionallyQualifiedName" use="optional" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
             <xs:attribute name="descriptiontid" type="SimpleTid" />
             <xs:attribute name="description" type="xs:string" />
-            <xs:attribute name="objecttype" type="OptionallyQualifiedName" use="optional" />
-            <xs:attribute name="showbefore" type="OptionallyQualifiedWildcardedNameList" use="optional" />
-            <xs:attribute name="showafter" type="OptionallyQualifiedWildcardedNameList" use="optional" />
+            <xs:attribute name="objecttype" type="sc:OptionallyQualifiedName" use="optional" />
+            <xs:attribute name="showbefore" type="sc:OptionallyQualifiedWildcardedNameList" use="optional" />
+            <xs:attribute name="showafter" type="sc:OptionallyQualifiedWildcardedNameList" use="optional" />
             <xs:attribute name="isrootright" type="xs:boolean" />
           </xs:complexType>
         </xs:element>
@@ -726,7 +698,7 @@
         <xs:documentation>Object implementing HareScript task</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="cluster" type="OptionallyQualifiedName">
+    <xs:attribute name="cluster" type="sc:OptionallyQualifiedName">
       <xs:annotation>
         <xs:documentation>Cluster to use for execution</xs:documentation>
       </xs:annotation>
@@ -821,14 +793,14 @@
           <xs:attribute name="tid" type="SimpleTid" />
           <xs:attribute name="name" type="xs:string" />
           <xs:attribute name="title" type="xs:string" />
-          <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+          <xs:attribute name="orderafter" type="sc:OptionallyQualifiedWildcardedNameList">
             <xs:annotation>
               <xs:documentation>
                 List of application groups (space separated wildcard masks) after which this application should be ordered, if this application is in a separate group.
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+          <xs:attribute name="orderbefore" type="sc:OptionallyQualifiedWildcardedNameList">
             <xs:annotation>
               <xs:documentation>
                 List of application groups (space separated wildcard masks) before which this application should be ordered, if this application is in a separate group.
@@ -1030,14 +1002,14 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+          <xs:attribute name="orderafter" type="sc:OptionallyQualifiedWildcardedNameList">
             <xs:annotation>
               <xs:documentation>
                 List of monitor groups (space separated wildcard masks) after which this group should be ordered
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+          <xs:attribute name="orderbefore" type="sc:OptionallyQualifiedWildcardedNameList">
             <xs:annotation>
               <xs:documentation>
                 List of monitor groups (space separated wildcard masks) before which this group should be ordered
@@ -1099,14 +1071,14 @@
     </xs:annotation>
     <xs:attribute name="name" type="Name" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="orderafter" type="OptionallyQualifiedWildcardedNameList">
+    <xs:attribute name="orderafter" type="sc:OptionallyQualifiedWildcardedNameList">
       <xs:annotation>
         <xs:documentation>
           List of monitor groups (space separated wildcard masks) after which this group should be ordered
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="orderbefore" type="OptionallyQualifiedWildcardedNameList">
+    <xs:attribute name="orderbefore" type="sc:OptionallyQualifiedWildcardedNameList">
       <xs:annotation>
         <xs:documentation>
           List of monitor groups (space separated wildcard masks) before which this group should be ordered
@@ -2189,7 +2161,7 @@
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
-          <xs:attribute name="ref" type="OptionallyQualifiedName" />
+          <xs:attribute name="ref" type="sc:OptionallyQualifiedName" />
         </xs:complexType>
       </xs:element>
 
@@ -2409,19 +2381,7 @@
           <xs:attribute name="integratedonly"  />
         </xs:complexType>
       </xs:element>
-      <xs:element name="intercept" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-
-          <xs:attribute name="name" type="Name" use="required" />
-          <xs:attribute name="target" type="OptionallyQualifiedName" use="required" />
-          <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList" />
-          <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList" />
-
-          <xs:attribute name="library" type="xs:string" />
-          <xs:attribute name="interceptfunction" type="xs:string" use="required" />
-          <xs:attributeGroup ref="ApplicabletoWebHare" />
-        </xs:complexType>
-      </xs:element>
+      <xs:element name="intercept" minOccurs="0" maxOccurs="unbounded" type="sc:Intercept" />
     </xs:choice>
   </xs:complexType>
 

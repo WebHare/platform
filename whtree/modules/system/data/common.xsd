@@ -604,6 +604,45 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="OptionallyQualifiedName">
+    <xs:annotation>
+      <xs:documentation>
+        This type describes a name in a specific module. The module part is optional,
+        its default is the current module.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="OptionallyQualifiedWildcardedName">
+    <xs:annotation>
+      <xs:documentation>
+        This type describes a name in a specific module, with optional wildcards. The module
+        part is optional, its default is the current module.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_\*][\p{L}\p{N}_\*]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="OptionallyQualifiedWildcardedNameList">
+    <xs:list itemType="OptionallyQualifiedWildcardedName" />
+  </xs:simpleType>
+
+  <xs:complexType name="Intercept">
+    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="target" type="OptionallyQualifiedName" use="required" />
+    <xs:attribute name="runafter" type="OptionallyQualifiedWildcardedNameList" />
+    <xs:attribute name="runbefore" type="OptionallyQualifiedWildcardedNameList" />
+
+    <xs:attribute name="library" type="xs:string" />
+    <xs:attribute name="interceptfunction" type="xs:string" use="required" />
+    <xs:attributeGroup ref="ApplicabletoWebHare" />
+  </xs:complexType>
+
   <!-- APPINFO -->
   <xs:element name="deprecated" type="xs:string" />
 
