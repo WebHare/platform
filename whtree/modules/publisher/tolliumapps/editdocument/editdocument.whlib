@@ -222,6 +222,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF (NOT this->GetExclusiveAccess([ id := this->fileid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
       RETURN;
 
+    //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->fileid, data.objeditor);
 
     this->showdraftbar := TRUE;
@@ -371,6 +372,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     // Merge document editor main menu
     IF (ObjectExists(this->doceditor->contents->frame->menubar))
       this->MergeIntoMainMenu(this->frame->menubar, this->doceditor->contents->frame->menubar->items);
+
+    // Apply editor hooks. We do this after setting up the main screen (which will already have hooked into the EditDocumentAPI at this point)
+    applytester->RunSiteprofileHookTarget("publisher:documenteditor", [ contexts := this->contexts
+                                                                      , objectid := objectid
+                                                                      ]);
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
