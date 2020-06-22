@@ -24,7 +24,7 @@ LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
-
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
@@ -1239,6 +1239,29 @@ STATIC OBJECTTYPE ApplyRuleTester
       }
     }
     RETURN filtered;
+  }
+
+  /** @short Invoke the intercepts for a siteprofile hook target
+      @long Module hooks are a low-level mechanism to allow external code to hook into your code.
+      @param targetname Hook target to invoke (module:targetname)
+      @param data Data to pass to the intercept functions. Each intercept can update the data
+      @return The data as returned by the last intercept. If the target was not intercepted it will simply return the original data */
+  PUBLIC RECORD FUNCTION RunSiteprofileHookTarget(STRING targetname, RECORD data)
+  {
+    RECORD ARRAY intercepts;
+    FOREVERY (RECORD applyrule FROM this->__GetAppliesForcell("hookintercepts"))
+      FOREVERY(RECORD intercept FROM applyrule.hookintercepts)
+        IF(intercept.target = targetname)
+          INSERT intercept INTO intercepts AT END;
+
+    //OrderIntercepts also returns errors which made satisfying constraints impossible... but how to report these? dtap-based-throw?  message in inspect <apply> ?
+    intercepts := OrderIntercepts(intercepts).intercepts;
+    FOREVERY(RECORD intercept FROM intercepts)
+    {
+      FUNCTION PTR func := MakeFunctionPtr(intercept.interceptfunction, TypeID(RECORD), [ TypeID(RECORD) ]);
+      data := func(data);
+    }
+    RETURN data;
   }
 
   PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)

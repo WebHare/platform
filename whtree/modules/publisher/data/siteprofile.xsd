@@ -937,6 +937,7 @@
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
+      <xs:element name="intercept" type="sc:Intercept" />
       <xs:element name="richdocumenteditor" type="RichDocumentEditor" />
       <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
       <xs:element name="tagsource" type="TagSource" />

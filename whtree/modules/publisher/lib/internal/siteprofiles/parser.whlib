@@ -917,6 +917,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , foldersettings := DEFAULT RECORD
                     , webtoolsformrules := DEFAULT RECORD ARRAY
                     , rtddoc := DEFAULT RECORD
+                    , hookintercepts := RECORD[]
                     ];
 
 
@@ -1287,6 +1288,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                   , type := node->GetAttribute("type")
                   , allow := node->localname LIKE "allow*"
                   ] INTO apply.webtoolsformrules AT END;
+              CONTINUE;
+            }
+            CASE "intercept"
+            {
+              RECORD intercept := ParseIntercept(this, this->filename, node);
+              IF(RecordExists(intercept))
+                INSERT intercept INTO apply.hookintercepts AT END;
               CONTINUE;
             }
           }
