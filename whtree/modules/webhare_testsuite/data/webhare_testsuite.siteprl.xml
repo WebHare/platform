@@ -92,6 +92,27 @@
   </foldertype>
 
   <apply>
+    <!-- applytest-megaglobal ALWAYS applies. there can be no escape -->
+    <to type="all" />
+    <xyz:test data="applytest-megaglobal" />
+  </apply>
+
+  <apply>
+    <to type="all" whfspathmask="/webhare_testsuite.testfolder/webhare_testsuite.site2" /> <!-- missing / so never matches -->
+    <xyz:test data="applytest-nevermatch1" />
+  </apply>
+
+  <apply>
+    <to type="all" whfspathmask="/webhare_testsuite.testfolder/webhare_testsuite.sit?2/" />
+    <xyz:test data="applytest-whfspath" />
+  </apply>
+
+  <apply>
+    <to type="all" whfspathregex="^/WebHare testsuite site/.*/applytest(0|1)/$" /> <!-- just testing a bit of regex, applytest0 doesn't exist -->
+    <xyz:test data="applytest-whfsregex" />
+  </apply>
+
+  <apply>
     <to type="folder" sitemask="WebHare testsuite site" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal" />
   </apply>
