@@ -1702,6 +1702,20 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="whfspathmask" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Mask against which the object whfspath is case-insensitively matched if it's outside a site.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="whfspathregex" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>
+          Regular expression against which the object whfspath is case-insensitively matched if it's outside a site.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="prebuiltmasks" type="sc:WildcardMasks" />
     <xs:attribute name="webfeatures" type="sc:WildcardMasks">
       <xs:annotation>
