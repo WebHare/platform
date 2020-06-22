@@ -1602,11 +1602,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
                                ], options);
 
 
-    OBJECT siteroot := this->GetWHFSTestRoot()->OpenByName(options.sitename);
-    IF(ObjectExists(siteroot))
-      siteroot->RecycleSelf();
-
-    siteroot := this->GetWHFSTestRoot()->CreateFolder( [ name := options.sitename, type := options.sitetype ] );
+    OBJECT siteroot := this->GetWHFSTestRoot()->EnsureFolder( [ name := options.sitename, type := options.sitetype ] );
     OBJECT newsite := CreateSiteFromFolder(siteroot->id);
     IF(Length(options.webfeatures) != 0)
     {

@@ -2170,6 +2170,7 @@
         <text tid="canceldraftmenu">Cancel draft</text>
         <text tid="cancelrequest">cancel the request</text>
         <text tid="cancelrequestmenu">Cancel request</text>
+        <text tid="cannotpublishpinnedfile">Cannot publish this file - it is currently unpublished and has been protected. The protection needs to be removed first</text>
         <text tid="developersmenu">Developers</text>
         <text tid="documenthasunpublishedchanges">Draft: this document has changes that haven't been published yet.</text>
         <text tid="documenthasunsavedchanges">This document has unsaved changes.</text>

@@ -2170,6 +2170,7 @@
         <text tid="canceldraftmenu">Concept annuleren</text>
         <text tid="cancelrequest">ingediend verzoek tot publicatie intrekken</text>
         <text tid="cancelrequestmenu">Verzoek annuleren</text>
+        <text tid="cannotpublishpinnedfile">Kan het bestand niet publiceren - het is momenteel ongepubliceerd en beschermd. De bescherming moet eerst verwijderd worden</text>
         <text tid="developersmenu">Ontwikkelaars</text>
         <text tid="documenthasunpublishedchanges">Concept: dit document heeft wijzigingen die nog niet zijn gepubliceerd.</text>
         <text tid="documenthasunsavedchanges">Dit document heeft niet-opgeslagen wijzigingen.</text>

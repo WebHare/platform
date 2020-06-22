@@ -758,6 +758,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , match_folder := type="folder"
                        , pathmask     := crit->GetAttribute("pathmask")
                        , pathregex    := crit->GetAttribute("pathregex")
+                       , whfspathmask := crit->GetAttribute("whfspathmask")
+                       , whfspathregex:= crit->GetAttribute("whfspathregex")
                        , parentmask   := crit->GetAttribute("parentmask")
                        , parentregex  := crit->GetAttribute("parentregex")
                        , parenttype   := crit->GetAttribute("parenttype")
