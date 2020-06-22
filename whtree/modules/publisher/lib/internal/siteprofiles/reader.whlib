@@ -1254,7 +1254,7 @@ STATIC OBJECTTYPE ApplyRuleTester
         IF(intercept.target = targetname)
           INSERT intercept INTO intercepts AT END;
 
-    //OrderIntercepts also returns errors which made sastisfying constraints impossible... but how to report these? dtap-based-throw?  message in inspect <apply> ?
+    //OrderIntercepts also returns errors which made satisfying constraints impossible... but how to report these? dtap-based-throw?  message in inspect <apply> ?
     intercepts := OrderIntercepts(intercepts).intercepts;
     FOREVERY(RECORD intercept FROM intercepts)
     {
