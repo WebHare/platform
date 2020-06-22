@@ -18,8 +18,6 @@ LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 
-PUBLIC BOOLEAN __wrdauth_allow_requestless_login; //In Case Of Emergency - should be removed
-
 INTEGER session_version := 6;
 
 OBJECTTYPE WRDAuthExtensionBase
@@ -909,9 +907,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
   */
   PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
-      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
-
     IF(this->debug)
       this->AddDebugMessage("LoginById: " || this->MaskInternalId(ToString(userid)));
 
@@ -957,9 +952,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
   */
   PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
-      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
-
     STRING remoteip;
     FUNCTION PTR lookuplogin;
     INTEGER userid;
@@ -1039,9 +1031,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
-      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
-
     IF(this->debug)
     {
       this->AddDebugMessage("Completing user login, impersonation: " || (trylogin.isimpersonation ? "true" : "false")
@@ -1110,9 +1099,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT IsRequest() AND NOT IsDtapLive() AND NOT __wrdauth_allow_requestless_login)
-      THROW NEW Exception("Support for request-less WRDAuth logins is considered for deprecation");
-
     options := ValidateOptions([ logauditevent := TRUE ], options);
 
     INTEGER entityid := this->GetLoggedinEntity();
