@@ -36,6 +36,10 @@ while true; do
     DOCKERARGS="$DOCKERARGS --cpu-quota=${2}000"
     shift
     shift
+  elif [ "$1" == "--containername" ]; then
+    DOCKERARGS="$DOCKERARGS --name=${2}"
+    shift
+    shift
   elif [ "$1" == "--coverage" ]; then
     shift
     COVERAGE=1
