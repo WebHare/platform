@@ -418,4 +418,9 @@
     <addtowhfsindex privatefolder="addtowhfsindex/beforesites" priority="beforesites" />
     <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
   </consilio>
+
+  <hooking>
+    <target name="siteprofilehook" />
+  </hooking>
+
 </module>

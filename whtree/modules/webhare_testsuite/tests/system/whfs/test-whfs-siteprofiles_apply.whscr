@@ -8,6 +8,12 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
+STRING FUNCTION GetMyIntercepts(INTEGER obj)
+{
+  RECORD data := GetApplyTesterForObject(obj)->RunSiteprofileHookTarget("webhare_testsuite:siteprofilehook", [ result := STRING[] ]);
+  RETURN Detokenize(data.result, ',');
+}
+
 STRING FUNCTION GetMyCustomNodes(INTEGER obj)
 {
   STRING ARRAY result;
@@ -27,6 +33,7 @@ MACRO TestBeforeSite()
   TestEq(0, siteroot2->parentsite);
   TestEq('/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2->whfspath);
   TestEq("applytest-megaglobal,applytest-whfspath", GetMyCustomNodes(siteroot2->id));
+  TestEq("intercept-whfspath,intercept-megaglobal", GetMyIntercepts(siteroot2->id));
 }
 
 MACRO TestRules()

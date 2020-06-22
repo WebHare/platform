@@ -21,6 +21,35 @@ PUBLIC CONSTANT INTEGER webrulepriority_before := -1000;
 PUBLIC CONSTANT INTEGER webrulepriority_default := 0;
 PUBLIC CONSTANT INTEGER webrulepriority_after := 1000;
 
+PUBLIC RECORD FUNCTION ParseIntercept(OBJECT addwarningcontext, STRING resourcename, OBJECT subchild)
+{
+  IF(NOT IsNodeApplicableToThisWebHare(subchild))
+    RETURN DEFAULT RECORD;
+
+  STRING modulename := GetModuleNameFromResourcePath(resourcename);
+  STRING interceptfunction;
+  IF(subchild->HasAttribute("library"))
+  {
+    addwarningcontext->AddWarning(subchild,"library= has been deprecated, we recommend adding the relative path to interceptfunction (supported in 4.17 and up)");
+    interceptfunction := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("interceptfunction");
+  }
+  ELSE
+  {
+    interceptfunction := MakeAbsoluteResourcePath(resourcename, subchild->GetAttribute("interceptfunction"));
+  }
+
+  RECORD intercept :=
+      [ module        := modulename
+      , name          := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
+      , target        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "target"))
+      , orderbefore   := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runbefore")))
+      , orderafter    := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runafter")))
+      , interceptfunction := interceptfunction
+      , line          := subchild->linenum
+      ];
+  RETURN intercept;
+}
+
 PUBLIC RECORD ARRAY FUNCTION ListModuleWebruleSets(STRING resourcename, OBJECT xmldoc)
 {
   RECORD ARRAY retval;
@@ -1151,31 +1180,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
               }
             CASE "intercept"
               {
-                IF(NOT IsNodeApplicableToThisWebHare(subchild))
-                  CONTINUE;
-
-                STRING interceptfunction;
-                IF(subchild->HasAttribute("library"))
-                {
-                  this->AddWarning(subchild,"library= has been deprecated, we recommend adding the relative path to interceptfunction (supported in 4.17 and up)");
-                  interceptfunction := "module::" || modulename || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("interceptfunction");
-                }
-                ELSE
-                {
-                  interceptfunction := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("interceptfunction"));
-                }
-
-                RECORD intercept :=
-                    [ module        := modulename
-                    , name          := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
-                    , target        := ToLowercase(ParseXMLModuleNamed(modulename, subchild, "target"))
-                    , orderbefore   := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runbefore")))
-                    , orderafter    := ParseAndQualifyXMLList(modulename, ToLowercase(subchild->GetAttribute("runafter")))
-                    , interceptfunction := interceptfunction
-                    , line          := subchild->linenum
-                    ];
-
-                INSERT intercept INTO this->moduledef.hookintercepts AT END;
+                RECORD intercept := ParseIntercept(this, this->respath, subchild);
+                IF(RecordExists(intercept))
+                  INSERT intercept INTO this->moduledef.hookintercepts AT END;
               }
             }
           }
