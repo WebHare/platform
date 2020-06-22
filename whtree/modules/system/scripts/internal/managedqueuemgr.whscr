@@ -282,6 +282,8 @@ STATIC OBJECTTYPE ManagedWorker
         RETURN;
       }
 
+      IF(debug)
+        Print("End of output of " || this->GetType() || " worker #" || this->uid || `, process terminated, active task: ${this->GetCurrentTaskId()}\n`);
 
       IF (ObjectExists(this->pvt_activetask))
       {
@@ -518,6 +520,9 @@ STATIC OBJECTTYPE ManagedWorker
   {
     IF (NOT ObjectExists(this->activetask)) // task was removed from worker due to cancellation/deletion
       RETURN;
+
+    IF(debug)
+      Print("Worker #" || this->uid || " sent status on " || this->GetCurrentTaskLabel() || "\n" || AnyToString(status, "tree"));
 
     IF (status.type = "taskfailed")
     {
@@ -905,7 +910,7 @@ STATIC OBJECTTYPE QueueMgr
       dbcontents := JoinArrays(dbcontents, "id", currentitems, [ item :=  DEFAULT OBJECT ], [ rightouterjoin := TRUE, leftouterjoin := [ found := FALSE ]]);
 
     IF (debug)
-      DumpValue(dbcontents, [ format := "boxed", name := "joined tasks" ]);
+      DumpValue((SELECT *, itemid := ObjectExists(item) ? ToString(item->id) : "N/A" FROM dbcontents), [ format := "boxed", name := "joined tasks" ]);
 
     RECORD ARRAY gonetasks, newtaskslist;
     FOREVERY (RECORD rec FROM dbcontents)
@@ -958,7 +963,7 @@ STATIC OBJECTTYPE QueueMgr
     FOREVERY (RECORD task FROM gonetasks)
     {
       IF (debug)
-        PRINT(`Removed task ${task.item->taskdata.id} from DB (state: ${task.item->stage}\n`);
+        PRINT(`Removed task ${task.item->taskdata.id} from DB (state: ${task.item->stage})\n`);
 
       task.item->taskdata.removed := TRUE;
       IF (task.item->stage != "running")
