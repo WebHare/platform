@@ -7,7 +7,9 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+
 LOADLIB "mod::tollium/lib/componentbase.whlib" EXPORT TolliumComponentBase, TolliumAutoSuggestBase;
 LOADLIB "mod::tollium/lib/gettid.whlib" EXPORT GetTid;
 LOADLIB "mod::tollium/lib/internal/contexts.whlib";
@@ -815,7 +817,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF (compinfo.fragment != "")
       RETURN this->CreateFragment(compinfo);
 
-    STRING elementtype := (namespace != ns_screens ? namespace || "#" : "") || type;
+    STRING elementtype := (namespace != whconstant_xmlns_screens ? namespace || "#" : "") || type;
     OBJECT comp := this->tolliumscreenmanager->CreateComponent(compinfo.objtype, this->tolliumscreenmanager->CreateAnonymousName(options.namebase),  -1, DEFAULT OBJECT, "", "", elementtype);
     RETURN comp;
   }

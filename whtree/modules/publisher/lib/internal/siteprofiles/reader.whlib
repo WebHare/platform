@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
@@ -28,8 +29,6 @@ LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
-PUBLIC STRING namespace_t := "http://www.webhare.net/xmlns/tollium/screens";
-PUBLIC STRING namespace_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
 PUBLIC STRING newsletter_sp := "http://www.webhare.net/xmlns/newsletter/siteprofile";
 
 OBJECT current_apply_rule_tester_cache;
@@ -123,7 +122,7 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
 
   PUBLIC OBJECT FUNCTION GetTabsExtension(STRING name)
   {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_t, "tabsextension")->GetCurrentElements())
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_screens, "tabsextension")->GetCurrentElements())
       IF(editor->GetAttribute("name")=name)
         RETURN editor;
     RETURN DEFAULT OBJECT;
@@ -131,7 +130,7 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
 
   PUBLIC OBJECT FUNCTION GetPropertyEditor(STRING name)
   {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "propertyeditor")->GetCurrentElements())
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "propertyeditor")->GetCurrentElements())
       IF(editor->GetAttribute("name")=name)
         RETURN editor;
     RETURN DEFAULT OBJECT;
@@ -139,7 +138,7 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
 
   PUBLIC OBJECT FUNCTION GetContentEditor(STRING name)
   {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "contenteditor")->GetCurrentElements())
+    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "contenteditor")->GetCurrentElements())
       IF(editor->GetAttribute("name")=name)
         RETURN editor;
     RETURN DEFAULT OBJECT;
@@ -1779,7 +1778,7 @@ STATIC OBJECTTYPE ApplyRuleTester
       IF(Length(matchingnodes)>0)
       {
         OBJECT siteprof := NEW SiteProfileObject(apply.siteprofile);
-        OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, apply.applynodetype)->Item(apply.applyindex);
+        OBJECT applynode := siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, apply.applynodetype)->Item(apply.applyindex);
 
         IF(ObjectExists(applynode))
         {

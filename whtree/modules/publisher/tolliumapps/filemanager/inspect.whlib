@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 CONSTANT RECORD dbinfo_baserow :=
   [ subnodes    := RECORD[]
@@ -859,7 +860,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
 
       OBJECT applynode;
       IF(ObjectExists(siteprofdoc))
-        applynode := siteprofdoc->GetElementsByTagNameNS(namespace_sp,apply.applynodetype)->Item(apply.applyindex);
+        applynode := siteprofdoc->GetElementsByTagNameNS(whconstant_xmlns_publisher, apply.applynodetype)->Item(apply.applyindex);
       IF(ObjectExists(applynode))
       {
         row.startline := applynode->linenum;

@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 
@@ -1493,7 +1494,7 @@ PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT 
 {
   OBJECT widgetsnode := startnode->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "widgets")->Item(0);
   OBJECT structuredef := NEW RichDocumentStructure;
-  structuredef->LoadFromXML(startnode, namespace_sp);
+  structuredef->LoadFromXML(startnode, whconstant_xmlns_publisher);
 
   RECORD retval := MakeBaseSiteprofileXMLStructure();
   retval.structure := structuredef->structure;

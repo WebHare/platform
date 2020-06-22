@@ -8,6 +8,7 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
@@ -141,7 +142,7 @@ RECORD FUNCTION ParseAttributeType(OBJECT decl)
   OBJECT callbacksignode := GetAppinfoNode([decl],"callbacksignature");
   IF(ObjectExists(callbacksignode))
   {
-    IF((attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_tolliumcommon)
+    IF((attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_tolliumcommon)
        AND (attrtype->name = "Handler" OR attrtype->name="NotimplementedOrHandler"))
     {
       RETURN [ defaultvalue := DEFAULT RECORD
@@ -207,7 +208,7 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
   }
 
   //Analyze the attribute type
-  IF(attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon OR attrtype->target_namespace = ns_tolliumcommon)
+  IF(attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon OR attrtype->target_namespace = whconstant_xmlns_tolliumcommon)
   {
     IF(attrtype->name = "Handler" OR attrtype->name = "NotimplementedOrHandler")
       THROW NEW Exception(`Attribute '${attrname}' is a Handler but lacks a <callbacksignature>`);
@@ -310,7 +311,7 @@ RECORD FUNCTION GetAnnotiationUserDocumentation(OBJECT node)
 RECORD FUNCTION ParseAttribute(OBJECT decl, RECORD ARRAY tids, STRING resourcename)
 {
   OBJECT attrtype := decl->type_definition;
-  BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon);
+  BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon);
 
   RECORD fieldrec := ParseAttributeType(decl);
 
@@ -557,7 +558,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              , defaultvalue := DEFAULT RECORD
              , finaltype := TYPEID(RECORD)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "acceptdropsparser" ]
+             , parser := [ namespaceuri := whconstant_xmlns_screens, localname := "acceptdropsparser" ]
              , ondrop_signature := GetCallbackSignature(acceptdrops, "ondrop_")
              , target := acceptdrops->GetAttribute("target")
              , target_namespaces := acceptdrops->GetVisibleNamespaces()
@@ -571,7 +572,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              , defaultvalue := DEFAULT RECORD
              , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "listrows" ]
+             , parser := [ namespaceuri := whconstant_xmlns_screens, localname := "listrows" ]
              , columnsfield := listrows->GetAttribute("columnsfield")
              , rowkeytypefield := listrows->GetAttribute("rowkeytypefield")
              , rowiconnamefield := listrows->GetAttribute("rowiconnamefield")
@@ -588,7 +589,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              , defaultvalue := DEFAULT RECORD
              , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "optionsources" ]
+             , parser := [ namespaceuri := whconstant_xmlns_screens, localname := "optionsources" ]
              , rowkeytypefield := optionsources->GetAttribute("rowkeytypefield")
              , flagsfield := optionsources->GetAttribute("flagsfield")
              , target := optionsources->GetAttribute("target")
@@ -602,7 +603,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              , defaultvalue := DEFAULT RECORD ARRAY
              , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "childcomponents" ]
+             , parser := [ namespaceuri := whconstant_xmlns_screens, localname := "childcomponents" ]
              , target := childcomponents->GetAttribute("target")
              , target_namespaces := childcomponents->GetVisibleNamespaces()
              , adoptfields := ParseXSList(childcomponents->GetAttribute("adoptfields"))
@@ -616,7 +617,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
              , defaultvalue := DEFAULT RECORD
              , finaltype := TYPEID(RECORD ARRAY)
              , recordtype := "extraparser"
-             , parser := [ namespaceuri := ns_screens, localname := "dividedcomponents" ]
+             , parser := [ namespaceuri := whconstant_xmlns_screens, localname := "dividedcomponents" ]
              , target := dividedcomponents->GetAttribute("target")
              , target_namespaces := dividedcomponents->GetVisibleNamespaces()
              , divider := GetNamespacedTarget(dividedcomponents, "divider")
@@ -662,7 +663,7 @@ RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
   FOREVERY(OBJECT attr FROM attruses)
   {
     OBJECT attrtype := attr->attribute_declaration->type_definition;
-    IF((attrtype->name = "Tid" OR attrtype->name="TidPtr") AND (attrtype->target_namespace = ns_screens OR attrtype->target_namespace = ns_systemcommon))
+    IF((attrtype->name = "Tid" OR attrtype->name="TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon))
     {
       STRING name := attr->attribute_declaration->name;
       STRING basename := name;

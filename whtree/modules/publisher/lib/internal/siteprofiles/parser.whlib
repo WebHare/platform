@@ -245,7 +245,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC MACRO ParseFileFolderTypes(STRING whichtype, FUNCTION PTR parser)
   {
-    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->ListChildren(namespace_sp, whichtype))
+    FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->ListChildren(whconstant_xmlns_publisher, whichtype))
     {
       TRY
       {
@@ -258,7 +258,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         IF(NOT insertpos.found)
           THROW NEW Exception(`Content type ${ns} is not defined in this file`);
 
-        OBJECT membersnode := PickFirst(ftype->ListChildren(namespace_sp, "members"));
+        OBJECT membersnode := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "members"));
         IF(ObjectExists(membersnode) AND NOT uses_namespace)
           this->AddError(ftype, `A type cannot define <members> unless it uses namespace= instead of typedef=`);
 
@@ -331,7 +331,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
     ctype.fstype.isfiletype := TRUE;
 
-    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(namespace_sp, "dynamicexecution")->Item(0);
+    OBJECT dyninfo := ftype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "dynamicexecution")->Item(0);
 
     IF(ObjectExists(dyninfo))
       ctype.filetype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
@@ -394,7 +394,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         ctype.foldertype.indexfile := "contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting";
     }
 
-    OBJECT dyninfo := PickFirst(ftype->ListChildren(namespace_sp, "dynamicexecution"));
+    OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
     IF(ObjectExists(dyninfo))
       ctype.foldertype.dynamicexecution := this->ParseDynamicExecuteData(dyninfo);
 
@@ -420,13 +420,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     // All xml elements that contain contenttype definitions
     RECORD ARRAY contenttypeelements :=
-        [ [ ns := namespace_sp,   name := "contenttype" ]
-        , [ ns := namespace_sp,   name := "embeddedobjecttype" ]
-        , [ ns := namespace_sp,   name := "widgettype" ]
+        [ [ ns := whconstant_xmlns_publisher,   name := "contenttype" ]
+        , [ ns := whconstant_xmlns_publisher,   name := "embeddedobjecttype" ]
+        , [ ns := whconstant_xmlns_publisher,   name := "widgettype" ]
         , [ ns := newsletter_sp,  name := "maildesigntype" ]
-        , [ ns := namespace_sp,   name := "rtdtype" ]
-        , [ ns := namespace_sp,   name := "filetype" ]
-        , [ ns := namespace_sp,   name := "foldertype" ]
+        , [ ns := whconstant_xmlns_publisher,   name := "rtdtype" ]
+        , [ ns := whconstant_xmlns_publisher,   name := "filetype" ]
+        , [ ns := whconstant_xmlns_publisher,   name := "foldertype" ]
         ];
 
     OBJECT ARRAY contenttypes;
@@ -539,7 +539,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     BOOLEAN set_cloneoncopy := nodename != "contenttype" OR (ctype->HasAttribute("cloneoncopy") = FALSE OR ParseXSBoolean(ctype->GetAttribute("cloneoncopy")));
     INTEGER typedefid;
 
-    OBJECT membersnode := ctype->GetChildElementsByTagNameNS(namespace_sp, "members")->Item(0);
+    OBJECT membersnode := ctype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "members")->Item(0);
     RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, ns);
 
     RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
@@ -734,7 +734,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
     //ADDME: Instead of continueing, report the error during compilation
     FOREVERY(OBJECT crit FROM basenode->childnodes->GetCurrentElements())
-      IF(crit->namespaceuri = namespace_sp)
+      IF(crit->namespaceuri = whconstant_xmlns_publisher)
       {
         RECORD applyto;
         SWITCH(crit->localname)
@@ -814,7 +814,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   PUBLIC RECORD ARRAY FUNCTION ImportApplies()
   {
-    OBJECT ARRAY applies := this->siteprof->xmldoc->documentelement->ListElements(namespace_sp, "*");
+    OBJECT ARRAY applies := this->siteprof->xmldoc->documentelement->ListElements(whconstant_xmlns_publisher, "*");
     RECORD ARRAY applyrules;
     RECORD counters := [ apply := 0, filetype := 0, foldertype := 0 ];
     FOREVERY(OBJECT applyblock FROM applies)
@@ -944,7 +944,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
       TRY
       {
-        IF(node->namespaceuri = namespace_sp)
+        IF(node->namespaceuri = whconstant_xmlns_publisher)
         {
           SWITCH(node->localname)
           {
@@ -1437,7 +1437,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   PUBLIC RECORD ARRAY FUNCTION ImportGroupTypes()
   {
     RECORD ARRAY types;
-    OBJECT ARRAY grouptypes := this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(namespace_sp, "grouptype")->GetCurrentElements();
+    OBJECT ARRAY grouptypes := this->siteprof->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "grouptype")->GetCurrentElements();
     FOREVERY(OBJECT gtype FROM grouptypes)
     {
       RECORD typeinfo :=
