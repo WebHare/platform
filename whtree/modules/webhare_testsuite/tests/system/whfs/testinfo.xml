@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="libs">
   <test script="test-whfs-base.whscr" />
   <test script="test-whfs-register.whscr" />
   <test script="test-whfs-siteprofiles_apply.whscr" />

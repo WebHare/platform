@@ -94,6 +94,7 @@
   <apply>
     <!-- applytest-megaglobal ALWAYS applies. there can be no escape -->
     <to type="all" />
+    <intercept name="megaglobal" target="siteprofilehook" interceptfunction="../tests/system/whfs/libs/hooks.whlib#MegaGlobalHook"/>
     <xyz:test data="applytest-megaglobal" />
   </apply>
 
@@ -105,6 +106,7 @@
   <apply>
     <to type="all" whfspathmask="/webhare_testsuite.testfolder/webhare_testsuite.sit?2/" />
     <xyz:test data="applytest-whfspath" />
+    <intercept name="whfspath" target="webhare_testsuite:siteprofilehook" interceptfunction="../tests/system/whfs/libs/hooks.whlib#WhfsPathHook" runbefore="webhare_testsuite:megaglobal" />
   </apply>
 
   <apply>

@@ -1,0 +1,12 @@
+<?wh
+
+PUBLIC RECORD FUNCTION MegaGlobalHook(RECORD input)
+{
+  INSERT "intercept-megaglobal" INTO input.result AT END;
+  RETURN input;
+}
+PUBLIC RECORD FUNCTION WHFSPathHook(RECORD input)
+{
+  INSERT "intercept-whfspath" INTO input.result AT END;
+  RETURN input;
+}
