@@ -118,6 +118,8 @@ OBJECTTYPE MessageWaiter EXTEND __HS_INTERNAL_AsyncCallbackWaitHelperBase
     If you need to wait on a message, you can use the @a handle property as a parameter
     to WaitForMultiple. The handle is signalled when a message is in queue, or when the
     other endpoint is closed.
+    @public
+    @topic harescript-core/ipc
 */
 PUBLIC STATIC OBJECTTYPE IPCLinkEndpoint EXTEND __HS_INTERNAL_OutputObject
 < // ---------------------------------------------------------------------------

@@ -18,6 +18,8 @@ PUBLIC OBJECTTYPE Locks EXTEND DashboardPanelBase
   {
     this->lockmgr := OpenLockManager();
     this->RefreshDashboardPanel();
+
+    ^frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
   }
 
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
@@ -97,5 +99,18 @@ PUBLIC OBJECTTYPE Locks EXTEND DashboardPanelBase
         ]);
 
     screen->RunModal();
+  }
+
+  MACRO DoDebugLockProcess()
+  {
+    RECORD message :=
+        [ groupid := this->lockslist->selection[0].groupid
+        ];
+
+    this->tolliumcontroller->SendApplicationMessage(
+          "system:debugger",
+          DEFAULT RECORD,
+          message,
+          FALSE);
   }
 >;

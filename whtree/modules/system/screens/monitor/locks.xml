@@ -2,12 +2,21 @@
          lib="screens/monitor/locks.whlib"
          gid="monitor.locks">
 
-  <screen name="locks" title="">
+  <screen name="locks" title="" flags="issysop">
     <actions>
       <action name="opentracerow" >
         <enableon source="trace" min="1" onexecute="doopentracerow" />
       </action>
+      <action name="debugprocess" frameflags="issysop">
+        <enableon source="lockslist" min="1" max="1" onexecute="dodebuglockprocess" />
+      </action>
     </actions>
+
+    <menus>
+      <menu name="locklistmenu">
+        <item action="debugprocess" disablemode="hidden" />
+      </menu>
+    </menus>
 
     <body height="1pr">
       <split type="vertical">
@@ -31,6 +40,7 @@
                     borders="none"
                     selectmode="multiple"
                     onselect="onlinkselect"
+                    selectcontextmenu="locklistmenu"
                     >
     <!--                openaction="viewprocess" -->
     <!--                selectcontextmenu="jobscontext" -->
@@ -47,7 +57,9 @@
           </split>
         </part>
         <part height="1pr">
-          <heading checkbox="true" name="stacktrace" onchange="onstacktracechange" />
+          <panel spacers="left">
+            <heading checkbox="true" name="stacktrace" onchange="onstacktracechange" />
+          </panel>
           <list name="trace"
                 minwidth="80x" width="1pr"
                 minheight="10x" height="1pr"

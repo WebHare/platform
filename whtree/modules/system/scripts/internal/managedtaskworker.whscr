@@ -36,6 +36,9 @@ MACRO Mainloop()
       RETURN; //we're out of date, giving up
     }
 
+    IF (debug)
+      Print(`Starting task ${taskinfo.queueid}\n`);
+
     STRING ARRAY objecttoks := Tokenize(taskinfo.objectname,'#');
     RECORD libstatus := GetHarescriptLibraryInfo(objecttoks[0]);
     TRY
@@ -57,6 +60,9 @@ MACRO Mainloop()
         lasttaskresult := ExecuteEphemeralTask(taskinfo, debug);
       ELSE
         lasttaskresult := CELL[...ExecuteManagedTask(taskinfo, debug), DELETE resolution ]; //we're sending resolution through the database
+
+      IF (debug)
+        Print(`Finished task ${taskinfo.queueid}\n`);
     }
     CATCH(OBJECT e)
     {
@@ -64,7 +70,7 @@ MACRO Mainloop()
       IF(trans->IsWorkOpen())
         trans->RollbackWork();
 
-      Print("Task failed: " || e->what || "\n");
+      Print(`Task ${taskinfo.queueid} failed: ${e->what}\n`);
       //our parent knows the fail timeouts etc, so let him handle the failed task
       lasttaskresult := [ type := "taskfailed", error := e->what, trace := e->trace, isfatal := FALSE ];
       WaitForPromise(managedqueuemgr->AnnounceTaskFail(lasttaskresult));

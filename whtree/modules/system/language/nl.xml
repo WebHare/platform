@@ -163,6 +163,7 @@
     <textgroup gid="locks">   <!-- monitor.locks -->
       <text tid="clientname">Clientnaam</text>
       <text tid="col">Kolom</text>
+      <text tid="debugprocess">Openen in debugger</text>
       <text tid="filename">Bestandsnaam</text>
       <text tid="func">Functie</text>
       <text tid="groupid">VM ID</text>
