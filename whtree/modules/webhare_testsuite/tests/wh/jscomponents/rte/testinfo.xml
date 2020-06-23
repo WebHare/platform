@@ -11,6 +11,7 @@
   <jstest file="teststructured-delete.es" />
   <jstest file="teststructured-copypaste.es" />
   <jstest file="teststructured-restructuring.es" />
+  <jstest file="teststructured-keyboard.es" />
   <jstest file="testpageframe.es" />
   <jstest file="testpage.es" />
   <jstest file="testself.es" />

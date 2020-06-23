@@ -1519,6 +1519,18 @@ export default class EditorBase
       this.bodydiv.addEventListener('focus', this.onFocus.bind(this));
       this.bodydiv.addEventListener('focusout', this.onFocusOut.bind(this));
       this.bodydiv.addEventListener('focusin', this.onFocusIn.bind(this));
+      new KeyboardHandler.default(this.bodydiv,
+        { "Accel+Alt+1": event => this._onStyleSwitch(event,1)
+        , "Accel+Alt+2": event => this._onStyleSwitch(event,2)
+        , "Accel+Alt+3": event => this._onStyleSwitch(event,3)
+        , "Accel+Alt+4": event => this._onStyleSwitch(event,4)
+        , "Accel+Alt+5": event => this._onStyleSwitch(event,5)
+        , "Accel+Alt+6": event => this._onStyleSwitch(event,6)
+        , "Accel+Alt+7": event => this._onStyleSwitch(event,7)
+        , "Accel+Alt+8": event => this._onStyleSwitch(event,8)
+        , "Accel+Alt+9": event => this._onStyleSwitch(event,9)
+        , "Accel+Alt+0": event => this._onStyleSwitch(event,0)
+        });
       this.bodydiv.addEventListener('keydown', this._gotKeyDown.bind(this));
       this.bodydiv.addEventListener('keypress', this._gotKeyPress.bind(this));
       this.bodydiv.addEventListener('keyup', this._gotKeyUp.bind(this));//*/
@@ -2401,6 +2413,12 @@ export default class EditorBase
 
     console.log('inspectres', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { range, b, e, br, el }, { indent: 1 }), bres, eres);
     console.log({ b, e, br, el });
+  }
+
+  _onStyleSwitch(event,style)
+  {
+    dompack.stop(event);
+    //TODO switch to h1 to h6 / p if allowed by allowedtag?
   }
 
   _gotKeyDown(event)
