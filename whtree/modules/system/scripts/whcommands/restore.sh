@@ -17,6 +17,11 @@ while true; do
   elif [ "$1" == "--softlink" ]; then
     BLOBIMPORTMODE="softlink"
     shift
+  elif [ "$1" == "--restoreto" ]; then
+    shift
+    RESTORETO="$1"
+    SET_RESTORETO=1
+    shift
   elif [[ $1 =~ ^- ]]; then
     echo "Illegal option '$1'"
     exit 1
@@ -26,7 +31,7 @@ while true; do
 done
 
 if [ -z "$1" ]; then
-  echo "Syntax: wh restore [ --softlink ] [ --copy ] [ --webhareimage image ] <srcdir>"
+  echo "Syntax: wh restore [ --softlink ] [ --copy ] [ --webhareimage image ] [ --restoreto newdbasedir ] <srcdir>"
   echo "  --softlink:     softlink blobs, don't try to hardlink"
   echo "  --copy:         copy blobs, don't try to hardlink"
   echo "  --webhareimage: use docker to restore. full docker image name or just a version, eg 4.19"
@@ -37,6 +42,11 @@ if [ "$BLOBIMPORTMODE" == "softlink" -a -n "$WEBHAREIMAGE" ]; then
   echo "the container's /opt/whdata first, and run 'wh restore --softlink' inside the container"
   exit 1
 fi
+if [ -n "$WEBHAREIMAGE" -a -n "$SET_RESTORETO" ]; then
+  echo "Docker based restore is not compatible with --restoreto"
+  exit 1
+fi
+
 
 TORESTORE="$1"
 
@@ -59,8 +69,14 @@ fi
 # ADDME Support other restore formats, eg full backup files without blobs (no easy way to recognize them from outside though? just assume if there's no blob folder ?)
 if [ -f "$TORESTORE/backup/backup.bk000" ] ; then
   RESTORE_DB=dbserver
+  if [ -z "$RESTORETO" ]; then
+    RESTORETO="$WEBHARE_DATAROOT/dbase"
+  fi
 elif [ -f "$TORESTORE/backup/base.tar.gz" ] ; then
   RESTORE_DB=postgresql
+  if [ -z "$RESTORETO" ]; then
+    RESTORETO="$WEBHARE_DATAROOT/postgresql"
+  fi
 else
   echo "Cannot find $TORESTORE/backup/base.tar.gz or $TORESTORE/backup/backup.bk000"
   exit 1
@@ -73,17 +89,14 @@ if [ ! -d "$TORESTORE/blob" ]; then
   exit 1
 fi
 
-if [ "$RESTORE_DB" == "dbserver" -a -d "$WEBHARE_DATAROOT/dbase" ]; then
-  echo "$WEBHARE_DATAROOT/dbase already exists - did you mean to specify a different WEBHARE_DATAROOT for the restore?"
-  exit 1
-elif [ "$RESTORE_DB" == "postgresql" -a -d "$WEBHARE_DATAROOT/postgresql" ]; then
-  echo "$WEBHARE_DATAROOT/postgresql already exists - did you mean to specify a different WEBHARE_DATAROOT for the restore?"
+if [ -d "$RESTORETO" ]; then
+  echo "$RESTORETO already exists - did you mean to specify a different WEBHARE_DATAROOT or --restoreto for the restore?"
   exit 1
 fi
 
-mkdir -p "$WEBHARE_DATAROOT" 2>/dev/null
-if [ ! -d "$WEBHARE_DATAROOT" ]; then
-  echo "Unable to create $WEBHARE_DATAROOT"
+mkdir -p "$RESTORETO" 2>/dev/null
+if [ ! -d "$RESTORETO" ]; then
+  echo "Unable to create $RESTORETO"
   exit 1
 fi
 
@@ -107,7 +120,7 @@ EOF
 fi
 
 if [ "$RESTORE_DB" == "dbserver" ]; then
-  if ! $WEBHARE_DIR/bin/dbserver --restore "$TORESTORE/backup/backup.bk000" --restoreto "$WEBHARE_DATAROOT/dbase" --blobimportmode $BLOBIMPORTMODE ; then
+  if ! $WEBHARE_DIR/bin/dbserver --restore "$TORESTORE/backup/backup.bk000" --restoreto "$RESTORETO" --blobimportmode $BLOBIMPORTMODE ; then
     echo "Restore failed (errorcode $?)"
     exit $?
   fi
@@ -150,7 +163,8 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
     chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
-  mv "$WEBHARE_DATAROOT/postgresql.restore" "$WEBHARE_DATAROOT/postgresql"
+  mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
+  rmdir "$WEBHARE_DATAROOT/postgresql.restore"
 fi
 
 echo ""
