@@ -14,7 +14,7 @@ async function getIPInfoIntoCache(options)
   let geoinfo = { countrycode:  result ? result.country : ""
                 , creationdate: Date.now()
                 };
-  if(options.countrylang)
+  if(result && options.countrylang)
     geoinfo["countrylang_" + options.countrylang] = result.countryname;
 
   localStorage.setItem("_wh.geoinfo", JSON.stringify(geoinfo));
