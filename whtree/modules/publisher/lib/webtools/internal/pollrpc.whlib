@@ -117,10 +117,6 @@ RECORD FUNCTION __CastVote(OBJECT poll, STRING ARRAY optionguids)
   STRING ipaddress := GetClientRemoteIp();
   STRING useragent := GetWebHeader("User-agent");
 
-  //INTEGER ARRAY polloptionsids := SELECT AS INTEGER ARRAY id FROM publisher.polloptions WHERE poll_fsobject = poll->id;
-  //BOOLEAN voted_by_ip := SELECT FROM publisher.pollvotes WHERE id IN polloptionsids AND COLUMN ipaddress = VAR ipaddress;
-
-
   GetPrimary()->BeginLockedWork("webtools_poll"||poll->id);
 
   INTEGER pollvoterid  := MakeAutoNumber(publisher.pollvoters, "id");

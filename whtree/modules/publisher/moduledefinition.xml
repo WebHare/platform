@@ -380,22 +380,6 @@
           When did we receive this vote?
         </d:documentation>
       </d:datetime>
-
-      <!--
-      <d:varchar name="userguid" maxlength="255">
-        <d:documentation>
-          The WRD_GUID of the user which casted the vote
-        </d:documentation>
-      </d:varchar>
-      -->
-
-      <!--
-      <d:varchar name="origin">
-        <d:documentation>
-          (for future expansion?)
-        </d:documentation>
-      </d:varchar>
-      -->
     </d:table>
 
 
