@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/validation/xml.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
@@ -54,7 +55,7 @@ RECORD FUNCTION ParseMapping(OBJECT mappingnode, STRING outputtype)
                     , istid := outputtype = "text"
                     ];
 
-  FOREVERY(OBJECT mapvalue FROM mappingnode->GetElementsByTagNameNS(ns_screens, "mapvalue")->GetCurrentElements())
+  FOREVERY(OBJECT mapvalue FROM mappingnode->GetElementsByTagNameNS(whconstant_xmlns_screens, "mapvalue")->GetCurrentElements())
   {
     VARIANT invalue, result;
 
@@ -158,7 +159,7 @@ STATIC OBJECTTYPE PageParser
         , allpublic      := allpublic
         , errors         := DEFAULT RECORD ARRAY
         , warnings       := DEFAULT RECORD ARRAY
-        , implementation := ns_screens || "#lib"
+        , implementation := whconstant_xmlns_screens || "#lib"
 
         , rootnode       := DEFAULT RECORD
         , files          := DEFAULT RECORD ARRAY
@@ -303,7 +304,7 @@ STATIC OBJECTTYPE PageParser
     IF (istransparentnode)
       RETURN [ givenname := "", fullname := "" ];
 
-    BOOLEAN isframe := element->namespaceuri = ns_screens AND element->localname = "screen";
+    BOOLEAN isframe := element->namespaceuri = whconstant_xmlns_screens AND element->localname = "screen";
 
     STRING givenname;
     IF (isframe)
@@ -381,7 +382,7 @@ STATIC OBJECTTYPE PageParser
   RECORD FUNCTION StartXMLNodeWithName(OBJECT element, RECORD compinfo, RECORD nameinfo, STRING hijackchildrento) //transparentnode: not actually inserted into formobjects
   {
     //FIXME only process the gid if ParseXMLFields lists it among the fields (or make it 'global' like 'name')
-    BOOLEAN hack_isframe := element->namespaceuri = ns_screens AND element->localname = "screen";
+    BOOLEAN hack_isframe := element->namespaceuri = whconstant_xmlns_screens AND element->localname = "screen";
 
     RECORD currentscope := this->tolliumscopes[0];
     STRING localgid := this->ParseGid(element, "", "gid"); //Open the new gid... we already need it for any local XML fields
@@ -389,7 +390,7 @@ STATIC OBJECTTYPE PageParser
     BOOLEAN transparentnode := compinfo.objtype = "" AND compinfo.fragment="";
 
     RECORD formobjectsinfo;
-    STRING elementtype := (element->namespaceuri != ns_screens ? element->namespaceuri || "#" : "") || element->localname;
+    STRING elementtype := (element->namespaceuri != whconstant_xmlns_screens ? element->namespaceuri || "#" : "") || element->localname;
     IF(NOT transparentnode) //this item _should_ have a name?
     {
       RECORD newscope := this->tolliumscopes[0];
@@ -550,7 +551,7 @@ STATIC OBJECTTYPE PageParser
     }
     ELSE
     {
-      IF (this->ReadImplementationAttribute(fragmentdata.fragment) != ns_screens || "#none")
+      IF (this->ReadImplementationAttribute(fragmentdata.fragment) != whconstant_xmlns_screens || "#none")
         objtype := curpageparser->ResolveObjType(fragmentdata.fragmentref, fragmentdata.fragment);
 
       IF (objtype="") //although we set a component for <includefragment> (to prevent it from becoming transparent) this won't affect true components using fragments
@@ -617,7 +618,7 @@ STATIC OBJECTTYPE PageParser
 
     // search for and return the fragment we need from the screens document
     screensdoc := screensdocinfo.doc;
-    OBJECT elements := screensdoc->GetElementsByTagNameNS(ns_screens, elementtag);
+    OBJECT elements := screensdoc->GetElementsByTagNameNS(whconstant_xmlns_screens, elementtag);
     STRING elementname := GetScreenNameFromScreenPath(elementref);
     FOREVERY(OBJECT xsd_element FROM elements->GetCurrentElements())
       IF(ToUppercase(xsd_element->GetAttribute("name")) = ToUppercase(elementname))
@@ -652,7 +653,7 @@ STATIC OBJECTTYPE PageParser
     {
       STRING ARRAY parts := Tokenize(implementation, "#");
       IF (Length(parts) = 1)
-        INSERT ns_screens INTO parts AT 0;
+        INSERT whconstant_xmlns_screens INTO parts AT 0;
       RECORD def := GetImplementationDefinition(parts[0], parts[1]);
       this->AddFiles(def.files);
       RETURN def;
@@ -902,7 +903,7 @@ STATIC OBJECTTYPE PageParser
       INSERT CELL emptyvalueisset := col->HasAttribute("emptyvalue") INTO colinfo;
 
       RECORD mapping;
-      OBJECT mappingnode := col->GetElementsByTagNameNS(ns_screens,"mapping")->Item(0);
+      OBJECT mappingnode := col->GetElementsByTagNameNS(whconstant_xmlns_screens,"mapping")->Item(0);
       IF(ObjectExists(mappingnode))
         mapping := ParseMapping(mappingnode, colinfo.type);
 
@@ -1212,7 +1213,7 @@ PUBLIC RECORD FUNCTION GetMessageBox(STRING name)
   STRING resourcename := GetResourceNameFromScreenPath(name);
   RECORD docinfo := RetrieveCachedXMLResource(resourcename);
   STRING dialogname := GetScreenNameFromScreenPath(name);
-  OBJECT dialognode := docinfo.doc->GetElementsByTagNameNS(ns_screens, "messageboxes")->item(0);
+  OBJECT dialognode := docinfo.doc->GetElementsByTagNameNS(whconstant_xmlns_screens, "messageboxes")->item(0);
   IF(NOT ObjectExists(Dialognode))
     RETURN DEFAULT RECORD;
 
@@ -1518,7 +1519,7 @@ RECORD ARRAY FUNCTION ParseLines(OBJECT nodeset)
   RECORD ARRAY lines;
   FOREVERY(OBJECT curnode FROM nodeset->GetCurrentElements())
   {
-    IF(curnode->namespaceuri = ns_screens AND curnode->localname = "lines")
+    IF(curnode->namespaceuri = whconstant_xmlns_screens AND curnode->localname = "lines")
     {
       //save currents ettings and reinvoke us
       RECORD savelayout := curpageparser->bb_levels[0].linesettings;
@@ -1536,7 +1537,7 @@ RECORD ARRAY FUNCTION ParseLines(OBJECT nodeset)
        hard to find a good spot for this without resorting to panels as i want components
        to be able to add lines to the formlayout. Should probably resort to
        a more state-machine instead of stack-based parsing for tollium */
-    BOOLEAN isincludefragment := curnode->namespaceuri = ns_screens AND curnode->localname = "includefragment";
+    BOOLEAN isincludefragment := curnode->namespaceuri = whconstant_xmlns_screens AND curnode->localname = "includefragment";
     RECORD compinfo := curpageparser->LookupComponent(curnode, FALSE, "element");
     //print("4: " || compinfo.fragment || "\n");
     IF(RecordExists(compinfo) AND (compinfo.fragment != "" OR isincludefragment))
@@ -1619,7 +1620,7 @@ VARIANT FUNCTION ParseUsingExtraParser(OBJECT element, RECORD field, RECORD item
 {
   OBJECT nodeset := GetParserTarget(element,field);
 
-  IF(field.parser.namespaceuri = ns_screens)
+  IF(field.parser.namespaceuri = whconstant_xmlns_screens)
   {
     SWITCH(field.parser.localname)
     {
@@ -2257,11 +2258,11 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, OBJECT screen, STR
     curpageparser := NEW PageParser(resourcename, initialgid, ReadBoolAttr(screen, "allpublic", FALSE), scope, screen->GetAttribute('name'));
     curpageparser->finalpage.implementation := curpageparser->ReadImplementationAttribute(screen);
 
-    IF(curpageparser->finalpage.implementation = ns_screens || "#lib")
+    IF(curpageparser->finalpage.implementation = whconstant_xmlns_screens || "#lib")
     {
       curpageparser->finalpage.objtype := curpageparser->ResolveObjType(resourcename, screen);
     }
-    ELSE IF(curpageparser->finalpage.implementation = ns_screens || "#none")
+    ELSE IF(curpageparser->finalpage.implementation = whconstant_xmlns_screens || "#none")
     {
       curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#" ||
           (screen->localname IN ["propertyeditor","tabsextension"] ? "TolliumTabsExtensionBase"

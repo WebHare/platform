@@ -20,6 +20,7 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/dbase/whdb.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/dialogs.whlib";
@@ -292,7 +293,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
   */
   PUBLIC VARIANT FUNCTION ReprocessExtraParser(OBJECT obj, RECORD field, RECORD scope, VARIANT data)
   {
-    IF(field.parser.namespaceuri = ns_screens)
+    IF(field.parser.namespaceuri = whconstant_xmlns_screens)
     {
       SWITCH(field.parser.localname)
       {

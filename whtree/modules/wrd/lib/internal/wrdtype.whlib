@@ -2039,11 +2039,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           FOREVERY(STRING setval FROM val)
           {
             IF(NOT IsAllowedEnumValue(setval, attr.allowedvalues))
-              THROW NEW Exception(`Illegal value ${setval} for attribute '${attr.tag}'`);
+              THROW NEW Exception(`Illegal value '${setval}' for attribute '${attr.tag}'`);
 
             RECORD lb := LowerBound(outvals, setval);
             IF(lb.found) //duplicate
-              THROW NEW Exception(`Setting duplicate value ${setval} for attribute '${attr.tag}'`);
+              THROW NEW Exception(`Setting duplicate value '${setval}' for attribute '${attr.tag}'`);
 
             INSERT setval INTO outvals AT lb.position;
           }

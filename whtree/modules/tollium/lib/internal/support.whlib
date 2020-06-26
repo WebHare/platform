@@ -14,9 +14,6 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 PUBLIC RECORD __screenbuildinfo;
-PUBLIC STRING ns_screens := "http://www.webhare.net/xmlns/tollium/screens";
-PUBLIC STRING ns_systemcommon := "http://www.webhare.net/xmlns/system/common";
-PUBLIC STRING ns_tolliumcommon := "http://www.webhare.net/xmlns/tollium/common";
 PUBLIC STRING ns_xmlschema := "http://www.w3.org/2001/XMLSchema";
 
 PUBLIC INTEGER ttl_components := 5 * 60 * 1000;

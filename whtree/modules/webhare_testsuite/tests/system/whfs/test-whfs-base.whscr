@@ -115,9 +115,11 @@ MACRO SimpleTest()
   subs := firstfolder->GetDescendantFolderIds(1);
   TestEq(TRUE, firstfolder->id NOT IN subs, "Don't include ourselves");
   TestEq(2, Length(subs));
-  TestEq(3,Length(firstfolder->GetDescendantFileIds(1)));
+  TestEq(1,Length(firstfolder->GetDescendantFileIds(1)));
+  TestEq(3,Length(firstfolder->GetDescendantFileIds(2)));
   TestEq(TRUE, subfolder->id IN subs);
   TestEq(TRUE, subfolder2->id IN subs);
+  TestEq(FALSE, subfolder->id IN firstfolder->GetDescendantFileIds());
   subs := firstfolder->GetDescendantObjectIds(1);
   TestEq(3, Length(subs));
   TestEq(TRUE, wittyfile->id IN subs);

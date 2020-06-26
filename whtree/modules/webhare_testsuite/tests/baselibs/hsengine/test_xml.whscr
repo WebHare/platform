@@ -1024,22 +1024,22 @@ PUBLIC MACRO TestRegressions()
   TestEq("E8E6289942E65F613753BDFAEF2FC8DC", EncodeBase16(GetHashForBlob(GetHarescriptResource("whres::xml/xml.xsd"),"MD5")));
 
   // Test node moving
-  STRING ns_screens := "http://www.webhare.net/xmlns/tollium/screens";
+  STRING whconstant_xmlns_screens := "http://www.webhare.net/xmlns/tollium/screens";
 
   // Test crashes if it fails
   OBJECT impl := NEW XmlDOMImplementation;
-  OBJECT surveydoc := impl->CreateDocument(ns_screens, "mydocument", DEFAULT OBJECT);
+  OBJECT surveydoc := impl->CreateDocument(whconstant_xmlns_screens, "mydocument", DEFAULT OBJECT);
 
-  OBJECT screen := surveydoc->CreateElementNS(ns_screens, "screen");
+  OBJECT screen := surveydoc->CreateElementNS(whconstant_xmlns_screens, "screen");
   surveydoc->documentelement->AppendChild(screen);
 
-  OBJECT container1 := surveydoc->CreateElementNS(ns_screens, "page");
+  OBJECT container1 := surveydoc->CreateElementNS(whconstant_xmlns_screens, "page");
   screen->AppendChild(container1);
 
-  OBJECT container2 := surveydoc->CreateElementNS(ns_screens, "page");
+  OBJECT container2 := surveydoc->CreateElementNS(whconstant_xmlns_screens, "page");
   screen->AppendChild(container2);
 
-  OBJECT dummy := surveydoc->CreateElementNS(ns_screens, "text");
+  OBJECT dummy := surveydoc->CreateElementNS(whconstant_xmlns_screens, "text");
   dummy->setAttribute('name', 'test');
   container1->AppendChild(dummy);
 
@@ -1052,7 +1052,7 @@ PUBLIC MACRO TestRegressions()
 
   // Xpath crash test (Item(0) not validating when searching deep)
   OBJECT xpathexpr := surveydoc->CreateXpathQuery();
-  xpathexpr->RegisterNamespace("ns", ns_screens);
+  xpathexpr->RegisterNamespace("ns", whconstant_xmlns_screens);
   OBJECT xpathres := xpathexpr->executeQuery("/ns:notexist/ns:deeper");
   TestEq(DEFAULT OBJECT, xpathres->Item(0));
 

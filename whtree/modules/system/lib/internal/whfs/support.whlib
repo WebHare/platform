@@ -548,7 +548,8 @@ PUBLIC INTEGER ARRAY FUNCTION GetWHFSDescendantIds(INTEGER basefolder, BOOLEAN r
     currentlevel := SELECT AS INTEGER ARRAY id
                       FROM currentsubs
                      WHERE isfolder = TRUE;
-    allsubs := allsubs CONCAT (SELECT AS INTEGER ARRAY id FROM currentsubs WHERE NOT returnfiles ? isfolder = TRUE : TRUE);
+
+    allsubs := allsubs CONCAT (SELECT AS INTEGER ARRAY id FROM currentsubs WHERE isfolder = FALSE OR VAR returnfolders = TRUE);
     maximumdepth := maximumdepth - 1;
   }
   RETURN allsubs;

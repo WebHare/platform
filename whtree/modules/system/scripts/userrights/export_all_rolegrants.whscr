@@ -1,4 +1,4 @@
-﻿<?wh
+<?wh
 
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::filetypes/csv.whlib";
@@ -38,10 +38,14 @@ DELETE FROM allobjs WHERE type = 1 AND otherschema;
 
 RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
 
-Print("id;name;realname;email;unitid;unitname;roleid;rolename;roleunitid;roleunitname\n");
+Print("id;name;realname;email;unitid;unitname;roleid;rolename;roleunitid;roleunitname;grantor;grantorname;grantorrealname;grantoremail\n");
 
 FOREVERY(RECORD grant FROM rolegrants)
 {
+  RECORD grantorrec := SELECT * FROM allobjs WHERE id = grant.grantor;
+  IF(NOT RecordExists(grantorrec))
+    PrintTo(2,"Grantor #" || grant.grantor || " missing\n");
+
   RECORD granteerec := SELECT * FROM allobjs WHERE grant.grantee = allobjs.id;
   IF(NOT RecordExists(granteerec))
   {
@@ -65,6 +69,10 @@ FOREVERY(RECORD grant FROM rolegrants)
         || grant.role || ";"
         || EncodeExcelCSV(roleinfo.name) || ";"
         || roleinfo.unitid || ";"
-        || EncodeExcelCSV(roleinfo.unitname)
+        || EncodeExcelCSV(roleinfo.unitname) || ";"
+        || grant.grantor || ";"
+        || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.name : "") || ";"
+        || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.realname : "") || ";"
+        || EncodeExcelCSV(RecordExists(grantorrec) ? grantorrec.email : "")
         || "\n");
 }

@@ -82,7 +82,7 @@ AWAIT ExpectAndAnswerMessageBox("Yes", PTR TTClick(":Delete"));
 AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("import"), [ messagemask := "*5 changes*" ]);
 ```
 
-### Opening subappliactions
+### Opening subapplications
 If an action triggers a new application, you can open this new app using %TTLaunchStartedApp. Example:
 
 ```harescript
