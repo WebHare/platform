@@ -43,7 +43,7 @@ PUBLIC MACRO TryRedirectUsingURLHistory(RECORD options DEFAULTSTO DEFAULT RECORD
     IF(RecordExists(dest) AND gotourl = "" AND NOT dest.isactive AND options.oninactivetarget != DEFAULT MACRO PTR)
       gotourl := options.oninactivetarget(dest.destid);
 
-    IF(gotourl != "")
+    IF(gotourl != "" AND gotourl != requrl) //prevent trivial loops if oninactivetarget returns ourself
       Redirect(gotourl, 301);
   }
   FINALLY
