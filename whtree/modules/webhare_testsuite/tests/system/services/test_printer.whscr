@@ -13,6 +13,11 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 STRING doc := `<!DOCTYPE html>
 <html>
   <head>
+    <meta name="wh-chromepdf-margin-top" value="2cm" />
+    <meta name="wh-chromepdf-margin-left" value="2.3cm" />
+    <meta name="wh-chromepdf-margin-right" value="2.8cm" />
+    <meta name="wh-chromepdf-margin-bottom" value="2cm" />
+    <meta name="wh-chromepdf-format" value="a4" /></head>
     <style>
       html,body { background-color: transparent; }
       html { font: 45px Arial; color: #000000; }
