@@ -272,7 +272,14 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       options := AWAIT this->GotoThePage(url, options);
 
       RECORD pageoptions := AWAIT this->ParsePageOptions();
-      RETURN AWAIT this->page->PDF(CELL[...pageoptions,...options]);
+      RECORD finaloptions := CELL[ ...pageoptions
+                                 , ...options
+                                 , margin := CELL[ ...pageoptions.margin
+                                                 , ...options.margin
+                                                 ]
+                                 ];
+
+      RETURN AWAIT this->page->PDF(finaloptions);
     }
     FINALLY
     {
