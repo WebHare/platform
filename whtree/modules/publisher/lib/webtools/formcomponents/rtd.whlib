@@ -103,6 +103,8 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
       this->rtdeditor->applytester := form->formcontext->targetapplytester;
 
     RECORD rtdtypeinfo := GetRTDSettingsFromType(field.rtdtype);
+    this->rtdeditor->structuredef := NEW RichDocumentStructure;
+    this->rtdeditor->structuredef->LoadFromRTDType(GetRTDSettingsFromType(field.rtdtype));
     this->rtdeditor->rtdtype := rtdtypeinfo;
   }
 

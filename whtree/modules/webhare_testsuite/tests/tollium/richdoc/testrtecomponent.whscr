@@ -90,7 +90,7 @@ RECORD imageonlydoc := [ htmltext := StringToBlob('<img src="cid:imagecid-81400"
                                    ]
                        ];
 
-RECORD imageonlyrtd := [ htmltext := StringToBlob('<html><body><h1 class="heading1"><img src="cid:imagecid-81400"/><h1></body></html>')
+RECORD imageonlyrtd := [ htmltext := StringToBlob('<html><body><p class="normal"><img src="cid:imagecid-81400"/></p></html>')
                        , embedded := [[ contentid := "imagecid-81400"
                                     , data := smallbobjpg
                                     , mimetype := "image/jpeg"
