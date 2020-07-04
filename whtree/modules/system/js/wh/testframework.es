@@ -18,17 +18,6 @@ import "../internal/util/polyfill-cssescape.es"; //For IE11
 
 let module_exports;
 
-if(!keyboard.normalizeKeys)
-  keyboard.normalizeKeys = function (key, props) //FIXME a dompack update will soon ship this, then this can go
-  {
-    let keys = Array.isArray(key) ? key : [key];
-    let shift = props && props.shiftKey;
-    //match single-char keys (real keys) to upper or lowercase depending on shift state
-    keys = keys.map(key => key.length > 1 ? key : shift ? key.toUpperCase() : key.toLowerCase());
-    return keys;
-  };
-
-
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
 var seleniumref;
