@@ -889,8 +889,11 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
                                                   , domain := connecttohost //FIXME shouldn't we use destip if this is a IP?
                                                   ]);
 
+        IF(isasync)
+          YIELD AsyncSendBlobTo(connid, StringToBlob(connectpacket));
+        ELSE
+          PrintTo(connid, connectpacket);
 
-        PrintTo(connid, connectpacket);
         STRING response := ReadFrom(connid,8);
         IF(Substring(response,1,1) != "\x5A") //5A is 'request granted'
         {
