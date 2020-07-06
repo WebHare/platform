@@ -904,15 +904,23 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
     RECORD options := CellExists(msg, 'options') ? msg.options : DEFAULT RECORD;
     IF(msg.type = "pressKeys")
     {
-      options := ValidateOptions([ shiftkey := FALSE, ctrlkey := FALSE ], options);
+      options := ValidateOptions([ shiftkey := FALSE, ctrlkey := FALSE, altkey := FALSE, metakey := FALSE ], options);
       IF(options.shiftkey)
         AWAIT this->page->keyboard->Down("ShiftLeft");
       IF(options.ctrlkey)
         AWAIT this->page->keyboard->Down("ControlLeft");
+      IF(options.altkey)
+        AWAIT this->page->keyboard->Down("AltLeft");
+      IF(options.metakey)
+        AWAIT this->page->keyboard->Down("MetaLeft");
 
       FOREVERY(STRING keyname FROM msg.keys)
         AWAIT this->page->keyboard->Press(keyname, options);
 
+      IF(options.metakey)
+        AWAIT this->page->keyboard->Up("MetaLeft");
+      IF(options.altkey)
+        AWAIT this->page->keyboard->Up("AltLeft");
       IF(options.ctrlkey)
         AWAIT this->page->keyboard->Up("ControlLeft");
       IF(options.shiftkey)

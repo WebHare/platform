@@ -10,8 +10,7 @@
           data-editor="[editor]"
           data-allowtags="[allowtags]"
           [!data-rte-css="[forevery rte_css][if not first] [/if][url][/forevery]"  !]
-          [if isself]class="wh-rtd wh-rtd-editor"[/if]
-          data-allowedobjects="[forevery allowedobjects][namespace] [/forevery]">
+          [if isself]class="wh-rtd wh-rtd-editor"[/if]>
 
       <span class="editors">
       Editor: <a href="index.shtml" [if isfree]class=selected[/if]>Free</a>

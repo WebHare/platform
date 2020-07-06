@@ -21,11 +21,6 @@ MACRO RunBody(OBJECT testcontext)
   IF(editor NOT IN ["free","structured","structured-contentarea","page","self"])
     THROW NEW Exception("Unrecognized editor type '" || editor || "'");
 
-  RECORD config :=
-      [ structure := DEFAULT OBJECT
-      ];
-  OBJECT structure;
-
   OBJECT css := MakeCSSStyleSheet(GetDiskResource(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/pages/rte/editor.css"));
   css->RewriteToScope(".wh-rtd-HASH", "wh-rtd-editor-htmlnode", "wh-rtd-editor-bodynode");
   STRING csstext := BlobToString(css->GetDocumentBlob(FALSE));
@@ -45,7 +40,7 @@ MACRO RunBody(OBJECT testcontext)
     , nofill := GetWebVariable("fill")="none"
     , twoembeds := GetWebVariable("fill")="twoembeds"
     , allowtags := GetWebVariable("allowtags")
-    , allowedobjects := ObjectExists(structure) ? GetEmbeddableObjectTypes(structure) : DEFAULT RECORD ARRAY
+    , allowedobjects := DEFAULT RECORD ARRAY
     , csstext := csstext
     ];
 

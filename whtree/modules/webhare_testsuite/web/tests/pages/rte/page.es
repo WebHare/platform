@@ -117,6 +117,14 @@ function getStructure(type)
                                    , containertag: "H2"
                                    , nextblockstyle: "NORMAL"
                                    }
+                                 , { tag: "HEADING2B"
+                                   , title: "Kop 2B"
+                                   , textstyles: ["b","i"]
+                                   //ADDME textclasses, objects
+                                   , toolbarcss: "font:bold 14px Verdana; color:#000000;"
+                                   , containertag: "H2"
+                                   , nextblockstyle: "NORMAL"
+                                   }
                                  , { tag :"NORMAL"
                                    , title: "Normaal"
                                    , textstyles: alltextstyles
@@ -243,12 +251,6 @@ function initRTE()
     evt.preventDefault(); //don't steal focus
     document.execCommand("paste");
   });
-
-  //var csslinks = qS('#rtepart').getAttribute("data-rte-css").split(" ").include("editor.css");
-
-/*  var actionopts =
-      { allowed_objects:  (qS('#rtepart').getAttribute("data-allowedobjects") || '').split(' ')
-      };*/
 
   const params = new URL(location.href).searchParams;
   var rteopts = { pageedit: editor == 'page'
