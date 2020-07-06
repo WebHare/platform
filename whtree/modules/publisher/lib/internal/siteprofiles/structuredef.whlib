@@ -475,10 +475,10 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       RETURN DEFAULT RECORD;
 
     STRING lnodename := ToLowercase(node->nodename);
-    IF (lnodename = "div" AND 'wh-rtd-embeddedobject' IN Tokenize(NormalizeWhitespace(node->GetAttribute("class")), " "))
+    IF (lnodename IN ["div","span"] AND 'wh-rtd-embeddedobject' IN Tokenize(NormalizeWhitespace(node->GetAttribute("class")), " "))
     {
       RETURN
-          [ type :=         "embeddedobject"
+          [ type :=         lnodename = "div" ? "embeddedobject" : "inlineobject"
           , instanceid :=   node->GetAttribute("data-instanceid")
           ];
     }
@@ -692,7 +692,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       IF (type.type = "ignore")
         CONTINUE;
 
-      IF ((NOT ObjectExists(block) OR block->type = "cellitem") AND type.type IN [ "text", "textstyle", "br", "img" ])
+      IF ((NOT ObjectExists(block) OR block->type = "cellitem") AND type.type IN [ "text", "textstyle", "br", "img", "inlineobject" ])
       {
         // Ignore text nodes with only whitespace in block-less nodes or cellitems
         IF (type.type = 'text' AND TrimWhitespace(type.data) = "")
@@ -938,12 +938,15 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
           this->ParseContainerContentsRecursive(child, block, context, textstyles, DEFAULT RECORD, options);
           block := DEFAULT OBJECT;
         }
+        CASE "inlineobject"
+        {
+          this->AddItemToBlockNodes(block, CELL[ ...type, textstyles ]);
+        }
         CASE "embeddedobject"
         {
           block := DEFAULT OBJECT;
           INSERT type INTO context->nodes AT END;
         }
-
       }
     }
     RETURN block;
@@ -977,7 +980,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       ELSE
       {
         PRINT(`${istr}s ${#p} ${data.type}${data.deferred?" (deferred)":""}`);
-        IF (data.type IN [ "text", "br", "img" ])
+        IF (data.type IN [ "text", "br", "img", "inlineobject" ])
           FOREVERY (RECORD s FROM data.textstyles)
             PRINT(`${#s=0?" [":","} ${s.nodename}${#s=LENGTH(data.textstyles)-1?" ]":""}`);
         PRINT(`\n`);
@@ -1177,6 +1180,12 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
 
           retval.isvisible := TRUE;
         }
+        CASE "inlineobject"
+        {
+          OBJECT newobj := this->CreateEmbeddedObject(res.node, rec);
+          res.node->AppendChild(newobj);
+          retval.isvisible := TRUE;
+        }
         DEFAULT
         {
           THROW NEW Exception(`Unhandled: ${rec.type}`);
@@ -1265,7 +1274,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
 
   OBJECT FUNCTION CreateEmbeddedObject(OBJECT parentnode, RECORD rec)
   {
-    OBJECT node := parentnode->ownerdocument->CreateElement("div");
+    OBJECT node := parentnode->ownerdocument->CreateElement(rec.type = "inlineobject" ? "span" : "div");
     node->SetAttribute("class", "wh-rtd-embeddedobject");
     node->SetAttribute("data-instanceid", rec.instanceid);
     RETURN node;

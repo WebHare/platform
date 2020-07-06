@@ -19,6 +19,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
@@ -117,6 +118,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       @type(object #WebHareDBBlobStabilizer)
   */
   OBJECT blobstabilizer;
+
+  PUBLIC OBJECT structuredef;
 
   // ---------------------------------------------------------------------------
   //
@@ -600,13 +603,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       STRING ARRAY instanceids;
       RECORD ARRAY newmappings;
 
-      FOREVERY (OBJECT embobj FROM body->QuerySelectorAll(".wh-rtd-embeddedobject")->GetCurrentElements())
+      FOREVERY (OBJECT embobj FROM body->ListElements("*","div") CONCAT body->ListElements("*","span"))
       {
         STRING instanceref := embobj->GetAttribute("data-instanceref");
-
-        FOREVERY(OBJECT attr FROM embobj->attributes->GetCurrentNodes())
-          IF (attr->nodename != "class")
-            attr->Remove();
+        IF(instanceref = "") //some other div/span
+          CONTINUE;
 
         embobj->Empty();
 
@@ -653,16 +654,36 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       }
     }
 
-    OBJECT rewriter := NEW HTMLRewriterContext;
-    rewriter->CleanupHTML(finaldoc, settings);
-//    WHILE(this->basetype="html-inline" AND ObjectExists(body->lastchild) AND ToUppercase(body->lastchild->nodename)="BR")
-  //    body->RemoveChild(body->lastchild)
-
-    rewriter->RewriteEmbeddedLinks(body, PTR this->RewriteImageToCID);
-
-    // Decrpt links and limit all links to 2000 characters
     OBJECT decryptstate := NEW LinkDecryptor;
-    rewriter->RewriteLinks(body, PTR this->GetTruncatedDecryptedLink(decryptstate, #1));
+    OBJECT rewriter := NEW HTMLRewriterContext;
+    IF(RecordExists(this->rtdtype)) //we've restructured the document so we know what might happen... and can use much simpler scanners
+    {
+      //avoid queryselector etc... they're SLOW
+      this->structuredef->RestructureRichDocument(body);
+
+      //Fix img src=
+      FOREVERY(OBJECT img FROM body->ListElements("*","img"))
+        img->SetAttribute("src", this->RewriteImageToCID(img->GetAttribute("src")));
+      //and any a[href]
+      FOREVERY(OBJECT link FROM body->ListElements("*","a"))
+        IF(link->HasAttribute("href"))
+        {
+          STRING result := this->GetTruncatedDecryptedLink(decryptstate, link->GetAttribute("href"));
+          link->SetAttribute("href", result);
+        }
+    }
+    ELSE
+    {
+      rewriter->CleanupHTML(finaldoc, settings);
+
+  //    WHILE(this->basetype="html-inline" AND ObjectExists(body->lastchild) AND ToUppercase(body->lastchild->nodename)="BR")
+    //    body->RemoveChild(body->lastchild)
+
+      rewriter->RewriteEmbeddedLinks(body, PTR this->RewriteImageToCID);
+
+      // Decrypt links and limit all links to 2000 characters
+      rewriter->RewriteLinks(body, PTR this->GetTruncatedDecryptedLink(decryptstate, #1));
+    }
 
     IF(this->trimwhitespace)
       TrimRTDWhitespace(body);

@@ -20,6 +20,7 @@ LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 
 BLOB bobjpg := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg");
 BLOB smallbobjpg := GetHarescriptResource("mod::webhare_testsuite/data/test/smallbob.jpg");
+OBJECT testfile2;
 
 MACRO RegisterBlobInWebhareDB(BLOB data)
 {
@@ -53,6 +54,7 @@ MACRO RTECreation()
                                  || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
                                  || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
                                  || '<div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-g">noise</div>'
+                                 || '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-h"><span>morenoise</span></span> of the paragraph</p>'
                                  || '</body></html>')
                  , embedded := [ MakeMergedRecord(WrapBlob(bobjpg,"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  , links := [[ tag := "1234-5678-001", linkref := testextralink->id ]
@@ -64,16 +66,23 @@ MACRO RTECreation()
                                            , stringdata := "MyStringData"
                                            ]
                                  ]
+                                ,[ instanceid := "_1ra7ve1TrCw-usGy9kO-h"
+                                 , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
+                                           , html := "<b>test</b>"
+                                           ]
+                                 ]
                                 ]
                  ]);
 
   //Commit the document to the database  ADDME need a simpler api to manage richdocs
-  OBJECT testfile2 := siteroot->CreateFile([name := "richtest2", type := richdoctype->id ,publish:=FALSE]);
+  testfile2 := siteroot->CreateFile([name := "richtest2", type := richdoctype->id ,publish:=FALSE]);
   richdoctype->SetInstanceData(testfile2->id, [ data := myrichdoc->ExportAsRecord() ]);
 
   testfw->CommitWork();
 
   OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  editable->structuredef := NEW RichDocumentStructure;
+  editable->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
   editable->basetype := "html";
   editable->basefsobject := testfile2;
   editable->rtdtype := GetRTDSettingsForFile(testfile2->id);
@@ -83,6 +92,10 @@ MACRO RTECreation()
 
 
   editable->ImportFromRecord(richdoctype->GetInstanceData(testfile2->id).data);
+
+  RECORD exportrec := editable->ExportAsRecord();
+  TestEq(FALSE, BlobToString(exportrec.htmltext) LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
+  TestEq(2, Length(exportrec.instances));
 
   //Get the rendered value from this RTECreation
   doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
@@ -168,12 +181,12 @@ MACRO RTECreation()
   doc->body->AppendChild(widgetdiv);
 
   //Export it
-  RECORD exportrec := editable->ExportAsRecord();
+  exportrec := editable->ExportAsRecord();
   TestEq(FALSE, BlobToString(exportrec.htmltext) LIKE "*noise*", "The word noise didn't get stripped from embeddedobject contents");
 //  dumpvalue(exportrec,'tree');
   TestEq(2, Length(exportrec.links));
   TestEq(2, Length(exportrec.embedded));
-  TestEq(2, Length(exportrec.instances));
+  TestEq(3, Length(exportrec.instances));
 /* ADDME?    IF(RecordExists(value))
       value.links := SELECT tag, linkref FROM this->richdoclinks;*/
 
@@ -227,12 +240,16 @@ MACRO RTECreation()
   // test import - export
   OBJECT editable2 := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
   editable2->ImportFromRecord(exportdata);
+  editable2->structuredef := NEW RichDocumentStructure;
+  editable2->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
   TestEq(TRUE, IsSameBlobInDatabase(exportdata.htmltext, editable2->ExportAsRecord().htmltext));
 }
 
 MACRO NewImage()
 {
   OBJECT editable := NEW RichDocumentEditor(GetPrimaryWebHareInterfaceURL());
+  editable->structuredef := NEW RichDocumentStructure;
+  editable->structuredef->LoadFromXML(MakeXMLDocument(GetRTDSettingsForFile(testfile2->id).structuredef)->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
   RECORD imageonlydoc := [ htmltext := StringToBlob('<img src="cid:imagecid-81400"/>')
                          , embedded := [[ contentid := "imagecid-81400"
                                         , data := smallbobjpg

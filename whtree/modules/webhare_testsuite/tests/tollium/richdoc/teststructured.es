@@ -78,8 +78,8 @@ test.registerTests(
         let comparecode = rawcode.replace('data-instanceid="' +instanceid, 'data-instanceref="' + encodeValue(instanceref));
 
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
-                    + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--editable wh-rtd-embeddedobject--block" data-instanceref="'+encodeValue(instanceref)+'"></div>'
-                    + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--editable wh-rtd-embeddedobject--inline" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>'
+                    + '<div class="wh-rtd-embeddedobject" data-instanceref="'+encodeValue(instanceref)+'"></div>'
+                    + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>'
                     , comparecode);
 
         // use the original rawcode for modification
@@ -112,8 +112,8 @@ test.registerTests(
 
         let comparecode = rawcode.replace('data-instanceid="' +instanceid, 'data-instanceref="' + encodeValue(instanceref));
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should no longer be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
-                   + '<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--editable wh-rtd-embeddedobject--block" data-instanceref="'+encodeValue(instanceref)+'"></div>'
-                   + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--editable wh-rtd-embeddedobject--inline" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>', comparecode);
+                   + '<div class="wh-rtd-embeddedobject" data-instanceref="'+encodeValue(instanceref)+'"></div>'
+                   + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>', comparecode);
 
         test.getCurrentScreen().clickCloser();
       }

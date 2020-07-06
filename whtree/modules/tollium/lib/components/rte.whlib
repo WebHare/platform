@@ -892,9 +892,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     IF(Length(errors)>0)
       THROW NEW Exception("Errors validating rich structure document\n" || anytostring(errors,'boxed'));
 
-    OBJECT structuredef := NEW RichDocumentStructure;
-    structuredef->LoadFromXML(structuredoc->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
-    this->LoadRTDTypeInfo(GetRTDTypeFromClassicStructureDef(structuredef));
+    // It's ugly we have to do this... but RichDocumentEditor is also used for non-rtdtyped stuff and we have to do a lot more of refactoring of its construction (or just split off further the code for 'free' RTEs)
+    this->editable->structuredef := NEW RichDocumentStructure;
+    this->editable->structuredef->LoadFromXML(structuredoc->documentelement,"http://www.webhare.net/xmlns/tollium/richstructure");
+    this->LoadRTDTypeInfo(GetRTDTypeFromClassicStructureDef(this->editable->structuredef));
   }
   MACRO LoadRTDTypeInfo(RECORD rtdtypeinfo)
   {
@@ -1128,6 +1129,8 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     }
     ELSE
     {
+      this->editable->structuredef := NEW RichDocumentStructure;
+      this->editable->structuredef->LoadFromRTDType(settings);
       this->LoadRTDTypeInfo(settings);
     }
 
