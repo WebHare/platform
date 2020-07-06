@@ -237,13 +237,14 @@ PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO
                              , filename := "output.pdf"
                              , delay := 0
                              , timeout := 30 * 1000
+                             , margin := DEFAULT RECORD
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
                                          ]);
 
   OBJECT pdfgen := NEW ChromePDFAPI();
-  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFromURL(link, CELL[ options.media]), options.timeout));
+  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFromURL(link, CELL[ options.media, options.margin ]), options.timeout));
   RETURN WrapBlob(pdfdata, options.filename);
 }
 

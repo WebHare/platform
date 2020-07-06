@@ -24,10 +24,18 @@ STRING FUNCTION EncodeURLGitlab(STRING project)
   RETURN Substitute(EncodeURL(project),'/','%2F');
 }
 
+CONSTANT RECORD gitlab_notestructure :=
+    [ id := 0
+    , created_at := DEFAULT DATETIME
+    , updated_at := DEFAULT DATETIME
+    , body := ""
+    ];
+
 CONSTANT RECORD gitlab_issuestructure :=
     [ created_at := DEFAULT DATETIME
     , closed_at  := DEFAULT DATETIME
     , updated_at  := DEFAULT DATETIME
+    , description := ""
     ];
 
 CONSTANT RECORD gitlab_milestonestructure :=
@@ -238,6 +246,12 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
   PUBLIC RECORD ARRAY FUNCTION GetProjectIssues(STRING project)
   {
     RETURN EnforceStructure([gitlab_issuestructure], this->GetProjectresource(project, "issues"));
+  }
+
+  //https://docs.gitlab.com/ee/api/notes.html#list-project-issue-notes
+  PUBLIC RECORD ARRAY FUNCTION GetProjectIssueNotes(STRING project, INTEGER issue_iid)
+  {
+    RETURN EnforceStructure([gitlab_issuestructure], this->GetProjectresource(project, `issues/${issue_iid}/notes`));
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetProjectMilestones(STRING project)

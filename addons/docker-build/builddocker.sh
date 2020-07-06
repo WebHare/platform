@@ -225,6 +225,9 @@ branch=$CI_COMMIT_REF_NAME
 version=$WEBHARE_VERSION
 HERE
 
+# Fix permissions (crontab files cannot be world-writable)
+chmod 600 dropins/etc/cron.d/*
+
 echo "Docker build args: ${DOCKERBUILDARGS[@]}"
 
 # Build webhare image

@@ -529,10 +529,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   {
     RETURN RecordExists(this->editable->rtdtype) ? this->editable->rtdtype.namespace : "";
   }
-  MACRO SetRTDTypeInfo(RECORD newrtdtypeinfo)
-  {
-    this->editable->rtdtype := newrtdtypeinfo;
-  }
 
   MACRO SetValue(RECORD contents)
   {
