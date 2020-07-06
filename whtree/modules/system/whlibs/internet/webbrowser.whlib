@@ -897,7 +897,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         STRING response := ReadFrom(connid,8);
         IF(Substring(response,1,1) != "\x5A") //5A is 'request granted'
         {
-          this->MyErrorHandler("SOCKS4 onnection to " || connecttohost || ":" || connecttoport || " failed (for " || url || ")");
+          this->MyErrorHandler("SOCKS4 connection to " || connecttohost || ":" || connecttoport || " failed (for " || url || ")");
           CloseSocket(connid);
           RETURN 0;
         }
