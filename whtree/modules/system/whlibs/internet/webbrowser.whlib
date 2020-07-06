@@ -889,13 +889,22 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
                                                   , domain := connecttohost //FIXME shouldn't we use destip if this is a IP?
                                                   ]);
 
+        STRING response;
         IF(isasync)
+        {
           YIELD AsyncSendBlobTo(connid, StringToBlob(connectpacket));
+          response := YIELD AsyncReadFrom(connid, 8);
+        }
         ELSE
+        {
           PrintTo(connid, connectpacket);
+          response := ReadFrom(connid,8);
 
-        STRING response := ReadFrom(connid,8);
-        IF(Substring(response,1,1) != "\x5A") //5A is 'request granted'
+        }
+
+        /* TODO strictly we should wait for 8 bytes to arrive, but short reads are pretty much impossible in practice at the
+           start of a connection, so deal with that when we hit it. by that time SOCKS support should be in tcpip.whlib, not here */
+        IF(Length(response) < 8 OR Substring(response,1,1) != "\x5A") //5A is 'request granted'.
         {
           this->MyErrorHandler("SOCKS4 connection to " || connecttohost || ":" || connecttoport || " failed (for " || url || ")");
           CloseSocket(connid);
