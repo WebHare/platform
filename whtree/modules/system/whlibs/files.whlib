@@ -365,9 +365,9 @@ PUBLIC MACRO StoreDiskFile(STRING path, BLOB data, RECORD options DEFAULTSTO DEF
       STRING err := GetLastOSError();
       RECORD diskprops := GetDiskFileProperties(path);
       IF(RecordExists(diskprops) AND diskprops.type=1)
-        THROW NEW Exception(`Unable to create file '${path}' - a directory is blocking the path`);
+        THROW NEW Exception(`Unable to create file '${path}': it's a directory`);
       ELSE IF(RecordExists(diskprops) AND diskprops.type=0)
-        THROW NEW Exception(`Unable to create file '${path}' - it already exists`);
+        THROW NEW Exception(`Unable to create file '${path}': it already exists and 'overwrite' was not set`);
       ELSE
        THROW NEW Exception(`Unable to create file '${path}': ${err}`);
     }
@@ -381,9 +381,9 @@ PUBLIC MACRO StoreDiskFile(STRING path, BLOB data, RECORD options DEFAULTSTO DEF
       STRING err := GetLastOSError();
       RECORD diskprops := GetDiskFileProperties(path);
       IF(RecordExists(diskprops) AND diskprops.type=1)
-        THROW NEW Exception(`Unable to create file '${path}' - a directory is blocking the path`);
+        THROW NEW Exception(`Unable to create file '${path}': it's a directory`);
       ELSE IF(RecordExists(diskprops) AND diskprops.type=0)
-        THROW NEW Exception(`Unable to create file '${path}' - it already exists`);
+        THROW NEW Exception(`Unable to create file '${path}': it already exists and 'overwrite' was not set`);
       ELSE
        THROW NEW Exception(`Unable to create file '${path}': ${err}`);
     }
