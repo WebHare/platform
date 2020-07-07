@@ -2697,7 +2697,7 @@ MACRO __PrintAnyTo(INTEGER output, VARIANT data, STRING format)
     @cell(string) options.name Function name to use in header. Set to empty string for no header
     @cell(string) options.format Formatting to use ("boxed", "html", "csv", "tree", "tree:<depth>", "htmltree", "htmltree:<depth>")
     @cell(integer) options.callerlevel How far to look back in the stacktrace to get linenumber information
-    @cell(integer) options.outputid Output device to write the data to. By default we print to stderr (output 2)
+    @cell(integer) options.outputid Output device to write the data to, eg 2 for stderr
 */
 PUBLIC MACRO DumpValue(VARIANT data, VARIANT options DEFAULTSTO DEFAULT RECORD)
 {
@@ -2707,7 +2707,7 @@ PUBLIC MACRO DumpValue(VARIANT data, VARIANT options DEFAULTSTO DEFAULT RECORD)
   options := ValidateOptions( [ callerlevel := 1
                               , name := "DumpValue"
                               , format := "tree:3"
-                              , outputid := 2
+                              , outputid := 0
                               ], options);
 
   RECORD caller := GetStackTrace()[options.callerlevel];
