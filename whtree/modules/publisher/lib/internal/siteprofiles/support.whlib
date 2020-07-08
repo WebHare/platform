@@ -138,5 +138,7 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , limitinternallinksnode := DEFAULT OBJECT
          , linkhandlers := DEFAULT RECORD
          , margins := ""
+         , tag_b := "b"
+         , tag_i := "i"
          ]);
 }

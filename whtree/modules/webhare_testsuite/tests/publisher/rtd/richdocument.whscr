@@ -66,6 +66,23 @@ MACRO RichDocumentTest()
   testfw->CommitWork();
 }
 
+MACRO RichdocumentStrongEmphasis()
+{
+  testfw->BeginWork();
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile( [ name := "strong-em.rtd", type := richdoctype->id, publish := TRUE ]);
+  richdoctype->SetInstanceData(testfile->id, [ data := [ htmltext := StringToBlob(
+    `<html><body>
+      <p class="normal">I am <b>bold</b> and <i>cursive</i></p>
+    </body></html>`) ]]);
+
+  testfw->CommitWork();
+
+  RECORD publishres := RunFilePublish(testfile->id, FALSE);
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  Testeq(`<p class="normal">I am <strong>bold</strong> and <em>cursive</em></p>`, doc->GetElementById("content")->innerhtml);
+}
+
 MACRO RichdocumentRenderRegressions()
 {
   OBJECT doc := NEW PublishableRichDocument;
@@ -638,5 +655,6 @@ RunTestframework([ PTR RichdocumentTest
                  , PTR PublishRichDocTableTest
                  , PTR PublishRichDocImageTest
                  , PTR IntLinktest
+                 , PTR RichdocumentStrongEmphasis
                  , PTR RichdocumentRenderRegressions
                  ]);
