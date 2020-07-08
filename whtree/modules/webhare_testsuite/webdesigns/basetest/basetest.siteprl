@@ -399,6 +399,12 @@
     </widgets>
   </rtdtype>
 
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" b="strong" i="em">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="NORMAL" textstyles="b a-href i img sup sub strike" />
+    </blockstyles>
+  </rtdtype>
+
   <propertyeditor name="rtdtypeprops">
     <compositions>
       <p:whfsinstance name="fsinstance1" typedef="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
@@ -428,6 +434,11 @@
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
                renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="*/strong-em.rtd" />
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" />
   </apply>
 
   <apply>

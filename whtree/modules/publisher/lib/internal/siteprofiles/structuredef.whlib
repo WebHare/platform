@@ -1326,6 +1326,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
                         , cellstyles := RECORD[ [ tag := "", title := "" ] ]
+                        , tag_b := xmlnode->GetAttribute("b") ?? "b"
+                        , tag_i := xmlnode->GetAttribute("i") ?? "i"
                         ];
     this->allowedobjects := DEFAULT RECORD ARRAY;
 
