@@ -156,6 +156,28 @@
     <xs:attribute name="htmlclass" />
     <xs:attribute name="bodyclass" />
     <xs:attribute name="allownewwindowlinks" type="xs:boolean" />
+    <xs:attribute name="b"> <!-- we only support b=b and b=strong for now, but we leave the option open to support eg 'b=b.bold' to get <b class="bold" /> -->
+      <xs:annotation>
+        <xs:documentation>How to present `&lt;b>` in the output ('b' or 'strong')</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="b"/>
+          <xs:enumeration value="strong"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="i">
+      <xs:annotation>
+        <xs:documentation>How to present `&lt;i>` in the output ('i' or 'em')</xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="i"/>
+          <xs:enumeration value="em"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:simpleType name="WittyEncoding">

@@ -403,9 +403,15 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
           RETURN;
         }
 
-        this->Print('<' || node->nodename || '>');
+        STRING usetag := node->nodename;
+        IF(usetag = "b")
+          usetag := outputobject->document->pvt_structure->structure.tag_b;
+        ELSE IF(usetag = "i")
+          usetag := outputobject->document->pvt_structure->structure.tag_i;
+
+        this->Print('<' || usetag || '>');
         this->FormatNodes(outputobject, node, keepwhitespace);
-        this->Print('</' || node->nodename || '>');
+        this->Print('</' || usetag || '>');
       }
       CASE "span"
       {
