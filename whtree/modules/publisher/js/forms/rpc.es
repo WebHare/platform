@@ -158,7 +158,7 @@ export default class RPCFormBase extends FormBase
   async submit(extradata)
   {
     //ADDME timeout and free the form after some time
-    if(this.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
+    if(this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
 
     let waiter = dompack.createDeferred();
