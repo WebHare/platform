@@ -854,7 +854,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
         IF(Length(fielddescription.enablecomponents) > 0)
           Print(` data-wh-form-enable="${EncodeValue(Detokenize(fielddescription.enablecomponents,' '))}"`);
         //We have two separate labels, so we can put our custom styled component into the first one without it being affected by the second label growing because of wordrwap
-        Print(`${datasetstr}><label`);
+        Print(`${datasetstr}><label aria-hidden="true"`); // indicate this is decorative to screenreaders (they see the native checkbox/radiobutton)
         IF(fielddescription.firstid != '')
           Print(` for="${EncodeValue(fielddescription.firstid)}"`);
         Print(`></label>`);
