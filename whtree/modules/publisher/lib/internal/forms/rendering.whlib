@@ -386,6 +386,10 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
       INSERT "wh-form__fieldgroup--horizontal" INTO useclasses AT END;
 
     Print(`<div class="${EncodeValue(Detokenize(useclasses,' '))}"${GetDatasetAsString(groupdescription.groupdataset)}`);
+
+    IF (groupdescription.type IN ["radiogroup", "checkboxgroup"])
+      Print(` role="group" aria-labelledby="${EncodeValue(groupdescription.firstid)}-label"`);
+
     FOREVERY(STRING condition FROM ["required","enabled","visible"])
     {
       STRING condval := GetCell(groupdescription, condition || "condition");
@@ -410,6 +414,9 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
     IF (groupdescription.type != "group" AND (NOT CellExists(groupdescription, "hidetitle") OR NOT groupdescription.hidetitle))
     {
       Print(`<label class="wh-form__label"`);
+
+      IF (groupdescription.type IN ["radiogroup", "checkboxgroup"])
+        Print(` id="${EncodeValue(groupdescription.firstid)}-label"`);
 
       IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
         Print(` for="${EncodeValue(groupdescription.firstid)}"`);
