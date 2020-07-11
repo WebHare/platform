@@ -56,6 +56,13 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
   }
 
+  /** @short Prepare result data
+      @long This function is invoked at the start of submit handling before field values are processed   (WebHare >= 4.28.3)
+  */
+  PUBLIC MACRO PrepareResultData()
+  {
+  }
+
   /** @short Validate form results
       @param work The work object to which to report warnings and errors
   */
