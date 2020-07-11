@@ -11,6 +11,7 @@ RECORD FUNCTION GetCacheableMailRoutes()
   STRING filter := ReadRegistryKey("system.services.smtp.mailrulefilter") ?? "*";
   RETURN [ value := [ routes := (SELECT * FROM system.mailqueue_route WHERE ToUppercase(tag) LIKE Touppercase(filter) ORDER BY ordering, id)
                     , defaultserver := ReadRegistryKey("system.services.smtp.defaultmailroute")
+                    , usemailfromfornonwhitelisted := ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted")
                     ]
          , ttl := 60 * 1000 * 1000
          , eventmasks := [ "system:internal/mailroutechange"
@@ -71,7 +72,12 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
 
 BOOLEAN FUNCTION IsAllowedEmail(STRING email, INTEGER checkruletype)
 {
-  RECORD ARRAY whitelist := SELECT mask FROM GetMailroutes().routes WHERE ruletype = VAR checkruletype;
+  RECORD mailroutes := GetMailroutes();
+
+  IF(checkruletype = 1 AND mailroutes.usemailfromfornonwhitelisted) //every sender is acceptable..
+    RETURN TRUE;
+
+  RECORD ARRAY whitelist := SELECT mask FROM mailroutes.routes WHERE ruletype = VAR checkruletype;
   IF(Length(whitelist) = 0)
     RETURN TRUE;
 
