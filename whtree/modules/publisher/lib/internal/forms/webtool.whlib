@@ -227,16 +227,18 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF(NOT this->IsAvailable())
       THROW NEW Exception("This form is currently unavailable");
 
+    // All handlers get a chance to run so they can still do prefill/data corrections which may affect storage/activation
+    FOREVERY(RECORD handler FROM this->formhandlers)
+      handler.handlerobject->PrepareResultData();
+
     STRING mutexname := "publisher:form-" || this->__form.webtoolformid; //we use the lock to dedupe submissions
     OBJECT work := this->BeginWork( [ mutex := mutexname ] );
 
     this->pvt_resultguid := this->pvt_editguid ?? GenerateUFS128BitId();
 
-    // All handlers get a chance to run so they can still do prefill/data corrections which may affect storage/activation
-    FOREVERY(RECORD handler FROM this->formhandlers)
-      handler.handlerobject->PrepareResultData();
-
-    // If the validation hasn't failed, run the WebtoolFormPage submit handler
+    /* If the validation hasn't failed, run the WebtoolFormPage submit handler. This is done before confirmationhandler
+       by convention (it might have theoretically made more sense to run this after confirmation handlers, but we decided
+       not to and users rely on that) */
     RECORD result;
     IF (NOT work->HasFailed())
     {
