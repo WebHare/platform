@@ -1290,7 +1290,8 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
              , primary_key_name := attname
              , _matchkey :=   attrelid || "\t" || attnum
           FROM catalog.pg_attribute
-         WHERE attrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables);
+         WHERE attrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables)
+           AND NOT attisdropped;
 
     primary_keys := JoinArrays(primary_keys, "_matchkey", columns, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
     tables := JoinArrays(tables, "object_id", primary_keys, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
@@ -1440,6 +1441,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
              , catalog.pg_type
          WHERE attrelid = table_oid
            AND pg_type.oid = atttypid
+           AND attisdropped
            AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
 
     RECORD ARRAY is_cols :=
@@ -1576,7 +1578,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
            AND pg_namespace.oid = pg_class.relnamespace
            AND ToUppercase(nspname) = ToUppercase(schema_name)
            AND ToUppercase(relname) = ToUppercase(table_name)
-           AND atttypid != 0
+           AND NOT attisdropped
            AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ] // hide system columns
       ORDER BY attname;
 
