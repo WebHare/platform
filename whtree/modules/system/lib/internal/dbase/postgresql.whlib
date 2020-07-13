@@ -239,6 +239,7 @@ RECORD ARRAY FUNCTION GetCachableColumns(OBJECT trans, STRING schemaname, STRING
            , catalog.pg_type
        WHERE attrelid = table_oid
          AND pg_type.oid = atttypid
+         AND NOT attisdropped
          AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
 
   RECORD ARRAY is_cols :=
@@ -326,6 +327,7 @@ SELECT n.nspname AS table_schema
              , a.atttypid
           FROM pg_catalog.pg_index i
                JOIN pg_catalog.pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+         WHERE NOT attisdropped
       ORDER BY a.attrelid, a.attnum`);
 
     INTEGER ARRAY indclass_ids;
