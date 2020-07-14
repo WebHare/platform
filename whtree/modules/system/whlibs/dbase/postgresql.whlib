@@ -1441,7 +1441,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
              , catalog.pg_type
          WHERE attrelid = table_oid
            AND pg_type.oid = atttypid
-           AND attisdropped
+           AND NOT attisdropped
            AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
 
     RECORD ARRAY is_cols :=
