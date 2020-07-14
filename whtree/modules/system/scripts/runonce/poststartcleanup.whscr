@@ -6,23 +6,35 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "wh::files.whlib";
 
-STRING imgcache := GetWebHareConfiguration().ephemeralroot || "imgcache";
-DeleteDiskDirectoryRecursive(imgcache);
+//4.29 or earlier: cleanup legacy image cache
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().ephemeralroot || "imgcache");
+
+//4.29: Cleanup legacy publisher designfiles cached on disk
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.cache");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.cd");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.ea");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pb");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pd");
 
 OBJECT trans := OpenPrimary();
 trans->BeginWork();
 
-IF(trans->ColumnExists("SYSTEM","AUTHOBJECTS","ID"))
+IF(trans->ColumnExists("SYSTEM","AUTHOBJECTS","ID")) //4.28 or earlier
   DELETE FROM system_internal.authobjects WHERE type IN [4,5];
 
 IF(trans->ColumnExists("SYSTEM","FS_OBJECTS","ID"))
 {
-  OBJECT examplefolder := OpenWHFSObject(9);
+  OBJECT examplefolder := OpenWHFSObject(9); //4.28 or earlier - cleanup examplefolder
   IF(ObjectExists(examplefolder))
   {
     examplefolder->UpdateMetadata([ispinned:=FALSE]);
     examplefolder->RecycleSelf(); //remove example folder
   }
+
+  //4.29: Cleanup legacy designfiles cached in publisher
+  OBJECT legacy_designfiles := OpenWHFSObjectByPath("/webhare-private/publisher/designfiles");
+  IF(ObjectExists(legacy_designfiles))
+    legacy_designfiles->RecycleSelf();
 }
 
 trans->CommitWork();
