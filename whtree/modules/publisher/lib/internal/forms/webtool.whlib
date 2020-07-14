@@ -235,6 +235,10 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
     this->pvt_resultguid := this->pvt_editguid ?? GenerateUFS128BitId();
 
+    // All handlers get a chance to run so they can still do prefill/data corrections which may affect storage/activation
+    FOREVERY(RECORD handler FROM this->formhandlers)
+      handler.handlerobject->PrepareResultData();
+
     // If the validation hasn't failed, run the WebtoolFormPage submit handler
     RECORD result;
     IF (NOT work->HasFailed())
@@ -246,7 +250,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
     RECORD ARRAY activehandlers := SELECT * FROM this->formhandlers WHERE this->MatchFormCondition(condition, DEFAULT RECORD).success;
 
-    // Run the e-mail confirmation task first
+    // Run the e-mail confirmation task first before we actually start submitting things
     RECORD confirmationhandler := SELECT * FROM activehandlers WHERE handlerobject->IsConfirmationHandler();
     DELETE FROM activehandlers WHERE handlerobject->IsConfirmationHandler();
     IF (RecordExists(confirmationhandler))
