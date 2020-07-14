@@ -9,6 +9,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -495,8 +496,8 @@ PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
     // Try to initialize a WebHare content provider with the current settings
     OBJECT cp := NEW WebHareContentProvider();
     RECORD cs := [ id := 0
-                 , data := [ folder := this->folder->value
-                           ]
+                 , fsobject := this->folder->value
+                 , data := DEFAULT RECORD
                  ];
     TRY
     {
@@ -504,6 +505,7 @@ PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
     }
     CATCH (OBJECT e)
     {
+      LogHarescriptException(e);
       work->AddError(GetTid("publisher:contentproviders.webhare.messages.invalidfolder"));
     }
 

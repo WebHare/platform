@@ -262,8 +262,8 @@ PUBLIC STATIC OBJECTTYPE Catalogs EXTEND TolliumScreenBase
 
         OBJECT work := this->BeginWork();
         INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
-        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries)
-               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, src.tag, EncodeHSON(data), src.maxgroupobjects, src.discardsummaries);
+        INSERT INTO consilio.contentsources(id, indexid, contentprovider, tag, data, maxgroupobjects, discardsummaries, fsobject)
+               VALUES(srcid, ^catalogs->selection.id, src.contentprovider, src.tag, EncodeHSON(CELL[...data, DELETE folder]), src.maxgroupobjects, src.discardsummaries, data.folder);
         this->UpdateContentSourceFields(work, srcid, src, data);
 
         IF (work->Finish())
