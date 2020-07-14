@@ -18,6 +18,9 @@ ASYNC MACRO TestRunQuery()
       <select name="select1" type="pulldown">
         <wrd:runquery wrdschema="wrd:testschema" wrdtype="test_domain_1" />
       </select>
+      <select name="select2" type="pulldown">
+        <wrd:runquery wrdschema="wrd:testschema" wrdtype="test_domain_1" orderingtag="wrd_ordering" />
+      </select>
     </body>
   </screen>
 </screens>#testrunquery`);
@@ -26,6 +29,10 @@ ASYNC MACRO TestRunQuery()
   OBJECT domvaltype := testfw->wrdschema->^test_domain_1;
   browser->select1->value := domvaltype->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2");
   TestEq(domvaltype->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2"), browser->select1->value);
+
+  //Test that we can get it sorted
+  TestEq(["Domain value 1.1", "Domain value 1.2", "Domain value 1.3"], SELECT AS STRING ARRAY title FROM browser->select1->options);
+  TestEq(["Domain value 1.3", "Domain value 1.2", "Domain value 1.1"], SELECT AS STRING ARRAY title FROM browser->select2->options);
 }
 
 ASYNC MACRO TestWRDGender()
@@ -101,9 +108,9 @@ ASYNC MACRO TestEntitiesEdit()
 
   RECORD ARRAY allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
-      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      [ [ wrd_title := "Domain value 1.3", wrd_ordering := 1 ]
       , [ wrd_title := "Domain value 1.2", wrd_ordering := 2 ]
-      , [ wrd_title := "Domain value 1.3", wrd_ordering := 3 ]
+      , [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
       , [ wrd_title := "new domain value", wrd_ordering := 4 ]
       ], allvals, "*");
 
@@ -112,10 +119,10 @@ ASYNC MACRO TestEntitiesEdit()
 
   allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
-      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      [ [ wrd_title := "Domain value 1.3", wrd_ordering := 1 ]
       , [ wrd_title := "Domain value 1.2", wrd_ordering := 2 ]
       , [ wrd_title := "new domain value", wrd_ordering := 3 ]
-      , [ wrd_title := "Domain value 1.3", wrd_ordering := 4 ]
+      , [ wrd_title := "Domain value 1.1", wrd_ordering := 4 ]
       ], allvals, "*");
 
   TT("entities")->selection := SELECT * FROM TT("entities")->rows WHERE wrd_title = "Domain value 1.2";
@@ -123,13 +130,13 @@ ASYNC MACRO TestEntitiesEdit()
 
   allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
-      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 1 ]
+      [ [ wrd_title := "Domain value 1.3", wrd_ordering := 1 ]
       , [ wrd_title := "new domain value", wrd_ordering := 3 ]
-      , [ wrd_title := "Domain value 1.3", wrd_ordering := 4 ]
+      , [ wrd_title := "Domain value 1.1", wrd_ordering := 4 ]
       ], allvals, "*");
 
   TT("entities")->selectmultiple := TRUE;
-  TT("entities")->selection := SELECT * FROM TT("entities")->rows WHERE wrd_title != "Domain value 1.1";
+  TT("entities")->selection := SELECT * FROM TT("entities")->rows WHERE wrd_title != "Domain value 1.3";
   TestEq(2, Length(TT("entities")->selection)); //should succeed!
 
   TTClick(":Up");
@@ -137,15 +144,15 @@ ASYNC MACRO TestEntitiesEdit()
   allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
       [ [ wrd_title := "new domain value", wrd_ordering := 1 ]
-      , [ wrd_title := "Domain value 1.3", wrd_ordering := 2 ]
-      , [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
+      , [ wrd_title := "Domain value 1.1", wrd_ordering := 2 ]
+      , [ wrd_title := "Domain value 1.3", wrd_ordering := 3 ]
       ], allvals, "*");
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Delete"), [ messagemask := "Are you sure you want to delete these items?"]);
 
   allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(
-      [ [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
+      [ [ wrd_title := "Domain value 1.3", wrd_ordering := 3 ]
       ], allvals, "*");
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));

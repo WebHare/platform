@@ -248,6 +248,8 @@ PUBLIC STATIC OBJECTTYPE RunQuery EXTEND WRDQueryBase
       INSERT this->rowkeytag INTO reqcolumns AT END;
     IF(ToUppercase(this->titletag) NOT IN reqcolumns)
       INSERT this->titletag INTO reqcolumns AT END;
+    IF(this->pvt_orderingtag != "" AND ToUppercase(this->pvt_orderingtag) NOT IN reqcolumns)
+      INSERT this->pvt_orderingtag INTO reqcolumns AT END;
 
     RETURN this->querytype->RunQuery ( [ outputcolumns := reqcolumns
                                        , filters := this->filters
