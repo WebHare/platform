@@ -432,9 +432,9 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         Blex::CreateDir(webhare->GetLogRoot(),true);
 
         // We start with safe history days (99999) until we receive our actual configuration
-        accesslog.OpenLogfile(webhare->GetLogRoot(), "access", ".log",false, 99999, false);
-        errorlog.OpenLogfile(webhare->GetLogRoot(), "errors", ".log",true, 99999, false);
-        pxllog.OpenLogfile(webhare->GetLogRoot(), "pxl", ".log",true, 99999, false);
+        accesslog.OpenLogfile(webhare->GetLogRoot(), "access", ".log", false, 99999, false);
+        errorlog.OpenLogfile(webhare->GetLogRoot(), "errors", ".log", true, 99999, false);
+        pxllog.OpenLogfile(webhare->GetLogRoot(), "pxl", ".log", true, 99999, true);
 
         webserver.reset(new WebServer::Server(webhare->GetTmpRoot(),
                                               std::bind(&WebHareServer::AccessLogFunction,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
