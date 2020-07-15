@@ -127,9 +127,9 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   OBJECT domain1_obj := schemaobj->CreateDomain("TEST_DOMAIN_1", [ title := "Domain 1"]);
   TestEq(TRUE, ObjectExists(domain1_obj));
 
-  domain1value1 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_1", wrd_title := "Domain value 1.1", wrd_ordering := 1 ] );
+  domain1value1 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_1", wrd_title := "Domain value 1.1", wrd_ordering := 3 ] );
   domain1value2 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_2", wrd_title := "Domain value 1.2", wrd_ordering := 2 ] );
-  domain1value3 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_3", wrd_title := "Domain value 1.3", wrd_ordering := 3 ] );
+  domain1value3 := domain1_obj->CreateEntity([ wrd_tag := "TEST_DOMAINVALUE_1_3", wrd_title := "Domain value 1.3", wrd_ordering := 1 ] );
 
   // Create another domain with some values
   OBJECT domain2_obj := schemaobj->CreateDomain("TEST_DOMAIN_2", [ title := "Domain 2"]);
