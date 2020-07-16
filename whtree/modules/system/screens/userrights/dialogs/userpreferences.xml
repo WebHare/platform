@@ -9,7 +9,6 @@
     <messagebox name="passwordchange" buttons="ok" icon="information" />
     <messagebox name="confirmdeletenotification" dontshowagain="yes" buttons="yes no" icon="warning" />
     <messagebox name="confirmdeletemenuitem" buttons="yes no" icon="warning" />
-    <messagebox name="confirmresetwarnings" buttons="yes no" />
     <messagebox name="noprefsforoverride" buttons="ok" icon="error" />
     <messagebox name="confirmpdfpreview" buttons="ok" icon="information" />
   </messageboxes>
@@ -17,7 +16,7 @@
   <screen name="userpreferences" gid=".edituser" interval="2000" oninterval="gotinterval" icon="tollium:users/user">
     <actions>
       <action name="resetwarnings" onexecute="doresetwarnings" />
-      <action name="autodetect" onexecute="@notimplemented" />
+      <action name="resetsavedstates" onexecute="doresetsavedstates" />
       <action name="openapppasswords" onexecute="doopenapppasswords" title="" />
     </actions>
     <compositions>
@@ -35,36 +34,29 @@
               <text valuetid=".appaccountstab" action="openapppasswords" title="" />
             </line>
           </tab>
-          <tab name="preferences" spacers="none">
-            <!--panel height="1gr" layout="left"  spacers="left right"> <!- - backgroundcolor="#FEFFDE" - ->
-              <line>
-                <text title="" valuetid=".autodetectpre"/>
-                <text action="autodetect" title="" valuetid=".autodetect"/>
-                <text title="" valuetid=".autodetectexplain"/>
-              </line>
-            </panel-->
-            <panel spacers="all" height="1pr">
-              <select name="language" type="pulldown" tid=".prefslang" />
-              <select name="decimalsep" type="pulldown" />
-              <select name="thousandsep" type="pulldown" />
-              <webapis:timezoneedit name="timezone" />
-              <textedit name="browsertitleprefix" visible="true"/>
-              <lines layout="left">
-                <checkbox name="showpdfpreview" title="" labeltid=".showpdfpreview" />
-                <checkbox name="showdeveloperapps" title="" labeltid=".showdeveloperapps" />
-              </lines>
-            </panel>
+          <tab name="preferences">
+            <select name="language" type="pulldown" tid=".prefslang" />
+            <select name="decimalsep" type="pulldown" />
+            <select name="thousandsep" type="pulldown" />
+            <webapis:timezoneedit name="timezone" />
+            <textedit name="browsertitleprefix" visible="true"/>
+            <lines layout="left">
+              <checkbox name="showpdfpreview" title="" labeltid=".showpdfpreview" />
+              <checkbox name="showdeveloperapps" title="" labeltid=".showdeveloperapps" />
+            </lines>
+            <heading tid=".savedstate" />
+            <line layout="left">
+              <text title="" valuetid=".resetsavedstates" action="resetsavedstates" />
+              <text title="" valuetid=".resetsavedstates-labelend" />
+            </line>
           </tab>
           <tab name="notificationsandwarnings" spacers="none">
             <panel spacers="left right">
-              <box tid=".warnings" hr="false">
-                <line>
-                  <!-- The text will provide for the button title label. The value is empty and margins between text and button are
-                       set to 0. -->
-                  <text title="" valuetid=".resetwarnings" action="resetwarnings" />
-                  <text title="" valuetid=".resetwarnings-labelend" />
-                </line>
-              </box>
+              <heading tid=".warnings" />
+              <line>
+                <text title="" valuetid=".resetwarnings" action="resetwarnings" />
+                <text title="" valuetid=".resetwarnings-labelend" />
+              </line>
             </panel>
             <panel name="notificationstab" spacers="none" height="1pr"/>
             <!-- Loaded from the 'notificationsettings' screen -->

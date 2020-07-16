@@ -277,12 +277,24 @@ PUBLIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
   MACRO DoResetWarnings()
   {
-    // Registry keys for saved message box results are structured as follows:
-    // __dialogresult_regkey.<module>.<pagefile>.<dialogname>
-    // so we can delete all message box result by deleting __dialogresult_regkey, or we can add a module, a pagefile and a
-    // messagebox to delete only within that module or pagefile or for a specific messagebox.
-    IF (this->RunMessageBox(".confirmresetwarnings") = "yes")
-      this->user->DeleteRegistryNode("tollium.dialogresult");
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmresetwarnings")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    this->user->DeleteRegistryNode("tollium.dialogresult");
+    work->AddWarning(this->GetTid(".settingswerereset"));
+    work->Finish();
+  }
+
+  MACRO DoResetSavedStates()
+  {
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".confirmresetsavedstates")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    this->user->DeleteRegistryNode("tollium.savestate");
+    work->AddWarning(this->GetTid(".settingswerereset"));
+    work->Finish();
   }
 >;
 
