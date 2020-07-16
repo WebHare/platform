@@ -51,8 +51,6 @@ MACRO FallbackLanguageTest()
   TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
   TestEq("A text", GetTid("webhare_testsuite_temp:testfallback.sub.text"));
   TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
-  TestEq("(cannot find text: webhare_testsuite_temp:testfallbackrecursion.text)", GetTid("webhare_testsuite_temp:testfallbackrecursion.text")); // should fail, loop
-  TestEq("(cannot find text: webhare_testsuite_temp:testfallbacklocalrecursion.text)", GetTid("webhare_testsuite_temp:testfallbacklocalrecursion.text")); // should fail, loop
   TestEq("Can't find me from NL", GetTid("webhare_testsuite_temp:testfallbackdefaultrecursion.text"));
   SetTidLanguage("xxx");
   TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
@@ -60,9 +58,6 @@ MACRO FallbackLanguageTest()
   TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
   SetTidLanguage("nl");
   TestEq("(cannot find text: webhare_testsuite_temp:notifications.messagefromthefuture)", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
-  TestEq("A text", GetTid("webhare_testsuite_temp:testfallback.sub.text"));
-  TestEq("Another text", GetTid("webhare_testsuite_temp:testfallback.anothertext"));
-  TestEq("(cannot find text: webhare_testsuite_temp:testfallbackrecursion.text)", GetTid("webhare_testsuite_temp:testfallbackrecursion.text")); // should fail, loop
   TestEq("Can't find me from NL", GetTid("webhare_testsuite_temp:testfallbackdefaultrecursion.text"));
 
   SetTidLanguage("XY");
