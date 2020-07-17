@@ -1,60 +1,64 @@
 <?wh
 
-STRING FUNCTION ParseLanguageNode(OBJECT textnode)
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+
+RECORD FUNCTION GetLanguageCodesForModule(STRING modulename)
 {
-  STRING text;
-  FOREVERY (OBJECT node FROM textnode->childnodes->GetCurrentNodes())
+  STRING moduledir := GetModuleInstallationRoot(modulename);
+  STRING defaultresource := `mod::${modulename}/language/default.xml`;
+  STRING ARRAY langcodes;
+
+  IF(moduledir != "")
   {
-    IF (node->nodetype = node->TEXT_NODE)
+    RECORD ARRAY langfiles := ReadDiskDirectory(moduledir || "/language","*.xml");
+    langcodes :=
+           SELECT AS STRING ARRAY GetBasenameFromPath(name)
+             FROM langfiles
+            WHERE type = 0
+                  AND name LIKE "*.xml"
+                  AND ToLowercase(name) = name  //verify lowercase
+         ORDER BY name = "default.xml" DESC; //make sure default is first
+
+    IF(Length(langcodes) >= 1 AND langcodes[0] = "default")
     {
-      text := text || node->nodevalue;
-    }
-    ELSE IF (node->nodetype = node->ELEMENT_NODE)
-    {
-      // <param p="1"/> <ifparam p="1" value="1">second<else/>seconds</ifparam>
-      // %1 [IF %1="1"]second[ELSE]seconds[/IF]
-      SWITCH (node->nodename)
+      OBJECT langfile := MakeXMLDocument(GetWebhareResource(defaultresource));
+      IF(ObjectExists(langfile->documentelement))
       {
-        CASE "param"
-        {
-          text := text || "%" || node->GetAttribute("p");
-        }
-        CASE "ifparam"
-        {
-          text := text || "[IF %" || node->GetAttribute("p") || "=\"" || EncodeJava(node->GetAttribute("value")) || "\"]" || ParseLanguageNode(node) || "[/IF]";
-        }
-        CASE "else"
-        {
-          text := text || "[ELSE]";
-        }
+        STRING actuallang := langfile->documentelement->GetAttribute("xml:lang");
+        IF(actuallang != "")
+          langcodes[0] := actuallang;
       }
     }
   }
-  RETURN text;
+
+  RETURN [ value := langcodes
+         , ttl := 60 * 60 * 1000
+         , eventmasks := GetResourceEventMasks([ defaultresource ])
+                         CONCAT
+                         [ "system:modulesupdate" ]
+         ];
 }
 
-
-
-PUBLIC RECORD ARRAY FUNCTION ReadLanguageStrings(OBJECT textgroup, STRING gid, BOOLEAN usespaces DEFAULTSTO FALSE)
+PUBLIC STRING ARRAY FUNCTION GetSupportedLanguageCodes(STRING module)
 {
-  RECORD ARRAY texts;
-  FOREVERY (OBJECT node FROM textgroup->childnodes->GetCurrentElements())
-  {
-    SWITCH (node->nodename)
-    {
-      CASE "text"
-      {
-        STRING tid := node->GetAttribute("tid");
-        IF (usespaces)
-          tid := Substitute(tid, "_", " ");
-        INSERT [ name := gid || tid, value := ParseLanguageNode(node) ] INTO texts AT END;
-      }
-      CASE "textgroup"
-      {
-        texts := texts CONCAT ReadLanguageStrings(node, gid || node->GetAttribute("gid") || ".", usespaces);
-      }
-    }
-  }
-  RETURN texts;
+  RETURN GetAdhocCached(CELL[module], PTR GetLanguageCodesForModule(module));
 }
 
+/** @short Get the 'best' matching language code for the given language preference
+*/
+PUBLIC STRING FUNCTION GetBestLanguageFor(STRING module, STRING langcode)
+{
+  IF(langcode = "debug")
+    RETURN langcode;
+
+  STRING ARRAY actuallanguagecodes := GetSupportedLanguageCodes(module);
+  IF(langcode NOT IN actuallanguagecodes AND Length(actuallanguagecodes) > 0 AND actuallanguagecodes[0] IN ["nl","en"])
+    RETURN actuallanguagecodes[0];
+  RETURN langcode;
+}

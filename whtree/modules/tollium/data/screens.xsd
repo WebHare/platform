@@ -753,13 +753,6 @@ To change a <xs:attribute /> for adding descriptions
         </xs:annotation>
       </xs:attribute>
       <xs:attributeGroup ref="TextGroupAttributes" />
-      <xs:attribute name="usefromlanguage" type="xs:string">
-        <xs:annotation>
-          <xs:documentation>
-            If set, take language texts from this section, and its children, from the specified language file instead.
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
       <xs:attribute name="keepifunreferenced">
         <xs:annotation>
           <xs:documentation>If set, keep this group and their texts even if we can't find any references.</xs:documentation> <!-- added in 4.27, we can start using it as soon as all webhares are 4.27+ -->

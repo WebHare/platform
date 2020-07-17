@@ -8,10 +8,10 @@
 
 [component language_default]<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:h="http://www.w3.org/1999/xhtml">
-  <textgroup gid="testfallbackrecursion" usefromlanguage="nl">
+  <textgroup gid="testfallbackrecursion">
     <text tid="text">Can't find me</text>
   </textgroup>
-  <textgroup gid="testfallbacklocalrecursion" usefromlanguage="en">
+  <textgroup gid="testfallbacklocalrecursion">
     <text tid="text">Can't find me</text>
   </textgroup>
   <textgroup gid="testfallbackdefaultrecursion">
@@ -36,14 +36,14 @@
 
 [component language_nl]<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:h="http://www.w3.org/1999/xhtml">
-  <textgroup gid="testfallbackrecursion" usefromlanguage="en">
+  <textgroup gid="testfallbackrecursion">
     <text tid="text">Can't find me</text>
   </textgroup>
-  <textgroup gid="testfallbackdefaultrecursion" usefromlanguage="default">
+  <textgroup gid="testfallbackdefaultrecursion">
     <text tid="text">Can't find me from NL</text>
   </textgroup>
-  <textgroup gid="testfallback" usefromlanguage="en">
-    <textgroup gid="sub" usefromlanguage="xx">
+  <textgroup gid="testfallback">
+    <textgroup gid="sub">
       <text tid="text">Ignore this text</text>
     </textgroup>
     <text tid="anothertext">This text should be ignored</text>

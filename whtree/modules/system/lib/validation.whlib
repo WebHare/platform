@@ -8,6 +8,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/language.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/harescript/libscan.whlib";
@@ -55,6 +56,19 @@ RECORD FUNCTION ValidateTidsSyntax(RECORD ARRAY intids)
   RETURN CELL[ validtids, errors];
 }
 
+BOOLEAN FUNCTION IsTidTranslatedAnywhere(STRING tid)
+{
+  IF(GetTid(tid) != `(cannot find text: ${tid})`)
+    RETURN TRUE;
+
+  //Try all the other languages, for validating, if just one matches it's fine with us. cross-reference checks of language files are not our problem
+  FOREVERY(STRING trylang FROM GetSupportedLanguageCodes(Tokenize(tid,':')[0]))
+    IF(GetTidForLanguage(trylang, tid) != `(cannot find text: ${tid})`)
+      RETURN TRUE;
+
+  RETURN FALSE;
+}
+
 /** Returns warnings for missing or invalid tid references
     @param resourcename Resource where the tids were defined
     @param tids List of tids to check
@@ -72,9 +86,7 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
   RECORD ARRAY warnings;
 
   FOREVERY (RECORD tid FROM tids)
-  {
-    RECORD rec := __GetTIDNodeForLanguage("default", tid.tid, TRUE);
-    IF (rec.type = "missing")
+    IF(NOT IsTidTranslatedAnywhere(tid.tid))
     {
       STRING attr := CellExists(tid, "ATTRNAME") ? tid.attrname : "";
       INSERT
@@ -84,7 +96,7 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
           , col :=        tid.col
           ] INTO warnings AT END;
     }
-  }
+
   RETURN warnings;
 }
 

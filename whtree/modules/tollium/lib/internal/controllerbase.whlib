@@ -28,6 +28,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/contexts.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
+LOADLIB "mod::tollium/lib/internal/language.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/screenmanager.whlib";
@@ -2181,8 +2182,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
     //Print("intialize app\n" || AnyToString(app, "tree"));
     //Print("xx^ authenticationinfo:\n" || AnyToString(GetAuthenticationRecord(), "tree"));
-    OBJECT langsystem := __GetTidLanguageSystemForModule(toks[0]);
-    STRING suggestedlanguage := ObjectExists(langsystem) ? langsystem->GetBestLanguageFor(GetTidLanguage()) : "en";
+    STRING suggestedlanguage := GetBestLanguageFor(toks[0], GetTidLanguage());
     IF(Length(app.supportedlanguages) > 0 AND suggestedlanguage NOT IN app.supportedlanguages)
       suggestedlanguage := app.supportedlanguages[0];
     SetTidLanguage(suggestedlanguage);
