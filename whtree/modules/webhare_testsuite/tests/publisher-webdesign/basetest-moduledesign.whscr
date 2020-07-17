@@ -121,7 +121,7 @@ MACRO TestDynPage()
 
   OBJECT testdyn := testfw->browser->document->GetElementById("testdyn");
   TestEq(TRUE, ObjectExists(testdyn));
-  TestEq("Dit is <b>bold</b> param:<i>Arg1</i>", testdyn->innerxml, url);
+  TestEq("Dit is <b>bold</b><br/>volgende<br/>regel param:<i>Arg1</i>", testdyn->innerxml, url);
   TestEq(siteroot->url || "dynamicpage.shtml", testdyn->GetAttribute("data-baseurl"));
   TestEq("//" || Tokenize(siteroot->url,"//")[1] || "dynamic.shtml", contentdiv->GetAttribute("data-dynamiclink"));
 

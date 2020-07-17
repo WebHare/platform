@@ -1,22 +1,61 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "module::system/testframework.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+//LOADLIB "mod::tollium/lib/gettid2.whlib"; //when debugging/developing you might want to copypaste gettid.whlib and develop on your local instance
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "module::tollium/gettid.whlib";
-LOADLIB "module::tollium/internal/langedit/tidscan.whlib";
 
 LOADLIB "mod::tollium/lib/internal/langedit/langeditor.whlib";
 
-MACRO LimitLanguageTest()
+MACRO TidCompilerTest()
 {
-  SetTidLanguage("en");
-  TestEQ("One", GetTid("webhare_testsuite:aaa.limitlanguage_en.one"));
-  //TODO actually ignore sections not marked as translateable
+  //Do as much tests as possible before we install the module...
+  TestEq("Dit is bold\nvolgende\nregel", GetTid("webhare_testsuite:test.richtext"));
+  TestEq("Dit is <b>bold</b><br />volgende<br />regel", GetHTMLTid("webhare_testsuite:test.richtext"));
+
+  TestEq("param:P1", GetTid("webhare_testsuite:test.richtext_params", "P1", "P2", "P3", "P4"));
+  TestEq("param:<i>P1</i>", GetHTMLTid("webhare_testsuite:test.richtext_params", "P1", "P2", "P3", "P4"));
+
+  TestEq("", GetTid(""));
+  TestEq("", GetTid(":"));
+  TestEq("One", GetTid(":One"));
+  TestEq("A&B", GetTid(":A&B"));
+  TestEq("A&#38;B", GetHTMLTid(":A&B"));
+  TestEq("One", GetTid("webhare_testsuite:aaa.limitlanguage_en.one"));
+  TestEq("One", GetTid("webhare_testsuite:AAa.Limitlanguage_en.One"));
+  TestEq("One", GetTid("Webhare_Testsuite:aaa.limitlanguage_en.one"));
+  TestEq("One", GetTid("webhare_testsuite:aaa.limitlanguage en.one"), "spaces -> underscore");
+  TestEq("(cannot find text: webhare testsuite:aaa.limitlanguage_en.one)", GetTid("webhare testsuite:aaa.limitlanguage en.one"), "but should NOT be rewriting module names to underscore");
+  TestEq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", GetTIDForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
+  TestEq("IsNLOnly", GetTIDForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
+
+  TestEq("Ifparam: p1!=a p2!=b", GetTID("webhare_testsuite:test.ifparam"));
+  TestEq("Ifparam: p1=a p2!=b", GetTID("webhare_testsuite:test.ifparam","a"));
+  TestEq("Ifparam: p1=a p2!=b", GetTID("webhare_testsuite:test.ifparam","A"));
+  TestEq("Ifparam: p1=a p2=b", GetTID("webhare_testsuite:test.ifparam","A","B"));
+  TestEq('Use this link to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam"));
+  TestEq('Use <a href="http://www.webhare.net/">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam","http://www.webhare.net/"));
+  TestEq('Use <a href="x-fallback:">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2"));
+  TestEq('Use <a href="x-test:a&#38;b">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2","x-test:a&b"));
+
+  //Builtins
+  TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","tollium:tilde.locale.datetimestrings"));
+  TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","~locale.datetimestrings"));
+
+  //Common tids
+  TestEq("Close", GetTid("tollium:common.buttons.close"));
+  TestEq("Add", GetTidForLanguage("en","~add"));
+  TestEq("Toevoegen", GetTidForLanguage("nl","~add"));
+  TestEq("Nederlands", GetTidForLanguage("nl","tollium:common.languages.nl")); //make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...
 }
 
 MACRO SetupTestModule_LanguageFiles()
@@ -33,8 +72,8 @@ MACRO SetupTestModule_LanguageFiles()
 MACRO GetTidTest()
 {
   SetTidLanguage("en");
-  TestEq('Exception retrieving tid \'notifications.messagefromthefuture\': Missing module name in call for tid \'notifications.messagefromthefuture\'', GetTid("notifications.messagefromthefuture"));
-  TestEq('Exception retrieving tid \'notifications.messagefromthefuture\': Missing module name in call for tid \'notifications.messagefromthefuture\'', GetHTMLTid("notifications.messagefromthefuture"));
+  TestEq('(missing module name in tid \'notifications.messagefromthefuture\')', GetTid("notifications.messagefromthefuture"));
+  TestEq('(missing module name in tid \'notifications.messagefromthefuture\')', GetHTMLTid("notifications.messagefromthefuture"));
   TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message_from_the_future"));
   TestEq("A message with underscores", GetTid("webhare_testsuite_temp:notifications.message from the future"));
   TestEq('(cannot find text: webhare testsuite temp:notifications.message_from_the_future)', GetTid("webhare testsuite temp:notifications.message from the future"));
@@ -67,13 +106,6 @@ MACRO FallbackLanguageTest()
   TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
 
   SetTidLanguage("en");
-}
-
-MACRO CommonTidTest()
-{
-  TestEq("Add", GetTidForLanguage("en","~add"));
-  TestEq("Toevoegen", GetTidForLanguage("nl","~add"));
-  TestEq("Nederlands", GetTidForLanguage("nl","tollium:common.languages.nl")); //make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...
 }
 
 ASYNC MACRO TestLangEditingApi()
@@ -119,11 +151,10 @@ ASYNC MACRO ScreenTidTest()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
   AWAIT rec.expectcallreturn();
 }
-RunTestFramework([ PTR LimitLanguageTest
+RunTestFramework([ PTR TidCompilerTest
                  , PTR SetupTestModule_LanguageFiles
                  , PTR GetTidTest
                  , PTR FallbackLanguageTest
-                 , PTR CommonTidTest
                  , PTR TestLangEditingApi
                  , PTR ScreenTidTest
                  ]);

@@ -11,7 +11,6 @@ LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
-LOADLIB "mod::tollium/lib/internal/langedit/langeditsupport.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::tollium/lib/internal/langedit/tidscan.whlib";
 
@@ -1169,10 +1168,28 @@ OBJECTTYPE ParseLanguageText EXTEND StringParser
   }
 >;
 
+STRING ARRAY FUNCTION __GetLanguageCodesForModule(STRING modulename)
+{
+  STRING moduledir := GetModuleInstallationRoot(modulename);
+  IF(moduledir="")
+  {
+    IF (NOT IsDTAPLive())
+      THROW NEW Exception("No such module '" || modulename || "'");
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  RECORD ARRAY langfiles := ReadDiskDirectory(moduledir || "/language","*.xml");
+  RETURN SELECT AS STRING ARRAY GetBasenameFromPath(name)
+           FROM langfiles
+          WHERE type=0
+                AND name LIKE "*.xml"
+                AND ToLowercase(name)=name  //verify lowercase
+       ORDER BY name="default.xml" DESC; //make sure default is first
+}
+
 PUBLIC STATIC OBJECTTYPE LangEditAPI
 <
   PUBLIC STRING openmodule;
-  OBJECT backend;
   RECORD ARRAY langfiles;
   STRING ARRAY masks;
   OBJECT langfileset;
@@ -1181,17 +1198,17 @@ PUBLIC STATIC OBJECTTYPE LangEditAPI
   PUBLIC MACRO NEW(STRING module)
   {
     this->openmodule := ToLowercase(module);
-    this->backend := NEW ModuleLangSystemBackend(module);
 
-    STRING ARRAY languagecodes := this->backend->GetLanguageSystem()->GetLanguageCodes();
+    STRING ARRAY languagecodes := __GetLanguageCodesForModule(this->openmodule);
     OBJECT ARRAY openedlangfiles;
     FOREVERY(STRING lang FROM languagecodes)
     {
-      OBJECT doc := this->backend->GetLanguageSystem()->OpenLanguageXMLFile(#lang); //ADDME move our validation to OpenLanguageFile
+      STRING resourcename := `mod::${this->openmodule}/language/${lang}.xml`;
+      OBJECT doc := MakeXMLDocument(GetWebhareResource(resourcename));
+
       IF(NOT ObjectExists(doc))
         THROW NEW Exception(`Load failed for '${lang}'`);
 
-      STRING resourcename := `mod::${this->openmodule}/language/${lang}.xml`;
       this->masks := this->masks CONCAT GetResourceEventMasks([resourcename]);
 
       OBJECT openedfile := OpenLanguageFile(doc);
@@ -1277,7 +1294,8 @@ PUBLIC STATIC OBJECTTYPE LangEditAPI
       IF(langfile.langfile->dirty OR options.force)
       {
         BLOB newfile := this->langfileset->MakeLanguageFile(langfile.langcode);
-        this->backend->GetLanguageSystem()->SaveLanguageXMLFile(#langfile, newfile);
+        StoreDiskFile(GetWebHareResourceDiskPath(langfile.resourcename), newfile, [ overwrite := TRUE ]);
+
         langfile.langfile->dirty := FALSE;
         this->langfiles[#langfile].lastsave := RetrieveWebhareResource(langfile.resourcename).modified;
         this->langfiles[#langfile].hash := GetHashForBlob(newfile, "MD5");

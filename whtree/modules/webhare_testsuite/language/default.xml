@@ -118,7 +118,10 @@
     </textgroup>
   </textgroup>
   <textgroup gid="test">   <!-- test -->
-    <text tid="richtext">Dit is <html:b>bold</html:b></text>
+    <text tid="ifparam">Ifparam: <ifparam p="1" value="a">p1=a<else/>p1!=a</ifparam> <ifparam p="2" value="b">p2=b<else/>p2!=b</ifparam></text>
+    <text tid="hrefparam">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
+    <text tid="hrefparam2">Use <html:a data-href-param="1" href="x-fallback:">this link</html:a> to choose a new password</text>
+    <text tid="richtext">Dit is <html:b>bold</html:b><br/>volgende<html:br/>regel</text>
     <text tid="richtext_params">param:<html:i><param p="1"/></html:i></text>
     <text tid="unicode_2028"> unicode line separator, another separator</text>
     <text tid="addedgroup_k2">Added group K2</text>

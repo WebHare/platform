@@ -78,12 +78,6 @@ MACRO TestEarlyGettid()
   TestEq("(cannot find text: webhare_testsuite:gettid.datatid1)",witty->RunToString());
 }
 
-MACRO TestBuiltins()
-{
-  TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","tollium:tilde.locale.datetimestrings"));
-  TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","~locale.datetimestrings"));
-}
-
 MACRO TestEncodeText()
 {
   TestEq("a",EncodeLanguageText("a"));
@@ -503,7 +497,6 @@ MACRO TestLangEditApi()
 }
 
 RunTestFramework([ PTR TestEarlyGettid
-                 , PTR TestBuiltins
                  , PTR TestEncodeText
                  , PTR ReaderTest
                  , PTR WriterTest1
