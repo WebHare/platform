@@ -1364,6 +1364,16 @@ void DescribeObjectStructure(VarId id_set, VirtualMachine *vm)
         }
 }
 
+void GetIsObjectTypeStatic(VarId id_set,VirtualMachine *vm)
+{
+        StackMachine &stackm = vm->GetStackMachine();
+
+        stackm.InitVariable(id_set, VariableTypes::Record);
+
+        ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(stackm.ObjectGetTypeDescriptor(HSVM_Arg(0)));
+        stackm.SetBoolean(id_set, type->objdefs.back()->def->flags & ObjectTypeFlags::Static);
+}
+
 void WeakObjectExists(VarId id_set,VirtualMachine *vm)
 {
         HSVM_BooleanSet(*vm, id_set, vm->GetStackMachine().WeakObjectExists(HSVM_Arg(0)));
@@ -1608,6 +1618,7 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MAKEOBJECTPUBLIC::O:O", MakeObjectPublic));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISOBJECTPUBLIC::B:O", IsObjectPublic));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_DESCRIBEOBJECTSTRUCTURE::R:OB", DescribeObjectStructure));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_GETISOBJECTTYPESTATIC::B:O", GetIsObjectTypeStatic));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_MAKEOBJECTREFERENCEPRIVILEGED::O:O", MakeObjectPrivate));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_COLLECTGARBAGE:::", CollectGarbage));

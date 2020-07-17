@@ -290,6 +290,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
   UPDATE PUBLIC MACRO SetEnabled(BOOLEAN enable)
   {
+    IF(enable = this->enabled)
+      RETURN;
+
     TolliumFragmentBase::SetEnabled(enable);
     this->RefreshActions();
   }

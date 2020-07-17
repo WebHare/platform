@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "test::testdata_objects.whlib";
 
@@ -1366,13 +1367,15 @@ MACRO StaticObjectTypesTest()
   result := TestCompileAndRun('<?wh STATIC OBJECTTYPE s1< >; OBJECT o := NEW s1; MemberInsert(__HS_INTERNAL_MakeObjectReferencePrivileged(o), "b", TRUE, "b"); ?>');
   MustContainError(1, result.errors, 258);
 
-
   OBJECT o := NEW b2;
   TestEQ(TRUE, MemberExists(o, "A1"));
   TestEQ(TRUE, MemberExists(o, "A2"));
   o->DoInsertDelete();
   TestEQ(FALSE, MemberExists(o, "A1"));
   TestEQ(FALSE, MemberExists(o, "A2"));
+
+  TestEQ(TRUE, __INTERNAL_GetIsObjectTypeStatic(NEW s2));
+  TestEQ(FALSE, __INTERNAL_GetIsObjectTypeStatic(NEW b2));
 
   CloseTest("TestObjects: TestStaticObjectTypes");
 }
