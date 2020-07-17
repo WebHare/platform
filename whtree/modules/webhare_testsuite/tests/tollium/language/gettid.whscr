@@ -56,6 +56,11 @@ MACRO TidCompilerTest()
   TestEq("Add", GetTidForLanguage("en","~add"));
   TestEq("Toevoegen", GetTidForLanguage("nl","~add"));
   TestEq("Nederlands", GetTidForLanguage("nl","tollium:common.languages.nl")); //make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...
+
+  TestEq(STRING[], GetTIDListForLanguage("en", "webhare_testsuite:aaa"));
+  TestEq(STRING[], GetTIDListForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl"));
+  TestEq(STRING['webhare_testsuite:aaa.limitlanguage_en.one', 'webhare_testsuite:aaa.limitlanguage_en.two'], GetTIDListForLanguage("en", "webhare_testsuite:aaa.limitlanguage_en"));
+  TestEq(["webhare_testsuite:aaa.limitlanguage_nl.isnlonly"], GetTIDListForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl"));
 }
 
 MACRO SetupTestModule_LanguageFiles()

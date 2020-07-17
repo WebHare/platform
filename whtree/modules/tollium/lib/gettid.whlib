@@ -1,4 +1,9 @@
 ﻿<?wh
+/** @short The tollium gettid API
+    @long Pre-tollium applications can use this API to be able to switch to the GetTID function.
+          Tollium applications should use screenbase.whlib for GetTID
+    @topic localization/gettid
+*/
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
@@ -367,6 +372,14 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
   }
 }
 
+/** Get the text for a tid in the current language
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language text
+*/
 PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
   //Doing these fast returns inside Get*Tid reduced their hovi call times from 17ms to 14ms, mostly because GroupParams took 3ms of that 17
@@ -380,6 +393,14 @@ PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEF
   RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), FALSE);
 }
 
+/** Get the HTML text for a tid in the current language
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language HTML text
+*/
 PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
   IF(tid = "")
@@ -392,6 +413,15 @@ PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2
   RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), TRUE);
 }
 
+/** Get the text for a tid for a specific language
+    @param langcode Language code
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language text
+*/
 PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
   IF(tid = "")
@@ -404,6 +434,15 @@ PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING
   RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), FALSE);
 }
 
+/** Get the HTML text for a tid in the current language
+    @param langcode Language code
+    @param tid Tid to get
+    @param p1 Parameter 1
+    @param p2 Parameter 2
+    @param p3 Parameter 3
+    @param p4 Parameter 4
+    @return Language HTML text
+*/
 PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING languagecode, STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
   IF(tid = "")
@@ -414,4 +453,35 @@ PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING languagecode, STRING tid, ST
     RETURN EncodeHTML(Substring(tid,1));
 
   RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), TRUE);
+}
+
+
+/** Returns the list of tids defined in a group in the current language
+    @param gid Language text group
+    @return List of tids in that group
+*/
+PUBLIC STRING ARRAY FUNCTION GetTIDList(STRING gid)
+{
+  RETURN GetTIDListForLanguage(tidlang, gid);
+}
+
+/** Returns the list of tids defined in a group
+    @param langcode Language code
+    @param gid Language text group
+    @return List of tids in that group
+*/
+PUBLIC STRING ARRAY FUNCTION GetTIDListForLanguage(STRING langcode, STRING gid)
+{
+  INTEGER colon := SearchLastSubstring(gid,':');
+  IF (colon = -1)
+    THROW NEW Exception("Missing module name in call for gid '" || gid || "'");
+
+  STRING wantmodule := Left(gid,colon);
+  STRING gidpath := Substring(gid,colon+1,Length(gid));
+
+  RECORD compiled := GetLanguageFile(wantmodule, langcode);
+  RETURN SELECT AS STRING ARRAY wantmodule || ":" || tid
+           FROM compiled.texts
+          WHERE tid LIKE VAR gidpath || ".*"
+                AND tid NOT LIKE VAR gidpath || ".*.*";
 }
