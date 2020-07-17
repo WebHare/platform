@@ -790,12 +790,19 @@ void Marshaller::WriteToPodVector(VarId var, Blex::PodVector< uint8_t > *data)
 
 namespace
 {
+
+void EatBytesError(size_t &remainingsize, size_t bytes)
+{
+        ThrowInternalError("Encountered truncated marshal-packet, need at least " + Blex::AnyToString(bytes - remainingsize) + " bytes");
+}
+
 inline void EatBytes(size_t &remainingsize, size_t bytes)
 {
         if (remainingsize < bytes)
-            ThrowInternalError("Encountered truncated marshal-packet, need at least " + Blex::AnyToString(bytes - remainingsize) + " bytes");
+            EatBytesError(remainingsize, bytes);
         remainingsize -= bytes;
 }
+
 }
 
 uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type type, uint8_t const *ptr, size_t remainingsize, Blex::PodVector< ColumnNameId > const &nameids, MarshalPacket *packet)

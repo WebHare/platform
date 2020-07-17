@@ -574,6 +574,20 @@ int UTF8Main(std::vector<std::string> const &args)
                                         std::cout << CWrapperPrinter(&stackm, &marshaller, &wlib, id);
                                 }
                                 break;
+                        case InstructionSet::LOADCB:
+                                {
+                                        int8_t val = wlib.resident.code[idx+1];
+                                        ++idx;
+                                        std::cout << (val ? "TRUE" : "FALSE");
+                                }
+                                break;
+                        case InstructionSet::LOADCI:
+                                {
+                                        int32_t id = Blex::GetLsb<int32_t>(&wlib.resident.code[idx+1]);
+                                        idx+=4;
+                                        std::cout << id;
+                                }
+                                break;
                         case InstructionSet::RECORDCELLGET:
                         case InstructionSet::RECORDCELLSET:
                         case InstructionSet::RECORDCELLCREATE:

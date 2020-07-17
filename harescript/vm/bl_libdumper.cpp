@@ -365,6 +365,22 @@ void DoLibdump(HSVM *vm, VarId id_set, HareScript::WrappedLibrary const &wlib)
                                 var_marshaller.Read(HSVM_RecordCreate(vm, coderec, col_value), buf, limit);
                         }
                         break;
+                case InstructionSet::LOADCB:
+                        {
+                                int8_t val = wlib.resident.code[idx+1];
+                                ++idx;
+
+                                HSVM_BooleanSet(vm, HSVM_RecordCreate(vm, coderec, col_value), val);
+                        }
+                        break;
+                case InstructionSet::LOADCI:
+                        {
+                                int32_t id = Blex::GetLsb<int32_t>(&wlib.resident.code[idx+1]);
+                                idx+=4;
+
+                                HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, coderec, col_value), id);
+                        }
+                        break;
                 case InstructionSet::RECORDCELLGET:
                 case InstructionSet::RECORDCELLSET:
                 case InstructionSet::RECORDCELLCREATE:

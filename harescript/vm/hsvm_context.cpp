@@ -1410,6 +1410,7 @@ void VirtualMachine::ShowStackState(bool debugmode)
                 case InstructionSet::JUMPC2:
                 case InstructionSet::JUMPC2F:
                 case InstructionSet::LOADC:
+                case InstructionSet::LOADCI:
                 case InstructionSet::LOADS:
                 case InstructionSet::STORES:
                 case InstructionSet::LOADSD:
@@ -1419,6 +1420,8 @@ void VirtualMachine::ShowStackState(bool debugmode)
                 case InstructionSet::DESTROYS:
                 case InstructionSet::COPYS:
                         std::cerr << code << " " << Blex::GetLsb<int32_t>(&executionstate.code[executionstate.codeptr+1]); break;
+                case InstructionSet::LOADCB:
+                        std::cerr << code << " " << executionstate.code[executionstate.codeptr+1]; break;
                 case InstructionSet::RECORDCELLGET:
                 case InstructionSet::RECORDCELLSET:
                 case InstructionSet::RECORDCELLDELETE:
@@ -1640,6 +1643,7 @@ template< bool debug >
                         case InstructionSet::CMP2:              DoCmp2(); break;
 
                         case InstructionSet::LOADC:             DoLoadC(ReadIdFromCode()); break;
+                        case InstructionSet::LOADCB:            DoLoadCB(ReadByteFromCode()); break;
                         case InstructionSet::LOADS:             DoLoadS(ReadIdFromCode()); break;
                         case InstructionSet::STORES:            DoStoreS(ReadIdFromCode()); break;
                         case InstructionSet::LOADG:             DoLoadG(ReadIdFromCode()); break;
@@ -1651,6 +1655,7 @@ template< bool debug >
 
                         case InstructionSet::ISDEFAULTVALUE:    stackmachine.Stack_TestDefault(false); break;
                         case InstructionSet::ISVALUESET:        stackmachine.Stack_TestDefault(true); break;
+                        case InstructionSet::LOADCI:            DoLoadCI(ReadIdFromCode()); break;
 
                         case InstructionSet::PRINT:             DoPrint(); break;
                         case InstructionSet::THROW:             DoPrint(); throw VMRuntimeError (Error::CustomError,"THROW instruction");
@@ -2166,6 +2171,20 @@ void VirtualMachine::DoLoadC(int32_t id)
         uint8_t const *buf = wlib.GetConstantBuffer(id);
         uint8_t const *limit = buf + wlib.GetConstantBufferLength(id);
         var_marshaller.Read(var, buf, limit);
+}
+
+void VirtualMachine::DoLoadCB(int8_t id)
+{
+        VarId var = stackmachine.StackPointer();
+        stackmachine.PushVariables(1);
+        stackmachine.SetBoolean(var, id != 0);
+}
+
+void VirtualMachine::DoLoadCI(int32_t id)
+{
+        VarId var = stackmachine.StackPointer();
+        stackmachine.PushVariables(1);
+        stackmachine.SetInteger(var, id);
 }
 
 void VirtualMachine::DoLoadS(int32_t id)

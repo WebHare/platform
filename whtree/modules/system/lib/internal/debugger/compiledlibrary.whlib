@@ -63,7 +63,7 @@ PUBLIC STATIC OBJECTTYPE CompiledLibrary
 
       INTEGER idx;
       FOR (idx := pos; idx < until; idx := idx + 1)
-        IF (code[idx].code NOT IN [ "LOADS", "LOADSD", "LOADG", "LOADGD", "COPYS", "LOADC", "STORES" ])
+        IF (code[idx].code NOT IN [ "LOADS", "LOADSD", "LOADG", "LOADGD", "COPYS", "LOADC", "LOADCB", "LOADCI", "STORES" ])
           BREAK;
 
       IF (idx = until)

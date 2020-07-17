@@ -146,7 +146,7 @@ STRING ARRAY instrs :=
     , "DEEPARRAYINSERT", "DEEPARRAYINSERTTHIS", "DEEPSET", "DEEPSETTHIS"
     , "DESTROYS", "DIV", "DUP", "ILLEGAL", "INC", "INITFUNCTIONPTR", "INITVAR"
     , "INVOKEFPTR", "INVOKEFPTRNM", "ISDEFAULTVALUE", "ISIN", "ISVALUESET"
-    , "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LIKE", "LOADC", "LOADG", "LOADGD"
+    , "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LIKE", "LOADC", "LOADCB", "LOADCI", "LOADG", "LOADGD"
     , "LOADS", "LOADSD", "LOADTYPEID", "MERGE", "MOD", "MUL", "NEG", "NOP"
     , "NOT", "OBJMAKEREFPRIV", "OBJMEMBERDELETE", "OBJMEMBERDELETETHIS"
     , "OBJMEMBERGET", "OBJMEMBERGETTHIS", "OBJMEMBERINSERT"
@@ -160,8 +160,12 @@ STRING ARRAY instrs :=
     ];
 
 RECORD ARRAY lengths :=
-    [ [ len :=      5
-      , instrs :=   [ "CALL", "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LOADC"
+    [ [ len :=      2
+      , instrs :=   [ "LOADCB"
+                    ]
+      ]
+    , [ len :=      5
+      , instrs :=   [ "CALL", "JUMP", "JUMPC", "JUMPC2", "JUMPC2F", "LOADC", "LOADCI"
                     , "LOADS", "STORES", "LOADG", "STOREG", "LOADSD", "LOADGD"
                     , "DESTROYS", "COPYS", "CAST", "CASTF", "CASTPARAM"
                     , "RECORDCELLGET", "RECORDCELLSET", "RECORDCELLCREATE"
