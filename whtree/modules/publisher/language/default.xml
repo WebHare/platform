@@ -2773,9 +2773,9 @@
       <text tid="condition-not">NOT <param p="1"/></text>
       <text tid="condition-notcontains">The field '<param p="1"/>' does not contain value <param p="2"/></text>
       <text tid="condition-notcontainsall">The field '<param p="1"/>' does not contain all of the values <param p="2"/></text>
-      <text tid="condition-notcontainsone">The field '<param p="1"/>' doest not contain one or more of the values <param p="2"/></text>
-      <text tid="condition-notisexactly">The field '<param p="1"/>' doest not contain exactly the values <param p="2"/></text>
-      <text tid="condition-notisexactlyone">The field '<param p="1"/>' doest not contain exactly the value <param p="2"/></text>
+      <text tid="condition-notcontainsone">The field '<param p="1"/>' does not contain one or more of the values <param p="2"/></text>
+      <text tid="condition-notisexactly">The field '<param p="1"/>' does not contain exactly the values <param p="2"/></text>
+      <text tid="condition-notisexactlyone">The field '<param p="1"/>' does not contain exactly the value <param p="2"/></text>
       <text tid="condition-notolderthan">The date in '<param p="1"/>' is not less than <param p="2"/> years ago</text>
       <text tid="condition-notyoungerthan">The date in '<param p="1"/>' is not more than <param p="2"/> years ago</text>
       <text tid="condition-novalue">The field '<param p="1"/>' has no value/is not set</text>
