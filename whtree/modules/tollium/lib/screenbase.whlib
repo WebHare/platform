@@ -83,7 +83,7 @@ PUBLIC OBJECTTYPE TolliumScope EXTEND TolliumAppContextSystem
 
   PUBLIC MACRO __tolliumscope_registercomponents(OBJECT screenbuilder, RECORD ARRAY comps)
   {
-    BOOLEAN hatted := __INTERNAL_DescribeObjectStructure(this).isstatic;
+    BOOLEAN hatted := __INTERNAL_GetIsObjectTypeStatic(this);
     this->__tolliumscope_isstatic := hatted;
 
     FOREVERY(RECORD comp FROM comps)
