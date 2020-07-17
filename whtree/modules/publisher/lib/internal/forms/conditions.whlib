@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 
@@ -20,6 +21,13 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
         THROW NEW Exception(`Form '${condition.matchtype}' condition requires an array value`);
       IF (CellExists(condition, "options"))
         ValidateOptions([ matchcase := TRUE ], condition.options);
+    }
+    CASE "AGE<", "AGE>"
+    {
+      IF (NOT CellExists(condition, "field") OR NOT CellExists(condition, "value"))
+        THROW NEW Exception(`Form '${condition.matchtype}' condition without field or value`);
+      IF (TypeID(condition.value) != TYPEID(INTEGER))
+        THROW NEW Exception(`Form '${condition.matchtype}' condition requires an integer value`);
     }
     CASE "HASVALUE"
     {
@@ -326,6 +334,18 @@ PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD
                , field := condition.field
                , reason := condition.value ? `The value was not set` : `The value was set`
                ];
+
+      RETURN [ success := TRUE ];
+    }
+    CASE "AGE<", "AGE>" //TOOD how to deal with timezones?
+    {
+      IF(IsDefaultValue(checkvalue))
+        RETURN [ success := FALSE, field := condition.field, reason := `The value was not set` ];
+
+      INTEGER age := GetDatetimeDifference(checkvalue, GetCurrentDatetime()).years;
+      IF( (condition.matchtype = "AGE<" AND NOT (age < condition.value))
+          OR (condition.matchtype = "AGE>" AND NOT (age > condition.value)))
+        RETURN [ success := FALSE, field := condition.field, reason := `The calculated age ${age} does not satisfy ${condition.matchtype} ${condition.value}` ];
 
       RETURN [ success := TRUE ];
     }

@@ -167,7 +167,18 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
                              : GetTid("publisher:webtools.formconditions.condition-novalue", fieldname);
     }
 
-    //field := field.parsedfield();
+    IF(condition.matchtype = "AGE<")
+    {
+      RETURN negative
+          ? GetTid("publisher:webtools.formconditions.condition-notyoungerthan", fieldname, ToString(condition.value))
+          : GetTid("publisher:webtools.formconditions.condition-youngerthan", fieldname, ToString(condition.value));
+    }
+    IF(condition.matchtype = "AGE>")
+    {
+      RETURN negative
+          ? GetTid("publisher:webtools.formconditions.condition-notolderthan", fieldname, ToString(condition.value))
+          : GetTid("publisher:webtools.formconditions.condition-olderthan", fieldname, ToString(condition.value));
+    }
 
     // Check if the stored and available rowkeys have the same type
     RECORD ARRAY options := field.options;

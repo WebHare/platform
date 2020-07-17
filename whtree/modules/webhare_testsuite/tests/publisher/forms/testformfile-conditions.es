@@ -9,6 +9,28 @@ test.registerTests(
       setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes:true, addtwolevelfield: true, checkboxsubs:true, custommergefields:true });
     }
 
+  , 'Test datetime condition'
+  , async function()
+    {
+      await test.load(setupdata.url);
+      test.false(test.canClick("#webtoolform-not18"));
+
+      let today = new Date;
+      let date_tomorrow_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate() + 1); //JS just wraps and generally deals with it
+      let date_tomorrow_18_iso = date_tomorrow_18.getFullYear() + '-' + ('0' + (date_tomorrow_18.getMonth()+1)).slice(-2) + '-' + ('0' + date_tomorrow_18.getDate()).slice(-2);
+
+      test.fill("#webtoolform-date", date_tomorrow_18_iso);
+      test.focus("#webtoolform-textarea");
+      test.true(test.canClick("#webtoolform-not18"));
+
+      let date_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      let date_18_iso = date_18.getFullYear() + '-' + ('0' + (date_18.getMonth()+1)).slice(-2) + '-' + ('0' + date_18.getDate()).slice(-2);
+
+      test.fill("#webtoolform-date", date_18_iso);
+      test.focus("#webtoolform-textarea");
+      test.false(test.canClick("#webtoolform-not18"));
+    }
+
   , { loadpage: function() { return setupdata.url; }
     }
 

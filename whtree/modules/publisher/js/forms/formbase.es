@@ -928,6 +928,23 @@ export default class FormBase
       return true;
     }
 
+    if(["AGE<","AGE>"].includes(condition.matchtype))
+    {
+      if(!currentvalue)
+        return false;
+
+      let now = new Date, birthdate = new Date(currentvalue);
+      let age = now.getFullYear() - birthdate.getFullYear();
+      //birthdate not hit yet this year? then you lose a year
+      if (now.getMonth() < birthdate.getMonth()
+          || (now.getMonth() == birthdate.getMonth() && now.getDate() < birthdate.getDate()))
+      {
+        --age;
+      }
+
+      return (condition.matchtype == 'AGE<' && age < condition.value)
+             || (condition.matchtype == 'AGE>' && age > condition.value);
+    }
     return console.error(`No support for conditional type '${condition.matchtype}'`), false;
   }
 
