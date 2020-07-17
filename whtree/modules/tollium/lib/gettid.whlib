@@ -155,7 +155,7 @@ VARIANT FUNCTION DecodeLanguageText(OBJECT fragment)
 {
   VARIANT ARRAY outparts;
   FOR(OBJECT part := fragment->firstchild; ObjectExists(part); part := part->nextsibling)
-    INSERT  ParseTextNode(part) INTO outparts AT END;
+    INSERT ParseTextNode(part) INTO outparts AT END;
 
   IF(Length(outparts) = 0)
     RETURN "";
@@ -369,7 +369,7 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
 
 PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
 {
-  //Doing these fast returns inside Get*Tid reduced their hovi call times from 17ms to 14ms,  mostly because GroupParams took 3ms of that 17
+  //Doing these fast returns inside Get*Tid reduced their hovi call times from 17ms to 14ms, mostly because GroupParams took 3ms of that 17
   IF(tid = "")
     RETURN "";
 
