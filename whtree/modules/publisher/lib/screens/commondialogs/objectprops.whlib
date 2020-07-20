@@ -1746,10 +1746,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   STRING FUNCTION GenerateAutoTitle()
   {
-    STRING suggestedname := GetSafeFileName(^title->value);
-
-    IF (Length(suggestedname)>30)
-      suggestedname := Left(suggestedname,30);
+    STRING suggestedname := GetSafeFileName(UCLeft(^title->value, whconstant_publisher_autonamelength));
     IF (suggestedname LIKE "*_")
       suggestedname := Left(suggestedname,Length(suggestedname)-1);
     IF (suggestedname = "")
