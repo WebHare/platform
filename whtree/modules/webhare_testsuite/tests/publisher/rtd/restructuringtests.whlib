@@ -5,7 +5,7 @@
 */
 
 /// Test for proper style matching on lists
-PUBLIC STRING listtest_structure :=
+PUBLIC CONSTANT STRING listtest_structure :=
      '<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">\n'
   || '  <blockstyles defaultstyle="NORMAL">\n'
   || '    <textstyle tag="HEADING1" containertag="h1" />\n'
@@ -20,7 +20,7 @@ PUBLIC STRING listtest_structure :=
   || '</richstructure>\n';
 
 /// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
-PUBLIC STRING pages_rte_test_structure :=
+PUBLIC CONSTANT STRING pages_rte_test_structure :=
 `<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
   <blockstyles defaultstyle="NORMAL">
     <textstyle tag="CONTENTTAB" importfrom="h2.tab" containertag="p">
@@ -38,7 +38,7 @@ PUBLIC STRING pages_rte_test_structure :=
   </blockstyles>
 </rtdtype>`;
 
-STRING edudex_structure :=
+CONSTANT STRING edudex_structure :=
 `<richstructure xmlns="http://www.webhare.net/xmlns/tollium/richstructure">
   <blockstyles defaultstyle="NORMAL">
     <textstyle tag="NORMAL">
@@ -61,7 +61,7 @@ STRING edudex_structure :=
 `;
 
 /// structure that roughly mimics the structure used by the js structured editor test page /pages/rte/index.shtml
-PUBLIC STRING allowallinlines_structure :=
+PUBLIC CONSTANT STRING allowallinlines_structure :=
 `<rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
   <blockstyles defaultstyle="NORMAL">
     <textstyle tag="NORMAL" title="Normaal" textstyles="i u b sub sup a-href strike img ins del" containertag="p" />
@@ -74,7 +74,7 @@ PUBLIC STRING allowallinlines_structure :=
     expect_hs is used for harescript overrides. Harescript doesn't have a CSS engine, and can't measure table widths.
     However, the hs engine should read and preserve it from the javascript reformatted data.
 */
-PUBLIC RECORD ARRAY restructuringtests :=
+PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     [ [ title :=          "Extra surronding divs"
       , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml"
       , input :=          `<div><div><p>Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden <br/><br/>Natuur &amp; Techniek</p></div></div>`
@@ -208,6 +208,12 @@ PUBLIC RECORD ARRAY restructuringtests :=
       , title :=          "Remove empty tables"
       , input :=          `<h1 class="heading1">Kop</h1><table></table><table><tr></tr></table>`
       , expect :=         `<h1 class="heading1">Kop</h1>`
+      ]
+
+    , [ structure :=      pages_rte_test_structure
+      , title :=          "Don't get confused by the div wrapper named after a table class"
+      , input :=          `<h1 class="heading1">Kop</h1><div class="wh-rtd__tablewrap table"><table class="table"><tbody><tr><td>Cell 1</td></tr></tbody></table>`
+      , expect :=         `<h1 class="heading1">Kop</h1><table class="table wh-rtd-table wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
       ]
 
     , [ structure :=      pages_rte_test_structure
