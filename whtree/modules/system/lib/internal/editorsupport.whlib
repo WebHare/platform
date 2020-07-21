@@ -450,7 +450,7 @@ PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECO
       ];
 
   EnsurePrimary();
-  RECORD result := ValidateSingleFile(liburi, CELL[ ...GetValidationOptions(liburi), overridedata := source, options.documentation ]);
+  RECORD result := ValidateSingleFileAdHoc(liburi, CELL[ overridedata := source, options.documentation ]);
 
   RETURN
       [ messages :=

@@ -378,7 +378,7 @@ PUBLIC RECORD FUNCTION ValidateSingleFile(STRING resourcename, RECORD options DE
 {
   options := ValidateOptions([ onlytids := FALSE
                              , overridedata := DEFAULT BLOB
-                             , ...validationoptions
+                             , ...defaultvalidationoptions
                              ], options, [ optional := ["overridedata"] ]);
 
   IF(resourcename != "" AND NOT IsAbsoluteResourcePath(resourcename))
@@ -445,4 +445,43 @@ PUBLIC MACRO PrintValidationMessages(RECORD file)
 
   FOREVERY (RECORD hint FROM file.hints)
     PRINT(`${hint.resourcename = "" ? "" : `${hint.resourcename}:${hint.line}:${hint.col}: `}Hint: ${hint.message}\n`);
+}
+
+
+/** Validate a single file using the module configuration for validation options */
+PUBLIC RECORD FUNCTION ValidateSingleFileAdhoc(STRING resname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions( [ documentation := FALSE
+                              , overridedata := DEFAULT BLOB
+                              ], options, [ optional := ["overridedata"] ]);
+
+  TRY
+  {
+    RECORD validationoptions;
+    TRY
+    {
+      validationoptions := GetValidationOptions(resname);
+    }
+    CATCH(OBJECT<RetrieveResourceException> e)
+    {
+      /* unless the source of the error is the moduledef we're validating, this aborts the validation.
+         fix a chicken-and-egg when the moduledef itself is broken and we can't read the options */
+      IF(e->resourcename != resname)
+        THROW;
+    }
+    RETURN ValidateSingleFile(resname, CELL[ ...validationoptions, ...options ]);
+  }
+  CATCH(OBJECT e)
+  {
+    RETURN [ errors := [[ line := 0
+                        , col :=0
+                        , resourcename := resname
+                        , source := "exception"
+                        , message := "Unable to validate: " || e->what
+                       ]]
+           , warnings  := RECORD[]
+           , hints := RECORD[]
+           , tids := RECORD[]
+           ];
+  }
 }
