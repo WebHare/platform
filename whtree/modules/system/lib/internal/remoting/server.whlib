@@ -370,9 +370,9 @@ BOOLEAN FUNCTION ExecuteServiceCall(RECORD tp, RECORD servicedef, RECORD callinf
       encoded_result := transport->EncodeResponse(res.is_macro, res.result, GetCurrentGroupId(), reqdata.requesttoken);
     }
   }
-  CATCH (OBJECT<RPCBadRequestException> e)
+  CATCH (OBJECT<RPCTooManyRequestsException> e)
   {
-    THROW e;
+    encoded_result := transport->EncodeTooManyRequestsException(e, reqdata.requesttoken);
   }
   CATCH (OBJECT e)
   {

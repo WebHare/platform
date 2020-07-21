@@ -13,6 +13,8 @@ test.registerTests(
 
      //basic tests
      test.eq('Hi', await rpc.invoke('echo','Hi'));
+     console.log(await rpc.invoke({wrapresult:true}, 'echo', 'Hi'));
+     test.eq({ status: 200, result: 'Hi', error: null, retryafter: null }, await rpc.invoke({wrapresult:true}, 'echo', 'Hi'));
      test.eq(42, await rpc.invoke('echoany',42));
      test.eq(null, await rpc.invoke('ireturnnothing'));
 
@@ -55,6 +57,19 @@ test.registerTests(
      test.eqMatch(/^RPC Failed: /, exc.message);
    }
 
+ , "Test rate limiting"
+ , async function()
+   {
+     let rpc = new RPCClient("webhare_testsuite:testnoauth");
+
+     //if we listen for 429 explicitly, we'll hear it
+     test.eq({ status: 200, result: { accepted: true} , error: null, retryafter: null }, await rpc.invoke({ wrapresult: true, retry429: false }, "testratelimit", { timeperiod: 200 }));
+     test.eq({ status: 429, result: null, error: null, retryafter: 1 },                  await rpc.invoke({ wrapresult: true, retry429: false }, "testratelimit", { timeperiod: 200 }));
+
+     //but if we don't, things "just work"
+     test.eq({ status: 200, result: { accepted: true} , error: null, retryafter: null }, await rpc.invoke({ wrapresult: true }, "testratelimit", { timeperiod: 200 }));
+   }
+
  , "Test setoptions"
  , async function()
    {
@@ -80,7 +95,6 @@ test.registerTests(
      test.eq({ x:42 }, await testnoauthservice.complexResultsSlow({ x:42 }));
      test.eq({ x:42 }, await testnoauthservice.invoke('complexResultsSlow', {x:42 }));
      let exc = await test.throws(testnoauthservice.invoke({timeout:50},'complexResultsSlow', {x:42 }));
-     console.error(exc);
      test.eqMatch(/^RPC Timeout:/, exc.message);
 
      //backwards compatibility... rpcResolve

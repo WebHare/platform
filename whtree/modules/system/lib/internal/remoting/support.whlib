@@ -49,7 +49,7 @@ PUBLIC OBJECTTYPE InternalRemotableBase
     @public
     @loadlib mod::system/lib/remoting/client.whlib
 */
-PUBLIC OBJECTTYPE RemotingException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE RemotingException EXTEND Exception
 <
   STRING pvt_code;
 
@@ -71,7 +71,7 @@ PUBLIC OBJECTTYPE RemotingException EXTEND Exception
     @public
     @loadlib mod::system/lib/remoting/server.whlib
 */
-PUBLIC OBJECTTYPE RPCInvalidArgsException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE RPCInvalidArgsException EXTEND Exception
 < /** @private Shouldn't be constructed by the user
       @param what Error message
   */
@@ -86,7 +86,7 @@ PUBLIC OBJECTTYPE RPCInvalidArgsException EXTEND Exception
     @public
     @loadlib mod::system/lib/remoting/server.whlib
 */
-PUBLIC OBJECTTYPE RPCBadRequestException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE RPCBadRequestException EXTEND Exception
 < /** @private Shouldn't be constructed by the user
       @param what Error message
   */
@@ -95,6 +95,23 @@ PUBLIC OBJECTTYPE RPCBadRequestException EXTEND Exception
   {
   }
 >;
+
+/** Remoting exception signalling too fast requests
+    @topic rpc/server
+    @public
+    @loadlib mod::system/lib/remoting/server.whlib
+*/
+PUBLIC STATIC OBJECTTYPE RPCTooManyRequestsException EXTEND Exception
+<
+  PUBLIC INTEGER retryafter;
+
+  MACRO NEW(INTEGER retryafter)
+  : Exception("Too many requests - retry after " || retryafter || "s")
+  {
+    this->retryafter := retryafter;
+  }
+>;
+
 
 PUBLIC OBJECTTYPE CommunicationControl
 < // ---------------------------------------------------------------------------

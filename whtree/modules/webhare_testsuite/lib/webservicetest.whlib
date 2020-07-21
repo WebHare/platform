@@ -6,7 +6,9 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
+LOADLIB "mod::system/lib/remoting/server.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 
 OBJECTTYPE TestObject EXTEND RemotableObject
@@ -35,6 +37,18 @@ OBJECTTYPE TestObject EXTEND RemotableObject
   }
 >;
 
+PUBLIC RECORD FUNCTION RPC_TestRateLimit(RECORD options)
+{
+  options := ValidateOptions([ numhits := 1
+                             , timeperiod := 1000
+                             ], options);
+
+  RECORD result := CheckRateLimit([ type := "checkratelimit" ], options.numhits, CELL[ options.timeperiod ]);
+  IF(NOT result.accepted)
+    THROW NEW RPCTooManyRequestsException((result.backoff + 999) / 1000);
+
+  RETURN [accepted := TRUE];
+}
 
 /** @short Answer difficult questions by reflecting them to the questioneer */
 PUBLIC STRING FUNCTION RPC_Echo(STRING indata)
