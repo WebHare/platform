@@ -60,7 +60,7 @@ StatusData storedstatus[]=
   StatusData( 424, "424 Failed Dependency", "" ), //WEBDAV RFC 4918
   StatusData( 426, "426 Upgrade Required", ""),
   StatusData( 428, "428 Precondition Required", ""),
-  StatusData( 429, "429 Too Many requests", "" ),
+  StatusData( 429, "429 Too Many Requests", "" ),
   StatusData( 431, "431 Request Header Fields Too Large", ""),
   StatusData( 444, "444 Connection Closed Without Response", ""),
   StatusData( 451, "451 Unavailable For Legal Reasons", ""),
