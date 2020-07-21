@@ -504,7 +504,7 @@ export class SplitTimeField extends MultiInputSubstition
     this.hournode   = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.hours} value={this.hours == null ? "" : this.hours} min="0" max="23" type="number" />;
     this.minutenode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.minutes} value={this.minutes == null ? "" : this.minutes} min="0" max="59" type="number" />;
 
-    this.inputgroup = <div class="wh-form__timeinputgroup" tabindex="0">
+    this.inputgroup = <div class="wh-form__timeinputgroup">
                         <div class="wh-form__timeinputgroup__line hour">
                           {this.hournode}
                         </div>
