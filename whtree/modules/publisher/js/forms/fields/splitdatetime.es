@@ -305,12 +305,20 @@ export class SplitDateField extends MultiInputSubstition
       }
     }
 
+
+    // Take the replaced input out of the keyboard navigation.
+    // But it'll retain the ability to get focus. So if code sets the focus it will be forwarded to the first input in the group (the day).
+    this._replacednode.setAttribute("tabindex", "-1");
+
     //If focus on hidden date input, set focus on first field in replacement
     this._replacednode.addEventListener("focus", ev => {
+      // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
+      //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
       let nextnode = this.inputgroup.querySelector("input");
       if( nextnode )
         nextnode.focus();
     });
+
 
     if( isdisabled )
       this.inputgroup.classList.add("wh-form__dateinputgroup--disabled");
@@ -515,12 +523,20 @@ export class SplitTimeField extends MultiInputSubstition
       this.inputgroup.classList.add("wh-form__timeinputgroup--3col");
     }
 
+
+    // Take the replaced input out of the keyboard navigation.
+    // But it'll retain the ability to get focus. So if code sets the focus it will be forwarded to the first input in the group (the day).
+    this._replacednode.setAttribute("tabindex", "-1");
+
     //If focus on hidden time input, set focus on first field in replacement
     this._replacednode.addEventListener("focus", ev => {
+      // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
+      //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
       let nextnode = this.inputgroup.querySelector("input");
       if( nextnode )
         nextnode.focus();
     });
+
 
     if( isdisabled )
       this.inputgroup.classList.add("wh-form__timeinputgroup--disabled");
