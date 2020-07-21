@@ -1934,6 +1934,12 @@
       <text tid="nextpage">Volgende</text>
       <text tid="previouspage">Vorige</text>
       <text tid="selectfile">Selecteer bestand</text>
+      <text tid="splitdatetime-day-arialabel">dag</text>
+      <text tid="splitdatetime-hours-arialabel">uur</text>
+      <text tid="splitdatetime-minutes-arialabel">minuut</text>
+      <text tid="splitdatetime-month-arialabel">maand</text>
+      <text tid="splitdatetime-seconds-arialabel">seconden</text>
+      <text tid="splitdatetime-year-arialabel">jaar</text>
       <text tid="starsrequired">* betekent dat een veld verplicht is</text>
       <text tid="submit">Versturen</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
