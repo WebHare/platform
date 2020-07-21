@@ -2140,7 +2140,7 @@ The full base URL on which this site will be published, calculated by combining 
         <integer name="allformsubmits_timeperiod" initialval="5" description="For all ips: period over which we record form submissions" />
         <integer name="ipformsubmits_maxhits" initialval="2" description="Per ip: maximum # of form submissions" />
         <integer name="ipformsubmits_timeperiod" initialval="20" description="Per ip: period over which we record form submissions" />
-        <datetime name="disableratelimits" description="Disable ratelimits unti lthe specified time" />
+        <datetime name="disableratelimits" description="Disable ratelimits until the specified time" />
       </node>
       <node name="analytics">
         <string name="privateipcountry" initialval="NL" description="Country code to return for private IPs" />
