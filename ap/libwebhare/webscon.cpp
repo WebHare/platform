@@ -594,7 +594,7 @@ void Connection::DecodeStatusHeader(std::string const &blamescript)
                         if(status_decode.second != status_str->end())
                             protocol.status_additional_message.assign(status_decode.second, status_str->end());
 
-                        if(statuscode == 500) //internal server error. log to errors.log because unlogged 500s confuse webmasters
+                        if(statuscode == StatusInternalError) //internal server error. log to errors.log because unlogged 500s confuse webmasters
                         {
                                 request->ErrorLog("Script " + blamescript + " reporting internal server error: " + protocol.status_additional_message);
                         }

@@ -29,7 +29,7 @@ StatusData storedstatus[]=
   StatusData( 302, "302 Found", "The requested resource has been found at a different location" ),
   StatusData( 303, "303 See other", "The results of the request can be found at a different location" ),
   StatusData( 304, "304 Not modified", "The resource has not been modified" ),
-  StatusData( 305, "305 Use proxy", "The resource has not been modified" ),
+  StatusData( 305, "305 Use proxy", "" ),
   StatusData( 306, "306 Switch proxy", "" ),
   StatusData( 307, "307 Temporary Redirect", "The requested resource resides temporarily under a different URI" ), //HTTP1.1
   StatusData( 308, "308 Permanent Redirect", "" ), //experimental
@@ -54,14 +54,28 @@ StatusData storedstatus[]=
   StatusData( 418, "418 I'm a teapot", "" ), //RFC2324
   StatusData( 419, "419 Authentication Timeout", "" ), //non standard
   StatusData( 420, "420 Enhance Your Calm", "" ), //Twitter
+  StatusData( 421, "421 Misdirected Request", ""),
   StatusData( 422, "422 Unprocessable Entity", "" ), //WEBDAV RFC 4918
   StatusData( 423, "423 Locked", "" ), //WEBDAV RFC 4918
   StatusData( 424, "424 Failed Dependency", "" ), //WEBDAV RFC 4918
+  StatusData( 426, "426 Upgrade Required", ""),
+  StatusData( 428, "428 Precondition Required", ""),
+  StatusData( 429, "429 Too Many requests", "" ),
+  StatusData( 431, "431 Request Header Fields Too Large", ""),
+  StatusData( 444, "444 Connection Closed Without Response", ""),
+  StatusData( 451, "451 Unavailable For Legal Reasons", ""),
+
   StatusData( 501, "501 Not Implemented", "The request method was not recognized" ), //FIXME Use this ourselves too!
   StatusData( 502, "502 Bad Gateway", "Bad Gateway" ),
   StatusData( 503, "503 Service Unavailable", "The requested service is currently unavailable" ),
   StatusData( 504, "504 Gateway Timeout", "Gateway Timeout" ),
   StatusData( 505, "505 HTTP Version Not Supported", "HTTP Version Not Supported" ),
+  StatusData( 506, "506 Variant Also Negotiates", ""),
+  StatusData( 507, "507 Insufficient Storage", ""),
+  StatusData( 508, "508 Loop Detected", ""),
+  StatusData( 510, "510 Not Extended", ""),
+  StatusData( 511, "511 Network Authentication Required", ""),
+
   StatusData( 0,"","")
 };
 const unsigned InitialIdleGrace = 60; //Initial grace period for connections to start talking (ADDME: proper HTTP/1.1 timeout?)
