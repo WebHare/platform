@@ -10,7 +10,6 @@
       <dependency module="wrd"/>
     </packaging>
     <validation options="nowarnings">
-      <exclude mask="data/siteprofile_newsletter.xsd" why="Not understood by WebHare" />
       <eslint mask="web/outputtools/outputtools.js" />
       <eslint mask="web/common/js/ie.js"/>
     </validation>

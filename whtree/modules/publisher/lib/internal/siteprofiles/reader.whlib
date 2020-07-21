@@ -29,8 +29,6 @@ LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
-PUBLIC STRING newsletter_sp := "http://www.webhare.net/xmlns/newsletter/siteprofile";
-
 OBJECT current_apply_rule_tester_cache;
 
 PUBLIC RECORD FUNCTION GetDefaultFolderSettings()

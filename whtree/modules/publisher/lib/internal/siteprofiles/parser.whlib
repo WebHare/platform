@@ -423,7 +423,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         [ [ ns := whconstant_xmlns_publisher,   name := "contenttype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "embeddedobjecttype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "widgettype" ]
-        , [ ns := newsletter_sp,  name := "maildesigntype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "rtdtype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "filetype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "foldertype" ]
@@ -554,10 +553,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
     INSERT CELL members := newmembers.members INTO typeinfo;
 
-    IF(nodename = 'maildesigntype')
-      this->AddWarning(ctype, "newsletter maildesigntype in siteprofiles are deprecated");
-
-    IF (nodename IN [ "embeddedobjecttype", "maildesigntype", "widgettype" ])
+    IF (nodename IN [ "embeddedobjecttype", "widgettype" ])
     {
       INSERT CELL editor := this->GetWidgetEditor(ctype)
                 , renderer := this->GetWidgetRenderer(ctype)
