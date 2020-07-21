@@ -1,7 +1,11 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 
@@ -40,3 +44,12 @@ PUBLIC MACRO EnsureUserMgmtStateClean()
   testfw->CommitWork();
 }
 
+PUBLIC MACRO DisableFormLimitsTemporarily()
+{
+  GetPrimary()->BeginWork();
+  DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
+  IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
+    WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
+  GetPrimary()->CommitWork();
+
+}

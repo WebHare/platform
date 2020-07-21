@@ -102,7 +102,7 @@ PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data)
 }
 
 /** @short Log a warning to the 'notice' log
-    @param Log a message indicating an important issue, that should probably be dealth with when convenient ("ACT LATER")
+    @param Log a message indicating an important issue, that should probably be dealt with when convenient ("ACT LATER")
     @param logsource Source or call of the error message
     @param message Error mesage in text, should be understandable by sysop users
     @param data System-parseable error context */

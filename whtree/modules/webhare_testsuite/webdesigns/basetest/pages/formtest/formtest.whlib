@@ -25,6 +25,8 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
 <
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
+    DisableFormLimitsTemporarily();
+
     IF(GetWebVariable("scrollzone")="1")
       INSERT "scrollzone" INTO this->webdesign->htmlclasses AT END;
     IF(GetWebVariable("cookiebar")="1")

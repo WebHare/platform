@@ -2136,6 +2136,11 @@ The full base URL on which this site will be published, calculated by combining 
       <node name="forms"> <!-- FIXME at some point, just move this to the base site profile (at prio=negative) to allow modules to overwrite this. And processreults was intended to be 7 -->
         <integer name="storeresults" initialval="400" description="The default number of days to store form results (default is 1 year + 1 month)" />
         <integer name="processresults" initialval="30" description="The number of days to store form results internally for processing" />
+        <integer name="allformsubmits_maxhits" initialval="5" description="For all ips: maximum # of form submissions" />
+        <integer name="allformsubmits_timeperiod" initialval="5" description="For all ips: period over which we record form submissions" />
+        <integer name="ipformsubmits_maxhits" initialval="2" description="Per ip: maximum # of form submissions" />
+        <integer name="ipformsubmits_timeperiod" initialval="20" description="Per ip: period over which we record form submissions" />
+        <datetime name="disableratelimits" description="Disable ratelimits unti lthe specified time" />
       </node>
       <node name="analytics">
         <string name="privateipcountry" initialval="NL" description="Country code to return for private IPs" />
