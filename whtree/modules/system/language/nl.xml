@@ -2238,7 +2238,7 @@
       <text tid="colon">Dubbele punt (:)</text>
       <text tid="comma">Komma (,)</text>
       <text tid="confirm">Bevestig wachtwoord</text>
-      <text tid="confirmresetsavedstates">Weet u zeker dat u alle opgeslagen instellingen wil bewaren, zoals windowgroottes en laatste keuzes ?</text>
+      <text tid="confirmresetsavedstates">Weet u zeker dat u alle opgeslagen instellingen wilt herstellen, zoals windowgroottes en laatste keuzes ?</text>
       <text tid="confirmresetwarnings">Weet u zeker dat u alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
       <text tid="creationdate">Aanmaakdatum</text>
       <text tid="decimalsep">Decimaalteken</text>
