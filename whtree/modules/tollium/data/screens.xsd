@@ -2835,6 +2835,13 @@ To change a <xs:attribute /> for adding descriptions
             <xs:documentation>The editor to use. Possible types are "richdocument" and "pageeditor".</xs:documentation>
           </xs:annotation>
         </xs:attribute>
+        <xs:attribute name="maxlength" type="xs:nonNegativeInteger">
+          <xs:annotation>
+            <xs:documentation>
+              Strict maximum length
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
