@@ -284,6 +284,8 @@ PUBLIC OBJECTTYPE FormBase
   /// Form reference (persisted over RPCs, seen and possible modifyable by clients so should not contain sensitive or replayable data)
   PUBLIC STRING formref;
 
+  /// Whether to do a rate limit check at first BeginWork. Enabled by external submissions
+  PUBLIC BOOLEAN formcheckratelimits;
 
   // ---------------------------------------------------------------------------
   //
@@ -543,8 +545,12 @@ PUBLIC OBJECTTYPE FormBase
     }
   }
 
-  MACRO CheckRateLimits(RECORD ratelimitconfig)
+  PUBLIC MACRO CheckRateLimits()
   {
+    RECORD ratelimitconfig := GetAdhocCached([type := "ratelimitconfig"], PTR GetRateLimitConfig);
+    IF(ratelimitconfig.disableratelimits != DEFAULT DATETIME AND ratelimitconfig.disableratelimits > GetCurrentDatetime())
+      RETURN; //checks still blocked
+
     STRING userip := GetClientRemoteIP();
     STRING checkip := userip;
     IF(checkip LIKE "*:*") //ipv6, limit to subnet
@@ -571,11 +577,7 @@ PUBLIC OBJECTTYPE FormBase
   PUBLIC RECORD FUNCTION __FormDoSubmit(RECORD rpcsubmitinfo, BOOLEAN isinternalsubmit)
   {
     IF(NOT isinternalsubmit)
-    {
-      RECORD ratelimitconfig := GetAdhocCached([type := "ratelimitconfig"], PTR GetRateLimitConfig);
-      IF(ratelimitconfig.disableratelimits = DEFAULT DATETIME OR ratelimitconfig.disableratelimits < GetCurrentDatetime())
-        this->CheckRateLimits(ratelimitconfig);
-    }
+      this->formcheckratelimits := TRUE;
 
     //Construct the fields - FIXME move this back to NEW() but it gives confusing errors. #586
     IF(NOT MemberExists(this,'submit'))
@@ -795,6 +797,12 @@ PUBLIC OBJECTTYPE FormBase
         FOREVERY(RECORD fld FROM this->__formfields)
           fld.obj->ValidateValue(workobj);
         this->__FormValidateHooks(workobj);
+      }
+
+      IF(this->formcheckratelimits AND NOT workobj->HasFailed()) //we have a rate limit check pending, and it makes sense ?
+      {
+        this->formcheckratelimits := FALSE;
+        this->CheckRateLimits();
       }
     }
     CATCH (OBJECT e)
