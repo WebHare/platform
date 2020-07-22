@@ -2149,7 +2149,6 @@
       <text tid="confirmdeletemenuitem">Weet u zeker dat u de snelkoppeling '<param p="1"/>' wilt verwijderen?</text>
       <text tid="confirmdeletenotification">Weet u zeker dat u de melding '<param p="1"/>' wilt verwijderen?</text>
       <text tid="confirmpdfpreview">De beschikbaarheid van PDF-voorvertoningen is afhankelijk van uw browser(instellingen) en of u een PDF-lezer op uw systeem heeft geïnstalleerd.<br/><br/>Indien PDF-voorvertoningen niet beschikbaar zijn raden we aan om contact opnemen met uw systeembeheerder of browserleverancier voor verdere ondersteuning.</text>
-      <text tid="confirmresetwarnings">Weet u zeker dat u alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
       <text tid="copyonlyrightstorole">Toegekende rollen kunnen niet naar een andere rol worden gekopieerd. Wilt u alleen de rechtentoekenningen kopiëren naar de geselecteerde rol?</text>
       <text tid="dangerousrightsrevoke">Als u deze <ifparam p="1" value="1">rechtentoekenning<else/> rechtentoekenningen</ifparam> intrekt zul u rechten verliezen die niet op een andere manier aan u zijn toegekend. Wilt u hier mee doorgaan?</text>
       <text tid="deletefailedbecause"><param p="1"/> <param p="2"/> kon niet worden verwijderd: <param p="3"/></text>
@@ -2239,6 +2238,8 @@
       <text tid="colon">Dubbele punt (:)</text>
       <text tid="comma">Komma (,)</text>
       <text tid="confirm">Bevestig wachtwoord</text>
+      <text tid="confirmresetsavedstates">Weet u zeker dat u alle opgeslagen instellingen wilt herstellen, zoals windowgroottes en laatste keuzes ?</text>
+      <text tid="confirmresetwarnings">Weet u zeker dat u alle waarschuwingsdialogen wilt herstellen? Alle waarschuwingen met "Toon deze waarschuwing niet meer" optie zullen dan weer worden getoond.</text>
       <text tid="creationdate">Aanmaakdatum</text>
       <text tid="decimalsep">Decimaalteken</text>
       <text tid="device">Apparaat</text>
@@ -2285,12 +2286,16 @@
       <text tid="prefstime">Tijdsformaat</text>
       <text tid="prefstime_100">24-uurs formaat (<param p="1"/>)</text>
       <text tid="prefstime_200">12-uurs formaat (<param p="1"/>)</text>
+      <text tid="resetsavedstates">Herstel opgeslagen instellingen</text>
+      <text tid="resetsavedstates-labelend">(bv venstergroottes en laatste keuzes)</text>
       <text tid="resetwarnings">Alle waarschuwingen opnieuw instellen</text>
       <text tid="resetwarnings-label">Waarschuwingen</text>
       <text tid="resetwarnings-labelend">(Zoals "Laat deze melding niet meer zien")</text>
+      <text tid="savedstate">Opgeslagen instellingen</text>
       <text tid="schemaname">Schema</text>
       <text tid="scope">Scope</text>
       <text tid="selectmethod">Geef aan hoe u de gebruiker wilt toevoegen</text>
+      <text tid="settingswerereset">De standaardinstellingen zijn teruggezet</text>
       <text tid="showdeveloperapps">Toon ontwikkelingsapplicaties</text>
       <text tid="showiedownloadwarning">Omzeil IE's download blokkering via download dialoog</text>
       <text tid="showpdfpreview">Toon PDF voorvertoningen</text>

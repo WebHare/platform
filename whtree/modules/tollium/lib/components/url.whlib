@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::internet/urls.whlib";
+
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -36,8 +38,9 @@ PUBLIC OBJECTTYPE TolliumURL EXTEND TolliumFragmentBase
   MACRO SetValue(STRING value)
   {
     ^previewurl->value := value;
-    ^qrbutton->visible := ^previewurl->value != "";
     ^copybutton->visible := ^previewurl->value != "";
+    ^qrbutton->visible := IsValidURL(^previewurl->value);
+    ^openbutton->visible := IsValidURL(^previewurl->value);
   }
 
   MACRO DoQRLink()

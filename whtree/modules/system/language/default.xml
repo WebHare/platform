@@ -2338,7 +2338,6 @@
       <text tid="confirmdeletemenuitem">Are you sure you want to delete the shortcut '<param p="1"/>'?</text>
       <text tid="confirmdeletenotification">Are you sure you want to delete notification '<param p="1"/>'?</text>
       <text tid="confirmpdfpreview">The availability of PDF previews depends on your browser, browser settings and whether or not a PDF reader is installed on your system.<br/><br/>If PDF previews happen to be unavailable we advise you to contact your system administrator or browser vendor for further support.</text>
-      <text tid="confirmresetwarnings">Are you sure you want to reset all warnings, including all "Don't show again" checkboxes?</text>
       <text tid="copyonlyrightstorole">Role grants cannot be copied to another role. Do you want to copy only the right grants to the selected role?</text>
       <text tid="dangerousrightsrevoke">Revoking <ifparam p="1" value="1">this grant<else/>these grants</ifparam> will cause you to lose some rights that have not been granted to you in any other way. Do you want to proceed?</text>
       <text tid="deletefailedbecause">Failed to delete <param p="1"/> <param p="2"/> because <param p="3"/></text>
@@ -2428,6 +2427,8 @@
       <text tid="colon">Colon (:)</text>
       <text tid="comma">Comma (,)</text>
       <text tid="confirm">Confirm password</text>
+      <text tid="confirmresetsavedstates">Are you sure you want to reset all saved state, such as window sizes and last selections ?</text>
+      <text tid="confirmresetwarnings">Are you sure you want to reset all warnings, including all "Don't show again" checkboxes?</text>
       <text tid="creationdate">Creation date</text>
       <text tid="decimalsep">Decimal separator</text>
       <text tid="device">Device</text>
@@ -2474,12 +2475,16 @@
       <text tid="prefstime">Time format</text>
       <text tid="prefstime_100">24 hours format (<param p="1"/>)</text>
       <text tid="prefstime_200">12 hours format (<param p="1"/>)</text>
+      <text tid="resetsavedstates">Reset saved state</text>
+      <text tid="resetsavedstates-labelend">(eg window sizes and last selection)</text>
       <text tid="resetwarnings">Reset all warnings</text>
       <text tid="resetwarnings-label">Warning messages</text>
       <text tid="resetwarnings-labelend">(EG "Don't show again", "Remember this answer")</text>
+      <text tid="savedstate">Saved state</text>
       <text tid="schemaname">Schema</text>
       <text tid="scope">Scope</text>
       <text tid="selectmethod">Please select how you want to add the user</text>
+      <text tid="settingswerereset">The default settings have been restored</text>
       <text tid="showdeveloperapps">Show developer applications</text>
       <text tid="showiedownloadwarning">Avoid IE's download blocker using the dowload dialog</text>
       <text tid="showpdfpreview">Show PDF previews</text>
