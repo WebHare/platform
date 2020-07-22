@@ -479,7 +479,7 @@ PUBLIC RECORD FUNCTION ValidateSingleFileAdhoc(STRING resname, RECORD options DE
                         , source := "exception"
                         , message := "Unable to validate: " || e->what
                        ]]
-           , warnings  := RECORD[]
+           , warnings := RECORD[]
            , hints := RECORD[]
            , tids := RECORD[]
            ];

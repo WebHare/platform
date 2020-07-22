@@ -337,7 +337,7 @@ PUBLIC RECORD FUNCTION MatchFormCondition(RECORD condition, RECORD value, RECORD
 
       RETURN [ success := TRUE ];
     }
-    CASE "AGE<", "AGE>" //TOOD how to deal with timezones?
+    CASE "AGE<", "AGE>" //TODO how to deal with timezones?
     {
       IF(IsDefaultValue(checkvalue))
         RETURN [ success := FALSE, field := condition.field, reason := `The value was not set` ];
