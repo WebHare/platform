@@ -1582,6 +1582,18 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN this->testoutputserver;
   }
 
+  /** Request an extension on all rate limits. Must currently be renewed once a minute, invoke testframework with
+      keepratelimits := TRUE if you don't want this bump (but previous tests can currently still have a lingering enabling) */
+  PUBLIC MACRO DisableRateLimits()
+  {
+    this->BeginWork();
+    DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
+    //TODO once we get a more generic mechanisme, deal with that. ideally we only disable limits for as long as the current test runs (Even if the test crashes)
+    IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
+      WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
+    this->CommitWork();
+  }
+
   /** Create a test website, and optionally unpack the selected archive
       Requires its caller to setup a transaction/work */
   PUBLIC RECORD FUNCTION SetupTestWebsite(BLOB archive)
@@ -2139,6 +2151,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , mailwhitelists := TRUE
                               , canceltasks := STRING[] //ignored and deprecated - tests always cancel all tasks.
                               , debugflags := STRING[]
+                              , keepratelimits := FALSE
                               ], options);
 
   IF(Length(options.testusers) > 0 OR Length(options.testroles) > 0)
@@ -2186,6 +2199,9 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
     STRING testname := GenerateName(test);
     testfw->RegisterTest(testname, test);
   }
+
+  IF(options.usedatabase AND NOT options.keepratelimits)
+    testfw->DisableRateLimits();
 
   testfw->RunTests();
 }

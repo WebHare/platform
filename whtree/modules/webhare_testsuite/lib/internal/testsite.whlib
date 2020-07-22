@@ -908,8 +908,6 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
 PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  DisableFormLimitsTemporarily();
-
   options := ValidateOptions(testformfileoptions, options);
 
   //Create a poll in the webtools site
@@ -949,8 +947,6 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
 
 PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
 {
-  DisableFormLimitsTemporarily();
-
   options := ValidateOptions( testformfileoptions, options);
   options := CELL[...options, iscustom := TRUE ];
 
@@ -978,8 +974,6 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
 
 PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
 {
-  DisableFormLimitsTemporarily();
-
   options := ValidateOptions( testformfileoptions, options);
   options := CELL[...options, iscustom := TRUE ];
 
