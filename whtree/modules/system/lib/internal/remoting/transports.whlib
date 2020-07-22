@@ -97,6 +97,18 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
     RETURN this->EncodeJSONReponse(responsedata, requesttoken, "");
   }
 
+  UPDATE PUBLIC RECORD FUNCTION EncodeTooManyRequestsException(OBJECT e, RECORD requesttoken)
+  {
+    RECORD ARRAY headers := [ [ field := "Retry-After", value := ToString(e->retryafter) ]
+                            , [ field := "Status", value := "429" ]
+                            ];
+    RETURN
+        [ headers :=    headers
+        , data :=       EncodeJsonBlob([ code := -32000, message := "Too many requests", data := [ retryafter := e->retryafter ]])
+        , keeprunning :=FALSE
+        ];
+  }
+
   UPDATE PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
   {
     STRING typename := GetObjectTypeName(e);
@@ -126,8 +138,6 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
 
     RECORD responsedata :=
         [ error :=    error
-//        result :=   DEFAULT RECORD
-//        , id :=       DEFAULT RECORD
         ];
 
     RETURN this->EncodeJSONReponse(responsedata, requesttoken, error.message);

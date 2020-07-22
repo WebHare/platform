@@ -36,8 +36,10 @@ class ControlledCall
       }
     }
 
-    let fetchpromise = fetch(callurl, fetchoptions);
+    this._callurl = callurl;
+    this._fetchoptions = fetchoptions;
 
+    let fetchpromise = fetch(this._callurl, this._fetchoptions);
     this.promise = this._completeCall(method, stack, id, fetchpromise);
     this.promise.__jsonrpcinfo = this;
   }
@@ -61,7 +63,21 @@ class ControlledCall
     let response;
     try
     {
-      response = await fetchpromise;
+      while(true) //loop for 429
+      {
+        response = await fetchpromise;
+        if(response.status == 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After"))
+        {
+          let retryafter = parseInt(response.headers.get("Retry-After"));
+          if(this.options.debug)
+            console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
+
+          await new Promise( resolve => setTimeout(resolve, retryafter*1000) );
+          fetchpromise = fetch(this._callurl, this._fetchoptions);
+          continue;
+        }
+        break;
+      }
     }
     catch(exception)
     {
@@ -102,6 +118,15 @@ class ControlledCall
 
     if(response.status == 200 && jsonresponse && jsonresponse.id !== id)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
+
+    if(this.options.wrapresult)
+    {
+      return { status: response.status
+             , result: jsonresponse.result || null
+             , error: jsonresponse.error || null
+             , retryafter: response.headers.get("Retry-After") ? parseInt(response.headers.get("Retry-After")) : null
+             };
+    }
 
     return jsonresponse.result;
   }

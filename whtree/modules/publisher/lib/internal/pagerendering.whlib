@@ -180,6 +180,10 @@ PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER c
       ELSE
         encoded_result := transport->EncodeMissingFunction(method, reqdata.requesttoken);
     }
+    CATCH (OBJECT<RPCTooManyRequestsException> e)
+    {
+      encoded_result := transport->EncodeTooManyRequestsException(e, reqdata.requesttoken);
+    }
     CATCH (OBJECT e)
     {
       IF (e NOT EXTENDSFROM RPCInvalidArgsException)

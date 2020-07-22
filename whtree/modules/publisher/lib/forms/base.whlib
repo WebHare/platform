@@ -4,6 +4,9 @@
 */
 /* Returns FormBase class and basic functions needed to implement backends for your forms (but not form files) */
 
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
 
@@ -19,8 +22,11 @@ LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/remoting/server.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -67,6 +73,24 @@ OBJECTTYPE FormsFeedbackObject EXTEND FeedbackObjectBase
     RETURN NOT this->HasFailed();
   }
 >;
+
+RECORD FUNCTION GetRateLimitConfig()
+{
+  RETURN [ ttl := 15*60*1000
+         , value := CELL[ allformsubmits_maxhits := ReadRegistryKey("publisher.forms.allformsubmits_maxhits")
+                        , allformsubmits_timeperiod := ReadRegistryKey("publisher.forms.allformsubmits_timeperiod")
+                        , ipformsubmits_maxhits := ReadRegistryKey("publisher.forms.ipformsubmits_maxhits")
+                        , ipformsubmits_timeperiod := ReadRegistryKey("publisher.forms.ipformsubmits_timeperiod")
+                        , disableratelimits := ReadRegistryKey("publisher.forms.disableratelimits")
+                        ]
+         , eventmasks := GetRegistryKeyEventMasks([ "publisher.forms.allformsubmits_maxhits"
+                                                  , "publisher.forms.limitipformsubmits"
+                                                  , "publisher.forms.ipformsubmits_maxhits"
+                                                  , "publisher.forms.ipformsubmits_timeperiod"
+                                                  , "publisher.forms.disableratelimits"
+                                                  ])
+         ];
+}
 
 STATIC OBJECTTYPE FormPage
 < // ---------------------------------------------------------------------------
@@ -519,8 +543,40 @@ PUBLIC OBJECTTYPE FormBase
     }
   }
 
-  PUBLIC RECORD FUNCTION __FormDoSubmit(RECORD rpcsubmitinfo)
+  MACRO CheckRateLimits(RECORD ratelimitconfig)
   {
+    STRING userip := GetClientRemoteIP();
+    STRING checkip := userip;
+    IF(checkip LIKE "*:*") //ipv6, limit to subnet
+      checkip := CanonicalizeIPAddress(checkip || "/64", TRUE);
+
+    RECORD limitresult := CheckRateLimit(CELL[ type := "publisher:formsperip", checkip ], ratelimitconfig.ipformsubmits_maxhits, [ timeperiod := ratelimitconfig.ipformsubmits_timeperiod * 1000 ]);
+    IF(NOT limitresult.accepted)
+    {
+      LogInfo("publisher:forms", `Form submission limit hit for IP ${userip}, throttling`, CELL[ url := GetFormRequestURL(), checkip, userip ]);
+    }
+    ELSE
+    {
+      limitresult := CheckRateLimit([ type := "publisher:allformsallips" ], ratelimitconfig.allformsubmits_maxhits, [ timeperiod := ratelimitconfig.allformsubmits_timeperiod * 1000]);
+      IF(NOT limitresult.accepted)
+      {
+        LogInfo("publisher:forms", "Global form submission limit hit, throttling", CELL[ url := GetFormRequestURL(), userip ]);
+      }
+    }
+
+    IF(NOT limitresult.accepted)
+      THROW NEW RPCTooManyRequestsException((limitresult.backoff + 999)/1000);
+  }
+
+  PUBLIC RECORD FUNCTION __FormDoSubmit(RECORD rpcsubmitinfo, BOOLEAN isinternalsubmit)
+  {
+    IF(NOT isinternalsubmit)
+    {
+      RECORD ratelimitconfig := GetAdhocCached([type := "ratelimitconfig"], PTR GetRateLimitConfig);
+      IF(ratelimitconfig.disableratelimits = DEFAULT DATETIME OR ratelimitconfig.disableratelimits < GetCurrentDatetime())
+        this->CheckRateLimits(ratelimitconfig);
+    }
+
     //Construct the fields - FIXME move this back to NEW() but it gives confusing errors. #586
     IF(NOT MemberExists(this,'submit'))
       THROW NEW Exception("The object handling this form has no Submit() function to handle submissions");
@@ -933,7 +989,7 @@ PUBLIC OBJECTTYPE FormBase
 
   PUBLIC RECORD FUNCTION __SubmitFormNow()
   {
-    RECORD res := this->__FormDoSubmit(DEFAULT RECORD);
+    RECORD res := this->__FormDoSubmit(DEFAULT RECORD, TRUE); //internal submit, no limiting
     IF(NOT res.success)
     {
       LogDebug("publisher:form", "Server-side form submission failure", res);
@@ -1036,7 +1092,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
       {
         RECORD submitinfo := args[0];
         this->form->__FormSetData(submitinfo.fields);
-        RETURN this->form->__FormDoSubmit(submitinfo);
+        RETURN this->form->__FormDoSubmit(submitinfo, FALSE);
       }
       CASE "INVOKE"
       {

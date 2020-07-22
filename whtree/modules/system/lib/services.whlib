@@ -265,8 +265,8 @@ PUBLIC MACRO LogAccountingHit(STRING hittype, RECORD hitdata)
     @param numhits Number of hits to accept in the time period
     @cell(integer) options.timeperiod Time period to which the limit applies in ms. Defaults to 1 minute (60000)
     @return Limit check result
-    @cell(boolean) options.accepted If TRUE, accept this request, rate limit not hit
-    @cell(integer) options.backoff If >0, recommended backoff time before requests will be accepted again */
+    @cell(boolean) return.accepted If TRUE, accept this request, rate limit not hit
+    @cell(integer) return.backoff If >0, recommended backoff time before requests will be accepted again (in ms) */
 PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ timeperiod := 60000 ], options);

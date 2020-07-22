@@ -58,6 +58,11 @@ PUBLIC STATIC OBJECTTYPE Transport
     THROW NEW Exception("Override this!");
   }
 
+  PUBLIC RECORD FUNCTION EncodeTooManyRequestsException(OBJECT e, RECORD requesttoken)
+  {
+    RETURN this->EncodeException(e, requesttoken);
+  }
+
 
   PUBLIC RECORD FUNCTION EncodeException(OBJECT e, RECORD requesttoken)
   {

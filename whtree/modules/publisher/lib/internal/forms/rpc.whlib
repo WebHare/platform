@@ -75,7 +75,7 @@ RECORD FUNCTION Submit(RECORD submitinfo)
   OpenPrimary();
   OBJECT form := GetFormObject(submitinfo);
   form->__FormSetData(submitinfo.fields);
-  RETURN form->__FormDoSubmit(submitinfo);
+  RETURN form->__FormDoSubmit(submitinfo, FALSE);
 }
 
 VARIANT FUNCTION Invoke(RECORD submitinfo)

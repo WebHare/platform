@@ -90,7 +90,7 @@ void Connection::GenerateDefaultErrorContent()
         output_body.Store("</h1><p>");
 
         output_body.Store(status->description);
-        if (protocol.status_so_far == 500 && !protocol.errorid.empty())
+        if (protocol.status_so_far == StatusInternalError && !protocol.errorid.empty())
             output_body.Store(". ID: " + protocol.errorid);
 
         std::string const *uri = GetPreparedHeader("Location",8);

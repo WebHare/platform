@@ -42,7 +42,10 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
   {
-    IF(NOT this->IsSet() AND this->IsNowRequired() AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
+    IF(NOT work->HasFailed() //no need to validate us if work is already failing
+       AND this->IsNowRequired()
+       AND NOT this->IsSet() //we're only set if the captcha challenge succeeded
+       AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
     {
       STRING apikey := this->form->formcontext->GetCaptchaAPIKey();
       work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ apikey ]]);
