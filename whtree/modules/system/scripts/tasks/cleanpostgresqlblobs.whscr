@@ -49,13 +49,14 @@ IF (args.expeditecleanup)
 MACRO DumpManifestContents()
 {
   RECORD manifest := analyzer->ReadBlobManifest();
-  PRINT(`Unreferenced blobs: ${SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced}\n`);
+  PRINT(`  Blobs in database but not referenced from tables: ${SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced}\n`);
   IF (IsValueSet(manifest.unreferenced))
-    PRINT(`Next removal of unreferenced blob: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date)))FROM manifest.unreferenced), "", "", "CET")}\n`);
-  PRINT(`Unlinked blob parts: ${SELECT AS INTEGER SUM(LENGTH(blobpartids)) FROM manifest.unlinked}\n`);
+    PRINT(`  Next removal of unreferenced blob: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date)))FROM manifest.unreferenced), "", "", "CET")}\n`);
+  PRINT(`  Blob (part)s on disk but no longer known in database: ${SELECT AS INTEGER SUM(LENGTH(blobpartids)) FROM manifest.unlinked}\n`);
   IF (IsValueSet(manifest.unlinked))
-    PRINT(`Next removal of unlinked blob parts: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date)))FROM manifest.unlinked), "", "", "CET")}\n`);
-  PRINT(`Abandoned uploads: ${LENGTH(manifest.abandoned)}\n`);
+    PRINT(`  Next removal of unlinked blob parts: ${FormatISO8601DateTime((SELECT AS DATETIME Min(AddTimeToDate(analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date)))FROM manifest.unlinked), "", "", "CET")}\n`);
+  PRINT(`  Abandoned uploads: ${LENGTH(manifest.abandoned)}\n\n`);
+
 }
 
 IF (args.dryrun)
@@ -72,7 +73,7 @@ IF (args.debug)
 }
 
 
-analyzer->UpdateBlobManifest();
+analyzer->UpdateBlobManifest(CELL[args.debug]);
 
 IF (args.debug)
 {
