@@ -696,8 +696,10 @@
       <text tid="table_mergeright">Samenvoegen met cellen aan de rechterkant</text>
       <text tid="table_splitcols">Kolommen splitsen</text>
       <text tid="table_splitrows">Rijen splitsen</text>
-      <text tid="toomanyplaintextbytes">Na conversie naar gewone tekst bevat veld '<param p="1"/>' meer bytes (<param p="2"/>) dan aangeraden (<param p="3"/>).</text>
-      <text tid="toomanyplaintextcharacters">Na conversie naar gewone tekst bevat veld '<param p="1"/>' meer tekens (<param p="2"/>) dan aangeraden (<param p="3"/>).</text>
+      <text tid="toomanyplaintextbytes">Veld '<param p="1"/>' bevat meer tekst dan aangeraden (<param p="2"/> bytes, <param p="3"/> aangeraden).</text>
+      <text tid="toomanyplaintextbytes_error">Veld '<param p="1"/>' bevat meer tekst dan toegestaan (<param p="2"/> bytes, <param p="3"/> toegestaan).</text>
+      <text tid="toomanyplaintextcharacters">Veld '<param p="1"/>' bevat meer tekst dan aangeraden (<param p="2"/> karakters, <param p="3"/> aangeraden).</text>
+      <text tid="toomanyplaintextcharacters_error">Veld '<param p="1"/>' bevat meer tekst dan toegestaan (<param p="2"/> karakters, <param p="3"/> toegestaan).</text>
       <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
         <text tid="destination">Bestemming</text>
         <text tid="hyperlink">Hyperlink</text>
