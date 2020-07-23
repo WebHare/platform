@@ -563,7 +563,10 @@
       <text tid="fsroot">WebHare Publisher</text>
     </textgroup>
     <textgroup gid="formcondition">   <!-- components.formcondition -->
+      <text tid="age_larger">Ouder dan</text>
+      <text tid="age_smaller">Jonger dan</text>
       <text tid="createoptionsfirst">Er moet tenminste één gesloten vraag zijn (waarbij één of meer antwoorden kunnen worden gekozen) om deze optie te gebruiken.</text>
+      <text tid="datetime_age">Leeftijd</text>
       <text tid="editformcondition">Formuliervoorwaarde</text>
       <text tid="field-and">Voldoe aan elk</text>
       <text tid="field-not">Voldoe niet aan voorwaarde</text>
@@ -2773,8 +2776,12 @@
       <text tid="condition-notcontainsone">Het veld '<param p="1"/>' bevat niet één of meer van de waardes <param p="2"/></text>
       <text tid="condition-notisexactly">Het veld '<param p="1"/>' bevat niet precies de waardes <param p="2"/></text>
       <text tid="condition-notisexactlyone">Het veld '<param p="1"/>' bevat niet precies de waarde <param p="2"/></text>
+      <text tid="condition-notolderthan">De datum in '<param p="1"/>' is niet minder dan <param p="2"/> jaar geleden</text>
+      <text tid="condition-notyoungerthan">De datum in '<param p="1"/>' is niet <param p="2"/> jaar of meer geleden</text>
       <text tid="condition-novalue">Het veld '<param p="1"/>' heeft geen waarde/is niet ingevuld</text>
+      <text tid="condition-olderthan">De datum in '<param p="1"/>' is <param p="2"/> jaar of meer geleden</text>
       <text tid="condition-or"><param p="1"/> OF <param p="2"/></text>
+      <text tid="condition-youngerthan">De datum in '<param p="1"/>' is minder dan <param p="2"/> jaar geleden</text>
     </textgroup>
     <textgroup gid="mergefield">   <!-- webtools.mergefield -->
       <text tid="fieldname">Veld</text>

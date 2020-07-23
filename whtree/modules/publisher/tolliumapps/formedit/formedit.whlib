@@ -815,6 +815,15 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
             , supportedvalues := field.supportedvalues
             ] INTO sources AT END;
       }
+      ELSE IF ("datetime" IN field.supportedvalues)
+      {
+        INSERT
+            [ rowkey := field.guid
+            , title := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle
+            , type := "datetime"
+            , supportedvalues := field.supportedvalues
+            ] INTO sources AT END;
+      }
       FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(DEFAULT RECORD))
       {
         IF(CellExists(extrafield, 'hidden') AND extrafield.hidden)

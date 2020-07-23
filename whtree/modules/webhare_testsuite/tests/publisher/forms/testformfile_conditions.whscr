@@ -1,6 +1,7 @@
 <?wh
 
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -44,7 +45,9 @@ PUBLIC MACRO TestFormConditions()
   STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   TestEq(TRUE, emailfieldname!="", "Email field not found");
 
-  RECORD submitrec := CELL[ toggleselectoptions_withplaceholder := "copt1" ];
+  RECORD submitrec := CELL[ toggleselectoptions_withplaceholder := "copt1"
+                          , date := "2000-01-01"
+                          ];
   submitrec := CellInsert(submitrec, emailfieldname, "testfw+formconditions@beta.webhare.net");
 
   RECORD res := tester->SubmitForm(submitrec);
@@ -53,6 +56,20 @@ PUBLIC MACRO TestFormConditions()
 
   INSERT CELL checkboxfield := "1" INTO submitrec;
   res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  //test the date field
+  res := tester->SubmitForm(CELL[ ...submitrec, date := "2020-01-01" ]);
+  TestEq(FALSE, res.success);
+  TestEq([[ message := "This value is required.", name := "not18", metadata := DEFAULT RECORD ]], res.errors);
+
+  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", AddYearsToDate(-18, GetCurrentDatetime()))]); //its my birthday!
+  TestEq(TRUE, res.success);
+
+  res := tester->SubmitForm(CELL[ ...submitrec, date := FormatDatetime("%Y-%m-%d", AddDaysToDate(1,AddYearsToDate(-18, GetCurrentDatetime())))]); //tomorrow's my birthday
+  TestEq([[ message := "This value is required.", name := "not18", metadata := DEFAULT RECORD ]], res.errors);
+
+  res := tester->SubmitForm(CELL[ ...submitrec, date := "2020-01-01", not18 := "not18@beta.webhare.net" ]);
   TestEq(TRUE, res.success);
 
   submitrec := CELL[ hidefirstname := "1", toggleselectoptions_withplaceholder := "copt1" ];

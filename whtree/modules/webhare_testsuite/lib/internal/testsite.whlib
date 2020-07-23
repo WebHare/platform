@@ -39,6 +39,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addcustompaymenthandler := FALSE
                               , addintegerfield := FALSE
                               , addpulldown := FALSE
+                              , adddatecondition := FALSE
                               , checkboxes := FALSE
                               , checkboxsubs := FALSE
                               , addcheckboxfield := FALSE
@@ -131,6 +132,28 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   whenfield->SetAttribute("name","date");
   whenfield->SetAttribute("title","Date");
   simpleformgroup->AppendChild(whenfield); //TODO nicer way to add fields to group ?
+
+  IF(options.addconditions)
+  {
+    //whenfield->SetAttribute("required", "true");
+
+    OBJECT not18field := formpage->AppendComponent("textedit");
+    not18field->SetAttribute("name","not18");
+    not18field->SetAttribute("title","Parents email");
+    not18field->SetAttribute("validationchecks","email");
+    simpleformgroup->AppendChild(not18field);
+
+    formdefs->SetConditionAttribute(not18field, "visibleconditionid",
+              [ field := whenfield->GetAttribute("guid")
+              , matchtype := "AGE<"
+              , value := 18
+              ]);
+    formdefs->SetConditionAttribute(not18field, "requiredconditionid",
+              [ field := whenfield->GetAttribute("guid")
+              , matchtype := "AGE<"
+              , value := 18
+              ]);
+  }
 
   OBJECT textareafield := formpage->AppendComponent("textarea");
   textareafield->SetAttribute("name","textarea");

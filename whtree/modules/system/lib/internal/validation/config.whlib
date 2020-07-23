@@ -6,12 +6,12 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 
-PUBLIC RECORD validationoptions := [ perfectcompile := FALSE
-                                   , nomissingtids := FALSE
-                                   , nowarnings := FALSE
-                                   , documentation := FALSE
-                                   , eslintmasks := STRING[]
-                                   ];
+PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
+                                          , nomissingtids := FALSE
+                                          , nowarnings := FALSE
+                                          , documentation := FALSE
+                                          , eslintmasks := STRING[]
+                                          ];
 
 /** Returns the validation configuration for a module
     @param modname Name of the module
@@ -33,7 +33,7 @@ PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
   RECORD retval := [ excludemasks := RECORD[]
                    , futuremodule := FALSE
                    , futuremodulewhy := ""
-                   , ...validationoptions
+                   , ...defaultvalidationoptions
                    ];
 
   IF (modname = "")

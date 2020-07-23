@@ -30,7 +30,7 @@ FOREVERY(STRING arg FROM cmdargs.files)
   IF(resname="")
     TerminateScriptWithError(`Cannot map path '${arg}' to a WebHare resource`);
 
-  RECORD result := ValidateSingleFile(resname, CELL[ ...GetValidationOptions(resname), documentation := cmdargs.doc ]);
+  RECORD result := ValidateSingleFileAdHoc(resname, [ documentation := cmdargs.doc ]);
   PrintValidationMessages(result);
 
   IF(cmdargs.tids)

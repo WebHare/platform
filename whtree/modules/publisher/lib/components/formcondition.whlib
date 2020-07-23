@@ -339,6 +339,12 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
           FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
             this->DeleteCondition(conditionobj);
         }
+        CASE "datetime"
+        {
+          // Delete any subcondition components
+          FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
+            this->DeleteCondition(conditionobj);
+        }
         CASE "hasvalue"
         {
           ^value_hasvalue->value := FALSE;
@@ -411,6 +417,14 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
                 , value := value
                 ];
           }
+        }
+        CASE "datetime"
+        {
+          RETURN
+              [ field := ^field->value
+              , matchtype := ^matchtype_datetime->value
+              , value := ^datetime_age->value
+              ];
         }
         CASE "hasvalue"
         {
@@ -486,6 +500,12 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
           ^field->value := condition.field;
           ^value_hasvalue->value := condition.value;
         }
+        CASE "AGE<", "AGE>="
+        {
+          ^field->value := condition.field;
+          ^matchtype_datetime->value := condition.matchtype;
+          ^datetime_age->value := condition.value;
+        }
         CASE "IN", "HAS", "IS"
         {
           ^field->value := condition.field;
@@ -535,6 +555,8 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
     STRING matchtype := RecordExists(^field->selection) ? ^field->selection.type : "";
     ^settings_in->visible := matchtype = "in";
     ^settings_hasvalue->visible := matchtype = "hasvalue";
+    ^settings_datetime->visible := matchtype = "datetime";
+    ^datetime_age->visible := matchtype = "datetime";
     ^settings_sub->visible := matchtype IN [ "and", "or", "not" ];
     ^settings_suffix->visible := matchtype IN [ "and", "or" ];
 
