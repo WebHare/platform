@@ -168,7 +168,7 @@
           <line>
             <select name="matchtype_datetime" title="" type="pulldown">
               <option rowkey="AGE&lt;" tid=".age_smaller" />
-              <option rowkey="AGE&gt;" tid=".age_larger" />
+              <option rowkey="AGE&gt;=" tid=".age_larger" />
             </select>
             <textedit name="datetime_age" valuetype="integer" maxlength="3" emptyvalue="0" suffixtid="~units.years" title="" errorlabeltid=".datetime_age" />
           </line>

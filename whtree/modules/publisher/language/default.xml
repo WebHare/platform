@@ -2777,9 +2777,9 @@
       <text tid="condition-notisexactly">The field '<param p="1"/>' does not contain exactly the values <param p="2"/></text>
       <text tid="condition-notisexactlyone">The field '<param p="1"/>' does not contain exactly the value <param p="2"/></text>
       <text tid="condition-notolderthan">The date in '<param p="1"/>' is not less than <param p="2"/> years ago</text>
-      <text tid="condition-notyoungerthan">The date in '<param p="1"/>' is not more than <param p="2"/> years ago</text>
+      <text tid="condition-notyoungerthan">The date in '<param p="1"/>' is not <param p="2"/> years or more ago</text>
       <text tid="condition-novalue">The field '<param p="1"/>' has no value/is not set</text>
-      <text tid="condition-olderthan">The date in '<param p="1"/>' is more than <param p="2"/> years ago</text>
+      <text tid="condition-olderthan">The date in '<param p="1"/>' is <param p="2"/> years or more ago</text>
       <text tid="condition-or"><param p="1"/> OR <param p="2"/></text>
       <text tid="condition-youngerthan">The date in '<param p="1"/>' is less than <param p="2"/> years ago</text>
     </textgroup>
