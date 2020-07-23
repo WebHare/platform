@@ -928,7 +928,7 @@ export default class FormBase
       return true;
     }
 
-    if(["AGE<","AGE>"].includes(condition.matchtype))
+    if(["AGE<","AGE>="].includes(condition.matchtype))
     {
       if(!currentvalue)
         return false;
@@ -943,7 +943,7 @@ export default class FormBase
       }
 
       return (condition.matchtype == 'AGE<' && age < condition.value)
-             || (condition.matchtype == 'AGE>' && age > condition.value);
+             || (condition.matchtype == 'AGE>=' && age >= condition.value);
     }
     return console.error(`No support for conditional type '${condition.matchtype}'`), false;
   }

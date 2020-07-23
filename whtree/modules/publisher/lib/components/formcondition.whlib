@@ -500,7 +500,7 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
           ^field->value := condition.field;
           ^value_hasvalue->value := condition.value;
         }
-        CASE "AGE<", "AGE>"
+        CASE "AGE<", "AGE>="
         {
           ^field->value := condition.field;
           ^matchtype_datetime->value := condition.matchtype;

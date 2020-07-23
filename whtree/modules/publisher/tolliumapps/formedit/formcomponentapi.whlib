@@ -173,7 +173,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
           ? GetTid("publisher:webtools.formconditions.condition-notyoungerthan", fieldname, ToString(condition.value))
           : GetTid("publisher:webtools.formconditions.condition-youngerthan", fieldname, ToString(condition.value));
     }
-    IF(condition.matchtype = "AGE>")
+    IF(condition.matchtype = "AGE>=")
     {
       RETURN negative
           ? GetTid("publisher:webtools.formconditions.condition-notolderthan", fieldname, ToString(condition.value))

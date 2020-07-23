@@ -389,7 +389,7 @@ PUBLIC OBJECTTYPE FormBase
   {
     SWITCH (condition.matchtype)
     {
-      CASE "IN", "HAS", "IS", "HASVALUE", "AGE<", "AGE>"
+      CASE "IN", "HAS", "IS", "HASVALUE", "AGE<", "AGE>="
       {
         STRING condition_field := condition.field;
         STRING extra_field;
