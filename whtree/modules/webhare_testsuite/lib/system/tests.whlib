@@ -43,13 +43,3 @@ PUBLIC MACRO EnsureUserMgmtStateClean()
   }
   testfw->CommitWork();
 }
-
-PUBLIC MACRO DisableFormLimitsTemporarily()
-{
-  GetPrimary()->BeginWork();
-  DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
-  IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
-    WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
-  GetPrimary()->CommitWork();
-
-}

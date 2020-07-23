@@ -327,6 +327,8 @@ MACRO CustomForm_SuppressMail()
 
 MACRO CustomForm_NL()
 {
+  testfw->DisableRateLimits(); //bump the timeout
+
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
   OBJECT customformfile_nl := OpenTestsuiteSite()->OpenByPath("webtools/customform2-nl");
   TestEq(TRUE, testfw->browser->GotoWebPage(customformfile_nl->url));
