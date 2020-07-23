@@ -696,8 +696,10 @@
       <text tid="table_mergeright">Merge With Cells to the Right</text>
       <text tid="table_splitcols">Split Columns</text>
       <text tid="table_splitrows">Split Rows</text>
-      <text tid="toomanyplaintextbytes">Field '<param p="1"/>' contains more bytes (<param p="2"/>) than recommended (<param p="3"/>) after conversion to plain text.</text>
-      <text tid="toomanyplaintextcharacters">Field '<param p="1"/>' contains more characters (<param p="2"/>) than recommended (<param p="3"/>) after conversion to plain text.</text>
+      <text tid="toomanyplaintextbytes">Field '<param p="1"/>' contains more text than recommended (<param p="2"/> bytes, <param p="3"/> recommended).</text>
+      <text tid="toomanyplaintextbytes_error">Field '<param p="1"/>' contains more text than allowed (<param p="2"/> bytes, <param p="3"/> allowed).</text>
+      <text tid="toomanyplaintextcharacters">Field '<param p="1"/>' contains more text than recommended (<param p="2"/> characters, <param p="3"/> recommended).</text>
+      <text tid="toomanyplaintextcharacters_error">Field '<param p="1"/>' contains more text than allowed (<param p="2"/> characters, <param p="3"/> allowed).</text>
       <textgroup gid="hyperlink">   <!-- components.rte.hyperlink -->
         <text tid="destination">Destination</text>
         <text tid="hyperlink">Hyperlink</text>

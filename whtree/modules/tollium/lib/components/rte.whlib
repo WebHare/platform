@@ -130,6 +130,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   BOOLEAN pvt_showcounter;
   STRING pvt_countmethod;
   INTEGER pvt_warnlength;
+  INTEGER pvt_maxlength;
   STRING pvt_toplaintextmethod;
   STRING pvt_warnlengthexceededwarningtid;
 
@@ -206,6 +207,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
   PUBLIC PROPERTY countmethod(pvt_countmethod, SetCountMethod);
   PUBLIC PROPERTY warnlength(pvt_warnlength, SetWarnLength);
+  PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
   PUBLIC PROPERTY toplaintextmethod(pvt_toplaintextmethod, SetToPlainTextMethod);
 
   PUBLIC PROPERTY plaintext(GetPlainText, -);
@@ -380,22 +382,19 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     IF(this->pvt_required AND (NOT RecordExists(this->value) OR Length(this->value.htmltext) = 0))
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
 
-    IF (this->warnlength != 0)
+    INTEGER plaintextlength := this->countmethod = "plaintext:characters" ? UCLength(this->plaintext) : Length(this->plaintext);
+    IF(this->maxlength != 0 AND plaintextlength > this->maxlength)
     {
-      SWITCH (this->countmethod)
-      {
-        CASE "plaintext:characters"
-        {
-          IF (UCLength(this->plaintext) > this->warnlength)
-            work->AddWarningFor(this, GetTid(this->warnlengthexceededwarningtid, fieldtitle, ToString(UCLength(this->plaintext)), ToString(this->warnlength)));
-        }
-        CASE "plaintext:bytes"
-        {
-          IF (Length(this->plaintext) > this->warnlength)
-            work->AddWarningFor(this, GetTid(this->warnlengthexceededwarningtid, fieldtitle, ToString(Length(this->plaintext)), ToString(this->warnlength)));
-        }
-      }
+      STRING error := this->countmethod = "plaintext:characters"
+                           ? GetTid("tollium:components.rte.toomanyplaintextcharacters_error", fieldtitle, ToString(plaintextlength), ToString(this->maxlength))
+                           : GetTid("tollium:components.rte.toomanyplaintextbytes_error", fieldtitle, ToString(plaintextlength), ToString(this->maxlength));
+
+      work->AddErrorFor(this, error);
+      RETURN;
     }
+
+    IF (this->warnlength != 0 AND plaintextlength > this->warnlength)
+      work->AddWarningFor(this, GetTid(this->warnlengthexceededwarningtid, fieldtitle, ToString(plaintextlength), ToString(this->warnlength)));
   }
 
   UPDATE PUBLIC STRING FUNCTION GetDefaultWidth()
@@ -449,7 +448,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
                          , borders := this->borders
                          , showcounter := this->pvt_showcounter
                          , countmethod := this->pvt_countmethod
-                         , warnlength := this->pvt_warnlength
+                         , warnlength := this->pvt_warnlength ?? this->pvt_maxlength
                          , toplaintextmethod := this->pvt_toplaintextmethod
                          ];
 
@@ -584,6 +583,16 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       RETURN;
 
     this->pvt_warnlength := newvalue;
+    this->ExtUpdatedComponent();
+  }
+
+  MACRO SetMaxLength(INTEGER newvalue)
+  {
+    IF (this->pvt_maxlength = newvalue)
+      RETURN;
+
+    this->pvt_maxlength := newvalue;
+
     this->ExtUpdatedComponent();
   }
 
@@ -1072,6 +1081,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
       this->editable->ValidateSettings();
 
     this->allowwidgettypes := def.allowwidgettypes;
+    this->maxlength := def.maxlength;
     this->__margins := def.margins ?? "compact";
   }
 
