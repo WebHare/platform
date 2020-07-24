@@ -26,6 +26,7 @@ LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::publisher/lib/internal/virtualfs-publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/filemgrdialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -1174,19 +1175,13 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     RunFSObjectHistoryDialog(this, ^filelist->selection[0].id);
   }
 
-  MACRO OnReportURLHistory_foldertree(OBJECT downloadhandler)
+  MACRO OnReportURLHistory_foldertree()
   {
-    STRING filename := SELECT AS STRING name FROM system.fs_objects WHERE id = ^foldertree->value;
-    filename := "URL History report for " || filename || " " || FormatDateTime("%Y-%m-%d", GetCurrentDateTime()) || ".xlsx";
-    RECORD report := WrapBlob(CreateURLHistoryReportForFolder(^foldertree->value), filename);
-    downloadhandler->SendFile(report.data, report.mimetype, filename);
+    RunURLHistoryExport(this, ^foldertree->value);
   }
-
-  MACRO OnReportURLHistory_filelist(OBJECT downloadhandler)
+  MACRO OnReportURLHistory_filelist()
   {
-    STRING filename := "URL History report for " || ^filelist->selection[0].name || " " || FormatDateTime("%Y-%m-%d", GetCurrentDateTime()) || ".xlsx";
-    RECORD report := WrapBlob(CreateURLHistoryReportForFolder(^filelist->selection[0].id), filename);
-    downloadhandler->SendFile(report.data, report.mimetype, filename);
+    RunURLHistoryExport(this, ^filelist->valeu[0]);
   }
 
   MACRO DoNewInstance()

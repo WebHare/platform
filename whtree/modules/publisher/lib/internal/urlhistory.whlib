@@ -141,35 +141,6 @@ PUBLIC RECORD ARRAY FUNCTION GetURLHistoryData(INTEGER fileid)
   RETURN SELECT id, url, creationdate FROM publisher.urlhistory WHERE fsobject = fileid;
 }
 
-PUBLIC BLOB FUNCTION ExportURLHistoryForSite(STRING sitename)
-{
-  OBJECT site := OpenSiteByName(sitename);
-  INTEGER ARRAY children := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parentsite = site->id;//GetFSObjectsRecursive(site->id); -- not used as it is currently private and does the same thing in this context
-
-  OBJECT fpe := NEW WHFSBulkSender(site->id, "site::" || site->name);
-  RECORD ARRAY history := SELECT * FROM publisher.urlhistory WHERE fsobject IN children;
-
-  RECORD ARRAY exportdata;
-  OBJECT csv := NEW CSVColumnFileWriter;
-
-  FOREVERY(RECORD entry FROM history)
-  {
-    INSERT [ creationdate := entry.creationdate
-           , fsobject := fpe->MapWHFSRef(entry.fsobject)
-           , url := entry.url
-           ]
-      INTO exportdata AT END;
-  }
-
-  csv->WriteRows(exportdata);
-  RETURN csv->MakeOutputFile();
-}
-
-STRING FUNCTION LookupCurrentURL(INTEGER fsobject)
-{
-  RETURN SELECT AS STRING NormalizeHistoryURL(objecturl) FROM system.fs_objects WHERE id = fsobject;
-}
-
 PUBLIC BLOB FUNCTION ExportURLHistoryForFolder(INTEGER folderid)
 {
   OBJECT folder := OpenWHFSObject(folderid);
@@ -192,43 +163,6 @@ PUBLIC BLOB FUNCTION ExportURLHistoryForFolder(INTEGER folderid)
 
   csv->WriteRows(exportdata);
   RETURN csv->MakeOutputFile();
-}
-
-PUBLIC BLOB FUNCTION CreateURLHistoryReportForFolder(INTEGER folderid)
-{
-  INTEGER ARRAY relevantids := GetWHFSDescendantIds(folderid, FALSE, TRUE);
-  RECORD ARRAY history := SELECT creationdate
-                               , url := "https:" || NormalizeHistoryURL(url)/// Ensure the entry is properly normalized
-                               , currenturl := "https:" || LookupCurrentURL(fsobject)
-                            FROM publisher.urlhistory
-                           WHERE fsobject IN relevantids;
-
-  /// Dedupe
-  history := SELECT * FROM history WHERE url != currenturl AND currenturl != "";
-
-  RECORD ARRAY grouped := SELECT currenturl
-                               , history := GroupedValues([ url := url
-                                                          , created := creationdate
-                                                          ])
-                            FROM history
-                        GROUP BY currenturl
-                        ORDER BY currenturl;
-
-  RECORD ARRAY forsheet;
-  FOREVERY(RECORD entry FROM grouped)
-  {
-    STRING current := entry.currenturl;
-    FOREVERY(RECORD historyitem FROM entry.history)
-      INSERT [ current := current, history := historyitem.url, created := historyitem.created ] INTO forsheet AT END;
-  }
-
-  OBJECT excelfile := NEW XLSXColumnFileWriter();
-  excelfile->columns := [ [ title := "Current URL", type := "text",     name := "CURRENT" ]
-                        , [ title := "History URL", type := "text",     name := "HISTORY" ]
-                        , [ title := "Created"    , type := "datetime", name := "CREATED" ]
-                        ];
-  excelfile->writerows(forsheet);
-  RETURN excelfile->MakeOutputFile();
 }
 
 PUBLIC RECORD FUNCTION GetURLEventsSettings(INTEGER objid)
