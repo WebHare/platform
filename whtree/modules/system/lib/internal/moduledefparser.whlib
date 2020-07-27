@@ -175,6 +175,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   rule.finalerrorpath := ParseXSBoolean(rulenode->GetAttribute("finalerrorpath"));
   //Do we have an 'all methods' activator? ADDME: Support explicit methods
   rule.allowallmethods := ParseXSBoolean(rulenode->GetAttribute("allowallmethods"));
+  rule.fixcase := ParseXSBoolean(rulenode->GetAttribute("searchallcases"));
   rule.wrdschema := rulenode->GetAttribute("wrdschema");
   rule.checkandvm := ParseChecks("", rulenode, FALSE);
   IF(ParseXSBoolean(rulenode->GetAttribute("requirehttpauth")))

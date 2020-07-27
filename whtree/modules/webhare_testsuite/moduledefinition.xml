@@ -162,6 +162,7 @@
 
   <backend>
     <webrule path="root:/.webhare_testsuite/tests/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" />
+    <webrule path="root:/.webhare_testsuite/tests/searchallcases/" match="initial" maxservertype="development" allowallmethods="true" redirecttodir="web:/tests/" searchallcases="true" />
 
     <webruleset name="testset" tid="module.webruleset">
       <webrule match="initial" path="/xyz/" redirecttoscript="urls/xyz.whscr"/>
