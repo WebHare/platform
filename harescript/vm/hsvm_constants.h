@@ -134,7 +134,7 @@ namespace InstructionSet
         COPYS           = 0x1A, // Copies the variable on top of the stack to (value) local at [variable-location], relative to base-pointer, doesn't pop!!
         ISDEFAULTVALUE  = 0x1B, // Tests if the argument has a default value PUSH (POP A = default value) (VARIANT a)
         ISVALUESET      = 0x1C, // Tests if the argument has a non-default value PUSH (POP A = default value) (VARIANT a)
-        LOADCI          = 0x1D, // Loads constant boolean (int32 arg1)
+        LOADCI          = 0x1D, // Loads constant integer (int32 arg1)
 
         LOADTYPEID      = 0x2F, // Loads an id that can be mapped to a type by the typemapper
 
