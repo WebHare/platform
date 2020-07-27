@@ -147,6 +147,11 @@ STATIC OBJECTTYPE EditDocumentAPI
     }
   }
 
+  PUBLIC BOOLEAN FUNCTION __HaveMetaTabs()
+  {
+    RETURN this->editscreen->^metapart->visible;
+  }
+
   PUBLIC MACRO __FlushInstanceData(OBJECT targetobject)
   {
     this->onstoredata();
