@@ -187,8 +187,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   /// Type of the file being edited
   INTEGER filetype;
 
-  OBJECT editdocapi;
-
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
 
@@ -199,11 +197,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->editdocapi := NEW EditDocumentAPI(PRIVATE this);
     this->frame->flags.isdeveloper := this->contexts->user->ShowDeveloperOptions();
     this->frame->flags.isdirty := FALSE;
     this->developersmenu->visible := this->frame->flags.isdeveloper;
-    this->contexts->editdocumentapi := this->editdocapi;
+    this->contexts->editdocumentapi := NEW EditDocumentAPI(PRIVATE this);
 
     this->frame->flags.canedit := FALSE;
     this->frame->flags.canpublish := FALSE;
@@ -211,7 +208,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF(CellExists(data,'assumewriteaccess'))
       this->assumewriteaccess := data.assumewriteaccess;
 
-    this->editdocapi->internallinkroots := data.internallinkroots;
+    this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
     this->fileid := data.id;
     this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
     IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->fileid)) //not even browse access?
@@ -360,7 +357,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 
     FOREVERY(STRING requiredprop FROM requiredapiproperties)
-      IF(IsDefaultValue(GetMember(this->editdocapi, requiredprop)))
+      IF(IsDefaultValue(GetMember(this->contexts->editdocumentapi, requiredprop)))
         THROW NEW Exception(`Document editor ${objecteditor.documenteditor} must implement '${requiredprop}'`);
 
     this->doceditor->contents := filehandler;
@@ -432,7 +429,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
   MACRO ReloadRTEContents()
   {
-    this->editdocapi->onloaddata();
+    this->contexts->editdocumentapi->onloaddata();
     this->RefreshState();
   }
 
@@ -480,7 +477,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     STRING savemode := this->GetSaveMode();
     IF (savemode = "versioned-locked")
     {
-      this->editdocapi->onsetenabled(FALSE);
+      this->contexts->editdocumentapi->onsetenabled(FALSE);
       this->frame->flags.canedit := FALSE;
       this->frame->flags.canpublish := FALSE;
 
@@ -492,7 +489,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE IF (savemode = "versioned-locked-editlive")
     {
-      this->editdocapi->onsetenabled(NOT this->readonly);
+      this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
       this->frame->flags.canpublish := FALSE;
 
@@ -504,7 +501,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE
     {
-      this->editdocapi->onsetenabled(NOT this->readonly);
+      this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
       this->frame->flags.canpublish := NOT this->readonly;
 
@@ -657,15 +654,15 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       RETURN FALSE; //FIXME report
     }
 
-    IF (this->editdocapi->onvalidate != DEFAULT MACRO PTR)
+    IF (this->contexts->editdocumentapi->onvalidate != DEFAULT MACRO PTR)
     {
       OBJECT feedback := this->BeginFeedback();
-      this->editdocapi->onvalidate(feedback);
+      this->contexts->editdocumentapi->onvalidate(feedback);
       IF(NOT feedback->Finish())
         RETURN FALSE;
     }
 
-    IF(this->editdocapi->onconfirmsave != DEFAULT FUNCTION PTR AND NOT this->editdocapi->onconfirmsave(withpublish))
+    IF(this->contexts->editdocumentapi->onconfirmsave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onconfirmsave(withpublish))
       RETURN FALSE; //aborted because some warning was scary enough
 
     OBJECT old_currentautosave := this->currentautosave;
@@ -714,7 +711,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
           this->currentautosave->SaveToPublicDraft(
               [ basefields :=   [ "DATA" ]
-              , contenttypes := this->editdocapi->editcontenttypes
+              , contenttypes := this->contexts->editdocumentapi->editcontenttypes
               ]);
         }
       }
@@ -726,7 +723,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
           source->SaveAsFinal(
               [ basefields :=   [ "DATA" ]
-              , contenttypes := this->editdocapi->editcontenttypes
+              , contenttypes := this->contexts->editdocumentapi->editcontenttypes
               , keeppublicdraft := savetarget = "versioned-live"
               ]);
 
@@ -770,8 +767,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       }
     }
 
-    IF (NOT work->HasFailed() AND this->editdocapi->onsave != DEFAULT FUNCTION PTR)
-      this->editdocapi->onsave(work, withpublish);
+    IF (NOT work->HasFailed() AND this->contexts->editdocumentapi->onsave != DEFAULT FUNCTION PTR)
+      this->contexts->editdocumentapi->onsave(work, withpublish);
 
     IF (NOT work->Finish())
     {
@@ -813,7 +810,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       IF (NOT ObjectExists(this->currentautosave))
         this->currentautosave := CreateDraft(OpenWHFSObject(this->fileid), FALSE);
 
-      this->editdocapi->__FlushInstanceData(this->currentautosave->fsobject);
+      this->contexts->editdocumentapi->__FlushInstanceData(this->currentautosave->fsobject);
     }
     ELSE IF (ObjectExists(this->currentautosave))
     {
