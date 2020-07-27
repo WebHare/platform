@@ -129,6 +129,24 @@ STATIC OBJECTTYPE EditDocumentAPI
     this->MarkDocumentAsDirty();
   }
 
+  /* Extend the editor meta tabs.
+     This is an EXPERIMENTAL API for PTHU and it will go away in the future, hopefully to be replaced with clean siteprl hooks not requiring OnSave etc hooking (eg we might start passing 'contentdata' to the tabs) */
+  PUBLIC MACRO __LoadMetaTabs(STRING tabsptr)
+  {
+    /* API TODO ?
+       - We should ask the registrant to tell us their contenttype and add it to the hooks ourselves
+       - We should be able to invoke Load and Store on the tabs? or offer a more generic way for users
+         to hook these callbacks (like ADdEventListener) so we don't have to supply all those custom extension bases
+       - We should allow access to the dirtylisteners
+       */
+
+    this->editscreen->^metatabs->LoadTabsExtension(tabsptr);
+    IF(NOT this->editscreen->^metapart->visible AND this->editscreen->^metatabs->GetNumVisiblePages() > 0)
+    {
+      this->editscreen->^metapart->visible := TRUE;
+    }
+  }
+
   PUBLIC MACRO __FlushInstanceData(OBJECT targetobject)
   {
     this->onstoredata();
@@ -374,6 +392,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     applytester->RunSiteprofileHookTarget("publisher:documenteditor", [ contexts := this->contexts
                                                                       , objectid := objectid
                                                                       ]);
+    ^metatabs->RunExtensionsPostInit();
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
