@@ -225,6 +225,13 @@ MACRO TestHead()
 
 MACRO TestFixCase()
 {
+  testport := testfw->GetLocalhostWebinterface();
+  TestEq(FALSE,  browser->GotoWebPage(testport.baseurl || ".webhare_testsuite/tests/system/MixedCase/MixedCase.html"));
+  TestEq(FALSE,  browser->GotoWebPage(testport.baseurl || ".webhare_testsuite/tests/system/mixedcase/mixedcase.html"));
+
+  TestEq(TRUE,  browser->GotoWebPage(testport.baseurl || ".webhare_testsuite/tests/searchallcases/system/MixedCase/MixedCase.html"));
+  TestEq(TRUE,  browser->GotoWebPage(testport.baseurl || ".webhare_testsuite/tests/searchallcases/system/mixedcase/mixedcase.html"));
+
   RECORD plainport := testfw->CreateWebserverPort([outputserver:=TRUE]); //create a port without an interface webserver
   STRING nofixbaseurl := plainport.baseurl || "nofix/";
   STRING fixbaseurl := plainport.baseurl || "fix/";
