@@ -3,7 +3,6 @@
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:n="http://www.webhare.net/xmlns/newsletter/siteprofile"
   xmlns:w="http://www.webhare.net/xmlns/wrd/siteprofile"
   xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
@@ -27,7 +26,6 @@
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="x-webhare-builtin-xsd:components.xsd?type=tolliumcomponents&amp;skipns=http://www.webhare.net/xmlns/publisher/siteprofile" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/moduledefinition" schemaLocation="mod::system/data/moduledefinition.xsd" />
-  <xs:import namespace="http://www.webhare.net/xmlns/newsletter/siteprofile" schemaLocation="mod::publisher/data/siteprofile_newsletter.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/wrd/siteprofile" schemaLocation="mod::wrd/data/siteprofile.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/consilio" schemaLocation="mod::consilio/data/siteprofile.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common"  schemaLocation="mod::system/data/common.xsd" />
@@ -57,7 +55,6 @@
           <xs:element name="grouptype" type="GroupType" />
           <xs:element name="embeddedobjecttype" type="EmbeddedObjectType" />
           <xs:element name="widgettype" type="WidgetType" />
-          <xs:element ref="n:maildesigntype" />
           <xs:element name="apply" type="Apply" />
           <xs:element ref="s:imgsizepreset" />
         </xs:choice>

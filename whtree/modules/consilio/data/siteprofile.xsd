@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- This schema defines the maildesigntype element for the newsletter module -->
-
 <xs:schema
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:sp="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:n="http://www.webhare.net/xmlns/newsletter/siteprofile"
   targetNamespace="http://www.webhare.net/xmlns/consilio"
   xmlns="http://www.webhare.net/xmlns/consilio"
   elementFormDefault="qualified"
