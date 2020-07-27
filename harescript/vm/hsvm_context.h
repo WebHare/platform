@@ -801,6 +801,8 @@ class BLEXLIB_PUBLIC VirtualMachine
         void DoSwap();
 
         void DoLoadC(int32_t id);
+        void DoLoadCB(int8_t id);
+        void DoLoadCI(int32_t id);
         void DoLoadS(int32_t id);
         void DoStoreS(int32_t id);
         void DoLoadG(int32_t id);

@@ -118,6 +118,8 @@ InstructionCodeNamePair instructioncodenames[] = {
         { InstructionSet::CMP, "CMP" },
         { InstructionSet::CMP2, "CMP2" },
         { InstructionSet::LOADC, "LOADC" },
+        { InstructionSet::LOADCB, "LOADCB" },
+        { InstructionSet::LOADCI, "LOADCI" },
         { InstructionSet::RECORDCELLGET, "RECORDCELLGET" },
         { InstructionSet::RECORDCELLSET, "RECORDCELLSET" },
         { InstructionSet::RECORDCELLDELETE, "RECORDCELLDELETE" },

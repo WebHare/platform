@@ -306,6 +306,16 @@ void CodeLibraryWriter::AddCodedFunctions(HareScript::WrappedLibrary &wrapper, H
                                         pushdword(code, it->constant.type);
                                         CODEEMITPRINT("Pushed t " << it->constant.type);
                                 }
+                                else if (context.stackm.GetType(it->constant.var) == VariableTypes::Boolean)
+                                {
+                                        code.back() = InstructionSet::LOADCB;
+                                        pushbyte(code, context.stackm.GetBoolean(it->constant.var) ? 1 : 0);
+                                }
+                                else if (context.stackm.GetType(it->constant.var) == VariableTypes::Integer)
+                                {
+                                        code.back() = InstructionSet::LOADCI;
+                                        pushdword(code, context.stackm.GetInteger(it->constant.var));
+                                }
                                 else
                                 {
                                         unsigned len = marshaller.Analyze(it->constant.var);
