@@ -31,7 +31,7 @@ test.registerTests(
           let expect_doc = parser.parseFromString(subtest.expect, "text/html");
 
           // Ignore width and height styling, they can differ between browsers
-          const removestyleregex = / style="width:[^"]*"/g;
+          const removestyleregex = / style="(width|height):[^"]*"/g;
           test.eqHTML(expect_doc.querySelector("body").innerHTML.replace(removestyleregex, ""), rte.getContentBodyNode().innerHTML.replace(removestyleregex, ""), `input: ${subtest.input}`);
 
           rte.setContentsHTML(subtest.expect);

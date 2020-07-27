@@ -114,6 +114,53 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     this->editscreen->formdefsfile->SetConditionAttribute(node, attributename, cond);
   }
 
+  PUBLIC RECORD FUNCTION __GetRichTextAttributeById(STRING instanceid)
+  {
+    IF (instanceid != "")
+    {
+      RECORD instance := this->GetInstance(instanceid);
+      IF (RecordExists(instance))
+        RETURN instance.data;
+    }
+    RETURN DEFAULT RECORD;
+  }
+  PUBLIC STRING FUNCTION __SetRichTextAttributeId(STRING instanceid, RECORD value)
+  {
+    RECORD instance;
+    IF(RecordExists(value))
+      instance := [ data := value
+                  , whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+                  ];
+
+    IF (instanceid != "")
+    {
+      this->SetInstance(instanceid, instance);
+      RETURN RecordExists(value) ? instanceid : "";
+    }
+    ELSE IF(RecordExists(value))
+    {
+      instanceid := this->CreateInstance(instance);
+      RETURN instanceid;
+    }
+    RETURN "";
+  }
+
+  PUBLIC RECORD FUNCTION GetRichTextAttribute(OBJECT node, STRING attributename)
+  {
+    RETURN this->__GetRichTextAttributeById(node->GetAttribute(attributename || "id"));
+  }
+
+  PUBLIC MACRO SetRichTextAttribute(OBJECT node, STRING attributename, RECORD value)
+  {
+    STRING instanceid := node->GetAttribute(attributename || "id");
+    STRING newinstanceid := this->__SetRichTextAttributeId(instanceid, value);
+    IF(newinstanceid != instanceid)
+      IF(newinstanceid != "")
+        node->SetAttribute(attributename || "id", newinstanceid);
+      ELSE
+        node->RemoveAttribute(attributename || "id");
+  }
+
   PUBLIC STRING FUNCTION __CreateGUID(STRING prefix)
   {
     RETURN this->editscreen->formdefsfile->__CreateGUID(prefix);

@@ -199,14 +199,20 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
 
   /** Analyze the disk and database blobs, update the blob manifest with that info
   */
-  PUBLIC MACRO UpdateBlobManifest()
+  PUBLIC MACRO UpdateBlobManifest(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([debug := FALSE], options);
     OBJECT lock := OpenLockManager()->LockMutex("system:blobcleanup");
     TRY
     {
       STRING curdate := FormatISO8601DateTime(GetCurrentDateTime());
 
+      IF(options.debug)
+        Print(`Gathering blob information from database\n`);
       RECORD dbinfo := this->GetDatabaseBlobInfo();
+
+      IF(options.debug)
+        Print(`Gathering blob information from disk\n`);
       RECORD diskinfo := this->GetDiskBlobInfo();
 
       STRING ARRAY expected_blobpartids := GetSortedSet(this->trans->blobhandler->GetBlobPartIdsFromBlobIds(dbinfo.existing_blobs));
@@ -221,12 +227,12 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         STRING ARRAY referenced_missing_blob_files := ArrayDelete(all_missing_blob_files, unreferenced_blobpartids);
         IF (IsValueSet(referenced_missing_blob_files))
         {
-          PRINT(`Could not locate all referenced blobs!\n`);
+          PrintTo(2, `Could not locate all referenced blobs!\n`);
           ABORT(CELL[ all_missing_blob_files, referenced_missing_blob_files ]);
         }
         ELSE
         {
-          PRINT(`Could not locate some unreferenced blobs\n`);
+          PrintTo(2, `Could not locate some unreferenced blobs\n`);
           DumpValue(Cell[ all_missing_blob_files ]);
         }
       }

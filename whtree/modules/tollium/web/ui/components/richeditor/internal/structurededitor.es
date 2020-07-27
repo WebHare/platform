@@ -1408,10 +1408,13 @@ export default class StructuredEditor extends EditorBase
         importfrommatch = blockstyle;
 
       // Match on classname (but don't change list to non-list or table to non-table & vv).
-      if (blockstyle.islist == islist && node.classList.contains(blockstyle.classname) && !classmatch)
+      if (!classmatch
+          && (blockstyle.islist == islist)
+          && (!!blockstyle.istable == !!istable)
+          && node.classList.contains(blockstyle.classname))
+      {
         classmatch = blockstyle;
-      else if (blockstyle.istable && istable && node.classList.contains(blockstyle.classname) && !classmatch)
-        classmatch = blockstyle;
+      }
 
       // Match h1-h6 on tag name too
       if ([ "h1", "h2", "h3", "h4", "h5", "h6" ].includes(nodename)
@@ -1679,91 +1682,82 @@ export default class StructuredEditor extends EditorBase
           } break;
         case 'tablestyle':
           {
-            if (block && block.surrogate)
-              block = null;
+            let dims = tableeditor.getTableDimensions(child);
+            let firstdatacell = tableeditor.locateFirstDataCell(child);
 
-            if (block && (block.type != 'listitem' || !type.style.islist) && (block.type != 'cellitem'))
+            // Skip empty tables
+            if (dims.rows === 0 || dims.cols === 0)
+              continue;
+
+            // If the table has any content, it should *always* close whatever block we're currently in
+
+            block = { type: 'table', style: type.style, nodes: [], colwidths: [], firstdatacell: firstdatacell };
+            topblocklist.push(block);
+
+            // Make head rows as non-data
+            let head_rows = child.tHead ? Array.from(child.tHead.rows) : [];
+            firstdatacell.row += head_rows.length;
+
+            // Make sure to first handle thead, then tbody and finally tfoot
+            let rows = Array.from(child.rows);
+            let rowspans = Array(dims.cols).fill(0);
+
+            for (let i = 0; i < rows.length; ++i)
             {
-              // Non-list in list block. Just parse the contents
-              this.parseContainerContentsRecursive(child, block, topblocklist, textstyles, null, options);
-            }
-            else
-            {
-              let dims = tableeditor.getTableDimensions(child);
-              var firstdatacell = tableeditor.locateFirstDataCell(child);
+              let cells = Array.from(rows[i].cells);
+              let rowitem = { type: 'rowitem', nodes: [], height: parseInt(rows[i].style.height) };
 
-              // Skip empty tables
-              if (dims.rows === 0 || dims.cols === 0)
-                continue;
+              block.nodes.push(rowitem);
 
-              block = { type: 'table', style: type.style, nodes: [], colwidths: [], firstdatacell: firstdatacell };
-              topblocklist.push(block);
+              let col = 0; // track start column of cell
+              let currentcellidx = 0;
 
-              // Make head rows as non-data
-              let head_rows = child.tHead ? Array.from(child.tHead.rows) : [];
-              firstdatacell.row += head_rows.length;
-
-              // Make sure to first handle thead, then tbody and finally tfoot
-              let rows = Array.from(child.rows);
-              let rowspans = Array(dims.cols).fill(0);
-
-              for (let i = 0; i < rows.length; ++i)
+              while(col < dims.cols)
               {
-                let cells = Array.from(rows[i].cells);
-                let rowitem = { type: 'rowitem', nodes: [], height: parseInt(rows[i].style.height) };
-
-                block.nodes.push(rowitem);
-
-                let col = 0; // track start column of cell
-                let currentcellidx = 0;
-
-                while(col < dims.cols)
+                if(rowspans[col] > i) // skip over previous rowspanned cols
                 {
-                  if(rowspans[col] > i) // skip over previous rowspanned cols
-                  {
-                    ++col;
-                    continue;
-                  }
-
-                  let currentcell = cells[currentcellidx++]; //currentcellidx out of range? add missing cells
-                  let cellitem = { type: 'cellitem'
-                                 , defaultstyle: type.style.tabledefaultblockstyle
-                                 , nodes: []
-                                 , colspan: currentcell ? currentcell.colSpan : 1
-                                 , rowspan: currentcell ? currentcell.rowSpan : 1
-                                 , styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
-                                 };
-
-                  rowitem.nodes.push(cellitem);
-                  if(currentcell)
-                    this.parseContainerContentsRecursive(currentcell, cellitem, cellitem.nodes, textstyles, null, options);
-
-                  for (let colspan = 0; colspan < cellitem.colspan; ++colspan)
-                    rowspans[col++] = i + cellitem.rowspan;
+                  ++col;
+                  continue;
                 }
+
+                let currentcell = cells[currentcellidx++]; //currentcellidx out of range? add missing cells
+                let cellitem = { type: 'cellitem'
+                               , defaultstyle: type.style.tabledefaultblockstyle
+                               , nodes: []
+                               , colspan: currentcell ? currentcell.colSpan : 1
+                               , rowspan: currentcell ? currentcell.rowSpan : 1
+                               , styletag: currentcell ? this.structure.getClassStyleForCell(currentcell) : ''
+                               };
+
+                rowitem.nodes.push(cellitem);
+                if(currentcell)
+                  this.parseContainerContentsRecursive(currentcell, cellitem, cellitem.nodes, textstyles, null, options);
+
+                for (let colspan = 0; colspan < cellitem.colspan; ++colspan)
+                  rowspans[col++] = i + cellitem.rowspan;
               }
-
-              // Retrieve the sizing cell sizes
-              let sizetr = document.createElement("tr"); // Row to hold the sizing cells
-              child.appendChild(sizetr);
-              var cols = tableeditor.getCols(child);
-
-              for (let i = 0; i < dims.cols; ++i)
-                sizetr.appendChild(document.createElement("td"));
-
-              for (let i = 0; i < dims.cols; ++i)
-              {
-                var size = null;
-                if (i < cols.length)
-                  size = parseInt(cols[i].style.width);
-                if(!size)
-                  size = sizetr.childNodes[i].offsetWidth;
-
-                block.colwidths.push(size);
-              }
-              sizetr.remove();
-              block = null;
             }
+
+            // Retrieve the sizing cell sizes
+            let sizetr = document.createElement("tr"); // Row to hold the sizing cells
+            child.appendChild(sizetr);
+            var cols = tableeditor.getCols(child);
+
+            for (let i = 0; i < dims.cols; ++i)
+              sizetr.appendChild(document.createElement("td"));
+
+            for (let i = 0; i < dims.cols; ++i)
+            {
+              var size = null;
+              if (i < cols.length)
+                size = parseInt(cols[i].style.width);
+              if(!size)
+                size = sizetr.childNodes[i].offsetWidth;
+
+              block.colwidths.push(size);
+            }
+            sizetr.remove();
+            block = null;
           } break;
         case 'cellitem':
           {

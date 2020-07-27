@@ -15,50 +15,22 @@ LOADLIB "mod::publisher/lib/rtd.whlib";
 
 PUBLIC RECORD FUNCTION GetRichTextAttributeById(OBJECT screen, STRING instanceid)
 {
-  IF (instanceid != "")
-  {
-    RECORD instance := screen->contexts->formcomponentapi->GetInstance(instanceid);
-    IF (RecordExists(instance))
-      RETURN instance.data;
-  }
-  RETURN DEFAULT RECORD;
+  RETURN screen->contexts->formcomponentapi->__GetRichTextAttributeById(instanceid);
 }
 
 PUBLIC RECORD FUNCTION GetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename)
 {
-  RETURN GetRichTextAttributeById(screen, comp->GetAttribute(attributename || "id"));
+  RETURN screen->contexts->formcomponentapi->GetRichTextAttribute(comp, attributename);
 }
 
 PUBLIC STRING FUNCTION SetRichTextAttributeId(OBJECT screen, STRING instanceid, RECORD value)
 {
-  RECORD instance;
-  IF(RecordExists(value))
-    instance := [ data := value
-                , whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-                ];
-
-  IF (instanceid != "")
-  {
-    screen->contexts->formcomponentapi->SetInstance(instanceid, instance);
-    RETURN RecordExists(value) ? instanceid : "";
-  }
-  ELSE IF(RecordExists(value))
-  {
-    instanceid := screen->contexts->formcomponentapi->CreateInstance(instance);
-    RETURN instanceid;
-  }
-  RETURN "";
+  RETURN screen->contexts->formcomponentapi->__SetRichTextAttributeId(instanceid, value);
 }
 
 PUBLIC MACRO SetRichTextAttribute(OBJECT screen, OBJECT comp, STRING attributename, RECORD value)
 {
-  STRING instanceid := comp->GetAttribute(attributename || "id");
-  STRING newinstanceid := SetRichTextAttributeId(screen, instanceid, value);
-  IF(newinstanceid != instanceid)
-    IF(newinstanceid != "")
-      comp->SetAttribute(attributename || "id", newinstanceid);
-    ELSE
-      comp->RemoveAttribute(attributename || "id");
+  screen->contexts->formcomponentapi->SetRichTextAttribute(comp, attributename, value);
 }
 
 PUBLIC MACRO SetRichTextInstance(OBJECT screen, OBJECT comp, RECORD value)
@@ -94,7 +66,7 @@ PUBLIC STATIC OBJECTTYPE RichText EXTEND FormComponentExtensionBase
           , ...rtdtype.allowedobjects
           ];
     }
-    ^text->value := GetRichTextAttribute(this, this->node, "text");
+    ^text->value := this->contexts->formcomponentapi->GetRichTextAttribute(this->node, "text");
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
