@@ -294,9 +294,11 @@ ASYNC MACRO TestHistoryUI()
   topscreen->frame->focused := TT("foldertree");
   TT("foldertree")->value := testfw->GetTestsite()->id;
 
-  RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("reporturlhistory"))).file;
+  AWAIT ExpectScreenChange(+1, PTR TTClick("reporturlhistory"));
+  RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
   RECORD ARRAY historyrows := GetOOXMLSpreadsheetRows(download.data);
-  TestEq(TRUE, RecordExists(SELECT FROM historyrows WHERE historyrows."current url" = "https://www.example.net/" AND historyrows."history url" = "https://urlhistory.example.net/tmp/follow.whlink"));
+  TestEq(TRUE, RecordExists(SELECT FROM historyrows WHERE historyrows."current url" = "http://www.example.net/" AND historyrows."historic url" = "https://urlhistory.example.net/tmp/follow.whlink"));
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //escape XLSX export screen
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //escape publisher
 }

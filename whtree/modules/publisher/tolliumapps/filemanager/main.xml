@@ -287,10 +287,10 @@
         <enableon source="filelist" min="1" max="1" checkflags="!isfolder canwrite isactive iswithinsite" />
       </action>
       <action name="managewhfsregister" onexecute="domanagewhfsregister" frameflags="issysop" />
-      <downloadaction name="reporturlhistory" tid="publisher:urlhistory.report">
-        <enableon source="foldertree" checkflags="isfolder isactive iswithinsite" min="1" max="1" ondownload="onreporturlhistory_foldertree" />
-        <enableon source="filelist" checkflags="isfolder isactive iswithinsite" min="1" max="1" ondownload="onreporturlhistory_filelist" />
-      </downloadaction>
+      <action name="reporturlhistory" tid="publisher:urlhistory.report">
+        <enableon source="foldertree" checkflags="isfolder isactive iswithinsite" min="1" max="1" onexecute="onreporturlhistory_foldertree" />
+        <enableon source="filelist" checkflags="isfolder isactive iswithinsite" min="1" max="1" onexecute="onreporturlhistory_filelist" />
+      </action>
 
       <action name="siteproperties" onexecute="dositeproperties" frameflags="issysop" shortcut="ctrl+alt+i">
         <enableon source="foldertree" checkflags="isactive issite" min="1" max="1" />

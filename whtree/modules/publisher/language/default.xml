@@ -2268,6 +2268,14 @@
           <text tid="windowtitle">Create archive of '<param p="1"/>'</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="filemgrdialogs">   <!-- tolliumapps.filemanager.filemgrdialogs -->
+        <textgroup gid="urlhistory">   <!-- tolliumapps.filemanager.filemgrdialogs.urlhistory -->
+          <text tid="currenturl">Current URL</text>
+          <text tid="historyurl">Historic URL</text>
+          <text tid="iscurrent">Is current</text>
+          <text tid="urlhistoryfor">URL history for <param p="1"/></text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Synchronized folder</text>
         <text tid="externalfoldersadded">External folders added</text>

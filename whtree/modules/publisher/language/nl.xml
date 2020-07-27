@@ -2268,6 +2268,14 @@
           <text tid="windowtitle">Archief aanmaken van '<param p="1"/>'</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="filemgrdialogs">   <!-- tolliumapps.filemanager.filemgrdialogs -->
+        <textgroup gid="urlhistory">   <!-- tolliumapps.filemanager.filemgrdialogs.urlhistory -->
+          <text tid="currenturl">Huidige URL</text>
+          <text tid="historyurl">Historische URL</text>
+          <text tid="iscurrent">Is huidige</text>
+          <text tid="urlhistoryfor">URL geschiedenis voor <param p="1"/></text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="syncedfolders">   <!-- tolliumapps.filemanager.syncedfolders -->
         <text tid="editfolder">Gesynchroniseerde map</text>
         <text tid="externalfoldersadded">Externe mappen toegevoegd</text>

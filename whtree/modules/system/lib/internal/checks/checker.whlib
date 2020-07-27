@@ -343,11 +343,12 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   RECORD ARRAY stucktasks := SELECT tag := tag ?? script, error, id, script
                                FROM system_internal.tasks
                                WHERE enabled
-                                     AND error != "";
+                                     AND error != ""
+                                     AND inapplicable = "";
 
   FOREVERY(RECORD stucktask FROM stucktasks)
   {
-    INSERT [ msg := ":Task '" || stucktask.tag || "' has errors"
+    INSERT [ msg := ":Task '" || stucktask.tag || "' has errors: " || UCLeft(Tokenize(stucktask.error,"\n")[0],120)
            , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
            ]
            INTO messages AT END;

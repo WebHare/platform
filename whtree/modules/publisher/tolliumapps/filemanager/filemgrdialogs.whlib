@@ -1,0 +1,39 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+PUBLIC MACRO RunURLHistoryExport(OBJECT parent, INTEGER baseobject)
+{
+  OBJECT obj := OpenWHFSObject(baseobject);
+  IF(NOT ObjectExists(obj))
+    RETURN;
+
+  STRING siteproto := obj->objecturl LIKE "http:*" ? "http:" : "https:";
+  RECORD ARRAY history := SELECT urlhistory.creationdate
+                               , historyurl := siteproto || NormalizeHistoryURL(urlhistory.url) // Ensure the entry is properly normalized
+                               , currenturl := fs_objects.objecturl
+                               , iscurrent := NormalizeHistoryURL(urlhistory.url) = NormalizeHistoryURL(fs_objects.objecturl)
+                            FROM system.fs_objects
+                               , publisher.urlhistory
+                           WHERE fs_objects.parent IN INTEGER[baseobject, ...obj->GetDescendantFolderids()]
+                                 AND urlhistory.fsobject = fs_objects.id
+                                 AND NOT fs_objects.isfolder
+                        ORDER BY ToUppercase(fs_objects.objecturl);
+
+  RunColumnFileExportDialog(parent,
+       [ rows := history
+       , columns := [[ name := "currenturl",   type := "text", title := GetTid("publisher:tolliumapps.filemanager.filemgrdialogs.urlhistory.currenturl") ]
+                    ,[ name := "historyurl",   type := "text", title := GetTid("publisher:tolliumapps.filemanager.filemgrdialogs.urlhistory.historyurl") ]
+                    ,[ name := "iscurrent",    type := "boolean", title := GetTid("publisher:tolliumapps.filemanager.filemgrdialogs.urlhistory.iscurrent")]
+                    ,[ name := "creationdate", type := "datetime", title := GetTid("~creationdate"), storeutc := TRUE ]
+                    ]
+       , exporttitle := GetTid("publisher:tolliumapps.filemanager.filemgrdialogs.urlhistory.urlhistoryfor", obj->name)
+       ]);
+}
