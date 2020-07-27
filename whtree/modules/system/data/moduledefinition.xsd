@@ -1181,7 +1181,11 @@
     </xs:sequence>
 
     <xs:attribute name="path" type="xs:string" use="required" />
-    <xs:attribute name="ignorepaths" type="xs:string" />
+    <xs:attribute name="ignorepaths" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>A space separated list of path masks which will not be processed by this access rule, eg `*.whsock`</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="match" use="required">
       <xs:simpleType>
         <xs:restriction base="xs:string">
@@ -1251,7 +1255,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="roles" />
     <xs:attribute name="redirecttoscript" type="xs:string" />
     <xs:attribute name="handlebyscript" type="xs:string">
       <xs:annotation>
@@ -1270,8 +1273,6 @@
     <xs:attribute name="redirecttodir" type="xs:string" />
     <xs:attribute name="errorpath" type="xs:string" />
     <xs:attribute name="finalerrorpath" type="xs:boolean" />
-    <xs:attribute name="permissions" />
-    <xs:attribute name="errorpermissions" />
     <xs:attribute name="allowallmethods" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
