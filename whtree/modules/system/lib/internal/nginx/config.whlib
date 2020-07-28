@@ -42,6 +42,8 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
       || '      proxy_set_header      X-WebHare-Proxy "' || proxyid || '";\n'
       || '      add_header            X-Accel-Redirect $upstream_http_x_next_accel_redirect;\n'
       || '      proxy_hide_header     X-Next-Accel-Redirect;\n'
+      || '      add_header            X-Accel-Buffering $upstream_http_x_next_accel_buffering;\n'
+      || '      proxy_hide_header     X-Next-Accel-Buffering;\n'
       || '    }\n'
       || '    location ~* \.whsock$ \n'
       || '    {\n'
