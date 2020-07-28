@@ -67,7 +67,7 @@ BLOB badwebrules_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
-      <webrule path="/" match="initial" permissions="TCPIP FULLDB" />
+      <webrule path="/---x-trigger-a-warning-please---/" match="initial" />
     </webruleset>
   </sitesettings>
 </siteprofile>`);
@@ -220,7 +220,7 @@ BLOB moduledefissues := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   </hooking>
   <backend>
     <webruleset name="dynamicsendpoint">
-      <webrule path="/" match="initial" permissions="TCPIP FULLDB" />
+      <webrule path="/---x-trigger-a-warning-please---/" match="initial" />
     </webruleset>
   </backend>
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
@@ -274,7 +274,7 @@ MACRO TestBasicValidate()
   TestEq([[ line := 18, message := "No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\' (looking for \'PDFMailFlowTask\')" ]
          ], (SELECT line, message FROM res.errors));
   TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
-         ,[ line := 9, message := "permissions= no longer has any effect and should be removed" ]
+         ,[ line := 9, message := "This path triggered a warning" ]
          ,[ line := 14, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
          ], (SELECT line, message FROM res.warnings ORDER BY line));
 
@@ -340,7 +340,7 @@ MACRO TestBasicValidate()
   //siteprofiles should also warn about bad webrules
   res := ValidateSingleFile("mod::system/nosuchscreen.xml.siteprl", [ overridedata := badwebrules_siteprl ]);
   TestEq(RECORD[], res.errors);
-  TestEq([[ line := 5, message := "permissions= no longer has any effect and should be removed" ]
+  TestEq([[ line := 5, message := "This path triggered a warning" ]
          ], (SELECT line, message FROM res.warnings));
 
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<textedit nonexistingattribute="true"/>`) ]);

@@ -12,6 +12,7 @@ import KeyboardHandler from 'dompack/extra/keyboard';
 require("../../common.lang.json");
 import { ToddImage } from "../components/jsx";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import { registerJSApp } from "../application";
 
 function rememberMenuHeights()
 {
@@ -325,4 +326,4 @@ class DashboardApp
 };
 
 
-$todd.registerJSApp('tollium:builtin.dashboard', DashboardApp);
+registerJSApp('tollium:builtin.dashboard', DashboardApp);

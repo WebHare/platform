@@ -154,6 +154,9 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   IF(NOT options.forvalidation AND NOT IsNodeApplicableToThisWebHare(rulenode))
     RETURN retval;
 
+  IF(rule.path LIKE "*---x-trigger-a-warning-please---*")
+    retval := AddMessage(retval, "warning", baseresource, rulenode, "This path triggered a warning");
+
   rule.vars := CELL[ ...rule.vars, modulename ];
   rule.priority := rule.priority + ParseWebRulePriority(rulenode->GetAttribute("priority"));
   IF(rulenode->localname = "restapi")
@@ -252,13 +255,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
 
   IF(rulenode->HasAttribute("matchassubdir"))
     rule.matchassubdir := ParseXSBoolean(rulenode->GetAttribute("matchassubdir"));
-
-  IF(rulenode->HasAttribute("permissions"))
-    retval := AddMessage(retval, "warning", baseresource, rulenode, "permissions= no longer has any effect and should be removed");
-  IF(rulenode->HasAttribute("errorpermissions"))
-    retval := AddMessage(retval, "warning", baseresource, rulenode, "errorpermissions= no longer has any effect and should be removed");
-  IF(rulenode->HasAttribute("roles"))
-    retval := AddMessage(retval, "warning", baseresource, rulenode, "roles= no longer has any effect and should be removed");
 
   BOOLEAN requirevarycookie;
 
@@ -778,13 +774,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       this->AddWarning(node, "<appcontexts> have been deprecated and generalized into this->contexts");
       app.appcontexts := ParseAppContexts(this->moduledef.name, appcontexts);
     }
-
-    IF(node->HasAttribute("permissions"))
-      this->AddWarning(node, "permissions= no longer has any effect and should be removed");
-    IF(node->HasAttribute("whdbroles"))
-      this->AddWarning(node, "whdbroles= no longer has any effect and should be removed");
-    IF(node->HasAttribute("grantablerights"))
-      this->AddWarning(node, "grantablerights= no longer has any effect and should be removed");
 
     RETURN MakeMergedRecord(app, ParseChecks(this->moduledef.name, node, TRUE));
   }

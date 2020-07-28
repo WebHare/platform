@@ -2,11 +2,12 @@
 import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import { registerJSApp } from "../application.es";
+import"../../common.lang.json";
 
-var $todd = require("./support");
+var $todd = require("../support");
 var getTid = require("@mod-tollium/js/gettid").getTid;
 var utilerror = require('@mod-system/js/wh/errorreporting');
-require("../common.lang.json");
 
 class LoginApp
 { constructor(appinterface, callback)
@@ -409,6 +410,6 @@ class LoginApp
     });
   }
 
-};
+}
 
-$todd.registerJSApp('tollium:builtin.login', LoginApp);
+registerJSApp('tollium:builtin.login', LoginApp);

@@ -1,8 +1,9 @@
-var $todd = require("./support");
+var $todd = require("../support");
 var getTid = require("@mod-tollium/js/gettid").getTid;
 var utilerror = require('@mod-system/js/wh/errorreporting');
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-require("../common.lang.json");
+import { registerJSApp } from "../application.es";
+import"../../common.lang.json";
 
 "use strict";
 
@@ -166,4 +167,4 @@ class OauthApp
   }
 }
 
-$todd.registerJSApp('tollium:builtin.oauth', OauthApp);
+registerJSApp('tollium:builtin.oauth', OauthApp);
