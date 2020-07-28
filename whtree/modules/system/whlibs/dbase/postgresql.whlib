@@ -323,6 +323,13 @@ Note that m columns can also be moved out to secondary storage, but only as a la
   , INTEGER64 "seqcache" // Cache size of the sequence
   , BOOLEAN "seqcycle" // Whether the sequence cycles
   > "pg_sequence"
+, TABLE
+  < STRING "schemaname" // Name of schema containing table and index
+  , STRING "tablename" // Name of table the index is for
+  , STRING "indexname" // Name of index
+  , STRING "tablespace" // Name of tablespace containing index (null if default for database)
+  , STRING "indexdef" // Index definition (a reconstructed CREATE INDEX command)
+  > "pg_indexes"
 > postgresql_pg_catalog;
 
 PUBLIC SCHEMA
@@ -1501,7 +1508,15 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IndexExists(STRING schemaname, STRING tablename, STRING indexname)
   {
-    THROW NEW Exception("IndexExists yet not supported for PostgreSQL");
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+
+    RETURN RecordExists(
+          SELECT
+            FROM catalog.pg_indexes
+           WHERE COLUMN schemaname = VAR schemaname
+             AND COLUMN tablename = VAR tablename
+             AND COLUMN indexname = VAR indexname);
   }
 
   UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
