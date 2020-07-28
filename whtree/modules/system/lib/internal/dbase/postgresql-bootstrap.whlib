@@ -62,6 +62,14 @@ MACRO EnsureBlobTable(OBJECT trans)
        ]);
     trans->CommitWork();
   }
+
+  // Make sure an index exists on the ID part of the blob primary key (needed for blob cleanup)
+  IF (NOT trans->IndexExists("webhare_internal", "blob", "blob_id_id"))
+  {
+    trans->BeginWork();
+    trans->__ExecSQL(`CREATE UNIQUE INDEX blob_id_id ON webhare_internal.blob(((id).id))`);
+    trans->CommitWork();
+  }
 }
 
 MACRO EnsureStoredProcedures(OBJECT trans)
