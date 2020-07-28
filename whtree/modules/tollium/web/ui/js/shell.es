@@ -41,11 +41,11 @@ import * as whconnect from '@mod-system/js/wh/connect';
 import { setupWHCheck } from './shell/whcheck';
 
 var $todd = require('./support');
-require('./application');
+import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 require('./desktop');
-require('./apps/dashboard');
-require('./login');
-require('./oauth');
+import "./apps/dashboard";
+import "./apps/login";
+import "./apps/oauth";
 require('../css/shell.css');
 require('../css/apps.scss');
 require('../skins/default/skin.scss');
@@ -83,6 +83,7 @@ class IndyShell
     this.settings = {};
 
     this.wrdauth = WRDAuth.getDefaultAuth();
+    this.frontendids = [];
 
     $todd.resourcebase = new URL(whintegration.config.obj.toddroot, location.href).toString();
     this.eventsconnection = new EventServerConnection({ url: "/wh_events/"});
@@ -141,7 +142,7 @@ class IndyShell
 
   startFrontendApplication(appname, parentapp, options)
   {
-    var application = new $todd.FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
+    var application = new FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
     $todd.applications.push(application);
 
     application.loadApplication({ src: options.src
@@ -180,7 +181,7 @@ class IndyShell
       history.replaceState({}, null, location.href.split('#')[0]);
     }
 
-    var application = new $todd.BackendApplication(this, appname, (options && options.target) || {}, parentapp, options);
+    var application = new BackendApplication(this, appname, (options && options.target) || {}, parentapp, options);
     $todd.applications.push(application);
 
     application.launchApp();
@@ -205,9 +206,9 @@ class IndyShell
   registerApplicationFrontendLink(data)
   {
     // Register the frontend id
-    var seenfrontend = $todd.frontendids.includes(data.frontendid);
+    var seenfrontend = this.frontendids.includes(data.frontendid);
     if(!seenfrontend)
-      $todd.frontendids.push(data.frontendid);
+      this.frontendids.push(data.frontendid);
 
     if(!seenfrontend) //FIXME should we register an endpoint if it wasn't an appstart? (what else could it be)? Decided to do it anyway, as the original code _did_ include the frontendid into $tdod.frontendids no matter what..
     {
@@ -294,7 +295,7 @@ class IndyShell
     if(appbar)
       $todd.applicationBar = new $todd.ApplicationBar(this, appbar);
 
-    $todd.registerJSApp('tollium:builtin.placeholder', PlaceholderApp);
+    registerJSApp('tollium:builtin.placeholder', PlaceholderApp);
 
     // Load the offline notification icon, so it can be shown when actually offline
     this.offlinenotificationicon = toddImages.createImage("tollium:messageboxes/warning", 24, 24, 'b');
@@ -660,7 +661,7 @@ class IndyShell
       }
     });
 
-    $todd.frontendids = $todd.frontendids.filter(id => id != frontendid); //erase
+    this.frontendids = this.frontendids.filter(id => id != frontendid); //erase
 
     if (openapps)
     {
@@ -911,7 +912,7 @@ var PlaceholderApp = class
 //The API we'll export to external applictions
 window.$tollium =
 { version:1
-, registerJSApp: $todd.registerJSApp
+, registerJSApp: registerJSApp
 , componentsToMessages: $todd.componentsToMessages
 };
 

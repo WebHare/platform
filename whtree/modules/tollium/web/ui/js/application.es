@@ -17,6 +17,8 @@ const toddImages = require("@mod-tollium/js/icons");
 require("../common.lang.json");
 
 const ToddProtocolVersion = 1;
+const busyinitialwait=200;  //time before we show a loader
+const busydonedelay=50;     //time before we start the 'done' fadeout
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -24,7 +26,7 @@ const ToddProtocolVersion = 1;
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-var jsappconstructors = [];
+var jsappconstructors = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
@@ -45,7 +47,7 @@ class ApplicationBusyLock extends dombusy.Lock
 //ADDME: Move these to SessionManager? A SessionManager would manage one user's session in a browser; the CommHandler
 //       would manage one or more SessionManagers.
 
-$todd.Application = class
+export class ApplicationBase
 {
   // ---------------------------------------------------------------------------
   //
@@ -232,7 +234,7 @@ $todd.Application = class
       this.appnodes.root.classList.add('isbusydone');
 
       // Remove everything after a small delay
-      this.appunbusytimeout = setTimeout(() => this.undisplayBusy(), $todd.Application.busydonedelay);
+      this.appunbusytimeout = setTimeout(() => this.undisplayBusy(), busydonedelay);
     }
 
     // Remove the modality layer immediately
@@ -327,7 +329,7 @@ $todd.Application = class
       this.undisplayBusy();
     }
 
-    this.appbusytimeout = setTimeout( () => this.displayBusy(), $todd.Application.busyinitialwait);
+    this.appbusytimeout = setTimeout( () => this.displayBusy(), busyinitialwait);
     return lock;
   }
 
@@ -583,13 +585,12 @@ $todd.Application = class
                       , buttons: [{ name: 'close', title: getTid("tollium:common.actions.close") }]
                       });
   }
-};
+}
 
-$todd.Application.busyinitialwait=200;  //time before we show a loader
-$todd.Application.busydonedelay=50;     //time before we start the 'done' fadeout
 
 //An embedded application 'lives' in the tollium javascript. We better trust it...
-$todd.FrontendEmbeddedApplication = class extends  $todd.Application
+var loadedscripts = {};
+export class FrontendEmbeddedApplication extends ApplicationBase
 {
   constructor(shell, appname, apptarget, parentapp, options)
   {
@@ -601,11 +602,11 @@ $todd.FrontendEmbeddedApplication = class extends  $todd.Application
 
     if(!jsappconstructors[this.baseobject])
     {
-      let scr = $todd.FrontendEmbeddedApplication.scripts[manifest.baseobject];
+      let scr = loadedscripts[manifest.baseobject];
       if(!scr)
       {
         scr = preload.promiseScript(manifest.src + "?__cd=" + Date.now());
-        $todd.FrontendEmbeddedApplication.scripts[manifest.baseobject] = scr;
+        loadedscripts[manifest.baseobject] = scr;
       }
       scr.then(result => this.onAppLoadComplete({success:true}));
     }
@@ -638,11 +639,9 @@ $todd.FrontendEmbeddedApplication = class extends  $todd.Application
   {
     // No action needed in frontend apps
   }
-};
+}
 
-$todd.FrontendEmbeddedApplication.scripts=[];
-
-$todd.BackendApplication = class extends $todd.Application
+export class BackendApplication extends ApplicationBase
 {
   // ---------------------------------------------------------------------------
   //
@@ -1205,21 +1204,19 @@ $todd.BackendApplication = class extends $todd.Application
     //FIXME more robust unload mechanism - use a centrale queue and beacon ?
     this.queueEvent('$terminate', '', false, null);
   }
-};
+}
 
 
 /****************************************************************************************************************************
  * Global application functions
  */
 
-$todd.frontendids = [];
-
 $todd.getActiveApplication = function()
 {
   return $todd.applicationstack.slice(-1)[0];
 };
 
-$todd.registerJSApp = function(name, constructor)
+export function registerJSApp(name, constructor)
 {
   jsappconstructors[name]=constructor;
-};
+}
