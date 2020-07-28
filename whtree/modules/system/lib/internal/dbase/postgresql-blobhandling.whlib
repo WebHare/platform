@@ -209,8 +209,10 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
     STRING ARRAY filterids := options.filterids;
     BOOLEAN have_filter := IsValueSet(filterids);
 
+    RECORD ARRAY topdirs := ReadDiskDirectory(MergePath(this->blobfolder, "blob"), "*");
+
     RECORD ARRAY retval;
-    FOREVERY (RECORD subfolder FROM ReadDiskDirectory(MergePath(this->blobfolder, "blob"), "*"))
+    FOREVERY (RECORD subfolder FROM topdirs)
     {
       IF (LENGTH(subfolder.name) = 2 AND ToInteger(subfolder.name, -1, 16) >= 0)
       {
@@ -225,12 +227,16 @@ STATIC OBJECTTYPE DiskBlobPartStorage EXTEND BlobPartStorageBase
               , size :=         blobfile.size64
               ];
 
-          RECORD pos := RecordLowerBound(retval, blobrec, [ "BLOBPARTID" ]);
-          INSERT blobrec INTO retval AT pos.position;
+          INSERT blobrec INTO retval AT END;
         }
       }
     }
-    RETURN retval;
+
+    // Use sort afterwards, using sort at insert is too slow due to this being a BIG list.
+    RETURN
+        SELECT *
+          FROM retval
+      ORDER BY blobpartid;
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetConnectParams()
