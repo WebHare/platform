@@ -464,7 +464,7 @@ export class ApplicationBase
       screen.processMessages(messages);
 
     var showapp = this.getToplevelApp();
-    showapp.appnodes.root.appendChild(screen.getNode());
+    showapp.appnodes.screens.appendChild(screen.getNode());
     screen.showScreen(showapp);
 
     return screen;
@@ -544,7 +544,7 @@ export class ApplicationBase
   _onMsgOpenDocumentation(url)
   {
     if (!this.docpanel)
-      this.docpanel = new DocPanel(this, this.container);
+      this.docpanel = new DocPanel(this, this.appnodes.docpanel);
     this.docpanel.load(url);
   }
 
