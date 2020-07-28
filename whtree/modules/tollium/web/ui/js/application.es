@@ -12,6 +12,8 @@ import * as whconnect from '@mod-system/js/wh/connect';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import LinkEndPoint from './comm/linkendpoint.es';
+import DocPanel from "./application/docpanel.es";
+import "./application/appcanvas.scss";
 const toddImages = require("@mod-tollium/js/icons");
 
 require("../common.lang.json");
@@ -121,14 +123,15 @@ export class ApplicationBase
 
     this.appname = appname;
     this.apptarget = apptarget || {};
+    this.appnodes = {};
     this.title = getTid("tollium:shell.loadingapp");
 
-    this.appnodes = { root: dompack.create('div', { className:"appcanvas wh-focuszone"})
-                    , appmodalitylayer: dompack.create('div', { className:"appmodalitylayer"
-                                                              , childNodes: [ dompack.create("div", {className:"loader"}) ]
-                                                            })
-                    };
-    this.appnodes.root.appendChild(this.appnodes.appmodalitylayer);
+    this.appnodes.loader = <div class="appcanvas__loader" />;
+    this.appnodes.appmodalitylayer = <div class="appcanvas__appmodalitylayer">{this.appnodes.loader}</div>;
+    this.appnodes.docpanel = <div class="appcanvas__docpanel" />;
+    this.appnodes.screens = <div class="appcanvas__screens">{this.appnodes.appmodalitylayer}</div>;
+    this.appnodes.root = <div class="appcanvas wh-focuszone">{this.appnodes.screens}{this.appnodes.docpanel}</div>;
+
     this.container.appendChild(this.appnodes.root);
 
     if(parentapp)
@@ -207,7 +210,7 @@ export class ApplicationBase
 
   getAppCanvas()
   {
-    return this.appnodes.root;
+    return this.appnodes.screens;
   }
 
   removeBusyLock(lock)
@@ -231,14 +234,14 @@ export class ApplicationBase
     else
     {
       // Indicator is being shown at the moment. Show done indicator
-      this.appnodes.root.classList.add('isbusydone');
+      this.appnodes.root.classList.add('appcanvas--isbusydone');
 
       // Remove everything after a small delay
       this.appunbusytimeout = setTimeout(() => this.undisplayBusy(), busydonedelay);
     }
 
     // Remove the modality layer immediately
-    this.appnodes.root.classList.remove('isbusy');
+    this.appnodes.root.classList.remove('appcanvas--isbusy');
   }
 
   showBusyFlags()
@@ -249,14 +252,14 @@ export class ApplicationBase
 
   displayBusy()
   {
-    this.appnodes.root.classList.add("isbusyindicator");
+    this.appnodes.root.classList.add("appcanvas--isbusyindicator");
     this.appbusytimeout = null;
   }
 
   undisplayBusy()
   {
-    this.appnodes.root.classList.remove("isbusyindicator");
-    this.appnodes.root.classList.remove("isbusydone");
+    this.appnodes.root.classList.remove("appcanvas--isbusyindicator");
+    this.appnodes.root.classList.remove("appcanvas--isbusydone");
     this.appunbusytimeout = null;
   }
 
@@ -267,7 +270,7 @@ export class ApplicationBase
 
   isBusy()
   {
-    return this.appnodes.root.classList.contains('isbusy');
+    return this.appnodes.root.classList.contains('appcanvas--isbusy');
   }
 
   /// Load the requested component types, invoke 'callback' when they are loaded
@@ -312,15 +315,13 @@ export class ApplicationBase
       return lock;
 
     // Apply the modality layer
-    this.appnodes.root.classList.add('isbusy'); //initially this just applies a modality layer
+    this.appnodes.root.classList.add('appcanvas--isbusy'); //initially this just applies a modality layer
 
     // FIXME: calculate from real animation periods
     var animation_period_lcm = 6000;
 
     // Emulate that the animation is running continuously
-    var loader = this.appnodes.root.querySelector(".loader");
-    if (loader)
-      loader.style.animationDelay = -(Date.now() % animation_period_lcm) + "ms";
+    this.appnodes.loader.animationDelay = -(Date.now() % animation_period_lcm) + "ms";
 
     // Still showing busy indicators? Hide them immediately.
     if (this.appunbusytimeout)
@@ -397,7 +398,7 @@ export class ApplicationBase
       if(curapp)
       {
         //deactivate current application
-        curapp.appnodes.root.classList.remove('visible');
+        curapp.appnodes.root.classList.remove('appcanvas--visible');
       }
 
       //move us to the end
@@ -417,7 +418,7 @@ export class ApplicationBase
           });
 
       //activate
-      this.appnodes.root.classList.add('visible');
+      this.appnodes.root.classList.add('appcanvas--visible');
 
       if($todd.applicationBar && this.apptab)
         $todd.applicationBar.setActiveShortcut(this.apptab);
@@ -538,6 +539,13 @@ export class ApplicationBase
       await opener;
       this._onMsgCloseWindow();
     }
+  }
+
+  _onMsgOpenDocumentation(url)
+  {
+    if (!this.docpanel)
+      this.docpanel = new DocPanel(this, this.container);
+    this.docpanel.load(url);
   }
 
   _onMsgAskWebHareConnect(message)

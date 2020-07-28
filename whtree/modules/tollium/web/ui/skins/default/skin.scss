@@ -196,10 +196,6 @@ t-text a
 /****************************************************************************************************************************
  * Application windows
  */
-.appcanvas
-{
-  background-color:rgba(255,255,255,.08); /* background-color: #4a4a4a; */
-}
 .t-screen
 {
   -webkit-transition: opacity 0.1s;
@@ -255,104 +251,6 @@ t-text.heading
 t-hr:before
 {
   border-bottom-color:#d0d0d0;
-}
-
-/****************************************************************************************************************************
- * Application loader
- */
-.appcanvas.isbusyindicator .appmodalitylayer
-{
-  background-color: rgba(0, 0, 0, 0.1);
-  -webkit-transition: background-color 200ms;
-  transition: background-color 200ms;
-}
-
-.appcanvas:not(.isbusyindicator) .appmodalitylayer .loader
-{
-  display: none;
-}
-
-/* Inspired by: https://ihatetomatoes.net/create-css3-spinning-preloader/
-
-   When updating the animation periods, please update the least common multiple
-   in setBusyFlag.
-*/
-
-.appcanvas .appmodalitylayer .loader
-{
-  -webkit-animation: spin 1s linear infinite;
-  animation: spin 1s linear infinite;
-  border: 5px solid transparent;
-  border-left-color: #4c95f0;
-  border-radius: 50%;
-  display: block;
-  height: 64px;
-  left: 50%;
-  margin: -32px 0 0 -32px;
-  position: absolute;
-  top: 50%;
-  width: 64px;
-}
-/* //the outer ring refuses to spin on IE11. */
-html.browser-ie11 .appcanvas .appmodalitylayer .loader
-{
-  border-width: 0;
-}
-
-.appcanvas .appmodalitylayer .loader:before
-{
-  -webkit-animation: spin 3s linear infinite;
-  animation: spin 3s linear infinite;
-  border: 5px solid transparent;
-  border-top-color: #f3ba1e;
-  border-radius: 50%;
-  bottom: 5px;
-  content: "";
-  left: 5px;
-  position: absolute;
-  top: 5px;
-  right: 5px;
-}
-.appcanvas .appmodalitylayer .loader:after
-{
-  -webkit-animation: spin 1.5s linear infinite;
-  animation: spin 1.5s linear infinite;
-  border: 5px solid transparent;
-  border-right-color: #db2727;
-  border-radius: 50%;
-  bottom: 15px;
-  content: "";
-  left: 15px;
-  position: absolute;
-  right: 15px;
-  top: 15px;
-}
-
-@-webkit-keyframes spin
-{
-  0%
-  {
-    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
-  }
-  100%
-  {
-    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
-  }
-}
-@keyframes spin
-{
-  0%
-  {
-    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
-  }
-  100%
-  {
-    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
-    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
-  }
 }
 
 /****************************************************************************************************************************

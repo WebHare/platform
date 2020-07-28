@@ -40,7 +40,7 @@ test.registerTests(
 
         // Second app must be active
         test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));
@@ -62,7 +62,7 @@ test.registerTests(
 
         // Second app must be active
         test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));
@@ -83,7 +83,7 @@ test.registerTests(
 
         // Second app must be active
         test.eq([ tabs[1] ], Array.from(test.qSA('.t-apptab--activeapp')));
-        test.eq([ apps[1] ], Array.from(test.qSA('.appcanvas.visible')));
+        test.eq([ apps[1] ], Array.from(test.qSA('.appcanvas--visible')));
 
         test.click(test.getMenu(['X03']));
       }
@@ -100,7 +100,7 @@ test.registerTests(
 
         // Second app must be active
         test.eq([ tabs[2] ], Array.from(test.qSA('.t-apptab--activeapp')));
-        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas.visible')));
+        test.eq([ apps[2] ], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
         test.true(tabs[1].textContent.includes('app_0_0'));

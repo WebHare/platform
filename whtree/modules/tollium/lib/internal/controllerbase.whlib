@@ -1449,7 +1449,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   /// Application title
   PUBLIC PROPERTY apptitle(title, SetApplicationTitle);
 
-
   /// Current user
   PUBLIC PROPERTY user(getuser, -);
 
@@ -1744,6 +1743,12 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   {
     //TODO  trust non-sysops being impersonated by sysops too ?
     RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
+  }
+
+  PUBLIC MACRO OpenAppDocumentation(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[], options);
+    this->ExecuteClientCall("OpenDocumentation", url);
   }
 
   MACRO AddAppIssue(STRING issuetag)

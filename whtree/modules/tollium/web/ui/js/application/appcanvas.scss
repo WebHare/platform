@@ -1,0 +1,135 @@
+
+.appcanvas
+{
+  bottom: 0;
+  left: -1000%;
+  overflow: hidden;
+  position: absolute;
+  width: 100%;
+  top: 0;
+  z-index: 0;
+}
+
+.appcanvas.appcanvas--visible
+{
+  left: 0;
+}
+
+.appcanvas .appcanvas__appmodalitylayer
+{
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 999999;
+  display: none;
+}
+
+.appcanvas.appcanvas--isbusy .appcanvas__appmodalitylayer
+{
+  display: block;
+}
+
+/****************************************************************************************************************************
+ * Application loader
+ */
+.appcanvas.isbusyindicator .appcanvas__appmodalitylayer
+{
+  background-color: rgba(0, 0, 0, 0.1);
+  -webkit-transition: background-color 200ms;
+  transition: background-color 200ms;
+}
+
+.appcanvas:not(.appcanvas--isbusyindicator) .appcanvas__appmodalitylayer .appcanvas__loader
+{
+  display: none;
+}
+
+/* Inspired by: https://ihatetomatoes.net/create-css3-spinning-preloader/
+
+   When updating the animation periods, please update the least common multiple
+   in setBusyFlag.
+*/
+
+.appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
+{
+  -webkit-animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite;
+  border: 5px solid transparent;
+  border-left-color: #4c95f0;
+  border-radius: 50%;
+  display: block;
+  height: 64px;
+  left: 50%;
+  margin: -32px 0 0 -32px;
+  position: absolute;
+  top: 50%;
+  width: 64px;
+}
+/* //the outer ring refuses to spin on IE11. */
+html.browser-ie11 .appcanvas .appcanvas__appmodalitylayer .appcanvas__loader
+{
+  border-width: 0;
+}
+
+.appcanvas .appcanvas__appmodalitylayer .appcanvas__loader:before
+{
+  -webkit-animation: spin 3s linear infinite;
+  animation: spin 3s linear infinite;
+  border: 5px solid transparent;
+  border-top-color: #f3ba1e;
+  border-radius: 50%;
+  bottom: 5px;
+  content: "";
+  left: 5px;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+.appcanvas .appcanvas__appmodalitylayer .appcanvas__loader:after
+{
+  -webkit-animation: spin 1.5s linear infinite;
+  animation: spin 1.5s linear infinite;
+  border: 5px solid transparent;
+  border-right-color: #db2727;
+  border-radius: 50%;
+  bottom: 15px;
+  content: "";
+  left: 15px;
+  position: absolute;
+  right: 15px;
+  top: 15px;
+}
+
+@-webkit-keyframes spin
+{
+  0%
+  {
+    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
+    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
+  }
+  100%
+  {
+    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
+    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
+  }
+}
+@keyframes spin
+{
+  0%
+  {
+    -webkit-transform: rotate(0deg);  /* Chrome, Opera 15+, Safari 3.1+ */
+    transform: rotate(0deg);  /* Firefox 16+, IE 10+, Opera */
+  }
+  100%
+  {
+    -webkit-transform: rotate(360deg);  /* Chrome, Opera 15+, Safari 3.1+ */
+    transform: rotate(360deg);  /* Firefox 16+, IE 10+, Opera */
+  }
+}
+
+.appcanvas
+{
+  background-color:rgba(255,255,255,.08); /* background-color: #4a4a4a; */
+}
