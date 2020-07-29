@@ -90,3 +90,10 @@ ADD dropins /
 
 # Create the shrinkwrap
 RUN --mount=type=tmpfs,target=/opt/whdata,readwrite /opt/wh/whtree/modules/system/scripts/internal/create_shrinkwrap.sh
+
+# Add a label with the commit SHA
+ARG CI_COMMIT_SHA
+ARG CI_PIPELINE_ID
+LABEL com.webhare.webhare.git-commit-sha="$CI_COMMIT_SHA" \
+      com.webhare.webhare.git-commit-ref="$CI_COMMIT_REF_NAME" \
+      com.webhare.webhare.pipelineid="$CI_PIPELINE_ID"
