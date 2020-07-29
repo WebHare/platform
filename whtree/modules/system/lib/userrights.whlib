@@ -28,7 +28,7 @@ PUBLIC OBJECT FUNCTION GetPrimaryWebhareUserApi()
   RETURN GetWRDAuthUserAPI(primaryplugin->wrdschema);
 }
 
-/** @short Require the current request to be from a loggedin WebHare user
+/** @short Require the current request to be from a loggedin WebHare user. This function should only be used in cross-domain situations.
     @return Loggedin user (throws if not logged in) */
 PUBLIC OBJECT FUNCTION RequireLoggedinWebHareUser()
 {
