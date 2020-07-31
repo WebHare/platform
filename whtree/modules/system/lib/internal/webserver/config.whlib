@@ -638,7 +638,7 @@ OBJECTTYPE WebConfigBuilder
     RETURN datastorage;
   }
 
-  RECORD ARRAY FUNCTION GenerateSiteprofileConfig(RECORD ARRAY hosts)
+  RECORD ARRAY FUNCTION GenerateSiteprofileConfig(INTEGER ARRAY interfacehosts, RECORD ARRAY hosts)
   {
     RECORD csp := GetCachedSiteProfiles();
     INTEGER ARRAY allaffectedsites;
@@ -658,13 +658,17 @@ OBJECTTYPE WebConfigBuilder
                                    FROM system.sites
                                   WHERE id IN allaffectedsites
                                         AND outputweb != 0;
+
+    INTEGER outputweb_interface := SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend;
+
     RECORD ARRAY outrules;
     FOREVERY(RECORD applytosite FROM applytosites)
       FOREVERY(RECORD match FROM SELECT * FROM csp.webrules WHERE applytosite.id IN webrules.siteids)
       {
+        //siteprofile access rules that apply to the interfacehost (eg the webserver used by Webhare backend) must apply to all interface instances
         RECORD ARRAY myrules := SELECT *
                                      , datastorage :=   this->RewriteSiteProfileWebRuleDataStorage(datastorage, applytosite)
-                                     , limitservers :=  [ INTEGER(applytosite.outputweb) ]
+                                     , limitservers :=  applytosite.outputweb =  outputweb_interface ? interfacehosts : [ INTEGER(applytosite.outputweb) ]
                                      , path :=          Left(applytosite.outputfolder,Length(applytosite.outputfolder)-1) || path
                                      , vars :=          CELL[ ...vars, applytosite.sitename, siteslug := Tolowercase(Substitute(applytosite.sitename, " ", "-")) ]
                                   FROM match.rules;
@@ -1017,7 +1021,7 @@ OBJECTTYPE WebConfigBuilder
                CONCAT this->GeneratePreloadRules(interfacehosts)
                CONCAT access
                CONCAT this->GenerateModuleConfig(interfacehosts, hosts)
-               CONCAT this->GenerateSiteprofileConfig(hosts);
+               CONCAT this->GenerateSiteprofileConfig(interfacehosts, hosts);
       rules := this->LookupDataStoragePaths(rules, hosts);
     }
 
