@@ -255,7 +255,7 @@ STRING FUNCTION InternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN r
 
   // Get the timeout in case this was a socket, -1 is no timeout. WFM honors timeouts up to 1 hour.
   INTEGER timeout := __HS_TCPIP_GetSocketTimeout(inputid);
-  BOOLEAN got_timeout;
+  BOOLEAN need_waitreset, got_timeout;
   WHILE (LENGTH(cache) < minread)
   {
     //PRINTTO(1, "loop irf " || res.status || "\n");
@@ -266,6 +266,10 @@ STRING FUNCTION InternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN r
         IF (res.data = "" OR readline)
         {
           //PRINTTO(1, "break, got data\n");
+
+          IF (need_waitreset)
+            __HS_INTERNAL_CANCELRECEIVELINE(inputid);
+
           BREAK;
         }
       }
@@ -280,6 +284,8 @@ STRING FUNCTION InternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN r
           // We must go through the final receivefrom to get the data from the stream and to reset the
           // ignoring of the internal buffer for signalledness determination
         }
+        ELSE
+          need_waitreset := TRUE;
       }
     DEFAULT // error, return what's in cache
       {
