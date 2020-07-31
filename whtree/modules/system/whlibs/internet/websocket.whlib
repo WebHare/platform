@@ -133,7 +133,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
 
     INTEGER buflen := LENGTH(this->inbuffer);
     IF (buflen < 2)
-      RETURN [ status := "incomplete", needbytes := 2i64 - buflen + (this->localisclient ? 0 : 4) ]; // 1 header, maybe mask
+      RETURN [ status := "timeout", needbytes := 2i64 - buflen + (this->localisclient ? 0 : 4) ]; // 1 header, maybe mask
     RECORD res := DecodePacket("op:C,payload:C", Left(this->inbuffer, 2));
 
     BOOLEAN fin := (res.op BITAND 128) != 0;
@@ -146,14 +146,14 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
     IF (payloadlen64 = 126)
     {
       IF (buflen < 4)
-        RETURN [ status := "incomplete", needbytes := 4i64 - buflen + (this->localisclient ? 0 : 4) ];
+        RETURN [ status := "timeout", needbytes := 4i64 - buflen + (this->localisclient ? 0 : 4) ];
       payloadlen64 := DecodePacket("payload:N", SubString(this->inbuffer, 2, 2)).payload;
       pos := pos + 2;
     }
     ELSE IF (payloadlen64 = 127)
     {
       IF (buflen < 10)
-        RETURN [ status := "incomplete", needbytes := 10i64 - buflen + (this->localisclient ? 0 : 4) ];
+        RETURN [ status := "timeout", needbytes := 10i64 - buflen + (this->localisclient ? 0 : 4) ];
       payloadlen64 := DecodePacket("payload:D", SubString(this->inbuffer, 2, 8)).payload;
       pos := pos + 8;
     }
@@ -167,7 +167,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
     IF (mask)
     {
       IF (buflen < pos + 4)
-        RETURN [ status := "incomplete", needbytes := pos + 4i64 - buflen ];
+        RETURN [ status := "timeout", needbytes := pos + 4i64 - buflen ];
       maskingkey := SubString(this->inbuffer, pos, 4);
       pos := pos + 4;
     }
@@ -221,7 +221,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
     }
 
     IF (this->datastreamlen < header.payloadlen)
-      RETURN [ status := "incomplete", needbytes := header.payloadlen - this->datastreamlen ];
+      RETURN [ status := "timeout", needbytes := header.payloadlen - this->datastreamlen ];
 
     // Packet complete
     BLOB packetdata := this->RemoveDataFromStream();
@@ -308,7 +308,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
   OBJECT ASYNC FUNCTION ReceiveRawPacketInternal(DATETIME wait_until)
   {
     RECORD rec := this->DecodePacket();
-    WHILE (rec.status = "incomplete")
+    WHILE (rec.status = "timeout")
     {
       INTEGER64 needbytes := rec.needbytes;
       WHILE (needbytes > 0)
@@ -382,21 +382,11 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
 
   OBJECT ASYNC FUNCTION ReceivePacketInternal(DATETIME wait_until)
   {
-    IF (RecordExists(this->curpacket) AND this->curpacket.fin)
-    {
-      RECORD answer := this->curpacket;
-      this->curpacket := DEFAULT RECORD;
-      DELETE CELL fin FROM answer;
-      IF (answer.status = "incomplete")
-        answer.status := "timeout";
-      RETURN answer;
-    }
-
     WHILE (TRUE)
     {
       RECORD packet := AWAIT this->ReceiveRawPacketInternal(wait_until);
       IF (packet.status != "ok")
-        RETURN packet;
+        RETURN CELL[ ...packet, DELETE fin ];
 
       IF (NOT packet.fin)
       {
@@ -406,9 +396,9 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
           this->curpacket.data := this->curpacket.data || packet.data;
         ELSE
         {
-          RECORD answer := [ status := "error", msg := "Error during reassembly" ];
           this->curpacket := packet;
-          RETURN answer;
+          //FIXME this error state should probably persist, we're desynced
+          RETURN [ status := "error", msg := "Error during reassembly" ];
         }
 
         CONTINUE;
@@ -421,10 +411,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
         this->curpacket := DEFAULT RECORD;
       }
 
-      DELETE CELL fin FROM packet;
-      IF (packet.status = "incomplete")
-        packet.status := "timeout";
-      RETURN packet;
+      RETURN CELL[ ...packet, DELETE fin ];
     }
   }
 
