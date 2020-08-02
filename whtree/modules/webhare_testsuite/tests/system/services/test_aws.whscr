@@ -54,9 +54,32 @@ MACRO Test_S3()
 
   STRING testcontent := "This is a test - " || GenerateUFS128BitId();
   s3->PutObject(bucket, "/testfile", StringToBlob(testcontent));
+  s3->PutObject(bucket, "testfile2", StringToBlob(testcontent));
+  s3->PutObject(bucket, "/testdir/testfile", StringToBlob(testcontent));
+  s3->PutObject(bucket, "testdir/testfile2", StringToBlob(testcontent));
+  s3->PutObject(bucket, "testdir/testfile2", StringToBlob(testcontent));
+  s3->PutObject(bucket, "/testdir/testdeeper/testfile", StringToBlob(testcontent));
 
   RECORD ARRAY dir := s3->GetDirectory(bucket,"/");
-  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile" AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile2" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir" AND isfolder AND size=0));
+  TestEq(3, Length(dir));
+
+  dir := s3->GetDirectory(bucket,"/testdir");
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testfile" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testfile2" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testdeeper" AND isfolder AND size=0));
+  TestEq(3, Length(dir));
+
+  dir := s3->GetDirectory(bucket,"/testdir/");
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testfile" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testdeeper" AND isfolder AND size=0));
+  TestEq(3, Length(dir));
+
+  dir := s3->GetDirectory(bucket,"/testdir/testdeeper/");
+  TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testdeeper/testfile" AND isfolder = FALSE AND size=Length(testcontent)));
+  TestEq(1, Length(dir));
 
   RECORD obj := s3->GetObject(bucket, "/testfile");
   TestEq(testcontent, BlobToString(obj.body));
