@@ -1361,6 +1361,10 @@ OBJECT ASYNC FUNCTION AsyncInternalReadFrom(INTEGER inputid, INTEGER maxnumbytes
     DEFAULT // error, return what's in cache
       {
         // PRINTTO(1, "AIRF got error\n");
+
+        IF (need_waitreset)
+          __HS_INTERNAL_CANCELRECEIVELINE(inputid);
+
         BREAK;
       }
     }

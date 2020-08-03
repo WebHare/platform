@@ -290,6 +290,10 @@ STRING FUNCTION InternalReadFrom(INTEGER inputid, INTEGER maxnumbytes, BOOLEAN r
     DEFAULT // error, return what's in cache
       {
         //PRINTTO(1, "got error\n");
+
+        IF (need_waitreset)
+          __HS_INTERNAL_CANCELRECEIVELINE(inputid);
+
         BREAK;
       }
     }
