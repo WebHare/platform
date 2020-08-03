@@ -605,6 +605,7 @@ DELETE FROM system.mimetypes WHERE mimetype="application/mp4" AND extension="mp4
 STRING ARRAY curextensions := SELECT AS STRING ARRAY ToUppercase(extension) FROM system.mimetypes;
 UPDATE system.mimetypes SET mimetype := "text/css; charset=UTF-8" WHERE mimetype = "text/css" AND extension = "css";
 UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension IN ["ics","ifb"];
+UPDATE system.mimetypes SET mimetype := "application/javascript" WHERE mimetype = "application/x-javascript" AND extension = "js";
 
 FOREVERY(RECORD installtype FROM standard_mimetypes)
 {
