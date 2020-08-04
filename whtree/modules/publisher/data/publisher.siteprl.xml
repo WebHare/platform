@@ -698,6 +698,21 @@
     <member name="deletion" type="datetime" /> <!-- When to delete this file. PERMANENT! -->
   </contenttype>
 
+  <!-- URLHistory save - saves URL history and other related data for recovery before migrating between servers -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/savedurlhistory">
+    <datetime name="creationdate" />
+    <datetime name="modificationdate" />
+    <integer name="originalid" />
+    <integer name="modifiedby" />
+    <string name="path" />
+    <string name="targetpath" />
+    <string name="objecturl" />
+    <array name="urlhistory">
+      <datetime name="creationdate" />
+      <string name="url" />
+    </array>
+  </contenttype>
+
   <apply>
     <to type="all" />
 

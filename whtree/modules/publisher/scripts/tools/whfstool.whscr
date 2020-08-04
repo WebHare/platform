@@ -1,10 +1,15 @@
 <?wh
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
+
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
                                                      , [ name := "pin", type := "switch" ]
+                                                     , [ name := "saveurlhistory", type := "switch" ]
+                                                     , [ name := "__restoremodificationdatefromurlhistory", type := "switch" ]
                                                      , [ name := "unpin", type := "switch" ]
                                                      , [ name := "dryrun", type := "switch" ]
                                                      , [ name := "paths", type := "paramlist" ]
@@ -24,8 +29,12 @@ IF(args.pin AND args.unpin)
 }
 
 OBJECT trans := OpenPrimary();
-BOOLEAN listonly := NOT (args.pin OR args.unpin);
+OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory);
 INTEGER ARRAY startobjids;
+
+IF(args.__restoremodificationdatefromurlhistory AND args.saveurlhistory)
+  TerminateScriptWithError("save and restore cannot be mixed");
 
 FOREVERY(STRING path FROM args.paths)
 {
@@ -63,6 +72,46 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
         Print( (args.pin ? "Pin: " : "Unpin: ") || topin.whfspath || "\n");
         OpenWHFSObject(topin.id)->UpdateMetadata( [ ispinned := args.pin ]);
       }
+    }
+    IF(args.saveurlhistory)
+    {
+      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects;
+      RECORD ARRAY history := SELECT urlhistory.creationdate
+                                   , urlhistory.url
+                                   , urlhistory.fsobject
+                                FROM publisher.urlhistory
+                               WHERE fsobject IN VAR ids;
+      RECORD ARRAY objinfo := SELECT originalid := id
+                                   , objecturl
+                                   , creationdate
+                                   , modificationdate
+                                   , modifiedby
+                                   , path := whfspath
+                                FROM system.fs_objects
+                               WHERE id IN VAR ids;
+
+      RECORD ARRAY targeturls := SELECT source.id
+                                      , target.whfspath
+                                   FROM system.fs_objects AS source
+                                      , system.fs_objects AS target
+                                  WHERE source.filelink = target.id
+                                        AND source.id IN VAR ids;
+
+      FOREVERY(RECORD obj FROM objinfo)
+      {
+        saveurlhistorytype->SetInstanceData(obj.originalid,
+          [ ...obj
+          , targetpath := (SELECT AS STRING whfspath FROM targeturls WHERE id = obj.originalid)
+          , urlhistory := (SELECT creationdate, url FROM history WHERE fsobject = obj.originalid)
+          ], [ isvisibleedit := FALSE ]);
+      }
+    }
+    IF(args.__restoremodificationdatefromurlhistory)
+    {
+      objects := saveurlhistorytype->Enrich(objects, "ID", [ "modificationdate" ]);
+      FOREVERY(RECORD obj FROM objects)
+        IF(obj.modificationdate != DEFAULT DATETIME)
+          UPDATE system.fs_objects SET modificationdate := obj.modificationdate WHERE id = obj.id;
     }
   }
 

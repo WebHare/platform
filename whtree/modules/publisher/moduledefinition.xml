@@ -238,11 +238,7 @@
           SHA1 hash of the normalized URL, used for indexing
         </d:documentation>
       </d:bytea>
-      <d:datetime name="expirydate">
-        <d:documentation>
-          The moment this history item expires
-        </d:documentation>
-      </d:datetime>
+      <d:obsoletecolumn name="expirydate" /> <!-- created but never appeared in dbschema.whlib -->
     </d:table>
 
     <d:table name="compileddesigns" primarykey="id">
