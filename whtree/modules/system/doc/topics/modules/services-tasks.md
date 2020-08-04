@@ -74,7 +74,7 @@ Scheduled tasks run at predefined times. They are defined by a task in the
   <!-- Defines a task that runs at 00:13 UTC -->
   <task runat="13 0 * * *"  tag="updates" script="scripts/tasks/updates.whscr" />
   <!-- Defines a task that runs every monday at 15:00 Amsterdam time -->
-  <task runat="15 0 * * 1"  runtz="Europe/Amsterdam" tag="mondays" script="scripts/tasks/mondays.whscr" />
+  <task runat="0 15 * * 1"  runtz="Europe/Amsterdam" tag="mondays" script="scripts/tasks/mondays.whscr" />
   <!-- Defines a task that runs at 00:45 in the special 'maintenance' timezone -->
   <task runat="45 0 * * *"  runtz="maintenance" tag="maintenance" script="scripts/tasks/maintenance.whscr" />
 ```
