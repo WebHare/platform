@@ -1,17 +1,15 @@
 ﻿<?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 
 
 /** Handles exlusive opening of tollium screens (or locking for actions), with support for
     stealing acccess by other users
-    @param screen Screen opening the exclusive access
-    @param identifier Identifies the unique resource whith to protect
-    @param options Options
-    @cell(function ptr) options.onbeforesteal Callback called just before the screen is stolen
-    @cell(function ptr) options.onsteal Callback called after the screen has been stolen
-    @cell(record) options.subscreensonly Close only subscreens of the opening screen
 */
 PUBLIC STATIC OBJECTTYPE ExclusivityHandler
 < // ---------------------------------------------------------------------------
@@ -77,6 +75,14 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
   // Constructor
   //
 
+  /** Constructs a new ExclusivityHandler object
+    @param screen Screen opening the exclusive access
+    @param identifier Identifies the unique resource whith to protect
+    @param options Options
+    @cell(function ptr) options.onbeforesteal Callback called just before the screen is stolen
+    @cell(function ptr) options.onsteal Callback called after the screen has been stolen
+    @cell(record) options.subscreensonly Close only subscreens of the opening screen
+  */
   MACRO NEW(OBJECT screen, STRING identifier, RECORD options)
   {
     this->screen := screen;
@@ -426,3 +432,382 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
     }
   }
 >;
+
+/** Returns TRUE when a specific tag has a tollium screen exclusive lock. Only
+    works within the webserver process!
+    @param tag Exclusive lock tag
+    @return TRUE if an exclusive lock is present for that tag
+    @public
+    @loadlib mod::tollium/lib/applications.whlib
+    @topic tollium/appdev
+*/
+PUBLIC BOOLEAN FUNCTION TestExclusiveLocked(RECORD tag)
+{
+  STRING identifier := EncodeUFS(GetSHA1Hash(EncodeHSON(tag)));
+  OBJECT link := ConnectToIPCPort("tollium:exclusive_access." || identifier);
+  IF (ObjectExists(link))
+  {
+    link->Close();
+    RETURN TRUE;
+  }
+
+  RETURN FALSE;
+}
+
+
+/** Status object returned by [GetBulkExclusiveLock](#GetBulkExclusiveLock)
+    @public
+    @topic tollium/appdev
+*/
+STATIC OBJECTTYPE BulkExclusiveKeeper
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// Options
+  RECORD _options;
+
+  /// Cancel token source used to stop all async functions
+  OBJECT canceltokensource;
+
+  /** status per tag
+      @cell tag Tag
+      @cell status @includecelldef #pertagstatus.status
+      @cell id @includecelldef #pertagstatus.id
+  */
+  RECORD ARRAY _status;
+
+  /// Time that lock request was started
+  DATETIME _requesttime;
+
+  /// Deadline for close requests
+  DATETIME _deadline;
+
+  /// Deferred promise for lock waits
+  RECORD _defer;
+
+  /// Deferred promise for close waits
+  RECORD _closedefer;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  /** @type(string) Wait mode:
+      - 'try': Try to lock, give back identifications of locksed items
+      - 'requestclose': Ask for locks, allow users to deny
+      - 'forceclose': Close screen locks (won't close bulk exclusive locks)
+  */
+  PUBLIC PROPERTY mode(this->_options.mode, -);
+
+  /** @type(string) Status
+      - "none": None of the locks succeeded
+      - "partial": Not all locks succeeded
+      - "ok": all locks are taken
+      - "closed": Closed
+  */
+  PUBLIC PROPERTY status(GetStatus, -);
+
+  /** Status per tag
+      @cell(record) tag Lock tag
+      @cell(string) status Lock status
+          - "acquiring": Acquiring lock
+          - "identified": Acquiring lock, got identification about the party holding the lock
+          - "denied": Lock acquire denied by current holder
+          - "ok": Lock acquired
+          - "closed": keeper closed
+      @cell(record) id Identification (only when status is "identified" or "denied")
+  */
+  PUBLIC PROPERTY pertagstatus(GetPerTagStatus, -);
+
+  /** @type(datetime) Deadline for releasing the lock (for mode "requestclose")
+  */
+  PUBLIC PROPERTY deadline(_deadline, -);
+
+  /** @type(datetime)
+  */
+  PUBLIC PROPERTY requesttime(_requesttime, -);
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(RECORD ARRAY tags, RECORD options)
+  {
+    this->canceltokensource := NEW CancellationTokenSource;
+    this->_options := options;
+    this->_status :=
+        SELECT identifier
+             , tag
+             , identity :=      DEFAULT RECORD
+             , orgdata
+          FROM tags;
+
+    INTEGER waitsecs := options.takeovertime ?? ReadRegistryKey("system.backend.exclusiveaccess.takeovertime");
+    this->_defer := CreateDeferredPromise();
+    this->_closedefer := CreateDeferredPromise();
+    this->_requesttime := GetCurrentDateTime();
+    this->_deadline := AddTimeToDate(waitsecs * 1000, this->_requesttime);
+
+    FOREVERY (RECORD rec FROM this->_status)
+      this->TryGetPort(#rec);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Getters / setters
+  //
+
+  RECORD ARRAY FUNCTION GetPerTagStatus()
+  {
+    DumpValue(this->_status);
+    RETURN
+        SELECT ...orgdata
+             , status
+             , identity
+          FROM this->_status;
+  }
+
+  STRING FUNCTION GetStatus()
+  {
+    STRING retval := "none";
+    FOREVERY (RECORD rec FROM this->_status)
+      IF (rec.status != "ok")
+        RETURN retval;
+      ELSE
+        retval := "partial";
+    RETURN "locked";
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO UpdateStatus(INTEGER pos, RECORD updates)
+  {
+    this->_status[pos] := CELL[ ...this->_status[pos], ...updates ];
+    this->ProcessWaits();
+
+  }
+
+  MACRO ProcessWaits()
+  {
+    BOOLEAN allfinished := TRUE, allidentified := TRUE, alllocked := TRUE, allclosed := TRUE;
+    FOREVERY (RECORD rec FROM this->_status)
+    {
+      IF (rec.status = "acquiring")
+      {
+        allfinished := FALSE;
+        allidentified := FALSE;
+      }
+      IF (rec.status = "identified")
+        allfinished := FALSE;
+      IF (rec.status != "ok")
+        alllocked := FALSE;
+      IF (rec.status != "closed")
+        allclosed := FALSE;
+    }
+
+    IF (allfinished OR (this->mode = "try" AND allidentified))
+      this->_defer.resolve(alllocked);
+    IF (allclosed)
+      this->_closedefer.resolve(TRUE);
+  }
+
+  ASYNC MACRO HandlePort(INTEGER pos, OBJECT port)
+  {
+    (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+    OBJECT canceltoken := (AWAIT GetAsyncControl())->canceltoken;
+    TRY
+    {
+      WHILE (TRUE)
+      {
+        OBJECT link := AWAIT port->AsyncAccept(MAX_DATETIME);
+        this->HandlePortLink(link)->LinkToken(canceltoken);
+      }
+    }
+    CATCH (OBJECT< OperationCancelledException > e)
+    {
+      this->UpdateStatus(pos, [ status := "closed" ]);
+    }
+    FINALLY
+      port->Close();
+  }
+
+  ASYNC MACRO HandlePortLink(OBJECT link)
+  {
+    TRY
+    {
+      (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+
+      WHILE (TRUE)
+      {
+        RECORD rec := AWAIT link->AsyncReceiveMessage(MAX_DATETIME);
+        IF (rec.status != "ok")
+          RETURN;
+
+        SWITCH (rec.msg.type)
+        {
+          CASE "identify"
+          {
+            // Identification request
+            link->SendReply(
+                [ login :=    this->_options.user->login
+                , realname := this->_options.user->realname
+                , entityid := this->_options.user->entityid
+                , groupid :=  GetCurrentGroupId()
+                ], rec.msgid);
+          }
+          CASE "close", "requestclose"
+          {
+            // Ignoring, assume that a bulk operation is speedy
+          }
+        }
+      }
+    }
+    CATCH (OBJECT< OperationCancelledException > e)
+    {
+    }
+    FINALLY
+      link->Close();
+  }
+
+  ASYNC MACRO HandleExtLink(OBJECT link, INTEGER pos)
+  {
+    TRY
+    {
+      (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+      RECORD rec := AWAIT link->AsyncDoRequest([ type := "identify" ]);
+
+      this->UpdateStatus(pos, [ status := "identified", id := rec.msg ]);
+      IF (this->mode = "try")
+        RETURN;
+
+      rec := AWAIT link->AsyncDoRequest(CELL
+          [ type :=     this->mode = "requestclose" ? "requestclose" : "close"
+          , login :=    this->_options.user->login
+          , realname := this->_options.user->realname
+          , this->deadline
+          ]);
+
+      // try to open the port before the link is closed
+      this->TryGetPort(pos);
+      RETURN;
+    }
+    CATCH (OBJECT< OperationCancelledException > e)
+    {
+      this->UpdateStatus(pos, [ status := "closed" ]);
+    }
+    FINALLY
+    {
+      link->Close();
+    }
+  }
+
+  MACRO TryGetPort(INTEGER pos)
+  {
+    OBJECT canceltoken := this->canceltokensource->canceltoken;
+    this->UpdateStatus(pos, [ status := "acquiring" ]);
+
+    STRING portname := "tollium:exclusive_access." || this->_status[pos].identifier;
+    WHILE (TRUE)
+    {
+      TRY
+      {
+        OBJECT port := CreateIPCPort(portname);
+        this->UpdateStatus(pos, [ status := "ok", id := DEFAULT RECORD ]);
+        this->HandlePort(pos, port)->LinkToken(canceltoken);
+        BREAK;
+      }
+      CATCH
+      {
+        OBJECT link := ConnectToIPCPort(portname);
+        IF (ObjectExists(link))
+        {
+          this->HandleExtLink(link, pos)->LinkToken(canceltoken);
+          BREAK;
+        }
+      }
+    }
+
+    this->ProcessWaits();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Returns a promise that will be resolved when the locked status is known. Returns TRUE
+      when all locks are taken
+  */
+  PUBLIC ASYNC FUNCTION AsyncWaitLocked()
+  {
+    this->ProcessWaits();
+    RETURN AWAIT this->_defer.promise;
+  }
+
+  /** Close the lock and cancels takeover requests - warning: executes asynchronous code.
+  */
+  PUBLIC MACRO Close()
+  {
+    this->canceltokensource->Cancel();
+    WaitForPromise(this->_closedefer.promise);
+    this->_defer.resolve(FALSE);
+  }
+>;
+
+/** Get an exclusive lock on multiple objects. Only works within the webserver process!
+    @param tags List of tags
+    @cell(record) tags.tag Tag
+    @cell options.mode Mode:
+        - "try": Try to get the locks, take onle the free locks
+        - "requestclose": Request the locks from the users
+        - "forceclose": Force close screens of users holding the lock
+    @cell options.takeovertime Override default takeover time
+    @cell options.user User object (required)
+    @return(object #BulkExclusiveKeeper) Status object
+    @public
+    @loadlib mod::tollium/lib/applications.whlib
+    @topic tollium/appdev
+*/
+PUBLIC OBJECT FUNCTION GetBulkExclusiveLock(RECORD ARRAY tags, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF (IsDefaultValue(tags))
+    THROW NEW Exception(`At least one tag expected`);
+
+  FOREVERY (RECORD tag FROM tags)
+  {
+    tags[#tag] := ValidateOptions(
+        [ tag :=        DEFAULT RECORD
+        ], tag,
+        [ title := `tags[${#tag}]`
+        , passthrough := TRUE
+        ]);
+  }
+
+  tags :=
+      SELECT identifier :=  EncodeUFS(GetSHA1Hash(EncodeHSON(tag)))
+           , tag
+           , orgdata :=     tags
+        FROM tags;
+
+  options := ValidateOptions(
+      [ mode :=           ""
+      , takeovertime :=   0
+      , user :=           DEFAULT OBJECT
+      ], options,
+      [ enums := [ mode := [ "try", "requestclose", "forceclose" ] ]
+      , required := [ "user" ]
+      ]);
+
+  RECORD pos := SELECT pos := Any(#tags) FROM tags GROUP BY identifier HAVING Count(*) > 1;
+  IF (RecordExists(SELECT FROM tags GROUP BY identifier HAVING Count(*) > 1))
+    THROW NEW Exception(`Tag #${pos.pos} is mentioned more than once`);
+
+  RETURN NEW BulkExclusiveKeeper(tags, options);
+}
