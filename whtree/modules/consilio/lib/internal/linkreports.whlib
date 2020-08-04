@@ -219,20 +219,27 @@ RECORD ARRAY FUNCTION GetLinksForWRDEntityAttributes(INTEGER entityid, INTEGER A
              AND fs_settings.fs_instance = fs_instances.id
              AND fs_settings.ordering IN [ 0, 2 ]; // Only select htmlvalue and links
 
-  RECORD ARRAY fs_settings :=
-      SELECT links.url
-           , links.status
-           , links.checked
-           , objectlinks.text
-           , referrer := wrd_fs_settings.name
-           , parentattr := wrd_fs_settings.parent
-        FROM consilio.checked_links AS links
-           , consilio.checked_objectlinks AS objectlinks
-           , wrd_fs_settings
-       WHERE objectlinks.system_fs_setting = wrd_fs_settings.id
-             AND objectlinks.link = links.id;
+  RECORD ARRAY settings := direct_settings;
+  IF(Length(wrd_fs_settings) > 0)
+  {
+    INTEGER ARRAY fs_setting_ids := SELECT AS INTEGER ARRAY id FROM wrd_fs_settings;
+    RECORD ARRAY fs_settings :=
+        SELECT links.url
+             , links.status
+             , links.checked
+             , objectlinks.text
+             , referrer := wrd_fs_settings.name
+             , parentattr := wrd_fs_settings.parent
+          FROM consilio.checked_links AS links
+             , consilio.checked_objectlinks AS objectlinks
+             , wrd_fs_settings
+         WHERE objectlinks.system_fs_setting IN fs_setting_ids
+               AND objectlinks.system_fs_setting = wrd_fs_settings.id
+               AND objectlinks.link = links.id;
 
-  RECORD ARRAY settings := direct_settings CONCAT fs_settings;
+    settings := settings CONCAT fs_settings;
+  }
+
   UPDATE settings
      SET referrer := GetRecursiveWRDAttributeTag(referrer, parentattr)
    WHERE parentattr != 0;
