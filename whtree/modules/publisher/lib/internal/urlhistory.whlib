@@ -2,17 +2,12 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::filetypes/csv.whlib";
-LOADLIB "wh::ooxml/spreadsheet.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
-LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 PUBLIC STRING FUNCTION PrepareHistoryURLForDisplay(STRING inurl)
 {
@@ -139,30 +134,6 @@ PUBLIC STRING ARRAY FUNCTION GetURLHistory(INTEGER fileid)
 PUBLIC RECORD ARRAY FUNCTION GetURLHistoryData(INTEGER fileid)
 {
   RETURN SELECT id, url, creationdate FROM publisher.urlhistory WHERE fsobject = fileid;
-}
-
-PUBLIC BLOB FUNCTION ExportURLHistoryForFolder(INTEGER folderid)
-{
-  OBJECT folder := OpenWHFSObject(folderid);
-  INTEGER ARRAY children := GetWHFSDescendantIds(folder->id, FALSE, TRUE);
-
-  OBJECT fpe := NEW WHFSBulkSender(folder->id, "whfs::" || folder->whfspath);
-  RECORD ARRAY history := SELECT * FROM publisher.urlhistory WHERE fsobject IN children;
-
-  RECORD ARRAY exportdata;
-  OBJECT csv := NEW CSVColumnFileWriter;
-
-  FOREVERY(RECORD entry FROM history)
-  {
-    INSERT [ creationdate := entry.creationdate
-           , fsobject := fpe->MapWHFSRef(entry.fsobject)
-           , url := entry.url
-           ]
-      INTO exportdata AT END;
-  }
-
-  csv->WriteRows(exportdata);
-  RETURN csv->MakeOutputFile();
 }
 
 PUBLIC RECORD FUNCTION GetURLEventsSettings(INTEGER objid)
