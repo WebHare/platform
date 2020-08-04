@@ -833,7 +833,7 @@
             </xs:appinfo>
             <xs:documentation>
               <html:p>
-                Handler used for adding/editing rows. By default, the roweditscreen is used
+                Handler used for adding/editing rows. The handler receives the type, list's entitycontext and ID to edit (0 if new). By default, the roweditscreen is opened
               </html:p>
             </xs:documentation>
           </xs:annotation>
