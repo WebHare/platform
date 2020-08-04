@@ -121,7 +121,7 @@ MACRO RemoveObsoleteAutosaves()
 
 RECORD ARRAY FUNCTION GetRemovableTargets(RECORD ARRAY intargets)
 {
-  DELETE FROM intargets WHERE folderid <= 0; //virtual folders, never cleanup
+  DELETE FROM intargets WHERE NOT (CellExists(intargets,'folderid') AND folderid > 0); //virtual folders, never cleanup
   INTEGER ARRAY toget := SELECT AS INTEGER ARRAY folderid FROM intargets;
   IF(Length(toget) = 0)
     RETURN RECORD[];

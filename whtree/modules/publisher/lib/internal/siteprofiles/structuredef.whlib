@@ -1199,7 +1199,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   OBJECT FUNCTION CreateTableNode(OBJECT parentnode, RECORD parsed)
   {
     OBJECT node := parentnode->ownerdocument->CreateElement("table");
-    node->SetAttribute("class", "table wh-rtd-table wh-rtd__table");
+    node->SetAttribute("class", ToLowercase(parsed.block->style.tag) || " wh-rtd-table wh-rtd__table");
     IF (parsed.block->width != 0)
       node->SetAttribute("style", `width: ${parsed.block->width}px;`);
 
