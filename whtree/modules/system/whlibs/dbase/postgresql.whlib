@@ -1878,7 +1878,6 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 
 /** Places a new blob into blob storage, annotates the blob with the location
     @param transaction PostgreSQL transaction
-    @param blobfolder Blob folder
     @param data Blob to store
     @private This function is only called by C++ code, should not be used by user code
 */
@@ -1894,7 +1893,6 @@ PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB data)
 
 /** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
     @param transaction Transaction id
-    @param blobfolder Blob folder
     @param blobid Blob ID
     @param bloblength Length of the blob
     @return Looked up blob

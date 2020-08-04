@@ -9,8 +9,12 @@ LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/callbacks.whlib";
 
+
+/** Exception thrown to indicate that an operation has been cancelled
+*/
 PUBLIC OBJECTTYPE OperationCancelledException EXTEND Exception
-< MACRO NEW()
+< /// Constructs a new OperationCancelledException object
+  MACRO NEW()
   : Exception("The operation has been cancelled")
   {
   }
@@ -40,10 +44,10 @@ DATETIME last_unhandled_rejection_report;
 /// Did we warn about unhandled rejection throttling?
 BOOLEAN warned_unhandled_rejection_throttling;
 
-
 /** A cancellation token provides the notification that an operation is cancelled
 
     It is modelled with .NET CancellationTokens as an example.
+    @public
 */
 STATIC OBJECTTYPE CancellationToken
 < // ---------------------------------------------------------------------------
@@ -96,7 +100,9 @@ STATIC OBJECTTYPE CancellationToken
   // Public API
   //
 
-  /// Return if this token has been cancelled
+  /** Returns whether this token has been cancelled
+      @return TRUE if cancelled
+  */
   PUBLIC BOOLEAN FUNCTION IsCancelled()
   {
     RETURN ObjectExists(this->pvt_cancelexception);
@@ -132,6 +138,7 @@ STATIC OBJECTTYPE CancellationToken
   }
 
   /** Removes a previously registered callback
+      @param id Callback id
   */
   PUBLIC MACRO RemoveCallback(INTEGER64 id)
   {
@@ -161,8 +168,8 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
   RECORD ARRAY pvt_callbacks;
 
   /** List of tokens and registrations that will rejectoncancel this tokensource
-      @cell(object) token
-      @cell(integer64) registration
+      @cell(object) token Token
+      @cell(integer64) registration Registration id
   */
   RECORD ARRAY linkfroms;
 
@@ -184,6 +191,7 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
   // Constructor
   //
 
+  /// Constructs a new CancellationTokenSource
   MACRO NEW()
   {
   }
@@ -207,7 +215,9 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
   // Helper functions
   //
 
-  /// Executes a single callback - with test if exception argument is wanted
+  /** Executes a single callback - with test if exception argument is wanted
+      @param cb Callback function. Signature: MACRO cb() or MACRO cb(OBJECT exception).
+  */
   MACRO SingleCallback(FUNCTION PTR cb)
   {
     IF (ValidateFunctionPtr(cb, 0, [ TypeID(OBJECT) ]))
@@ -322,6 +332,9 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
     this->CancelWithExceptionInternal(e);
   }
 
+  /** Executes a cancel when the passed token is cancelled
+      @param(object %CancellationToken) token Cancellation token
+  */
   PUBLIC MACRO LinkToken(OBJECT token)
   {
     IF (token->IsCancelled())
@@ -338,6 +351,14 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
 >;
 
 
+/** The Promise object is as a placeholder for the value of a currently executing operation.
+    It can be resolved with a value, or rejected with an exception. Only the first resolvement
+    or rejection will be used, once resolved the promise keeps that value.
+
+    Within asynchronous functions, you can wait for the promise to be resolved with `AWAIT promise`,
+    with returns the value the promise was resolved with, or throws the exception the promise was
+    rejected with.
+*/
 PUBLIC STATIC OBJECTTYPE PromiseBase
 < // ---------------------------------------------------------------------------
   //
@@ -392,6 +413,11 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   // Constructor
   //
 
+  /** Creates a new promise object
+      @param func Function that will receive the functions to resolve or reject the promise with.
+          Signature: MACRO func(FUNCTION PTR resolve, FUNCTION PTR reject). Signature of the resolve function:
+            MACRO resolve(VARIANT value). Signature of the reject function: MACRO reject(OBJECT exception).
+  */
   MACRO NEW(FUNCTION PTR func)
   {
     promise_counter := promise_counter + 1;
@@ -681,6 +707,28 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   // Public API
   //
 
+  /** Schedule functions to run when this promise is resolved or rejected
+      @param then Function to run when the promise is resolved. Allowed signatures:
+        - MACRO resolve()
+        - VARIANT FUNCTION resolve()
+        - MACRO resolve(VARIANT value)
+        - VARIANT FUNCTION resolve(VARIANT value)
+        If a parameter is present, it will be set to the value this promise was resolved with.
+        If a value is returned, the returned promise is resolved to that value, otherwise
+        the returned promise is resolved to `DEFAULT RECORD`.
+        If an exception is thrown, the returned exception is rejected with that exception
+      @param onerror Function to run when the promise is resolved. Allowed signatures:
+        - MACRO reject()
+        - VARIANT FUNCTION reject()
+        - MACRO reject(OBJECT exception)
+        - VARIANT FUNCTION reject(OBJECT exception)
+        If a parameter is present, it will be set to the exception object this promise was rejected with.
+        If a value is returned, the returned promise is resolved to that value, otherwise the returned promise is
+        resolved to `DEFAULT RECORD`.
+        If an exception is thrown, the returned exception is rejected with that exception
+      @return Promise that will be resolved by the returned value of the then/onerror functions. If
+        the relevant function is not set, the returned promise copy the state of this promise.
+  */
   PUBLIC OBJECT FUNCTION Then(FUNCTION PTR then DEFAULTSTO DEFAULT FUNCTION PTR, FUNCTION PTR onerror DEFAULTSTO DEFAULT FUNCTION PTR)
   {
     autoresolve := [ parent := PRIVATE this, status := "" ];
@@ -708,16 +756,41 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
     RETURN p;
   }
 
+  /** Schedule functions to run when this promise is rejected
+      @param onerror Function to run when the promise is resolved. Allowed signatures:
+        - MACRO reject()
+        - VARIANT FUNCTION reject()
+        - MACRO reject(OBJECT exception)
+        - VARIANT FUNCTION reject(OBJECT exception)
+        If a parameter is present, it will be set to the exception object this promise was rejected with.
+        If a value is returned, the returned promise is resolved to that value, otherwise the returned promise is
+        resolved to `DEFAULT RECORD`.
+        If an exception is thrown, the returned exception is rejected with that exception
+      @return A promise that will copy the state of this promise, if this promise is resolved with a value
+        or the onerror function is a `DEFAULT FUNCTION PTR`. If the promise is rejected and the onerror function is set,
+        the returned promise will be resolved to the value the onerror function returns, or rejected with the exception
+        the onerror function throws.
+  */
   PUBLIC OBJECT FUNCTION OnError(FUNCTION PTR onerror)
   {
     RETURN this->Then(DEFAULT FUNCTION PTR, onerror);
   }
 
+  /** Cancels the task behind the promise. The task must be built to handle the cancellation
+      for this operation to have effect.
+
+      In an asynchronous function, you can use `(AWAIT GetAsyncControl)` to get the %AsyncControl
+      object which exposes the canceltoken that this function controls.
+  */
   PUBLIC MACRO Cancel()
   {
     this->GetCancelTokenSource()->Cancel();
   }
 
+  /** Make this promise follow the cancellation of another canceltoken
+      @param(object %CancellationToken) canceltoken Canceltoken to follow
+      @return This promise
+  */
   PUBLIC OBJECT FUNCTION LinkToken(OBJECT canceltoken)
   {
     this->GetCancelTokenSource()->LinkToken(canceltoken);
@@ -736,14 +809,20 @@ MACRO StoreDeferred(FUNCTION PTR resolve, FUNCTION PTR reject)
 }
 
 /** @short Creates a Promise.
-    @param(FUNCTION PTR) f Takes a function pointer for an executor function which takes two function pointers as parameters: One for Resolve and one for Reject, respectively
-    @return(OBJECT) Returns the new Promise.
+    @param executor Takes a function pointer for an executor function which takes two function pointers as parameters: One for Resolve and one for Reject, respectively
+    @return(object) Returns the new Promise.
 */
 PUBLIC OBJECT FUNCTION CreatePromise(FUNCTION PTR executor)
 {
   RETURN NEW PromiseBase(executor);
 }
 
+/** Creates a promise together with functions to manually resolve or reject it
+    @return A promise and functions to resolve or reject it.
+    @cell(object %PromiseBase) return.promise Promise
+    @cell(function ptr) return.resolve Function to resolve the promise. Signature: MACRO resolve(VARIANT resolvevalue)
+    @cell(function ptr) return.reject Function to resolve the promise. Signature: MACRO reject(OBJECT rejectexception)
+*/
 PUBLIC RECORD FUNCTION CreateDeferredPromise()
 {
   OBJECT promise := NEW PromiseBase(PTR StoreDeferred);
@@ -779,8 +858,10 @@ PUBLIC OBJECT FUNCTION CreateRejectedPromise(VARIANT e)
   RETURN NEW PromiseBase(DEFAULT FUNCTION PTR);
 }
 
+/// Class to keep state for multi-promise waits
 STATIC OBJECTTYPE PromiseListBookkeeping
-< PUBLIC OBJECT promise;
+< /// Promise that will hold the result of the multi-promise wait
+  PUBLIC OBJECT promise;
   OBJECT private_promise;
 
   RECORD ARRAY elements;
@@ -880,7 +961,6 @@ MACRO WrapResolve(RECORD defer, OBJECT promise, VARIANT value)
 
 /** The race function returns a new promise which is settled in the same way as the first passed promise to settle.
     @param promises List of promises
-    @param options
     @cell options.wrap If TRUE, wrap resolved promises values in a record [ source := resolved promise, value := resolved value ]
     @return New promise.
 */
@@ -904,7 +984,7 @@ PUBLIC OBJECT FUNCTION CreatePromiseAllSettled(OBJECT ARRAY promises)
 }
 
 /** @short Asynchronous sleep (allows microtasks to run ie to allow promises to resolve)
-    @param msecs Time to sleep, in milliseconds
+    @param time Time to sleep, in milliseconds
     @return A promise that resolves after time ms */
 PUBLIC OBJECT FUNCTION CreateSleepPromise(INTEGER time)
 {
