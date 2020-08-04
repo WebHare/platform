@@ -93,6 +93,7 @@ RUN --mount=type=tmpfs,target=/opt/whdata,readwrite /opt/wh/whtree/modules/syste
 
 # Add a label with the commit SHA
 ARG CI_COMMIT_SHA
+ARG CI_COMMIT_REF_NAME
 ARG CI_PIPELINE_ID
 LABEL com.webhare.webhare.git-commit-sha="$CI_COMMIT_SHA" \
       com.webhare.webhare.git-commit-ref="$CI_COMMIT_REF_NAME" \
