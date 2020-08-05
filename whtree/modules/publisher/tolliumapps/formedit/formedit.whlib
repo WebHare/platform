@@ -202,6 +202,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO SetEnabled(BOOLEAN enabled)
   {
     this->SetReadOnly(NOT enabled);
+    IF(this->contexts->editdocumentapi->__HaveMetaTabs())
+      ^rabbitplaceholder->visible := FALSE;
   }
 
   BOOLEAN FUNCTION OnConfirmSave(BOOLEAN ispublish)

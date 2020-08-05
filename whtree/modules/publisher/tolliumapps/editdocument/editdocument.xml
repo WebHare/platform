@@ -108,7 +108,13 @@
           </row>
         </grid>
       </panel>
-      <panel name="doceditor" height="1pr" />
+      <split name="editarea" height="1pr" type="horizontal">
+        <part name="doceditor" width="2pr">
+        </part>
+        <part name="metapart" width="1pr" visible="false">
+          <tabs name="metatabs" height="1pr" type="stacked" />
+        </part>
+      </split>
       <panel layout="left" spacers="left right">
         <line>
           <image name="filestatusicon" width="16px" height="16px" title="" />
