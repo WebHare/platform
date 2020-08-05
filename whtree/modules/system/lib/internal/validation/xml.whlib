@@ -214,6 +214,14 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       }
     }
 
+    OBJECT packaging := PickFirst(this->xml->ListElements(whconstant_xmlns_moduledef,"packaging"));
+    IF(ObjectExists(packaging) AND packaging->HasAttribute("requireversion"))
+      this->AddWarningForLine(packaging->linenum, "requireversion has been deprecated. Use webhareversion= and specify a semver mask");
+
+    FOREVERY(OBJECT dependency FROM this->xml->ListElements(whconstant_xmlns_moduledef,"dependency"))
+      IF(dependency->HasAttribute("requireversion"))
+        this->AddWarningForLine(dependency->linenum, "requireversion has been deprecated. Use moduleversion= and specify a semver mask if you want to match a module, or webhareversion= to make this dependency rule only apply to the specified WebHare version");
+
     FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
       this->AddHint(appcontext, "<appcontexts> have been deprecated");
     FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
