@@ -8,8 +8,8 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
 
-/** Handles exlusive opening of tollium screens (or locking for actions), with support for
-    stealing acccess by other users
+/** Handles exclusive opening of tollium screens (or locking for actions), with support for
+    stealing access by other users
 */
 PUBLIC STATIC OBJECTTYPE ExclusivityHandler
 < // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ PUBLIC STATIC OBJECTTYPE ExclusivityHandler
 
   /** Constructs a new ExclusivityHandler object
     @param screen Screen opening the exclusive access
-    @param identifier Identifies the unique resource whith to protect
+    @param identifier Identifies the unique resource to protect
     @param options Options
     @cell(function ptr) options.onbeforesteal Callback called just before the screen is stolen
     @cell(function ptr) options.onsteal Callback called after the screen has been stolen

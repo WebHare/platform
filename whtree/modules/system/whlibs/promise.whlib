@@ -810,7 +810,7 @@ MACRO StoreDeferred(FUNCTION PTR resolve, FUNCTION PTR reject)
 
 /** @short Creates a Promise.
     @param executor Takes a function pointer for an executor function which takes two function pointers as parameters: One for Resolve and one for Reject, respectively
-    @return(object) Returns the new Promise.
+    @return(object %PromiseBase) Returns the new Promise.
 */
 PUBLIC OBJECT FUNCTION CreatePromise(FUNCTION PTR executor)
 {
