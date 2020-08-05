@@ -156,6 +156,14 @@ echo "Packaging source tree for the WebHare runner"
 DOCKERBUILDARGS+=(--progress)
 DOCKERBUILDARGS+=(plain)
 
+# Record CI information so we can verify eg. if this image really matches the most recent build
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("CI_COMMIT_SHA=$CI_COMMIT_SHA")
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME")
+DOCKERBUILDARGS+=(--build-arg)
+DOCKERBUILDARGS+=("CI_PIPELINE_ID=$CI_PIPELINE_ID")
+
 if [ -z "$CI_COMMIT_SHA" ]; then
   # Not a CI build, try to get git commit and branch
   CI_COMMIT_SHA="`cd $SOURCEDIR ; git rev-parse HEAD 2> /dev/null`"
