@@ -33,6 +33,7 @@ PUBLIC CONSTANT STRING pages_rte_test_structure :=
     <textstyle tag="ORDERED" title="Genummerde lijst" textstyles="i u b sub sup a-href strike img" containertag="ol" />
     <textstyle tag="UNORDERED" title="Ongenummerde lijst" textstyles="i u" containertag="ul" />
     <tablestyle tag="TABLE" title="Tabel" defaultstyle="MYSTYLE" containertag="table" />
+    <tablestyle tag="ALTTABLE" title="Alt Tabel" defaultstyle="MYSTYLE" containertag="table" />
     <cellstyle tag="blue" title="Blue Cell" />
     <cellstyle tag="red" title="Red Cell" />
   </blockstyles>
@@ -212,8 +213,8 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
 
     , [ structure :=      pages_rte_test_structure
       , title :=          "Don't get confused by the div wrapper named after a table class"
-      , input :=          `<h1 class="heading1">Kop</h1><div class="wh-rtd__tablewrap table"><table class="table"><tbody><tr><td>Cell 1</td></tr></tbody></table>`
-      , expect :=         `<h1 class="heading1">Kop</h1><table class="table wh-rtd-table wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
+      , input :=          `<h1 class="heading1">Kop</h1><div class="wh-rtd__tablewrap table"><table class="alttable"><tbody><tr><td>Cell 1</td></tr></tbody></table>`
+      , expect :=         `<h1 class="heading1">Kop</h1><table class="alttable wh-rtd-table wh-rtd__table"><colgroup class="wh-tableeditor-colgroup"><col></colgroup><tbody><tr><td class="wh-rtd__tablecell"><p class="mystyle">Cell 1</p></td></tr></tbody></table>`
       ]
 
     , [ structure :=      pages_rte_test_structure

@@ -1888,6 +1888,10 @@ RECORD FUNCTION GetCacheableRTDType(STRING typename)
 {
   RECORD csp := GetcachedSiteProfiles();
   RECORD typedef := SELECT * FROM csp.contenttypes WHERE namespace=typename AND isrtdtype;
+
+  //Ensure fields created in a new WebHare update but not yet in the CSP exist (eg tag_b in 4.28.3)
+  typedef := EnforceStructure(MakeBaseSiteprofileXMLStructure(), typedef);
+
   RETURN [ value := typedef
          , eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
          ];

@@ -105,27 +105,42 @@ PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
 {
   OpenPrimary();
 
-  RECORD unp := UnpackURL(uploadurl);
-  IF(unp.user != "" OR unp.password != "") //we're not a password tryout service either
-    THROW NEW Exception("Authority information may not be specified on a URL");
-  IF(unp.scheme NOT IN ['http','https'])
-    THROW NEW Exception("Unsupported URL: " || uploadurl);
-  IF(NOT unp.isdefaultport) //we're not a port knocker (though we allow it for this WebHare installation)
+  BLOB content;
+  IF(uploadurl LIKE "data:*")
   {
-    IF (GetDtapStage() != "development")
-      THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl);
-    RECORD unp_primary := UnpackURL(GetPrimaryWebhareInterfaceURL());
-    IF (unp.host != unp_primary.host)
-      THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl || ". Please run tests on the primary interface host.");
+    RECORD res := ParseDataURL(uploadurl);
+    IF(NOT RecordExists(res))
+      THROW NEW Exception("Invalid data url");
+
+    content := res.data;
+  }
+  ELSE
+  {
+    RECORD unp := UnpackURL(uploadurl);
+    IF(unp.user != "" OR unp.password != "") //we're not a password tryout service either
+      THROW NEW Exception("Authority information may not be specified on a URL");
+    IF(unp.scheme NOT IN ['http','https'])
+      THROW NEW Exception("Unsupported URL: " || uploadurl);
+    IF(NOT unp.isdefaultport) //we're not a port knocker (though we allow it for this WebHare installation)
+    {
+      IF (GetDtapStage() != "development")
+        THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl);
+      RECORD unp_primary := UnpackURL(GetPrimaryWebhareInterfaceURL());
+      IF (unp.host != unp_primary.host)
+        THROW NEW Exception("Not supporting URLs with a nonstandard port: " || uploadurl || ". Please run tests on the primary interface host.");
+    }
+
+    OBJECT browser := NEW WebBrowser;
+    browser->timeout := 30000;
+
+    IF (NOT browser->GotoWebPage(uploadurl))
+      THROW NEW Exception("Cannot retrieve URL " || uploadurl);
+
+    content := browser->content;
   }
 
-  OBJECT browser := NEW WebBrowser;
-  browser->timeout := 30000;
 
-  IF (NOT browser->GotoWebPage(uploadurl))
-    THROW NEW Exception("Cannot retrieve URL " || uploadurl);
-
-  RECORD wrapped := WrapBlob(browser->content,"");
+  RECORD wrapped := WrapBlob(content,"");
   IF(wrapped.width = 0 OR wrapped.height = 0)
     THROW NEW Exception("Unsupported image");
 
