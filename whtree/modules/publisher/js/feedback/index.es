@@ -47,7 +47,7 @@ export async function getFeedback(event, extraOptions)
     const data = takeScreenshot(options.domFilterCallback);
     const extraData = options.feedbackPromise ? await options.feedbackPromise() : {};
     if (extraData)
-      return await service.storeFeedback(options.scope, { ...data, element, extraData });
+      return await service.storeFeedback(location.pathname, options.scope, { ...data, element, extraData });
   }
   return { success: false, error: "cancelled" };
 }
