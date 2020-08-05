@@ -764,12 +764,12 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
 /** Get an exclusive lock on multiple objects. Only works within the webserver process!
     @param tags List of tags
     @cell(record) tags.tag Tag
-    @cell options.mode Mode:
+    @cell(string) options.mode Mode:
         - "try": Try to get the locks, take onle the free locks
         - "requestclose": Request the locks from the users
         - "forceclose": Force close screens of users holding the lock
-    @cell options.takeovertime Override default takeover time
-    @cell options.user User object (required)
+    @cell(integer) options.takeovertime Override default takeover time
+    @cell(object %TolliumUser) options.user User object (required)
     @return(object #BulkExclusiveKeeper) Status object
     @public
     @loadlib mod::tollium/lib/applications.whlib
