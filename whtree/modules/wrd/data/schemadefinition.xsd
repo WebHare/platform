@@ -89,6 +89,8 @@
     <xs:attribute name="deleteclosedafter" /> <!-- reserved for future use -->
     <xs:attribute name="keephistorydays" type="xs:integer" />
     <xs:attribute name="haspersonaldata" type="xs:boolean" />
+    <xs:anyAttribute namespace="##other" processContents="lax"/>
+
   </xs:complexType>
 
   <xs:complexType name="ObjectDefinition">
@@ -191,6 +193,8 @@
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="unique" type="xs:boolean" />
     <xs:attribute name="required" type="xs:boolean" />
+
+    <xs:anyAttribute namespace="##other" processContents="lax"/>
   </xs:complexType>
 
   <xs:complexType name="ObsoleteAttribute">
