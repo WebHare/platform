@@ -1,7 +1,9 @@
 <?wh
 
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
@@ -9,7 +11,7 @@ LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 
-PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING scope, RECORD data)
+PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING pathname, STRING scope, RECORD data)
 {
   data := EnforceStructure(
       [ version := 0
@@ -38,11 +40,14 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING scope, RECORD data)
   RECORD userdata;
   TRY
   {
-    OBJECT authplugin := GetWRDAuthPlugin(GetWebHeader("Referer"));
+    OBJECT authplugin := GetWRDAuthPlugin(GetWebOriginURL(pathname));
     IF (ObjectExists(authplugin->userapi))
       userdata := authplugin->userapi->GetUser(authplugin->GetLoggedInEntity())->GetUserDataForLogging();
   }
-  CATCH;
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+  }
 
   GetPrimary()->BeginWork();
   TRY
