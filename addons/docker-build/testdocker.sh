@@ -331,10 +331,10 @@ do
   MODULE=${EXPLAIN_DEPREPOSITORY[$i]}
   MODULEBRANCH=${EXPLAIN_DEPBRANCH[$i]}
 
-  if [[ $MODULE =~ ^https?://[^/]*/([^/]*)/([^/]*)\.git$ ]]; then
+  if [[ $MODULE =~ ^https?://.*\.git$ ]]; then
     # Remote git URL
     CLONEURL="$MODULE"
-  elif [[ $MODULE =~ ^.*:([^/]*)/([^/]*)\.git$ ]]; then
+  elif [[ $MODULE =~ ^git:.*\.git$ ]]; then
     # Remote git URL
     CLONEURL="$MODULE"
   else
