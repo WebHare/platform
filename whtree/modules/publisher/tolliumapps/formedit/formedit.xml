@@ -254,7 +254,7 @@
             <style name="inactive" textcolor="#808080" />
           </list>
         </part>
-        <part width="2pr">
+        <part width="2pr" name="rabbitplaceholder">
           <panel height="1pr"/>
           <grid height="411px">
             <cell width="1pr">
