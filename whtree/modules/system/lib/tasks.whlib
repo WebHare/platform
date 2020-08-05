@@ -151,6 +151,9 @@ PUBLIC MACRO ScheduleTimedTask(STRING taskname, RECORD options DEFAULTSTO DEFAUL
   IF(taskname NOT LIKE "?*:?*")
     THROW NEW Exception(`Invalid task name '${taskname}'`);
 
+  IF(NOT GetPrimary()->IsWorkOpen())
+    THROW NEW Exception(`ScheduleTimedTask must be invoked with open work`);
+
   //FIXME throw if task is unknown
   RECORD taskinfo := SELECT FROM system_internal.tasks WHERE tasks.tag = VAR Substitute(taskname,':','.');
   IF(NOT RecordExists(taskinfo))
