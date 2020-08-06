@@ -544,6 +544,7 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
              , tag
              , identity :=      DEFAULT RECORD
              , orgdata
+             , status := "acquiring" //initial status
           FROM tags;
 
     INTEGER waitsecs := options.takeovertime ?? ReadRegistryKey("system.backend.exclusiveaccess.takeovertime");
@@ -563,7 +564,6 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
 
   RECORD ARRAY FUNCTION GetPerTagStatus()
   {
-    DumpValue(this->_status);
     RETURN
         SELECT ...orgdata
              , status
@@ -763,9 +763,9 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
 
 /** Get an exclusive lock on multiple objects. Only works within the webserver process!
     @param tags List of tags
-    @cell(record) tags.tag Tag
+    @cell(record) tags.tag The tag as passed to %TolliumScreenBase::GetExclusiveAccess
     @cell(string) options.mode Mode:
-        - "try": Try to get the locks, take onle the free locks
+        - "try": Try to get the locks, take only the free locks
         - "requestclose": Request the locks from the users
         - "forceclose": Force close screens of users holding the lock
     @cell(integer) options.takeovertime Override default takeover time
@@ -787,6 +787,7 @@ PUBLIC OBJECT FUNCTION GetBulkExclusiveLock(RECORD ARRAY tags, RECORD options DE
         ], tag,
         [ title := `tags[${#tag}]`
         , passthrough := TRUE
+        , required := ["tag"]
         ]);
   }
 
