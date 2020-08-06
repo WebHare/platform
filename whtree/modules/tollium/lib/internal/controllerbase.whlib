@@ -3379,6 +3379,10 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
           //LogWebserverError("Not running or got tolliumresult");
           IF(debug_logcontroller)
             LogDebug("tollium:controller", "Exit message loop for " || modalframe->instancename || " - not running or tolliumresult set");
+
+          IF(NOT didnotifynewscreen AND this->__onscreenchange != DEFAULT MACRO PTR)
+            this->__onscreenchange(screen,TRUE);
+
           //guess we're done
           this->DeleteScreenFromWindowStack(MakePublicObjectReference(screen));
           RETURN "closed";

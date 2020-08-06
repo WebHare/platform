@@ -54,6 +54,64 @@ PUBLIC BOOLEAN __withinasyncrunner;
 // Object types
 //
 
+STATIC OBJECTTYPE LinkWaiter EXTEND __HS_INTERNAL_AsyncCallbackWaitHelperBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT port;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(OBJECT port, DATETIME wait_until)
+  {
+    this->port := port;
+
+    IF (this->port->pvt_handle = 0)
+      THROW NEW Exception("Cannot receive messages on an already closed IPC port");
+    IF (ObjectExists(this->port->asynclinkwaiter))
+      THROW NEW Exception("Only one asynchronous accept operation permitted at a time");
+
+    this->port->asynclinkwaiter := PRIVATE this;
+
+    IF (wait_until = DEFAULT DATETIME)
+      this->GotTimeout(DEFAULT RECORD);
+    ELSE
+    {
+      this->SetTimeout(wait_until);
+      this->AddHandleRead(this->port->pvt_handle);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Updated functions
+  //
+
+  UPDATE BOOLEAN FUNCTION HandleCallback(INTEGER handle, RECORD context)
+  {
+    OBJECT link := this->port->Accept(DEFAULT DATETIME);
+    IF (ObjectExists(link) OR handle = -1)
+    {
+      this->defer.resolve(link);
+      this->port->asynclinkwaiter := DEFAULT OBJECT;
+      RETURN TRUE;
+    }
+    RETURN FALSE;
+  }
+
+  UPDATE MACRO HandleCancel(OBJECT cancelexception)
+  {
+    __HS_INTERNAL_AsyncCallbackWaitHelperBase::HandleCancel(cancelexception);
+    this->port->asynclinkwaiter := DEFAULT OBJECT;
+  }
+>;
+
+
 /** An IPC port is used as an address to create IPC links to.
     Only one port with a given name may exist in a system.
 
@@ -73,6 +131,9 @@ STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
 
   /// Port to close if we get closed (used to manage global ports and whmanager connections)
   PUBLIC OBJECT __boundlink;
+
+  /// Current handler for async accept
+  OBJECT asynclinkwaiter;
 
   // ---------------------------------------------------------------------------
   //
@@ -118,6 +179,17 @@ STATIC OBJECTTYPE IPCPort EXTEND __HS_INTERNAL_OutputObject
       IF (NOT this->Wait(wait_until))
         RETURN DEFAULT OBJECT;
     }
+  }
+
+
+  /** Accepts an incoming link on the port
+      @param wait_until Timeout when no link has arrived at this time.
+      @return(object %PromiseBase) Promise that will be resolved to a new link of type %IPCLinkEndPoint
+        if an incoming link arrives before the timout, or resolved to `DEFAULT OBJECT` otherwise.
+  */
+  PUBLIC OBJECT FUNCTION AsyncAccept(DATETIME wait_until)
+  {
+    RETURN NEW LinkWaiter(PRIVATE this, wait_until)->promise;
   }
 
 

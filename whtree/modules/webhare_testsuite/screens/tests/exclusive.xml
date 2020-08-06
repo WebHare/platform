@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/exclusive.whlib">
+
+
+  <screen name="exclusivetest" footerbuttons="ok">
+    <actions>
+      <action name="act" onexecute="doaction" />
+    </actions>
+    <body>
+      <button action="act" />
+    </body>
+  </screen>
+
+</screens>

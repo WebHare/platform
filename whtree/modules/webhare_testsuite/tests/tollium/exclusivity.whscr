@@ -1,0 +1,104 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/internal/exclusivity.whlib";
+
+
+OBJECT lock;
+
+MACRO GetLock(STRING mode, RECORD options DEFAULTSTO CELL[])
+{
+  lock := GetBulkExclusiveLock([ [ tag := [ test := "webhare_testsuite:exclusive" ] ] ], CELL[ user := topscreen->contexts->user, mode, ...options ]);
+}
+
+
+ASYNC MACRO TestExclusivity()
+{
+  // STORY: lock with mode 'try' and 'requestclose' with release
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/exclusive.xml#exclusivetest",
+      [ screenexclusivetag :=   [ test := "webhare_testsuite:exclusive" ]
+      ]));
+
+  // try
+  AWAIT ExpectNoScreenChange(PTR GetLock("try"));
+  TestEQ("none", lock->status);
+  TestEQ(FALSE, AWAIT lock->AsyncWaitLocked());
+
+  RECORD rec := AWAIT ExpectScreenChange(+1, PTR GetLock("requestclose"), [ titlemask := "Take-over request" ]);
+  AWAIT rec.expectcallreturn();
+
+  // Releasing lock, expect take-over request screen to close
+  AWAIT ExpectScreenChange(-1, PTR TTClick("btn_release"));
+
+  // Expect test screen to close
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  // Screen closed, wait for locks to finish
+
+  TestEQ(TRUE, AWAIT lock->AsyncWaitLocked());
+  TestEQ("locked", lock->status);
+
+  lock->Close();
+
+  // STORY: lock with mode 'try' and 'requestclose' with timeout
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/exclusive.xml#exclusivetest",
+      [ screenexclusivetag :=   [ test := "webhare_testsuite:exclusive" ]
+      ]));
+
+  rec := AWAIT ExpectScreenChange(+1,
+        PTR GetLock(
+              "requestclose",
+              [ takeovertime := 1 ]), // 1 second, speedy takeover
+        [ titlemask := "Take-over request" ]);
+
+  // closes automatically
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  TestEQ(TRUE, AWAIT lock->AsyncWaitLocked());
+  TestEQ("locked", lock->status);
+
+  AWAIT ExpectAndAnswerMessageBox("ok", DEFAULT FUNCTION PTR, [ messagemask := "User Sysop * has taken over this screen*" ]);
+
+  // Expect test screen to close
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  TestEQ(TRUE, TestExclusiveLocked([ test := "webhare_testsuite:exclusive" ]));
+
+  lock->Close();
+
+  TestEQ(FALSE, TestExclusiveLocked([ test := "webhare_testsuite:exclusive" ]));
+
+  // STORY: takeover request with cancellation midway
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/exclusive.xml#exclusivetest",
+      [ screenexclusivetag :=   [ test := "webhare_testsuite:exclusive" ]
+      ]));
+
+  rec := AWAIT ExpectScreenChange(+1,
+        PTR GetLock(
+              "requestclose",
+              [ takeovertime := 5 ]),
+        [ titlemask := "Take-over request" ]);
+
+  lock->Close();
+
+  // closes automatically, nothing happens anymore
+  AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
+
+  //
+  AWAIT ExpectNoScreenChange(DEFAULT FUNCTION PTR);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+}
+
+
+RunTestFramework(
+    [ PTR TestExclusivity
+    ], [ testusers := [ [ login := "sysop", grantrights := ["system:sysop"] ]
+                      , [ login := "bert" ]
+                      ]
+       ]);

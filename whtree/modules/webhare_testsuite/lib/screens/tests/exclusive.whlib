@@ -1,0 +1,35 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE ExclusiveTest EXTEND TolliumScreenBase
+<
+
+  RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+
+    IF (RecordExists(data.screenexclusivetag) AND NOT this->GetExclusiveAccess(data.screenexclusivetag, [ onstolen := PTR this->GotStolen ]))
+    {
+      this->RunSimpleScreen("info", "no access");
+      RETURN;
+    }
+  }
+
+  MACRO DoAction()
+  {
+    IF (RecordExists(this->data.actionexclusivetag) AND NOT this->GetExclusiveAccess(this->data.actionexclusivetag, [ onstolen := PTR this->GotStolen ]))
+      this->RunSimpleScreen("info", "no access");
+    ELSE
+    {
+      this->RunSimpleScreen("info", "run action");
+    }
+  }
+
+  MACRO GotStolen()
+  {
+    this->RunSimpleScreen("info", "stolen");
+  }
+
+>;

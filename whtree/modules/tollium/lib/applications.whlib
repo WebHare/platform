@@ -1,0 +1,5 @@
+<?wh
+/** @topic tollium/appdev
+*/
+
+LOADLIB "mod::tollium/lib/internal/exclusivity.whlib" EXPORT GetBulkExclusiveLock, TestExclusiveLocked;
