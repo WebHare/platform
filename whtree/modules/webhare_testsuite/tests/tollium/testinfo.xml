@@ -6,6 +6,7 @@
   <test script="contexts.whscr" />
   <test script="runmodalscreen.whscr" />
   <test script="helpers.whscr" />
+  <test script="exclusivity.whscr" />
 
   <jstest file="test_distributesizes.es" />
 
