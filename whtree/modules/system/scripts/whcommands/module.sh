@@ -39,13 +39,8 @@ getwhparameters
 while [ -n "$1" ]; do
   CLONEURL="$1"
 
-  if [[ $CLONEURL =~ ^https?://[^/]*/([^/]*)/([^/]*)\.git$ ]]; then
-    MODULENAME="${BASH_REMATCH[2]}"
-    PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-  elif [[ $CLONEURL =~ ^https?://[^/]*/([^/]*)/([^/]*)/([^/]*)\.git$ ]]; then   # gitlab subgroup support
-    MODULENAME="${BASH_REMATCH[3]}"
-    PATHNAME="${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
-  elif [[ $CLONEURL =~ ^.*:([^/]*)/([^/]*)\.git$ ]]; then
+  # Simply take the last two path compontents of whatever is thrown at us if it ends in .git
+  if [[ $CLONEURL =~ .*[/:]([^/:]+)/([^/]+)\.git$ ]]; then
     MODULENAME="${BASH_REMATCH[2]}"
     PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
   else
