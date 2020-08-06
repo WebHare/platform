@@ -374,6 +374,30 @@ MACRO AsyncFunctionsTest()
     TestEQ([ type := "reply" ], retval.msg);
   }
 
+  // Test DoRequest with cancel
+  {
+    pair := CreateLinkPair();
+    OBJECT promise := pair.first->AsyncDoRequest([ type := "msg" ]);
+    RECORD rec := pair.second->ReceiveMessage(DEFAULT DATETIME);
+    TestEQ("ok", rec.status);
+    pair.second->SendReply([ type := "reply" ], rec.msgid);
+
+    RECORD retval := WaitForPromise(promise);
+    TestEQ("ok", retval.status);
+    TestEQ([ type := "reply" ], retval.msg);
+
+    promise := pair.first->AsyncDoRequest([ type := "msg2" ]);
+    promise->Cancel();
+    TestEQMembers([ status := "ok", msg := [ type := "msg2" ] ], pair.second->ReceiveMessage(DEFAULT DATETIME), "*");
+    TestThrows(PTR WaitForPromise(promise));
+
+    promise := pair.first->AsyncDoRequest([ type := "msg3" ]);
+    rec := pair.second->ReceiveMessage(DEFAULT DATETIME);
+    TestEQMembers([ status := "ok", msg := [ type := "msg3" ] ], rec, "*");
+    pair.second->SendReply([ type := "reply" ], rec.msgid);
+    TestEQMembers([ status := "ok", msg := [ type := "reply" ] ], WaitForPromise(promise), "*");
+  }
+
   // Test DoRequest with wrong reply id
   {
     pair := CreateLinkPair();
@@ -383,6 +407,28 @@ MACRO AsyncFunctionsTest()
     pair.second->SendReply([ type := "reply" ], -1);
 
     TestThrows(PTR WaitForPromise(promise));
+  }
+
+  // Test async accept
+  {
+    OBJECT port := CreateIPCPort("linkpaircreate." || GenerateUFS128BitId());
+    OBJECT promise := port->AsyncAccept(MAX_DATETIME);
+    OBJECT link := ConnectToIPCPort(port->name);
+    OBJECT portlink := WaitForPromise(promise);
+    link->Close();
+    portlink->Close();
+    portlink := DEFAULT OBJECT;
+    link := DEFAULT OBJECT;
+
+    promise := port->AsyncAccept(MAX_DATETIME);
+    promise->Cancel();
+    TestThrows(PTR WaitForPromise(promise));
+
+    promise := port->AsyncAccept(MAX_DATETIME);
+    link := ConnectToIPCPort(port->name);
+    portlink := WaitForPromise(promise);
+    link->SendMessage([ test := 1 ]);
+    TestEQ([ test := 1], portlink->ReceiveMessage(MAX_DATETIME).msg);
   }
 }
 

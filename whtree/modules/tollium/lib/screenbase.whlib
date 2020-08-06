@@ -1061,9 +1061,9 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   /** Request exclusive access to a resource
       @param tag Record whose contents identifies the resource (will be HSON encoded)
-      @param options
       @cell options.onbeforesteal Called just before the dialog will be stolen
       @cell options.onstolen Called after the dialog has been stolen
+      @return TRUE if exclusive access has been granted
   */
   PUBLIC BOOLEAN FUNCTION GetExclusiveAccess(RECORD tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1090,9 +1090,9 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   /** Request exclusive access for running an action. Upon steal, exclusive access is released
       immediately and dialogs are cancelled with tolliumresult="".
-      @param options
       @cell options.onbeforesteal Called just before the exclusive access will be stolen
       @cell options.onstolen Called after the exclusive access has been stolen
+      @return TRUE if exclusive access has been granted
   */
   PUBLIC BOOLEAN FUNCTION GetExclusiveAccessForAction(RECORD tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
