@@ -40,7 +40,7 @@ while [ -n "$1" ]; do
   CLONEURL="$1"
 
   # Simply take the last two path compontents of whatever is thrown at us if it ends in .git
-  if [[ $CLONEURL =~ .*[/:]([^/:]*)/([^/]*)\.git$ ]]; then
+  if [[ $CLONEURL =~ .*[/:]([^/:]+)/([^/]+)\.git$ ]]; then
     MODULENAME="${BASH_REMATCH[2]}"
     PATHNAME="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
   else
