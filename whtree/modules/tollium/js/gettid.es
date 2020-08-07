@@ -31,7 +31,7 @@ function resolveTid(tid, params, options)
   params = params.slice(0, 4);
 
   // Initialize text with the 'cannot find text' message
-  let text = domdebug.debugflags.sht ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
+  let text = domdebug.debugflags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
 
   // Check if the module is defined
   let module = tid.substr(0, tid.indexOf(":"));

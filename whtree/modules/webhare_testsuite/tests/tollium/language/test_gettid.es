@@ -31,10 +31,10 @@ test.registerTests([
       //retrieval with wrong language"
       test.eq(getTid("base:testgroup.testtext"), "(cannot find text:base:testgroup.testtext)");
 
-      // Test short tid's by temporarily setting the 'sht' flag
-      domdebug.debugflags.sht = true;
+      // Test short tid's by temporarily setting the 'sut' flag
+      domdebug.debugflags.sut = true;
       test.eq(getTid("base:testgroup.testtext"), ".testtext");
-      domdebug.debugflags.sht = false;
+      domdebug.debugflags.sut = false;
 
       // set language
       getTid.tidLanguage = "en";

@@ -7,7 +7,7 @@ test.registerTests(
       await test.load(test.getCompTestPage("imgedit", { width: "250px"
                                                       , height: "250px"
                                                       , imgsize: {setwidth:600, setheight:150, method: "fill", allowedactions: ["crop","refpoint"]}
-                                                      }, "sht"));
+                                                      }, "sut"));
       await test.wait("ui");
 
     }

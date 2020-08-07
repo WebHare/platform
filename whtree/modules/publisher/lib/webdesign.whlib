@@ -333,8 +333,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     IF(IsRequest())
     {
-      IF(IsWHDebugOptionSet("sht"))
-        __shortfailtid := TRUE;
+      IF(IsWHDebugOptionSet("sut"))
+        __shortunknowntids := TRUE;
       IF(IsWHDebugOptionSet("win") OR AreOutputToolsActive()) //record witty data themselves, or at least resources for the outputtools
         __AddWittyInvocationHook(PTR this->__OnWitty);
     }

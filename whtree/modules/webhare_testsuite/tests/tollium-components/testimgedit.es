@@ -178,7 +178,7 @@ test.registerTests(
         // Delayed to pick up overridetoken
         return test.getCompTestPage("imgedit", { width: "250px"
                                                , height: "250px"
-                                               }, "sht");
+                                               }, "sut");
       }
     , waits: [ "ui" ]
     }
