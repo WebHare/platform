@@ -105,6 +105,7 @@ STATIC OBJECTTYPE CancellationToken
   */
   PUBLIC BOOLEAN FUNCTION IsCancelled()
   {
+    this->pvt_tokensource->CheckLinkFroms();
     RETURN ObjectExists(this->pvt_cancelexception);
   }
 
@@ -277,6 +278,26 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
     }
   }
 
+  /// If linkfroms aren't registered with callbacks, check directly with the source
+  MACRO CheckLinkFroms()
+  {
+    IF (NOT this->linkfromregistered)
+    {
+      FOREVERY (RECORD rec FROM this->linkfroms)
+        IF (rec.token->IsCancelled())
+        {
+          FOREVERY (RECORD rec FROM this->linkfroms)
+            rec.token->RemoveCallback(rec.registration);
+
+          this->linkfroms := DEFAULT RECORD ARRAY;
+          this->linkfromregistered := FALSE;
+
+          this->CancelWithException(rec.token->cancelexception);
+          RETURN;
+        }
+    }
+  }
+
   MACRO UpdateLinkFromRegistration()
   {
     BOOLEAN required := NOT ObjectExists(this->pvt_cancelexception) AND LENGTH(this->pvt_callbacks) != 0;
@@ -285,15 +306,7 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
 
     IF (required)
     {
-      FOREVERY (RECORD rec FROM this->linkfroms)
-        IF (rec.token->IsCancelled())
-        {
-          this->linkfroms := DEFAULT RECORD ARRAY;
-          this->linkfromregistered := required;
-
-          this->CancelWithException(rec.token->cancelexception);
-          RETURN;
-        }
+      this->CheckLinkFroms();
 
       FOREVERY (RECORD rec FROM this->linkfroms)
         this->linkfroms[#rec].registration := rec.token->AddCallback(PTR this->CancelWithException);
@@ -342,6 +355,9 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
       this->CancelWithException(token->cancelexception);
       RETURN;
     }
+
+    IF (ObjectExists(this->cancelexception))
+      RETURN;
 
     INSERT
         [ token :=        token
