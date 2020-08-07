@@ -129,6 +129,100 @@ MACRO TestPromiseAllSettled()
   TestEQ([ [ status := "fulfilled", value := 1 ], [ status := "rejected", reason := c ] ], WaitForPromise(CreatePromiseAllSettled([ a, d ])));
 }
 
+ASYNC MACRO TestCancellation()
+{
+  OBJECT ts := NEW CancellationTokenSource;
+  OBJECT t := ts->canceltoken;
+  TestEQ(FALSE, t->IsCancelled());
+  ts->Cancel();
+  TestEQ(TRUE, t->IsCancelled());
+  TestThrows(PTR t->Check());
+
+  // test callback, registration after cancellation
+  RECORD defer := CreateDeferredPromise();
+  t->AddCallback(defer.reject);
+  TestThrows(PTR WaitForPromise(defer.promise));
+
+  // test callback, registration before cancellation
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  defer := CreateDeferredPromise();
+  t->AddCallback(defer.reject);
+  ts->Cancel();
+  TestThrows(PTR WaitForPromise(defer.promise));
+
+  // linktoken before cancellation, one callback
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  OBJECT bts := NEW CancellationTokenSource;
+  ts->LinkToken(bts->canceltoken);
+  TestEQ(FALSE, t->IsCancelled());
+  defer := CreateDeferredPromise();
+  t->AddCallback(defer.reject);
+  bts->Cancel();
+  TestEQ(TRUE, bts->canceltoken->IsCancelled());
+  TestEQ(TRUE, t->IsCancelled());
+  TestThrows(PTR WaitForPromise(defer.promise));
+
+  // linktoken before cancellation, no final callback
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  bts := NEW CancellationTokenSource;
+  ts->LinkToken(bts->canceltoken);
+  TestEQ(FALSE, t->IsCancelled());
+  bts->Cancel();
+  TestEQ(TRUE, bts->canceltoken->IsCancelled());
+  TestEQ(TRUE, t->IsCancelled());
+
+  // linktoken after cancellation, no final callback
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  bts := NEW CancellationTokenSource;
+  bts->Cancel();
+  ts->LinkToken(bts->canceltoken);
+  TestEQ(TRUE, bts->canceltoken->IsCancelled());
+  TestEQ(TRUE, t->IsCancelled());
+
+  // multilayer linktoken, no callbacks
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  bts := NEW CancellationTokenSource;
+  OBJECT bbts := NEW CancellationTokenSource;
+  bts->LinkToken(bbts->canceltoken);
+  ts->LinkToken(bts->canceltoken);
+
+  TestEQ(FALSE, t->IsCancelled());
+  bbts->Cancel();
+  TestEQ(TRUE, bbts->canceltoken->IsCancelled());
+  TestEQ(TRUE, t->IsCancelled());
+
+  // multilayer linktoken, no callbacks
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  bts := NEW CancellationTokenSource;
+  bbts := NEW CancellationTokenSource;
+  bts->LinkToken(bbts->canceltoken);
+  ts->LinkToken(bts->canceltoken);
+
+  TestEQ(FALSE, t->IsCancelled());
+  bbts->Cancel();
+  TestEQ(TRUE, bbts->canceltoken->IsCancelled());
+  TestEQ(TRUE, t->IsCancelled());
+
+  // multilayer linktoken, no callbacks
+  ts := NEW CancellationTokenSource;
+  t := ts->canceltoken;
+  bts := NEW CancellationTokenSource;
+  bbts := NEW CancellationTokenSource;
+  bts->LinkToken(bbts->canceltoken);
+  ts->LinkToken(bts->canceltoken);
+
+  defer := CreateDeferredPromise();
+  t->AddCallback(defer.reject);
+  bbts->Cancel();
+  TestThrows(PTR WaitForPromise(defer.promise));
+}
+
 PRINT("\n === Running TestPromise\n");
 
 TestCreateResolvedPromise();
@@ -139,3 +233,4 @@ TestCancel();
 TestPromiseAll();
 TestPromiseRace();
 TestPromiseAllSettled();
+TestCancellation();

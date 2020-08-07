@@ -35,6 +35,9 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
   // Current packet (for reassembly)
   RECORD curpacket;
 
+  /// Curent async wait promise
+  OBJECT currentasyncwait;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -90,19 +93,24 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
 
     RECORD defer := CreateDeferredPromise();
     defer.promise->userdata :=
-        [ signal_cb :=  RegisterHandleReadCallback(handle, PTR this->IsReadSignalled(defer, TRUE))
-        , timeout_cb := wait_until = MAX_DATETIME ? 0 : RegisterTimedCallback(wait_until, PTR this->IsReadSignalled(defer, FALSE))
+        [ signal_cb :=  RegisterHandleReadCallback(handle, PTR this->IsReadSignalled(defer, TRUE, DEFAULT OBJECT))
+        , timeout_cb := wait_until = MAX_DATETIME ? 0 : RegisterTimedCallback(wait_until, PTR this->IsReadSignalled(defer, FALSE, DEFAULT OBJECT))
+        , cancel_cb := defer.promise->canceltoken->AddCallback(PTR this->IsReadSignalled(defer, TRUE, #1))
         ];
     RETURN defer.promise;
   }
 
-  MACRO IsReadSignalled(RECORD defer, BOOLEAN signalled)
+  MACRO IsReadSignalled(RECORD defer, BOOLEAN signalled, OBJECT e)
   {
     UnregisterCallback(defer.promise->userdata.signal_cb);
     IF (signalled AND defer.promise->userdata.timeout_cb != 0)
       UnregisterCallback(defer.promise->userdata.timeout_cb);
+    defer.promise->canceltoken->RemoveCallback(defer.promise->userdata.cancel_cb);
 
-    defer.resolve(signalled);
+    IF (ObjectExists(e))
+      defer.reject(e);
+    ELSE
+      defer.resolve(signalled);
   }
 
   /// Returns frame header & mask
@@ -307,6 +315,7 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
 
   OBJECT ASYNC FUNCTION ReceiveRawPacketInternal(DATETIME wait_until)
   {
+    (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
     RECORD rec := this->DecodePacket();
     WHILE (rec.status = "timeout")
     {
@@ -382,37 +391,46 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
 
   OBJECT ASYNC FUNCTION ReceivePacketInternal(DATETIME wait_until)
   {
-    WHILE (TRUE)
+    IF (ObjectExists(this->currentasyncwait))
+      THROW NEW Exception("An asynchronous wait is already in progress on this connection");
+    (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+    TRY
     {
-      RECORD packet := AWAIT this->ReceiveRawPacketInternal(wait_until);
-      IF (packet.status != "ok")
-        RETURN CELL[ ...packet, DELETE fin ];
-
-      IF (NOT packet.fin)
+      WHILE (TRUE)
       {
-        IF (NOT RecordExists(this->curpacket))
-          this->curpacket := packet;
-        ELSE IF (packet.op = 0)
-          this->curpacket.data := this->curpacket.data || packet.data;
-        ELSE
+        this->currentasyncwait := this->ReceiveRawPacketInternal(wait_until);
+        RECORD packet := AWAIT this->currentasyncwait;
+        IF (packet.status != "ok")
+          RETURN CELL[ ...packet, DELETE fin ];
+
+        IF (NOT packet.fin)
         {
-          this->curpacket := packet;
-          //FIXME this error state should probably persist, we're desynced
-          RETURN [ status := "error", msg := "Error during reassembly" ];
+          IF (NOT RecordExists(this->curpacket))
+            this->curpacket := packet;
+          ELSE IF (packet.op = 0)
+            this->curpacket.data := this->curpacket.data || packet.data;
+          ELSE
+          {
+            this->curpacket := packet;
+            //FIXME this error state should probably persist, we're desynced
+            RETURN [ status := "error", msg := "Error during reassembly" ];
+          }
+
+          CONTINUE;
         }
 
-        CONTINUE;
-      }
+        IF (packet.op = 0 AND RecordExists(this->curpacket))
+        {
+          this->curpacket.data := this->curpacket.data || packet.data;
+          packet := this->curpacket;
+          this->curpacket := DEFAULT RECORD;
+        }
 
-      IF (packet.op = 0 AND RecordExists(this->curpacket))
-      {
-        this->curpacket.data := this->curpacket.data || packet.data;
-        packet := this->curpacket;
-        this->curpacket := DEFAULT RECORD;
+        RETURN CELL[ ...packet, DELETE fin ];
       }
-
-      RETURN CELL[ ...packet, DELETE fin ];
     }
+    FINALLY
+      this->currentasyncwait := DEFAULT OBJECT;
   }
 
   MACRO ReleaseDataStream()
@@ -463,13 +481,14 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
       @cell(integer) return.code Connection close code (only for op 8, see rfc 6455 11.7)
       @cell(string) return.reason Connection close reason text
   */
-  PUBLIC OBJECT ASYNC FUNCTION AsyncReceivePacket(DATETIME wait_until)
+  PUBLIC OBJECT FUNCTION AsyncReceivePacket(DATETIME wait_until)
   {
     RETURN this->ReceivePacketInternal(wait_until);
   }
 
   PUBLIC OBJECT ASYNC FUNCTION AsyncReceivePacketBlob(DATETIME wait_until)
   {
+    (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
     RECORD rec := AWAIT this->ReceivePacketInternal(wait_until);
     IF (CellExists(rec, "DATA"))
     {
@@ -519,6 +538,14 @@ PUBLIC STATIC OBJECTTYPE WebSocketConnectionBase
   */
   PUBLIC MACRO Close()
   {
+    IF (ObjectExists(this->currentasyncwait))
+    {
+      this->currentasyncwait->Cancel();
+      TRY
+        WaitForPromise(this->currentasyncwait);
+      CATCH; // OperationCancelledException, no need to log
+    }
+
     this->ReleaseDataStream();
     this->inclosed := TRUE;
   }
