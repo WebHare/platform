@@ -286,9 +286,6 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
       FOREVERY (RECORD rec FROM this->linkfroms)
         IF (rec.token->IsCancelled())
         {
-          FOREVERY (RECORD rec FROM this->linkfroms)
-            rec.token->RemoveCallback(rec.registration);
-
           this->linkfroms := DEFAULT RECORD ARRAY;
           this->linkfromregistered := FALSE;
 
@@ -314,7 +311,10 @@ PUBLIC STATIC OBJECTTYPE CancellationTokenSource
     ELSE
     {
       FOREVERY (RECORD rec FROM this->linkfroms)
-        rec.token->RemoveCallback(this->linkfroms[#rec].registration);
+      {
+        rec.token->RemoveCallback(rec.registration);
+        this->linkfroms[#rec].registration := 0i64;
+      }
     }
 
     this->linkfromregistered := required;
