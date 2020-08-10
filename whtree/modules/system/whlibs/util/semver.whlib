@@ -263,6 +263,9 @@ STATIC OBJECTTYPE SemverRangeParser
     WHILE (this->p->TryParse(" "))
     {
       this->p->ParseWhileInSet(" ");
+      IF(this->p->eof) //just unneeded wihtespace
+        BREAK;
+
       RECORD e2 := this->ParseRange();
       IF (NOT RecordExists(e2))
         BREAK;

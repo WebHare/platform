@@ -169,7 +169,7 @@ class IndyShell
 
     options = { ...options
               , frontendid: whintegration.config.obj.frontendid
-              , shorttid: whintegration.config.obj.shorttid
+              , shortunknowntids: whintegration.config.obj.shortunknowntids
               , params: whintegration.config.obj.appserviceparams
               , webvars: webvars
               , hasconnect: whconnect.hasConnect()

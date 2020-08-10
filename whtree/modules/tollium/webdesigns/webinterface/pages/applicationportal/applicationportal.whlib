@@ -166,7 +166,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , toddservice      := "/wh_services/tollium/todd"
       , initialinstructions := this->initialinstructions
       , appserviceparams := this->appserviceparams
-      , shorttid         := IsWHDebugOptionSet('sht')
+      , shortunknowntids := IsWHDebugOptionSet('sut')
       , profiling        := this->profiling
       , memoryprofiling  := this->memoryprofiling
       , frontendmode     := this->frontendmode
@@ -784,7 +784,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   {
     options := ValidateOptions([ frontendid := ""
                                , params := DEFAULT RECORD
-                               , shorttid := FALSE
+                               , shortunknowntids := FALSE
                                , highpriority := FALSE
                                , jsprofile := FALSE
                                , target := DEFAULT RECORD

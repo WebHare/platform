@@ -47,7 +47,7 @@
       <option tag="sho" title="Webshop" />
       <option tag="bus" title="Busy &amp; waits" />
       <option tag="gtd" title="Debug getTid" />
-      <option tag="sht" title="Shorten unknown tids" />
+      <option tag="sut" title="Short unknown tids" />
       <option tag="key" title="Dompack Keyboard" />
       <option tag="pro" title="Trace promises for unhandled rejections" />
       <option tag="testfw" title="Testframework" />

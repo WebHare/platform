@@ -50,7 +50,11 @@ RECORD FUNCTION SimpleEnsure(INTEGER parent, RECORD settings)
 
 OBJECT FUNCTION EnsureSlotFile(RECORD slot)
 {
-  RETURN OpenWHFSObject(whconstant_whfsid_registerslots)->EnsureFile([ name := slot.filename, type := 19, publish := FALSE ]);
+  OBJECT slotfolder := OpenWHFSObject(whconstant_whfsid_registerslots);
+  IF(NOT ObjectExists(slotfolder))
+    THROW NEW Exception(`WHFS register slots are not yet available (WebHare is still initializing or folder #${whconstant_whfsid_registerslots} has been deleted)`);
+
+  RETURN slotfolder->EnsureFile([ name := slot.filename, type := 19, publish := FALSE ]);
 }
 
 RECORD FUNCTION LookupSlotInfo(RECORD slot)

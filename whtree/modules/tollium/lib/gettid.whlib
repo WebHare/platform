@@ -18,7 +18,7 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib" EXPORT ParseXMLTIdPtr; //ParseX
 
 MACRO PTR missingtidcallback;
 
-PUBLIC BOOLEAN __shortfailtid;
+PUBLIC BOOLEAN __shortunknowntids;
 
 /** Returns the current language
     @return The language code for the current language (lowercase, eg 'nl')
@@ -317,7 +317,10 @@ STRING FUNCTION MissingTid(STRING module, STRING langcode, STRING tid, STRING AR
   IF(missingtidcallback != DEFAULT MACRO PTR)
     missingtidcallback(CELL[ module := module, langcode := langcode, tid := tid, params, stacktrace := ArraySlice(GetStackTrace(), 3) ]);
 
-  RETURN WrapForMode(`(cannot find text: ${tid})`, rich);
+  IF(__shortunknowntids)
+    RETURN WrapForMode(Substring(tid,SearchLastSubstring(tid,'.')), rich);
+  ELSE
+    RETURN WrapForMode(`(cannot find text: ${tid})`, rich);
 }
 
 STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY params, BOOLEAN rich)
@@ -340,7 +343,7 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
 
   IF(langcode = "debug")
   {
-    IF(__shortfailtid)
+    IF(__shortunknowntids)
       tid := Substring(tid,SearchLastSubstring(tid,'.'));
 
     //Use {, as that mixes more safely with HTML than <s, which is useful with rich text...
