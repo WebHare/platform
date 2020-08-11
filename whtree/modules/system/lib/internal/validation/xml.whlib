@@ -193,7 +193,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
     RECORD taskinfo := ParseModuleTasks(this->modulename, this->respath, this->xml);
     FOREVERY(RECORD task FROM taskinfo.tasktypes)
     {
-      IF(NOT task.isnode)
+      IF(NOT task.isnode AND task.applyerror = "")
       {
         this->VerifyObjectExistence(task.linenum, task.objectname);
       }
