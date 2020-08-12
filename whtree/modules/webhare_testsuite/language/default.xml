@@ -179,17 +179,6 @@
         <text tid="rtd">RTD</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="iconviewer">   <!-- tolliumapps.iconviewer -->
-      <text tid="b16">16x16, b</text>
-      <text tid="b24">24x24, b</text>
-      <text tid="c16">16x16, c</text>
-      <text tid="c24">24x24, c</text>
-      <text tid="counter">Update counter</text>
-      <text tid="displayed">Displayed</text>
-      <text tid="iconname">Icon</text>
-      <text tid="w16">16x16, w</text>
-      <text tid="w24">24x24, w</text>
-    </textgroup>
     <textgroup gid="mapdemo">   <!-- tolliumapps.mapdemo -->
       <text tid="frametitle">Map demo</text>
       <text tid="h">Hybrid</text>

@@ -90,10 +90,6 @@
       <accesscheck/>
     </application>
 
-    <application name="iconviewer" screen="tolliumapps/iconviewer/iconviewer.xml#iconviewer" supportedlanguages="en">
-      <accesscheck/>
-    </application>
-
     <notification name="eventservertest" tid="module.eventservertest" descriptiontid="module.eventservertest-desc" defaultenabled="true" />
   </portal>
 

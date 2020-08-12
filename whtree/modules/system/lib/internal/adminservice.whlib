@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/remoting/remotable.whlib";
-LOADLIB "mod::system/lib/internal/codegrep.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
@@ -191,40 +190,6 @@ PUBLIC RECORD FUNCTION RPC_GetModuleChangedFiles(STRING modulename)
            (SELECT path
                  , sha1hash
               FROM moduleinfo.manifest.sourcefiles)
-      ];
-}
-
-/** Execute a codegrep
-    @param regex
-    @param options
-    @cell(string array) options.scanpathmasks Like-masks for paths to scan. Optional, omit or empty to scan all.
-    @cell(string array) options.skippathmasks Like-masks for paths to skip. Optional, omit or empty to skip nothing.
-    @cell(string array) options.types Types of files to scan. Options: [ 'js', 'css', 'harescript', 'html', 'witty', 'xml' ]. Optional, omit or empty to scan all types.
-    @cell(boolean) options.casesensitive Whether to search case sensitive. Optional, defaults to case insensitive.
-    @cell(boolean) options.maxresults Max nr of results (defaults to 500)
-    @return
-    @cell(record array) return.results
-    @cell return.results.type 'error'/'result'
-    @cell return.results.source 'db'/'module'
-    @cell return.results.module Module name (only when source == 'module')
-    @cell return.results.localpath Local path within module (only when source == 'module')
-    @cell return.results.fullpath Full disk path (only when source == 'module')
-    @cell return.results.whfspath WHFS path (only when source == 'db')
-    @cell return.results.what Error message (only when type == 'error')
-    @cell return.results.linedata Data of line containing match (only when type == 'result')
-    @cell return.results.line Number of line containing match (only when type == 'result')
-    @cell return.results.col Column where match starts (only when type == 'result')
-    @cell return.results.colend Column where match ends (only when type == 'result')
-*/
-PUBLIC RECORD FUNCTION RPC_SearchTexts(STRING regex, RECORD options)
-{
-  IF(NOT GetEffectiveUser()->HasRight("system:sysop"))
-    THROW NEW Exception("Only sysops may search texts");
-
-  OBJECT searcher := NEW GlobalTextSearcher(regex, options);
-  INTEGER maxresultscount := CellExists(options, "MAXRESULTS") ? options.maxresults : 500;
-  RETURN
-      [ result :=   searcher->GetNextResults(maxresultscount)
       ];
 }
 
