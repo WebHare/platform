@@ -1,8 +1,15 @@
 import * as dompack from "dompack";
 import * as domevents from "dompack/src/events";
 import * as whintegration from "@mod-system/js/wh/integration";
+import { getTid } from "@mod-tollium/js/gettid";
+import "../internal/form.lang.json";
 
 import "./splitdatetime.scss";
+
+
+
+let labelcount = 0;
+
 
 function formatDate(dateformat, dateparts)
 {
@@ -117,6 +124,34 @@ function formatJSUTCISODate(dateobj)
 {
   return dateobj.getUTCFullYear() + '-' + ('0'+(dateobj.getUTCMonth()+1)).slice(-2) + '-' + ('0'+dateobj.getUTCDate()).slice(-2);
 }
+
+function ensureLabelID(inputnode)
+{
+  let id = inputnode.id;
+  if (id == "")
+  {
+    // FIXME: lookup whether we are nested in a label
+    return "";
+  }
+
+  let labelnode = document.querySelector(`[for="${id}"]`);
+  if (!labelnode)
+  {
+    console.log("Failed to find label for", id);
+    return "";
+  }
+
+  // Ensure the label has an unique ID
+  if (labelnode.id == "")
+  {
+    labelcount++;
+    labelnode.setAttribute("id", `splitdatetime_lbl_${labelcount}`);
+  }
+
+  return labelnode.id;
+}
+
+
 
 
 /*
@@ -275,11 +310,19 @@ export class SplitDateField extends MultiInputSubstition
         year_max  = parts[0];
     }
 
-    this.inputgroup = <div class="wh-form__dateinputgroup" />;
 
-    this.daynode   = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.day} min="1" max="31" type="number" />;
-    this.monthnode = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.month} min="1" max="12" type="number" />;
-    this.yearnode  = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="4" placeholder={this.placeholder.year} min={year_min} max={year_max} type="number" />;
+    this.inputgroup = <div class="wh-form__dateinputgroup" role="group" />;
+
+
+    // Refer to the label (Because we have role="group" we need a label)
+    let labelid = ensureLabelID(inpnode);
+    if (labelid != "")
+      this.inputgroup.setAttribute("aria-labelledby", labelid);
+
+
+    this.daynode   = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.day} min="1" max="31" type="number" aria-label={getTid("publisher:site.forms.splitdatetime-day-arialabel")} />;
+    this.monthnode = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.month} min="1" max="12" type="number" aria-label={getTid("publisher:site.forms.splitdatetime-month-arialabel")} />;
+    this.yearnode  = <input readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="4" placeholder={this.placeholder.year} min={year_min} max={year_max} type="number" aria-label={getTid("publisher:site.forms.splitdatetime-year-arialabel")} />;
     this._refreshAttributes();
     this._refreshReplacingFields();
 
@@ -305,12 +348,20 @@ export class SplitDateField extends MultiInputSubstition
       }
     }
 
+
+    // Take the replaced input out of the keyboard navigation.
+    // But it'll retain the ability to get focus. So if code sets the focus it will be forwarded to the first input in the group (the day).
+    this._replacednode.setAttribute("tabindex", "-1");
+
     //If focus on hidden date input, set focus on first field in replacement
     this._replacednode.addEventListener("focus", ev => {
+      // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
+      //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
       let nextnode = this.inputgroup.querySelector("input");
       if( nextnode )
         nextnode.focus();
     });
+
 
     if( isdisabled )
       this.inputgroup.classList.add("wh-form__dateinputgroup--disabled");
@@ -493,10 +544,16 @@ export class SplitTimeField extends MultiInputSubstition
     let isdisabled = this._replacednode.disabled;
     let isreadonly = this._replacednode.readonly;
 
-    this.hournode   = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.hours} value={this.hours == null ? "" : this.hours} min="0" max="23" type="number" />;
-    this.minutenode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.minutes} value={this.minutes == null ? "" : this.minutes} min="0" max="59" type="number" />;
+    this.hournode   = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" value={this.hours == null ? "" : this.hours} min="0" max="23" type="number"
+                             placeholder={this.placeholder.hours}
+                             aria-label={getTid("publisher:site.forms.splitdatetime-hours-arialabel")}
+                             />;
+    this.minutenode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" value={this.minutes == null ? "" : this.minutes} min="0" max="59" type="number"
+                             placeholder={this.placeholder.minutes}
+                             aria-label={getTid("publisher:site.forms.splitdatetime-minutes-arialabel")}
+                             />;
 
-    this.inputgroup = <div class="wh-form__timeinputgroup" tabindex="0">
+    this.inputgroup = <div class="wh-form__timeinputgroup" role="group">
                         <div class="wh-form__timeinputgroup__line hour">
                           {this.hournode}
                         </div>
@@ -505,9 +562,19 @@ export class SplitTimeField extends MultiInputSubstition
                         </div>
                      </div>;
 
+    // Refer to the label (Because we have role="group" we need a label)
+    let labelid = ensureLabelID(inpnode);
+    //console.log("labelid for time field", labelid);
+    if (labelid != "")
+      this.inputgroup.setAttribute("aria-labelledby", labelid);
+
+
     if( this._replacednode.dataset.whPrecision == "seconds" )
     {
-      this.secondnode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" placeholder={this.placeholder.seconds} value={this.seconds == null ? "" : this.seconds} min="0" max="59" type="number" />;
+      this.secondnode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" value={this.seconds == null ? "" : this.seconds} min="0" max="59" type="number"
+                               placeholder={this.placeholder.seconds}
+                               aria-label={getTid("publisher:site.forms.splitdatetime-seconds-arialabel")}
+                               />;
       this.inputgroup.appendChild( <div class="wh-form__timeinputgroup__line second">
                                      {this.secondnode}
                                    </div> );
@@ -515,12 +582,20 @@ export class SplitTimeField extends MultiInputSubstition
       this.inputgroup.classList.add("wh-form__timeinputgroup--3col");
     }
 
+
+    // Take the replaced input out of the keyboard navigation.
+    // But it'll retain the ability to get focus. So if code sets the focus it will be forwarded to the first input in the group (the day).
+    this._replacednode.setAttribute("tabindex", "-1");
+
     //If focus on hidden time input, set focus on first field in replacement
     this._replacednode.addEventListener("focus", ev => {
+      // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
+      //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
       let nextnode = this.inputgroup.querySelector("input");
       if( nextnode )
         nextnode.focus();
     });
+
 
     if( isdisabled )
       this.inputgroup.classList.add("wh-form__timeinputgroup--disabled");

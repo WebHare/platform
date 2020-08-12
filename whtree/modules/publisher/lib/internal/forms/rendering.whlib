@@ -386,6 +386,10 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
       INSERT "wh-form__fieldgroup--horizontal" INTO useclasses AT END;
 
     Print(`<div class="${EncodeValue(Detokenize(useclasses,' '))}"${GetDatasetAsString(groupdescription.groupdataset)}`);
+
+    IF (groupdescription.type IN ["radiogroup", "checkboxgroup"])
+      Print(` role="group" aria-labelledby="${EncodeValue(groupdescription.firstid)}-label"`);
+
     FOREVERY(STRING condition FROM ["required","enabled","visible"])
     {
       STRING condval := GetCell(groupdescription, condition || "condition");
@@ -410,6 +414,14 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
     IF (groupdescription.type != "group" AND (NOT CellExists(groupdescription, "hidetitle") OR NOT groupdescription.hidetitle))
     {
       Print(`<label class="wh-form__label"`);
+
+      IF (groupdescription.type IN ["radiogroup", "checkboxgroup"])
+        Print(` id="${EncodeValue(groupdescription.firstid)}-label"`);
+
+      // A checkbox might have only a label, but not a title
+      // We need the title label though for visual layout, so we'll use aria-hidden to indicate it doesn't contain relevant information
+      IF (groupdescription.htmltitle = "")
+        Print(` aria-hidden="true"`);
 
       IF(CellExists(groupdescription,'firstid') AND groupdescription.firstid != '')
         Print(` for="${EncodeValue(groupdescription.firstid)}"`);
@@ -847,7 +859,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
         IF(Length(fielddescription.enablecomponents) > 0)
           Print(` data-wh-form-enable="${EncodeValue(Detokenize(fielddescription.enablecomponents,' '))}"`);
         //We have two separate labels, so we can put our custom styled component into the first one without it being affected by the second label growing because of wordrwap
-        Print(`${datasetstr}><label`);
+        Print(`${datasetstr}><label aria-hidden="true"`); // indicate this is decorative to screenreaders (they see the native checkbox/radiobutton)
         IF(fielddescription.firstid != '')
           Print(` for="${EncodeValue(fielddescription.firstid)}"`);
         Print(`></label>`);
