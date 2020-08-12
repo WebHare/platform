@@ -115,7 +115,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
 
   /** Indicates whether only single or multiple selections are allowed
   */
-  PUBLIC PROPERTY selectmode(pvt_selectmode, setselectmode);
+  PUBLIC PROPERTY selectmode(pvt_selectmode, SetSelectMode);
   PUBLIC STRING pvt_selectmode;
 
   PUBLIC PROPERTY type(GetType, SetType);
@@ -168,6 +168,7 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
                            ]]);
 
     //set private props as much as possible to avoid many ApplySettingsToView calls
+    this->pvt_selectmode := ismultiple ? "multiple" : "single";
     this->accepttypedefs := data.accepttypes;
     ^fileviewtype->value := data.type;
     this->roots := data.roots;
@@ -179,7 +180,6 @@ PUBLIC OBJECTTYPE BrowseWHFSObject EXTEND TolliumScreenBase
     this->acceptunpublished := data.acceptunpublished;
     this->pvt_thumbnailwhfstype := data.thumbnailwhfstype;
     this->pvt_thumbnailwhfsfield := data.thumbnailwhfsfield;
-    this->pvt_selectmode := ismultiple ? "multiple" : "single";
     this->recyclebinid := data.recyclebinid;
 
     IF(data.showreadonly)

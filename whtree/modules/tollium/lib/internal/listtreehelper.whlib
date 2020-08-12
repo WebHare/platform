@@ -1187,6 +1187,8 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   */
   MACRO SetSelectionMode(STRING newselectmode)
   {
+    IF(newselectmode NOT IN ["none", "single", "multiple"])
+      THROW NEW TolliumException(this->pvt_callback, `Invalid selection mode '${newselectmode}'`);
     IF (newselectmode = this->pvt_selectmode)
       RETURN;
 
