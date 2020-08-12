@@ -84,7 +84,7 @@ export default class RPCFormBase extends FormBase
   /* Override this to implement support for incoming field messages */
   processFieldMessage(field, prop, value)
   {
-    let fieldnode = this.node.querySelector('*[name="' + field + '"], *[data-wh-form-name="' + field + '"]');
+    let fieldnode = this.node.querySelector(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
     if(!fieldnode)
     {
       console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + value.toString());

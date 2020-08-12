@@ -117,7 +117,7 @@ export default class PollWebtool
 
   async castVote(toolid, optionguids)
   {
-    let query = '[data-toolid="' + toolid + '"]';
+    let query = `[data-toolid="${CSS.escape(toolid)}"]`;
     let toolnode = document.querySelector(query);
 
     this._disableInteraction();

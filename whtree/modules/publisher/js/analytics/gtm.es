@@ -150,7 +150,7 @@ function collectFormValues(formnode)
     for(let node of checkboxes.filter(node => node.checked))
     {
       let keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');
-      let labelsfornode = dompack.qSA('label[for="' + node.id + '"]').map( labelnode => labelnode.textContent).filter(labelnode => !!labelnode).join(' ');
+      let labelsfornode = dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map( labelnode => labelnode.textContent).filter(labelnode => !!labelnode).join(' ');
       labelsfornode = labelsfornode.trim(); //TODO normalize whitespace
       outdata[keyname] = node.value;
       outdata[keyname + '_label'] = labelsfornode;

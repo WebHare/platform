@@ -134,7 +134,7 @@ function ensureLabelID(inputnode)
     return "";
   }
 
-  let labelnode = document.querySelector(`[for="${id}"]`);
+  let labelnode = document.querySelector(`[for="${CSS.escape(id)}"]`);
   if (!labelnode)
   {
     console.log("Failed to find label for", id);
