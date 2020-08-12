@@ -134,9 +134,7 @@ function ensureLabelID(inputnode)
     return "";
   }
 
-  // console.log(`[for="${id}"]`);
   let labelnode = document.querySelector(`[for="${id}"]`);
-  // console.log("label", this.labelnode.innerText);
   if (!labelnode)
   {
     console.log("Failed to find label for", id);
@@ -151,7 +149,6 @@ function ensureLabelID(inputnode)
   }
 
   return labelnode.id;
-  //this.inputgroup.setAttribute("aria-labelledby", this.labelnode.id);
 }
 
 
@@ -319,7 +316,6 @@ export class SplitDateField extends MultiInputSubstition
 
     // Refer to the label (Because we have role="group" we need a label)
     let labelid = ensureLabelID(inpnode);
-    //console.log("labelid for date field", labelid);
     if (labelid != "")
       this.inputgroup.setAttribute("aria-labelledby", labelid);
 

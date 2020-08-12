@@ -419,7 +419,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
         Print(` id="${EncodeValue(groupdescription.firstid)}-label"`);
 
       // A checkbox might have only a label, but not a title
-      // We need the title label though for visual layout, so whe'll use aria-hidden to indicate it doesn't contain relevant information
+      // We need the title label though for visual layout, so we'll use aria-hidden to indicate it doesn't contain relevant information
       IF (groupdescription.htmltitle = "")
         Print(` aria-hidden="true"`);
 

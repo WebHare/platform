@@ -1938,7 +1938,7 @@
       <text tid="splitdatetime-hours-arialabel">hour</text>
       <text tid="splitdatetime-minutes-arialabel">minute</text>
       <text tid="splitdatetime-month-arialabel">month</text>
-      <text tid="splitdatetime-seconds-arialabel">seconds</text>
+      <text tid="splitdatetime-seconds-arialabel">second</text>
       <text tid="splitdatetime-year-arialabel">year</text>
       <text tid="starsrequired">* indicates a required field</text>
       <text tid="submit">Submit</text>
