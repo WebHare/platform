@@ -39,9 +39,10 @@ PUBLIC OBJECT FUNCTION GetWebDesign(INTEGER objectid)
 }
 
 /** @short Get only the plugin loader for a specific url */
-PUBLIC OBJECT FUNCTION GetWebContextForURL(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+PUBLIC OBJECT FUNCTION GetWebContextForURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD urlinfo := LookupPublisherURL(url, clientwebserver);
+  options := ValidateOptions([ clientwebserver := -1 ], options);
+  RECORD urlinfo := LookupPublisherURL(url, options);
   IF(urlinfo.folder = 0) //Not sure how to handle this, but we have no way to figure out your plugins. Give up
     THROW NEW Exception(`Cannot resolve the URL '${url}' to a published folder`);
 

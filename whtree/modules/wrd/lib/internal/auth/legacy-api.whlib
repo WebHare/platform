@@ -1335,9 +1335,10 @@ PUBLIC OBJECT FUNCTION OpenWRDAuthIntegration(OBJECT wrdschema, STRING tag)
     @long This function looks up the fsobject for the url (using LookupPublisherURL) and then obtains the wrdauth plugin object, if ant
     @param url URL to look up
     @return The auth plugin. Throws an exception if no plugin is registered */
-PUBLIC OBJECT FUNCTION GetAuthIntegrationPlugin(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+PUBLIC OBJECT FUNCTION GetAuthIntegrationPlugin(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT wrdauthplugin := GetWebContextForURL(url, clientwebserver)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+  options := ValidateOptions([ clientwebserver := -1 ], options);
+  OBJECT wrdauthplugin := GetWebContextForURL(url, options)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
   IF(NOT ObjectExists(wrdauthplugin))
     THROW NEW Exception("No wrdauth plugin registered for URL " || url);
 

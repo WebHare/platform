@@ -16,7 +16,7 @@ PUBLIC RECORD FUNCTION RPC_Login(STRING url, STRING login, STRING password, BOOL
   STRING challenge := CellExists(options, "CHALLENGE") ? options.challenge : "";
   STRING returnto := CellExists(options, "RETURNTO") ? options.returnto : "";
 
-  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(GetWebOriginURL(url), GetClientWebserver());
+  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
   IF(persistent)
     wrdauthplugin->wrdauth->persistentcookie := TRUE;
 
@@ -36,7 +36,7 @@ PUBLIC RECORD FUNCTION RPC_Login(STRING url, STRING login, STRING password, BOOL
 
 PUBLIC RECORD FUNCTION RPC_StartSAMLLogin(STRING url, STRING samlsptag, RECORD options)
 {
-  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(url, GetClientWebserver());
+  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(url, [ clientwebserver := GetClientWebserver() ] );
   RECORD reqoptions :=
       [ action :=       CellExists(options, "ACTION") ? options.action : "redirect"
       , passive :=      CellExists(options, "PASSIVE") AND options.passive
