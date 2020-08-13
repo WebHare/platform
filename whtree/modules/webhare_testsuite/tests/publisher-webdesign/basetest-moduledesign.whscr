@@ -45,7 +45,7 @@ MACRO Prepare()
   OBJECT emptyfile := siteroot->OpenByPath("emptyfilefolder/index.html");
 
   TestEq(102, GetErrorFromPublished(loadlibdoc->published), "expected 102 - runtime error publishing #" || loadlibdoc->id); // must be 102 - runtime error
-  TestEq("webhare-testsuite.output/site/emptyfilefolder/%5Eindex.html/pagina2.html", UnpackURL(GetFileSubpageURL(emptyfile->id,"pagina2.html")).urlpath);
+  TestEq("testoutput/webhare_testsuite.testoutput/site/emptyfilefolder/%5Eindex.html/pagina2.html", UnpackURL(GetFileSubpageURL(emptyfile->id,"pagina2.html")).urlpath);
   TestEq(0, GetErrorFromPublished(emptyfile->published), "Failed to publish " || emptyfile->url);
 }
 
