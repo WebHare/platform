@@ -14,7 +14,6 @@ import { testDeepEq } from 'dompack/testframework/expect';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import * as diff from 'diff';
-import "../internal/util/polyfill-cssescape.es"; //For IE11
 
 let module_exports;
 
