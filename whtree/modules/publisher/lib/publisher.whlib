@@ -387,19 +387,48 @@ PUBLIC RECORD FUNCTION ReadConversionProfile(INTEGER profileid)
   RETURN ParseXMLProfile(SELECT AS BLOB data FROM system.fs_objects WHERE id=profileid);
 }
 
+RECORD FUNCTION TryProductionURLLookup(RECORD up, STRING url)
+{
+  //Looking up by productionurl. Get best match:
+  RECORD ARRAY prodsites := SELECT id FROM system.sites;
+  prodsites := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings")->Enrich(prodsites, "ID", ["productionurl"]);
+  prodsites := SELECT *
+                 FROM prodsites
+                WHERE productionurl != ""
+                      AND ToUppercase(url) LIKE ToUppercase(productionurl || "*")
+             ORDER BY Length(productionurl) DESC
+                LIMIT 1;
+
+  IF(Length(prodsites) = 0)
+    RETURN DEFAULT RECORD;
+
+  //we have a match!
+  INTEGER site := prodsites[0].id;
+
+  //convert the produrl to the local url
+  STRING baseurlpath := UnpackURL(prodsites[0].productionurl).urlpath;
+  url := DecodeURL(Substring(up.urlpath, Length(baseurlpath)));
+
+  RETURN CELL[ site, ...LookupPublisherURLByPath(site, url, up.urlpath) ]; //Unsure about last parameter, but it might not be needed for this case?
+}
+
 /** @short Find the (closest) file associated with a URL on this server
     @long LookupPublisherURL finds the associated URL and is the implementation between the Publisher's "Goto URL" function.
           Preview and imagecache URLs are resolved back to the original file or folder.
     @param url URL to look up
-    @param clientwebserver Optional ID of a specific webserver on which we should resolve this url
+    @cell(integer) options.clientwebserver Optional ID of a specific webserver on which we should resolve this url
+    @cell(boolean) options.matchproduction Also look up sites based on their production url (live synced versions)
     @return A record describing our guess at the URL's location
     @cell(integer) return.webserver ID of the webserver associated with the URL (table system.webservers). 0 if the URL is not hosted here
     @cell(integer) return.site Site ID. 0 if no site's webroot starts with this URL (not even through aliases)
     @cell(integer) return.folder Folder ID containing the URL. 0 if no site was hosting this folder
     @cell(integer) return.file File ID.
 */
-PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DEFAULTSTO -1)
+PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions( [ clientwebserver := -1
+                              , matchproduction := FALSE
+                              ], options);
   RECORD result := [ webserver := 0
                    , site := 0
                    , folder := 0
@@ -411,13 +440,17 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
   //Find the matching webserver
   RECORD up := UnpackURL(url);
   RECORD webserver;
-  IF(clientwebserver = -1)
+  IF(options.clientwebserver = -1)
     webserver := LookupWebserver(GetHostedSites(), up.host, up.port);
   ELSE
-    webserver := SELECT id, baseurl, isinterface := type=1 FROM EnumerateAllWebservers(FALSE) WHERE id = clientwebserver;
+    webserver := SELECT id, baseurl, isinterface := type=1 FROM EnumerateAllWebservers(FALSE) WHERE id = options.clientwebserver;
 
-  IF(NOT RecordExists(webserver))
-    RETURN result; //probably not even hosted here
+  IF(NOT RecordExists(webserver)) //probably not even hosted here
+  {
+    IF(options.matchproduction)
+      result := CELL[...result, ...TryProductionURLLookup(up, url) ];
+    RETURN result;
+  }
 
   result.webserver := webserver.id;
   IF(up.urlpath LIKE ".publisher/preview/*")
@@ -501,15 +534,26 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
 
   result.site := best_match.id;
   url := DecodeURL(Substring(url, Length(best_match.webroot)));
+
+  RETURN CELL[...result, ...LookupPublisherURLByPath(best_match.id, url, up.urlpath) ];
+}
+
+RECORD FUNCTION LookupPublisherURLByPath(INTEGER startroot, STRING url, STRING origurlpath)
+{
+  IF(debugurllookup)
+    DumpValue(CELL[startroot, url, origurlpath]);
+
   WHILE(SearchSubstring(url,'//')!=-1)
     url := Substitute(url,'//','/');
 
   STRING baseurl := Tokenize(Tokenize(Tokenize(url,'?')[0],'#')[0],'&')[0];
   STRING ARRAY urlparts := Tokenize(baseurl,'/');
 
-  RECORD cur := SELECT * FROM system.fs_objects WHERE id = best_match.root;
+  RECORD cur := SELECT * FROM system.fs_objects WHERE id = startroot;
   IF(debugurllookup) Print("best match: " || cur.whfspath || "\n");
   RECORD foundfile;
+
+  INTEGER folder,file,__directfile;
 
   FOREVERY (STRING part FROM urlparts)
   {
@@ -540,7 +584,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
         CONTINUE;
       }
       IF(NOT candidates[0].isfolder)
-        result.__directfile := candidates[0].id;
+        __directfile := candidates[0].id;
       BREAK;
     }
     //not an exact match. second chance, match after extension stripping?
@@ -550,30 +594,30 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, INTEGER clientwebserver DE
                           AND ToUppercase(GetBasenameFromPath(name)) = ToUppercase(searchpart);
 
     IF(RecordExists(match))
-      result.__directfile := match.id;
+      __directfile := match.id;
 
 //    ABORT("not matching at " || searchpart);
     BREAK;
   }
 
-  result.folder := cur.id;
+  folder := cur.id;
 
   // If no exact file match was found, check if the folder's index url was requested and return the index
-  IF (result.__directfile = 0)
+  IF (__directfile = 0)
   {
-    IF (up.urlpath = ""
-        OR up.urlpath LIKE "*/"
-        OR GetNameFromPath(up.urlpath) IN whconstant_webserver_indexpages)
+    IF (origurlpath = ""
+        OR origurlpath LIKE "*/"
+        OR GetNameFromPath(origurlpath) IN whconstant_webserver_indexpages)
     {
       IF(debugurllookup) Print("no candidate, select index doc for folder's index url\n");
-      result.__directfile := cur.indexdoc;
+      __directfile := cur.indexdoc;
     }
   }
-  result.file := result.__directfile;
-  IF(result.file = 0) // Fallback to the index for this folder
-    result.file := cur.indexdoc;
+  file := __directfile;
+  IF(file = 0) // Fallback to the index for this folder
+    file := cur.indexdoc;
 
-  RETURN result;
+  RETURN CELL[ folder, file, __directfile ];
 }
 
 PUBLIC RECORD FUNCTION __GetPhotoalbumProps(INTEGER folderid)

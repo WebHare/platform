@@ -62,6 +62,26 @@ MACRO LookupTest()
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(0, lookupresult.file);
 
+
+  testfw->GetTestSite()->rootobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/sitesettings",
+    [ productionurl := "https://www.example.com/subsite/"
+    ]);
+
+  lookupresult := LookupPublisherURL("https://www.example.com/subsite/testfolder/");
+  TestEq(0, lookupresult.site);
+  TestEq(0, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  lookupresult := LookupPublisherURL("https://www.example.com/subsite/testfolder/", [ matchproduction := TRUE ]);
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
+  lookupresult := LookupPublisherURL("https://www.example.com/subsite/", [ matchproduction := TRUE ]);
+  TestEq(root->parentsite, lookupresult.site);
+  TestEq(root->parentsite, lookupresult.folder);
+  TestEq(0, lookupresult.file);
+
   FOREVERY(STRING shouldwork FROM [ "test-alias.example.net", "test-alias.example.net", "test-lookup.example.net"
                                   , "www.trampolineplein.example.net", "www.plein.example.net", "plein.example.net"
                                   ])

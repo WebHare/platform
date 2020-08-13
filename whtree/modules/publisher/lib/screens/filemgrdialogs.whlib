@@ -323,7 +323,7 @@ PUBLIC STATIC OBJECTTYPE GoToObject EXTEND TolliumScreenBase
                , id := redir.destid
                ];
 
-      RECORD findit := LookupPublisherURL(^obj->value);
+      RECORD findit := LookupPublisherURL(^obj->value, [ matchproduction := TRUE ]);
       IF (findit.folder != 0)
         RETURN [ remarks := "", id := findit.file ?? findit.folder ];
 

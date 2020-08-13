@@ -13,6 +13,6 @@ LOADLIB "mod::wrd/lib/internal/userapi.whlib" EXPORT GetWRDAuthUserAPI;
 PUBLIC OBJECT FUNCTION GetWRDAuthPlugin(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ clientwebserver := -1 ], options);
-  RETURN GetAuthIntegrationPlugin(url, options.clientwebserver);
+  RETURN GetAuthIntegrationPlugin(url, options);
 }
 
