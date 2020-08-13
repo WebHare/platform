@@ -683,7 +683,7 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
     IF (finished)
     {
       // Signal the IndexManager that the configuration has changed
-      this->tolliumcontroller->BroadcastAppEvent("consilio:indexmanager.config",
+      BroadcastEvent("consilio:indexmanager.config",
           [ loglevel :=     this->debuglevel_indexmanager->value
           ]);
 

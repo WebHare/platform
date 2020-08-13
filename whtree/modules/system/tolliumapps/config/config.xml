@@ -120,6 +120,7 @@
 
     <compositions>
       <eventlistener name="giteventlistener" masks="system:modulefolder.mod::*/.git/*" onevents="GotGitEvent" groupinterval="1000" />
+      <eventlistener name="moduleeventlistener" masks="system:softreset system:moduleupdate" onevents="GotModuleEvent" groupinterval="1000" />
     </compositions>
 
     <toolbar>

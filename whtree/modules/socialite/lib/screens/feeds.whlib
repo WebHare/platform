@@ -13,13 +13,6 @@ PUBLIC OBJECTTYPE feeds EXTEND TolliumScreenBase
   {
     this->sessionid := data.sessionid;
     this->RefreshFeeds();
-
-    this->frame->RegisterAppEventListener("socialite:feedsupdate", PTR this->OnFeedsUpdate);
-  }
-
-  MACRO OnFeedsUpdate(RECORD data)
-  {
-    this->RefreshFeeds();
   }
 
   MACRO RefreshFeeds()
