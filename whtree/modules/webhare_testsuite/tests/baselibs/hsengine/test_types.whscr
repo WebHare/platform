@@ -611,6 +611,10 @@ MACRO CastTest()
 
   TestEq(5m, CastTo(5, TYPEID(MONEY)));
 
+  TestEq(0, GetTypeDefaultValue(TYPEID(INTEGER)));
+  TestEq(VARIANT[], GetTypeDefaultValue(TYPEID(VARIANT ARRAY)));
+  TestThrowsLike("There is no default value for type VARIANT", PTR GetTypeDefaultValue(TYPEID(VARIANT)));
+
   CloseTest("TestTypes: CastTest");
 }
 
