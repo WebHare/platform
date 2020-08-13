@@ -17,15 +17,14 @@ PUBLIC RECORD ARRAY FUNCTION UpdateDashboardMenu(RECORD ARRAY appmenu, RECORD co
     RETURN appmenu;
 
   RECORD dashboardapp := SELECT * FROM appmenu[systemmenu].apps WHERE title = "Dashboard";
-  IF(NOT RecordExists(dashboardapp))
-    ABORT("Cannot find dashboard");
+  IF(RecordExists(dashboardapp))
+  {
+    DELETE FROM appmenu[systemmenu].apps WHERE title = dashboardapp.title;
 
-  DELETE FROM appmenu[systemmenu].apps WHERE title = dashboardapp.title;
-
-  INSERT [ groupname := "webhare_testsuite:testgroup"
-         , title := "TEST GROUP"
-         , apps := [dashboardapp]
-         ] INTO appmenu AT END;
-
+    INSERT [ groupname := "webhare_testsuite:testgroup"
+           , title := "TEST GROUP"
+           , apps := [dashboardapp]
+           ] INTO appmenu AT END;
+  }
   RETURN appmenu;
 }
