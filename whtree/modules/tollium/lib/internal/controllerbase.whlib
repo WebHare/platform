@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
@@ -1323,12 +1322,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   INTEGER pvt_apptimeout;
 
 
-  /// event manager for broadcasts
-  OBJECT eventmgr;
 
-
-  /// Link to current tolliumcache script
-  OBJECT tolliumcachelink;
 
   /// Application title
   STRING title;
@@ -1350,9 +1344,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   // List of stolen screens
   OBJECT ARRAY stolen_screens;
 
-  RECORD ARRAY pvt_appevents;
-  INTEGER pvt_appevents_id;
-  RECORD ARRAY event_interests;
   RECORD ARRAY controllermessagequeue;
   STRING browsertitleprefix;
 
@@ -1495,7 +1486,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     this->pvt_userapi := userapi;
     this->pvt_wrdauthplugin := wrdauthplugin;
     this->pvt_contexts := NEW TolliumContexts(DEFAULT OBJECT, this);
-    this->eventmgr := NEW EventManager;
     this->reportissues := HavePrimaryTransaction() AND NOT IsDtapLive();
 
     this->running := TRUE;
@@ -1553,16 +1543,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   // Helper functions
   //
 
-  MACRO ProcessIncomingAppEvents(RECORD ARRAY events)
-  {
-    FOREVERY(RECORD eventhandler FROM this->pvt_appevents)
-      FOREVERY(RECORD event FROM events)
-      {
-        IF(event.event LIKE eventhandler.eventtag)
-          eventhandler.handler(event.data);
-      }
-  }
-
   BOOLEAN FUNCTION ProcessIncomingControllerMessages()
   {
     RECORD ARRAY events := this->controllermessagequeue;
@@ -1573,46 +1553,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     FOREVERY(RECORD msg FROM events)
       this->HandleControllerMessage(msg);
     RETURN TRUE;
-  }
-
-  PUBLIC INTEGER FUNCTION pvt_RegisterAppEventListener(OBJECT screen, STRING eventtag, MACRO PTR handler)
-  {
-    INTEGER id := this->pvt_appevents_id + 1;
-    this->pvt_appevents_id := id;
-    INSERT INTO this->pvt_appevents(id, screen, eventtag, handler) VALUES(id, screen, eventtag, handler) AT END;
-    this->UpdateAppEventListeners();
-    RETURN id;
-  }
-
-  PUBLIC MACRO pvt_UnregisterAppEventListener(INTEGER listenerid)
-  {
-    DELETE FROM this->pvt_appevents WHERE id = listenerid;
-    this->UpdateAppEventListeners();
-  }
-
-  MACRO UpdateAppEventListeners()
-  {
-    RECORD ARRAY events :=
-        SELECT eventtag
-             , count :=         count(*)
-             , id :=            (SELECT AS INTEGER id
-                                   FROM this->event_interests AS b
-                                  WHERE a.eventtag = b.eventtag)
-          FROM this->pvt_appevents AS a
-      GROUP BY eventtag;
-
-    STRING ARRAY new_events := SELECT AS STRING ARRAY eventtag FROM events;
-
-    FOREVERY (RECORD rec FROM this->event_interests)
-      IF (rec.eventtag NOT IN new_events)
-        this->eventmgr->UnregisterInterest(rec.id);
-
-
-    FOREVERY (RECORD rec FROM events)
-      IF (rec.id = 0)
-        events[#rec].id := this->eventmgr->RegisterInterest(rec.eventtag);
-
-    this->event_interests := events;
   }
 
   MACRO HandleLoadError(OBJECT parent, RECORD ARRAY loaderrors, STRING screenname)
@@ -2247,22 +2187,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   }
 
 
-  PUBLIC MACRO BroadcastAppEvent(STRING eventtag, RECORD data)
-  {
-    this->eventmgr->BroadcastEvent(eventtag, data);
-  }
-
-  /** @short Broadcast multiple events
-      @param events Record array of events
-      @cell events.tag Tag of the event
-      @cell events.data Data for the event */
-  PUBLIC MACRO BroadcastAppEvents(RECORD ARRAY events)
-  {
-    FOREVERY(RECORD event FROM events)
-      this->BroadcastAppEvent(event.tag, event.data);
-  }
-
-
   PUBLIC MACRO ExitApplication()
   {
     this->running := FALSE;
@@ -2500,40 +2424,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   PUBLIC OBJECT FUNCTION GetAsyncObject(OBJECT component, STRING type, STRING ftid, BOOLEAN create)
   {
     THROW NEW Exception("Must be overridden");
-  }
-
-
-
-
-
-
-  //moved from todd controller
-  RECORD ARRAY pending_events;
-
-  BOOLEAN FUNCTION HandleIncomingEvents()
-  {
-    RECORD res := this->eventmgr->ReceiveEvent(DEFAULT DATETIME);
-    IF (res.status != "ok")
-      RETURN FALSE; //nothing to do
-
-    INSERT
-        [ event :=    res.event
-        , data :=     res.msg
-        ] INTO this->pending_events AT END;
-
-    RETURN TRUE;
-  }
-
-  BOOLEAN FUNCTION HandleAppEvents() //This also short-circuits self-generated events immediately
-  {
-    RECORD ARRAY events := this->pending_events;
-    this->pending_events := DEFAULT RECORD ARRAY;
-
-    IF(Length(events)=0)
-      RETURN FALSE;
-
-    this->ProcessIncomingAppEvents(events);
-    RETURN TRUE;
   }
 
 
@@ -2955,7 +2845,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     }
     ELSE
     {
-      extra_read_handles := [ INTEGER(this->eventmgr->handle) ] CONCAT __INTERNAL_GetEventCallBackHandles();
+      extra_read_handles := __INTERNAL_GetEventCallBackHandles();
       extra_write_handles := __INTERNAL_GetEventCallBackWriteHandles();
       cbtimeout := __INTERNAL_GetEventCallBackTimeout();
       IF (wait_until > cbtimeout)
@@ -3153,10 +3043,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
         INSERT todd_request.param INTO this->controllermessagequeue AT END;
       }
 
-      CASE "$appevent"
-      {
-      }
-
       CASE "$formstate"
       {
         this->currentformstate := todd_request.param;
@@ -3340,18 +3226,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
         IF (callbacks_start <= now AND sync_callbacks_limit > now)
         {
-          IF(this->HandleAppEvents())
-          {
-            IF(debug_logcontroller)
-              LogDebug("tollium:controller", "Handled app events");
-            didanything := TRUE;
-          }
-          IF(this->HandleIncomingEvents())
-          {
-            IF(debug_logcontroller)
-              LogDebug("tollium:controller", "Handled incoming events");
-            didanything := TRUE;
-          }
           IF (HandleInternalCallbacks(signalledeventhandle, signalledeventhandlewrite, TRUE))
           {
             IF(debug_logcontroller)

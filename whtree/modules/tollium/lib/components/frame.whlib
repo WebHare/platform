@@ -875,16 +875,6 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
       this->AddFlagsToContainer();
   }
 
-  PUBLIC INTEGER FUNCTION RegisterAppEventListener(STRING eventtag, MACRO PTR handler)
-  {
-    RETURN this->owner->tolliumcontroller->pvt_RegisterAppEventListener(this->owner, eventtag, handler);
-  }
-
-  PUBLIC MACRO UnregisterAppEventListener(INTEGER listenerid)
-  {
-    this->owner->tolliumcontroller->pvt_UnregisterAppEventListener(listenerid);
-  }
-
   PUBLIC MACRO SetNotificationBadge(OBJECT badge)
   {
     this->badge := badge;
