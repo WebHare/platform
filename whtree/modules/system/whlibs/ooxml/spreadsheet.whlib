@@ -768,7 +768,7 @@ PUBLIC STATIC OBJECTTYPE ExcelSheet
       @cell options.floatmode How to convert numbers: "integer", "money" (rounds to money and omits trailing zeroes) or "float"
       @cell(function ptr) options.onprogress Callback that will periodically receive progress records as we import the file. Progress records contain 'cur'(rent) row (0-baesd) and 'total' and do not count the header row
       @return Extracted rows */
-  PUBLIC RECORD ARRAY FUNCTION ExportRows(RECORD options)
+  PUBLIC RECORD ARRAY FUNCTION ExportRows(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(exportrowsoptions, options, exportrowsmeta);
 
