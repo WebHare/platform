@@ -1,0 +1,114 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/testfw/sites.whlib";
+
+
+ASYNC MACRO TestDocumentationSite()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs"));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
+  TestEq("https://www.example.com/", TT("alwayshelp")->GetDocumentationURL());
+
+  TestEq(FALSE, TTIsVisible("neverhelp->helpicon"));
+  TestEq("", TT("neverhelp")->GetDocumentationURL());
+
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon"));
+  TestEq("https://www.example.com/docs/testapp/subpage", TT("relativehelp")->GetDocumentationURL());
+
+  GetTestController()->GrabInstructions();
+
+  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+
+  RECORD openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+  TestEq("https://www.example.com/docs/testapp/subpage", openhelp.params[0]);
+  TestEq("", openhelp.params[1]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Let's build a documentation testsite
+  OBJECT testsite := SetupTestWebsite("tollium:webinterface");
+
+  testfw->BeginWork();
+  OBJECT docfolder := testsite->rootobject->CreateFolder([name := "doc", typens := "http://www.webhare.net/xmlns/tollium/manual"]);
+  OBJECT firstdoc := docfolder->EnsureFile([name := "testfile", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE]);
+  testfw->CommitWork();
+
+  //STORY: Open app in readonly mode. 'relativehelp' points to a nonexisting page and shouldn't initially appear
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ `site::${testsite->name}/doc` ]]));
+  TestEq("", TT("relativehelp")->GetDocumentationURL());
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon")); //as this doc is not in place
+
+  TT("relativehelp")->doclink := "testfile";
+  TestEq(testsite->webroot || "doc/testfile/" , TT("relativehelp")->GetDocumentationURL());
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon")); //and now its available!
+
+  GetTestController()->GrabInstructions();
+
+  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+  TestEq(testsite->webroot || "doc/testfile/", openhelp.params[0]);
+  TestEq("", openhelp.params[1]);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
+  //STORY: Open app in with write access to docs. 'relativehelp' points to a nonexisting page but should still appear!
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ `site::${testsite->name}/doc`, "edit" ]]));
+  TestEq("", TT("relativehelp")->GetDocumentationURL());
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon"));
+
+  GetTestController()->GrabInstructions();
+
+  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+  TestEq("", openhelp.params[0]);
+  TestEq(TRUE, openhelp.params[1] != "", "Expecting an edit token");
+
+  //STORY: Start the editor. we'll put some text there but NOT publish it yet...
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("tollium:editdocumentation", [ target := [ edittoken := openhelp.params[1] ]]));
+  TT("doceditor")->contents->rte->value := [htmltext := StringToBlob(`<body><p class="normal">help text!</p></body>`)];
+  TT("doceditor")->contents->rte->__debug_simulatedirty();
+  TTClick("saveasdraftbutton");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //That should still keep the help button without an url but available to editors
+  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+  TestEq("", openhelp.params[0]);
+  TestEq(TRUE, openhelp.params[1] != "", "Expecting an edit token");
+
+  //STORY: Now publish the rtd
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("tollium:editdocumentation", [ target := [ edittoken := openhelp.params[1] ]]));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton"), [ messagemask := "*sure*save*publish*" ]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //That should activate the help button without an url but available to editors
+  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+  TestEq(testsite->webroot || "doc/subpage/", openhelp.params[0]);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close our testapp
+}
+
+RunTestFramework( [ PTR TestDocumentationSite
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                     ]);

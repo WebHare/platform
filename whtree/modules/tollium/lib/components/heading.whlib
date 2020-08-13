@@ -1,13 +1,21 @@
 <?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
 <
+  STRING __doclink;
+
   PUBLIC PROPERTY checkbox(GetCheckBox, SetCheckBox);
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY onchange(GetOnChange, SetOnChange);
   PUBLIC PROPERTY enablecomponents(GetEnableComponents, SetEnableComponents);
+  PUBLIC PROPERTY doclink(__doclink, SetDocLink);
   UPDATE PUBLIC PROPERTY title(GetSubTitle, SetSubTitle);
 
   MACRO NEW()
@@ -26,6 +34,7 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
     this->onchange := def.onchange;
     this->title := def.title;
     this->headingtitle->isheading := TRUE;
+    this->doclink := def.doclink;
   }
 
   UPDATE MACRO PreInitComponent()
@@ -55,6 +64,25 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
   MACRO SetValue(BOOLEAN newvalue)
   {
     this->cbox->value:=newvalue;
+  }
+  MACRO OpenHelp(RECORD clickinfo)
+  {
+    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    IF(RecordExists(info))
+      this->contexts->controller->OpenAppDocumentation(info.url, [ editinfo := info.editinfo ]);
+  }
+  MACRO SetDoclink(STRING newlink)
+  {
+    IF(this->__doclink = newlink)
+      RETURN;
+
+    this->__doclink := newlink;
+    ^helpicon->visible := RecordExists(this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink));
+  }
+  PUBLIC STRING FUNCTION GetDocumentationUrl()
+  {
+    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    RETURN RecordExists(info) AND info.url != "" ? info.url : "";
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN newstate)

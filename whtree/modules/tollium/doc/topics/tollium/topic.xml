@@ -1,6 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Tollium"
-       docorder="applications screens applicationportal">
+       docorder="applications screens applicationportal embedded-documentation ">
   <section name="appdev" title="Application development" />
   <section name="dialogs" title="Common dialogs" />
   <section name="helpers" title="Helper functions" />

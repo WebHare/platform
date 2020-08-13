@@ -16,6 +16,8 @@ LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -1385,6 +1387,8 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   /// Base URL for interface
   STRING pvt_baseurl;
 
+  /// Base url for documentation
+  RECORD docsettings;
 
   /// List of all active async objects (async downloads, window opens)
   OBJECT ARRAY asyncobjects;
@@ -1436,6 +1440,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
   /// @type(object %WRDAuthPlugin) The WRD auth plugin (if available)
   PUBLIC PROPERTY wrdauthplugin(pvt_wrdauthplugin, -);
+
 
   // ---------------------------------------------------------------------------
   //
@@ -1745,10 +1750,101 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
   }
 
+  /** Setup dynamic embedded documentation
+      @param baseurl Base URL for doclink= attributes */
+  PUBLIC MACRO SetupDynamicDocumentation(STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ editdocumentation := FALSE ], options);
+
+    IF(baseurl != "")
+    {
+      IF(NOT IsAbsoluteURL(baseurl))
+        THROW NEW Exception(`The documentation URL must be an absolute URL`);
+
+      IF(baseurl NOT LIKE "*/")
+        baseurl := baseurl || "/";
+
+      IF(baseurl LIKE "site::*")
+      {
+        OBJECT target := OpenWHFSObjectByPath(baseurl);
+        IF(ObjectExists(target) AND target->isfolder AND target->objecturl != "")
+        {
+          this->docsettings := [ baseurl := target->objecturl
+                               , basefolder := target
+                               , editdocumentation := options.editdocumentation
+                               ];
+          RETURN;
+        }
+      }
+      ELSE
+      {
+        this->docsettings := [ baseurl := baseurl
+                             , basefolder := DEFAULT OBJECT
+                             , editdocumentation := FALSE
+                             ];
+        RETURN;
+      }
+    }
+    this->docsettings := DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION GetDynamicDocumentationInfo(STRING doclink)
+  {
+    IF(doclink = "")
+      RETURN DEFAULT RECORD;
+    IF(IsAbsoluteURL(doclink))
+    {
+      RETURN [ editinfo := DEFAULT RECORD
+             , url := doclink
+             ];
+    }
+
+    IF(NOT RecordExists(this->docsettings))
+      RETURN DEFAULT RECORD;
+
+    STRING sublink := doclink;
+    WHILE(sublink LIKE "/*")
+      sublink := Substring(sublink,1);
+
+    IF(ObjectExists(this->docsettings.basefolder))
+    {
+      //TODO relative path spport ?
+      RECORD match := SELECT id, name, link
+                        FROM system.fs_objects
+                       WHERE parent = this->docsettings.basefolder->id
+                             AND ToUppercase(name) = ToUppercase(sublink)
+                             AND link != "";
+      RECORD editinfo;
+      IF(this->docsettings.editdocumentation AND IsValidWHFSName(sublink,FALSe))
+        editinfo := [ parent := this->docsettings.basefolder->id, name := ToLowercase(sublink) ];
+
+      IF(RecordExists(match) OR RecordExists(editinfo))
+        RETURN CELL[ editinfo, url := RecordExists(match) ? match.link : "" ];
+      ELSE
+        RETURN DEFAULT RECORD;
+    }
+    ELSE
+    {
+      RETURN [ editinfo := DEFAULT RECORD
+             , url := ResolveToAbsoluteURL(this->docsettings.baseurl, sublink)
+             ];
+    }
+
+  }
+
   PUBLIC MACRO OpenAppDocumentation(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[], options);
-    this->ExecuteClientCall("OpenDocumentation", url);
+    IF(url != "" AND NOT IsAbsoluteURL(url)) //This allows us to extend this call to also support doclink= urls (but we also need to embed languages codes then ?)
+      THROW NEW Exception(`The documentation URL must be an absolute URL`);
+
+    BOOLEAN canedit;
+    options := ValidateOptions(CELL[ editinfo := DEFAULT RECORD ], options);
+    IF(RecordExists(this->docsettings))
+    {
+      this->docsettings := CELL[...this->docsettings, options.editinfo ];
+      canedit := RecordExists(options.editinfo);
+    }
+    this->ExecuteClientCall("OpenDocumentation", url, canedit ? EncryptForThisServer("tollium:editdocumentation", CELL[...options.editinfo, cd := GetCurrentDateTime() ])  : "");
   }
 
   MACRO AddAppIssue(STRING issuetag)

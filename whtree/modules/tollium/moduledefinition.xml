@@ -29,6 +29,10 @@
       </accesscheck>
     </application>
 
+    <application name="editdocumentation" startmacro="tolliumapps/editdocumentation.whlib#editdocumentation">
+      <accesscheck />
+    </application>
+
     <notification name="notifications.testnotification" tid="notifications.testnotification" descriptiontid="notifications.testnotification-desc"/>
   </portal>
 

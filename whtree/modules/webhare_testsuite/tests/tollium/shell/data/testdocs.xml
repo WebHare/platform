@@ -1,0 +1,13 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+         library="testdocs.whlib">
+
+  <screen name="testdocs">
+    <body>
+      <heading title="alwayshelp" name="alwayshelp" doclink="https://www.example.com/" />
+      <heading title="neverhelp" name="neverhelp" />
+      <heading title="relativehelp" name="relativehelp" doclink="/subpage" />
+    </body>
+  </screen>
+
+</screens>
