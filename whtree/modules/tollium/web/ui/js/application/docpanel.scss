@@ -1,4 +1,23 @@
-iframe.docpanel
+.docpanel
+{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+}
+.docpanel__edit, .docpanel__close
+{
+  background:white;
+  border:1px solid red;
+  padding:3px;
+  margin-bottom:10px;
+}
+
+.docpanel:not(.docpanel--canedit) .docpanel__edit
+{
+  display:none;
+}
+
+.docpanel__content //iframe
 {
   border:none;
   display:block;

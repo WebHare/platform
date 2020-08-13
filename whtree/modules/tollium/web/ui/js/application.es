@@ -541,11 +541,11 @@ export class ApplicationBase
     }
   }
 
-  _onMsgOpenDocumentation(url)
+  _onMsgOpenDocumentation(url, edittoken)
   {
     if (!this.docpanel)
       this.docpanel = new DocPanel(this, this.appnodes.docpanel);
-    this.docpanel.load(url);
+    this.docpanel.load(url, edittoken);
   }
 
   _onMsgAskWebHareConnect(message)
@@ -1016,6 +1016,7 @@ export class BackendApplication extends ApplicationBase
     }
     catch(error)
     {
+      console.log("Exception on appcall", error);
       this.queueEvent("$controllermessage", { type: "clientcallreply", id: instr.id, resolve: false, result: error.stack || error + "" });
     }
   }
