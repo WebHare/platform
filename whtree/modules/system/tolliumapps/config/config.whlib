@@ -95,8 +95,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->revisionupdatefifo := NEW FIFO;
     this->modulecolumns := ^modules->columns;
     this->SetConnectedPeer(DEFAULT OBJECT);
-    this->frame->RegisterAppEventListener("system:softreset", PTR this->OnModuleUpdate);
-    this->frame->RegisterAppEventListener("system:modulesupdate", PTR this->OnModuleUpdate);
     this->RefreshPermissions();
     this->LoadRevisionInfo();
 
@@ -214,7 +212,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Callbacks
   //
 
-  MACRO OnModuleUpdate(RECORD info)
+  MACRO GotModuleEvent(RECORD ARRAY events)
   {
     ^modules->Invalidate();
   }

@@ -1598,7 +1598,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       Requires its caller to setup a transaction/work */
   PUBLIC RECORD FUNCTION SetupTestWebsite(BLOB archive)
   {
-    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSUpport() AND NOT GetPrimary()->IsWorkOpen()))
+    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSupport() AND NOT GetPrimary()->IsWorkOpen()))
       ABORT("SetupTestWebsite requires a writable transaction (explicit or opened work)");
 
     STRING sitename := "webhare_testsuite" || ".site";
@@ -1621,9 +1621,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   /** Create a test website */
   PUBLIC OBJECT FUNCTION SetupTestWebdesignWebsite(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    OpenWHFSObject(16)->EnsureFolder( [ name := "webhare-testsuite.output", type := 1]);
-
-    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSUpport() AND NOT GetPrimary()->IsWorkOpen()))
+    IF(NOT HavePrimaryTransaction() OR (GetPrimary()->HasWorkSupport() AND NOT GetPrimary()->IsWorkOpen()))
       ABORT("SetupTestWebdesignWebsite requires a writable transaction (explicit or opened work)");
 
     //FIXME only do this with sites we create form webhare_testsuite, not 'just if the module exists'
@@ -1647,11 +1645,18 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     IF(options.enableoutput)
     {
-      RECORD res := newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath(this->useseparateoutputport ? '/' : '/webhare-testsuite.output/', options.outputpath) || "/");
-      IF(NOT res.success)
+      IF(this->useseparateoutputport)
       {
-        DumpValue(res,'tree');
-        ABORT("Failed to create the testsite, foreign folder conflicts?");
+        RECORD res := newsite->SetPrimaryOutput(this->GetTestOutputServer(), MergePath('/', options.outputpath) || "/");
+        IF(NOT res.success)
+        {
+          DumpValue(res,'tree');
+          ABORT("Failed to create the testsite, foreign folder conflicts?");
+        }
+      }
+      ELSE
+      {
+        SetupSiteTestOutput(newsite, MergePath("webhare_testsuite.testoutput/", options.outputpath));
       }
     }
 
@@ -2299,7 +2304,7 @@ PUBLIC RECORD FUNCTION ExtractWebdesignRenderingSummary(OBJECT htmldoc)
     @param subfolder Subfolder to use. Must be either of the form <testingmodule> or <testingmodule>.<subfolder> */
 PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
 {
-  IF(NOT IsValidWHFSName(subfolder, FALSE) OR ToLowercase(subfolder) != subfolder)
+  IF(NOT IsValidWHFSName(subfolder, TRUE) OR ToLowercase(subfolder) != subfolder)
     THROW NEW Exception(`Invalid output subfolder name '${subfolder}'`);
 
   STRING modulename := Tokenize(subfolder,'.')[0];
