@@ -38,18 +38,23 @@ LOADLIB "mod::system/lib/webapi/aws/sns.whlib";
 
 */
 
+OBJECT s3;
 STRING apizone := GetEnvironmentVariable("TESTSECRET_AWS_APIZONE") ?? "eu-west-1";
 STRING apikey := GetEnvironmentVariable("TESTSECRET_AWS_APIKEY");
 STRING apisecret := GetEnvironmentVariable("TESTSECRET_AWS_APISECRET");
 STRING bucket := GetEnvironmentVariable("TESTSECRET_AWS_APIBUCKET") ?? "webhare-ci-test-aws";
 
-MACRO Test_S3()
+MACRO Prepare_S3()
 {
-  //for our CI, apikeys associated with webhare-ci-test-aws
   IF(apikey="" OR apisecret="")
     THROW NEW Exception("TESTSECRET_AWS_APIKEY or TESTSECRET_AWS_APISECRET not set, cannot test S3!");
 
-  OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
+  s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
+}
+
+MACRO Test_S3()
+{
+  //for our CI, apikeys associated with webhare-ci-test-aws
   //DumpValue(s3->listBuckets());
 
   STRING testcontent := "This is a test - " || GenerateUFS128BitId();
@@ -91,6 +96,45 @@ MACRO Test_S3()
   TestEq(FALSE, RecordExists(s3->GetObject(bucket, "/testfile")));
 }
 
+MACRO Test_S3_MultipartUploads()
+{
+  //Clear any old uploads
+  FOREVERY(RECORD oldupload FROM s3->ListMultipartUploads(bucket).uploads)
+    s3->AbortMultipartUpload(bucket, oldupload.uploadkey, oldupload.uploadid);
+
+  RECORD upload := s3->CreateMultipartUpload(bucket,"/testmultipart");
+  TestEq(TRUE, RecordExists(SELECT FROM s3->ListMultipartUploads(bucket).uploads WHERE uploadkey = "testmultipart" AND uploadid = upload.uploadid));
+
+
+  RECORD ARRAY uploadurls := s3->GenerateUploadPartURLs(upload, 5*1024*1024 + 5); //generat URLs for 5MB + 5 bytes
+  TestEq(2, Length(uploadurls));
+  TestEq(5*1024*1024, uploadurls[0].size);
+  TestEq(0i64, uploadurls[0].off);
+  TestEq(5, uploadurls[1].size);
+  TestEq(5*1024*1024i64, uploadurls[1].off);
+
+  TestEqLike("https://*", uploadurls[0].url);
+  TestEqLike("https://*", uploadurls[1].url);
+
+  BLOB toupload := StringToBlob(`[${RepeatText(".", 5*1024*1024 - 2)}[123]`);
+  STRING ARRAY etags;
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("PUT", uploadurls[0].url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(toupload, uploadurls[0].off, uploadurls[0].size)));
+  Testeq(TRUE, testfw->browser->GetResponseHeader("ETag") != "");
+  INSERT testfw->browser->GetResponseHeader("ETag") INTO etags AT END;
+
+  TestEq(TRUE, testfw->browser->SendRawRequest("PUT", uploadurls[1].url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(toupload, uploadurls[1].off, uploadurls[1].size)));
+  Testeq(TRUE, testfw->browser->GetResponseHeader("ETag") != "");
+  INSERT testfw->browser->GetResponseHeader("ETag") INTO etags AT END;
+
+  RECORD uploadresult := s3->CompleteMultipartUpload(upload, etags);
+  RECORD obj := s3->GetObject(bucket, "/testmultipart");
+  TestEq(obj.body, toupload);
+
+  TestEq(RECORD[], s3->ListMultipartUploads(bucket).uploads);
+  s3->DeleteObject(bucket, "/testmultipart");
+}
+
 MACRO Test_S3ListBuckets()
 {
   /* We can only run this test if we -own- the test bucket. The standard
@@ -102,7 +146,6 @@ MACRO Test_S3ListBuckets()
      export TESTSECRET_AWS_APISECRET="<API SECRET>"
      wh run mod::webhare_testsuite/tests/system/services/test_aws.whscr
      */
-  OBJECT s3 := NEW AmazonAWSS3Interface(apizone, apikey, apisecret);
   RECORD ARRAY buckets := s3->listAllBuckets();
   RECORD mytestbucket := SELECT * FROM buckets WHERE name = VAR bucket;
   TestEq(TRUE, RecordExists(mytestbucket));
@@ -118,7 +161,9 @@ MACRO Test_SNS()
   TestEQ(TRUE, Length(sns->ListTopics()) > 10);
 }
 
-RunTestframework([ PTR Test_S3
                  // , PTR Test_S3ListBuckets //this requires higher privileges!
+RunTestframework([ PTR Prepare_S3
+                 , PTR Test_S3_MultipartUploads
+                 , PTR Test_S3
                  , PTR Test_SNS
                  ]);
