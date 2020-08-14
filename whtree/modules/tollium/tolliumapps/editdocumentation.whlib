@@ -1,0 +1,36 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+PUBLIC MACRO EditDocumentation(OBJECT controller, RECORD data)
+{
+  RECORD editinfo := DecryptForThisServer("tollium:editdocumentation", data.target.edittoken);
+  IF(AddDaysToDate(1, editinfo.cd) < GetCurrentDatetime())
+  {
+    controller->RunSimpleScreen("error", GetTid("tollium:tolliumapps.editdocumentation.linkexpired"));
+    RETURN;
+  }
+
+  OBJECT parentfolder := OpenWHFSObject(editinfo.parent);
+  IF(NOT ObjectExists(parentfolder) OR parentfolder->typens != "http://www.webhare.net/xmlns/tollium/manual") //we won't be writing to random folders!
+    THROW NEW Exception(`Folder #${editinfo.parent} is not of type http://www.webhare.net/xmlns/tollium/manual`);
+
+  GetPrimary()->BeginWork();
+  OBJECT editfile := parentfolder->EnsureFile([ name := editinfo.name
+                                              , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+                                              ]);
+  GetPrimary()->CommitWork();
+
+  RunFSObjectEditApplication(controller, editfile->id, [ forceintegrated := TRUE
+                                                       , assumewriteaccess := TRUE
+                                                       ]);
+}

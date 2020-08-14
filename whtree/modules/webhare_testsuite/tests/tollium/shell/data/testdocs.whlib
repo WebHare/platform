@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE TestDocs EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    //TODO would be nice: this->contexts->controller->SetupDynamicDocumentation("https://www.example.com/docs/testapp/");
+  }
+>;
+
+
+PUBLIC MACRO StartTestDocs(OBJECT controller, RECORD data)
+{
+  //TODO move this to testdocs init, but that requires headings to dynamically switch (ie an addeventlistener thing)
+  controller->SetupDynamicDocumentation(Length(data.params) > 0 ? data.params[0] : "https://www.example.com/docs/testapp"
+                                       , [ editdocumentation := "edit" IN data.params
+                                         ]);
+  controller->RunScreen(Resolve("testdocs.xml#testdocs"), data);
+}

@@ -19,39 +19,6 @@
   vertical-align: top;
 }
 /****************************************************************************************************************************
- * Application root. The canvas is the container for all our subwindows
- */
-/* line 27, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-.appcanvas {
-  bottom: 0;
-  left: -1000%;
-  overflow: hidden;
-  position: absolute;
-  width: 100%;
-  top: 0;
-  z-index: 0;
-}
-/* line 37, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-.appcanvas.visible {
-  left: 0;
-}
-/* The modality layer is mostly a 'hooking' point for the skins, so that they
-   will be less tempted to do :after on t-screen themselves */
-/* line 44, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-.appcanvas .appmodalitylayer {
-  bottom: 0;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 999999;
-  display: none;
-}
-/* line 55, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
-.appcanvas.isbusy .appmodalitylayer {
-  display: block;
-}
-/****************************************************************************************************************************
  * Application windows
  */
 
