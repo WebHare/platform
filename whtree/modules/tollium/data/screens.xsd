@@ -3686,6 +3686,12 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+
+    <xs:attribute name="doclink">
+      <xs:annotation>
+        <xs:documentation>Link to documentation. If relative, will be ignored if no base url for documentation is set</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:element name="hr">

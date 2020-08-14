@@ -1,0 +1,10 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webdesigns.webinterface.pages.manual">
+
+  <foldertype namespace="http://www.webhare.net/xmlns/tollium/manual" tid=".foldertype" />
+
+  <apply>
+    <to type="folder" />
+    <allowfoldertype typedef="http://www.webhare.net/xmlns/tollium/manual" />
+  </apply>
+
+</siteprofile>

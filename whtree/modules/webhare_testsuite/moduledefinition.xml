@@ -46,6 +46,9 @@
     <application name="runscreen" library="tollium.whlib" startmacro="RunScreen">
       <accesscheck/>
     </application>
+    <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
+      <accesscheck/>
+    </application>
     <application name="anycomponent" library="screens/tests/anycomponent.whlib" startmacro="RunAnyComponent">
       <accesscheck/>
     </application>
