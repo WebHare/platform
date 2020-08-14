@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
@@ -337,6 +338,98 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       IF(options.printdownloads)
         PRINT(`done\n`);
     }
+  }
+
+  PUBLIC RECORD FUNCTION ListMultipartUploads(STRING bucket, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ ], options);
+
+    this->RawAWS4Request("s3", "GET", this->PathToUrl(bucket,"")
+                       , [ urlparameters := [[ name := "uploads", value := ""]]
+                                            ]);
+
+    RECORD retval := [ uploads := RECORD[] ];
+    FOREVERY(OBJECT upload FROM this->browser->document->ListElements("*", "Upload"))
+    {
+      RECORD uploadinfo := [ uploadid := PickFirst(upload->listChildren("*", "UploadId"))->textcontent
+                           , uploadkey := PickFirst(upload->listChildren("*", "Key"))->textcontent
+                           ];
+      INSERT uploadinfo INTO retval.uploads AT END;
+    }
+    RETURN retval;
+  }
+
+  PUBLIC MACRO AbortMultipartUpload(STRING bucket, STRING path, STRING uploadid)
+  {
+    this->RawAWS4Request("s3", "DELETE", this->PathToUrl(bucket, path)
+                       , [ urlparameters := [[ name := "uploadId", value := uploadid]]
+                                            ]);
+  }
+
+  PUBLIC RECORD FUNCTION CreateMultipartUpload(STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ ], options);
+
+    this->RawAWS4Request("s3", "POST", this->PathToUrl(bucket,path)
+                       , [ urlparameters := [[ name := "uploads", value := ""]]
+                                            ]);
+    OBJECT initiatemultipartuploadresult := this->browser->document->documentelement;
+    RETURN CELL[ bucket := Pickfirst(initiatemultipartuploadresult->ListChildren("*","Bucket"))->textcontent
+               , uploadkey := Pickfirst(initiatemultipartuploadresult->ListChildren("*","Key"))->textcontent
+               , uploadid := Pickfirst(initiatemultipartuploadresult->ListChildren("*","UploadId"))->textcontent
+               ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GenerateUploadPartURLs(RECORD upload, INTEGER64 expectedsize)
+  {
+    //divide in up to 1000 parts, but never smaller than 5MB
+    INTEGER64 partsize := MAX[](INTEGER64[5*1024*1024, expectedsize / 999]);
+
+    //and generate the parts!
+    RECORD ARRAY urls;
+    INTEGER64 off := 0, bytesleft := expectedsize;
+    WHILE(bytesleft > 0)
+    {
+      RECORD req := this->PrepareAWS4Request("s3", "PUT", this->PathToUrl(upload.bucket, upload.uploadkey),
+          [ signedrequest := TRUE
+          , urlparameters := [[ name := "partNumber", value := ToString(Length(urls) + 1) ]
+                             ,[ name := "uploadId", value := upload.uploadid ]
+                             ]
+          , expires := 86400 //one day
+          , unsignedpayload := TRUE
+          ]);
+
+      INTEGER size := INTEGER(MIN[]([bytesleft, partsize]));
+      INSERT CELL[ off := off
+                 , size := size
+                 , req.url
+                 ] INTO urls AT END;
+
+      bytesleft := bytesleft - size;
+      off := off + size;
+    }
+    RETURN urls;
+  }
+
+  PUBLIC RECORD FUNCTION CompleteMultipartUpload(RECORD upload, STRING ARRAY etags)
+  {
+    RECORD ARRAY parts := SELECT partnumber := #etags + 1
+                               , etag
+                            FROM ToRecordArray(etags,"etag") AS etags;
+    BLOB body := LoadWittyLibrary(Resolve("s3.witty"), "XML")->RunComponentToBlob("completemultipartupload", CELL[ parts ]);
+    this->RawAWS4Request("s3", "POST", this->PathToUrl(upload.bucket, upload.uploadkey)
+                       , [ urlparameters := [[ name := "uploadId", value := upload.uploadid]
+                                            ]
+                         , body := body
+                         , headers := [[ field := "Content-Type", value := "text/xml" ]]
+                         ]);
+
+    OBJECT completemultipartuploadresult := this->browser->document->documentelement;
+    RETURN CELL[ bucket := Pickfirst(completemultipartuploadresult->ListChildren("*","Bucket"))->textcontent
+               , location := Pickfirst(completemultipartuploadresult->ListChildren("*","Location"))->textcontent
+               , objectkey := Pickfirst(completemultipartuploadresult->ListChildren("*","Key"))->textcontent
+               , etag := Pickfirst(completemultipartuploadresult->ListChildren("*","ETag"))->textcontent
+               ];
   }
 >;
 

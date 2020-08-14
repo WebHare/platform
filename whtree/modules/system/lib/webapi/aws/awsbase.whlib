@@ -49,7 +49,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     this->browser := NEW WEBBrowser;
   }
 
-  PUBLIC OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  PUBLIC RECORD FUNCTION PrepareAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
   {
     options := ValidateOptions([ signedrequest := FALSE
                                , urlparameters := RECORD[]
@@ -57,13 +57,15 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
                                , body := DEFAULT BLOB
                                , region := this->region
                                , accept404 := FALSE
+                               , expires := 0 //expiry in seconds
+                               , unsignedpayload := FALSE
                                ], options);
 
     IF(SearchSubstring(url,"?") != -1)
       THROW NEW Exception("Don't try to add query variables to the URL");
 
     STRING xamzdate := FormatDatetime("%Y%m%dT%H%M%SZ", GetCurrentDatetime());
-    STRING bodyhash := ToLowercase(EncodeBase16(GetHashForBlob(options.body, "SHA-256")));
+    STRING bodyhash := options.unsignedpayload ? "UNSIGNED-PAYLOAD" : ToLowercase(EncodeBase16(GetHashForBlob(options.body, "SHA-256")));
     STRING credential_scope := Left(xamzdate,8) || "/" || options.region || "/" || service || "/aws4_request";
     STRING credential := this->accesskey || "/" || credential_scope;
     STRING algorithm := "AWS4-HMAC-SHA256";
@@ -74,7 +76,8 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     IF(NOT options.signedrequest)
     {
       INSERT [ field := "X-Amz-Date", value := xamzdate ] INTO headers AT END;
-      INSERT [ field := "X-Amz-Content-SHA256", value := bodyhash ] INTO headers AT END;
+      IF(NOT options.unsignedpayload)
+        INSERT [ field := "X-Amz-Content-SHA256", value := bodyhash ] INTO headers AT END;
     }
 
     RECORD ARRAY signedheaders := SELECT *
@@ -90,10 +93,15 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
          [ [ name := "X-Amz-Algorithm", value := algorithm ]
          , [ name := "X-Amz-Credential", value := credential ]
          , [ name := "X-Amz-Date", value := xamzdate ]
-         //, [ name := "X-Amz-Expires"]
+         , [ name := "X-Amz-Expires", value := ToString(options.expires) ]
          , [ name := "X-Amz-SignedHeaders", value := signedheadernames ]
          ];
     }
+    ELSE IF(options.expires != 0)
+    {
+      THROW NEW Exception(`Expires only supported for signedrequests`);
+    }
+
 
     STRING querystring;
 
@@ -145,15 +153,20 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
              ] INTO headers AT END;
     }
 
-    IF(NOT this->browser->SendRawRequest(method, url, headers, options.body))
+    RETURN CELL [ method, url, headers, options ];
+  }
+
+  PUBLIC OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    RECORD prep := this->PrepareAWS4Request(service, method, url, options);
+    IF(NOT this->browser->SendRawRequest(prep.method, prep.url, prep.headers, prep.options.body))
     {
-      IF(NOT (options.accept404 AND this->browser->GetHTTPStatusCode()=404))
+      IF(NOT (prep.options.accept404 AND this->browser->GetHTTPStatusCode()=404))
       {
         this->ProcessAWSError();
         THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
       }
     }
-
     RETURN this->browser->document;
   }
 
@@ -195,7 +208,6 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
 
   PUBLIC OBJECT FUNCTION RawRequest(STRING url, RECORD ARRAY vars)
   {
-    //this->browser->debug := TRUE;
     IF(NOT this->browser->GotoWebPage(url||this->CreateV2Req("GET", url, vars)))
       THROW NEW Exception("Unable to navigate to the URL " || url);
     RETURN this->browser->document;

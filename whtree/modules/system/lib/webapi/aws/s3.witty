@@ -1,0 +1,10 @@
+[component completemultipartupload]<?xml version="1.0" encoding="UTF-8"?>
+<CompleteMultipartUpload xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  [forevery parts]
+    <Part>
+      <ETag>[etag]</ETag>
+      <PartNumber>[partnumber]</PartNumber>
+    </Part>
+  [/forevery]
+</CompleteMultipartUpload>
+[/component]
