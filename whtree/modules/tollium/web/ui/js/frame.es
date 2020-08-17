@@ -1240,7 +1240,8 @@ class Screen extends ComponentBase
       throw new Error("Trying to show a screen in multiple apps");
     }
 
-    this.displayapp=displayapp;
+    this.displayapp = displayapp;
+    this.displayapp.appnodes.root.addEventListener("tollium:appcanvas-resize", this.desktoplistener);
 
     var parent = this.displayapp.screenstack.slice(-1)[0];
     if(parent)
@@ -1281,6 +1282,7 @@ class Screen extends ComponentBase
     if(parent)
       parent.setActive(true);
 
+    this.displayapp.appnodes.root.removeEventListener("tollium:appcanvas-resize", this.desktoplistener);
     this.displayapp=null;
     this.node.remove();
   }

@@ -24,6 +24,9 @@ export default class DocPanel
                       </div>
                       <iframe class="docpanel__content" src={url}></iframe>
                     </div>);
+
+    //TODO only when we resize or appear, not every load..
+    dompack.dispatchCustomEvent(this.app.appnodes.root, "tollium:appcanvas-resize", { bubbles:true, cancelable: false});
   }
 
   edit()
@@ -37,5 +40,6 @@ export default class DocPanel
   close()
   {
     dompack.empty(this.app.appnodes.docpanel);
+    dompack.dispatchCustomEvent(this.app.appnodes.root, "tollium:appcanvas-resize", { bubbles:true, cancelable: false});
   }
 }
