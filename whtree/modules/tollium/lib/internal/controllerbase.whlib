@@ -1808,7 +1808,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
     IF(ObjectExists(this->docsettings.basefolder))
     {
-      //TODO relative path spport ?
+      //TODO relative path support ?
       RECORD match := SELECT id, name, link
                         FROM system.fs_objects
                        WHERE parent = this->docsettings.basefolder->id
