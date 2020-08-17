@@ -14,6 +14,7 @@
         <line layout="left">
           <checkbox name="cbox" title="" visible="false" />
           <text name="headingtitle" title="" />
+          <image name="helpicon" title="" visible="false" value="tollium:actions/help" onclick="openhelp" width="16px" height="16px"/>
         </line>
       </panel>
     </contents>

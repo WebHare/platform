@@ -1084,6 +1084,9 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="editdocumentation">   <!-- tolliumapps.editdocumentation -->
+      <text tid="linkexpired">Your edit action has expired. Please reopen this application from its documentation panel</text>
+    </textgroup>
     <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
       <textgroup gid="langedit">   <!-- tolliumapps.langedit.langedit -->
         <text tid="add">Add</text>
@@ -1174,6 +1177,15 @@
       <text tid="receiver_not_whitelisted">Field '<param p="1"/>' contains email address '<param p="2"/>' but this address is not allowed to receive email from this server.</text>
       <text tid="sender_not_whitelisted">Field '<param p="1"/>' contains email address '<param p="2"/>' but this address is not allowed to send email from this server.</text>
       <text tid="too_long_url">Field '<param p="1"/>' contains an URL that is too long (the maximum is 2000 characters)</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webdesigns">   <!-- webdesigns -->
+    <textgroup gid="webinterface">   <!-- webdesigns.webinterface -->
+      <textgroup gid="pages">   <!-- webdesigns.webinterface.pages -->
+        <textgroup gid="manual">   <!-- webdesigns.webinterface.pages.manual -->
+          <text tid="foldertype">Tollium manual folder</text>
+        </textgroup>
+      </textgroup>
     </textgroup>
   </textgroup>
 </language>
