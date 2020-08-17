@@ -5,6 +5,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 
@@ -321,4 +322,12 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     RETURN TRUE;
   }
 
+  UPDATE PUBLIC MACRO RunNotificationDonePage()
+  {
+    /* https://docs.multisafepay.com/faq/api/how-does-the-notification-url-work/
+       Return an OK message. We expect an empty page with only OK in the body of the response on this request, with a HTTP 200 OK in the header.
+    */
+    AddHTTPHeader("Content-Type", "text/plain", FALSE);
+    Print("OK");
+  }
 >;

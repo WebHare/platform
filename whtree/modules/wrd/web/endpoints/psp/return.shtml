@@ -28,7 +28,10 @@ IF(currentstatus IN [ "pending", "failed" ])
   trans->CommitWork();
 }
 IF(isnotification)
+{
+  data.payment->RunNotificationDonePage();
   RETURN; //no need to redirect
+}
 
 IF(data.returnurl="")
   THROW NEW Exception("No returnurl specified!");
