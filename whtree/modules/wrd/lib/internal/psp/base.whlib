@@ -358,5 +358,10 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   {
     RETURN "";
   }
+
+  /** Invoked when notification page is hit and successfully processed. Some providers require a specific response */
+  PUBLIC MACRO RunNotificationDonePage()
+  {
+  }
 >;
 
