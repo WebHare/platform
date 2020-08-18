@@ -1691,7 +1691,8 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
   }
 
   /** Setup dynamic embedded documentation
-      @param baseurl Base URL for doclink= attributes */
+      @param baseurl Base URL for doclink= attributes. May be a site:: path to refer to local docs
+      @cell options.editdocumentation If true and the documentation is editable, adds a site:: link */
   PUBLIC MACRO SetupDynamicDocumentation(STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(CELL[ editdocumentation := FALSE ], options);
@@ -1748,7 +1749,7 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
 
     IF(ObjectExists(this->docsettings.basefolder))
     {
-      //TODO relative path spport ?
+      //TODO relative path support ?
       RECORD match := SELECT id, name, link
                         FROM system.fs_objects
                        WHERE parent = this->docsettings.basefolder->id
