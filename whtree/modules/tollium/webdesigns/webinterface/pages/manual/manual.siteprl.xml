@@ -1,10 +1,26 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webdesigns.webinterface.pages.manual">
 
+  <rtdtype namespace="http://www.webhare.net/xmlns/tollium/manualrtdtype">
+    <blockstyles defaultstyle="NORMAL">
+      <textstyle tag="HEADING1" textstyles="" />
+      <textstyle tag="HEADING2" textstyles="" />
+      <textstyle tag="HEADING3" textstyles="" />
+      <textstyle tag="NORMAL" textstyles="b a-href img i" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="b a-href img i" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="b a-href img i" />
+    </blockstyles>
+  </rtdtype>
+
   <foldertype namespace="http://www.webhare.net/xmlns/tollium/manual" tid=".foldertype" />
 
   <apply>
     <to type="folder" />
     <allowfoldertype typedef="http://www.webhare.net/xmlns/tollium/manual" />
+  </apply>
+
+  <apply>
+    <to type="file" parenttype="http://www.webhare.net/xmlns/tollium/manual" />
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/tollium/manualrtdtype" />
   </apply>
 
 </siteprofile>
