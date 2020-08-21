@@ -62,13 +62,13 @@ function onCheckInterval()
 
 export function setupWHCheck(setcheckinterval)
 {
-  if(setcheckinterval && !checkinterval)
+  if(setcheckinterval > 0 && !checkinterval)
   {
     checkinterval = setcheckinterval;
     onCheckInterval();
     intervaltimer = setInterval(onCheckInterval, checkinterval);
   }
-  else if(intervaltimer && !setcheckinterval)
+  else if(intervaltimer && setcheckinterval <= 0)
   {
     clearInterval(intervaltimer);
     intervaltimer = 0;

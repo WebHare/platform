@@ -683,10 +683,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , browsertitleprefix := ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.browsertitleprefix", "") : ""
             , allowlogout :=        ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->IsLogoutAllowed()
             , openinfo := ""
-            , checkinterval := issupervisor ? 5 * 60 * 1000 : 0
+            , checkinterval := issupervisor ? ToInteger(GetWebVariable("checkinterval"), 5 * 60) * 1000 : 0
             , issysop := issysop
             , reloadonexit := this->runwebhareinstall
-            , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none" : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
+            , notificationslocation := GetWebVariable("notifications") IN ["0","off"] ? "none"
+                                       : GetWebVariable("notifications") = "browser" ? "browser"
+                                       : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
             , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? "tollium:webharebackend" : ""
             ];
 
