@@ -141,9 +141,6 @@
           minwidth="70x"
           savestate="size position"
           gid=".sendmessage">
-    <actions>
-      <action name="applytemplatetotext" onexecute="ontemplatechange" />
-    </actions>
     <body>
       <box name="applytemplate" visible="false">
         <select name="template" type="pulldown" onchange="ontemplatechange" flags="showserverupdate">
@@ -155,19 +152,11 @@
           <tab>
             <visibleon source="template" checkflags="showserverupdate" min="1" />
             <box tid=".serverupdate" hr="false">
-
-              <select name="updatelanguage" type="radio" onchange="ontemplatechange" visible="false">
-                <option rowkey="dutch" />
-                <option rowkey="english" />
-                <option rowkey="dutch_and_english" />
-              </select>
-
-              <datetime name="updatewhen" type="datetime" precision="minutes"/>
+              <datetime name="updatewhen" type="datetime" precision="minutes" onselect="ontemplatechange" />
               <line>
                 <textedit name="updatetime" valuetype="integer" width="5x" value="5" onchange="ontemplatechange" />
                 <text title="" valuetid=".minutes" />
               </line>
-              <button tid=".applytemplatetotext" action="applytemplatetotext" />
             </box>
           </tab>
         </tabs>

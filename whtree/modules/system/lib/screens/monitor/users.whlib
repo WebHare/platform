@@ -1,4 +1,6 @@
 ﻿<?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -89,28 +91,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 
   MACRO RefreshUserList()
   {
-    RECORD ARRAY loggedonusers;// := GetLoggedOnUsers();
-
-    RECORD ARRAY userrecs;
-
-    RECORD ARRAY normalusers :=
-        SELECT userid :=          "system:" || userid
-             , wh_userid :=       userid
-             , username :=        name
-             , realname :=        ""
-             , logintime
-             , lastaccess
-             , ipaddress :=       ipaddress
-             , ipaddress_sort :=  ipaddress //ADDME
-             , sessionid
-             , canclose
-             , type
-             , typename :=        GetSessionTypeName(type)
-             , tolliumapp :=      DEFAULT RECORD
-          FROM loggedonusers
-         WHERE type != 2;
-
-       RECORD ARRAY tolliumusers :=
+    RECORD ARRAY tolliumusers :=
         SELECT typename := GetTid("system:monitor.users.types.tollium")
              , sessionid :=       appid
              , userid :=          use.wrdentityid != 0
@@ -144,7 +125,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
              , userid
              , wh_userid :=       Any(wh_userid)
              , username :=        Any(username)
-             , realname :=        AnyNonDefault(realname) ?? MyBinaryFind(userrecs, [ id := Any(wh_userid) ], [ "ID" ], [ realname := "" ]).realname
+             , realname :=        Any(realname)
              , ipaddress :=       ipaddress
              , ipaddress_sort :=  Any(ipaddress_sort)
              , lastaccess :=      MAX(lastaccess)
@@ -153,7 +134,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
              , tolliumapps :=     (SELECT * FROM GroupedValues(tolliumapp) AS x WHERE RecordExists(x))
              , isself :=          userid = "system:" || GetEffectiveUserId()
              , typename :=        Detokenize(DistinctAndOrderStringArray(GroupedValues(typename)), ", ")
-          FROM normalusers CONCAT tolliumusers
+          FROM tolliumusers
       GROUP BY userid, ipaddress;
 
     allusers :=
@@ -247,7 +228,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 
   MACRO DoSendGlobalMessage()
   {
-    OBJECT screen := this->LoadScreen(".sendmessage", [ userid := 0, allids := (SELECT AS INTEGER ARRAY wh_userid FROM this->onlineusers->rows) ]);
+    OBJECT screen := this->LoadScreen(".sendmessage", [ userid := 0, pthis := PRIVATE THIS ]);//ugly way to get the dialog access to GetCurrentApps()
     IF (ObjectExists(screen))
       screen->RunModal();
   }
@@ -303,11 +284,12 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 
 PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
 < INTEGER userid;
-  INTEGER ARRAY allids;
   STRING lasttitle;
+  OBJECT pthis;
 
   MACRO Init(RECORD data)
   {
+    this->pthis := data.pthis;
     this->userid := data.userid;
     IF (this->userid != 0)
     {
@@ -318,7 +300,6 @@ PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
     {
       this->frame->title := GetTid("system:monitor.sendmessage.title_toall");
       this->title->value := GetTid("system:monitor.sendmessage.global_msgtitle");
-      this->allids := data.allids;
 
       this->applytemplate->visible := TRUE;
       DATETIME now := UTCToLocal(GetCurrentDateTime(),"CET");
@@ -366,62 +347,60 @@ PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginWork();
-    IF(NOT work->HasFailed())
+    IF(NOT this->BeginFeedback()->Finish())
+      RETURN FALSE; //validation failed..
+
+    STRING ARRAY tidparams;
+    STRING tid;
+    RECORD event := [ id := "system_notification_" || GenerateUFS128BitID()
+                    , type := "tollium:towl.event"
+                    , icon := ""
+                    , persistent := TRUE
+                    , titleparams := DEFAULT RECORD ARRAY
+                    , timeout := -1
+                    , priority := 3
+                    , applicationmessage := DEFAULT RECORD
+                    , defaultenabled := TRUE
+                    ];
+
+    IF(^template->value = "serverupdate")
     {
-      RECORD event;
-      RECORD targetusers;
-      IF (this->userid = 0)
+      BOOLEAN updatetoday := GetDayCount(UTCToLocal(GetCurrentDateTime(),"CET")) = GetDayCount(this->updatewhen->value);
+      IF(updatetoday)
       {
-        BOOLEAN updatetoday := GetDayCount(UTCToLocal(GetCurrentDateTime(),"CET")) = GetDayCount(this->updatewhen->value);
-        STRING ARRAY tidparams;
-        STRING tid;
-        IF(updatetoday)
-        {
-          tid := ".today";
-          tidparams := [ FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
-        }
-        ELSE
-        {
-          tid := ".otherday";
-          tidparams := [ FormatDateTime("%Y-%m-%d", this->updatewhen->value), FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
-        }
-        event := [ id := "system_notification_" || Random(0,99)
-                 , type := "tollium:towl.event"
-                 , tid := ":Server update" //"system:notifications.announcement"
-                 , descriptionparams := tidparams
-                 , descriptiontid := "system:notifications.maintenance" || tid// || this->title->value
-                 , titleparams := DEFAULT RECORD ARRAY
-                 , icon := ""
-                 , persistent := TRUE
-                 , timeout := -1
-                 , priority := 3
-                 , applicationmessage := DEFAULT RECORD
-                 , defaultenabled := TRUE
-                 ];
-        targetusers := [ webhare_users := this->allids ];
+        tid := ".today";
+        tidparams := [ FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
       }
       ELSE
       {
-        event := [ id := "system_notification_" || Random(0,99)
-                 , type := "tollium:towl.event"
-                 , descriptiontid := ":" || this->msg->value //"system:notifications.announcement"
-                 , descriptionparams := DEFAULT RECORD ARRAY
-                 , tid := ":" || this->title->value
-                 , titleparams := DEFAULT RECORD ARRAY
-                 , icon := ""
-                 , persistent := TRUE
-                 , timeout := -1
-                 , priority := 3
-                 , applicationmessage := DEFAULT RECORD
-                 , defaultenabled := TRUE
-                 ];
-        targetusers := [ webhare_users := [ this->userid ] ];
+        tid := ".otherday";
+        tidparams := [ FormatDateTime("%Y-%m-%d", this->updatewhen->value), FormatDateTime("%H:%M", this->updatewhen->value), ToString(this->updatetime->value) ];
       }
-      __OpenLocalService("tollium:towlservice")->BroadcastNotification(targetusers, event);
+
+      event := CELL[ ...event
+                   , tid := ":Server update" //"system:notifications.announcement"
+                   , descriptiontid := "system:notifications.maintenance" || tid// || this->title->value
+                   , descriptionparams := tidparams
+                   ];
+    }
+    ELSE
+    {
+      event := CELL[ ...event
+                   , tid := ":" || this->title->value
+                   , descriptiontid := ":" || this->msg->value //"system:notifications.announcement"
+                   , descriptionparams := DEFAULT RECORD ARRAY
+                   ];
     }
 
-    RETURN work->Finish();
+    RECORD targetusers;
+    IF (this->userid != 0)
+      targetusers := [ webhare_users := [ this->userid ] ];
+    ELSE
+      targetusers := [ webhare_users := SELECT AS INTEGER ARRAY DISTINCT use.authobjectid FROM this->pthis->GetCurrentApps() ];
+
+    __OpenLocalService("tollium:towlservice")->BroadcastNotification(targetusers, event);
+
+    RETURN TRUE;
   }
 >;
 
