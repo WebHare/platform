@@ -1,13 +1,19 @@
 import * as test from '@mod-tollium/js/testframework';
 
+var setupdata;
+
 function getTowlNotifications()
 {
   return test.qSA('t-towlnotification').filter(node => !node.textContent.includes("gonativetitle")); //filter native notification notification
 }
 
 test.registerTests(
-  [ { loadpage: test.getTestScreen('tests/comm.eventserver') //+ '?wh-debug=tol' //force debugmode so we can get a message history (debug.js records it)
-    , waits: [ 'ui' ]
+  [ async function()
+    {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'SetupForTestSetup', { createsysop:true });
+
+      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
+      await test.wait('ui');
     }
   , { name: 'send event'
     , test: async function(doc,win)
@@ -46,8 +52,13 @@ test.registerTests(
       test.eq(2,getTowlNotifications().length);
     }
 
-  , { loadpage: test.getTestScreen('tests/comm.eventserver')
-    , waits: [ 'ui', 3000 ] //wait 3 secs for any notes to appear.. there's no safe duration
+  , async function()
+    {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'SetupForTestSetup', { createsysop:true });
+
+      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
+      await test.wait('ui');
+      await test.wait(3000);//wait 3 secs for any notes to appear.. there's no safe duration
     }
   , { name: 'no duplicate events form last test?'
     , test:function(doc,win)

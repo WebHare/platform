@@ -633,9 +633,6 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   */
   PUBLIC MACRO BroadcastToClient(RECORD message)
   {
-    IF (NOT ObjectExists(this->pvt_entity))
-      RETURN;
-
     DATETIME now := GetCurrentDatetime();
     BroadcastEvent("wh:eventserver", [ data := EncodeJSON( [ now := FormatISO8601Datetime(now, "day", "milliseconds"), message := message ])
                                      , groupid := this->GetBroadcastTarget()

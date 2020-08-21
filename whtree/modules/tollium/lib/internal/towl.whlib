@@ -39,14 +39,11 @@ PUBLIC OBJECTTYPE TowlService
 
   RECORD FUNCTION PersonalizeNotification(RECORD notification, OBJECT user)
   {
-    INTEGER timeout := notification.timeout;
-    IF (ObjectExists(user))
-      timeout := this->GetNotificationTimeout(user, notification);
-
+    INTEGER timeout := this->GetNotificationTimeout(user, notification);
     IF (timeout < 0)
       RETURN DEFAULT RECORD;
 
-    STRING language := ObjectExists(user) ? user->language : "en";
+    STRING language := user->language;
 
     RECORD event := MakeUpdatedRecord(notification, [ timeout := timeout ]);
     IF (CellExists(event, "DESCRIPTIONTID"))
@@ -85,10 +82,8 @@ PUBLIC OBJECTTYPE TowlService
     BOOLEAN have_webhare_users := CellExists(receivers, "WEBHARE_USERS");
     BOOLEAN have_wrd_users := CellExists(receivers, "WRD_USERS");
     BOOLEAN have_users_with_rights := CellExists(receivers, "USERS_WITH_RIGHTS");
-    BOOLEAN have___all_users := CellExists(receivers, "__ALL_USERS");
 
-    IF (NOT have_webhare_users AND NOT have_wrd_users AND NOT have_users_with_rights AND
-        (NOT have___all_users OR NOT receivers.__all_users))
+    IF (NOT have_webhare_users AND NOT have_wrd_users AND NOT have_users_with_rights)
       THROW NEW Exception("Invalid receivers record");
 
     INTEGER ARRAY webhare_users;
@@ -112,15 +107,6 @@ PUBLIC OBJECTTYPE TowlService
 
         webhare_users := webhare_users CONCAT authobjs;
       }
-    }
-
-    IF (have___all_users AND receivers.__all_users)
-    {
-      // FIXME: this doesn't personalize enough
-      RECORD event := this->PersonalizeNotification(notification, DEFAULT OBJECT);
-      IF (RecordExists(event))
-        BroadcastToAllSessions(event);
-      RETURN;
     }
 
     STRING ARRAY guids := (SELECT AS STRING ARRAY guid FROM system.authobjects WHERE id IN webhare_users)
@@ -279,6 +265,10 @@ PUBLIC OBJECTTYPE TowlService
       //FIXME get the proper userapi
       this->userapi := GetPrimaryWebhareUserApi();
     }
+
+    IF(guid="<overrideuser>")
+      RETURN this->userapi->GetTolliumUserByIdAndImpersonation(-1,"").userobject;
+
     user_type := this->userapi->accounttype->id;
 
     guid := DecodeBase16(Substring(guid, 4));

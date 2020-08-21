@@ -3,6 +3,8 @@
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/towl.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
+
 
 PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
 <
@@ -72,8 +74,7 @@ PUBLIC OBJECTTYPE EventServer EXTEND TolliumScreenBase
     this->msgcount := this->msgcount + 1;
     //ADDME would be best to send it directly to the user's session, but the tests run with an unaddressable anonymous user
     ShowTowlNotification("webhare_testsuite:eventservertest",
-                             [ __all_users := TRUE ],
-                             //// wrd_users := [ INTEGER(this->tolliumcontroller->user->entityid), __ALL_USERS := ] ],
+                             [ webhare_users := [ GetEffectiveUserId() ] ],
                              [ descriptionparams := [ ToString(this->msgcount )]
                              , icon := "tollium:filemgr/mydocuments"
                              , persistent := TRUE

@@ -83,7 +83,7 @@ PUBLIC STRING FUNCTION ShowTowlNotification(STRING name, RECORD receivers, RECOR
 
   // Check receivers and options fields
   FOREVERY (RECORD field FROM UnpackRecord(receivers))
-    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "__ALL_USERS", "USERS_WITH_RIGHTS" ])
+    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "USERS_WITH_RIGHTS" ])
       THROW NEW Exception("Field '" || field.name || "' not allowed in receivers");
   FOREVERY (RECORD field FROM UnpackRecord(options))
     IF (field.name NOT IN [ "TAG", "TITLEPARAMS", "DESCRIPTIONTID", "DESCRIPTIONPARAMS", "ICON", "PRIORITY", "PERSISTENT", "TIMEOUT", "APPLICATIONMESSAGE" ])
@@ -169,7 +169,7 @@ PUBLIC MACRO HideTowlNotification(STRING name, RECORD receivers, STRING tag)
 {
   // Check receivers field
   FOREVERY (RECORD field FROM UnpackRecord(receivers))
-    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "__ALL_USERS", "USERS_WITH_RIGHTS" ])
+    IF (field.name NOT IN [ "WEBHARE_USERS", "WRD_USERS", "USERS_WITH_RIGHTS" ])
       THROW NEW Exception("Field '" || field.name || "' not allowed in receivers");
 
   IF (tag = "")
