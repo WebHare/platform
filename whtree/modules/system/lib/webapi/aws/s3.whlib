@@ -67,6 +67,30 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     RETURN buckets;
   }
 
+  /** Get bucket tags
+      @param bucket Bucket name
+      @return List of tags
+      @cell(string) return.tag Key name
+      @cell(string) return.value Key value
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetBucketTagging(STRING bucket)
+  {
+    STRING url := this->endpoint || bucket;
+
+    this->RawAWS4Request("s3", "GET", url
+                          , [ urlparameters := [ [ name := "tagging", value := "" ]
+                                               ]]);
+
+    RECORD ARRAY tags;
+    FOREVERY(OBJECT tag FROM this->browser->document->ListElements("*","Tag"))
+    {
+      INSERT CELL [ tag := tag->ListChildren("*", "Key")[0]->textcontent
+                  , value := tag->ListChildren("*", "Value")[0]->textcontent
+                  ] INTO tags AT END;
+    }
+    RETURN tags;
+  }
+
   //PUBLIC MACRO MakeBucketPublic(STRING bucket)
   //{
   //  STRING id := "MakePublic" || EncodeBase16(GetMD5Hash(bucket));
