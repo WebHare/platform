@@ -70,10 +70,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
-    <text tid="surecancelscheduleddowntime">Weet u zeker dat u de ingeplande downtime wilt annuleren?</text>
-    <text tid="sureclosewebharelogin">Weet u zeker dat u de login voor niet-sysops wilt afsluiten?</text>
-    <text tid="surekillallsessions">Weet u zeker dat u alle applicaties van deze gebruiker wilt afsluiten?</text>
-    <text tid="surekillsession">Weet u zeker dat u deze applicatie wilt afsluiten?</text>
     <textgroup gid="apprunner">   <!-- monitor.apprunner -->
       <text tid="title">Service beheer</text>
     </textgroup>
@@ -433,21 +429,11 @@
         <text tid="title">Loginstellingen bewerken</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="scheduledowntime">   <!-- monitor.scheduledowntime -->
-      <text tid="estimateddowntime">Geschatte duur</text>
-      <text tid="locklogin">Login sluiten</text>
-      <text tid="scheduledowntime">Downtime inplannen</text>
-      <text tid="scheduletime">Begin</text>
-    </textgroup>
     <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
       <text tid="applytemplate">Sjabloon-instellingen</text>
-      <text tid="applytemplatetotext">Verwerken</text>
       <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
       <text tid="global_msgtitle">Global announcement</text>
       <text tid="message">Bericht</text>
-      <text tid="messagetype">Verstuur als</text>
-      <text tid="messagetype-broadcast">Broadcast (dialoog)</text>
-      <text tid="messagetype-towl">Notificatie (Towl)</text>
       <text tid="minutes">minuten</text>
       <text tid="msg">Bericht</text>
       <text tid="sendmessage">Verstuur</text>
@@ -461,10 +447,6 @@
       <text tid="title_toallusersofmodule">Verstuur een bericht naar gebruikers van module '<param p="1"/>'</text>
       <text tid="title_touser">Verstuur een bericht naar gebruiker '<param p="1"/>'</text>
       <text tid="title_tousers">Verstuur een bericht naar de geselecteerde gebruikers</text>
-      <text tid="updatelanguage">Taal</text>
-      <text tid="updatelanguage-dutch">Nederlands</text>
-      <text tid="updatelanguage-dutch_and_english">Nederlands en Engels</text>
-      <text tid="updatelanguage-english">Engels</text>
       <text tid="updatetime">Duur v/d update</text>
       <text tid="updatewhen">Tijdstip</text>
     </textgroup>
@@ -490,7 +472,6 @@
       <text tid="backingstore">Backing store</text>
       <text tid="blobstore">Blobs</text>
       <text tid="browser">Browser</text>
-      <text tid="cancelscheduleddowntime">Downtime annuleren</text>
       <text tid="closewebharelogin">Login afsluiten</text>
       <text tid="heap">Heap</text>
       <text tid="instructions">Instructies</text>
@@ -501,8 +482,6 @@
       <text tid="library">Library</text>
       <text tid="loginstatus">WebHare login status</text>
       <text tid="loginstatus_closed">Login is GESLOTEN</text>
-      <text tid="loginstatus_licenseexpired">Login is GESLOTEN, licentie verlopen</text>
-      <text tid="loginstatus_nolicense">Login is GESLOTEN, geen licentie</text>
       <text tid="loginstatus_open">Login is open</text>
       <text tid="logintime">Logintijd</text>
       <text tid="memoryusage">Geheugengebruik</text>
@@ -511,30 +490,27 @@
       <text tid="openwebharelogin">Login openen</text>
       <text tid="realname">Naam</text>
       <text tid="running">Actief?</text>
-      <text tid="scheduledowntime">Downtime inplannen</text>
       <text tid="sendglobalmessage">Globaal bericht versturen</text>
       <text tid="sendmessagetouser">Bericht naar gebruiker versturen</text>
       <text tid="sessionid">Sessie-id</text>
       <text tid="stack">Stack</text>
       <text tid="starturl">Start URL</text>
       <text tid="stats">Statistieken</text>
+      <text tid="sureclosewebharelogin">Weet u zeker dat u de login voor niet-sysops wilt afsluiten?</text>
+      <text tid="surekillallsessions">Weet u zeker dat u alle applicaties van deze gebruiker wilt afsluiten?</text>
+      <text tid="surekillsession">Weet u zeker dat u deze applicatie wilt afsluiten?</text>
       <text tid="timestarted">Starttijd</text>
       <text tid="title">Gebruikers</text>
       <text tid="total_appcount">Aantal applicaties</text>
       <text tid="total_appmemory">Geheugengebruik</text>
       <text tid="total_onlineusers">Online gebruikers</text>
-      <text tid="typename">Types</text>
       <text tid="username">Gebruikernaam</text>
       <textgroup gid="menus">   <!-- monitor.users.menus -->
         <text tid="killallsessions">Alle applicaties afsluiten</text>
         <text tid="killsession">Applicatie afsluiten</text>
       </textgroup>
       <textgroup gid="types">   <!-- monitor.users.types -->
-        <text tid="basic">Basic</text>
-        <text tid="cookie">Cookie</text>
-        <text tid="digest">Digest</text>
         <text tid="tollium">WebHare backend</text>
-        <text tid="unknown">Onbekend</text>
       </textgroup>
     </textgroup>
     <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->

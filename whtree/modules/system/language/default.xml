@@ -249,10 +249,6 @@
     </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
-    <text tid="surecancelscheduleddowntime">Are you sure you wish to cancel the scheduled downtime?</text>
-    <text tid="sureclosewebharelogin">Are you sure you want to close the login for users other than sysops?</text>
-    <text tid="surekillallsessions">Are you sure you want to close all the applications of this user?</text>
-    <text tid="surekillsession">Are you sure you want to close this application?</text>
     <textgroup gid="apprunner">   <!-- monitor.apprunner -->
       <text tid="title">Service manager</text>
     </textgroup>
@@ -612,21 +608,11 @@
         <text tid="title">Edit log settings</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="scheduledowntime">   <!-- monitor.scheduledowntime -->
-      <text tid="estimateddowntime">Estimated duration</text>
-      <text tid="locklogin">Lock login</text>
-      <text tid="scheduledowntime">Schedule downtime</text>
-      <text tid="scheduletime">Start</text>
-    </textgroup>
     <textgroup gid="sendmessage">   <!-- monitor.sendmessage -->
       <text tid="applytemplate">Template settings</text>
-      <text tid="applytemplatetotext">Apply</text>
       <text tid="defaultmessage">Geachte heer/mevrouw,<br/><br/>deze server zal (over XX minuten / vandaag om XX:XX / op XX-XX-XXX om XX:XX) worden geüpdatet. Hiervoor wordt u automatisch uitgelogd.<br/><br/>Sluit a.u.b. uw openstaande applicaties. Niet-opgeslagen gegevens kunnen verloren gaan.<br/><br/>Het onderhoud zal ongeveer XX minuten in beslag nemen. Na deze periode kunt u weer inloggen. <br/><br/>Onze excuses voor het ongemak.<br/><br/>--<br/><br/>Dear sir / madam,<br/><br/>This server will be updated (in XX minutes / today at XX:XX AM/PM / XX-XX-XXXX at XX-XX AM-PM). You will be automatically logged out.<br/><br/>Please close any running applications. Unsaved data could be lost.<br/><br/>The maintenance will take approximately XX minutes. After this period you can log in again.<br/><br/>We apologize for any inconvenience.</text>
       <text tid="global_msgtitle">Global announcement</text>
       <text tid="message">Message</text>
-      <text tid="messagetype">Send as</text>
-      <text tid="messagetype-broadcast">Broadcast (dialog)</text>
-      <text tid="messagetype-towl">Notification (Towl)</text>
       <text tid="minutes">minutes</text>
       <text tid="msg">Message</text>
       <text tid="sendmessage">Verstuur</text>
@@ -640,10 +626,6 @@
       <text tid="title_toallusersofmodule">Send a message to users of module '<param p="1"/>'</text>
       <text tid="title_touser">Send a message to user '<param p="1"/>'</text>
       <text tid="title_tousers">Send a message to selected users</text>
-      <text tid="updatelanguage">Language</text>
-      <text tid="updatelanguage-dutch">Dutch</text>
-      <text tid="updatelanguage-dutch_and_english">Dutch and English</text>
-      <text tid="updatelanguage-english">English</text>
       <text tid="updatetime">Update duration</text>
       <text tid="updatewhen">Update time</text>
     </textgroup>
@@ -669,7 +651,6 @@
       <text tid="backingstore">Backing store</text>
       <text tid="blobstore">Blobs</text>
       <text tid="browser">Browser</text>
-      <text tid="cancelscheduleddowntime">Cancel downtime</text>
       <text tid="closewebharelogin">Close login</text>
       <text tid="heap">Heap</text>
       <text tid="instructions">Instructions</text>
@@ -680,8 +661,6 @@
       <text tid="library">Library</text>
       <text tid="loginstatus">WebHare login status</text>
       <text tid="loginstatus_closed">Login is CLOSED</text>
-      <text tid="loginstatus_licenseexpired">Login is CLOSED, license expired</text>
-      <text tid="loginstatus_nolicense">Login is CLOSED, no license</text>
       <text tid="loginstatus_open">Login is open</text>
       <text tid="logintime">Logintime</text>
       <text tid="memoryusage">Memory usage</text>
@@ -690,30 +669,27 @@
       <text tid="openwebharelogin">Open login</text>
       <text tid="realname">Name</text>
       <text tid="running">Active?</text>
-      <text tid="scheduledowntime">Schedule downtime</text>
       <text tid="sendglobalmessage">Send a global message</text>
       <text tid="sendmessagetouser">Send a message to this user</text>
       <text tid="sessionid">Session id</text>
       <text tid="stack">Stack</text>
       <text tid="starturl">Start URL</text>
       <text tid="stats">Statistics</text>
+      <text tid="sureclosewebharelogin">Are you sure you want to close the login for users other than sysops?</text>
+      <text tid="surekillallsessions">Are you sure you want to close all the applications of this user?</text>
+      <text tid="surekillsession">Are you sure you want to close this application?</text>
       <text tid="timestarted">Start time</text>
       <text tid="title">Users</text>
       <text tid="total_appcount">Number of applications</text>
       <text tid="total_appmemory">Memory usage</text>
       <text tid="total_onlineusers">Online users</text>
-      <text tid="typename">Types</text>
       <text tid="username">User name</text>
       <textgroup gid="menus">   <!-- monitor.users.menus -->
         <text tid="killallsessions">Close all applications</text>
         <text tid="killsession">Close application</text>
       </textgroup>
       <textgroup gid="types">   <!-- monitor.users.types -->
-        <text tid="basic">Basic</text>
-        <text tid="cookie">Cookie</text>
-        <text tid="digest">Digest</text>
         <text tid="tollium">WebHare backend</text>
-        <text tid="unknown">Unknown</text>
       </textgroup>
     </textgroup>
     <textgroup gid="webserverscripts">   <!-- monitor.webserverscripts -->

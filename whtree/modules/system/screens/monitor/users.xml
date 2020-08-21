@@ -2,12 +2,6 @@
          lib="screens/monitor/users.whlib"
          gid="monitor">
 
-  <messageboxes>
-    <messagebox name="sureclosewebharelogin" icon="question" buttons="yes no" />
-    <messagebox name="surecancelscheduleddowntime" icon="question" buttons="yes no" />
-  </messageboxes>
-
-
   <screen name="users" gid=".users" title="">
     <actions>
       <action name="kill" shortcut="del" title="">
@@ -20,8 +14,6 @@
       <action name="sendglobalmessage" onexecute="dosendglobalmessage" />
       <action name="openwebharelogin" onexecute="doopenwebharelogin" />
       <action name="closewebharelogin" onexecute="doclosewebharelogin" />
-      <action name="cancelscheduleddowntime" onexecute="docancelscheduleddowntime" />
-      <action name="scheduledowntime" onexecute="doscheduledowntime" />
     </actions>
 
     <menus gid=".menus">
@@ -71,11 +63,6 @@
                   <line layout="left">
                     <button action="openwebharelogin" width="1pr" />
                     <button action="closewebharelogin" width="1pr" />
-                  </line>
-                  <text name="scheduleddowntime" title="" />
-                  <line>
-                    <button action="cancelscheduleddowntime" width="1pr" />
-                    <button action="scheduledowntime" width="1pr" />
                   </line>
                 </box>
                 <heading tid=".stats" />
@@ -171,17 +158,5 @@
     </footer>
   </screen>
 
-  <screen name="scheduledowntime"
-          gid=".scheduledowntime"
-          >
-    <body>
-      <datetime name="scheduletime" type="datetime" required="true" />
-      <textedit name="estimateddowntime" valuetype="integer" required="true" width="1pr" />
-      <checkbox name="locklogin" visible="false" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
 
 </screens>

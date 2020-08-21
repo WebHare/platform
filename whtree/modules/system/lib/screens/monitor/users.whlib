@@ -14,15 +14,6 @@ LOADLIB "mod::system/lib/internal/monitoring/apps.whlib";
 
 BOOLEAN FUNCTION __HS_ABORTJOBBYGROUPID(STRING groupid) __ATTRIBUTES__(EXTERNAL);
 
-STRING FUNCTION GetSessionTypeName(INTEGER type)
-{
-  SWITCH (type)
-  {
-    CASE 1 { RETURN GetTid("system:monitor.users.types.basic"); }  // Basic
-    DEFAULT { RETURN GetTid("system:monitor.users.types.cookie"); } // Cookie
-  }
-}
-
 INTEGER64 FUNCTION GetMemUsage(RECORD info)
 {
   IF(NOT RecordExists(info))
@@ -47,23 +38,6 @@ STRING ARRAY FUNCTION DistinctAndOrderStringArray(STRING ARRAY list)
     ORDER BY item;
 }
 
-VARIANT AGGREGATE FUNCTION AnyNonDefault(VARIANT vals)
-{
-  FOREVERY (VARIANT v FROM vals)
-    IF (NOT IsDefaultValue(v))
-      RETURN v;
-  RETURN vals[0];
-}
-
-RECORD FUNCTION MyBinaryFind(RECORD ARRAY list, RECORD value, STRING ARRAY keys, RECORD defaultvalue DEFAULTSTO DEFAULT RECORD)
-{
-  RECORD pos := RecordLowerBound(list, value, keys);
-  IF (pos.found)
-    RETURN list[pos.position];
-  RETURN defaultvalue;
-}
-
-
 
 PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 <
@@ -79,10 +53,6 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
     this->OnApplicationSelect();
 
     BOOLEAN sysoponly := ReadRegistryKey("system.webserver.global.locking.sysoponly");
-    DATETIME downtime := ReadRegistryKey("system.webserver.global.locking.scheduleddowntime");
-    this->scheduledowntime->enabled := IsDefaultValue(downtime);
-    this->cancelscheduleddowntime->enabled := NOT IsDefaultValue(downtime);
-    this->scheduleddowntime->value := IsDefaultValue(downtime)? "" : "Er is " || ReadRegistryKey("system.webserver.global.locking.estimateddowntime") || " min. downtime ingepland vanaf " || FormatDateTime("%H:%M:%S", downtime);
 
     this->loginstatus->value := sysoponly ? GetTid("system:monitor.users.loginstatus_closed") : GetTid("system:monitor.users.loginstatus_open");
     this->openwebharelogin->enabled := sysoponly;
@@ -207,7 +177,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
   {
     RECORD sel := this->onlineusers->selection;
 
-    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.surekillallsessions", sel.username), [ dontshowkey := "tollium.surekillallsessions"]) != "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.users.surekillallsessions", sel.username), [ dontshowkey := "tollium.surekillallsessions"]) != "yes")
       RETURN;
 
     FOREVERY (RECORD rec FROM sel.tolliumapps)
@@ -219,7 +189,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 
   MACRO DoKillSession()
   {
-    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.surekillsession"), [ dontshowkey := "tollium.surekillsession"]) != "yes")
+    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.users.surekillsession"), [ dontshowkey := "tollium.surekillsession"]) != "yes")
       RETURN;
 
     __HS_ABORTJOBBYGROUPID(this->apps->value);
@@ -253,31 +223,13 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
 
   MACRO DoCloseWebhareLogin()
   {
-    IF (this->RunMessageBox(".sureclosewebharelogin") = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      WriteRegistryKey("system.webserver.global.locking.sysoponly", TRUE);
-      work->Finish();
-    }
-    this->RefreshDashboardPanel();
-  }
+    IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.users.sureclosewebharelogin")) != "yes")
+      RETURN;
 
-  MACRO DoCancelScheduledDowntime()
-  {
-    IF(this->RunMessageBox(".surecancelscheduleddowntime") = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      WriteRegistryKey("system.webserver.global.locking.scheduleddowntime", DEFAULT DATETIME);
-      work->Finish();
-    }
+    OBJECT work := this->BeginWork();
+    WriteRegistryKey("system.webserver.global.locking.sysoponly", TRUE);
+    work->Finish();
     this->RefreshDashboardPanel();
-  }
-
-  MACRO DoScheduleDowntime()
-  {
-    OBJECT screen := this->LoadScreen(".scheduledowntime", DEFAULT RECORD);
-    IF(ObjectExists(screen))
-      screen->RunModal();
   }
 >;
 
@@ -401,37 +353,5 @@ PUBLIC OBJECTTYPE SendMessage EXTEND TolliumScreenBase
     __OpenLocalService("tollium:towlservice")->BroadcastNotification(targetusers, event);
 
     RETURN TRUE;
-  }
->;
-
-
-PUBLIC OBJECTTYPE Announcement EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    this->frame->title := data.title;
-    this->msg->value := data.message;
-  }
->;
-
-
-PUBLIC OBJECTTYPE ScheduleDowntime EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    IF(NOT work->HasFailed())
-    {
-      WriteRegistryKey("system.webserver.global.locking.scheduleddowntime", this->scheduletime->value);
-      WriteRegistryKey("system.webserver.global.locking.estimateddowntime", this->estimateddowntime->value);
-      WriteRegistryKey("system.webserver.global.locking.sysoponly", this->locklogin->value);
-    }
-
-    RETURN work->Finish();
   }
 >;

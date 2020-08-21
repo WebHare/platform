@@ -2163,8 +2163,8 @@ The full base URL on which this site will be published, calculated by combining 
           <integer name="historyseconds" description="Nr of seconds to keep process history" initialval="300" />
           <node name="locking">
             <boolean name="sysoponly" description="All logins except for administrators are disabled" />
-            <datetime name="scheduleddowntime" description="The time and date of the next scheduled downtime, if any" />
-            <integer name="estimateddowntime" description="The amount of time (in minutes) that the scheduled downtime is estimated to last" />
+            <obsoletenode name="scheduleddowntime" />
+            <obsoletenode name="estimateddowntime" />
           </node>
           <node name="proxyservers">
             <string name="trustxforwardedfor" description="A comma separated list of ip addresses of proxy servers that add a trustable X-Forwarded-For header" />
