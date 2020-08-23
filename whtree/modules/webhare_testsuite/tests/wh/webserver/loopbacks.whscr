@@ -883,6 +883,10 @@ MACRO AccessRules()
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir'));
   TestEq(303, browser->GetHTTPStatus().code);
 
+  //<csp>
+  browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/tests/csp/");
+  STRING requiredorigin := UnpackURL(testport.baseurl).origin;
+  TestEqlike(`frame-ancestors *${requiredorigin}*;*`, browser->GetResponseheader("Content-Security-Policy"));
 }
 
 MACRO AcceptRange()
