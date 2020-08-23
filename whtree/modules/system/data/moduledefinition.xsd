@@ -1130,10 +1130,17 @@
           </xs:documentation>
         </xs:annotation>
       </xs:element>
-      <xs:element name="csp" minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="csp" minOccurs="0" maxOccurs="1">
         <xs:annotation>
-          <xs:documentation>Reserved for future use.</xs:documentation>
+          <xs:documentation>Set a Content-Security-Policy header</xs:documentation>
         </xs:annotation>
+        <xs:complexType>
+          <xs:attribute name="policy">
+            <xs:annotation>
+              <xs:documentation>Define a policy to put in the Content-Security-Policy header. Any occurence of `[webhare]` will be replaced with the origins hosting a WebHare interface</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
       </xs:element>
       <xs:element name="account" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
