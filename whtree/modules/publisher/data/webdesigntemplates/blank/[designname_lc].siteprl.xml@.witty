@@ -88,7 +88,7 @@
         <addheader header="X-XSS-Protection" value="1; mode=block"/>
         <addheader header="X-Content-Type-Options" value="nosniff"/>
         <addheader header="Referrer-Policy" value="strict-origin-when-cross-origin"/>
-        <addheader header="Content-Security-Policy" value="script-src 'self'; report-uri https://reports.webhare.com/csp/" />
+        <addheader header="Content-Security-Policy" value="script-src 'self'; frame-ancestors [[webhare]" />
         <addheader header="Feature-Policy" value="geolocation 'none'; camera 'none'; payment 'none'; microphone 'none'"/>
       </webrule>
     </webruleset>

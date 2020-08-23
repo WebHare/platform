@@ -167,24 +167,12 @@ IF (lang != "")
   }
 }
 
-//LogInfo("whpub preview", "send data", [ url := url, status := browser->GetHTTPStatusCode(), contentlength := Length(browser->content), contentdata := BlobToString(browser->content, 512) ]);
-
-//strip CSP and frame options, they're usually incompatible with webhare
-//AddHTTPHeader("Content-Security-Policy", "", FALSE);
-
 STRING ARRAY sentheaders;
 FOREVERY (RECORD header FROM browser->responseheaders)
 {
   STRING upfield := ToUppercase(header.field);
-  IF((upfield IN forbiddenheaders AND (GetRequestMethod() != "HEAD" OR upfield != "CONTENT-LENGTH"))
-      OR upfield IN ["X-FRAME-OPTIONS","CONTENT-SECURITY-POLICY"])
-  {
-    IF (NOT (GetWebVariable("__test") = "sandbox" AND upfield = "CONTENT-SECURITY-POLICY"))
-      CONTINUE;
-  }
-
-  IF(upfield = "X-WEBHAREPREVIEW-FRAME-OPTIONS")
-    header.field := "X-FRAME-OPTIONS";
+  IF(upfield IN forbiddenheaders AND (GetRequestMethod() != "HEAD" OR upfield != "CONTENT-LENGTH"))
+    CONTINUE;
 
   //Set 'always_add' to false on first header, so we can overwrite any webserver AddHeaders (they've already been set by the webserver)
   BOOLEAN isfirst := upfield NOT IN sentheaders;
