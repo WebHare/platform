@@ -20,6 +20,7 @@ PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
          , iplist :=                    DEFAULT RECORD ARRAY
          , limitservers :=              DEFAULT INTEGER ARRAY
          , addheaders :=                DEFAULT RECORD ARRAY
+         , csps :=                      DEFAULT RECORD ARRAY
          , cachecontrol :=              ""
          , redirectcode :=              301
          , matchassubdir :=             TRUE

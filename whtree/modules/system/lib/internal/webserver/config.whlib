@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -672,6 +673,7 @@ OBJECTTYPE WebConfigBuilder
       }
 
     outrules := SELECT *, id := id + 1 + #outrules FROM outrules; //make their IDs unique
+    outrules := EnforceStructure([__whs_baserulerecord], outrules); //make sure they match the current format, even if 'csp' has old rules from a previous webhare
     RETURN outrules;
   }
 
@@ -891,10 +893,8 @@ OBJECTTYPE WebConfigBuilder
                                 , realm := path
                                 , authrequired := authrequirement
                                 , errorpath := this->FixPath(hosts,errorpath)
-                                , finalerrorpath := FALSE
                                 , extauthscript := authscript
                                 , matchtype
-                                , matchmethods := DEFAULT STRING ARRAY
                                 , authtype
                                 , authlist
                                 , datastorage :=                datastorageresource = ""
@@ -909,8 +909,6 @@ OBJECTTYPE WebConfigBuilder
                                 , redirecttarget_is_folder :=   hostingsrc = 5
                                 , iplist := ProcessIPList((SELECT mask, is_allow FROM access_ips WHERE accessid = access.id), autodenyipv6)
                                 , limitservers := webserver != 0 ? [INTEGER(webserver)] : DEFAULT INTEGER ARRAY
-                                , allowallmethods := FALSE
-                                , addheaders := DEFAULT RECORD ARRAY
                                 , cachecontrol := ""
                                 , applyruleset := hostingsrc = 6 ? hostingpath : ""
                                 , redirectcode := redirectcode != 0 ? redirectcode : 301
@@ -918,18 +916,14 @@ OBJECTTYPE WebConfigBuilder
                                 , fixcase := fixcase
                                 , disablecaching
                                 , maxage
-                                , forcecontenttype := ""
-                                , wrdschema := ""
-                                , checkandvm := DEFAULT RECORD
                                 , applysource
-                                , accounts := DEFAULT RECORD ARRAY
-                                , vars := DEFAULT RECORD
                                 , priority := webrulepriority_default
                                 , source := `system:access, id: ${id}`
                              FROM system.access
                             WHERE NOT disabled
                                   AND hostingsrc != 1;
 
+      access := EnforceStructure([__whs_baserulerecord], access);
       UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "no-cache" ]] WHERE disablecaching;
       UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "max-age=" || maxage ]] WHERE disablecaching = FALSE AND maxage>0;
 
@@ -1021,6 +1015,15 @@ OBJECTTYPE WebConfigBuilder
       rules := this->LookupDataStoragePaths(rules, hosts);
     }
 
+    STRING ARRAY interfaceorigins := SELECT AS STRING ARRAY DISTINCT UnpackURL(baseurl).origin
+                                       FROM hosts
+                                      WHERE is_interface_webserver
+                                            AND baseurl != "";
+    FOREVERY(RECORD rule FROM rules)
+      FOREVERY(RECORD csp FROM rule.csps)
+        INSERT [ name := "Content-Security-Policy"
+               , value := Substitute(csp.policy, "[webhare]", Detokenize(interfaceorigins,' '))
+               ] INTO rules[#rule].addheaders AT END;
 
     //Open up all rights to loopbacks
     RECORD loopbackrule := this->GetBaseRule("/", webrulepriority_default, "Loopback rule");
