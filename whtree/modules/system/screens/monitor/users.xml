@@ -2,12 +2,6 @@
          lib="screens/monitor/users.whlib"
          gid="monitor">
 
-  <messageboxes>
-    <messagebox name="sureclosewebharelogin" icon="question" buttons="yes no" />
-    <messagebox name="surecancelscheduleddowntime" icon="question" buttons="yes no" />
-  </messageboxes>
-
-
   <screen name="users" gid=".users" title="">
     <actions>
       <action name="kill" shortcut="del" title="">
@@ -20,8 +14,6 @@
       <action name="sendglobalmessage" onexecute="dosendglobalmessage" />
       <action name="openwebharelogin" onexecute="doopenwebharelogin" />
       <action name="closewebharelogin" onexecute="doclosewebharelogin" />
-      <action name="cancelscheduleddowntime" onexecute="docancelscheduleddowntime" />
-      <action name="scheduledowntime" onexecute="doscheduledowntime" />
     </actions>
 
     <menus gid=".menus">
@@ -71,11 +63,6 @@
                   <line layout="left">
                     <button action="openwebharelogin" width="1pr" />
                     <button action="closewebharelogin" width="1pr" />
-                  </line>
-                  <text name="scheduleddowntime" title="" />
-                  <line>
-                    <button action="cancelscheduleddowntime" width="1pr" />
-                    <button action="scheduledowntime" width="1pr" />
                   </line>
                 </box>
                 <heading tid=".stats" />
@@ -141,9 +128,6 @@
           minwidth="70x"
           savestate="size position"
           gid=".sendmessage">
-    <actions>
-      <action name="applytemplatetotext" onexecute="ontemplatechange" />
-    </actions>
     <body>
       <box name="applytemplate" visible="false">
         <select name="template" type="pulldown" onchange="ontemplatechange" flags="showserverupdate">
@@ -155,19 +139,11 @@
           <tab>
             <visibleon source="template" checkflags="showserverupdate" min="1" />
             <box tid=".serverupdate" hr="false">
-
-              <select name="updatelanguage" type="radio" onchange="ontemplatechange" visible="false">
-                <option rowkey="dutch" />
-                <option rowkey="english" />
-                <option rowkey="dutch_and_english" />
-              </select>
-
-              <datetime name="updatewhen" type="datetime" precision="minutes"/>
+              <datetime name="updatewhen" type="datetime" precision="minutes" onselect="ontemplatechange" />
               <line>
                 <textedit name="updatetime" valuetype="integer" width="5x" value="5" onchange="ontemplatechange" />
                 <text title="" valuetid=".minutes" />
               </line>
-              <button tid=".applytemplatetotext" action="applytemplatetotext" />
             </box>
           </tab>
         </tabs>
@@ -182,17 +158,5 @@
     </footer>
   </screen>
 
-  <screen name="scheduledowntime"
-          gid=".scheduledowntime"
-          >
-    <body>
-      <datetime name="scheduletime" type="datetime" required="true" />
-      <textedit name="estimateddowntime" valuetype="integer" required="true" width="1pr" />
-      <checkbox name="locklogin" visible="false" />
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
 
 </screens>

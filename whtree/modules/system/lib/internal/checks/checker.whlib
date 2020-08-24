@@ -219,16 +219,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
            ] INTO messages AT END;
   }
 
-  DATETIME plannedoutage := ReadRegistryKey("system.webserver.global.locking.scheduleddowntime");
-  IF(NOT IsDefaultValue(plannedoutage))
-  {
-    // We have an outage planned; let's see if sysops are supposed to do something:
-    IF(plannedoutage < GetCurrentDatetime())
-    {
-      INSERT [ msg := ":Downtime has been scheduled at " || FormatDateTime("%H:%M:%S", plannedoutage)
-             ] INTO messages AT END;
-    }
-  }
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
   {
     INSERT [ msg := ":Logins for non-sysops have been closed"
