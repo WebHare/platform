@@ -296,6 +296,12 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
            ] INTO rule.addheaders AT END;
   }
 
+  FOREVERY(OBJECT node FROM rulenode->ListElements(whconstant_xmlns_moduledef, "csp"))
+  {
+    INSERT [ policy := NormalizeWhitespace(node->GetAttribute("policy"))
+           ] INTO rule.csps AT END;
+  }
+
   IF(requirevarycookie)//ADDME don't add if already manually added above
   {
     INSERT [ name := "Vary", value := "Cookie" ] INTO rule.addheaders AT END;

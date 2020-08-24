@@ -34,9 +34,6 @@ IF(NOT ObjectExists(ipclink))
   RETURN;
 }
 
-IF (GetWebVariable("__test") = "sandbox")
-  AddHTTPHeader("Content-Security-Policy", "script-src 'none'", FALSE);
-
 SWITCH (type)
 {
   CASE "urlupload"
