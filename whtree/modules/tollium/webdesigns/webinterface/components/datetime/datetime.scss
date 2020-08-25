@@ -230,6 +230,14 @@ html.browser-ie11
   height: 22px;
   padding: 5px;
   min-width: 40px;
+
+  @media(max-height: 640px )
+  {
+    width: 5vh;
+    height: 3.2vh;
+    padding: 0.8vh;
+    min-width: 6.25vh;
+  }
 }
 
 .tollium__datetime__picker__days td:focus
