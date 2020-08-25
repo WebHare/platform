@@ -449,7 +449,10 @@ class DatePicker extends Calendar2
     //fits top aligned?
     if(anchornode.top + calendarnodesize.height > window.innerHeight)
     { //doesn't fit below, send above
-      this._calendarnode.style.bottom = (window.innerHeight - anchornode.top) + 'px';
+      let y = (window.innerHeight - anchornode.top);
+      if( y - calendarnodesize.height < 0 ) //Prevent calendar hiding behind top of window
+        y = window.innerHeight - calendarnodesize.height;
+      this._calendarnode.style.bottom = y + 'px';
     }
     else //left align
     {
