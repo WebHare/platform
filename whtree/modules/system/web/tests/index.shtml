@@ -1,36 +1,51 @@
 ﻿<?wh
 
+LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 OBJECT trans := OpenPrimary();
 OBJECT testrunner := NEW RunTests;
 RECORD ARRAY tests := testrunner->GatherAllTests(DEFAULT STRING ARRAY, DEFAULT STRING ARRAY);
 
-RECORD ARRAY testsbysite;
+RECORD ARRAY testsbygroup;
 
-FOREVERY(RECORD testgroup FROM SELECT sitename, baseurl := ANY(baseurl), tests := GroupedValues(tests) FROM tests WHERE sitename != "" AND type = "jstest" GROUP BY sitename)
+tests := SELECT *, topgroup := Tokenize(testname,'.')[0] FROM tests WHERE type = "jstest";
+
+FOREVERY(STRING groupname FROM SELECT AS STRING ARRAY DISTINCT topgroup FROM tests)
 {
-  STRING testurl := testgroup.baseurl != "" ? ResolveToAbsoluteURL(testgroup.baseurl, "/.system/jstests/?site=" || EncodeURL(testgroup.sitename) || "&mask=*") : "";
-  INSERT [ link := testurl
-         , title := "Site " || testgroup.sitename
-         ] INTO testsbysite AT END;
+  RECORD ARRAY persite := SELECT sitename
+                               , link := ResolveToAbsoluteURL(ANY(baseurl), `/.system/jstests/?site=${EncodeURL(ANY(sitename))}&mask=${EncodEURL(groupname)}.*`)
+                               , tests := GroupedValues(tests)
+                            FROM tests
+                           WHERE topgroup = groupname
+                        GROUP BY sitename;
+
+  IF(Length(persite) = 1)
+  {
+    INSERT [ link := persite[0].link
+           , title := groupname
+           , sites := RECORD[]
+           ] INTO testsbygroup AT END;
+  }
+  ELSE
+  {
+    INSERT [ link := ""
+           , title := groupname
+           , sites := (SELECT title := sitename, link
+                         FROM persite)
+           ] INTO testsbygroup AT END;
+  }
 }
 
-testsbysite := SELECT * FROM testsbysite ORDER BY ToUppercase(title);
+testsbygroup := SELECT * FROM testsbygroup ORDER BY ToUppercase(title);
 
-Print('<meta name="viewport" content="width=device-width, initial-scale=1.0">');
-Print("<ul>");
-FOREVERY(RECORD testgroup FROM testsbysite)
-{
-  Print('<li>');
-  Print('<a href="' || EncodeValue(testgroup.link) || '">');
-  Print(EncodeHTML(testgroup.title));
-  Print('</a>');
-  Print('</li>');
-}
-Print("</ul>");
+OBJECT webdesign := GetWebdesign(whconstant_whfsid_webharebackend);
+webdesign->RunPageWithContents(PTR LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->RunComponent("testoverview",[ testsbygroup := testsbygroup ]));
