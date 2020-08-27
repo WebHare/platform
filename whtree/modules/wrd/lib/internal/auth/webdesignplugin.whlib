@@ -1506,12 +1506,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       RECORD parseresult := this->ParseAuthLoginProof(options);
       IF (RecordExists(parseresult))
       {
+        BOOLEAN secure := GetClientRequestURL() LIKE "https://*";
         UpdateWebCookie(
             cookiename,
             parseresult.cookiedata,
             [ httponly := TRUE
-            , secure :=   GetClientRequestURL() LIKE "https://*"
-            , samesite := "none" //'none' should be safe as _e only gives view access and no other privileges in wrdauth. - TODO switch to LAX if the Publisher finds a different solution for its preview
+            , secure := secure
+            , samesite := secure ? "none" : "lax" //'none' should be safe as _e only gives view access and no other privileges in wrdauth. - TODO switch to LAX if the Publisher finds a different solution for its preview
+                                                  //however 'none' is no longer compatible with non-secure since Chrome 85 so we'll switch to lax
             ]);
 
         RETURN parseresult;
