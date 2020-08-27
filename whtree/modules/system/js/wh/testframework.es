@@ -878,6 +878,14 @@ async function wait(...waits)
       await callbacks.executeWait(waitelt);
 }
 
+// email: The email address to look for
+// options.timeout: The timeout in ms, defaults to 0 (don't wait)
+// options.count: The number of emails to wait for, defaults to 1
+async function waitForEmails(email, options)
+{
+  return await testfw.waitForEmails(email, options);
+}
+
 async function subtest(name)
 {
   callbacks.subtest(name);
@@ -1031,6 +1039,7 @@ module.exports = { registerTests: registerJSTests
                  , load
                  , wait
                  , waitUIFree: test.waitUIFree
+                 , waitForEmails
                  , subtest
                  , invoke
                  , loadPage: load //DEPRECATED

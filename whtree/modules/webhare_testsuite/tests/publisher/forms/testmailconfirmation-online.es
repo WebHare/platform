@@ -46,15 +46,13 @@ test.registerTests(
     }
 
   , "Process confirmation mail"
-  , { email: testemail
-    , emailtimeout: 6000
-    , emailhandler: function(emails)
-      {
-        test.eq(1, emails.length, "No emails!");
-        test.eq("Confirm your email address", emails[0].subject);
+  , async function()
+    {
+      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      test.eq(1, emails.length, "No emails!");
+      test.eq("Confirm your email address", emails[0].subject);
 
-        confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
-      }
+      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
     }
 
   , "Confirm result"
@@ -77,13 +75,11 @@ test.registerTests(
     }
 
   , "Process results mail"
-  , { email: testemail
-    , emailtimeout: 6000
-    , emailhandler: function(emails)
-      {
-        test.eq(1, emails.length, "No emails!");
-        test.eq("About Your Submission", emails[0].subject);
-      }
+  , async function()
+    {
+      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      test.eq(1, emails.length, "No emails!");
+      test.eq("About Your Submission", emails[0].subject);
     }
 
     // When submitting the same email address, the existing entry is updated after confirmation, should not trigger the
@@ -125,15 +121,13 @@ test.registerTests(
     }
 
   , "Process confirmation mail"
-  , { email: testemail
-    , emailtimeout: 6000
-    , emailhandler: function(emails)
-      {
-        test.eq(1, emails.length, "No emails!");
-        test.eq("Confirm your email address", emails[0].subject);
+  , async function()
+    {
+      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      test.eq(1, emails.length, "No emails!");
+      test.eq("Confirm your email address", emails[0].subject);
 
-        confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
-      }
+      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
     }
 
   , "Confirm result"
@@ -156,13 +150,11 @@ test.registerTests(
     }
 
   , "Process results mail"
-  , { email: testemail
-    , emailtimeout: 6000
-    , emailhandler: function(emails)
-      {
-        test.eq(1, emails.length, "No emails!");
-        test.eq("About Your Submission", emails[0].subject);
-      }
+  , async function()
+    {
+      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      test.eq(1, emails.length, "No emails!");
+      test.eq("About Your Submission", emails[0].subject);
     }
 
     // Adding 'testduplicate=1' disables the 'overwriteexisting' property of the email address, so we can submit a second
@@ -204,15 +196,13 @@ test.registerTests(
     }
 
   , "Process confirmation mail"
-  , { email: testemail
-    , emailtimeout: 6000
-    , emailhandler: function(emails)
-      {
-        test.eq(1, emails.length, "No emails!");
-        test.eq("Confirm your email address", emails[0].subject);
+  , async function()
+    {
+      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      test.eq(1, emails.length, "No emails!");
+      test.eq("Confirm your email address", emails[0].subject);
 
-        confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
-      }
+      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
     }
 
   , "Confirm result"

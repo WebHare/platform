@@ -8,27 +8,23 @@ let editlink;
 let testemail_guid;
 
 test.registerTests(
-  [ { test: async function()
-      {
-        setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { which: "custom", addtscustomcomp: true });
-      }
-    }
-
-  , { loadpage: function() { return setupdata.url + "?error=formunavailable"; }
-    }
-
-  , { test: function()
-      {
-        let content = test.qS('#content');
-        test.eq("The form is currently unavailable", content.textContent.trim(), "Cannot find default form unavailable text");
-      }
-    }
-
-  , { loadpage: function() { return setupdata.url; }
+  [ async function()
+    {
+      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { which: "custom", addtscustomcomp: true });
     }
 
   , async function()
     {
+      await test.load(setupdata.url + "?error=formunavailable");
+
+      let content = test.qS('#content');
+      test.eq("The form is currently unavailable", content.textContent.trim(), "Cannot find default form unavailable text");
+    }
+
+  , async function()
+    {
+      await test.load(setupdata.url);
+
       test.true(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should see 'new' text");
       test.false(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should not see 'change' text");
       test.false(test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
@@ -80,21 +76,18 @@ test.registerTests(
     }
 
   , 'Process mail'
-  , { email: function() { return 'mailresult+jstest@beta.webhare.net'; }
-    , emailtimeout:60000
-    , emailhandler:function(emails)
-      {
-        test.eq(1,emails.length,"No emails!");
-        test.eq("Your Form Was Filled", emails[0].subject);
-      }
-    }
-
-  , { loadpage: function() { return editlink; }
+  , async function()
+    {
+      const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
+      test.eq(1,emails.length,"No emails!");
+      test.eq("Your Form Was Filled", emails[0].subject);
     }
 
   , 'Test results prefill and edit'
   , async function()
     {
+      await test.load(editlink);
+
       let namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
       test.true(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should see 'change' text");
       test.false(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should not see 'new' text");
@@ -125,10 +118,10 @@ test.registerTests(
     }
 
   , 'Test editing through id field'
-  , { loadpage: function() { return setupdata.url; }
-    }
   , async function()
     {
+      await test.load(setupdata.url);
+
       let namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
       namefield.value="Timmy";
       emailfield.value=testemail;
@@ -144,21 +137,18 @@ test.registerTests(
     }
 
   , 'Process mail'
-  , { email: function() { return 'mailresult+jstest@beta.webhare.net'; }
-    , emailtimeout:60000
-    , emailhandler:function(emails)
-      {
-        test.eq(1,emails.length,"No emails!");
-        test.eq("Your Form Was Filled", emails[0].subject);
-      }
+  , async function()
+    {
+      const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
+      test.eq(1,emails.length,"No emails!");
+      test.eq("Your Form Was Filled", emails[0].subject);
     }
 
   , 'Test cancellation'
-  , { loadpage: function() { return editlink + "?cancel=1"; }
-    }
-
   , async function()
     {
+      await test.load(editlink + "?cancel=1");
+
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
       test.true(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should  see thankyou_cancelled text");
     }

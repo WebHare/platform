@@ -49,6 +49,9 @@ Common test actions:
 
   // Wait for a UI-blocking action to finish (busy.es locks)
   await test.wait('ui');
+
+  // Wait for emails sent to an email address
+  const emails = await test.waitForEmails('test@example.org', { timeout: 60000 });
 ```
 
 ## Tollium tests
@@ -95,7 +98,9 @@ Don't do this anymore, but replace with....
 
 ```javascript
  { loadpage: "xxx" }      => await test.load("xxx");
+ { waits: ["x", "y"] }    => await test.wait("x", "y");
  await test.waitUIFree()  => await test.wait("ui");
  $qS                      => test.qS
  $qSA                     => test.qSA
+ { email: "x@x", emailhandler: emails => {} } => const emails = await test.waitForEmails("x@x");
 ```

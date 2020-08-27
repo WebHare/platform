@@ -802,6 +802,20 @@ class TestFramework
     return deferred.promise;
   }
 
+  async waitForEmails(email, options)
+  {
+    options = { timeout: 0, count: 1, ...options };
+
+    let emails = await testservice.retrieveEmails(email, options.timeout, options.count);
+    for (let email of emails)
+    {
+      email.doc = this.scriptframedoc.createElement('div');
+      email.doc.style.display="none";
+      email.doc.innerHTML = email.html;
+    }
+    return emails;
+  }
+
   async executeStepEmail(step)
   {
     var email = typeof step.email == "function" ? step.email() : step.email;

@@ -10,12 +10,11 @@ test.registerTests(
       setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { addpulldown: true});
     }
 
-  , { loadpage: function() { return setupdata.url; }
-    }
-
   , 'Verify initial form'
   , async function()
     {
+      await test.load(setupdata.url);
+
       // The thankyou node is only filled after submission, so check for the empty richtext node
       let thankyou = test.qSA('.wh-form__page[data-wh-form-pagerole="thankyou"] .wh-form__fieldgroup[data-wh-form-group-for="thankyou"] .wh-form__richtext');
       test.eq(1, thankyou.length, "Cannot find thankyou node");
@@ -57,13 +56,11 @@ test.registerTests(
     }
 
   , 'Process mail'
-  , { email: function() { return 'mailresult+jstest@beta.webhare.net'; }
-    , emailtimeout:60000
-    , emailhandler:function(emails)
-      {
-        test.eq(1,emails.length,"No emails!");
-        test.eq("Your Form Was Filled", emails[0].subject);
-      }
+  , async function()
+    {
+      const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
+      test.eq(1,emails.length,"No emails!");
+      test.eq("Your Form Was Filled", emails[0].subject);
     }
 
   , 'Request results'
