@@ -91,7 +91,14 @@ function onIframeData()
       setPreviewCookie("preview");
 
     // Mark this window as being inside the publisher. sessionstorage doesn't escape the tab so this should usually suffice
-    sessionStorage["wh-publisher-preview-frame"] = "1";
+    try
+    {
+      sessionStorage["wh-publisher-preview-frame"] = "1";
+    }
+    catch(e)
+    {
+      console.log("cannot update sessionstorage", e);
+    }
 
     // Load the src into the iframe (the cookie makes sure the view proxy will handle the request)
     iframe.sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts";
