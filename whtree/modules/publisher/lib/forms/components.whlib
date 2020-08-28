@@ -75,11 +75,18 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
   }
 
-  /** @short Postprocess result */
+  /** @short Postprocess result after successful submissions */
   PUBLIC RECORD FUNCTION UpdateResultAfterSubmit(RECORD result)
   {
     RETURN result;
   }
+
+  /** @short Postprocess result after handling a pending submissions (confirmation handlers) */
+  PUBLIC RECORD FUNCTION UpdateResultPendingSubmit(RECORD result)
+  {
+    RETURN result;
+  }
+
 
   /** @short Get the title for use in the form editor */
   PUBLIC STRING FUNCTION GetFormEditTitle()
@@ -95,6 +102,11 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   PUBLIC MACRO RunTestResult(OBJECT parent, RECORD result, RECORD options)
   {
     THROW NEW Exception("Must override RunTestResult if IsTestableForResults returns TRUE");
+  }
+  /** @short Whether to consider this submission as a duplicate confirmation, eg a double vote */
+  PUBLIC BOOLEAN FUNCTION IsDuplicateSubmission(RECORD result, OBJECT formresults)
+  {
+    RETURN FALSE;
   }
 >;
 

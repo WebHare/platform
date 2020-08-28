@@ -859,13 +859,20 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       }
     }
 
-    IF(this->allowsubmittype)
+    IF(this->allowsubmittype OR this->confirmationhandler)
     {
       RECORD ARRAY submittypes :=
           [ [ rowkey := "new", title := this->GetTid(".formsubmittype-new") ]
-          , [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ]
+          ];
+
+      IF(this->allowsubmittype)
+      {
+        submittypes := submittypes CONCAT
+          [ [ rowkey := "change", title := this->GetTid(".formsubmittype-change") ]
           , [ rowkey := "cancel", title := this->GetTid(".formsubmittype-cancel") ]
           ];
+      }
+
       IF (this->confirmationhandler)
         submittypes := submittypes CONCAT
             [ [ rowkey := "pending", title := this->GetTid(".formsubmittype-pending") ]
@@ -1322,12 +1329,13 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       {
         IF (component.qname = "http://www.webhare.net/xmlns/publisher/forms#customhandler")
           handlerrow.title := handler->GetAttribute("title");
-        ELSE IF (component.qname = "http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler")
-          this->confirmationhandler := TRUE;
       }
 
       IF (handlerobj->IsConfirmationHandler())
+      {
         INSERT handlerrow INTO handlers AT 0;
+        this->confirmationhandler := TRUE;
+      }
       ELSE
         INSERT handlerrow INTO handlers AT END;
     }

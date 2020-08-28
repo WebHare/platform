@@ -348,6 +348,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       IF (RecordExists(confirmationhandler))
         result := confirmationhandler.handlerobject->UpdateResultAfterSubmit(result);
     }
+    ELSE IF(this->formsubmittype = "pending")
+    {
+      IF (RecordExists(confirmationhandler))
+        result := confirmationhandler.handlerobject->UpdateResultPendingSubmit(result);
+    }
 
     // Merge result fields into result page RTD's
     INSERT CELL richvalues := this->MergeThankYouPageRTDFields() INTO result;
@@ -506,7 +511,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
         FOREVERY (RECORD field FROM SELECT * FROM page.fields WHERE qname = "http://www.webhare.net/xmlns/publisher/forms#richtext" AND mayhavemergefields)
         {
           OBJECT fieldobj := GetMember(this, "^" || field.name);
-          IF (fieldobj->IsNowVisible())
+          IF (fieldobj->IsNowVisible() AND RecordExists(field.richvalue))
           {
             IF(NOT ObjectExists(webdesign)) //TODO: avoid opening full webdesign if possible. perhaps if there are no witty fields or no embedded objects ?
             {
