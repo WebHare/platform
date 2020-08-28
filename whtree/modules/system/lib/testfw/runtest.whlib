@@ -954,7 +954,7 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
   UPDATE ASYNC FUNCTION GetLogs(RECORD report)
   {
     RECORD screenshot;
-    BOOLEAN anyfailure := RecordExists(SELECT FROM report.tests WHERE RecordExists(RECORD ARRAY(fails)));
+    BOOLEAN anyfailure := RecordExists(SELECT FROM RECORD ARRAY(report.tests) WHERE RecordExists(RECORD ARRAY(fails)));
 
     IF ((anyfailure OR report.gotexception) AND this->options.screenshotonfail AND ObjectExists(this->conn))
     {
