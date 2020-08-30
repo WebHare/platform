@@ -469,7 +469,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
       {
         STRING displayvalue := (this->pvt_prefix != "" ? this->pvt_prefix || " " : "")
                                || this->textvalue
-                               || (this->pvt_suffix != "" ? this->pvt_suffix || " " : "");
+                               || (this->pvt_suffix != "" ? " " || this->pvt_suffix : "");
         this->TolliumWebReadOnly(displayvalue, FALSE);
         RETURN;
       }
