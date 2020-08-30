@@ -69,7 +69,7 @@ MACRO Test_S3()
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile" AND isfolder = FALSE AND size=Length(testcontent)));
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testfile2" AND isfolder = FALSE AND size=Length(testcontent)));
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir" AND isfolder AND size=0));
-  TestEq(3, Length(dir));
+  TestEq(3, Length(SELECT FROM dir WHERE name != "testmultipart")); //delete might not be visible due to eventual consistency..
 
   dir := s3->GetDirectory(bucket,"/testdir");
   TestEq(TRUE, RecordExists(SELECT FROM dir WHERE name="testdir/testfile" AND isfolder = FALSE AND size=Length(testcontent)));
@@ -89,6 +89,9 @@ MACRO Test_S3()
   RECORD obj := s3->GetObject(bucket, "/testfile");
   TestEq(testcontent, BlobToString(obj.body));
 
+  RECORD objhead := s3->HeadObject(bucket, "/testfile");
+  TestEQ(39i64, objhead.contentlength);
+
   s3->DeleteObject(bucket, "/testfile");
 
   dir := s3->GetDirectory(bucket,"/");
@@ -105,8 +108,8 @@ MACRO Test_S3_MultipartUploads()
   RECORD upload := s3->CreateMultipartUpload(bucket,"/testmultipart");
   TestEq(TRUE, RecordExists(SELECT FROM s3->ListMultipartUploads(bucket).uploads WHERE uploadkey = "testmultipart" AND uploadid = upload.uploadid));
 
-
-  RECORD ARRAY uploadurls := s3->GenerateUploadPartURLs(upload, 5*1024*1024 + 5); //generat URLs for 5MB + 5 bytes
+  INTEGER uploadsize := 5*1024*1024 + 5;
+  RECORD ARRAY uploadurls := s3->GenerateUploadPartURLs(upload, uploadsize); //generat URLs for 5MB + 5 bytes
   TestEq(2, Length(uploadurls));
   TestEq(5*1024*1024, uploadurls[0].size);
   TestEq(0i64, uploadurls[0].off);
@@ -116,7 +119,8 @@ MACRO Test_S3_MultipartUploads()
   TestEqLike("https://*", uploadurls[0].url);
   TestEqLike("https://*", uploadurls[1].url);
 
-  BLOB toupload := StringToBlob(`[${RepeatText(".", 5*1024*1024 - 2)}[123]`);
+  BLOB toupload := StringToBlob(`[${RepeatText(".", 5*1024*1024 - 2)}(123)]`);
+  TestEq(uploadsize, Length(toupload));
   STRING ARRAY etags;
 
   TestEq(TRUE, testfw->browser->SendRawRequest("PUT", uploadurls[0].url, [[ field := "Content-Type", value := "application/octet-stream" ]], MakeSlicedBlob(toupload, uploadurls[0].off, uploadurls[0].size)));
@@ -130,6 +134,9 @@ MACRO Test_S3_MultipartUploads()
   RECORD uploadresult := s3->CompleteMultipartUpload(upload, etags);
   RECORD obj := s3->GetObject(bucket, "/testmultipart");
   TestEq(obj.body, toupload);
+
+  RECORD uploadhead := s3->HeadObject(bucket, uploadresult.objectkey);
+  TestEQ(INTEGER64(uploadsize), uploadhead.contentlength);
 
   TestEq(RECORD[], s3->ListMultipartUploads(bucket).uploads);
   s3->DeleteObject(bucket, "/testmultipart");
@@ -163,7 +170,7 @@ MACRO Test_SNS()
 
                  // , PTR Test_S3ListBuckets //this requires higher privileges!
 RunTestframework([ PTR Prepare_S3
-                 , PTR Test_S3_MultipartUploads
                  , PTR Test_S3
+                 , PTR Test_S3_MultipartUploads
                  , PTR Test_SNS
                  ]);

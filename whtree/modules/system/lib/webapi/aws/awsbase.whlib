@@ -170,6 +170,20 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     RETURN this->browser->document;
   }
 
+  PUBLIC RECORD FUNCTION RawAWS4JSONRequest(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD prep := this->PrepareAWS4Request(service, method, url, options);
+    IF(NOT this->browser->SendRawRequest(prep.method, prep.url, prep.headers, prep.options.body))
+    {
+      IF(NOT (prep.options.accept404 AND this->browser->GetHTTPStatusCode()=404))
+      {
+        this->ProcessAWSError();
+        THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
+      }
+    }
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
   MACRO ProcessAWSError()
   {
     //override this for service specific error handling. they should throw on error
