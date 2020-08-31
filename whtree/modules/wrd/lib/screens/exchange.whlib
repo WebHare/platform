@@ -1056,6 +1056,8 @@ PUBLIC STATIC OBJECTTYPE SyncOptions EXTEND TolliumScreenBase
         includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE haspersonaldata != 1;
       ELSE IF (^synctype->value = "selecttypes")
         includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows WHERE selected;
+      ELSE
+        includetypes := SELECT AS STRING ARRAY rowkey FROM ^includetypes->rows;
       RETURN CELL[ includetypes ];
     }
     RETURN DEFAULT RECORD;
