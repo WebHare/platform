@@ -191,8 +191,8 @@
     <actions>
       <action name="act_submit" onexecute="submit" shortcut="ctrl+enter" tid="tollium:common.actions.ok" />
       <action name="act_cancel" onexecute="cancel" tid="tollium:common.actions.cancel" />
-      <action name="next" onexecute="donext" shortcut="alt+n" />
-      <action name="previous" onexecute="doprevious" shortcut="alt+p" />
+      <action name="next" onexecute="donext" shortcut="ctrl+n" />
+      <action name="previous" onexecute="doprevious" shortcut="ctrl+p" />
     </actions>
 
     <body name="body">

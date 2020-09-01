@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::publisher/lib/urlhistory.whlib";
 LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -9,6 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
                                                      , [ name := "pin", type := "switch" ]
                                                      , [ name := "saveurlhistory", type := "switch" ]
+                                                     , [ name := "restoreurlhistory", type := "switch" ]
                                                      , [ name := "__restoremodificationdatefromurlhistory", type := "switch" ]
                                                      , [ name := "unpin", type := "switch" ]
                                                      , [ name := "dryrun", type := "switch" ]
@@ -30,10 +32,10 @@ IF(args.pin AND args.unpin)
 
 OBJECT trans := OpenPrimary();
 OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
-BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory);
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.saveurlhistory OR args.__restoremodificationdatefromurlhistory OR args.restoreurlhistory);
 INTEGER ARRAY startobjids;
 
-IF(args.__restoremodificationdatefromurlhistory AND args.saveurlhistory)
+IF((args.restoreurlhistory OR args.__restoremodificationdatefromurlhistory) AND args.saveurlhistory)
   TerminateScriptWithError("save and restore cannot be mixed");
 
 FOREVERY(STRING path FROM args.paths)
@@ -105,6 +107,13 @@ MACRO ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
           , urlhistory := (SELECT creationdate, url FROM history WHERE fsobject = obj.originalid)
           ], [ isvisibleedit := FALSE ]);
       }
+    }
+    IF(args.restoreurlhistory)
+    {
+      objects := saveurlhistorytype->Enrich(objects, "ID", [ "urlhistory" ]);
+      FOREVERY(RECORD obj FROM objects)
+        FOREVERY(RECORD row FROM obj.urlhistory)
+          AddURLHistoryEntry(obj.id, row.url LIKE "//*" ? "https:" || row.url : row.url);
     }
     IF(args.__restoremodificationdatefromurlhistory)
     {

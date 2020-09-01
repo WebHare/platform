@@ -31,7 +31,7 @@ RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval)
       RETURN retval;
     }
 
-    IF(Right(vatnumber,1)="32")
+    IF(Right(vatnumber,1)="3")
     {
       retval.valid := FALSE;
       retval.error := "Invalid VAT number";

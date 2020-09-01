@@ -6,7 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
-LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
+LOADLIB "relative::awsbase.whlib";
 
 STRING ns_s320060301 := "http://s3.amazonaws.com/doc/2006-03-01/";
 
@@ -234,6 +234,23 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     RETURN results;
   }
 
+  /** Describe the object without retrieving its contents
+      @param bucket Bucket name
+      @param path Path of the object
+      @return Body of object, DEFAULT RECORD if the object does not exist
+      @cell return.body Object contents
+  */
+  PUBLIC RECORD FUNCTION HeadObject(STRING bucket, STRING path)
+  {
+    this->RawAWS4Request("s3", "HEAD", this->PathToUrl(bucket,path), [ accept404 := TRUE ]);
+    IF(this->browser->GetHTTPStatusCode()=404)
+      RETURN DEFAULT RECORD;
+
+    RETURN [ contentlength := ToInteger64(this->browser->GetResponseHeader("Content-Length"),-1)
+           , contenttype := this->browser->GetResponseHeader("Content-Type")
+           ];
+  }
+
   /** Get the contents of an object
       @param bucket Bucket name
       @param path Path of the object
@@ -259,7 +276,8 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       @param bucket Bucket name
       @param path Path of the object
       @param data Data for the object
-      @cell options.type Mime-type for the object (determined automatically with %ScanBlob when not set)
+      @cell(string) options.contenttype Mime-type for the object (determined automatically with %ScanBlob when not set)
+      @cell(string) options.cachecontrol Optional cachecontrol settings
       @return
       @cell(string) return.etag Etag
       @cell(string) return.amzid2
@@ -267,20 +285,25 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
   */
   PUBLIC RECORD FUNCTION PutObject(STRING bucket, STRING path, BLOB data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ type := ""
+    options := ValidateOptions( [ contenttype := ""
+                                , cachecontrol := ""
                                 ], options);
 
-    IF(options.type = "")
-      options.type := ScanBlob(data, path).mimetype;
+    IF(options.contenttype = "")
+      options.contenttype := ScanBlob(data, path).mimetype;
 
     STRING md5 := EncodeBase64(GetHashForBlob(data, "MD5"));
-    RECORD ARRAY headers := [[ field := "Content-Type", value := options.type ]
+    RECORD ARRAY headers := [[ field := "Content-Type", value := options.contenttype ]
                             ,[ field := "Content-MD5", value := md5 ]
                             ];
+
+    IF(options.cachecontrol != "")
+      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+
     this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket,path), CELL[ headers, body := data]);
 
     RETURN [ etag := this->browser->GetResponseHeader("ETag")
-           , amzid2 := this->browser->GetResponseHeader("X-MAZ-ID-2")
+           , amzid2 := this->browser->GetResponseHeader("x-amz-id-2")
            , contentmd5 := md5
            ];
   }
@@ -295,10 +318,18 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
   */
   PUBLIC RECORD FUNCTION CopyObject(STRING bucket, STRING sourcepath, STRING targetpath, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[ sourcebucket := "" ], options);
+    options := ValidateOptions(CELL[ sourcebucket := ""
+                                   , contenttype := ""
+                                   , cachecontrol := ""
+                                   ], options, [ Optional := ["contenttype", "cachecontrol" ]]);
 
     RECORD ARRAY headers := [[ field := "x-amz-copy-source", value := `${options.sourcebucket ?? bucket}/${sourcepath}` ]
                             ];
+    IF(CellExists(options, "contenttype"))
+      INSERT [ field := "Content-Type", value := options.contenttype ] INTO headers AT END;
+    IF(CellExists(options, "cachecontrol"))
+      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+
     this->RawAWS4Request("s3", "PUT", this->PathToUrl(bucket, targetpath), CELL[ headers, body := DEFAULT BLOB ]);
 
     RETURN [ etag := this->browser->GetResponseHeader("ETag")
@@ -392,10 +423,20 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 
   PUBLIC RECORD FUNCTION CreateMultipartUpload(STRING bucket, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[ ], options);
+    options := ValidateOptions( [ contenttype := ""
+                                , cachecontrol := ""
+                                ], options);
+
+    RECORD ARRAY headers;
+    IF(CellExists(options, "contenttype"))
+      INSERT [ field := "Content-Type", value := options.contenttype ] INTO headers AT END;
+    IF(CellExists(options, "cachecontrol"))
+      INSERT [ field := "Cache-Control", value := options.cachecontrol ] INTO headers AT END;
+
 
     this->RawAWS4Request("s3", "POST", this->PathToUrl(bucket,path)
-                       , [ urlparameters := [[ name := "uploads", value := ""]]
+                       , [ headers := headers
+                         , urlparameters := [[ name := "uploads", value := ""]]
                                             ]);
     OBJECT initiatemultipartuploadresult := this->browser->document->documentelement;
     RETURN CELL[ bucket := Pickfirst(initiatemultipartuploadresult->ListChildren("*","Bucket"))->textcontent
