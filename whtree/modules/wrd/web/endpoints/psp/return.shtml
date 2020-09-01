@@ -24,7 +24,7 @@ IF(currentstatus IN [ "pending", "failed" ])
     THROW NEW Exception("Not permitting a final status to go back to 'pending'"); //it can cause completion handlers to re-execute unnecessarily
 
   trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
-  ProcessCompletedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
+  ProcessUpdatedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
   trans->CommitWork();
 }
 IF(isnotification)

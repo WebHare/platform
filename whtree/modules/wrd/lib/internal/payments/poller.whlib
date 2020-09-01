@@ -82,7 +82,7 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, BOOLEAN allowdelete)
         IF(paymentobject->status != "pending") //we now know the reality of this payment
         {
           GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymentrecord.paymententity);
-          ProcessCompletedPayment(paymentobject->paymenthandler, paymentattr.attributetag, paymentobject, paymenttype->GetEntity(paymentrecord.paymententity), FALSE);
+          ProcessUpdatedPayment(paymentobject->paymenthandler, paymentattr.attributetag, paymentobject, paymenttype->GetEntity(paymentrecord.paymententity), FALSE);
           UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME, error := "" WHERE id = paymentrecord.id;
           GetPrimary()->CommitWork();
         }

@@ -431,7 +431,7 @@ STATIC OBJECTTYPE PaymentAPI
         IF(retval.processnow)
         {
           GetPrimary()->BeginLockedWork("wrd:payments.payment:" || paymententity->id);
-          ProcessCompletedPayment(options.paymenthandler, this->paymentattribute, psp, paymententity, FALSE);
+          ProcessUpdatedPayment(options.paymenthandler, this->paymentattribute, psp, paymententity, FALSE);
           GetPrimary()->CommitWork();
 
           //if we're told to process status immediately, no need to return through return.shtml
@@ -505,7 +505,7 @@ STATIC OBJECTTYPE PaymentAPI
       ELSE
         paymentobject->SetStatus(newstatus, options.paymentref);
 
-      ProcessCompletedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
+      ProcessUpdatedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
       GetPrimary()->CommitWork();
     }
     CATCH(OBJECT e)
@@ -538,7 +538,7 @@ STATIC OBJECTTYPE PaymentAPI
       TRY
       {
         GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entityid);
-        ProcessCompletedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
+        ProcessUpdatedPayment(paymentobject->paymenthandler, this->pvt_paymentattr.tag, paymentobject, this->paymenttype->GetEntity(entityid), TRUE);
         GetPrimary()->CommitWork();
       }
       CATCH(OBJECT e)
