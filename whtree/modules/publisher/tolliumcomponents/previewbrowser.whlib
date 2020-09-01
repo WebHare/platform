@@ -454,9 +454,11 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Load browser frame if needed
   MACRO LoadBrowserFrame()
   {
-    STRING src := NOT this->suppressrendering ? UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.publisher/common/preview/browserframe.html"),
-                                                   [ "__whpub_commit_" := this->commit ])
-                                             : "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
+    STRING src;
+    IF(this->suppressrendering)
+      src := "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
+    ELSE IF(IsAbsoluteURL(this->currenturl))
+      src := UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.publisher/common/preview/browserframe.html"), [ "__whpub_commit_" := this->commit ]);
 
     // (Re)load the browserframe if the src changed
     IF (src != this->browserframe->src)

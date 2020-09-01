@@ -16,6 +16,7 @@ Error: $1
 You can run this script manually by providing port numbers and execution commands
 for two WebHares. I personally use:
 
+export TESTFW_TWOHARES=1
 export TH_EXEC1="wh"
 export TH_EXEC2="wh-moe2"
 export TH_WEBINTERFACE1=https://webhare.moe.sf.webhare.nl/

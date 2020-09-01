@@ -59,7 +59,10 @@ test.registerTests(
           if(!test.compByName("peer"))
             break; //dialog is gone so peering must have completed
 
-          //get the peering code to progress
+          /* get the peering code to progress:
+             the second webhare has been configured with the feature webhare_testsuite:insecure_interface on its backend
+             which disables some security and loads remotecontrol.js which will do the actual login for us when postMessage
+             as there's no way to directly control the iframe of course */
           overlay.querySelector("iframe").contentWindow.postMessage({dopeering:{}},"*");
 
           await test.wait(100);

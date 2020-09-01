@@ -905,6 +905,9 @@ MACRO TestESLint()
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
   TestEq( [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon.", source := "unknown", metadata := DEFAULT RECORD ]], res.warnings);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("let x=42;")]);
+  TestEq(1, Length(res.errors));
 }
 
 ASYNC MACRO TestLoadScreen()
