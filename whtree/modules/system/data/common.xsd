@@ -356,6 +356,12 @@
         <xs:documentation>If set, a list of wildcard masks applied against which the server's name must apply for this node to have effect</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="ifmodules">
+      <xs:annotation>
+        <xs:documentation>If any of the specified modules is present. Expects a comma separated list</xs:documentation>
+        <!-- we want a comma  separated list so we can do ifmodules="live_director, newsletter: >= 4.25.0" in the future. if we use the normal space separator that won't work -->
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:simpleType name="ServerType">

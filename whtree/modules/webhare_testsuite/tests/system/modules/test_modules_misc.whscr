@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -9,11 +12,33 @@ MACRO TestSemvers()
   TestEq(FALSE, IsWebhareVersionMatch("< 4.25.0"));
   TestEq(TRUE, IsModuleVersionMatch("consilio", ">= 4.25.0"));
   TestEq(FALSE, IsModuleVersionMatch("consilio", "< 4.25.0"));
+}
 
+MACRO TestApplicability()
+{
+  OBJECT xmldoc := MakeXMLDocument(StringToBlob(
+    `<xml>
+      <node xml:id="test1" ifmodules="system, publisher" />
+      <node xml:id="test2" ifmodules="system, neversuchmodule" />
+      <node xml:id="test3" ifmodules="system,,," />
+      <node xml:id="test4" ifmodules="System" />
+    </xml>`));
+
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test1")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test2")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test3")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test4")));
+}
+
+MACRO TestWithModule()
+{
   testfw->SetupTestModule();
   TestEq(TRUE, IsModuleVersionMatch("webhare_testsuite_temp", ">= 0.1.0"));
   TestEq(FALSE, IsModuleVersionMatch("webhare_testsuite_temp", "< 0.1.0"));
   TestEq(FALSE, IsModuleVersionMatch("__nosuchmodule__", ">= 0.1.0"));
 }
 
-RunTestframework([ PTR TestSemvers ]);
+RunTestframework([ PTR TestSemvers
+                 , PTR TestApplicability
+                 , PTR TestWithModule
+                 ]);
