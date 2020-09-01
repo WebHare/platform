@@ -197,7 +197,8 @@ PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
     CASE "application/msword"
        , "application/vnd.openxmlformats-officedocument.wordprocessingml.document" { RETURN  4; }
     CASE "text/html"                            { RETURN  5; }
-    CASE "application/x-javascript"             { RETURN  6; }
+    CASE "application/javascript"
+       , "application/x-javascript"             { RETURN  6; }
     CASE "application/x-webhare-harescriptfile" { RETURN  7; }
     CASE "text/css"                             { RETURN  9; }
     CASE "application/x-gzip"                   { RETURN 10; }

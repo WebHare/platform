@@ -26,7 +26,7 @@ PUBLIC RECORD publisher_settings :=
 PUBLIC STRING ARRAY compressible_filetypes :=
             [ "application/javascript"
             , "application/json"
-            , "application/x-javascript" // given back by WrapBlob
+            , "application/x-javascript" // originally given back by WrapBlob
             , "application/xml"
             , "image/svg+xml"
             , "image/vnd.microsoft.icon"

@@ -303,7 +303,7 @@ RECORD FUNCTION GuessHarescriptFile(STRING filename, STRING ext)
 RECORD FUNCTION GuessFileTypeByName(STRING filename, STRING header, STRING ext)
 {
   IF (ext=".js")
-    RETURN MakeFile("application/x-javascript");
+    RETURN MakeFile("application/javascript");
   IF (ext=".css")
     RETURN MakeFile("text/css");
   IF (ext=".csv")
