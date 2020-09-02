@@ -2,6 +2,7 @@
 LOADLIB "mod::system/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/internal/services/apprunner.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -36,10 +37,6 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
   {
     TRY
     {
-      OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
-      RECORD response := WaitForPromise(link->GetReport());
-      link->CloseService();
-
       this->applist->rows :=
             SELECT rowkey := name
                  , icon :=      NOT enabled
@@ -66,7 +63,7 @@ PUBLIC OBJECTTYPE AppRunner EXTEND DashboardPanelBase
                  , regkey
                  , canedit :=   regkey != ""
                  , enabled
-              FROM response.report
+              FROM ListRunningServices()
           ORDER BY name;
 
       this->applist->empty := ""; //this is currently not happening in practice, so no need to provide a "there are no processes configured" text

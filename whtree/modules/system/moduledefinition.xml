@@ -2404,6 +2404,7 @@ The full base URL on which this site will be published, calculated by combining 
     <apprunnerconfig configfunction="lib/internal/support.whlib#getsystemapprunnerconfig" />
 
     <check objectname="lib/internal/tasks/geoipdownload.whlib#GeoIPCheck" />
+    <check objectname="lib/internal/services/apprunner.whlib#ServicesCheck" />
   </services>
 
   <documentation>
