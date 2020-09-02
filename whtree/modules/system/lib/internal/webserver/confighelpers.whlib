@@ -5,6 +5,18 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+//an interface server generally running on http://127.0.0.1:13678/
+PUBLIC CONSTANT INTEGER whwebserverconfig_rescueportoffset := 9;
+PUBLIC CONSTANT INTEGER whwebserverconfig_rescueportid := -4;
+PUBLIC CONSTANT INTEGER whwebserverconfig_rescuewebserverid := -5;
+
+PUBLIC CONSTANT INTEGER whwebserverconfig_virtualportid := 0;
+
+PUBLIC CONSTANT INTEGER whwebserverconfig_proxywebserverid := -1000; //catches any usage of webhare as a proxy
+PUBLIC CONSTANT INTEGER whwebserverconfig_loopbackwebserverid := -1001; //a loopbackonly server on 127.0.0.1:13689 used by JS to connect back to us
+
+PUBLIC CONSTANT INTEGER whwebserverconfig_redirecthostoffset := -2000; //all redirecting hosts that mirror a real webserver, are offset by this index
+
 BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
 {
   FOREVERY(STRING item FROM list)
@@ -17,16 +29,16 @@ BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
 PUBLIC RECORD ARRAY FUNCTION EnumerateAllWebservers(BOOLEAN minimalconfig)
 {
   RECORD ARRAY hosts;
-  INTEGER rescueport := GetWebHareConfiguration().baseport + 9;
-  INSERT CELL[ id := -5
+  INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
+  INSERT CELL[ id := whwebserverconfig_rescuewebserverid
              , defaultpages := whconstant_webserver_indexpages
              , is_interface_webserver := TRUE
              , baseurl := `http://127.0.0.1:${rescueport}/`
-             , port := -4
+             , port := whwebserverconfig_rescueportid
              , lowercasemode := TRUE
              , forcehttps := FALSE
              , forcehttpsport := 0
-             , type := 1
+             , type := whconstant_webservertype_interface
              , diskfolder := ""
              , stricttransportsecurity := 0
              ] INTO hosts AT END;
@@ -48,7 +60,7 @@ PUBLIC RECORD ARRAY FUNCTION EnumerateAllWebservers(BOOLEAN minimalconfig)
                   , diskfolder
                   , stricttransportsecurity
                FROM system.webservers
-              WHERE type IN [0,1];
+              WHERE type IN [0,whconstant_webservertype_interface];
   }
   RETURN hosts;
 }
@@ -58,7 +70,7 @@ PUBLIC RECORD FUNCTION GetCacheableHostedSites()
   RECORD ARRAY hosts := SELECT id
                              , baseurl
                              , port
-                             , isinterface := type = 1
+                             , isinterface := type = whconstant_webservertype_interface
                           FROM EnumerateAllWebservers(FALSE);
   RECORD ARRAY ports := SELECT id
                              , virtualhost
