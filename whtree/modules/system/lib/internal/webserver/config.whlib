@@ -974,7 +974,8 @@ OBJECTTYPE WebConfigBuilder
       FOREVERY(RECORD host FROM redirecthosts)
       {
         RECORD url := UnpackURL(host.baseurl);
-        INSERT [ id := -whwebserverconfig_redirecthostoffset -host.id
+        INTEGER redirecthostid := whwebserverconfig_redirecthostoffset - host.id;
+        INSERT [ id := redirecthostid
                , baseurl := ""
                , diskfolder := ""
                , forcehttps := url.secure AND url.isdefaultport
@@ -995,7 +996,7 @@ OBJECTTYPE WebConfigBuilder
         redirectrule.matchtype := 1;
         redirectrule.redirecttarget := url.scheme || "://" || url.host || (url.isdefaultport ? "" : ":" || url.port) || "/";
         redirectrule.redirecttarget_is_folder := TRUE; //keeps subvars
-        redirectrule.limitservers := [ INTEGER(-host.id) ];
+        redirectrule.limitservers := [ redirecthostid ];
         IF(host.stricttransportsecurity > 0)
           INSERT [[ name := "Strict-Transport-Security", value := "max-age=" || host.stricttransportsecurity ]] INTO redirectrule.addheaders AT END;
 
