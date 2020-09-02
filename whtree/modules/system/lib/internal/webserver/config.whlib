@@ -513,7 +513,7 @@ OBJECTTYPE WebConfigBuilder
           IF(isproxy)
           {
             //don't touch proxy rules, let them apply everywhere
-            rule.limitservers := [-1000];
+            rule.limitservers := [whwebserverconfig_proxywebserverid];
           }
           ELSE IF(ToUppercase(path) LIKE "ALLROOTS:*")
           {
@@ -817,8 +817,8 @@ OBJECTTYPE WebConfigBuilder
     INTEGER ARRAY validports := SELECT AS INTEGER ARRAY id FROM ports;
 
     //Add the rescue/restore port
-    INTEGER rescueport := GetWebHareConfiguration().baseport + 9;
-    INSERT [ id := -4
+    INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
+    INSERT [ id := whwebserverconfig_rescueportid
            , ip := "127.0.0.1"
            , privatekey := ""
            , certificatechain := ""
@@ -841,7 +841,7 @@ OBJECTTYPE WebConfigBuilder
            ] INTO ports AT END;
 
     RECORD ARRAY hosts := EnumerateAllWebservers(this->minimalconfig);
-    DELETE FROM hosts WHERE port != 0  AND port != -4 AND port NOT IN validports;
+    DELETE FROM hosts WHERE port NOT IN INTEGER[ whwebserverconfig_virtualportid, whwebserverconfig_rescueportid, ...validports];
 
     RECORD ARRAY hostaccessrules;
 
@@ -860,9 +860,9 @@ OBJECTTYPE WebConfigBuilder
 
       hosts := EnrichWebserversWithOutputFolder(hosts);
       hosts := EnrichWithListenHosts(hosts);
-
     }
-    INSERT [ id := -1000
+
+    INSERT [ id := whwebserverconfig_proxywebserverid
            , outputfolder := ""
            , defaultpages := DEFAULT STRING ARRAY
            , is_interface_webserver := FALSE
@@ -873,7 +873,7 @@ OBJECTTYPE WebConfigBuilder
            , forcehttps := FALSE
            , forcehttpsport := 0
            ] INTO hosts AT END;
-    INSERT [ id := -1001
+    INSERT [ id := whwebserverconfig_loopbackwebserverid
            , outputfolder := GetModuleInstallationRoot("system") || 'web/loopback/'
            , defaultpages := DEFAULT STRING ARRAY
            , is_interface_webserver := FALSE
@@ -978,7 +978,8 @@ OBJECTTYPE WebConfigBuilder
       FOREVERY(RECORD host FROM redirecthosts)
       {
         RECORD url := UnpackURL(host.baseurl);
-        INSERT [ id := -host.id
+        INTEGER redirecthostid := whwebserverconfig_redirecthostoffset - host.id;
+        INSERT [ id := redirecthostid
                , baseurl := ""
                , diskfolder := ""
                , forcehttps := url.secure AND url.isdefaultport
@@ -987,7 +988,7 @@ OBJECTTYPE WebConfigBuilder
                , is_interface_webserver := FALSE
                , lowercasemode := FALSE
                , outputfolder := ""
-               , port := 0
+               , port := whwebserverconfig_virtualportid
                , type := 0
                , defaultpages := DEFAULT STRING ARRAY
                , listenhosts := host.aliases
@@ -999,7 +1000,7 @@ OBJECTTYPE WebConfigBuilder
         redirectrule.matchtype := 1;
         redirectrule.redirecttarget := url.scheme || "://" || url.host || (url.isdefaultport ? "" : ":" || url.port) || "/";
         redirectrule.redirecttarget_is_folder := TRUE; //keeps subvars
-        redirectrule.limitservers := [ INTEGER(-host.id) ];
+        redirectrule.limitservers := [ redirecthostid ];
         IF(host.stricttransportsecurity > 0)
           INSERT [[ name := "Strict-Transport-Security", value := "max-age=" || host.stricttransportsecurity ]] INTO redirectrule.addheaders AT END;
 
@@ -1032,7 +1033,7 @@ OBJECTTYPE WebConfigBuilder
     //Open up all rights to loopbacks
     RECORD loopbackrule := this->GetBaseRule("/", webrulepriority_default, "Loopback rule");
     loopbackrule.matchtype := 1;
-    loopbackrule.limitservers := [-1001];
+    loopbackrule.limitservers := [whwebserverconfig_loopbackwebserverid];
     INSERT loopbackrule INTO rules AT END;
 
     rules := SELECT *
