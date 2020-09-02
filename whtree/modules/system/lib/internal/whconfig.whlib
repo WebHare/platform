@@ -123,7 +123,7 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
     RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
 
-  FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,','))
+  FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,';'))
   {
     mod := TrimWhitespace(mod);
     IF(mod != "" AND mod NOT IN webhareversioninfo.modules)

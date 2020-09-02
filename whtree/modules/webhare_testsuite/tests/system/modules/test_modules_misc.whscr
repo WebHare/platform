@@ -18,9 +18,9 @@ MACRO TestApplicability()
 {
   OBJECT xmldoc := MakeXMLDocument(StringToBlob(
     `<xml>
-      <node xml:id="test1" ifmodules="system, publisher" />
-      <node xml:id="test2" ifmodules="system, neversuchmodule" />
-      <node xml:id="test3" ifmodules="system,,," />
+      <node xml:id="test1" ifmodules="system; publisher" />
+      <node xml:id="test2" ifmodules="system; neversuchmodule" />
+      <node xml:id="test3" ifmodules="system;;;" />
       <node xml:id="test4" ifmodules="System" />
     </xml>`));
 
