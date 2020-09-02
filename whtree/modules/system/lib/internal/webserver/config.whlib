@@ -974,7 +974,7 @@ OBJECTTYPE WebConfigBuilder
       FOREVERY(RECORD host FROM redirecthosts)
       {
         RECORD url := UnpackURL(host.baseurl);
-        INSERT [ id := -host.id
+        INSERT [ id := -whwebserverconfig_redirecthostoffset -host.id
                , baseurl := ""
                , diskfolder := ""
                , forcehttps := url.secure AND url.isdefaultport

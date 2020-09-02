@@ -5,6 +5,9 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+
+PUBLIC CONSTANT INTEGER whwebserverconfig_redirecthostoffset := -2000; //all redirecting hosts that mirror a real webserver, are offset by this index
+
 BOOLEAN FUNCTION IsLikeIn(STRING name, STRING ARRAY list)
 {
   FOREVERY(STRING item FROM list)
