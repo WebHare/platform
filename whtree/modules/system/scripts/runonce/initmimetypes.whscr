@@ -606,6 +606,8 @@ STRING ARRAY curextensions := SELECT AS STRING ARRAY ToUppercase(extension) FROM
 UPDATE system.mimetypes SET mimetype := "text/css; charset=UTF-8" WHERE mimetype = "text/css" AND extension = "css";
 UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension IN ["ics","ifb"];
 UPDATE system.mimetypes SET mimetype := "application/javascript" WHERE mimetype = "application/x-javascript" AND extension = "js";
+UPDATE system.mimetypes SET mimetype := "application/vnd.apple.mpegurl" WHERE mimetype = "audio/x-mpegurl" AND extension = "m3u8";
+
 
 FOREVERY(RECORD installtype FROM standard_mimetypes)
 {

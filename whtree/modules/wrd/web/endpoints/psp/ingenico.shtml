@@ -16,5 +16,5 @@ IF(NOT data.payment->ProcessIngenicoReturnURL(GetRequestURL(), GetRequestMethod(
   ABORT("Unable to prcocess the return URL");
 
 trans->BeginLockedWork("wrd:payments.payment:" || data.paymententity->id);
-ProcessCompletedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
+ProcessUpdatedPayment(data.payment->paymenthandler, data.paymentattr.tag, data.payment, data.paymententity, FALSE);
 trans->CommitWork();

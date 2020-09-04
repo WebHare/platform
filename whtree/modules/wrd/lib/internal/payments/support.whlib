@@ -92,7 +92,7 @@ PUBLIC MACRO ProcessStartedPayment(STRING paymenthandler, STRING paymentattribut
   }
 }
 
-PUBLIC BOOLEAN FUNCTION ProcessCompletedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity, BOOLEAN nostatuscheck)
+PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity, BOOLEAN nostatuscheck)
 {
   IF(paymentobject->pvt_paymentdate = DEFAULT DATETIME)
     paymentobject->pvt_paymentdate := GetCurrentDatetime();
@@ -114,14 +114,16 @@ PUBLIC BOOLEAN FUNCTION ProcessCompletedPayment(STRING paymenthandler, STRING pa
   RECORD upd := CellInsert(DEFAULT RECORD, paymentattribute, currentstatus);
   paymententity->UpdateEntity(upd);
 
-  IF(paymenthandler != "")
+  IF(setstatus.status != "pending")
   {
-    OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
-    handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
+    IF(paymenthandler != "")
+    {
+      OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
+      handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
+    }
+
+    UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;
   }
-
-  UPDATE wrd.pendingpayments SET nextcheck := MAX_DATETIME WHERE uuid = paymentobject->paymentuuid AND COLUMN paymententity = VAR paymententity->id;
-
   RETURN TRUE;
 }
 

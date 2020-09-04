@@ -602,7 +602,7 @@ PUBLIC OBJECTTYPE ModuleFileDiff EXTEND TolliumScreenBase
         IF (NOT RecordExists(det) OR (
             det.mimetype NOT LIKE "text*" AND
             det.mimetype NOT LIKE "application/*webhare*" AND
-            det.mimetype NOT IN [ "application/x-javascript" ]))
+            det.mimetype NOT IN [ "application/javascript", "application/x-javascript" ]))
         {
           // Binary, not diffable
           IF (LENGTH(data.orgfile) != LENGTH(data.newfile)

@@ -857,10 +857,12 @@ OBJECTTYPE WebConfigBuilder
           INSERT [[ name := "Strict-Transport-Security", value := "max-age=" || host.stricttransportsecurity ]] INTO hstsrule.addheaders AT END;
           INSERT hstsrule INTO hostaccessrules AT END;
         }
-
-      hosts := EnrichWebserversWithOutputFolder(hosts);
-      hosts := EnrichWithListenHosts(hosts);
     }
+
+    hosts := EnrichWebserversWithOutputFolder(hosts);
+
+    IF(NOT this->minimalconfig) //EnrichWithListenHosts requires the DB
+      hosts := EnrichWithListenHosts(hosts);
 
     INSERT [ id := whwebserverconfig_proxywebserverid
            , outputfolder := ""

@@ -784,7 +784,7 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
 
     CASE "text/xml"                                                                   { RETURN ".xml"; }
 
-    CASE "application/x-javascript"                                                   { RETURN ".js"; }
+    CASE "application/x-javascript", "application/javascript"                         { RETURN ".js"; }
     CASE "audio/amr"                                                                  { RETURN ".amr"; }
     CASE "text/css"                                                                   { RETURN ".css"; }
     CASE "text/csv"                                                                   { RETURN ".csv"; }

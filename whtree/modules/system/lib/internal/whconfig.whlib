@@ -103,6 +103,7 @@ PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
          , dtapstage := GetDtapStage()
          , installationtype := IsRestoredWebHare()  ? "restore" : "production"
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
+         , modules := __SYSTEM_GETINSTALLEDMODULENAMES()
          ];
 }
 
@@ -121,6 +122,13 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
 
   IF(restrictions.beforeversion != 0 AND webhareversioninfo.versionnum >= restrictions.beforeversion)
     RETURN `Before version: ${restrictions.beforeversion}, current: ${webhareversioninfo.versionnum}`;
+
+  FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,';'))
+  {
+    mod := TrimWhitespace(mod);
+    IF(mod != "" AND mod NOT IN webhareversioninfo.modules)
+      RETURN `Module '${mod}' is not installed`;
+  }
 
   STRING stage := webhareversioninfo.dtapstage;
   IF(restrictions.minservertype != "" AND SearchElement(systemservertypes, restrictions.minservertype) < SearchElement(systemservertypes, stage))
@@ -167,6 +175,7 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
          , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
          , ifenvironset :=       ParseXSList(xmlnode->GetAttribute(options.prefix || "ifenvironset"))
          , unlessenvironset :=   ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessenvironset"))
+         , ifmodules :=          xmlnode->GetAttribute(options.prefix || "ifmodules")
          ];
 }
 
