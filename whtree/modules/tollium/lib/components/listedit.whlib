@@ -686,11 +686,17 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
     this->list->ReloadList();
   }
 
+  UPDATE MACRO RefreshActions()
+  {
+    ArrayListEditBase::RefreshActions();
+    ^add->enabled := ^add->enabled AND this->pvt_onrowedit != DEFAULT FUNCTION PTR;
+    ^edit->enabled := ^edit->enabled AND this->pvt_onrowedit != DEFAULT FUNCTION PTR;
+  }
+
   UPDATE MACRO SetOnRowEdit(FUNCTION PTR onrowedit)
   {
     ArrayListEditBase::SetOnRowEdit(onrowedit);
-    this->add->enabled := this->pvt_enabled AND onrowedit != DEFAULT FUNCTION PTR;
-    this->edit->enabled := this->pvt_enabled AND onrowedit != DEFAULT FUNCTION PTR;
+    this->RefreshActions();
   }
 
   UPDATE PUBLIC MACRO Invalidate()
@@ -788,7 +794,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
   UPDATE MACRO RefreshActions()
   {
     ArrayListEditBase::RefreshActions();
-    this->add->enabled := this->pvt_enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
+    ^add->enabled := ^add->enabled AND (this->pvt_maxrows <= 0 OR Length(this->value) < this->pvt_maxrows);
     this->list->selectmode := this->onrowdelete = DEFAULT FUNCTION PTR ? "multiple" : "single";
   }
 
