@@ -803,6 +803,9 @@ export default class ObjList extends ComponentBase
 
   sendRow(rownum)
   {
+    if(!this.list.isRowVisible(rownum))
+      return;
+
     var row = this.flatrows[rownum];
     var style = this._calculateRowStyle(row);
 

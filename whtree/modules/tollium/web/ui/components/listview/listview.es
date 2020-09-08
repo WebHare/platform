@@ -2229,6 +2229,11 @@ export default class ListView
     this.datasource.sendFooterRows();
   }
 
+  isRowVisible(rownum)
+  {
+    return this.firstvisiblerow <= rownum && rownum <= this.firstvisiblerow + this.numvisiblerows;
+  }
+
   requestAnyMissingRows()
   {
     //request any rows which should be visible but aren't yet.
