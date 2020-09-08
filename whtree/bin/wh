@@ -674,7 +674,7 @@ shift
 OPTIONS=("$@")
 
 # Install dev hooks/commands only with a checked-out webhare (TODO: move code over ?)
-if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
+if [ -n "$WEBHARE_CHECKEDOUT_TO" -a -f "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh" ]; then
   source "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh"
 fi
 
