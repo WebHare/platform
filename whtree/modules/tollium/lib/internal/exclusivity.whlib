@@ -608,7 +608,8 @@ STATIC OBJECTTYPE BulkExclusiveKeeper
         allfinished := FALSE;
       IF (rec.status != "ok")
         alllocked := FALSE;
-      IF (rec.status != "closed")
+      BOOLEAN closed := rec.status = "closed" OR (this->mode = "try" AND rec.status = "identified");
+      IF (NOT closed)
         allclosed := FALSE;
     }
 

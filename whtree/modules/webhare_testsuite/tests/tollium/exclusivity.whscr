@@ -13,7 +13,16 @@ OBJECT lock;
 
 MACRO GetLock(STRING mode, RECORD options DEFAULTSTO CELL[])
 {
+  IF (ObjectExists(lock))
+    THROW NEW Exception("test-lock not closed");
+
   lock := GetBulkExclusiveLock([ [ tag := [ test := "webhare_testsuite:exclusive" ] ] ], CELL[ user := topscreen->contexts->user, mode, ...options ]);
+}
+
+MACRO CloseLock()
+{
+  lock->Close();
+  lock := DEFAULT OBJECT;
 }
 
 
@@ -29,6 +38,8 @@ ASYNC MACRO TestExclusivity()
   TestEQ("none", lock->status);
   TestEQ(FALSE, AWAIT lock->AsyncWaitLocked());
 
+  CloseLock();
+
   RECORD rec := AWAIT ExpectScreenChange(+1, PTR GetLock("requestclose"), [ titlemask := "Take-over request" ]);
   AWAIT rec.expectcallreturn();
 
@@ -43,7 +54,7 @@ ASYNC MACRO TestExclusivity()
   TestEQ(TRUE, AWAIT lock->AsyncWaitLocked());
   TestEQ("locked", lock->status);
 
-  lock->Close();
+  CloseLock();
 
   // STORY: lock with mode 'try' and 'requestclose' with timeout
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen("mod::webhare_testsuite/screens/tests/exclusive.xml#exclusivetest",
@@ -69,7 +80,7 @@ ASYNC MACRO TestExclusivity()
 
   TestEQ(TRUE, TestExclusiveLocked([ test := "webhare_testsuite:exclusive" ]));
 
-  lock->Close();
+  CloseLock();
 
   TestEQ(FALSE, TestExclusiveLocked([ test := "webhare_testsuite:exclusive" ]));
 
@@ -85,13 +96,15 @@ ASYNC MACRO TestExclusivity()
               [ takeovertime := 5 ]),
         [ titlemask := "Take-over request" ]);
 
-  lock->Close();
+  CloseLock();
 
   // closes automatically, nothing happens anymore
   AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
 
-  //
+  // no change happens automatically
   AWAIT ExpectNoScreenChange(DEFAULT FUNCTION PTR);
+
+  // close the exclusivetest screen
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 }
 
