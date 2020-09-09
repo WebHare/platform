@@ -114,10 +114,10 @@ ASYNC MACRO TestWaitableAction()
   INTEGER taskid4 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 400 ]);
   testfw->CommitWork();
 
-  TestThrowsLike("Task #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME));
+  TestThrowsLike("Task * #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME));
   TestEQ([ sleep := 200 ], RetrieveManagedTaskResult(taskid2, MAX_DATETIME));
-  TestThrowsLike("Task #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid3, MAX_DATETIME));
-  TestThrowsLike("Task #* has failed: Task has timed out after 300ms", PTR RetrieveManagedTaskResult(taskid4, MAX_DATETIME));
+  TestThrowsLike("Task * #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid3, MAX_DATETIME));
+  TestThrowsLike("Task * #* has failed: Task has timed out after 300ms", PTR RetrieveManagedTaskResult(taskid4, MAX_DATETIME));
 }
 
 RECORD FUNCTION WaitForError(INTEGER taskid)

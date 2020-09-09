@@ -312,7 +312,7 @@ PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwai
     {
       RECORD taskinfo := SELECT * FROM system.managedtasks WHERE id = taskid;
       IF(NOT RecordExists(taskinfo))
-        THROW NEW Exception("No such task #" || taskid);
+        THROW NEW Exception(`No such task #${taskid}`);
 
       BOOLEAN taskdone := taskinfo.finished != DEFAULT DATETIME;
       IF(taskinfo.lasterrors != "") //something is up
@@ -320,11 +320,11 @@ PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwai
         IF(taskinfo.iscancelled)
         {
           IF(NOT options.acceptcancel)
-            THROW NEW Exception(`Task #${taskid} has been cancelled: ${taskinfo.lasterrors}`);
+            THROW NEW Exception(`Task ${taskinfo.tasktype} #${taskid} has been cancelled: ${taskinfo.lasterrors}`);
         }
         ELSE IF(taskdone OR NOT options.accepttempfailure)
         {
-          OBJECT e := NEW Exception(`Task #${taskid} has${ taskdone ? " permanently" : ""} failed: ${taskinfo.lasterrors}`);
+          OBJECT e := NEW Exception(`Task ${taskinfo.tasktype} #${taskid} has${ taskdone ? " permanently" : ""} failed: ${taskinfo.lasterrors}`);
           IF (taskinfo.stacktrace != "")
             e->trace := DecodeHSON(taskinfo.stacktrace);
           THROW e;
@@ -339,7 +339,7 @@ PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwai
         IF(options.accepttimeout)
           RETURN DEFAULT RECORD;
         ELSE
-          THROW NEW Exception("Timeout waiting for completion of task #" || taskid);
+          THROW NEW Exception(`Timeout waiting for completion of task ${taskinfo.tasktype} #${taskid}`);
       }
 
       eventmgr->ReceiveEvent(maxwait);
