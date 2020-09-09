@@ -6,6 +6,7 @@ LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 // 50 is the max vimeo will return per page
@@ -189,8 +190,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
 
   MACRO DoPreview()
   {
-    OBJECT dlg := this->owner->LoadScreen("publisher:components/embedvideo.playvideo", [ video := this->value ]);
-    dlg->RunModal();
+    RunIframeDialog(this->owner, GetVideoEmbedProvider(this->value.network)->GetIFramePlayerURL(this->value.videoid), [ title := ^videotitle->value ]);
   }
 
 
@@ -449,10 +449,7 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
   {
     RECORD video := this->GetSelectedMovie();
     IF (RecordExists(video))
-    {
-      OBJECT dlg := this->LoadScreen(".playvideo", [ video := video.video ]);
-      dlg->RunModal();
-    }
+      RunIframeDialog(this, GetVideoEmbedProvider(video.video.network)->GetIFramePlayerURL(video.video.videoid), [ title := video.title ]);
   }
 
   RECORD FUNCTION GetSelectedMovie()
@@ -485,16 +482,5 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
 
     this->selectedvideo := MakeVideoEmbedInstance(video.video.network, video.video.videoid);
     RETURN TRUE;
-  }
->;
-
-// FIXME: check which options we can pass
-PUBLIC OBJECTTYPE PlayVideo EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    //this->movieplayer->width  := "486px";
-    //this->movieplayer->height := "313px";
-    this->movieplayer->src := GetVideoEmbedProvider(data.video.network)->GetIFramePlayerURL(data.video.videoid);
   }
 >;
