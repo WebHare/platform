@@ -1,0 +1,10 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="iframe.whlib">
+
+  <screen name="iframedialog" footerbuttons="close" title="">
+    <body spacers="none">
+      <url name="url" width="1pr" title="" />
+      <iframe name="iframe" width="1pr" height="1pr" />
+    </body>
+  </screen>
+
+</screens>

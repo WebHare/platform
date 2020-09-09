@@ -508,9 +508,6 @@
         <text tid="replaceaction">Replace</text>
         <text tid="textedit">Video</text>
       </textgroup>
-      <textgroup gid="playvideo">   <!-- components.embedvideo.playvideo -->
-        <text tid="screentitle">Media player</text>
-      </textgroup>
       <textgroup gid="searchvideo">   <!-- components.embedvideo.searchvideo -->
         <text tid="creationdate">Creation date</text>
         <text tid="description">Description</text>

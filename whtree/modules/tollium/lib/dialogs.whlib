@@ -4,7 +4,6 @@
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-
 /** Show a column file (eg CSV, XLSX) export dialog.
     @long If the list of rows empty, the dialog will report this and prevent downloading an empty file
     @param parent Parent window
@@ -38,5 +37,26 @@ PUBLIC MACRO RunColumnFileExportDialog(OBJECT parent, RECORD options DEFAULTSTO 
 PUBLIC MACRO RunExceptionReportDialog(OBJECT parent, OBJECT exceptionobject, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   (parent->contexts->screen ?? parent->contexts->controller)->LoadScreen("tollium:commondialogs.exceptionscreen", CELL[ type := "exception", exception := exceptionobject, options ])->RunModal();
+}
+
+/** Show a frame in a screen
+    @long Shows a dialog with an iframe and the URL for the iframe.
+    @param parent Parent window
+    @param url URL to show
+    @cell(integer) options.frameminwidth Minimum hidth of the frame
+    @cell(integer) options.frameminheight Minimum height of the frame
+    @cell(boolean) options.allowresize Allow the dialog (and iframe) to be resized. Defaults to true
+    @cell(boolean) options.showurl Whether to show the URL. Defaults to false
+    #cell(string) options.title Dialog title. If empty, tries to take the parent's dialog title */
+PUBLIC MACRO RunIframeDialog(OBJECT parent, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //TODO future versions should allow setting initial frame width apart from minimal frame width, but tollium can't combine that yet with 1pr sizes
+  options := ValidateOptions(CELL[ frameminwidth := 853
+                                 , frameminheight := 480
+                                 , allowresize := TRUE
+                                 , title := ""
+                                 , showurl := FALSE
+                                 ], options);
+  parent->RunScreen("mod::tollium/tolliumapps/dialogs/iframe.xml#iframedialog", CELL[...options, url]);
 }
 

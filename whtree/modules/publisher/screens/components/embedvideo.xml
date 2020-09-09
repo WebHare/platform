@@ -100,20 +100,4 @@
     </footer>
 
   </screen>
-
-  <screen name="playvideo"
-          gid=".playvideo"
-          tid=".screentitle"
-          savestate="size"
-          width="486px"
-          height="313px"
-          allowresize="true"
-          >
-    <body layout="left">
-      <iframe name="movieplayer" height="1pr"></iframe>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
-  </screen>
 </screens>

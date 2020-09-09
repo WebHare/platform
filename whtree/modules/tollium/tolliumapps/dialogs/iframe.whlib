@@ -1,0 +1,22 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE IframeDialog EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    STRING url := ResolveToAbsoluteURL(this->contexts->controller->baseurl, data.url);
+    ^url->value := url;
+    ^url->visible := data.showurl;
+    ^iframe->src := url;
+    //TODO width/height should be a suggestion without killing the iframe's autoresize
+    ^iframe->minwidth := data.frameminwidth || "px";
+    ^iframe->minheight := data.frameminheight || "px";
+    this->frame->allowresize := data.allowresize;
+    this->frame->title := data.title ?? ObjectExists(this->tolliumparent) ? this->tolliumparent->frame->title : "";
+  }
+>;
