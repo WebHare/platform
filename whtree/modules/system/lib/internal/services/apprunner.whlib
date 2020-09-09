@@ -147,3 +147,21 @@ PUBLIC RECORD ARRAY FUNCTION ListExpectedApps()
   UPDATE apps SET app := GetInstallationRoot() || "bin/" || app WHERE SearchSubString(app, "/") = -1;
   RETURN apps;
 }
+
+PUBLIC RECORD ARRAY FUNCTION ListRunningServices()
+{
+  OBJECT link := WaitForPromise(OpenWebHareService("system:apprunner"));
+  RECORD response := WaitForPromise(link->GetReport());
+  link->CloseService();
+  RETURN response.report;
+}
+
+PUBLIC OBJECTTYPE ServicesCheck EXTEND CustomCheckBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetIssueList()
+  {
+    RECORD ARRAY deadservices := SELECT * FROM ListRunningServices() WHERE running = FALSE AND enabled = TRUE AND runatsoftreset = FALSE;
+    RETURN SELECT msg := `:Service '${name}' is not running` FROM deadservices;
+  }
+>;
+

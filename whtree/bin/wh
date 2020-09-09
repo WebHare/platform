@@ -673,6 +673,11 @@ INSTR="${1:-help}"
 shift
 OPTIONS=("$@")
 
+# Install dev hooks/commands only with a checked-out webhare (TODO: move code over ?)
+if [ -n "$WEBHARE_CHECKEDOUT_TO" -a -f "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh" ]; then
+  source "$WEBHARE_CHECKEDOUT_TO/addons/devcommands/hook.sh"
+fi
+
 # External hook which may replace implementations in wh
 if [ -n "$WEBHARE_WH_HOOK" ]; then
   source "$WEBHARE_WH_HOOK"
