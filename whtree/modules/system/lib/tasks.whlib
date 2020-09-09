@@ -76,8 +76,8 @@ PUBLIC OBJECTTYPE ManagedTaskBase
   }
 
   /** Report that this task has successfully completed.
-      @param result Completion data to report/store */
-  MACRO ResolveByCompletion(RECORD result)
+      @param result Optional completion data to report/store */
+  MACRO ResolveByCompletion(RECORD result DEFAULTSTO DEFAULT RECORD)
   {
     IF(RecordExists(this->pvt_resolution))
       THROW NEW Exception("A resolution was already selected for this task");
