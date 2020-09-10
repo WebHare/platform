@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+
+
+PUBLIC OBJECTTYPE EmailWidgetContext EXTEND PreviewContext
+<
+  OBJECT __mailcomposer;
+
+  PUBLIC PROPERTY mailcomposer(__mailcomposer, -);
+
+  MACRO NEW(OBJECT mailcomposer, OBJECT fsobject, OBJECT applytester, RECORD rtdtypeinfo, BOOLEAN forsearch)
+  : PreviewContext(fsobject, applytester, rtdtypeinfo, forsearch)
+  {
+    this->__mailcomposer := mailcomposer;
+  }
+>;
+

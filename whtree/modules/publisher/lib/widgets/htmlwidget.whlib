@@ -4,41 +4,40 @@
 
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
-/** @short Embedded HTML widget
-    @long Implements raw HTML widget (http://www.webhare.net/xmlns/publisher/embedhtml)
-*/
-PUBLIC OBJECTTYPE HTMLWidgetBase EXTEND WidgetBase
+OBJECTTYPE SharedHTMLWidgetBase EXTEND WidgetBase
 <
-  UPDATE PUBLIC MACRO Render()
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
   {
-    IF(this->context->IsRTDPReview())
-    {
-      Print('<div class="wh-rtd__preview__htmlcode">');
-      Print(EncodeHTML(this->data.html));
-      Print('</div>');
-      Print('<img src="/tollium_todd.res/publisher/img/html.png" alt="" class="wh-rtd-color-on-hover" style="position:absolute; bottom:5px; right:5px" />');
-    }
-    ELSE
-    {
-      Print(this->data.html);
-    }
+    Print(this->data.html);
+  }
+
+  UPDATE PUBLIC MACRO RenderLive()
+  {
+    Print(this->data.html);
   }
 >;
 
-PUBLIC OBJECTTYPE InlineHTMLWidgetBase EXTEND WidgetBase
+/** @short Embedded HTML widget
+    @long Implements raw HTML widget (http://www.webhare.net/xmlns/publisher/embedhtml)
+*/
+PUBLIC OBJECTTYPE HTMLWidgetBase EXTEND SharedHTMLWidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {
-    IF(this->context->IsRTDPReview())
-    {
-      Print('<span class="wh-rtd__preview__htmlcode">');
-      Print(EncodeHTML(this->data.html));
-      Print('</span>');
-    }
-    ELSE
-    {
-      Print(this->data.html);
-    }
+    Print('<div class="wh-rtd__preview__htmlcode">');
+    Print(EncodeHTML(this->data.html));
+    Print('</div>');
+    Print('<img src="/tollium_todd.res/publisher/img/html.png" alt="" class="wh-rtd-color-on-hover" style="position:absolute; bottom:5px; right:5px" />');
+  }
+>;
+
+PUBLIC OBJECTTYPE InlineHTMLWidgetBase EXTEND SharedHTMLWidgetBase
+<
+  UPDATE PUBLIC MACRO Render()
+  {
+    Print('<span class="wh-rtd__preview__htmlcode">');
+    Print(EncodeHTML(this->data.html));
+    Print('</span>');
   }
 >;
 

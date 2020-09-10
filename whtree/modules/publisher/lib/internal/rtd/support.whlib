@@ -202,15 +202,26 @@ PUBLIC RECORD FUNCTION __ValidateRichDocumentLike(RECORD inrichdoc, BOOLEAN isrt
                             FROM inrichdoc.embedded;
   }
 
-  inrichdoc.instances := SELECT AS RECORD ARRAY ValidateOptions([data := DEFAULT RECORD, instanceid := "" ], instances, [ required := ["data","instanceid"], title := "instance"])
+  inrichdoc.instances := SELECT AS RECORD ARRAY ValidateOptions([ data := DEFAULT RECORD
+                                                                , instanceid := ""
+                                                                ], instances, [ required := ["data", "instanceid"]
+                                                                              , title := `instances[${#instances}]`
+                                                                              ])
                            FROM inrichdoc.instances;
+
+  //check for whfstype and add any missing whfssettingid/whfsfileid, widget users expect these
+  UPDATE inrichdoc.instances SET data := ValidateOptions([ whfstype := ""
+                                                         , whfssettingid := 0
+                                                         , whfsfileid := 0
+                                                         ], data, [ required := [ "whfstype" ]
+                                                                  , title := `instances[${#instances}].data`
+                                                                  , passthrough := TRUE
+                                                                  ]);
 
   IF(RecordExists(SELECT FROM inrichdoc.embedded GROUP BY contentid HAVING Count(*)>1))
     THROW NEW Exception("Embedded data contains duplicate content ids");
   IF (RecordExists(SELECT FROM inrichdoc.instances GROUP BY instances.instanceid HAVING Count(*)>1))
     THROW NEW Exception("Embedded instances contain duplicate instance ids");
-  IF (RecordExists(SELECT FROM inrichdoc.instances WHERE NOT CellExists(data,'whfstype')))
-    THROW NEW Exception("Embedded instances without whfstype");
 
   RETURN inrichdoc;
 }

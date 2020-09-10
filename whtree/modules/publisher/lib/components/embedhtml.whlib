@@ -19,6 +19,11 @@ PUBLIC OBJECTTYPE EmbeddedHTMLObject EXTEND EmbeddedObjectBase
   {
     Print(this->data.html);
   }
+
+  PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
+  {
+    Print(this->data.html);
+  }
 >;
 
 PUBLIC OBJECTTYPE EmbedHTML EXTEND TolliumTabsExtensionBase
