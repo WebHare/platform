@@ -7,3 +7,23 @@
     [body]
   </body>
 </html>
+
+[component testoverview]<!DOCTYPE html>
+<h1>Javascript tests overview</h1>
+  <ul>
+    [forevery testsbygroup]
+      <li>[if link]<a href="[link]">[title]</a>[else][title][/if]
+        [if sites]
+          <ul>
+            [forevery sites]
+              <li>
+                <a href="[link]">[title]</a>
+              </li>
+            [/forevery]
+          </ul>
+        [/if]
+      </li>
+    [/forevery]
+  </ul>
+[/component]
+

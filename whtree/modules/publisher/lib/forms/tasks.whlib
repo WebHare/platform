@@ -83,7 +83,7 @@ PUBLIC STATIC OBJECTTYPE FormHandlerTaskBase EXTEND ManagedTaskBase
   {
     ManagedTaskBase::ResolveByRestart(when, options);
   }
-  UPDATE PUBLIC MACRO ResolveByCompletion(RECORD retval)
+  UPDATE PUBLIC MACRO ResolveByCompletion(RECORD retval DEFAULTSTO DEFAULT RECORD)
   {
     ManagedTaskBase::ResolveByCompletion(retval);
   }

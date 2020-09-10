@@ -1678,11 +1678,14 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   /** Wait for up to a minute for a condition to become true, ensure events and promises keep completing while we wait
       @param until Condition to testfor. We'll abort if a non-default value is received
+      @param waitingfor Description of what we're waiting for
+      @cell(integer) options.deadline Deadline in milliseconds. Defaults to 60000
       @return The value returned by the condition
   */
-  PUBLIC OBJECT ASYNC FUNCTION WaitAndProcessEvents(FUNCTION PTR until, STRING failure)
+  PUBLIC OBJECT ASYNC FUNCTION WaitAndProcessEvents(FUNCTION PTR until, STRING waitingfor, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    DATETIME deadline := AddTimeToDate(60 * 1000, GetCurrentDateTime());
+    options := ValidateOptions([ deadline := 60 * 1000 ], options);
+    DATETIME deadline := AddTimeToDate(options.deadline, GetCurrentDateTime());
     DATETIME nextreport := AddTimeToDate(1000, GetCurrentDateTime());
 
     WHILE (TRUE)
@@ -1692,11 +1695,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
         RETURN retval;
 
       IF(GetCurrentDatetime() > deadline)
-        THROW NEW Exception("WaitAndProcessEvents. never completed: '" || failure || "'");
+        THROW NEW Exception("WaitAndProcessEvents. never completed: '" || waitingfor || "'");
 
       IF(GetCurrentDatetime() > nextreport)
       {
-        Print(" ...waiting for: " || failure || "\n");
+        Print(" ...waiting for: " || waitingfor || "\n");
         nextreport := AddTimeToDate(1000, GetCurrentDateTime());
       }
       AWAIT NEW WaitableTimer(100)->WaitSignalled();
