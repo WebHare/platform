@@ -260,4 +260,21 @@ test.registerTests(
       test.eq("Hengelosestraat", test.qS("#addressform-address2\\.street").value);
       test.eq("Enschede", test.qS("#addressform-address2\\.city").value);
     }
+
+  , "Test using (disabled) city field as condition source"
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
+
+      test.false(test.canClick("#addressform-neighbourhood"));
+
+      test.fill("#addressform-address\\.country", "NL");
+      test.fill("#addressform-address\\.zip", "7521AM");
+      test.fill("#addressform-address\\.nr_detail", "296");
+      await test.pressKey('Tab');
+      //wait for completion
+      await test.wait( () => test.qS("#addressform-address\\.street").value);
+
+      test.true(test.canClick("#addressform-neighbourhood"));
+    }
   ]);
