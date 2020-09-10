@@ -25,16 +25,16 @@ PUBLIC RECORD FUNCTION FCMatch(OBJECT field, STRING matchtype, VARIANT value, RE
 // Only show the shipping address field if the separate shipping address checkbox is checked
 myform->^shipping_address->visiblecondition := FCIsSet(myform->^separate_shipping_address);
 */
-PUBLIC RECORD FUNCTION FCIsSet(OBJECT field)
+PUBLIC RECORD FUNCTION FCIsSet(OBJECT field, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN ValidateFormCondition(CELL[ field := field->conditionname, matchtype := "HASVALUE", value := TRUE ]);
+  RETURN ValidateFormCondition(CELL[ field := field->conditionname, matchtype := "HASVALUE", value := TRUE, options ]);
 }
 
 /** @short Create a form condition that matches if all of the given conditions match
     @param conditions The list of conditions to check
     @return The form condition
 */
-PUBLIC RECORD FUNCTION FCAnd(RECORD ARRAY conditions)
+PUBLIC RECORD FUNCTION FCAnd(RECORD ARRAY conditions, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   // Optimize nested AND conditions ([ [ a AND b ] AND c ] = [ a AND b AND c ])
   RECORD ARRAY and_conditions;
@@ -43,14 +43,14 @@ PUBLIC RECORD FUNCTION FCAnd(RECORD ARRAY conditions)
       and_conditions := and_conditions CONCAT condition.conditions;
     ELSE
       INSERT condition INTO and_conditions AT END;
-  RETURN ValidateFormCondition(CELL[ matchtype := "AND", conditions := and_conditions ]);
+  RETURN ValidateFormCondition(CELL[ matchtype := "AND", conditions := and_conditions, options ]);
 }
 
 /** @short Create a form condition that matches if any of the given conditions match
     @param conditions The list of conditions to check
     @return The form condition
 */
-PUBLIC RECORD FUNCTION FCOr(RECORD ARRAY conditions)
+PUBLIC RECORD FUNCTION FCOr(RECORD ARRAY conditions, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   // Optimize nested OR conditions ([ [ a OR b ] OR c ] = [ a OR b OR c ])
   RECORD ARRAY or_conditions;
@@ -59,14 +59,14 @@ PUBLIC RECORD FUNCTION FCOr(RECORD ARRAY conditions)
       or_conditions := or_conditions CONCAT condition.conditions;
     ELSE
       INSERT condition INTO or_conditions AT END;
-  RETURN ValidateFormCondition(CELL[ matchtype := "OR", conditions := or_conditions ]);
+  RETURN ValidateFormCondition(CELL[ matchtype := "OR", conditions := or_conditions, options ]);
 }
 
 /** @short Create a form condition that matches if the given conditions does not match
     @param condition The condition to check
     @return The form condition
 */
-PUBLIC RECORD FUNCTION FCNot(RECORD condition)
+PUBLIC RECORD FUNCTION FCNot(RECORD condition, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   // Optimize double NOT condition
   IF (RecordExists(condition) AND condition.matchtype = "NOT")
@@ -74,5 +74,5 @@ PUBLIC RECORD FUNCTION FCNot(RECORD condition)
   // Optimize FCNot(FCIsSet())
   IF (RecordExists(condition) AND condition.matchtype = "HASVALUE")
     RETURN CELL[ ...condition, value := NOT condition.value ];
-  RETURN ValidateFormCondition(CELL[ matchtype := "NOT", condition ]);
+  RETURN ValidateFormCondition(CELL[ matchtype := "NOT", condition, options ]);
 }

@@ -767,7 +767,7 @@ export default class FormBase
     return this._matchesConditionRecursive(condition);
   }
 
-  _getConditionRawValue(fieldname)
+  _getConditionRawValue(fieldname, options)
   {
     if(this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
@@ -784,7 +784,7 @@ export default class FormBase
       let currentvalue = null;
 
       for (let field of matchfield)
-        if (this._isNowSettable(field) && field.checked)
+        if (((options && options.checkdisabled) || this._isNowSettable(field)) && field.checked)
         {
           if (field.type != "checkbox")
             return field.value;
@@ -798,7 +798,7 @@ export default class FormBase
     else
     {
       //Can we set this field?
-      if(!this._isNowSettable(matchfield))
+      if((!options || !options.checkdisabled) && !this._isNowSettable(matchfield))
         return null;
     }
 
@@ -811,7 +811,7 @@ export default class FormBase
     return matchfield.value;
   }
 
-  _getVariableValueForConditions(conditionfield)
+  _getVariableValueForConditions(conditionfield, options)
   {
     if(this.node.hasAttribute("data-wh-form-var-" + conditionfield))
       return this.node.getAttribute("data-wh-form-var-" + conditionfield);
@@ -827,7 +827,7 @@ export default class FormBase
         return this.node.getAttribute("data-wh-form-var-" + attrname);
     }
 
-    let currentvalue = this._getConditionRawValue(fields[0]);
+    let currentvalue = this._getConditionRawValue(fields[0], options);
     if(fields.length === 1 || currentvalue === null) //no subs to process
       return currentvalue;
 
@@ -893,7 +893,7 @@ export default class FormBase
       return !this._matchesConditionRecursive(condition.condition);
     }
 
-    let currentvalue = this._getVariableValueForConditions(condition.field);
+    let currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
 
     if(condition.matchtype == "HASVALUE")
       return !!currentvalue == !!condition.value;
