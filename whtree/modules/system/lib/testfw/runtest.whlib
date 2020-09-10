@@ -25,7 +25,7 @@ LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/coverage.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::/system/lib/internal/browsers/chrome/support.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 
 
 PUBLIC RECORD basetestsettings :=
@@ -825,6 +825,7 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
   : TestRunnerBase(browser, CELL[ ...options
                                 , DELETE devtoolsurl
                                 , DELETE coverage
+                                , DELETE outputdebugmode
                                 ])
   {
     this->options := CELL
@@ -832,6 +833,7 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
         , ...ValidateOptions(
             [ devtoolsurl :=      ""
             , coverage :=         FALSE
+            , outputdebugmode :=  FALSE
             ], options,
             [ passthrough := TRUE
             ])
@@ -866,6 +868,7 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
         this->session := AWAIT this->connector->NewSession();
         this->conn := AWAIT this->connector->ConnectToSession(this->session);
       }
+
       this->sessiontestcount := 0;
 
       this->page := NEW Page(this->conn);
@@ -940,6 +943,10 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
   UPDATE ASYNC MACRO LoadTestPage(STRING testurl)
   {
     this->consolelogentries := RECORD[];
+
+    IF(this->options.outputdebugmode)
+      AWAIT this->conn->^Network->^setCookie([ name := "__whpub_preview", value := "debug", url := ResolveToAbsoluteURL(testurl,"/"), path := "/" ]);
+
     AWAIT this->page->Navigate(testurl);
   }
 
