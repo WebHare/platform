@@ -2,6 +2,8 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -11,6 +13,37 @@ LOADLIB "mod::wrd/lib/database.whlib";
 DATETIME now := GetCurrentDatetime();
 
 OBJECT trans := OpenPrimary();
+
+STRING ARRAY defaultemailmasks := STRING
+    [ "*@webhare.nl"
+    , "*@*.webhare.net"
+    , "*@example.com"
+    , "*@example.org"
+    , "*@example.net"
+    ];
+
+STRING ARRAY defaultfullnamemasks := STRING
+    [ "*(test)*"
+    , "Test"
+    , "* Test"
+    ];
+
+STRING ARRAY allowemailmasks := STRING
+    [ ...defaultemailmasks
+    , ...ArrayDelete(Tokenize(ReadRegistryKey("system.compliance.gdprscan.allowemailmasks"), ";"), [ "" ])
+    ];
+
+STRING ARRAY allowfullnamemasks := STRING
+    [ ...defaultfullnamemasks
+    , ...ArrayDelete(Tokenize(ReadRegistryKey("system.compliance.gdprscan.allowfullnamemasks"), ";"), [ "" ])
+    ];
+
+PRINT(`Configuration:
+  Allowed e-mailmasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN defaultemailmasks ? "" : " (custom added)"}` FROM ToRecordArray(allowemailmasks, "mask") ORDER BY mask NOT IN defaultemailmasks, mask), "")}
+  Allowed fullnamemasks: ${Detokenize((SELECT AS STRING ARRAY `\n   - ${mask}${mask IN defaultfullnamemasks ? "" : " (custom added)"}` FROM ToRecordArray(allowfullnamemasks, "mask") ORDER BY mask NOT IN defaultfullnamemasks, mask) , "")}
+
+`);
+
 BOOLEAN anydbschema := FALSE;
 FOREVERY (RECORD dbschema FROM trans->GetSchemaListing())
 {
@@ -77,7 +110,35 @@ FOREVERY(RECORD wrdschema FROM SELECT * FROM wrd.schemas WHERE name NOT LIKE "$w
 
   IF(RecordExists(personstats))
   {
-    Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+    STRING ARRAY emailattrs :=
+        SELECT AS STRING ARRAY tag
+          FROM schemaobj->^wrd_person->ListAttributes(0)
+         WHERE attributetypename = "EMAIL"
+               OR (tag LIKE "*EMAIL" AND attributetypename = "FREE");
+
+    INTEGER testpersons;
+    IF (IsValueSet(emailattrs))
+    {
+      RECORD ARRAY persons := schemaobj->^wrd_person->RunQuery(
+          [ outputcolumns := STRING[ ...emailattrs, "wrd_fullname" ]
+          , historymode := "__getfields"
+          ]);
+
+      FOREVERY (RECORD rec FROM persons)
+      {
+        BOOLEAN istestperson := __MatchesAnyMask(rec.wrd_fullname, allowfullnamemasks);
+        FOREVERY (STRING tag FROM emailattrs)
+          istestperson := istestperson OR __MatchesAnyMask(GetCell(rec, tag), allowemailmasks);
+
+        IF (istestperson)
+          testpersons := testpersons + 1;
+      }
+    }
+
+    IF (testpersons != personstats.numactive + personstats.inactive)
+      Print(`- PERSONS! ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
+    ELSE
+      PRINT(`- only test persons: ${personstats.numactive + personstats.inactive} persons (${personstats.inactive} inactive), from ${FormatDatetime("%Y-%m-%d",personstats.oldest)} to ${FormatDatetime("%Y-%m-%d",personstats.newest)}\n`);
   }
 
   Print("\n");
