@@ -121,7 +121,7 @@ PUBLIC OBJECTTYPE WidgetBase
     this->Render();
   }
 
-  /** @short Function invoked when the widget should be rendered inside the webdesign */
+  /** @short Function invoked when the widget should be rendered inside an email */
   PUBLIC MACRO RenderEmail(OBJECT mailcomposer)
   {
     IF (ObjectExists(this->mergefields)) //fallback until all users can be updated to overwrite RenderEmail which can be done once all are 4.30+

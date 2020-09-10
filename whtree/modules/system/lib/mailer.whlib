@@ -1491,7 +1491,6 @@ STATIC OBJECTTYPE WittyMailComposer
       RECORD instance := SELECT * FROM rtdtext.instances WHERE instanceid = embeddedobj->GetAttribute("data-instanceid");
       IF(RecordExists(instance))
       {
-        dumpvalue(instance ,[outputid:=2,format:="tree"]);
         OBJECT embeddedobject;
         IF(RecordExists(options.__mergecontext))
         {
