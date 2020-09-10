@@ -2335,6 +2335,12 @@ The full base URL on which this site will be published, calculated by combining 
           <obsoletekey name="allowimagecaching" />
         </node>
       </node>
+      <node name="compliance">
+        <node name="gdprscan">
+          <string name="allowemailmasks" description="Semicolon-separated list of e-mail masks for test persons" />
+          <string name="allowfullnamemasks" description="Semicolon-separated list of fullname masks for test persons" />
+        </node>
+      </node>
     </node>
     <obsoletenode name="sysmgmt" />
     <obsoletenode name="development" />
