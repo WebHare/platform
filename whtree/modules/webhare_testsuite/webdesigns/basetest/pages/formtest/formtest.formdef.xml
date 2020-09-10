@@ -256,6 +256,7 @@
           <fieldtitle tag="nr_detail" title="Number and Addition" />
           <fieldtitle tag="zip" /><!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
         </address>
+        <textedit name="neighbourhood" />
         <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
         <address name="address2" countrylist="NL BE DE" options="nl-zip-suggest">
           <fieldtitle tag="country" title="Address2" />

@@ -657,10 +657,11 @@ PUBLIC OBJECTTYPE AddressForm EXTEND FormBase
 
   MACRO NEW()
   {
-    ^addressgroup->visiblecondition := [ matchtype := "HASVALUE", field := "visiblegroup", value := true ];
-    ^addressgroup->enabledcondition := [ matchtype := "HASVALUE", field := "enablegroup", value := true ];
-    ^address->visiblecondition := [ matchtype := "HASVALUE", field := "visiblefields", value := true ];
-    ^address->enabledcondition := [ matchtype := "HASVALUE", field := "enablefields", value := true ];
+    ^addressgroup->visiblecondition := FCIsSet(^visiblegroup);
+    ^addressgroup->enabledcondition := FCIsSet(^enablegroup);
+    ^address->visiblecondition := FCIsSet(^visiblefields);
+    ^address->enabledcondition := FCIsSet(^enablefields);
+    ^neighbourhood->visiblecondition := FCMatch(^address->^city, "IN", [ "eNSCHeDe" ], [ matchcase := FALSE, checkdisabled := TRUE ]);
     ^address3group->visible := IsRequest() AND GetFormWebVariable("address") = "2";
   }
 

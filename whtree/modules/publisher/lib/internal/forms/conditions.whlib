@@ -20,7 +20,7 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       IF (NOT IsTypeIDArray(TypeID(condition.value)))
         THROW NEW Exception(`Form '${condition.matchtype}' condition requires an array value`);
       IF (CellExists(condition, "options"))
-        ValidateOptions([ matchcase := TRUE ], condition.options);
+        ValidateOptions([ matchcase := TRUE, checkdisabled := FALSE ], condition.options);
     }
     CASE "AGE<", "AGE>="
     {
@@ -28,6 +28,8 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
         THROW NEW Exception(`Form '${condition.matchtype}' condition without field or value`);
       IF (TypeID(condition.value) != TYPEID(INTEGER))
         THROW NEW Exception(`Form '${condition.matchtype}' condition requires an integer value`);
+      IF (CellExists(condition, "options"))
+        ValidateOptions([ checkdisabled := FALSE ], condition.options);
     }
     CASE "HASVALUE"
     {
@@ -35,6 +37,8 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
         THROW NEW Exception("Form 'HASVALUE' condition without field or value");
       IF(TYPEID(condition.value) != TYPEID(BOOLEAN))
         THROW NEW Exception("Form 'HASVALUE' requires a boolean value");
+      IF (CellExists(condition, "options"))
+        ValidateOptions([ checkdisabled := FALSE ], condition.options);
     }
     CASE "AND", "OR"
     {
@@ -46,6 +50,8 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
           THROW NEW Exception(`Form '${condition.matchtype}' condition with empty subcondition`);
         condition.conditions[#subcondition] := ValidateFormCondition(subcondition);
       }
+      IF (CellExists(condition, "options"))
+        ValidateOptions([ checkdisabled := FALSE ], condition.options);
     }
     CASE "NOT"
     {
@@ -54,6 +60,8 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       IF (NOT RecordExists(condition.condition))
         THROW NEW Exception(`Form 'NOT' condition with empty subcondition`);
       condition.condition := ValidateFormCondition(condition.condition);
+      IF (CellExists(condition, "options"))
+        ValidateOptions([ checkdisabled := FALSE ], condition.options);
     }
     DEFAULT
     {
