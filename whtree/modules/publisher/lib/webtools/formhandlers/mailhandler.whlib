@@ -20,6 +20,7 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/forms/tasks.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
@@ -570,20 +571,7 @@ PUBLIC STATIC OBJECTTYPE MailResultsEditor EXTEND MailHandlerEditor
 //
 // Tasks
 //
-OBJECTTYPE EmailWidgetContext EXTEND PreviewContext
-<
-  OBJECT __mailcomposer;
-
-  PUBLIC PROPERTY mailcomposer(__mailcomposer, -);
-
-  MACRO NEW(OBJECT mailcomposer, OBJECT fsobject, OBJECT applytester, RECORD rtdtypeinfo, BOOLEAN forsearch)
-  : PreviewContext(fsobject, applytester, rtdtypeinfo, forsearch)
-  {
-    this->__mailcomposer := mailcomposer;
-  }
->;
-
- RECORD FUNCTION CreateMergeFieldsContext(OBJECT mailcomposer, OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
+RECORD FUNCTION CreateMergeFieldsContext(OBJECT mailcomposer, OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
 {
   RECORD integrationsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
   RECORD rtdtype := GetRTDType(RecordExists(integrationsettings) AND integrationsettings.mailrtdtype != "" ? integrationsettings.mailrtdtype : "http://www.webhare.net/xmlns/publisher/defaultmailrtdtype");

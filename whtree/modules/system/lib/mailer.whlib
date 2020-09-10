@@ -23,6 +23,7 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
@@ -1488,24 +1489,23 @@ STATIC OBJECTTYPE WittyMailComposer
     FOREVERY(OBJECT embeddedobj FROM content->GetElements(".wh-rtd-embeddedobject"))
     {
       RECORD instance := SELECT * FROM rtdtext.instances WHERE instanceid = embeddedobj->GetAttribute("data-instanceid");
-      IF (RecordExists(options.__mergecontext))
+      IF(RecordExists(instance))
       {
-        IF (RecordExists(instance))
+        dumpvalue(instance ,[outputid:=2,format:="tree"]);
+        OBJECT embeddedobject;
+        IF(RecordExists(options.__mergecontext))
         {
-          OBJECT embeddedobject := GetEmbeddedObjectRenderer(DEFAULT OBJECT, options.__mergecontext.applytester, options.__mergecontext.rtdtype.namespace, instance.data, options.__mergecontext.context).widget;
-          STRING substid := GenerateUFS128Bitid();
-          INSERT CELL [ substid, render := PTR embeddedobject->RenderLive() ] INTO substitutions AT END;
-          embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
+          embeddedobject := GetEmbeddedObjectRenderer(DEFAULT OBJECT, options.__mergecontext.applytester, options.__mergecontext.rtdtype.namespace, instance.data, options.__mergecontext.context).widget;
         }
-      }
-      ELSE IF (embeddedobj->nodename = "div") // Old behaviour, content->GetElements("div.wh-rtd-embeddedobject")
-      {
-        IF(RecordExists(instance) AND instance.data.whfstype = "http://www.webhare.net/xmlns/publisher/embedhtml")
+        ELSE
         {
-          STRING substid := GenerateUFS128Bitid();
-          INSERT CELL [ substid, html := instance.data.html ] INTO substitutions AT END;
-          embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
+          OBJECT widgetcontext := NEW EmailWidgetContext(this, DEFAULT OBJECT, DEFAULT OBJECT, DEFAULT RECORD, FALSE);
+          embeddedobject := GetEmbeddedObjectRenderer(DEFAULT OBJECT, DEFAULT OBJECT, "", instance.data, widgetcontext).widget;
         }
+
+        STRING substid := GenerateUFS128Bitid();
+        INSERT CELL [ substid, render := PTR embeddedobject->RenderEmail(this) ] INTO substitutions AT END;
+        embeddedobj->parentnode->insertbefore(embeddedobj->ownerdocument->CreateTextNode(substid), embeddedobj);
       }
       embeddedobj->parentnode->removechild(embeddedobj);
     }
@@ -1561,7 +1561,7 @@ STATIC OBJECTTYPE WittyMailComposer
     IF(NOT RecordExists(richdoc))
       RETURN DEFAULT MACRO PTR;
 
-    RETURN PTR this->RenderRTD(richdoc, options);
+    RETURN PTR this->RenderRTD(ValidateRichDocument(richdoc), options);
   }
 
 
