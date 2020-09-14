@@ -61,6 +61,23 @@ and applied. For https:// urls, some variables describing the current installati
 ### WEBHARE_WH_HOOK
 Points to a script that will be sourced by 'wh' and can filter any command passed to it
 
+## Networking
+Changing the bindings of internal ports gives you more flexibility to route internal WebHare traffic or to access ports
+for debugging but may have serious repercussions for security. Be very careful when opening these ports and make sure
+they are properly firewalled from externa ltraffic
+
+### WEBHARE_SECUREPORT_BINDIP
+Set the IP address binding for the secure/trusted port (usually 13684). If not set it defaults to localhost. This port is
+intended for the nginx reverse proxy and allows connections to fake their source port, IP and protocol.
+
+### WEBHARE_RESCUEPORT_BINDIP
+Set the IP address binding for the rescue port (usually 13684). If not set it defaults to localhost. The rescueport hosts
+an insecure WebHare backend interface
+
+### WEBHARE_LOOPBACKPORT_BINDIP
+Set the IP address binding for the loopback connections port (usually 13685). If not set it defaults to localhost. This port
+is used for internal connections between WebHare processes and allows access to the whmanager (eg. IPC, events, mutexes)
+
 ## Debugging/selftests
 
 ### WEBHARE_DEBUGCHROME
