@@ -612,7 +612,7 @@ ZipArchiveReader* ZipArchiveReader::Open(RandomStream &stream)
         rdr->comment = mycomment;
 
         if (len_central_dir==0) //emptyzip
-            return rdr.get();
+            return rdr.release();
 
         //Start reading the central directory
         std::unique_ptr<uint8_t[]> centraldir_data(new uint8_t[len_central_dir]);
