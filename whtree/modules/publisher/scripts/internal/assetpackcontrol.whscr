@@ -793,14 +793,15 @@ STATIC OBJECTTYPE AssetPackController
     RECORD ARRAY dbpacks := SELECT * FROM system.assetpacks WHERE outputtag LIKE "*:*";
     FOREVERY(RECORD modulepack FROM modulepacks)
     {
-      RECORD bundleconfig := [ extrarequires := modulepack.extrarequires
-                             , languages := modulepack.supportedlanguages
-                             , alwaysincludepolyfill := modulepack.alwaysincludepolyfill
-                             , webharepolyfills := modulepack.webharepolyfills
-                             , environment := modulepack.environment
-                             , babeltranspile := modulepack.babeltranspile
-                             , aftercompiletask := modulepack.aftercompiletask
-                             ];
+      RECORD bundleconfig := CELL[ modulepack.extrarequires
+                                 , languages := modulepack.supportedlanguages
+                                 , modulepack.alwaysincludepolyfill
+                                 , modulepack.webharepolyfills
+                                 , modulepack.environment
+                                 , modulepack.babeltranspile
+                                 , modulepack.aftercompiletask
+                                 , modulepack.assetbaseurl
+                                 ];
 
       STRING encodedconfig := EncodeHSON(bundleconfig);
 
