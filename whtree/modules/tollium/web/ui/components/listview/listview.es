@@ -478,8 +478,6 @@ export default class ListView
     scrolltop = Math.max(0,Math.min(scrollmax, scrolltop));
     if(this.listbodyholder.scrollTop != scrolltop) //we need to scroll
     {
-      if(!this._scrolllock) //flag UI as busy until scroll completes, testframework might otherwise start clicking too fast
-        this._scrolllock = dompack.flagUIBusy();
       ScrollMonitor.setScrollPosition(this.listbodyholder,0,scrolltop);
     }
   }
@@ -856,13 +854,8 @@ export default class ListView
   //
   _onBodyScroll()
   {
-    if(this._scrolllock)
-    {
-      this._scrolllock.release();
-      this._scrolllock = null;
-    }
     var newfirstvisiblerow = this.getFirstVisibleRow();
-    if(this.firstvisiblerow == newfirstvisiblerow)
+    if(this.firstvisiblerow == newfirstvisiblerow) //this will also absorb duplicate scroll invocations caused by setScrollPosition shortcircuiting scroll
       return;
 
     //ADDME discard invisible rows?
