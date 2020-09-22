@@ -114,4 +114,5 @@ ScrollMonitor.setScrollPosition = function(node,x,y)
   node.scrollTop = y;
   node.scrollLeft = x;
   this.saveScrollPosition(node);
+  dompack.dispatchDomEvent(node, "scroll"); //update the list immediately, this fixes some races (such as testFindAsYouType) as the scroll evnet will otherwise fire asynchronously
 };
