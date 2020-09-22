@@ -233,6 +233,11 @@ PUBLIC STATIC OBJECTTYPE GitLabAPI
     RETURN res.json;
   }
 
+  PUBLIC STRING FUNCTION EncodeURLProject(STRING project)
+  {
+    RETURN EncodeURLGitlab(project);
+  }
+
   PUBLIC RECORD FUNCTION GetMyself()
   {
     RETURN this->GetResource(`/user`);

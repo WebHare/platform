@@ -175,7 +175,7 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
       , uglifycache:        baseconfig.uglifycache
       , usecheapsourcemap:  !bundle.bundleconfig.fullsourcemap
       , outputpath:         bundle.outputpath + "build"
-      , baseurl:            `/.ap/${bundle.outputtag.split(':').join('.')}/st/`
+      , baseurl:            bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/st/`
       //extraloaders is used by webpack v2
       , extraloaders:       [ { test: /\.lang\.json/
                               , loader: "@mod-tollium/js/internal/lang?" + JSON.stringify(langconfig) + ""

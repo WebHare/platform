@@ -789,6 +789,8 @@ OBJECTTYPE WebConfigBuilder
     }
 
     STRING secureport_bindip := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP");
+    STRING rescueport_bindip := GetEnvironmentVariable("WEBHARE_RESCUEPORT_BINDIP") ?? "127.0.0.1";
+    STRING loopbackport_bindip := GetEnvironmentVariable("WEBHARE_LOOPBACKPORT_BINDIP")  ?? "127.0.0.1";
 
     //Add the NGINX/reverse proxy port
     INSERT [ id := -2
@@ -819,7 +821,7 @@ OBJECTTYPE WebConfigBuilder
     //Add the rescue/restore port
     INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
     INSERT [ id := whwebserverconfig_rescueportid
-           , ip := "127.0.0.1"
+           , ip := rescueport_bindip
            , privatekey := ""
            , certificatechain := ""
            , port := rescueport
@@ -831,7 +833,7 @@ OBJECTTYPE WebConfigBuilder
     //Add the loopback port
     INTEGER loopbackport := GetWebHareConfiguration().baseport + 4;
     INSERT [ id := -1
-           , ip := "127.0.0.1"
+           , ip := loopbackport_bindip
            , privatekey := ""
            , certificatechain := ""
            , port := loopbackport

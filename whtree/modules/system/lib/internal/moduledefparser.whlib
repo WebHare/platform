@@ -1309,6 +1309,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                  , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))
                  , designroot := designroot
                  , alwaysincludepolyfill := ParseXSBoolean(assetpacknode->GetAttribute("alwaysincludepolyfill"))
+                 , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
                  , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
                  , environment := assetpacknode->GetAttribute("environment") ?? "window"
                  , babeltranspile := babeltranspile

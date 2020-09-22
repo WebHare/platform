@@ -48,6 +48,7 @@ STRING chromeurl;
 BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr", "system-cov", "system-apr"
 BOOLEAN jscoverage;
+BOOLEAN outputdebugmode;
 
 
 MACRO MyPrint(STRING message)
@@ -304,6 +305,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
             , keepsessions := keepsessions
             , screenshotonfail := TRUE
             , coverage := jscoverage
+            , outputdebugmode := outputdebugmode
             ]);
       }
 
@@ -833,6 +835,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "p", type := "switch", defaultvalue := FALSE]
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
+                                    , [name := "outputdebugmode", type := "switch" ]
                                     , [name := "systemcoverage", type := "switch" ]
                                     , [name := "systemprofile", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
@@ -881,6 +884,7 @@ chromeurl := parsedargs.chromeurl;
 keepsessions := parsedargs.keepsessions;
 profiling := parsedargs.systemcoverage ? "system-cov" : parsedargs.coverage ? "cov" : parsedargs.systemprofile ? "system-apr" : "";
 jscoverage := parsedargs.jscoverage;
+outputdebugmode := parsedargs.outputdebugmode OR ReadRegistryKey("publisher.bundledassets.suspendautocompile");
 
 STRING ARRAY requiretags, excludetags;
 FOREVERY(STRING tag FROM Tokenize(parsedargs.tag,','))

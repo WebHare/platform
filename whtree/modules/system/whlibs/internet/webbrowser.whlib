@@ -519,7 +519,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     IF (this->running)
       THROW NEW Exception("Concurrent requests are not allowed");
     IF(this->printnavigation)
-      Print("Navigating to: " || url || "\n");
+      Print(`Navigation: ${method} ${url}\n`);
 
     this->running := TRUE;
 
@@ -1661,8 +1661,10 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     this->pvt_lasterror := errmsg;
     IF(this->pvt_connectingto != "")
       this->pvt_lasterror := this->pvt_lasterror || " (" || this->pvt_connectingto || ")";
+    IF(this->printnavigation)
+      Print("Navigation error: " || this->pvt_lasterror || "\n");
     IF(this->OnError != DEFAULT FUNCTION PTR)
-      this->OnError(errmsg);
+      this->OnError(this->pvt_lasterror);
   }
 
   /** Submits a form on the page
