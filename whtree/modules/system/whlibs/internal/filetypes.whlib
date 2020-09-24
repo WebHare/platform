@@ -322,6 +322,8 @@ RECORD FUNCTION GuessFileTypeByName(STRING filename, STRING header, STRING ext)
     RETURN MakeFile("video/quicktime");
   IF (ext=".mp4") // FIXME: and m4a,m4b,m4p,m4u,m4v ?
     RETURN MakeFile("video/mp4");
+  IF (ext=".mkv")
+    RETURN MakeFile("video/x-matroska");
   IF (ext=".ico")
     RETURN MakeFile("image/vnd.microsoft.icon");
   IF (ext=".rar")
@@ -381,7 +383,8 @@ PUBLIC RECORD FUNCTION __DetectFileType(BLOB filedata, STRING filename)
     //Audio
     ELSE IF(Left(fileheader,6)="\x23\x21\x41\x4D\x52\x0A")
       filetype := MakeFile("audio/amr");
-
+    ELSE IF(fileheader LIKE "\x1a\x45\xdf\xa3*\x42\x82*matroska*")
+      filetype := MakeFile("video/x-matroska");
     // Quicktime and MP4 usually start with an "moov" or "ftyp" atom
     ELSE IF(   (Left(fileheader,8) LIKE "????moov") // detect the "moov" atom (which contains movie information)
             OR (Left(fileheader,8) LIKE "????ftyp") // detect the "ftyp" atom (which identifies the type of encoding used)
