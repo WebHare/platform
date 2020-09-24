@@ -753,6 +753,9 @@ MACRO DetectFiletypeTest()
   TestEq("text/html", ScanBlob(STringToBLob('<!DOCTYPE html> <title>x</title>')).mimetype);
   TestEq("text/html", ScanBlob(DEFAULT BLOB, "test.txt", [ mimetype := "text/html" ]).mimetype);
 
+  BLOB mkv := StringToBlob(DecodeBase64("GkXfo6NChoEBQveBAULygQRC84EIQoKIbWF0cm9za2FCh4EEQoWBAhhTgGcBAAAAAAY"));
+  TestEq("video/x-matroska", ScanBlob(mkv,"").mimetype);
+
   BLOB dummygif := StringToBlob(DecodeBase16("47494638396101000100800000ffffffffffff21f90401000000002c00000000010001000002024401003b"));
   detect := WrapBlob(dummygif, "", [ extractdominantcolor := TRUE]);
   TestEq("image/gif", detect.mimetype);
