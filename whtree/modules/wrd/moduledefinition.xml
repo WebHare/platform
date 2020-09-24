@@ -718,6 +718,7 @@
 
     <d:obsoletetable name="registrykeys" />
     <d:obsoletetable name="registrynodes" />
+    <d:obsoletetable name="backup_entity_settings" /> <!-- still found on servers in 2020 -->
   </databaseschema>
 
   <backend>
