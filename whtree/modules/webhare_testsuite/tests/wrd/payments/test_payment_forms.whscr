@@ -44,9 +44,9 @@ PUBLIC MACRO FillInForm()
   TestEq(2, Length(verify_inside_required), "paymentmethod should be inside a wh-form__fieldgroup--required");
 
   OBJECT ARRAY pulldowns := testfw->browser->document->GetElements('select');
-  TestEq(1, Length(pulldowns), "Can't find issuer <select>");
+  TestEq(2, Length(pulldowns), "Can't find issuer <select>");
 
-  OBJECT ARRAY issuer_opts := pulldowns[0]->GetElements("option");
+  OBJECT ARRAY issuer_opts := pulldowns[1]->GetElements("option");
   TestEq(3, Length(issuer_opts), "Expecting three options");
 
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
@@ -81,7 +81,7 @@ PUBLIC MACRO FillInForm()
   TestEq(FALSE, res.success);
 
   //Select an issuer. The only pulldown should be the issuer
-  submitrec := CellInsert(submitrec, pulldowns[0]->GetAttribute("name"), issuer_opts[1]->GetAttribute("value"));
+  submitrec := CellInsert(submitrec, pulldowns[1]->GetAttribute("name"), issuer_opts[1]->GetAttribute("value"));
   res := tester->SubmitForm(submitrec);
   //dumpvalue(res);
   TestEq(TRUE, res.success);
