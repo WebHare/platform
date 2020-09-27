@@ -69,24 +69,43 @@ RECORD ARRAY FUNCTION GetAllRows(INTEGER fsobjectid, STRING formname, BOOLEAN sh
          ORDER BY when;
 }
 
-PUBLIC RECORD FUNCTION GetFinalResult(INTEGER objectid, STRING formname, STRING guid, BOOLEAN dontresolve, BOOLEAN showexpiredresults)
+PUBLIC INTEGER FUNCTION GetFinalResultId(INTEGER objectid, STRING formname, STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RECORD storedresults := SELECT *
+  //we won't return non-final results unless you explicitly opt in to that
+  options := ValidateOptions(
+      [ allowcancelled := FALSE
+      , allowpending := FALSE
+      , showexpiredresults := FALSE
+      , dontresolve := FALSE // Set to true to get the result with the given guid, instead of chasing the last version
+      ], options);
+
+  RECORD storedresults := SELECT id,status
                             FROM publisher.formresults
                            WHERE form_fsobject = VAR objectid
                                  AND COLUMN guid = VAR guid
                                  AND form_name = VAR formname
-                                 AND (showexpiredresults OR expiration > GetCurrentDatetime());
-  IF (NOT dontresolve)
+                                 AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
+  IF (NOT options.dontresolve)
   {
     WHILE (RecordExists(storedresults) AND storedresults.status = 4/*replaced*/)
-      storedresults := SELECT *
+    {
+      storedresults := SELECT id, status
                          FROM publisher.formresults
                         WHERE id = storedresults.replacedby
-                              AND (showexpiredresults OR expiration > GetCurrentDatetime());
+                              AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
+    }
   }
 
-  RETURN storedresults;
+  INTEGER ARRAY validstatus := [1];
+  IF(options.allowcancelled)
+    INSERT 3 INTO validstatus AT END;
+  IF(options.allowpending)
+    INSERT 5 INTO validstatus AT END;
+
+  IF(RecordExists(storedresults) AND storedresults.status IN validstatus)
+    RETURN storedresults.id;
+
+  RETURN 0;
 }
 
 STATIC OBJECTTYPE FormResultExporter
@@ -305,29 +324,23 @@ STATIC OBJECTTYPE WHFSForm
     RETURN this->PresentResult(storedresult, DEFAULT OBJECT);
   }
 
-  /** @param guid Guid of the form results
+  /** Get results by guid. Will not return non-final results unless you explicitly opt in to that
+      @param guid Guid of the form results
       @cell options.allowcancelled Also allow us to retrieve a cancelled result
       @return @includecelldef #PresentResult.return
   */
   PUBLIC RECORD FUNCTION GetSingleResult(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    //we won't return non-final results unless you explicitly opt in to that
     options := ValidateOptions(
-        [ allowcancelled := FALSE
-        , allowpending := FALSE
-        , showexpiredresults := this->showexpiredresults
-        , dontresolve := FALSE // Set to true to get the result with the given guid, instead of chasing the last version
-        , __form := DEFAULT OBJECT //form object to use. may want to remove this and just merge out internal getsingleresult calls into separate functions
-        ], options);
+        [ __form := DEFAULT OBJECT //form object to use. may want to remove this and just merge out internal getsingleresult calls into separate functions
+        ], CELL[ this->showexpiredresults, ...options ]
+         , [ passthroughin := "findoptions" ]);
 
-    INTEGER ARRAY validstatus := [1];
-    IF(options.allowcancelled)
-      INSERT 3 INTO validstatus AT END;
-    IF(options.allowpending)
-      INSERT 5 INTO validstatus AT END;
-
-    RECORD storedresults := GetFinalResult(this->whfsobject->id, this->formname, guid, options.dontresolve, options.showexpiredresults);
-    IF(NOT RecordExists(storedresults) OR storedresults.status NOT IN validstatus)
+    RECORD storedresults;
+    INTEGER getid := GetFinalResultId(this->whfsobject->id, this->formname, guid, options.findoptions);
+    IF(getid != 0)
+      storedresults := SELECT * FROM publisher.formresults WHERE id = getid;
+    IF(NOT RecordExists(storedresults))
       RETURN DEFAULT RECORD;
 
     RETURN this->PresentResult(storedresults, options.__form);
@@ -432,14 +445,14 @@ STATIC OBJECTTYPE WHFSForm
   }
   PUBLIC MACRO CancelResult(STRING guid) //user cancel
   {
-    RECORD existingresult := GetFinalResult(this->whfsobject->id, this->formname, guid, FALSE, FALSE);
-    IF(NOT RecordExists(existingresult) OR existingresult.status NOT IN [1,3])
-      THROW NEW Exception("Cannot cancel result");
+    INTEGER existingresultid := GetFinalResultId(this->whfsobject->id, this->formname, guid, [ allowcancelled := TRUE ]);
+    IF(existingresultid = 0)
+      THROW NEW Exception(`Cannot cancel result ${guid}`);
 
     UPDATE publisher.formresults
        SET status := 3
          , modified := GetCurrentDatetime()
-     WHERE id = existingresult.id;
+     WHERE id = existingresultid;
   }
 
   PUBLIC MACRO DeleteResultsById(INTEGER ARRAY deleteids)
@@ -684,6 +697,48 @@ STATIC OBJECTTYPE WHFSForm
     RETURN wittydata;
   }
 
+  /** List keys set for this form result */
+  PUBLIC STRING ARRAY FUNCTION ListResultKeys(STRING resultguid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER getid := GetFinalResultId(this->whfsobject->id, this->formname, resultguid, options);
+    IF(getid = 0)
+      THROW NEW Exception(`Cannot find form result ${resultguid}`);
+
+    RETURN SELECT AS STRING ARRAY tag FROM publisher.formresultskvstore WHERE formresult = getid;
+  }
+
+  /** Get a key for this form result result
+      @param resultguid Target form result
+      @param keyname Keyname. Treated case-insensitively */
+  PUBLIC VARIANT FUNCTION GetResultKey(STRING resultguid, STRING keyname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER getid := GetFinalResultId(this->whfsobject->id, this->formname, resultguid, options);
+    IF(getid = 0)
+      THROW NEW Exception(`Cannot find form result ${resultguid}`);
+
+    RECORD kv := SELECT * FROM publisher.formresultskvstore WHERE formresult = getid AND tag = ToLowercase(keyname);
+    IF(NOT RecordExists(kv))
+      THROW NEW Exception(`Cannot find key '${keyname}' in form result ${resultguid}`);
+
+    RETURN ReadAnyFromDatabase(kv.data,kv.blobdata);
+  }
+
+  /** Set a key for this form result result
+      @param resultguid Target form result
+      @param keyname Keyname. Will be converted to lowercase
+      @param newvalue Value to store, will overwrite any existing value
+  */
+  PUBLIC MACRO SetResultKey(STRING resultguid, STRING keyname, VARIANT newvalue, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    INTEGER getid := GetFinalResultId(this->whfsobject->id, this->formname, resultguid, options);
+    IF(getid = 0)
+      THROW NEW Exception(`Cannot find form result ${resultguid}`);
+
+    DELETE FROM publisher.formresultskvstore WHERE formresult = getid AND tag = ToLowercase(keyname);
+    RECORD store := PrepareAnyForDatabase(newvalue);
+    INSERT INTO publisher.formresultskvstore(formresult, tag, data, blobdata)
+           VALUES(getid, ToLowercase(keyname), store.stringpart, store.blobpart);
+  }
 >;
 
 PUBLIC OBJECT FUNCTION OpenWebtoolFormResultsForFormdef(OBJECT whfsobject, /*RECORD ARRAY formfields,*/ STRING formname, OBJECT formdef)
