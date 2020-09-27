@@ -542,8 +542,8 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
 {
   options := ValidateOptions(CELL[ hidefields := STRING[] ], options);
 
-  RECORD existingresult := GetFinalResult(formresults->GetStorageObject()->id, "webtoolform", resultguid, FALSE, FALSE);
-  IF(NOT RecordExists(existingresult))
+  INTEGER existingresult := GetFinalResultId(formresults->GetStorageObject()->id, "webtoolform", resultguid);
+  IF(existingresult = 0)
     RETURN FALSE;
 
   OBJECT exporter := formresults->CreateExporter( [ language := GetTidLanguage()
@@ -552,7 +552,7 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
                                                   , showexpiredresults := TRUE
                                                   , inlineattachments := TRUE
                                                   ]);
-  RECORD data := exporter->ExportAllResults([ resultids := INTEGER[existingresult.id]]);
+  RECORD data := exporter->ExportAllResults([ resultids := INTEGER[existingresult]]);
   IF(NOT RecordExists(data))
     RETURN FALSE;
 
@@ -564,7 +564,7 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
   parentscreen->RunScreen("mod::publisher/tolliumapps/formedit/results.xml#singleresult",
       CELL[ row := data
           , cols
-          , resultid := existingresult.id
+          , resultid := existingresult
           ]);
   RETURN TRUE;
 }

@@ -103,6 +103,19 @@ PUBLIC MACRO FillInForm()
   TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
   TestEq((13*60+45)*60000, submitted.response.time);
 
+  TestEq(STRING[], webtoolresults->ListResultKeys(res.result.resultsguid));
+
+  testfw->BeginWork();
+  webtoolresults->SetResultKey(res.result.resultsguid, "tesT", 41);
+  webtoolresults->SetResultKey(res.result.resultsguid, "test", 42);
+  webtoolresults->SetResultKey(res.result.resultsguid, "Big", [x := RepeatText("x",10000)]);
+  testfw->CommitWork();
+
+  TestEq(42, webtoolresults->GetResultKey(res.result.resultsguid, "Test"));
+  TestEq([x := RepeatText("x",10000)], webtoolresults->GetResultKey(res.result.resultsguid, "big"));
+  TestThrows(PTR webtoolresults->GetResultKey(res.result.resultsguid, "nosuchkey"));
+  TestEq(SortArray(STRING["test","big"]), SortArray(webtoolresults->ListResultKeys(res.result.resultsguid)));
+
   //Try a direct export
   RECORD ARRAY directrows := webtoolresults->ListResults( [ outputcolumns := CELL[ "mail" := emailfieldname, fn := "firstname", "upload", "address" ] ]);
   TestEq(1,Length(directrows));
