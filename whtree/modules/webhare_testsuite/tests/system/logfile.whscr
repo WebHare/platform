@@ -11,7 +11,7 @@ MACRO TestAccessLogFileReader()
   STRING lines :=
     'remoteip - username [01/Aug/2011:15:06:13 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 7636\n' ||
     'remoteip - username [01/Aug/2011:15:06:14 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid 7636\n' ||
-    'remoteip - username [01/Aug/2011:15:06:15 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid "mimetype" 7636\n';
+    'remoteip - - [01/Aug/2011:15:06:15 +0000] "GET url HTTP/1.1" 200 300 "referrer" "useragent" hostname 81 244 trackerid "mimetype" 7636\n';
 
   RECORD ARRAY rows;
   BLOB logdata := StringToBlob(lines);
@@ -40,6 +40,7 @@ MACRO TestAccessLogFileReader()
         , pagetime :=       7636i64
         , mimetype :=       ""
         , method :=         "GET"
+        , username :=       "username"
         ]
       , [ stream :=         "hit"
         , remoteip :=       "remoteip"
@@ -56,6 +57,7 @@ MACRO TestAccessLogFileReader()
         , mimetype :=       ""
         , pagetime :=       7636i64
         , method :=         "GET"
+        , username :=       "username"
         ]
       , [ stream :=         "hit"
         , remoteip :=       "remoteip"
@@ -72,6 +74,7 @@ MACRO TestAccessLogFileReader()
         , mimetype :=       "mimetype"
         , pagetime :=       7636i64
         , method :=         "GET"
+        , username :=       ""
         ]
       ], rows);
   r->Close();
