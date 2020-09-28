@@ -273,6 +273,7 @@ STATIC OBJECTTYPE LogFileReader
             [ stream :=           "hit"
             , time :=             time
             , remoteip :=         fparts[0]
+            , username :=         fparts[2] != "-" ? fparts[2] : ""
             , url :=              url
             , host :=             host
             , port :=             port
