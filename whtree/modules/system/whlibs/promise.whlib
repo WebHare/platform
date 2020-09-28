@@ -1001,18 +1001,24 @@ PUBLIC OBJECT FUNCTION CreatePromiseAllSettled(OBJECT ARRAY promises)
 
 /** @short Asynchronous sleep (allows microtasks to run ie to allow promises to resolve)
     @param time Time to sleep, in milliseconds
-    @return A promise that resolves after time ms */
+    @return A promise that resolves after the specified time */
 PUBLIC OBJECT FUNCTION CreateSleepPromise(INTEGER time)
 {
-  RETURN CreatePromise(PTR AsyncSleepWait(time, #1, #2));
+  RETURN CreatePromise(PTR AsyncSleepResolve(time, #1, #2));
+}
+MACRO AsyncSleepResolve(INTEGER time, FUNCTION PTR resolve, FUNCTION PTR reject)
+{
+  RegisterTimedCallback(AddTimeToDate(time, GetCurrentDateTime()), PTR resolve(time));
 }
 
-MACRO AsyncSleepWait(INTEGER time, FUNCTION PTR resolve, FUNCTION PTR reject)
+/** @short Asynchronous sleep until an absolute time (allows microtasks to run ie to allow promises to resolve)
+    @param deadline Time at which to resolve
+    @return A promise that resolves at the specified time */
+PUBLIC OBJECT FUNCTION CreateDeadlinePromise(DATETIME deadline)
 {
-  RegisterTimedCallback(AddTimeToDate(time, GetCurrentDateTime()), PTR AsyncSleepResolve(time, resolve));
+  RETURN CreatePromise(PTR AsyncDeadlineResolve(deadline, #1, #2));
 }
-
-MACRO AsyncSleepResolve(INTEGER time, FUNCTION PTR resolve)
+MACRO AsyncDeadlineResolve(DATETIME deadline, FUNCTION PTR resolve, FUNCTION PTR reject)
 {
-  resolve(time);
+  RegisterTimedCallback(deadline, PTR resolve(TRUE));
 }

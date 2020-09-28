@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
@@ -223,6 +224,18 @@ ASYNC MACRO TestCancellation()
   TestThrows(PTR WaitForPromise(defer.promise));
 }
 
+MACRO TestPromiseTime()
+{
+  DATETIME now := GetCurrentDatetime();
+  TestEq(100, WaitForPromise(CreateSleepPromise(100)));
+  TestEq(TRUE, GetdatetimeDifference(now, GetCurrentDatetime()).msecs >= 100);
+
+  now := GetCurrentDatetime();
+  DATETIME deadline := AddTimeToDate(100, GetCurrentDatetime());
+  WaitForPRomise(CreateDeadlinePromise(deadline));
+  TestEQ(TRUE, GetdatetimeDifference(now, GetCurrentDatetime()).msecs >= 100);
+}
+
 PRINT("\n === Running TestPromise\n");
 
 TestCreateResolvedPromise();
@@ -234,3 +247,4 @@ TestPromiseAll();
 TestPromiseRace();
 TestPromiseAllSettled();
 TestCancellation();
+TestPromiseTime();
