@@ -130,6 +130,15 @@ PUBLIC SCHEMA
 
   , TABLE
     < INTEGER "id" NULL := 0
+    , BLOB "blobdata"
+    , STRING "data"
+    , INTEGER "formresult" NULL := 0
+    , STRING "tag"
+    ; KEY "id"
+    > "formresultskvstore"
+
+  , TABLE
+    < INTEGER "id" NULL := 0
     , INTEGER "postertype" NULL := 0
     , STRING "uuid"
     ; KEY id
