@@ -2515,37 +2515,42 @@ To change a <xs:attribute /> for adding descriptions
       <xs:appinfo>
         <tai:tolliumcomponent placement="inline" fragment="components/imgedit.tolliumimgedit" />
         <tai:extraparser field="imgsize" type="imgsize" target="." />
+        <tai:childcomponents field="actions" target="./*" />
       </xs:appinfo>
     </xs:annotation>
-    <xs:attributeGroup ref="ComposableComponentBase" />
-    <xs:attributeGroup ref="tc:IsDirtyable" />
-    <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attributeGroup ref="Required" />
-    <xs:attributeGroup ref="sc:Errorlabel" />
-    <xs:attributeGroup ref="ImgSizeSpec" />
-    <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
-    <xs:attribute name="upload" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>If the user may upload an image file from disk</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="publisher" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>If the user may select an image file from the Publisher</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="medialibrary" type="xs:string" default="media">
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>If the user may select an image file from a media library, if defined</html:p>
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attributeGroup ref="Onchange" />
+    <xs:complexContent>
+      <xs:extension base="Actions">
+        <xs:attributeGroup ref="ComposableComponentBase" />
+        <xs:attributeGroup ref="tc:IsDirtyable" />
+        <xs:attributeGroup ref="sc:TidOrTitle" />
+        <xs:attributeGroup ref="Required" />
+        <xs:attributeGroup ref="sc:Errorlabel" />
+        <xs:attributeGroup ref="ImgSizeSpec" />
+        <xs:attribute name="useimgsizepreset" type="tc:ScreenFragmentReference" />
+        <xs:attribute name="upload" type="xs:boolean" default="true">
+          <xs:annotation>
+            <xs:documentation>
+              <html:p>If the user may upload an image file from disk</html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="publisher" type="xs:boolean" default="true">
+          <xs:annotation>
+            <xs:documentation>
+              <html:p>If the user may select an image file from the Publisher</html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="medialibrary" type="xs:string" default="media">
+          <xs:annotation>
+            <xs:documentation>
+              <html:p>If the user may select an image file from a media library, if defined</html:p>
+            </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attributeGroup ref="Onchange" />
+      </xs:extension>
+    </xs:complexContent>
   </xs:complexType>
 
   <xs:complexType name="CheckBox">
@@ -5976,37 +5981,38 @@ To change a <xs:attribute /> for adding descriptions
     </xs:annotation>
   </xs:element>
 
-  <xs:element name="actions">
+  <xs:element name="actions" type="Actions">
     <xs:annotation>
       <xs:appinfo>
         <tai:tolliumcomponent placement="fragment" />
         <tai:childcomponents field="actions" target="./*" />
       </xs:appinfo>
     </xs:annotation>
-    <xs:complexType>
-      <xs:annotation>
-        <xs:documentation>
-          <html:p>This element groups all individual actions.</html:p>
-        </xs:documentation>
-      </xs:annotation>
-      <xs:sequence>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element ref="action" />
-          <xs:element ref="downloadaction" />
-          <xs:element ref="uploadaction" />
-          <xs:element ref="imageaction" />
-          <xs:element ref="windowopenaction" />
-          <xs:element ref="helpaction" />
-          <xs:element ref="feedbackaction" />
-          <xs:element ref="copyaction" />
-          <xs:element ref="forward" />
-          <xs:any namespace="##other" processContents="strict" />
-        </xs:choice>
-      </xs:sequence>
-
-      <xs:attributeGroup ref="Gid" />
-    </xs:complexType>
   </xs:element>
+
+  <xs:complexType name="Actions">
+    <xs:annotation>
+      <xs:documentation>
+        <html:p>This element groups all individual actions.</html:p>
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="action" />
+        <xs:element ref="downloadaction" />
+        <xs:element ref="uploadaction" />
+        <xs:element ref="imageaction" />
+        <xs:element ref="windowopenaction" />
+        <xs:element ref="helpaction" />
+        <xs:element ref="feedbackaction" />
+        <xs:element ref="copyaction" />
+        <xs:element ref="forward" />
+        <xs:any namespace="##other" processContents="strict" />
+      </xs:choice>
+    </xs:sequence>
+
+    <xs:attributeGroup ref="Gid" />
+  </xs:complexType>
 
   <xs:element name="body" type="Panel">
     <xs:annotation>
