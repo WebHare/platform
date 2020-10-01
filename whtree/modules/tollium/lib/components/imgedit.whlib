@@ -226,8 +226,6 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   {
     IF (RecordExists(this->value))
     {
-      IF (CellExists(this->value, "url"))
-        abort(this->value);
       STRING filename := this->value.filename;
       IF (filename = "" AND this->value.extension != "")
         filename := "image." || this->value.extension;
