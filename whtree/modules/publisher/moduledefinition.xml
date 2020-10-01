@@ -557,7 +557,32 @@
       </d:blob>
     </d:table>
 
-     <!--  Forums -->
+    <d:table name="formresultskvstore" primarykey="id">
+      <d:documentation>
+        Each formresult has a simple key/value store usable for eg handlers.
+      </d:documentation>
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+      <d:integer name="formresult" references=".formresults" ondelete="cascade" nullable="0">
+        <d:documentation>
+        </d:documentation>
+      </d:integer>
+      <d:varchar name="tag" nullable="0" maxlength="128">
+      </d:varchar>
+      <d:varchar name="data" maxlength="4096">
+      </d:varchar>
+      <d:blob name="blobdata">
+      </d:blob>
+      <d:index name="uniqueformtag" columns="formresult tag(32)" unique="true" uppercase="true">
+        <d:documentation>
+          Tags keys must be unique per form result
+        </d:documentation>
+      </d:index>
+    </d:table>
+
+    <!--  Forums -->
     <d:table name="forums" primarykey="id">
       <d:documentation>
         A table containing all the forums. Typicially every FS forum object that
