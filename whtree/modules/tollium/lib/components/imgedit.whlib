@@ -1,6 +1,8 @@
 <?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/filters.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -30,6 +32,8 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   STRING pvt_medialibrary;
   RECORD pvt_imgsize;
   INTEGER ARRAY pvt_publisherroots;
+  OBJECT ARRAY pvt_custommenuitems;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -52,6 +56,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   UPDATE PUBLIC PROPERTY publisherroots(pvt_publisherroots, pvt_publisherroots);
 
   PUBLIC PROPERTY imgsize(pvt_imgsize, SetImgSize);
+  PUBLIC PROPERTY customactions(GetCustomActions, SetCustomActions);
 
 
   // ---------------------------------------------------------------------------
@@ -82,6 +87,8 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->publisher := def.publisher;
     this->medialibrary := def.medialibrary;
     this->imgsize := def.imgsize;
+
+    this->customactions := SELECT AS OBJECT ARRAY component FROM def.actions;
   }
 
   UPDATE PUBLIC MACRO PreInitComponent()
@@ -109,6 +116,26 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     }
   }
 
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  PUBLIC MACRO SetValueByUrl(STRING url)
+  {
+    OBJECT browser := NEW WebBrowser();
+    IF (browser->GotoWebPage(url))
+    {
+      this->value :=
+          [ data := browser->content
+          , filename := Tokenize(Tokenize(GetNameFromPath(browser->url), "?")[0], "#")[0]
+          ];
+      IF (this->onchange != DEFAULT FUNCTION PTR)
+        this->onchange();
+      this->SetDirty();
+    }
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -234,7 +261,24 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->clearbutton->visible        := this->clear->enabled;
 
     this->download->enabled           := RecordExists(this->value);
-    this->otherbutton->visible        := RecordExists(this->value);
+    // The 'other actions' button is visible if there is a value set, or if there are (enabled) custom actions
+    this->otherbutton->visible        := RecordExists(this->value) OR RecordExists(SELECT FROM ToRecordArray(this->pvt_custommenuitems, "item") WHERE item->action->IsCurrentlyEnabled());
+    // If the 'other actions' button is visible, but there is no value set, hide the default actions (showing only the custom actions)
+    IF (this->otherbutton->visible)
+    {
+      IF (NOT RecordExists(this->value))
+      {
+        FOREVERY (OBJECT item FROM ^otheractions->GetChildComponents())
+          IF (item NOT IN this->pvt_custommenuitems)
+            item->visible := FALSE;
+      }
+      ELSE
+      {
+        FOREVERY (OBJECT item FROM ^otheractions->GetChildComponents())
+          IF (item NOT IN this->pvt_custommenuitems)
+            item->visible := TRUE;
+      }
+    }
 
     this->uploadbutton->visible       := this->enabled AND this->act_upload->enabled AND NOT RecordExists(this->value);
     this->publisherbutton->visible    := this->enabled AND this->act_publisher->enabled AND NOT RecordExists(this->value);
@@ -319,7 +363,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
 
       // The fit|width|height value is a special value that is interpreted by the panel/inline component JavaScript code
       this->preview->backgroundimages := [ [ src := this->pvt_src
-                                           , repeat := "no-repeat", size := "fit|" || value.width || "|" || value.height
+                                           , repeat := "no-repeat", size := "fit|" || this->pvt_value.width || "|" || this->pvt_value.height
                                            ]
                                          , imgeditbackground
                                          ];
@@ -402,6 +446,36 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->droptarget->acceptdrops.accepttypes :=
         SELECT *, imgsize := this->imgsize
           FROM this->droptarget->acceptdrops.accepttypes;
+  }
+
+  OBJECT ARRAY FUNCTION GetCustomActions()
+  {
+    RETURN SELECT AS OBJECT ARRAY item->action FROM ToRecordArray(this->pvt_custommenuitems, "item");
+  }
+
+  MACRO SetCustomActions(OBJECT ARRAY actions)
+  {
+    OBJECT ARRAY curactions;
+    FOREVERY (OBJECT item FROM this->pvt_custommenuitems)
+      IF (item->action NOT IN actions)
+        item->RemoveFromParent();
+      ELSE
+        INSERT item->action INTO curactions AT END;
+
+    FOREVERY (OBJECT action FROM actions)
+    {
+      IF (action NOT IN curactions)
+      {
+        OBJECT item := this->owner->CreateTolliumComponent("item");
+        item->action := action;
+        item->disablemode := "hidden";
+        this->otheractions->InsertMenuItemAfter(item, DEFAULT OBJECT, FALSE);
+        INSERT item INTO this->pvt_custommenuitems AT END;
+      }
+    }
+
+    this->TolliumHandleAfterInsert(); // also calls this->ExtUpdatedComponent
+    this->UpdateButtonState();
   }
 >;
 
