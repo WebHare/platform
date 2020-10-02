@@ -191,8 +191,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
       INSERT objectrec INTO objects AT END;
     }
 
-    OBJECT commonprefixesnode := PickFirst(this->browser->document->ListElements(ns_s320060301, "CommonPrefixes"));
-    IF(ObjectExists(commonprefixesnode))
+    FOREVERY (OBJECT commonprefixesnode FROM this->browser->document->ListElements(ns_s320060301, "CommonPrefixes"))
       FOREVERY(OBJECT prefix FROM commonprefixesnode->ListChildren(ns_s320060301, "Prefix"))
         INSERT prefix->textcontent INTO commonprefixes AT END;
 
