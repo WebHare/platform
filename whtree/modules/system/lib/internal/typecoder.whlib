@@ -440,8 +440,9 @@ PUBLIC BOOLEAN FUNCTION CompareSettingValues(VARIANT oldvalue, VARIANT updateval
         DELETE CELL whfssettingid, whfsfileid FROM updatevalue;
 
       // For files, images, rtds (all have a __blobsource), remove added cells
-      IF (CellExists(oldvalue, "__BLOBSOURCE"))
+      IF (CellExists(oldvalue, "__BLOBSOURCE"))// OR CellExists(updatevalue, "__BLOBSOURCE"))
       {
+        // Assume both original value and update are both a file/image/rtd
         DELETE CELL fileid
                   , imageid
                   , settingid
@@ -451,9 +452,7 @@ PUBLIC BOOLEAN FUNCTION CompareSettingValues(VARIANT oldvalue, VARIANT updateval
                   , hash
                   , link
                FROM oldvalue;
-      }
-      IF (CellExists(updatevalue, "__BLOBSOURCE"))
-      {
+
         DELETE CELL fileid
                   , imageid
                   , settingid
