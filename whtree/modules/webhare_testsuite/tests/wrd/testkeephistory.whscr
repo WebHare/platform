@@ -445,6 +445,40 @@ MACRO TestChanges()
 
     save_postimmclosefields := postimmclosefields;
   }
+
+  // Entity filter
+  {
+    testfw->BeginWork();
+    OBJECT p1 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+1@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
+    OBJECT p2 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
+    testfw->CommitWork();
+
+    RECORD ARRAY changesets := SELECT * FROM schemaobj->^wrd_person->ListChangesets(p1->id);
+    TestEQ(1, LENGTH(changesets));
+
+    RECORD ARRAY changes := schemaobj->^wrd_person->GetChanges(changesets[0].id);
+    TestEQMembers(
+        [ [ id :=             changes[0].id
+          , entity :=         p1->id
+          , changetype :=     "newclose"
+          , oldsettings :=    DEFAULT RECORD
+          ]
+        , [ id :=             changes[1].id
+          , entity :=         p2->id
+          , changetype :=     "newclose"
+          , oldsettings :=    DEFAULT RECORD
+          ]
+        ], (SELECT * FROM changes ORDER BY SearchElement(INTEGER[ p1->id, p2->id ], entity)), "*");
+
+    RECORD ARRAY fchanges := schemaobj->^wrd_person->GetChanges(changesets[0].id, [ filterentities := INTEGER[ p1->id ] ]);
+    TestEQMembers(
+        [ [ id :=             changes[0].id
+          , entity :=         p1->id
+          , changetype :=     "newclose"
+          , oldsettings :=    DEFAULT RECORD
+          ]
+        ], fchanges, "*");
+  }
 }
 
 ASYNC MACRO TestHistoryDialogs()

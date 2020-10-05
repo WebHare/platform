@@ -2467,6 +2467,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param changesetid Id of the changeset
       @cell options.allfieldsinoriginal Return all original fields, instead of only the ones that have been modified
       @cell options.mergechanges Merge multiple changes to the same entity
+      @cell(integer array) options.filterentities Only return changes for entities with these ids
       @return List of changes for this changeset
       @cell(integer) return.id Change id
       @cell(datetime) return.when Date of the change
@@ -2481,7 +2482,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         [ allfieldsinoriginal :=    FALSE
         , mergechanges :=           FALSE
         , __debug :=                FALSE
+        , filterentities :=         INTEGER[]
         ], options);
+
+    STRING ARRAY filterguids;
+    IF (IsValueSet(options.filterentities))
+      filterguids := SELECT AS STRING ARRAY guid FROM wrd.entities WHERE id IN options.filterentities;
 
     // Get the changes and decode the raw data
     RECORD ARRAY changes :=
@@ -2492,6 +2498,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           FROM wrd.changes
          WHERE changeset = changesetid
                AND type = this->typerec.id
+               AND (IsValueSet(options.filterentities) ? entity IN filterguids : TRUE)
          ORDER BY creationdate;
 
     IF (NOT RecordExists(changes))
