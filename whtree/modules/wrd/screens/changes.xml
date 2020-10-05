@@ -12,6 +12,7 @@
           <list name="changes"
                 sortable="false"
                 selectmode="single"
+                ongetchildren="OnGetChangeRows"
                 onselect="GotChangeSelect"
                 borders="left top bottom"
                 icons="tollium:status/new tollium:actions/edit tollium:actions/trash tollium:actions/unknown tollium:users/user tollium:objects/star"
