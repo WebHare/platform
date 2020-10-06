@@ -100,9 +100,6 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
 
     ^changelistener->masks := masks;
 
-    this->ReloadChanges();
-    this->ReloadEntityChanges();
-
     IF(this->_entity->wrdtype->keephistorydays > 0)
       ^historystatus->value := this->GetTid(".keepinghistory", ToString(this->_entity->wrdtype->keephistorydays));
     ELSE
@@ -111,7 +108,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
 
   MACRO GotChangeEvents(RECORD ARRAY events)
   {
-    this->ReloadChanges();
+    ^changes->Invalidate();
   }
 
   MACRO GotChangeSelect()
@@ -119,7 +116,14 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
     this->ReloadEntityChanges();
   }
 
-  MACRO ReloadChanges()
+  RECORD ARRAY FUNCTION OnGetChangeRows(RECORD parent)
+  {
+    IF (NOT RecordExists(parent))
+      RETURN this->GetChangesRows();
+    RETURN this->GetChangeSetChildren(parent.id, parent.relevantids);
+  }
+
+  RECORD ARRAY FUNCTION GetChangesRows()
   {
     RECORD ARRAY entities :=
         [ [ type :=     this->_entity->wrdtype
@@ -163,7 +167,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
       GROUP BY id
       ORDER BY Any(creationdate) DESC;
 
-    ^changes->rows :=
+    RETURN
         SELECT rowkey :=      `changeset:${id}`
              , type :=        "changeset"
              , id
@@ -171,7 +175,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
              , user :=        (CellExists(userdata, "realname") ? userdata.realname : "") ?? (CellExists(userdata, "login") ? userdata.login : "")
              , relevantids := relevantids
              , expanded :=    #changesets < 3
-             , subnodes :=    this->GetChangeSetChildren(id, relevantids)
+             , expandable :=  TRUE
              , icon :=        CellExists(userdata, "login") AND userdata.login = this->contexts->user->login
                                   ? 5
                                   : 6
@@ -184,10 +188,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
 
     FOREVERY (OBJECT typeobj FROM OBJECT[ this->_entity->wrdtype, ...this->_recursetypes ])
     {
-      RECORD ARRAY changes :=
-          SELECT *
-            FROM typeobj->GetChanges(changeset, CELL[ mergechanges := this->_mergechanges ])
-           WHERE entity IN relevantids;
+      RECORD ARRAY changes := typeobj->GetChanges(changeset, CELL[ mergechanges := this->_mergechanges, filterentities := relevantids ]);
 
       RECORD ARRAY entityrows :=
           SELECT entity

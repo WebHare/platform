@@ -2578,6 +2578,11 @@ MACRO TestUpdateFiltering()
   TestEQ(link_upd, e1->FilterFieldUpdates(link_upd));
   TestEQ(link_org, e1->FilterFieldUpdates(link_org));
 
+  // Test update rtd embedded record without blobsource and settingid
+  RECORD cur_rtd := e1->GetField("test_richdocument");
+  DELETE CELL __blobsource, wrd_settingid FROM cur_rtd.embedded[0];
+  TestEQ(DEFAULT RECORD, e1->FilterFieldUpdates([ test_richdocument := cur_rtd ]));
+
   testfw->RollbackWork();
 }
 

@@ -3120,6 +3120,7 @@ PUBLIC OBJECTTYPE TolliumLinesContainerBase EXTEND TolliumComponentBase
       FOREVERY(OBJECT item FROM line.items)
         item->RemoveFromParent();
 
+    this->ExtUpdatedComponent();
     RETURN returnlines;
   }
 
