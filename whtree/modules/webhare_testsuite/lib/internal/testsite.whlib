@@ -128,7 +128,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   uploadfield->SetAttribute("title","Upload");
   simpleformgroup->AppendChild(uploadfield); //TODO nicer way to add fields to group ?
 
-  //extradatafield sets its rowkeytype to integer, and that can confuse exports if GetResultColumns isn't forwareded
+  //extradatafield sets its rowkeytype to integer, and that can confuse exports if GetResultColumns isn't forwarded
   OBJECT customselectfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#extradatafield");
   customselectfield->SetAttribute("name","customselectfield");
   customselectfield->SetAttribute("title","CustomSelect");

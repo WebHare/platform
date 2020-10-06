@@ -57,10 +57,10 @@ PUBLIC OBJECTTYPE LinkCheck EXTEND TolliumScreenBase
     INTEGER len := Length(checked);
     FOREVERY (RECORD rec FROM files)
     {
-      WHILE (pos < Length(checked) AND checked[pos].groupid < rec.fileid)
+      WHILE (pos < len AND checked[pos].groupid < rec.fileid)
         pos := pos + 1;
 
-      WHILE (pos < Length(checked) AND checked[pos].groupid = rec.fileid)
+      WHILE (pos < len AND checked[pos].groupid = rec.fileid)
       {
         // Only show http(s) links
         IF (checked[pos].url LIKE "http*://*")
