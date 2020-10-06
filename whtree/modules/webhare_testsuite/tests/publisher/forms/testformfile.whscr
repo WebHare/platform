@@ -28,7 +28,7 @@ PUBLIC MACRO BuildForm()
 
 PUBLIC MACRO FillInForm()
 {
-  INTEGER numexportfields := 14;
+  INTEGER numexportfields := 15;
 
   //Ensure the form is up
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -247,7 +247,7 @@ PUBLIC MACRO FillInForm()
   TestEq(2, Length(exportwithattachments.rows));
   TestEq("uploads/000002-I-allstar.txt", exportwithattachments.attachments[0].path);
   TestEq("cWlhCKEqW9By7PpJ2CQgSiQkLGGsvip2vlTqP1FIqPo", exportwithattachments.attachments[0].file.hash);
-  TEsteq("uploads/000002-Z-goudvis.png", exportwithattachments.attachments[1].path);
+  TEsteq("uploads/000002-AA-goudvis.png", exportwithattachments.attachments[1].path);
   TEsteq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", exportwithattachments.attachments[1].file.hash);
 
   RECORD ARRAY ownermail := testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ timeout := 60000, count := 2 ]);
@@ -265,10 +265,10 @@ PUBLIC MACRO FillInForm()
   TestEq(TRUE, ownermaildoc->outerxml LIKE "*Signed by homer:*", "Mail should be in template");
   TestEq("hooked-custom", ownermaildoc->body->GetAttribute("data-hookedpreparemail"));
 
-  OBJECT checkboxes_row := ownermaildoc->GetElements("tr")[6];
+  OBJECT checkboxes_row := ownermaildoc->GetElements("tr")[7];
   Testeq("Checkboxes", TrimWhitespace(checkboxes_row->GetElements("th")[0]->textcontent), "Checkboxes must appear BEFORE CheckboxOpt3 at line 4");
 
-  OBJECT checkboxopt_row := ownermaildoc->GetElements("tr")[7];
+  OBJECT checkboxopt_row := ownermaildoc->GetElements("tr")[8];
   Testeq("CheckboxOpt3", TrimWhitespace(checkboxopt_row->GetElements("th")[0]->textcontent), "CheckboxOpt3 must appear AFTER Checkboxes");;
 
   //Grab the mail

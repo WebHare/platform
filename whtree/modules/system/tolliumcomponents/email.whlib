@@ -60,7 +60,7 @@ PUBLIC OBJECTTYPE EmailAttachments EXTEND TolliumFragmentBase
     IF(this->owner->RunSimpleScreen("confirm", GetTid("system:commondialogs.mailer.confirm_delete_attachment", ^attachmentlist->selection.filename)) != "yes")
       RETURN;
 
-    DELETE FROM this->uploadedfiles WHERE id = ^attachmentlist->selection.id;
+    DELETE FROM this->uploadedfiles WHERE rowkey = ^attachmentlist->value;
     ^attachmentlist->Invalidate();
   }
 

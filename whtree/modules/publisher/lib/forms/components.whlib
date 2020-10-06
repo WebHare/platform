@@ -683,6 +683,11 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
     RETURN this->selectfield->conditionname;
   }
 
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
+  {
+    RETURN this->selectfield->GetResultColumns(exportoptions);
+  }
+
   UPDATE PUBLIC RECORD FUNCTION GetComposableData()
   {
     RECORD base := ComposedFormFieldBase::GetComposableData();
