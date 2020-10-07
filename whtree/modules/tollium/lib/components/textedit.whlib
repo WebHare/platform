@@ -72,8 +72,7 @@ PUBLIC OBJECTTYPE __TolliumAutoSuggestableBase EXTEND TolliumComponentBase
 
   MACRO SetOptions(RECORD ARRAY newoptions)
   {
-    IF(Length(this->pvt_optionsources) > 0)
-      THROW NEW Exception("Options may not be directly set if a component has option sources");
+    this->pvt_optionsources := RECORD[];
 
     newoptions := SELECT title
                        , __autosuggestcomp := CellExists(newoptions, '__autosuggestcomp') ? newoptions.__autosuggestcomp : DEFAULT OBJECT
