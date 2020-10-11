@@ -319,6 +319,9 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
       ABORT("formref not set");
     Sleep(ToInteger(GetFormWebVariable("submitsleep"),0));
 
+    IF(CellExists(extradata,'set_number_max'))
+      ^number->range.max := extradata.set_number_max;
+
     OBJECT work := this->BeginWork();
 
     TestEq("InvisValue", ^nevervisible->value, `Value should be unmodifiable, expected 'InvisValue' got '${^nevervisible->value}'`);
