@@ -361,5 +361,5 @@ BLEX_TEST_FUNCTION(TextRendererSpacingTest)
                 false /*is last box*/,0
 );
 
-        BLEX_TEST_CHECK(DoErrorCompare ("ref-textrendererspacing.png", mybitmap,  50,true));//FIXME restore to 0 once we have FT 2.7 on fedora
+        BLEX_TEST_CHECK(DoErrorCompare ("ref-textrendererspacing.png", mybitmap, 70,true));
 }
