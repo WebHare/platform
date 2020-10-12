@@ -61,7 +61,13 @@ PUBLIC OBJECTTYPE VideoWidgetBase EXTEND WidgetBase
         settings.breakpoints := SELECT AS INTEGER ARRAY ToInteger(val,0) FROM ToRecordArray(ParseXSList(setting.node->GetAttribute("breakpoints")),'val');
     }
 
-    Print(`<div class="wh-video  ${aspectclass} ${settings.requireconsent != "" ? " wh-requireconsent" : ""}" data-wh-video="${EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data)))}" title="${EncodeValue(this->data.title)}" data-duration="${this->data.duration}}"`);
+    STRING ARRAY classes := [ "wh-video", aspectclass ];
+    IF(settings.requireconsent != "")
+      INSERT "wh-requireconsent" INTO classes AT END;
+    IF(NOT RecordExists(this->data.thumbnail))
+      INSERT "wh-video--noposter" INTO classes AT END;
+
+    Print(`<div class="${Detokenize(classes," ")}" data-wh-video="${EncodeValue(EncodeJSON(GetVideoEmbedInfo(this->data)))}" title="${EncodeValue(this->data.title)}" data-duration="${this->data.duration}}"`);
     IF(settings.requireconsent!="")
       Print(` data-wh-consent-required="${EncodeValue(settings.requireconsent)}"`);
     Print(">");
@@ -71,24 +77,27 @@ PUBLIC OBJECTTYPE VideoWidgetBase EXTEND WidgetBase
     Print('<div class="wh-video--activate wh-video__innerframe">');
     Print('<div class="wh-video__innerframe__preview">');
 
-    RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "none" ]);
-    INTEGER ARRAY breakpoints := SELECT AS INTEGER ARRAY val
-                                   FROM ToRecordArray(settings.breakpoints,'val')
-                                  WHERE val > 0 AND val < this->data.thumbnail.width
-                               ORDER BY val;
-
-    Print('<picture>');
-    FOREVERY(INTEGER breakpoint FROM breakpoints)
+    IF(RecordExists(this->data.thumbnail))
     {
-      RECORD breakpointimg := WrapCachedImage(this->data.thumbnail, [ method := "scale", setwidth := breakpoint ]);
-      STRING media := `(max-width:${breakpoint}px)`;
-      IF(#breakpoint > 0)
-        media := `(min-width:${breakpoints[#breakpoint-1]+1}px) and ${media}`;
+      RECORD thumbnail := WrapCachedImage(this->data.thumbnail, [ method := "none" ]);
+      INTEGER ARRAY breakpoints := SELECT AS INTEGER ARRAY val
+                                     FROM ToRecordArray(settings.breakpoints,'val')
+                                    WHERE val > 0 AND val < this->data.thumbnail.width
+                                 ORDER BY val;
 
-      Print(`<source srcset="${EncodeValue(breakpointimg.link)}" media="${media}">`);
+      Print('<picture>');
+      FOREVERY(INTEGER breakpoint FROM breakpoints)
+      {
+        RECORD breakpointimg := WrapCachedImage(this->data.thumbnail, [ method := "scale", setwidth := breakpoint ]);
+        STRING media := `(max-width:${breakpoint}px)`;
+        IF(#breakpoint > 0)
+          media := `(min-width:${breakpoints[#breakpoint-1]+1}px) and ${media}`;
+
+        Print(`<source srcset="${EncodeValue(breakpointimg.link)}" media="${media}">`);
+      }
+      Print(`<img src="${EncodeValue(thumbnail.link)}" alt="" />`);
+      Print('</picture>');
     }
-    Print(`<img src="${EncodeValue(thumbnail.link)}" alt="" />`);
-    Print('</picture>');
     Print('<div class="wh-video__playbutton"></div>');
     Print('</div>'); //close wh-video__innerframe__preview
     Print('</div>'); //close wh-video__innerframe
