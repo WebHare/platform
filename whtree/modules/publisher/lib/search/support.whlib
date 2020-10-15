@@ -1,3 +1,36 @@
 <?wh
+
+LOADLIB "mod::publisher/lib/internal/consiliohandler.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+
 // In a separate library, so both moduledefparser.whlib and searchfilters.whlib can loadlib it without causing recursive loadlibs
 PUBLIC RECORD __searchfilterprops;
+
+
+/** @short Reindex a single file or folder in the Publisher search index
+    @long This function can be used to have the changes to a file or folder reindexed in the Publisher search index, _after_
+        they have been committed to the database. When reindexing a folder, its contents is reindexed recursively. Use only
+        when an application depends on the object to be indexed as this function bypasses Consilio queueing.
+    @param objectid Id of the object to reindex
+    @param isfolder If the object is a folder or file
+    @return If this is not a deletion, one record for each indexed object (if a folder was indexed, the first result is for
+        the folder itself, followed by the results for all of the objects within the folder)
+    @cell(integer) return.objid The id of the indexed object
+    @cell(record) return.result Index result
+    @cell(record array) return.result.errors Errors that occurred while indexing
+    @cell(string) return.result.errors.message The error message
+    @cell(integer) return.result.errors.level The error level (0: no further action necessary, 1: indexing error, cleanup
+        index permitted, 2: indexing error, don't cleanup index)
+*/
+PUBLIC RECORD ARRAY FUNCTION ReindexPublisherObject(INTEGER objectid, BOOLEAN isfolder)
+{
+  RECORD ARRAY results := ReindexWHFSChanges(
+      [ CELL[ id := objectid
+            , isfolder
+            , isdelete := NOT RecordExists(SELECT FROM system.fs_objects WHERE id = objectid)
+            ]
+      ]);
+  RETURN results;
+}
