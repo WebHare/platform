@@ -41,8 +41,6 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
   }
 
   INTEGER ARRAY to_update, to_delete;
-  to_reindex := EnrichWithTable(to_reindex, "id", system.fs_objects, CELL[ "parentsite", "whfspath" ], [ rightouterjoin := TRUE]);
-
   FOREVERY (RECORD obj FROM to_reindex)
   {
     IF (obj.isfolder)
@@ -111,6 +109,10 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
                                       ]);
     INSERT CELL[ objid, result ] INTO results AT END;
   }
+
+  // Sort the results: first the requested ids in the order they're supplied, then other ids sorted ascending
+  INTEGER ARRAY orgids := SELECT AS INTEGER ARRAY id FROM to_reindex;
+  results := SELECT * FROM results ORDER BY SearchElement(orgids, objid) + 1 ?? objid;
 
   IF(options.progress AND Length(to_update) > 0)
     Print(`\n`);
