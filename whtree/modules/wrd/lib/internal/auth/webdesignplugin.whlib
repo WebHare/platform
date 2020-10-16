@@ -21,6 +21,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -316,8 +317,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(IsRequest())
     {
       // Shortcut authentication if already logged in.
-      IF(GetWebVariable("wrdauth_returnto")!="")
-        this->ProcessReturnTo(GetWebVariable("wrdauth_returnto"),GetWebVariable("wrdauth_challenge"));
+      STRING returnto := GetWebVariable("wrdauth_returnto");
+      IF(returnto != "")
+      {
+        RECORD up := UnpackURL(returnto);
+        IF(NOT RecordExists(LookupWebserver(GetHostedSites(), up.host, up.port)))
+          AbortWithHTTPError(400, "Unknown hostname in wrdauth_returno");
+
+        this->ProcessReturnTo(returnto, GetWebVariable("wrdauth_challenge"));
+      }
 
       IF(GetWebVariable("samlidpreq") != "") //only mention it in the configvar if it's needed
         INSERT CELL samlidpreq := GetWebVariable("samlidpreq") INTO config;
