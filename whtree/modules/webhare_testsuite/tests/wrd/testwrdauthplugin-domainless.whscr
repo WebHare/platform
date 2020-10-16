@@ -440,9 +440,12 @@ MACRO TestCrossDomainLogin()
       , data := ""
       ]);
 
+  TestEq(FALSE, testfw->browser->GotoWebPage(UpdateURLvariables(loginpage, [ wrdauth_returnto := "https://www.example.nl/" ])));
+  TestEq(400, testfw->browser->GetHTTPStatusCode(), "Should not be allowed to point wrdauth_returnto to a non-WebHare URL");
+
   TestEq(TRUE, testfw->browser->GotoWebPage(loginpage));
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
-  TEstEq(loginrequiringurl, testfw->browser->href);
+  TestEq(loginrequiringurl, testfw->browser->href);
 
   //Find the _e cookie
   STRING e_cookiename := SELECT AS STRING name FROM testfw->browser->GetAllCookies() WHERE name LIKE 'webharelogin*_e';
