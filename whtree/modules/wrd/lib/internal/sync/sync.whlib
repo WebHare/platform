@@ -284,19 +284,10 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
   RECORD ARRAY currentcontents;
 
-  OBJECT whfsmapper;
+  OBJECT whfsmapper := NEW WHFSResourceNameMapper;
 
-  IF (ObjectExists(remotepeer))
-  {
-    RECORD connectinfo := remotepeer->InvokeAdminService("connect");
-    IF (connectinfo.version >= 41501)
-      whfsmapper := NEW WHFSResourceNameMapper;
-  }
-  ELSE
-    whfsmapper := NEW WHFSResourceNameMapper;
-
-  GetPrimary()->BeginWork();
-  GetPrimary()->DisableWorkTimeout();
+  GetPrimary()->PushWork();
+  GetPrimary()->DisableWorkTimeout(); //TODO restore the setting, but only if it wasn't already disabled
 
   RECORD ARRAY localtypes := SELECT * FROM wrdschema->ListTypes() ORDER BY tag;
 
@@ -499,8 +490,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
     IF (options.commitoften)
     {
-      GetPrimary()->CommitWork();
-      GetPrimary()->BeginWork();
+      GetPrimary()->PopWork();
+      GetPrimary()->PushWork();
     }
   }
 
@@ -540,8 +531,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
     IF (options.commitoften)
     {
-      GetPrimary()->CommitWork();
-      GetPrimary()->BeginWork();
+      GetPrimary()->PopWork();
+      GetPrimary()->PushWork();
     }
   }
 
@@ -580,8 +571,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
     IF (options.commitoften)
     {
-      GetPrimary()->CommitWork();
-      GetPrimary()->BeginWork();
+      GetPrimary()->PopWork();
+      GetPrimary()->PushWork();
     }
   }
 
@@ -598,8 +589,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
     IF (options.commitoften)
     {
-      GetPrimary()->CommitWork();
-      GetPrimary()->BeginWork();
+      GetPrimary()->PopWork();
+      GetPrimary()->PushWork();
     }
   }
 
@@ -710,7 +701,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   }
 
   YIELD [ status := `Committing`, progress := 95m, important := TRUE ];
-  GetPrimary()->CommitWork();
+  GetPrimary()->PopWork();
 
   RETURN [ anychanges := totalrecords != 0 OR Length(updateres.updates) > 0 OR settingschanges ];
 }
