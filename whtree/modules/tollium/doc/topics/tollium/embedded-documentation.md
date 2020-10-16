@@ -15,3 +15,12 @@ to set a base URL for these links.
 
 You need to do setup this URL before opening screens containing a `<heading>` with
 a doclink.
+
+## Tollium-styled documentation
+Create a site using the 'WebHare interface' webdesign to use Tollium's theme
+for documentation. You should create folders of type 'Tollium manual folder'
+to hold the actual documentation.
+
+You can point `SetupDynamicDocumentation` to a folder of this type using a `site::`
+path. Set the `editdocumentation` in the setup call to allow the current user
+to add and edit the documentation (you would generally use a `HasRight` check)
