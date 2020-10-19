@@ -59,6 +59,17 @@ MACRO ApiTest()
   TestEq("InvisValue", formresult.result.form.nevervisible);
   TestEq("InvisValue", formresult.result.form.invisible);
 
+  //test ranges
+  formresult := tester->SubmitForm(CELL[ ...correctformvars
+                                       , number := "4"
+                                       ], [ extrasubmit := [ proof := 42 ] ]);
+  TestEqLike("* -2 * 2 *", formresult.errors[0].message);
+
+  formresult := tester->SubmitForm(CELL[ ...correctformvars
+                                       , number := "4"
+                                       ], [ extrasubmit := [ proof := 42, set_number_max := 1 ] ]);
+  TestEqLike("* -2 * 1 *", formresult.errors[0].message);
+
   RECORD trysubmitdisabled := CELL[ ...correctformvars
                                   , disabledpulldowntest := "this"
                                   ];
