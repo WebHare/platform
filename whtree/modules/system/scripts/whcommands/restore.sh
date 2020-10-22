@@ -94,10 +94,12 @@ if [ -d "$RESTORETO" ]; then
   exit 1
 fi
 
-mkdir -p "$RESTORETO" 2>/dev/null
-if [ ! -d "$RESTORETO" ]; then
-  echo "Unable to create $RESTORETO"
-  exit 1
+if [ "$RESTORE_DB" == "postgresql" ]; then
+  mkdir -p "$RESTORETO" 2>/dev/null
+  if [ ! -d "$RESTORETO" ]; then
+    echo "Unable to create $RESTORETO"
+    exit 1
+  fi
 fi
 
 if [ -n "$WEBHAREIMAGE" ]; then
