@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
     @param matchtype Match operation; currently only "IN" is supported
     @param value The value to check, should be an array for matchtype "IN"
     @cell options.matchcase Match case (defaults to TRUE)
+    @cell options.extrafield If set, the (select) field's extra field value is matched instead of the field's value
     @return The form condition
 */
 PUBLIC RECORD FUNCTION FCMatch(OBJECT field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -20,6 +21,7 @@ PUBLIC RECORD FUNCTION FCMatch(OBJECT field, STRING matchtype, VARIANT value, RE
 
 /** @short Create a form condition checking if a field value is set
     @param field The field to check; currently only select fields are supported
+    @cell options.extrafield If set, the (select) field's extra field value is matched instead of the field's value
     @return The form condition
     @example
 // Only show the shipping address field if the separate shipping address checkbox is checked
@@ -39,7 +41,7 @@ PUBLIC RECORD FUNCTION FCAnd(RECORD ARRAY conditions, RECORD options DEFAULTSTO 
   // Optimize nested AND conditions ([ [ a AND b ] AND c ] = [ a AND b AND c ])
   RECORD ARRAY and_conditions;
   FOREVERY (RECORD condition FROM conditions)
-    IF (condition.matchtype = "AND")
+    IF (condition.matchtype = "AND" AND CheckDisabledMatch(condition, options))
       and_conditions := and_conditions CONCAT condition.conditions;
     ELSE
       INSERT condition INTO and_conditions AT END;
@@ -55,11 +57,18 @@ PUBLIC RECORD FUNCTION FCOr(RECORD ARRAY conditions, RECORD options DEFAULTSTO D
   // Optimize nested OR conditions ([ [ a OR b ] OR c ] = [ a OR b OR c ])
   RECORD ARRAY or_conditions;
   FOREVERY (RECORD condition FROM conditions)
-    IF (condition.matchtype = "OR")
+    IF (condition.matchtype = "OR" AND CheckDisabledMatch(condition, options))
       or_conditions := or_conditions CONCAT condition.conditions;
     ELSE
       INSERT condition INTO or_conditions AT END;
   RETURN ValidateFormCondition(CELL[ matchtype := "OR", conditions := or_conditions, options ]);
+}
+
+BOOLEAN FUNCTION CheckDisabledMatch(RECORD condition, RECORD options)
+{
+  BOOLEAN checkdisabled1 := CellExists(condition, "options") AND CellExists(condition.options, "checkdisabled") AND condition.options.checkdisabled;
+  BOOLEAN checkdisabled2 := CellExists(options, "checkdisabled") AND options.checkdisabled;
+  RETURN checkdisabled1 = checkdisabled2;
 }
 
 /** @short Create a form condition that matches if the given conditions does not match

@@ -20,7 +20,7 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       IF (NOT IsTypeIDArray(TypeID(condition.value)))
         THROW NEW Exception(`Form '${condition.matchtype}' condition requires an array value`);
       IF (CellExists(condition, "options"))
-        ValidateOptions([ matchcase := TRUE, checkdisabled := FALSE ], condition.options);
+        ValidateOptions([ matchcase := TRUE, checkdisabled := FALSE, extrafield := "" ], condition.options);
     }
     CASE "AGE<", "AGE>="
     {
@@ -29,7 +29,7 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       IF (TypeID(condition.value) != TYPEID(INTEGER))
         THROW NEW Exception(`Form '${condition.matchtype}' condition requires an integer value`);
       IF (CellExists(condition, "options"))
-        ValidateOptions([ checkdisabled := FALSE ], condition.options);
+        ValidateOptions([ checkdisabled := FALSE, extrafield := "" ], condition.options);
     }
     CASE "HASVALUE"
     {
@@ -38,7 +38,7 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       IF(TYPEID(condition.value) != TYPEID(BOOLEAN))
         THROW NEW Exception("Form 'HASVALUE' requires a boolean value");
       IF (CellExists(condition, "options"))
-        ValidateOptions([ checkdisabled := FALSE ], condition.options);
+        ValidateOptions([ checkdisabled := FALSE, extrafield := "" ], condition.options);
     }
     CASE "AND", "OR"
     {
@@ -68,6 +68,10 @@ PUBLIC RECORD FUNCTION ValidateFormCondition(RECORD condition)
       THROW NEW Exception(`Unsupported form condition matchtype '${condition.matchtype}'`);
     }
   }
+
+  // If the extrafield options is used, add it to the field name
+  IF (CellExists(condition, "options") AND CellExists(condition.options, "extrafield") AND CellExists(condition, "field"))
+    condition.field := condition.field || "$" || condition.options.extrafield;
 
   RETURN condition;
 }
