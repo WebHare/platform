@@ -710,8 +710,14 @@ OBJECTTYPE TwttrTxtObject
                                           ]);
 
     RECORD ARRAY matches := this->regexen.extracturl->Exec(text);
+    INTEGER prevstart := -1, prevlen := -1;
     WHILE (RecordExists(matches))
     {
+      IF (matches[0].start = prevstart AND matches[0].len = prevlen)
+        BREAK; // No more forward progress, bail out
+      prevstart := matches[0].start;
+      prevlen := matches[0].len;
+
       STRING before := matches[2].value
            , url := matches[3].value
            , protocol := matches[4].value
@@ -719,6 +725,9 @@ OBJECTTYPE TwttrTxtObject
            , path := matches[7].value;
       INTEGER endposition := this->regexen.extracturl->lastindex;
       context->data.startposition := endposition - Length(url);
+
+      // Retrieve the next match so we can just CONTINUE to the next match
+      matches := this->regexen.extracturl->Exec(text);
 
       // if protocol is missing and domain contains non-ASCII characters,
       // extract ASCII-only domains.
@@ -757,7 +766,6 @@ OBJECTTYPE TwttrTxtObject
                , indices := [ INTEGER(context->data.startposition), endposition ]
                ] INTO context->data.urls AT END;
       }
-      matches := this->regexen.extracturl->Exec(text);
     }
 
     RETURN context->data.urls;
