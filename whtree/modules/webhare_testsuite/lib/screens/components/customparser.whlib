@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -38,8 +39,9 @@ PUBLIC STATIC OBJECTTYPE TabsExtensionImplementation EXTEND TolliumTabsExtension
 PUBLIC RECORD ARRAY FUNCTION TestExtraParser(OBJECT nodeset, RECORD field)
 {
   RETURN
-      SELECT testattr := node->GetAttribute("testattr")
-           , compref := node->GetAttribute("compref")
+      SELECT title := ReadTidAttr(node, "title")
+           , testattr := ReadStringAttr(node, "testattr", "")
+           , compref := ReadComponentAttr(node, "compref")
         FROM ToRecordArray(nodeset->GetCurrentElements(), "node");
 }
 
@@ -47,6 +49,7 @@ PUBLIC RECORD ARRAY FUNCTION TestExtraProcessor(OBJECT screenbuilder, OBJECT obj
 {
   RETURN
       SELECT *
+           , title := GetTid(title)
            , compref := compref != "" ? screenbuilder->GetCheckComponent(compref) : DEFAULT OBJECT
         FROM data;
 }

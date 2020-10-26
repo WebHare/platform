@@ -39,17 +39,23 @@ ASYNC MACRO TestCustomImplementation()
   TestEq("Hello, World!", TT(":hello_world")->value);
 
   // The rows are filled by the <test:child> elements within the <test:extraparsercomponent> component
+  // The extraparsercomponent is inserted by the testextension, which is loaded as tabsextension within the tabs component of
+  // testfragment, which is loaded within the body. testfragment is 'fragment1', testextension is 'fragment2', so the
+  // extraparsercomponent's subcomponents are prefixed with 'fragment2!'
   TestEq(
-      [ [ testattr := "Custom parser attribute value"
+      [ [ title := "This is the title"
+        , testattr := "Custom parser attribute value"
         , compref := ""
         ]
-      , [ testattr := ""
+      , [ title := ""
+        , testattr := ""
         , compref := "Referenced component"
         ]
-      , [ testattr := "Last child"
+      , [ title := "fragment"
+        , testattr := "Last child"
         , compref := ""
         ]
-      ], SELECT testattr, compref FROM TT("children")->rows);
+      ], SELECT title, testattr, compref FROM TT("fragment2!children")->rows);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }

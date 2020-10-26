@@ -62,6 +62,7 @@
         <xs:choice>
           <xs:element name="child" minOccurs="0" maxOccurs="unbounded">
             <xs:complexType>
+              <xs:attributeGroup ref="sc:TidOrTitle" />
               <xs:attribute name="testattr" type="xs:string" />
               <xs:attribute name="compref" type="tc:ComponentRef" />
             </xs:complexType>

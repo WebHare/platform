@@ -3,12 +3,6 @@
 
   <screen name="testscreen" implementation="test:screenimplementation">
     <body name="body">
-      <test:extraparsercomponent name="children">
-        <test:child testattr="Custom parser attribute value" />
-        <test:child testattr="" compref="refcomp" />
-        <test:child testattr="Last child" />
-      </test:extraparsercomponent>
-      <text name="refcomp" title="Referenced component" />
     </body>
   </screen>
 
@@ -19,14 +13,21 @@
     </contents>
   </fragment>
 
-  <tabsextension name="testextension" implementation="test:tabsextensionimplementation">
-    <newtab name="tab">
+  <tabsextension name="testextension" implementation="test:tabsextensionimplementation" gid="testtids.fragment">
+    <newtab name="tab" title="tab">
+      <test:extraparsercomponent name="children" title="">
+        <test:child title="This is the title" testattr="Custom parser attribute value" />
+        <test:child testattr="" compref="refcomp" />
+        <test:child tid=".fragment" testattr="Last child" />
+      </test:extraparsercomponent>
+      <text name="refcomp" title="Referenced component" />
     </newtab>
   </tabsextension>
 
   <fragment name="extraparsercomponent" library="/lib/screens/components/customparser.whlib">
     <contents>
       <list name="childnodes" sortable="false">
+        <column name="title" type="text" />
         <column name="testattr" type="text" />
         <column name="compref" type="text" />
       </list>

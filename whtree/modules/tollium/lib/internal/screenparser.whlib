@@ -993,7 +993,7 @@ STATIC OBJECTTYPE PageParser
 
 >;
 
-BOOLEAN FUNCTION ReadBoolAttr(OBJECT el, STRING attrname, BOOLEAN defaultvalue)
+PUBLIC BOOLEAN FUNCTION ReadBoolAttr(OBJECT el, STRING attrname, BOOLEAN defaultvalue)
 {
   IF(el->HasAttribute(attrname))
     RETURN ParseXSBoolean(el->GetAttribute(attrname));
@@ -1001,29 +1001,33 @@ BOOLEAN FUNCTION ReadBoolAttr(OBJECT el, STRING attrname, BOOLEAN defaultvalue)
     RETURN defaultvalue;
 }
 
-STRING FUNCTION ReadStringAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+PUBLIC STRING FUNCTION ReadStringAttr(OBJECT el, STRING attrname, STRING defaultvalue)
 {
   IF(el->HasAttribute(attrname))
     RETURN el->GetAttribute(attrname);
   ELSE
     RETURN defaultvalue;
 }
+PUBLIC STRING FUNCTION ReadTidAttr(OBJECT el, STRING type)
+{
+  RETURN ParseXMLTidPtr(curpageparser->GetCurrentResourceName(), curpageparser->GetCurrentGid(), el, type);
+}
 STRING FUNCTION ReadComponentRef(STRING compref)
 {
   RETURN FixupReferringName(GetScopedName(compref));
 }
-STRING FUNCTION ReadComponentAttr(OBJECT el, STRING attrname)
+PUBLIC STRING FUNCTION ReadComponentAttr(OBJECT el, STRING attrname)
 {
   IF(el->HasAttribute(attrname))
     RETURN ReadComponentRef(el->GetAttribute(attrname));
   ELSE
     RETURN "";
 }
-STRING ARRAY FUNCTION ReadStringListAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+PUBLIC STRING ARRAY FUNCTION ReadStringListAttr(OBJECT el, STRING attrname, STRING defaultvalue)
 {
   RETURN ParseXSList(el->HasAttribute(attrname) ? el->GetAttribute(attrname) : defaultvalue);
 }
-RECORD FUNCTION ReadAcceptDropsAttr(OBJECT el, INTEGER ARRAY ondrop_signature)
+PUBLIC RECORD FUNCTION ReadAcceptDropsAttr(OBJECT el, INTEGER ARRAY ondrop_signature)
 {
   RECORD acceptdrops :=
       [ ondrop := ReadHandlerAttr(el, "ondrop", ondrop_signature)
@@ -1082,21 +1086,21 @@ RECORD FUNCTION ReadAcceptDropsAttr(OBJECT el, INTEGER ARRAY ondrop_signature)
   }
   RETURN acceptdrops;
 }
-INTEGER FUNCTION ReadIntAttr(OBJECT el, STRING attrname, INTEGER defaultvalue)
+PUBLIC INTEGER FUNCTION ReadIntAttr(OBJECT el, STRING attrname, INTEGER defaultvalue)
 {
   IF(el->HasAttribute(attrname))
     RETURN ToInteger(el->GetAttribute(attrname), defaultvalue);
   ELSE
     RETURN defaultvalue;
 }
-MONEY FUNCTION ReadMoneyAttr(OBJECT el, STRING attrname, MONEY defaultvalue)
+PUBLIC MONEY FUNCTION ReadMoneyAttr(OBJECT el, STRING attrname, MONEY defaultvalue)
 {
   IF(el->HasAttribute(attrname))
     RETURN ToMoney(el->GetAttribute(attrname), defaultvalue);
   ELSE
     RETURN defaultvalue;
 }
-FLOAT FUNCTION ReadFloatAttr(OBJECT el, STRING attrname, FLOAT defaultvalue)
+PUBLIC FLOAT FUNCTION ReadFloatAttr(OBJECT el, STRING attrname, FLOAT defaultvalue)
 {
   IF(el->HasAttribute(attrname))
     RETURN ToFloat(el->GetAttribute(attrname), defaultvalue);
@@ -1104,7 +1108,7 @@ FLOAT FUNCTION ReadFloatAttr(OBJECT el, STRING attrname, FLOAT defaultvalue)
     RETURN defaultvalue;
 }
 
-STRING FUNCTION ReadNameAttr(OBJECT el)
+PUBLIC STRING FUNCTION ReadNameAttr(OBJECT el)
 {
   IF(el->HasAttribute("name"))
   {
@@ -1123,14 +1127,14 @@ STRING FUNCTION ReadIconRef(STRING iconref)
 {
   RETURN ParseIconPointer(curpageparser->GetCurrentModule(), iconref);
 }
-STRING FUNCTION ReadIconAttr(OBJECT el, STRING attrname, STRING defaultvalue)
+PUBLIC STRING FUNCTION ReadIconAttr(OBJECT el, STRING attrname, STRING defaultvalue)
 {
   IF (el->HasAttribute(attrname))
     RETURN ReadIconRef(el->GetAttribute(attrname));
   ELSE
     RETURN defaultvalue;
 }
-STRING FUNCTION ReadGid(OBJECT el, STRING currentmodule, STRING gidsofar)
+PUBLIC STRING FUNCTION ReadGidAttr(OBJECT el, STRING currentmodule, STRING gidsofar)
 {
   IF(NOT el->HasAttribute('gid'))
     RETURN gidsofar;
@@ -1161,7 +1165,7 @@ RECORD FUNCTION ReadHandlerRef(STRING handlername, INTEGER ARRAY callback_signat
          , req_args   := callback_signature // types of expected arguments
          ];
 }
-RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY callback_signature)
+PUBLIC RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER ARRAY callback_signature)
 {
   RETURN ReadHandlerRef(element->GetAttribute(fieldname), callback_signature);
 }
@@ -1227,7 +1231,7 @@ PUBLIC RECORD FUNCTION GetMessageBox(STRING name)
 
 PUBLIC RECORD FUNCTION GetMessageBoxFromNode(STRING resourcename, OBJECT node, STRING module)
 {
-  STRING gid := ReadGid(node, module, ReadGid(node->parentnode, module, ReadGid(node->parentnode->parentnode, module, "")));
+  STRING gid := ReadGidAttr(node, module, ReadGidAttr(node->parentnode, module, ReadGidAttr(node->parentnode->parentnode, module, "")));
 
   RECORD ARRAY buttons;
   FOREVERY (OBJECT button FROM node->childnodes->GetCurrentElements())
