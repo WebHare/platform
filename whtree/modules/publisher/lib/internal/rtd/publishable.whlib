@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -318,6 +319,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       RETURN [ method := "stretch", setwidth := setwidth, setheight := setheight ];
     }
 
+    IF(NOT RecordExists(image)) //without width/height info nothing we can do
+      RETURN DEFAULT RECORD;
+
     FLOAT aspectratio;
     IF(image.width = 0 OR image.height = 0)
       aspectratio := 1;
@@ -342,6 +346,57 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
     RETURN  [ method := "stretch", setwidth := setwidth, setheight := setheight ];
   }
 
+  MACRO FormatImageElement(OBJECT outputobject, OBJECT node)
+  {
+    STRING src := node->GetAttribute('src');
+
+    BOOLEAN isexternal := IsValidPlainHTTPURL(src);
+    RECORD howtoresize;
+    STRING imageurl;
+    IF(isexternal)
+    {
+      imageurl := src;
+      howtoresize := this->GetRTEResizeInstruction(DEFAULT RECORD, node);
+    }
+    ELSE
+    {
+      RECORD theimage := outputobject->document->GetEmbeddedFile(src);
+      IF(NOT RecordExists(theimage) OR NOT this->IsTagAcceptable("img") OR theimage.__blobsource = "")
+      {
+        this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
+        RETURN;
+      }
+
+      /* ADDME support other rich document sources than Publisher
+         ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
+      */
+      howtoresize := this->GetRTEResizeInstruction(theimage, node);
+      INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
+      imageurl := GetCachedImageLink(theimage, howtoresize);
+    }
+
+    STRING classes;
+    STRING ARRAY classtokens := Tokenize(node->GetAttribute('class'),' ');
+    BOOLEAN isfloatleft := ToUpperCase(node->GetAttribute('align')) = 'LEFT' OR 'wh-rtd__img--floatleft' IN classtokens OR 'wh-rtd-floatleft' IN classtokens OR '-wh-rtd-floatleft' IN classtokens OR 'floatleft' IN classtokens;
+    BOOLEAN isfloatright := ToUpperCase(node->GetAttribute('align')) = 'RIGHT' OR 'wh-rtd__img--floatright' IN classtokens OR 'wh-rtd-floatright' IN classtokens OR '-wh-rtd-floatright' IN classtokens OR 'floatright' IN classtokens;
+
+    //New classes
+    classes := "wh-rtd__img";
+    IF(isfloatleft)
+      classes := classes || " wh-rtd__img--floatleft";
+    ELSE IF(isfloatright)
+      classes := classes || " wh-rtd__img--floatright";
+
+    this->Print('<img class="' || classes
+                || '" src="' || EncodeValue(imageurl)
+                || '" alt="' || EncodeAttributeValue(node->GetAttribute('alt')));
+    IF(RecordExists(howtoresize))
+      this->Print('" width="' || howtoresize.setwidth
+                  || '" height="' || howtoresize.setheight);
+
+    this->Print('" />');
+  }
+
   MACRO FormatElement(OBJECT outputobject, OBJECT node, BOOLEAN keepwhitespace)
   {
     //FIXME should the output engine preserve stuff like Strict and HTML3.2 formatting? or just move straight to HTML5?
@@ -361,39 +416,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       }
       CASE "img"
       {
-        RECORD theimage := outputobject->document->GetEmbeddedFile(node->GetAttribute('src'));
-        IF(NOT RecordExists(theimage) OR NOT this->IsTagAcceptable("img") OR theimage.__blobsource = "")
-        {
-          this->Print(EncodeAttributeValue(node->GetAttribute('alt')));
-          RETURN;
-        }
-
-        /* ADDME support other rich document sources than Publisher
-           ADDME if filtering sets a maximum width, apply ? allow more extensive method configuration?
-        */
-        RECORD howtoresize := this->GetRTEResizeInstruction(theimage, node);
-        INSERT CELL baseurl := outputobject->document->baseurl INTO howtoresize;
-        STRING imageurl := GetCachedImageLink(theimage, howtoresize);
-
-        STRING classes;
-        STRING ARRAY classtokens := Tokenize(node->GetAttribute('class'),' ');
-        BOOLEAN isfloatleft := ToUpperCase(node->GetAttribute('align')) = 'LEFT' OR 'wh-rtd__img--floatleft' IN classtokens OR 'wh-rtd-floatleft' IN classtokens OR '-wh-rtd-floatleft' IN classtokens OR 'floatleft' IN classtokens;
-        BOOLEAN isfloatright := ToUpperCase(node->GetAttribute('align')) = 'RIGHT' OR 'wh-rtd__img--floatright' IN classtokens OR 'wh-rtd-floatright' IN classtokens OR '-wh-rtd-floatright' IN classtokens OR 'floatright' IN classtokens;
-
-        //New classes
-        classes := "wh-rtd__img";
-        IF(isfloatleft)
-          classes := classes || " wh-rtd__img--floatleft";
-        ELSE IF(isfloatright)
-          classes := classes || " wh-rtd__img--floatright";
-
-        this->Print('<img class="' || classes
-                    || '" src="' || EncodeValue(imageurl)
-                    || '" alt="' || EncodeAttributeValue(node->GetAttribute('alt'))
-                    || '" width="' || howtoresize.setwidth
-                    || '" height="' || howtoresize.setheight);
-
-        this->Print('" />');
+        this->FormatImageElement(outputobject, node);
       }
       CASE "b","i","u","strike","sub","sup","code"
       {
