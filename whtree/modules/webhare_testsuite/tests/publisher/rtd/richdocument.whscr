@@ -434,7 +434,8 @@ MACRO PublishRichDocImageTest()
                                             || '<p class="normal">alleen verticaal, binnen grenzen: <img src="cid:imagecid-81400" height="140"/></p>'
                                             || '<p class="normal">alleen horizontaal, te groot: <img src="cid:imagecid-81400" width="320"/></p>'
                                             || '<p class="normal">alleen horizontaal, binnen grenzen: <img src="cid:imagecid-81400" width="120"/></p>'
-                                            || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>')
+                                            || '<p class="normal">geen hints: <img src="cid:imagecid-81400" /></p>'
+                                            || '<p class="normal">external link: <img src="https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png" width="600" height="300" /></p>')
                  , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
                  ]);;
   richdoc->SaveToWHFS(testfile);
@@ -455,7 +456,7 @@ MACRO PublishRichDocImageTest()
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
 
   OBJECT ARRAY imgtags := doc->GetElementsByTagName("img")->GetCurrentElements();
-  TestEq(8, Length(imgtags));
+  TestEq(9, Length(imgtags));
 
   TestEq("160", imgtags[0]->GetAttribute("width"));
   TestEq("120", imgtags[0]->GetAttribute("height"));
@@ -506,6 +507,11 @@ MACRO PublishRichDocImageTest()
   //Unspecified. Should reduced to 300x199
   TestEq("300", imgtags[7]->GetAttribute("width"));
   TestEq("199", imgtags[7]->GetAttribute("height"));
+
+  //External image should still be reduced. We don't recommend external images and we don't support them in <richdocument>
+  TestEq("300", imgtags[8]->GetAttribute("width"));
+  TestEq("150", imgtags[8]->GetAttribute("height"));
+  TestEq("https://www.webhare.com/media/globalassets/logo-bluecircle-120x120.png", imgtags[8]->GetAttribute("src"));
 }
 
 MACRO IntLinktest()
