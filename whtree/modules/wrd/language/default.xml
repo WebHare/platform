@@ -969,6 +969,7 @@
         <text tid="apiuser">API User</text>
         <text tid="brand">Brand</text>
         <text tid="directhttpurl">Direct HTTP url</text>
+        <text tid="expiry_minutes">Expire after</text>
         <text tid="methods">Payment method</text>
         <text tid="mode">Mode</text>
         <text tid="mode-prod">Production (payment gets processed)</text>
