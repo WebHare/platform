@@ -43,6 +43,14 @@ Then create an API user to allow verification of transactions
   - Profiel Admin
   - "API gebruiker" vinkje aanzetten
 
+Ingenico transactions work by redirecting the user to a payment form instead of
+pre-announcing the transactions to the gateway. If the user doesn't complete
+the redirect no trace of the transaction will be there at Ingenico. Because of
+this, WebHare cannot tell the difference between the user still being en-route
+to the transaction page at Ingenico or having permantently abanonded the transaction
+and uses the configurable 'Expire after' timeout to decide when to consider
+pending transactions failed
+
 ## Mollie
 We implement V2 of the Mollie API.
 

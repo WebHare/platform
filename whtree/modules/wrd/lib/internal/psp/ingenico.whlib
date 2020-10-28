@@ -415,7 +415,7 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
       }
     }
 
-    IF(newpaymentmeta.result = "" AND GetCurrentDatetime() > AddTimeToDate(this->settings.expiry_minutes*60000i64, this->creationdate))
+    IF(newpaymentmeta.result = "" AND GetCurrentDatetime() > AddTimeToDate(this->settings.expiry_minutes * 60000i64, this->creationdate))
     {
       newpaymentmeta.result := "EXPIRED";
     }
