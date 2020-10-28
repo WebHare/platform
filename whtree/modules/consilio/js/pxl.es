@@ -151,8 +151,13 @@ export function getPxlId(options)
 {
   options = { ...globalOptions, ...options };
 
+  //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
+  let havelocalstorage = true;
+  try { window.localStorage.getItem("_wh.pi"); }
+  catch(ignore) { havelocalstorage = false; }
+
   // Use localStorage if available, otherwise just use a cookie
-  if (window.localStorage)
+  if (havelocalstorage)
   {
     let expiration = new Date();
     let id = localStorage.getItem("_wh.pi");

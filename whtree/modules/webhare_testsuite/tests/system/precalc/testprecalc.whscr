@@ -217,7 +217,7 @@ ASYNC MACRO PrecalcTest()
 
     AWAIT Delay(50); // little time for recalc to start
 
-    AWAIT TestRejected(GetPrecalculatedData(
+    TestRejected(GetPrecalculatedData(
           CELL[ type := "test9", cancelat ],
           "mod::webhare_testsuite/tests/system/precalc/precalcprovider.whlib#TestFunc7"));
   }

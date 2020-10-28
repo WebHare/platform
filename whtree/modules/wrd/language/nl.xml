@@ -969,6 +969,7 @@
         <text tid="apiuser">API User</text>
         <text tid="brand">Merk</text>
         <text tid="directhttpurl">Directe HTTP url</text>
+        <text tid="expiry_minutes">Verloop na</text>
         <text tid="methods">Betaalmethode</text>
         <text tid="mode">Modus</text>
         <text tid="mode-prod">Productie (betaling worden afgehandeld)</text>

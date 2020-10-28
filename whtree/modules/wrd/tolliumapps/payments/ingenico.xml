@@ -14,6 +14,7 @@
       <textedit composition="methodsettings" cellname="sha1_in_directlink" />
       <textedit composition="methodsettings" cellname="apiuser" />
       <textedit composition="methodsettings" cellname="apipassword" />
+      <textedit composition="methodsettings" cellname="expiry_minutes" suffixtid="~units.minutes" valuetype="integer" value="10080"/>
       <select composition="methodsettings" cellname="rebranded" type="radio">
         <option rowkey="" tid=".norebranding" />
         <option rowkey="abnamro" title="ABN AMRO Internetkassa" />
