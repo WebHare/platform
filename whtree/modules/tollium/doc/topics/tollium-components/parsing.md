@@ -44,14 +44,14 @@ Sometimes it can be helpful if custom components can contain custom nodes. A com
 <xs:complexType name="myextraparser">
   <xs:annotation>
     <xs:appinfo>
-      <t:tolliumextraparser parsefunc="/path/to/my/customparsing.whlib#myparser"
-                            processfunc="/path/to/my/customparsing.whlib#myprocessor" />
+      <t:tolliumextraparser parsefunction="/path/to/my/customparsing.whlib#myparser"
+                            processfunction="/path/to/my/customparsing.whlib#myprocessor" />
     </xs:appinfo>
   </xs:annotation>
 </xs:complexType>
 ```
 
-The `parsefunc` is the function that is called to parse the matching XML nodes. The result of the parsefunc is cached. The `processfunc` is the function that is called to process the parsed data into a definition record field. 
+The `parsefunction` is the function that is called to parse the matching XML nodes. The result of the parsefunction is cached. The `processfunction` is the function that is called to process the parsed data into a definition record field.
 
 To better understand what is going on, here is an example component definition that uses the example parser:
 
@@ -69,6 +69,7 @@ To better understand what is going on, here is an example component definition t
         <xs:element name="customsub" minOccurs="0" maxOccurs="unbounded">
           <xs:complexType>
             <xs:attribute name="mytext" type="xs:string" />
+            <xs:attribute name="mytexttid" type="sc:Tid" />
             <xs:attribute name="myint" type="xs:integer" />
             <xs:attribute name="mycomp" type="tc:ComponentRef" />
           </xs:complexType>
@@ -88,6 +89,10 @@ Now the function implementations can be added:
 ```harescript
 <?wh
 
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
 PUBLIC RECORD ARRAY FUNCTION MyParser(OBJECT nodeset, RECORD field)
 {
   // This function receives a NodeSet object containing the matched 'customsub'
@@ -95,9 +100,9 @@ PUBLIC RECORD ARRAY FUNCTION MyParser(OBJECT nodeset, RECORD field)
   // 'mycomp' attribute contains a component reference, which we cannot resolve
   // while parsing and will have to be resolved in MyProcessor.
   RETURN
-      SELECT mytext := node->GetAttribute("mytext")
-           , myint := ParseXsInt(node->GetAttribute("myint"))
-           , mycomp := node->GetAttribute("mycomp")
+      SELECT mytext := ReadTidAttr(node, "mytext")
+           , myint := ReadIntAttr(node, "myint", 0)
+           , mycomp := ReadComponentAttr(node, "mycomp")
         FROM ToRecordArray(nodeset->GetCurrentElements(), "node");
 }
 
@@ -107,6 +112,7 @@ PUBLIC RECORD ARRAY FUNCTION MyProcessor(OBJECT screenbuilder, OBJECT obj, RECOR
   // additional processing, like component reference resolving.
   RETURN
       SELECT *
+           , mytext := GetTid(mytext)
            , mycomp := mycomp != "" ? screenbuilder->GetCheckComponent(mycomp) : DEFAULT OBJECT
         FROM data;
 }
@@ -118,7 +124,7 @@ The custom component can now be added to a screen (note the xml node prefixes):
 <screen name="myscreen">
   <body>
     <my:mycustomcomponent name="test">
-      <my:customsub mytext="This is a string" myint="1234" mycomp="another" />
+      <my:customsub mytexttid=".teststring" myint="1234" mycomp="another" />
     </my:mycustomcomponent>
     <textedit name="another" />
   </body>

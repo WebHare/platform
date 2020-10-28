@@ -73,8 +73,8 @@
 
   <xs:element name="tolliumextraparser" type="__AppinfoTolliumExtraParser" />
   <xs:complexType name="__AppinfoTolliumExtraParser">
-    <xs:attribute name="parsefunc" use="required" />
-    <xs:attribute name="processfunc" use="required" />
+    <xs:attribute name="parsefunction" use="required" />
+    <xs:attribute name="processfunction" use="required" />
   </xs:complexType>
 
   <xs:element name="childcomponents" type="__AppinfoChildComponents" />
