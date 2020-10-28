@@ -1,0 +1,4 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <backgroundlayer src="tollium:smileys/backgrounds/pink" color="c"/>
+  <layer src="tollium:smileys/foregrounds/evil"/>
+</icon>
