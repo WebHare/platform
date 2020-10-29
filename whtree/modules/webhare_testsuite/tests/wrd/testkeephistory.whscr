@@ -449,8 +449,8 @@ MACRO TestChanges()
   // Entity filter
   {
     testfw->BeginWork();
-    OBJECT p1 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+1@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
-    OBJECT p2 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
+    OBJECT p1 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+2@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
+    OBJECT p2 := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "temporary+3@beta.webhare.net", wrd_limitdate := GetCurrentDateTime(), whuser_unit := testfw->testunit ]);
     testfw->CommitWork();
 
     RECORD ARRAY changesets := SELECT * FROM schemaobj->^wrd_person->ListChangesets(p1->id);

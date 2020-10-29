@@ -3,7 +3,7 @@
          lib="screens/tests/exclusive.whlib">
 
 
-  <screen name="exclusivetest" footerbuttons="ok">
+  <screen name="exclusivetest" footerbuttons="ok" title="Exclusive Test Window">
     <actions>
       <action name="act" onexecute="doaction" />
     </actions>
