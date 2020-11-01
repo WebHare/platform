@@ -330,6 +330,7 @@ function onMessage(event)
 function onDomReady()
 {
   document.documentElement.classList.add("wh-outputtool--active");
+  document.documentElement.classList.add("wh-outputtool--visible");
   window.addEventListener("wh:outputtools-extradata", function(evt) { processResourceData(evt.detail); });
 
   toolbar = document.createElement("wh-outputtools");
@@ -486,6 +487,7 @@ function updateToolbar()
 
 function onHideToolsClick()
 {
+  document.documentElement.classList.remove("wh-outputtool--visible");
   toolbar.parentNode.removeChild(toolbar);
 }
 
