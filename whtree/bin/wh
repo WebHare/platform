@@ -1055,6 +1055,10 @@ HERE
     exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh -m "$@"
     ;;
 
+  "npm")
+    exec node $WEBHARE_DIR/node_modules/npm/bin/npm-cli.js "$@"
+    ;;
+
   "isrunning")
     is_webhare_running && exit 0 || exit 1
     ;;
