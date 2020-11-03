@@ -12,6 +12,7 @@
     "eslint-watch": "^6.0.1",
     "mocha": "^7.1.1",
     "node-getopt": "^0.3.2",
+    "npm": "^6.14.8",
     "stack-trace": "0.0.10",
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.9",

@@ -38,7 +38,7 @@ FAIL=0
 if [ -z "$ONLYBROKEN" ]; then
   if [ -z "$ONLYMODULES" ] && [ "$#" == 0 ] && cd $WEBHARE_DIR 2>/dev/null ; then
     echo "Updating WebHare"
-    npm install --no-save
+    wh npm install --no-save
     NPMRETVAL=$?
     if [ "$NPMRETVAL" != "0" ]; then
       echo NPM FAILED with errorcode $NPMRETVAL
