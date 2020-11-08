@@ -49,7 +49,7 @@ IF(claimedbackurl = "")
 }
 
 //get our plugin. claimedbackurl lacks the starting '/', so add it (and empty just means 'server root')
-OBJECT authplugin := GetWRDAuthPlugin(ResolveToAbsoluteURL(GetRequestURL(), "/" || claimedbackurl));
+OBJECT authplugin := GetWRDAuthPlugin(ResolveToAbsoluteURL(GetRequestURL(), "/" || claimedbackurl), [ clientwebserver := GetClientWebserver() ]);
 
 IF (urlpath LIKE ".wrd/auth/logout.shtml*")
 {
