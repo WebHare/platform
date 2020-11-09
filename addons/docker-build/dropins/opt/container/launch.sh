@@ -5,6 +5,12 @@ eval `/opt/wh/whtree/bin/wh setupmyshell`
 mkdir -p /opt/whdata/home/root
 chown root /opt/whdata/home/root
 
+# If no $HOME/.vimrc exists, create it to make vi behave more sane. This is the way we like it
+if [ ! -f /opt/whdata/home/root/.vimrc ]; then
+  echo '" Necessary line' > /opt/whdata/home/root/.vimrc
+  echo 'set nocompatible' >> /opt/whdata/home/root/.vimrc
+fi
+
 # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
 # probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
 mkdir -p /opt/whdata/output /opt/whdata/installedmodules
