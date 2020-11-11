@@ -52,19 +52,49 @@ INTEGER FUNCTION ParseDuration(STRING duration)
   // P=period
   // T=Time
 
-  /*The length of the video. The tag value is an ISO 8601 duration in the format PT::M::S, in which the letters PT indicate that the value specifies a period of time, and the letters M and S refer to length in minutes and seconds, respectively. The # characters preceding the M and S letters are both integers that specify the number of minutes (or seconds) of the video. For example, a value of PT15M51S indicates that the video is 15 minutes and 51 seconds long. */
-  IF(duration LIKE "PT*M*S")
-  {
-    STRING ARRAY durtoks := Tokenize(SubString(duration,2,Length(duration)-3),'M');
-    IF(Length(durtoks) != 2)
-      RETURN 0;
+  /*
+  The length of the video. The property value is an ISO 8601 duration. For example, for a video that is at least one minute
+  long and less than one hour long, the duration is in the format PT#M#S, in which the letters PT indicate that the value
+  specifies a period of time, and the letters M and S refer to length in minutes and seconds, respectively. The # characters
+  preceding the M and S letters are both integers that specify the number of minutes (or seconds) of the video. For example,
+  a value of PT15M33S indicates that the video is 15 minutes and 33 seconds long.
 
-    RETURN ToInteger(durtoks[0],0) * 60 + ToInteger(durtoks[1],0);
-  }
-  ELSE IF(duration LIKE "PT*S")
+  If the video is at least one hour long, the duration is in the format PT#H#M#S, in which the # preceding the letter H
+  specifies the length of the video in hours and all of the other details are the same as described above. If the video is at
+  least one day long, the letters P and T are separated, and the value's format is P#DT#H#M#S. Please refer to the ISO 8601
+  specification for complete details.
+  */
+  IF (duration LIKE "PT*")
   {
-    STRING seconds := SubString(duration, 2, Length(duration)-3);
-    RETURN ToInteger(seconds, 0);
+    INTEGER time := 0;
+    duration := Substring(duration, 2);
+    INTEGER idx := SearchSubstring(duration, "H");
+    IF (idx > 0)
+    {
+      INTEGER hours := ToInteger(Left(duration, idx), -1);
+      IF (hours < 1)
+        RETURN 0;
+      time := time + hours * 60 * 60;
+      duration := Substring(duration, idx + 1);
+    }
+    idx := SearchSubstring(duration, "M");
+    IF (idx > 0)
+    {
+      INTEGER minutes := ToInteger(Left(duration, idx), -1);
+      IF (minutes < 1 OR minutes > 59)
+        RETURN 0;
+      time := time + minutes * 60;
+      duration := Substring(duration, idx + 1);
+    }
+    idx := SearchSubstring(duration, "S");
+    IF (idx > 0)
+    {
+      INTEGER seconds := ToInteger(Left(duration, idx), -1);
+      IF (seconds < 1 OR seconds > 59)
+        RETURN 0;
+      time := time + seconds;
+      RETURN time;
+    }
   }
 
   RETURN 0;
