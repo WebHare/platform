@@ -266,6 +266,16 @@ MACRO TestYoutubeProvider()
   TestEq(1, Length(searchres));
   TestEQ("hAp2lrclF3w", searchres[0].videoid);
   TestEq(TRUE, RecordExists(searchres[0].thumbnail));
+
+  //video with PT49M duration (without seconds)
+  videores := prov->DescribeVideo("5AwdkGKmZ0I");
+  TestEq(TRUE, RecordExists(videores));
+  TestEq(49*60, videores.duration);
+
+  //video with PT1H10M59S duration (with hours)
+  videores := prov->DescribeVideo("KR0g-1hnQPA");
+  TestEq(TRUE, RecordExists(videores));
+  TestEq(1*60*60+10*60+59, videores.duration);
 }
 
 MACRO TestYoukuProvider()

@@ -93,8 +93,8 @@ INTEGER FUNCTION ParseDuration(STRING duration)
       IF (seconds < 1 OR seconds > 59)
         RETURN 0;
       time := time + seconds;
-      RETURN time;
     }
+    RETURN time;
   }
 
   RETURN 0;
