@@ -449,6 +449,7 @@ RECORD ARRAY standard_mimetypes :=
 , [ mimetype := "application/x-font-ttf", extensions := "ttf ttc", parsetype := 0 ]
 , [ mimetype := "application/x-font-type1", extensions := "pfa pfb pfm afm", parsetype := 0 ]
 , [ mimetype := "application/x-font-woff", extensions := "woff", parsetype := 0 ]
+, [ mimetype := "font/woff2", extensions := "woff2", parsetype := 0 ]
 , [ mimetype := "application/x-futuresplash", extensions := "spl", parsetype := 0 ]
 , [ mimetype := "application/x-gnumeric", extensions := "gnumeric", parsetype := 0 ]
 , [ mimetype := "application/x-gtar", extensions := "gtar", parsetype := 0 ]
