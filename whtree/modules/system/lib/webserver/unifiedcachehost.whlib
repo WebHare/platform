@@ -5,6 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -125,10 +126,13 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
       }
     }
 
-    //Need to create it. To prevent peaks, create at most 4 images at a time. TODO It would be even better if we could terminate and delay the request for a 100ms or so, or just 503 if load gets real high..
+    /* Need to create it. To prevent peaks, create at most 4 images at a time. TODO It would be even better if we could terminate
+       and delay the request for a 100ms or so, or just 503 if load gets real high.. Local locks are faster and safe as we atomically
+       overwrite the end result file anyway. Worst case we spent a bit of unneeded work regenerating an image another webserver was */
     INTEGER imagebucket := GetByteValue(GetMD5Hash(path)) % 4;
-    OBJECT lock := OpenLockManager()->Lockmutex("system:unifedcachehost_" || imagebucket);
+    OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:unifedcachehost_" || imagebucket);
 
+    //TODO we might not need to do temporary files ourselves. StoreDiskFile's overwrite mode does an atomic replace by default
     STRING temppath := path || ".$$" || GenerateUFS128BitId();
     INTEGER imghandle;
     TRY
