@@ -9,7 +9,7 @@ contenttype on the site's root folder should suffice for that.
 
 The WHFS register has been added in WebHare 4.13
 
-## USING THE REGISTER
+## Using the register
 
 Add a `<registerslot>` to your moduledefinition's publisher section
 

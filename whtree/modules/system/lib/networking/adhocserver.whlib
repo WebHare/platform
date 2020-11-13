@@ -17,6 +17,7 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
   STRING id;
   OBJECT port;
   RECORD ARRAY cachedfiles;
+  STRING interfaceurl;
 
   /// The base URL for this adhoc server
   PUBLIC PROPERTY baseurl(GetBaseURL, -);
@@ -30,10 +31,12 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
         [ nocache := FALSE
         , callback := DEFAULT FUNCTION PTR
         , logdebug := FALSE
+        , interfaceurl := ""
         ], options);
 
     this->id := GenerateUFS128BitId(); // Random id
     this->port := CreateGlobalIPCPort("system:adhocserver." || this->id);
+    this->interfaceurl := this->options.interfaceurl ?? GetPrimaryWebHareInterfaceURL();
 
     // Register and store read callback for the port
     IF (this->options.logdebug)
@@ -168,7 +171,7 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
 
   STRING FUNCTION GetBaseURL()
   {
-    RETURN ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.adhocserve/" || this->id);
+    RETURN ResolveToAbsoluteURL(this->interfaceurl, "/.adhocserve/" || this->id);
   }
 
   // Add 'charset=utf-8' to 'text' content types if no other charset was explicitly set

@@ -154,7 +154,9 @@ PUBLIC STATIC OBJECTTYPE WittyTest EXTEND TolliumScreenBase
 
       RECORD ARRAY filelist := this->GetFileList(rewriter->GenerateHTML(htmldoc));
 
-      this->server := NEW AdHocServer(/*[ logdebug := TRUE ]*/);
+      this->server := NEW AdHocServer([ interfaceurl := this->contexts->controller->baseurl
+                                      //, logdebug := TRUE
+                                      ]);
       this->server->PrecacheFiles(filelist);
 
       ^htmlframe->src := this->server->baseurl || "/.contents";

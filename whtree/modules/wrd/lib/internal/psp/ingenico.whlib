@@ -312,6 +312,7 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
       , [ name := "BUTTONTXTCOLOR" , value := "" ]
       , [ name := "LOGO" , value := "" ]
       , [ name := "FONTTYPE" , value := "" ]
+      , [ name := "COM" , value := LimitUTF8Bytes(this->orderid, 100) ]
       , [ name := "ACCEPTURL" , value := returnurl || "&returntype=1"]
       , [ name := "DECLINEURL" , value := returnurl || "&returntype=2" ]
       , [ name := "EXCEPTIONURL" , value := returnurl || "&returntype=3" ]

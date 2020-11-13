@@ -862,7 +862,13 @@ STATIC OBJECTTYPE LocalLock EXTEND __HS_INTERNAL_OutputObject
     RETURN this->IsReadSignalled();
   }
 
-  /** Closes the port
+  /// Release the lock of the mutex
+  PUBLIC MACRO Release()
+  {
+    this->Close();
+  }
+
+  /** Closes the lock
   */
   UPDATE PUBLIC MACRO Close()
   {

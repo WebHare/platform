@@ -5,9 +5,11 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -124,8 +126,13 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
       }
     }
 
-    //Need to create it
-    //ADDME interlock/mutex to ensure 25 threads don't race to create the same image?
+    /* Need to create it. To prevent peaks, create at most 4 images at a time. TODO It would be even better if we could terminate
+       and delay the request for a 100ms or so, or just 503 if load gets real high.. Local locks are faster and safe as we atomically
+       overwrite the end result file anyway. Worst case we spent a bit of unneeded work regenerating an image another webserver was */
+    INTEGER imagebucket := GetByteValue(GetMD5Hash(path)) % 4;
+    OBJECT lock := OpenLocalLockManager()->LockLocalMutex("system:unifedcachehost_" || imagebucket);
+
+    //TODO we might not need to do temporary files ourselves. StoreDiskFile's overwrite mode does an atomic replace by default
     STRING temppath := path || ".$$" || GenerateUFS128BitId();
     INTEGER imghandle;
     TRY
@@ -160,6 +167,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
         CloseDiskFile(imghandle);
         DeleteDiskFile(temppath);
       }
+      lock->Release();
       THROW e;
     }
     IF (NOT CloseDiskFile(imghandle))
@@ -168,6 +176,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
         Print("I/O error writing temporary file. See error logs for more information.\n");
 
       DeleteDiskFile(temppath);
+      lock->Release();
       THROW NEW Exception("I/O error writing image to " || temppath);
     }
 
@@ -184,6 +193,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
       Print("Image is generated. Last modified: " || ourlm || "\n");
     }
 
+    lock->Release();
     RETURN [ modified := GetDiskFileProperties(path).modified
            , data := GetDiskResource(path)
            ];
