@@ -176,6 +176,10 @@ function getStructure(type)
                   , contentareawidth: type == 'structured-contentarea' ? "450px" : null
                   };
 
+  let params = new URL(location.href).searchParams;
+  if(params.get("notablestyle"))
+    structure.blockstyles = structure.blockstyles.filter(_ => _.type != "table");
+
   return structure;
 }
 
