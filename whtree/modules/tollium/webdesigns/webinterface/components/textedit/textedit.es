@@ -72,7 +72,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     this.lastreportedvalue = '';
     this.reportchange_cb = null;
     this.maxlength = 0;
-    this.maxlengthmeasure = false;
+    this.lengthmeasure = false;
     this.type = '';
     this.inputnode = null;
     this.placeholder = '';
@@ -80,7 +80,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     this.setValue(data.value);
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
-    this.maxlengthmeasure = data.maxlengthmeasure;
+    this.lengthmeasure = data.lengthmeasure;
     this.validationchecks = data.validationchecks || [];
     this.prefix = data.prefix || "";
     this.suffix = data.suffix || "";
@@ -238,7 +238,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
 
     if(this.showcounter)
     {
-      new InputTextLengthCounter(this.node, { 'maxlengthmeasure' : this.maxlengthmeasure });
+      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
     }
 
     for (let button of this.buttons)

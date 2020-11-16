@@ -248,11 +248,15 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="MaxLengthMeasureMethods">
+  <xs:simpleType name="TextLengthMeasureMethods">
     <xs:restriction base="xs:string">
       <xs:enumeration value="bytes"/>
       <xs:enumeration value="characters"/>
     </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MaxLengthMeasureMethods">
+    <xs:restriction base="TextLengthMeasureMethods" />
   </xs:simpleType>
 
   <xs:simpleType name="ReserveComponents">
@@ -2122,10 +2126,18 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="maxlengthmeasure" type="MaxLengthMeasureMethods" default="characters">
+    <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
           <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use 'lengthmeasure'.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2698,7 +2710,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="maxlengthmeasure" type="MaxLengthMeasureMethods" default="characters">
+    <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
           <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
@@ -2706,10 +2718,18 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use attribute lengthmeasure</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with maxlength.</html:p>
+          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

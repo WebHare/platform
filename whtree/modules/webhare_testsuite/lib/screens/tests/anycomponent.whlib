@@ -158,7 +158,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
             , [ membername := "showcounter"
               , type :=       "checkbox"
               ]
-            , [ membername := "maxlengthmeasure"
+            , [ membername := "lengthmeasure"
               , type :=       "pulldown"
               , options :=    [ [ rowkey := "bytes" ], [ rowkey := "characters" ] ]
               ]

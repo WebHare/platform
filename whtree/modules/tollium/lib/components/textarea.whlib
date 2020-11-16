@@ -6,7 +6,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
 <
   STRING pvt_contents;
   INTEGER pvt_maxlength;
-  STRING pvt_maxlengthmeasure;
+  STRING pvt_lengthmeasure;
   BOOLEAN pvt_showcounter;
 
   PUBLIC BOOLEAN trimwhitespace;
@@ -14,7 +14,12 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
   PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
-  PUBLIC PROPERTY maxlengthmeasure(pvt_maxlengthmeasure, SetMaxLengthMeasure);
+  PUBLIC PROPERTY lengthmeasure(pvt_lengthmeasure, SetLengthMeasure);
+
+  /** How length of value is measured (Unicode "characters" vs UTF-8 "bytes").
+      @deprecated Please use lengthmeasure
+  */
+  PUBLIC PROPERTY maxlengthmeasure(pvt_lengthmeasure, SetLengthMeasure);
 
   /// Wrap long lines? Defaults to true
   PUBLIC BOOLEAN wordwrap;
@@ -41,7 +46,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     this->trimwhitespace := TRUE;
     this->wordwrap := TRUE;
     this->maxlength := -1;
-    this->maxlengthmeasure := "characters";
+    this->lengthmeasure := "characters";
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -49,7 +54,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     TolliumComponentBase::StaticInit(def);
     this->pvt_contents := def.value;
     this->maxlength := def.maxlength;
-    this->maxlengthmeasure := def.maxlengthmeasure;
+    this->lengthmeasure := def.maxlengthmeasure ?? def.lengthmeasure;
     this->showcounter := def.showcounter;
     this->errorlabel := def.errorlabel; //FIXME dupe with visual componentbase
     this->trimwhitespace := def.trimwhitespace;
@@ -80,15 +85,15 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     this->ExtUpdatedText(); //TolliumHandleUpdate();
   }
 
-  MACRO SetMaxLengthMeasure(STRING measure)
+  MACRO SetLengthMeasure(STRING measure)
   {
     measure := ToLowercase(measure);
     IF (measure NOT IN [ "bytes", "characters" ])
       measure := "characters";
 
-    IF (this->pvt_maxlengthmeasure != measure)
+    IF (this->pvt_lengthmeasure != measure)
     {
-      this->pvt_maxlengthmeasure := measure;
+      this->pvt_lengthmeasure := measure;
       this->ExtUpdatedComponent();
     }
   }
@@ -138,9 +143,9 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
     }
     ELSE IF(this->maxlength>0 AND (
-      (this->maxlengthmeasure = "bytes" AND Length(this->pvt_contents) > this->maxlength)
+      (this->lengthmeasure = "bytes" AND Length(this->pvt_contents) > this->maxlength)
         OR
-      (this->maxlengthmeasure = "characters" AND UCLength(this->pvt_contents) > this->maxlength)))
+      (this->lengthmeasure = "characters" AND UCLength(this->pvt_contents) > this->maxlength)))
     {
       work->AddErrorFor(this, GetTid("tollium:common.errors.too_long", fieldtitle, ToString(this->maxlength)));
     }
@@ -206,7 +211,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
                          , value := this->pvt_contents
                          , hint := this->hint
                          , maxlength := this->maxlength
-                         , maxlengthmeasure := this->maxlengthmeasure
+                         , lengthmeasure := this->lengthmeasure
                          , showcounter := this->showcounter
                          , placeholder := this->placeholder
                          , wordwrap := this->wordwrap

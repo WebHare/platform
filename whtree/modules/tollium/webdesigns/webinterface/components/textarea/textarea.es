@@ -27,7 +27,7 @@ export default class ObjTextArea extends ComponentBase
     this.showcounter = data.showcounter === true;
     this.wordwrap = data.wordwrap !== false;
     this.maxlength = 0;
-    this.maxlengthmeasure = data.maxlengthmeasure;
+    this.lengthmeasure = data.lengthmeasure;
     if (data.maxlength >= 0 && !data.password) //Never accept a maxlength on passwords, as it's not obvious you typed too much characters
       this.maxlength = data.maxlength;
 
@@ -116,7 +116,7 @@ export default class ObjTextArea extends ComponentBase
     this.node.appendChild(this.inputnode);
 
     if(this.showcounter)
-      new InputTextLengthCounter(this.node, { 'maxlengthmeasure' : this.maxlengthmeasure });
+      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
   }
 
 /****************************************************************************************************************************

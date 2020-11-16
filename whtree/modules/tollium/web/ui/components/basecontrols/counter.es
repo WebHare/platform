@@ -95,7 +95,7 @@ export class InputTextLengthCounter
         , input:              null          //input to count
         , separator:          "/"
         , cssclass:           ""            //additional css class
-        , maxlengthmeasure:   "characters" // characters or bytes
+        , lengthmeasure:      "characters" // characters or bytes
         }, options || {});
 
     this.node = node;
@@ -125,7 +125,7 @@ export class InputTextLengthCounter
 
   _getTextlength()
   {
-    return (this._options.maxlengthmeasure === "bytes"
+    return (this._options.lengthmeasure === "bytes"
         ? getUTF8Length(this._input.value)
         : this._input.value.length);
   }
@@ -142,7 +142,7 @@ export class InputTextLengthCounter
     if (this._limit > 0 && updates.count > this._limit && this._options.forcelimit)
     {
       var inptext = this._input.value;
-      if (this._options.maxlengthmeasure === "bytes")
+      if (this._options.lengthmeasure === "bytes")
         inptext = limitUTF8Length(inptext, this._limit);
       else
         inptext = inptext.substring(0, this._limit);
