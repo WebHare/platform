@@ -5,6 +5,7 @@ LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
 <
   STRING pvt_contents;
+  INTEGER pvt_minlength;
   INTEGER pvt_maxlength;
   STRING pvt_lengthmeasure;
   BOOLEAN pvt_showcounter;
@@ -13,6 +14,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
 
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY showcounter(pvt_showcounter, SetShowCounter);
+  PUBLIC PROPERTY minlength(pvt_minlength, SetMinLength);
   PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
   PUBLIC PROPERTY lengthmeasure(pvt_lengthmeasure, SetLengthMeasure);
 
@@ -45,6 +47,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
 
     this->trimwhitespace := TRUE;
     this->wordwrap := TRUE;
+    this->minlength := -1;
     this->maxlength := -1;
     this->lengthmeasure := "characters";
   }
@@ -53,6 +56,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
   {
     TolliumComponentBase::StaticInit(def);
     this->pvt_contents := def.value;
+    this->minlength := def.minlength;
     this->maxlength := def.maxlength;
     this->lengthmeasure := def.maxlengthmeasure ?? def.lengthmeasure;
     this->showcounter := def.showcounter;
@@ -107,6 +111,15 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     }
   }
 
+  MACRO SetMinLength(INTEGER minlength)
+  {
+    IF (this->pvt_minlength != minlength)
+    {
+      this->pvt_minlength := minlength;
+      this->ExtUpdatedComponent();
+    }
+  }
+
   MACRO SetMaxLength(INTEGER maxlength)
   {
     IF (this->pvt_maxlength != maxlength)
@@ -141,6 +154,14 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
     IF((this->enabled AND this->required) AND this->pvt_contents="")
     {
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
+    }
+    ELSE IF(this->minlength>0 AND
+      (this->required OR IsValueSet(this->pvt_contents)) AND (
+      (this->lengthmeasure = "bytes" AND Length(this->pvt_contents) < this->minlength)
+        OR
+      (this->lengthmeasure = "characters" AND UCLength(this->pvt_contents) < this->minlength)))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.too_short", fieldtitle, ToString(this->minlength)));
     }
     ELSE IF(this->maxlength>0 AND (
       (this->lengthmeasure = "bytes" AND Length(this->pvt_contents) > this->maxlength)
@@ -210,6 +231,7 @@ PUBLIC OBJECTTYPE TolliumTextArea EXTEND TolliumComponentBase
                          , */required := this->required
                          , value := this->pvt_contents
                          , hint := this->hint
+                         , minlength := this->minlength
                          , maxlength := this->maxlength
                          , lengthmeasure := this->lengthmeasure
                          , showcounter := this->showcounter

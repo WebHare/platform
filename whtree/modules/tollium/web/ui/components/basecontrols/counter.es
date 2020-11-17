@@ -7,6 +7,8 @@ export class Counter
 {
   /** @param options
       @cell options.count
+      @cell options.required
+      @cell options.minvalue
       @cell options.limit
       @cell options.separator
       @cell options.cssclass Extra css class to add to the root node
@@ -14,7 +16,7 @@ export class Counter
   */
   constructor(options)
   {
-    this._options = options || {};
+    this._options = { minvalue: -1, limit: -1, required: false, ...options };
 
     this._buildNode();
     this._updateState();
@@ -44,9 +46,11 @@ export class Counter
   _updateState()
   {
     let classes =
-      { "wh-counter--havelimit":    this._options.limit
-      , "wh-counter--limitreached": this._options.limit && this._options.count >= this._options.limit
-      , "wh-counter--overflow":     this._options.limit && this._options.count > this._options.limit
+      { "wh-counter--havelimit":    this._options.limit >= 0
+      , "wh-counter--haveminvalue": this._options.minvalue >= 0
+      , "wh-counter--limitreached": this._options.limit >= 0 && this._options.count >= this._options.limit
+      , "wh-counter--underflow":    (this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue
+      , "wh-counter--overflow":     this._options.limit >= 0 && this._options.count > this._options.limit
       };
 
     if (this._options.cssclass)
@@ -54,10 +58,14 @@ export class Counter
 
     dompack.toggleClasses(this.node, classes);
     this._countnode.textContent = this._options.count || 0;
-    if (this._options.limit)
+    if (this._options.minvalue >= 0 || this._options.limit >= 0)
     {
       this._separatornode.textContent = this.separator || "/";
-      this._limitnode.textContent = this._options.limit;
+      this._limitnode.textContent = this._options.minvalue >= 0
+          ? this._options.limit >= 0
+                ? `${this._options.minvalue} - ${this._options.limit}`
+                : `${this._options.minvalue}+`
+          : this._options.limit;
       this._separatornode.style.display = "";
       this._limitnode.style.display = "";
     }
@@ -87,6 +95,7 @@ export class InputTextLengthCounter
   // _options
   // _input
   // _counter
+  // _minlength
   // _limit
 
   constructor(node, options)
@@ -99,6 +108,7 @@ export class InputTextLengthCounter
         , cssclass:           ""            //additional css class
         , lengthmeasure:      "characters" // characters or bytes
         , style:              ""
+        , required:           false
         }, options || {});
 
     this.node = node;
@@ -107,11 +117,15 @@ export class InputTextLengthCounter
     if (!this._input)
       throw new Error("Could not locate input node to count");
 
+    this._minlength = Number(this._input.minLength);
     this._limit = Number(this._input.maxLength);
+
     if (this._options.showcounter)
     {
       this._counter = new Counter(
           { count:        this._getTextlength()
+          , required:     this._input.required || this._options.required
+          , minvalue:     this._minlength
           , limit:        this._limit
           , separator:    this._options.separator
           , cssclass:     this._options.cssclass
@@ -134,13 +148,18 @@ export class InputTextLengthCounter
         : this._input.value.length);
   }
 
-  update()
+  update(updateoptions = {})
   {
+    Object.assign(this._options, updateoptions);
+
+    this._minlength = Number(this._input.minLength);
     this._limit = Number(this._input.maxLength);
 
     let updates =
-        { count:  this._getTextlength()
-        , limit:  this._limit
+        { required:   this._input.required || this._options.required
+        , count:      this._getTextlength()
+        , minvalue:   this._minlength
+        , limit:      this._limit
         };
 
     if (this._limit > 0 && updates.count > this._limit && this._options.forcelimit)

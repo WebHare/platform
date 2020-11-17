@@ -86,6 +86,7 @@
       <text tid="tagedit_unprocessed_text">Field '<param p="1"/>' contains a tag that has not yet been committed</text>
       <text tid="too_long">Field '<param p="1"/>' may not contain more than <param p="2"/> characters</text>
       <text tid="too_many_decimals">Field '<param p="1"/>' may not contain <ifparam p="2" value="0">any decimals<else/>more than <param p="2"/> <ifparam p="2" value="1">decimal<else/>decimals</ifparam></ifparam></text>
+      <text tid="too_short">Field '<param p="1"/>' must contain <param p="2"/> or more characters</text>
       <text tid="value_out_of_range">Field '<param p="1"/>' contains an invalid value; you need to enter a value <ifparam p="2" value="">of at most <param p="3"/><else/><ifparam p="3" value="">of at least <param p="2"/><else/>between <param p="2"/> and <param p="3"/></ifparam></ifparam></text>
     </textgroup>
     <textgroup gid="examples" keepemptyreason="Voorbeeldteksten">   <!-- common.examples -->

@@ -152,7 +152,10 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
       CASE "textedit", "textarea"
       {
         this->AddComponents(
-            [ [ membername := "maxlength"
+            [ [ membername := "minlength"
+              , type :=       "textedit-integer"
+              ]
+            , [ membername := "maxlength"
               , type :=       "textedit-integer"
               ]
             , [ membername := "showcounter"

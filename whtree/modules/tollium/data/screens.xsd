@@ -2120,6 +2120,12 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="sc:Errorlabel" />
     <xs:attributeGroup ref="Onchange" />
 
+    <xs:attribute name="minlength" type="xs:integer" default="-1">
+      <xs:annotation>
+        <xs:documentation>The minimum number of characters required forthis text edit field.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="maxlength" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>The maximum number of characters allowed for this text edit field. If less than 30, the default width of the textedit is reduced to match</xs:documentation>
@@ -2145,7 +2151,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with maxlength.</html:p>
+          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2701,6 +2707,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Required" />
     <xs:attributeGroup ref="Placeholder" />
     <xs:attribute name="trimwhitespace" type="xs:boolean" default="true" />
+
+    <xs:attribute name="minlength" type="xs:integer" default="-1">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The minimum number of characters required in this text area.</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
 
     <xs:attribute name="maxlength" type="xs:integer" default="-1">
       <xs:annotation>
