@@ -66,6 +66,8 @@ export class Counter
       this._separatornode.style.display = "none";
       this._limitnode.style.display = "none";
     }
+
+    this.node.style = this._options.style || "";
   }
 
   /** @param updates
@@ -96,6 +98,7 @@ export class InputTextLengthCounter
         , separator:          "/"
         , cssclass:           ""            //additional css class
         , lengthmeasure:      "characters" // characters or bytes
+        , style:              ""
         }, options || {});
 
     this.node = node;
@@ -113,6 +116,7 @@ export class InputTextLengthCounter
           , separator:    this._options.separator
           , cssclass:     this._options.cssclass
           , focusnode:    this._input
+          , style:        this._options.style
           });
 
       this.node.appendChild(this._counter.node);

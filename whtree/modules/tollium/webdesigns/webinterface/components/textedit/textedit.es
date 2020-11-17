@@ -238,7 +238,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
 
     if(this.showcounter)
     {
-      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
+      const style = this.buttons.length ? `right: ${(4 + this.buttons.length * (16 + intra_button_padding))}px;` : null;
+      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure, style });
     }
 
     for (let button of this.buttons)
