@@ -1902,7 +1902,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   /** Flush tasks of the specified types. Throws if any task failed
       @param tasktypes List of tasks to cancel
-      @cell options.createdafter Only flush tasks creatd after this time (takes test start time by default)
+      @cell options.createdafter Only flush tasks created after this time (takes test start time by default)
       @cell options.acceptcancel Don't throw if the task is cancelled */
   PUBLIC MACRO FlushTasks(STRING ARRAY tasktypes, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1910,7 +1910,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
                                , acceptcancel := FALSE
                                ], options);
 
-    DATETIME maxwait := AddTimeToDate(60*1000, GetCurrentDatetime());
+    DATETIME maxwait := AddTimeToDate(60 * 1000, GetCurrentDatetime());
     FOREVERY(STRING type FROM tasktypes)
     {
       GetTaskTypeSettings(type, FALSE); //validate its extistence
