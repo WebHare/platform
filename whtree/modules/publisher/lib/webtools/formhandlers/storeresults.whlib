@@ -90,7 +90,10 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
       useragent := GetResourceNameFromDiskPath(GetStackTrace()[END-1].filename);
     }
 
-    //First get hte old result.. .so we don't see our new result when scanning for the old one
+    // Broadcast an event on successful commit, so the results list can be updated
+    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${ObjectExists(formobject) ? formobject->id : 0}.${form->__form.name}`, DEFAULT RECORD);
+
+    //First get the old result... so we don't see our new result when scanning for the old one
     INTEGER oldresultid;
     IF (options.isedit)
       oldresultid := SELECT AS INTEGER id
@@ -100,12 +103,28 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                             AND formresults.form_name = form->__form.name
                             AND status = (options.isconfirm ? 5/*pending*/ : 1/*final result*/);
 
+    IF(options.isconfirm)
+    {
+      //In this case we *only* update the status and can leave the rest alone
+      UPDATE publisher.formresults SET confirmed := GetCurrentDatetime()
+                                     , status := 1
+                                 WHERE id = oldresultid;
+      RETURN result;
+    }
+
     // Store the results
-    INTEGER newresultid := MakeAutonumber(publisher.formresults, "id");
+    INTEGER resultid := options.isedit ? oldresultid : MakeAutonumber(publisher.formresults, "id");
     INSERT CELL guid := options.guid INTO result.result;
     INTEGER form_fsobject := ObjectExists(formobject) ? formobject->id : 0;
     RECORD days := GetFormResultsExpirationDays(form_fsobject);
     DATETIME when := GetCurrentDateTime();
+
+    RECORD formdata := [ status := options.ispending ? 5/*pending*/ : 1/*final result*/
+                       , expiration    := AddDaysToDate(days.storeresults, when)
+                       , deletion      := AddDaysToDate(days.processresults, when)
+                       , results       := store.stringpart
+                       , blobresults   := store.blobpart
+                       ];
 
     // If these results replace existing results, update the existing results record (before inserting the new one)
     IF (options.isedit)
@@ -113,44 +132,39 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
       IF (oldresultid != 0)
       {
         UPDATE publisher.formresults
-           SET status := options.isconfirm ? 6/*confirmed*/ : 4/*cancelled/deleted*/
-             , replacedby := newresultid
-             , modified := GetCurrentDateTime()
-             , guid := GenerateUFS128BitId()
+           SET RECORD CELL[ ...formdata
+                          , modified := VAR when
+                          ]
          WHERE id = oldresultid;
       }
       ELSE
       {
         THROW NEW Exception("Cannot find result to replace");
       }
+
+      DELETE FROM publisher.formattachments WHERE formresult = oldresultid; //we'll be reinserting the attachments (FIXME don't do that when attachment is unchanged)
+    }
+    ELSE
+    {
+      INSERT CELL [...formdata
+                  , id            := resultid
+                  , form_fsobject
+                  , form_name     := form->__form.name
+                  , result.result.guid
+                  , url           := Left(form->formurl, 1024)
+                  , when
+                  , ipaddress
+                  , useragent     := Left(useragent, 512)
+                  , ipcountrycode := countrycode
+                  , idfield       := options.idfieldvalue
+                  , wrdguid       := wrdguid != "" ? DecodeWRDGUID(wrdguid) : ""
+                  , languagecode  := Tolowercase(form->formlanguagecode)
+                  ]
+        INTO publisher.formresults;
     }
 
-    INSERT
-        CELL[ id            := newresultid
-            , status        := options.ispending ? 5/*pending*/ : 1/*final result*/
-            , form_fsobject
-            , form_name     := form->__form.name
-            , result.result.guid
-            , url           := Left(form->formurl, 1024)
-            , when
-            , expiration    := AddDaysToDate(days.storeresults, when)
-            , deletion      := AddDaysToDate(days.processresults, when)
-            , ipaddress
-            , useragent     := Left(useragent, 512)
-            , ipcountrycode := countrycode
-            , results       := store.stringpart
-            , blobresults   := store.blobpart
-            , idfield       := options.idfieldvalue
-            , wrdguid       := wrdguid != "" ? DecodeWRDGUID(wrdguid) : ""
-            , languagecode  := Tolowercase(form->formlanguagecode)
-            ]
-      INTO publisher.formresults;
-
     FOREVERY(RECORD attachment FROM attachments)
-      INSERT CELL[...attachment, formresult := newresultid ] INTO publisher.formattachments;
-
-    // Broadcast an event on successful commit, so the results list can be updated
-    GetPrimary()->BroadcastOnCommit(`publisher:formwebtoolresult.${ObjectExists(formobject) ? formobject->id : 0}.${form->__form.name}`, DEFAULT RECORD);
+      INSERT CELL[...attachment, formresult := resultid ] INTO publisher.formattachments;
 
     RETURN result;
   }

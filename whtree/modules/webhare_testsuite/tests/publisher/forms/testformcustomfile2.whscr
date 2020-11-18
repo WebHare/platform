@@ -263,7 +263,7 @@ PUBLIC MACRO CustomForm()
   result := ImportFormResults(migrationfile.data);
   testfw->CommitWork();
   TestEq(TRUE, result.success);
-  TestEq(3, result.numresults);
+  TestEq(2, result.numresults);
 
   // Export results and check with previous export (don't check result id's as they would differ after being reimported)
   exportaftermigration := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
