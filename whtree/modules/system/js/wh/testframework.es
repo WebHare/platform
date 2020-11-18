@@ -900,7 +900,7 @@ async function subtest(name)
 async function load(page)
 {
   getWin().location.href = page;
-  await wait("pageload");
+  await wait("load");
 }
 
 function pasteHTML(content)

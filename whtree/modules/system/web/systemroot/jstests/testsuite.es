@@ -8,11 +8,20 @@ import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@m
 import "./testsuite.css";
 import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";
+import StackTrace from "stacktrace-js";
 
+let sourceCache = {};
 let testframetabname = 'testframe' + Math.random();
 
 if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
+
+function correctWebpackFilename(url)
+{
+  if (url.match(/webpack:\/\/\/[^/]/))
+    url = "webpack:////" + url.slice(11);
+  return url;
+}
 
 function getTestRoots()
 {
@@ -68,6 +77,10 @@ class TestFramework
     window.__testframework = this;
 
     this.stoppromise = dompack.createDeferred();
+
+    let params = new URL(location.href).searchParams;
+    if(params.get("waittimeout"))
+      this.waittimeout = parseInt(params.get("waittimeout"));
 
     window.addEventListener("dompack:busymodal", evt =>
     {
@@ -541,7 +554,7 @@ class TestFramework
   }
 
   /// Handles a test step that errored out
-  handleTestStepException(test, step, e)
+  async handleTestStepException(test, step, e)
   {
     let fullname = step.name ? step.name + (step.subname ? "#" + step.subname: "") : "";
     // Got a test exception. Log it everywhere
@@ -604,6 +617,36 @@ class TestFramework
         this.updateTestState();
       }
     });
+
+    if(this.currentwaitstack)
+    {
+      let stackframes = await StackTrace.fromError(this.currentwaitstack, { sourceCache });
+      stackframes = stackframes.map(frame => (
+          { line:       frame.lineNumber
+          , func:       frame.functionName
+          , filename:   correctWebpackFilename(frame.fileName)
+          , col:        frame.columnNumber
+          }));
+
+      stackframes.forEach(el =>
+      {
+        console.log(`${el.filename}:${el.line}:${el.col}`);
+      });
+
+      let filtered = stackframes.filter(({ filename }) =>
+          !filename.endsWith("/buildbabelexternalhelpers.js") &&
+          !filename.endsWith("/ap.js") &&
+          !filename.endsWith("/regenerator-runtime/runtime.js") &&
+          !filename.endsWith("/testframework.es") &&
+          !filename.endsWith("/testframework-rte.es") &&
+          !filename.includes("/dompack/testframework/") &&
+          !filename.endsWith("/testsuite.es"));
+
+      if (filtered.length)
+      {
+        console.log(`Wait location: ${filtered[0].filename}:${filtered[0].line}:${filtered[0].col}`);
+      }
+    }
 
     // Swallow exception if in reportid mode unless running just one test (ADDME: abort the current test and move to the next test in reportid mode, but never run further steps)
     if (!this.reportid || step._rethrow || this.tests.length==1)
@@ -848,12 +891,12 @@ class TestFramework
     {
       if (!func())
       {
-        if (!this.pageframewin.requestAnimationFrame)
-          throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-        this.animationframerequest = this.pageframewin.requestAnimationFrame(this.repeatedFunctionTestIterate.bind(this, func, deferred));
+        this.animationframerequest = requestAnimationFrame(() => this.repeatedFunctionTestIterate(func, deferred));
       }
       else
+      {
         deferred.resolve();
+      }
     }
     catch (e)
     {
@@ -893,6 +936,7 @@ class TestFramework
   async executeWait(step, item, signals)
   {
     var text = "Wait: " + (typeof item == "function" ? "function" : item);
+    this.currentwaitstack = new Error;
     document.getElementById('currentwait').textContent = text;
     document.getElementById('currentwait').style.display = "inline-block";
 
@@ -905,7 +949,7 @@ class TestFramework
       // function in waits has signature func(doc, win)
       let promise = this.repeatedFunctionTest(step, item.bind(null, this.pageframedoc, this.pageframewin));
       if (dompack.debugflags.bus)
-        promise = promise.then(function(x) { console.debug("Finished wait for '" + item + "'"); return x; });
+        promise = promise.then(x => { console.debug("Finished wait for '" + item + "'"); this.currentwaitstack = null; return x; });
       return promise.finally(this.executeWaitFinish.bind(this));
     }
 
@@ -916,21 +960,22 @@ class TestFramework
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
+    if(item == "events" || item == "tick")
+    {
+      console.warn(`Waiting for '${item}' just waits for 1 second and does nothing magic, so just replace it with await wait(1)`);
+      item =1 ;
+    }
+
     // Number: just wait for so many milliseconds
     if (typeof item == "number")
     {
       setTimeout(deferred.resolve, item);
+      deferred.promise.then(() => this.currentwaitstack = null);
       return deferred.promise.finally(this.executeWaitFinish.bind(this));
     }
 
     switch (item)
     {
-      case "events":
-      {
-        // wait 1 millisecond to process all events
-        setTimeout(deferred.resolve, 1);
-        return deferred.promise.finally(this.executeWaitFinish.bind(this));
-      }
       case "ui":
       case "ui-nocheck":
       {
@@ -938,6 +983,7 @@ class TestFramework
           throw new Error("'ui' wait requested but it was never busy since the test started, busycount = " + dombusy.getUIBusyCounter());
 
         dombusy.waitUIFree().then(deferred.resolve);
+        deferred.promise.then(() => this.currentwaitstack = null);
         this.timedReject(deferred, "Timeout when waiting for UI", step.timeout || this.waittimeout);
       } break;
 
@@ -947,6 +993,7 @@ class TestFramework
           throw Error("waitforgestures specified, but no waitForGestures found in scriptframe");
 
         this.scriptframewin.waitForGestures(deferred.resolve);
+        deferred.promise.then(() => this.currentwaitstack = null);
         this.timedReject(deferred, "Timeout when waiting for gestures to finish", step.timeout || this.waittimeout);
       } break;
       case "uploadprogress":
@@ -957,6 +1004,7 @@ class TestFramework
         console.log('start wait for upload');
         this.pageframewin.__todd.waitForUploadProgress(deferred.resolve);
         deferred.promise.then(function() { console.log('upload done'); });
+        deferred.promise.then(() => this.currentwaitstack = null);
 
         this.timedReject(deferred, "Timeout when waiting for upload progress", step.timeout || this.waittimeout);
       } break;
@@ -966,15 +1014,11 @@ class TestFramework
         if (!this.pageframewin.requestAnimationFrame)
           throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
         this.pageframewin.requestAnimationFrame(deferred.resolve);
+        deferred.promise.then(() => this.currentwaitstack = null);
         this.timedReject(deferred, "Timeout when waiting for animation frame", step.timeout || this.waittimeout);
       } break;
 
-      case "tick":
-      {
-        //ADDME setImmediate and mutationObserver, if available, are supposedly more accurate? https://github.com/medikoo/next-tick thinks so..
-        setTimeout(deferred.resolve,1);
-      } break;
-
+      case "load":
       case "pageload":
       {
         if (!signals.pageload)
@@ -986,7 +1030,9 @@ class TestFramework
         signals.pageload = null;
         try
         {
-          return await Promise.race([ promise, deferred.promise ]);
+          let result = await Promise.race([ promise, deferred.promise ]);
+          this.currentwaitstack = null;
+          return result;
         }
         finally
         {
@@ -1000,6 +1046,7 @@ class TestFramework
         {
           //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
           setTimeout(deferred.resolve, 0);
+          this.currentwaitstack = null;
           this.pageframewin.removeEventListener("scroll", scrollwaiter);
         }.bind(this);
         this.pageframewin.addEventListener("scroll", scrollwaiter);
