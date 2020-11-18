@@ -1973,6 +1973,8 @@
         <text tid="pattern">This value seems to be invalid.</text>
         <text tid="range">This value should be between <param p="1"/> and <param p="2"/>.</text>
         <text tid="required">This value is required.</text>
+        <text tid="step1mismatch">The value must be a whole number</text>
+        <text tid="stepmismatch">The value should be a multple of <param p="1"/>.</text>
         <text tid="url">This value should be a valid url.</text>
       </textgroup>
     </textgroup>

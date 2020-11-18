@@ -1973,6 +1973,8 @@
         <text tid="pattern">De waarde is onjuist.</text>
         <text tid="range">De waarde moet tussen <param p="1"/> en <param p="2"/> liggen.</text>
         <text tid="required">Dit veld is verplicht.</text>
+        <text tid="step1mismatch">De waarde moet een geheel getal zijn</text>
+        <text tid="stepmismatch">De waarde moet een meervoud zijn van <param p="1"/>.</text>
         <text tid="url">Dit is geen geldige URL.</text>
       </textgroup>
     </textgroup>
