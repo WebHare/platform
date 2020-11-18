@@ -250,13 +250,27 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
 
 PUBLIC MACRO CreateWRDTestSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ forcereload := FALSE, withrichdoc := TRUE, keephistorydays := 0 ], options);
+  options := ValidateOptions([ forcereload := FALSE
+                             , withrichdoc := TRUE
+                             , withpayment := STRING[]
+                             , keephistorydays := 0
+                             ], options);
 
   testfw->BeginWork();
 
   OBJECT schemaobj := testfw->GetWRDSchema(options.forcereload);
   TestEq(TRUE, ObjectExists(schemaobj));
   SetupTheWRDTestSchema(schemaobj, CELL[ options.withrichdoc, options.keephistorydays ]);
+
+  IF(Length(options.withpayment) > 0)
+  {
+    OBJECT pm := testfw->wrdschema->^payprov->CreateEntity(
+      [ wrd_title := "TestMethod"
+      , method := MakePaymentProviderValue("wrd:test", [ disablenoissuer := "noissuer" NOT IN options.withpayment
+                                                       , disablewithissuer := "withissuer" NOT IN options.withpayment
+                                                       ]  )
+      ]);
+  }
 
   testfw->CommitWork();
 }

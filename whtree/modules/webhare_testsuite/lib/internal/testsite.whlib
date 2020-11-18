@@ -31,13 +31,16 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addcustompaymenthandler := FALSE
+                              , addpaymenthandler := FALSE
                               , addintegerfield := FALSE
+                              , addmoneyfield := FALSE
                               , addpulldown := FALSE
                               , adddatecondition := FALSE
                               , checkboxes := FALSE
@@ -66,6 +69,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , customformedits := DEFAULT MACRO PTR
                               //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field names...
                               , emailfieldname := ""
+                              , withpayment := STRING[]
                               ];
 
 MACRO FillTestFormFile(OBJECT formfile, RECORD options)
@@ -1034,13 +1038,18 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
 
 PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[...testformfileoptions,  which := "" ], options);
+  options := ValidateOptions(CELL[...testformfileoptions, which := "" ], options);
 
   OpenPrimary();
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
 
   RECORD formoptions := CELL[...options, DELETE which];
   RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions) : BuildWebtoolForm(formoptions);
+  IF(Length(options.withpayment) > 0)
+  {
+    CreateWRDTestSchema(CELL[options.withpayment]);
+  }
+
   RETURN CELL[...result, DELETE formfile ];
 }
 PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)

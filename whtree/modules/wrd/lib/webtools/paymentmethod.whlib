@@ -104,6 +104,8 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
                            FROM this->paymentoptions;
 
     this->paymentmethodselect->options := opts;
+    IF(Length(opts) = 1) //only one method? just select it then
+      this->paymentmethodselect->value := opts[0].rowkey;
   }
 
   OBJECT ARRAY FUNCTION ConstructSubfields(OBJECT field, RECORD paymentopt, INTEGER idx)
