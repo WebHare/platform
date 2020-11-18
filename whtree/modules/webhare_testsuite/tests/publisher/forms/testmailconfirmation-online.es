@@ -74,6 +74,15 @@ test.registerTests(
       test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
     }
 
+  , "Reload confirm result"
+  , async function()
+    {
+      await test.load(confirmlink);
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+    }
+
   , "Process results mail"
   , async function()
     {

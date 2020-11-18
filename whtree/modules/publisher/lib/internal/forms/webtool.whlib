@@ -224,6 +224,27 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     DELETE FROM this->formhandlers WHERE formhandlers.guid = VAR guid;
   }
 
+  PUBLIC MACRO __RenderThankYouFields(RECORD ARRAY richvalues)
+  {
+    FOREVERY (RECORD richvalue FROM richvalues)
+    {
+      RECORD field := SELECT * FROM this->__formfields WHERE ToUppercase(name) = ToUppercase(richvalue.field);
+      IF (RecordExists(field))
+        field.obj->__renderedmergefields := richvalue.value;
+    }
+  }
+
+  PUBLIC MACRO __StraightToThankyouPage()
+  {
+    FOREVERY(RECORD page FROM this->__formpages)
+    {
+      IF(page.role = "thankyou") //first non normal page
+        BREAK;
+      //hide everything up to the first thankyou page.
+      page.obj->visible := FALSE;
+    }
+  }
+
   // Let the form handlers process the form results after submission
   RECORD FUNCTION Submit(RECORD extradata)
   {
@@ -280,13 +301,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
         }
         ELSE IF (this->formsubmittype IN [ "confirm", "duplicate" ])
         {
-          FOREVERY(RECORD page FROM this->__formpages)
-          {
-            IF(page.role = "thankyou") //first non normal page
-              BREAK;
-            //hide everything up to the first thankyou page.
-            page.obj->visible := FALSE;
-          }
+          this->__StraightToThankyouPage();
         }
       }
     }
@@ -355,18 +370,13 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     }
 
     // Merge result fields into result page RTD's
-    INSERT CELL richvalues := this->MergeThankYouPageRTDFields() INTO result;
+    INSERT CELL richvalues := this->__MergeThankYouPageRTDFields() INTO result;
 
     // If this is a confirmation or a duplicate submission, the form is opened on the thankyou page, without being submitted,
     // so we'll pre-render the RTD contents, filling the merge fields before rendering the form
     IF (this->formsubmittype IN [ "confirm", "duplicate" ])
     {
-      FOREVERY (RECORD richvalue FROM result.richvalues)
-      {
-        RECORD field := SELECT * FROM this->__formfields WHERE ToUppercase(name) = ToUppercase(richvalue.field);
-        IF (RecordExists(field))
-          field.obj->__renderedmergefields := richvalue.value;
-      }
+      this->__RenderThankYouFields(result.richvalues);
     }
 
     RETURN result;
@@ -391,14 +401,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->formresults->CancelResult(resultsguid);
     this->formvariables := CELL[...this->formvariables, formsubmittype := "cancel" ];
     this->formsubmittype := "cancel";
-
-    FOREVERY(RECORD page FROM this->__formpages)
-    {
-      IF(page.role = "thankyou") //first non normal page
-        BREAK;
-      //hide everything up to the first thankyou page.
-      page.obj->visible := FALSE;
-    }
+    this->__StraightToThankyouPage();
 
     FOREVERY (RECORD handler FROM this->formhandlers)
     {
@@ -457,7 +460,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       RETURN TRUE;
 
     RECORD results := this->formresults->GetSingleResult(confirmdata.r, [ __form := this, allowpending := TRUE ]);
-    IF (NOT RecordExists(results) OR results.status != "pending")
+    IF (NOT RecordExists(results) OR results.status NOT IN ["pending","final"])
       RETURN FALSE;
 
     IF (results.submittype = "new" AND confirmationhandler.handlerobject->IsDuplicateSubmission(results, this->formresults))
@@ -477,7 +480,13 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF (ObjectExists(this->captchaquestion))
       this->captchaquestion->required := FALSE;
 
-    this->__SubmitFormNow();
+    IF(results.status = "pending")
+      this->__SubmitFormNow();
+    ELSE //don't resubmit, but still go straight to 'thank you'
+    {
+      this->__StraightToThankyouPage();
+      this->__RenderThankYouFields(this->__MergeThankYouPageRTDFields());
+    }
 
     RETURN TRUE;
   }
@@ -493,7 +502,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RETURN this->pvt_results;
   }
 
-  RECORD ARRAY FUNCTION MergeThankYouPageRTDFields()
+  PUBLIC RECORD ARRAY FUNCTION __MergeThankYouPageRTDFields()
   {
     RECORD ARRAY richvalues;
     IF (MemberExists(this->formcontext, "__mergefields"))
