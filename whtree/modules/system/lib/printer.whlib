@@ -8,8 +8,7 @@ LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";
-
-LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/pdfapi.whlib";
 
 
 /** Get a screenshot of a page
@@ -144,7 +143,7 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     @cell options.filename Output filename, will be genrated from the wittypath if not set
     @cell options.wittypath Path to witty template to use. If not set but the data contains a 'wittypath' variable, that one is used instead
     @cell options.getsource Get a full dump of the data that will be used for the PDF. Used for debugging, may be removed in the future
-    @cell(string) options.media Media to use - 'screen' (default) or 'print'
+    @cell(string) options.media Media to use - 'screen' or 'print' (default)
     @cell(boolean) options.debug Enable debug mode
     @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
     @cell(record) options.margin Page marginn (eg `[ top := "0.5cm", bottom := "0.5cm", left := "1cm", right := "1cm" ]`). Defaults to no margins
@@ -219,11 +218,31 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
   THROW NEW Exception("GeneratePDF failed");
 }
 
+RECORD FUNCTION __GeneratePDFFrom(STRING link, RECORD wrappedfile, RECORD options)
+{
+  options := ValidateOptions(CELL[ pdfengine := "chrome"
+                                 , ...pdf_defaultsettings
+                                 , media := "print"
+                                 , filename := "output.pdf"
+                                 , delay := 0
+                                 , timeout := 30 * 1000
+                                 , cookies := RECORD[]
+                                 , embeddedfiles := RECORD[]
+                                 ], options, [ enums := [ pdfengine := ["chrome"]
+                                                        , media := ["print","screen"]
+                                                        ]
+                                             ]);
+
+  OBJECT pdfgen := NEW ChromePDFAPI();
+  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, wrappedfile, CELL[ options.media, options.margin, options.cookies, options.embeddedfiles, options.format, options.width, options.height, options.pageranges ]), options.timeout));
+  RETURN WrapBlob(pdfdata, options.filename);
+}
+
 /** @short Generate a PDF from a URL
     @param link URL to generate a PDF for
     @cell options.pdfengine PDF Engine to use. Defaults to 'chrome' and is currently the only available one
     @cell options.printbackground Print backgrounds too? (defaults to true)
-    @cell options.media Media to use - 'screen' or 'print' (default)
+    @cell(string) options.media Media to use - 'screen' or 'print' (default)
     @cell options.filename Output filename.
     @cell(integer) options.delay How much milliseconds to wait after setting the url before taking a screenshot
     @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
@@ -231,21 +250,20 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
 */
 PUBLIC RECORD FUNCTION GeneratePDFFromURL(STRING link, RECORD options DEFAULTSTO CELL[])
 {
-  options := ValidateOptions([ pdfengine := "chrome"
-                             , printbackground := TRUE
-                             , media := "print"
-                             , filename := "output.pdf"
-                             , delay := 0
-                             , timeout := 30 * 1000
-                             , margin := DEFAULT RECORD
-                             ], options, [ enums := [ pdfengine := ["chrome"]
-                                                    , media := ["print","screen"]
-                                                    ]
-                                         ]);
+  RETURN __GeneratePDFFrom(link, DEFAULT RECORD, options);
+}
 
-  OBJECT pdfgen := NEW ChromePDFAPI();
-  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFromURL(link, CELL[ options.media, options.margin ]), options.timeout));
-  RETURN WrapBlob(pdfdata, options.filename);
+/** @short Generate a PDF from a file
+    @param wrappedfile Wrapped file record to generate a PDF for
+    @param options @includecelldef #GeneratePDFFromURL.options
+    @return Wrapped file containing the PDF
+*/
+PUBLIC RECORD FUNCTION GeneratePDFFromFile(RECORD wrappedfile, RECORD options DEFAULTSTO CELL[])
+{
+  IF(NOT RecordExists(wrappedfile))
+    THROW NEW Exception("No file passed to GeneratePDFFromFile");
+
+  RETURN __GeneratePDFFrom("", wrappedfile, options);
 }
 
 // https://pdfbox.apache.org/2.0/commandline.html
