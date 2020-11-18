@@ -876,7 +876,10 @@ async function wait(...waits)
 {
   for (let waitelt of waits)
     if (Array.isArray(waitelt))
+    {
+      console.error("wait()ing on an Array is deprecated (so we can support annotation parameters)");
       await wait(...waitelt);
+    }
     else
       await callbacks.executeWait(waitelt);
 }
