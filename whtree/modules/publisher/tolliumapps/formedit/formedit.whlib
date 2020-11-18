@@ -188,17 +188,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ data := data ]);
   }
 
-  MACRO VerifySanity()
-  {
-    IF(GetDtapStage() != "development")
-      RETURN;
-
-    //TODO give user a chance to escape or disable validation temporarily?
-    RECORD data := this->formdefsfile->ExportAsRecord();
-    IF(Length(ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]).errors) > 0)
-      this->RunEditSource(TRUE); //validate immediately
-  }
-
   MACRO SetEnabled(BOOLEAN enabled)
   {
     this->SetReadOnly(NOT enabled);
@@ -623,16 +612,16 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
   MACRO DoEditSource()
   {
-    this->RunEditSource(FALSE); //we need a non-validating route just in case the validator crashes
+    this->RunEditSource(FALSE, TRUE); //we need a non-validating route just in case the validator crashes
   }
 
-  MACRO RunEditSource(BOOLEAN validateimmediately)
+  MACRO RunEditSource(BOOLEAN validateimmediately, BOOLEAN reload_afterwards)
   {
     RECORD data := this->formdefsfile->ExportAsRecord();
     data := this->RunScreen("editsource.xml#editsource", CELL[ data, validateimmediately ]);
     IF (RecordExists(data))
     {
-      this->ReadFormDefinition(data, TRUE);
+      this->ReadFormDefinition(data, reload_afterwards);
       this->MarkFormAsDirty();
     }
   }
@@ -1147,6 +1136,34 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
                ];
   }
 
+  OBJECT FUNCTION OpenLiveForm()
+  {
+    WHILE(TRUE)
+    {
+      TRY
+      {
+        RECORD data := this->formdefsfile->ExportAsRecord();
+        RECORD ARRAY validationerrors := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.formtext ]).errors;
+        IF(Length(validationerrors) > 0)
+          THROW NEW Exception(validationerrors[0].message);
+
+        RETURN this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
+      }
+      CATCH(OBJECT e)
+      {
+        LogHarescriptException(e);
+        IF(this->frame->flags.showdevoptions AND this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.formedit.messages.formbroken-fixit", e->what)) = "yes")
+        {
+          this->RunEditSource(TRUE, FALSE);
+          CONTINUE;
+        }
+        this->RunSimpleScreen("error", GetTid("publisher:tolliumapps.formedit.messages.formbroken"));
+        this->contexts->editdocumentapi->CancelEditor();
+        RETURN DEFAULT OBJECT;
+      }
+    }
+  }
+
   MACRO ReloadList(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ force_expanded_pages := STRING[]
@@ -1156,7 +1173,9 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->confirmationhandler := FALSE;
 
     //Build the form
-    OBJECT finalform := this->curform->__OpenAsLiveForm(this->uselanguage, this->contexts->applytester);
+    OBJECT finalform := this->OpenLiveForm();
+    IF(NOT ObjectExists(finalform))
+      RETURN;
 
     BOOLEAN issinglepage := this->curform->GetPage(0)->node->nodename = "form";
     this->frame->flags.issinglepage := issinglepage;
@@ -1420,8 +1439,6 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
           CONCAT (expandedhandlers ? [ "handlers" ] : STRING[])
           CONCAT (expandedtrash ? [ "deletedquestions" ] : STRING[]);
     }
-
-    this->VerifySanity();
   }
 
   RECORD FUNCTION GetImplictHandler() //the implicit handler shows and links to storage settings
