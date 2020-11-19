@@ -5,6 +5,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/language.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
@@ -126,8 +127,12 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
   }
 
   //Test against well known probes. No point in conjuring up advanced error handling for those
-  IF(errorcode = 404 AND IsRobotURLPath(unpacked.urlpath))
+  IF(IsRobotURLPath(unpacked.urlpath))
     RETURN;
+
+  RECORD limitresult := CheckIPRateLimit(CELL[ type := "system:errorlimit" ], 3, [ timeperiod := errorcode = 404 ? 2000 : 10000, exemptdev := TRUE]);
+  IF(NOT limitresult.accepted)
+    RETURN; //not expending more effort on users who trigger too many errors, probably a scan
 
   IF (NOT HavePrimaryTransaction())
     OpenPrimary();
