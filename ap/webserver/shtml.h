@@ -105,6 +105,7 @@ class ShtmlWebserverContextData : public WHCore::SHTMLWebserverCallbacks
         Shtml *shtml;
 
         void ConfigureWebServer(HSVM *hsvm, HSVM_VariableId id_set);
+        void FlushLogFiles(HSVM *hsvm);
         void LogWebserverError(HSVM *hsvm);
         void SessionList(HSVM *hsvm, HSVM_VariableId id_set);
 

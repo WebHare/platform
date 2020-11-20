@@ -1016,6 +1016,7 @@ void WHMGR_ ## x(HSVM *vm)                                                      
 FORWARD_MGR_FUNCTION(ConfigureWebServer)
 FORWARD_MGR_FUNCTION(GetHTTPEventListenerCounts)
 FORWARD_MGR_MACRO(FlushCache)
+FORWARD_MGR_MACRO(FlushLogFiles)
 
 FORWARD_MGR_MACRO(ClearHTTPEventMessages)
 
@@ -1148,6 +1149,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterMacro(regdata,"__SYSTEM_SETSYSTEMCONFIG:::R", SetSystemConfig);
 
         HSVM_RegisterFunction(regdata, "CONFIGUREWEBSERVER::R:R",WHMGR_ConfigureWebServer);
+        HSVM_RegisterMacro(regdata, "__WHS_FLUSHLOGFILES:::",WHMGR_FlushLogFiles);
 
         HSVM_RegisterFunction(regdata, "GETREQUESTBODY::X:",WHS_GetRequestBody);
 

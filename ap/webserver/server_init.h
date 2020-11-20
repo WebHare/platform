@@ -38,10 +38,12 @@ class WebHareServer
 
         void LoadConfig(HSVM *vm, HSVM_VariableId retval, HSVM_VariableId config);
 
+        ///Flush log files (access,pxl,errors - would normally only happen every 5 seconds)
+        void FlushLogFiles();
+
         private:
         void TryScanConfig(bool reconnected);
 
-        void FlushLogFiles();
         void MaintenanceThreadCode();
 
         void AccessLogFunction(WebServer::Connection&,unsigned,uint64_t);

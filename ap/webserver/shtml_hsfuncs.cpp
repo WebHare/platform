@@ -891,6 +891,11 @@ void ShtmlWebserverContextData::ConfigureWebServer(HSVM *vm, HSVM_VariableId id_
         shtml->whserver.LoadConfig(vm, id_set, HSVM_Arg(0));
 }
 
+void ShtmlWebserverContextData::FlushLogFiles(HSVM *)
+{
+        shtml->whserver.FlushLogFiles();
+}
+
 void ShtmlWebserverContextData::LogWebserverError(HSVM *vm)
 {
         std::string message=HSVM_StringGetSTD(vm, HSVM_Arg(0));
