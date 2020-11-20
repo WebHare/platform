@@ -677,3 +677,8 @@ PUBLIC MACRO LogCurrentRequestToRPCLog(STRING source)
                  ]);
 }
 
+/** @short Flush the webserver log files */
+PUBLIC MACRO FlushWebserverLogfiles()
+{
+  __WHS_FLUSHLOGFILES();
+}

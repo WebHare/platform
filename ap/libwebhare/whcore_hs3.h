@@ -97,6 +97,7 @@ class BLEXLIB_PUBLIC SHTMLWebserverCallbacks
         virtual ~SHTMLWebserverCallbacks()=0;
 
         virtual void ConfigureWebServer(HSVM *hsvm, HSVM_VariableId id_set)=0;
+        virtual void FlushLogFiles(HSVM *hsvm)=0;
         virtual void LogWebserverError(HSVM *hsvm)=0;
         virtual void SessionList(HSVM *hsvm, HSVM_VariableId id_set)=0;
 
