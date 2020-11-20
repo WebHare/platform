@@ -872,6 +872,18 @@
           <text tid="receivedfor">We hebben een verzoek ontvangen om het wachtwoord opnieuw in te stellen voor: <param p="1"/></text>
           <text tid="subject">Uw wachtwoord herstellen voor <param p="1"/></text>
         </textgroup>
+        <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
+          <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
+          <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
+          <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
+            <text tid="digits">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">cijfer<else/>cijfers</ifparam> bevatten.</text>
+            <text tid="hibp">Het mag niet aanwezig zijn in de HaveIBeenPwned-wachtwoorddatabase.</text>
+            <text tid="lowercase">Het moet tenminste <param p="1"/> kleine <ifparam p="1" value="1">letter<else/>letters</ifparam> bevatten.</text>
+            <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
+            <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
+            <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
+          </textgroup>
+        </textgroup>
       </textgroup>
       <textgroup gid="payments">   <!-- site.forms.payments -->
         <text tid="afterpay-only-be">Afterpay BE is alleen beschikbaar voor Belgische adressen</text>

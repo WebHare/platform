@@ -15,6 +15,8 @@
 
   .wh-counter--havelimit .wh-counter__separator
 , .wh-counter--havelimit .wh-counter__limit
+, .wh-counter--haveminvalue .wh-counter__separator
+, .wh-counter--haveminvalue .wh-counter__limit
 {
   display: inline;
 }
@@ -29,6 +31,11 @@
   opacity: 0.45;
 }
 
+.wh-counter.wh-counter--underflow
+{
+  background-color: #C22121;
+  opacity: 1;
+}
 .wh-counter.wh-counter--overflow
 {
   background-color: #C22121;

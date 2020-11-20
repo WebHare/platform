@@ -1884,6 +1884,14 @@
         <text tid="logindialog">Login screen</text>
         <text tid="mailretention">Save sent emails</text>
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
+        <text tid="password_digits">Minimum number of digits</text>
+        <text tid="password_lowercase">Minimum number of lowercase letters</text>
+        <text tid="password_minlength">Minimum number of characters</text>
+        <text tid="password_symbols">Minimum number of other symbols</text>
+        <text tid="password_uppercase">Mimumum number of uppercase letters</text>
+        <text tid="passwordcheckhibp">Check password in HIBP-database</text>
+        <text tid="passwordminlength">Minimum length</text>
+        <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="processhistory">Keep process history</text>
         <text tid="pxllog">Keep pxl log</text>
         <text tid="registergeoip2">Click here to register for a GeoLite2 account</text>

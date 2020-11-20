@@ -737,6 +737,7 @@ PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy)
 {
   pwdfield->visible := policy.haspassword;
   pwdfield->cellname := pwdfield->contexts->controller->userapi->wrdschema->accountpasswordtag;
+  pwdfield->validationchecks := policy.passwordvalidationchecks;
   pwdfield->policy := policy.passwordpolicy;
   pwdfield->onpolicycheck := policy.passwordcheck;
 }

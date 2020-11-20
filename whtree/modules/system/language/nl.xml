@@ -1695,6 +1695,14 @@
         <text tid="logindialog">Inlogscherm</text>
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
+        <text tid="password_digits">Minimum aantal cijfers</text>
+        <text tid="password_lowercase">Mimumum aantal kleine letters</text>
+        <text tid="password_minlength">Minumum aantal karakters</text>
+        <text tid="password_symbols">Mimumum aantal andere symbolen</text>
+        <text tid="password_uppercase">Minimum aantal hoofdletters</text>
+        <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
+        <text tid="passwordminlength">Minimum lengte</text>
+        <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
         <text tid="pxllog">Bewaar pxl log</text>
         <text tid="registergeoip2">Klik hier om een GeoLite2-account te registreren</text>

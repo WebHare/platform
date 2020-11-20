@@ -71,8 +71,9 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     this.componenttype = "textedit";
     this.lastreportedvalue = '';
     this.reportchange_cb = null;
-    this.maxlength = 0;
-    this.maxlengthmeasure = false;
+    this.minlength = -1;
+    this.maxlength = -1;
+    this.lengthmeasure = false;
     this.type = '';
     this.inputnode = null;
     this.placeholder = '';
@@ -80,13 +81,15 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     this.setValue(data.value);
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
-    this.maxlengthmeasure = data.maxlengthmeasure;
+    this.lengthmeasure = data.lengthmeasure;
     this.validationchecks = data.validationchecks || [];
     this.prefix = data.prefix || "";
     this.suffix = data.suffix || "";
     this.autocomplete = data.autocomplete || [];
+
     if (data.maxlength >= 0 && !data.password) //Never accept a maxlength on passwords, as it's not obvious you typed too much characters
       this.maxlength = data.maxlength;
+    this.minlength = data.minlength; // but minlength is relevant as password requirement
 
     this.type = data.password ? 'password' : 'text';
 
@@ -189,6 +192,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     {
       this.required = value;
       this.node.classList.toggle("required", this.required);
+      if (this.counter)
+        this.counter.update({ required: this.required });
     }
   }
 
@@ -233,12 +238,21 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
       this.inputnode.name = "password";
 
     this.node.appendChild(this.inputnode);
+
+    // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
     if (this.maxlength > 0)
+    {
       this.inputnode.maxLength = this.maxlength;
+      if (this.minlength > 0 && this.lengthmeasure == "characters" && this.minlength < this.maxlength)
+        this.inputnode.minLength = this.minlength;
+    }
+    else if (this.minlength > 0 && this.lengthmeasure == "characters")
+      this.inputnode.minLength = this.minlength;
 
     if(this.showcounter)
     {
-      new InputTextLengthCounter(this.node, { 'maxlengthmeasure' : this.maxlengthmeasure });
+      const style = this.buttons.length ? `right: ${(4 + this.buttons.length * (16 + intra_button_padding))}px;` : null;
+      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure, style, required: this.required });
     }
 
     for (let button of this.buttons)
@@ -269,17 +283,31 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase
     if(this.suffix)
       this.prefixsuffixsize += $todd.CalculateTextSize(this.suffix).x  + prefix_suffix_margin;
 
-    this.width.min += this.prefixsuffixsize;
-
+    let othercontent = 0;
     this.buttons.forEach(button =>
     {
       button.width.min = 16;
       button.width.calc = 16;
-      this.width.min += intra_button_padding + button.width.calc;
+      othercontent += intra_button_padding + button.width.calc;
     });
 
-    let estimatechars = this.maxlength > 0 && this.maxlength < 28 ? this.maxlength + 2: 30;
-    this.width.calc = Math.max(this.width.min, estimatechars * $todd.desktop.x_width + this.prefixsuffixsize);
+    if (this.showcounter && (this.maxlength > 0 || this.minlength > 0))
+    {
+      const counterchars = 3 +
+          (this.minlength > 0
+              ? (this.maxlength > 0 ? 7 : 3)
+              : 2);
+      othercontent += $todd.desktop.x_width * counterchars;
+    }
+
+    this.width.min += this.prefixsuffixsize + othercontent;
+
+    let maxcalcwidth = $todd.desktop.x_width * 30 + this.prefixsuffixsize;
+    let calcwidth = this.maxlength > 0
+        ? $todd.desktop.x_width * (this.maxlength + 1) + this.prefixsuffixsize + othercontent
+        : maxcalcwidth;
+
+    this.width.calc = Math.max(this.width.min, Math.min(calcwidth, maxcalcwidth));
   }
 
   applySetWidth()

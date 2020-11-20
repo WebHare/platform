@@ -147,6 +147,16 @@
             <text title="" valuetid="~units.days"/>
           </line>
         </tab>
+        <tab tid=".passwordrestrictions">
+          <line layout="left">
+            <checkbox name="password_hibp" labeltid=".passwordcheckhibp" title="" />
+          </line>
+          <textedit name="password_minlength" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+          <textedit name="password_lowercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+          <textedit name="password_uppercase" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+          <textedit name="password_digits" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+          <textedit name="password_symbols" minvalue="0" valuetype="integer" emptyvalue="0" width="5x" />
+        </tab>
       </tabs>
     </body>
     <footer>

@@ -81,6 +81,8 @@ export default class ObjText extends ComponentBase
 
   setLabelFor(value)
   {
+    if (this.node)
+      this.node.dataset.labelfor = value;
     this.labelfor = value;
   }
 
@@ -126,7 +128,11 @@ export default class ObjText extends ComponentBase
     if(this.styles.underline)
       txtnode.style.textDecoration = "underline";
     if (this.labelfor || this.action)
+    {
       txtnode.classList.add("label");
+      if (this.labelfor)
+        txtnode.dataset.labelfor = this.labelfor;
+    }
     else
     {
       if (this.styles.wordwrap)

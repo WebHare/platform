@@ -192,7 +192,7 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
 
   /// How length of value is measured ("characters" or "bytes")
-  STRING pvt_maxlengthmeasure;
+  STRING pvt_lengthmeasure;
 
 
   /// Placeholder text
@@ -201,6 +201,8 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
   /// Whether to show a character/byte counter
   BOOLEAN pvt_showcounter;
+
+  INTEGER pvt_minlength;
 
   INTEGER pvt_maxlength;
 
@@ -249,9 +251,16 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
   /// Placeholder text to show if nothing is filled in
   PUBLIC PROPERTY placeholder(pvt_placeholder, SetPlaceholder);
 
-
   /// How length of value is measured (Unicode "characters" vs UTF-8 "bytes")
-  PUBLIC PROPERTY maxlengthmeasure(pvt_maxlengthmeasure, SetMaxLengthMeasure);
+  PUBLIC PROPERTY lengthmeasure(pvt_lengthmeasure, SetLengthMeasure);
+
+  /** How length of value is measured (Unicode "characters" vs UTF-8 "bytes").
+      @deprecated Please use lengthmeasure
+  */
+  PUBLIC PROPERTY maxlengthmeasure(pvt_lengthmeasure, SetLengthMeasure);
+
+  /// Minimum length of the value
+  PUBLIC PROPERTY minlength(pvt_minlength, SetMinLength);
 
   /// Maximum length of the value
   PUBLIC PROPERTY maxlength(pvt_maxlength, SetMaxLength);
@@ -345,8 +354,9 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     this->componenttype := "textedit";
     this->trimwhitespace := TRUE;
     this->SetValueType("string");
+    this->minlength := -1;
     this->maxlength := -1;
-    this->maxlengthmeasure := "characters";
+    this->lengthmeasure := "characters";
     this->pvt_round := FALSE;
     this->pvt_decimals := 0;
     this->formfieldtype := "string";
@@ -372,10 +382,19 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
       work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", fieldtitle));
       any_error := TRUE;
     }
-    ELSE IF(this->maxlength>0 AND this->pvt_valuetype="string" AND (
-      (this->maxlengthmeasure = "bytes" AND Length(this->valstore.val) > this->maxlength)
+    ELSE IF(this->minlength>0 AND this->pvt_valuetype="string" AND
+      (this->required OR IsValueSet(this->valstore.val)) AND (
+      (this->lengthmeasure = "bytes" AND Length(this->valstore.val) < this->minlength)
         OR
-      (this->maxlengthmeasure = "characters" AND UCLength(this->valstore.val) > this->maxlength)))
+      (this->lengthmeasure = "characters" AND UCLength(this->valstore.val) < this->minlength)))
+    {
+      work->AddErrorFor(this, GetTid("tollium:common.errors.too_short", fieldtitle, ToString(this->minlength)));
+      any_error := TRUE;
+    }
+    ELSE IF(this->maxlength>0 AND this->pvt_valuetype="string" AND (
+      (this->lengthmeasure = "bytes" AND Length(this->valstore.val) > this->maxlength)
+        OR
+      (this->lengthmeasure = "characters" AND UCLength(this->valstore.val) > this->maxlength)))
     {
       work->AddErrorFor(this, GetTid("tollium:common.errors.too_long", fieldtitle, ToString(this->maxlength)));
       //"Field '" || this->title || "' must be less than " || this->maxlength || " characters in width");
@@ -476,8 +495,9 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
       RECORD compinfo := [ comptype := "textedit"
                          , password := this->password
                          , required := this->required
+                         , minlength := this->minlength
                          , maxlength := this->maxlength
-                         , maxlengthmeasure := this->maxlengthmeasure
+                         , lengthmeasure := this->lengthmeasure
                          , showcounter := this->showcounter
                          , value := this->textvalue
                          , hint := this->hint
@@ -527,15 +547,15 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     RETURN this->pvt_textvalue;
   }
 
-  MACRO SetMaxLengthMeasure(STRING measure)
+  MACRO SetLengthMeasure(STRING measure)
   {
     measure := ToLowercase(measure);
     IF (measure NOT IN [ "bytes", "characters" ])
       measure := "characters";
 
-    IF (this->pvt_maxlengthmeasure != measure)
+    IF (this->pvt_lengthmeasure != measure)
     {
-      this->pvt_maxlengthmeasure := measure;
+      this->pvt_lengthmeasure := measure;
       this->ExtUpdatedComponent();
     }
   }
@@ -545,6 +565,15 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
     IF (this->pvt_showcounter != showcounter)
     {
       this->pvt_showcounter := showcounter;
+      this->ExtUpdatedComponent();
+    }
+  }
+
+  MACRO SetMinLength(INTEGER minlength)
+  {
+    IF (this->pvt_minlength != minlength)
+    {
+      this->pvt_minlength := minlength;
       this->ExtUpdatedComponent();
     }
   }
@@ -1158,8 +1187,9 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
       this->maximumvalue := parsed_val.value;
     }
     this->password := def.password;
+    this->minlength := def.minlength;
     this->maxlength := def.maxlength;
-    this->maxlengthmeasure := def.maxlengthmeasure;
+    this->lengthmeasure := def.maxlengthmeasure ?? def.lengthmeasure;
     this->showcounter := def.showcounter;
     this->trimwhitespace := def.trimwhitespace;
     this->decimals := def.decimals;

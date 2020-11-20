@@ -221,6 +221,15 @@ function compByName(toddname)
   {
     return getCurrentScreen().getToddElement(toddname);
   }
+export function compByTitle(title)
+{
+  let elts = getCurrentScreen().qSA('t-text.label').filter(label => (label.textContent === (title + ":") || label.textContent === title));
+  if (elts.length == 0)
+    throw new Error(`No component with title '${title}'`);
+  if (elts.length > 1)
+    throw new Error(`Multiple components with title '${title}'`);
+  return compByName(elts[0].dataset.labelfor || elts[0].for);
+}
 function getTestScreen(testscreen, whdebug)
   {
     let allowtestfw = [ "1", "true" ].includes(document.documentElement.dataset.exclusive) ? ",allowtestfw" : "";

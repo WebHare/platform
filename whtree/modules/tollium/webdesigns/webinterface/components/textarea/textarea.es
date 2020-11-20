@@ -26,10 +26,12 @@ export default class ObjTextArea extends ComponentBase
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
     this.wordwrap = data.wordwrap !== false;
+    this.minlength = 0;
     this.maxlength = 0;
-    this.maxlengthmeasure = data.maxlengthmeasure;
+    this.lengthmeasure = data.lengthmeasure;
     if (data.maxlength >= 0 && !data.password) //Never accept a maxlength on passwords, as it's not obvious you typed too much characters
       this.maxlength = data.maxlength;
+    this.minlength = data.minlength; // minlength is relevant for password requirements
 
     // Build our DOM
     this.buildNode();
@@ -104,6 +106,8 @@ export default class ObjTextArea extends ComponentBase
                                                 , autocomplete: "off"
                                                 , placeholder: this.placeholder.split("\n").join(", ")
                                                 });
+    if (this.minlength > 0 && this.lengthmeasure == "characters")
+      this.inputnode.minLength = this.minlength;
     if (this.maxlength > 0)
       this.inputnode.maxLength = this.maxlength;
 
@@ -116,7 +120,7 @@ export default class ObjTextArea extends ComponentBase
     this.node.appendChild(this.inputnode);
 
     if(this.showcounter)
-      new InputTextLengthCounter(this.node, { 'maxlengthmeasure' : this.maxlengthmeasure });
+      new InputTextLengthCounter(this.node, { 'lengthmeasure' : this.lengthmeasure });
   }
 
 /****************************************************************************************************************************

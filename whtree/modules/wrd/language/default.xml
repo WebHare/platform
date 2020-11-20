@@ -872,6 +872,18 @@
           <text tid="receivedfor">We have received a request to reset the password for <param p="1"/></text>
           <text tid="subject">Reset your password for <param p="1"/></text>
         </textgroup>
+        <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
+          <text tid="failure">The new password doesn't have the following properties:<br/><param p="1"/></text>
+          <text tid="requirements">The new password must have the following properties:<br/><param p="1"/></text>
+          <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
+            <text tid="digits">It must contain at least <param p="1"/> <ifparam p="1" value="1">digit<else/>digits</ifparam>.</text>
+            <text tid="hibp">It must not be present in the HaveIBeenPwned password database.</text>
+            <text tid="lowercase">It must contain at least <param p="1"/> lowercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
+            <text tid="minlength">It must be <param p="1"/> characters or longer</text>
+            <text tid="symbols">It must contain at least <param p="1"/> <ifparam p="1" value="1">symbol<else/>symbols</ifparam>.</text>
+            <text tid="uppercase">It must contain at least <param p="1"/> uppercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
+          </textgroup>
+        </textgroup>
       </textgroup>
       <textgroup gid="payments">   <!-- site.forms.payments -->
         <text tid="afterpay-only-be">Afterpay BE is only available for addresses in Belgium</text>

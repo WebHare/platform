@@ -248,11 +248,15 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="MaxLengthMeasureMethods">
+  <xs:simpleType name="TextLengthMeasureMethods">
     <xs:restriction base="xs:string">
       <xs:enumeration value="bytes"/>
       <xs:enumeration value="characters"/>
     </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MaxLengthMeasureMethods">
+    <xs:restriction base="TextLengthMeasureMethods" />
   </xs:simpleType>
 
   <xs:simpleType name="ReserveComponents">
@@ -2116,13 +2120,19 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="sc:Errorlabel" />
     <xs:attributeGroup ref="Onchange" />
 
+    <xs:attribute name="minlength" type="xs:integer" default="-1">
+      <xs:annotation>
+        <xs:documentation>The minimum number of characters required for this text edit field.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="maxlength" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>The maximum number of characters allowed for this text edit field. If less than 30, the default width of the textedit is reduced to match</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="maxlengthmeasure" type="MaxLengthMeasureMethods" default="characters">
+    <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
           <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
@@ -2130,10 +2140,18 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use 'lengthmeasure'.</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with maxlength.</html:p>
+          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2282,10 +2300,11 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onpolicycheck" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <tai:callbacksignature returntype="boolean" arguments="string"/>
+          <tai:callbacksignature returntype="record" arguments="string"/>
         </xs:appinfo>
         <xs:documentation>
-          Verify whether a password complies with a policy
+          Verify whether a password complies with a policy. Return a record
+          with cells 'success' (boolean) and 'message' (string).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
@@ -2307,6 +2326,31 @@ To change a <xs:attribute /> for adding descriptions
           If the field is hashed, return this hash when no password has been entered.
         </xs:documentation>
       </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="validationchecks">
+      <xs:annotation>
+        <xs:documentation>
+          Checks to perform on the password
+          - minlength: minimum length, in Unicode characters
+          - hibp: may not contain a password present in the HaveIBeenPwnd database
+          - lowercase: Must contain at least this amount of lowercase letters
+          - uppercase: Must contain at least this amount of uppercase letters
+          - digits: Must contain at least this amount of digits
+          - symbols:  Must contain at least this amount of other characters
+
+          Example: 'minlength:12 digits:10 hibp'.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="^(minlength:[1-9][0-9]*||hibp|lowercase:[1-9][0-9]*|uppercase:[1-9][0-9]*||digits:[1-9][0-9]*|symbols:[1-9][0-9]*)$" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
     </xs:attribute>
 
   </xs:complexType>
@@ -2690,6 +2734,14 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="Placeholder" />
     <xs:attribute name="trimwhitespace" type="xs:boolean" default="true" />
 
+    <xs:attribute name="minlength" type="xs:integer" default="-1">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The minimum number of characters required in this text area.</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="maxlength" type="xs:integer" default="-1">
       <xs:annotation>
         <xs:documentation>
@@ -2698,7 +2750,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="maxlengthmeasure" type="MaxLengthMeasureMethods" default="characters">
+    <xs:attribute name="lengthmeasure" type="TextLengthMeasureMethods" default="characters">
       <xs:annotation>
         <xs:documentation>
           <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters).</html:p>
@@ -2706,10 +2758,18 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="maxlengthmeasure" type="TextLengthMeasureMethods">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The way the number of characters is measured (UTF-8 bytes or Unicode characters). Deprecated, please use attribute lengthmeasure</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attribute name="showcounter" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with maxlength.</html:p>
+          <html:p>If set to true, a counter will be shown with the actual number of characters/bytes in the field. This may be useful in conjunction with minlength/maxlength.</html:p>
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
