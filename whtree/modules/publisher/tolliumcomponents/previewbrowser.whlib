@@ -228,7 +228,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     RECORD data := [ fileid := fileid
                    ];
 
-    IF(selectedfile.type IN [ 19, 20 ])
+    IF(selectedfile.type IN [ 19, 20 ]) //19: internallink, 20: contentlink
     {
       // Find internal or content link target
       RECORD target := SELECT type, published, parentsite, indexurl, fullpath FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
@@ -243,9 +243,9 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                , message := message
                ] INTO this->previewmessages AT END;
 
-        IF (selectedfile.type = 19)
+        IF (selectedfile.type = 19) //19: internal link
         {
-          IF (GetErrorFromPublished(target.published) NOT IN [ 0, 112 ]) // Ignore 'locked site' errors
+          IF (GetErrorFromPublished(target.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(target.published)) // Ignore 'locked site' errors
           {
             // Publication errors
             INSERT [ level := 2
