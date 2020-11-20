@@ -85,7 +85,7 @@ PUBLIC VARIANT FUNCTION AnyTypeFromString(STRING data, INTEGER datatype)
     }
     DEFAULT
     {
-      ABORT("Unrecognized datatype #" || datatype);
+      THROW NEW Exception("Unrecognized datatype #" || datatype);
     }
   }
 }

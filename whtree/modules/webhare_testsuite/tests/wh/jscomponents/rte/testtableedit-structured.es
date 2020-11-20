@@ -84,4 +84,23 @@ test.registerTests(
         test.eq(146, coords.height); // 96 + 50
       }
     }
+
+  , "Test loading table into structured RTE without table support"
+  , async function()
+    {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&notablestyle=1');
+      let rte = test.getWin().rte;
+      // let editor = rte.getEditor();
+      const tabletext = `<table class="table wh-rtd-table wh-rtd__table" style="width: 301px;"><colgroup class="wh-tableeditor-colgroup"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"><col style="width: 75px;"></colgroup><tbody><tr class="wh-rtd--hascolheader" style="height: 25px;"><th scope="col" class="wh-rtd__tablecell"><p class="normal">aap</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">noot</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">mies</p></th><th scope="col" class="wh-rtd__tablecell"><p class="normal">wim</p></th></tr><tr style="height: 35px;"><td class="wh-rtd__tablecell"><p class="normal">zus</p></td><td class="wh-rtd__tablecell"><p class="normal">
+
+                          JET
+
+                        </p></td><td class="wh-rtd__tablecell"><p class="normal">teun</p></td><td class="wh-rtd__tablecell"><p class="normal">vuur</p></td></tr><tr style="height: 35px;"><td class="wh-rtd__tablecell"><p class="normal">gijs</p></td><td class="wh-rtd__tablecell"><p class="normal">lam</p></td><td class="wh-rtd__tablecell"><p class="normal">kees</p></td><td class="wh-rtd__tablecell"><p class="normal">bok</p></td></tr></tbody></table>`;
+
+      //test regression - updating a disconnected RTE triggered "Cannot read property 'tableresizing' of null" when reactivating that RTE
+      rte.setReadonly(true);
+      rte.setValue(tabletext);
+      rte.setReadonly(false);
+    }
+
   ]);

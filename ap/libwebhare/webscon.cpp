@@ -596,7 +596,10 @@ void Connection::DecodeStatusHeader(std::string const &blamescript)
 
                         if(statuscode == StatusInternalError) //internal server error. log to errors.log because unlogged 500s confuse webmasters
                         {
-                                request->ErrorLog("Script " + blamescript + " reporting internal server error: " + protocol.status_additional_message);
+                                if(!protocol.status_additional_message.empty())
+                                    request->ErrorLog("Script " + blamescript + " manually set status code 500 with message: " + protocol.status_additional_message);
+                                else
+                                    request->ErrorLog("Script " + blamescript + " manually set status code 500 without further information");
                         }
                 }
                 /* Delete status, it's not really a header line */

@@ -950,7 +950,11 @@ export default class StructuredEditor extends EditorBase
 
   _getResizingOptionsForTable(tablenode)
   {
-    return this.structure.lookupTableStyle(tablenode).tableresizing;
+    let tablestyle = this.structure.lookupTableStyle(tablenode);
+    if(tablestyle)
+      return tablestyle.tableresizing;
+    else
+      console.log("No tablestyle found for node", tablenode);
   }
 
   /// Pastes the content of a node at a specific locator
