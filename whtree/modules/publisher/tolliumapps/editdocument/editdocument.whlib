@@ -172,6 +172,11 @@ STATIC OBJECTTYPE EditDocumentAPI
   {
     RETURN this->editscreen->GetInstanceObject()->id;
   }
+
+  PUBLIC MACRO CancelEditor()
+  {
+    this->editscreen->tolliumresult := "cancel";
+  }
 >;
 
 PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
@@ -454,6 +459,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   MACRO ReloadRTEContents()
   {
     this->contexts->editdocumentapi->onloaddata();
+    IF(this->tolliumresult != "") //onloaddata may have cancelled us
+      RETURN;
     this->RefreshState();
   }
 

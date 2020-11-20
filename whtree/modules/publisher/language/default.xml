@@ -2432,6 +2432,8 @@
         <text tid="confirmdeleteitem">Are you sure you want to delete this <ifparam p="1" value="page">page<else/><ifparam p="1" value="handler">handler<else/><ifparam p="1" value="question">question<else/>item</ifparam></ifparam></ifparam>?</text>
         <text tid="confirmdeleteitems">Are you sure you want to delete these <param p="2"/> <ifparam p="1" value="page">pages<else/><ifparam p="1" value="handler">handlers<else/><ifparam p="1" value="question">questions<else/>items</ifparam></ifparam></ifparam>?</text>
         <text tid="extensionloaderror">The editor extension '<param p="1"/>' caused an error while loading:<br/><br/><param p="2"/></text>
+        <text tid="formbroken">There is an issue with this form and it cannot be opened in the form editor. Please contact your administrator to resolve this issue.</text>
+        <text tid="formbroken-fixit">The formeditor cannot be opened. There were issues loading the form: <br/><br/><param p="1"/><br/><br/>Do you want to edit the source?</text>
         <text tid="formnameinuse">There already is a form named '<param p="1"/>'</text>
         <text tid="formresourcenotfound">The form resource cannot be found or is a Publisher form file</text>
         <text tid="grouphaspinnedcontent">The group '<param p="1"/>' cannot be deleted, because it contains protected content</text>
