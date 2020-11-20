@@ -962,8 +962,8 @@ class TestFramework
 
     if(item == "events" || item == "tick")
     {
-      console.warn(`Waiting for '${item}' just waits for 1 second and does nothing magic, so just replace it with await wait(1)`);
-      item =1 ;
+      console.warn(`Waiting for '${item}' just waits for 1 millisecond and does nothing magic, so just replace it with await wait(1)`);
+      item = 1;
     }
 
     // Number: just wait for so many milliseconds
