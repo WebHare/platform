@@ -307,8 +307,8 @@ PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD 
 }
 
 /** @short Implements rate limiting for the current request IP
-    @long Wraps CheckRateLimit but automatically adds the current IP to the request. For ipv6, it will rate limit basedon the /64 of the IP
-    @param criterium A record describing this rate limit (hashed to generate a unique key), eg an ip address and/or service name
+    @long Wraps CheckRateLimit but automatically adds the current IP to the request. For ipv6, it will rate limit based on the /64 of the IP
+    @param criterium A record describing this rate limit (hashed to generate a unique key)
     @param numhits Number of hits to accept in the time period
     @param options Options @includecelldef %CheckRateLimit.options
     @return Limit check result @includecelldef %CheckRateLimit.return */
