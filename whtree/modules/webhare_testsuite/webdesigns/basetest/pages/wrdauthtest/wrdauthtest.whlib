@@ -38,9 +38,11 @@ PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND WRDAuthSupportBase
     policy.passwordcheck := PTR this->OnCheckPassword;
     RETURN policy;
   }
-  BOOLEAN FUNCTION OnCheckPassword(STRING pass)
+  RECORD FUNCTION OnCheckPassword(STRING pass)
   {
-    RETURN pass NOT LIKE "s*";
+    RETURN pass NOT LIKE "s*"
+        ? [ success := TRUE, message := "" ]
+        : [ success := FALSE, message := "Password does not comply with policy, it starts with an 's'" ];
   }
 >;
 

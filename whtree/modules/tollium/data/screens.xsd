@@ -2300,10 +2300,11 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="onpolicycheck" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
-          <tai:callbacksignature returntype="boolean" arguments="string"/>
+          <tai:callbacksignature returntype="record" arguments="string"/>
         </xs:appinfo>
         <xs:documentation>
-          Verify whether a password complies with a policy
+          Verify whether a password complies with a policy. Return a record
+          with cells 'success' (boolean) and 'message' (string).
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
