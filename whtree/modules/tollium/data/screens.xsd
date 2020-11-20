@@ -2122,7 +2122,7 @@ To change a <xs:attribute /> for adding descriptions
 
     <xs:attribute name="minlength" type="xs:integer" default="-1">
       <xs:annotation>
-        <xs:documentation>The minimum number of characters required forthis text edit field.</xs:documentation>
+        <xs:documentation>The minimum number of characters required for this text edit field.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
 
