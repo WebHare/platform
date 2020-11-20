@@ -214,6 +214,14 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
       {
         this->comp->width := "500px";
       }
+      CASE "passwordfield"
+      {
+        this->AddComponents(
+            [ [ membername := "validationchecks"
+              , type :=       "textedit-readwrite"
+              ]
+            ]);
+      }
     }
 
     this->componentpanel->InsertComponentAfter(this->comp, DEFAULT OBJECT, FALSE);
@@ -449,6 +457,23 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     work->Finish();
   }
 
+  MACRO DoReadProperty(OBJECT textedit, STRING name)
+  {
+    VARIANT value := GetMember(this->comp, name);
+    IF (TypeID(value) = TypeID(DATETIME))
+      textedit->value := EncodeHSON(value);
+    ELSE
+      textedit->value := EncodeJSON(value);
+  }
+
+  MACRO DoWriteProperty(OBJECT textedit, STRING name)
+  {
+    TRY
+      MemberUpdate(this->comp, name, DecodeJSONOrHSON(textedit->value));
+    CATCH (OBJECT e)
+      this->RunSimpleScreen("error", e->what);
+  }
+
   MACRO AddComponents(VARIANT ARRAY props, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([receiver := this->mainprops] , options);
@@ -501,9 +526,31 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
           comp->action->onexecute := prop.onclick;
           options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
         }
+        CASE "textedit-readwrite"
+        {
+          OBJECT comp := this->CreateTolliumComponent("textedit");
+          INSERT CELL comp := comp INTO prop;
+          comp->title := prop.membername;
+          options.receiver->InsertComponentAfter(comp, DEFAULT OBJECT, breakafter);
+
+          OBJECT readcomp := this->CreateTolliumComponent("button");
+          INSERT CELL readcomp := readcomp INTO prop;
+          readcomp->title := `Read ${prop.membername}`;
+          readcomp->action := this->CreateTolliumComponent("action");
+          readcomp->action->onexecute := PTR this->DoReadProperty(comp, prop.membername);
+          options.receiver->InsertComponentAfter(readcomp, DEFAULT OBJECT, FALSE);
+
+          OBJECT writecomp := this->CreateTolliumComponent("button");
+          INSERT CELL writecomp := writecomp INTO prop;
+          writecomp->title := `Write ${prop.membername}`;
+          writecomp->action := this->CreateTolliumComponent("action");
+          writecomp->action->onexecute := PTR this->DoWriteProperty(comp, prop.membername);
+          options.receiver->InsertComponentAfter(writecomp, DEFAULT OBJECT, FALSE);
+
+        }
       }
       INSERT prop INTO this->props AT END;
-      breakafter := FALSe;
+      breakafter := FALSE;
     }
     this->UpdateProps();
   }

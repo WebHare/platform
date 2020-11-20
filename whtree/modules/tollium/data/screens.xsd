@@ -2328,6 +2328,31 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="validationchecks">
+      <xs:annotation>
+        <xs:documentation>
+          Checks to perform on the password
+          - minlength: minimum length, in Unicode characters
+          - hibp: may not contain a password present in the HaveIBeenPwnd database
+          - lowercase: Must contain at least this amount of lowercase letters
+          - uppercase: Must contain at least this amount of uppercase letters
+          - digits: Must contain at least this amount of digits
+          - symbols:  Must contain at least this amount of other characters
+
+          Example: 'minlength:12 digits:10 hibp'.
+        </xs:documentation>
+      </xs:annotation>
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="^(minlength:[1-9][0-9]*||hibp|lowercase:[1-9][0-9]*|uppercase:[1-9][0-9]*||digits:[1-9][0-9]*|symbols:[1-9][0-9]*)$" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
+
   </xs:complexType>
 
   <xs:complexType name="TextEdit">

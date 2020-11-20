@@ -1,5 +1,19 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="fr" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="auth">   <!-- auth -->
+    <textgroup gid="passwordpolicy">   <!-- auth.passwordpolicy -->
+      <text tid="failure">Le nouveau mot de passe n'a pas les propriétés suivantes:<br/><param p="1"/></text>
+      <text tid="requirements">Le nouveau mot de passe doit avoir les propriétés suivantes:<br/><param p="1"/></text>
+      <textgroup gid="requirements">   <!-- auth.passwordpolicy.requirements -->
+        <text tid="digits">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">chiffre<else/>chiffres</ifparam>.</text>
+        <text tid="hibp">Il ne doit pas être présent dans la base de données de HaveIBeenPwned.</text>
+        <text tid="lowercase">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">caractère<else/>caractères</ifparam> alphabétique minuscule.</text>
+        <text tid="minlength">Ce doit contenir au moins <param p="1"/> caractères.</text>
+        <text tid="symbols">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">symbole<else/>symboles</ifparam>.</text>
+        <text tid="uppercase">Ce doit contenir au moins <param p="1"/> <ifparam p="1" value="1">caractère<else/>caractères</ifparam> alphabétique majuscule.</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->
