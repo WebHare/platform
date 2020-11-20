@@ -3,6 +3,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/serverconfig.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
@@ -10,6 +11,9 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 <
@@ -67,6 +71,16 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^geoip2->ReadFromRegistry();
 
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
+
+    OBJECT wrdschema := GetPrimaryWebhareUserAPI()->wrdschema;
+    STRING validationchecks := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
+    RECORD ARRAY parsed_validationchecks := ParsePasswordChecks(validationchecks);
+    ^password_hibp->value := RecordExists(SELECT FROM parsed_validationchecks WHERE check = "hibp");
+    ^password_minlength->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "minlength";
+    ^password_lowercase->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "lowercase";
+    ^password_uppercase->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "uppercase";
+    ^password_digits->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "digits";
+    ^password_symbols->value := SELECT AS INTEGER value FROM parsed_validationchecks WHERE check = "symbols";
   }
 
   BOOLEAN FUNCTION Submit()
@@ -123,6 +137,22 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.backend.security.allowpasswordreset", ^allowpasswordreset->value);
 
       OpenSite(whconstant_whfsid_webharebackend)->SetPrimaryOutput(^webhareurl->value, "/");
+
+      OBJECT wrdschema := GetPrimaryWebhareUserAPI()->wrdschema;
+      STRING ARRAY passwd_checks;
+      IF (^password_hibp->value)
+        INSERT "hibp" INTO passwd_checks AT END;
+      IF (IsValueSet(^password_minlength->value))
+        INSERT `minlength:${^password_minlength->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_lowercase->value))
+        INSERT `lowercase:${^password_lowercase->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_uppercase->value))
+        INSERT `uppercase:${^password_uppercase->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_digits->value))
+        INSERT `digits:${^password_digits->value}` INTO passwd_checks AT END;
+      IF (IsValueSet(^password_symbols->value))
+        INSERT `symbols:${^password_symbols->value}` INTO passwd_checks AT END;
+      wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", Detokenize(passwd_checks, " "));
     }
 
     ^modulemgr->WriteToRegistry();

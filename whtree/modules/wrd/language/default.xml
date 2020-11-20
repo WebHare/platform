@@ -1,19 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
-  <textgroup gid="auth">   <!-- auth -->
-    <textgroup gid="passwordpolicy">   <!-- auth.passwordpolicy -->
-      <text tid="failure">The new password doesn't have the following properties:<br/><param p="1"/></text>
-      <text tid="requirements">The new password must have the following properties:<br/><param p="1"/></text>
-      <textgroup gid="requirements">   <!-- auth.passwordpolicy.requirements -->
-        <text tid="digits">It must contain at least <param p="1"/> <ifparam p="1" value="1">digit<else/>digits</ifparam>.</text>
-        <text tid="hibp">It must not be present in the HaveIBeenPwned password database.</text>
-        <text tid="lowercase">It must contain at least <param p="1"/> lowercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
-        <text tid="minlength">It must be <param p="1"/> characters or longer</text>
-        <text tid="symbols">It must contain at least <param p="1"/> <ifparam p="1" value="1">symbol<else/>symbols</ifparam>.</text>
-        <text tid="uppercase">It must contain at least <param p="1"/> uppercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="authobjects">   <!-- authobjects -->
     <text tid="deleteduser">deleted user #<param p="1"/></text>
     <text tid="nametoolong">The name you have entered is too long.</text>
@@ -885,6 +871,18 @@
           <text tid="followlink">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
           <text tid="receivedfor">We have received a request to reset the password for <param p="1"/></text>
           <text tid="subject">Reset your password for <param p="1"/></text>
+        </textgroup>
+        <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
+          <text tid="failure">The new password doesn't have the following properties:<br/><param p="1"/></text>
+          <text tid="requirements">The new password must have the following properties:<br/><param p="1"/></text>
+          <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
+            <text tid="digits">It must contain at least <param p="1"/> <ifparam p="1" value="1">digit<else/>digits</ifparam>.</text>
+            <text tid="hibp">It must not be present in the HaveIBeenPwned password database.</text>
+            <text tid="lowercase">It must contain at least <param p="1"/> lowercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
+            <text tid="minlength">It must be <param p="1"/> characters or longer</text>
+            <text tid="symbols">It must contain at least <param p="1"/> <ifparam p="1" value="1">symbol<else/>symbols</ifparam>.</text>
+            <text tid="uppercase">It must contain at least <param p="1"/> uppercase <ifparam p="1" value="1">character<else/>characters</ifparam>.</text>
+          </textgroup>
         </textgroup>
       </textgroup>
       <textgroup gid="payments">   <!-- site.forms.payments -->

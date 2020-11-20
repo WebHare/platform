@@ -1,19 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
-  <textgroup gid="auth">   <!-- auth -->
-    <textgroup gid="passwordpolicy">   <!-- auth.passwordpolicy -->
-      <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
-      <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
-      <textgroup gid="requirements">   <!-- auth.passwordpolicy.requirements -->
-        <text tid="digits">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">cijfer<else/>cijfers</ifparam> bevatten.</text>
-        <text tid="hibp">Het mag niet aanwezig zijn in de HaveIBeenPwned-wachtwoorddatabase.</text>
-        <text tid="lowercase">Het moet tenminste <param p="1"/> kleine <ifparam p="1" value="1">letter<else/>letters</ifparam> bevatten.</text>
-        <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
-        <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
-        <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="authobjects">   <!-- authobjects -->
     <text tid="deleteduser">verwijderde gebruiker #<param p="1"/></text>
     <text tid="nametoolong">De gekozen naam is te lang.</text>
@@ -885,6 +871,18 @@
           <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om een nieuw wachtwoord te kiezen.</text>
           <text tid="receivedfor">We hebben een verzoek ontvangen om het wachtwoord opnieuw in te stellen voor: <param p="1"/></text>
           <text tid="subject">Uw wachtwoord herstellen voor <param p="1"/></text>
+        </textgroup>
+        <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
+          <text tid="failure">Het nieuwe wachtwoord voldoet niet aan de volgende eigenschappen:<br/><param p="1"/></text>
+          <text tid="requirements">Het nieuwe wachtwoord moet de volgende eigenschappen hebben:<br/><param p="1"/></text>
+          <textgroup gid="requirements">   <!-- site.forms.authpages.passwordcheck.requirements -->
+            <text tid="digits">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">cijfer<else/>cijfers</ifparam> bevatten.</text>
+            <text tid="hibp">Het mag niet aanwezig zijn in de HaveIBeenPwned-wachtwoorddatabase.</text>
+            <text tid="lowercase">Het moet tenminste <param p="1"/> kleine <ifparam p="1" value="1">letter<else/>letters</ifparam> bevatten.</text>
+            <text tid="minlength">Het moet <param p="1"/> tekens of langer zijn</text>
+            <text tid="symbols">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">symbool<else/>symbolen</ifparam> bevatten.</text>
+            <text tid="uppercase">Het moet tenminste <param p="1"/> <ifparam p="1" value="1">hoofdletter<else/>hoofdletters</ifparam> bevatten.</text>
+          </textgroup>
         </textgroup>
       </textgroup>
       <textgroup gid="payments">   <!-- site.forms.payments -->

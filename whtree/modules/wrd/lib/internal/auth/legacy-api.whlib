@@ -13,9 +13,8 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
-LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
-
 LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 
 INTEGER session_version := 6;
@@ -1277,6 +1276,7 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
       @cell(boolean) return.haspassword Whether the user can set a password in WebHare (eg not synced to AD or LDAP)
       @cell(string) return.passwordpolicy Password policy
       @cell(function ptr) return.passwordcheck Function to call to check the password policy, should return FALSE if not set
+      @cell(string) return.passwordvalidationchecks Password validation checks
       @cell(record) return.searchablefields For every authorixation object (unit, role and person) the list of searchable fields
       @cell(string array) return.searchablefields.unit List of searchable fields for a unit
       @cell(string array) return.searchablefields.role List of searchable fields for a role
@@ -1289,7 +1289,7 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
   {
     // When updating this function, please call WRDAuthSupportBase::GetUserEditPolicy, and then
     // edit the returned policy record
-    RETURN
+    RECORD retval :=
         [ haspassword :=        TRUE
         , searchablefields := [ unit   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
                               , role   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
@@ -1298,7 +1298,13 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
         , screenextension := DEFAULT RECORD
         , passwordpolicy := ""
         , passwordcheck := DEFAULT FUNCTION PTR
+        , passwordvalidationchecks := ""
         ];
+
+    IF (ObjectExists(this->plugin->wrdschema))
+      retval := CELL[ ...retval, ...GetDefaultWRDSchemaPasswordPolicy(this->plugin->wrdschema) ];
+
+    RETURN retval;
   }
 
   PUBLIC INTEGER FUNCTION VerifyPassword(OBJECT userentity, STRING password)
