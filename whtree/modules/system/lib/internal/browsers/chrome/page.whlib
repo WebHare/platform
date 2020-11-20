@@ -198,23 +198,23 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
             , width := ""
             , height := ""
             , margin := DEFAULT RECORD // [ top, left, bottom, right ]
+            , prefercsspagesize := TRUE
             ], options, [ notypecheck := [ "width", "height" ] ]);
 
-    MONEY paperwidth := 8.5m;
-    MONEY paperheight := 11m;
-    IF (options.format != "")
+    MONEY paperwidth, paperheight;
+    IF(options.width != "" AND options.height != "")
     {
-      IF (NOT CellExists(paperformats, options.format))
+      paperwidth := ConvertPrintParameterToInches(options.width);
+      paperheight := ConvertPrintParameterToInches(options.height);
+    }
+    ELSE
+    {
+      IF (NOT CellExists(paperformats, options.format)) //NOTE this defaults to a4
         THROW NEW Exception(`Unknown paper format: '${options.format}'`);
 
       RECORD format := GetCell(paperformats, options.format);
       paperwidth := format.width;
       paperheight := format.height;
-    }
-    ELSE
-    {
-      paperwidth := ConvertPrintParameterToInches(options.width) ?? paperwidth;
-      paperheight := ConvertPrintParameterToInches(options.height) ?? paperheight;
     }
 
     AWAIT this->RunSharedPagePreparation(options);
@@ -238,6 +238,7 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
             , marginleft
             , marginright
             , options.pageranges
+            , options.prefercsspagesize
             ];
 
     RECORD result := AWAIT this->pvt_client->^Page->^PrintToPDF(parameters);

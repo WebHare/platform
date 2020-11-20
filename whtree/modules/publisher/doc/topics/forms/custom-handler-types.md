@@ -14,6 +14,7 @@
             />
         </xs:appinfo>
       </xs:annotation>
+      <xs:attributeGroup ref="sc:FormHandlerAttributes" />
     </xs:complexType>
   </xs:element>
 ```

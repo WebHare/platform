@@ -4,12 +4,12 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/engines/chromepdf.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -39,17 +39,14 @@ PUBLIC OBJECTTYPE PreviewPage EXTEND DynamicPageBase
 
 IF(GetWebVariable("__preview_pdf")="1" AND GetDtapStage()="development") //experimental option, so masking it behind 'dep' just to be save
 {
-  OBJECT pdfgen := NEW ChromePDFAPI();
   STRING realurl := UpdateURLVariables(GetRequestURL(), [ __preview_pdf := "" ]);
   RECORD ARRAY cookies;
   IF(GetWebHeader("X-WHPub-IsPreview") = "1") //if you're using outputcontrols on the current page, forward that to the PDF too
     cookies := [[ name := "__whpub_preview", value := "devpackage"]];
 
-  BLOB pdfdata := WaitForPromise( pdfgen->GeneratePDFFromURL(realurl, [ media := "print"
-                                                                      , cookies := cookies
-                                                                      ]) );
-  AddHTTPHeader("Content-Type", "application/pdf", FALSE);
-  SendWebFile(pdfdata);
+  SendWrappedWebFile(GeneratePDFFromURL(realurl, [ media := "print"
+                                                 , cookies := cookies
+                                                 ]) );
 }
 
 

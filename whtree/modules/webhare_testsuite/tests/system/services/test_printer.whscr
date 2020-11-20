@@ -1,10 +1,12 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -132,6 +134,25 @@ MACRO TestPDFFromURL()
   testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
+MACRO TestPDFFromBlob()
+{
+  BLOB data := GetWebhareResource("mod::webhare_testsuite/web/tests/system/pdf.html");
+  BLOB webharebsvg := GetWebhareResource("mod::webhare_testsuite/web/tests/system/webhare.b.svg");
+
+  RECORD result := GeneratePDFFromFile(WrapBlob(data,"pdf.html"), [ printbackground := FALSE
+                                                                  , embeddedfiles := [[ href := "webhare.b.svg"
+                                                                                      , contenttype := "image/svg+xml"
+                                                                                      , data := webharebsvg
+                                                                                      ]
+                                                                                     ]
+                                                                  ]);
+  RECORD ARRAY images := ExportPDFToImages(result.data);
+
+  TestEq(1,Length(images));
+  Testeq("page-1.jpg", images[0].filename);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]);
+}
+
 MACRO TestScreenshots()
 {
   testfw->BeginWork();
@@ -186,5 +207,6 @@ MACRO TestScreenshots()
 RunTestframework([ PTR TestPDFs
                  , PTR TestWittyDialog
                  , PTR TestPDFFromURL
+                 , PTR TestPDFFromBlob
                  , PTR TestScreenshots
                  ]);

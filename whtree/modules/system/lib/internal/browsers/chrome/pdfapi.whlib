@@ -17,9 +17,9 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 // All sizes (width, height, margin.top, margin.left, margin.right and margin.bottom) can be specified as either a number of
 // pixels (@96dpi) or string value with a "px", "in", "cm" or "mm" unit.
 // Format can be one of "letter", "legal", "tabloid", "ledger", "a0", "a1", "a2", "a3", "a4", "a5" or "a6". If set to empty
-// without custom width and height specified, "letter" is used.
+// without custom width and height specified, "a4" is used.
 // Width and height are only used if they're both valid. If both format and width and height are specified, format is used.
-RECORD defaultsettings :=
+PUBLIC CONSTANT RECORD pdf_defaultsettings :=
     [ scale := 1m
     , displayheaderfooter := FALSE
     , printbackground := TRUE
@@ -29,8 +29,10 @@ RECORD defaultsettings :=
     , width := ""
     , height := ""
     , margin := DEFAULT RECORD // [ top := "", left := "", right := "", bottom := "" ]
+    , preferCSSPageSize := TRUE
     ];
 
+//We should be called through printer.whlib, not directyl!
 PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
 <
   RECORD options;
@@ -47,7 +49,7 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
 
   MACRO NEW(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    this->options := ValidateOptions(CELL[...defaultsettings, debug := FALSE]
+    this->options := ValidateOptions(CELL[...pdf_defaultsettings, debug := FALSE]
                                     , options
                                     , [ notypecheck := [ "width", "height" ] ]);
   }
@@ -241,12 +243,6 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN result;
   }
 
-  PUBLIC ASYNC FUNCTION GeneratePDFFromBlob(BLOB data, RECORD ARRAY embedded_files DEFAULTSTO DEFAULT RECORD ARRAY, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    this->embedded_files := embedded_files;
-    RETURN AWAIT this->GeneratePDFInternal(data, options);
-  }
-
   ASYNC FUNCTION GotoThePage(STRING url, RECORD options)
   {
     AWAIT this->StartSession();
@@ -261,6 +257,20 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       Sleep(options.delay);
 
     RETURN CELL[...options, DELETE cookies, DELETE delay];
+  }
+
+  PUBLIC ASYNC FUNCTION GeneratePDFFrom(STRING url, RECORD wrappedfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    this->embedded_files := options.embeddedfiles;
+    options := CELL[...options, DELETE embeddedfiles];
+    IF(url !=  "")
+    {
+      RETURN this->GeneratePDFFromURL(url, options);
+    }
+    ELSE
+    {
+      RETURN this->GeneratePDFInternal(wrappedfile.data, options);
+    }
   }
 
   PUBLIC ASYNC FUNCTION GeneratePDFFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -279,6 +289,7 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
                                                  ]
                                  ];
 
+      //https://devdocs.io/puppeteer/index#pagepdfoptions
       RETURN AWAIT this->page->PDF(finaloptions);
     }
     FINALLY
