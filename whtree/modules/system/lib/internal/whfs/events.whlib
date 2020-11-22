@@ -301,7 +301,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       OBJECT service := __OpenSynchronousWebHareService("publisher:outputanalyzer");
       service->ScheduleMultiple(this->analyzertasks);
       service->CloseService();
-      //SchedulePersistentTask("publisher:outputanalyzer", "SCHEDULEMULTIPLE", [ tasks := this->analyzertasks ]);
     }
 
     IF (Length(to_reindex) > 0 OR Length(this->reindexes) > 0)
