@@ -767,10 +767,6 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                                                  , value := ["copt3"]
                                                                  ]);
   }
-  ELSE
-  {
-    mailhandler2->RemoveAttribute("guid"); //random generate guid, to test it being put back (was an upgrade issue)
-  }
 
   IF(options.addcustompaymenthandler)
   {

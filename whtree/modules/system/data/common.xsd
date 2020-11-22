@@ -274,7 +274,7 @@
 
   <xs:attributeGroup name="FormHandlerAttributes">
     <xs:attribute name="name" type="xs:string" />
-    <xs:attribute name="guid" type="xs:string" />
+    <xs:attribute name="guid" type="xs:string" use="required" />
     <xs:attribute name="pins" type="FormHandlerPins" />
     <xs:attribute name="comment" type="xs:string" />
     <xs:attribute name="conditionid" type="InstanceId" />
