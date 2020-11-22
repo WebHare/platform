@@ -33,25 +33,28 @@ INTEGER FUNCTION GetAssociatedFSObject(RECORD submitinfo)
   RETURN lookupres.file ?? lookupres.folder;
 }
 
-OBJECT FUNCTION GetFormObject(RECORD submitinfo)
+PUBLIC OBJECT FUNCTION GetFormObjectForIdAndName(INTEGER objid, STRING formid, STRING formref, STRING url)
 {
-  STRING url := GetWebOriginURL(submitinfo.url);
-  INTEGER objid := GetAssociatedFSObject(submitinfo);
   OBJECT applytester := GetApplyTesterForObject(objid);
 
   OBJECT webcontext := __GetWebContextForApplyTester(applytester, objid);
-  webcontext->baseurl := url;
-  originalformrequesturl := url;
+  IF(url != "")
+  {
+    webcontext->baseurl := url;
+    originalformrequesturl := url;
+  }
+
   SetTidLanguage(webcontext->languagecode);
 
-  IF(submitinfo.formid LIKE "__formwidget:*")
+  IF(formid LIKE "__formwidget:*" OR formid = "-")
   {
-    RECORD targetinfo := DecryptForThisServer("publisher:formwidget", Substring(submitinfo.formid,13));
+    INTEGER target := formid = "-" ? objid : DecryptForThisServer("publisher:formwidget", Substring(formid,13)).target;
+
     ////FIXME duplicated from WebdesignBase::OpenWebtoolForm
-    OBJECT formdefs := OpenWHFSFormDefinitionsFile(OpenWHFSObject(targetinfo.target));
+    OBJECT formdefs := OpenWHFSFormDefinitionsFile(OpenWHFSObject(target));
 
     OBJECT mainform := formdefs->OpenFormDefinition("webtoolform");
-    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := targetinfo.target
+    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := target
                                                                                         ]);
     IF(parseresult.objectname = "")
       parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
@@ -63,11 +66,17 @@ OBJECT FUNCTION GetFormObject(RECORD submitinfo)
   }
   ELSE
   {
-    STRING formid := submitinfo.formid;
-    STRING formref := CellExists(submitinfo,'formref') ? submitinfo.formref : "";
     OBJECT targetform := webcontext->OpenForm(formid, [ formref := formref ]);
     RETURN targetform;
   }
+}
+
+OBJECT FUNCTION GetFormObject(RECORD submitinfo)
+{
+  STRING url := GetWebOriginURL(submitinfo.url);
+  INTEGER objid := GetAssociatedFSObject(submitinfo);
+  STRING formref := CellExists(submitinfo,'formref') ? submitinfo.formref : "";
+  RETURN GetFormObjectForIdAndName(objid, submitinfo.formid, formref, url);
 }
 
 RECORD FUNCTION Submit(RECORD submitinfo)

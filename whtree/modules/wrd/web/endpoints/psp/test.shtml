@@ -42,7 +42,7 @@ IF (NOT issubmit)
 
   IF (GetWebVariable("push") = "")
   {
-    PRINT(`Approve payment of ${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)} ref ${data.payment->paymentref} ? <br>`);
+    PRINT(`Approve payment of <b class="paymentamount">${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)}</b> ref ${data.payment->paymentref} ? <br>`);
 
     PRINT('<form method="POST" action="' || EncodeValue(GetClientRequestURL()) || '">');
     PRINT('<input type="hidden" name="pi" value="'||EncodeValue(GetWebVariable("pi"))||'" />');

@@ -35,11 +35,14 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                                , idfieldvalue := ""
                                , isedit := FALSE
                                , ispending := FALSE
-                               , isconfirm := FALSE
                                ], options);
 
-    RECORD storerow := [ __formmeta := [ setfields := STRING[] ]
+    RECORD storerow := [ __formmeta := CELL[ setfields := STRING[]
+                                           ]
                        ];
+    IF(RecordExists(extradata))
+      INSERT CELL extradata := extradata INTO storerow.__formmeta;
+
     RECORD ARRAY attachments;
 
     RECORD ARRAY formfields := form->ListFields();
@@ -101,16 +104,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
                       WHERE formresults.form_fsobject = (ObjectExists(formobject) ? formobject->id : 0)
                             AND formresults.guid = options.guid
                             AND formresults.form_name = form->__form.name
-                            AND status = (options.isconfirm ? 5/*pending*/ : 1/*final result*/);
-
-    IF(options.isconfirm)
-    {
-      //In this case we *only* update the status and can leave the rest alone
-      UPDATE publisher.formresults SET confirmed := GetCurrentDatetime()
-                                     , status := 1
-                                 WHERE id = oldresultid;
-      RETURN result;
-    }
+                            AND status = 1/*final result*/;
 
     // Store the results
     INTEGER resultid := options.isedit ? oldresultid : MakeAutonumber(publisher.formresults, "id");

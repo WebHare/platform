@@ -643,7 +643,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
            content. https://bugs.chromium.org/p/chromium/issues/detail?id=401185
            http://stackoverflow.com/questions/20847687/flexbox-vertical-alignment-issue-on-input-tag */
         Print(` placeholder="${EncodeValue(fielddescription.placeholder ?? " ")}"`);
-        IF(fielddescription.valuetype="money")
+        IF(fielddescription.valuetype = "money")
           Print(` step="any"`);
         IF(fielddescription.required)
           Print(` required`);

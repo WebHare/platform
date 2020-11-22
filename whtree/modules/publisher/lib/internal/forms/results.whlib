@@ -438,6 +438,7 @@ STATIC OBJECTTYPE WHFSForm
                , ischange := submittype = "change"
                , iscancel := submittype = "cancel"
                , setfields
+               , extradata := CellExists(simpleresults,'extradata') ? simpleresults.extradata : DEFAULT RECORD
                ];
   }
   PUBLIC MACRO CancelResult(STRING guid) //user cancel

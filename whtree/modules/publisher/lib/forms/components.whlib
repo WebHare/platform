@@ -41,6 +41,11 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
     RETURN "cancel" IN this->__handlerinfo.handler.handlertaskfor;
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
+  {
+    RETURN RECORD[];
+  }
+
   /** @short Prefill form fields
   */
   PUBLIC MACRO PrepareRendering()
@@ -87,6 +92,10 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
     RETURN result;
   }
 
+  /** @short Invoked before we show a confirm, pending or duplicate page */
+  PUBLIC MACRO RunConfirmationUpdates(RECORD formresult)
+  {
+  }
 
   /** @short Get the title for use in the form editor */
   PUBLIC STRING FUNCTION GetFormEditTitle()

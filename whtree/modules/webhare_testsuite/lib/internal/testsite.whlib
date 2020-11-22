@@ -72,6 +72,75 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , withpayment := STRING[]
                               ];
 
+MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
+{
+  rtdmailhandler->SetAttribute("sendername","Pietje");
+  rtdmailhandler->SetAttribute("sender","mailfeedbackhandler@beta.webhare.net");
+  rtdmailhandler->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
+
+  OBJECT formdefs := formpage->formdefinition->formdefinitions;
+
+  OBJECT checkboxesfield := formpage->LookupComponent("checkboxes");
+  //Create a simple RTD response with an image
+  STRING rtdtext := formdefs->CreateInstance(
+    [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , data := [ htmltext := StringToBlob('<html><body>'
+                                || '<p class="normal">Dear <b><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_firstname"></span></b>, </p>'
+                                || (options.iscustom ? '<p class="normal">Confirmation with <a href="x-witty:[pagedata.editlink]">edit link</a> and a <a href="x-richdoclink:sfdjkleearterg">internal link</a></p>' : "")
+                                || '<p class="normal">This mail was sent to: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_email"></span></p>'
+                                || '<p class="normal">We asked you when: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_when"></span>}</p>'
+                                || '<p class="normal">Your checkboxes: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_checkboxes"></span>}</p>'
+                                || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
+                                || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
+                                || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
+                                || '</body></html>')
+              , links := [[ tag := "sfdjkleearterg", linkref := OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->id ]
+                         ]
+              , instances := [[ instanceid := "embedobj_firstname"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_email"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := emailfield->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_when"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("date")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_checkboxes"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := ObjectExists(checkboxesfield) ? checkboxesfield->GetAttribute("guid") : ""
+                                        ]
+                              ]
+                             ]
+                             CONCAT (options.custommergefields ?
+                             [[ instanceid := "embedobj_reversed"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("reversed")->GetAttribute("guid") || "$reversed"
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_custom"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
+                                        , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ] : RECORD[])
+                             CONCAT (options.embeddedresults ?
+                             [[ instanceid := "embedobj_results"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formresultsfield" ]
+                              ]
+                             ] : RECORD[])
+              ]
+    ]);
+
+  rtdmailhandler->SetAttribute("textid", rtdtext);
+}
+
+
 MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 {
   //Create an empty form
@@ -291,6 +360,15 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     integerfield->SetAttribute("valuetype","integer");
   }
 
+  OBJECT moneyfield;
+  IF(options.addmoneyfield)
+  {
+    moneyfield := formpage->AppendComponent("textedit");
+    moneyfield->SetAttribute("name","moneyfield");
+    moneyfield->SetAttribute("title","Money");
+    moneyfield->SetAttribute("valuetype","money");
+  }
+
   OBJECT addedcheckboxfield;
   IF(options.addcheckboxfield)
   {
@@ -462,10 +540,14 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     paymentmethodfield->SetAttribute("name","pm");
     paymentmethodfield->SetAttribute("title","Pay using");
     paymentmethodfield->SetAttribute("required","true");
-    paymentmethodfield->SetAttribute("wrdschema",whconstant_wrd_testschema);
-    paymentmethodfield->SetAttribute("providerfield","payprov.method");
-    paymentmethodfield->SetAttribute("paymentfield","paydata.data");
     paymentmethodfield->SetAttribute("pins","existence");
+
+    IF(NOT options.addpaymenthandler) //the payment handlers configures these fields implicitly through general siteprofiles
+    {
+      paymentmethodfield->SetAttribute("wrdschema",whconstant_wrd_testschema);
+      paymentmethodfield->SetAttribute("providerfield","payprov.method");
+      paymentmethodfield->SetAttribute("paymentfield","paydata.data");
+    }
   }
   IF(options.wrdprefill)
   {
@@ -583,7 +665,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   richtext->SetAttribute("textid", rtdtext);
 
 
-  IF(options.iscustom)
+  IF(options.iscustom OR options.addpaymenthandler)
   {
     //only show thank you if the use is really new/changing
     formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
@@ -605,6 +687,24 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
                                                                     , matchtype := "IN"
                                                                     , value := ["cancel"]
+                                                                    ]);
+  }
+  IF(options.addpaymenthandler)
+  {
+    //add separate confirmation text, payment handlers like this
+    richtext := thankyoupage->AppendComponent("richtext");
+    OBJECT body := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","body");
+    OBJECT h1 := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","h1");
+    h1->SetAttribute("class","heading1");
+    h1->textcontent := "Confirmation!";
+
+    body->AppendChild(h1);
+    richtext->SetAttribute("name", "thankyou_confirmed");
+    richtext->AppendChild(body);
+
+    formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
+                                                                    , matchtype := "IN"
+                                                                    , value := ["confirm"]
                                                                     ]);
   }
 
@@ -661,71 +761,31 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   {
     //Also test RTDs with custom fields
     OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
-    rtdmailhandler->SetAttribute("sendername","Pietje");
-    rtdmailhandler->SetAttribute("sender","mailfeedbackhandler@beta.webhare.net");
-    rtdmailhandler->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
     rtdmailhandler->SetAttribute("subject", "RTD with confirmation");
-
-    //Create a simple RTD response with an image
-    rtdtext := formdefs->CreateInstance(
-      [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-      , data := [ htmltext := StringToBlob('<html><body>'
-                                  || '<p class="normal">Dear <b><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_firstname"></span></b>, </p>'
-                                  || '<p class="normal">Confirmation with <a href="x-witty:[pagedata.editlink]">edit link</a> and a <a href="x-richdoclink:sfdjkleearterg">internal link</a></p>'
-                                  || '<p class="normal">This mail was sent to: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_email"></span></p>'
-                                  || '<p class="normal">We asked you when: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_when"></span>}</p>'
-                                  || '<p class="normal">Your checkboxes: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_checkboxes"></span>}</p>'
-                                  || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
-                                  || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
-                                  || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
-                                  || '</body></html>')
-                , links := [[ tag := "sfdjkleearterg", linkref := OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->id ]
-                           ]
-                , instances := [[ instanceid := "embedobj_firstname"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := firstnamefield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_email"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := emailfield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_when"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := whenfield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_checkboxes"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := ObjectExists(checkboxesfield) ? checkboxesfield->GetAttribute("guid") : ""
-                                          ]
-                                ]
-                               ]
-                               CONCAT (options.custommergefields ?
-                               [[ instanceid := "embedobj_reversed"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := reversedfield->GetAttribute("guid") || "$reversed"
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_custom"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
-                                          , fieldname := firstnamefield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ] : RECORD[])
-                               CONCAT (options.embeddedresults ?
-                               [[ instanceid := "embedobj_results"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formresultsfield" ]
-                                ]
-                               ] : RECORD[])
-                ]
-      ]);
-
-    rtdmailhandler->SetAttribute("textid", rtdtext);
     formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
                                                                    , matchtype := "IN"
                                                                    , value := ["new","change"]
+                                                                   ]);
+  }
+
+  IF(options.addpaymenthandler)
+  {
+    //Also test RTDs with custom fields
+    OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
+    rtdmailhandler->SetAttribute("subject", "Payment is confirmed");
+    formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
+                                                                   , matchtype := "IN"
+                                                                   , value := ["confirm"]
+                                                                   ]);
+
+    rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
+    rtdmailhandler->SetAttribute("subject", "Payment has failed");
+    formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
+                                                                   , matchtype := "IN"
+                                                                   , value := ["cancel"]
                                                                    ]);
   }
 
@@ -775,6 +835,19 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     customhandler->SetAttribute("title","Custom Payment Handler");
     customhandler->SetAttribute("handlerobject", "mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.whlib#PaymentFormHandler");
     customhandler->SetAttribute("pins","existence");
+  }
+
+  IF(options.addpaymenthandler)
+  {
+    OBJECT paymenthandler := formdef->AddHandler("http://www.webhare.net/xmlns/wrd/forms#paymenthandler");
+    IF(options.addmoneyfield)
+      paymenthandler->SetAttribute("fromfield", moneyfield->GetAttribute("guid"));
+    ELSE
+      paymenthandler->SetAttribute("fixedamount", "42.42");
+
+    //paymenthandler->SetAttribute("title","Custom Payment Handler");
+    //paymenthandler->SetAttribute("handlerobject", "mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.whlib#PaymentFormHandler");
+    //paymenthandler->SetAttribute("pins","existence");
   }
 
   IF(options.addtscustomcomp)

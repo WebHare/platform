@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -245,6 +246,76 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     }
   }
 
+  PUBLIC MACRO RunServerSideConfirmation(STRING resultsguid, STRING formsubmittype) //confirm without a client present
+  {
+    this->formsubmittype := formsubmittype;
+    this->pvt_resultguid := resultsguid;
+
+    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this, allowpending := TRUE]);
+    this->__FinalizeResult(resultsguid, formsubmittype);
+
+    //NOTE this GetSingleResult also fills our local fields
+    this->__RunPostStorageHandlers(this->__GetActiveHandlers(), results.extradata);
+  }
+
+  MACRO __FinalizeResult(STRING confirmguid, STRING formsubmittype)
+  {
+    IF(formsubmittype NOT IN ["cancel","confirm"])
+      THROW NEW Exception(`Invalid formsubmittype '${formsubmittype}' for confirmation`);
+
+    RECORD match := SELECT id, status
+                      FROM publisher.formresults
+                     WHERE form_fsobject = this->__form.webtoolformid
+                           AND COLUMN guid = confirmguid
+                           AND form_name = "webtoolform";
+
+    IF(NOT RecordExists(match))
+      THROW NEW Exception(`Cannot find entry '${confirmguid}' to confirm`);
+    IF(match.status != 5)
+      THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
+
+    IF(formsubmittype = "confirm")
+    {
+      UPDATE publisher.formresults SET confirmed := GetCurrentDatetime()
+                                     , status := 1
+                                 WHERE id = match.id;
+    }
+    ELSE
+    {
+      UPDATE publisher.formresults SET modified := GetCurrentDatetime()
+                                     , status := 3
+                                 WHERE id = match.id;
+    }
+  }
+
+  RECORD ARRAY FUNCTION __GetActiveHandlers()
+  {
+    RETURN SELECT * FROM this->formhandlers WHERE this->MatchFormCondition(condition, DEFAULT RECORD).success;
+  }
+
+  MACRO __RunPostStorageHandlers(RECORD ARRAY activehandlers, RECORD extradata)
+  {
+    FOREVERY (RECORD handler FROM activehandlers)
+    {
+      IF(handler.handlerobject->IsConfirmationHandler())
+        CONTINUE;
+      IF(this->formsubmittype = "cancel" AND NOT handler.handlerobject->IsCancelHandler())
+        CONTINUE;
+      IF(this->formsubmittype != "cancel" AND NOT handler.handlerobject->IsSubmitHandler())
+        CONTINUE;
+      IF(handler.handlertask = "")
+        CONTINUE;
+
+      ScheduleManagedTask(handler.handlertask, CELL[ formid := this->__form.webtoolformid
+                                                   , formname := this->__form.name
+                                                   , formhandler := handler.guid
+                                                   , resultsguid := this->pvt_editguid ?? this->pvt_resultguid
+                                                   , submittype := this->formsubmittype
+                                                   ],
+                                                   [ auxdata := CELL[ extradata ] ]);
+    }
+  }
+
   // Let the form handlers process the form results after submission
   RECORD FUNCTION Submit(RECORD extradata)
   {
@@ -271,49 +342,50 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
         result := hookobject->Submit(work, extradata);
     }
 
-    RECORD ARRAY activehandlers := SELECT * FROM this->formhandlers WHERE this->MatchFormCondition(condition, DEFAULT RECORD).success;
+    RECORD ARRAY activehandlers := this->__GetActiveHandlers();
+    FOREVERY(RECORD handler FROM activehandlers)
+      IF (NOT work->HasFailed())
+        handler.handlerobject->PrepareSubmit(work);
 
     // Run the e-mail confirmation task first before we actually start submitting things
     RECORD confirmationhandler := SELECT * FROM activehandlers WHERE handlerobject->IsConfirmationHandler();
-    DELETE FROM activehandlers WHERE handlerobject->IsConfirmationHandler();
-    IF (RecordExists(confirmationhandler))
+    IF (RecordExists(confirmationhandler) AND NOT work->HasFailed())
     {
-      IF (NOT work->HasFailed())
+      IF (this->formsubmittype = "new")
       {
-        confirmationhandler.handlerobject->PrepareSubmit(work);
+        this->formsubmittype := "pending";
 
-        IF (this->formsubmittype = "new")
+        IF (NOT work->HasFailed())
         {
-          this->formsubmittype := "pending";
-
-          IF (NOT work->HasFailed())
-          {
-            IF(confirmationhandler.handlertask != "")
-              ScheduleManagedTask(confirmationhandler.handlertask,
-                                  CELL[ formid := this->__form.webtoolformid
-                                      , formname := this->__form.name
-                                      , formhandler := confirmationhandler.guid
-                                      , resultsguid := this->pvt_resultguid
-                                      , submittype := this->formsubmittype
-                                      ],
-                                  [ auxdata := CELL[ extradata ] ]);
-          }
+          IF(confirmationhandler.handlertask != "")
+            ScheduleManagedTask(confirmationhandler.handlertask,
+                                CELL[ formid := this->__form.webtoolformid
+                                    , formname := this->__form.name
+                                    , formhandler := confirmationhandler.guid
+                                    , resultsguid := this->pvt_resultguid
+                                    , submittype := this->formsubmittype
+                                    ],
+                                [ auxdata := CELL[ extradata ] ]);
         }
-        ELSE IF (this->formsubmittype IN [ "confirm", "duplicate" ])
-        {
-          this->__StraightToThankyouPage();
-        }
+      }
+      ELSE IF (this->formsubmittype IN [ "confirm", "duplicate" ])
+      {
+        //We're submitting from __MaybeConfirmResult
+        this->__StraightToThankyouPage();
       }
     }
 
     // If the WebtoolFormPage submit handler hasn't failed and this isn't a duplicate submission, run the store results handler
-    IF (NOT work->HasFailed() AND this->formsubmittype != "duplicate")
+    IF (NOT work->HasFailed() AND this->formsubmittype = "confirm")
+    {
+      this->__FinalizeResult(this->pvt_editguid, this->formsubmittype);
+    }
+    ELSE IF (NOT work->HasFailed() AND this->formsubmittype != "duplicate")
     {
       RECORD options := [ idfieldvalue := this->pvt_idfieldvalue
                         , guid := this->pvt_resultguid
                         , isedit := this->pvt_editguid != ""
                         , ispending := this->formsubmittype = "pending"
-                        , isconfirm := this->formsubmittype = "confirm"
                         ];
 
       // The store handler is processed inline
@@ -321,28 +393,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       this->__HandleWorkResult(submitresult.errors, submitresult.warnings);
     }
 
-    IF (this->formsubmittype NOT IN [ "pending", "duplicate" ])// don't run handlers for pending or duplicate submissions
+    IF (this->formsubmittype NOT IN [ "pending", "duplicate" ] // don't run handlers for pending or duplicate submissions
+        AND NOT work->HasFailed())
     {
-      // Run post submission handlers which may still fail work, but get a chance now that we've stored the primary settings
-      FOREVERY (RECORD handler FROM activehandlers)
-        IF(NOT work->HasFailed())
-          handler.handlerobject->PrepareSubmit(work);
-
       // If the store handler hasn't failed, schedule a task for each handler
-      IF (NOT work->HasFailed())
-      {
-        FOREVERY (RECORD handler FROM activehandlers)
-        {
-          IF(handler.handlertask != "" AND handler.handlerobject->IsSubmitHandler())
-            ScheduleManagedTask(handler.handlertask, CELL[ formid := this->__form.webtoolformid
-                                                         , formname := this->__form.name
-                                                         , formhandler := handler.guid
-                                                         , resultsguid := this->pvt_resultguid
-                                                         , submittype := this->formsubmittype
-                                                         ],
-                                                         [ auxdata := CELL[ extradata ] ]);
-        }
-      }
+      this->__RunPostStorageHandlers(activehandlers, extradata);
     }
 
     // Submission was successful if there are no errors
@@ -360,13 +415,17 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       //NOW aftersubmit handlers can do their thing
       FOREVERY (RECORD handler FROM activehandlers)
         result := handler.handlerobject->UpdateResultAfterSubmit(result);
-      IF (RecordExists(confirmationhandler))
-        result := confirmationhandler.handlerobject->UpdateResultAfterSubmit(result);
     }
     ELSE IF(this->formsubmittype = "pending")
     {
       IF (RecordExists(confirmationhandler))
         result := confirmationhandler.handlerobject->UpdateResultPendingSubmit(result);
+    }
+
+    IF (RecordExists(confirmationhandler) AND this->formsubmittype IN ["pending","confirm","duplicate"])
+    {
+      RECORD results := this->formresults->GetSingleResult(this->pvt_resultguid, [ __form := this, allowpending := TRUE ]);
+      confirmationhandler.handlerobject->RunConfirmationUpdates(results);
     }
 
     // Merge result fields into result page RTD's
@@ -401,21 +460,10 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->formresults->CancelResult(resultsguid);
     this->formvariables := CELL[...this->formvariables, formsubmittype := "cancel" ];
     this->formsubmittype := "cancel";
+
+    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this, allowcancelled := TRUE]);
+    this->__RunPostStorageHandlers(this->__GetActiveHandlers(), results.extradata);
     this->__StraightToThankyouPage();
-
-    FOREVERY (RECORD handler FROM this->formhandlers)
-    {
-      IF(handler.handlertask != "" AND handler.handlerobject->IsCancelHandler() AND this->MatchFormCondition(handler.condition, DEFAULT RECORD).success)
-      {
-        ScheduleManagedTask(handler.handlertask, CELL[ formid := this->__form.webtoolformid
-                                                     , formname := this->__form.name
-                                                     , formhandler := handler.guid
-                                                     , resultsguid
-                                                     , submittype := "cancel"
-                                                     ]);
-
-      }
-    }
   }
 
   PUBLIC BOOLEAN FUNCTION EditExistingResult(STRING resultsguid)
@@ -431,7 +479,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
   PUBLIC BOOLEAN FUNCTION PrefillWithResults(STRING resultsguid)
   {
-    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this]);
+    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this ]);
     IF (NOT RecordExists(results))
       RETURN FALSE;
 
@@ -455,36 +503,42 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF (NOT RecordExists(confirmdata))
       RETURN FALSE;
 
-    RECORD confirmationhandler := SELECT * FROM this->formhandlers WHERE guid = confirmdata.h;
+    STRING resultguid := confirmdata.r;
+    STRING handlerguid := confirmdata.h;
+
+    RECORD confirmationhandler := SELECT * FROM this->formhandlers WHERE guid = VAR handlerguid;
     IF (NOT RecordExists(confirmationhandler) OR NOT confirmationhandler.handlerobject->IsConfirmationHandler())
       RETURN TRUE;
 
-    RECORD results := this->formresults->GetSingleResult(confirmdata.r, [ __form := this, allowpending := TRUE ]);
-    IF (NOT RecordExists(results) OR results.status NOT IN ["pending","final"])
+    RECORD results := this->formresults->GetSingleResult(VAR resultguid, [ __form := this, allowpending := TRUE, allowcancelled := TRUE ]);
+    IF (NOT RecordExists(results) OR results.status NOT IN [ "pending", "final", "cancelled"])
       RETURN FALSE;
+
+    this->pvt_editguid := VAR resultguid;
 
     IF (results.submittype = "new" AND confirmationhandler.handlerobject->IsDuplicateSubmission(results, this->formresults))
     {
-      this->formvariables := CELL[...this->formvariables, formsubmittype := "duplicate" ];
-      this->pvt_editguid := confirmdata.r;
       this->formsubmittype := "duplicate";
     }
     ELSE
     {
-      this->formvariables := CELL[...this->formvariables, formsubmittype := "confirm" ];
-      this->pvt_editguid := confirmdata.r;
-      this->formsubmittype := "confirm";
+      this->formsubmittype := results.status = "cancelled" ? "cancel" : "confirm";
     }
+
+    this->formvariables := CELL[...this->formvariables, formsubmittype := this->formsubmittype ];
 
     // The captcha field is not required when the confirmation link is used
     IF (ObjectExists(this->captchaquestion))
       this->captchaquestion->required := FALSE;
 
     IF(results.status = "pending")
+    {
       this->__SubmitFormNow();
+    }
     ELSE //don't resubmit, but still go straight to 'thank you'
     {
       this->__StraightToThankyouPage();
+      confirmationhandler.handlerobject->RunConfirmationUpdates(results);
       this->__RenderThankYouFields(this->__MergeThankYouPageRTDFields());
     }
 

@@ -487,6 +487,9 @@
     <text tid="schemaarchive">Gearchiveerd WRD schema</text>
   </textgroup>
   <textgroup gid="forms">   <!-- forms -->
+    <textgroup gid="paymenthandler">   <!-- forms.paymenthandler -->
+      <text tid="handler">Verzoek om betaling</text>
+    </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
       <text tid="name">Betaalmethode</text>
     </textgroup>
