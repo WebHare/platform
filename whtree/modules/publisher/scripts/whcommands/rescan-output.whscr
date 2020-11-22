@@ -1,0 +1,8 @@
+<?wh
+
+LOADLIB "mod::system/lib/services.whlib";
+
+
+OBJECT service := WaitForPromise(OpenWebhareService("publisher:outputanalyzer"));
+WaitForPromise(service->ScheduleMultiple([[ action := "GATHERFOLDERS" ]]));
+service->CloseService();
