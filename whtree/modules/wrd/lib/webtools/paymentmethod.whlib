@@ -52,8 +52,24 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : ComposedFormFieldBase(form, parent, field)
   {
-    IF(field.wrdschema != "")
-      this->paymentapi := GetPaymentAPI(OpenWRDSchema(field.wrdschema), [ providerfield := field.providerfield, paymentfield := field.paymentfield ]);
+    STRING wrdschema := field.wrdschema;
+    STRING providerfield := field.providerfield;
+    STRING paymentfield := field.paymentfield;
+
+    RECORD formpaymentsplugin;
+    IF(ObjectExists(this->form->formapplytester))
+    {
+      formpaymentsplugin := this->form->formapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "formpayments");
+      IF(RecordExists(formpaymentsplugin))
+      {
+        wrdschema := wrdschema ?? formpaymentsplugin.wrdschema;
+        providerfield := providerfield ?? formpaymentsplugin.providerfield;
+        paymentfield := paymentfield ?? formpaymentsplugin.paymentfield;
+      }
+    }
+
+    IF(wrdschema != "")
+      this->paymentapi := GetPaymentAPI(OpenWRDSchema(wrdschema), [ providerfield := providerfield, paymentfield := paymentfield ]);
   }
 
   MACRO SetPaymentAPI(OBJECT newpaymentapi)

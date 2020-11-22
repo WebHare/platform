@@ -437,6 +437,11 @@
   </apply>
 
   <apply>
+    <to type="file" pathmask="/webtools/paymenthandlerform" />
+    <formpayments xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" providerfield="payprov.method" paymentfield="paydata.data" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*/strong-em.rtd" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" />
   </apply>
