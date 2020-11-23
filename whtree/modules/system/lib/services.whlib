@@ -6,7 +6,9 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
 
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
 LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
@@ -264,12 +266,16 @@ PUBLIC MACRO LogAccountingHit(STRING hittype, RECORD hitdata)
     @param criterium A record describing this rate limit (hashed to generate a unique key), eg an ip address and/or service name
     @param numhits Number of hits to accept in the time period
     @cell(integer) options.timeperiod Time period to which the limit applies in ms. Defaults to 1 minute (60000)
+    @cell(boolean) optinos.exemptdev Exempt development servers from the ratelimit (if this is a request, add a header to indicate the rate was hit)
     @return Limit check result
     @cell(boolean) return.accepted If TRUE, accept this request, rate limit not hit
     @cell(integer) return.backoff If >0, recommended backoff time before requests will be accepted again (in ms) */
 PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ timeperiod := 60000 ], options);
+  options := ValidateOptions( [ timeperiod := 60000
+                              , exemptdev := FALSE
+                              ], options);
+
   RECORD check := (LookupAdhocCached(criterium) ?? [ value := [ hits := DATETIME[] ]]).value;
   DATETIME now := GetCurrentDatetime();
   IF(Length(check.hits) > 0)
@@ -282,13 +288,37 @@ PUBLIC RECORD FUNCTION CheckRateLimit(RECORD criterium, INTEGER numhits, RECORD 
   IF(Length(check.hits) >= numhits)
   {
     // backoff: next valid time = check.hits[0] + options.timeperiod, compare to 'now'
+    INTEGER backoff := GetMsecsDifference(now, AddTimeToDate(options.timeperiod, check.hits[0]));
+    IF(options.exemptdev AND GetDtapStage() = "development")
+    {
+      IF(IsRequest())
+        AddHTTPHeader("X-WebHare-Limit-Hit", "backoff=" || backoff, TRUE); //always add
+
+      RETURN [ accepted := TRUE, backoff := 0 ];
+    }
     RETURN [ accepted := FALSE
-           , backoff := GetMsecsDifference(now, AddTimeToDate(options.timeperiod, check.hits[0]))
+           , backoff := backoff
            ];
   }
 
   INSERT now INTO check.hits AT END;
   StoreAdhocCached(criterium, [ ttl := options.timeperiod, value := [ hits := check.hits ] ]);
   RETURN [ accepted := TRUE, backoff := 0 ];
+}
+
+/** @short Implements rate limiting for the current request IP
+    @long Wraps CheckRateLimit but automatically adds the current IP to the request. For ipv6, it will rate limit based on the /64 of the IP
+    @param criterium A record describing this rate limit (hashed to generate a unique key)
+    @param numhits Number of hits to accept in the time period
+    @param options Options @includecelldef %CheckRateLimit.options
+    @return Limit check result @includecelldef %CheckRateLimit.return */
+PUBLIC RECORD FUNCTION CheckIPRateLimit(RECORD criterium, INTEGER numhits, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  STRING userip := GetClientRemoteIP();
+  STRING checkip := userip;
+  IF(checkip LIKE "*:*") //ipv6, limit to subnet
+    checkip := CanonicalizeIPAddress(checkip || "/64", TRUE);
+
+  RETURN CheckRateLimit(CELL[ checkip, criterium ], numhits, options);
 }
 

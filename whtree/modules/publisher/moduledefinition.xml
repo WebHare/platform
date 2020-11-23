@@ -20,6 +20,7 @@
     <task runat="33  3 * * *"  runtz="maintenance" tag="cleanup_webtool_results" script="scripts/tasks/cleanupwebtoolresults.whscr" description="Cleanup outdated Webtools form results"/>
     <task runat="17  2 * * *"  runtz="maintenance" tag="archiveoutput" script="scripts/tasks/archiveoutput.whscr" description="Move folders not associated with a site to the archive"/>
     <task runat="17  4 * * *"  runtz="maintenance" tag="deletearchived" script="scripts/tasks/deletearchived.whscr" description="Cleanup folders that have been archived for 7 or more days"/>
+    <task runat="17  7 * * 7"  runtz="maintenance" tag="rescan_output" script="scripts/whcommands/rescan-output.whscr" description="Once a week, recheck all output folders"/>
 
     <task tag="scheduledtasks" script="scripts/tasks/executetasks.whscr" description="Launch a scheduled publisher task (eg move or start publishing a file)"/>
     <task tag="updatefeedbackscopes" script="scripts/tasks/updatefeedbackscopes.whscr" description="Update feedback scopes" runatstartup="true" />

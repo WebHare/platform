@@ -43,14 +43,6 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
         this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
         RETURN;
       }
-
-      CASE "SCANALL"
-      {
-        INTEGER64 start := GetTimestamp();
-        this->ScanAllFoldersNow();
-        this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
-        RETURN;
-      }
     }
     this->ResolveByFailure(DEFAULT RECORD, `Unknown action '${data.task.action}'`);
   }

@@ -1266,6 +1266,11 @@ export default class FormBase
       return getTid("publisher:site.forms.commonerrors.minlength", field.minLength);
     if(validity.tooLong)
       return getTid("publisher:site.forms.commonerrors.maxlength", field.maxLength);
+    if(validity.stepMismatch)
+      if(!field.step || parseInt(field.step) == 1)
+        return getTid("publisher:site.forms.commonerrors.step1mismatch");
+      else
+        return getTid("publisher:site.forms.commonerrors.stepmismatch", field.step);
     if(validity.typeMismatch)
       if(["email", "url", "number"].includes(field.type))
         return getTid("publisher:site.forms.commonerrors." + field.type);
