@@ -1,6 +1,7 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webdesigns.webinterface.pages.manual">
 
-  <rtdtype namespace="http://www.webhare.net/xmlns/tollium/manualrtdtype">
+  <rtdtype namespace="http://www.webhare.net/xmlns/tollium/manualrtdtype" bodyclass="wh-tollium--manual">
+    <css path="manual.css" />
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" textstyles="" />
       <textstyle tag="HEADING2" textstyles="" />
@@ -20,6 +21,7 @@
 
   <apply>
     <to type="file" parenttype="http://www.webhare.net/xmlns/tollium/manual" />
+    <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/tollium/manualrtdtype" />
   </apply>
 
