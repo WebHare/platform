@@ -488,6 +488,9 @@
   </textgroup>
   <textgroup gid="forms">   <!-- forms -->
     <textgroup gid="paymenthandler">   <!-- forms.paymenthandler -->
+      <text tid="amounttype">Type bedrag</text>
+      <text tid="amounttype-fixed">vast bedrag</text>
+      <text tid="amounttype-fromfield">uit veld</text>
       <text tid="handler">Verzoek om betaling</text>
     </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
