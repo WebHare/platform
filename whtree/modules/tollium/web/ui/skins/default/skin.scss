@@ -801,3 +801,64 @@ html.previewframe a
 {
   color: inherit;
 }
+
+
+/****************************************************************************************************************************
+ * Documentation
+ */
+
+ .docpanel
+{
+  background-color: #f5f9fd;
+  border-left: 1px solid #b3b3b3;
+
+  &::after
+  {
+    bottom: 0;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+    content: "";
+    display: block;
+    left: -1px;
+    position: absolute;
+    top: 0;
+    width: 1px;
+  }
+}
+
+.docpanel__buttonarea
+{
+  margin-right: 4px;
+  margin-top: 4px;
+}
+
+.docpanel__edit, .docpanel__close
+{
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  height: 20px;
+  width: 20px;
+}
+
+.docpanel__edit
+{
+  background-image: url(../../../img/actions/edit.16x16.b.svg);
+}
+
+.docpanel__close
+{
+  background-image: url(../../../img/actions/delete.16x16.b.svg);
+}
+
+.wh-tollium--manual
+{
+  h1, h2, h3, p, ul, ol
+  {
+    margin-bottom: 10px;
+  }
+
+  ul, ol
+  {
+    padding-left: 20px;
+  }
+}

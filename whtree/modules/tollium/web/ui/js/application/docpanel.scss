@@ -1,27 +1,35 @@
 .docpanel
 {
-  display:flex;
-  flex-direction:column;
-  height:100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
 }
+
+.docpanel__buttonarea
+{
+  display: flex;
+  flex-direction: row;
+  right: 0;
+  position: absolute;
+  top: 0;
+}
+
 .docpanel__edit, .docpanel__close
 {
-  background:white;
-  border:1px solid red;
-  padding:3px;
-  margin-bottom:10px;
+  cursor: pointer;
 }
 
 .docpanel:not(.docpanel--canedit) .docpanel__edit
 {
-  display:none;
+  display: none;
 }
 
 .docpanel__content //iframe
 {
-  border:none;
-  display:block;
-  width:calc(100% - 1px);
-  height:100%;
-  border-left:1px solid black;
+  border: none;
+  display: block;
+  height: 100%;
+  width: 100%;
 }
