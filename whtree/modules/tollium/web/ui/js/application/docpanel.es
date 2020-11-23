@@ -2,6 +2,7 @@
 
 import * as dompack from 'dompack';
 import "./docpanel.scss";
+import getTid from "@mod-tollium/js/gettid";
 
 export default class DocPanel
 {
@@ -19,8 +20,8 @@ export default class DocPanel
                                 , "docpanel--canedit": edittoken != ""
                                }}>
                       <div class="docpanel__buttonarea">
-                        <div class="docpanel__edit" onClick={() => this.edit()}>Edit</div>
-                        <div class="docpanel__close" onClick={() => this.close()}>Close</div>
+                        <div class="docpanel__edit" title={getTid("tollium:common.actions.edit")} onClick={() => this.edit()}></div>
+                        <div class="docpanel__close" title={getTid("tollium:common.actions.close")} onClick={() => this.close()}></div>
                       </div>
                       <iframe class="docpanel__content" src={url}></iframe>
                     </div>);

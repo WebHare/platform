@@ -46,6 +46,17 @@ html.wh-tollium--app main
   height: calc(100% - 12px);
 }
 
+html.wh-tollium--manual
+{
+  background: transparent;
+}
+
+html.wh-tollium--manual body
+{
+  margin: 10px;
+}
+
+
 body
 {
   -webkit-text-size-adjust: none;
