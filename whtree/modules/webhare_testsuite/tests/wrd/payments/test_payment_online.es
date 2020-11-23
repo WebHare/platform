@@ -32,7 +32,7 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
 
       //verify handlers that we get an email
-      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 15000, count: 2 });
+      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000, count: 2 });
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort( (lhs,rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
@@ -61,7 +61,7 @@ test.registerTests(
       await test.wait('load');
 
       //verify handlers - we should NOW already see emails etc going out!
-      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 15000, count: 2 });
+      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000, count: 2 });
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort( (lhs,rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
