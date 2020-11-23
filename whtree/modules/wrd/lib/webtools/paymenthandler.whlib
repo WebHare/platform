@@ -82,6 +82,12 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     RETURN TRUE;
   }
 
+  UPDATE PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
+  {
+    //if we get here, the handler wasn't confirmed yet. as only OnPaymentFinalized does that, keep us in "pending"
+    RETURN "pending";
+  }
+
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
   {
     RETURN

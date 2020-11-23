@@ -51,6 +51,8 @@ IF (NOT issubmit)
       PRINT('<button type="submit" name="approve" value="yes" id="approvepayment">Yes, approve</button>');
     IF (GetWebVariable("approve") != "yes")
       PRINT('<button type="submit" name="approve" value="no" id="rejectpayment">No, cancel payment</button>');
+    IF (GetWebVariable("approve") != "pending")
+      PRINT('<button type="submit" name="approve" value="pending" id="pendingpayment">Dunno, keep pending</button>');
     PRINT('</form>');
     //PRINT(`<br><button onclick="javascript:window.open(location.href + '&push=1', '_blank')">Send separate HTTP notification</button>`);
   }

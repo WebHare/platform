@@ -516,9 +516,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
     this->pvt_editguid := VAR resultguid;
 
-    IF (results.submittype = "new" AND confirmationhandler.handlerobject->IsDuplicateSubmission(results, this->formresults))
+    IF (results.submittype = "new") //not yet in pending..
     {
-      this->formsubmittype := "duplicate";
+      this->formsubmittype := confirmationhandler.handlerobject->DetermineNewSubmissionStatus(results, this->formresults);
     }
     ELSE
     {
@@ -531,7 +531,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF (ObjectExists(this->captchaquestion))
       this->captchaquestion->required := FALSE;
 
-    IF(results.status = "pending")
+    IF(results.status = "pending" AND this->formsubmittype != "pending")
     {
       this->__SubmitFormNow();
     }

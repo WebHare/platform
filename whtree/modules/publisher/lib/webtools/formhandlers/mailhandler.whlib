@@ -98,7 +98,7 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationHandler EXTEND MailHandler
         ];
   }
 
-  UPDATE PUBLIC BOOLEAN FUNCTION IsDuplicateSubmission(RECORD result, OBJECT formresults)
+  UPDATE PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
   {
     IF (this->settings.onduplicate = "reject")
     {
@@ -106,12 +106,15 @@ PUBLIC STATIC OBJECTTYPE MailConfirmationHandler EXTEND MailHandler
       IF (CellExists(result.response, receiverfield))
       {
         RECORD ARRAY allresults := formresults->ListResults([ outputcolumns := [ email := receiverfield ] ]);
-        RETURN RecordExists(
+        IF(RecordExists(
             SELECT FROM allresults
-             WHERE ToUppercase(email) = ToUppercase(GetCell(result.response, receiverfield)));
+             WHERE ToUppercase(email) = ToUppercase(GetCell(result.response, receiverfield))))
+        {
+          RETURN "duplicate";
+        }
       }
     }
-    RETURN FALSE;
+    RETURN "confirm";
   }
 >;
 

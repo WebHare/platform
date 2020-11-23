@@ -29,6 +29,7 @@ test.registerTests(
       //should see cancelled text
       test.true(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should see thankyou_cancelled text");
       test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_pending"]'), "Should not see thankyou_pending");
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
 
       //verify handlers that we get an email
@@ -38,6 +39,29 @@ test.registerTests(
       test.eq("About Your Submission", emails[0].subject);
       test.eqMatch(/Too bad you've cancelled Jopie!/, emails[0].plaintext);
       test.eq("Payment has failed", emails[1].subject);
+    }
+
+  , "Simple payment - keep it pending"
+  , async function()
+    {
+      await test.load(setupdata.url);
+      //only one issuer, so it should be selected
+      test.fill(`[name="firstname"]`,"Jaapie");
+      test.true(test.qS(`[name="pm.paymentmethod"]`).checked);
+      test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
+
+      test.click("[type=submit]");
+      await test.wait('ui');
+      await test.wait('load');
+      test.eq("42.42", test.qS(".paymentamount").textContent);
+      await test.click("#pendingpayment");
+      await test.wait('load');
+
+      //should see pending text
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.true(test.canClick('[data-wh-form-group-for="thankyou_pending"]'), "Should see thankyou_pending");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
     }
 
   , async function()
@@ -74,6 +98,7 @@ test.registerTests(
       //should see confirmed text
       test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
       test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_pending"]'), "Should not see thankyou_pending");
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
     }
 

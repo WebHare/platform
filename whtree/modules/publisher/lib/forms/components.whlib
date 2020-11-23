@@ -112,10 +112,10 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
     THROW NEW Exception("Must override RunTestResult if IsTestableForResults returns TRUE");
   }
-  /** @short Whether to consider this submission as a duplicate confirmation, eg a double vote */
-  PUBLIC BOOLEAN FUNCTION IsDuplicateSubmission(RECORD result, OBJECT formresults)
+  /** @short The new submission status (eg "duplicate", "confirm", "pending") when landing on the confirmation page  */
+  PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
   {
-    RETURN FALSE;
+    THROW NEW Exception("Must override DetermineNewSubmissionStatus");
   }
 >;
 

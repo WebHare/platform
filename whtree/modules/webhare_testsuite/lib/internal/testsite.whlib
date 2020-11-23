@@ -688,6 +688,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                                                     , matchtype := "IN"
                                                                     , value := ["cancel"]
                                                                     ]);
+
   }
   IF(options.addpaymenthandler)
   {
@@ -705,6 +706,22 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
                                                                     , matchtype := "IN"
                                                                     , value := ["confirm"]
+                                                                    ]);
+
+    //add separate pending text
+    richtext := thankyoupage->AppendComponent("richtext");
+    body := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","body");
+    h1 := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","h1");
+    h1->SetAttribute("class","heading1");
+    h1->textcontent := "Pending!";
+
+    body->AppendChild(h1);
+    richtext->SetAttribute("name", "thankyou_pending");
+    richtext->AppendChild(body);
+
+    formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
+                                                                    , matchtype := "IN"
+                                                                    , value := ["pending"]
                                                                     ]);
   }
 
