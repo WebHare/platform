@@ -17,6 +17,8 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/webtools/paymentmethod.whlib";
+
 
 PUBLIC OBJECTTYPE ProcessPaymentStatus EXTEND WRDPaymentHandlerBase
 <
@@ -89,27 +91,48 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
         ];
   }
 
+  UPDATE PUBLIC MACRO ValidateFormFile(OBJECT work, OBJECT curform, OBJECT contexts)
+  {
+    RECORD ARRAY paymentfields := SELECT * FROM contexts->formcomponentapi->ListFormFields() WHERE obj EXTENDSFROM PaymentMethodField;
+    IF(Length(paymentfields) != 1)
+      work->AddError(GetTid("wrd:forms.paymenthandler.requireonepaymentmethod"));
+  }
+
   MONEY FUNCTION GetPayableAmount()
   {
     IF(this->settings.fixedamount > 0)
       RETURN this->settings.fixedamount;
 
-    RECORD myfield:= SELECT * FROM this->form->ListFields() WHERE guid = this->settings.fromfield;
+    RECORD myfield := SELECT * FROM this->form->ListFields() WHERE guid = this->settings.fromfield;
     IF(NOT RecordExists(myfield))
       THROW NEW Exception(`Cannot find field '${this->settings.fromfield}' which should contain the amount to pay`);
 
     RETURN myfield.obj->value;
   }
 
+  OBJECT FUNCTION GetPaymentMethodField()
+  {
+    //TODO selectable if more than one exists? but that is rare
+    RECORD ARRAY paymentfields := SELECT * FROM this->form->ListFields() WHERE obj EXTENDSFROM PaymentMethodField;
+    IF(Length(paymentfields) > 1)
+      THROW NEW Exception(`Form has multiple paymentmethod fields`);
+    IF(Length(paymentfields) = 0)
+      THROW NEW Exception(`Form has no paymentmethod field`);
+
+    RETURN paymentfields[0].obj;
+  }
+
   UPDATE PUBLIC MACRO PrepareSubmit(OBJECT work)
   {
-    OBJECT paymentapi := this->form->^pm->paymentapi;
+    OBJECT pmfield := this->GetPaymentMethodField();
+    OBJECT paymentapi := pmfield->paymentapi;
     this->payentity := paymentapi->paymenttype->CreateEntity(DEFAULT RECORD);
   }
   UPDATE PUBLIC RECORD FUNCTION UpdateResultPendingSubmit(RECORD result)
   {
-    OBJECT paymentapi := this->form->^pm->paymentapi;
-    STRING methodtag := paymentapi->providertype->GetEntityField(this->form->^pm->value.paymentprovider,"WRD_TAG");
+    OBJECT pmfield := this->GetPaymentMethodField();
+    OBJECT paymentapi := pmfield->paymentapi;
+    STRING methodtag := paymentapi->providertype->GetEntityField(pmfield->value.paymentprovider,"WRD_TAG");
     RECORD data := [ r := this->form->resultguid, h := this->__handlerinfo.handler.guid ];
 
     STRING returnurl := UpdateURLVariables(GetFormRequestURL(), [ confirm := EncryptForThisServer("publisher:confirmation", EncodeHSON(data))
@@ -120,7 +143,7 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     GetPrimary()->CommitWork();
 
     MONEY amount := this->GetPayableAmount();
-    RECORD pmresult := paymentapi->StartPayment(this->payentity->id, amount, CELL[ ...this->form->^pm->value
+    RECORD pmresult := paymentapi->StartPayment(this->payentity->id, amount, CELL[ ...pmfield->value
                                                                                  , returnurl
                                                                                  , paymenthandler := Resolve("#ProcessPaymentStatus")
                                                                                  , userdata := [ extformname := this->form->__form.externalformname

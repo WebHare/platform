@@ -492,6 +492,7 @@
       <text tid="amounttype-fixed">vast bedrag</text>
       <text tid="amounttype-fromfield">uit veld</text>
       <text tid="handler">Verzoek om betaling</text>
+      <text tid="requireonepaymentmethod">De betalingsafhandeling vereist dat het formulier een betaalmethode veld bevat</text>
     </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
       <text tid="name">Betaalmethode</text>
