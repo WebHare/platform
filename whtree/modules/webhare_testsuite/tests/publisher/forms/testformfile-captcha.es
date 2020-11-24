@@ -61,7 +61,7 @@ test.registerTests(
   , "Process confirmation mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 

@@ -1,0 +1,174 @@
+<?wh
+
+LOADLIB "wh::money.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rpc.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/webtools/paymentmethod.whlib";
+
+
+PUBLIC OBJECTTYPE ProcessPaymentStatus EXTEND WRDPaymentHandlerBase
+<
+  UPDATE PUBLIC MACRO OnPaymentFinalized(RECORD payment)
+  {
+    OBJECT targetform := GetFormObjectForIdAndName(payment.userdata.fsobj, payment.userdata.extformname, "", "");
+    targetform->RunServerSideConfirmation(payment.userdata.result, payment.status = "failed" ? "cancel" : "confirm");
+  }
+>;
+
+PUBLIC OBJECTTYPE PaymentSettings EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    RECORD ARRAY candidates := SELECT rowkey := guid, title := GetTid(title)
+                                 FROM this->contexts->formcomponentapi->GetFieldsForTypes(STRING[])
+                                WHERE columntype IN ["money","integer"];
+    ^field->options := [[ rowkey := "", title := "", invalidselection := TRUE ]] CONCAT candidates;
+
+    IF(this->node->HasAttribute("fixedamount"))
+    {
+      ^amounttype->value := "fixed";
+      ^amount->value := ToMoney(this->node->GetAttribute("fixedamount"),0);
+    }
+    ELSE
+    {
+      ^amounttype->value := "fromfield";
+      ^field->value := this->node->GetAttribute("fromfield");
+    }
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF( NOT work->HasFailed() )
+    {
+      IF(^amounttype->value = "fixed")
+      {
+        this->node->SetAttribute("fixedamount", FormatMoney(^amount->value,0,".","",FALSE));
+        this->node->RemoveAttribute("fromfield");
+      }
+      ELSE
+      {
+        this->node->SetAttribute("fromfield", ^field->value);
+        this->node->RemoveAttribute("fixedamount");
+      }
+    }
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
+<
+  OBJECT payentity;
+
+  MACRO NEW()
+  {
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsConfirmationHandler()
+  {
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
+  {
+    //if we get here, the handler wasn't confirmed yet. as only OnPaymentFinalized does that, keep us in "pending"
+    RETURN "pending";
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
+  {
+    RETURN
+        [ [ rowkey := "pending", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-pending") ]
+        , [ rowkey := "confirm", title := GetTid("publisher:tolliumapps.formedit.formsubmittype-confirm") ]
+        , [ rowkey := "cancel", title :=  GetTid("publisher:tolliumapps.formedit.formsubmittype-cancel") ]
+        ];
+  }
+
+  UPDATE PUBLIC MACRO ValidateFormFile(OBJECT work, OBJECT curform, OBJECT contexts)
+  {
+    RECORD ARRAY paymentfields := SELECT * FROM contexts->formcomponentapi->ListFormFields() WHERE obj EXTENDSFROM PaymentMethodField;
+    IF(Length(paymentfields) != 1)
+      work->AddError(GetTid("wrd:forms.paymenthandler.requireonepaymentmethod"));
+  }
+
+  MONEY FUNCTION GetPayableAmount()
+  {
+    IF(this->settings.fixedamount > 0)
+      RETURN this->settings.fixedamount;
+
+    RECORD myfield := SELECT * FROM this->form->ListFields() WHERE guid = this->settings.fromfield;
+    IF(NOT RecordExists(myfield))
+      THROW NEW Exception(`Cannot find field '${this->settings.fromfield}' which should contain the amount to pay`);
+
+    RETURN myfield.obj->value;
+  }
+
+  OBJECT FUNCTION GetPaymentMethodField()
+  {
+    //TODO selectable if more than one exists? but that is rare
+    RECORD ARRAY paymentfields := SELECT * FROM this->form->ListFields() WHERE obj EXTENDSFROM PaymentMethodField;
+    IF(Length(paymentfields) > 1)
+      THROW NEW Exception(`Form has multiple paymentmethod fields`);
+    IF(Length(paymentfields) = 0)
+      THROW NEW Exception(`Form has no paymentmethod field`);
+
+    RETURN paymentfields[0].obj;
+  }
+
+  UPDATE PUBLIC MACRO PrepareSubmit(OBJECT work)
+  {
+    OBJECT pmfield := this->GetPaymentMethodField();
+    OBJECT paymentapi := pmfield->paymentapi;
+    this->payentity := paymentapi->paymenttype->CreateEntity(DEFAULT RECORD);
+  }
+  UPDATE PUBLIC RECORD FUNCTION UpdateResultPendingSubmit(RECORD result)
+  {
+    OBJECT pmfield := this->GetPaymentMethodField();
+    OBJECT paymentapi := pmfield->paymentapi;
+    STRING methodtag := paymentapi->providertype->GetEntityField(pmfield->value.paymentprovider,"WRD_TAG");
+    RECORD data := [ r := this->form->resultguid, h := this->__handlerinfo.handler.guid ];
+
+    STRING returnurl := UpdateURLVariables(GetFormRequestURL(), [ confirm := EncryptForThisServer("publisher:confirmation", EncodeHSON(data))
+                                                                ]);
+
+    GetPrimary()->BeginWork();
+    this->form->formresults->SetResultKey(this->form->resultguid,  "wrd:paymentinfo", [ paymententity := this->payentity->guid ], [ allowpending := TRUE ]);
+    GetPrimary()->CommitWork();
+
+    MONEY amount := this->GetPayableAmount();
+    RECORD pmresult := paymentapi->StartPayment(this->payentity->id, amount, CELL[ ...pmfield->value
+                                                                                 , returnurl
+                                                                                 , paymenthandler := Resolve("#ProcessPaymentStatus")
+                                                                                 , userdata := [ extformname := this->form->__form.externalformname
+                                                                                               , fsobj := this->form->formcontext->targetobject->id
+                                                                                               , result := this->form->resultguid
+                                                                                               , handler := this->__handlerinfo.handler.guid
+                                                                                               ]
+                                                                                 ]);
+    RETURN CELL[ ...result
+               , submitinstruction := pmresult.submitinstruction
+               ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION PaymentHandlerParser(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL[ ...fielddef
+                  , fixedamount := ToMoney(node->GetAttribute("fixedamount"),0)
+                  , fromfield := node->GetAttribute("fromfield")
+                  ];
+  RETURN fielddef;
+}

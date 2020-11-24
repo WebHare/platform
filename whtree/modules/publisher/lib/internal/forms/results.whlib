@@ -76,7 +76,6 @@ PUBLIC INTEGER FUNCTION GetFinalResultId(INTEGER objectid, STRING formname, STRI
       [ allowcancelled := FALSE
       , allowpending := FALSE
       , showexpiredresults := FALSE
-      , dontresolve := FALSE // Set to true to get the result with the given guid, instead of chasing the last version
       ], options);
 
   RECORD storedresults := SELECT id,status
@@ -85,18 +84,16 @@ PUBLIC INTEGER FUNCTION GetFinalResultId(INTEGER objectid, STRING formname, STRI
                                  AND COLUMN guid = VAR guid
                                  AND form_name = VAR formname
                                  AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
-  IF (NOT options.dontresolve)
+
+  WHILE (RecordExists(storedresults) AND storedresults.status = 4) //chase 4=replacedby - note that replaceby is deprecated!
   {
-    WHILE (RecordExists(storedresults) AND storedresults.status = 4/*replaced*/)
-    {
-      storedresults := SELECT id, status
-                         FROM publisher.formresults
-                        WHERE id = storedresults.replacedby
-                              AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
-    }
+    storedresults := SELECT id, status
+                       FROM publisher.formresults
+                      WHERE id = storedresults.replacedby
+                            AND (options.showexpiredresults OR expiration > GetCurrentDatetime());
   }
 
-  INTEGER ARRAY validstatus := [1];
+  INTEGER ARRAY validstatus := [ 1 ];
   IF(options.allowcancelled)
     INSERT 3 INTO validstatus AT END;
   IF(options.allowpending)
@@ -412,7 +409,7 @@ STATIC OBJECTTYPE WHFSForm
     STRING ARRAY setfields := __GetSetFields(simpleresults);
 
     //return the fields in a subrecord to ease namespace conerns
-    STRING submittype := "new";
+    STRING submittype := storedresults.confirmed > storedresults.modified ? "confirm" : storedresults.modified != DEFAULT DATETIME ? "change" : "new";
     IF (storedresults.status = 3)
       submittype := "cancel";
     ELSE
@@ -441,6 +438,7 @@ STATIC OBJECTTYPE WHFSForm
                , ischange := submittype = "change"
                , iscancel := submittype = "cancel"
                , setfields
+               , extradata := CellExists(simpleresults,'extradata') ? simpleresults.extradata : DEFAULT RECORD
                ];
   }
   PUBLIC MACRO CancelResult(STRING guid) //user cancel

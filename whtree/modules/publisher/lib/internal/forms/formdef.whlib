@@ -37,7 +37,7 @@ MACRO UpdateAttribute(OBJECT child, RECORD attr, STRING newvalue)
 
 STATIC OBJECTTYPE FormPage
 <
-  OBJECT formdefinition;
+  OBJECT __formdefinition;
   OBJECT pvt_node;
 
   PUBLIC PROPERTY node(this->pvt_node, -);
@@ -45,10 +45,11 @@ STATIC OBJECTTYPE FormPage
   PUBLIC PROPERTY role(GetRole, -);
   PUBLIC PROPERTY redirect(GetRedirect, -);
   PUBLIC PROPERTY visiblecondition(GetVisibleCondition, SetVisibleCondition);
+  PUBLIC PROPERTY formdefinition(__formdefinition, -);
 
   MACRO NEW(OBJECT formdefinition, OBJECT page)
   {
-    this->formdefinition := formdefinition;
+    this->__formdefinition := formdefinition;
     this->pvt_node := page;
   }
 

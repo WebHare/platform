@@ -419,9 +419,8 @@
           2: intermediary result
           3: cancelled result (the user has deleted this entry)
           4: no-longer-valid result. if edited, the 'replacedby' contains the id of
-             the new result. if deleted, replacedby = 0
+             the new result. if deleted, replacedby = 0. deprecated
           5: pending result, waiting on email confirmation
-          6: confirmed result, the 'replacedby' contains the id of the new result (with confirmed data)
         </d:documentation>
       </d:integer>
 
@@ -466,6 +465,12 @@
       <d:datetime name="when" nullable="false">
         <d:documentation>
           When these results were submitted.
+        </d:documentation>
+      </d:datetime>
+
+      <d:datetime name="confirmed">
+        <d:documentation>
+          When these results were confirmed by a confirmation handler
         </d:documentation>
       </d:datetime>
 

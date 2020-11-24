@@ -1,0 +1,28 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+
+PUBLIC OBJECTTYPE FormPaymentsPlugin EXTEND WebDesignPluginBase
+<
+  RECORD config;
+
+  PUBLIC PROPERTY wrdschema(this->config.wrdschema, -);
+  PUBLIC PROPERTY paymentfield(this->config.paymentfield, -);
+  PUBLIC PROPERTY providerfield(this->config.providerfield, -);
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
+  {
+    this->config := mergedconfiguration;
+  }
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RECORD config :=
+           [ wrdschema := node->GetAttribute("wrdschema")
+           , providerfield := node->GetAttribute("providerfield")
+           , paymentfield := node->GetAttribute("paymentfield")
+           ];
+
+    RETURN config;
+  }
+>;

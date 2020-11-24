@@ -486,7 +486,14 @@
     <text tid="samlspendpoint">SAML SP endpoint</text>
     <text tid="schemaarchive">Archived WRD schema</text>
   </textgroup>
-  <textgroup gid="forms">   <!-- forms -->
+  <textgroup gid="forms" limitlanguages="en nl">   <!-- forms -->
+    <textgroup gid="paymenthandler">   <!-- forms.paymenthandler -->
+      <text tid="amounttype">Amount type</text>
+      <text tid="amounttype-fixed">fixed amount</text>
+      <text tid="amounttype-fromfield">from field</text>
+      <text tid="handler">Request payment</text>
+      <text tid="requireonepaymentmethod">The payment handler requires the form to have a payment method field</text>
+    </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
       <text tid="name">Payment method</text>
     </textgroup>

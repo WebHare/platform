@@ -75,7 +75,7 @@ test.registerTests(
       test.eq(getguid, formresult.guid);
       test.eq('Joe', formresult.response.firstname);
       test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
-      test.eq(1, formresult.numresults, "Shouldn't have double submitted!")
+      test.eq(1, formresult.numresults, "Shouldn't have double submitted!");
 
       //FIXME test with a 'tagged' field (should have a predictable name instead of accesing through formresult.fields[0].name)
     }

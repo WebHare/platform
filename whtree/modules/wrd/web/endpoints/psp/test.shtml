@@ -42,7 +42,7 @@ IF (NOT issubmit)
 
   IF (GetWebVariable("push") = "")
   {
-    PRINT(`Approve payment of ${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)} ref ${data.payment->paymentref} ? <br>`);
+    PRINT(`Approve payment of <b class="paymentamount">${FormatMoney(data.payment->amountpayable,2,'.','',FALSE)}</b> ref ${data.payment->paymentref} ? <br>`);
 
     PRINT('<form method="POST" action="' || EncodeValue(GetClientRequestURL()) || '">');
     PRINT('<input type="hidden" name="pi" value="'||EncodeValue(GetWebVariable("pi"))||'" />');
@@ -51,6 +51,8 @@ IF (NOT issubmit)
       PRINT('<button type="submit" name="approve" value="yes" id="approvepayment">Yes, approve</button>');
     IF (GetWebVariable("approve") != "yes")
       PRINT('<button type="submit" name="approve" value="no" id="rejectpayment">No, cancel payment</button>');
+    IF (GetWebVariable("approve") != "pending")
+      PRINT('<button type="submit" name="approve" value="pending" id="pendingpayment">Dunno, keep pending</button>');
     PRINT('</form>');
     //PRINT(`<br><button onclick="javascript:window.open(location.href + '&push=1', '_blank')">Send separate HTTP notification</button>`);
   }

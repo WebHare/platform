@@ -223,9 +223,10 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   OBJECT pd2c := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2C"]);
   testfw->CommitWork();
 
-  paymentapi->StartPayment(pd2c->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", expires := AddTimeToDate(10,GetCurrentDatetime()), returnurl := "https://www.example.net/" ]);
+  paymentapi->StartPayment(pd2c->id, 12.72m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", expires := AddTimeToDate(10,GetCurrentDatetime()), userdata := [ x := 42 ], returnurl := "https://www.example.net/" ]);
 
   TestEq("pending", pd2c->GetField("DATA").status);
+  TestEq([ x := 42 ], pd2c->GetField("DATA").userdata);
   Sleep(10); //just in case, but we're probably not that fast
   PollPaymentStatuses(TRUE, TRUE);
 
@@ -251,11 +252,12 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   testfw->BeginWork();
   OBJECT pd2d := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2D"]);
   testfw->CommitWork();
-  paymentapi->StartPayment(pd2d->id, 12.73m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", returnurl := "https://www.example.net/" ]);
+  paymentapi->StartPayment(pd2d->id, 12.73m, [ paymentprovider := pm2->id, paymentoptiontag := "WITHISSUER", issuer := "DPB", returnurl := "https://www.example.net/", userdata := [ x := 43 ]]);
 
   TestEq("pending", pd2d->GetField("DATA").status);
   paymentapi->CancelPendingPayment(pd2d->id);
   TestEq("failed", pd2d->GetField("DATA").status);
+  TestEq([ x := 43 ], pd2d->GetField("DATA").userdata);
 }
 
 MACRO TestParallelPayments()

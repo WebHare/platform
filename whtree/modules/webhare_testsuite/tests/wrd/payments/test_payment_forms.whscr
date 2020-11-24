@@ -18,15 +18,10 @@ OBJECT pm2;
 PUBLIC MACRO BuildForm()
 {
   OBJECT paymentapi := GetWRDTestPaymentAPI();
-  testfw->BeginWork();
-  pm2 := testfw->wrdschema->^payprov->CreateEntity(
-    [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test")
-    ]);
-  testfw->CommitWork();
-
   BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
   BuildCustomWebtoolForm([addpaymentmethod:=TRUE]);
+
+  pm2 := testfw->wrdschema->^payprov->GetEntity(testfw->wrdschema->^payprov->Search("wrd_title", "TestMethod"));
 }
 
 PUBLIC MACRO FillInForm()
@@ -123,7 +118,7 @@ MACRO CustomForm()
   TEsteq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
 }
 
-RunTestframework([ PTR CreateWRDTestSchema
+RunTestframework([ PTR CreateWRDTestSchema([withpayment := STRING["noissuer","withissuer"] ])
                  , PTR BuildForm
                  , PTR FillInForm
                  , PTR CustomForm

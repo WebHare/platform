@@ -48,7 +48,7 @@ test.registerTests(
   , "Process confirmation mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
@@ -74,10 +74,19 @@ test.registerTests(
       test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
     }
 
+  , "Reload confirm result"
+  , async function()
+    {
+      await test.load(confirmlink);
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
+      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
+    }
+
   , "Process results mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("About Your Submission", emails[0].subject);
     }
@@ -123,7 +132,7 @@ test.registerTests(
   , "Process confirmation mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
@@ -152,7 +161,7 @@ test.registerTests(
   , "Process results mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("About Your Submission", emails[0].subject);
     }
@@ -198,7 +207,7 @@ test.registerTests(
   , "Process confirmation mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 

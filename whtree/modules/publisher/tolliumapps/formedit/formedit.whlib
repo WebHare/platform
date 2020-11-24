@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   RECORD ARRAY testablehandlers;
   MACRO PTR ARRAY validationhandlers;
   RECORD ARRAY formhandlers;
-  BOOLEAN confirmationhandler;
+  OBJECT confirmationhandler;
 
   RECORD ARRAY editorextensions;
   STRING uselanguage;
@@ -606,7 +606,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
         , formobj := this->curform
         , uselanguage := this->uselanguage
         , testablehandlers := this->testablehandlers
-        , showpending := this->confirmationhandler
+        , showpending := ObjectExists(this->confirmationhandler)
         ]);
   }
 
@@ -848,7 +848,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       }
     }
 
-    IF(this->allowsubmittype OR this->confirmationhandler)
+    IF(this->allowsubmittype OR this->confirmationhandler != DEFAULT OBJECT)
     {
       RECORD ARRAY submittypes :=
           [ [ rowkey := "new", title := this->GetTid(".formsubmittype-new") ]
@@ -862,12 +862,11 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
           ];
       }
 
-      IF (this->confirmationhandler)
-        submittypes := submittypes CONCAT
-            [ [ rowkey := "pending", title := this->GetTid(".formsubmittype-pending") ]
-            , [ rowkey := "confirm", title := this->GetTid(".formsubmittype-confirm") ]
-            , [ rowkey := "duplicate", title := this->GetTid(".formsubmittype-duplicate") ]
-            ];
+      IF (this->confirmationhandler != DEFAULT OBJECT)
+      {
+        submittypes := submittypes CONCAT this->confirmationhandler->GetConfirmationFormSubmitTypes();
+      }
+
       INSERT [ rowkey := "formsubmittype"
              , title := this->GetTid(".formsubmittype")
              , options := submittypes
@@ -1170,7 +1169,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
                                 , expandall := FALSE
                                 ],options);
     this->testablehandlers := RECORD[];
-    this->confirmationhandler := FALSE;
+    this->confirmationhandler := DEFAULT OBJECT;
 
     //Build the form
     OBJECT finalform := this->OpenLiveForm();
@@ -1353,7 +1352,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       IF (handlerobj->IsConfirmationHandler())
       {
         INSERT handlerrow INTO handlers AT 0;
-        this->confirmationhandler := TRUE;
+        this->confirmationhandler := handlerobj;
       }
       ELSE
         INSERT handlerrow INTO handlers AT END;

@@ -769,7 +769,7 @@ MACRO TestValidateForm()
 <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
   <form name="webtoolform">
     <handlers>
-      <mailresultshandler conditionid="NKDqO6fcJ5uBw9fgZ60WeQ" receivers="info@example.net" />
+      <mailresultshandler conditionid="NKDqO6fcJ5uBw9fgZ60WeQ" receivers="info@example.net" guid="formhandler:abcdO6fcJ5uBw9fgZ60WeQ" />
     </handlers>
     <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
       <richtext guid="formcomp:yN8o9yU2syriPxc52Cm0AQ" textid="cvveT8A_rqevOdapoMWCog" title="thanks!"/>
