@@ -251,7 +251,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->formsubmittype := formsubmittype;
     this->pvt_resultguid := resultsguid;
 
-    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this, allowpending := TRUE]);
+    RECORD results := this->formresults->GetSingleResult(resultsguid, [__form := this, allowpending := TRUE, allowcancelled := TRUE ]);
     this->__FinalizeResult(resultsguid, formsubmittype);
 
     //NOTE this GetSingleResult also fills our local fields
@@ -271,7 +271,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
     IF(NOT RecordExists(match))
       THROW NEW Exception(`Cannot find entry '${confirmguid}' to confirm`);
-    IF(match.status != 5)
+    IF(formsubmittype = "cancel" AND match.status != 5) //can only cancel something that was pending (5)
+      THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
+    IF(formsubmittype = "confirm" AND match.status NOT IN [3,5]) //but we *do* allow you to confirm anyway even after cancelling first. eg payment flows can do that
       THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
 
     IF(formsubmittype = "confirm")
