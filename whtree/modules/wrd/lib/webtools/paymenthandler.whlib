@@ -164,25 +164,6 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
   }
 >;
 
-PUBLIC OBJECTTYPE PaymentResultPage EXTEND WebPageBase
-<
-  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
-  {
-    OBJECT paymentapi := GetPaymentApi(OpenWRDSchema("pthu:payments"), [ providerfield := "PAYMENTPROVIDER.PROVIDERDATA", paymentfield := "DONATION.PAYDATA" ]);
-    RECORD paymentinfo := paymentapi->GetReturnInfo(GetRequestURL());
-    STRING langcode := this->webdesign->languagecode;
-
-    RECORD paymentdata := paymentapi->paymenttype->GetEntityField(paymentinfo.paymentid, "PAYDATA");
-
-    IF(paymentdata.status = "approved")
-      RETURN PTR EmbedWittyComponent("donation_approved_" || langcode);
-    ELSE IF(paymentdata.status = "failed")
-      RETURN PTR EmbedWittyComponent("donation_failed_" || langcode);
-    ELSE
-      RETURN PTR EmbedWittyComponent("donation_pending_" || langcode);
-  }
->;
-
 PUBLIC RECORD FUNCTION PaymentHandlerParser(RECORD fielddef, OBJECT node, RECORD parsecontext)
 {
   fielddef := CELL[ ...fielddef
