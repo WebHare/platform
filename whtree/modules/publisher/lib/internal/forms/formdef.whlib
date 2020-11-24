@@ -45,7 +45,7 @@ STATIC OBJECTTYPE FormPage
   PUBLIC PROPERTY role(GetRole, -);
   PUBLIC PROPERTY redirect(GetRedirect, -);
   PUBLIC PROPERTY visiblecondition(GetVisibleCondition, SetVisibleCondition);
-  PUBLIC PROPERTY FormDefinition(__formdefinition, -);
+  PUBLIC PROPERTY formdefinition(__formdefinition, -);
 
   MACRO NEW(OBJECT formdefinition, OBJECT page)
   {
@@ -673,7 +673,7 @@ PUBLIC STATIC OBJECTTYPE FormDefinitionsFile
     @public
     @loadlib mod::publisher/lib/forms/api.whlib
 */
-PUBLIC OBJECT FUNCTION  CreateNewFormdefinitionsFile()
+PUBLIC OBJECT FUNCTION CreateNewFormdefinitionsFile()
 {
   RETURN NEW FormDefinitionsFile;
 }

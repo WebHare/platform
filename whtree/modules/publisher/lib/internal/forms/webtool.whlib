@@ -510,7 +510,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF (NOT RecordExists(confirmationhandler) OR NOT confirmationhandler.handlerobject->IsConfirmationHandler())
       RETURN TRUE;
 
-    RECORD results := this->formresults->GetSingleResult(VAR resultguid, [ __form := this, allowpending := TRUE, allowcancelled := TRUE ]);
+    RECORD results := this->formresults->GetSingleResult(resultguid, [ __form := this, allowpending := TRUE, allowcancelled := TRUE ]);
     IF (NOT RecordExists(results) OR results.status NOT IN [ "pending", "final", "cancelled"])
       RETURN FALSE;
 
