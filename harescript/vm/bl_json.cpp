@@ -98,6 +98,9 @@ class JSONParser
         /// Whether decoding HSON (if not, decoding HSON)
         bool hson;
 
+        /// Whether translation for the empty key is present
+        bool allowemptykey;
+
         bool HandleToken(std::string const &token, TokenType tokentype);
         bool ParseSimpleValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool ParseHSONTypedValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
@@ -156,6 +159,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
 , errorline(1)
 , errorcolumn(1)
 , hson(_hson)
+, allowemptykey(false)
 {
         root = HSVM_AllocateVariable(vm);
         if (_translations)
@@ -166,7 +170,12 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
                         HSVM_ColumnId colid = HSVM_RecordColumnIdAtPos(vm, _translations, i);
                         HSVM_VariableId name = HSVM_RecordGetRef(vm, _translations, colid);
                         if (HSVM_GetType(vm, name) == HSVM_VAR_String)
-                            translations[HSVM_StringGetSTD(vm, name)] = colid;
+                        {
+                                std::string jsonkey = HSVM_StringGetSTD(vm, name);
+                                if (jsonkey.empty())
+                                    allowemptykey = true;
+                                translations.insert(std::make_pair(std::move(jsonkey), colid));
+                        }
                 }
         }
 
@@ -515,7 +524,7 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                             return true;
                     }
 
-                    if ((tokentype != JTT_String && tokentype != JTT_Token) || token.empty())
+                    if ((tokentype != JTT_String && tokentype != JTT_Token) || (token.empty() && !allowemptykey))
                     {
                             errormessage = "Expected a cellname";
                             parsestate = PS_Error;

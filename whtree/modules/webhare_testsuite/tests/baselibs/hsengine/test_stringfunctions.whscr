@@ -1024,6 +1024,9 @@ MACRO TestJSON()
 
   TestEQ('""', EncodeJSON(DEFAULT BLOB));
   TestEQ('"SGVsbG8sAFdvcmxkIQ=="', EncodeJSON(StringToBlob("Hello,\0World!")));
+
+  TestEQ(DEFAULT RECORD, DecodeJSON(`{"":1}`));
+  TestEQ([ e := 1 ], DecodeJSON(`{"":1}`, [ e := "" ]));
 }
 
 PRINT("\n === Running TestStringFunctions\n");
