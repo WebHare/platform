@@ -220,7 +220,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
       RETURN;
     }
 
-    RECORD result := this->DoRequest("GET", "v2/payments/" || this->paymentdata.order_id);
+    RECORD result := this->DoRequest("GET", "v2/payments/" || this->paymentdata.orderid);
     BOOLEAN pvt_paymentdone     := result.status IN [ "canceled", "expired", "paid", "paidout", "refunded", "charged_back", "failed" ];
     BOOLEAN pvt_paymentapproved := result.status IN [ "paid", "paidout", "refunded", "charged_back" ];
     this->pvt_status := pvt_paymentdone ? pvt_paymentapproved ? "approved" : "failed" : "pending";
