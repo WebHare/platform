@@ -134,6 +134,48 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
       test.false(test.canClick('[data-wh-form-group-for="thankyou_pending"]'), "Should not see thankyou_pending");
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
+
+      //and now we get confirmation mails!
+      emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000, count: 2 });
+      test.eq(2, emails.length, "No emails!");
+      emails = emails.sort( (lhs,rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
+      test.eq("About Your Submission", emails[0].subject);
+      test.eqMatch(/Hello Jippie!/, emails[0].plaintext);
+      test.eq("Payment is confirmed", emails[1].subject);
+    }
+
+  , "Test re-rejecting payment"
+  , async function()
+    {
+      await test.load(setupdata.url);
+      test.fill(`[name="firstname"]`, "Joppie");
+      test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
+      test.fill(`[name="moneyfield"]`, "1.55");
+      test.click("[type=submit]");
+      await test.wait('ui');
+
+      await test.wait('load');
+      test.eq("1.55", test.qS(".paymentamount").textContent);
+
+      await test.click("#notifyrejectpayment");
+      await test.wait('load');
+
+      //verify handlers - we should NOW already see emails etc going out!
+      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000, count: 2 });
+      test.eq(2, emails.length, "No emails!");
+      emails = emails.sort( (lhs,rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
+      test.eq("About Your Submission", emails[0].subject);
+      test.eqMatch(/Too bad you've cancelled Joppie!/, emails[0].plaintext);
+      test.eq("Payment has failed", emails[1].subject);
+
+      await test.click("#rejectpayment"); //also going through this route
+      await test.wait('load');
+
+      //should see cancelled text
+      test.true(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should see thankyou_cancelled text");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou_pending"]'), "Should not see thankyou_pending");
+      test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
     }
 
   ]);

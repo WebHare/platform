@@ -105,7 +105,7 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
 
   IF(setstatus.status != "pending")
   {
-    IF(paymenthandler != "")
+    IF(paymenthandler != ""  AND setstatus.status != currentstatus.status)
     {
       OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
       handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
