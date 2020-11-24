@@ -2417,8 +2417,7 @@ export default class EditorBase
 
   _onStyleSwitch(event,style)
   {
-    dompack.stop(event);
-    //TODO switch to h1 to h6 / p if allowed by allowedtag?
+    //TODO switch to h1 to h6 / p if allowed by allowedtag?  but for now just let it go through if we're not going to act on the keys...
   }
 
   _gotKeyDown(event)

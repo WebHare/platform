@@ -54,16 +54,14 @@ export default class StructuredEditor extends EditorBase
 
   _onStyleSwitch(event,style)
   {
-    dompack.stop(event);
-
     let findcontainertag = ["P","H1","H2","H3","H4","H5","H6","UL","OL","CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
     let currentstyle = this.getSelectionState().blockstyle;
-    let availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag == findcontainertag);
+    let availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag.toUpperCase() == findcontainertag);
     let currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
-
     if(availablestyles.length == 0)
       return;
 
+    dompack.stop(event);
     this.setSelectionBlockStyle(availablestyles[(currentindex + 1) % availablestyles.length].classname); //switch to next style, if already in same category
   }
 
