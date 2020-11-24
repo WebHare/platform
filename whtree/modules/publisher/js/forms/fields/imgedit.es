@@ -27,6 +27,7 @@ export default class ImgEditField extends FileEditBase
   {
     super(node, options);
     this.node.addEventListener('click', evt => this.selectFile(evt));
+    this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
     this.setupComponent();
     if (window.FileReader)
@@ -37,6 +38,27 @@ export default class ImgEditField extends FileEditBase
     }
     this._afterConstruction();
   }
+
+  checkForUploadOrClear(evt)
+  {
+    console.log(evt.keyCode, evt);
+
+    // We only interested when the enter or space key was pressed
+    if (evt.keyCode != 13 && evt.keyCode != 32)
+      return;
+
+    let deletebutton = evt.target.closest(".wh-form__imgeditdelete");
+    if (deletebutton)
+    {
+      evt.preventDefault();
+      this.doDelete(evt);
+      return;
+    }
+
+    evt.preventDefault();
+    this.selectFile(evt);
+  }
+
   _updateEnabledStatus(nowenabled)
   {
     this.node.tabIndex = nowenabled ? 0 : -1;
@@ -71,6 +93,7 @@ export default class ImgEditField extends FileEditBase
     this.deletebutton = dompack.create('div', { className: 'wh-form__imgeditdelete'
                                               , on: { click: evt => this.doDelete(evt) }
                                               });
+    this.deletebutton.setAttribute("tabindex", "0");
     this.node.appendChild(this.deletebutton);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }
