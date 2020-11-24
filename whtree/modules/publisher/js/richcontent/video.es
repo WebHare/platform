@@ -144,11 +144,37 @@ function initializeVideoElementV2(node)
   let opts = node.dataset.whVideoOptions ? JSON.parse(node.dataset.whVideoOptions) : {};
   opts.autoplay=true;
 
-  dompack.qSA(node, ".wh-video--activate").forEach(el => el.addEventListener("click", function()
+  let videonodes = dompack.qSA(node, ".wh-video--activate");
+
+  for(let videonode of videonodes)
   {
-    node.querySelector(".wh-video__innerframe__preview").hidden = true;
-    launchVideo(el, video, opts);
-  }));
+    videonode.setAttribute("tabindex", "0");
+
+    videonode.addEventListener("click", function()
+      {
+        activateVideo(videonode, video, opts);
+      });
+
+    videonode.addEventListener("keypress", function(evt)
+      {
+        // we are only interested in enter and space keypressed
+        if (evt.keyCode != 13 && evt.keyCode != 32)
+          return;
+
+        activateVideo(videonode, video, opts);
+      });
+  }
+}
+
+function activateVideo(videonode, video, opts)
+{
+  if (videonode.__initialized)
+    return;
+
+  videonode.querySelector(".wh-video__innerframe__preview").hidden = true;
+  videonode.__initialized = true;
+  videonode.removeAttribute("tabindex"); // focus was needed for keyboard activation of the video, but isn't needed anymore (focus should rather now go to the buttons offered by the video provider)
+  launchVideo(videonode, video, opts);
 }
 
 dompack.register('.wh-video', node => node.dataset.video ? initializeVideoElementV1(node) : initializeVideoElementV2(node));
