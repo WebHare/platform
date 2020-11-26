@@ -814,12 +814,11 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
              , system.fs_types
          WHERE fs_settings.fs_instance = fs_instances.id
            AND fs_objects.id = fs_instances.fs_object
-           AND fs_objects.isactive = TRUE
            AND fs_types.id = fs_instances.fs_type
            AND fs_settings.fs_object = this->fsobjid
       GROUP BY fs_objects.id
       ORDER BY Any(whfspath)
-         LIMIT 200;
+         LIMIT 500;
   }
 
   MACRO ReloadApplyRules()
