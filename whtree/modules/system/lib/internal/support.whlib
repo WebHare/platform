@@ -5,6 +5,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/dragdrop.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -133,8 +134,6 @@ PUBLIC OBJECTTYPE UnitObjectTypeDescriber EXTEND ObjectTypeDescriber
 
 PUBLIC OBJECTTYPE FSObjectTypeDescriber EXTEND ObjectTypeDescriber
 <
-  BOOLEAN cached_hide_privates;
-  BOOLEAN do_hide_privates;
   INTEGER ARRAY tohide;
 
   MACRO NEW()
@@ -154,7 +153,7 @@ PUBLIC OBJECTTYPE FSObjectTypeDescriber EXTEND ObjectTypeDescriber
                            , isfolder
                            , type
                         FROM system.fs_objects
-                       WHERE id = objectid AND (isactive OR 10 NOT IN this->tohide);
+                       WHERE id = objectid AND (VAR whconstant_whfsid_private IN this->tohide ? isactive : TRUE);
 
     IF(NOT RecordExists(objinfo))
       RETURN DEFAULT RECORD;
@@ -166,7 +165,8 @@ PUBLIC OBJECTTYPE FSObjectTypeDescriber EXTEND ObjectTypeDescriber
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsObjectVisibleForUser(INTEGER id, OBJECT user)
   {
-    IF(10 NOT IN this->tohide AND RecordExists(SELECT FROM system.fs_objects WHERE fs_objects.id = VAR id AND fs_objects.isactive=FALSE))
+    //if we're hiding webhare-private (10), don't show inactive objects
+    IF(whconstant_whfsid_private IN this->tohide AND RecordExists(SELECT FROM system.fs_objects WHERE fs_objects.id = VAR id AND fs_objects.isactive = FALSE))
       RETURN FALSE;
 
     RETURN ObjectTypeDescriber::IsObjectVisibleForUser(id, user);
