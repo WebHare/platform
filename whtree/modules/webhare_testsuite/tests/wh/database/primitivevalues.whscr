@@ -73,7 +73,15 @@ MACRO TestPrimitiveValues()
       , normalbool :=         [ FALSE, TRUE ]
       , normalvarchar :=      [ "", "1234567812345678" ]
       , normalint64 :=        [ 0i64, -1i64, 1i64, -2147483648i64, -2147483649i64, -2147483650i64, -9223372036854775807i64, -9223372036854775808i64, 9223372036854775807i64 ]
-      , normaldatetime :=     [ DEFAULT DATETIME, MakeDate(1,1,1), MakeDate(2000, 1, 1), MakeDateTime(2000, 1, 2, 3, 4, 5, 6), MAX_DATETIME ]
+      , normaldatetime :=     [ DEFAULT DATETIME
+                              , MakeDate(1,1,1)
+                              , MakeDate(1916,1,1)
+                              , MakeDateTime(1999,12,31,23,0,0)
+                              , LocalToUTC(MakeDate(1916, 1, 1), "Europe/Amsterdam")
+                              , MakeDate(2000, 1, 1)
+                              , MakeDateTime(2000, 1, 2, 3, 4, 5, 6)
+                              , MAX_DATETIME
+                              ]
       , normalmoney :=        [ 0m, -92233720368547.75808, 92233720368547.75807 ]
       , normalfloat :=        [ 0f, -987654321.123456789, 1000 ]
       , normalblob :=         [ DEFAULT BLOB, StringToBlob("testblob") ]
