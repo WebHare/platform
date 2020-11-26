@@ -32,7 +32,7 @@ BOOLEAN FUNCTION IsBrowserURLChanged(STRING currenturl, OBJECT previewbrowser, I
   RETURN currenturl != previewbrowser->GetPreviewState().browserurl;
 }
 
-OBJECT ASYNC FUNCTION InitialGotoFolder() //used by eg Find.
+ASYNC MACRO InitialGotoFolder() //used by eg Find.
 {
   INTEGER headingsdoc := testfw->GetTestSite()->OpenByPath("headings.doc")->id;
 
@@ -59,7 +59,24 @@ OBJECT ASYNC FUNCTION InitialGotoFolder() //used by eg Find.
   TestEq(testfw->GetTestSite()->id, TT("foldertree")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  RETURN TRUE;
+  //test jumping to /webhare-private/ - should fail initially as we haven't enabled that pref..
+  testfw->BeginWork();
+  OBJECT privatetestfwfolder := OpenWHFSPrivateFolder("webhare_testsuite")->EnsureFolder([name := "testfw"]);
+  OBJECT targetfile := privatetestfwfolder->EnsureFile([name := "jumptarget"]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(targetfile->id)], target := DEFAULT RECORD ]));
+  TestEq(0, TT("foldertree")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Modify our preferences to show webhare-private
+  testfw->GetUserObject("sysop")->SetRegistryKey("publisher.filemgr.showwhfsprivate", TRUE);
+
+  //And now the jump should work
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ToString(targetfile->id)], target := DEFAULT RECORD ]));
+  TestEq(privatetestfwfolder->id, TT("foldertree")->value);
+  TestEq(targetfile->id, TT("filelist")->value[0]);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 OBJECT ASYNC FUNCTION WalkTheTree()

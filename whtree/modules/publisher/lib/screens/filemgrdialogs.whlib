@@ -312,7 +312,7 @@ PUBLIC STATIC OBJECTTYPE GoToObject EXTEND TolliumScreenBase
 
   RECORD FUNCTION FigureOutID(OBJECT work)
   {
-    //What is it ? Officially, we assume you're entering a site or an id
+    //What is it ? Officially, we assume you're entering a site or an id, but if we can make a better guess at what you mean we'll use that
     IF(^obj->value LIKE "http:*" OR ^obj->value LIKE "https:*")
     {
       //check the history first... as LookupPublisherURL is too eager to match entries
