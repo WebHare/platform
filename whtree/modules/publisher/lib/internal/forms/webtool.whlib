@@ -459,6 +459,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   // Cancel an earlier submission
   PUBLIC MACRO CancelExistingResult(STRING resultsguid)
   {
+    this->pvt_resultguid := resultsguid;
     this->formresults->CancelResult(resultsguid);
     this->formvariables := CELL[...this->formvariables, formsubmittype := "cancel" ];
     this->formsubmittype := "cancel";
