@@ -964,7 +964,13 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         else
                         {
                                 int64_t days = (val / 86400000000) + Blex::DateTime::FromDate(2000, 1, 1).GetDays();
-                                int64_t msecs = (val % 86400000000) / 1000;
+                                int64_t usecs = val % 86400000000;
+                                if (usecs < 0)
+                                {
+                                        usecs += 86400000000;
+                                        --days;
+                                }
+                                int64_t msecs = usecs / 1000;
                                 if (days < 0)
                                     dt = Blex::DateTime::Invalid();
                                 else
