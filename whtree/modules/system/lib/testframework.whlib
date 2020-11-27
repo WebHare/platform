@@ -1892,7 +1892,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC RECORD FUNCTION GenerateKeyPair(STRING commonname)
   {
-    OBJECT evpkey := GenerateCryptoKey("RSA", 1024);
+    OBJECT evpkey := GenerateCryptoKey("RSA", 2048);
     RECORD res := this->CreateKeyPair(commonname, StringToBlob(evpkey->privatekey), DEFAULT BLOB);
     BLOB csr := res.keypair->GenerateCSR([ cn := commonname ]);
     RECORD certdata := res.keypair->SignCertificateRequest(csr, [ selfsign := TRUE ]);

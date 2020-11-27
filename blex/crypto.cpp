@@ -717,7 +717,10 @@ void *Certificate::Release()
 bool Certificate::ReadCertificate(SSLBIOFromData &bio)
 {
         if (cert)
-            X509_free(static_cast<X509*>(cert));
+        {
+                X509_free(static_cast<X509*>(cert));
+                cert = NULL;
+        }
 
         cert = PEM_read_bio_X509((BIO*)bio.GetBio(),0,0,0);
         if(!cert)
@@ -726,9 +729,6 @@ bool Certificate::ReadCertificate(SSLBIOFromData &bio)
 }
 bool Certificate::ReadCertificate(unsigned keylen, const void *keybytes)
 {
-        if (cert)
-            X509_free(static_cast<X509*>(cert));
-
         SSLBIOFromData databio(keylen, keybytes);
         return ReadCertificate(databio);
 }
@@ -1284,22 +1284,43 @@ SSLContext::~SSLContext()
 bool SSLContext::LoadPrivateKey(const void *keydata, unsigned keylen)
 {
         EVPKey key;
-        return key.ReadPrivateKey(keylen,keydata)
-               && SSL_CTX_use_PrivateKey((SSL_CTX *)ctx, (EVP_PKEY*)key.key);
+        if(!key.ReadPrivateKey(keylen,keydata))
+            return false;
+
+        if(!SSL_CTX_use_PrivateKey((SSL_CTX *)ctx, (EVP_PKEY*)key.key))
+        {
+                GetLastSSLErrors(); //at least make errors visible in debug mode
+                return false;
+        }
+
+        return true;
 }
 bool SSLContext::LoadCertificate(const void *keydata, unsigned keylen)
 {
         Certificate key;
-        return key.ReadCertificate(keylen,keydata)
-               && SSL_CTX_use_certificate((SSL_CTX *)ctx, (X509*)key.cert);
+        if(!key.ReadCertificate(keylen,keydata))
+            return false;
+
+        if(!SSL_CTX_use_certificate((SSL_CTX *)ctx, (X509*)key.cert))
+        {
+                GetLastSSLErrors(); //at least make errors visible in debug mode
+                return false;
+        }
+
+        return true;
 }
 bool SSLContext::LoadCertificateChain(const void *keydata, unsigned keylen)
 {
         SSLBIOFromData databio(keylen, keydata);
         Certificate key;
-        if (!key.ReadCertificate(databio)
-            ||  !SSL_CTX_use_certificate((SSL_CTX *)ctx, (X509*)key.cert))
+        if (!key.ReadCertificate(databio))
             return false;
+
+        if(!SSL_CTX_use_certificate((SSL_CTX *)ctx, (X509*)key.cert))
+        {
+                GetLastSSLErrors(); //at least make errors visible in debug mode
+                return false;
+        }
 
         SSL_CTX_clear_chain_certs((SSL_CTX *)ctx);
         while (key.ReadCertificate(databio))
