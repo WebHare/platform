@@ -22,27 +22,24 @@ set +e
 # Add the postgres user before installing the postgresql packages
 useradd --system --uid 20003 --user-group postgres
 
+apt-get update
+apt-get install -y software-properties-common curl
+add-apt-repository universe
+
 # From https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md#example-cache-apt-packages
 rm -f /etc/apt/apt.conf.d/docker-clean
 echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 # Chrome headless sometimes crashes if fonts are missing. Not sure why, but see https://bugs.chromium.org/p/chromium/issues/detail?id=695212
 # Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
-rm /etc/my_init.d/00_regen_ssh_host_keys.sh
-( curl -sL https://deb.nodesource.com/setup_12.x | bash - )
+( curl -sL https://deb.nodesource.com/setup_14.x | bash - )
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8
-add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://mariadb.mirror.triple-it.nl/repo/10.2/ubuntu xenial main'
-add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main'
-( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
+add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
+# ( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
-( echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list )
+# ( echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list )
 
-# Add letsencrypt's repo - https://certbot.eff.org/lets-encrypt/ubuntubionic-other
-apt-get update
-apt-get install software-properties-common
-add-apt-repository universe
-add-apt-repository ppa:certbot/certbot
 
 # Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
 # usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
@@ -64,53 +61,61 @@ adduser elasticsearch whdata
 adduser postgres whdata
 
 PACKAGES="ccache
+    certbot
     cmake
+    cron
+    dumb-init
     fontconfig
     fonts-open-sans
-    letsencrypt
     libfreetype6
     libfreetype6-dev
     g++
     gettext-base
     libgif-dev
     git
-    google-chrome-stable
     inotify-tools
     openjdk-8-jre-headless
     fonts-liberation
+    less
     lftp
+    libcurl4-openssl-dev
     libmaxminddb-dev
     libgit2-dev
     libicu-dev
     libjpeg-turbo8
     libjpeg-turbo8-dev
+    libpdfbox2-java
     libpng16-16
     libpng-dev
     libpq-dev
     libssl-dev
     libtiff-dev
     libxml2-dev
+    locales-all
     make
     nodejs
     openssh-server
     openssl
     libpixman-1-dev
+    pkg-config
     postgresql-11
     postgresql-client-11
     procps
     python
     rapidjson-dev
+    runit
     rsync
-    samba-client
+    smbclient
     software-properties-common
     sshfs
     stunnel4
     tar
     unixodbc-dev
     unzip
-    valgrind"
+    valgrind
+    vim"
 
-if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES && apt-get -qy autoremove ); then
+if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
   echo "APT-GET failed"
   exit 1
 fi
@@ -132,3 +137,19 @@ if ! certbot --version; then
   echo "Certbot failed!"
   exit 1
 fi
+
+# Install chrome
+curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+dpkg -i /tmp/chrome.deb
+rm /tmp/chrome.deb
+apt-get -qy --fix-broken install
+
+# Setup odbc
+cat >> /etc/odbcinst.ini << HERE
+[MariaDB]
+Driver = /usr/lib/x86_64-linux-gnu/odbc/libmaodbc.so
+Description = MariaDB ODBC Connector
+HERE
+
+# Cleanup (?)
+apt-get -qy autoremove
