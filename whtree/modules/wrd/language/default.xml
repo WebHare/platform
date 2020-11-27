@@ -492,6 +492,7 @@
       <text tid="amounttype-fixed">fixed amount</text>
       <text tid="amounttype-fromfield">from field</text>
       <text tid="handler">Request payment</text>
+      <text tid="orderid">Order reference</text>
       <text tid="requireonepaymentmethod">The payment handler requires the form to have a payment method field</text>
     </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
