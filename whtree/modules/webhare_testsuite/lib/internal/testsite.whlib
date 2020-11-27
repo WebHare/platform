@@ -862,9 +862,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     ELSE
       paymenthandler->SetAttribute("fixedamount", "42.42");
 
-    //paymenthandler->SetAttribute("title","Custom Payment Handler");
-    //paymenthandler->SetAttribute("handlerobject", "mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.whlib#PaymentFormHandler");
-    //paymenthandler->SetAttribute("pins","existence");
+    paymenthandler->SetAttribute("orderid","TESTFW-ORDER");
   }
 
   IF(options.addtscustomcomp)

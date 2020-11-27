@@ -5,6 +5,7 @@
 
   <tabsextension name="paymentsettings" implementation="lib" allowresize="true">
     <newtab tid=".handler">
+      <textedit name="orderid" maxlength="30" />
       <select name="amounttype" type="radio">
         <option rowkey="fixed">
           <textedit name="amount" valuetype="money" minvalue="0.01" title="" errorlabeltid=".amounttype-fixed" required="true" emptyvalue="0"/>

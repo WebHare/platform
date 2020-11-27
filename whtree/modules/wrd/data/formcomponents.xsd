@@ -68,6 +68,7 @@
       <xs:attributeGroup ref="sc:FormHandlerAttributes" />
       <xs:attribute name="fromfield" />
       <xs:attribute name="fixedamount" />
+      <xs:attribute name="orderid" />
     </xs:complexType>
   </xs:element>
 

@@ -48,12 +48,14 @@ PUBLIC OBJECTTYPE PaymentSettings EXTEND FormComponentExtensionBase
       ^amounttype->value := "fromfield";
       ^field->value := this->node->GetAttribute("fromfield");
     }
+    ^orderid->value := this->node->GetAttribute("orderid");
   }
 
   UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
   {
     IF( NOT work->HasFailed() )
     {
+      this->node->SetAttribute("orderid", ^orderid->value);
       IF(^amounttype->value = "fixed")
       {
         this->node->SetAttribute("fixedamount", FormatMoney(^amount->value,0,".","",FALSE));
@@ -152,6 +154,7 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     RECORD pmresult := paymentapi->StartPayment(this->payentity->id, amount, CELL[ ...pmfield->value
                                                                                  , returnurl
                                                                                  , paymenthandler := Resolve("#ProcessPaymentStatus")
+                                                                                 , orderid := this->settings.orderid
                                                                                  , userdata := [ extformname := this->form->__form.externalformname
                                                                                                , fsobj := this->form->formcontext->targetobject->id
                                                                                                , result := this->form->resultguid
@@ -169,6 +172,7 @@ PUBLIC RECORD FUNCTION PaymentHandlerParser(RECORD fielddef, OBJECT node, RECORD
   fielddef := CELL[ ...fielddef
                   , fixedamount := ToMoney(node->GetAttribute("fixedamount"),0)
                   , fromfield := node->GetAttribute("fromfield")
+                  , orderid := node->GetAttribute("orderid")
                   ];
   RETURN fielddef;
 }
