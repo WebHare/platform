@@ -360,13 +360,13 @@ setup_buildsystem()
 
     # We also want pdf-box. Homebrew/Fedora don't ship it so we'll just manually download it
     PDFBOX_BASEDIR="$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines/"
-    PDFBOX_VERSION="2.0.8"
+    PDFBOX_VERSION="2.0.21"
     PDFBOX_DOWNLOADPATH="$PDFBOX_BASEDIR/pdfbox-app-$PDFBOX_VERSION.jar"
     PDFBOX_FINALPATH="$PDFBOX_BASEDIR/pdfbox-app.jar"
 
     if [ ! -f "$PDFBOX_DOWNLOADPATH" -o ! -f "$PDFBOX_FINALPATH" ]; then
       mkdir -p "$PDFBOX_BASEDIR"
-      if ! curl https://build.webhare.org/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
+      if ! curl https://build.webhare.dev/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
         echo PDFBOX download failed
         exit 1
       fi

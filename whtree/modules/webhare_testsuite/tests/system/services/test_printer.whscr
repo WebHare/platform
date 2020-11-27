@@ -67,19 +67,19 @@ MACRO TestPDFs()
   RECORD ARRAY images := ExportPDFToImages(result.data);
 
   TestEq(1,Length(images));
-  Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
+  Testeq("page-1.jpg", images[0].filename); //pdfbox upgrade from 2.0.8/.11 to 20.0.21 slightly changed screenshot sizes  TODO drop resizeimgifneeded again
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 
   RECORD result2 := GeneratePDF( [ body := PTR Print(bgdoc)
                                  , wittypath := "inline::[body]"
                                  ]);
 
   images := ExportPDFToImages(result2.data);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 25 ]);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 25, resizeimgifneeded := TRUE ]);
 
   BLOB final := ApplyOverlayToPDF(result.data, result2.data);
   images := ExportPDFToImages(final);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 
   //test empty concat
   TestThrows (PTR ConcatenatePDFs(BLOB[]));
@@ -94,8 +94,8 @@ MACRO TestPDFs()
   Testeq(12,Length(images));
   FOR(INTEGER x := 0; x < 12; x := x + 2)     //also test their ordering
   {
-    testfw->CompareWithImage(images[x].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500 ]);
-    testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 25 ]);
+    testfw->CompareWithImage(images[x].data, Resolve("testdata/fullscreenshot.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
+    testfw->CompareWithImage(images[x+1].data, Resolve("testdata/background.png"), [ maxmse := 25, resizeimgifneeded := TRUE ]);
   }
 
   result := GeneratePDF( [ body := PTR Print(multipagedoc)
@@ -109,7 +109,7 @@ MACRO TestPDFs()
   images := ExportPDFToImages(result.data);
   TestEq(3,Length(images));
   Testeq("page-2.jpg", images[1].filename);
-  testfw->CompareWithImage(images[1].data, Resolve("testdata/pagenumberedpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[1].data, Resolve("testdata/pagenumberedpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
 ASYNC MACRO TestWittyDialog()
@@ -131,7 +131,7 @@ MACRO TestPDFFromURL()
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]); //TODO lower maxmse but we'll probably need a webfont
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
 MACRO TestPDFFromBlob()
@@ -150,7 +150,7 @@ MACRO TestPDFFromBlob()
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename);
-  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500 ]);
+  testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]);
 }
 
 MACRO TestScreenshots()

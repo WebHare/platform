@@ -1796,7 +1796,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   {
     options := ValidateOptions([ annotation := ""
                                , maxmse := 0f
+                               , resizeimgifneeded := FALSE
                                ], options);
+
     STRING respath := resource;
     BLOB expectdata;
     TRY
@@ -1811,7 +1813,20 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     FLOAT mse;
     FLOAT maxmse := options.maxmse;
 
-    BOOLEAN dimension_mismatch := expectcanvas->width != gotcanvas->width OR expectcanvas->height != gotcanvas->height;
+    BOOLEAN dimension_mismatch;
+    IF(expectcanvas->width != gotcanvas->width OR expectcanvas->height != gotcanvas->height)
+    {
+      IF(options.resizeimgifneeded)
+      {
+        Print(`Rescaling image from ${gotcanvas->width}x${gotcanvas->height} to ${expectcanvas->width}x${expectcanvas->height}\n`);
+        gotcanvas->SetImageSize(expectcanvas->width, expectcanvas->height);
+      }
+      ELSE
+      {
+        dimension_mismatch := TRUE;
+      }
+    }
+
     BOOLEAN iserror := dimension_mismatch;
     IF (iserror)
       PRINT("Image dimensions does not match reference image\n");
