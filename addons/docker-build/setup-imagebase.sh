@@ -94,6 +94,7 @@ PACKAGES="ccache
     locales-all
     make
     nodejs
+    odbc-mariadb
     openssh-server
     openssl
     libpixman-1-dev
