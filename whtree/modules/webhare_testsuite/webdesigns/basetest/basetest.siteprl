@@ -314,7 +314,7 @@
   <apply>
     <to type="all" pathmask="*formcaptcha*" />
     <captchaintegration skipfunction="lib/basetest.whlib#SkipCaptcha" />
-    <formintegration allowsubmittype="true" usecaptcha="1" />
+    <formintegration allowsubmittype="true" usecaptcha="1" webtoolformhooks="lib/basetest.whlib#CaptchaFormHooks" />
   </apply>
 
   <apply>

@@ -792,7 +792,7 @@ PUBLIC OBJECTTYPE FormBase
     TRY
     {
       //First check the specified form - ADDME support specifying a page object for partial validation ?
-      IF(Length(options.validate)>0)
+      IF(Length(options.validate) > 0)
       {
         FOREVERY(RECORD fld FROM this->__formfields)
           fld.obj->ValidateValue(workobj);

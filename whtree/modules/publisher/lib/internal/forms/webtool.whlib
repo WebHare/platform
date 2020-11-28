@@ -56,10 +56,8 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       {
         OBJECT formintegrationplugin := this->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration");
         IF(ObjectExists(formintegrationplugin) AND formintegrationplugin->usecaptcha)
-        {
           this->captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
-          this->captchaquestion->required := TRUE;
-        }
+
       }
       IF(formsettings.unavailable)
         this->unavailabletext := formsettings.unavailabletext;
@@ -170,6 +168,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     OBJECT hookobject := this->GetHookobject();
     IF (ObjectExists(hookobject))
       hookobject->Validate(workobj);
+
+    IF(ObjectExists(this->captchaquestion) AND NOT workobj->HasFailed())
+      this->captchaquestion->ValidateCaptcha(workobj);
   }
 
   //Retrieve GUID but add some boobytraps against incorrect use
@@ -531,8 +532,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     this->formvariables := CELL[...this->formvariables, formsubmittype := this->formsubmittype ];
 
     // The captcha field is not required when the confirmation link is used
-    IF (ObjectExists(this->captchaquestion))
-      this->captchaquestion->required := FALSE;
+    this->captchaquestion := DEFAULT OBJECT;
 
     IF(results.status = "pending" AND this->formsubmittype != "pending")
     {
