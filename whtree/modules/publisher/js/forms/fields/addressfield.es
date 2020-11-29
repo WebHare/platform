@@ -149,7 +149,7 @@ export default class AddressField
   {
     /* we used to clear fields that are no longer visible after a country change, add visible fields to the value we're checking
        but not sure why. ignoring those fields should be okay? and this is a very eager trigger, so if we really do this, do
-       this on base of the country actually changing, not an external checkbox controlling visiblity of the whole country field
+       this on base of the country actually changing, not an external checkbox controlling visibility of the whole country field
        and a stray update event
        */
     let curstate = this._getCurState();

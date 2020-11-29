@@ -837,7 +837,6 @@
   </apply>
 
   <apply>
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/designfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/tagfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/foreignfolder" />
