@@ -43,7 +43,7 @@
     </linkapp>
 
 
-    <application name="runscreen" library="tollium.whlib" startmacro="RunScreen">
+    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen">
       <accesscheck/>
     </application>
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
