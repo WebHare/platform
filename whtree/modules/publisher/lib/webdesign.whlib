@@ -2,6 +2,7 @@
 /** @topic sitedev/webdesign */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
@@ -100,9 +101,6 @@ OBJECT ARRAY FUNCTION GenerateUniqueAnchors(OBJECT ARRAY anchors)
 
 RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
 {
-  IF(NOT ObjectExists(webdesign->pvt_dependencyresolverv2))
-    RETURN DEFAULT RECORD;
-
   RECORD langrec;
   STRING matchlang := ToUppercase(webdesign->languagecode);
   FOREVERY(STRING langcode FROM webdesign->__config.supportedlanguages)
@@ -240,6 +238,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   ///the 'real' content body, set per page by static publication
   PUBLIC MACRO PTR __truecontentbody;
 
+  ///get the name of the current assetpack
+  PUBLIC PROPERTY assetpack(__GetAssetPack, -);
   ///inject the script bundle with async tags
   PUBLIC BOOLEAN asyncbundle;
   ///set a timestamp or other prefix to trigger unique bundles
@@ -892,10 +892,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     }
   }
 
+  STRING FUNCTION __GetAssetPack()
+  {
+    RETURN this->__config.assetpack;
+  }
+
   PUBLIC RECORD ARRAY FUNCTION GetAllDependedAssets() //This function is deprecated! Serviceworkers should download the assetpack manifest
   {
-    IF(NOT ObjectExists(this->pvt_dependencyresolverv2))
-      THROW NEW Exception("This feature is only available when using a module-based webdesign");
     IF(NOT this->pvt_startedrendering)
       THROW NEW Exception("The list of required assets cannot be requested in the preparation phase");
     RETURN SELECT subpath, rooturl, compressed, sourcemap FROM this->pvt_dependencyresolverv2->GetAllAssets(this->assetcachebuster);
@@ -1077,19 +1080,16 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     Print('<script type="application/json" id="wh-config">' || EncodeJSON(finaljsconfig) || '</script>');
 
 
-    IF(ObjectExists(this->pvt_dependencyresolverv2))
-    {
-      /* If linkmode is absolute:
-          our path needs to the design needs to be absolute. take the CDN in prod, and take our own design in dev
-         If linkmode is normal:
-          take an absolute path if the CDN is not local. but in dev mode, always local */
+    /* If linkmode is absolute:
+        our path needs to the design needs to be absolute. take the CDN in prod, and take our own design in dev
+       If linkmode is normal:
+        take an absolute path if the CDN is not local. but in dev mode, always local */
 
-      STRING designroot;
-      IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
-        designroot := data.designcdnroot;
+    STRING designroot;
+    IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
+      designroot := data.designcdnroot;
 
-      this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss, this->__esm);
-    }
+    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss, this->__esm);
 
     this->DoInserts("dependencies-bottom");
 
@@ -1138,14 +1138,11 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   MACRO __PrintBodyFinale(RECORD data)
   {
     this->DoInserts("body-bottom");
-    IF(ObjectExists(this->pvt_dependencyresolverv2))
-    {
-      STRING designroot;
-      IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
-        designroot := data.designcdnroot;
+    STRING designroot;
+    IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
+      designroot := data.designcdnroot;
 
-      this->pvt_dependencyresolverv2->PrintBodyFinale(this, designroot, this->assetcachebuster, this->lazyloadcss);
-    }
+    this->pvt_dependencyresolverv2->PrintBodyFinale(this, designroot, this->assetcachebuster, this->lazyloadcss);
 
     IF (IsRequest())
     {
@@ -1393,8 +1390,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
   PUBLIC MACRO Close()
   {
-    IF(ObjectExists(this->pvt_dependencyresolverv2))
-      this->pvt_dependencyresolverv2->Close();
+    IF(NOT IsDTAPLive())
+      THROW NEW Exception("Webdesign::Close is deprecated and will be removed");
   }
 
   ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
@@ -1853,3 +1850,12 @@ PUBLIC OBJECTTYPE SimpleWebPage EXTEND WebPageBase
     RETURN this->body;
   }
 >;
+
+/** Get the build version of an assetpack bundle
+    @param bundletag Bundle we're interested in (module:bundle)
+    @return The last build date of the specified assetpack as a compact (non-extended) ISO8601 datetime. If the pack isn't
+            built yet it will return an empty string */
+PUBLIC STRING FUNCTION GetAssetPackBuildVersion(STRING bundletag)
+{
+  RETURN FormatISO8601Datetime(GetBundleLastModDate(bundletag), "", "", "", FALSE);
+}

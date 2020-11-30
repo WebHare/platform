@@ -19,6 +19,17 @@ test.registerTests(
 
       await test.load(setupdata.url + '?wh-debug=nsc');
 
+      //A server side error should not trigger a recatpcha (but it did errors coming from Submit handlers. Trigger one by messing with the name field
+      test.fill(`[name=firstname]`, "reject");
+      test.click('.wh-form__button--submit');
+      await test.wait('ui');
+
+      test.false(test.qS('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
+      test.eq(0, test.qSA('.mydialog').length);
+
+      //trigger it!
+      await test.load(setupdata.url + '?wh-debug=nsc');
+
       test.click('.wh-form__button--submit');
       test.false(test.qS('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
       await test.wait('ui');

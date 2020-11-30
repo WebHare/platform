@@ -797,17 +797,19 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
       RETURN;
 
     this->regenerating := TRUE;
+
+    BOOLEAN anycomponents;
     WHILE (this->regenerateagain)
     {
       this->regenerateagain := FALSE;
-      this->RegenerateComponentsInternal();
+      anycomponents := this->RegenerateComponentsInternal();
     }
 
     this->regenerating := FALSE;
-    this->have_generated := TRUE;
+    this->have_generated := anycomponents;
   }
 
-  MACRO RegenerateComponentsInternal()
+  BOOLEAN FUNCTION RegenerateComponentsInternal()
   {
     this->titlecomponent := DEFAULT OBJECT;
     // Remove all private option components from the list
@@ -854,7 +856,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     }
 
     IF(NOT ObjectExists(this->parent)) //we're not there yet (or deleting ourselves)
-      RETURN;
+      RETURN FALSE;
 
     IF (NOT ObjectExists(this->pvt_proxy))
     {
@@ -1063,6 +1065,8 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
       this->titleforsubcomponent := pulldown;
       this->pvt_proxy->passthrough := pulldown;
     }
+
+    RETURN TRUE;
   }
 
   MACRO UpdateListRows()

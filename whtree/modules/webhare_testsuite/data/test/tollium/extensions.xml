@@ -1,4 +1,4 @@
-<beta xmlns="http://www.webhare.net/xmlns/beta/exttest" xmlns:t="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
+<beta xmlns="http://www.webhare.net/xmlns/beta/exttest" xmlns:t="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
   <level1>
     <level2>
       <level42>
@@ -35,6 +35,9 @@
       </level42>
       <level43>
         <t:tabsextension lib="module::webhare_testsuite/screens/tests/tabextensions.whlib" name="extensionwithcode" implementation="lib">
+          <t:insert position="thefirsttab" where="atend">
+            <p:intextlink name="intextlink" />
+          </t:insert>
           <t:newtab title="Third tab">
             <t:text title="" value="Text" />
           </t:newtab>
