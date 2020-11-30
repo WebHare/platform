@@ -1854,7 +1854,7 @@ PUBLIC OBJECTTYPE SimpleWebPage EXTEND WebPageBase
 /** Get the build version of an assetpack bundle
     @param bundletag Bundle we're interested in (module:bundle)
     @return The last build date of the specified assetpack as a compact (non-extended) ISO8601 datetime. If the pack isn't
-            built yet it will return an empty string unless the wait option is specified */
+            built yet it will return an empty string */
 PUBLIC STRING FUNCTION GetAssetPackBuildVersion(STRING bundletag)
 {
   RETURN FormatISO8601Datetime(GetBundleLastModDate(bundletag), "", "", "", FALSE);
