@@ -134,6 +134,13 @@
       <line layout="left">
         <checkbox composition="entity" cellname="allow_redirectbinding" title="" labeltid=".allow_redirectbinding" />
       </line>
+      <select composition="entity" cellname="hashmethod" required="true" type="pulldown">
+        <option rowkey="SHA-1" />
+        <option rowkey="SHA-224" />
+        <option rowkey="SHA-256" />
+        <option rowkey="SHA-384" />
+        <option rowkey="SHA-512" />
+      </select>
 
       <!-- idp only -->
       <heading name="nameidformatsheading" tid=".supportednameidformats" />

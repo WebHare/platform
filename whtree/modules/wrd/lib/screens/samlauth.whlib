@@ -366,6 +366,11 @@ PUBLIC OBJECTTYPE EditProvider EXTEND TolliumScreenBase
         }
       }
     }
+    ELSE
+    {
+      // New providers want SHA-256 as digest method
+      ^entity->value.hashmethod := "SHA-256";
+    }
   }
 
   INTEGER FUNCTION Submit()

@@ -200,8 +200,7 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
         CASE "redirect"
         {
           STRING publickey := GetCertificateData(BlobToString(cert.data.data)).publickey;
-
-          IF (Verify_RSA_SHA1(GetSHA1Hash(data.signvalue), DecodeBase64(data.signature), publickey))
+          IF (VerifyXMLSignature(data.signaturealgorithm, data.signvalue, data.signature, publickey))
           {
             validated := TRUE;
             BREAK;
@@ -262,8 +261,6 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
-
       RETURN
           [ binding :=      data.binding
           , message :=      message
@@ -273,6 +270,7 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
                 [ type :=       "redirect"
                 , signvalue :=  data.signvalue
                 , signature :=  data.signature
+                , signaturealgorithm := data.sigalg
                 ], #1)
           ];
     }
@@ -320,10 +318,21 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
     @cell(string) options.destination Destination URL (URI of target service)
     @cell(string) options.sign Private key to sign the document with
     @cell(string) options.relaystate relaystate for the request
+    @cell(string) options.signaturealgorithm Signature algorithm to use (defaults to "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
     @return Submit instruction to execute (see [ExecuteSubmitInstruction](%ExecuteSubmitInstruction))
 */
 PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN isrequest, RECORD options)
 {
+  options := ValidateOptions(
+      [ destination :=          ""
+      , sign :=                 ""
+      , relaystate :=           ""
+      , signaturealgorithm :=   "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+      ], options);
+
+  // Just use the digest algorithm used by the the signature algorithm
+  STRING digestalgorithm := GetDigestAlgorithmFromSignatureAlgorithm(options.signaturealgorithm);
+
   BOOLEAN to_sign := CellExists(options, "SIGN");
 
   IF (CellExists(options, "DESTINATION"))
@@ -337,7 +346,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
               [ canonicalizationmethod :=
                     [ algorithm :=    "http://www.w3.org/2001/10/xml-exc-c14n#" ]
               , signaturemethod :=
-                    [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#rsa-sha1" ]
+                    [ algorithm :=    options.signaturealgorithm ]
               , reference :=
                     [ [ transforms :=
                             [ transform :=
@@ -346,7 +355,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
                                     ]
                             ]
                       , digestmethod :=
-                            [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#sha1"
+                            [ algorithm :=    digestalgorithm
                             ]
                       ]
                     ]
@@ -387,14 +396,12 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
       STRING encodedreq := EncodeBase64(BlobToString(MakeZlibCompressedFile(doc->GetDocumentBlob(FALSE), "ZLIBRAW", 5),-1));
       STRING vars := attrname || "=" || EncodeURL(encodedreq);
 
-      STRING sigalg := "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
-      vars := vars || "&RelayState="||EncodeURL(options.relaystate)||"&SigAlg=" || EncodeURL(sigalg);
-
-      STRING sign := EncodeBase64(Create_RSA_SHA1(GetHashForString(vars,"SHA-1"), options.sign, ""));
+      vars := vars || "&RelayState="||EncodeURL(options.relaystate)||"&SigAlg=" || EncodeURL(options.signaturealgorithm);
+      STRING sign := CreateXMLSignature(options.signaturealgorithm, vars, options.sign, "");
 
       returnurl := AddVariableToURL(returnurl, attrname, encodedreq);
       returnurl := AddVariableToURL(returnurl, "RelayState", options.relaystate);
-      returnurl := AddVariableToURL(returnurl, "SigAlg", sigalg);
+      returnurl := AddVariableToURL(returnurl, "SigAlg", options.signaturealgorithm);
       returnurl := AddVariableToURL(returnurl, "Signature", sign);
 
       RETURN
@@ -550,13 +557,29 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   */
   PUBLIC RECORD FUNCTION EncodeAndSignDocument(RECORD doc, RECORD endpoint, STRING relaystate, BOOLEAN isrequest)
   {
+    STRING hashmethod := this->entity->GetField("HASHMETHOD") ?? "SHA-1";
+
+    // Assume that we have a RSA private key
+    STRING signaturealgorithmtype := "rsa";
+
+    STRING signaturealgorithm :=
+        SELECT AS STRING id
+          FROM ListXMLSignatureAlgorithms()
+         WHERE type = "signature"
+           AND COLUMN hashmethod = VAR hashmethod
+           AND COLUMN signaturealgorithmtype = VAR signaturealgorithmtype;
+
+    IF (signaturealgorithm = "")
+      THROW NEW Exception(`No signature algorithm of type 'rsa' defined for hash method ${hashmethod}`);
+
     RETURN EncodeSAMLDocument(
         doc,
         endpoint.binding,
-        isrequest,
+        isrequest, CELL
         [ destination :=      endpoint.location
         , sign :=             BlobToString(this->GetKeyPair()->privatekey)
-        , relaystate :=       relaystate
+        , relaystate
+        , signaturealgorithm
         ]);
   }
 

@@ -1336,7 +1336,7 @@ PUBLIC MACRO TestInvoke_LogoutStaticLogin()
   GetWRDAuthPlugin(testsite->OpenByPath("staticlogin")->url)->LogOut();
 }
 
-PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
+PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
 {
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
   OBJECT testsite := OpenTestsuiteSite();
@@ -1371,12 +1371,13 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_idp->GetType("WRD_AUTHDOMAIN_SAML_IDP")->CreateEntity(
+  wrdschema_idp->GetType("WRD_AUTHDOMAIN_SAML_IDP")->CreateEntity(CELL
       [ wrd_tag :=                "TEST-IDP"
       , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test IDP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/idp"
       , keypair :=                MakeIntExtInternalLink(keypair_idp.id, "")
+      , hashmethod
       , organization_name :=      "webhare_testsuite IDP"
       , organization_displayname := "webhare_testsuite IDP"
       , organization_url :=       "http://b-lex.com"
@@ -1390,12 +1391,13 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_sp->GetType("WRD_AUTHDOMAIN_SAML_SP")->CreateEntity(
+  wrdschema_sp->GetType("WRD_AUTHDOMAIN_SAML_SP")->CreateEntity(CELL
       [ wrd_tag :=                "TEST-SP"
       , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test SP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/sp"
       , keypair :=                MakeIntExtInternalLink(keypair_sp.id, "")
+      , hashmethod
       , organization_name :=      "webhare_testsuite SP"
       , organization_displayname := "webhare_testsuite SP"
       , organization_url :=       "http://b-lex.com"
