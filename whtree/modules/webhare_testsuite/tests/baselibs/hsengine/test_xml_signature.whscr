@@ -1,6 +1,8 @@
 ﻿<?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/pkcs.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/signature.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
@@ -259,6 +261,99 @@ MACRO TestMultipleDocs()
   }
 }
 
+/// Tests the lowlevel sign/verify functions
+MACRO TestLowLevelSignVerify()
+{
+  /** RSA 2048 bit private key
+      Generated with
+          OBJECT evpkey := GenerateCryptoKey("RSA", 2048);
+          STRING privatekey := evpkey->privatekey;
+  */
+  STRING privatekey :=
+      '-----BEGIN PRIVATE KEY-----\n' ||
+      'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDkT6t/6YbvtVcl\n' ||
+      'xL8AfjrArFXCURrPvZpyI5BhRlQnGxCNl7E6QTEPRibycPoHNoTen51zENI0mxA5\n' ||
+      'hSRz8xwwL4ISYyaKC9LzM80Xq0dqteJuxr5a1AGDbNu+1eu0miPUBCVA7uJYMe/7\n' ||
+      'aX5ne94Y8lj9y6JewBZvJQVbk8yBluAZLebaToytRO/cFKpcqRDq1vaIgf9xQjdj\n' ||
+      'OeJYx/RYkQVZiC2FHltfvSFTx2OByI0Ou0JMPseVkKwmb5wTg3kQl9m4B7hEzlvc\n' ||
+      'u/zCmGncvFSvB7/HI6yLH4nBommbUms4Fuodfj+UkGNQDLZuGgDzpg2YXiwh7Zdt\n' ||
+      'tcOuB46NAgMBAAECggEAP4kkUt5sHL08WVhdRwfZ1dCftQnZCkLbfjQDc+6ccJ2J\n' ||
+      'h73VJj8KJhQBtqpWCjfT1hhZOrJNrTIR28//ivz2tTojWnaZPQV5WRDrXFDf+QRQ\n' ||
+      '1T8dri0dlrNum7bwdzwGCHR24ZEZEC4leLOs56OC9TJMLaTDtNaD575HtWp2GQGb\n' ||
+      'H0lV8s3J5M4sJse2WPDJERyqARdPArB75YzPrJL1vwsEo2HYWkhOwu9knfh8+XNo\n' ||
+      'D7OjOz+s0zZDC8h7wQaLcpegbhURAg8mDN6bBPZ7s3eRPxZnrqscl5F2rov3SYgW\n' ||
+      'kBa8W97mFIcUOIJpNoBlLkrGOvUz7rfBIXTSjA+YAQKBgQDz9NKtht4uYhfo8bnC\n' ||
+      'prfTuej96OS7U16bsCtlkX+98G2lwTrf2EGg0RlegilFAgXpjrRo6ySyd1F28vLI\n' ||
+      'ZfReQWXVxs2L0K3H75VUBM/YWxHdv31hSt198bf1mt9CCKd2PNFwIMF7ysaCVYmZ\n' ||
+      '+Zs7b14/uP7di0DIl3x+H6NPAQKBgQDvlR7DzzCFHFIZLYIbjYduSu3fDVzAl/Vt\n' ||
+      'LnwYplffdsDszDsPPRC0rCR7sKwWGyPyifDazHD32nZ6/Zfzvphj7JnfQS/a/0/v\n' ||
+      'ldWAPNmZeuHmNXnSuMLIEPCSm3QopZHi3y4OoGozuW8F9PHdMXY2ssxqN1ygpdbH\n' ||
+      'k7DV7LALjQKBgD4F4oJHpbk5K0cIHehFJrtnqrrTOUP/ADCo63+ZLFcIB3h61hMP\n' ||
+      'EjBmuQJ0KTXoO8STiX6bOes9trJ9NgiJE0Xbbp6ZOqzvUx9f5CFGT+l7zeEIzEGu\n' ||
+      'HP3mNJT22Qga1yiScdUGHurwNOPyB1fkQ/kqaVXeHL4Kp1/YU8hlFsoBAoGBAM4i\n' ||
+      'DFVG96Ufh9eX2yDftY2EtIM8WPhwBj8JRsZioKpo33ceBRaIYM5CaiVuDbH7agNt\n' ||
+      'AakPS4dFFLmfZVTXQQCAeqemy4juMJWf4hEyyboPCzvp+MYAJ77BLGvHirrKMen0\n' ||
+      'QgldpeKZAlgqtsqsmtxXHB+rQGwMI+6VOQnmWlWlAoGAC2K0/mR40oCJA8SmGaW4\n' ||
+      'xiWdx8hfG+Sa3L/WMHZXtHDvEMY6sN30sN8ZHfX4G5m3XO+9r06TFCPMS0k9vnzy\n' ||
+      'ttr/of5ixQJIYxCx6V8qTSg2yIARBe1vuDV3eq8U/w0VtDX8lUEHwZsLpBQLpq3r\n' ||
+      'H86smi5SwE9SSvUIWRsZeFQ=\n' ||
+      '-----END PRIVATE KEY-----\n';
+
+  /** Certificate for previous key
+      Generated with code that looks like (rebuilt after losing it)
+          GetPrimary()->BeginWork();
+          OBJECT keypair := CreateKeyPair("samlkey", BobToString(privatekey), [ title := "samlkey", generateuniquename := TRUE ]);
+          BLOB csr := keypair->GenerateCSR([ c := "NL", st := "Overijssel", l := "Enschede", o := "WebHare BV", cn := "SAML test certificate" ]);
+          RECORD rec := keypair->SignCertificateRequest(csr, [ selfsign := TRUE, validuntil := MakeDate(2100, 1, 1) ]);
+          STRING certificate := BlobToString(rec.certificate);
+  */
+  STRING certificate :=
+      '-----BEGIN CERTIFICATE-----\n' ||
+      'MIIDqDCCApCgAwIBAgIQGUnNhxoRxY1evmg7vV9jsDANBgkqhkiG9w0BAQsFADBu\n' ||
+      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
+      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
+      'VQQDDAl3ZWJzZXJ2ZXIwHhcNMjAxMTMwMTA1NjI5WhcNMDAwMTAxMDAwMDAwWjBu\n' ||
+      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
+      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
+      'VQQDDAl3ZWJzZXJ2ZXIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDk\n' ||
+      'T6t/6YbvtVclxL8AfjrArFXCURrPvZpyI5BhRlQnGxCNl7E6QTEPRibycPoHNoTe\n' ||
+      'n51zENI0mxA5hSRz8xwwL4ISYyaKC9LzM80Xq0dqteJuxr5a1AGDbNu+1eu0miPU\n' ||
+      'BCVA7uJYMe/7aX5ne94Y8lj9y6JewBZvJQVbk8yBluAZLebaToytRO/cFKpcqRDq\n' ||
+      '1vaIgf9xQjdjOeJYx/RYkQVZiC2FHltfvSFTx2OByI0Ou0JMPseVkKwmb5wTg3kQ\n' ||
+      'l9m4B7hEzlvcu/zCmGncvFSvB7/HI6yLH4nBommbUms4Fuodfj+UkGNQDLZuGgDz\n' ||
+      'pg2YXiwh7ZdttcOuB46NAgMBAAGjQjBAMB0GA1UdDgQWBBR9fF4VVmNqvTUjf3To\n' ||
+      'eb/Hp8GhejAfBgNVHSMEGDAWgBR9fF4VVmNqvTUjf3Toeb/Hp8GhejANBgkqhkiG\n' ||
+      '9w0BAQsFAAOCAQEAagUH93/uug1P+5lKqwF0rRrlyaXcojzWhQwnbC7/nR0Q8KZc\n' ||
+      'UwtCet2SW46uwXNSnwdY5jtXVkLDDAgw7y2vSTdc2GahF0qXBqvdgHLuhFHQL694\n' ||
+      'UaZV7whHV+FeZBRPPOqqJ+dinzX+5XOcTjVQ3OnRZAWbdJgUrsUqITsDux0OEA5c\n' ||
+      '6h4OXiTeTjRZ/zCX0g/9Y+N2rnCzJPx3qwQrem9kI7JgUKSR+4hUdx6jGxrvf4DA\n' ||
+      '1FkaX7QCXMEI0p0Z/ohXSK5uSKEeOjb0r8slVAvKz5ntv/2qbM4zwLLHV0eVztbX\n' ||
+      'C9VrcpdNNIRXq6F9RAM5s7B37QtUSnyU9hB/vQ==\n' ||
+      '-----END CERTIFICATE-----\n';
+
+  FOREVERY (STRING algo FROM
+        [ "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha224"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"
+        ])
+  {
+    STRING to_sign := "blablabla";
+    STRING signature := CreateXMLSignature(algo, to_sign, privatekey, "");
+    TestEQ(TRUE, VerifyXMLSignature(algo, to_sign, signature, DecodePEMFile(certificate).subjectpublickey));
+
+    // see if GetDigestAlgorithmFromSignatureAlgorithm returns the right digest algorithm
+    STRING method := `SHA-${SubString(algo, SearchLastSubString(algo, "-") + 4)}`;
+    STRING digestalgo := GetDigestAlgorithmFromSignatureAlgorithm(algo);
+    STRING method2 := `SHA-${SubString(digestalgo, SearchLastSubString(digestalgo, "#") + 4)}`;
+    TestEQ(method, method2);
+
+    // test digest encoding
+    TestEQ(EncodeBase64(GetHashForString(to_sign, method)), GetXMLSignatureDigest(digestalgo, to_sign));
+  }
+}
+
 /* ADDME: test if signing works correctly
    ADDME: test if GetSignedXMLDocument works correctly
 */
@@ -266,4 +361,5 @@ MACRO TestMultipleDocs()
 PRINT("\n === Running TestXML_Signature\n");
 TestXMLDSigCases();
 TestMultipleDocs();
+TestLowLevelSignVerify();
 

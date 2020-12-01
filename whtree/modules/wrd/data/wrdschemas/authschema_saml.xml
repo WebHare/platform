@@ -7,6 +7,7 @@
     <attributes>
       <free tag="SAMLENTITYID" title="SAML Entity ID" />
       <whfsintextlink tag="KEYPAIR" title="Link to private key/certificate" />
+      <free tag="HASHMETHOD" title="Hash method for XML Signature to use (eg SHA-256)" description="For compatibility, default is 'SHA-1'"/>
 
       <array tag="CONNECTIONS" title="Connected providers">
         <free tag="SAMLENTITYID" title="SAML Entity ID" />

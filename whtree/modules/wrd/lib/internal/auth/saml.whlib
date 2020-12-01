@@ -21,17 +21,40 @@ LOADLIB "mod::system/lib/webserver.whlib";
 // SAML coder (to generate SAML documents)
 OBJECT coder;
 
+STRING FUNCTION GetVar(RECORD ARRAY vars, STRING name)
+{
+  RETURN SELECT AS STRING value FROM vars WHERE COLUMN name = VAR name;
+}
+
+/** Get the data needed to decode a HTTP-Redirect or HTTP-POST message in the webserver
+    @param(string) binding Binding
+    @param(string) requesturl Request URL
+    @param(record array) webvariables List of webvariables
+    @cell(string) webvariables.name Name of the webvariable
+    @cell(string) webvariables.value Value of the webvariable
+    @return @includecelldef #GetSAMLDataFromWebData.return
+*/
+PUBLIC RECORD FUNCTION GetSAMLData(STRING binding, STRING requesturl, RECORD ARRAY webvariables)
+{
+  RETURN GetSAMLDataFromWebDataInternal(binding, requesturl, PTR GetVar(webvariables, #1));
+}
+
 /** Get the data needed to decode a HTTP-Redirect or HTTP-POST message in the webserver
     @param binding Binding
-    @return
-    @cell(string) binding
-    @cell(string) requeststr Raw SAML message (in XML form)
-    @cell(string) relaystate
-    @cell(string) sigalg Signature algorithm (HTTP-Redirect only)
-    @cell(string) signvalue Value over which the signature is calculated (HTTP-Redirect only)
-    @cell(string) signature Signature (HTTP-Redirect only)
+    @return SAML data
+    @cell(string) return.binding Binding type identifier
+    @cell(string) return.requeststr Raw SAML message (in XML form)
+    @cell(string) return.relaystate Relaystate
+    @cell(string) return.sigalg Signature algorithm (HTTP-Redirect only)
+    @cell(string) return.signvalue Value over which the signature is calculated (HTTP-Redirect only)
+    @cell(string) return.signature Signature (HTTP-Redirect only)
 */
 PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
+{
+  RETURN GetSAMLDataFromWebDataInternal(binding, GetRequestURL(), PTR GetWebVariable);
+}
+
+RECORD FUNCTION GetSAMLDataFromWebDataInternal(STRING binding, STRING requesturl, FUNCTION PTR getvariable)
 {
   IF (NOT ObjectExists(coder))
     coder := NEW SAMLCoder;
@@ -41,12 +64,12 @@ PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      STRING requeststr := GetWebVariable("SAMLRequest");
-      STRING responsestr := GetWebVariable("SAMLResponse");
-      STRING relaystate := GetWebVariable("RelayState");
-      STRING sigalg := GetWebVariable("SigAlg");
-      STRING signature := GetWebVariable("Signature");
-      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
+      STRING requeststr := getvariable("SAMLRequest");
+      STRING responsestr := getvariable("SAMLResponse");
+      STRING relaystate := getvariable("RelayState");
+      STRING sigalg := getvariable("SigAlg");
+      STRING signature := getvariable("Signature");
+      STRING signvalue := GetHTTPRedirectSAMLSignableValue(requesturl);
 
       IF (requeststr != "")
       {
@@ -80,9 +103,9 @@ PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
     }
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
     {
-      STRING requeststr := GetWebVariable("SAMLRequest");
-      STRING responsestr := GetWebVariable("SAMLResponse");
-      STRING relaystate := GetWebVariable("RelayState");
+      STRING requeststr := getvariable("SAMLRequest");
+      STRING responsestr := getvariable("SAMLResponse");
+      STRING relaystate := getvariable("RelayState");
 
       // Decode request and response strings
       requeststr := DecodeBase64(Substitute(NormalizeWhitespace(requeststr), " ", ""));
@@ -110,8 +133,8 @@ PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
 }
 
 /** Get a list of all variables on an URL
-    @param url
-    @return
+    @param url URL to decode
+    @return List of variables
     @cell return.name Name of variable
     @cell return.value Value of variable (empty if no value is present)
 */
@@ -142,6 +165,8 @@ RECORD ARRAY FUNCTION GetRawURLVars(STRING url)
 }
 
 /** Get the string to sign for a SAML HTTP-Redirect URL.
+    @param URL with url variables (SAMLResponse, SAMLRequest, RelayState and SigAlg)
+    @return String to sign for redirect binding
 */
 PUBLIC STRING FUNCTION GetHTTPRedirectSAMLSignableValue(STRING url)
 {
@@ -175,8 +200,7 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
         CASE "redirect"
         {
           STRING publickey := GetCertificateData(BlobToString(cert.data.data)).publickey;
-
-          IF (Verify_RSA_SHA1(GetSHA1Hash(data.signvalue), DecodeBase64(data.signature), publickey))
+          IF (VerifyXMLSignature(data.signaturealgorithm, data.signvalue, data.signature, publickey))
           {
             validated := TRUE;
             BREAK;
@@ -209,11 +233,12 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
 }
 
 /** Decodes a SAML request
-    @param data Data of a request/response (from GetSAMLDataFromWebData)
-    @cell(string) data.binding
+    @param data Data of a request/response (from #GetSAMLDataFromWebData) #includecelldef #GetSAMLDataFromWebData.return
     @param isrequest Whether this is a request (FALSE for a response)
-    @return
+    @return Decoded request
     @cell(string) return.binding Binding type
+    @cell(string) return.message Message
+    @cell(string) return.relaystate Relay state
     @cell(function ptr) return.validate Validation function (signature: MACRO validate(RECORD ARRAY certificates))
 */
 PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
@@ -236,8 +261,6 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
-
       RETURN
           [ binding :=      data.binding
           , message :=      message
@@ -247,6 +270,7 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
                 [ type :=       "redirect"
                 , signvalue :=  data.signvalue
                 , signature :=  data.signature
+                , signaturealgorithm := data.sigalg
                 ], #1)
           ];
     }
@@ -291,13 +315,24 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
     @param data Record describing the SAML message
     @param binding Binding to use
     @param isrequest Whether this is a request (otherwise, it is a response)
-    @cell options.destination Destination URL (URI of target service)
-    @cell options.sign Private key to sign the document with
-    @cell options.relaystate relaystate for the request
+    @cell(string) options.destination Destination URL (URI of target service)
+    @cell(string) options.sign Private key to sign the document with
+    @cell(string) options.relaystate relaystate for the request
+    @cell(string) options.signaturealgorithm Signature algorithm to use (defaults to "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
     @return Submit instruction to execute (see [ExecuteSubmitInstruction](%ExecuteSubmitInstruction))
 */
 PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN isrequest, RECORD options)
 {
+  options := ValidateOptions(
+      [ destination :=          ""
+      , sign :=                 ""
+      , relaystate :=           ""
+      , signaturealgorithm :=   "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+      ], options);
+
+  // Just use the digest algorithm used by the the signature algorithm
+  STRING digestalgorithm := GetDigestAlgorithmFromSignatureAlgorithm(options.signaturealgorithm);
+
   BOOLEAN to_sign := CellExists(options, "SIGN");
 
   IF (CellExists(options, "DESTINATION"))
@@ -311,7 +346,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
               [ canonicalizationmethod :=
                     [ algorithm :=    "http://www.w3.org/2001/10/xml-exc-c14n#" ]
               , signaturemethod :=
-                    [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#rsa-sha1" ]
+                    [ algorithm :=    options.signaturealgorithm ]
               , reference :=
                     [ [ transforms :=
                             [ transform :=
@@ -320,7 +355,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
                                     ]
                             ]
                       , digestmethod :=
-                            [ algorithm :=    "http://www.w3.org/2000/09/xmldsig#sha1"
+                            [ algorithm :=    digestalgorithm
                             ]
                       ]
                     ]
@@ -361,14 +396,12 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
       STRING encodedreq := EncodeBase64(BlobToString(MakeZlibCompressedFile(doc->GetDocumentBlob(FALSE), "ZLIBRAW", 5),-1));
       STRING vars := attrname || "=" || EncodeURL(encodedreq);
 
-      STRING sigalg := "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
-      vars := vars || "&RelayState="||EncodeURL(options.relaystate)||"&SigAlg=" || EncodeURL(sigalg);
-
-      STRING sign := EncodeBase64(Create_RSA_SHA1(GetHashForString(vars,"SHA-1"), options.sign, ""));
+      vars := vars || "&RelayState="||EncodeURL(options.relaystate)||"&SigAlg=" || EncodeURL(options.signaturealgorithm);
+      STRING sign := CreateXMLSignature(options.signaturealgorithm, vars, options.sign, "");
 
       returnurl := AddVariableToURL(returnurl, attrname, encodedreq);
       returnurl := AddVariableToURL(returnurl, "RelayState", options.relaystate);
-      returnurl := AddVariableToURL(returnurl, "SigAlg", sigalg);
+      returnurl := AddVariableToURL(returnurl, "SigAlg", options.signaturealgorithm);
       returnurl := AddVariableToURL(returnurl, "Signature", sign);
 
       RETURN
@@ -443,6 +476,7 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
 
   /** Get a connected entity, from the SAML entity id
       @param samlentityid SAML entityid of connected entity
+      @param is_idp Whether the connected entity is an idp
       @return Connected entity, throws on failure
   */
   OBJECT FUNCTION GetConnectedEntityByEntityId(STRING samlentityid, BOOLEAN is_idp)
@@ -455,7 +489,9 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   }
 
   /** Get a connected entity, from a list of WRD filters
+      @param samlentityid SAML entityid of connected entity
       @param filters Filters to use on WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY
+      @param is_idp Whether the connected entity is an idp
       @return Connected entity, throws on failure
   */
   OBJECT FUNCTION GetConnectedEntityByFilters(STRING samlentityid, RECORD ARRAY filters, BOOLEAN is_idp)
@@ -483,19 +519,25 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   // Public API
   //
 
-  /// Get the SAML entityid of this provider
+  /** Get the SAML entityid of this provider
+      @return SAML entityid
+  */
   PUBLIC STRING FUNCTION GetSAMLEntityID()
   {
     RETURN this->entity->GetField("SAMLENTITYID");
   }
 
-  /// Get the WRD tag of this provider (SP only)
+  /** Get the WRD tag of this provider (SP only)
+      @return WRD tag
+  */
   PUBLIC STRING FUNCTION GetTag()
   {
     RETURN this->entity->GetField("WRD_TAG");
   }
 
-  /// Get the keypair for this provider
+  /** Get the keypair for this provider
+      @return(object %KeyPair) Keypair used by this provider
+  */
   PUBLIC OBJECT FUNCTION GetKeyPair()
   {
     RECORD keypairlink := this->entity->GetField("KEYPAIR");
@@ -515,35 +557,53 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   */
   PUBLIC RECORD FUNCTION EncodeAndSignDocument(RECORD doc, RECORD endpoint, STRING relaystate, BOOLEAN isrequest)
   {
+    STRING hashmethod := this->entity->GetField("HASHMETHOD") ?? "SHA-1";
+
+    // Assume that we have a RSA private key
+    STRING signaturealgorithmtype := "rsa";
+
+    STRING signaturealgorithm :=
+        SELECT AS STRING id
+          FROM ListXMLSignatureAlgorithms()
+         WHERE type = "signature"
+           AND COLUMN hashmethod = VAR hashmethod
+           AND COLUMN signaturealgorithmtype = VAR signaturealgorithmtype;
+
+    IF (signaturealgorithm = "")
+      THROW NEW Exception(`No signature algorithm of type 'rsa' defined for hash method ${hashmethod}`);
+
     RETURN EncodeSAMLDocument(
         doc,
         endpoint.binding,
-        isrequest,
+        isrequest, CELL
         [ destination :=      endpoint.location
         , sign :=             BlobToString(this->GetKeyPair()->privatekey)
-        , relaystate :=       relaystate
+        , relaystate
+        , signaturealgorithm
         ]);
   }
 
   /** Get the contact data for this provider
-      @return
-      @cell return.organization_name
-      @cell return.organization_displayname
-      @cell return.organization_url
-      @cell return.contacts
-      @cell return.contacts.type
-      @cell return.contacts.company
-      @cell return.contacts.givenname
-      @cell return.contacts.surname
-      @cell return.contacts.email
-      @cell return.contacts.telephone
+      @return Contact data
+      @cell(string) return.organization_name Organization name
+      @cell(string) return.organization_displayname Organization display name
+      @cell(string) return.organization_url Organization url
+      @cell(record array) return.contacts Contacts
+      @cell(string) return.contacts.type Type
+      @cell(string) return.contacts.company Company
+      @cell(string) return.contacts.givenname Given name
+      @cell(string) return.contacts.surname Surname
+      @cell(string) return.contacts.email E-mail
+      @cell(string) return.contacts.telephone Telephone
   */
   PUBLIC RECORD FUNCTION GetContactData()
   {
     RETURN this->entity->GetFields([ "ORGANIZATION_NAME", "ORGANIZATION_DISPLAYNAME", "ORGANIZATION_URL", "CONTACTS" ]);
   }
 
-  /// Return whether the redirect binding is allowed for this service provider
+  /** Return whether the redirect binding is allowed for this service provider
+      @return TRUE if the redirect binding is allowed
+  */
   PUBLIC BOOLEAN FUNCTION IsRedirectBindingAllowed()
   {
     RETURN this->entity->GetField("ALLOW_REDIRECTBINDING");
@@ -766,6 +826,7 @@ PUBLIC OBJECTTYPE SAMLConnectedServiceProvider EXTEND SAMLConnectedEntity
 >;
 
 /** Get the IDP object for an authentication domain. Throws if no IDP is configured
+    @param wrdauthplugin WRD auth plugin
     @return IDP object
 */
 PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
@@ -891,7 +952,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp
 }
 
 /** Creates a SAML login response
-    @param wrdauthplugin
+    @param wrdauthplugin WRD Auth plugin
     @param decoded_req Dense request (encoded by samledpendpoint)
     @cell decoded_req.r Request
     @cell decoded_req.r.id Request ID

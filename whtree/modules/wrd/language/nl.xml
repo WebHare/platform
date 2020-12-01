@@ -683,6 +683,12 @@
       <text tid="contacts">Contactpersonen</text>
       <text tid="editprovider">Provider bewerken</text>
       <text tid="givenname">Voornaam</text>
+      <text tid="hashmethod">Hash methode for ondertekenen</text>
+      <text tid="hashmethod-sha-1">SHA-1 (afgeraden)</text>
+      <text tid="hashmethod-sha-224">SHA-224</text>
+      <text tid="hashmethod-sha-256">SHA-256</text>
+      <text tid="hashmethod-sha-384">SHA-384</text>
+      <text tid="hashmethod-sha-512">SHA-512</text>
       <text tid="keypair">Sleutelpaar</text>
       <text tid="nameidformat">Naam-identifier formaat</text>
       <text tid="nameidpolicy">Naam-identifier beleid</text>

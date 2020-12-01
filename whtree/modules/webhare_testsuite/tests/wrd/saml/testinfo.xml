@@ -1,4 +1,10 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.xml">
   <test script="test_samlparse.whscr" />
-  <jstest file="test_wrd_saml.es" tags="wrdauth" />
+  <test script="test_samlsigning.whscr" />
+  <jstest name="test_wrd_saml-sha1" file="test_wrd_saml.es" tags="wrdauth">
+    <arg value="SHA-1"/>
+  </jstest>
+  <jstest name="test_wrd_saml-sha256" file="test_wrd_saml.es" tags="wrdauth">
+    <arg value="SHA-256"/>
+  </jstest>
 </group>
