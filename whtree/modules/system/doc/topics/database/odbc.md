@@ -71,7 +71,7 @@ isql -k "Driver=MaODBC;Server=10.11.12.13;Database=<dbname>;Uid=<uid>;Pwd=<passw
 
 ## Testing MariaDB ODBC connector
 
-This section is inteded for developers working on WebHare itself.
+This section is intended for developers working on WebHare itself.
 
 ```bash
 docker run --rm -ti webhare/platform
