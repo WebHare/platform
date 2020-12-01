@@ -21,17 +21,40 @@ LOADLIB "mod::system/lib/webserver.whlib";
 // SAML coder (to generate SAML documents)
 OBJECT coder;
 
+STRING FUNCTION GetVar(RECORD ARRAY vars, STRING name)
+{
+  RETURN SELECT AS STRING value FROM vars WHERE COLUMN name = VAR name;
+}
+
+/** Get the data needed to decode a HTTP-Redirect or HTTP-POST message in the webserver
+    @param(string) binding Binding
+    @param(string) requesturl Request URL
+    @param(record array) webvariables List of webvariables
+    @cell(string) webvariables.name Name of the webvariable
+    @cell(string) webvariables.value Value of the webvariable
+    @return @includecelldef #GetSAMLDataFromWebData.return
+*/
+PUBLIC RECORD FUNCTION GetSAMLData(STRING binding, STRING requesturl, RECORD ARRAY webvariables)
+{
+  RETURN GetSAMLDataFromWebDataInternal(binding, requesturl, PTR GetVar(webvariables, #1));
+}
+
 /** Get the data needed to decode a HTTP-Redirect or HTTP-POST message in the webserver
     @param binding Binding
-    @return
-    @cell(string) binding
-    @cell(string) requeststr Raw SAML message (in XML form)
-    @cell(string) relaystate
-    @cell(string) sigalg Signature algorithm (HTTP-Redirect only)
-    @cell(string) signvalue Value over which the signature is calculated (HTTP-Redirect only)
-    @cell(string) signature Signature (HTTP-Redirect only)
+    @return SAML data
+    @cell(string) return.binding Binding type identifier
+    @cell(string) return.requeststr Raw SAML message (in XML form)
+    @cell(string) return.relaystate Relaystate
+    @cell(string) return.sigalg Signature algorithm (HTTP-Redirect only)
+    @cell(string) return.signvalue Value over which the signature is calculated (HTTP-Redirect only)
+    @cell(string) return.signature Signature (HTTP-Redirect only)
 */
 PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
+{
+  RETURN GetSAMLDataFromWebDataInternal(binding, GetRequestURL(), PTR GetWebVariable);
+}
+
+RECORD FUNCTION GetSAMLDataFromWebDataInternal(STRING binding, STRING requesturl, FUNCTION PTR getvariable)
 {
   IF (NOT ObjectExists(coder))
     coder := NEW SAMLCoder;
@@ -41,12 +64,12 @@ PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
   {
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
     {
-      STRING requeststr := GetWebVariable("SAMLRequest");
-      STRING responsestr := GetWebVariable("SAMLResponse");
-      STRING relaystate := GetWebVariable("RelayState");
-      STRING sigalg := GetWebVariable("SigAlg");
-      STRING signature := GetWebVariable("Signature");
-      STRING signvalue := GetHTTPRedirectSAMLSignableValue(GetRequestURL());
+      STRING requeststr := getvariable("SAMLRequest");
+      STRING responsestr := getvariable("SAMLResponse");
+      STRING relaystate := getvariable("RelayState");
+      STRING sigalg := getvariable("SigAlg");
+      STRING signature := getvariable("Signature");
+      STRING signvalue := GetHTTPRedirectSAMLSignableValue(requesturl);
 
       IF (requeststr != "")
       {
@@ -80,9 +103,9 @@ PUBLIC RECORD FUNCTION GetSAMLDataFromWebData(STRING binding)
     }
     CASE "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
     {
-      STRING requeststr := GetWebVariable("SAMLRequest");
-      STRING responsestr := GetWebVariable("SAMLResponse");
-      STRING relaystate := GetWebVariable("RelayState");
+      STRING requeststr := getvariable("SAMLRequest");
+      STRING responsestr := getvariable("SAMLResponse");
+      STRING relaystate := getvariable("RelayState");
 
       // Decode request and response strings
       requeststr := DecodeBase64(Substitute(NormalizeWhitespace(requeststr), " ", ""));
