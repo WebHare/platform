@@ -133,8 +133,8 @@ RECORD FUNCTION GetSAMLDataFromWebDataInternal(STRING binding, STRING requesturl
 }
 
 /** Get a list of all variables on an URL
-    @param url
-    @return
+    @param url URL to decode
+    @return List of variables
     @cell return.name Name of variable
     @cell return.value Value of variable (empty if no value is present)
 */
@@ -165,6 +165,8 @@ RECORD ARRAY FUNCTION GetRawURLVars(STRING url)
 }
 
 /** Get the string to sign for a SAML HTTP-Redirect URL.
+    @param URL with url variables (SAMLResponse, SAMLRequest, RelayState and SigAlg)
+    @return String to sign for redirect binding
 */
 PUBLIC STRING FUNCTION GetHTTPRedirectSAMLSignableValue(STRING url)
 {
@@ -232,11 +234,12 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates)
 }
 
 /** Decodes a SAML request
-    @param data Data of a request/response (from GetSAMLDataFromWebData)
-    @cell(string) data.binding
+    @param data Data of a request/response (from #GetSAMLDataFromWebData) #includecelldef #GetSAMLDataFromWebData.return
     @param isrequest Whether this is a request (FALSE for a response)
-    @return
+    @return Decoded request
     @cell(string) return.binding Binding type
+    @cell(string) return.message Message
+    @cell(string) return.relaystate Relay state
     @cell(function ptr) return.validate Validation function (signature: MACRO validate(RECORD ARRAY certificates))
 */
 PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
@@ -314,9 +317,9 @@ PUBLIC RECORD FUNCTION DecodeSAMLMessage(RECORD data, BOOLEAN isrequest)
     @param data Record describing the SAML message
     @param binding Binding to use
     @param isrequest Whether this is a request (otherwise, it is a response)
-    @cell options.destination Destination URL (URI of target service)
-    @cell options.sign Private key to sign the document with
-    @cell options.relaystate relaystate for the request
+    @cell(string) options.destination Destination URL (URI of target service)
+    @cell(string) options.sign Private key to sign the document with
+    @cell(string) options.relaystate relaystate for the request
     @return Submit instruction to execute (see [ExecuteSubmitInstruction](%ExecuteSubmitInstruction))
 */
 PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN isrequest, RECORD options)
@@ -466,6 +469,7 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
 
   /** Get a connected entity, from the SAML entity id
       @param samlentityid SAML entityid of connected entity
+      @param is_idp Whether the connected entity is an idp
       @return Connected entity, throws on failure
   */
   OBJECT FUNCTION GetConnectedEntityByEntityId(STRING samlentityid, BOOLEAN is_idp)
@@ -478,7 +482,9 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   }
 
   /** Get a connected entity, from a list of WRD filters
+      @param samlentityid SAML entityid of connected entity
       @param filters Filters to use on WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY
+      @param is_idp Whether the connected entity is an idp
       @return Connected entity, throws on failure
   */
   OBJECT FUNCTION GetConnectedEntityByFilters(STRING samlentityid, RECORD ARRAY filters, BOOLEAN is_idp)
@@ -506,19 +512,25 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   // Public API
   //
 
-  /// Get the SAML entityid of this provider
+  /** Get the SAML entityid of this provider
+      @return SAML entityid
+  */
   PUBLIC STRING FUNCTION GetSAMLEntityID()
   {
     RETURN this->entity->GetField("SAMLENTITYID");
   }
 
-  /// Get the WRD tag of this provider (SP only)
+  /** Get the WRD tag of this provider (SP only)
+      @return WRD tag
+  */
   PUBLIC STRING FUNCTION GetTag()
   {
     RETURN this->entity->GetField("WRD_TAG");
   }
 
-  /// Get the keypair for this provider
+  /** Get the keypair for this provider
+      @return(object %KeyPair) Keypair used by this provider
+  */
   PUBLIC OBJECT FUNCTION GetKeyPair()
   {
     RECORD keypairlink := this->entity->GetField("KEYPAIR");
@@ -549,24 +561,26 @@ PUBLIC STATIC OBJECTTYPE SAMLProviderBase
   }
 
   /** Get the contact data for this provider
-      @return
-      @cell return.organization_name
-      @cell return.organization_displayname
-      @cell return.organization_url
-      @cell return.contacts
-      @cell return.contacts.type
-      @cell return.contacts.company
-      @cell return.contacts.givenname
-      @cell return.contacts.surname
-      @cell return.contacts.email
-      @cell return.contacts.telephone
+      @return Contact data
+      @cell(string) return.organization_name Organization name
+      @cell(string) return.organization_displayname Organization display name
+      @cell(string) return.organization_url Organization url
+      @cell(record array) return.contacts Contacts
+      @cell(string) return.contacts.type Type
+      @cell(string) return.contacts.company Company
+      @cell(string) return.contacts.givenname Given name
+      @cell(string) return.contacts.surname Surname
+      @cell(string) return.contacts.email E-mail
+      @cell(string) return.contacts.telephone Telephone
   */
   PUBLIC RECORD FUNCTION GetContactData()
   {
     RETURN this->entity->GetFields([ "ORGANIZATION_NAME", "ORGANIZATION_DISPLAYNAME", "ORGANIZATION_URL", "CONTACTS" ]);
   }
 
-  /// Return whether the redirect binding is allowed for this service provider
+  /** Return whether the redirect binding is allowed for this service provider
+      @return TRUE if the redirect binding is allowed
+  */
   PUBLIC BOOLEAN FUNCTION IsRedirectBindingAllowed()
   {
     RETURN this->entity->GetField("ALLOW_REDIRECTBINDING");
@@ -789,6 +803,7 @@ PUBLIC OBJECTTYPE SAMLConnectedServiceProvider EXTEND SAMLConnectedEntity
 >;
 
 /** Get the IDP object for an authentication domain. Throws if no IDP is configured
+    @param wrdauthplugin WRD auth plugin
     @return IDP object
 */
 PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
@@ -914,7 +929,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, INTEGER sp
 }
 
 /** Creates a SAML login response
-    @param wrdauthplugin
+    @param wrdauthplugin WRD Auth plugin
     @param decoded_req Dense request (encoded by samledpendpoint)
     @cell decoded_req.r Request
     @cell decoded_req.r.id Request ID
