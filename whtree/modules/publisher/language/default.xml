@@ -1942,6 +1942,9 @@
       <text tid="splitdatetime-year-arialabel">year</text>
       <text tid="starsrequired">* indicates a required field</text>
       <text tid="submit">Submit</text>
+      <text tid="upload-emptytext">No file chosen</text>
+      <text tid="upload-filename">Uploaded file is <param p="1"/></text>
+      <text tid="upload-remove">Remove file</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">The address could not be found.</text>
         <text tid="invalid_nr_detail">Invalid house number.</text>
