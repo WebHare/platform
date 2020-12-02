@@ -709,7 +709,7 @@ export class BackendApplication extends ApplicationBase
     this.appcomm.onclosed = this._gotLinkClosed.bind(this);
     this.appcomm.registerManuallyReceivedMessage(this.lastinitmessage);
 
-    this.appcomm.register($todd.transportmgr);
+    this.appcomm.register(this.shell.transportmgr);
 
     // Wait for both link close & metamessage to close application
     this.deferred_close = dompack.createDeferred();

@@ -215,7 +215,7 @@ class IndyShell
       var metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
       metacomm.onmessage = this._gotMetaMessage.bind(this.shell);
       metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
-      metacomm.register($todd.transportmgr);
+      metacomm.register(this.transportmgr);
     }
   }
 
@@ -277,7 +277,7 @@ class IndyShell
     // Initialize global event handlers
     window.addEventListener("dompack:movestart", this.onMovingUpdate.bind(this, true), true);
     window.addEventListener("dompack:moveend", this.onMovingUpdate.bind(this, false), true);
-    window.addEventListener("unload", $todd.globalevents.OnUnload);
+    window.addEventListener("unload", evt => this.onUnload());
     window.addEventListener("selectstart", this.onSelectStart.bind(this));
     window.addEventListener("contextmenu", event => this.onContextMenuCapture(event), true);
     window.addEventListener("mousedown", event => this.onMouseDownFallback(event));
@@ -286,7 +286,7 @@ class IndyShell
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));
 
-    $todd.transportmgr = new TransportManager(
+    this.transportmgr = new TransportManager(
         { ononline: () => this._gotOnline()
         , onoffline: () => this._gotOffline()
         });
@@ -751,6 +751,18 @@ class IndyShell
       $todd.towl.hideNotification("tollium:shell.offline");
 
     this.offlinenotification = false;
+  }
+
+  onUnload()
+  {
+    // prepare transportmgr for unload
+    this.transportmgr.prepareForUnload();
+
+    // Let every app send their shutdown message
+    $todd.applicationstack.forEach(function(app) { app.queueUnloadMessage(); });
+    this.transportmgr.executeUnload();
+
+    this.transportmgr.destroy();
   }
 }
 

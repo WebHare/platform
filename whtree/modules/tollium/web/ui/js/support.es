@@ -387,18 +387,6 @@ $todd.tolliumservice = '';
  * Window events
  */
 
-$todd.globalevents.OnUnload = function(event)
-{
-  // prepare transportmgr for unload
-  $todd.transportmgr.prepareForUnload();
-
-  // Let every app send their shutdown message
-  $todd.applicationstack.forEach(function(app) { app.queueUnloadMessage(); });
-  $todd.transportmgr.executeUnload();
-
-  $todd.transportmgr.destroy();
-};
-
 $todd.mouse = { clickstatus: null
               , hoverstatus: { tooltipshowtimeout: null
                              , tooltiphidetimeout: null
