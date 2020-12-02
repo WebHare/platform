@@ -19,8 +19,8 @@ export default class WebSocketTransport extends TransportBase
 
     let url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
-    this.socket.addEventListener('open', this.gotOpen.bind(this));
-    this.socket.addEventListener('message', this.gotMessage.bind(this));
+    this.socket.addEventListener('open', e => this.gotOpen(e));
+    this.socket.addEventListener('message', e => this.gotMessage(e));
     this.socket.addEventListener("close", e => this.gotClose(e));
     this.socket.addEventListener("error", e => this.gotError(e));
 
@@ -102,6 +102,7 @@ export default class WebSocketTransport extends TransportBase
       });
 
     this.socket.send(JSON.stringify({ requests: [ { type: 'listen', links: links, frontendids: frontendids } ] }));
+    this.handleSignalledEndpoints();
   }
 
   handleSignalledEndpoints()
