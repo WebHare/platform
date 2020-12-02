@@ -1,6 +1,15 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <jstest file="testdashboard.es" />
-  <jstest file="testappbar.es" />
+  <jstest file="testappbar.es" name="testappbar-sharedworker">
+    <arg value="sharedworker"/>
+  </jstest>
+  <jstest file="testappbar.es" name="testappbar-websocket">
+    <arg value="websocket"/>
+  </jstest>
+  <jstest file="testappbar.es" name="testappbar-jsonrpc">
+    <arg value="jsonrpc"/>
+  </jstest>
+
   <jstest file="testappstart.es" />
   <jstest file="testeventserver.es" exclusive="true" />
   <test script="testsvg.whscr" />

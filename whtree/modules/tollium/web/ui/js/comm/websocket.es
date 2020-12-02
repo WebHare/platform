@@ -16,15 +16,17 @@ export default class WebSocketTransport extends TransportBase
     this.jsonrpc = null;
 
     $todd.DebugTypedLog("rpc", '** create WebSocket transport');
+    this.connectWebsocket();
+  }
 
+  connectWebsocket()
+  {
     let url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
     this.socket.addEventListener('open', e => this.gotOpen(e));
     this.socket.addEventListener('message', e => this.gotMessage(e));
     this.socket.addEventListener("close", e => this.gotClose(e));
     this.socket.addEventListener("error", e => this.gotError(e));
-
-    this.scheduled = true;
   }
 
   destroy()
@@ -73,7 +75,8 @@ export default class WebSocketTransport extends TransportBase
   }
   gotClose(event)
   {
-    console.error("Websocket close", event);
+    console.log("Websocket closed, need to reconnect", event);
+    this.connectWebsocket(); //TODO retry on failure?
   }
 
   setSignalled(endpoint)

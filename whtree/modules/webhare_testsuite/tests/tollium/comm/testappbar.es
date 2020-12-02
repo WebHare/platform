@@ -1,7 +1,8 @@
 import * as test from "@mod-tollium/js/testframework";
+let transport = test.getTestArgument(0);
 
 test.registerTests(
-  [ { loadpage: test.getTolliumHost() + '?app=webhare_testsuite:appstarttest'
+  [ { loadpage: test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&transport=' + transport
     , waits: [ 'ui' ]
     }
   , { name: 'restart app3'
@@ -28,6 +29,16 @@ test.registerTests(
         test.click(test.getMenu(['X06']));
       }
     , waits: [ 'ui' ]
+    }
+
+  , "Disrupt connection if websocket to test recovery"
+  , async function()
+    {
+      if(transport === 'websocket')
+      {
+        test.eq(1, test.getWin().$shell.transportmgr.transports[0].socket.readyState, "Unable to get direct access to the websocket - we need that to test disconnection");
+        test.getWin().$shell.transportmgr.transports[0].socket.close();
+      }
     }
 
   , { name: 'check still closeable'
@@ -116,16 +127,10 @@ test.registerTests(
     }
   , test.testClickTolliumButton('Yes')
 
-  , { name: "check close"
-    , test:function(doc,win) { console.error('wait for actual close'); }
-    , waits: [ 100 ] // wait for close to be processed too
-    }
-
-  , { name: "app closed?"
-    , test:function(doc,win)
-      {
-        test.eq(2, test.qSA('.t-apptab').length);
-      }
+  , "check close"
+  , async function()
+    {
+      await test.wait( () => test.qSA('.t-apptab').length == 2);
     }
   ]);
 
