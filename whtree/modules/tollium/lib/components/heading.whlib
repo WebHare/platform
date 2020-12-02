@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -69,7 +70,12 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
   {
     RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
     IF(RecordExists(info))
-      this->contexts->controller->OpenAppDocumentation(info.url, [ editinfo := info.editinfo ]);
+    {
+      STRING url;
+      IF(info.url != "")
+        url := UpdateURLVariables(info.url, [ "ts" := FormatISO8601Datetime(GetCurrentdatetime(),"","","",FALSE)]);
+      this->contexts->controller->OpenAppDocumentation(url, [ editinfo := info.editinfo ]);
+    }
   }
   MACRO SetDoclink(STRING newlink)
   {
