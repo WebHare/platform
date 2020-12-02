@@ -9,7 +9,7 @@ You can pass the following variables on the URL to customize or debug various To
 - openas=[username]       Log in as the specified user (requires sysop privileges)
 - language=[en]           Override the user language
 - intolerant=1            Throw on error conditions, instead of just trying to make it work
-- commfallback=1          Do not use shared workers or websockets for tollium communication
+- transport=[transport]   Force transport type. (transport must be one of 'shardedworker', 'jsonrpc' or 'websocket')
 - go=                     Portal/frontend specific parameters
 - notifications=0         Disable notifications
 ```
