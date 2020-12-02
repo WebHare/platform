@@ -139,7 +139,6 @@ export class RTE
 
     this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
     this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
-    this.htmldiv.addEventListener("wh:menu-activateitem", evt => this._activateRTDMenuItem(evt));
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
 
     if(this.toolbarnode)
@@ -242,7 +241,7 @@ export class RTE
       if(actionstate[item.action].available)
       {
         contextmenu.appendChild(dompack.create('li', { textContent: item.title
-                                                     , dataset: { action: item.action }
+                                                     , onClick: evt => this._activateRTDMenuItem(evt, item)
                                                      }));
       }
     }
@@ -250,10 +249,10 @@ export class RTE
     menu.openAt(contextmenu, event, { eventnode: this.node });
   }
 
-  _activateRTDMenuItem(evt)
+  _activateRTDMenuItem(evt, item)
   {
-    evt.stopPropagation();
-    this.executeAction(evt.detail.menuitem.dataset.action);
+    dompack.stop(evt);
+    this.executeAction(item.action);
   }
 
   //get the current dirty flag

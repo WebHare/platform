@@ -156,8 +156,8 @@ class MenuButton extends SimpleToggleButton
     this.listnode = dompack.create('ul');
     this.node.appendChild(dompack.create("div", { style: { display: "none" }
                                                 , childNodes: [ this.listnode ]
+                                                , onClick: evt => this.activateItem(evt)
                                                 }));
-    this.node.addEventListener("wh:menu-activateitem", evt => this.activateItem(evt));
   }
 
   updateState(selstate)
@@ -187,7 +187,7 @@ class MenuButton extends SimpleToggleButton
   // Override to respond to selected menuitem (event.detail.menuitem is selected <li>)
   activateItem(event)
   {
-    event.stopPropagation();
+    dompack.stop(event);
     this.updateState(this.toolbar.rte.getSelectionState());
   }
 }
@@ -359,6 +359,7 @@ class InsertTableButton extends MenuButton
     this.listnode.classList.add("wh-rtd-tablemenu");
     this.listnode.addEventListener("mouseleave", this.hoverItem.bind(this));
     this.listnode.addEventListener("mousemove", this.hoverItem.bind(this));
+    this.listnode.addEventListener("click", event => this.doInsertTable(event));
     for (var row = 0; row < this.initialrows; ++row)
       for (var col = 0; col < this.initialcolumns; ++col)
       {
@@ -411,13 +412,14 @@ class InsertTableButton extends MenuButton
     this.statusnode.textContent = selsize ? (selsize.x + "x" + selsize.y) : "";
   }
 
-  activateItem(event)
+  doInsertTable(event)
   {
+    dompack.stop(event);
     let editor = this.toolbar.rte.getEditor();
     if(!editor)
       return;
 
-    var size = this.getItemSize(event.detail.menuitem);
+    var size = this.getItemSize(event.target);
     if (size)
       editor.executeAction({ action: 'table'
                                         , size: size

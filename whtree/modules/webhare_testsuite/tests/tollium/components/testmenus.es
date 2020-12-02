@@ -70,7 +70,7 @@ test.registerTests(
     }
 
   , { name: 'verify X03'
-    , test:function(doc,win)
+    , test: async function(doc,win)
       {
         //hover to the click action
         var X03 = test.getMenu(['X03']);
@@ -85,6 +85,7 @@ test.registerTests(
         test.click(X03);
 
         //should still have hover status but not selected
+        await test.wait(1);
         test.false(X03.classList.contains("selected"));
       }
     , waits: [ 'ui' ]
