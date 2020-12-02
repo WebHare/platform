@@ -145,9 +145,9 @@ BLOB badglobalhandler := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <screen name="testbadglobalhandler" implementation="none">
     <body>
       <select name="pulldown" type="pulldown">
-        <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#NoSuchFunction" />
-        <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler" />
-        <optionsource name="os3" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#GoodFreeOptionsHandler" />
+        <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#NoSuchFunction" />
+        <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler" />
+        <optionsource name="os3" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#GoodFreeOptionsHandler" />
       </select>
     </body>
   </screen>
@@ -388,8 +388,8 @@ MACRO TestBasicValidate()
 
   //We can't detect bad handlers yet as we cannot instantiate during validation
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
-  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib\'' ]
-                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
+  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib\'' ]
+                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
                 ],res.errors, "*");
   TestEq(RECORD[],res.warnings);
 

@@ -12,7 +12,6 @@
 
   <test name="socialite"  path="socialite/" />
   <test name="tollium"    path="tollium/" />
-  <test name="tollium-components"    path="tollium-components/" />
   <test name="baselibs"   path="baselibs/" />
 
   <test name="wrd"        path="wrd/" />
