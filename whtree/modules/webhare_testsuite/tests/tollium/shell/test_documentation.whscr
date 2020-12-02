@@ -26,7 +26,7 @@ ASYNC MACRO TestDocumentationSite()
 
   RECORD openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
-  TestEq("https://www.example.com/docs/testapp/subpage", openhelp.params[0]);
+  TestEqLike("https://www.example.com/docs/testapp/subpage?ts=*", openhelp.params[0]);
   TestEq("", openhelp.params[1]);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
@@ -58,7 +58,7 @@ ASYNC MACRO TestDocumentationSite()
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
-  TestEq(testsite->webroot || "doc/testfile/", openhelp.params[0]);
+  TestEqLike(testsite->webroot || "doc/testfile/?ts=*", openhelp.params[0]);
   TestEq("", openhelp.params[1]);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
@@ -103,7 +103,7 @@ ASYNC MACRO TestDocumentationSite()
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
-  TestEq(testsite->webroot || "doc/subpage/", openhelp.params[0]);
+  TestEqLike(testsite->webroot || "doc/subpage/?ts=*", openhelp.params[0]);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close our testapp
 }
