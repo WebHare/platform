@@ -4,6 +4,7 @@
   <test script="fragments.whscr" />
   <test script="panel.whscr" />
   <test script="test_tabextensions.whscr" />
+  <test script="test_movetoselect.whscr" />
   <jstest file="testarrayedit.es" />
   <jstest file="testbody.es" />
   <jstest file="testbutton.es" />
