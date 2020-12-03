@@ -1,0 +1,11 @@
+<?wh
+
+PUBLIC RECORD ARRAY FUNCTION MySourceFilter(OBJECT contexts, RECORD ARRAY rows, STRING input)
+{
+  IF(input = "")
+    rows := SELECT * FROM rows WHERE rowkey=4;
+  ELSE IF(input IN ["1","2","3","4"])
+    rows := SELECT * FROM rows WHERE rowkey >= ToInteger(input,0);
+
+  RETURN rows;
+}

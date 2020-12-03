@@ -1,0 +1,32 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         library="movetoselect.whlib">
+
+  <fragment name="movetoselect">
+    <actions>
+      <action name="addtoselection" title="">
+        <enableon source="sourcelist" min="1" onexecute="doaddtoselection" />
+      </action>
+      <action name="removefromselection" title="">
+        <enableon source="selectionlist" min="1" onexecute="doremovefromselection" />
+      </action>
+    </actions>
+    <contents>
+      <grid name="maingrid" height="1pr">
+        <cell width="1pr">
+          <textedit name="sourcefilterfield" title="" width="1pr" onchange="onsourcefilterchange" visible="false" />
+          <list name="sourcelist" height="1pr" selectmode="multiple" ongetrows="getsourcerows" openaction="addtoselection" />
+        </cell>
+        <cell>
+          <spacer height="1pr" />
+          <button type="icon" action="addtoselection" icon="tollium:actions/right"/>
+          <button type="icon" action="removefromselection" icon="tollium:actions/left"/>
+          <spacer height="1pr" />
+        </cell>
+        <cell width="1pr">
+          <list name="selectionlist" height="1pr" selectmode="multiple" ongetrows="getselectionrows" openaction="removefromselection"/>
+        </cell>
+      </grid>
+    </contents>
+  </fragment>
+
+</screens>

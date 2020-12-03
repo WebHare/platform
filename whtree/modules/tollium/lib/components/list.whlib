@@ -42,6 +42,80 @@ INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
     RETURN TYPEID(STRING);
 }
 
+PUBLIC OBJECTTYPE StoredListComponentBase
+<
+  /** The list/tree storage object for this list (type: ListTreeHelper)
+  */
+  OBJECT storage;
+
+  /** @short Returns the rowkey(s) of the current selected element. Throws if rowkey type is unknown.
+      @long For single-select lists, this property returns the rowkey of the current selected row. If no
+            row is selected, the default value for the rowkey type is returned (0 for integer rowkeys, ""
+            for string rowkeys). For multiple-select lists, an array with the rowkeys of the currently
+            selected rows is returned.
+  */
+  PUBLIC PROPERTY value(GetValue, SetValue);
+
+
+  /** @short Contains all the rows.
+      @long This property contains the rows in the list. Write to this property to replace the rows (only
+            allowed for static lists
+            If you want to replace only one row, please use UpdateSingleRow instead.
+      @example rowkey Rowkey of the row
+               enabled Whether the row is enabled
+  */
+  PUBLIC PROPERTY rows(GetRows, SetRows);
+
+  /** @short Get or set the currently selected rows
+      @long If you use this property to update the selection on a dynamic list, you should make sure that
+            the records you send are complete (ie: they contain all the necessary cells). For static lists,
+            the selection property only uses the rowkey cell to match the selection, it does not actually
+            copy the row
+  */
+  PUBLIC PROPERTY selection(GetSelection, SetListSelection);
+
+
+  MACRO NEW()
+  {
+    this->storage := NEW ListTreeHelper;
+    this->storage->callback := PRIVATE this;
+  }
+
+  VARIANT FUNCTION GetValue()
+  {
+    RETURN this->storage->value;
+  }
+
+
+  MACRO SetValue(VARIANT keys)
+  {
+    this->storage->value := keys;
+  }
+
+
+  RECORD ARRAY FUNCTION GetRows()
+  {
+    RETURN this->storage->rows;
+  }
+
+  MACRO SetRows(RECORD ARRAY newrows)
+  {
+    this->storage->SetStaticRows(newrows);
+  }
+
+  VARIANT FUNCTION GetSelection()
+  {
+    RETURN this->storage->selection;
+  }
+
+  MACRO SetListSelection(VARIANT rows)
+  {
+    this->storage->SetSelectionByAPI(rows);
+  }
+
+
+>;
+
 /** @short List
     @long This is a list
 */
@@ -54,9 +128,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   /// The language doc at init time to support gid-mapped columns FIXME probably move to compnoentbase
   // FIXME PUBLIC OBJECT pvt_initialization_languagedoc;
 
-  /** The list/tree storage object for this list (type: ListTreeHelper)
-  */
-  OBJECT storage;
 
 
   /// List of flags
@@ -161,38 +232,12 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   // Properties
   //
 
-  /** @short Returns the rowkey(s) of the current selected element. Throws if rowkey type is unknown.
-      @long For single-select lists, this property returns the rowkey of the current selected row. If no
-            row is selected, the default value for the rowkey type is returned (0 for integer rowkeys, ""
-            for string rowkeys). For multiple-select lists, an array with the rowkeys of the currently
-            selected rows is returned.
-  */
-  PUBLIC PROPERTY value(GetValue, SetValue);
-
-
-  /** @short Contains all the rows.
-      @long This property contains the rows in the list. Write to this property to replace the rows (only
-            allowed for static lists
-            If you want to replace only one row, please use UpdateSingleRow instead.
-      @example rowkey Rowkey of the row
-               enabled Whether the row is enabled
-  */
-  PUBLIC PROPERTY rows(GetRows, SetRows);
 
 
   /** @short Contains footer rows.
       @long This property contains the footer rows in the list. Write to this property to replace the rows
   */
   PUBLIC PROPERTY footerrows(GetFooterRows, SetFooterRows);
-
-  /** @short Get or set the currently selected rows
-      @long If you use this property to update the selection on a dynamic list, you should make sure that
-            the records you send are complete (ie: they contain all the necessary cells). For static lists,
-            the selection property only uses the rowkey cell to match the selection, it does not actually
-            copy the row
-  */
-  PUBLIC PROPERTY selection(GetSelection, SetListSelection);
-
 
   /** @type(record array) List of columns in the list. Setting this property clears the current rows, as well as the row
           layouts
@@ -464,6 +509,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   MACRO NEW()
   {
+    EXTEND this BY StoredListComponentBase;
     EXTEND this BY TolliumIsComposableListener;
     EXTEND this BY TolliumIsDirtyable;
     EXTEND this BY TolliumFileDropAccepter;
@@ -478,9 +524,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->pvt_dragsingleicon := "tollium:actions/dragsingle";
     this->pvt_dragmultipleicon := "tollium:actions/dragmultiple";
     this->pvt_selectevent := "asynchronous";
-
-    this->storage := NEW ListTreeHelper;
-    this->storage->callback := PRIVATE this;
 
     this->formfieldtype := "string";
     this->pvt_borders := [ top := TRUE, right := TRUE, bottom := TRUE, left := TRUE ];
@@ -829,49 +872,15 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   }
 
 
-  VARIANT FUNCTION GetValue()
-  {
-    RETURN this->storage->value;
-  }
-
-
-  MACRO SetValue(VARIANT keys)
-  {
-    this->storage->value := keys;
-  }
-
-
-  RECORD ARRAY FUNCTION GetRows()
-  {
-    RETURN this->storage->rows;
-  }
-
   RECORD ARRAY FUNCTION GetFooterRows()
   {
     RETURN this->pvt_footerrows;
-  }
-
-  MACRO SetRows(RECORD ARRAY newrows)
-  {
-    this->storage->SetStaticRows(newrows);
   }
 
   MACRO SetFooterRows(RECORD ARRAY newrows)
   {
     this->pvt_footerrows := this->storage->CheckNewRows(newrows, TRUE);
     this->ExtUpdatedFooterRows();
-  }
-
-
-  VARIANT FUNCTION GetSelection()
-  {
-    RETURN this->storage->selection;
-  }
-
-
-  MACRO SetListSelection(VARIANT rows)
-  {
-    this->storage->SetSelectionByAPI(rows);
   }
 
 
