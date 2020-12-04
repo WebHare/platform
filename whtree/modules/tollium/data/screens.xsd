@@ -2038,6 +2038,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="imageedit" type="ImageEdit"/>
       <xs:element ref="list" />
       <xs:element ref="listedit" />
+      <xs:element ref="movetoselect" />
       <xs:element ref="panel" />
       <xs:element ref="richarea" />
       <xs:element ref="richdocument" />
@@ -4835,6 +4836,30 @@ To change a <xs:attribute /> for adding descriptions
 
   </xs:attributeGroup>
 
+  <xs:complexType name="MoveToSelect">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent placement="block" fragment="/tolliumcomponents/movetoselect.xml#movetoselect" objecttype="/tolliumcomponents/movetoselect.whlib#MoveToSelect" />
+        <tai:extraparser field="columns" type="listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
+      </xs:appinfo>
+      <xs:documentation>Select items by moving them between two lists</xs:documentation>
+    </xs:annotation>
+    <xs:choice minOccurs="0" maxOccurs="unbounded" >
+      <xs:element ref="column" />
+    </xs:choice>
+    <xs:attributeGroup ref="ComposableComponentBase" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
+    <xs:attributeGroup ref="RowKeyType" />
+    <xs:attribute name="onsourcefilter" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:callbacksignature returntype="recordarray" arguments="recordarray string"/>
+        </xs:appinfo>
+        <xs:documentation>Specify a text-based filter to apply to the displayed rows in the source list. Receives the rows to filter and the current query (may be empty!)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
   <xs:attributeGroup name="DynamicListAttributes">
     <xs:attribute name="eventmasks">
       <xs:annotation>
@@ -5846,6 +5871,12 @@ To change a <xs:attribute /> for adding descriptions
   </xs:element>
   <xs:element name="listedit" type="ListEdit">
     <xs:unique name="uniquecolumnnames_listedit">
+      <xs:selector xpath="./s:column" />
+      <xs:field xpath="@name" />
+    </xs:unique>
+  </xs:element>
+  <xs:element name="movetoselect" type="MoveToSelect">
+    <xs:unique name="uniquecolumnnames_movetoselect">
       <xs:selector xpath="./s:column" />
       <xs:field xpath="@name" />
     </xs:unique>
