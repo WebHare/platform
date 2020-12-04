@@ -43,6 +43,8 @@ PUBLIC MACRO UpdateSystemBackendSite()
   OBJECT checkfolder := webharefolder->EnsureFolder( [ name := "check" ]);
   //the 'testoutput' folder is reserved for CI tests
   OBJECT testfwfolder := backendsite->rootobject->EnsureFolder([ name := "testoutput", type := 1 ]);
+  //the 'documentation' folder is reserved as a common point for documentation subsites. they should preferably be one extra level deeper in this folder
+  backendsite->rootobject->EnsureFolder([ name := "documentation", type := 1 ]);
 
   //TODO Stop injecting code directly into WHFS. But we should probably replace this with an official oauth-ed WebHare REST API anyway
   OBJECT webhareindex := webharefolder->EnsureFile(

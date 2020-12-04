@@ -1,0 +1,438 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/jwt.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+
+MACRO JWTTest()
+{
+  RECORD test_payload :=
+      [ iat := MakeDateTime(2015, 2, 1, 8, 33, 58)
+      , loggedInAs := "admin"
+      ];
+  RECORD test_payload_translations :=
+      CELL[ "loggedInAs" ];
+
+  STRING key_id := "testkey";
+
+  // wh sql '?generaterandomtext(256,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs256_key := "gMAmPh4FEVKdfSSIxv63PWd7WcQbudfvs-EtM6bG_xF1cr21S2n7Bg_pjtPZRJJBO-y92J9yQ9e1CZ5pOXw5_aW_owpDjQYZsE_7F4EMV_fg_VgqffRxxoAHkggs3NQhKwXv1PFBMg-MnSjq-rNEP-sdRFoZ-lr137OPcLSZPB2C6ouuif8hokCYMLB0Z2ggPsRIlF57auyQk63ZUW5eqr_HeiFo515JOhaAXAJITGvMJyg2i2BNHbxd6xk-hS48";
+  // wh sql '?generaterandomtext(384,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs384_key := "_h0eLkmTJ8qlKDbiP3VF8QEMa0ETbBCGX0_3PQufb6Ihw71oLhPkdaONMOcc6RJx_enzI5C7EwFj9hg4FxV597me8M339bK0LNoha5716kCn-3DWf507WL9jl6_OV_v8oF4zaF--Uf11b0y7GCsHz9BflsZkptT_9v91AYuzOYTO6hy4p7kL4thLnYOhrtkA9duX2DHZzdUwrPxZ_pD0sGzNNIwX9wL8ygZrpJfKTiZZimo9hdVKoJWzK5HbVnXqwSeMslKC33caeJdqVdM2CYScYGR4pPRJ848ezOm62_HNoANQl5tRISjS3ZY9qv3hYvEUZMRSLqKeBJxjftSB6Ip2Tec7RzzeU77VnHzc0aTgtiTC1h-NjAapyxZKBx1t";
+  // wh sql '?generaterandomtext(512,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")'
+  STRING hs512_key := "yqgBA_EZKpcOYWByDL7ZA1gwhIB7KNYgEwsNuaWGpcvnxrQMxt4gjpoGCckPWWyjW_-C6hSUvLr3Otczsnt32E9MMFvBqHAGfXn-tULu_J2ozxdKMEk9svZ2TsDjyVmYIludYTtIsGIsgTpvIcdA02tszdpyCDDXbKHBqqKT0zXJKl3jbTiyRmeZm6HL2XKknpl6xp7KnQUHSLpRgKag5_aCHNmVL3KWM93d4V0WEk-VtjNOkndoPHnmW0currMkgV93ZlAyQzbMAysNKXuQr3DynanTB579AXDTMwdvUGKMO4lPjWpSz4AHHCd2aHJjTxzFeiF89NvHslFxCEbqizKezC4AEzd0Mjz-Fr_heiM2So-hpRnDRk3u-n5vnBp_4Y4q9g_b9p0m34iPICcOQAGhydJBQDO2-B9sXb3hAZ454i9KFumSZxpUCVM3xiha2w-3I3LRitdBj2GhbL4HJPguwq6pYZSxH1pkkcmjLDEm3qfGnGFen0_1lUU74K4M";
+
+  // openssl genrsa -out rsa1024-key.pem 1024
+  STRING rsa1024_key := `-----BEGIN RSA PRIVATE KEY-----
+MIICXAIBAAKBgQCp0zmr5DnmgdQKc9vEkV1o4HMYUo3O3aRG3yDlyoXZNCWZCHMw
+2Yf9NwF01h7mmGJKP96GVcsXS5Y9YJZnjabafnyA6g3+az9LDMHq2yEBWMBhzl70
+ZE+VuHZeLZlRjeGYj+LvyxvL/0aAg8OZgYrH+ML/eAqMtuPW8TRdIOj8xQIDAQAB
+AoGAYETT+YQb6naIXBCHcWuyFwS9WflaV/0+5coQ3RKsQ4+TDKhEnFmEBF/NHI1Q
+4QlbFpoUK/SwdxkrJsn9GOCsx1zrsklMdAi6+edQgWUksZMKSxwvY7b2de3o3CrH
+9y3K40h9gPCYpLQ/PSlTyxG4yy5heS2+2ZmGrJ6assGuLNUCQQDR1G87Cn82GpeX
+TLSOCbATTc/tFDPYARW3N14MH5YqngNO7c2WytdBTcOW6sGpzEBphh3T8Po5K0RX
+7sRgNWx3AkEAzzFaXiip38e0kPTKUyP92KLIoYqzDa/hqmOY1VMMHXd2m5Y3gMzQ
+5183EUrztmTMWWG4/2HQHqrdqIMZ+Sa7owJAMJuzwMunuJLkdypP0W+xGGe4OUWq
+1Ok7bJwo70oJ8Yl1Xr18GOiYgQpQuw9bGci1SzzEgCqc7M13IZ+wYlE99QJAZJ0R
+xiG3BG2FONM2oRMcRSQfi5rAAoiDbGu7HvSaMID/vuQ+hbRwSbsKEcK1AMCIH2t+
+G74TA6FzzE4FweDWQwJBAL+nrPEDYfUhiDlGuA+muuW3OyfacD5z7KWU3FYEq160
+tWK1xdM289SBFRShNDexkPUx0+Io0YBxrc+cbyuvhJA=
+-----END RSA PRIVATE KEY-----
+`;
+  // openssl genrsa -out rsa2048-key.pem 2048
+  STRING rsa2048_key := `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA0Z21Anm79hISMaoIL17tCgF+vTQmu6gK2vDgDSm/G2HggO1Q
+1ByaFvw29sVTHhLVAN9W/cWNQeNZp053T/OP23iIwTzt7V6GiSFcUzyJDsZEg26k
+WQjsGVaklrTfWi8MzOjHAej79Moki+/+nwRlQHk7DrJHD8WnPdO886vt7JY03lOL
+cAqpld0xYojQZJ7Ku2eSyrArcZeL/Sgt97ZwpJ8hk+mVnSYK8GhlCKjHNH08UXVo
+rkA0du//djPLL+Ylldq1X0/3NfEolo89nm5ZZEQxeeiMTyf6UNZV795v2yeShLpp
+LARSo/k+P6b3nlxz8ccgdzOvyChDtzHL0KgdzwIDAQABAoIBAQDJr+bEdQEnqQec
+ha/OdJW69OlPf2htUyjutKm/wJVC8ZAkPTNyg/q3dwIjuoVZAGG2ry5yiqx54xkW
+Y+dlJEMctwNOeyOrKzJjq5e79xkhACBYHhNAH9ecIcPHxkzJ5093sdoZumUDiaRU
+iR0DQCV0PbFXWK4LPPDICn1aL+mDot0c/PMmdR1cNgleipFwA7tv4CBcmU4PLJTR
+DmUSYE3wqfDzeF5D1MMzh23nGR/9QgY0P9N2UjmPgK9t9yYJ3qJuw5G5kiHuD5d1
+lj4BjZqmL7J4nk1w0MFhClalUOS64ayZifI5kPsGBAbb/sDYaazEQqFGmVRNUB+j
+uviKyNjxAoGBAPF6iQCpf+Wyf1VbrV182XF+4tdkidf/SQAONzA4S615q66tyu0K
+bBX1Os6LvJA8k6lGTZMmq5OPXvDfMmYjur9gAlUPglqFca5AUIvKM7jGlOt1RhLM
+pZ+mR9xBttms5/DFRQU3nUPt3i2ihJJVoj9bLSVSTuQG3uG18O1wTJptAoGBAN44
+qPvNMNvNhxFUOnBm9VAQHVp9X3PAiSMUWeUNnEYbb2DiVKmUQ9JwiO9DuYdAp6/P
+VLhMfPHEkg9d383mFAOLZHGiVqvhWMxph6qUQcm501JLJC7+FlsUxvCNImwlmYI/
+VJrWIM4ZsgLZ5OtfgB8tams4iElkyZgZAB9h1nOrAoGBAKdJBQoRYknk+zNN3G8M
+Y7KtfUZMHvYkoxTHxFHCXiLiTB4pxY+rDa+0gDXANjQR0xWMX4dWXbxOsS3a4ZZC
+oEedol/864f8NAHMCkCdJnGWGGp5hr7VSNOtpNCgMaTglJmGf8cafPcnHSiuEnsx
+mcGcT00wlPiBDfx9R1el2VuNAoGABYz6w5djggoHNqqY7xfTRtWwNgNtr/F+O28V
+s7/8SFAFHzFoFfhLHWWMNhXF+5fk2GJgZl4avNtBHrskjPsTQudnceMxMQfm9Owp
+5FvhrM1EdwjDdZ0JJ+tD8NxFoNfrlrJIRbnVhfBkXufcbPistZqnztfRp6up0W/G
+bgI+nhMCgYAV48ldmkOkuSmU4zC7bX7nM8iMMBc3WwTHdrRm/BlF7tbrfR23+uPl
+nssXZPP0RSPp7+egXm2rV7wYdTVhBSaVkZgtxbZCYIVG/O/KtynjBjCn1h0Xfbmi
+AJxNsTR+50+0l5mXfLqF3OSkoHY2ER4AX/ciqtLWZhQDbAQnoUGvxw==
+-----END RSA PRIVATE KEY-----
+`;
+  // openssl rsa -in rsa2048-key.pem -pubout -out rsa2048-pub.pem
+  STRING rsa2048_key_pub := `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0Z21Anm79hISMaoIL17t
+CgF+vTQmu6gK2vDgDSm/G2HggO1Q1ByaFvw29sVTHhLVAN9W/cWNQeNZp053T/OP
+23iIwTzt7V6GiSFcUzyJDsZEg26kWQjsGVaklrTfWi8MzOjHAej79Moki+/+nwRl
+QHk7DrJHD8WnPdO886vt7JY03lOLcAqpld0xYojQZJ7Ku2eSyrArcZeL/Sgt97Zw
+pJ8hk+mVnSYK8GhlCKjHNH08UXVorkA0du//djPLL+Ylldq1X0/3NfEolo89nm5Z
+ZEQxeeiMTyf6UNZV795v2yeShLppLARSo/k+P6b3nlxz8ccgdzOvyChDtzHL0Kgd
+zwIDAQAB
+-----END PUBLIC KEY-----
+`;
+
+  // openssl ecparam -name prime256v1 -genkey -noout -out prime256v1-key.pem
+  STRING ec256_key := `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIDIUPGggV0kaA0EsEJ2MQmisWM6LMRxmJKOz7sK3DGDuoAoGCCqGSM49
+AwEHoUQDQgAEzsc8VxLRJFPhnihLK1Ji0dkFfU/jWfH60YoDC+xmxhXj7MUDALvV
+sOKchPyvS05GWLHLb0KojLBpuua//O4pqQ==
+-----END EC PRIVATE KEY-----
+`;
+  // openssl ec -in prime256v1-key.pem -pubout -out prime256v1-pub.pem
+  STRING ec256_key_pub := `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzsc8VxLRJFPhnihLK1Ji0dkFfU/j
+WfH60YoDC+xmxhXj7MUDALvVsOKchPyvS05GWLHLb0KojLBpuua//O4pqQ==
+-----END PUBLIC KEY-----
+`;
+  // openssl ecparam -name secp384r1 -genkey -noout -out secp384r1-key.pem
+  STRING ec384_key := `-----BEGIN EC PRIVATE KEY-----
+MIGkAgEBBDAGCIHQBF1k6dh0GhywT+o3NJ9f0ys+iMSEjggAwRdraq4+lZKPFYyl
+KNlx6uk+blqgBwYFK4EEACKhZANiAATvWbjRaOdWdh2WfP3NWWszARc7S6N1qc32
+YHi/IF4qULO6lR5pJ29s3R4sBxXC3wPyIlNkQtOKuDmBivGPcMWPM0ozoYo5FzxQ
+DMHPjQYvJx8slq5cWRsNcQ7z8/WNi/E=
+-----END EC PRIVATE KEY-----
+`;
+  // openssl ecparam -name secp521r1 -genkey -noout -out secp521r1-key.pem
+  STRING ec521_key := `-----BEGIN EC PRIVATE KEY-----
+MIHbAgEBBEGtvBuChFjMEraxYT3QCxHdodHqrgF0nD31VKCn5UN03RKU9kUaOCeT
+7vJhths8beTqYrGiXhartzYrGoIya3/J16AHBgUrgQQAI6GBiQOBhgAEAVItej8f
+25Ure36UHoKAaIfrlb5GE48/+6P/kefamDU8xiQg8g0YUzWr16YSN2/KyCC8E3li
+jTu2VmLTXYIFr39KAAtMKWgek7pD5PiMFltaA0M5sHB+ExEb9gGPokIYKv2erPvW
++55e9ms8H0VPaOvheHG8QOSS7CyUZfqNflmRYy11
+-----END EC PRIVATE KEY-----
+`;
+
+  // Hard-coded auth values are generated using http://jwt.io/
+
+  // none
+  OBJECT jwt_token := NEW JSONWebToken("none", "");
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  STRING authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.", authvalue);
+
+  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), [ alg := [ "none" ], translations := test_payload_translations ]));
+  OBJECT verified := VerifyJSONWebToken(authvalue, [ alg := [ "none" ], translations := test_payload_translations ]);
+  TestEq(test_payload, verified->payload);
+
+  // HS256
+  TestThrows(PTR TestMakeJSONWebToken("HS256", "secret_key")); // key length mismatch
+  jwt_token := NEW JSONWebToken("HS256", hs256_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.1GwRlVaO4Ptv4FMG66aTghCpUx-UzE37mGI199srI-o", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.xNOz29jFiXuLciNdU-RtnBdo5wzCS-7O2IMDIRtXS5I", authvalue);
+
+  // Test secret/key callback
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations ]));
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, hs256_key, #1) ]);
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", hs256_key, #1) ]));
+
+  // This token has 'loggedInAs' and 'iat' in the payload and 'typ' and 'kid' in the header not in alphabetical order
+  verified := VerifyJSONWebToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3RrZXkifQ.eyJsb2dnZWRJbkFzIjoiYWRtaW4iLCJpYXQiOjE0MjI3Nzk2Mzh9.-c4uv4U6W-SVJojikw5WtPxQB3I36qIpJBWZ7O2Ku2A", [ alg := [ "HS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs256_key, #1) ]);
+
+  // HS384
+  TestThrows(PTR TestMakeJSONWebToken("HS384", hs256_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("HS384", hs384_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.TWVjAmzdfJ3LMDDK6ilpMTqqHVWOv_3qfu_drK59_PJUKCfNf-WwuFgmAcBk0yoF", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs384_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzM4NCIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.WuozBCUC8AfOnv5ABnsk5GY_1WNwoSf_dresfPg5yRr6XWzrHq5f5Eu90WQhUNqC", authvalue);
+
+  // HS512
+  TestThrows(PTR TestMakeJSONWebToken("HS512", hs256_key)); // key length mismatch
+  TestThrows(PTR TestMakeJSONWebToken("HS512", hs384_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("HS512", hs512_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.YFc6KVyHsaV9MwsfuMWa6MpXUzpwYguI3o0FEk29CmrX6P2TzLSljfQJy1VPdkVwxtH1NWuc2Wu8aIC8B7H9fw", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "HS512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", hs512_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJIUzUxMiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.CWtMaGY8l4N-0__mpdxfDfF5sODqV0ntHPBmBySvgl3-arjfzkPizIUNJRt3KNjKKTi4Ncl7euf_TJ9qgG3NfA", authvalue);
+
+  // RS256
+  TestThrows(PTR TestMakeJSONWebToken("RS256", ec256_key)); // key type mismatch
+  TestThrows(PTR TestMakeJSONWebToken("RS256", rsa1024_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("RS256", rsa2048_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.PmDCtUy0wyyj7THcHmpY7tjC12IkRZm1FQRn4y8WbjFTKKJI2ZiW1H9UfFWS6wZyx2raJqWZ7poCE9Z1ot-ltbPmAh4HQhqwnR8sMEkmO4zsvue1W4Ks6y-eSMHo24SrsXrrhV6GgY1aJ4BfPsiZZpSTvwp99v-u6qP_MxkPa4PHgM3w7yXq8UW7VVRnJ2dY-caUPVuQgbVZm9OJkH0UUssZBmDG3LIF4GGyowJM1qAxx-W6xC13poP8uA7v0HBCy0gPJHc2zi3ijVIgZ2ZRBDuIia0Znh3uzgiaJUPSP6b9PlC5JOL0Km6yIo4h0oAPGKP3DQzAegvxogf5r5xJcw", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+  TestEq(FALSE, verified->verifyonly);
+
+  // Verifying using a public key yields a verify-only token
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key_pub, #1) ]);
+  TestEq(test_payload, verified->payload);
+  TestEq(TRUE, verified->verifyonly);
+  TestEq("", verified->GetAuthorizationValue());
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.oE7S48l_V4hSJjMh9Jz-hf12kCEnAQkWBBgkJRLHxyM3k6vsDrWWawWDCPEbfUb8h-idcPYg9oIBMj0wCq8N30Bau5VohHJdtlcP-fzgl2PtZWpEYJdMQmKDrmv8dc3knSI8Gx5_E2AMbUsCH2eXv_3YZggtti4GapRUi_hCOpM5rPSc0nIYFfUoP8Dq6CVjLeaA9tsQDfRVtDEnFw0PK7dfTw6r8scxCmuP64_8Vqbt2nywgEd1bPnXOtb1mrBrbdMRVJHBp8R0gebGg00fUN41ifCr_zNxCxD6-IeoMP5UdOZ0ivWYhCbfSeK7xZtadp92U9zmqbt0aObMxD-kBQ", authvalue);
+
+  // Test secret/key callback
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations ]));
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, rsa2048_key_pub, #1) ]);
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", rsa2048_key_pub, #1) ]));
+
+  // RS384
+  jwt_token := NEW JSONWebToken("RS384", rsa2048_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.wVeCXYDI6mjJdUBogvtqB60w8d9N6U9IfJbCJzAFWiRi3u5w6gCogX5gICPgkguVlCcnfub-ILcH4kPPuJmmTNPR3J8XINS-raLsDHBz2Tf80fh6UhUGyZWMAbE5FjXqKa8p8z8RJPgOoA8EBwlO0Jp7mKRMl5UxCYd93258SbzJiCD37HVWXuyB-WRB4OeRDtPTvvIBHVSp0kaFTppBoyYVCDjBh-QknwDtQpeJKPbDecWCuD7OhSTNJqKlC-lREqwLSwJRxFwPVsnxCg129M2du21bWswjGticYQlPNlumHC958p-m6Xh6OUzFijm4kLGql2dx3g6RrKifHlNKQw", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzM4NCIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.JiLNmorcJYxnVIfjKiMW2AcfMs7P12OatCwvq0fUQlXc93QlSEIgm4fRctElOPTzx1OldvINXweHtPGFQ_xmUHjy3ms2SQ0DJoaCHgVaYoasFH9egxy7Mlc_r3npQEK342sS0OZiJlorRfDY1yZtyaQ71UTxGHxkeUqR1Mf2c14GtfqbKtFzm5DI9ILOqhV0BF-KJZL-mS-bVTDcNX9wrIy8yV_rjmDbajHck12zKHlVgO3q5OnotXAQ9LSZw8Kzp2MFq7GOgwS9WtuTpg7D8MR3ci67Z8BMwFG7-6GK9fhAMGwZJbHCmFlIcSavd0P1s3AICjEJa0KsjTmSk-nskg", authvalue);
+
+  // RS512
+  jwt_token := NEW JSONWebToken("RS512", rsa2048_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.LQVboMlwIcGfO95LHZLciU10NDhQVaJB12GTPuPyjonRWifAUVzcYgW2WUOoK2JyCkIYQGq4XxAXjirivlsxcGjmaKKfcBwnwzYhkkYuw1d3NXpIW2wAKYwcCmVAdYGYNv7n-ZyKUB4Raph9ZCb18GhwU3ZTKtf2vbl3tGD9CbAVrKflXKjgUeUP7v2sY9UADmcU8yIDZZ46SYUokotjjsV2dNwgwpujxOuahqRc7W6zbGkBt6wOLBqUcsnn452SOD5xaTS2E0d3PdmXkY7ZxQCa_5mh_DYrABC_cZpTsvcX36RS8AvSvxXoUSjPtFEZmhPU7AOa2W5YZawz0PYyRg", authvalue);
+
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq("eyJhbGciOiJSUzUxMiIsImtpZCI6InRlc3RrZXkiLCJ0eXAiOiJKV1QifQ.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.YYhYmxnjE2YPvEOCiYt2qRzi221W-NTStXdcqUM2RtfrRZfQ_PoktnVevf41D4_CrUoGnwRSyKfHJV5WvbbYlH8A_XjcTfXPBe8Qnq5-zOomEWdJ46Gfg5wpZLCn4Xw966bhwxvGXUywtrBD682z0c3WpzKcG8j-VLA1sW2kNLiy8QKcYRYX-pBZBPmGMqn1VzrY5uK2_DrhYrHFXxGYBHFP3sgFKMZO5qf8r5kO28LspGLNcuJmrDY_-PMDENiYrqz2G1I_DeeHaSo7bsBNQVQxAIR73LNq5aJ-Pwqxsu2CRi4P8qjN9u-eb3t1Dc6xvnKbGjuyDEx5V6vQ5qi2nw", authvalue);
+
+  // ES256
+  verified := VerifyJSONWebToken("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg", CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]);
+  TestEq(FALSE, verified->verifyonly);
+  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg"), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+
+  // Verify using public key
+  verified := VerifyJSONWebToken("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.kAMktyvnoiuAj_ZDGYWUdbzp4N3Bio7mmZAvniC6FOe1KxDXPYzrS0UEQvRdZA1K7QAFTbWUMOmA16WX5dLXlg", CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key_pub, #1) ]);
+  TestEq(TRUE, verified->verifyonly);
+  // A public key cannot be used to sign a token
+  jwt_token := NEW JSONWebToken("ES256", ec256_key_pub);
+  TestEq(TRUE, jwt_token->verifyonly);
+  TestEq("", jwt_token->GetAuthorizationValue());
+
+  TestThrows(PTR TestMakeJSONWebToken("ES256", rsa2048_key)); // key type mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES256", ec384_key)); // key length mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES256", ec521_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("ES256", ec256_key);
+  TestEq(FALSE, jwt_token->verifyonly);
+  TestThrows(PTR TestSetJWTAlg(jwt_token, "RS256")); // cannot change algorithm, key type mismatch
+  TestThrows(PTR TestSetJWTAlg(jwt_token, "ES384")); // cannot change algorithm, key length mismatch
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestEq(FALSE, authvalue = jwt_token->GetAuthorizationValue()); // should generate a new signature each time
+
+  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "RS256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", rsa2048_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec256_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+
+  // Test secret/key callback
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations ]));
+  verified := VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret(key_id, ec256_key_pub, #1) ]);
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "ES256" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("other_key", ec256_key_pub, #1) ]));
+
+  // ES384
+  verified := VerifyJSONWebToken("eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE0MjI3Nzk2MzgsImxvZ2dlZEluQXMiOiJhZG1pbiJ9.z1cV2zVGxejaQ7oz79M114AxY5G0jfSwDO17WZ7m7109S_WNwbmKHsQZtVF_ReRyH6rzxD4ZroIZvaM5E4_bLkD-Qa229-7J7JlvZ9MD7O3eEl9uZ29XHp-YzfYoW8M4", CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]);
+
+  TestThrows(PTR TestMakeJSONWebToken("ES384", rsa2048_key)); // key type mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES384", ec256_key)); // key length mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES384", ec521_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("ES384", ec384_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+
+  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]));
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES384" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec384_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+
+  // ES512
+  TestThrows(PTR TestMakeJSONWebToken("ES512", rsa2048_key)); // key type mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES512", ec256_key)); // key length mismatch
+  TestThrows(PTR TestMakeJSONWebToken("ES512", ec384_key)); // key length mismatch
+  jwt_token := NEW JSONWebToken("ES512", ec521_key);
+  jwt_token->SetPayload(test_payload, test_payload_translations);
+
+  authvalue := jwt_token->GetAuthorizationValue();
+
+  TestThrows(PTR VerifyJSONWebToken(MakeAuthValueInvalid(authvalue), CELL[ alg := [ "ES512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]));
+  verified := VerifyJSONWebToken(authvalue, CELL[ alg := [ "ES512" ], translations := test_payload_translations, secret_callback := PTR ReturnSecret("", ec521_key, #1) ]);
+  TestEq(test_payload, verified->payload);
+
+  jwt_token->kid := key_id;
+  authvalue := jwt_token->GetAuthorizationValue();
+
+  // Test against bypassing authorization value check by setting the alg value to "none"
+  jwt_token := NEW JSONWebToken("none", "");
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // "none" is not accepted if a secret key is supplied
+
+  // Check algorithm
+  jwt_token := NEW JSONWebToken("HS256", hs256_key);
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue)); // alg is required
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "hs256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS384" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "RS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := STRING[], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "nonexisting" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // invalid algorithm
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check issuer
+  TestThrows(PTR jwt_token->SetPayload([ iss := "" ])); // cannot be empty when specified
+  TestThrows(PTR jwt_token->SetPayload([ iss := ":test" ])); // invalid uri
+  TestThrows(PTR jwt_token->SetPayload([ iss := "test:" ])); // invalid uri
+  jwt_token->payload := [ iss := "test" ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], iss := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check subject
+  TestThrows(PTR jwt_token->SetPayload([ sub := "" ])); // cannot be empty when specified
+  TestThrows(PTR jwt_token->SetPayload([ sub := ":test" ])); // invalid uri
+  TestThrows(PTR jwt_token->SetPayload([ sub := "test:" ])); // invalid uri
+  jwt_token->payload := [ sub := "test" ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], sub := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check audience, either single value or array of values
+  TestThrows(PTR jwt_token->SetPayload([ aud := "" ])); // cannot be empty when specified
+  TestThrows(PTR jwt_token->SetPayload([ aud := ":test" ])); // invalid uri
+  TestThrows(PTR jwt_token->SetPayload([ aud := "test:" ])); // invalid uri
+  TestThrows(PTR jwt_token->SetPayload([ aud := [ "", "test:" ] ])); // cannot be empty when specified, invalid uri
+  TestThrows(PTR jwt_token->SetPayload([ aud := [ "", "test" ] ])); // cannot be empty when specified
+  jwt_token->payload := [ aud := "test" ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  jwt_token->payload := [ aud := [ "test", "other" ] ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "Test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "Other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "other" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], aud := [ "test", "other", "third" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check expiration date
+  DATETIME now := GetCurrentDateTime();
+  jwt_token->payload := [ exp := AddDaysToDate(-1, now) ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddTimeToDate(-1000, AddDaysToDate(-1, now)), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check not valid before
+  jwt_token->payload := [ nbf := AddDaysToDate(1, now) ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddDaysToDate(1, now), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check issued before today
+  jwt_token->payload := [ iat := AddDaysToDate(1, now) ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], verify_at := AddDaysToDate(1, now), secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+
+  // Check JWT ID
+  TestThrows(PTR jwt_token->SetPayload([ jti := "" ])); // cannot be empty when specified
+  jwt_token->payload := [ jti := "abcdef01" ];
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "test", secret_callback := PTR ReturnSecret("", hs256_key, #1) ]));
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "ABCDEF01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // case sensitive
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "abcdef01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  jwt_token->payload := DEFAULT RECORD;
+  authvalue := jwt_token->GetAuthorizationValue();
+  TestThrows(PTR VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "abcdef01", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])); // missing jti
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+  TestEq(TRUE, ObjectExists(VerifyJSONWebToken(authvalue, [ alg := [ "HS256" ], jti := "", secret_callback := PTR ReturnSecret("", hs256_key, #1) ])));
+}
+
+STRING FUNCTION ReturnSecret(STRING expected_key_id, STRING secret_to_return, STRING header_key_id)
+{
+  IF (expected_key_id = "" OR header_key_id = expected_key_id)
+    RETURN secret_to_return;
+  RETURN "INVALID";
+}
+
+OBJECT FUNCTION TestMakeJSONWebToken(STRING alg, STRING secret)
+{
+  RETURN NEW JSONWebToken(alg, secret);
+}
+
+MACRO TestSetJWTAlg(OBJECT token, STRING alg)
+{
+  token->alg := alg;
+}
+
+STRING FUNCTION MakeAuthValueInvalid(STRING authvalue)
+{
+  STRING ARRAY parts := Tokenize(authvalue, ".");
+  STRING signature := DecodeUFS(parts[2]);
+  signature := Left(signature, Length(signature) - 1) || ByteToString((GetByteValue(Right(signature, 1)) + 1) % 256);
+  parts[2] := EncodeUFS(signature);
+  RETURN Detokenize(parts, ".");
+}
+
+RunTestframework([ PTR JWTTest
+                 ]);

@@ -383,7 +383,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
   {
     RETURN
         [ ttl :=          60 * 1000
-        , value :=        this->GatherAllModuleTests() CONCAT this->GatherAllSiteTests()
+        , value :=        this->GatherAllModuleTests()
         , eventmasks :=   [ "system:modulefolder.mod::*/tests/*" ]
         ];
   }
@@ -410,29 +410,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
   PUBLIC RECORD ARRAY FUNCTION GatherAllTests(STRING ARRAY masks, STRING ARRAY skips)
   {
     RETURN this->FiltertestList(this->GetTestList(), masks, skips);
-  }
-
-  RECORD ARRAY FUNCTION GatherAllSiteTests()
-  {
-    OBJECT designfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder");
-
-    RECORD ARRAY testfolders := SELECT testfolders.id
-                                     , path := "whfs::" || testfolders.whfspath
-                                     , webroot := sites.webroot
-                                     , sitename := sites.name
-                                  FROM system.fs_objects AS testfolders
-                                     , system.fs_objects AS designfolders
-                                     , system.sites
-                                 WHERE testfolders.name="tests"
-                                       AND testfolders.parent = designfolders.id
-                                       AND designfolders.type = designfoldertype->id
-                                       AND testfolders.parentsite = sites.id;
-    RECORD ARRAY tests;
-    FOREVERY(RECORD folder FROM testfolders)
-    {
-      tests := tests CONCAT this->GatherTests(basetestsettings, folder.path || "testinfo.xml", "", FALSE, folder.webroot, folder.sitename, FALSE, FALSE);
-    }
-    RETURN tests;
   }
 
   RECORD ARRAY FUNCTION GatherAllModuleTests()

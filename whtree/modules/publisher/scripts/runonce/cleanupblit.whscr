@@ -1,0 +1,29 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+OBJECT trans := OpenPrimary();
+trans->BeginWork();
+
+OBJECT designfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder", [ openorphans := TRUE ]);
+IF(ObjectExists(designfoldertype))
+{
+  //convert to plain system folders
+  UPDATE system.fs_objects SET type := 2 WHERE type = designfoldertype->id AND isfolder;
+  DELETE FROM system.fs_types WHERE id = designfoldertype->id;
+}
+
+FOREVERY(STRING deletens FROM [ "http://www.webhare.net/xmlns/publisher/localdesignsettings"
+                                , "http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder"
+                                , "http://www.webhare.net/xmlns/publisher/designfiles/cachedfolder"
+                                , "http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings"
+                                ])
+{
+  OBJECT deletetype := OpenWHFSType(deletens, [ openorphans := TRUE ]);
+  IF(ObjectExists(deletetype))
+    DELETE FROM system.fs_types WHERE id = deletetype->id;
+}
+
+trans->CommitWork();
