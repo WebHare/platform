@@ -169,22 +169,6 @@ class Screen extends ComponentBase
       this.rebuildContentNode();
   }
 
-  activateMenuItem(event)
-  {
-    let menuitemname = event.detail.menuitem.dataset.menuitem;
-    if(menuitemname)
-    {
-      let target = this.getComponent(menuitemname);
-      if(target && target.enabled && target.action)
-        this.executeAction(target.action);
-      return;
-    }
-
-    var todd = event.detail.menuitem.propTodd;
-    if(todd && todd.enabled && todd.action)
-      todd.owner.executeAction(todd.action);
-  }
-
   setBodyNode(newbodyname, rebuildnode)
   {
     var newbody = newbodyname ? this.addComponent(this, newbodyname) : null;
@@ -1033,7 +1017,6 @@ class Screen extends ComponentBase
     this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
     this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
     this.nodes.windowheader.addEventListener("dompack:moveend", evt => this.onWindowMoveEnd(evt));
-    this.nodes.root.addEventListener("wh:menu-activateitem", this.activateMenuItem.bind(this));
     this.nodes.root.addEventListener("wh:focuszone-firstfocus", this.onFirstFocus.bind(this));
     this.nodes.root.addEventListener("submit", dompack.stop); //prevent shift+enter from submitting the dialog, fixes #1010
 
