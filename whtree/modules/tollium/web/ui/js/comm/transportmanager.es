@@ -42,6 +42,27 @@ export default class TransportManager
   // Endpoint internal API
   //
 
+  suggestTransportType()
+  {
+    let urltransporttype = new URL(location.href).searchParams.get("transport");
+    if(urltransporttype)
+      return urltransporttype;
+
+    if (window.SharedWorker && window.WebSocket
+        && !dompack.debugflags.websocket
+        && !(['ie','edge'].includes(browser.getName()))) //we prefer to treat Edge as an IE11 because noone tests these workers
+    {
+      return "sharedworker";
+    }
+
+    if (window.WebSocket && dompack.debugflags.websocket)
+    {
+      return "websocket";
+    }
+
+    return "jsonrpc";
+  }
+
   /** Registers an endpoint
   */
   register(endpoint)
@@ -53,12 +74,11 @@ export default class TransportManager
       if (this.transports[i].options.commhost == commhost)
         transport = this.transports[i];
 
+
     if (!transport)
     {
-      if (!$todd.commfallback
-          && window.SharedWorker && window.WebSocket
-          && !dompack.debugflags.websocket
-          && !(['ie','edge'].includes(browser.getName()))) //we prefer to treat Edge as an IE11 because noone tests these workers
+      let transporttype = this.suggestTransportType();
+      if(transporttype == "sharedworker")
       {
         console.log('Using WebSocket transport via sharedworker');
         transport = new SharedWebSocketTransport(
@@ -67,12 +87,14 @@ export default class TransportManager
             , onoffline: () => this._gotOffline()
             });
       }
-      else if (!$todd.commfallback && window.WebSocket && dompack.debugflags.websocket)
+      else if(transporttype == "websocket")
       {
         // Doesn't seem to work on Firefox, some problems with cookies?
         console.warn('Using WebSocket transport'); // FIXME: websocket transport isn't nearly as error-resilient as shared worker transport
         transport = new WebSocketTransport(
             { commhost: commhost
+            , ononline: () => this._gotOnline()
+            , onoffline: () => this._gotOffline()
             });
       }
       else
@@ -84,7 +106,6 @@ export default class TransportManager
             , onoffline: () => this._gotOffline()
             });
       }
-
       this.transports.push(transport);
     }
 

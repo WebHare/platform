@@ -373,8 +373,8 @@ function getTolliumDebugVariables()
         addurl += '&debug=' + parenturi.searchParams.get('debug');
       if(parenturi.searchParams.get('wh-debug'))
         addurl += '&wh-debug=' + parenturi.searchParams.get('wh-debug');
-      if(parenturi.searchParams.get('commfallback'))
-        addurl += '&commfallback=' + parenturi.searchParams.get('commfallback');
+      if(parenturi.searchParams.get('transport'))
+        addurl += '&transport=' + encodeURIComponent(parenturi.searchParams.get('transport'));
       if (overridetoken)
         addurl += "&language=debug&overridetoken=" + overridetoken;
       if(parenturi.hash)
