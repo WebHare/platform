@@ -95,7 +95,7 @@ MACRO TestSAMLSigning()
       , relaystate :=   "relaystate-1"
       , signaturealgorithm := "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
       ]);
-/*
+
   TestEQ(
       [ type := 'redirect'
       , url := 'http://example.com/destination?SAMLRequest=lVHRasIwFH33K8Lds02qL1toKzIZCDrGdGPsLaQXDbRJ' ||
@@ -110,10 +110,11 @@ MACRO TestSAMLSigning()
                'IrxIKQTenxKSMp7oQ22P6fQALS47g6IVLtWXRjuPtSpKEsMPLyBjphvNavPVCBVLxPOwdClYZ49bsRWpP8PVEGY' ||
                'DjAZ5Q1tdw%3D%3D'
       ], encoded);
-*/
+
   RECORD webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", encoded.url, GetAllVariablesFromUrl(encoded.url));
 
   RECORD decoded := DecodeSAMLMessage(webdata, TRUE);
+  TestEQMembers(request, decoded.message, "*");
 
   // shouldn't throw
   decoded.validate(
@@ -150,21 +151,21 @@ MACRO TestSAMLSigning()
                               'Z25lZEluZm8+PGRzOkNhbm9uaWNhbGl6YXRpb25NZXRob2QgQWxnb3JpdGhtPSJodHRwOi8v' ||
                               'd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48ZHM6U2lnbmF0dXJlTWV0aG9k' ||
                               'IEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnI3JzYS1zaGEx' ||
-                              'Ii8+PGRzOlJlZmVyZW5jZT48ZHM6VHJhbnNmb3Jtcz48ZHM6VHJhbnNmb3JtIEFsZ29yaXRo' ||
-                              'bT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnI2VudmVsb3BlZC1zaWduYXR1' ||
-                              'cmUiLz48ZHM6VHJhbnNmb3JtIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8x' ||
-                              'MC94bWwtZXhjLWMxNG4jIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxn' ||
-                              'b3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwLzA5L3htbGRzaWcjc2hhMSIvPjxkczpE' ||
-                              'aWdlc3RWYWx1ZT56dURUd016ZlpGTHJYOXh1MFp0djhvblQvVVk9PC9kczpEaWdlc3RWYWx1' ||
-                              'ZT48L2RzOlJlZmVyZW5jZT48L2RzOlNpZ25lZEluZm8+PGRzOlNpZ25hdHVyZVZhbHVlPk9F' ||
-                              'QVpFWlBxY281alppYTE2SHd4S3UwUlp6TjlQbGJLS3pjM1E5MWpLeFV3bVc2MG9BMlRVR0JN' ||
-                              'MEV1QWt1blVGMy9RN2hGNkEvdlMxVVlKRXNpWFIxcWpNd05RVDkvdzNKalhqeVQxNldWUTl3' ||
-                              'R1BDSmJJU3RRWUcyM3pieGxKYnFSYndLMjE4b0ZVSVRwOTkyei9ZZmJ1ZkJVY3lOYmJGdTNl' ||
-                              'eDVGVEZoMlNEQkM2TFlzU3NzWW9xYzFhQlNaR3BYeWJjVkd6eVRqbkZPT0Z3SG93K3loZ2JB' ||
-                              'dlpEOGd0dHp5WXFqdko4TzM0SVc0MmM1YjFYSUFNM2JhK2NCMGovNTlBYjdDK1pMUnNKZmcw' ||
-                              'a2Y5KzZINE5sZ3pTOHlMaHZqUzFpR3lMd3dxdG44eWo1YStCQnJpbWhrc3RjWnRGWXNUYktX' ||
-                              'aklsRVNLVVpzSkxzNks4QT09PC9kczpTaWduYXR1cmVWYWx1ZT48L2RzOlNpZ25hdHVyZT48' ||
-                              'L3NhbWxwOkF1dGhuUmVxdWVzdD4K'
+                              'Ii8+PGRzOlJlZmVyZW5jZSBVUkk9IiNyZXEtMSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5z' ||
+                              'Zm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyNlbnZl' ||
+                              'bG9wZWQtc2lnbmF0dXJlIi8+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cu' ||
+                              'dzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGln' ||
+                              'ZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2ln' ||
+                              'I3NoYTEiLz48ZHM6RGlnZXN0VmFsdWU+enVEVHdNemZaRkxyWDl4dTBadHY4b25UL1VZPTwv' ||
+                              'ZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWdu' ||
+                              'YXR1cmVWYWx1ZT5XWllOWTJlL3lpaVVhb0RJMDFiQks5WG01YlN4WnVvOTZrOUVLOFJoM2Fw' ||
+                              'RTBTYnBFY1UyZDczTEtiNjJld0pWblNwUTJCVTMrS0FGa0FiREhYYitaQlZNeEVESjl5TlYz' ||
+                              'Q01INklDWnZqYjhwVHJXMUszN09lMjNUWm54TmNndXJta1VWT3JpM2xtYVZOZjltWWU4cnU3' ||
+                              'd044UVI5T2pVemZDaGUra3RPVHFSblp3OVhjVVBLUm9WQXZPOFladmtUR3ZYUWpTeEFYTnJw' ||
+                              'MElxY2R4Mlp6d3hDbjBzaCs3T25ZMFNydGNPS3g0WEZuQ1JqdVRXVm8wRVhRZHZyVTZpVEpy' ||
+                              'ajdua0NLU01LQ1RFV2dTMDNvbGxyZ1VnZ2daWnVBeEFBWFEwb3RCNE15MVgwU2RucHJMQ3h3' ||
+                              'aUoveldnUzJVOHhES2F4WDdOQVEwb3MrSHVOcnc9PTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9k' ||
+                              'czpTaWduYXR1cmU+PC9zYW1scDpBdXRoblJlcXVlc3Q+Cg=='
                   ]
                 , [ name := 'RelayState'
                   , value := 'relaystate-1'
@@ -176,6 +177,7 @@ MACRO TestSAMLSigning()
   webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", encoded.form.action, encoded.form.vars);
 
   decoded := DecodeSAMLMessage(webdata, TRUE);
+  TestEQMembers(request, decoded.message, "*");
 
   // shouldn't throw
   decoded.validate(

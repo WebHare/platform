@@ -357,6 +357,7 @@ PUBLIC RECORD FUNCTION EncodeSAMLDocument(RECORD data, STRING binding, BOOLEAN i
                       , digestmethod :=
                             [ algorithm :=    digestalgorithm
                             ]
+                      , uri := `#${data.id}` // saml-core-2.0-os section 5.4.2
                       ]
                     ]
               ]
