@@ -1,5 +1,5 @@
-var $todd = require("../support");
 import * as dompack from 'dompack';
+import * as whintegration from '@mod-system/js/wh/integration';
 import * as browser from 'dompack/extra/browser';
 
 import JSONRPCTransport from "./jsonrpctransport.es";
@@ -50,12 +50,13 @@ export default class TransportManager
 
     if (window.SharedWorker && window.WebSocket
         && !dompack.debugflags.websocket
+        && whintegration.config.dtapstage != 'development'
         && !(['ie','edge'].includes(browser.getName()))) //we prefer to treat Edge as an IE11 because noone tests these workers
     {
       return "sharedworker";
     }
 
-    if (window.WebSocket && dompack.debugflags.websocket)
+    if (window.WebSocket)
     {
       return "websocket";
     }
