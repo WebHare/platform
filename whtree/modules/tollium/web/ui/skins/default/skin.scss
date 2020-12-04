@@ -829,6 +829,22 @@ html.previewframe a
 {
   margin-right: 4px;
   margin-top: 4px;
+  overflow: hidden;
+  z-index: 0;
+
+  &::before
+  {
+    background-color: rgba(#f5f9fd, .9);
+    bottom: 0;
+    content: "";
+    display: block;
+    filter: blur(1px);
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: -1;
+  }
 }
 
 .docpanel__edit, .docpanel__close
