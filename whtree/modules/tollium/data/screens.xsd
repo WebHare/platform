@@ -4914,6 +4914,7 @@ To change a <xs:attribute /> for adding descriptions
     </xs:choice>
     <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="tc:IsDirtyable" />
+    <xs:attributeGroup ref="RowKeyType" />
     <xs:attribute name="onsourcefilter" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
