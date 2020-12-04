@@ -1027,6 +1027,12 @@ MACRO TestJSON()
 
   TestEQ(DEFAULT RECORD, DecodeJSON(`{"":1}`));
   TestEQ([ e := 1 ], DecodeJSON(`{"":1}`, [ e := "" ]));
+
+  STRING testjson := `%{%"a"%:%-%2%,%b%:%[%"a"%,%"c"%,%true%,%false%,%null%]%}%`;
+  TestEQ(DEFAULT RECORD, DecodeJSON(Substitute(testjson, '%', '/**/'), DEFAULT RECORD, [ allowcomments := FALSE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '/**/'), DEFAULT RECORD, [ allowcomments := TRUE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '/*\n*c*/'), DEFAULT RECORD, [ allowcomments := TRUE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '//\n'), DEFAULT RECORD, [ allowcomments := TRUE ]));
 }
 
 PRINT("\n === Running TestStringFunctions\n");

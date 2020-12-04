@@ -4011,7 +4011,7 @@ PUBLIC MACRO SetExternalSessionData(STRING newid) __ATTRIBUTES__(EXTERNAL);
 */
 PUBLIC VARIANT FUNCTION DecodeHSONBlob(BLOB indata)
 {
-  INTEGER id := JSONDECODERALLOCATE(TRUE, DEFAULT RECORD);
+  INTEGER id := JSONDECODERALLOCATE(TRUE, DEFAULT RECORD, DEFAULT RECORD);
   INTEGER fileid := OpenBlobAsFile(indata);
   WHILE (TRUE)
   {
@@ -4032,7 +4032,7 @@ PUBLIC VARIANT FUNCTION DecodeHSONBlob(BLOB indata)
 */
 PUBLIC VARIANT FUNCTION DecodeHSON(STRING indata)
 {
-  RECORD res := JSONDECODERQUICK(indata, TRUE, DEFAULT RECORD);
+  RECORD res := JSONDECODERQUICK(indata, TRUE, DEFAULT RECORD, DEFAULT RECORD);
   IF (NOT res.success)
     THROW NEW Exception("HSON decoding error: " || res.msg);
   RETURN res.value;
@@ -4058,11 +4058,12 @@ PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
     @param indata JSON-encoded value
     @param translations Mapping record (of the format `[ cellname := "<jsonkey>", ... ]`),
       to remap JSON keys that aren't valid cell names in HareScript.
+    @cell options.allowcomments Allow comments in the JSON
     @return Decoded JSON value
 */
-PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  INTEGER id := JSONDECODERALLOCATE(FALSE, translations);
+  INTEGER id := JSONDECODERALLOCATE(FALSE, options, translations);
   INTEGER fileid := OpenBlobAsFile(indata);
   WHILE (TRUE)
   {
@@ -4080,11 +4081,12 @@ PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTS
 /** Decodes a JSON string
     @param indata JSON-encoded value
     @param translations @includecelldef #DecodeJSONBlob.translations
+    @cell options.allowcomments Allow comments in the JSON
     @return Decoded JSON value
 */
-PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD)
+PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN JSONDECODERQUICK(indata, FALSE, translations).value;
+  RETURN JSONDECODERQUICK(indata, FALSE, options, translations).value;
 }
 
 /** @short Encode data as a JSON string

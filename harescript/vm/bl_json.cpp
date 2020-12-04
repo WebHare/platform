@@ -23,7 +23,11 @@ class JSONParser
                 TS_DQStringEsc,
                 TS_NumberPrefix,
                 TS_Number,
-                TS_Error
+                TS_Error,
+                TS_CommentStart,
+                TS_LineComment,
+                TS_BlockComment,
+                TS_BlockCommentEnd
         };
 
         enum TokenType
@@ -66,6 +70,7 @@ class JSONParser
 
         /// Tokenizer state
         TokenState state;
+        bool comment_after_numberprefix;
 
         /// Current token
         std::string currenttoken;
@@ -101,12 +106,15 @@ class JSONParser
         /// Whether translation for the empty key is present
         bool allowemptykey;
 
+        /// Whether comments are allowed
+        bool allowcomments;
+
         bool HandleToken(std::string const &token, TokenType tokentype);
         bool ParseSimpleValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool ParseHSONTypedValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
 
     public:
-        JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations);
+        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, HSVM_VariableId _translations);
 
         bool HandleByte(uint8_t byte);
         bool Finish(HSVM_VariableId target);
@@ -149,9 +157,10 @@ std::ostream & operator <<(std::ostream &out, JSONParser::ParseState parsestate)
 }
 
 
-JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
+JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, HSVM_VariableId _translations)
 : vm(_vm)
 , state(TS_Default)
+, comment_after_numberprefix(false)
 , encoder(std::back_inserter(currenttoken))
 , parsestate(_hson ? PS_HSONStart : PS_RootValue)
 , line(1)
@@ -160,6 +169,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, HSVM_VariableId _translations)
 , errorcolumn(1)
 , hson(_hson)
 , allowemptykey(false)
+, allowcomments(_allowcomments)
 {
         root = HSVM_AllocateVariable(vm);
         if (_translations)
@@ -219,13 +229,14 @@ bool JSONParser::HandleByte(uint8_t byte)
         bool is_whitespace = val == ' ' || val == '\r' || val == '\n' || val == '\t';
         bool is_tokenchar = val == '{' || val == '}' || val == '[' || val ==  ']' || val == ':' || val == ',';
         bool is_specialchar = val == '\'' || val == '\"' || val == '-' || val ==  '+' || val == '.';
+        bool is_comment = allowcomments && val == '/';
 
         // First process tokens that are terminated by a token outside their class (that still needs to be processed afterwards)
 
         if (state == TS_LongToken)
         {
                 // long token ends by whitespace or tokenchar or specialchar
-                if (is_whitespace || is_tokenchar || is_specialchar)
+                if (is_whitespace || is_tokenchar || is_specialchar || is_comment)
                 {
                         // Process the long token
                         if (!HandleToken(currenttoken, JTT_Token))
@@ -261,36 +272,82 @@ bool JSONParser::HandleByte(uint8_t byte)
                         if (state == TS_NumberPrefix)
                         {
                                 // Only seen prefixes, skip whitespace
+                                if (is_comment)
+                                {
+                                        comment_after_numberprefix = true;
+                                        state = TS_CommentStart;
+                                        return true;
+                                }
                                 if (!is_whitespace)
                                 {
                                         // Check if other than prefix
                                         if (val != '+' && val != '-')
-                                            state = TS_Number;
+                                        {
+                                                state = TS_Number;
+                                                comment_after_numberprefix = false;
+                                        }
 
                                         // Add to token
                                         encoder(val);
+                                        return true;
                                 }
                         }
-                        else if (is_whitespace)
+                        else if (is_whitespace || is_comment)
                         {
-                                // Whitespace, ends the number
+                                // Whitespace or comment, ends the number
                                 if (!HandleToken(currenttoken, JTT_Number))
                                 {
                                         state = TS_Error;
                                         return false;
                                 }
 
-                                // Set the state. No need to continue, whitespace is ignored anyway
+                                // Continue to process the current character too
                                 state = TS_Default;
                         }
                         else
                         {
                                 // Add to token (this adds also non-number charactes, but don't care now)
                                 encoder(val);
+                                return true;
                         }
-
-                        return true;
                 }
+        }
+
+        if (state == TS_CommentStart)
+        {
+                if (val == '/')
+                    state = TS_LineComment;
+                else if (val == '*')
+                    state = TS_BlockComment;
+                else
+                {
+                        errormessage = "Unexpected character '" + currenttoken + "' encountered, expected '/' or '*'";
+                        errorline = line;
+                        errorcolumn = column - 1;
+                        state = TS_Error;
+                        return false;
+                }
+                return true;
+        }
+        if (state == TS_LineComment)
+        {
+                if (val == '\n')
+                    state = comment_after_numberprefix ? TS_NumberPrefix : TS_Default;
+                return true;
+        }
+        if (state == TS_BlockComment)
+        {
+                if (val == '*')
+                    state = TS_BlockCommentEnd;
+                return true;
+        }
+        if (state == TS_BlockCommentEnd)
+        {
+                if (val == '/')
+                    state = comment_after_numberprefix ? TS_NumberPrefix : TS_Default;
+                else if (val != '*')
+                    state = TS_BlockComment;
+                return true;
         }
 
         if (state == TS_Default || state == TS_Initial)
@@ -302,6 +359,12 @@ bool JSONParser::HandleByte(uint8_t byte)
                 // Ignore whitespace
                 if (is_whitespace)
                     return true;
+
+                if (is_comment)
+                {
+                        state = TS_CommentStart;
+                        return true;
+                }
 
                 currenttoken.clear();
                 if (is_tokenchar)
@@ -1857,7 +1920,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, translations) {}
+                Parser(HSVM *_vm, bool _hson, bool _allowcomments, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, translations) {}
 
                 JSONParser jsonparser;
 
@@ -1883,14 +1946,46 @@ std::pair< Blex::SocketError::Errors, unsigned > JSONContextData::Parser::Write(
 const int JSONContextId = 20;
 typedef Blex::Context< JSONContextData, JSONContextId, void> JSONContext;
 
+namespace
+{
+
+struct DecoderOptions
+{
+        bool allowcomments;
+};
+
+bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOptions *options)
+{
+        for (unsigned idx = 0, e = HSVM_RecordLength(*vm, opts); idx < e; ++idx)
+        {
+                HSVM_ColumnId colid = HSVM_RecordColumnIdAtPos(*vm, opts, idx);
+                HSVM_VariableId var = HSVM_RecordGetRef(*vm, opts, colid);
+
+                if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_allowcomments && HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                    options->allowcomments = HSVM_BooleanGet(*vm, var);
+                else
+                {
+                        char colname[HSVM_MaxColumnName];
+                        HSVM_GetColumnName(*vm, colid, colname);
+                        HSVM_ThrowException(*vm, ("Unexpected option / wrong type: '" + std::string(colname) + "'").c_str());
+                        return false;
+
+                }
+        }
+        return true;
+}
+
+} // anonymous namespace
 
 void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
 {
         JSONContext context(vm->GetContextKeeper());
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(0));
+        DecoderOptions decoderopts{}; // zero-initialize!
+        ParseDecoderOptions(vm, HSVM_Arg(1), &decoderopts);
 
-        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, HSVM_Arg(1)));
+        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, HSVM_Arg(2)));
         context->parsers[parser->GetId()] = parser;
 
         HSVM_IntegerSet(*vm, id_set, parser->GetId());
@@ -1941,7 +2036,10 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         std::string data = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
 
-        JSONParser jsonparser(*vm, is_hson, HSVM_Arg(2));
+        DecoderOptions decoderopts{}; // zero-initialize!
+        ParseDecoderOptions(vm, HSVM_Arg(2), &decoderopts);
+
+        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, HSVM_Arg(3));
         for (std::string::iterator it = data.begin(); it != data.end(); ++it)
             if (!jsonparser.HandleByte(static_cast< uint8_t >(*it)))
                 break;
@@ -1982,10 +2080,10 @@ void InitJSON(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifre
 {
         JSONContext::Register(creg);
 
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERALLOCATE::I:BR", JSONDecoderAllocate));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERALLOCATE::I:BRR", JSONDecoderAllocate));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERPROCESS::B:IS", JSONDecoderProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERFINISH::R:I", JSONDecoderFinish));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERQUICK::R:SBR", JSONDecoderQuick));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONDECODERQUICK::R:SBRR", JSONDecoderQuick));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOSTRING::S:VBR", JSONEncodeToString));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("JSONENCODETOBLOB::X:VBR", JSONEncodeToBlob));
 }

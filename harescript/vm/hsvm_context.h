@@ -436,6 +436,7 @@ class ColumnNameCache
     public:
         ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper);
 
+        ColumnNameId col_allowcomments;
         ColumnNameId col_authenticationrecord;
         ColumnNameId col_baseptr;
         ColumnNameId col_casesensitive;
