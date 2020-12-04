@@ -68,3 +68,22 @@ UsageCount=1
 ```
 isql -k "Driver=MaODBC;Server=10.11.12.13;Database=<dbname>;Uid=<uid>;Pwd=<password>;"
 ```
+
+## Testing MariaDB ODBC connector
+
+This section is intended for developers working on WebHare itself.
+
+```bash
+docker run --rm -ti webhare/platform
+apt update
+apt install -qy mariadb-server
+mysqladmin -u root password test
+nohup mysqld_safe &
+cat > test.whscr << HERE
+<?wh
+LOADLIB "wh::dbase/odbc.whlib";
+OBJECT trans := StartODBCTransaction([ type := "DRIVER", connection_string := "Driver=MariaDB;Server=localhost;Uid=root;Pwd=test" ]);
+DumpValue(SendODBCCommand(trans->id, "select user,host from mysql.user"),"boxed");
+HERE
+wh run test.whscr
+```

@@ -360,7 +360,7 @@ OBJECTTYPE GraphicsCanvas
 
   /** @short Resize canvas, rescaling the image
       @param newwidth New canvas width in pixels
-      @param newight New canvas height in pixels
+      @param newheight New canvas height in pixels
   */
   PUBLIC MACRO SetImageSize(INTEGER newwidth, INTEGER newheight)
   {

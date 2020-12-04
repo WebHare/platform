@@ -1,6 +1,6 @@
 # We can't mark this script as executable as it shouldn't be run on a build host
 
-GETFILE=pdfbox-app-2.0.11.jar
+GETFILE=pdfbox-app-2.0.21.jar
 DLPATH=/tmp/downloads/$GETFILE
 
 if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
