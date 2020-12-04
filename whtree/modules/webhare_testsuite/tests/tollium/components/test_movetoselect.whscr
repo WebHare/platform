@@ -76,7 +76,7 @@ ASYNC MACRO TestMoveToSelectParse()
   scr := GetTestController()->LoadScreen(InlineScreens(`
   <screen name="test" implementation="none">
     <body>
-      <movetoselect name="comp" onsourcefilter="${Resolve("screens/helpers.whlib#MySourceFilter")}">
+      <movetoselect name="comp" onsourcefilter="${Resolve("screens/helpers.whlib#MySourceFilter")}" rowkeytype="integer">
         <column name="rowkey" title="Rowkey" type="integer" />
         <column name="title" title="Title" type="text" />
       </movetoselect>
@@ -84,6 +84,7 @@ ASYNC MACRO TestMoveToSelectParse()
   </screen>`, "#test"));
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal);
+  TestEq(INTEGER[], TT("comp")->value);
 
   TT("comp")->rows := [[ rowkey := 1, title := "Item 1" ]
                       ,[ rowkey := 2, title := "Item 2" ]
@@ -94,6 +95,7 @@ ASYNC MACRO TestMoveToSelectParse()
   TestEq(TRUE, TT("comp->sourcefilterfield", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
 }
 
 ASYNC MACRO TestMoveToSelectComponent()

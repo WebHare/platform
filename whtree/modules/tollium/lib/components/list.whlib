@@ -74,11 +74,21 @@ PUBLIC OBJECTTYPE StoredListComponentBase
   */
   PUBLIC PROPERTY selection(GetSelection, SetListSelection);
 
+  /** Contains the HareScript type of rowkeys in this list. Possible values: TYPEID(INTEGER), TYPEID(STRING), TYPEID(BOOLEAN)
+      Set when you have created a new list that doesn't contain any rows, yet you want to use the property 'value'.
+  */
+  PUBLIC PROPERTY rowkeytype(GetRowkeyType, SetRowkeyType);
 
   MACRO NEW()
   {
     this->storage := NEW ListTreeHelper;
     this->storage->callback := PRIVATE this;
+  }
+
+  MACRO StaticInitStoredListComponentBase(RECORD def)
+  {
+    IF (def.rowkeytype != "")
+      this->storage->rowkeytype := ParseRowKeyType(def.rowkeytype);
   }
 
   VARIANT FUNCTION GetValue()
@@ -113,6 +123,15 @@ PUBLIC OBJECTTYPE StoredListComponentBase
     this->storage->SetSelectionByAPI(rows);
   }
 
+  INTEGER FUNCTION GetRowkeyType()
+  {
+    RETURN this->storage->rowkeytype;
+  }
+
+  MACRO SetRowkeyType(INTEGER newtype)
+  {
+    this->storage->rowkeytype := newtype;
+  }
 
 >;
 
@@ -394,11 +413,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   PUBLIC PROPERTY ongetrows(this->storage->getallitems, SetOnGetRows);
 
 
-  /** Contains the HareScript type of rowkeys in this list. Possible values: TypeID(INTEGER), TypeID(STRING)
-      Set when you have created a new list that doesn't contain any rows, yet you want to use the property
-      'value'.
-  */
-  PUBLIC PROPERTY rowkeytype(GetRowkeyType, SetRowkeyType);
 
   //// The class for this list, eg 'verticaltabs'
   PUBLIC PROPERTY class(__class, SetClass);
@@ -601,8 +615,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->sortascending := def.sortascending;
 
     this->savestate := def.savestate;
-    IF (def.rowkeytype != "")
-      this->storage->rowkeytype := ParseRowKeyType(def.rowkeytype);
+    this->StaticInitStoredListComponentBase(def);
 
     IF (NOT this->storage->isdynamic)
       this->storage->SetStaticRows(def.rows);
@@ -1209,18 +1222,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       this->pvt_sortable := newsortable;
       this->ExtUpdatedComponent();
     }
-  }
-
-
-  INTEGER FUNCTION GetRowkeyType()
-  {
-    RETURN this->storage->rowkeytype;
-  }
-
-
-  MACRO SetRowkeyType(INTEGER newtype)
-  {
-    this->storage->rowkeytype := newtype;
   }
 
 

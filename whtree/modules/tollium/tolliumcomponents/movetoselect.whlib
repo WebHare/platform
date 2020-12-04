@@ -6,6 +6,8 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/components/list.whlib";
 LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
 
 PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
 <
@@ -29,6 +31,7 @@ PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
     ^selectionlist->columns := description.columns;
     ^sourcelist->sortcolumn := ""; //will pick first column
     ^selectionlist->sortcolumn := ""; //will pick first column
+    this->StaticInitStoredListComponentBase(description);
     this->onsourcefilter := description.onsourcefilter;
   }
 
