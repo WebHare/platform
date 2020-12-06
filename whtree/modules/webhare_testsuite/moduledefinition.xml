@@ -21,7 +21,7 @@
     <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
     <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
     <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
-    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask"/>
+    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask" failreschedule="4000" />
     <managedtask   type="pingretry2" objectname="lib/internal/tasks.whlib#pingtask" maxfailures="1"/>
     <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
     <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
@@ -247,6 +247,7 @@
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
       <datetime name="tempfailretryat" />
+      <boolean name="taskthrownow" />
     </node>
     <node name="apis">
       <obsoletekey name="google_oauth_clientid" />
