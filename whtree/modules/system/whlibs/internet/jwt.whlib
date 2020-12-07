@@ -7,6 +7,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/ber.whlib";
 
 
 CONSTANT RECORD ARRAY registered_jwt_claims :=
@@ -458,6 +459,43 @@ PUBLIC STATIC OBJECTTYPE JSONWebToken
     RETURN EncodeUFS(EncodeJSON(header)) || "." || EncodeUFS(EncodeJSON(this->pvt_payload, this->pvt_payload_translations));
   }
 >;
+
+/** @short Extract the public key from a JSON Web Key (JWK)
+    @param jwk JWK to parse
+    @return A PEM encoded public key */
+PUBLIC STRING FUNCTION GetPEMPublicKeyFromJWK(RECORD jwk)
+{
+  IF(jwk.kty != "RSA")
+    THROW NEW Exception(`Key algorithm '${jwk.kty}' not yet supported`);
+
+  STRING modulus := DecodeUFS(jwk.n);
+  STRING publicexponent := DecodeUFS(jwk.e);
+
+  OBJECT enc := NEW BEREncoder;
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickeyinfo
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // algorithmidentifier
+  enc->AddObjectIdentifier("1.2.840.113549.1.1.1"); //algorithm
+  enc->AddNull();   //parameters = optional
+  enc->EndConstruction();
+
+  OBJECT localencoder := NEW BerEncoder;
+  localencoder->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickey
+  localencoder->AddBigInteger("00" || EncodeBase16(modulus)); //ensure interpretation as positive number
+  localencoder->AddInteger(ToInteger(EncodeBase16(publicExponent),0,16));
+  localencoder->EndConstruction();
+
+  enc->AddBitString(localencoder->GetRequest(), 0);
+  enc->EndConstruction();
+
+  STRING keymaterial := "-----BEGIN PUBLIC KEY-----\n";
+  STRING keydata := EncodeBase64(enc->GetRequest());
+  FOR(INTEGER start := 0; start < Length(keydata); start := start + 64)
+    keymaterial := keymaterial || Substring(keydata, start, 64) || "\n";
+  keymaterial := keymaterial || "-----END PUBLIC KEY-----\n";
+
+  RETURN keymaterial;
+}
+
 
 /** @short Verify a JWT token
     @param authvalue An authorization value (a dot-separated string-encoded JWT token)
