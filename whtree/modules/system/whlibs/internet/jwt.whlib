@@ -9,17 +9,6 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/ber.whlib";
 
-
-CONSTANT RECORD ARRAY registered_jwt_claims :=
-    [ [ name := "iss", title := "Issuer" ]
-    , [ name := "sub", title := "Subject" ]
-    , [ name := "aud", title := "Audience" ]
-    , [ name := "exp", title := "Expiration Time" ]
-    , [ name := "nbf", title := "Not Before" ]
-    , [ name := "iat", title := "Issued At" ]
-    , [ name := "jti", title := "JWT ID" ]
-    ];
-
 // Unsupported as of yet: "PS256", "PS384", "PS512"
 CONSTANT STRING ARRAY supported_jwt_algorithms :=
     [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ];
@@ -238,9 +227,6 @@ PUBLIC STATIC OBJECTTYPE JSONWebToken
     FOREVERY (RECORD field FROM UnpackRecord(payload))
     {
       STRING fieldname := CellExists(translations, field.name) ? GetCell(translations, field.name) : ToLowercase(field.name);
-      //ADDME: Check illegal characters in field name
-      IF (Length(fieldname) = 3 AND NOT RecordExists(SELECT FROM registered_jwt_claims WHERE name = fieldname))
-        THROW NEW Exception(`Unknown registered claim '${fieldname}'`);
 
       IF (fieldname IN [ "iss", "sub" ])
       {
@@ -573,9 +559,10 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
   payload := token->payload; // Interprets datetime values
   IF (CellExists(payload, "iss") AND payload.iss NOT IN options.iss)
     THROW NEW Exception(`Invalid value '${payload.iss}' for field 'iss', expected one of '${Detokenize(options.iss, "', '")}'`);
-  IF (CellExists(payload, "sub") AND payload.sub NOT IN options.sub)
+  IF (CellExists(payload, "sub") AND payload.sub NOT IN options.sub AND Length(options.sub) > 0)
     THROW NEW Exception(`Invalid value '${payload.sub}' for field 'sub', expected one of '${Detokenize(options.sub, "', '")}'`);
-  IF (CellExists(payload, "aud"))
+
+  IF (CellExists(payload, "aud") AND Length(options.aud) > 0)
   {
     FOREVERY (STRING aud FROM IsTypeIdArray(TypeID(payload.aud)) ? payload.aud : STRING[payload.aud])
       IF (aud NOT IN options.aud)
