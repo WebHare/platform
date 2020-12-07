@@ -6,6 +6,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
@@ -3024,6 +3026,17 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
   }
 
   /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)
+      @param link Link to set (intextlink)
+      @return TRUE if the link was valid */
+  PUBLIC BOOLEAN FUNCTION SetLinkRecordIfSupported(RECORD link)
+  {
+    IF(link.externallink != "")
+      RETURN this->SetLinkIfSupported(link.externallink);
+    ELSE
+      RETURN FALSE;
+  }
+
+  /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)
       @param inlink Link to set
       @return TRUE if the link was valid */
   UPDATE PUBLIC BOOLEAN FUNCTION SetLinkIfSupported(STRING inlink)
@@ -3034,6 +3047,11 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
   PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
   {
     RETURN DEFAULT OBJECT ARRAY;
+  }
+  PUBLIC RECORD FUNCTION GetLinkRecord()
+  {
+    STRING extlink := this->GetLink();
+    RETURN extlink != "" ? MakeIntExtExternalLink(extlink) : DEFAULT RECORD;
   }
   PUBLIC STRING FUNCTION GetLink()
   {
