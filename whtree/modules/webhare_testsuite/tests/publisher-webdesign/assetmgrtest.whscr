@@ -173,31 +173,6 @@ MACRO TestDevVersion()
   TestEq( ["-webkit-flex", "flex" ], cssstuff.display, "Missing webkit-flex in " || testfw->browser->href);
 }
 
-MACRO TestDependentAssets(BOOLEAN isdevversion)  //this tests GetAllDependedAssets - but this may be deprecated!
-{
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  STRING dynurl := siteroot->url || 'dynamicpage.shtml';
-  TestEq(TRUE, testfw->browser->GotoWebPage(dynurl), "Page is not served correctly: " || dynurl);
-
-  RECORD ARRAY assets;
-  FOREVERY(OBJECT row FROM testfw->browser->document->GetElements("#assets tr"))
-  {
-    OBJECT ARRAY cells := row->GetElements("td");
-    INSERT [ subpath := cells[0]->textcontent
-           , rooturl := cells[1]->textcontent
-           , compressed := ParseXSBoolean(cells[2]->textcontent)
-           , sourcemap := ParseXSBoolean(cells[3]->textcontent)
-           ] INTO assets AT END;
-  }
-  IF(testfw->debug)
-    dumpvalue(assets,'boxed');
-
-  TestEq(FALSE, RecordExists(SELECT FROM assets WHERE subpath LIKE "*.js.gz" AND NOT compressed), "no unmarked compressed version in the dependent assets please");
-  TestEq(FALSE, RecordExists(SELECT FROM assets WHERE NOT sourcemap AND (subpath LIKE "*.map" OR subpath LIKE "*.map.gz")), "no unmarked sourcemaps in the dependent assets please");
-  TestEq(TRUE, RecordExists(SELECT FROM assets WHERE subpath="ap.js"));
-  TestEq(TRUE, RecordExists(SELECT FROM assets WHERE subpath LIKE "st/*.svg"));
-}
-
 MACRO TestAssetpackManifest(BOOLEAN isdevversion)
 {
   //TODO verify a gzip version is available too of the manifest (accept-encoding gzip or something like that)
@@ -216,10 +191,8 @@ MACRO TestAssetpackManifest(BOOLEAN isdevversion)
 RunTestframework([ PTR TestViewInterceptions
                  , PTR PrepareTestModuleWebDesignWebsite("webhare_testsuite:basetest", [istemplate := FALSE, witherrors := TRUE])
                  , PTR TestBasics
-                 , PTR TestDependentAssets(FALSE)
                  , PTR TestAssetpackManifest(FALSE)
                  , PTR TestViewSHTML
                  , PTR TestDevVersion
-                 , PTR TestDependentAssets(TRUE)
                  , PTR TestAssetpackManifest(TRUE)
                  ]);

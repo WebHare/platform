@@ -127,7 +127,6 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
                        , throwmessage := throwmessage
                        , wcsresult := wcsresult
                        , wdsresult := wdsresult
-                       , assets := webdesign->GetAllDependedAssets()
                        , subpath := __pageinfo.subpath
                        ]);
   }

@@ -140,8 +140,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   RECORD pvt_htmldata;
   //HTML direction
   STRING pvt_htmldirection;
-  //HTML manifest
-  STRING pvt_htmlmanifest;
   //HTML prefixes
   RECORD ARRAY pvt_htmlprefixes;
   //Inserted harescript code (id: id, code: string)
@@ -216,8 +214,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC PROPERTY htmldata(pvt_htmldata, SetHTMLData);
   ///HTML direction
   PUBLIC PROPERTY htmldirection(pvt_htmldirection, SetHTMLDirection);
-  ///HTML manifest
-  PUBLIC PROPERTY htmlmanifest(pvt_htmlmanifest, SetHTMLManifest);
   ///Site-specific js settings
   PUBLIC PROPERTY jssiteconfig(__jssiteconfig, SetJSSiteConfig);
   ///Obj-specific js settings
@@ -530,8 +526,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       }
       IF(this->htmldirection != "")
         header := header || ' dir="' || EncodeValue(this->htmldirection) || '"';
-      IF(this->pvt_htmlmanifest != "")
-        header := header || ' manifest="' || EncodeValue(this->pvt_htmlmanifest) || '"';
       FOREVERY(RECORD toset FROM UnpackRecord(this->pvt_htmldata))
       {
         header := header || ' data-' || EncodeValue(ToLowercase(toset.name)) || '="' || EncodeValue(''||toset.value) || '"';
@@ -912,13 +906,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   STRING FUNCTION __GetAssetPack()
   {
     RETURN this->__config.assetpack;
-  }
-
-  PUBLIC RECORD ARRAY FUNCTION GetAllDependedAssets() //This function is deprecated! Serviceworkers should download the assetpack manifest
-  {
-    IF(NOT this->pvt_startedrendering)
-      THROW NEW Exception("The list of required assets cannot be requested in the preparation phase");
-    RETURN SELECT subpath, rooturl, compressed, sourcemap FROM this->pvt_dependencyresolverv2->GetAllAssets(this->assetcachebuster);
   }
 
   PUBLIC BOOLEAN FUNCTION IsRTDPreview()
@@ -1447,13 +1434,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_startedrendering)
       THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
     this->pvt_htmldirection := dir;
-  }
-
-  MACRO SetHTMLManifest(STRING manifesturl)
-  {
-    IF(this->pvt_startedrendering)
-      THROW NEW Exception("The HTML tag cannot be modified when the page has started rendering - update should have been done in the prepare phase");
-    this->pvt_htmlmanifest := manifesturl;
   }
 
   /** Register a prefix on the <html> node
