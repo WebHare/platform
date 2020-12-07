@@ -1,7 +1,10 @@
 <?wh
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 
-PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
 <
   OBJECT timestampobject;
 
@@ -39,5 +42,24 @@ PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
   {
     RETURN "x-webharetestsuite-customlink:" || this->timestampobject->value;
   }
+>;
 
+
+PUBLIC STATIC OBJECTTYPE CustomLinkHandler2 EXTEND TolliumLinkHandlerBase
+<
+  OBJECT timestampobject;
+
+  MACRO NEW()
+  {
+    this->title := "custom link handler2";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SetLinkRecordIfSupported(RECORD inlink)
+  {
+    RETURN inlink.internallink = 1 AND inlink.append="#test";
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetLinkRecord()
+  {
+    RETURN MakeIntExtInternalLink(1,"#test");
+  }
 >;
