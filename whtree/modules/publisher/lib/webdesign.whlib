@@ -871,8 +871,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
   /** @short Generate an link from a RTD or contenttype intextlink record
       @long Override ResolveLink to override how URLs are generated from links (if you override, always consider that it might be invoked with a default record!)
-      @param linkref ID of fsobject to which this link points
-      @param append Text to append to URL
+      @param linkrecord The intextlink record
+      @cell(integer) linkrecord.linkref ID of fsobject to which this link points
+      @cell(string) linkrecord.append Text to append to URL
       @return The final URL to use
   */
   PUBLIC STRING FUNCTION ResolveLink(RECORD linkrecord)
