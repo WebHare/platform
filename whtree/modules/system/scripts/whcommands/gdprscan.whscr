@@ -45,7 +45,7 @@ PRINT(`Configuration:
 `);
 
 BOOLEAN anydbschema := FALSE;
-FOREVERY (RECORD dbschema FROM SELECT * FROM trans->GetSchemaListing()  ORDER BY ToUppercase(schema_name))
+FOREVERY (RECORD dbschema FROM SELECT * FROM trans->GetSchemaListing() ORDER BY ToUppercase(schema_name))
 {
   //FIXME modules (webshop) should explicitly indicate tables as safe
   IF(ToUppercase(dbschema.schema_name) IN ["SYSTEM_RIGHTS","CONSILIO","WRD","PUBLISHER","WEBSHOP","PG_CATALOG","INFORMATION_SCHEMA"])
