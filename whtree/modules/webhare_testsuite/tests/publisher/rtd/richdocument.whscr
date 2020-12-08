@@ -18,6 +18,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::consilio/lib/internal/linkreports.whlib";
 LOADLIB "mod::tollium/lib/rtd/doc.whlib";
 
@@ -536,9 +537,12 @@ MACRO IntLinktest()
                                  || '<p><a href="x-richdoclink:1234-5678-001">Link naar site</a> <a href="x-richdoclink:1234-5678-002">Link naar richtest</a>'
                                  || ' afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>'
                                  || '<p><a id="boblink" href="x-richdoclink:EXT#goto-bob">Link naar Bob</a></p>'
+                                 || '<p><a id="nowherelink" href="x-richdoclink:nowhere#goto-nowhere">Link naar Bob2</a></p>'
                                  || '</body></html>')
                  , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
-                 , links := [[ tag := "1234-5678-001", linkref := workfolder->id ]]
+                 , links := [[ tag := "1234-5678-001", linkref := workfolder->id ]
+                            ,[ tag := "nowhere", linkref := whconstant_whfsid_private_rootsettings ]
+                            ]
                  ]);;
 
   myrichdoc->SetLinkRef("x-richdoclink:1234-5678-002", testfile->id);
@@ -570,13 +574,16 @@ MACRO IntLinktest()
   TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
 
   //Commit the document to the database  ADDME need a simpler api to manage richdocs
-  OBJECT testfile2 := workfolder->CreateFile([name := "richtest2", type := richdoctype->id ,publish:=FALSE]);
+  OBJECT testfile2 := workfolder->CreateFile([name := "richtest2", type := richdoctype->id, publish:=FALSE]);
   richdoctype->SetInstanceData(testfile2->id, [ data := exportrec ]);
+
+  OBJECT testfile3 := workfolder->CreateFile([name := "richtest3", type := richdoctype->id, publish := TRUE]);
+  richdoctype->SetInstanceData(testfile3->id, [ data := exportrec ]);
 
   //Commit the database
   testfw->CommitWork();
 
-  TestEQ(0,Length(GetLinksForFSObject(testfile2->id)), "Should not pick up any links, they're all internal");
+  TestEQ(0,Length(GetLinksForFSObject(testfile2->id)), "Should not pick up any links, they're all internal"); //FIXME are we sure about this? it seems to be related to publish := FALSE actually..
 
   //Read it right back
   RECORD thedoc := richdoctype->GetInstanceData(testfile2->id).data;
@@ -584,10 +591,11 @@ MACRO IntLinktest()
   OBJECT docblobdom := MakeXMLDocumentFromHTML(docblob);
   OBJECT ARRAY links := docblobdom->GetElementsByTagName("a")->GetCurrentElements();
 
-  TestEq(3,Length(links));
+  TestEq(4,Length(links));
   TestEq(workfolder->url,links[0]->GetAttribute("href"));
   TestEq(testfile->url,links[1]->GetAttribute("href")); //ADDME or should the <a> be stripped?
-  TestEq(parserapitestfile->url || "#goto-bob",links[2]->GetATtribute("href")); //Note that it should be a link, even if the target file is unpublished!
+  TestEq(parserapitestfile->url || "#goto-bob",links[2]->GetAttribute("href")); //Note that it should be a link, even if the target file is unpublished!
+  TestEq("#goto-nowhere",links[3]->GetAttribute("href"));
 
   OBJECT ARRAY images := docblobdom->GetElementsByTagName("img")->GetCurrentElements();
   TestEq(1, Length(images));
@@ -601,6 +609,15 @@ MACRO IntLinktest()
   TestEq(testfile->id,    myrichdoc->GetLinkRef("x-richdoclink:1234-5678-002"));
   TestEq(testextralink->id, myrichdoc->GetLinkRef("x-richdoclink:1234-5678-003"));
   TestEq(parserapitestfile->id, myrichdoc->GetLinkRef("x-richdoclink:EXT"));
+
+  //Test through publish code... there the webdesign has a chance to intercept the nowherelink
+  RECORD publishres := RunFilePublish(testfile3->id, FALSE);
+  TestEq(TRUE, publishres.success);
+
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+  links := doc->GetElements("a");
+  TestEq(4,Length(links));
+  TestEq("x-webdesign-takes-over-link:",links[3]->GetAttribute("href"));
 
   //Archive the testsite
   BLOB arc := workfolder->ExportFolder().files[0].data;

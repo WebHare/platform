@@ -6,6 +6,7 @@ LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/forum.whlib";
@@ -14,6 +15,7 @@ LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 //stuff shared between site:: and mod:: based designs
@@ -148,7 +150,17 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
         }
       }
     }
+    IF (href = "x-go-rewrite:#no-really") //this is passed here to verify RewriteHyperlink ALSO gets a shot at rewriting links
+      RETURN "x-webdesign-takes-over-link:";
     RETURN href;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION ResolveLink(RECORD linkrecord)
+  {
+    IF(RecordExists(linkrecord) AND linkrecord.internallink = whconstant_whfsid_private_rootsettings AND linkrecord.append = "#goto-nowhere")
+      linkrecord := MakeIntExtExternalLink("x-go-rewrite:#no-really");
+
+    RETURN BetaWebDesign::ResolveLink(linkrecord);
   }
 >;
 
