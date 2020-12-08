@@ -386,6 +386,7 @@
     </widgets>
     <t:linkhandlers>
       <test:customlinkhandler />
+      <test:customlinkhandler2 />
     </t:linkhandlers>
   </rtdtype>
 

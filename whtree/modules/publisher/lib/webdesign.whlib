@@ -869,6 +869,23 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN href;
   }
 
+  /** @short Generate an link from a RTD or contenttype intextlink record
+      @long Override ResolveLink to override how URLs are generated from links (if you override, always consider that it might be invoked with a default record!)
+      @param linkrecord The intextlink record
+      @cell(integer) linkrecord.linkref ID of fsobject to which this link points
+      @cell(string) linkrecord.append Text to append to URL
+      @return The final URL to use
+  */
+  PUBLIC STRING FUNCTION ResolveLink(RECORD linkrecord)
+  {
+    IF(RecordExists(linkrecord) AND linkrecord.externallink != "")
+    {
+      //Give 'old' RewriteHyperlink approach a chance to rewrite this links, though overriding ResolveLink is probably clearer
+      linkrecord.externallink := this->RewriteHyperlink(linkrecord.externallink);
+    }
+    RETURN DefaultResolveLink(linkrecord);
+  }
+
   PUBLIC MACRO RunAfterStaticPage()
   {
 

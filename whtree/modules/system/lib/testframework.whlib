@@ -2112,7 +2112,7 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
   }
   ELSE
   {
-    retval.error := "Publication error code #" || outputrun->errorcode;
+    retval.error := "Publication error code #" || outputrun->errorcode || " (" || outputrun->errordata || ")";
   }
   /*
   Print(Retval||"<br>");
