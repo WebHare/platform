@@ -7,17 +7,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-
-
-CONSTANT RECORD ARRAY registered_jwt_claims :=
-    [ [ name := "iss", title := "Issuer" ]
-    , [ name := "sub", title := "Subject" ]
-    , [ name := "aud", title := "Audience" ]
-    , [ name := "exp", title := "Expiration Time" ]
-    , [ name := "nbf", title := "Not Before" ]
-    , [ name := "iat", title := "Issued At" ]
-    , [ name := "jti", title := "JWT ID" ]
-    ];
+LOADLIB "wh::internal/ber.whlib";
 
 // Unsupported as of yet: "PS256", "PS384", "PS512"
 CONSTANT STRING ARRAY supported_jwt_algorithms :=
@@ -237,9 +227,6 @@ PUBLIC STATIC OBJECTTYPE JSONWebToken
     FOREVERY (RECORD field FROM UnpackRecord(payload))
     {
       STRING fieldname := CellExists(translations, field.name) ? GetCell(translations, field.name) : ToLowercase(field.name);
-      //ADDME: Check illegal characters in field name
-      IF (Length(fieldname) = 3 AND NOT RecordExists(SELECT FROM registered_jwt_claims WHERE name = fieldname))
-        THROW NEW Exception(`Unknown registered claim '${fieldname}'`);
 
       IF (fieldname IN [ "iss", "sub" ])
       {
@@ -459,6 +446,43 @@ PUBLIC STATIC OBJECTTYPE JSONWebToken
   }
 >;
 
+/** @short Extract the public key from a JSON Web Key (JWK)
+    @param jwk JWK to parse
+    @return A PEM encoded public key */
+PUBLIC STRING FUNCTION GetPEMPublicKeyFromJWK(RECORD jwk)
+{
+  IF(jwk.kty != "RSA")
+    THROW NEW Exception(`Key algorithm '${jwk.kty}' not yet supported`);
+
+  STRING modulus := DecodeUFS(jwk.n);
+  STRING publicexponent := DecodeUFS(jwk.e);
+
+  OBJECT enc := NEW BEREncoder;
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickeyinfo
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // algorithmidentifier
+  enc->AddObjectIdentifier("1.2.840.113549.1.1.1"); //algorithm
+  enc->AddNull();   //parameters = optional
+  enc->EndConstruction();
+
+  OBJECT localencoder := NEW BerEncoder;
+  localencoder->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickey
+  localencoder->AddBigInteger("00" || EncodeBase16(modulus)); //ensure interpretation as positive number
+  localencoder->AddInteger(ToInteger(EncodeBase16(publicExponent),0,16));
+  localencoder->EndConstruction();
+
+  enc->AddBitString(localencoder->GetRequest(), 0);
+  enc->EndConstruction();
+
+  STRING keymaterial := "-----BEGIN PUBLIC KEY-----\n";
+  STRING keydata := EncodeBase64(enc->GetRequest());
+  FOR(INTEGER start := 0; start < Length(keydata); start := start + 64)
+    keymaterial := keymaterial || Substring(keydata, start, 64) || "\n";
+  keymaterial := keymaterial || "-----END PUBLIC KEY-----\n";
+
+  RETURN keymaterial;
+}
+
+
 /** @short Verify a JWT token
     @param authvalue An authorization value (a dot-separated string-encoded JWT token)
     @cell(string array) options.alg Accepted algorithms (required)
@@ -535,9 +559,10 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
   payload := token->payload; // Interprets datetime values
   IF (CellExists(payload, "iss") AND payload.iss NOT IN options.iss)
     THROW NEW Exception(`Invalid value '${payload.iss}' for field 'iss', expected one of '${Detokenize(options.iss, "', '")}'`);
-  IF (CellExists(payload, "sub") AND payload.sub NOT IN options.sub)
+  IF (CellExists(payload, "sub") AND payload.sub NOT IN options.sub AND Length(options.sub) > 0)
     THROW NEW Exception(`Invalid value '${payload.sub}' for field 'sub', expected one of '${Detokenize(options.sub, "', '")}'`);
-  IF (CellExists(payload, "aud"))
+
+  IF (CellExists(payload, "aud") AND Length(options.aud) > 0)
   {
     FOREVERY (STRING aud FROM IsTypeIdArray(TypeID(payload.aud)) ? payload.aud : STRING[payload.aud])
       IF (aud NOT IN options.aud)
