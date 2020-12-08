@@ -112,6 +112,9 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                , extraparameters := DEFAULT RECORD
                                ], options, [ enums := [ access_type := ["offline","online"] ]]);
 
+    IF(this->oauthconfig.authorizeurl = "")
+      THROW NEW Exception(`Oauth autorizeurl not set!`);
+
     STRING redirectto := this->oauthconfig.redirecturl;
     IF(redirectto = "")
       redirectto := GetDefaultOauth2RedirectURL();
@@ -396,7 +399,10 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   }
 
   OBJECT oauthconnection := NEW Oauth2Connection(sessdata.oauthconfig);
-  RECORD tokeninfo := oauthconnection->RequestToken(GetWebVariable("code"));
+  RECORD tokeninfo;
+  STRING code := GetWebVariable("code");
+  IF(code != "")
+    tokeninfo := oauthconnection->RequestToken(code);
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
