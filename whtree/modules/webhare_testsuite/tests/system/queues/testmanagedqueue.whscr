@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -81,6 +82,27 @@ ASYNC MACRO TestWaitableAction()
   TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
   ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
   TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
+
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.taskthrownow", TRUE);
+  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := "THROWNOW" ]);
+  testfw->CommitWork();
+
+  RECORD info;
+  WHILE(TRUE)
+  {
+    info := DescribeManagedTask(taskid);
+    IF(info.lasterrors != "")
+      BREAK;
+
+    AWAIT CreateSleepPromise(100);
+  }
+  TestEqLike("*Throw-Now*", info.lasterrors);
+  TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), info.nextattempt).msecs < 5000, "Next attempt should be within 5 seconds");
+
+  testfw->BeginWork();
+  WriteRegistryKey("webhare_testsuite.tests.taskthrownow", FALSE);
+  testfw->CommitWork();
 
   ephtask := ScheduleEphemeralTask("webhare_testsuite:nodetask", [ nodeping := 42 ]);
   val := WaitForPromise(ephtask);

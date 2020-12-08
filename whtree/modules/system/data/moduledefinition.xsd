@@ -728,6 +728,11 @@
         <xs:documentation>Timeout in milliseconds for this task</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="failreschedule" type="xs:integer">
+      <xs:annotation>
+        <xs:documentation>Reschedule tasks after this time (milliseconds, defaults to 15 minutes)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="VirtualFS">
