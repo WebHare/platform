@@ -12,10 +12,15 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 
-PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
+PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
 <
   MACRO NEW()
   {
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    webdesign->pagetitle := "Test provider payment page";
   }
 
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
@@ -107,4 +112,4 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
 >;
 
 OpenPrimary();
-NEW DebugPage->RunPageForWHFSId(whconstant_whfsid_webharebackend);
+NEW PSPTestPage->RunPageForWHFSId(whconstant_whfsid_webharebackend);

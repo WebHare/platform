@@ -23,6 +23,7 @@ test.registerTests(
       await test.wait('ui');
       await test.wait('load');
       test.eq("42.42", test.qS(".paymentamount").textContent);
+      test.eq("Test provider payment page", test.getDoc().title, "Some tests verify the page's title to know they're in the right place");
       await test.click("#rejectpayment");
       await test.wait('load');
 
