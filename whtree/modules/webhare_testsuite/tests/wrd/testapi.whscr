@@ -19,6 +19,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tasks.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
@@ -848,7 +849,7 @@ MACRO RichDoc()
   TestEq(OpenTestsuiteSite()->OpenByPath("tmp/destlink")->id, queryres[0].testintextlink.internallink);
   TestEq("#test", queryres[0].testintextlink.append);
 
-  /* Change only the htmltext, to make sure it's being detected */
+  // Change only the htmltext, to make sure it's being detected
   testfw->BeginWork();
   myrichexp.htmltext := StringToBlob("!!!" || BlobToString(myrichexp.htmltext,-1));
   testpersonobj->UpdateEntity([ richie := myrichexp ] );
@@ -858,14 +859,14 @@ MACRO RichDoc()
   TestEq(myrichexp, testrec3);
 //  TestEq(org_testrec1.embedded, org_testrec3.embedded); // Stability of image ids - not implemented.
 
-  /* Now try updating it without images */
+  // Now try updating it without images
   myrichdoc->ImportFromPlainText("Hi Everybody!");
   myrichexp := myrichdoc->ExportAsRecord();
   testpersonobj->UpdateEntity([ richie := myrichexp ] );
   testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
   TestEq(myrichexp, testrec1);
 
-  /* Again, change only the htmltext, to make sure it's being detected */
+  // Again, change only the htmltext, to make sure it's being detected
   myrichexp.htmltext := StringToBlob("!!!" || BlobToString(myrichexp.htmltext,-1));
   testpersonobj->UpdateEntity([ richie := myrichexp ] );
   testrec1 := wrdperson->GetEntityFields(testpersonid, ["RICHIE"]).richie;
@@ -886,6 +887,13 @@ MACRO RichDoc()
   myrichexp.embedded[0].source_fsobject := destlink->id;
   testpersonobj->UpdateEntity([ richie := myrichexp ] );
   TestEq(destlink->id, testpersonobj->GetField("RICHIE").embedded[0].source_fsobject);
+
+  // Store a richdoc with instances. This directly triggers RTD overflow to WHFS
+  RECORD basertd := GetTestRTD();
+  testpersonobj->UpdateEntity([ richie := basertd ] );
+  basertd.instances[0].data.html := "UPDATED HTML";
+  testpersonobj->UpdateEntity([ richie := basertd ] );
+  TestEq("UPDATED HTML", testpersonobj->GetField("RICHIE").instances[0].data.html);
 
   testfw->CommitWork();
 }
@@ -2761,6 +2769,13 @@ MACRO TestWHFSMapper()
       ]);
 
   TestEQ("whfs::" || OpenWHFSObject(keypair.id)->whfspath, pmrec2.method.__paymentprovider.meta.keypair);
+
+  // Store a richdoc with instances. This directly triggers RTD overflow to WHFS
+  RECORD basertd := GetTestRTD();
+  entity_person->UpdateEntity([ richie := basertd ], CELL[ whfsmapper ] );
+  basertd.instances[0].data.html := "UPDATED HTML";
+  entity_person->UpdateEntity([ richie := basertd ], CELL[ whfsmapper ] );
+  TestEq("UPDATED HTML", entity_person->GetField("RICHIE").instances[0].data.html);
 
   testfw->RollbackWork();
 }
