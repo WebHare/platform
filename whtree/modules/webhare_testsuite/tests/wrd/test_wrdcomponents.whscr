@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -94,6 +96,17 @@ ASYNC MACRO TestEntitiesEdit()
       <defaultformbuttons buttons="ok cancel" />
     </footer>
   </screen>
+  <screen name="editentity2" footerbuttons="ok cancel">
+    <compositions>
+      <wrd:entity name="entity" wrdtype="test_domain_1"/>
+    </compositions>
+    <body>
+      <textedit name="mytitle" title="Title" required="true" />
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>
+  </screen>
 </screens>`;
 
   OBJECT testscreen := GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(screenfile)}#testentitiesedit`, DEFAULT RECORD, [ contexts := CELL[ wrdschema ] ]);
@@ -101,10 +114,23 @@ ASYNC MACRO TestEntitiesEdit()
   AWAIT ExpectScreenChange(+1, PTR testscreen->RunModal());
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
-  TT(":Title")->value := "new domain value";
+  TT(":Title")->value := "a domain value";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEq("new domain value", TT("entities")->selection.wrd_title);
+  TestEq("a domain value", TT("entities")->selection.wrd_title);
+
+  //Test virtual cell
+  TT("entities")->entityeditscreen := "#editentity2";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq(["wrd_title"], GetSortedSet(TT("^entity")->GetComposedCellNames()));
+  TestEq("a domain value; virtualcell", TT("mytitle")->value);
+  TT("mytitle")->value := "new domain value";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TT("entities")->entityeditscreen := "#editentity";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq("new domain value", TT(":Title")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   RECORD ARRAY allvals := SELECT * FROM wrdschema->^test_domain_1->RunQuery([ outputcolumns := [ "wrd_id", "wrd_title", "wrd_ordering" ] ]) ORDER BY wrd_ordering;
   TestEQMembers(

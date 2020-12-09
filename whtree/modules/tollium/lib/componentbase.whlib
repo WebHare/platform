@@ -2098,12 +2098,15 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     }
   }
 
-  RECORD FUNCTION GetValue()
+  RECORD FUNCTION GatherValue(BOOLEAN only_update_values)
   {
     RECORD rec := this->extradata;
 
     FOREVERY(OBJECT subcell FROM this->cells)
     {
+      IF(only_update_values AND NOT subcell->IsUpdateValue())
+        CONTINUE;
+
       IF (CellExists(rec, subcell->cellname))
         THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
 
@@ -2121,19 +2124,14 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     RETURN rec;
   }
 
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->GatherValue(FALSE);
+  }
+
   UPDATE PUBLIC VARIANT FUNCTION GetUpdateValue()
   {
-    RECORD rec := CELL[];
-
-    FOREVERY(OBJECT subcell FROM this->cells)
-      IF(subcell->IsUpdateValue())
-      {
-        IF (CellExists(rec, subcell->cellname))
-          THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
-        rec := CellInsert(rec, subcell->cellname, subcell->value);
-      }
-
-    RETURN rec;
+    RETURN this->GatherValue(TRUE);
   }
 
   // ---------------------------------------------------------------------------
@@ -2210,6 +2208,9 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     FOREVERY(OBJECT cellobj FROM this->pvt_cells)
       IF(cellobj EXTENDSFROM TolliumIsComposable)
         INSERT cellobj->cellname INTO retval AT END;
+
+    FOREVERY(RECORD subcell FROM this->__virtualcells)
+      INSERT subcell.name INTO retval AT END;
 
     FOREVERY(OBJECT mergedobj FROM this->mergecompositions)
       retval := retval CONCAT mergedobj->GetComposedCellNames();
