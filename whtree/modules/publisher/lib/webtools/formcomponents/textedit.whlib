@@ -49,6 +49,14 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
   /// Min and/or max (for integer types)
   PUBLIC RECORD range;
 
+  //TODO: JavaScript uses UTF16 pairs as counter? should actually use that by default or allow users to specify the length measure
+
+  /// Minimum length in unicode codepoints
+  PUBLIC INTEGER minlength;
+
+  /// Maximum length in unicode codepoints, ignored if <= 0
+  PUBLIC INTEGER maxlength;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -60,10 +68,15 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     this->trimwhitespace := CellExists(field,'trimwhitespace') ? field.trimwhitespace : TRUE;
     this->valuetype := "string";
     this->validationchecks := CellExists(field,'validationchecks') ? field.validationchecks : STRING[];
+
     IF(CellExists(field,'placeholder')) //dynamic fields don't supply this attribute
       this->placeholder := GetTid(field.placeholder);
     IF(CellExists(field,'range'))
       this->range := field.range;
+    IF(CellExists(field,'minlength'))
+      this->minlength := field.minlength;
+    IF(CellExists(field,'maxlength'))
+      this->maxlength := field.maxlength;
   }
 
   // ---------------------------------------------------------------------------
@@ -133,6 +146,11 @@ PUBLIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
         work->AddErrorFor(this, err);
         RETURN;
       }
+
+      IF(this->maxlength > 0 AND UCLength(this->textvalue) > this->maxlength)
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.maxlength", ToString(this->maxlength)));
+      IF(this->minlength > 0 AND UCLength(this->textvalue) < this->minlength)
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.minlength", ToString(this->minlength)));
 
       IF(this->IsNowSettable())
       {
@@ -322,11 +340,10 @@ PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD pa
   RECORD range;
   INSERT CELL password := FALSE
             , valuetype := node->GetAttribute("valuetype") ?? "string"
+            , minlength := ToInteger(node->GetAttribute("minlength"),0)
+            , maxlength := ToInteger(node->GetAttribute("maxlength"),0)
          INTO fielddef;
 
-  IF(node->HasAttribute("minlength"))
-    INSERT CELL minlength := ToInteger(node->GetAttribute("minlength"),0) INTO fielddef;
-  INSERT CELL maxlength := ToInteger(node->GetAttribute("maxlength"),0) INTO fielddef;
   INSERT CELL value := parsecontext.parsexmltidptr(node, "value") INTO fielddef;
   INSERT CELL emptyvalue := parsecontext.parsexmltidptr(node, "emptyvalue") INTO fielddef;
   INSERT CELL emptyvalueisset := node->HasAttribute("emptyvalue") INTO fielddef;
@@ -383,14 +400,7 @@ PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(OBJECT node)
 }
 
 PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
-< // ---------------------------------------------------------------------------
-  //
-  // Public properties
-  //
-
-  PUBLIC PROPERTY maxlength(GetMaxLength, SetMaxLength);
-
-
+<
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -406,22 +416,6 @@ PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase
       this->emptyvalueisset := field.emptyvalueisset;
       this->UpdateFromJS(GetTid(field.value));
     }
-  }
-
-
-  // ---------------------------------------------------------------------------
-  //
-  // Property getters/setters
-  //
-
-  INTEGER FUNCTION GetMaxLength()
-  {
-    RETURN this->GetFieldProperty("maxlength", 0);
-  }
-
-  MACRO SetMaxLength(INTEGER maxlength)
-  {
-    this->SetFieldProperty("maxlength", maxlength);
   }
 >;
 

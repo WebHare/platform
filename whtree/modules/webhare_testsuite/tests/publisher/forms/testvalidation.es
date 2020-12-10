@@ -17,7 +17,8 @@ function setRequiredFields() //fill them with a value so we can submit
 }
 
 test.registerTests(
-  [ 'Test the new native validator'
+  [
+    'Test the new native validator'
   , async function()
     {
       if(dompack.debugflags.fdv)
@@ -124,7 +125,7 @@ test.registerTests(
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
 
-      let formevents = test.getPxlLog(/^publisher:form.*/);
+      let formevents = test.getPxlLog(/^publisher:form.*$/);
       test.eq(2, formevents.length, "Should be two PXL events now - one for start and one for failure");
       test.eq("publisher:formfailed", formevents[1].event);
       test.eq("checkboxes", formevents[1].data.ds_formmeta_errorfields);
@@ -163,9 +164,24 @@ test.registerTests(
 
       test.true(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
 
-      formevents = test.getPxlLog(/^publisher:form.*/);
+      formevents = test.getPxlLog(/^publisher:form.*$/);
       test.eq(3, formevents.length, "Should be three PXL events now - one for start, one for failure and one for submission");
       test.eq("publisher:formsubmitted", formevents[2].event);
+    }
+
+  , 'Test server fallback error handling'
+  , async function()
+    {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
+      test.eq(70, test.qS("textarea").maxLength);
+      test.qS("textarea").removeAttribute("maxlength");
+      test.fill("textarea", "This text is way too long. Yes it is way too long. Yes it is way too long. Yes it is way too long. 113 characters");
+      setRequiredFields();
+
+      test.click(test.qS('#submitbutton'));
+      await test.wait('ui');
+
+      test.true(test.qS('[data-wh-form-group-for="textarea"]').classList.contains("wh-form__fieldgroup--error"), "should have failed serverside");
     }
 
   ,'Test server side errors'
