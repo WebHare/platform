@@ -50,7 +50,7 @@ PUBLIC INTEGER FUNCTION StoreRTDInWHFS(INTEGER schemaid, RECORD rtd, OBJECT impo
 PUBLIC BOOLEAN FUNCTION IsRTDEqualToRTDInWHFS(INTEGER fsobject, RECORD rtd, OBJECT importmapper)
 {
   IF (ObjectExists(importmapper))
-    RETURN TRUE; // no way to compare yet
+    RETURN FALSE; // FIXME: no way to compare yet - but then assume they are UNEQUAL otherwise we lose updates...
 
   OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   RETURN NOT RecordExists(rtdtype->FilterInstanceDataUpdates(fsobject, [ data := rtd ]));

@@ -126,7 +126,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
 
       // Update if needed
       current[pos.position].used := TRUE;
-      BOOLEAN settingmodified;
+
       IF (cur.setting != rec.setting
          OR cur.entity != rec.entity
          OR cur.rawdata != rec.rawdata
@@ -150,7 +150,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
         INSERT rec INTO settingupdates AT END;
       }
     }
-    ELSE
+    ELSE //not found
     {
       INSERT rec INTO wrd.entity_settings;
       INSERT rec INTO settingupdates AT END;
