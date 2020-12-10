@@ -1,0 +1,583 @@
+<?wh
+/** @short JSON web tokens (jwt)
+    @topic internet/jwt
+*/
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/ber.whlib";
+
+// Unsupported as of yet: "PS256", "PS384", "PS512"
+CONSTANT STRING ARRAY supported_jwt_algorithms :=
+    [ "none", "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ];
+
+
+STRING FUNCTION GetJWTSignature(STRING header_payload, STRING alg, STRING secret, OBJECT secret_key)
+{
+  STRING signature;
+  SWITCH (alg)
+  {
+    CASE "none"
+    {
+      // Unsigned
+    }
+    CASE "HS256"
+    {
+      signature := GetHashForString(header_payload, "HMAC:SHA-256", secret);
+    }
+    CASE "HS384"
+    {
+      signature := GetHashForString(header_payload, "HMAC:SHA-384", secret);
+    }
+    CASE "HS512"
+    {
+      signature := GetHashForString(header_payload, "HMAC:SHA-512", secret);
+    }
+    CASE "RS256", "ES256"
+    {
+      signature := secret_key->Sign(header_payload, "SHA-256");
+    }
+    CASE "RS384", "ES384"
+    {
+      signature := secret_key->Sign(header_payload, "SHA-384");
+    }
+    CASE "RS512", "ES512"
+    {
+      signature := secret_key->Sign(header_payload, "SHA-512");
+    }
+  }
+
+  IF (alg IN [ "ES256", "ES384", "ES512" ])
+  {
+    // At this point, the signature is a BER-encoded ASN.1 sequence of two elements, r and s. The JWT signature is the
+    // concatenation of the r and s values
+    INTEGER len := alg = "ES384" ? 96 : alg = "ES512" ? 132 : 64;
+    RECORD decoded := DecodeECSignature(signature);
+    IF (RecordExists(decoded))
+    {
+      // len is the expected length of the signature (r and s concatenated) in bytes, and r and s have the same size, so they
+      // both should have length len/2. Because they are base-16 encoded, each byte takes up two characters, so we don't have
+      // to divide the string length by 2 to get the correct length.
+      signature := DecodeBase16(FixBigIntegerLength(decoded.r, len)) || DecodeBase16(FixBigIntegerLength(decoded.s, len));
+    }
+  }
+
+  RETURN EncodeUFS(signature);
+}
+
+BOOLEAN FUNCTION VerifyJWTSignature(STRING header_payload, STRING signature, STRING alg, STRING secret, OBJECT secret_key)
+{
+  // Don't decode the signature for other algorithms as we're just comparing the encoded signature with a generated (encoded)
+  // signature
+  IF (alg IN [ "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ])
+    signature := DecodeUFS(signature);
+  IF (alg IN [ "ES256", "ES384", "ES512" ])
+  {
+    // The JWT signature is the concatenation of an r and s value. The verification functions expects a BER-encoded ASN.1
+    // sequence containing r and s
+    INTEGER len := alg = "ES384" ? 96 : alg = "ES512" ? 132 : 64;
+
+    signature := EncodeBase16(signature);
+    // len is in bytes, and r and s have the same size, so they both have byte length len/2. Because they are base-16 encoded,
+    // each byte takes up two characters, so we don't have to divide the size by 2 to get the correct substring lengths.
+    STRING r := Left(signature, len);
+    STRING s := Right(signature, len);
+    signature := EncodeECSignature(CELL[ r, s ]);
+  }
+
+  SWITCH (alg)
+  {
+    CASE "RS256", "ES256"
+    {
+      RETURN secret_key->Verify(header_payload, signature, "SHA-256");
+    }
+    CASE "RS384", "ES384"
+    {
+      RETURN secret_key->Verify(header_payload, signature, "SHA-384");
+    }
+    CASE "RS512", "ES512"
+    {
+      RETURN secret_key->Verify(header_payload, signature, "SHA-512");
+    }
+    DEFAULT
+    {
+      RETURN signature = GetJWTSignature(header_payload, alg, secret, secret_key);
+    }
+  }
+}
+
+STRING FUNCTION FixBigIntegerLength(STRING value, INTEGER size)
+{
+  // We can safely remove leading "00"s as we're dealing with unsigned integers
+  WHILE (Length(value) > size AND Left(value, 2) = "00")
+    value := Substring(value, 2);
+  // Left-pad with "00" until it has the required size
+  WHILE (Length(value) < size)
+    value := "00" || value;
+  RETURN value;
+}
+
+/** JSON Web Token
+    @topic jwt/api
+*/
+PUBLIC STATIC OBJECTTYPE JSONWebToken
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING typ;
+  STRING pvt_alg;
+  RECORD pvt_payload;
+  RECORD pvt_payload_translations;
+  STRING pvt_secret;
+  OBJECT pvt_secret_key; // EVP key for RSA/ECDSA signatures
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  /** @type(string) The shared secret or PEM-encoded key used for signing and verifying
+      @long For algorithms "HS256", "HS384" and "HS512", the secret used for signing and verifying this token. For algorithms
+          "RS256", "RS384", "RS512", "ES256", "ES384" and "ES512", the private key used for signing and verifying this token,
+          or the public key used for verifying this token. For algorithm "none", this should be left empty. Setting this
+          property to an invalid value (i.e. a secret or key unsuited for the token's algorithm) throws an exception.
+  */
+  PUBLIC PROPERTY secret(pvt_secret, SetSecret);
+
+  /** @type(object evpkey) The EVP key used for signing and verifying
+      @long For algorithms "RS256", "RS384", "RS512", "ES256", "ES384" and "ES512", the EVP key used for signing and
+          verifying this token, or the public-only EVP key used for verifying this token. For algorithms "none", "HS256",
+          "HS384" and "HS512", this should be a default object.
+  */
+  PUBLIC PROPERTY secret_key(pvt_secret_key, -);
+
+  /** @type(string) The algorithm used for signing and verifying
+      @long The algorithm used for signing and verifying this token, one of "none", "HS256", "HS384", "HS512", "RS256",
+          "RS384", "RS512", "ES256", "ES384" or "ES512". Setting this property to an invalid value (i.e. if the algorithm is
+          not supported or if the current secret or key is unsuited for this algorithm) throws an exception.
+  */
+  PUBLIC PROPERTY alg(pvt_alg, SetAlg);
+
+  /// The key ID
+  PUBLIC STRING kid;
+
+  /** @type(record) The token's payload
+      @long The payload is a record, which is JSON encoded. To use translations when setting/getting the payload, use
+          %JSONWebToken::GetPayload and %JSONWebToken::SetPayload
+  */
+  PUBLIC PROPERTY payload(GetPayload, SetPayload);
+
+  /** @type(boolean) If this token can only be used to verify a signature
+      @long For algorithms "RS256", "RS384", "RS512", "ES256", "ES384" and "ES512", this token can only be used for
+          verification if the secret is a public-only key.
+  */
+  PUBLIC PROPERTY verifyonly(GetVerifyOnly, -);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  /** @short Create a new JSON Web Token
+      @param alg The algorithm to use for signing this token, one of "none", "HS256", "HS384", "HS512", "RS256", "RS384",
+          "RS512", "ES256", "ES384" or "ES512"
+      @param secret The (shared) secret or (PEM-encoded) private key used to sign this token (or empty if alg = "none")
+  */
+  MACRO NEW(STRING alg, STRING secret)
+  {
+    this->typ := "JWT";
+    this->alg := alg;
+    this->secret := secret;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** @short Get the token's payload using payload field translations
+      @param translations Field name translations to use when JSON decoding the payload (see %DecodeJSON)
+      @return The token's current payload
+  */
+  PUBLIC RECORD FUNCTION GetPayload(RECORD translations DEFAULTSTO DEFAULT RECORD)
+  {
+    RECORD payload := this->pvt_payload;
+    FOREVERY (RECORD field FROM UnpackRecord(payload))
+    {
+      STRING fieldname := CellExists(translations, field.name) ? GetCell(translations, field.name) : ToLowercase(field.name);
+      IF (fieldname IN [ "exp", "nbf", "iat" ])
+        payload := CellInsert(CellDelete(payload, field.name), field.name, MakeDatetimeFromUnixTimestamp(field.value));
+    }
+    RETURN payload;
+  }
+
+  /** @short Set the token's payload using payload field translations
+      @param payload The token's new payload
+      @param translations Field name translations to use when JSON encoding the payload (see %EncodeJSON)
+  */
+  PUBLIC MACRO SetPayload(RECORD payload, RECORD translations DEFAULTSTO DEFAULT RECORD)
+  {
+    FOREVERY (RECORD field FROM UnpackRecord(payload))
+    {
+      STRING fieldname := CellExists(translations, field.name) ? GetCell(translations, field.name) : ToLowercase(field.name);
+
+      IF (fieldname IN [ "iss", "sub" ])
+      {
+        IF (field.value = "" OR (field.value LIKE "*:*" AND NOT IsValidURL(field.value)))
+          THROW NEW Exception(`Invalid value '${field.value}' for field '${field.name}'`);
+      }
+      ELSE IF (fieldname = "aud")
+      {
+        FOREVERY (STRING value FROM IsTypeIdArray(TypeID(field.value)) ? field.value : STRING[ field.value ])
+          IF (value = "" OR (value LIKE "*:*" AND NOT IsValidURL(value)))
+            THROW NEW Exception(`Invalid value '${value}' for field '${field.name}'`);
+      }
+      ELSE IF (fieldname IN [ "exp", "nbf", "iat" ])
+      {
+        IF (TypeID(field.value) = TypeID(DATETIME))
+        {
+          IF (field.value = DEFAULT DATETIME)
+            THROW NEW Exception(`Invalid value DEFAULT DATETIME for field '${field.name}'`);
+          payload := CellInsert(CellDelete(payload, field.name), field.name, GetUnixTimestamp(field.value));
+        }
+        ELSE IF (TypeID(field.value) != TypeID(INTEGER))
+          THROW NEW Exception(`Field '${fieldname}' has incorrect type`);
+      }
+      ELSE IF (fieldname = "jti")
+      {
+        IF (field.value = "")
+          THROW NEW Exception(`Invalid value '${field.value}' for field '${field.name}'`);
+      }
+    }
+    this->pvt_payload := payload;
+    this->pvt_payload_translations := translations;
+  }
+
+  /** @short Get the signed token string
+      @long This creates the signed token string, which can be used as the HTTP Authorization header value.
+      @return The signed token string in `header.payload.signature` format, or an empty string if this is a verify-only token
+  */
+  PUBLIC STRING FUNCTION GetAuthorizationValue()
+  {
+    IF (this->verifyonly)
+      RETURN "";
+    STRING header_payload := this->GetHeaderPayload();
+    RETURN header_payload || "." || GetJWTSignature(header_payload, this->alg, this->secret, this->secret_key);
+  }
+
+  /** @short Verify if a given authorization value is valid using this token's algorithm and secret
+      @long This function verifies a complete authorization value (header.payload.signature) or just a signature using this
+          token's configured algorithm and secret. If only a signature is verified, it is verified against the current
+          token's header and payload (which may differ from the original token, because WebHare's JSON encoding sorts the
+          header and payload keys). If a full authorization value is verified, the header and payload of the authorization
+          value are also verified against this token's header and payload.
+      @param authvalue The authorization value or signature to check
+      @return If the given authorization value is valid
+  */
+  PUBLIC BOOLEAN FUNCTION VerifyAuthorizationValue(STRING authvalue)
+  {
+    STRING header_payload := this->GetHeaderPayload();
+    STRING signature;
+    STRING ARRAY parts := Tokenize(authvalue, ".");
+    IF (Length(parts) = 3)
+    {
+      // This is a complete auth value, check if the header and payload are equal to this token's
+      TRY
+      {
+        // Decode and encode JSON to sort the keys
+        IF (EncodeUFS(EncodeJSON(DecodeJSON(DecodeUFS(parts[0])))) || "." || EncodeUFS(EncodeJSON(DecodeJSON(DecodeUFS(parts[1]), this->pvt_payload_translations), this->pvt_payload_translations)) != this->GetHeaderPayload())
+          RETURN FALSE;
+        // Use the given header and payload for verification
+        header_payload := parts[0] || "." || parts[1];
+      }
+      CATCH
+      {
+        // JSON encoding/decoding error
+        RETURN FALSE;
+      }
+      // Verify the given signature
+      signature := parts[2];
+    }
+    ELSE
+    {
+      // This is just a signature
+      signature := authvalue;
+    }
+
+    RETURN VerifyJWTSignature(header_payload, signature, this->alg, this->secret, this->secret_key);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetAlg(STRING alg)
+  {
+    IF (alg NOT IN supported_jwt_algorithms)
+      THROW NEW Exception(`Unsupported encryption algorithm '${alg}'`);
+    this->CheckAlgorithmKey(alg, this->secret, this->secret_key);
+    this->pvt_alg := alg;
+  }
+
+  MACRO SetSecret(STRING secret)
+  {
+    IF (this->alg IN [ "RS256", "RS384", "RS512", "ES256", "ES384", "ES512" ])
+    {
+      OBJECT secret_key := MakeCryptoKey(secret);
+      IF (NOT ObjectExists(secret_key))
+        THROW NEW Exception(`Could not read secret key`);
+      this->CheckAlgorithmKey(this->alg, "", secret_key);
+      this->pvt_secret := secret;
+      this->pvt_secret_key := secret_key;
+    }
+    ELSE
+    {
+      this->CheckAlgorithmKey(this->alg, secret, DEFAULT OBJECT);
+      this->pvt_secret := secret;
+      this->pvt_secret_key := DEFAULT OBJECT;
+    }
+  }
+
+  BOOLEAN FUNCTION GetVerifyOnly()
+  {
+    RETURN ObjectExists(this->secret_key) AND this->secret_key->publiconly;
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO CheckAlgorithmKey(STRING alg, STRING secret, OBJECT secret_key)
+  {
+    /*
+      Per RFC 7518:
+
+      If this token uses an HMAC algorithm, check if the secret key has at least the signature length:
+        A key of the same size as the hash output (for instance, 256 bits for "HS256") or larger MUST be used with this
+        algorithm.
+
+      If this token uses an RSA algorithm, check if the private key length is at least 2048 bytes:
+        A key of size 2048 bits or larger MUST be used with these algorithms.
+
+      If this token uses an ECDSA algorithm, check if the private key length matches the algorithm type:
+        +-------------------+-------------------------------+
+        | "alg" Param Value | Digital Signature Algorithm   |
+        +-------------------+-------------------------------+
+        | ES256             | ECDSA using P-256 and SHA-256 |
+        | ES384             | ECDSA using P-384 and SHA-384 |
+        | ES512             | ECDSA using P-521 and SHA-512 |
+        +-------------------+-------------------------------+
+    */
+    IF (secret != "")
+    {
+      SWITCH (alg)
+      {
+        CASE "HS256"
+        {
+          IF (Length(secret) < 256)
+            THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
+        }
+        CASE "HS384"
+        {
+          IF (Length(secret) < 384)
+            THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
+        }
+        CASE "HS512"
+        {
+          IF (Length(secret) < 512)
+            THROW NEW Exception(`Invalid key size ${Length(secret)} for algorithm '${alg}'`);
+        }
+      }
+    }
+    IF (ObjectExists(secret_key))
+    {
+      SWITCH (alg)
+      {
+        CASE "RS256", "RS384", "RS512"
+        {
+          IF (secret_key->keytype != "RSA")
+            THROW NEW Exception(`Invalid key type '${secret_key->keytype}' for algorithm '${alg}'`);
+
+          IF (secret_key->keylength < 2048)
+            THROW NEW Exception(`Invalid key size ${secret_key->keylength} for algorithm '${alg}'`);
+        }
+        CASE "ES256"
+        {
+          IF (secret_key->keytype != "EC")
+            THROW NEW Exception(`Invalid key type '${secret_key->keytype}' for algorithm '${alg}'`);
+          IF (secret_key->keylength != 256)
+            THROW NEW Exception(`Invalid key size ${secret_key->keylength} for algorithm '${alg}'`);
+        }
+        CASE "ES384"
+        {
+          IF (secret_key->keytype != "EC")
+            THROW NEW Exception(`Invalid key type '${secret_key->keytype}' for algorithm '${alg}'`);
+          IF (secret_key->keylength != 384)
+            THROW NEW Exception(`Invalid key size ${secret_key->keylength} for algorithm '${alg}'`);
+        }
+        CASE "ES512"
+        {
+          IF (secret_key->keytype != "EC")
+            THROW NEW Exception(`Invalid key type '${secret_key->keytype}' for algorithm '${alg}'`);
+          IF (secret_key->keylength != 521)
+            THROW NEW Exception(`Invalid key size ${secret_key->keylength} for algorithm '${alg}'`);
+        }
+      }
+    }
+  }
+
+  STRING FUNCTION GetHeaderPayload()
+  {
+    RECORD header := CELL[ this->alg, this->typ ];
+    IF (this->kid != "")
+      INSERT CELL kid := this->kid INTO header;
+    RETURN EncodeUFS(EncodeJSON(header)) || "." || EncodeUFS(EncodeJSON(this->pvt_payload, this->pvt_payload_translations));
+  }
+>;
+
+/** @short Extract the public key from a JSON Web Key (JWK)
+    @param jwk JWK to parse
+    @return A PEM encoded public key */
+PUBLIC STRING FUNCTION GetPEMPublicKeyFromJWK(RECORD jwk)
+{
+  IF(jwk.kty != "RSA")
+    THROW NEW Exception(`Key algorithm '${jwk.kty}' not yet supported`);
+
+  STRING modulus := DecodeUFS(jwk.n);
+  STRING publicexponent := DecodeUFS(jwk.e);
+
+  OBJECT enc := NEW BEREncoder;
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickeyinfo
+  enc->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // algorithmidentifier
+  enc->AddObjectIdentifier("1.2.840.113549.1.1.1"); //algorithm
+  enc->AddNull();   //parameters = optional
+  enc->EndConstruction();
+
+  OBJECT localencoder := NEW BerEncoder;
+  localencoder->StartConstruction(BER_Class_Universal, BER_Universal_Sequence); // publickey
+  localencoder->AddBigInteger("00" || EncodeBase16(modulus)); //ensure interpretation as positive number
+  localencoder->AddInteger(ToInteger(EncodeBase16(publicExponent),0,16));
+  localencoder->EndConstruction();
+
+  enc->AddBitString(localencoder->GetRequest(), 0);
+  enc->EndConstruction();
+
+  STRING keymaterial := "-----BEGIN PUBLIC KEY-----\n";
+  STRING keydata := EncodeBase64(enc->GetRequest());
+  FOR(INTEGER start := 0; start < Length(keydata); start := start + 64)
+    keymaterial := keymaterial || Substring(keydata, start, 64) || "\n";
+  keymaterial := keymaterial || "-----END PUBLIC KEY-----\n";
+
+  RETURN keymaterial;
+}
+
+
+/** @short Verify a JWT token
+    @param authvalue An authorization value (a dot-separated string-encoded JWT token)
+    @cell(string array) options.alg Accepted algorithms (required)
+    @cell(string array) options.iss Accepted issuers
+    @cell(string array) options.sub Accepted subjects
+    @cell(string array) options.aud Accepted audiences
+    @cell(string) options.jti Expected JWT ID
+    @cell(datetime) options.verify_at Reference date for expiration (defaults to %GetCurrentDateTime)
+    @cell(integer) options.grace_period Accepted difference between `verify_at` and token dates in seconds
+    @cell(record) options.translations Translation to use when JSON encoding/decoding the token payload
+    @cell(function ptr) options.secret_callback This function is called to retrieve the secret or public/private key based on
+        the key identifier (`kid`) from the header
+    @return The verified JSONWebToken (this function throws when the token could not be verified)
+*/
+PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  // Check the options
+  options := ValidateOptions(
+      [ alg := STRING[]
+      , iss := STRING[]
+      , sub := STRING[]
+      , aud := STRING[]
+      , jti := ""
+      , verify_at := GetCurrentDateTime()
+      , grace_period := 0
+      , translations := DEFAULT RECORD
+      , secret_callback := DEFAULT FUNCTION PTR
+      ], options,
+      [ required := [ "alg" ]
+      ]);
+
+  STRING ARRAY accepted_algs := ArrayIntersection(options.alg, supported_jwt_algorithms);
+  IF (Length(accepted_algs) = 0)
+    THROW NEW Exception(`No valid algorithm value${Length(options.alg) > 0 ? "s" : ""} supplied: '${Detokenize(options.alg, "', '")}'`);
+
+  // A JWT token contains three string, separated by dots
+  STRING ARRAY parts := Tokenize(authvalue, ".");
+  IF (Length(parts) != 3)
+    THROW NEW Exception("Invalid JWT token");
+  RECORD header := DecodeJSON(DecodeUFS(parts[0]));
+  RECORD payload := DecodeJSON(DecodeUFS(parts[1]), options.translations);
+  STRING signature := parts[2];
+
+  // Validate the header
+  header := ValidateOptions(
+      [ alg := ""
+      , typ := ""
+      , kid := ""
+      ], header);
+  IF (header.typ != "JWT")
+    THROW NEW Exception(`Unknown JWT token typ '${header.typ}', expected 'JWT'`);
+  IF (header.alg NOT IN accepted_algs)
+    THROW NEW Exception(`Unexpected JWT token alg '${header.alg}', expected one of '${Detokenize(accepted_algs, "', '")}'`);
+
+  // Retrieve the secret or private/public key for verification
+  STRING secret_or_pubkey;
+  IF (options.secret_callback != DEFAULT FUNCTION PTR)
+    secret_or_pubkey := options.secret_callback(header.kid);
+  // The secret can only be empty if the algorithm is "none"
+  IF ((secret_or_pubkey = "") != (header.alg = "none"))
+    THROW NEW Exception(`${secret_or_pubkey = "" ? "Empty " : "Non-empty "} secret or key is not accepted for JWT token alg '${header.alg}'`);
+
+  // Initialize the JWT token
+  OBJECT token := NEW JSONWebToken(header.alg, secret_or_pubkey);
+  IF (header.kid != "")
+    token->kid := header.kid;
+  token->SetPayload(payload, options.translations);
+
+  // Verify the token signature
+  IF (NOT token->VerifyAuthorizationValue(authvalue))
+    THROW NEW Exception(`Invalid signature '${signature}' for algorithm '${header.alg}' for JWT token`);
+
+  // Verify the payload
+  payload := token->payload; // Interprets datetime values
+  IF (CellExists(payload, "iss") AND payload.iss NOT IN options.iss)
+    THROW NEW Exception(`Invalid value '${payload.iss}' for field 'iss', expected one of '${Detokenize(options.iss, "', '")}'`);
+  IF (CellExists(payload, "sub") AND payload.sub NOT IN options.sub AND Length(options.sub) > 0)
+    THROW NEW Exception(`Invalid value '${payload.sub}' for field 'sub', expected one of '${Detokenize(options.sub, "', '")}'`);
+
+  IF (CellExists(payload, "aud") AND Length(options.aud) > 0)
+  {
+    FOREVERY (STRING aud FROM IsTypeIdArray(TypeID(payload.aud)) ? payload.aud : STRING[payload.aud])
+      IF (aud NOT IN options.aud)
+        THROW NEW Exception(`Invalid value '${aud}' for field 'aud', expected one of '${Detokenize(options.aud, "', '")}'`);
+  }
+  IF (CellExists(payload, "exp") AND payload.exp <= AddTimeToDate(options.grace_period * 1000, options.verify_at))
+    THROW NEW Exception(`JWT token expired at ${FormatISO8601DateTime(payload.exp)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
+  IF (CellExists(payload, "nbf") AND payload.nbf > AddTimeToDate(options.grace_period * -1000, options.verify_at))
+    THROW NEW Exception(`JWT token not valid before ${FormatISO8601DateTime(payload.nbf)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
+  IF (CellExists(payload, "iat") AND payload.iat > AddTimeToDate(options.grace_period * -1000, options.verify_at))
+    THROW NEW Exception(`JWT token issued in the future at ${FormatISO8601DateTime(payload.iat)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
+  IF (options.jti != "" AND NOT CellExists(payload, "jti"))
+    THROW NEW Exception(`Missing value for field 'jti'`);
+  ELSE IF (CellExists(payload, "jti") AND payload.jti != options.jti)
+    THROW NEW Exception(`Invalid value '${payload.jti}' for field 'jti', expected '${options.jti}'`);
+
+  RETURN token;
+}

@@ -1,5 +1,6 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
-       title="TCP/IP and internet protocols">
+       title="TCP/IP and internet protocols"
+       docorder="jwt">
   <section name="webbrowser" title="Web (HTTP) client" />
   <section name="url" title="URL manipulation" />
   <section name="tcpip" title="TCP/IP connections" />
@@ -7,4 +8,5 @@
   <section name="email" title="Email protocols" />
   <section name="filetransfer" title="File transfer (FTP, SMB, SFTP)" />
   <section name="webdav" title="Web Distributed Authoring and Versioning (WEBDAV)" />
+  <section name="jwt" title="JSON Web Tokens (JWT)" />
 </topic>
