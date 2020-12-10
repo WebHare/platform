@@ -229,7 +229,6 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
                        , throwmessage := throwmessage
                        , wcsresult := wcsresult
                        , wdsresult := wdsresult
-                       , assets := DEFAULT RECORD ARRAY
                        , subpath := webdesign->pageobject->subpath
                        ]);
   }

@@ -612,6 +612,7 @@ PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase
     ^row->RegisterVirtualCell("text", PTR this->GetVirtualText, PTR this->SetVirtualText);
     TolliumRowEditScreenBase::Init(data);
     TestEq("mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor", this->openingcomponent->roweditscreen, "test if openingcomponent appears to be our arrayedit");
+    TestEq(TRUE, "text" IN ^row->GetComposedCellNames());
   }
   STRING FUNCTION GetVirtualText()
   {
