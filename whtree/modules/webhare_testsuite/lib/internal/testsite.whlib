@@ -1119,7 +1119,6 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
          ];
 }
 
-
 PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(CELL[...testformfileoptions, which := "" ], options);
@@ -1665,3 +1664,10 @@ PUBLIC MACRO TestInvoke_SetupEmailFieldtest()
 {
   RunTestframework([ PTR SetupTestWhitelists ]);
 }
+
+PUBLIC MACRO Testinvoke_SnoozeRateLimits()
+{
+  OpenPrimary();
+  SnoozeRateLimits();
+}
+
