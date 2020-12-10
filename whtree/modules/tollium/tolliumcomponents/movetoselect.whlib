@@ -18,7 +18,7 @@ PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
   MACRO NEW()
   {
     EXTEND this BY StoredListComponentBase;
-    EXTEND this BY TolliumIsComposableListener;
+    EXTEND this BY TolliumIsComposable;
     EXTEND this BY TolliumIsDirtyable;
 
     this->storage->selectmode := "multiple";
