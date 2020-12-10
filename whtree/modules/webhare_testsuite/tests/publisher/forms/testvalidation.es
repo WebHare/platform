@@ -24,7 +24,7 @@ test.registerTests(
       if(dompack.debugflags.fdv)
         alert("Disable the 'fdv' debugflag before running a validation test");
 
-      await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SnoozeRateLimits'); //creates a simple blacklist
+      await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
       test.click('#coretest-email');
       test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
