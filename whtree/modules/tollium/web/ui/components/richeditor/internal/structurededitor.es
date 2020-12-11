@@ -1589,11 +1589,7 @@ export default class StructuredEditor extends EditorBase
           } break;
         case 'text':
           {
-            var text = type.data;
-            //remove stray undisplayed charactesr
-            text = text.replaceAll('\u200b', '');
-            text = text.replaceAll('\r', '');
-            text = text.replaceAll('\n', '');
+            var text = type.data.replace('\u200b', '');
             if (text != type.data)
               block.forcevisible = true;
             if (text != '')
