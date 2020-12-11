@@ -317,17 +317,22 @@ export class RTE
     var editor;
     if(this.options.structure)
     {
+      /*
+      NOTE: contenteditable makes the node focusable, however the wh-rtd__undoholder is a hidden node we don't want to be focused.
+            We prevent it from appearing in (and messing up) tabnavigation we also add tabindex="-1" in addition to the contenteditable="true".
+      */
+
       let undonode = null;
       if (this.options.undoholder) //FIXME not sure if we need this, might be needed for page editor
       {
         editoropts.allowundo = true;
-        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         //dompack.create('div', { contentEditable: true, style: {opacity:1}});
         this.options.undoholder.appendChild(undonode);
       }
       else if (this.options.allowundo)
       {
-        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         this.container.appendChild(undonode);
       }
 
