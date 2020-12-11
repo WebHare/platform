@@ -94,6 +94,7 @@ export default class ImgEditField extends FileEditBase
                                               , on: { click: evt => this.doDelete(evt) }
                                               });
     this.deletebutton.setAttribute("tabindex", "0");
+    this.deletebutton.setAttribute("role", "button");
     this.node.appendChild(this.deletebutton);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }
