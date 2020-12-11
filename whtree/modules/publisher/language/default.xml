@@ -2000,6 +2000,7 @@
     </textgroup>
     <textgroup gid="rtd" limitlanguages="en nl">   <!-- site.rtd -->
       <textgroup gid="embedvideo">   <!-- site.rtd.embedvideo -->
+        <text tid="playbutton-aria">Play video</text>
         <text tid="unrecognized">The URL is not recognized as a supported video URL</text>
         <text tid="videourl">Video URL</text>
       </textgroup>

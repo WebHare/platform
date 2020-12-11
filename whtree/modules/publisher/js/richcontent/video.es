@@ -1,5 +1,8 @@
 import * as dompack from 'dompack';
-require('./video.css');
+import { getTid } from "@mod-tollium/js/gettid";
+import "./video.css";
+import "../internal/rtd.lang.json";
+
 
 let youtubedomain = 'www.youtube.com';
 
@@ -148,14 +151,36 @@ function initializeVideoElementV2(node)
 
   for(let videonode of videonodes)
   {
-    videonode.setAttribute("tabindex", "0");
-
     videonode.addEventListener("click", function()
       {
         activateVideo(videonode, video, opts);
       });
 
-    videonode.addEventListener("keypress", function(evt)
+
+    /*
+    Reading of the title disabled for now because Voice Over already shows the title.
+    (It'll tell you something like "Play video,button,My video name")
+    Not sure what other screenreaders do.
+
+    let container = videonode.closest(".wh-video");
+    let title = "";
+    if (container)
+      title = container.getAttribute("title");
+    */
+
+
+    let playbutton = videonode.querySelector(".wh-video__playbutton");
+    playbutton.setAttribute("tabindex", "0");
+    playbutton.setAttribute("role", "button");
+    // playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria", title));
+    playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));
+
+    playbutton.addEventListener("click", function()
+      {
+        activateVideo(videonode, video, opts);
+      });
+
+    playbutton.addEventListener("keypress", function(evt)
       {
         // we are only interested in enter and space keypressed
         if (evt.keyCode != 13 && evt.keyCode != 32)
@@ -173,7 +198,6 @@ function activateVideo(videonode, video, opts)
 
   videonode.querySelector(".wh-video__innerframe__preview").hidden = true;
   videonode.__initialized = true;
-  videonode.removeAttribute("tabindex"); // focus was needed for keyboard activation of the video, but isn't needed anymore (focus should rather now go to the buttons offered by the video provider)
   launchVideo(videonode, video, opts);
 }
 
