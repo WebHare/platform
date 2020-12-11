@@ -62,6 +62,10 @@ export default class ImgEditField extends FileEditBase
   _updateEnabledStatus(nowenabled)
   {
     this.node.tabIndex = nowenabled ? 0 : -1;
+
+    if (this.deletebutton) // it is created the first time it's needed
+      this.deletebutton.tabIndex = nowenabled ? 0 : -1;
+
     if(nowenabled)
       this.node.removeAttribute("data-wh-form-disabled");
     else
@@ -84,6 +88,8 @@ export default class ImgEditField extends FileEditBase
     }
 
     this.node.classList.add('wh-form__imgedit--hasimage');
+
+    // if we already created the delete button, reinsert it into the DOM
     if(this.deletebutton)
     {
       this.node.appendChild(this.deletebutton);
