@@ -346,7 +346,6 @@
              cachecontrol="public, max-age=31536000, immutable"
              priority="after">
       <tryfolder resolver="sha256b16_directory" path="whdata::ephemeral/system.uc2/"  />
-      <tryfolder path="whdata::ephemeral/system.uc/" />
       <tryfile path="mod::system/web/unifiedcache/404.shtml" />
     </webrule>
 
