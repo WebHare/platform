@@ -20,7 +20,7 @@ PUBLIC STRING FUNCTION CreateDraftPreviewLink(OBJECT draftobject)
 PUBLIC MACRO RunVersioningApplication(STRING site, OBJECT controller, RECORD appdata)
 {
   INSERT CELL sitename := site INTO appdata;
-  controller->LoadScreen("moduleroot::publisher/tolliumapps/versioning/versioning.xml#main", appdata)->RunModal();
+  controller->LoadScreen("mod::publisher/tolliumapps/versioning/versioning.xml#main", appdata)->RunModal();
 }
 
 PUBLIC MACRO RunVersionedFileRestore(OBJECT controller, INTEGER deletedfileid)
