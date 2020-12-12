@@ -1220,12 +1220,20 @@ STATIC OBJECTTYPE WHFSType
       Warning: this function will not return any results when searching for strings of 2048 or more characters.
       @param membername Name of member to search in
       @param value Value to search for
-      @param case_sensitive Whether string compares should be done case sensitive
+      @cell(boolean) options.matchcase Whether string compares should be done case sensitive. Defaults to TRUE
+      @cell(boolean) options.findinprivate Whether to find matches in /webhare-private/. Defaults to FALSE
       @return List of ids of object that have value @a value in member @a member.
       @see FindObjectsByMemberValueMask
   */
-  PUBLIC INTEGER ARRAY FUNCTION FindObjectsByMemberValue(STRING membername, VARIANT value, BOOLEAN case_sensitive DEFAULTSTO TRUE)
+  PUBLIC INTEGER ARRAY FUNCTION FindObjectsByMemberValue(STRING membername, VARIANT value, VARIANT options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(TYPEID(options) = TYPEID(BOOLEAN))
+      options := [ matchcase := options ];
+
+    options := ValidateOptions([ matchcase := TRUE
+                               , findinprivate := FALSE
+                               ], options);
+
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
 
@@ -1295,9 +1303,9 @@ STATIC OBJECTTYPE WHFSType
             WHERE fs_settings.fs_member = memberinfo.id
                   AND fs_settings.fs_instance = fs_instances.id
                   AND fs_objects.id = fs_instances.fs_object
-                  AND fs_objects.isactive = TRUE
+                  AND (options.findinprivate ? TRUE : fs_objects.isactive)
                   AND (memberinfo.type = 11 OR memberinfo.type=13 ? fs_settings.fs_object = searchfsobj
-                                            : case_sensitive ? fs_settings.setting = searchval
+                                            : options.matchcase ? fs_settings.setting = searchval
                                                              : ToUppercase(fs_settings.setting) = ToUppercase(searchval));
   }
 
