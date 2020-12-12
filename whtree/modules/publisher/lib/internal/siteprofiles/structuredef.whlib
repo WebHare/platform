@@ -733,11 +733,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         }
         CASE "text"
         {
-          STRING text := type.data;
-          //remove stray undisplayed charactesr
-          text := Substitute(text, '\u200b', '');
-          text := Substitute(text, '\r', '');
-          text := Substitute(text, '\n', '');
+          STRING text := Substitute(type.data, '\u200b', '');
           IF (text != type.data)
             block->forcevisible := TRUE;
           IF (text != "")

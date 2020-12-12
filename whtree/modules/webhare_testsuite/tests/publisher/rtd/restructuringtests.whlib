@@ -108,13 +108,6 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/tests/webhare.png" />`
       , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></p>`
       ]
-
-    , [ structure :=      pages_rte_test_structure
-      , title :=          "Softenter characters"
-      , input :=          `<p>paragraaf\n<br>\nmet \nsoft enter\n</p><p>ne\u200Bxt pa\u200Bra\n\r\n\r!</p>`
-      , expect :=         `<p class="normal">paragraaf<br>met soft enter</p><p class="normal">next para!</p>`
-      ]
-
     , [ structure :=      pages_rte_test_structure
       , title :=          "Links with hash urls"
       , input :=          `<p class="normal">Twee links: <a href="#1">nummer 1</a> en <a href="#2">nummer 2</a></p>`
