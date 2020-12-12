@@ -2,6 +2,7 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
@@ -11,13 +12,26 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib";
 
-MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRING title)
+MACRO DoSingleTest(OBJECT structure, STRING input_text, STRING expect_text, STRING title, BOOLEAN fix_input_hs)
 {
   OBJECT inputdoc := MakeXMLDocumentFromHTML(StringToBlob(input_text));
+  IF(fix_input_hs)
+    PrepareInputHS(inputdoc);
+
   structure->RestructureRichDocument(inputdoc->body);
 
+  OBJECT rewriter := NEW HtmlRewriterContext;
   OBJECT expect := MakeXMLDocumentFromHTML(StringToBlob(expect_text));
-  TestEQ(BlobToString(expect->GetDocumentBlob(TRUE)), BlobToString(inputdoc->GetDocumentBlob(TRUE)), title);
+  TestEQ(BlobToString(rewriter->GenerateHTML(expect->body)), BlobToString(rewriter->GenerateHTML(inputdoc->body)), title);
+}
+
+MACRO PrepareInputHS(OBJECT doc)
+{
+  FOREVERY(OBJECT widgetnode FROM doc->GetElements("span.wh-rtd-embeddedobject"))
+  {
+    widgetnode->SetAttribute("data-instanceid", widgetnode->GetAttribute("data-instanceref"));
+    widgetnode->RemoveAttribute("data-instanceref");
+  }
 }
 
 STRING FUNCTION GenerateExpectHS(STRING expect_text)
@@ -34,6 +48,13 @@ STRING FUNCTION GenerateExpectHS(STRING expect_text)
       stylednode->SetAttribute("style", style);
     ELSE
       stylednode->RemoveAttribute("style");
+  }
+
+  FOREVERY(OBJECT widgetnode FROM expectedhtml->GetElements("span.wh-rtd-embeddedobject"))
+  {
+    widgetnode->SetAttribute("data-instanceid", widgetnode->GetAttribute("data-instanceref"));
+    widgetnode->RemoveAttribute("data-instanceref");
+    widgetnode->SetAttribute("class", Substitute(widgetnode->GetAttribute("class"), " wh-rtd-embeddedobject--inline",""));
   }
 
   //Strip the colgroup, WebHare doesn't bother with those either
@@ -61,15 +82,10 @@ MACRO StructureTest()
 
     STRING expect_text := GenerateExpectHS(test.expect);
 
-
-    DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure");
+    DoSingleTest(structure, test.input, expect_text, test.title || " - input restructure", TRUE);
 
     // Double restructure should make no changes
-    DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure");
-
-    // Different expect for HS? test the identity conversion too for the js-version
-    IF (CellExists(test, "xxEXPECT_HS"))
-      DoSingleTest(structure, test.expect, test.expect, test.title || " - hs restructure of js restructure");
+    DoSingleTest(structure, expect_text, expect_text, test.title || " - second restructure", FALSE);
   }
 
 
