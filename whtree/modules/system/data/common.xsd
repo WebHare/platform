@@ -17,6 +17,34 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
+  <xs:simpleType name="ImageSrc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([_\w]+:)?(\c+/)*\c+(\+([_\w]+:)?(\c+/)*\c+)*"/>
+    </xs:restriction>
+
+<!--
+    <xs:annotation>
+      <xs:documentation>
+        <html:p>
+          Path to a image. module::path/image.<br />
+          <br />
+          Images in this tollium:colors/ namespace are automatically generated. Specify the color value
+          as the image name. Valid colors are all colors supported by GfxCreateColorFromCSS.<br />
+          <br />
+          Examples:<br />
+          <br />
+          tollium:colors/#ffffff        White<br />
+          tollium:colors/#ff0           Yellow<br />
+          tollium:colors/rgb(0,0,0)     Black<br />
+          tollium:colors/rgba(0,0,0,0)  Transparent<br />
+          tollium:colors/purple         Purple<br />
+        </html:p>
+      </xs:documentation>
+    </xs:annotation>
+-->
+  </xs:simpleType>
+
   <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> )
        See Tid explanation for more info -->
   <xs:simpleType name="Gid">
