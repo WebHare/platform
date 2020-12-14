@@ -10,7 +10,7 @@ let testemail_guid;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { which: "custom", addtscustomcomp: true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom", addtscustomcomp: true });
     }
 
   , async function()
@@ -57,7 +57,7 @@ test.registerTests(
       test.eqMatch(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
 
       testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
-      let formresult = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'GetWebtoolFormResult', testemail_guid, { which:"custom"});
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom"});
       test.eq('tollium:tilde.firstname', formresult.fields[0].title);
       test.eq(':Email', formresult.fields[1].title); //':' as its not a tid but just a plain untranslated field
       test.eq('FIRSTNAME', formresult.fields[0].name);
@@ -110,7 +110,7 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
-      let formresult = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'GetWebtoolFormResult', testemail_guid, { which:"custom"});
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom"});
       test.eq(1,formresult.numresults);
       test.eq('Jim', formresult.response.firstname);
       test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
@@ -132,7 +132,7 @@ test.registerTests(
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
 
-      let formresult = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'GetWebtoolFormResult', testemail_guid, { which:"custom"});
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom"});
       test.eq(1,formresult.numresults);
     }
 

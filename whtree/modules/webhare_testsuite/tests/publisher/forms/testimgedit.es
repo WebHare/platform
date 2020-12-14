@@ -4,7 +4,10 @@ import * as preload from 'dompack/extra/preload';
 import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
 
 test.registerTests(
-  [ { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte'
+  [ async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     }
   , 'Reset image'
   , async function()

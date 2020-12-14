@@ -10,7 +10,7 @@ test.registerTests(
   [ "Load and submit form"
   , async function()
     {
-      setupdata = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "BuildWebtoolForm", { which: "custom", mailconfirmation: true });
+      setupdata = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "BuildWebtoolForm", { which: "custom", mailconfirmation: true });
 
       await test.load(setupdata.url);
 
@@ -37,7 +37,7 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);
@@ -66,7 +66,7 @@ test.registerTests(
       test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
       test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("confirm", formresult.submittype);
@@ -121,7 +121,7 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("change", formresult.submittype);
@@ -150,7 +150,7 @@ test.registerTests(
       test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
       test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
 
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("confirm", formresult.submittype);
@@ -196,7 +196,7 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
       testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);
@@ -225,7 +225,7 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
       test.true(test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should see thankyou_duplicate text");
 
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"custom", allowpending: true });
       test.true(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
       test.eq("new", formresult.submittype);

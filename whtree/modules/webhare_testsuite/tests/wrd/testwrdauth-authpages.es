@@ -6,7 +6,7 @@ var setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     }
 
   , "Simple login"

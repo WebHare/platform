@@ -10,7 +10,7 @@ function getTowlNotifications()
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'SetupForTestSetup', { createsysop:true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop:true });
 
       await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
       await test.wait('ui');
@@ -54,7 +54,7 @@ test.registerTests(
 
   , async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'SetupForTestSetup', { createsysop:true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop:true });
 
       await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
       await test.wait('ui');

@@ -1,11 +1,11 @@
 import * as test from '@mod-system/js/wh/testframework';
-import * as dompack from 'dompack';
 
 /* More advanced visible conditions */
 
 test.registerTests(
   [ async function()
     {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?visibleconditions=1');
 
       // second is only available if first is set

@@ -845,9 +845,15 @@ var $selenium =
   }
 };
 
-async function invoke(lib, func, ...params)
+async function invoke(libfunc, ...params)
 {
-  let result = await jstestsrpc.invoke(lib, func, params);
+  if(!libfunc.includes('#'))
+  {
+    libfunc += '#' + params[0];
+    params.shift();
+  }
+
+  let result = await jstestsrpc.invoke(libfunc, params);
   if (typeof result == "object" && result && result.__outputtoolsdata)
   {
     dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles:false, cancelable: false, detail: result.__outputtoolsdata});

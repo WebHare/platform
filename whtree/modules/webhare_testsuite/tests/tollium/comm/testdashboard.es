@@ -6,7 +6,7 @@ test.registerTests(
   [ "Prepare"
   , async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'SetupForTestSetup'
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
                                        , { createsysop: true
                                          });
       await test.load(setupdata.testportalurl);

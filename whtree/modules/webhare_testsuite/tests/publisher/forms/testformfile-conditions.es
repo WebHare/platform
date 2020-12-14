@@ -6,7 +6,7 @@ var setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes:true, addtwolevelfield: true, checkboxsubs:true, custommergefields:true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes:true, addtwolevelfield: true, checkboxsubs:true, custommergefields:true });
     }
 
   , 'Test datetime condition'

@@ -29,8 +29,12 @@ function verifyImage()
 }
 
 test.registerTests(
-  [ { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte'
+  [ async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     }
+
   , { name: 'Reset RTE'
     , test: function()
       {

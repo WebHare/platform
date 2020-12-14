@@ -7,7 +7,7 @@ var setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, withpayment: ["withissuer"], filename:"paymenthandlerform" });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, withpayment: ["withissuer"], filename:"paymenthandlerform" });
       await test.load(setupdata.url);
     }
 
@@ -67,7 +67,7 @@ test.registerTests(
 
   , async function()
     {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, addmoneyfield: true,withpayment: ["withissuer"], filename:"paymenthandlerform" });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, addmoneyfield: true,withpayment: ["withissuer"], filename:"paymenthandlerform" });
       await test.load(setupdata.url);
     }
 

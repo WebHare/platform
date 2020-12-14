@@ -2,7 +2,10 @@ import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
 test.registerTests(
-  [ { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?dynamic=1'
+  [ async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?dynamic=1');
     }
 
   , { name: 'Study page fields'
