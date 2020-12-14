@@ -8,6 +8,7 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
@@ -37,7 +38,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   INTEGER timeout := ToInteger(tasknode->GetAttribute("timeout"), 0);
   BOOLEAN isnode := library LIKE "*.js" OR library LIKE "*.es";
   INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
-  INTEGER failreschedule := ToInteger(tasknode->GetAttribute("failreschedule"), 86400 * 1000);
+  INTEGER failreschedule := ToInteger(tasknode->GetAttribute("failreschedule"), whconstant_default_failreschedule);
   STRING libname;
 
   IF (cluster != "" AND cluster NOT LIKE "*:*")
