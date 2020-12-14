@@ -541,7 +541,11 @@ PUBLIC OBJECTTYPE FormFieldBase
     IF(this->IsFrontendVisible())
       this->form->__GetRenderer()->RenderIntoSubField(this->__GetRenderData());
   }
-
+  PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
+  {
+    IF(NOT this->hidetitle)
+      Print(`<div>${this->htmltitle}</div>`);
+  }
   PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
 

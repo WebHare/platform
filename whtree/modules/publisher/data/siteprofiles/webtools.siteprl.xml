@@ -30,6 +30,7 @@
               renderlibrary="mod::publisher/lib/webtools/internal/renderpoll.whlib"
               renderobjectname="PollWidget"
               wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll"
+              searchcontentprovider="publisher:webtoolform"
               >
     <members>
       <member name="allowvotestill" type="datetime" /><!-- ADDME: implement this option -->
@@ -234,7 +235,8 @@
       ispublishable="true"
       requirescontent="false"
       isacceptableindex="true"
-      ispublishedassubdir="true">
+      ispublishedassubdir="true"
+      searchcontentprovider="publisher:webtoolform">
     <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
   </filetype>
 

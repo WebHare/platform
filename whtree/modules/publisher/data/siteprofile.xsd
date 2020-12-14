@@ -414,6 +414,7 @@
     </xs:attribute>
     <xs:attributeGroup ref="WidgetBaseAttrs" />
     <xs:attributeGroup ref="IndexTypeAttrs" />
+    <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 
   <xs:complexType name="UploadTypeMapping">

@@ -6,6 +6,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
@@ -18,6 +19,8 @@ LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib" EXPORT GetFormRequestURL, GetFormWebVariable;
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 
@@ -143,6 +146,20 @@ STATIC OBJECTTYPE FormPage
     IF(RecordExists(this->visiblecondition) AND NOT this->form->MatchFormCondition(this->visiblecondition, DEFAULT RECORD).success)
       RETURN FALSE;
     RETURN TRUE;
+  }
+
+  PUBLIC MACRO RenderPageSearchPreview(RECORD previewsettings, OBJECT context)
+  {
+    IF(this->title != "")
+      Print(`<h1>${EncodeHTML(this->title)}</h1>`);
+
+    FOREVERY (RECORD field FROM this->page.fields)
+    {
+      RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
+      Print(`<div>`);
+      fld.obj->RenderFieldSearchPreview(previewsettings, context);
+      Print(`</div>`);
+    }
   }
 
   PUBLIC MACRO RenderPage(INTEGER pagenum)
@@ -675,7 +692,40 @@ PUBLIC OBJECTTYPE FormBase
   {
     this->__GetRenderer()->RenderForm(this->GetWittyData());
   }
+  PUBLIC RECORD FUNCTION GetIndexableContent(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ fsobject := DEFAULT OBJECT
+                                   , applytester := DEFAULT OBJECT
+                                   ], options, [ required := ["applytester"]]);
 
+    INTEGER output := CreateStream();
+    INTEGER saveoutput := RedirectOutputTo(output);
+    STRING savelanguage := GetTidLanguage();
+
+    TRY
+    {
+      SetTIDLanguage(options.applytester->GetSiteLanguage());
+
+      RECORD rtdsettings := options.applytester->GetRTDTypeSettings();
+      RECORD rtdtype := GetRTDSettingsFromType(rtdsettings.rtdtype);
+      OBJECT context := NEW PreviewContext(options.fsobject, options.applytester, rtdtype, TRUE);
+      RECORD previewsettings; //for future use, eg to control
+
+      FOREVERY(RECORD page FROM this->__formpages)
+        IF(page.role NOT IN ["thankyou"])
+          page.obj->RenderPageSearchPreview(previewsettings, context);
+
+      RETURN CELL [ ...WrapBlob(MakeBlobFromStream(output), "form.html")
+                  , indexversions := context->__GetIndexInfo().indexversions
+                  , indextypes := context->__GetIndexInfo().indextypes
+                  ];
+    }
+    FINALLY
+    {
+      SetTIDLanguage(savelanguage);
+      RedirectOutputTo(saveoutput);
+    }
+  }
   MACRO __FormAttributes()
   {
     Print(` method="post"`);

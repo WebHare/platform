@@ -1,0 +1,29 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/search/searchproviders.whlib";
+
+LOADLIB "mod::system/lib/whfs.whlib";
+
+
+OBJECT webform_type;
+
+PUBLIC OBJECTTYPE WebtoolFormProvider EXTEND SearchProviderBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
+  {
+    IF (NOT ObjectExists(webform_type))
+      webform_type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+    OBJECT applytester := GetApplyTesterForObject(objid);
+    OBJECT formfile := OpenWHFSObject(objid);
+    OBJECT webtoolform := OpenFormFileDefinition(formfile);
+    IF(NOT ObjectExists(webtoolform))
+      RETURN RECORD[];
+
+    OBJECT liveform := webtoolform->__OpenAsLiveForm(applytester->GetSiteLanguage(), DEFAULT OBJECT);
+
+    RETURN RECORD[ liveform->GetIndexableContent(CELL[applytester]) ];
+  }
+>;
