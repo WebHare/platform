@@ -183,7 +183,7 @@ test.registerTests(
          test.eq("wh-rtd__tablecell red", trs[0].querySelectorAll("td")[0].className);
          test.eq("wh-rtd__tablecell blue", trs[0].querySelectorAll("td")[1].className);
 
-         rtetest.testEqHTMLEx(win, '<p class="normal">"EOS"</p><p class="normal">"Team "</p><p class="normal">"EOS private pages "</p>', trs[0]);
+         rtetest.testEqHTMLEx(win, '<p class="normal">"EOS"</p><p class="normal">"Team"</p><p class="normal">"EOS private pages"</p>', trs[0]);
          rtetest.testEqHTMLEx(win, '<p class="normal">"1"</p><p class="normal">"2"</p><p class="mystyle">"3"</p><p class="mystyle">"4"</p><p class="normal">"9"</p>', trs[2]);
        }
     }
