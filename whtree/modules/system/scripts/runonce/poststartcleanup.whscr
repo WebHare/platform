@@ -1,6 +1,6 @@
 <?wh
 // clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
-// Update the timestamp in system/moduledefinition.xml for <runonce tag="poststartcleanup_ to rerun this csript after an update
+// Update the timestamp in system/moduledefinition.xml for <runonce tag="poststartcleanup_..." to rerun this script after an update
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
