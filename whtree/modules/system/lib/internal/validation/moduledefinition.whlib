@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
     ParseModuleDefRunonce(this);
     CaptureOtherTids(this->modulename, this->xml);
 
-    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "databaseschema")->GetCurrentElements())
+    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->ListElements(whconstant_xmlns_moduledef, "databaseschema"))
     {
       RECORD parsed := ParseWHDBSchemaSpec(this->modulename, dbschema);
       FOREVERY (RECORD rec FROM parsed.msgs)
@@ -58,6 +58,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
           this->AddErrorForLine(rec.line, rec.text);
         ELSE
           this->AddWarningForLine(rec.line, rec.text);
+    }
+
+    FOREVERY(OBJECT scp FROM this->xml->documentelement->ListElements(whconstant_xmlns_moduledef, "searchcontentprovider"))
+    {
+      this->VerifyObjectExistence(scp->linenum, MakeAbsoluteResourcePath(this->respath, scp->GetAttribute("objectname")));
     }
 
     FOREVERY(RECORD task FROM md.tasks)
