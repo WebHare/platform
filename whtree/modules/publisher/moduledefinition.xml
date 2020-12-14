@@ -1052,7 +1052,7 @@
     <searchfilter name="whfstype" tid="filemanager.search.filtertypes.whfstype" filterobject="lib/search/searchfilters.whlib#whfstypefilter" />
 
     <!-- The fsobject contentprovider simply returns the fs_objects.data member (ie assumes 'blobiscontent') -->
-    <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#BaseSearchProvider" version="1.0.0" />
+    <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#SearchProviderBase" version="1.0.0" />
     <!-- The rtd contentprovider parses and http://www.webhare.net/xmlns/publisher/richdocumentfile data -->
     <searchcontentprovider name="rtd" objectname="lib/search/searchproviders.whlib#RichDocumentSearchProvider" version="1.0.0" />
 

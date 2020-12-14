@@ -27,7 +27,7 @@ PUBLIC STRING FUNCTION GetArrayField(STRING fieldname, STRING arrayfieldname, IN
   RETURN "";
 }
 
-PUBLIC OBJECTTYPE TestProvider EXTEND BaseSearchProvider
+PUBLIC OBJECTTYPE TestProvider EXTEND SearchProviderBase
 <
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
   {
