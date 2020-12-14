@@ -1,0 +1,114 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
+
+
+BOOLEAN FUNCTION CaptureOtherTids(STRING modulename, OBJECT moduledeffile)
+{
+  GetModuleDashboardInfo(modulename, moduledeffile);
+  GetAppGroups(modulename, moduledeffile);
+  GetWHFSRegisterSlots(modulename, moduledeffile);
+  RETURN TRUE;
+}
+
+RECORD FUNCTION GetWebruleMessage(RECORD rule, STRING message)
+{
+  INTEGER lastcolon := SearchLastSubstring(rule.source,':');
+  RETURN CELL[ line := ToInteger(Substring(rule.source, lastcolon+1), 0), col := 0, resourcename := Left(rule.source,lastcolon), message ];
+}
+
+RECORD FUNCTION ValidateWebRuleData(RECORD rule)
+{
+  RECORD retval := [ errors := RECORD[], warnings := RECORD[] ];
+  FOREVERY(RECORD datastore FROM rule.datastorage)
+  {
+    IF(NOT datastore.isfolder
+       AND IsAbsoluteResourcePath(datastore.resource)  //ignores __legacy and siteoutput:: paths
+       AND datastore.resource NOT LIKE "*[*" //ignores [modulename]
+       AND NOT RecordExists(RetrieveWebhareResource(datastore.resource, [ allowmissing := TRUE ])))
+    {
+      INSERT GetWebruleMessage(rule,`No such resource '${datastore.resource}'`) INTO retval.errors AT END;
+    }
+  }
+  RETURN retval;
+}
+PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
+<
+  UPDATE PUBLIC MACRO ValidateDocument()
+  {
+    RECORD md := this->ParseAndValidate();
+
+    ListModuleWebruleSets(this->respath, this->xml); //parse <webruleset> titles
+    ParseModuleDefRunonce(this);
+    CaptureOtherTids(this->modulename, this->xml);
+
+    FOREVERY(OBJECT dbschema FROM this->xml->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "databaseschema")->GetCurrentElements())
+    {
+      RECORD parsed := ParseWHDBSchemaSpec(this->modulename, dbschema);
+      FOREVERY (RECORD rec FROM parsed.msgs)
+        IF (rec.iserror)
+          this->AddErrorForLine(rec.line, rec.text);
+        ELSE
+          this->AddWarningForLine(rec.line, rec.text);
+    }
+
+    FOREVERY(RECORD task FROM md.tasks)
+    {
+      IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")
+        this->AddErrorForLine(task.line, `Invalid timezone '${task.runtz}'`);
+
+      IF(task.runat != "")
+      {
+        TRY GetNextCronTime(GetCurrentDatetime(), task.runat);
+        CATCH(OBJECT e) { this->AddErrorForLine(task.line, `Invalid runat '${task.runat}': '${e->what}`); }
+      }
+    }
+
+    RECORD taskinfo := ParseModuleTasks(this->modulename, this->respath, this->xml);
+    FOREVERY(RECORD task FROM taskinfo.tasktypes)
+    {
+      IF(NOT task.isnode AND task.applyerror = "")
+      {
+        this->VerifyObjectExistence(task.linenum, task.objectname);
+      }
+    }
+
+    FOREVERY(OBJECT rulenode FROM this->xml->GetElements("webrule"))
+    {
+      //We don't currently have an easier way to parse rules..
+      RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), this->respath || ":" || rulenode->linenum);
+      RECORD parsed := ParseWebRuleData(this->modulename, baserule, rulenode, this->respath, [ forvalidation := TRUE ]);
+      this->errors := this->errors CONCAT parsed.errors;
+      this->warnings := this->warnings CONCAT parsed.warnings;
+      IF (RecordExists(parsed.rule))
+      {
+        RECORD validateres := ValidateWebRuleData(parsed.rule);
+        this->errors   := this->errors   CONCAT validateres.errors;
+        this->warnings := this->warnings CONCAT validateres.warnings;
+      }
+    }
+
+    OBJECT packaging := PickFirst(this->xml->ListElements(whconstant_xmlns_moduledef,"packaging"));
+    IF(ObjectExists(packaging) AND packaging->HasAttribute("requireversion"))
+      this->AddWarningForLine(packaging->linenum, "requireversion has been deprecated. Use webhareversion= and specify a semver mask");
+
+    FOREVERY(OBJECT dependency FROM this->xml->ListElements(whconstant_xmlns_moduledef,"dependency"))
+      IF(dependency->HasAttribute("requireversion"))
+        this->AddWarningForLine(dependency->linenum, "requireversion has been deprecated. Use moduleversion= and specify a semver mask if you want to match a module, or webhareversion= to make this dependency rule only apply to the specified WebHare version");
+
+    FOREVERY(OBJECT appcontext FROM this->xml->ListElements(whconstant_xmlns_moduledef,"appcontexts"))
+      this->AddHint(appcontext, "<appcontexts> have been deprecated");
+    FOREVERY(OBJECT legacywrdschemas FROM this->xml->ListElements("http://www.webhare.net/xmlns/wrd/schemadefinition", "wrdschemas"))
+      IF(this->modulename != "system") // we need to make an exception as we can't remove this legacy attribute until everyone is 4.27+
+        this->AddHint(legacywrdschemas, `<wrdschema xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
+  }
+>;
+
