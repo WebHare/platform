@@ -227,7 +227,6 @@
       needsprofile="true"
       isacceptableindex="true"
       ispublishedassubdir="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -240,7 +239,6 @@
       extensions=".html .htm"
       needstemplate="true"
       isacceptableindex="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob">
     <setobjecteditor name="publisher:texteditor" />
   </filetype>
@@ -256,7 +254,6 @@
       needsprofile="false"
       isdevelopertype="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -285,7 +282,6 @@
       needsprofile="false"
       isdevelopertype="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -314,7 +310,6 @@
       requirescontent="true"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -394,7 +389,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -446,7 +440,6 @@
       needstemplate="false"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -473,7 +466,6 @@
       needstemplate="false"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -503,7 +495,6 @@
       isdevelopertype="true"
       isacceptableindex="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -519,7 +510,6 @@
       isdevelopertype="true"
       isacceptableindex="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -546,7 +536,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -560,7 +549,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -574,7 +562,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -595,7 +582,6 @@
       tolliumicon="tollium:files/application_x-webhare-richdocument"
       kind="virtualfile"
       extensions=".rtd"
-      searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
       searchcontentprovider="publisher:rtd">
     <members>
       <file name="original" />
@@ -609,7 +595,6 @@
       tolliumicon="tollium:files/application_msword"
       extensions=".doc"
       kind="rawfile"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 

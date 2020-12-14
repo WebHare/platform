@@ -1694,11 +1694,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Since when is this type orphaned
         </d:documentation>
       </d:datetime>
-      <d:varchar name="searchprovider" maxlength="256">
-        <d:documentation>
-          The library#object used to create the publisher search body contents for this type
-        </d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="searchprovider" />
     </d:table>
 
     <d:table name="fs_history" primarykey="id">

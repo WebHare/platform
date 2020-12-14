@@ -87,11 +87,6 @@ RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
     retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || typeinfo.searchcontentprovider || "\t" || typeinfo.indexversion || "\t" || scp.version));
     retval.searchprovider := scp.objectname;
   }
-  ELSE
-  {
-    retval.searchprovider := SELECT AS STRING COLUMN searchprovider FROM system.fs_types WHERE id = type;
-    retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || retval.searchprovider || "\t" || typeinfo.indexversion));
-  }
 
   RETURN CELL
       [ value := retval

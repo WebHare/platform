@@ -325,7 +325,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
     ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
-    ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
@@ -693,35 +692,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             , cachewebcookies         := ParseXSList(ToUppercase(node->GetAttribute("cachewebcookies")))
             , cacheblacklistcookies   := ParseXSList(ToUppercase(node->GetAttribute("cacheblacklistcookies")))
             ];
-  }
-
-  STRING FUNCTION ParseSearchProvider(OBJECT node)
-  {
-    STRING provider := this->ParseFSPath(node, "searchprovider");
-    IF (provider = "")
-      RETURN "";
-
-    STRING ARRAY parts := Tokenize(provider, "#");
-    IF (Length(parts) != 2)
-    {
-      this->AddError(node, "Invalid search provider, expected '<library>#<object>'");
-      RETURN "";
-    }
-    TRY
-    {
-      OBJECT providerobj := MakeObject(parts[0], parts[1]);
-      IF (providerobj NOT EXTENDSFROM SearchProviderBase)
-      {
-        this->AddError(node, `Search provider '${provider}' does not derive from SearchProviderBase`);
-        RETURN "";
-      }
-    }
-    CATCH
-    {
-      this->AddError(node, `Could not find search provider '${provider}'`);
-      RETURN "";
-    }
-    RETURN provider;
   }
 
   PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)

@@ -310,7 +310,6 @@ PUBLIC SCHEMA
     , BOOLEAN "capturesubpaths"
     , STRING "previewlibrary"
     , STRING "previewobjectname"
-    , STRING "searchprovider"
     ; KEY id
     > fs_types
   , TABLE

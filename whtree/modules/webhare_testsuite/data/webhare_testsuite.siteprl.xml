@@ -246,7 +246,7 @@
             needstemplate="false"
             ispublishedassubdir="false"
             isacceptableindex="false"
-            searchprovider="../lib/publisher/publishersearch.whlib#testprovider"
+            searchcontentprovider="webhare_testsuite:testprovider"
             />
 
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc">
