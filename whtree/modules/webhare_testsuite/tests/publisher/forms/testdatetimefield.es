@@ -10,6 +10,7 @@ test.registerTests(
 
    , async function()
      {
+       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1');
 
        dompack.changeValue(test.qS("#datetimeform-dateofbirth"),"2012-11-13");

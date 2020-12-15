@@ -249,7 +249,6 @@ PUBLIC SCHEMA
     , BOOLEAN "capturesubpaths"
     , STRING "previewlibrary"
     , STRING "previewobjectname"
-    , STRING "searchprovider"
     , DATETIME "orphansince"
     ; KEY id
     > fs_types

@@ -8,13 +8,13 @@ let setupdata;
 test.registerTests(
   [ async function()
     {
-      let setup1 = test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupForTestSetup'
+      let setup1 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
                                        , { createsysop: true
                                          , prepmodule: true
                                          });
 
       //this removes the testsuite module on the second server
-      let setup2 = test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupForTestSetup'
+      let setup2 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
                                        , { onpeerserver:true
                                          });
       setupdata = await setup1;

@@ -178,7 +178,6 @@ STATIC OBJECTTYPE WHFSType
       @cell isacceptableindex Can files of this type be an index (only for file types)
       @cell ispublishedassubdir Are files of this type published as a subdirectory (only for file types)
       @cell ispublishable Can files of this type be published (only for file types)
-      @cell searchprovider Used to create publisher search body contents
   */
   RECORD typedef;
 
@@ -1967,7 +1966,6 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
                             , cloneoncopy := FALSE
                             , isacceptableindex := FALSE
                             , ispublishedassubdir := FALSE
-                            , searchprovider := ""
                             ]);
   }
 

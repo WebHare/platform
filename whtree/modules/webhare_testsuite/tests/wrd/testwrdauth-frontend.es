@@ -6,7 +6,7 @@ var setupdata;
 let preparereset =
   [ { test:async function(doc,win)
       {
-        setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest/", "frontend@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
+        setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest/", "frontend@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
       }
     }
   , { loadpage: test.getTestSiteRoot() + "testpages/wrdauthtest/" }
@@ -164,7 +164,7 @@ test.registerTests(
       await test.wait('ui');
 
       let getguid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
-      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib', 'GetWebtoolFormResult', getguid, {which:"wrdauth"}); //TestInvoke_GetWebtoolFormResult
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', getguid, {which:"wrdauth"}); //TestInvoke_GetWebtoolFormResult
       test.eq('wrd:123F0320E665AE6BFA6C2673AE9E2F3A', formresult.wrdguid);
     }
   ]);

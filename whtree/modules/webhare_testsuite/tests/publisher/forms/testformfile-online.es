@@ -7,7 +7,7 @@ var setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { addpulldown: true});
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpulldown: true});
     }
 
   , 'Verify initial form'
@@ -67,7 +67,7 @@ test.registerTests(
   , async function()
     {
       let getguid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
-      let formresult = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'GetWebtoolFormResult', getguid);
+      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', getguid);
       test.eq('tollium:tilde.firstname', formresult.fields[0].title); //':' as its not a tid but just a plain untranslated field
       test.eq(':Email', formresult.fields[1].title); //':' as its not a tid but just a plain untranslated field
       test.eq('FIRSTNAME', formresult.fields[0].name); //':' as its not a tid but just a plain untranslated field

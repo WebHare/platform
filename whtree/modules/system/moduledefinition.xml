@@ -1693,11 +1693,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
           Since when is this type orphaned
         </d:documentation>
       </d:datetime>
-      <d:varchar name="searchprovider" maxlength="256">
-        <d:documentation>
-          The library#object used to create the publisher search body contents for this type
-        </d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="searchprovider" />
     </d:table>
 
     <d:table name="fs_history" primarykey="id">
@@ -2429,7 +2425,7 @@ The full base URL on which this site will be published, calculated by combining 
 
   <validation>
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
-    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/xml.whlib#ModuleDefinitionValidator" />
+    <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/serverconfig" rootnodes="serverconfig" schemalocation="data/serverconfig.xsd" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
     <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />

@@ -8,7 +8,7 @@ test.registerTests(
   [ { name: "Test setup"
     , test: async function()
       {
-        overridetoken = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupSAML', test.getTestArgument(0));
+        overridetoken = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupSAML', test.getTestArgument(0));
         overridetoken = overridetoken.split("overridetoken=")[1];
       }
     }

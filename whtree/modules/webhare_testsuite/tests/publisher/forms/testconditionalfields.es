@@ -6,6 +6,7 @@ const urlappend = replacedcomponents ? '?dompackpulldown=1' : '';
 test.registerTests(
   [ async function()
     {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
       test.qS('#coretest-radiotestnamelijk').value=''; //empty it for Required testing
 

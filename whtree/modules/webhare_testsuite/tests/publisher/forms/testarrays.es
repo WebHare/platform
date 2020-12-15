@@ -6,6 +6,7 @@ test.registerTests(
   [
       async function()
       {
+        await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
         // Check the form handler

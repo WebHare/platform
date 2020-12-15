@@ -9,6 +9,7 @@ test.registerTests(
   [ 'Study page fields'
   , { test: async function()
       {
+        await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
         test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");

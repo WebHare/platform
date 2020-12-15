@@ -315,6 +315,8 @@
 
     <registerslot name="testsite" tid="module.testsite.title" descriptiontid="module.testsite.description" initialvalue="site::webhare testsuite site" type="site" />
     <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare_testsuite.testfolder/testslot" type="folder" fallback="whfs::/webhare_testsuite.testfolder/testslot-fallback"/>
+
+    <searchcontentprovider name="testprovider" objectname="lib/publisher/publishersearch.whlib#testprovider" version="1.0.0" />
   </publisher>
 
   <consilio>

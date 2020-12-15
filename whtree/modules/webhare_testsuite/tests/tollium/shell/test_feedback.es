@@ -5,7 +5,7 @@ let setupdata;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupForTestSetup'
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
                                        , { createsysop: true
                                          });
       await test.load(test.getWrdLogoutUrl(setupdata.testportalurl));

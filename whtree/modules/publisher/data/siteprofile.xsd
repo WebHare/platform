@@ -770,7 +770,6 @@
     <xs:attribute name="tolliumicon" type="ImageSrc" />
     <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
-    <xs:attribute name="searchprovider" type="tc:ScreenFragmentReference" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 

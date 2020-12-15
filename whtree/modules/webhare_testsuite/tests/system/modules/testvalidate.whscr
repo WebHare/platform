@@ -467,6 +467,18 @@ MACRO TestValidateModuleDef()
   //DumpValue(res.errors);
   TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
          ], SELECT line, message FROM res.hints ORDER BY line,message)  ;
+
+  BLOB moduledef_badsearchproviders := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+    <meta />
+    <publisher>
+      <searchcontentprovider name="testprov1" objectname="lib/nosuch.whlib#SearchProviderBase" version="1.0.0" />
+    </publisher>
+  </module>`);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
+  TestEq([[ line := 5, message := `No such library 'mod::webhare_testsuite/lib/nosuch.whlib' (looking for 'SearchProviderBase')` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 }
 
 MACRO TestSiteProfiles()
@@ -532,6 +544,15 @@ MACRO TestSiteProfiles()
          ,[ line := 5, message := 'A type cannot define <members> unless it uses namespace= instead of typedef=' ]
          ,[ line := 7, message := 'kind= cannot be used with typedef=, you need to switch to namespace=' ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
+  BLOB missing_searchcontentprovider := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/searchcontentprovidertest" kind="datafile" searchcontentprovider="webhare_testsuite:missingprovider" />
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := missing_searchcontentprovider ]);
+  TestEq([[ line := 3, message := `No such searchcontentprovider 'missingprovider' in module \'webhare_testsuite'` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message) ;
 }
 
 MACRO TestTidScan()
