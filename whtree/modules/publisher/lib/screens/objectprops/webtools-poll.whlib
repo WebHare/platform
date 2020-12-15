@@ -50,7 +50,6 @@ PUBLIC OBJECTTYPE EditPoll EXTEND FSObjectEditScreenBase
 
     IF (RecordExists(polloption) AND polloption.votes > 0)
     {
-      //this->owner->RunMessageBox("moduleroot::publisher/screens/objectprops/webtools-poll.xml#cannotdeleteusedpolloption", ToString(polloption.votes));
       this->owner->RunMessageBox("publisher:objectprops/webtools-poll.cannotdeleteusedpolloption", ToString(polloption.votes));
       RETURN FALSE;
     }

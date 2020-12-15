@@ -51,7 +51,7 @@ async function runForumTests(withrecaptcha)
 test.registerTests(
   [ async function()
     {
-      let result = await test.invoke('moduleroot::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib', 'setupTestForum');
+      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib', 'setupTestForum');
       baseurl = result.baseurl;
     }
 

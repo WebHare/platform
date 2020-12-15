@@ -1,5 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="moduleroot::publisher/tolliumapps/versioning/versioning.whlib"
+         lib="mod::publisher/tolliumapps/versioning/versioning.whlib"
          gid="tolliumapps.versioning"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components">
 

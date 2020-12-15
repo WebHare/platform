@@ -9,7 +9,7 @@
   </contenttype>
 
   <filetype typedef="http://www.webhare.net/xmlns/wrd/loginpage" tid="wrd:siteprofiles.loginpage" blobiscontent="false">
-    <dynamicexecution library="module::wrd/internal/auth/loginpage.whlib" webpageobjectname="LoginPage" />
+    <dynamicexecution webpageobjectname="mod::wrd/lib/internal/auth/loginpage.whlib#LoginPage" />
   </filetype>
 
   <!-- SAML IDP -->
@@ -26,7 +26,7 @@
       isacceptableindex="false"
       ispublishable="true"
       ispublishedassubdir="true">
-    <dynamicexecution library="module::wrd/internal/auth/samlidpendpoint.whlib" startmacro="RunSAMLIdpEndpoint" />
+    <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlidpendpoint.whlib#RunSAMLIdpEndpoint" />
   </filetype>
 
   <!-- SAML SP -->
@@ -43,7 +43,7 @@
       isacceptableindex="false"
       ispublishable="true"
       ispublishedassubdir="true">
-    <dynamicexecution library="module::wrd/internal/auth/samlspendpoint.whlib" startmacro="RunSAMLSpEndpoint" />
+    <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlspendpoint.whlib#RunSAMLSpEndpoint" />
   </filetype>
 
   <apply>

@@ -48,7 +48,7 @@ PUBLIC OBJECTTYPE SeoTabPlugin EXTEND WebDesignPluginBase
   UPDATE PUBLIC MACRO HookObjectProps(OBJECT objectprops)
   {
     IF(objectprops->applytester->IsTypeNeedsTemplate())
-      objectprops->AddTabsExtension("moduleroot::socialite/screens/plugins/seotab.xml#seotab", "http://www.webhare.net/xmlns/socialite/seotab");
+      objectprops->AddTabsExtension("mod::socialite/screens/plugins/seotab.xml#seotab", "http://www.webhare.net/xmlns/socialite/seotab");
   }
 
   PUBLIC BOOLEAN FUNCTION HasFeature(STRING feature)

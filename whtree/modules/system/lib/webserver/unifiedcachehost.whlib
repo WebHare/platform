@@ -73,9 +73,7 @@ PUBLIC OBJECTTYPE UnifiedCacheHostBase
   //Get the disk hash key for this image
   STRING FUNCTION GetDiskPath(RECORD analyzed)
   {
-    IF (analyzed.urlschema = "v1")
-      RETURN MergePath(GetWebhareConfiguration().ephemeralroot || "system.uc/",ToLowercase(analyzed.urlpart));
-    ELSE IF (analyzed.urlschema = "v2")
+    IF (analyzed.urlschema = "v2")
     {
       STRING folder := Left(analyzed.urlpart, SearchLastSubString(analyzed.urlpart, "/"));
       STRING hash := ToLowercase(EncodeBase16(GetHashForString(folder, "SHA-256"))) || analyzed.extension;

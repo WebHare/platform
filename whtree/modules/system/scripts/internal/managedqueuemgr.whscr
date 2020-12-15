@@ -15,9 +15,9 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/taskqueue.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
-CONSTANT INTEGER default_failreschedule := 15 * 60 * 1000;
 INTEGER restart_workers_after := 15 * 60 * 1000; //restart workers after
 INTEGER nextworkeruid := 0;
 BOOLEAN debug, profileworkers;
@@ -848,7 +848,7 @@ STATIC OBJECTTYPE QueueMgr
 
       INSERT CELL cluster := RecordExists(tasktype) ? tasktype.cluster : "system:default"
                 , maxfailures := RecordExists(tasktype) ? tasktype.maxfailures : -1
-                , failreschedule := RecordExists(tasktype) ? tasktype.failreschedule : default_failreschedule
+                , failreschedule := RecordExists(tasktype) ? tasktype.failreschedule : whconstant_default_failreschedule
              INTO currenttasks[#rec];
     }
 

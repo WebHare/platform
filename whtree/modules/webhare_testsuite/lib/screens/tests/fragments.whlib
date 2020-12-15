@@ -308,7 +308,7 @@ PUBLIC OBJECTTYPE LoadFragmentTest EXTEND TolliumScreenBase
        (fixed by not removing option components from parent, fragment not marking components as subcomponents
        when they already have a parent.)
     */
-    this->positioningpanel->LoadFragment("moduleroot::webhare_testsuite/screens/tests/fragments.xml", "loadfragment");
+    this->positioningpanel->LoadFragment("mod::webhare_testsuite/screens/tests/fragments.xml", "loadfragment");
 
     // Call explainlines, checking if the option components were also inserted into the root panel.
     this->positioningpanel->TolliumWebDoLines();

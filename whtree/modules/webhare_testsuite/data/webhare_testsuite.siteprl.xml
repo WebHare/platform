@@ -176,7 +176,7 @@
 
   <apply>
     <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" pathmask="/filtered*/" />
-    <foldersettings filterscreen="moduleroot::webhare_testsuite/screens/tests/publisher.xml#filterpanel">
+    <foldersettings filterscreen="mod::webhare_testsuite/screens/tests/publisher.xml#filterpanel">
       <contentslisthandler library="../lib/screens/tests/publisher.whlib" objectname="newslisthandler" />
     </foldersettings>
   </apply>

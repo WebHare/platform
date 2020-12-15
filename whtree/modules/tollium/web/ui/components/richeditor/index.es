@@ -320,13 +320,13 @@ export class RTE
       if (this.options.undoholder) //FIXME not sure if we need this, might be needed for page editor
       {
         editoropts.allowundo = true;
-        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         //dompack.create('div', { contentEditable: true, style: {opacity:1}});
         this.options.undoholder.appendChild(undonode);
       }
       else if (this.options.allowundo)
       {
-        undonode = <div contenteditable="true" class="wh-rtd__undoholder" />;
+        undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
         this.container.appendChild(undonode);
       }
 

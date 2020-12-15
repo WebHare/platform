@@ -1,5 +1,6 @@
 <?wh
-//clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
+// clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
+// Update the timestamp in system/moduledefinition.xml for <runonce tag="poststartcleanup_..." to rerun this script after an update
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -15,6 +16,11 @@ DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.cd"
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.ea");
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pb");
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pd");
+
+//4.30: Legacy ephemeral data - now inside the docker
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/babelcache");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/compilecache");
+DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/system.uc");
 
 OBJECT trans := OpenPrimary();
 trans->BeginWork();

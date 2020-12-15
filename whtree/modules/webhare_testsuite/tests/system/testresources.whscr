@@ -151,13 +151,12 @@ MACRO TestBase()
   TestEQ("site::lelibel/design/customleft.siteprl", MakeAbsoluteResourcePath("site::lelibel/design/", "/design/customleft.siteprl"));
 
   TestEq("/.publisher/sd/webhare_testsuite/basetest/", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web/"));
-  TestEq("/.publisher/sd/webhare_testsuite/basetest/", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web/"));
-  TestEq("/.publisher/sd/webhare_testsuite/basetest/img/smallbob.jpg", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg"));
+  TestEq("/.publisher/sd/webhare_testsuite/basetest/img/smallbob.jpg", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg"));
 
-  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web"));
-  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesigns/basetest/web2"));
-  TestEq("", GetModuleResourceURL("moduledata::webhare_testsuite/webdesigns/basetest/web/"));
-  TestEq("", GetModuleResourceURL("moduleroot::webhare_testsuite/webdesign/basetest/web/"));
+  TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web"));
+  TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web2"));
+  TestEq("", GetModuleResourceURL("mod::webhare_testsuite/data/webdesigns/basetest/web/"));
+  TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesign/basetest/web/"));
 
   //TODO drop support for test:: - just use mod::webhare_testsuite/tests/baselibs/hsengine/
   //Testeq(TRUE, Length(GetWebhareResource("test::runtests.sh"))>0);
@@ -237,19 +236,19 @@ MACRO SupportLIbrary()
 
 
   TestThrows(PTR GetResourceNameFromScreenPath("tollium:components/listedit.arrayedit"));
-  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml", ".arraylisteditbase"));
-  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml", "#arraylisteditbase"));
-  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#abc", ".arraylisteditbase"));
-  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "#arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml", ".arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml", "#arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#abc", ".arraylisteditbase"));
+  TestEq("mod::tollium/screens/components/listedit.xml#arraylisteditbase", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "#arraylisteditbase"));
 
   TestEq("mod::publisher/tolliumapps/filemanager/main.xml", MakeAbsoluteScreenReference("mod::publisher/moduledefinition.xml", "/tolliumapps/filemanager/main.xml"));
 
-  TestEq("mod::tollium/screens/screen.xml#other", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "screen.other"));
+  TestEq("mod::tollium/screens/screen.xml#other", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "screen.other"));
 
   TestThrows(PTR MakeAbsoluteScreenReference("moduledata::utwente_campusapp/siteprofile.xml", ".././screens/eventsignup.xml#signupform"));
-  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("moduleroot::utwente_campusapp/data/siteprofile.xml", "../screens/eventsignup.xml#signupform"));
+  TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("mod::utwente_campusapp/data/siteprofile.xml", "../screens/eventsignup.xml#signupform"));
 
-  TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("moduleroot::tollium/screens/components/listedit.xml#def", "publisher:a/b.screen1"));
+  TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "publisher:a/b.screen1"));
 
   TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("", "publisher:a/b.screen1"));
   TestEq("mod::utwente_campusapp/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::utwente_campusapp/screens/eventsignup.xml#signupform"));
@@ -262,8 +261,8 @@ MACRO SupportLIbrary()
   TestEq("wh::files.whlib", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whlibs/files.whlib"));
   TestEq("whres::test.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whres/test.xml"));
 
-  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("moduleroot::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
-  TestEq("mod::wrd/screens/types.xml#managetypes", MakeAbsoluteScreenReference("moduleroot::wrd/screens/browser.xml", "types.xml#managetypes"));
+  TestEq("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("mod::utwente_base/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEq("mod::wrd/screens/types.xml#managetypes", MakeAbsoluteScreenReference("mod::wrd/screens/browser.xml", "types.xml#managetypes"));
 }
 
 MACRO ModuleMgr()

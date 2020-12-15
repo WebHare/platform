@@ -160,6 +160,9 @@ PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
 //valid user-supplied debug tokens
 PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
 
+//standard failed task reschedule time
+PUBLIC CONSTANT INTEGER whconstant_default_failreschedule := 15 * 60 * 1000;
+
 //common namespaces
 PUBLIC CONSTANT STRING whconstant_xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";
 PUBLIC CONSTANT STRING whconstant_xmlns_publisher := "http://www.webhare.net/xmlns/publisher/siteprofile";

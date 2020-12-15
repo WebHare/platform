@@ -332,7 +332,7 @@ MACRO MergeTest()
   RECORD prepexport := combined->GenerateExport("n1.n4","webhare_testsuite","xx");
   TestEq(3, Length(prepexport.columns));
 
-  BLOB importfile := GetWebhareResource("moduleroot::webhare_testsuite/data/test/tollium/import-languagetexts.xlsx");
+  BLOB importfile := GetWebhareResource("mod::webhare_testsuite/data/test/tollium/import-languagetexts.xlsx");
   TestEq("DEF\nn4", combined->GetRawText('en','n1.n4.def'));
   TestEq("", combined->GetRawText('nl','n1.n4.def'));
   combined->ImportLanguageFile(importfile);
