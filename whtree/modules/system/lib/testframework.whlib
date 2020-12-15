@@ -1291,8 +1291,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
           OBJECT trans := GetPrimary();
           IF(ObjectExists(trans))
           {
-            IF(trans->IsWorkOpen())
-              trans->RollbackWork();
+            WHILE(trans->IsWorkOpen())
+              trans->PopWork();
           }
         }
 

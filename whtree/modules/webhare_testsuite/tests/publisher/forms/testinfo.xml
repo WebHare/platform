@@ -37,6 +37,7 @@
   <jstest file="testformfile-custom-online.es" />
   <jstest file="testformfile-conditions.es" />
   <jstest file="testformfile-captcha.es" />
+  <test script="testformfile-consilio.whscr"/>
   <jstest file="testredirect.es" />
   <jstest file="testarrays.es" />
   <test script="testmailconfirmation.whscr"/>

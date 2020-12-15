@@ -141,4 +141,10 @@ PUBLIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
     ELSE
       this->field.richvalue := DEFAULT RECORD;
   }
+
+  UPDATE PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
+  {
+    IF(RecordExists(this->GetRichValue()))
+      context->RenderRTD(this->GetRichValue());
+  }
 >;

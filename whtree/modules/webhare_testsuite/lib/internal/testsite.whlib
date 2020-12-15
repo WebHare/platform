@@ -43,6 +43,7 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addmoneyfield := FALSE
                               , addpulldown := FALSE
                               , adddatecondition := FALSE
+                              , openingrichtext := FALSE
                               , checkboxes := FALSE
                               , checkboxsubs := FALSE
                               , addcheckboxfield := FALSE
@@ -174,6 +175,32 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                                                       , value := [ type ]
                                                                       ]);
     }
+  }
+
+  //Add a 'simple' thankyou - simple in quotes as we currently only have richtext
+  IF(options.openingrichtext)
+  {
+    OBJECT openingrichtext := formpage->AppendComponent("richtext");
+    openingrichtext->SetAttribute("name", "openingtext");
+
+    STRING rtdtext := formdefs->CreateInstance(
+      [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , data := [ htmltext := StringToBlob('<html><body>'
+                                  || '<h1 class="heading1">Welcome to this form!</h1>'
+                                  || '<p class="normal">Hi!</p>'
+                                  || '<div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-g"></div>'
+                                  || '</body></html>')
+                , instances := [[ instanceid := "_1ra7ve1TrCw-usGy9kO-g"
+                                , data := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                          , id := "abcdefgh"
+                                          , styletitle := "embedblock1 title1"
+                                          ]
+                                ]
+                               ]
+                ]
+      ]);
+
+    openingrichtext->SetAttribute("textid", rtdtext);
   }
 
   //Add some fields
@@ -1030,7 +1057,7 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath(options.infolder);
   TestEq(TRUE, ObjectExists(webtoolsfolder), `'${options.infolder}' folder missing in testsite, run resettestsite.whscr?`);
 
-  testfw->BeginWork();
+  GetPrimary()->PushWork();
   STRING filename := options.filename ?? "form";
   OBJECT formfile := webtoolsfolder->OpenByName(filename);
   IF(ObjectExists(formfile))
@@ -1042,18 +1069,9 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
                                           , publish := options.publish AND NOT options.iswidget
                                           ]);
   FillTestFormFile(formfile, options);
+  GetPrimary()->PopWork();
 
-  //Reload it
-  OBJECT formdefs := OpenWHFSFormDefinitionsFile(formfile);
-  OBJECT formdef := formdefs->OpenFormDefinition("webtoolform");
-  OBJECT formpage := formdef->GetPage(0);
-
-  OBJECT firstnamefield := formpage->node->firstelementchild;
-  TestEq("textedit", firstnamefield->localname);
-
-  testfw->CommitWork();
-
-  IF(options.publish)
+  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
   RETURN [ url := formfile->indexurl
@@ -1066,7 +1084,7 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
   options := ValidateOptions( testformfileoptions, options);
   options := CELL[...options, iscustom := TRUE ];
 
-  testfw->BeginWork();
+  GetPrimary()->PushWork();
 
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
   OBJECT customformfile := webtoolsfolder->OpenByName("customform");
@@ -1079,11 +1097,12 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
 
   FillTestFormFile(customformfile, options);
 
-  testfw->CommitWork();
-  IF(options.publish)
+  GetPrimary()->PopWork();
+  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
   RETURN [ url := customformfile->indexurl
+         , id := customformfile->id
          , formfile := customformfile
          ];
 }

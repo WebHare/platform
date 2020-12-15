@@ -443,7 +443,19 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         {
           OBJECT embeddedobject := OpenEmbeddedObject(outputobject->document, node);
           IF(ObjectExists(embeddedobject))
-            embeddedobject->RenderLive(); //only widgetbase derived stuff accepted inline, so no need to fallback to old render functions
+          {
+            IF(ObjectExists(outputobject->document->previewcontext))
+            {
+              IF(outputobject->document->previewcontext->__previewsearch)
+                embeddedobject->RenderSearchPreview();
+              ELSE
+                embeddedobject->Render();
+            }
+            ELSE
+            {
+              embeddedobject->RenderLive(); //only widgetbase derived stuff accepted inline, so no need to fallback to old render functions
+            }
+          }
         }
         ELSE IF(node->GetAttribute("data-wh-gettid") != "")
         {

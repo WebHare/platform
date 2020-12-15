@@ -1,0 +1,54 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+/* NOTE changes to searchprovide.whlib currently require a
+         wh services restart publisher:consiliohandler
+*/
+PUBLIC MACRO BuildForms()
+{
+  testfw->BeginWork();
+  RECORD formplain := BuildWebtoolForm( [ openingrichtext := TRUE, checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE ]);
+  RECORD formwidget := BuildWebtoolForm( [ filename := "form-widget", iswidget := TRUE, checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs := TRUE ]);
+  RECORD forminfotexts := BuildWebtoolForm( [ filename := "form-pagetitles-infotexts" ]);
+  RECORD formcustom := BuildCustomWebtoolForm();
+
+  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  OBJECT emptyform := webtoolsfolder->EnsureFile( [ name := "form-empty"
+                                                  , typens := "http://www.webhare.net/xmlns/publisher/formwebtool"
+                                                  ]);
+
+
+  OBJECT promise := GetWHFSCommitHandler()->WaitForChangesIndexed();
+
+  testfw->CommitWork();
+  WaitForPromise(promise);
+
+  RECORD result;
+
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQMatch("whfstree", "CONTAINS", webtoolsfolder->id), [ summary_length := 1000 ]);
+  dumpvalue(result,'tree');
+
+  RECORD plainfile := SELECT * FROM result.results WHERE whfsid = formplain.id;
+  TestEq(TRUE, RecordExists(plainfile));
+  dumpvalue(plainfile.summary);
+  TestEqLike("*Welcome to this form!*Hi!*First name*", plainfile.summary);
+  TestEq(FALSE, plainfile.summary LIKE "*We humbly thank you*", "should NOT show thankyou page in form");
+
+  RECORD emptyfile := SELECT * FROM result.results WHERE whfsid = emptyform->id;
+  TestEq(TRUE, RecordExists(emptyfile));
+}
+
+
+RunTestframework([ PTR BuildForms
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

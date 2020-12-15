@@ -19,10 +19,11 @@ PUBLIC OBJECTTYPE MergeFieldWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {
-    IF (NOT ObjectExists(this->mergefields))
-      THROW NEW Exception("No merge fields context available");
-    STRING fieldtitle := SELECT AS STRING title FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
-    Print(`(${EncodeHTML(fieldtitle ?? this->data.fieldname)})`); //TODO what to really do if field is deleted?
+    STRING mergedval;
+    IF(ObjectExists(this->mergefields))
+      mergedval := SELECT AS STRING title FROM this->mergefields->mergefields WHERE name = this->data.fieldname;
+
+    Print(`(${EncodeHTML(mergedval ?? this->data.fieldname)})`); //TODO what to really do if field is deleted?
   }
 
   UPDATE PUBLIC MACRO RenderLive()
