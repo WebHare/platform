@@ -66,6 +66,11 @@ RequestParser::RequestParser(Blex::ComplexFileSystem &tempfs)
 
 RequestParser::~RequestParser()
 {
+        if(!outstreamname.empty())
+        {
+                tempfs.DeletePath(outstreamname);
+                outstreamname.clear();
+        }
 }
 
 void RequestParser::ClearState()
