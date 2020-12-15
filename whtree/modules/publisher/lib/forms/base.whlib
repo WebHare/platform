@@ -715,7 +715,10 @@ PUBLIC OBJECTTYPE FormBase
         IF(page.role NOT IN ["thankyou"])
           page.obj->RenderPageSearchPreview(previewsettings, context);
 
-      RETURN CELL [ ...WrapBlob(MakeBlobFromStream(output), "form.html")
+      BLOB data := MakeBlobFromStream(output);
+      output := 0;
+
+      RETURN CELL [ ...WrapBlob(data, "form.html")
                   , indexversions := context->__GetIndexInfo().indexversions
                   , indextypes := context->__GetIndexInfo().indextypes
                   ];
@@ -724,6 +727,9 @@ PUBLIC OBJECTTYPE FormBase
     {
       SetTIDLanguage(savelanguage);
       RedirectOutputTo(saveoutput);
+
+      IF(output != 0)
+        MakeBlobFromStream(output);
     }
   }
   MACRO __FormAttributes()
