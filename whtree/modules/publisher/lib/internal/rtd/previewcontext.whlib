@@ -38,7 +38,7 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
     this->rtdtypeinfo := rtdtypeinfo;
 
     this->languagecode := ObjectExists(applytester) ? applytester->GetSiteLanguage() : "en";
-    this->imgroot := GetModuleResourceURL(applytester->GetWebDesignObjinfo().designfolder || "web/img/");
+    this->imgroot := ObjectExists(applytester) ? GetModuleResourceURL(applytester->GetWebDesignObjinfo().designfolder || "web/img/") : "";
 
     this->__previewsearch := forsearch;
   }
