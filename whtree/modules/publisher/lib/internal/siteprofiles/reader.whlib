@@ -415,6 +415,21 @@ OBJECTTYPE RepublishState
           CONTINUE;
         }
       }
+
+    FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("SCHEDULEMANAGEDTASKS"))
+      FOREVERY(RECORD scheduletask FROM apply.schedulemanagedtasks)
+      {
+        TRY
+        {
+          ScheduleManagedTask(scheduletask.task, [ whfsid := fsobj ]);
+        }
+        CATCH(OBJECT e)
+        {
+          //The user seeing it is not likely the cause but siteprofiles are messed up. So just log it and ignore...
+          LogHarescriptException(e);
+          CONTINUE;
+        }
+      }
   }
 
   RECORD ARRAY FUNCTION GetReferencesTo(INTEGER ARRAY linkdests)

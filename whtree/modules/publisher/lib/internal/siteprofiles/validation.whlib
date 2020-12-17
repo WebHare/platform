@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/parser.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::tollium/lib/internal/validation.whlib";
 
 PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
@@ -45,6 +46,13 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
         IF(apply.setobjecteditor.screen != "")
           this->VerifyScreenReferenceExistence(apply.line, apply.setobjecteditor.screen, "screen");
       }
+
+      IF(CellExists(apply,"schedulemanagedtasks"))
+        FOREVERY(RECORD task FROM apply.schedulemanagedtasks)
+        {
+          TRY GetTaskTypeSettings(task.task, FALSE);
+          CATCH (OBJECT e) this->AddErrorForLine(apply.line, e->what);
+        }
     }
 
     FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
