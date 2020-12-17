@@ -7,6 +7,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 PUBLIC STATIC OBJECTTYPE PreviewContext
@@ -17,6 +18,7 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
   STRING ARRAY indextypes;
   STRING ARRAY indexversions;
   PUBLIC STRING languagecode;
+  PUBLIC STRING imgroot;
 
   //This preview context is running for search previews
   PUBLIC BOOLEAN __previewsearch;
@@ -34,7 +36,10 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
     this->fsobject := fsobject;
     this->applytester := applytester;
     this->rtdtypeinfo := rtdtypeinfo;
+
     this->languagecode := ObjectExists(applytester) ? applytester->GetSiteLanguage() : "en";
+    this->imgroot := GetModuleResourceURL(applytester->GetWebDesignObjinfo().designfolder || "web/img/");
+
     this->__previewsearch := forsearch;
   }
 
