@@ -955,6 +955,7 @@
       <xs:element name="urlevents" type="UrlEvents" />
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
+      <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
       <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
       <xs:element name="intercept" type="sc:Intercept" />
@@ -1552,6 +1553,17 @@
     <xs:attribute name="task" type="ModuleNamespacedName" use="required">
       <xs:annotation>
         <xs:documentation>Timed task to run</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="ScheduleManagedTask">
+    <xs:annotation>
+      <xs:documentation>Schedule a managed task for every applied items that is modified</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="task" type="ModuleNamespacedName" use="required">
+      <xs:annotation>
+        <xs:documentation>Schedulde task to run</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>

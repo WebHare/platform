@@ -2,6 +2,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -528,7 +530,6 @@ MACRO CopyMoveTest()
 
 MACRO SiteProfActionsTest()
 {
-  testfw->StartTrans("~webhare",TRUE);
   testfw->BeginWork();
 
   OBJECT testsite := testfw->GetTestSite();
@@ -562,7 +563,9 @@ MACRO SiteProfActionsTest()
   }
   TestEq(FALSE, betatask.lastrun < should_run_after AND betatask.nexttime < should_run_after AND betatask.currentstart = DEFAULT DATETIME);
 
-  testfw->EndTrans();
+  RECORD ARRAY applyruletasks := LookupManagedTasks("webhare_testsuite:applyruletask", [ createdafter := testfw->starttime ]);
+  TestEq(TRUE, Length(applyruletasks) >= 1); //TODO There may be some task duplication, until we fix this elsewhere (unique tasks plus no repeated republish handling) we set this back to 1
+  TestEq(testhtml->id, RetrieveManagedTaskResult(applyruletasks[0].id,  MAX_DATETIME).received_whfsid);
 }
 
 
