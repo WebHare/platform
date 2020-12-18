@@ -404,7 +404,7 @@ STATIC OBJECTTYPE PageParser
                          , fullname  := nameinfo.fullname
                          , isfragment := FALSE
                          , iscontentpanel := FALSE
-                         , isbodypart := compinfo.placement IN ["block", "inline", "optionsource"]
+                         , isbodypart := compinfo.placement IN ["block", "inline", "optionsource", "row"]
                          , fragmentgid := ""
                          , elementtype := elementtype
                          ];
@@ -778,20 +778,18 @@ STATIC OBJECTTYPE PageParser
       THROW NEW RetrieveResourceException(this->resourcename, "", this->finalpage.errors);
 
     //dumpvalue((select parent := data.tolliumscope.parent, * from this->finalpage.formobjects),'boxed');
-    IF(RecordExists(SELECT FROM this->finalpage.formobjects WHERE fullname="frame")) //it'a s screen
+
+    //find the root object. we need to reparent non-body parts to it (we used to do this only for 'frame', but this broke linkhandlers in tabsextensions which also rely on this ordering but don't have a frame)
+    STRING rootobject := SELECT AS STRING fullname FROM this->finalpage.formobjects WHERE data.tolliumscope.parent = "";
+
+    IF(rootobject != "")
     {
       //reparent objects to the frame to ensure compositions etc stay in the init order
       UPDATE this->finalpage.formobjects
-             SET data := CellUpdate(data, "tolliumscope", CellUpdate(data.tolliumscope, "parent", "frame"))
+             SET data := CellUpdate(data, "tolliumscope", CellUpdate(data.tolliumscope, "parent", rootobject))
                  WHERE NOT isbodypart AND data.tolliumscope.parent != "";
     }
     //dumpvalue((select parent := data.tolliumscope.parent, * from this->finalpage.formobjects),'boxed');
-
-    // Make sure the frame object are first in the list of objects
-    this->finalpage.formobjects :=
-        SELECT *
-          FROM this->finalpage.formobjects
-      ORDER BY localname != "frame";
 
     RECORD ARRAY informobjects := this->finalpage.formobjects;
     this->finalpage.formobjects := DEFAULT RECORD ARRAY;
@@ -806,7 +804,9 @@ STATIC OBJECTTYPE PageParser
     RECORD pos := RecordLowerBound(grouped_informobjects, [ parentscope := "" ], [ "PARENTSCOPE" ]);
     IF (pos.found)
       FOREVERY (RECORD root FROM grouped_informobjects[pos.position].objects)
+      {
         this->finalpage.formobjects := this->finalpage.formobjects CONCAT this->GroupObjectsByParent(root, grouped_informobjects, "");
+      }
 
     IF(Length(informobjects) != Length(this->finalpage.formobjects))
     {
@@ -815,6 +815,14 @@ STATIC OBJECTTYPE PageParser
       ABORT("Length(informobjects) != Length(this->finalpage.formobjects)");
     }
 
+    // Make sure the frame object are first in the list of objects and non-bodyparts appear before any other parts. This is the usual expected StaticInit order
+    this->finalpage.formobjects :=
+        SELECT *
+          FROM this->finalpage.formobjects
+      ORDER BY fullname = VAR rootobject DESC
+             , isbodypart; //FALSE orders before TRUE
+
+    //dumpvalue((select parent := data.tolliumscope.parent, * from this->finalpage.formobjects),'boxed');
     RETURN this->finalpage;
   }
 
