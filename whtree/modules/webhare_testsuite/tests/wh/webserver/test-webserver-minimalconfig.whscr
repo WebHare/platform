@@ -1,14 +1,47 @@
 <?wh
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/remoting/client.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+
+MACRO TestMinimalConfig_NoDatabase()
+{
+  //First test WITHOUT database... to ensure minimial config generation doesn't require one
+  TestEq(FALSE, HavePrimaryTransaction());
+
+  RECORD minimal := CreateMinimalWebserverConfig();
+  //dumpvalue(minimal,'tree');
+
+  TestEq(FALSE, HavePrimaryTransaction());
+}
+
+RECORD FUNCTION AuthHandler(STRING realm, STRING url)
+{
+  RETURN
+      [ username := testfw->GetUserLogin("sysop")
+      , password := testfw->GetUserPassword("sysop")
+      ];
+}
 
 MACRO TestMinimalConfig()
 {
-  TestEq(FALSE, HavePrimaryTransaction());
-  RECORD minimal := CreateMinimalWebserverConfig();
-  TestEq(FALSE, HavePrimaryTransaction());
+  testfw->browser->onauth := PTR AuthHandler;
+  Print("\n** If your webserver becomes unreachable, `wh softreset --web` should fix it\n\n");
 
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
+  TestEq(TRUE, InvokeRemoteFunctionWithBrowser(testfw->browser, url || "testminimalconfig").success);
 }
 
-RunTestFramework([ PTR TestMinimalConfig ], [ usedatabase := FALSE ]);
+RunTestFramework([ PTR TestMinimalConfig_NoDatabase
+                 ], [ usedatabase := FALSE ]);
+
+testfw := DEFAULT OBJECT;
+RunTestFramework([ PTR TestMinimalConfig
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

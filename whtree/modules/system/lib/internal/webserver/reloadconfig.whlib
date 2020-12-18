@@ -27,6 +27,9 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
   IF(NOT RecordExists(configuration))
     THROW NEW Exception("No valid configuration received");
 
+  //Enforce the structure expected by the webserver fore more stability between upgrades - TODO also enforce structure for subarrays
+  configuration := EnforceStructure(GetBaseWebserverConfigRecord(), configuration);
+
   configuration.rules := SELECT ...__whs_baserulerecord, ... rules FROM configuration.rules;
   RECORD reloadstatus := ConfigureWebserver(configuration);
 

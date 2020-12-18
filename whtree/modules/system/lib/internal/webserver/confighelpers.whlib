@@ -79,7 +79,7 @@ PUBLIC RECORD FUNCTION GetCacheableHostedSites()
   //Also mark our trusted port as a virtualhosted port
   INSERT [ id := -1, virtualhost := TRUE, port := GetWebHareConfiguration().baseport + 5 ] INTO ports AT END;
   RETURN [ ttl := 15 * 60 * 1000
-         , value := [ hosts := EnrichWithListenHosts(hosts)
+         , value := [ hosts := EnrichWithListenHosts(hosts, FALSE)
                     , ports := ports
                     ]
          , eventmasks := [ "system:internal.webserver.didconfigreload" ]
@@ -93,9 +93,11 @@ INTEGER FUNCTION GetGlobalOrdering(STRING hostname)
     RETURN 2;
   RETURN hostname != "" AND Right(hostname,1)='*' ? 0 : 1;
 }
-PUBLIC RECORD ARRAY FUNCTION EnrichWithListenHosts(RECORD ARRAY hosts)
+PUBLIC RECORD ARRAY FUNCTION EnrichWithListenHosts(RECORD ARRAY hosts, BOOLEAN minimalconfig)
 {
-  RECORD ARRAY aliaslist := SELECT webserver, hostname FROM system.webservers_aliases WHERE explicit;
+  RECORD ARRAY aliaslist;
+  IF(NOT minimalconfig)
+    aliaslist := SELECT webserver, hostname FROM system.webservers_aliases WHERE explicit;
   FOREVERY(RECORD host FROM hosts)
   {
     RECORD unp := UnpackURL(host.baseurl);
