@@ -1159,8 +1159,8 @@ STATIC OBJECTTYPE AssetPackController
     // Save state of the bundle
     this->SaveBundleState(message.bundle);
 
-    // Broadcast if needed
-    IF(NOT haserrors AND bundle.bundleconfig.aftercompiletask != "")
+    // Broadcast if needed, but only for production packs. dev packages usually don't share the same pipelines
+    IF(NOT haserrors AND NOT bundle.isdev AND bundle.bundleconfig.aftercompiletask != "")
     {
       GetPrimary()->BeginWork();
       ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
