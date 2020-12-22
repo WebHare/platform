@@ -897,6 +897,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , plugins := DEFAULT RECORD ARRAY
                     , republishes := DEFAULT RECORD ARRAY
                     , scheduletasknows := DEFAULT RECORD ARRAY
+                    , schedulemanagedtasks := RECORD[]
                     , setobjecteditor := DEFAULT RECORD
                     , setwidget := DEFAULT RECORD ARRAY
                     , sitelanguage := DEFAULT RECORD
@@ -1093,6 +1094,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             {
               INSERT [ task := node->GetAttribute("task")
                      ] INTO apply.scheduletasknows AT END;
+              CONTINUE;
+            }
+            CASE "schedulemanagedtask"
+            {
+              INSERT [ task := node->GetAttribute("task")
+                     ] INTO apply.schedulemanagedtasks AT END;
               CONTINUE;
             }
             CASE "folderindex"

@@ -178,11 +178,11 @@ PUBLIC RECORD ARRAY FUNCTION GetPublisherAppRunnerConfig()
     ];
 
   INSERT [ name :=       "publisher:publication"
-         , cmdline :=    "runscript mod::publisher/scripts/internal/publication-persistent.whscr --debuglevel 2"
+         , cmdline :=    "runscript mod::publisher/scripts/internal/publication-persistent.whscr"
          , databasemodes := [ "online" ]
          ] INTO apps AT END;
   INSERT [ name :=       "publisher:outputanalyzer"
-         , cmdline :=    "runscript mod::publisher/scripts/internal/outputanalyzer-persistent.whscr --debuglevel 2"
+         , cmdline :=    "runscript mod::publisher/scripts/internal/outputanalyzer-persistent.whscr"
          , databasemodes := [ "online" ]
          ] INTO apps AT END;
 

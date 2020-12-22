@@ -45,7 +45,6 @@ PUBLIC STATIC OBJECTTYPE OutputAnalyzerQueueController EXTEND PersistentQueueCon
 
   UPDATE PUBLIC RECORD FUNCTION ScheduleMultiple(RECORD ARRAY tasks)
   {
-    LogDebug("publisher:outputanalyzer-persistent", "schedule", tasks);
     RETURN PersistentQueueControllerBase::ScheduleMultiple(tasks);
   }
 

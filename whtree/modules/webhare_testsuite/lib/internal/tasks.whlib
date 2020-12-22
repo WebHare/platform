@@ -91,6 +91,14 @@ PUBLIC OBJECTTYPE AfterCompileTask EXTEND ManagedTaskBase
   }
 >;
 
+PUBLIC OBJECTTYPE ApplyRuleTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    this->ResolveByCompletion(CELL[ received_whfsid := data.whfsid ]);
+  }
+>;
+
 PUBLIC OBJECTTYPE TemporaryFailingTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD data)

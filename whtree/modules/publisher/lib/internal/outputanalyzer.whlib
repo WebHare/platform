@@ -43,14 +43,6 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
         this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
         RETURN;
       }
-
-      CASE "SCANALL"
-      {
-        INTEGER64 start := GetTimestamp();
-        this->ScanAllFoldersNow();
-        this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
-        RETURN;
-      }
     }
     this->ResolveByFailure(DEFAULT RECORD, `Unknown action '${data.task.action}'`);
   }
@@ -154,7 +146,8 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
           INTEGER fileid := ToInteger(tokens[0], 0);
           IF (fileid > 0)
           {
-            LogDebug("publisher:outputanalyzer", "SchedulingFileRepublish", fileid);
+            IF(this->debug)
+              LogDebug("publisher:outputanalyzer", "SchedulingFileRepublish", fileid);
             //ADDME: Don't schedule if already scheduled (maybe change priority?) Or maybe the new publisher queue can
             // intelligently handle multiple republication actions for the same file?
             ScheduleFileRepublish(fileid);
