@@ -10,15 +10,6 @@ LOADLIB "relative::awsbase.whlib";
 
 STRING ns_s320060301 := "http://s3.amazonaws.com/doc/2006-03-01/";
 
-CONSTANT RECORD endpoints_s3 := [ "us-standard" := "https://s3.amazonaws.com/"
-                                , "us-west-1" := "https://s3-us-west-1.amazonaws.com/"
-                                , "us-west-2" := "https://s3-us-west-2.amazonaws.com/"
-                                , "sa-east-1" := "https://s3.sa-east-1.amazonaws.com/"
-                                , "eu-west-1" := "https://s3-eu-west-1.amazonaws.com/"
-                                , "ap-southeast-1" := "https://s3-ap-southeast-1.amazonaws.com/"
-                                , "ap-northeast-1" := "https://s3-ap-northeast-1.amazonaws.com/"
-                                ];
-
 PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
 <
   STRING endpoint;
@@ -36,14 +27,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
         [ endpoint :=     ""
         ], options);
 
-    IF (options.endpoint = "")
-    {
-      IF(NOT CellExists(endpoints_s3, zone))
-       THROW NEW Exception("Invalid S3 zone '" || zone || "'");
-      this->endpoint := GetCell(endpoints_s3,zone);
-    }
-    ELSE
-      this->endpoint := options.endpoint;
+    this->endpoint := options.endpoint ?? `https://s3.${zone}.amazonaws.com/`;
   }
 
   /** List all buckets
