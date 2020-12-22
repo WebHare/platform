@@ -354,7 +354,7 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery)
     @cell(record array) options.defaultfields Fields to search for terms without explicit field specification
     @cell(string) options.defaultfields.field Field name
     @cell(float) options.defaultfields.boost Boost factor applied when a match is found in this field (defaults to 1.0)
-    @cell(boolean) options.defaultfields.stemmed_fields Set to true to also use stemming when searching for terms in this field
+    @cell(boolean) options.defaultfields.stemmed_field Set to true to also use stemming when searching for terms in this field
     @cell(integer) options.thesaurusid If set, use the thesaurus of this index id.
     @return Consilio query record
 */
@@ -912,6 +912,7 @@ STATIC OBJECTTYPE Catalog
   PUBLIC MACRO DeleteSelf()
   {
     UPDATE consilio.indices SET name := "$consilio$deleted$" || id WHERE id = this->id;
+    GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     this->catalog.id := 0; //to be safe
 
     GetConsilioFinishHandler()->mustcleanupindices := TRUE; //remove stale indices ASAP
@@ -1143,6 +1144,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , indexmanager
              , type := whconstant_consilio_catalogtype_siteprofindex //default type..
              ] INTO consilio.indices;
+  GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   STRING result := EnsureIndexManagerIndex(indexid);
   IF(result != SearchOk)

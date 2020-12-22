@@ -348,11 +348,11 @@ PUBLIC STRING FUNCTION EnsureIndexManagerContentSource(INTEGER indexid, INTEGER 
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         // Not supported, ignore
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         // Define a default mapping by setting the field type for some standard
         // fields to untokenized 'keyword' fields: indexid, groupid, objectid,
@@ -489,15 +489,15 @@ RECORD FUNCTION GetCacheableIndexConfiguration(INTEGER indexid)
 /** @short Search an index
     @param indexid The id of the index to query; 0 for all indices
     @param query The query to execute
-    @param options Search options
-    @cell(integer) options.first The first result to return (0-based, defaults to 0)
-    @cell(integer) options.count The number of results to return; 0 for no results (but still returning the number of result),
+    @param useroptions Search options
+    @cell(integer) useroptions.first The first result to return (0-based, defaults to 0)
+    @cell(integer) useroptions.count The number of results to return; 0 for no results (but still returning the number of result),
         -1 for all results (defaults to 0)
-    @cell(integer) options.summary The length of the summary to generate; 0 for no summary (defaults to 200)
-    @cell(boolean) options.donthighlight Don't highlight matched search terms in the summary
-    @cell(string) options.lang The language used for searching (used for various language-specific features)
-    @cell(string) options.restrict_to Restrict results to URLs starting with restrict_to
-    @cell(record) options.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
+    @cell(integer) useroptions.summary The length of the summary to generate; 0 for no summary (defaults to 200)
+    @cell(boolean) useroptions.donthighlight Don't highlight matched search terms in the summary
+    @cell(string) useroptions.lang The language used for searching (used for various language-specific features)
+    @cell(string) useroptions.restrict_to Restrict results to URLs starting with restrict_to
+    @cell(record) useroptions.mapping The search result field mapping to use; DEFAULT RECORD for all known fields
 */
 PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD useroptions)
 {
@@ -520,14 +520,6 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   IF(options.addscore)
     options.mapping := CELL[...options.mapping, _score := 0f ];
 
-  // Make sure at least objectid and groupid are returned, if this is not an aggregation query
-  IF (NOT CellExists(query, "aggregation"))
-  {
-    IF (NOT CellExists(options.mapping, "OBJECTID"))
-      INSERT CELL objectid := "" INTO options.mapping;
-    IF (NOT CellExists(options.mapping, "GROUPID"))
-      INSERT CELL groupid := "" INTO options.mapping;
-  }
   IF (options.summary != 0 AND NOT CellExists(options.mapping, "_SUMMARY"))
     INSERT CELL _summary := "" INTO options.mapping;
 
@@ -548,13 +540,11 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
   {
     STRING queryuuid := GenerateUFS128BitId();
 
-    RECORD ARRAY in_requested_fields := SELECT * FROM UnpackRecord(options.mapping);
-    IF(indexmanager.type = 1) // Objectid is always returned first, groupid always returned second
-      in_requested_fields := SELECT * FROM in_requested_fields ORDER BY name != "OBJECTID", name != "GROUPID", name;
-
-    STRING ARRAY requested_fields :=
-        SELECT AS STRING ARRAY ToLowercase(name)
-          FROM in_requested_fields;
+    RECORD mapping := options.mapping;
+    // Make sure at least objectid and groupid are returned, if this is not an aggregation query or unmanaged index
+    IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != 1)
+      mapping := CELL[ objectid := "", groupid := "", ...mapping ];
+    STRING ARRAY requested_fields := GetRequestedFields(options.mapping);
 
     //FIXME Get rid of the broadcasts, just use the logging system ?
     RECORD searchstart := CELL[ event := "searchstart"
@@ -576,12 +566,17 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD ARRAY vars :=
             [ [ name := "query",  value := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]) ]
             ];
 
+        // Objectid is always returned first, groupid always returned second
+        requested_fields :=
+            SELECT AS STRING ARRAY field
+              FROM ToRecordArray(requested_fields, "field")
+             ORDER BY (SearchElement([ "objectid", "groupid" ], field) + 1) ?? 9999;
         INSERT [ name := "fields", value := Detokenize(requested_fields, ",") ] INTO vars AT END;
 
         IF (options.first != defaultoptions.first)
@@ -704,7 +699,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                                                  , now := GetCurrentDateTime()
                                                  ]);
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
 
@@ -767,7 +762,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
         RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, [ throwonfailure := FALSE]);
         IF(options.debug)
-          DumpValue(response);
+          DumpValue(response, "tree");
 
         result.status := response.status;
         IF (result.status = SearchOk)
@@ -817,32 +812,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
             // An array with length 0 is returned as VARIANT ARRAY
             IF (Length(response.result.hits.hits) > 0)
-            {
-              FOREVERY (RECORD hit FROM response.result.hits.hits)
-              {
-                RECORD lineresult;
-                FOREVERY (STRING fld FROM requested_fields)
-                {
-                  IF (fld = "indexid")
-                    lineresult := CellInsert(lineresult, "indexid", ToInteger(Substring(hit._index, Length(indexmanager.prefix)), 0));
-                  ELSE IF (fld = "score")
-                    lineresult := CellInsert(lineresult, "score", hit._score);
-                  ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
-                    lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
-                  ELSE IF (CellExists(hit._source, fld))
-                  {
-                    IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
-                      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit._source, fld)));
-                    ELSE
-                      lineresult := CellInsert(lineresult, fld, GetCell(hit._source, fld));
-                  }
-                }
-
-                RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.mapping);
-                IF (RecordExists(singleresult))
-                  INSERT singleresult INTO result.results AT END;
-              }
-            }
+              result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, options.mapping);
           }
 
           result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
@@ -901,7 +871,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD ARRAY vars :=
             [ [ name := "query",  value := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]) ]
@@ -986,7 +956,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
           CloseBlobFile(resultstream);
         }
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
 
@@ -1048,63 +1018,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
                 IF (scrolling)
                   scrollid := response.result._scroll_id;
 
-                FOREVERY (RECORD hit FROM response.result.hits.hits)
-                {
-                  RECORD lineresult;
-                  FOREVERY (STRING fld FROM requested_fields)
-                  {
-                    IF (fld = "indexid")
-                      lineresult := CellInsert(lineresult, "indexid", ToInteger(Substring(hit._index, Length(indexmanager.prefix)), 0));
-                    ELSE IF (fld = "score")
-                      lineresult := CellInsert(lineresult, "score", hit._score);
-                    ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
-                      lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
-                    ELSE IF (CellExists(hit._source, fld))
-                    {
-                      IF (fld LIKE "date_*" OR fld LIKE "*.date_*")
-                        lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit._source, fld)));
-                      ELSE
-                        lineresult := CellInsert(lineresult, fld, GetCell(hit._source, fld));
-                    }
-                  }
-
-                  RECORD singleresult;
-                  FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
-                  {
-                    IF (CellExists(singleresult, field.name))
-                      CONTINUE;
-
-                    // If the requested cell exists in the returned result, convert it to the desired type, otherwise return the default value
-                    IF (CellExists(lineresult, field.name))
-                    {
-                      VARIANT value := GetCell(lineresult, field.name);
-                      IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
-                      {
-                        singleresult := CellInsert(singleresult, field.name, value);
-                        CONTINUE;
-                      }
-                      ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
-                      {
-                        // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-                        value := Substitute(value, "\x1D", "");
-                        value := Substitute(value, "\x1C", "");
-
-                        // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-                        VARIANT decoded := DecodeJSON(value);
-                        IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
-                        {
-                          field.value := decoded;
-                          singleresult := CellInsert(singleresult, field.name, field.value);
-                          CONTINUE;
-                        }
-                      }
-                    }
-                    // If we got here, we have to insert the default field value
-                    singleresult := CellInsert(singleresult, field.name, field.value);
-                  }
-                  IF (RecordExists(singleresult))
-                    INSERT singleresult INTO result.results AT END;
-                }
+                result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, options.mapping);
               }
               ELSE
               {
@@ -1154,7 +1068,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD ARRAY vars :=
             [ [ name := "query", value := query ]
@@ -1189,7 +1103,7 @@ PUBLIC RECORD FUNCTION SuggestIndexManager(INTEGER indexid, STRING query, RECORD
           }
         }
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         OBJECT tokenizer := NEW TokenStream(query);
         RECORD token := tokenizer->GetNextToken();
@@ -1289,13 +1203,13 @@ PUBLIC INTEGER FUNCTION GetIndexManagerSize(INTEGER indexid)
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD response := SendToConsilio(indexmanager.id, indexid, "/size", DEFAULT RECORD ARRAY, "POST");
         IF (response.status = SearchOk)
           size := ToInteger(GetMIMEHeader(response.headers, "Index-Size"), -1);
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         STRING suffix := indexmanager.indextype = 1 ? "*" : "";
         RECORD response := SendToElasticsearch(indexmanager.id, "", "/_cat/count/" || indexmanager.indexname || suffix, DEFAULT RECORD, "GET");
@@ -1520,7 +1434,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
     {
       SWITCH (indexmanager.type)
       {
-        CASE 1
+        CASE whconstant_consilio_indexmanager_legacybackend
         {
           RECORD ARRAY vars := [ [ name := "groupid", value := groupid ]
                                ];
@@ -1531,7 +1445,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerGroup(INTEGER indexid, INTEGER contents
           IF (response.status != SearchOk)
             result := result ?? response.status;
         }
-        CASE 2
+        CASE whconstant_consilio_indexmanager_elasticsearch
         {
           // No support for groupids in unmanaged indices
           IF (indexmanager.indextype = 1)
@@ -1587,7 +1501,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD ARRAY vars := [ [ name := "objectid", value := objectid ]
                              ];
@@ -1598,7 +1512,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
         IF (response.status != SearchOk)
           result := result ?? response.status;
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         // No support for objectids in unmanaged indices
         IF (indexmanager.indextype = 1)
@@ -1667,7 +1581,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
     {
       SWITCH (indexmanager.type)
       {
-        CASE 1
+        CASE whconstant_consilio_indexmanager_legacybackend
         {
           // All objects in the index with an index date before this task's index date can be removed from the index.
           RECORD ARRAY vars := [ [ name := "last_indexed", value := DateTimeToString(deletebefore) ]
@@ -1691,7 +1605,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
                  WHERE objid != "";
           }
         }
-        CASE 2
+        CASE whconstant_consilio_indexmanager_elasticsearch
         {
           // No support for outdated documents in unmanaged indices
           IF (indexmanager.indextype = 1)
@@ -1769,7 +1683,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         RECORD ARRAY vars := [ [ name := "indexid", value := ToString(indexid) ]
                              ];
@@ -1781,7 +1695,7 @@ PUBLIC RECORD FUNCTION DeleteIndexManagerContentSource(INTEGER indexmgrid, INTEG
         IF (result.status = SearchOk)
           result.deleted := ToInteger(GetMIMEHeader(response.headers, "Deleted"), 0);
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         RECORD indexinfo := SELECT * FROM consilio.indices WHERE id = indexid;
         IF (RecordExists(indexinfo) AND indexinfo.type = 2)
@@ -1844,11 +1758,11 @@ PUBLIC STRING FUNCTION RefreshIndexManager(INTEGER indexmgrid, INTEGER indexid)
   {
     SWITCH (indexmanager.type)
     {
-      CASE 1
+      CASE whconstant_consilio_indexmanager_legacybackend
       {
         // Not supported, ignore
       }
-      CASE 2
+      CASE whconstant_consilio_indexmanager_elasticsearch
       {
         RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "", "/_refresh", DEFAULT RECORD, "GET");
         result := response.status;
@@ -2275,4 +2189,19 @@ STRING FUNCTION ConfigureConsilioIndexManager(INTEGER indexmgrid, STRING param)
   }
 
   RETURN SearchOk;
+}
+
+// Create a (flattened) list of requested fields
+STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
+{
+  STRING ARRAY fields;
+  FOREVERY (RECORD field FROM UnpackRecord(mapping))
+  {
+    IF (CanCastTypeTo(TypeID(field.value), TypeID(RECORD)) AND RecordExists(field.value))
+      FOREVERY (STRING subfield FROM GetRequestedFields(field.value))
+        INSERT ToLowercase(field.name) || "." || subfield INTO fields AT END;
+    ELSE
+      INSERT ToLowercase(field.name) INTO fields AT END;
+  }
+  RETURN fields;
 }

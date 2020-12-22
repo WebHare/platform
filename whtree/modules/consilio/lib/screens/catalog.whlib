@@ -888,12 +888,14 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     {
       newcatalogid := MakeAutonumber(consilio.indices, "id");
       INSERT CELL [ ...catalog, id := newcatalogid ] INTO consilio.indices;
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
     ELSE
     {
       UPDATE consilio.indices
          SET RECORD catalog
        WHERE id = this->catalogid;
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
 
     IF(NOT work->Finish())

@@ -155,6 +155,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       indexrec := [ id := MakeAutonumber(consilio.indices, "id") ];
       INSERT INTO consilio.indices(id, name, description, indexmanager, priority, type)
              VALUES(indexrec.id, indexname, "", builtin_indexmanager, setpriority, settype);
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
     ELSE
     {
@@ -164,6 +165,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
            SET priority := setpriority
              , type := settype
          WHERE id = indexrec.id;
+        GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
       }
     }
 
@@ -390,6 +392,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       indexid := MakeAutonumber(consilio.indices, "id");
       INSERT INTO consilio.indices(id, name, description, indexmanager)
              VALUES(indexid, indexname, "", builtin_indexmanager);
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
 
     OBJECT catalog := OpenConsilioCatalogById(indexid);
@@ -597,7 +600,8 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
           /* Nothing to update (yet?)
           UPDATE consilio.indices
              SET
-           WHERE id = indexrec.id;*/
+           WHERE id = indexrec.id;
+          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);*/
         }
         ELSE
         {
@@ -608,6 +612,7 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
               , priority := setpriority
               ];
           INSERT indexrec INTO consilio.indices;
+          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
       }
