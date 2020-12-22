@@ -288,6 +288,8 @@ PUBLIC MACRO CustomForm()
 
 MACRO CustomForm_SuppressMail()
 {
+  SnoozeRateLimits();
+
   // Make sure no email tasks are running anymore
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
