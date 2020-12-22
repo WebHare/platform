@@ -8,8 +8,12 @@ LOADLIB "wh::formatter/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::consilio/lib/pagelists.whlib";
+
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/conversionprofiles.whlib";
 
 /** @short Get all checkable links from a HTML DOM
@@ -261,5 +265,22 @@ PUBLIC OBJECTTYPE RenderMSWordFIle EXTEND StaticPageBase
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetCheckableLinks()
   {
     RETURN this->seenlinks;
+  }
+>;
+
+PUBLIC OBJECTTYPE MSWordPageListProvider EXTEND PageListProviderBase
+<
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetPages(RECORD fileinfo, RECORD context)
+  {
+    RECORD ARRAY pages := PageListProviderBase::GetPages(fileinfo, context);
+
+    /* For performance reason we store the pagelistprovider per filetype, so there will be no way to do this through <apply>
+       Normally you'd create a separate file type, but this is generally harder for old MSWord based designs (which tend to
+       hardcode file.type=4 checks) so this keeps the problem where it originated */
+    STRING pagelisthook := ReadRegistryKey("publisher.msword.getpagelistpages");
+    IF(pagelisthook != "")
+      pages := MakeFunctionPtr(pagelisthook, TYPEID(RECORD ARRAY), [ TYPEID(OBJECT), TYPEID(RECORD ARRAY), TYPEID(RECORD), TYPEID(RECORD)])(this, pages, fileinfo, context);
+
+    RETURN pages;
   }
 >;
