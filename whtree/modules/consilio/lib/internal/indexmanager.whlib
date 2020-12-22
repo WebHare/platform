@@ -544,7 +544,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
     // Make sure at least objectid and groupid are returned, if this is not an aggregation query or unmanaged index
     IF (NOT CellExists(query, "aggregation") AND indexmanager.indextype != 1)
       mapping := CELL[ objectid := "", groupid := "", ...mapping ];
-    STRING ARRAY requested_fields := GetRequestedFields(options.mapping);
+    STRING ARRAY requested_fields := GetRequestedFields(mapping);
 
     //FIXME Get rid of the broadcasts, just use the logging system ?
     RECORD searchstart := CELL[ event := "searchstart"
@@ -642,7 +642,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
             }
 
             RECORD singleresult;
-            FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
+            FOREVERY (RECORD field FROM UnpackRecord(mapping))
             {
               IF (CellExists(singleresult, field.name))
                 CONTINUE;
@@ -777,7 +777,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
             IF (query.aggregation._type = "count")
             {
               RECORD aggresult := CellInsert(DEFAULT RECORD, query.aggregation.name, response.result.hits.total.value);
-              RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.mapping);
+              RECORD singleresult := ParseSingleElasticsearchResult(aggresult, mapping);
               IF (RecordExists(singleresult))
                 INSERT singleresult INTO result.results AT END;
             }
@@ -792,14 +792,14 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
                 {
                   FOREVERY (RECORD lineresult FROM aggresult)
                   {
-                    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, options.mapping);
+                    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, mapping);
                     IF (RecordExists(singleresult))
                       INSERT singleresult INTO result.results AT END;
                   }
                 }
                 ELSE
                 {
-                  RECORD singleresult := ParseSingleElasticsearchResult(aggresult, options.mapping);
+                  RECORD singleresult := ParseSingleElasticsearchResult(aggresult, mapping);
                   IF (RecordExists(singleresult))
                     INSERT singleresult INTO result.results AT END;
                 }
@@ -812,7 +812,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
             // An array with length 0 is returned as VARIANT ARRAY
             IF (Length(response.result.hits.hits) > 0)
-              result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, options.mapping);
+              result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
           }
 
           result.session := SaveQuery(result.session, query, indexid, options.restrict_to, GetCurrentDateTime(), Length(result.results));
@@ -854,12 +854,6 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       ];
   options := ValidateOptions(defaultoptions, options);
 
-  // Make sure at least objectid and groupid are returned
-  IF (NOT CellExists(options.mapping, "OBJECTID"))
-    INSERT CELL objectid := "" INTO options.mapping;
-  IF (NOT CellExists(options.mapping, "GROUPID"))
-    INSERT CELL groupid := "" INTO options.mapping;
-
   RECORD result :=
       [ status := SearchIndexNotFound
       , totalcount := 0
@@ -869,6 +863,12 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
   RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ managedonly := options.managedonly ]);
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
+    RECORD mapping := options.mapping;
+    // Make sure at least objectid and groupid are returned, if this is not an unmanaged index
+    IF (indexmanager.indextype != 1)
+      mapping := CELL[ objectid := "", groupid := "", ...mapping ];
+    STRING ARRAY requested_fields := GetRequestedFields(mapping);
+
     SWITCH (indexmanager.type)
     {
       CASE whconstant_consilio_indexmanager_legacybackend
@@ -877,10 +877,11 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             [ [ name := "query",  value := __FormatQuery(indexid, query, [ language := options.lang, consilio := TRUE ]) ]
             ];
 
-        STRING ARRAY requested_fields :=
-            SELECT AS STRING ARRAY ToLowercase(name)
-              FROM UnpackRecord(options.mapping)
-          ORDER BY name != "OBJECTID", name != "GROUPID", name;
+        // Objectid is always returned first, groupid always returned second
+        requested_fields :=
+            SELECT AS STRING ARRAY field
+              FROM ToRecordArray(requested_fields, "field")
+             ORDER BY (SearchElement([ "objectid", "groupid" ], field) + 1) ?? 9999;
         INSERT [ name := "fields", value := Detokenize(requested_fields, ",") ] INTO vars AT END;
 
         IF (options.first != defaultoptions.first)
@@ -915,7 +916,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
             }
 
             RECORD singleresult;
-            FOREVERY (RECORD field FROM UnpackRecord(options.mapping))
+            FOREVERY (RECORD field FROM UnpackRecord(mapping))
             {
               IF (CellExists(singleresult, field.name))
                 CONTINUE;
@@ -959,10 +960,6 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       CASE whconstant_consilio_indexmanager_elasticsearch
       {
         RECORD searchquery := CreateElasticsearchQuery(query, options.lang);
-
-        STRING ARRAY requested_fields :=
-            SELECT AS STRING ARRAY ToLowercase(name)
-              FROM UnpackRecord(options.mapping);
 
         INSERT CELL _source := requested_fields INTO searchquery;
 
@@ -1018,7 +1015,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
                 IF (scrolling)
                   scrollid := response.result._scroll_id;
 
-                result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, options.mapping);
+                result.results := result.results CONCAT ReadElasticsearchResults(response.result.hits.hits, requested_fields, mapping);
               }
               ELSE
               {
