@@ -14,6 +14,7 @@
   <apply>
     <to type="file" pathmask="*/action.html" />
     <scheduletimedtask task="webhare_testsuite:singleshottest" />
+    <schedulemanagedtask task="webhare_testsuite:applyruletask" />
   </apply>
 
   <apply>

@@ -548,10 +548,12 @@ MACRO TestSiteProfiles()
   BLOB missing_searchcontentprovider := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
     <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/searchcontentprovidertest" kind="datafile" searchcontentprovider="webhare_testsuite:missingprovider" />
+    <apply><to type="all"/><schedulemanagedtask task="webhare_testsuite:missingtask" /></apply>
   </siteprofile>`);
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := missing_searchcontentprovider ]);
   TestEq([[ line := 3, message := `No such searchcontentprovider 'missingprovider' in module \'webhare_testsuite'` ]
+         ,[ line := 4, message := `No such managed task type 'webhare_testsuite:missingtask'` ]
          ], SELECT line, message FROM res.errors ORDER BY line,message) ;
 }
 

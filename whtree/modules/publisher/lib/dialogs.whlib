@@ -321,27 +321,15 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
     RETURN;
   }
 
-  OBJECT dlg;
   TRY
   {
-    dlg := CreateWHFSObjectPropsDialog(parentscreen, objectid);
+    CreateWHFSObjectPropsDialog(parentscreen, objectid)->RunModal();
   }
   CATCH(OBJECT err)
   {
     // don't crash on any exception, we can just choose to not open the properties dialog
     // which is better than to crash the whole Publisher
     RunExceptionReportDialog(parentscreen, err);
-    RETURN;
-  }
-
-  IF(dlg->RunModal() = "ok")
-  {
-    GetPrimary()->BeginWork();
-    IF ( (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = VAR objectid))
-      RunEditFolderHooks(DEFAULT RECORD, objectid);
-    ELSE
-      RunEditFileHooks(DEFAULT RECORD, objectid);
-    GetPrimary()->CommitWork();
   }
 }
 

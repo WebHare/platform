@@ -1661,5 +1661,5 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
 
 PUBLIC STRING FUNCTION InlineScreens(STRING content, STRING hash DEFAULTSTO "")
 {
-  RETURN `inline-base64::${EncodeBase64(`<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">${content}</screens>`)}${hash}`;
+  RETURN `inline-base64::${EncodeBase64(`<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">${content}</screens>`)}${hash}`;
 }
