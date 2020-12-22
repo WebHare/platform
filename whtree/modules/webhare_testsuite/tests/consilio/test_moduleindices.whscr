@@ -143,8 +143,68 @@ MACRO TestESBulkInsertion()
   catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:nosuchfieldyet" ]);
   catalog->AddObjects(
                     [[ objectid := "test1"
-                     , documentfields := [ 'no.such.field.yet' := 42 ]
-                    ]],[ suffix := "sub1"]);
+                     , documentfields := [ no := [ such := [ field := [ yet := 42 ] ] ] ]
+                    ]],[ suffix := "sub1", synchronous := TRUE ]);
+
+  // Test record mapping
+  RECORD res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
+
+  // In Elasticsearch, all fields can contain arrays
+  catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields :=
+                        [ no :=
+                            [ [ such :=
+                                [ field :=
+                                    [ [ yet := 42 ]
+                                    , [ yet := 43 ]
+                                    ]
+                                ]
+                              ]
+                            , [ such :=
+                                [ field :=
+                                    [ yet := [ 41, 42 ] ]
+                                ]
+                              ]
+                            ]
+                        ]
+                    ]],[ suffix := "sub1", synchronous := TRUE ]);
+  // Test record array mapping
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ no :=
+             [ [ such :=
+                 [ field :=
+                       // Single 'yet' values got converted to arrays as per requested mapping
+                     [ [ yet := [ 42 ] ]
+                     , [ yet := [ 43 ] ]
+                     ]
+                 ]
+               ]
+             , [ such :=
+                   // Single 'field' value got converted to array as per requested mapping
+                 [ field :=
+                     [ [ yet := [ 41, 42 ] ] ]
+                 ]
+               ]
+             ]
+         ], res.results[0]);
+
+  // Delete the object
+  catalog->DeleteObjects([ "test1" ], [ suffix := "sub1", synchronous := TRUE ]);
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount);
 
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
@@ -199,7 +259,7 @@ MACRO TestESBulkInsertion()
   checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex-sub2/_mapping", DEFAULT RECORD);
   TestEq("keyword", checkindex.result."webhare_testsuite__testindex-sub2".mappings.properties.keyword.type);
 
-  RECORD res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field), [ mapping := [ title := "", int_field := 0]]);
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("int_field", "=", docs[END-1].documentfields.int_field), [ mapping := [ title := "", int_field := 0]]);
   //dumpvalue(res,'tree');
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);

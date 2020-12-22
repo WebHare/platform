@@ -62,6 +62,7 @@ PUBLIC INTEGER FUNCTION CreateCatalog(STRING catalog_name, STRING description, R
   INTEGER indexid := MakeAutoNumber(consilio.indices, "id");
   INSERT INTO consilio.indices(id, name, description, loglevel, priority, indexmanager)
          VALUES (indexid, catalog_name, description, loglevel, priority, indexmanager);
+  GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   STRING result := EnsureIndexManagerIndex(indexid);
   IF (result = SearchOk)

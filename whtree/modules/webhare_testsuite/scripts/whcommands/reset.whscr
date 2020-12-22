@@ -329,6 +329,7 @@ UPDATE consilio.indices
    SET indexmanager := indexmanagerid
      , indexname := Substitute(name, ":", whconstant_consilio_module_sep)
  WHERE name LIKE "webhare_testsuite:*";
+GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
 trans->CommitWork();
 IF(ObjectExists(alttestsite))

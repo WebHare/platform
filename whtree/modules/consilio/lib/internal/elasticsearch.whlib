@@ -381,7 +381,7 @@ PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 
 PUBLIC BOOLEAN FUNCTION ElasticsearchMappingExists(INTEGER indexmgrid, INTEGER indexid, STRING type)
 {
-  RETURN GetAdhocCached([ type := type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
+  RETURN GetAdhocCached(CELL[ type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
 }
 
 RECORD FUNCTION ElasticsearchMappingExists_Uncached(INTEGER indexmgrid, INTEGER indexid, STRING type)
@@ -738,6 +738,87 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
 }
 
+PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING ARRAY requested_fields, RECORD mapping)
+{
+  RECORD ARRAY results;
+  FOREVERY (RECORD hit FROM hits)
+  {
+    RECORD lineresult;
+    FOREVERY (STRING fld FROM requested_fields)
+    {
+      IF (fld = "indexid")
+        lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
+      ELSE IF (fld = "score")
+        lineresult := CellInsert(lineresult, "score", hit._score);
+      ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
+        lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
+      ELSE
+        lineresult := ReadResultField(lineresult, hit._source, fld);
+    }
+
+    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, mapping);
+    IF (RecordExists(singleresult))
+      INSERT singleresult INTO results AT END;
+  }
+  RETURN results;
+}
+
+RECORD FUNCTION GetIndexIdUncached(STRING indexid)
+{
+  INTEGER value :=
+      SELECT AS INTEGER id
+        FROM consilio.indices
+       WHERE indexname != ""
+             AND (indexname = indexid OR indexid LIKE indexname || "-*");
+  RETURN CELL
+      [ value
+      , eventmasks := [ "consilio:indiceschanged" ]
+      ];
+}
+
+RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
+{
+  // Check if a record subfield was requested
+  STRING subfld;
+  IF (fld LIKE "*.*")
+  {
+    subfld := Substring(fld, SearchSubstring(fld, ".") + 1);
+    fld := Left(fld, SearchSubstring(fld, "."));
+  }
+  IF (CellExists(hit, fld))
+  {
+    IF (subfld != "")
+    {
+      // Get the current record (array)
+      VARIANT value := CellExists(lineresult, fld) ? GetCell(lineresult, fld) : GetTypeDefaultValue(TypeID(GetCell(hit, fld)));
+      IF (TypeID(value) = TypeID(RECORD ARRAY))
+      {
+        // Process each record within the array separately
+        FOREVERY (RECORD subhit FROM GetCell(hit, fld))
+        {
+          // Add a default record if necessary
+          IF (Length(value) <= #subhit)
+            INSERT DEFAULT RECORD INTO value AT END;
+          // Read the subfield result
+          value[#subhit] := ReadResultField(value[#subhit], subhit, subfld);
+        }
+      }
+      ELSE
+      {
+        // Read the subfield result
+        value := ReadResultField(value, GetCell(hit, fld), subfld);
+      }
+      // Replace or add the new value
+      lineresult := CellExists(lineresult, fld) ? CellUpdate(lineresult, fld, value) : CellInsert(lineresult, fld, value);
+    }
+    ELSE IF (fld LIKE "date_*")
+      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit, fld)));
+    ELSE
+      lineresult := CellInsert(lineresult, fld, GetCell(hit, fld));
+  }
+  RETURN lineresult;
+}
+
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
   RECORD singleresult;
@@ -750,29 +831,103 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
     IF (CellExists(lineresult, field.name))
     {
       VARIANT value := GetCell(lineresult, field.name);
-      IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)))
       {
-        singleresult := CellInsert(singleresult, field.name, value);
+        // Recursively convert the subfields of this RECORD (ARRAY) field
+        IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+        {
+          // Expecting an array (this returns an array with one record if the actual result was a single record)
+          RECORD ARRAY subresults;
+          // Parse the records within the array
+          FOREVERY (RECORD subvalue FROM TypeID(value) = TypeID(RECORD ARRAY) ? value : RECORD[ value ])
+            INSERT ParseSingleElasticsearchResult(subvalue, field.value) INTO subresults AT END;
+          singleresult := CellInsert(singleresult, field.name, subresults);
+        }
+        ELSE
+        {
+          // Parse the result record (this returns the first record if the actual result was an array)
+          singleresult := CellInsert(singleresult, field.name, ParseSingleElasticsearchResult(value, field.value));
+        }
         CONTINUE;
       }
-      ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+      ELSE
       {
-        // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-        value := Substitute(value, "\x1D", "");
-        value := Substitute(value, "\x1C", "");
+        // Convert values or arrays of values
+        INTEGER mappingtype := TypeID(field.value);
+        BOOLEAN mappingisarray := IsTypeIDArray(mappingtype);
+        IF (mappingisarray)
+          mappingtype := TypeID(GetArrayTypeDefaultElement(mappingtype));
+        BOOLEAN valueisarray := IsTypeIDArray(TypeID(value));
 
-        // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-        VARIANT decoded := DecodeJSON(value);
-        IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+        VARIANT mappedvalue;
+        IF (mappingisarray)
         {
-          field.value := decoded;
-          singleresult := CellInsert(singleresult, field.name, field.value);
-          CONTINUE;
+          mappedvalue := GetTypeDefaultArray(mappingtype);
+          IF (valueisarray)
+          {
+            // Expecting an array, got an array, convert all values
+            FOREVERY (VARIANT val FROM value)
+            {
+              val := DecodeFieldValue(val, mappingtype);
+              TRY
+                IF (NOT IsDefaultValue(val)) // Throws on default variant array
+                  INSERT val INTO mappedvalue AT END;
+              CATCH;
+            }
+          }
+          ELSE
+          {
+            // Expecting an array, got a single value, make an array containg the converted single value
+            value := DecodeFieldValue(value, mappingtype);
+            TRY
+              IF (NOT IsDefaultValue(value)) // Throws on default variant array
+                INSERT value INTO mappedvalue AT END;
+            CATCH;
+          }
         }
+        ELSE IF (valueisarray)
+        {
+          // Expecting a single value, got an array, take the first array element and convert it
+          IF (Length(value) > 0)
+            mappedvalue := DecodeFieldValue(value[0], mappingtype);
+          ELSE
+            mappedvalue := GetTypeDefaultValue(mappingtype);
+        }
+        ELSE
+        {
+          // Expecting a single value, got a single value, convert it
+          mappedvalue := DecodeFieldValue(value, mappingtype);
+        }
+
+        singleresult := CellInsert(singleresult, field.name, mappedvalue);
+        CONTINUE;
       }
     }
     // If we got here, we have to insert the default field value
     singleresult := CellInsert(singleresult, field.name, field.value);
   }
   RETURN singleresult;
+}
+
+VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
+{
+  IF (TypeID(value) = expectedtype)
+  {
+    // Either STRING or DATETIME don't have to be converted
+    RETURN value;
+  }
+  ELSE IF (TypeID(value) = TypeID(STRING))
+  {
+    // Convert STRING to desired type (either BOOLEAN or numeric type)
+    // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+    value := Substitute(value, "\x1D", "");
+    value := Substitute(value, "\x1C", "");
+
+    // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+    VARIANT decoded := DecodeJSON(value);
+    IF (CanCastTypeTo(TypeID(decoded), expectedtype))
+      RETURN decoded;
+  }
+  VARIANT noresult;
+  RETURN noresult;
 }
