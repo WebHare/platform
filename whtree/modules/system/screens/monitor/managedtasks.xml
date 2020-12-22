@@ -58,11 +58,11 @@
                     flags="canreschedule hasfailed"
                     borders="right bottom"
                     >
-                <column type="datetime" name="creationdate" storeutc="true" width="18x" />
+                <column type="datetime" name="creationdate" storeutc="true" width="18x" precision="seconds" />
                 <column type="text"     name="tasktype" />
                 <column type="integer"  name="rowkey" tid="tollium:common.labels.id" />
                 <column type="icon"     name="status" align="center" width="7x" tid="tollium:common.labels.status" />
-                <column type="datetime" name="nextattempt" storeutc="true" />
+                <column type="datetime" name="nextattempt" storeutc="true" precision="seconds" />
               </list>
             </panel>
           </cell>

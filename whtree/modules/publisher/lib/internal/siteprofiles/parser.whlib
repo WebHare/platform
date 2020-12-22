@@ -310,7 +310,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       }
     }
 
-    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
+    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     ctype.filetype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
     IF(ftype->HasAttribute("blobiscontent"))
      ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
@@ -367,7 +367,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ReadFolderType(RECORD ctype, OBJECT ftype)
   {
-    STRING tolliumicon := ftype->GetAttribute("tolliumicon");
+    STRING tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     IF(tolliumicon NOT LIKE '*:*')
       tolliumicon := "tollium:folders/normal";
 
@@ -552,7 +552,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.line := ctype->linenum;
     typeinfo.col := 0;
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || ns;
-    typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon");
+    typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
     INSERT CELL members := newmembers.members INTO typeinfo;
@@ -1414,7 +1414,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       RECORD typeinfo :=
           [ namespace :=          gtype->GetAttribute("namespace")
           , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
-          , tolliumicon :=        gtype->GetAttribute("tolliumicon")
+          , tolliumicon :=        gtype->GetAttribute("tolliumicon") ?? gtype->GetAttribute("icon") //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
           , members :=            DEFAULT RECORD ARRAY
           ];
 

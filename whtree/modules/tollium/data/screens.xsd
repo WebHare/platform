@@ -125,34 +125,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:restriction base="tc:Color" />
   </xs:simpleType>
 
-  <!-- An image source link: (modulename ":")? (pathpart "/")* name -->
-  <xs:simpleType name="ImageSrc">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="([_\w]+:)?(\c+/)*\c+(\+([_\w]+:)?(\c+/)*\c+)*"/>
-    </xs:restriction>
-
-<!--
-    <xs:annotation>
-      <xs:documentation>
-        <html:p>
-          Path to a image. module::path/image.<br />
-          <br />
-          Images in this tollium:colors/ namespace are automatically generated. Specify the color value
-          as the image name. Valid colors are all colors supported by GfxCreateColorFromCSS.<br />
-          <br />
-          Examples:<br />
-          <br />
-          tollium:colors/#ffffff        White<br />
-          tollium:colors/#ff0           Yellow<br />
-          tollium:colors/rgb(0,0,0)     Black<br />
-          tollium:colors/rgba(0,0,0,0)  Transparent<br />
-          tollium:colors/purple         Purple<br />
-        </html:p>
-      </xs:documentation>
-    </xs:annotation>
--->
-  </xs:simpleType>
-
   <!-- A gid: ( modulename ":" (gid.)* gid | "."? gid ( "." gid )* | <empty> ) -->
   <xs:simpleType name="Gid">
     <xs:restriction base="sc:Gid" />
@@ -469,7 +441,7 @@ To change a <xs:attribute /> for adding descriptions
   </xs:attributeGroup>
 
   <xs:attributeGroup name="Icon">
-    <xs:attribute name="icon" type="ImageSrc">
+    <xs:attribute name="icon" type="sc:ImageSrc">
       <xs:annotation>
         <xs:documentation>
           <html:p>The icon to use for this component.</html:p>
@@ -2407,7 +2379,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
 
-    <xs:attribute name="value" type="ImageSrc">
+    <xs:attribute name="value" type="sc:ImageSrc">
       <xs:annotation>
         <xs:documentation>
           Specifies an image from a module (format module ':' icon-dir '/' icon-name ).
@@ -2431,7 +2403,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="placeholder" type="ImageSrc" default="placeholders/na">
+    <xs:attribute name="placeholder" type="sc:ImageSrc" default="placeholders/na">
       <xs:annotation>
         <xs:documentation>
           <!-- FIXME: Doc -->
@@ -2495,7 +2467,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="placeholder" type="ImageSrc" default="placeholders/na">
+    <xs:attribute name="placeholder" type="sc:ImageSrc" default="placeholders/na">
       <xs:annotation>
         <xs:documentation>
           <!-- FIXME: Doc -->
@@ -5405,7 +5377,7 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="dragsingleicon" type="ImageSrc" default="actions/dragsingle">
+    <xs:attribute name="dragsingleicon" type="sc:ImageSrc" default="actions/dragsingle">
       <xs:annotation>
         <xs:documentation>
           <html:p>
@@ -5415,7 +5387,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="dragmultipleicon" type="ImageSrc" default="actions/dragmultiple">
+    <xs:attribute name="dragmultipleicon" type="sc:ImageSrc" default="actions/dragmultiple">
       <xs:annotation>
         <xs:documentation>
           <html:p>
