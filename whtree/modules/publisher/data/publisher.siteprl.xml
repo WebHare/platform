@@ -229,6 +229,7 @@
       ispublishedassubdir="true"
       searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
+      pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
   />
 
   <filetype
