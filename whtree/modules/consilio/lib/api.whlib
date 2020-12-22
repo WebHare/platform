@@ -963,6 +963,24 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
     }
   }
 
+  /** @short Delete objects from this catalog
+      @param objectids Delete objects with these objectids in the index+suffix combo
+      @cell(string) options.suffix Use this parameter to create a subindex with this suffix
+      @cell(boolean) options.synchronous Wait for the added documents to become visible
+  */
+  PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions( [ suffix := ""
+                                , chunksize := 128
+                                , synchronous := FALSE
+                                ], options);
+
+    FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
+    {
+      STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
+      DeleteIndexManagerObjects(this->id, 0, chunk, [ throwonfailure := TRUE, suffix := options.suffix, refresh := options.synchronous ]);
+    }
+  }
 
   /** @short Make sure the (sub)index exists on the index manager
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix

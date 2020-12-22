@@ -1547,6 +1547,87 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
   RETURN result;
 }
 
+/** @short Delete multiple objects from an index
+    @param indexid The index to delete the object from (0 for all indices)
+    @param objectid The object to delete
+    @return If the deletion was successful for all affected indexmanagers
+*/
+PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER contentsourceid, STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD defaultoptions :=
+      [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
+      , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      , throwonfailure := FALSE
+      ];
+  options := ValidateOptions(defaultoptions, options);
+
+  STRING result;
+
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  {
+    SWITCH (indexmanager.type)
+    {
+      CASE whconstant_consilio_indexmanager_legacybackend
+      {
+        FOREVERY (STRING objectid FROM objectids)
+        {
+          RECORD ARRAY vars := [ [ name := "objectid", value := objectid ]
+                               ];
+          IF (contentsourceid != 0)
+            INSERT [ name := "contentsource", value := ToString(contentsourceid) ] INTO vars AT END;
+
+          RECORD response := SendToConsilio(indexmanager.id, indexid, "/delete", vars, "POST");
+          IF (response.status != SearchOk)
+          {
+            result := result ?? response.status;
+            BREAK;
+          }
+        }
+      }
+      CASE whconstant_consilio_indexmanager_elasticsearch
+      {
+        // For unmanaged indices, delete by document id
+        IF (indexmanager.indextype = 1)
+        {
+          IF (indexid = 0 OR contentsourceid != 0)
+            result := SearchCommandUnsupported;
+          ELSE
+          {
+            RECORD ARRAY bulkrequests :=
+                SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
+                  FROM ToRecordArray(objectids, "objectid");
+
+            RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname || (options.suffix != "" ? "-" || options.suffix : ""), "/_bulk" || (options.refresh ? "?refresh=wait_for" : ""), [ _bulkrequests := bulkrequests ], "POST", CELL[options.throwonfailure]);
+            IF (response.status != SearchOk)
+              result := result ?? response.status;
+          }
+          CONTINUE;
+        }
+
+        RECORD query :=
+            [ query :=
+                [ bool :=
+                    [ must := (SELECT match := [ objectid := objectid ] FROM ToRecordArray(objectids, "objectid"))
+                    ]
+                ]
+            ];
+        IF (contentsourceid != 0)
+          INSERT [ match := [ contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
+
+        RECORD response := SendToElasticsearch(indexmanager.id, indexid != 0 ? indexmanager.indexname : "_all", `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query, "POST");
+        result := response.status;
+      }
+    }
+  }
+  result := result ?? SearchOk;
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "DeleteIndexManagerObjects", indexid, contentsourceid, objectids, result);
+
+  RETURN result;
+}
+
 /** @short Delete outdated objects
     @param indexid The index to delete outdated objects from
     @param contentsourceid The content source to delete outdated objects from (0

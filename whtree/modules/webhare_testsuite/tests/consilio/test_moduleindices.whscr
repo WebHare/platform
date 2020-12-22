@@ -198,6 +198,14 @@ MACRO TestESBulkInsertion()
              ]
          ], res.results[0]);
 
+  // Delete the object
+  catalog->DeleteObjects([ "test1" ], [ suffix := "sub1", synchronous := TRUE ]);
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount);
+
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
                     [[ objectid := "test1"
