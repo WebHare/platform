@@ -228,6 +228,7 @@
       isacceptableindex="true"
       ispublishedassubdir="true"
       searchcontentprovider="publisher:contentblob"
+      pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
   />
 
   <filetype
