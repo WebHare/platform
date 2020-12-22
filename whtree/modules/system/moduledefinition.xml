@@ -2110,6 +2110,9 @@ The full base URL on which this site will be published, calculated by combining 
         <boolean name="scanoutputatstartup" description="Scan all output at startup" initialval="true" />
         <string name="stripextensions" description="Extensions to strip from published-as-subfolder documents" initialval=".rtd .docx .doc" />
       </node>
+      <node name="msword">
+        <string name="getpagelistpages" description="Allows to override the pagelist provider GetPages for the builtin MSWord type."/>
+      </node>
       <node name="autofileid">
         <string name="extensions" initialval="shtml" />
       </node>
