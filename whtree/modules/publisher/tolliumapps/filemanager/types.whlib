@@ -16,19 +16,21 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
   BOOLEAN isfolder;
   RECORD ARRAY filetypes;
   RECORD ARRAY foldertypes;
+  INTEGER ARRAY limittypes;
 
   MACRO Init(RECORD data)
   {
-    data := ValidateOptions([ parent := 0
+    data := ValidateOptions([ parentfolder := 0
                             , foldertypes := FALSE
                             , fsobjects := INTEGER[]
+                            , limittypes := INTEGER[]
                             ], data);
-
+    this->limittypes := data.limittypes;
     this->isnew := TRUE;
     IF(this->isnew)
     {
-      this->foldertester := GetApplyTesterForFakeObject(data.parent, TRUE, 0);
-      this->filetester := GetApplyTesterForFakeObject(data.parent, FALSE, 0);
+      this->foldertester := GetApplyTesterForFakeObject(data.parentfolder, TRUE, 0);
+      this->filetester := GetApplyTesterForFakeObject(data.parentfolder, FALSE, 0);
 
       this->RefreshTypes();
       ^typesgroup->value := "files";
@@ -92,7 +94,8 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
                 , template := 0
                 //, namespace
                 , type := id
-             FROM types;
+             FROM types
+            WHERE Length(this->limittypes) = 0 ? TRUE : id IN this->limittypes;
   }
 
   RECORD FUNCTION Submit()
