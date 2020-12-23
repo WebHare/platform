@@ -932,7 +932,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               ELSE //inside a type definition
               {
                 IF(node->HasAttribute("name"))
-                  this->AddError(node, "Only <extendproperties contenttype=> can be used in a <filetype> or <foldertype>");
+                  this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
               }
 
               RECORD applynode := [ isundo := node->localname = "undoextendproperties"
