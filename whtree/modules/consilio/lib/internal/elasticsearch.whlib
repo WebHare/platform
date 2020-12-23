@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -960,15 +961,27 @@ VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
   }
   ELSE IF (TypeID(value) = TypeID(STRING))
   {
-    // Convert STRING to desired type (either BOOLEAN or numeric type)
+    // Convert STRING to desired type (either BOOLEAN, DATETIME or a numeric type)
     // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
     value := Substitute(value, "\x1D", "");
     value := Substitute(value, "\x1C", "");
 
-    // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-    value := DecodeJSON(value);
+    IF (expectedtype = TypeID(DATETIME))
+      value := MakeDateFromText(value);
+    ELSE
+    {
+      // We're decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+      value := DecodeJSON(value);
+    }
   }
   IF (CanCastTypeTo(TypeID(value), expectedtype))
     RETURN CastTo(value, expectedtype);
+  ELSE IF (TypeID(value) = TypeID(FLOAT))
+  {
+    IF (expectedtype = TypeID(MONEY))
+      RETURN FloatToMoney(value);
+    ELSE IF (expectedtype = TypeID(INTEGER64))
+      RETURN INTEGER64(value);
+  }
   RETURN DEFAULT RECORD;
 }

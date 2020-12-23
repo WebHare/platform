@@ -287,22 +287,78 @@ MACRO TestESBulkInsertion()
 
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
-                    [[ objectid := "test1"
-                     , documentfields := [ 'unspecified_record.xyz' := 43 ]
-                    ]],[ suffix := "sub1"]));
+      [ [ objectid := "test1"
+        , documentfields := [ 'unspecified_record.xyz' := 43 ]
+        ]
+      ],[ suffix := "sub1" ]));
 
   //But we should be able to set it through a wildcard if we add it
   catalog->EnsureIndex( [ suffix := "sub1", fieldgroup := "webhare_testsuite:unspecifiedwildcards" ]);
   catalog->AddObjects(
-                    [[ objectid := "test1"
-                     , documentfields := [ 'unspecified_record.xyz' := 43 ]
-                    ]],[ suffix := "sub1"]);
+      [ [ objectid := "test1"
+        , documentfields := [ 'unspecified_record.xyz' := 43 ]
+        ]
+      ],[ suffix := "sub1" ]);
+
+  // Once dynamically initialized, the type is fixed
+  TestThrowsLike("*(mapper_parsing_exception)", PTR catalog->AddObjects(
+      [ [ objectid := "test1"
+        , documentfields := [ 'unspecified_record.xyz' := "XYZ" ]
+        ]
+      ],[ suffix := "sub1" ]));
+  // The string "44" can be converted to an integer
+  catalog->AddObjects(
+      [ [ objectid := "test1"
+        , documentfields := [ 'unspecified_record.xyz' := "44" ]
+        ]
+      ],[ suffix := "sub1" ]);
+
+  // Add a datetime property
+  catalog->AddObjects(
+      [ [ objectid := "test1"
+        , documentfields :=
+            [ unspecified_record :=
+                [ "datetime" := MakeDateTime(2000, 1, 2, 12, 34, 56)
+                , "integer" := 1234
+                , "integer64" := 1024i64 * 1024 * 1024 * 1024
+                , "money" := 1234.56
+                , "float" := .015625
+                , "string" := "1234"
+                ]
+            ]
+        ]
+      ],[ suffix := "sub1", synchronous := TRUE ]);
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQHas("unspecified_record.datetime"),
+      [ mapping :=
+          [ unspecified_record :=
+              [ "datetime" := DEFAULT DATETIME
+              , "integer" := 0
+              , "integer64" := 0i64
+              , "money" := 0m
+              , "float" := 0f
+              , "string" := ""
+              ]
+          ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEQ(
+      [ unspecified_record :=
+          [ "datetime" := MakeDateTime(2000, 1, 2, 12, 34, 56)
+          , "integer" := 1234
+          , "integer64" := 1024i64 * 1024 * 1024 * 1024
+          , "money" := 1234.56
+          , "float" := .015625
+          , "string" := "1234"
+          ]
+      ], res.results[0]);
 
   //Ensure dynamic templates work
   catalog->AddObjects(
-                    [[ objectid := "test1"
-                     , documentfields := [ 'group_record_field.ds_text' := 44 ]
-                    ]],[ suffix := "sub1"]);
+      [ [ objectid := "test1"
+        , documentfields := [ 'group_record_field.ds_text' := 44 ]
+        ]
+      ],[ suffix := "sub1" ]);
 
   //Verify ds_Text's mapping
   RECORD checkindex := SendRawJSONToElasticsearch(GetBuiltinElasticSearchId(), "GET", "/webhare_testsuite" || whconstant_consilio_module_sep || "testindex-sub1/_mapping", DEFAULT RECORD);
