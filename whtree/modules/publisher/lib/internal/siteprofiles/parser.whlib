@@ -802,7 +802,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       IF(NOT IsNodeApplicableToThisWebHare(applyblock))
         CONTINUE;
 
-      RECORD apply := this->ImportApplyItems(applyblock);
+      RECORD apply := this->ImportApplyItems(applyblock, applynodetype = "apply" ? "" : applyblock->GetAttribute("namespace"));
       IF(NOT RecordExists(apply))
         CONTINUE; //no content
 
@@ -847,7 +847,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN applyrules;
   }
 
-  RECORD FUNCTION ImportApplyItems(OBJECT applyblock)
+  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)
   {
     BOOLEAN errorsarenowfatal;
     BOOLEAN anynode;
@@ -923,11 +923,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "extendproperties", "undoextendproperties"
             {
               STRING extension := this->ParseTolliumRef(node,"extension");
-              STRING contenttype := node->GetAttribute("contenttype");
-              IF(contenttype = "" AND extension != "")
-                this->AddError(node, "An extendproperties with extension= requires a content type");
-              IF(node->HasAttribute("name") AND applyblock->localname != "apply") //we really need to deprecate these...
-                this->AddError(node, "Only <extendproperties contenttype=> can be used in a <filetype> or <foldertype>");
+              STRING contenttype := node->GetAttribute("contenttype") ?? targetnamespace;
+              IF(targetnamespace = "") //an <apply> block
+              {
+                IF(contenttype = "" AND extension != "")
+                  this->AddError(node, "An extendproperties with extension= requires a content type");
+              }
+              ELSE //inside a type definition
+              {
+                IF(node->HasAttribute("name"))
+                  this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
+              }
 
               RECORD applynode := [ isundo := node->localname = "undoextendproperties"
                                   , contenttype := contenttype
