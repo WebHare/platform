@@ -195,7 +195,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
     RECORD result := this->DoRequest("POST", "v2/payments", req);
 
     GetPrimary()->BeginWork();
-    UpdatePaymentMetadata(paymenttok, [ order_id :=     result.id
+    UpdatePaymentMetadata(paymenttok, [ mollieid :=     result.id
                                       , status :=       result.status
                                       ]);
     GetPrimary()->CommitWork();
@@ -212,7 +212,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE PUBLIC MACRO RecheckPayment()
   {
-    IF(NOT RecordExists(this->paymentdata)) //we don't have the payment ID yet
+    IF(NOT RecordExists(this->paymentdata) OR NOT CellExists(this->paymentdata,"mollieid")) //we don't have the payment ID yet
     {
       IF(this->creationdate != DEFAULT DATETIME AND AddTimeToDate(wait_for_startpayment, this->creationdate) > GetCurrentDatetime()) //payment request never sent? this requires a very specific crash...
         RETURN;
@@ -220,7 +220,7 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
       RETURN;
     }
 
-    RECORD result := this->DoRequest("GET", "v2/payments/" || this->paymentdata.orderid);
+    RECORD result := this->DoRequest("GET", "v2/payments/" || this->paymentdata.mollieid);
     BOOLEAN pvt_paymentdone     := result.status IN [ "canceled", "expired", "paid", "paidout", "refunded", "charged_back", "failed" ];
     BOOLEAN pvt_paymentapproved := result.status IN [ "paid", "paidout", "refunded", "charged_back" ];
     this->pvt_status := pvt_paymentdone ? pvt_paymentapproved ? "approved" : "failed" : "pending";
