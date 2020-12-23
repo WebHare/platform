@@ -503,6 +503,17 @@ STRING FUNCTION ValidateIndexTag(STRING indextag)
         scores, defaults to `""`)
     @cell(record) options.mapping The fields in this record will be returned in the search results and updated with the
         values returned by Consilio (defaults to `DEFAULT RECORD`, which returns all known fields)
+    @cell(string) options.orderby Field to order over (defaults to `""`, which orders descending by score, can be set to the
+        value of the `scorefield` option, doesn't have to be a field in the `mapping` option)
+    @cell(boolean) options.orderdesc Whether to reverse the ordering (defaults to `TRUE` when ordering by score or `FALSE`
+        when ordering by another field)
+    @cell(record array) options.ordering Advanced results ordering, overrides the `orderby` and `orderdesc` options
+    @cell(string) options.ordering.orderby Field to order over (required, can be set to the value of the `scorefield` option,
+        doesn't have to be a field in the `mapping` option)
+    @cell(boolean) options.ordering.orderdesc Whether to reverse the ordering (defaults to `TRUE` when ordering by score or
+        `FALSE` when ordering by another field)
+    @cell(string) options.ordering.ordermode Sort mode to use (one of `"min"`, `"max"`, `"sum"`, `"avg"` or `"median"`,
+        defaults to `"min"` when sorting ascending or `"max"` when sorting descending)
     @cell(string) options.restrict_url For site searches: Only results with a URL starting with this restrict_url are
         returned
     @cell(string array) options.exclude_urls For site searches: Results with a URL starting with one of these exclude_urls
@@ -527,11 +538,28 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , summaryfield := "summary"
       , scorefield := ""
       , mapping := DEFAULT RECORD
+      , orderby := ""
+      , orderdesc := FALSE
+      , ordering := DEFAULT RECORD ARRAY
       , restrict_url := ""
       , exclude_urls := STRING[]
       , debug := FALSE
-      ], options);
+      ], options, [ optional := [ "orderdesc" ] ]);
   indextag := ValidateIndexTag(indextag);
+  FOREVERY (RECORD ordering FROM options.ordering)
+    options.ordering[#ordering] := ValidateOptions(
+        [ orderby := ""
+        , orderdesc := ""
+        , ordermode := ""
+        ],
+        ordering,
+        [ title := "ordering"
+        , required := [ "orderby" ]
+        , optional := [ "orderdesc", "ordermode" ]
+        , enums :=
+            [ ordermode := [ "min", "max", "sum", "avg", "median" ]
+            ]
+        ]);
 
   STRING language := options.language ?? GetTidLanguage();
   IF(NOT RecordExists(query)
@@ -561,6 +589,28 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
   }
   search_obj->restrict_url := options.restrict_url;
   search_obj->exclude_urls := options.exclude_urls;
+
+  IF (RecordExists(options.ordering))
+    query := CELL[ ...query, options.ordering ];
+  ELSE IF (options.orderby != "")
+  {
+    RECORD ordering := CELL[ options.orderby ];
+    IF (CellExists(options, "orderdesc"))
+      ordering := CELL[ ...ordering, options.orderdesc ];
+    query := CELL[ ...query, ordering := [ ordering ] ];
+  }
+  IF (RecordExists(options.ordering))
+  {
+    // If orderinging on scorefield, ordering on "_score", otherwise if not already orderinging on "_score", add it for consistency
+    INTEGER scoreordering :=
+        (SELECT AS INTEGER #ordering + 1
+           FROM query.ordering
+          WHERE orderby = (options.scorefield ?? "_score")) - 1;
+    IF (scoreordering >= 0)
+      query.ordering[scoreordering].orderby := "_score";
+    ELSE
+      INSERT [ orderby := "_score" ] INTO query.ordering AT END;
+  }
 
   RECORD results := search_obj->__SearchQuery(query, options.first, options.count, options.scorefield != "");
   IF(CellExists(results,'results'))

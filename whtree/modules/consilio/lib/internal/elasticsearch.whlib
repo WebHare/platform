@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -423,6 +424,47 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
   IF (CellExists(query, "query"))
     query := query.query;
 
+  IF (CellExists(input, "ordering"))
+  {
+    IF (RecordExists(input.ordering))
+    {
+      // The 'sort' field is an array of strings and objects
+      VARIANT ARRAY sort;
+      FOREVERY (RECORD orderfield FROM input.ordering)
+      {
+        IF (CellExists(orderfield, "orderdesc"))
+        {
+          IF (CellExists(orderfield, "ordermode"))
+          {
+            // When both orderdesc and ordermode are given, insert an object with an object property
+            // { "myfield": { "order": "asc", "mode": "min" } }
+            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ "order" := orderfield.orderdesc ? "desc" : "asc", "mode" := orderfield.ordermode ]) INTO sort AT END;
+          }
+          ELSE
+          {
+            // When only orderdesc is given, insert on object with a string property
+            // { "myfield": "asc" }
+            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, orderfield.orderdesc ? "desc" : "asc") INTO sort AT END;
+          }
+        }
+        ELSE IF (CellExists(orderfield, "ordermode"))
+        {
+          // When only ordermode is given, insert an object with an object property
+          // { "myfield": { "mode": "min" } }
+          INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ mode := orderfield.ordermode ]) INTO sort AT END;
+        }
+        ELSE
+        {
+          // When only the field is given, insert the field name
+          // "myfield"
+          INSERT orderfield.orderby INTO sort AT END;
+        }
+      }
+      result := CELL[ ...result, sort ];
+    }
+    DELETE CELL ordering FROM input;
+  }
+
   result.query := CreateElasticsearchQueryRecursive(query, language);
 
   IF (CellExists(input, "filters"))
@@ -477,6 +519,7 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
   RETURN query;
 }
 
+//ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
 RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
 {
   IF (NOT CellExists(query, "_type"))
@@ -549,6 +592,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "literal"
     {
+      //ADDME: Why not just use a term query?
       result :=
           [ constant_score :=
               [ filter :=
@@ -748,8 +792,8 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING 
     {
       IF (fld = "indexid")
         lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
-      ELSE IF (fld = "score")
-        lineresult := CellInsert(lineresult, "score", hit._score);
+      ELSE IF (fld = "_score")
+        lineresult := CellInsert(lineresult, "_score", hit._score);
       ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
         lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
       ELSE
@@ -831,7 +875,7 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
     IF (CellExists(lineresult, field.name))
     {
       VARIANT value := GetCell(lineresult, field.name);
-      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)))
+      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)) AND RecordExists(value))
       {
         // Recursively convert the subfields of this RECORD (ARRAY) field
         IF (TypeID(field.value) = TypeID(RECORD ARRAY))
@@ -869,20 +913,16 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
             FOREVERY (VARIANT val FROM value)
             {
               val := DecodeFieldValue(val, mappingtype);
-              TRY
-                IF (NOT IsDefaultValue(val)) // Throws on default variant array
-                  INSERT val INTO mappedvalue AT END;
-              CATCH;
+              IF (NOT IsDefaultValue(val))
+                INSERT val INTO mappedvalue AT END;
             }
           }
           ELSE
           {
             // Expecting an array, got a single value, make an array containg the converted single value
             value := DecodeFieldValue(value, mappingtype);
-            TRY
-              IF (NOT IsDefaultValue(value)) // Throws on default variant array
-                INSERT value INTO mappedvalue AT END;
-            CATCH;
+            IF (NOT IsDefaultValue(value))
+              INSERT value INTO mappedvalue AT END;
           }
         }
         ELSE IF (valueisarray)
@@ -899,8 +939,11 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
           mappedvalue := DecodeFieldValue(value, mappingtype);
         }
 
-        singleresult := CellInsert(singleresult, field.name, mappedvalue);
-        CONTINUE;
+        IF (NOT IsDefaultValue(mappedvalue))
+        {
+          singleresult := CellInsert(singleresult, field.name, mappedvalue);
+          CONTINUE;
+        }
       }
     }
     // If we got here, we have to insert the default field value
@@ -918,16 +961,27 @@ VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
   }
   ELSE IF (TypeID(value) = TypeID(STRING))
   {
-    // Convert STRING to desired type (either BOOLEAN or numeric type)
+    // Convert STRING to desired type (either BOOLEAN, DATETIME or a numeric type)
     // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
     value := Substitute(value, "\x1D", "");
     value := Substitute(value, "\x1C", "");
 
-    // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-    VARIANT decoded := DecodeJSON(value);
-    IF (CanCastTypeTo(TypeID(decoded), expectedtype))
-      RETURN decoded;
+    IF (expectedtype = TypeID(DATETIME))
+      value := MakeDateFromText(value);
+    ELSE
+    {
+      // We're decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+      value := DecodeJSON(value);
+    }
   }
-  VARIANT noresult;
-  RETURN noresult;
+  IF (CanCastTypeTo(TypeID(value), expectedtype))
+    RETURN CastTo(value, expectedtype);
+  ELSE IF (TypeID(value) = TypeID(FLOAT))
+  {
+    IF (expectedtype = TypeID(MONEY))
+      RETURN FloatToMoney(value);
+    ELSE IF (expectedtype = TypeID(INTEGER64))
+      RETURN INTEGER64(value);
+  }
+  RETURN DEFAULT RECORD;
 }
