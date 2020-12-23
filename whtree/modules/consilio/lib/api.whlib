@@ -1164,11 +1164,14 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              ] INTO consilio.indices;
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
-  STRING result := EnsureIndexManagerIndex(indexid);
-  IF(result != SearchOk)
+  TRY
+  {
+    EnsureIndexManagerIndex(indexid, [ throwonfailure := TRUE ]);
+  }
+  CATCH
   {
     DELETE FROM consilio.indices WHERE id=indexid;
-    THROW NEW Exception("Index creation failed (EnsureIndexManagerIndex failed)");
+    THROW;
   }
 
   GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
