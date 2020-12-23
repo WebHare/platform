@@ -107,19 +107,6 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
               ]
 }*/
 
-  UPDATE MACRO ProcessAWSError()
-  {
-    IF(ObjectExists(this->browser->document))
-    {
-      OBJECT errorcodenode := this->browser->QS("Error > Code");
-      OBJECT errormessagenode := this->browser->QS("Error > Message");
-      IF(ObjectExists(errorcodenode) AND ObjectExists(errormessagenode))
-        THROW NEW Exception(`S3: ${errorcodenode->textcontent}: ${errormessagenode->textcontent}`);
-    }
-    //override this for service specific error handling. they should throw on error
-    THROW NEW Exception("Request failure");
-  }
-
   /** List the contents of a bucket, paginated.
       @param bucket Bucket name
       @cell(string) options.delimiter Delimiter
@@ -158,11 +145,9 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     RECORD ARRAY objects;
     STRING ARRAY commonprefixes;
     BOOLEAN truncated := ParseXSBoolean(this->browser->document->GetElementsByTagNameNS(ns_s320060301, "IsTruncated")->Item(0)->textcontent);
-    STRING nextmarker := truncated
-        ? this->browser->document->GetElementsByTagNameNS(ns_s320060301, "NextMarker")->Item(0)->textcontent
-        : "";
 
-    FOREVERY(OBJECT content FROM this->browser->document->GetElementsByTagNameNS(ns_s320060301, "Contents")->GetCurrentElements())
+    OBJECT ARRAY contents := this->browser->document->GetElementsByTagNameNS(ns_s320060301, "Contents")->GetCurrentElements();
+    FOREVERY(OBJECT content FROM contents)
     {
       STRING sizestr := content->GetElementsBytagNameNS(ns_s320060301, "Size")->childrentext;
       RECORD objectrec := [ name := content->GetElementsBytagNameNS(ns_s320060301, "Key")->childrentext
@@ -178,6 +163,22 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
     FOREVERY (OBJECT commonprefixesnode FROM this->browser->document->ListElements(ns_s320060301, "CommonPrefixes"))
       FOREVERY(OBJECT prefix FROM commonprefixesnode->ListChildren(ns_s320060301, "Prefix"))
         INSERT prefix->textcontent INTO commonprefixes AT END;
+
+    STRING nextmarker;
+    IF (truncated)
+    {
+      /* https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_ResponseSyntax
+         When response is truncated (the IsTruncated element value in the response is true), you can use the key name
+         in this field as marker in the subsequent request to get next set of objects. Amazon S3 lists objects in
+         alphabetical order Note: This element is returned only if you have delimiter request parameter specified. If
+         response does not include the NextMarker and it is truncated, you can use the value of the last Key in the
+         response as the marker in the subsequent request to get the next set of object keys. */
+      OBJECT nextmarker_elt := this->browser->document->GetElementsByTagNameNS(ns_s320060301, "NextMarker")->Item(0);
+      IF (ObjectExists(nextmarker_elt))
+        nextmarker := nextmarker_elt->textcontent;
+      ELSE
+        nextmarker := objects[END-1].name;
+    }
 
     RETURN [ objects := objects
            , truncated := truncated
@@ -339,37 +340,45 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSS3Interface EXTEND AmazonAWSInterface
   {
     options := ValidateOptions([ notbefore := DEFAULT DATETIME
                                , printdownloads := FALSE
+                               , recursive := FALSE
                                ], options);
 
     CreateDiskDirectoryRecursive(destpath,TRUE);
 
-    RECORD ARRAY remotelogs := this->GetDirectory(bucket, path);
-    remotelogs := SELECT *, lastmodified := GetRoundedDatetime(lastmodified, 1000) FROM remotelogs;
+    RECORD ARRAY remotefiles := this->GetDirectory(bucket, path);
+    remotefiles := SELECT *, lastmodified := GetRoundedDatetime(lastmodified, 1000) FROM remotefiles;
 
-    RECORD ARRAY locallogs := ReadDiskDirectory(destpath, "*");
-    FOREVERY(RECORD aborteddownload FROM SELECT * FROM locallogs WHERE name LIKE "*.tmpdownload")
+    RECORD ARRAY localfiles := ReadDiskDirectory(destpath, "*");
+    FOREVERY(RECORD aborteddownload FROM SELECT * FROM localfiles WHERE name LIKE "*.tmpdownload")
       DeleteDiskFile(aborteddownload.path);
 
-    FOREVERY (RECORD remotelog FROM remotelogs)
+    FOREVERY (RECORD remotefile FROM remotefiles)
     {
-      IF(remotelog.lastmodified < options.notbefore)
+      STRING filename := GetNameFromPath(remotefile.name);
+      IF(remotefile.isfolder)
+      {
+        IF(options.recursive)
+          this->SyncToLocal(MergePath(destpath, filename), bucket, MergePath(path, filename), options);
+        CONTINUE;
+      }
+
+      IF(remotefile.lastmodified < options.notbefore)
         CONTINUE; //too old, not interested
 
-      STRING filename := GetNameFromPath(remotelog.name);
-      RECORD match := SELECT * FROM locallogs WHERE locallogs.name = VAR filename;
+      RECORD match := SELECT * FROM localfiles WHERE localfiles.name = VAR filename;
 
-      IF(RecordExists(match) AND match.size = remotelog.size AND match.modified >= remotelog.lastmodified) //our version is up to date
+      IF(RecordExists(match) AND match.size = remotefile.size AND match.modified >= remotefile.lastmodified) //our version is up to date
         CONTINUE;
 
       IF(options.printdownloads)
         PRINT(`Downloading ${RecordExists(match) ? "updated" : "new"} file '${filename}'... `);
 
-      RECORD logfile := this->GetObject(bucket, remotelog.name);
+      RECORD file := this->GetObject(bucket, remotefile.name);
       STRING finalname := MergePath(destpath, filename);
       STRING tempname := finalname || '.tmpdownload';
 
-      StoreDiskFile(tempname, logfile.body, [ overwrite := TRUE ]);
-      SetFileModificationDate(tempname, remotelog.lastmodified);
+      StoreDiskFile(tempname, file.body, [ overwrite := TRUE ]);
+      SetFileModificationDate(tempname, remotefile.lastmodified);
       IF(NOT MoveDiskPath(tempname, finalname))
         THROW NEW Exception(`Failed to move ${tempname} into place`);
 
