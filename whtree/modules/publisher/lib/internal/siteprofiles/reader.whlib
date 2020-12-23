@@ -1449,7 +1449,7 @@ STATIC OBJECTTYPE ApplyRuleTester
         RECORD prebuiltinfo := prebuilttype->GetInstanceData(this->objinfo.obj.id);
         RECORD prebuiltsettings := this->GetPrebuiltPageSettings(prebuiltinfo.prebuilttag);
         IF(NOT RecordExists(prebuiltsettings))
-          THROW NEW Exception(`Do not know how to render prebuilt file with tag '${prebuiltinfo.prebuilttag}'`);
+          THROW NEW Exception(`Do not know how to render prebuilt file #${this->objinfo.obj.id} with tag '${prebuiltinfo.prebuilttag}'`);
 
         webdesign.renderinfo := [ rendermacro := prebuiltsettings.dynexecute.startmacro
                                 , preparemacro := ""

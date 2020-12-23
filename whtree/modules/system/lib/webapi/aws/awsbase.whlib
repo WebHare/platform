@@ -26,36 +26,53 @@ STRING FUNCTION CalculateSigningKey(STRING accesssecret, STRING xamzdate, STRING
   RETURN signingkey;
 }
 
+PUBLIC STATIC OBJECTTYPE AmazonAWSException EXTEND Exception
+<
+  PUBLIC INTEGER statuscode;
+  PUBLIC STRING errorcode;
+  PUBLIC STRING errormessage;
 
-PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
+  MACRO NEW(INTEGER statuscode, STRING errorcode, STRING errormessage)
+  : Exception(statuscode || ": " || errorcode || " "|| errormessage)
+  {
+    this->statuscode := statuscode;
+    this->errorcode := errorcode;
+    this->errormessage := errormessage;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSConfig
 <
   OBJECT browser;
   STRING accesskey;
   STRING accesssecret;
-  STRING region;
 
-  PUBLIC PROPERTY debug(this->browser->debug,this->browser->debug);
+  PUBLIC PROPERTY debug(this->browser->debug, this->browser->debug);
+  PUBLIC PROPERTY __browser(this->browser,-);//needed for legacy awsinterface
 
-  MACRO NEW(STRING region, STRING accesskey, STRING accesssecret)
+  MACRO NEW(STRING accesskey, STRING accesssecret)
   {
     IF(accesskey = "")
       THROW NEW Exception("No AWS acccess key set");
     IF(accesssecret = "")
       THROW NEW Exception("No AWS acccess secret set");
 
-    this->region := region;
     this->accesskey := accesskey;
     this->accesssecret := accesssecret;
     this->browser := NEW WEBBrowser;
   }
 
-  PUBLIC RECORD FUNCTION PrepareAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  PUBLIC MACRO LogRPC(STRING target)
+  {
+    MakeFunctionPtr("mod::system/lib/cluster.whlib#LogRPCforWebbrowser")(target, "", this->browser);
+  }
+
+  PUBLIC RECORD FUNCTION BuildAWS4Request(STRING service, STRING region, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
   {
     options := ValidateOptions([ signedrequest := FALSE
                                , urlparameters := RECORD[]
                                , headers := RECORD[]
                                , body := DEFAULT BLOB
-                               , region := this->region
                                , accept404 := FALSE
                                , expires := 0 //expiry in seconds
                                , unsignedpayload := FALSE
@@ -63,10 +80,12 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
 
     IF(SearchSubstring(url,"?") != -1)
       THROW NEW Exception("Don't try to add query variables to the URL");
+    IF(region = "")
+      THROW NEW Exception("AWS4 requests require a region");
 
     STRING xamzdate := FormatDatetime("%Y%m%dT%H%M%SZ", GetCurrentDatetime());
     STRING bodyhash := options.unsignedpayload ? "UNSIGNED-PAYLOAD" : ToLowercase(EncodeBase16(GetHashForBlob(options.body, "SHA-256")));
-    STRING credential_scope := Left(xamzdate,8) || "/" || options.region || "/" || service || "/aws4_request";
+    STRING credential_scope := Left(xamzdate,8) || "/" || region || "/" || service || "/aws4_request";
     STRING credential := this->accesskey || "/" || credential_scope;
     STRING algorithm := "AWS4-HMAC-SHA256";
 
@@ -136,7 +155,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     IF(this->debug)
       PRINT(`StringToSign=[${stringtosign}]\n`);
 
-    STRING signingkey := CalculateSigningKey(this->accesssecret, xamzdate, options.region, service);
+    STRING signingkey := CalculateSigningKey(this->accesssecret, xamzdate, region, service);
     STRING signature := ToLowercase(EncodeBase16(GetHashForString(stringtosign, "HMAC:SHA-256", signingkey)));
 
     IF(options.signedrequest)
@@ -156,18 +175,125 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     RETURN CELL [ method, url, headers, options ];
   }
 
-  PUBLIC OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  PUBLIC RECORD FUNCTION RequestXML(STRING service, STRING region, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
   {
-    RECORD prep := this->PrepareAWS4Request(service, method, url, options);
+    RECORD prep := this->BuildAWS4Request(service, region, method, url, options);
     IF(NOT this->browser->SendRawRequest(prep.method, prep.url, prep.headers, prep.options.body))
     {
       IF(NOT (prep.options.accept404 AND this->browser->GetHTTPStatusCode()=404))
       {
-        this->ProcessAWSError();
+        this->__ProcessAWSError();
         THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
       }
+      RETURN DEFAULT RECORD;
     }
-    RETURN this->browser->document;
+    RETURN [ doc := this->browser->document
+           , etag := this->browser->GetResponseHeader("ETag")
+           ];
+  }
+
+  PUBLIC RECORD FUNCTION RequestJSON(STRING service, STRING region, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    BLOB body;
+
+    IF(CellExists(options,'rawbody'))
+      body := options.rawbody;
+    ELSE IF(CellExists(options,'body'))
+      IF(CellExists(options,'translations'))
+        body := EncodeJSONBLob(options.body, options.translations);
+      ELSE
+        body := EncodeJSONBLob(options.body);
+
+    RECORD prep := this->BuildAWS4Request(service, region, method, url, CELL[...options, body, DELETE translations, DELETE rawbody ]);
+    IF(NOT this->browser->SendRawRequest(prep.method, prep.url, prep.headers, body))
+    {
+      IF(NOT (prep.options.accept404 AND this->browser->GetHTTPStatusCode()=404))
+      {
+        this->__ProcessAWSError();
+        THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
+      }
+      RETURN DEFAULT RECORD;
+    }
+    RETURN DecodeJSONBlob(this->browser->content);
+  }
+
+  PUBLIC MACRO __ProcessAWSError()
+  {
+    IF(this->browser->getresponseheader("content-type") = "application/json")
+    {
+      RECORD error := EnforceStructure([ message := "" ], DecodeJSONBlob(this->browser->content));
+      IF(error.message != "")
+        THROW NEW AmazonAWSException(this->browser->GetHTTPStatusCode(), "", error.message);
+    }
+    ELSE IF(ObjectExists(this->browser->document))
+    {
+      OBJECT errorcodenode := this->browser->QS("Error > Code");
+      OBJECT errormessagenode := this->browser->QS("Error > Message");
+      IF(ObjectExists(errorcodenode) AND ObjectExists(errormessagenode))
+        THROW NEW AmazonAWSException(this->browser->GetHTTPStatusCode(), errorcodenode->textcontent, errormessagenode->textcontent);
+    }
+    THROW NEW Exception(`Request failure: ${this->browser->GetHTTPStatusText()}`);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSService
+<
+  OBJECT __config;
+  STRING __region;
+  STRING __service;
+
+  PUBLIC PROPERTY region(__region, -);
+  PUBLIC PROPERTY service(__service, -);
+  PUBLIC PROPERTY config(__config, -);
+  PUBLIC PROPERTY debug(this->__config->debug, this->__config->debug);
+
+  MACRO NEW(OBJECT config, STRING region, STRING service)
+  {
+    this->__config := config;
+    IF(region NOT LIKE "??-*-*")
+      THROW NEW Exception(`${region} does not look like a valid AWS region`);
+    this->__region := region;
+    this->__service := service;
+  }
+
+  PUBLIC RECORD FUNCTION BuildAWS4Request(STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    RETURN this->__config->BuildAWS4Request(this->__service, this->__region, url, options);
+  }
+
+  PUBLIC RECORD FUNCTION RequestXML(STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    RETURN this->__config->RequestXML(this->__service, this->__region, method, url, options);
+  }
+
+  PUBLIC RECORD FUNCTION RequestJSON(STRING service, STRING region, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    RETURN this->__config->RequestJSON(this->__service, this->__region, method, url, options);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSInterface EXTEND AmazonAWSService
+<
+  PROPERTY browser(this->__config->__browser,-);
+
+  MACRO NEW(STRING region, STRING accesskey, STRING accesssecret)
+  : AmazonAWSService(NEW AmazonAWSConfig(accesskey, accesssecret), region, "")
+  {
+  }
+
+  PUBLIC RECORD FUNCTION PrepareAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    STRING region := CellExists(options,"region") ? options.region : this->region;
+    DELETE CELL region FROM options;
+    RETURN this->config->BuildAWS4Request(service, region, method, url, options);
+  }
+
+  PUBLIC OBJECT FUNCTION RawAWS4Request(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )
+  {
+    STRING region := CellExists(options,"region") ? options.region : this->region;
+    DELETE CELL region FROM options;
+    RECORD result := this->config->RequestXML(service, region, method, url, options);
+    RETURN RecordExists(result) ? result.doc : DEFAULT OBJECT;
   }
 
   PUBLIC RECORD FUNCTION RawAWS4JSONRequest(STRING service, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -177,54 +303,12 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSInterface
     {
       IF(NOT (prep.options.accept404 AND this->browser->GetHTTPStatusCode()=404))
       {
-        this->ProcessAWSError();
+        this->config->__ProcessAWSError();
         THROW NEW Exception("Request failure and error not handled by ProcessAWSError");
       }
+      RETURN DEFAULT RECORD;
     }
     RETURN DecodeJSONBlob(this->browser->content);
-  }
-
-  MACRO ProcessAWSError()
-  {
-    //override this for service specific error handling. they should throw on error
-    THROW NEW Exception("Request failure");
-  }
-
-  STRING FUNCTION CreateV2Req(STRING method, STRING urltext, RECORD ARRAY vars)
-  {
-    RECORD url := UnpackURL(urltext);
-    //Signature version 2:http://docs.amazonwebservices.com/general/latest/gr/signature-version-2.html
-    STRING host := url.host;
-    IF( (url.scheme="http" AND url.port!=80) OR (url.scheme="https" AND url.port!=443))
-      host := host || ":" || url.port;
-
-    STRING signbase := ToUppercase(method) || "\n"
-                       || url.host || "\n"
-                       || "/" ||url.urlpath || "\n";
-    STRING req := "?";
-
-    vars := vars CONCAT [[ name := "SignatureMethod", value := "HmacSHA1" ]
-                        ,[ name := "AWSAccessKeyId", value := this->accesskey ]
-                        ,[ name := "SignatureVersion", value := "2" ]
-                        ,[ name := "Timestamp", value := FormatDatetime("%Y-%m-%dT%H:%M:%S", GetCurrentDatetime()) ]
-                        ];
-
-    FOREVERY(RECORD varrec FROM (SELECT * FROM vars ORDER BY name))
-    {
-      STRING querypart := (#varrec=0?"":"&") || EncodeURL3986(varrec.name) || "=" || EncodeURL3986(varrec.value);
-      signbase := signbase || querypart;
-      req := req || querypart;
-    }
-
-    STRING hash := GetHashForString(signbase, "HMAC:SHA-1", this->accesssecret);
-    RETURN req || "&Signature=" || ENcodeURL3986(EncodeBase64(hash));
-  }
-
-  PUBLIC OBJECT FUNCTION RawRequest(STRING url, RECORD ARRAY vars)
-  {
-    IF(NOT this->browser->GotoWebPage(url||this->CreateV2Req("GET", url, vars)))
-      THROW NEW Exception("Unable to navigate to the URL " || url);
-    RETURN this->browser->document;
   }
 >;
 
