@@ -23,12 +23,16 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 /** Looks up an object from a path relative to another object
     @param(object %WHFSFolder) relativeto Base object
     @param findpath Path to look up
-    @cell options.expect Either 'file', 'folder', 'any'
+    @cell(string) options.expect Either 'file', 'folder', 'any'
+    @cell(boolean) options.allowinitialslash Allow the path to start with a slash)
     @return @includecelldef #OpenWHFSObjectOrRoot.return
 */
 OBJECT FUNCTION DoPathLookup(OBJECT relativeto, STRING findpath, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ expect := "" ], options, [ enums := [ expect := ["file","folder","any","" ]]] );
+  options := ValidateOptions([ expect := ""
+                             , allowinitialslash := FALSE
+                             ], options, [ enums := [ expect := ["file","folder","any","" ]
+                                                    ]] );
 
   IF (NOT ObjectExists(relativeto))
   {
@@ -38,7 +42,7 @@ OBJECT FUNCTION DoPathLookup(OBJECT relativeto, STRING findpath, RECORD options 
       THROW NEW Exception("An absolute path is required");
   }
 
-  IF (ObjectExists(relativeto) AND findpath LIKE "/*")
+  IF (ObjectExists(relativeto) AND findpath LIKE "/*" AND NOT options.allowinitialslash)
     THROW NEW Exception("The OpenByPath function of WHFSFolder doesn't accept absolute paths.");
 
   STRING relto := ObjectExists(relativeto) ? ` (relative to ${relativeto->whfspath})` : '';

@@ -273,13 +273,7 @@ STATIC OBJECTTYPE SiteObject
   PUBLIC OBJECT FUNCTION OpenByPath(STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     OBJECT siteroot := OpenWHFSObject(this->siterec.root);
-    IF(path = "/")
-      RETURN siteroot;
-
-    IF(path LIKE "/?*") //strip initial slash, because root openbypath requires relative functions
-      path := Substring(path,1);
-
-    RETURN siteroot->OpenByPath(path, options);
+    RETURN siteroot->OpenByPath(path, CELL[ ...options, allowinitialslash := TRUE ]);
   }
 
   /** Updates the current webserver and relative url within that webserver where this site is hosted locally.
