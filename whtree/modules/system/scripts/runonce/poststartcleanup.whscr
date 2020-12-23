@@ -1,11 +1,15 @@
 <?wh
 // clean up the old /.system/dl/~ic (And ~ec, ~fc) caches
 // Update the timestamp in system/moduledefinition.xml for <runonce tag="poststartcleanup_..." to rerun this script after an update
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
-LOADLIB "wh::files.whlib";
+
 
 //4.29 or earlier: cleanup legacy image cache
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().ephemeralroot || "imgcache");
@@ -17,9 +21,14 @@ DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.ea"
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pb");
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "publisher.pd");
 
-//4.30: Legacy ephemeral data - now inside the docker
-DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/babelcache");
-DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/compilecache");
+IF(GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "")
+{
+  //4.30: Legacy ephemeral data - now inside the docker
+  DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/babelcache");
+  DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/compilecache");
+}
+
+//4.30 we've switched to system.uc2 some time ago, we can remove system.uc
 DeleteDiskDirectoryRecursive(GetWebHareConfiguration().varroot || "ephemeral/system.uc");
 
 OBJECT trans := OpenPrimary();
