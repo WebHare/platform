@@ -3,7 +3,7 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as dompack from "dompack";
 
-let setupdata;
+let setupdata, setup2data;
 
 test.registerTests(
   [ async function()
@@ -18,7 +18,7 @@ test.registerTests(
                                        , { onpeerserver:true
                                          });
       setupdata = await setup1;
-      await setup2;
+      setup2data = await setup2;
       await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=system:config&notifications=0"));
       await test.wait("ui");
 
@@ -63,7 +63,10 @@ test.registerTests(
              the second webhare has been configured with the feature webhare_testsuite:insecure_interface on its backend
              which disables some security and loads remotecontrol.js which will do the actual login for us when postMessage
              as there's no way to directly control the iframe of course */
-          overlay.querySelector("iframe").contentWindow.postMessage({dopeering:{}},"*");
+          overlay.querySelector("iframe").contentWindow.postMessage(
+             { dopeering: { overridetoken: new URL(setup2data.overridetoken,location.href).searchParams.get("overridetoken")
+                          }
+             },"*");
 
           await test.wait(100);
         }
@@ -77,6 +80,8 @@ test.registerTests(
 
       test.clickToddButton("Connect");
       await test.wait("ui");
+
+      await test.wait(300); //the test.focus below wasn't enough, for some reason focus doesn't get set. workaround that race..
 
       test.focus(test.compByName("modules")); //TODO should this really be necesassry?
       test.clickToddToolbarButton("Deploy module");
