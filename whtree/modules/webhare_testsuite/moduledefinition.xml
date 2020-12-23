@@ -322,7 +322,7 @@
 
   <consilio>
     <!-- modern syntax -->
-    <catalog tag="testsitecatalog" />
+    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" />
 
     <!-- legacy syntax -->
     <index tag="testindex">

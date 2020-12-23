@@ -2135,6 +2135,11 @@
     <!-- FIXME I'm not yet sure if we should explicitly add fields here (IndexField), if it should be wrapepd like <members> or if we should point to a fieldgroup -->
     <xs:attribute name="tag" type="Name" use="required" />
     <xs:attribute name="priority" type="xs:integer" />
+    <xs:attribute name="ongetsources">
+      <xs:annotation>
+        <xs:documentation>Callback returning the sourcelist for this catalog</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="Index">

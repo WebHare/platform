@@ -1,0 +1,9 @@
+<?wh
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION GetTestSiteCatalogSources()
+{
+  RETURN [[ fsobject := OpenTestsuiteSite()->OpenByPath("portal1")->id ]];
+}

@@ -31,11 +31,19 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
     INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
 
-    INSERT CELL[ tag
-               , priority
-               , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
-               , contentsources := RECORD[]
-               ] INTO wantcatalogs AT END;
+    RECORD catalog := CELL[ tag
+                          , priority
+                          , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+                          , contentsources := RECORD[]
+                          ];
+
+    STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
+    IF(ongetsources != "")
+      catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
+                                                  , fsobject := 0
+                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), INTEGER[])());
+
+    INSERT catalog INTO wantcatalogs AT END;
   }
 
   RECORD siteprofs := GetCachedSiteProfiles();
