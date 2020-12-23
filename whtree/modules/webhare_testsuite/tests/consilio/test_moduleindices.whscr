@@ -156,50 +156,129 @@ MACRO TestESBulkInsertion()
 
   // In Elasticsearch, all fields can contain arrays
   catalog->AddObjects(
-                    [[ objectid := "test1"
-                     , documentfields :=
-                        [ no :=
-                            [ [ such :=
-                                [ field :=
-                                    [ [ yet := 42 ]
-                                    , [ yet := 43 ]
-                                    ]
-                                ]
-                              ]
-                            , [ such :=
-                                [ field :=
-                                    [ yet := [ 41, 42 ] ]
-                                ]
-                              ]
-                            ]
-                        ]
-                    ]],[ suffix := "sub1", synchronous := TRUE ]);
+      [ [ objectid := "test1"
+        , documentfields :=
+          [ no :=
+              [ [ such :=
+                  [ field :=
+                      [ [ yet := 41 ]
+                      , [ yet := 45 ]
+                      ]
+                  ]
+                ]
+              , [ such :=
+                  [ field :=
+                      [ yet := [ 42, 43, 44 ] ]
+                  ]
+                ]
+              ]
+          ]
+        ]
+      ], [ suffix := "sub1", synchronous := TRUE ]);
   // Test record array mapping
   res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(1, res.totalcount);
-  TestEq([ no :=
-             [ [ such :=
-                 [ field :=
-                       // Single 'yet' values got converted to arrays as per requested mapping
-                     [ [ yet := [ 42 ] ]
-                     , [ yet := [ 43 ] ]
-                     ]
-                 ]
-               ]
-             , [ such :=
-                   // Single 'field' value got converted to array as per requested mapping
-                 [ field :=
-                     [ [ yet := [ 41, 42 ] ] ]
-                 ]
-               ]
-             ]
-         ], res.results[0]);
+  TestEq(
+      [ no :=
+          [ [ such :=
+              [ field :=
+                    // Single 'yet' values got converted to arrays as per requested mapping
+                  [ [ yet := [ 41 ] ]
+                  , [ yet := [ 45 ] ]
+                  ]
+              ]
+            ]
+          , [ such :=
+                // Single 'field' value got converted to array as per requested mapping
+              [ field :=
+                  [ [ yet := [ 42, 43, 44 ] ] ]
+              ]
+            ]
+          ]
+      ], res.results[0]);
+
+  // Add more objects
+  catalog->AddObjects(
+      [ [ objectid := "test2"
+        , documentfields := [ no := [ such := [ field := [ yet := [ 2, 42, 55 ] ] ] ] ]
+        ]
+      , [ objectid := "test3"
+        , documentfields := [ no := [ such := [ field := [ yet := [ 100 ] ] ] ] ]
+        ]
+      ],[ suffix := "sub1", synchronous := TRUE ]);
+  // Sort results by 'no.such.field.yet' ascending, checks for minimum 'yet' value
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      , orderby := "no.such.field.yet"
+      ]);
+  TestEq(
+        // min(no.such.field.yet) = 2
+      [ [ no :=
+            [ [ such := [ field := [ [ yet := [ 2, 42, 55 ] ] ] ] ] ]
+        ]
+        // min(no.such.field.yet) = 41
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 41 ] ], [ yet := [ 45 ] ] ] ] ]
+            , [ such := [ field := [ [ yet := [ 42, 43, 44 ] ] ] ] ]
+            ]
+        ]
+        // min(no.such.field.yet) = 100
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 100 ] ] ] ] ] ]
+        ]
+      ], res.results);
+  // Sort results by 'no.such.field.yet' descending, checks for maximum 'yet' value
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      , orderby := "no.such.field.yet"
+      , orderdesc := TRUE
+      ]);
+  TestEq(
+        // max(no.such.field.yet) = 100
+      [ [ no :=
+            [ [ such := [ field := [ [ yet := [ 100 ] ] ] ] ] ]
+        ]
+        // max(no.such.field.yet) = 55
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 2, 42, 55 ] ] ] ] ] ]
+        ]
+        // max(no.such.field.yet) = 45
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 41 ] ], [ yet := [ 45 ] ] ] ] ]
+            , [ such := [ field := [ [ yet := [ 42, 43, 44 ] ] ] ] ]
+            ]
+        ]
+      ], res.results);
+  // Sort results by 'no.such.field.yet' descending using the average 'yet' value
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      , ordering := [ [ orderby := "no.such.field.yet", ordermode := "avg" ] ]
+      ]);
+  TestEq(
+        // avg(no.such.field.yet) = 33
+      [ [ no :=
+            [ [ such := [ field := [ [ yet := [ 2, 42, 55 ] ] ] ] ] ]
+        ]
+        // avg(no.such.field.yet) = 43
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 41 ] ], [ yet := [ 45 ] ] ] ] ]
+            , [ such := [ field := [ [ yet := [ 42, 43, 44 ] ] ] ] ]
+            ]
+        ]
+        // avg(no.such.field.yet) = 100
+      , [ no :=
+            [ [ such := [ field := [ [ yet := [ 100 ] ] ] ] ] ]
+        ]
+      ], res.results);
 
   // Delete the object
-  catalog->DeleteObjects([ "test1" ], [ suffix := "sub1", synchronous := TRUE ]);
+  catalog->DeleteObjects([ "test1", "test2", "test3" ], [ suffix := "sub1", synchronous := TRUE ]);
   res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
