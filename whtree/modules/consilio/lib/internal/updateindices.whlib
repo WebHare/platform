@@ -11,6 +11,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
@@ -49,9 +50,19 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     }
 
     INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
-    FOREVERY(INTEGER site FROM addtocatalog.siteids)
+    FOREVERY(INTEGER siteid FROM addtocatalog.siteids)
     {
-      INSERT CELL[ ...addtocatalog, fsobject := site ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+      OBJECT site := OpenSite(siteid);
+      IF(NOT ObjectExists(site))
+        CONTINUE; //race, just deleted ?
+
+      OBJECT target := site->OpenByPath(addtocatalog.folder, [ allowinitialslash := TRUE ]);
+      IF(NOT ObjectExists(target) OR NOT target->isfolder)
+      {
+        PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting folder '${addtocatalog.folder}' in site '${site->name}'\n`);
+        CONTINUE;
+      }
+      INSERT CELL[ ...addtocatalog, fsobject := target->id ] INTO wantcatalogs[matchcatalog].contentsources AT END;
     }
   }
 

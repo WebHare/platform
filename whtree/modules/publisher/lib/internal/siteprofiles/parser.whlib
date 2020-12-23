@@ -1408,6 +1408,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                            , siteprofile := this->siteprof->name
                            , line := addtocatalog->linenum
                            , col := 0
+                           , folder := addtocatalog->GetAttribute("folder") ?? "/"
                            ];
 
         INSERT theindex INTO sitesetting.addtocatalogs AT END;
