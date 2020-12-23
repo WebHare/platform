@@ -2176,7 +2176,7 @@ PUBLIC MACRO RescanWHFSConsilioLinks()
     @public
     @loadlib mod::system/lib/whfs.whlib
 */
-PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER fssettingid)
+PUBLIC RECORD FUNCTION GetWHFSInstanceDirect(INTEGER64 fssettingid)
 {
   RECORD settingrec := SELECT * FROM system.fs_settings WHERE id = VAR fssettingid;
   IF(NOT RecordExists(settingrec))
