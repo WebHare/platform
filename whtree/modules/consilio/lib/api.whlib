@@ -599,7 +599,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       ordering := CELL[ ...ordering, options.orderdesc ];
     query := CELL[ ...query, ordering := [ ordering ] ];
   }
-  IF (RecordExists(query.ordering))
+  IF (CellExists(query, "ordering") AND RecordExists(query.ordering))
   {
     // If orderinging on scorefield, ordering on "_score", otherwise if not already orderinging on "_score", add it for consistency
     INTEGER scoreordering :=
