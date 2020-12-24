@@ -23,6 +23,52 @@ STRING ARRAY args := GetConsoleArguments() ?? ["help"];
 STRING cmd := args[0];
 STRING ARRAY parts := ArraySlice(args,1);
 
+MACRO RunGetOverride(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "duration", type := "stringopt"  ]
+      , [ name := "reason", type := "param" ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh cli getoverride [--duration <minutes>] <reason>\n");
+    TerminateScriptWithError("");
+  }
+
+  INTEGER duration;
+  IF(subargs.duration != "")
+  {
+    duration := ToInteger(parts[0], 0);
+    IF(duration <= 0 OR duration > 60*24)
+    {
+      Print("Illegal duration\n");
+      RETURN;
+    }
+    duration := duration * 60*1000;
+  }
+  ELSE
+  {
+    duration := ReadRegistryKey("system.backend.security.override.duration");
+  }
+  IF(subargs.reason = "")
+    TerminateScriptWithError("`wh cli getoverride` requires you to specify a reason (which will be specified in the audit log)");
+
+  LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
+                                  , duration
+                                  , subargs.reason
+                                  ]);
+
+  STRING suburl := GetOverrideTokenURL(duration);
+  STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
+
+  Print(`
+A new override token has been generated, it will be valid for ${duration / 60000} minutes
+Login on: ${url}
+or append this token to your current WebHare URL: ${suburl}
+`);
+}
+
 SWITCH(ToUppercase(args[0]))
 {
   CASE "__BROADCASTEVENT"
@@ -34,33 +80,7 @@ SWITCH(ToUppercase(args[0]))
   }
   CASE "GETOVERRIDE"
   {
-    IF(Length(parts) NOT IN [ 0, 1 ])
-      ABORT("Expected parameters: [ <duration> ]");
-
-    INTEGER duration;
-    IF(LENGTH(parts) = 1)
-    {
-      duration := ToInteger(parts[0], 0);
-      IF(duration <= 0 OR duration > 60*24)
-      {
-        Print("Illegal duration\n");
-        RETURN;
-      }
-      duration := duration * 60*1000;
-    }
-    IF(duration=0)
-      duration := ReadRegistryKey("system.backend.security.override.duration");
-
-    LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
-                                    , duration
-                                    ]);
-
-    STRING suburl := GetOverrideTokenURL(duration);
-    STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
-
-    Print("\nA new override token has been generated, it will be valid for " || duration / 60000 || " minutes\n");
-    Print("You can login using the URL " || suburl || "\n");
-    Print("Usually: " || url || "\n\nIf the override URL does not work, please verify that cookies are enabled!\n\n");
+    RunGetOverride(parts);
   }
   CASE "WAITSTATE"
   {
