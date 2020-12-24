@@ -318,7 +318,7 @@ MACRO TestESBulkInsertion()
       [ [ objectid := "test1"
         , documentfields :=
             [ unspecified_record :=
-                [ "datetime" := MakeDateTime(2000, 1, 2, 12, 34, 56)
+                [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
                 , "integer" := 1234
                 , "integer64" := 1024i64 * 1024 * 1024 * 1024
                 , "money" := 1234.56
@@ -344,7 +344,7 @@ MACRO TestESBulkInsertion()
   TestEq(1, res.totalcount);
   TestEQ(
       [ unspecified_record :=
-          [ "datetime" := MakeDateTime(2000, 1, 2, 12, 34, 56)
+          [ "datetime" := AddTimeToDate(789, MakeDateTime(2000, 1, 2, 12, 34, 56))
           , "integer" := 1234
           , "integer64" := 1024i64 * 1024 * 1024 * 1024
           , "money" := 1234.56
