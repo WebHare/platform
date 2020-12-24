@@ -18,179 +18,164 @@ LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 
 
-STRING cmd;
-
 OBJECT trans := OpenPrimary();
+STRING ARRAY args := GetConsoleArguments() ?? ["help"];
+STRING cmd := args[0];
+STRING ARRAY parts := ArraySlice(args,1);
 
-MACRO ExecuteCommand(STRING todo)
+SWITCH(ToUppercase(args[0]))
 {
-  cmd := Tokenize(todo,' ')[0];
-  STRING params := TrimWhitespace(Substring(todo,Length(cmd)+1));
-
-  SWITCH(ToUppercase(cmd))
+  CASE "__BROADCASTEVENT"
   {
-    CASE "__BROADCASTEVENT"
-    {
-      STRING ARRAY parts := Tokenize(params,' ');
-      IF(Length(parts)!=2)
-        ABORT("Expected two parameters: event and data");
-      VARIANT data := DecodeHSON(parts[1]);
-      BroadcastEvent(parts[0], data);
-    }
-    CASE "GETOVERRIDE"
-    {
-      STRING ARRAY parts := params = "" ? STRING[] : Tokenize(params,' ');
-      IF(Length(parts) NOT IN [ 0, 1 ])
-        ABORT("Expected parameters: [ <duration> ]");
+    IF(Length(parts)!=2)
+      ABORT("Expected two parameters: event and data");
+    VARIANT data := DecodeHSON(parts[1]);
+    BroadcastEvent(parts[0], data);
+  }
+  CASE "GETOVERRIDE"
+  {
+    IF(Length(parts) NOT IN [ 0, 1 ])
+      ABORT("Expected parameters: [ <duration> ]");
 
-      INTEGER duration;
-      IF(LENGTH(parts) = 1)
+    INTEGER duration;
+    IF(LENGTH(parts) = 1)
+    {
+      duration := ToInteger(parts[0], 0);
+      IF(duration <= 0 OR duration > 60*24)
       {
-        duration := ToInteger(parts[0], 0);
-        IF(duration <= 0 OR duration > 60*24)
-        {
-          Print("Illegal duration\n");
-          RETURN;
-        }
-        duration := duration * 60*1000;
+        Print("Illegal duration\n");
+        RETURN;
       }
-      IF(duration=0)
-        duration := ReadRegistryKey("system.backend.security.override.duration");
-
-      LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
-                                      , duration
-                                      ]);
-
-      STRING suburl := GetOverrideTokenURL(duration);
-      STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
-
-      Print("\nA new override token has been generated, it will be valid for " || duration / 60000 || " minutes\n");
-      Print("You can login using the URL " || suburl || "\n");
-      Print("Usually: " || url || "\n\nIf the override URL does not work, please verify that cookies are enabled!\n\n");
+      duration := duration * 60*1000;
     }
-    CASE "WAITSTATE"
+    IF(duration=0)
+      duration := ReadRegistryKey("system.backend.security.override.duration");
+
+    LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
+                                    , duration
+                                    ]);
+
+    STRING suburl := GetOverrideTokenURL(duration);
+    STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
+
+    Print("\nA new override token has been generated, it will be valid for " || duration / 60000 || " minutes\n");
+    Print("You can login using the URL " || suburl || "\n");
+    Print("Usually: " || url || "\n\nIf the override URL does not work, please verify that cookies are enabled!\n\n");
+  }
+  CASE "WAITSTATE"
+  {
+    Print("waiting to reach state '" || parts[0] || "'...");
+    WaitForPromise(CreateWHServiceStatePromise(parts[0]));
+    Print("ok!\n");
+  }
+  CASE "UPDATEBACKEND"
+  {
+    trans->BeginWork();
+    UpdateSystemBackendSite();
+    trans->CommitWork();
+  }
+  CASE "SETGUID"
+  {
+    STRING guid := parts[0];
+    STRING username := parts[1];
+
+    IF(guid="" OR username="")
     {
-      Print("waiting to reach state '" || params || "'...");
-      WaitForPromise(CreateWHServiceStatePromise(params));
-      Print("ok!\n");
+      Print("Syntax: SETGUID <guid> <username>\n");
+      Print("eg: SETGUID wrd:4598A3061B603818133FF3782130B4F7 sysop\n");
     }
-    CASE "UPDATEBACKEND"
+    ELSE
     {
       trans->BeginWork();
-      UpdateSystemBackendSite();
-      trans->CommitWork();
-    }
-    CASE "SETGUID"
-    {
-      STRING guid := Tokenize(params,' ')[0];
-      STRING username := TrimWhitespace(Substring(params, Length(guid)));
-
-      IF(guid="" OR username="")
+      RECORD ARRAY matches := SELECT * FROM system.authobjects WHERE ToUppercase(name)=ToUppercase(VAR username) AND type=1;
+      IF(Length(matches)=0)
       {
-        Print("Syntax: SETGUID <guid> <username>\n");
-        Print("eg: SETGUID wrd:4598A3061B603818133FF3782130B4F7 sysop\n");
+        Print("Cannot find user '" || username || "'\n");
       }
+      ELSE IF(Length(matches)>1)
+      {
+        DumpVAlue(matches,'boxed');
+        Print("Too many matches\n");
+      }
+
       ELSE
       {
-        trans->BeginWork();
-        RECORD ARRAY matches := SELECT * FROM system.authobjects WHERE ToUppercase(name)=ToUppercase(VAR username) AND type=1;
-        IF(Length(matches)=0)
-        {
-          Print("Cannot find user '" || username || "'\n");
-        }
-        ELSE IF(Length(matches)>1)
-        {
-          DumpVAlue(matches,'boxed');
-          Print("Too many matches\n");
-        }
-
-        ELSE
-        {
-          UPDATE system.authobjects SET guid := VAR guid WHERE id = matches[0].id;
-          Print("Done\n\n");
-        }
-        trans->CommitWork();
+        UPDATE system.authobjects SET guid := VAR guid WHERE id = matches[0].id;
+        Print("Done\n\n");
       }
-    }
-    CASE "LISTPROXIES"
-    {
-      DumpValue(ListWebHareProxies(),'boxed');
-    }
-    CASE "GETPROXIES"
-    {
-      Print(EncodeJSON(GetWebhareProxies()) || "\n");
-    }
-    CASE "SETPROXIES"
-    {
-      RECORD data := DecodeJSON(params);
-      IF(NOT RecordExists(data))
-      {
-        Print("Syntax: SETPROXIES <jsondata>\n");
-        Print("  The jsondata must be of the form { proxies: [ {url: , password:, callback: } ] } ");
-        RETURN;
-      }
-      trans->BeginWork();
-      SetWebhareProxies(data);
       trans->CommitWork();
-    }
-    CASE "ADDPROXY"
-    {
-      STRING ARRAY parts := Tokenize(params,' ');
-      IF(Length(parts)!=3)
-      {
-        Print("Syntax: ADDPROXY <proxyurl> <proxypasswrd> <callbackurl>\n");
-        RETURN;
-      }
-
-      RECORD res := TestWebHareProxy(parts[0], parts[1], parts[2]);
-      IF(NOT res.success)
-      {
-        Print(res.errormessage || "\n");
-        RETURN;
-      }
-      trans->BeginWork();
-      SetWebhareProxy(0, [ url := parts[0], password := parts[1], reverseaddress := parts[2] ]);
-      trans->CommitWork();
-    }
-    CASE "DELETEPROXY"
-    {
-      STRING ARRAY parts := Tokenize(params,' ');
-      IF(Length(parts)!=1)
-      {
-        Print("Syntax: DELETEPROXY <proxyid>\n");
-        RETURN;
-      }
-      INTEGER proxyid := ToInteger(parts[0],0);
-      IF(NOT UnregisterWebhareProxy(proxyid))
-        PRINT("WARNING! Deregistration at proxyserver failed\n");
-      trans->BeginWork();
-      DeleteWebhareProxy(proxyid);
-      trans->CommitWork();
-    }
-    CASE "SETSYSTEMTYPE"
-    {
-      SetSystemServerType(params);
-    }
-    DEFAULT
-    {
-      Print("Unknown command '" || cmd || "'\n");
     }
   }
-}
+  CASE "LISTPROXIES"
+  {
+    DumpValue(ListWebHareProxies(),'boxed');
+  }
+  CASE "GETPROXIES"
+  {
+    Print(EncodeJSON(GetWebhareProxies()) || "\n");
+  }
+  CASE "SETPROXIES"
+  {
+    RECORD data := DecodeJSON(parts[0]);
+    IF(NOT RecordExists(data))
+    {
+      Print("Syntax: SETPROXIES <jsondata>\n");
+      Print("  The jsondata must be of the form { proxies: [ {url: , password:, callback: } ] } ");
+      RETURN;
+    }
+    trans->BeginWork();
+    SetWebhareProxies(data);
+    trans->CommitWork();
+  }
+  CASE "ADDPROXY"
+  {
+    IF(Length(parts)!=3)
+    {
+      Print("Syntax: ADDPROXY <proxyurl> <proxypasswrd> <callbackurl>\n");
+      RETURN;
+    }
 
-STRING ARRAY args := GetConsoleArguments();
-IF(Length(args)>=1)
-{
-  ExecuteCommand(Detokenize(args,' '));
-  RETURN;
-}
-
-//TODO document proxy commands, but they may actually belong in `wh webserver` ?
-PrintTo(2,`Syntax: wh cli <command>
+    RECORD res := TestWebHareProxy(parts[0], parts[1], parts[2]);
+    IF(NOT res.success)
+    {
+      Print(res.errormessage || "\n");
+      RETURN;
+    }
+    trans->BeginWork();
+    SetWebhareProxy(0, [ url := parts[0], password := parts[1], reverseaddress := parts[2] ]);
+    trans->CommitWork();
+  }
+  CASE "DELETEPROXY"
+  {
+    IF(Length(parts)!=1)
+    {
+      Print("Syntax: DELETEPROXY <proxyid>\n");
+      RETURN;
+    }
+    INTEGER proxyid := ToInteger(parts[0],0);
+    IF(NOT UnregisterWebhareProxy(proxyid))
+      PRINT("WARNING! Deregistration at proxyserver failed\n");
+    trans->BeginWork();
+    DeleteWebhareProxy(proxyid);
+    trans->CommitWork();
+  }
+  CASE "SETSYSTEMTYPE"
+  {
+    SetSystemServerType(parts[0]);
+  }
+  CASE "HELP"
+  {
+    //TODO document proxy commands, but they may actually belong in `wh webserver` ?
+    PrintTo(2,`Syntax: wh cli <command>
 Where command is one of:
 - getoverride   - Create a 'override' token, granting sysop-level access
 - updatebackend - Update the 'WebHare Backend' interface website
 - setsystemtype - Set the system type (production, acceptance, test or development)
 - waitstate     - Wait for the startup to reach a specified state
 `);
-SetConsoleExitCode(1);
+  }
+  DEFAULT
+  {
+    TerminateScriptWithError(`Unknown command '${cmd}'`);
+  }
+}
