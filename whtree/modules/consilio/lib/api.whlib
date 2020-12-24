@@ -64,10 +64,13 @@ PUBLISHER SEARCH FIELDS
     @param field The field to search
     @param matchtype How to match (possible values: 'IN', 'CONTAINS', '<', '<=', '=', '>=', '>')
     @param value The value to match
+    @param options @private
     @return The match query
 */
-PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value)
+PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ datetimesupport := FALSE ], options);
+
   IF (field = "")
     THROW NEW Exception("Query field is required for match query");
 
@@ -105,14 +108,17 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value)
     IF (matchtype NOT IN [ "<", "<=", "=", ">=", ">" ])
       THROW NEW Exception(`Invalid match type '${matchtype}' for DATETIME match query`);
 
-    // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
-    IF (field LIKE "*.*@*")
+    IF (NOT options.datetimesupport)
     {
-      INTEGER dot := SearchSubstring(field, ".") + 1;
-      field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+      // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
+      IF (field LIKE "*.*@*")
+      {
+        INTEGER dot := SearchSubstring(field, ".") + 1;
+        field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+      }
+      ELSE
+        field := `date_${field}`;
     }
-    ELSE
-      field := `date_${field}`;
 
     RETURN
         CELL[ _type := "date"
@@ -170,17 +176,20 @@ PUBLIC RECORD FUNCTION CQMatch(STRING field, STRING matchtype, VARIANT value)
     @param includelower Whether to include exact matches of the lower range value
     @param upperterm Upper range value
     @param includeupper Whether to include exact matches of the upper range value
+    @param options @private
     @return Consilio query record
 */
-PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper)
+PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includelower, VARIANT upperterm, BOOLEAN includeupper, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ datetimesupport := FALSE ], options);
+
   IF (field = "")
     THROW NEW Exception("Query field is required for range query");
 
   IF (TypeID(lowerterm) != TypeID(upperterm))
     THROW NEW Exception(`Range query lower term type '${GetTypeName(TypeID(lowerterm))}' not equal to upper term type '${GetTypeName(TypeID(upperterm))}'`);
 
-  STRING lowersearchterm, uppersearchterm;
+  VARIANT lowersearchterm, uppersearchterm;
   IF (TypeID(lowerterm) = TypeID(INTEGER))
   {
     lowersearchterm := ToString(lowerterm);
@@ -193,14 +202,24 @@ PUBLIC RECORD FUNCTION CQRange(STRING field, VARIANT lowerterm, BOOLEAN includel
   }
   ELSE IF (TypeID(lowerterm) = TypeID(DATETIME))
   {
-    // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
-    IF (field LIKE "*.*@*")
+    IF (NOT options.datetimesupport)
     {
-      INTEGER dot := SearchSubstring(field, ".") + 1;
-      field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+      // Rewrite field name: 'field' to 'date_field', 'array.field@module' to 'array.date_field@module'
+      IF (field LIKE "*.*@*")
+      {
+        INTEGER dot := SearchSubstring(field, ".") + 1;
+        field := `${Left(field, dot)}date_${Substring(field, dot)}`;
+      }
+      ELSE
+        field := `date_${field}`;
+      lowersearchterm := FormatISO8601DateTime(lowerterm);
+      uppersearchterm := FormatISO8601DateTime(upperterm);
     }
     ELSE
-      field := `date_${field}`;
+    {
+      lowersearchterm := lowerterm;
+      uppersearchterm := upperterm;
+    }
   }
   ELSE
     THROW NEW Exception(`Invalid term type '${GetTypeName(TypeID(lowerterm))}' for range query`);
@@ -599,7 +618,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       ordering := CELL[ ...ordering, options.orderdesc ];
     query := CELL[ ...query, ordering := [ ordering ] ];
   }
-  IF (RecordExists(options.ordering))
+  IF (CellExists(query, "ordering") AND RecordExists(query.ordering))
   {
     // If orderinging on scorefield, ordering on "_score", otherwise if not already orderinging on "_score", add it for consistency
     INTEGER scoreordering :=
