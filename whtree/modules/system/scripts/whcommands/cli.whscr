@@ -1,139 +1,27 @@
 ﻿<?wh
+// command: cli [command]
+// short: Performs miscellaneous configuration/recovery actions
+
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
-
-LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
-LOADLIB "mod::system/lib/internal/restart_reset.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 
-LOADLIB "mod::tollium/lib/gettid.whlib";
 
-
-// command: cli [command]
-// short: Start the WebHare CLI/recovery script
-
-SetTidLanguage("en");
-OBJECT trans;
 STRING cmd;
 
-trans := OpenPrimary();
-IF(NOT ObjectExists(Trans))
-  ABORT("Unable to connect to the WebHare database");
+OBJECT trans := OpenPrimary();
 
-MACRO CommitWork()
-{
-  trans->CommitWork();
-  PRINT("Changes succesfully applied\n");
-  ReloadWebhareConfig(TRUE, FALSE);
-}
-
-MACRO FormatConfigKeyLines(RECORD ARRAY lines)
-{
-  INTEGER maxkeylen := SELECT AS INTEGER Max(Length(configkey)) FROM lines;
-
-  Print(Left("Authentication key                                                   ", maxkeylen)
-        || "  "
-        || Left("Data                                                   ", 40)
-        || "\n");
-
-  Print(Left("---------------------------------------------------------------------", maxkeylen)
-        || "  "
-        || Left("---------------------------------------------------------------------", 40)
-        || "  ------\n");
-
-  FOREVERY(RECORD line FROM lines)
-  {
-    Print(Left(line.configkey || "                                                   ", maxkeylen)
-          || "  "
-          || Left(line.data || "                                                   ", 40)
-          || "  "
-          || "\n");
-  }
-}
-
-MACRO DoAddInterface(STRING params, BOOLEAN ipv6, BOOLEAN virtual)
-{
-  //FIXME audit log
-  IF(params = "")
-  {
-    PRINT (virtual ? "URL:" : "Port number:");
-    params := ReadConsoleInput();
-  }
-
-  INTEGER portnum;
-  STRING useip := ipv6 ? "::" : "";
-
-  IF(virtual)
-  {
-    RECORD unpacked := UnpackURL(params);
-    IF(unpacked.scheme NOT IN ["http","https"])
-    {
-      PRINT("That is not a valid http(s) URL\n");
-      RETURN;
-    }
-    unpacked.urlpath:="";
-    params := RepackURL(unpacked);
-  }
-  ELSE
-  {
-    portnum := Tointeger(params,-1);
-
-    IF (portnum<=0 OR portnum >65535)
-    {
-      PRINT("That is not a valid port number\n");
-      RETURN;
-    }
-    IF (RecordExists(SELECT FROM system.ports WHERE COLUMN port = VAR portnum AND ip = useip))
-    {
-      PRINT("That port number is already in use\n");
-      RETURN;
-    }
-  }
-
-  trans->BeginWork();
-
-  INTEGER webserver_port_id;
-
-  STRING newurl := virtual ? params : 'http://' || (ipv6?"[::1]":"127.0.0.1") || ':' || portnum || '/';
-  BOOLEAN have_interface := RecordExists(SELECT FROM system.webservers WHERE type = 1);
-
-  IF(NOT virtual)
-  {
-    webserver_port_id := MakeAutoNumber(system.ports,"id");
-    INSERT INTO system.ports(id, ip, port, virtualhost)
-           VALUES(webserver_port_id, useip, portnum, FALSE);
-  }
-
-  INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
-  INSERT INTO system.webservers(id, port,type,baseurl,outputextension)
-         VALUES (webserverid, webserver_port_id,1,newurl,'.html');
-
-  IF (NOT have_interface OR (SELECT AS INTEGER outputweb FROM system.sites WHERE id = whconstant_whfsid_webharebackend) = 0)
-  {
-    OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
-    backendsite->SetPrimaryOutput(webserverid, "/");
-  }
-
-  CommitWork();
-
-  //FIXME just force a quick config reload on the server, and/or nginx update
-  Print("Port added, sending soft reset\n"); // ADDME limit to server/nginx reload
-  RunSoftReset(FALSE);
-}
 MACRO ExecuteCommand(STRING todo)
 {
   cmd := Tokenize(todo,' ')[0];
@@ -141,18 +29,6 @@ MACRO ExecuteCommand(STRING todo)
 
   SWITCH(ToUppercase(cmd))
   {
-    CASE "ADDINTERFACE"
-    {
-      DoAddInterface(params, FALSE, FALSE);
-    }
-    CASE "ADDINTERFACE6"
-    {
-      DoAddInterface(params, TRUE, FALSE);
-    }
-    CASE "ADDVINTERFACE"
-    {
-      DoAddInterface(params, TRUE, TRUE);
-    }
     CASE "__BROADCASTEVENT"
     {
       STRING ARRAY parts := Tokenize(params,' ');
@@ -160,10 +36,6 @@ MACRO ExecuteCommand(STRING todo)
         ABORT("Expected two parameters: event and data");
       VARIANT data := DecodeHSON(parts[1]);
       BroadcastEvent(parts[0], data);
-    }
-    CASE "GETKEY"
-    {
-      Print("The recover & cli scripts are being deprecated. Please use 'wh registry get <keyname>'\n");
     }
     CASE "GETOVERRIDE"
     {
@@ -195,35 +67,6 @@ MACRO ExecuteCommand(STRING todo)
       Print("\nA new override token has been generated, it will be valid for " || duration / 60000 || " minutes\n");
       Print("You can login using the URL " || suburl || "\n");
       Print("Usually: " || url || "\n\nIf the override URL does not work, please verify that cookies are enabled!\n\n");
-    }
-    CASE "CERTBOT"
-    {
-      Print("The recover & cli scripts are being deprecated. Please use 'wh ssl <keyname> <keyvalue>'");
-    }
-    CASE "INSTALLCERT"
-    {
-      STRING ARRAY parts := Tokenize(params,' ');
-      IF(Length(parts)!=2)
-        ABORT("Expected two parameters: key and certfile");
-
-      OBJECT keypair := OpenKeyPairByName(parts[0]);
-      IF(NOT ObjectExists(keypair))
-        ABORT("No such keypair: " || parts[0]);
-
-      RECORD res := keypair->TestCertificate(GetDiskResource(parts[1]));
-      IF(NOT res.success)
-      {
-        Print(res.message||'\n');
-        RETURN;
-      }
-
-      GetPrimary()->BeginWork();
-      keypair->UpdateMetadata([ certificatechain := res.finalkey ]);
-      GetPrimary()->CommitWork();
-
-      //FIXME just force a quick config reload on the server, and/or nginx update
-      Print("Sending soft reset (ADDME limit to server/nginx reload)\n");
-      RunSoftReset(FALSE);
     }
     CASE "WAITSTATE"
     {
@@ -324,23 +167,12 @@ MACRO ExecuteCommand(STRING todo)
       DeleteWebhareProxy(proxyid);
       trans->CommitWork();
     }
-    CASE "SETKEY"
-    {
-      Print("The recover & cli scripts are being deprecated. Please use 'wh registry set <keyname> <keyvalue>'\n");
-    }
     CASE "SETSYSTEMTYPE"
     {
       SetSystemServerType(params);
     }
-    CASE "QUIT"
-    {
-      TerminateScript();
-    }
     DEFAULT
     {
-      IF(IsConsoleClosed())
-        TerminateScript();
-
       Print("Unknown command '" || cmd || "'\n");
     }
   }
@@ -353,17 +185,12 @@ IF(Length(args)>=1)
   RETURN;
 }
 
-WHILE (TRUE)
-{?>WebHare recovery script.
-ADDINTERFACE  - Add a new interface webserver on a IPv4 port
-ADDINTERFACE6 - Add a new interface webserver on a IPv6 port
-ADDVINTERFACE - Add a new virtual interface webserver
-GETOVERRIDE   - Create a 'override' token, granting sysop-level access
-INSTALLCERT   - Install a certificate. Expects <keyname> and <certfile>
-UPDATEBACKEND - Update the 'WebHare Backend' interface website
-SETSYSTEMTYPE - Set the system type
-QUIT          - Quit the recovery script
-<?wh
-  STRING todo := ReadconsoleInput();
-  ExecuteCommand(todo);
-}
+//TODO document proxy commands, but they may actually belong in `wh webserver` ?
+PrintTo(2,`Syntax: wh cli <command>
+Where command is one of:
+- getoverride   - Create a 'override' token, granting sysop-level access
+- updatebackend - Update the 'WebHare Backend' interface website
+- setsystemtype - Set the system type (production, acceptance, test or development)
+- waitstate     - Wait for the startup to reach a specified state
+`);
+SetConsoleExitCode(1);
