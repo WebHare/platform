@@ -1462,7 +1462,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
   {
     OpenPrimary();
     STRING peerserver := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface");
-    RETURN InvokeRemoteFunction(ResolveToAbsoluteURL(peerserver,"/wh_services/system/jstests/invoke"), Resolve(""), "SetupForTestSetup", VARIANT[CELL[ ...options, DELETE onpeerserver ]]);
+    RETURN InvokeRemoteFunction(ResolveToAbsoluteURL(peerserver,"/wh_services/system/jstests/invoke"), Resolve("#SetupForTestSetup"), VARIANT[CELL[ ...options, DELETE onpeerserver ]]);
   }
 
   RECORD testfwoptions := [ testusers := RECORD[]

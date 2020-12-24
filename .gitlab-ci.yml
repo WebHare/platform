@@ -287,7 +287,6 @@ testsftp:
 
 testtwohares:
   stage: test
-  allow_failure: true
   except:
     - /^docs\/.*$/
   script:

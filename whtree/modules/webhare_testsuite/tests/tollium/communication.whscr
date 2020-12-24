@@ -228,7 +228,7 @@ MACRO TestTimeouts()
   Sleep(950);
   DispatchCallbacks();
 
-  TestEQ(1, timeoutctr);
+  TestEq(TRUE, timeoutctr IN [1,2]); //it will have fired either once or twice, but we can't guarantee it won't have run twice already at this point
   Sleep(100);
   DispatchCallbacks();
   TestEQ(2, timeoutctr);

@@ -10,12 +10,12 @@ window.addEventListener("message", function(event)
     var login = document.querySelector("t-textedit[data-name=loginname] input");
     if(login)
     {
-      if(didloginaction)
-        return;
-      login.value = "twoharetest@beta.webhare.net";
-      document.querySelector("t-textedit[data-name=password] input").value = "secret";
-      document.querySelector("t-button[data-name=loginbutton]").click();
-      didloginaction=true;
+      //use an override token to pass the login dialog, as wrdauth cookies won't work on non-https due to samestie= restrictions, and CI runs on http
+      let newurl = new URL(location.href);
+      newurl.searchParams.set("overridetoken", event.data.dopeering.overridetoken);
+      newurl.searchParams.set("openas", "twoharetest@beta.webhare.net");
+      console.log(newurl.toString());
+      location.href = newurl.toString();
       return;
     }
 
