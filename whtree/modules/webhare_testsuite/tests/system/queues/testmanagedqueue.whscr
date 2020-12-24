@@ -131,15 +131,38 @@ ASYNC MACRO TestWaitableAction()
   // test timeout handling
   testfw->BeginWork();
   taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD, [ timeout := 100 ]);
-  INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ]);
   INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ], [ timeout := 100 ]);
   INTEGER taskid4 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 400 ]);
   testfw->CommitWork();
 
   TestThrowsLike("Task * #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME));
-  TestEQ([ sleep := 200 ], RetrieveManagedTaskResult(taskid2, MAX_DATETIME));
   TestThrowsLike("Task * #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid3, MAX_DATETIME));
   TestThrowsLike("Task * #* has failed: Task has timed out after 300ms", PTR RetrieveManagedTaskResult(taskid4, MAX_DATETIME));
+
+  WHILE(TRUE)
+  {
+    //it may take an extra attempt to get the sleep-200ms task to win from its timeout, as a sleep(200) isn't guaratneed to finish immediately after 200ms
+    testfw->BeginWork();
+    INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ]);
+    testfw->CommitWork();
+
+    TRY
+    {
+      RECORD res := RetrieveManagedTaskResult(taskid2, MAX_DATETIME);
+      TestEq([sleep := 200], res);
+      BREAK;
+    }
+    CATCH(OBJECT e)
+    {
+      IF(e->what like "*timed out*")
+      {
+        Print("Timedout exception, it happens... " || e->What || "\n");
+        Sleep(100);
+        CONTINUE; //just retry
+      }
+      THROW;
+    }
+  }
 }
 
 RECORD FUNCTION WaitForError(INTEGER taskid)
