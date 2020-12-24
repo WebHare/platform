@@ -1445,7 +1445,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
     authplugin->LogOut();
   }
 
-  RETURN GetOverrideTokenURL(15 * 60 * 1000); //15 minutes is still pretty minimal for debugging..
+  RETURN GetOrExtendOverrideURL(15 * 60 * 1000, DEFAULT DATETIME); //15 minutes is still pretty minimal for debugging..
 }
 
 PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1473,7 +1473,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
 
   RunTestFramework(DEFAULT MACRO PTR ARRAY, testfwoptions); //just cleanup/reset stuff - note, implies OpenPrimary
 
-  RECORD retval := [ overridetoken := GetOverrideTokenURL(60 * 60 * 10000)
+  RECORD retval := [ overridetoken := GetOrExtendOverrideURL(60 * 60 * 10000, DEFAULT DATETIME)
                    , sysopuser     := options.createsysop ? testfw->GetUserLogin("sysop") : ""
                    , sysoppassword := options.createsysop ? testfw->GetUserPassword("sysop") : ""
                    , testportalurl := GetTestTolliumPortalURL()

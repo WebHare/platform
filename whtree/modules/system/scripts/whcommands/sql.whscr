@@ -23,7 +23,6 @@ MACRO __SYSTEM_SQLCLIENT_RUNSQLCLIENTSCRIPT(BLOB compiledscript, RECORD state) _
 //OBJECT trans;
 BOOLEAN autocommit := IsDatabaseWritable();
 STRING showmode := "boxed";
-RECORD userdata;
 
 RECORD ARRAY all_decls;
 RECORD ARRAY all_tables;
@@ -317,10 +316,7 @@ INTEGER FUNCTION ParseAndExecute(STRING line, BOOLEAN repeat, STRING ARRAY loadl
 
   IF (NOT repeat)
   {
-    LogAuditEventBy(
-        "system:sqlclient", userdata, CELL
-        [ query :=          line
-        ]);
+    LogAuditEvent("system:sqlclient", CELL[ query := line ]);
   }
 
   // Find first word
@@ -489,7 +485,6 @@ MACRO Run(STRING ARRAY loadlibs)
 RECORD call := ParseArguments(GetConsoleArguments(), [ [ name := "loadlib", type := "stringlist" ]
                                                      , [ name := "showmode", type := "stringopt" ]
                                                      , [ name := "t", type := "switch" ]
-                                                     , [ name := "user", type := "stringopt" ]
                                                      , [ name := "query", type := "param", required := FALSE ]
                                                      ]);
 IF(NOT RecordExists(call))
@@ -506,21 +501,6 @@ BOOLEAN havecmd := call.query != "";
 
 IF(NOT Connect()) //connect first, GetDTAPStage may need it
   RETURN;
-
-IF (call.user != "")
-{
-  userdata :=
-      [ authobjectid :=   0
-      , login :=          call.user
-      ];
-}
-ELSE IF (GetEnvironmentVariable("WEBHARE_CLI_USER") != "")
-{
-  userdata :=
-      [ authobjectid :=   0
-      , login :=          GetEnvironmentVariable("WEBHARE_CLI_USER")
-      ];
-}
 
 IF(havecmd) //explicitly require one argument, because permitting "wh sql select * ..." isn't going to work anyway
   ParseAndExecute(call.query, FALSE, call."loadlib");

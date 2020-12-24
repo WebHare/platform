@@ -5,6 +5,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
+
 PUBLIC STRING FUNCTION EncodeURL3986(STRING indata) //http://tools.ietf.org/html/rfc3986
 {
   indata := EncodeURL(indata);
@@ -64,7 +66,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSConfig
 
   PUBLIC MACRO LogRPC(STRING target)
   {
-    MakeFunctionPtr("mod::system/lib/cluster.whlib#LogRPCforWebbrowser")(target, "", this->browser);
+    LogRPCforWebbrowser(target, "", this->browser);
   }
 
   PUBLIC RECORD FUNCTION BuildAWS4Request(STRING service, STRING region, STRING method, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD )

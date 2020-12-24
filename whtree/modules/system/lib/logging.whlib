@@ -1,0 +1,212 @@
+<?wh
+/** @topic modules/services */
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
+
+/** Flushes a specific module log
+    @param name Name of the log (module:logname) to flush
+    @return Whether the flush succeeded
+*/
+PUBLIC BOOLEAN FUNCTION FlushModuleLog(STRING name)
+{
+  RETURN __SYSTEM_FLUSHREMOTELOG(name);
+}
+
+/** @short Log an audit event by the current effective user
+    @param logsource Source or call of the error message
+    @param data Event data */
+PUBLIC MACRO LogAuditEvent(STRING logsource, RECORD data)
+{
+  RECORD userdata;
+  IF(ObjectExists(effectiveuser))
+  {
+    userdata := [ login :=        effectiveuser->login
+                , authobjectid := effectiveuser->authobjectid
+                ];
+  }
+  ELSE IF(IsConsoleSupportAvailable())
+  {
+    userdata := [ login := GetEnvironmentVariable("WEBHARE_CLI_USER")
+                , authobjectid := -1 //to signify a console user
+                ];
+  }
+  ELSE
+  {
+    userdata := [ login :=        ""
+                , authobjectid := 0
+                ];
+  }
+
+  LogAuditEventBy(logsource, userdata, data);
+}
+
+/** @short Log an audit event caused by a specific WebHare user
+    @param logsource Source or call of the error message
+    @param userdata User's authentication object id
+    @cell userdata.authobjectid
+    @cell userdata.login
+    @param data Event data */
+PUBLIC MACRO LogAuditEventBy(STRING logsource, RECORD userdata, RECORD data)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+
+  userdata := ValidateOptions(
+      [ login :=        ""
+      , authobjectid := 0
+      , entityid := 0
+      ], userdata);
+
+  STRING auth := userdata.authobjectid != 0 ? "auth:" || userdata.authobjectid : userdata.entityid != 0 ? "wrd:" || userdata.entityid : "-";
+  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || userdata.login || "\t" || auth;
+
+  STRING encodeddata := EncodeHSON(data);
+  IF(Length(msg)+Length(encodeddata)>127*1024)
+    encodeddata := "-";
+
+  ModuleLog("system:audit", msg||"\t"||encodeddata);
+  __SYSTEM_FLUSHREMOTELOG("system:audit");
+}
+
+
+MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+  IF(message="")
+    THROW NEW Exception("A message must be specified");
+
+  message := Left(message,4096);
+
+  STRING encodeddata := EncodeHSON(data);
+  IF(Length(message)+Length(encodeddata)>127*1024)
+    encodeddata := "-";
+
+  ModuleLog("system:notice", EncodeJava(logsource) || "\t" || EncodeJava(channel) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(message) || "\t" || encodeddata);
+}
+
+
+
+/** @short Log an error to the 'notice' log
+    @param Log an important message indicating trouble that should be handled as soon as possible ("ACT NOW")
+    @param logsource Source or call of the error message
+    @param message Error mesage in text, should be understandable by sysop users
+    @param data System-parseable error context */
+PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data)
+{
+  LogNotice(logsource, "ERROR", message, data);
+}
+
+/** @short Log a warning to the 'notice' log
+    @param Log a message indicating an important issue, that should probably be dealt with when convenient ("ACT LATER")
+    @param logsource Source or call of the error message
+    @param message Error mesage in text, should be understandable by sysop users
+    @param data System-parseable error context */
+PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data)
+{
+  LogNotice(logsource, "WARNING", message, data);
+}
+
+/** @short Log an informational message to the 'notice' log
+    @param Log a message indicating an issue or odd event, that is probably not the system's fault, but may be relevant hwen investing issues ("FYI")
+    @param logsource Source or call of the error message
+    @param message Error mesage in text, should be understandable by sysop users
+    @param data System-parseable error context */
+PUBLIC MACRO LogInfo(STRING logsource, STRING message, RECORD data)
+{
+  LogNotice(logsource, "INFO", message, data);
+}
+
+/** @short Log debugging data
+    @param logsource Source or call of the debug message.
+                     This is used for searching, determining the origin or grouping of log messages of this type.
+                     Guideline: prefix the source with your module, for example "modulename:mytask.results"
+    @param message Message
+    @param args Optional extra debugging arguments. These will be stored HSON encoded. Arguments which push the length of the debug line over 127 KB won't be logged and will be stored as '-' */
+PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+
+  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData());
+  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
+  {
+    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
+    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
+      encodedarg := "-";
+    msg := msg || '\t' || encodedarg;
+  }
+
+  ModuleLog("system:debug", msg);
+}
+
+/** @short Log a list of Harescript errors to the notice log (via a HarescriptErrorException)
+    @param errors Errors to log
+    @param options Options @includecelldef LogHarescriptException.options
+*/
+PUBLIC MACRO LogHarescriptErrors(RECORD ARRAY errors, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  LogHarescriptException(NEW HarescriptErrorException(errors), options);
+}
+
+/** @short Log RPC traffic
+    @param logsource Source or call of the rpc action (eg: webshop:payment.buckaroo, or statsserver:service.regsiter)
+    @param transport Transport method or destination
+    @param outgoing Set to true for outgoing traffic
+    @param sourcetracker Orginal requestor (IP address or trackingstamp if possible)
+    @param transcationid RPC transaction id, to join request and response together
+    @param data Data to log. A request/reponse body should be logged into the cell 'body' */
+PUBLIC MACRO LogRPCTraffic(STRING logsource, STRING transport, BOOLEAN outgoing, STRING sourcetracker, STRING transactionid, RECORD data)
+{
+  IF(logsource="")
+    THROW NEW Exception("A log source must be specified");
+  IF(transport="")
+    THROW NEW Exception("A transport must be specified");
+  IF(sourcetracker="")
+    sourcetracker := "-";
+  IF(transactionid ="")
+    transactionid := "-";
+
+  STRING hsondata := EncodeHSON(data);
+  IF(Length(hsondata)>128*1024)
+    hsondata := EncodeHSON([__notlogged := "Not logging " || Length(hsondata) || " bytes of encoded data"]); //we can't throw, it would often break RPCs
+
+  ModuleLog("system:rpc", EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(sourcetracker) || (outgoing ? "\t>" : "\t<") || EncodeJava(transport) || "\t" || EncodeJava(transactionid) || "\t" || hsondata);
+}
+
+
+MACRO WBTrafficHook(STRING logsource, STRING sourcetracker, BOOLEAN outgoing, STRING method, STRING url, STRING transaction, RECORD data)
+{
+  LogRPCTraffic(logsource, method || " " || url, outgoing, sourcetracker, transaction, data);
+}
+
+/** @short Register RPC logging for a webbrowser connection
+    @param logsource Source or call of the rpc action (eg: webshop:payment.buckaroo, or statsserver:service.regsiter)
+    @param sourcetracker Original requestor (IP address or trackingstamp if possible)
+    @param webbrowser Browser which may need to log */
+PUBLIC MACRO LogRPCForWebbrowser(STRING logsource, STRING sourcetracker, OBJECT webbrowser)
+{
+  IF (logsource = "")
+    THROW NEW Exception("Logsource is required");
+  IF (logsource NOT LIKE "*:*")
+    THROW NEW Exception("Logsource must have the format <modulename>:<rpcname>");
+
+  //ADDME nicer register api, check whether logsource has been disabled, etc..
+  INSERT PTR WBTrafficHook(logsource, sourcetracker, #1,#2,#3,#4,#5) INTO webbrowser->pvt_traffichooks AT END;
+}
+
+/** @short Register RPC logging for a SOAP client connection
+    @param logsource Source or call of the rpc action (eg: webshop:payment.buckaroo, or statsserver:service.regsiter)
+    @param sourcetracker Orginial requestor (IP address or trackingstamp if possible)
+    @param webbrowser Browser which may need to log */
+PUBLIC MACRO LogRPCForSoapClient(STRING logsource, STRING sourcetracker, OBJECT soapclient)
+{
+  LogRPCForWebbrowser(logsource, sourcetracker, soapclient->__GetBrowser());
+}
+
