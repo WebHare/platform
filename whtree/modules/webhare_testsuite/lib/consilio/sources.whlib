@@ -5,5 +5,9 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 PUBLIC RECORD ARRAY FUNCTION GetTestSiteCatalogSources()
 {
-  RETURN [[ fsobject := OpenTestsuiteSite()->OpenByPath("portal1")->id ]];
+  OBJECT testsuitesite := OpenTestsuiteSite();
+  IF(ObjectExists(testsuitesite))
+    RETURN [[ fsobject := testsuitesite->OpenByPath("portal1")->id ]];
+  ELSE
+    RETURN RECORD[];
 }
