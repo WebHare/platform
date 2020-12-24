@@ -29,7 +29,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 SetTidLanguage("en");
 OBJECT trans;
 STRING cmd;
-RECORD userdata;
+
 trans := OpenPrimary();
 IF(NOT ObjectExists(Trans))
   ABORT("Unable to connect to the WebHare database");
@@ -139,25 +139,6 @@ MACRO ExecuteCommand(STRING todo)
   cmd := Tokenize(todo,' ')[0];
   STRING params := TrimWhitespace(Substring(todo,Length(cmd)+1));
 
-  IF (params LIKE "--user *")
-  {
-    STRING ARRAY parts := Tokenize(params,' ');
-
-    userdata :=
-        [ authobjectid :=   0
-        , login :=          parts[1]
-        ];
-
-    params := Detokenize(ArraySlice(parts, 2), ' ');
-  }
-  ELSE IF (GetEnvironmentVariable("WEBHARE_CLI_USER") != "")
-  {
-    userdata :=
-        [ authobjectid :=   0
-        , login :=          GetEnvironmentVariable("WEBHARE_CLI_USER")
-        ];
-  }
-
   SWITCH(ToUppercase(cmd))
   {
     CASE "ADDINTERFACE"
@@ -204,11 +185,9 @@ MACRO ExecuteCommand(STRING todo)
       IF(duration=0)
         duration := ReadRegistryKey("system.backend.security.override.duration");
 
-      LogAuditEventBy(
-          "system:cli", userdata, CELL
-          [ action :=       "getoveridetoken"
-          , duration
-          ]);
+      LogAuditEvent("system:cli", CELL[ action :=       "getoveridetoken"
+                                      , duration
+                                      ]);
 
       STRING suburl := GetOverrideTokenURL(duration);
       STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
