@@ -678,12 +678,6 @@
   </apply>
 
   <apply>
-    <to type="folder" parentregex="/tmp/[S][u]][b]" />
-    <to type="folder" pathregex="xxxx" />
-    <xyz:test data="parentregex-tmp-sub" />
-  </apply>
-
-  <apply>
     <to type="folder" pathregex="/applytest1/$" />
     <xyz:test data="pathregex-applytest1" />
   </apply>

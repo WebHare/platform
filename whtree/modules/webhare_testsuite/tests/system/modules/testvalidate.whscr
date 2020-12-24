@@ -555,6 +555,19 @@ MACRO TestSiteProfiles()
   TestEq([[ line := 3, message := `No such searchcontentprovider 'missingprovider' in module \'webhare_testsuite'` ]
          ,[ line := 4, message := `No such managed task type 'webhare_testsuite:missingtask'` ]
          ], SELECT line, message FROM res.errors ORDER BY line,message) ;
+
+  BLOB badregexes := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <apply>
+      <to type="file" parentregex="*" />
+      <to type="file" pathregex="*" />
+      <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" /> <!-- we need *something* to ensure the apply rule gets parsed -->
+    </apply>
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badregexes ]);
+  TestEqLike("Invalid regular expression in \'parentregex\'*", res.errors[0].message);
+  TestEqLike("Invalid regular expression in \'pathregex\'*", res.errors[1].message);
 }
 
 MACRO TestTidScan()

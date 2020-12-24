@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
@@ -699,6 +700,28 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             ];
   }
 
+  MACRO ValidateRegex(OBJECT node, STRING pattern, STRING attributename)
+  {
+    IF(pattern = "")
+      RETURN;
+
+    OBJECT compiledpattern := NEW RegEx(pattern, "i"); //case insensitive
+    TRY compiledpattern->Test("");
+    CATCH (OBJECT e)
+    {
+      //if it throws, the regex is broken
+      this->AddError(node, `Invalid regular expression in '${attributename}': ${e->what}`);
+    }
+  }
+
+  MACRO ValidateSiteFilter(OBJECT node, RECORD sitefilter)
+  {
+    IF(CellExists(sitefilter, "siteregex"))
+      this->ValidateRegex(node, sitefilter.siteregex, "siteregex");
+    IF(CellExists(sitefilter, "webrootregex"))
+      this->ValidateRegex(node, sitefilter.webrootregex, "webrootregex");
+  }
+
   PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
   {
     RECORD ARRAY applytos;
@@ -742,6 +765,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , prebuiltmasks := ParseXSList(ToUppercase(crit->GetAttribute("prebuiltmasks")))
                        , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
                        ];
+
+            this->ValidateSiteFilter(crit, applyto);
+            IF(applyto.pathregex != "")
+              this->ValidateRegex(crit, applyto.pathregex, "pathregex");
+            IF(applyto.parentregex != "")
+              this->ValidateRegex(crit, applyto.parentregex, "parentregex");
+            IF(applyto.whfspathregex != "")
+              this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
 
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
@@ -792,7 +823,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       STRING applynodetype := applyblock->localname;
 
-      IF(NOT CellExists(counters, applynodetype))
+      IF(NOT CellExists(counters, applynodetype)) //is it <apply>, <filetype> or <foldertype> ?
         CONTINUE; //don't care for this node
 
 
@@ -1343,6 +1374,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
                             ];
+      this->ValidateSiteFilter(siteset, sitesetting.sitefilter);
 
       OBJECT ARRAY sitewebrules := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
       FOREVERY(OBJECT webruleset FROM sitewebrules)
