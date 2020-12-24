@@ -159,7 +159,7 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
 
     RECORD data := this->ParseAddress(addressdata);
 
-    IF(addressdata.nr_detail LIKE "0*" AND Length(addressdata.nr_detail) > 7) // this looks very much like a phone number
+    IF((addressdata.nr_detail LIKE "0*" OR addressdata.nr_detail LIKE "+*") AND Length(addressdata.nr_detail) > 7) // this looks very much like a phone number
       RETURN CELL[ status := "invalid_nr_detail", data := data.output, looked_up := [ status := "invalid_nr_detail" ] ];
 
     //TODO Various country-specific prechecks we can do without consulting an address provider
