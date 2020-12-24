@@ -59,7 +59,7 @@ MACRO RunGetOverride(STRING ARRAY params)
                                   , subargs.reason
                                   ]);
 
-  STRING suburl := GetOverrideTokenURL(duration);
+  STRING suburl := GetOrExtendOverrideURL(duration, DEFAULT DATETIME);
   STRING url := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), suburl);
 
   Print(`
