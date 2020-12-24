@@ -371,6 +371,11 @@ MACRO TestFallbackAPI()
 
   checkres := api->CheckAddress([ zip := "2500", nr_detail := "Lier", country := "BE", street := "Baron Opsomerlaan", city := "1"], [ alwaysverify := TRUE ]);
   TestEq('invalid_city', checkres.status);
+
+  //block users typing their phone number into the nr_detail field
+  checkres := api->CheckAddress([ zip := "2018", nr_detail := "0474000000", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
+  TestEq('invalid_nr_detail', checkres.status);
+
   testfw->RollbackWork();
 }
 

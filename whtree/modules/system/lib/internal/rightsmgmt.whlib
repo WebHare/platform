@@ -244,8 +244,8 @@ RECORD FUNCTION GetCachableRightByNameInternal(STRING rightname, STRING full_rig
            , modulename         := modulename
            , tablename          := module_objecttypes.tablename
            , storagetable       := module_objecttypes.storagetable
-           , primarykey         := module_objecttypes.primarykey
-           , parentfield        := module_objecttypes.parentfield
+           , primarykey         := ToLowercase(module_objecttypes.primarykey)
+           , parentfield        := ToLowercase(module_objecttypes.parentfield)
            , allowobjref        := module_objecttypes.tablename != ""
            , isglobal           := module_objecttypes.tablename = ""
            , objecttypename     := objectmodule.name||":"||module_objecttypes.name
@@ -501,8 +501,8 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
            , modulename := modulename
            , describer
            , tablename
-           , primarykey
-           , parentfield
+           , primarykey         := ToLowercase(primarykey)
+           , parentfield        := ToLowercase(parentfield)
         FROM system_internal.module_objecttypes
            , system_internal.modules
        WHERE modules.name = modulename
