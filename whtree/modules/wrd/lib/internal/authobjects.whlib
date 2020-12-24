@@ -115,7 +115,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
       @return @includecelldef mod::system/lib/internal/rightsmgmt.whlib#RightsUserObject::GetUserDataForLogging.return
       @cell return.wrd_guid GUID of the WRD entity of the user
   */
-  RECORD FUNCTION GetUserDataForLogging()
+  PUBLIC RECORD FUNCTION GetUserDataForLogging()
   {
     RETURN CELL[ ...this->GetAuthObject()->GetUserDataForLogging()
                , wrd_guid := ObjectExists(this->entity) ? this->entity->guid : "" //FIXME actually log something about override users, but this level knows nothing about overrides
@@ -432,7 +432,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
       @return @includecelldef #WRDAuthObject::GetUserDataForLogging.return
       @cell return.wrd_guid GUID of the WRD entity of the user
   */
-  UPDATE RECORD FUNCTION GetUserDataForLogging()
+  UPDATE PUBLIC RECORD FUNCTION GetUserDataForLogging()
   {
     RETURN CELL[ ...WRDAuthObject::GetUserDataForLogging()
                , authobjectid := this->pvt_authobjectid
@@ -524,7 +524,7 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
   PUBLIC MACRO RevokeRoleFrom(OBJECT roleobj, OBJECT grantee)
   {
     OBJECT authobj := this->EnsureAuthObject();
-    authobj->RevokeRightFromOn("system:manageroles", grantee->EnsureAuthObject(), roleobj->authobjectid, FALSE);
+    authobj->RevokeRoleFrom(roleobj->authobjectid, grantee->EnsureAuthObject());
   }
 
   /** Returns whether this user can manage a role

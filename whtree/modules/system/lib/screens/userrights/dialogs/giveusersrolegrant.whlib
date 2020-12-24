@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -75,40 +76,7 @@ PUBLIC STATIC OBJECTTYPE GiveUsersRoleGrant EXTEND TolliumScreenBase
       RETURN work->Finish();
     }
 
-    IF (NOT this->tolliumuser->HasRightOn("system:manageroles", this->pvt_roleobj->authobjectid))
-    {
-      work->AddError(GetTid("system:userrights.commondialogs.errors.norighttomanagerole", this->pvt_roleobj->GetUserRightsName()));
-      RETURN work->Finish();
-    }
-
-    IF (work->HasFailed())
-      RETURN work->Finish();
-
-    OBJECT roleunit := this->contexts->userapi->GetUnitOf(this->pvt_roleobj);
-
-    FOREVERY (OBJECT obj FROM this->grantees)
-    {
-      // User either should have the right to browse the new role, or should get it with the new role
-      IF (NOT roleunit->IsVisibleFor(obj) AND NOT roleunit->IsVisibleFor(this->pvt_roleobj))
-      {
-        work->AddWarning(GetTid("system:userrights.commondialogs.errors.usercannotviewunitofrole", obj->GetUserRightsName(), this->pvt_roleobj->GetUserRightsName()));
-      }
-    }
-
-    IF (work->HasFailed())
-      RETURN work->Finish();
-
-    FOREVERY (OBJECT obj FROM this->grantees)
-    {
-      TRY
-      {
-        this->tolliumuser->GrantRoleTo(this->pvt_roleobj, obj, [ comment := ^comment->value ]);
-      }
-      CATCH (OBJECT e)
-      {
-        work->AddError(e->what);
-      }
-    }
+    TolliumGrantRoleTo(this->contexts, work, this->pvt_roleobj, this->grantees, ^comment->value);
     RETURN work->Finish();
   }
 

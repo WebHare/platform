@@ -1349,6 +1349,19 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
   }
 
 
+  /** Return user data for logging purposes
+      @return User data for logging purposes
+      @cell return.authobject Id of the authobject of this user
+      @cell return.when When this data was retrieved
+  */
+  PUBLIC RECORD FUNCTION GetUserDataForLogging()
+  {
+    RETURN
+        [ authobjectid := this->__pvt_authobjectid
+        , when :=         GetCurrentDatetime()
+        ];
+  }
+
   PUBLIC INTEGER FUNCTION __PVT_GetGrantTarget(BOOLEAN for_role)
   {
     THROW NEW Exception("This object cannot be granted to");
@@ -1606,19 +1619,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   PUBLIC INTEGER FUNCTION __PVT_GetGrantorAuthobject()
   {
     RETURN this->__pvt_authobjectid;
-  }
-
-  /** Return user data for logging purposes
-      @return User data for logging purposes
-      @cell return.authobject Id of the authobject of this user
-      @cell return.when When this data was retrieved
-  */
-  PUBLIC RECORD FUNCTION GetUserDataForLogging()
-  {
-    RETURN
-        [ authobjectid := this->__pvt_authobjectid
-        , when :=         GetCurrentDatetime()
-        ];
   }
 
   UPDATE PUBLIC INTEGER FUNCTION __PVT_GetGrantTarget(BOOLEAN for_role)
@@ -3273,150 +3273,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
   }
   */
 
-
-  /** Revokes a big list of grants (for untrusted source)
-      @param userdata Encoded grantor
-      @param revokes
-      @param role_revokes
-  */
-  PUBLIC MACRO WL_UserRightsBigRevoke(RECORD userdata, RECORD ARRAY revokes, RECORD ARRAY role_revokes)
-  {
-    OBJECT grantor := RecreateUserObject(userdata, TRUE);
-
-    this->UserRightsBigRevoke(grantor, revokes, role_revokes);
-  }
-
-
-  /** Revokes a big list of grants
-      @param grantor
-      @param revokes
-      @param role_revokes
-  */
-  PUBLIC MACRO UserRightsBigRevoke(OBJECT grantor, RECORD ARRAY revokes, RECORD ARRAY role_revokes)
-  {
-    IF (NOT GetPrimaryWebhareTransactionObject()->IsWorkOpen())
-      THROW NEW Exception("This operation requires an explicitly opened transaction");
-
-    // Get the grantor authobject id
-    INTEGER grantor_authobject := grantor->__PVT_GetGrantorAuthobject();
-
-    RECORD ARRAY actions;
-
-    FOREVERY (RECORD revoke FROM revokes)
-    {
-      RECORD rightdata := GetRightByNameInternal(revoke.rightname);
-      OBJECT grantee := GetWebhareRightsObject(revoke.grantee);
-      INTEGER obj := revoke.objectid;
-
-      // Check if the user has enough rights to grant this right
-      IF (NOT grantor->__PVT_IsSuper() AND NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
-        THROW NEW Exception("The grantor does not have the right to revoke this right");
-
-      // Integrity check (objectrights and object)
-      IF (NOT rightdata.allowobjref AND obj != 0)
-        THROW NEW Exception("Right '"||rightdata.fullname||"' does not apply to specific objects");
-
-      INTEGER grantee_id := grantee->__PVT_GetGrantTarget(FALSE);
-      IF (grantee_id = 0)
-        THROW NEW Exception("Right '"||rightdata.fullname||"' cannot be revoked from this grantee");
-
-      RECORD ARRAY grants := GetSpecificGrantDataFor([ grantee_id ] , rightdata.rightid, rightdata.storagetable, FALSE, obj);
-      IF (LENGTH(grants) = 0)
-        CONTINUE;
-
-      INTEGER ARRAY grantids :=
-          SELECT AS INTEGER ARRAY id FROM grants;
-
-      INSERT
-          [ type :=             "grant"
-          , storagetable :=     rightdata.storagetable
-          , ids :=              grantids
-          ] INTO actions AT END;
-    }
-
-    RECORD mgroles_rightdata := GetRightByNameInternal("system:manageroles");
-
-    FOREVERY (RECORD role_revoke FROM role_revokes)
-    {
-      OBJECT grantee := GetWebhareRightsObject(role_revoke.grantee);
-      INTEGER roleid := role_revoke.roleid;
-
-      INTEGER userid := grantee->__PVT_GetGrantTarget(TRUE);
-      IF (userid = 0)
-        THROW NEW Exception("Can only revoke roles from system users"); // FIXME: should we?
-
-      RECORD userrec :=
-          SELECT *
-            FROM system_internal.authobjects
-           WHERE id = userid
-             AND type = 1;
-
-      RECORD rolerec :=
-          SELECT *
-            FROM system_internal.authobjects
-           WHERE id = roleid
-             AND type = 3;
-
-      IF (NOT RecordExists(userrec))
-        THROW NEW Exception("The user you are revoking a role from does not exist");
-      ELSE IF (NOT RecordExists(rolerec))
-        THROW NEW Exception("The revoked role does not exist");
-      ELSE IF (NOT grantor->HasRightOn("system:manageroles", roleid))
-        THROW NEW Exception("You do not have enough rights to revoke this role");
-
-      INTEGER grant_id :=
-          SELECT AS INTEGER id
-            FROM system_internal.rolegrants
-           WHERE COLUMN grantee = userid
-             AND role = roleid;
-
-      IF (grant_id = 0)
-        CONTINUE;
-
-      INSERT
-          [ type := "role"
-          , id := grant_id
-          ] INTO actions AT END;
-
-      // Lookup direct grants on that role
-      RECORD ARRAY grants := GetSpecificGrantDataFor([ INTEGER(role_revoke.grantee) ] , mgroles_rightdata.rightid, mgroles_rightdata.storagetable, FALSE, roleid);
-      IF (LENGTH(grants) = 0)
-        CONTINUE;
-
-      INTEGER ARRAY grantids :=
-          SELECT AS INTEGER ARRAY id FROM grants;
-
-      INSERT
-          [ type :=             "grant"
-          , storagetable :=     mgroles_rightdata.storagetable
-          , ids :=              grantids
-          ] INTO actions AT END;
-    }
-
-//    PRINT("TBAL actions:\n" || AnyToString(actions, "tree"));
-
-    FOREVERY (RECORD action FROM actions)
-    {
-      SWITCH (action.type)
-      {
-      CASE "grant"
-        {
-          // Bind the storage table
-          BindStorageTable(action.storagetable);
-
-          DELETE
-            FROM rights_table
-           WHERE id IN action.ids;
-        }
-      CASE "role"
-        {
-          DELETE
-            FROM system_internal.rolegrants
-           WHERE id = action.id;
-        }
-      }
-    }
-  }
 >;
 
 
@@ -3980,28 +3836,4 @@ PUBLIC BOOLEAN FUNCTION AreRevokesDangerous(OBJECT myself, RECORD ARRAY revokes,
   }
 
   RETURN FALSE;
-}
-
-/** Revokes a lot of grants and rolegrants in an atomic action
-    @param grantor
-    @param revokes
-    @cell revokes.grantee
-    @cell revokes.objectid
-    @cell revokes.rightname
-    @param role_revokes
-    @cell role_revokes.grantee
-    @cell role_revokes.roleid
-*/
-PUBLIC MACRO UserRightsBigRevoke(OBJECT grantor, RECORD ARRAY revokes, RECORD ARRAY role_revokes)
-{
-  OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
-  trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-
-  IF (FALSE /*trans->is_elevated*/)
-    elevatedrightscalls_obj->UserRightsBigRevoke(grantor, revokes, role_revokes);
-  ELSE
-  {
-    RECORD grantordata := grantor->__PVT_GetExportdata();
-    __OpenLocalService("system:rights")->WL_UserRightsBigRevoke(grantordata, revokes, role_revokes);
-  }
 }
