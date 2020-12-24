@@ -82,6 +82,8 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
   OBJECT formdefs := formpage->formdefinition->formdefinitions;
 
   OBJECT checkboxesfield := formpage->LookupComponent("checkboxes");
+  OBJECT tslinecomp := formpage->LookupComponent("tsline");
+
   //Create a simple RTD response with an image
   STRING rtdtext := formdefs->CreateInstance(
     [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
@@ -91,6 +93,7 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                                 || '<p class="normal">This mail was sent to: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_email"></span></p>'
                                 || '<p class="normal">We asked you when: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_when"></span>}</p>'
                                 || '<p class="normal">Your checkboxes: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_checkboxes"></span>}</p>'
+                                || (options.addtslinecomp AND options.addpaymenthandler ? '<p class="normal">TSLinecomp difference: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_tslinecompcost"></span>}</p>' : "")
                                 || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
                                 || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
                                 || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
@@ -115,6 +118,11 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
                              ,[ instanceid := "embedobj_checkboxes"
                               , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
                                         , fieldname := ObjectExists(checkboxesfield) ? checkboxesfield->GetAttribute("guid") : ""
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_tslinecompcost"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := ObjectExists(tslinecomp) ? tslinecomp->GetAttribute("guid") || "$difference" : ""
                                         ]
                               ]
                              ]
@@ -584,9 +592,10 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   OBJECT testsuitehandler := formdef->AddHandler("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler");
   testsuitehandler->SetAttribute("x","42@webhare.net");
 
+  OBJECT tsfield;
   IF(options.addtslinecomp)
   {
-    OBJECT tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tslinecomp");
+    tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tslinecomp");
     tsfield->SetAttribute("name","tsline");
     tsfield->SetAttribute("title","TSLine");
   }
@@ -886,6 +895,8 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     OBJECT paymenthandler := formdef->AddHandler("http://www.webhare.net/xmlns/wrd/forms#paymenthandler");
     IF(options.addmoneyfield)
       paymenthandler->SetAttribute("fromfield", moneyfield->GetAttribute("guid"));
+    ELSE IF(options.addtslinecomp)
+      paymenthandler->SetAttribute("fromfield", tsfield->GetAttribute("guid") || "$difference");
     ELSE
       paymenthandler->SetAttribute("fixedamount", "42.42");
 
