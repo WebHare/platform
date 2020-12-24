@@ -45,7 +45,7 @@ PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     RECORD meta := data.payment->__GetPaymentData();
-    ^paymentid->value := meta.order_id;
+    ^paymentid->value := meta.mollieid;
     ^status->value := meta.status;
   }
 >;
