@@ -852,7 +852,8 @@
   </sitesettings>
 
   <sitesettings sitename="WebHare testsuite site" webrootregex="^https?://[^/]+/testoutput/webhare_testsuite/$"> <!-- and not: alt test host -->
-    <addtocatalog catalog="testsitecatalog" />
+    <addtocatalog catalog="testsitecatalog" folder="/testpages/" />
+    <addtocatalog catalog="testsitecatalog" folder="/webtools/" />
   </sitesettings>
 
 </siteprofile>

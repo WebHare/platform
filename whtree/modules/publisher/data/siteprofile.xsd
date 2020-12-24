@@ -1631,6 +1631,11 @@
                 <xs:documentation>Target catalog name</xs:documentation>
               </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="folder">
+              <xs:annotation>
+                <xs:documentation>Optional subfolder of the site to add</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
           </xs:complexType>
         </xs:element>
       </xs:choice>

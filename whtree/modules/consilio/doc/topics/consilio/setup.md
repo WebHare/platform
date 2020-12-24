@@ -17,6 +17,28 @@ Individual sites can add themselves using `sitesettings` in their siteprofiles
   </sitesettings>
 ```
 
+## ongetsources
+
+For more complex scenarios you can define a function that will return the content
+sources for your catalog and pass it as an `ongetsources=` option to your catalog.
+This function should return a record array with an `fsobject` member listing the folder to index.
+
+Example:
+```xml
+  <consilio>
+    <catalog tag="testsitecatalog"
+             ongetsources="lib/sources.whlib#GetCatalogSources" />
+  </consilio>
+```
+
+```harescript
+PUBLIC RECORD ARRAY FUNCTION GetCatalogSources()
+{
+  RETURN SELECT fsobject := id
+           FROM system.fs_objects
+          WHERE type = 2; //index all system folders
+}
+```
 
 ## Legacy catalogs
 Legacy catalogs may not follow the `module:tag` naming convention. We recommend

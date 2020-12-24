@@ -14,13 +14,19 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   Testeq(TRUE, ObjectExists(maincatalog));
 
   RECORD ARRAY contentsources := maincatalog->ListContentSources();
-  contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources;
-  TestEq(['/WebHare testsuite site/'], SELECT AS STRING ARRAY whfspath FROM contentsources);
+  contentsources := SELECT *, whfspath := (SELECT AS STRING whfspath FROM system.fs_objects WHERE fs_objects.id = contentsources.fsobject) FROM contentsources WHERE NOT isorphan;
+  TestEq([ '/WebHare testsuite site/portal1/' //portal1 is added through ongetsources=
+         , '/WebHare testsuite site/testpages/'
+         , '/WebHare testsuite site/webtools/'
+         ], SELECT AS STRING ARRAY whfspath FROM contentsources ORDER BY whfspath);
 
   WaitForCatalogDone(maincatalog);
 
   RECORD result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("simpletest"));
   TestEq(TRUE, Length(result.results) > 0);
+
+  result := RunConsilioSearch("webhare_testsuite:testsitecatalog", CQParseUserQuery("Welcome"));
+  TestEq(RECORD[], result.results);
 }
 
 PUBLIC MACRO TestLegacySiteProfileIndices()

@@ -247,10 +247,8 @@ PUBLIC RECORD FUNCTION __DoRepublishByMask(STRING mask, BOOLEAN nontemplatetoo, 
 
     OBJECT folder := OpenWHFSObject(siterec.id);
     IF(foldername != "/")
-    {
-      STRING relpath := foldername LIKE "/*" ? SubString(foldername, 1) : foldername;
-      folder := folder->OpenByPath(relpath);
-    }
+      folder := folder->OpenByPath(foldername, [ allowinitialslash := TRUE ]);
+
     IF(NOT ObjectExists(folder))
     {
       INSERT "Cannot find folder '" || foldername || "' in site '" || siterec.name || "'" INTO retval.errors AT END;

@@ -71,6 +71,9 @@ MACRO SimpleTest()
 
   TestEq("Testfile", BlobToString(subfolder2->GetResource("whfs::" || testfile->whfspath)));
 
+  TestThrowsLike("*OpenByPath*doesn't accept absolute*", PTR subfolder->OpenByPath("/testfile.txt", [expect:="file"]));
+  TestEq(testfile->id, subfolder->OpenByPath("/testfile.txt", [expect:="file", allowinitialslash := TRUE])->id);
+
   //These now throw, global names require global visibility
   TestThrows(PTR GetWebhareResource("filebyid::" || testfile->id));
   TestThrows(PTR GetHareScriptResource("filebyid::" || testfile->id));
@@ -156,8 +159,9 @@ MACRO SimpleTest()
   TestEq("Testfile", BlobToString(subfolder->GetResource("currentsite::../sub/testfile.txt")));
 
   OBJECT siteobj := OpenSite(firstfolder->id);
+  TestEq(siteobj->id, siteobj->OpenByPath('/')->id);
   TestEq(subfolder->id, siteobj->OpenByPath('sub', [ expect := "folder" ])->id);
-  TestThrows(PTR  siteobj->OpenByPath('sub', [ expect := "file" ]));
+  TestThrows(PTR siteobj->OpenByPath('sub', [ expect := "file" ]));
   testfw->RollbackWork();
 
   TestEq(FALSE, IsValidWHFSName("^file", FALSE));
