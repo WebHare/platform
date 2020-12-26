@@ -1,9 +1,47 @@
 <?wh
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+MACRO TestMoveFile()
+{
+  testfw->BeginWork();
+  OBJECT simplefile := GetTestsuiteTempFolder()->EnsureFolder([name := "folder1"])->CreateFile([name := "simplefile.rtd", publish := TRUE, typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile" ]);
+  testfw->CommitWork();
+
+  STRING initialurl := simplefile->link;
+  WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(initialurl));
+
+  testfw->BeginWork();
+  simplefile->MoveTo( GetTestsuiteTempFolder()->EnsureFolder([name := "folder2"]), "");
+  testfw->CommitWork();
+
+  simplefile->Refresh();
+  WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(simplefile->link));
+
+  Print("waiting for old URL to become unavailable\n");
+  WHILE(TRUE)
+  {
+    testfw->browser->GotoWebPage(initialurl);
+    IF(testfw->browser->GetHTTPStatusCode() != 200)
+      BREAK;
+
+    Sleep(500);
+    Print(".");
+  }
+  Print("\n");
+  TestEq(404,testfw->browser->GetHTTPStatusCode()); //there's no url history on the testsite
+}
+
 
 MACRO MyPrepare()
 {
@@ -72,6 +110,7 @@ MACRO TestFixDynamicExecution()
   testfw->RollbackWork();
 }
 
-RunTestframework([ PTR MyPrepare
+RunTestframework([ PTR TestMoveFile
+                 , PTR MyPrepare
                  , PTR TestFixDynamicExecution
                  ]);
