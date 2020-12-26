@@ -175,7 +175,7 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
     }
   }
 
-  //merge any new changes (FIXME validate hashes etc?)
+  //merge any new changes
   setwrapped := ValidateScannedData(CELL[...setwrapped, ...newwrapped, DELETE data]);
   INSERT CELL scandata := EncodeScanData(setwrapped, FALSE) INTO newmetadata;
 
@@ -253,7 +253,7 @@ RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
 
   IF(CellExists(metadata,'type') AND metadata.type!=0)
   {
-    //ADDME: If in cache, use that info
+    //TODO contenttype system has a cache, use that info
     RECORD typeinfo := SELECT * FROM system.fs_types WHERE id=metadata.type;
     IF(NOT RecordExists(typeinfo))
       THROW NEW WHFSException("OTHER","Invalid type #" || metadata.type);
@@ -265,7 +265,7 @@ RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
       THROW NEW WHFSException("OTHER","Type #" || metadata.type || ' (' || typeinfo.namespace || ') is a folder type, not a file type');
   }
 
-  IF(CellExists(metadata,'getdataptr')) //FIXME can't we get rid of getdataptr? Isn't this just a hack for ImportArchive ?
+  IF(CellExists(metadata,'getdataptr')) //TODO can't we get rid of getdataptr? Isn't this just a hack for ImportArchive ?
   {
     IF(metadata.getdataptr != DEFAULT FUNCTION PTR)
     {
@@ -892,11 +892,6 @@ OBJECTTYPE WHFSObject
       }
     }
 
-//    IF(NOT CellExists(newmetadata, "ordering"))
-//      INSERT CELL ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = ((CellExists(newmetadata, "PARENT"))? newmetadata.parent : oldversion.parent) ) INTO newmetadata;// Added 10-04-2015 for the new ordering mechanism
-//    IF(newmetadata.ordering = 0)
-//      newmetadata.ordering := 1;
-
     IF (IsPublish(oldversion.published) AND NOT IsPublish(newpublished))
       commithandler->Unpublished(oldversion.parentsite, oldversion.parent, this->pvt_id);
     ELSE IF (IsQueuedForPublication(newpublished))
@@ -931,7 +926,7 @@ OBJECTTYPE WHFSObject
       FixupTemplateProfileInfo(this->pvt_id, CellExists(newmetadata, "REQUIRETEMPLATEINSUBFOLDERS"), CellExists(newmetadata, "REQUIREPROFILEINSUBFOLDERS"));
     }
 
-    IF(this->isfolder AND isrename) //ADDME wouldn't above code already trigger a repub?
+    IF(this->isfolder AND isrename) //TODO wouldn't above code already trigger a repub?
     {
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
     }
@@ -994,7 +989,6 @@ OBJECTTYPE WHFSObject
       newid := copyer->plan[0].destid;
 
     copyer->Finalize();
-    //destfolder->EnsureOrdering();
 
     IF(newid=0)
       RETURN DEFAULT OBJECT;
@@ -1022,7 +1016,6 @@ OBJECTTYPE WHFSObject
       OBJECT copyer := destfolder->MakeBulkReceiver();
       copyer->SetSourceBase(this->id, newname);
 
-      // FIXME build an api to choose merge/overwrite
       copyer->CreateMovePlan(this->parent, [INTEGER(this->pvt_id)], newname, "weak");
       copyer->ExecuteCopyMovePlan();
       copyer->Finalize();
@@ -1044,8 +1037,6 @@ OBJECTTYPE WHFSObject
     //TODO This should probably be merged into the above code
     IF(newname!="" AND this->isfolder AND this->parentsite = this->id)
       UPDATE system.sites SET name := newname WHERE root = this->id;
-
-    //destfolder->EnsureOrdering();
   }
 
   MACRO DeleteOrRecycle(BOOLEAN is_recycle)
@@ -1088,7 +1079,6 @@ OBJECTTYPE WHFSObject
 
     OBJECT newparent := historyinfo.currentparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(historyinfo.currentparent);
     this->MoveTo(newparent, "");
-    //FIXME newparent->EnsureOrdering() .... but let's just ask MoveTo to take care of that!
   }
 
   /** @short Returns the instance data for a specific whfs type
@@ -1327,10 +1317,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
     published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));
 
-    //FIXME Also handle/validate 'published' field if it exists in the metadata
     IF(isfolder = FALSE AND CellExists(metadata,"publish"))
     {
-      //FIXME Work through siteprofile and cache typeinfo
       IF(metadata.publish)
         metadata.publish := CanPublishType(type);
 
@@ -1521,7 +1509,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     OBJECT commithandler := GetWHFSCommitHandler();
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
 
-    OBJECT newfolder := OpenWHFSObject(metadata.id); //FIXME Check insertion error and throw, we may never return DEFAULT
+    OBJECT newfolder := OpenWHFSObject(metadata.id);
     IF(NOT ObjectExists(newfolder))
       THROW NEW WHFSException("OTHER","Unexpected database insert error");
 
@@ -1851,7 +1839,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
          ORDER BY ordering, ToUpperCase(name), ToUpperCase(title), id;
 
     IF(NOT force_ordering AND NOT RecordExists(SELECT FROM select_objects WHERE ordering != 0))
-      RETURN; //
+      RETURN;
 
     FOREVERY(RECORD obj FROM select_objects)
     {
@@ -1874,11 +1862,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell options.safename Generate a URL safe name (defaults to true)
       @return A name that doesn't exist in this folder yet, based on the suggestion
   */
-  PUBLIC STRING FUNCTION GenerateUniqueName(STRING suggestion, VARIANT options DEFAULTSTO CELL[])
+  PUBLIC STRING FUNCTION GenerateUniqueName(STRING suggestion, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(TypeiD(options)=TypeID(INTEGER)) //legacy workaround - FIXME fix the callers once everyone is 4.11
-      options := [ ignoreobject := options ];
-
     RETURN GenerateUniqueName(this->id, suggestion, options);
   }
 
@@ -2027,7 +2012,7 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
   }
 
   /** @short Get this file as a wrapped blob record */
-  PUBLIC RECORD FUNCTION GetWrapped() //ADDME image contenttype data may be used as a cache instead of parsing the blob. But is it really more efficient in practice ?
+  PUBLIC RECORD FUNCTION GetWrapped()
   {
     RETURN WrapFSObjectData(this->id, this->data, this->pvt_fsobjectdata);
   }
@@ -2222,7 +2207,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
 
   /** The plan that is built from all the actions
-      Old comment: //planned_entries is a flat list of the data we wish to create - FIXME merge with import_entries
+      Old comment: //planned_entries is a flat list of the data we wish to create
       @cell kind Kind of action ('copy', 'remaining')
       @cell sourceid Id of source file/folder ('copy' only)
       @cell sourceisfolder Whether the source is a folder (if not, a file) ('copy' only)
@@ -2585,7 +2570,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
       RECORD newmetadata := src;
 
-      //FIXME FIXUP REFERENCES
       DELETE CELL instances FROM newmetadata;
       newmetadata.name := copyrec.name;
 
@@ -2644,7 +2628,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
         }
       }
 
-      IF(this->mapfilereferences) //ADDME: (optionally?) discard out-of-tree references ?
+      IF(this->mapfilereferences)
       {
         // Unmap references when needed
         IF (CellExists(newmetadata, "TEMPLATE"))
@@ -2837,8 +2821,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     IF (this->onprogress != DEFAULT FUNCTION PTR)
       this->onprogress([ donelen := this->progresssofar, progress := obj.progress, file := obj.name, fullpath := obj.destpath ]);
 
-    // FIXME: this code seems very wrong. Test whether the src.indexdoc is really the new indexdoc.
-
     // Update the indexdoc if it is 0 or has been auto-assigned to one of the newly created files
     IF (destfolder->indexdoc = 0 OR destfolder->indexdoc IN this->createdfiles)
     {
@@ -3020,7 +3002,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
             typeobj := lookuptype;
         }
 
-        //FIXME why not insert cell publish ?
         INSERT CELL published := ConvertToWillPublish(metainfo.data.published, TRUE, FALSE, PubPrio_SubFolderRepub) INTO retval;
       }
       ELSE
@@ -3036,12 +3017,9 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
     IF(RecordExists(metainfo))
     {
-      //FIXME report errors about missing instances
       RECORD ARRAY instances;
-//      PrintRecordArrayTo(0,metainfo.contentinstances,'tree');
       FOREVERY(RECORD instancerec FROM metainfo.contentinstances)
       {
-//        Print("**" || source.name || " " || instancerec.namespace || "\n");
         OBJECT typedef := OpenWHFSType(instancerec.namespace, [ openorphans := TRUE ]);
         IF(NOT ObjectExists(typedef))
           CONTINUE;
@@ -3097,7 +3075,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
     INTEGER objid;
     IF(whfsref!="")
     {
-      //FIXME: look in a cache
       INTEGER colon := SearchSubstring(whfsref,":");
       RECORD file;
 
@@ -3276,7 +3253,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
 
   /** @short Executes an import plan.
-      @param import_entries List of all imported entries. ADDME Rob says: refactor or something?
+      @param import_entries List of all imported entries.
           Add to the bulk sender?
   */
   PUBLIC MACRO ExecuteImportPlan(RECORD ARRAY import_entries)
@@ -3345,7 +3322,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
                                    AND sourceparent NOT IN updatedfolders;
 
 
-    //ADDME: Remove folders for which we know the plan already specified a new index?
     INTEGER ARRAY updatedindices := SELECT AS INTEGER ARRAY indexdoc
                                       FROM system.fs_objects
                                      WHERE id IN updatedfolders;

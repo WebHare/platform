@@ -844,38 +844,38 @@ MACRO UniqueNameGenerationTest()
   FOREVERY (STRING filename FROM existing_files)
     myfolder->CreateFile([ name := filename ]);
 
-  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a.tar.gz",0));
-  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("^a.tar.gz",0));
-  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-1.tar.gz",0));
-  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-2.tar.gz",0));
-  TestEq("a-3.tar.gz", myfolder->GenerateUniqueName("a-3.tar.gz",0));
-  TestEq("a-1.doc", myfolder->GenerateUniqueName("a.doc",0));
-  TestEq("a-1.doc", myfolder->GenerateUniqueName("a-1.doc",0));
-  TestEq("a-2.doc", myfolder->GenerateUniqueName("a-2.doc",0));
-  TestEq("b-2.doc", myfolder->GenerateUniqueName("b.doc",0));
-  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-1.doc",0));
-  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-2.doc",0));
-  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-3.doc",0));
-  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-4.doc",0));
-  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-5.doc",0));
-  TestEq("c.doc", myfolder->GenerateUniqueName("c.doc",0));
-  TestEq("c-1.doc", myfolder->GenerateUniqueName("c--1.doc",0));
-  TestEq("d-1.doc", myfolder->GenerateUniqueName("d--1.doc",0));
-  TestEq("d-0.doc", myfolder->GenerateUniqueName("d-0.doc",0));
-  TestEq("e-0-1.doc", myfolder->GenerateUniqueName("e-0.doc",0));
-  TestEq("f-a-1.doc", myfolder->GenerateUniqueName("f-a.doc",0));
-  TestEq("unnamed-1", myfolder->GenerateUniqueName("unnamed",0));
-  TestEq("doc", myfolder->GenerateUniqueName(".doc",0));
-  TestEq(r240a, myfolder->GenerateUniqueName(r240a,0));
-  TestEq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.doc", myfolder->GenerateUniqueName("a" || r240a,0));
-  TestEq("webhare.doc", myfolder->GenerateUniqueName(r240b,0)); // overload of aa...aa (10).doc (241 chars)
-  TestEq("webhare-1.txt", myfolder->GenerateUniqueName(r240c,0)); // overload of aa...aa (10).doc (241 chars)
-  TestEq("fail.doc", myfolder->GenerateUniqueName("fail?.doc",0));
-  TestEq("fail.txt", myfolder->GenerateUniqueName("fail?.txt",0));
-  TestEq("index.html", myfolder->GenerateUniqueName("^index.html",0));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a.tar.gz"));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("^a.tar.gz"));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-1.tar.gz"));
+  TestEq("a-2.tar.gz", myfolder->GenerateUniqueName("a-2.tar.gz"));
+  TestEq("a-3.tar.gz", myfolder->GenerateUniqueName("a-3.tar.gz"));
+  TestEq("a-1.doc", myfolder->GenerateUniqueName("a.doc"));
+  TestEq("a-1.doc", myfolder->GenerateUniqueName("a-1.doc"));
+  TestEq("a-2.doc", myfolder->GenerateUniqueName("a-2.doc"));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b.doc"));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-1.doc"));
+  TestEq("b-2.doc", myfolder->GenerateUniqueName("b-2.doc"));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-3.doc"));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-4.doc"));
+  TestEq("b-5.doc", myfolder->GenerateUniqueName("b-5.doc"));
+  TestEq("c.doc", myfolder->GenerateUniqueName("c.doc"));
+  TestEq("c-1.doc", myfolder->GenerateUniqueName("c--1.doc"));
+  TestEq("d-1.doc", myfolder->GenerateUniqueName("d--1.doc"));
+  TestEq("d-0.doc", myfolder->GenerateUniqueName("d-0.doc"));
+  TestEq("e-0-1.doc", myfolder->GenerateUniqueName("e-0.doc"));
+  TestEq("f-a-1.doc", myfolder->GenerateUniqueName("f-a.doc"));
+  TestEq("unnamed-1", myfolder->GenerateUniqueName("unnamed"));
+  TestEq("doc", myfolder->GenerateUniqueName(".doc"));
+  TestEq(r240a, myfolder->GenerateUniqueName(r240a));
+  TestEq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.doc", myfolder->GenerateUniqueName("a" || r240a));
+  TestEq("webhare.doc", myfolder->GenerateUniqueName(r240b)); // overload of aa...aa (10).doc (241 chars)
+  TestEq("webhare-1.txt", myfolder->GenerateUniqueName(r240c)); // overload of aa...aa (10).doc (241 chars)
+  TestEq("fail.doc", myfolder->GenerateUniqueName("fail?.doc"));
+  TestEq("fail.txt", myfolder->GenerateUniqueName("fail?.txt"));
+  TestEq("index.html", myfolder->GenerateUniqueName("^index.html"));
 
   TestEq("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams.-onderzoek-naar-typen-van-samenwerking-en-bevorderende-en-belemmerende-factoren-in-data-teams-ter-verbetering-van-het-onderwijs-en-nog-een-heel-lang-verha"
-        , myfolder->GenerateUniqueName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is",0));
+        , myfolder->GenerateUniqueName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is"));
 
   testfw->CommitWork();
 }
