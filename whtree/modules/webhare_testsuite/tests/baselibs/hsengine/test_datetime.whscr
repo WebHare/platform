@@ -659,7 +659,10 @@ MACRO CronTest()
   TestThrows(PTR GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "4 5 32 * *"));
 
   //Repeats
-  TestEq(MakeDatetime(2018,11,11,3,2,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "*/2 */3 * * *"));
+  TestEq(MakeDatetime(2018,11,11,0,2,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "*/2 */3 * * *"));
+  TestEq(MakeDatetime(2018,11,11,0,4,0), GetNextCronTime(MakeDatetime(2018,11,11,0,2,0), "*/2 */3 * * *"));
+  TestEq(MakeDatetime(2018,11,11,3,0,0), GetNextCronTime(MakeDatetime(2018,11,11,1,5,0), "*/2 */3 * * *"));
+  TestEq(MakeDatetime(2018,11,11,3,2,0), GetNextCronTime(MakeDatetime(2018,11,11,3,0,0), "*/2 */3 * * *"));
 
   //Multiple timeslots
   TestEq(MakeDatetime(2018,11,11,8,0,0), GetNextCronTime(MakeDatetime(2018,11,11,0,0,0), "0 8,15 * * *"));
@@ -670,6 +673,12 @@ MACRO CronTest()
   TestEq(MakeDatetime(2019,1,1,8,0,0), GetNextCronTime(MakeDatetime(2018,11,11,15,0,1), "0 8 1 1,4,7,10 *"));
   TestEq(MakeDatetime(2019,4,1,8,0,0), GetNextCronTime(MakeDatetime(2019,1,1,8,0,0), "0 8 1 1,4,7,10 *"));
 
+  //Specific regressions that led to generic fixes for the above tests too
+  TestEq(MakeDatetime(2020,12,29,8,10,0), GetNextCronTime(MakeDatetime(2020,12,29,8,8,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
+  TestEq(MakeDatetime(2020,12,29,8,10,0), GetNextCronTime(MakeDatetime(2020,12,29,8,9,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
+  TestEq(MakeDatetime(2020,12,29,17,10,0), GetNextCronTime(MakeDatetime(2020,12,29,16,59,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
+  TestEq(MakeDatetime(2020,12,29,18,40,0), GetNextCronTime(MakeDatetime(2020,12,29,18,39,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
+  TestEq(MakeDatetime(2020,12,30,8,10,0), GetNextCronTime(MakeDatetime(2020,12,29,18,40,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
 }
 
 PRINT("\n === Running TestDateTime\n");
