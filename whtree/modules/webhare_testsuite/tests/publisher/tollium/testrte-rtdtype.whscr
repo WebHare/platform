@@ -93,6 +93,10 @@ OBJECT ASYNC FUNCTION NewFileProps()
   //Insert it
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
 
+  //this should bring us into the editor for embedlvl1 widgets
+  TestEq(TRUE, ObjectExists(TT("richdoc")));
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1", topscreen->contexts->richdocument->rtdtype);
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
   rte := topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2", "richdoc");
@@ -221,6 +225,7 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   TT("contenttypes")->selection := lvl2type;
 
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); //EDIT INSTANCE
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", topscreen->contexts->richdocument->rtdtype);
 
   //Step 5:
   OBJECT level2rte := topscreen->instance->GetComponent("richdoc");

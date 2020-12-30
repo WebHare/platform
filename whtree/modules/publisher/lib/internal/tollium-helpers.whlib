@@ -599,9 +599,9 @@ PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, 
   IF(ObjectExists(rte) AND MemberExists(rte, "__this_is_tolliumrichdocument"))
   {
     OBJECT context := NEW RichDocumentContext;
-    context->rtdtypeinfo := rte->rtdtypeinfo; // get the RTD settings
-    DELETE FROM context->rtdtypeinfo.allowedobjects WHERE NOT inherit;
-    INSERT CELL "^__tollium__richdocumentcontext" := context INTO contexts;
+    context->__rtdtypeinfo := rte->rtdtypeinfo; // get the RTD settings
+    DELETE FROM context->__rtdtypeinfo.allowedobjects WHERE NOT inherit;
+    INSERT CELL richdocument := context INTO contexts;
   }
 
   OBJECT dialog := parent->LoadScreen("publisher:commondialogs/embeddedobjects.editor",
