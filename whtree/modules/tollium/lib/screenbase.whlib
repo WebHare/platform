@@ -694,10 +694,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
        and caching the fragment would be impossible if the names changed depending
        on load order */
 
-    //make them visible in our true scope
-    UPDATE localrefs SET name := "FRAGMENT!" || name;
-
-    this->tolliumscreenbuilder->SetLocalRefs(localrefs, localhandlers);
     STRING savefragprefix := this->tolliumscreenmanager->current_fragment_prefix;
     this->tolliumscreenmanager->current_fragment_prefix := fragprefix;
 
@@ -734,7 +730,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF(NOT this->tolliumscreenbuilder->HasFailed())
       result.rootnode := this->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields, fragment.rootnode.tolliumscope);
 
-    this->tolliumscreenbuilder->SetLocalRefs(DEFAULT RECORD ARRAY, DEFAULT RECORD ARRAY);
     this->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
 
     IF(this->tolliumscreenbuilder->HasFailed())
@@ -789,11 +784,18 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   PUBLIC RECORD FUNCTION LoadTolliumBodyFragment(RECORD ARRAY localrefs, RECORD ARRAY localhandlers, STRING resourcename, STRING fragmentname, BOOLEAN istabsextension)
   {
     resourcename := MakeAbsoluteResourcePath("", resourcename);
-    RECORD result := this->DoLoadFragment(localrefs, localhandlers, resourcename, fragmentname, istabsextension, DEFAULT RECORD);
-    IF(Length(result.errors)>0)
-      RETURN result;
 
-    RETURN result;
+    //make them visible in our true scope
+    UPDATE localrefs SET name := "FRAGMENT!" || name;
+    RECORD savedrefs := this->tolliumscreenbuilder->SetLocalRefs(localrefs, localhandlers);
+    TRY
+    {
+      RETURN this->DoLoadFragment(localrefs, localhandlers, resourcename, fragmentname, istabsextension, DEFAULT RECORD);
+    }
+    FINALLY
+    {
+      this->tolliumscreenbuilder->SetLocalRefs(savedrefs.localrefs, savedrefs.localhandlers);
+    }
   }
 
   OBJECT FUNCTION InnerCreateFragment(STRING resourcename, STRING fragmentname, RECORD options)

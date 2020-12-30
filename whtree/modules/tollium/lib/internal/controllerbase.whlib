@@ -159,10 +159,12 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
   }
 
   ///Temporary override resolving of names & handlers (allow resolving against external symbols in fragments)
-  PUBLIC MACRO SetLocalRefs(RECORD ARRAY newrefs, RECORD ARRAY newhandlers)
+  PUBLIC RECORD FUNCTION SetLocalRefs(RECORD ARRAY newrefs, RECORD ARRAY newhandlers)
   {
+    RECORD saverefs := CELL[ this->localrefs, this->localhandlers ];
     this->localrefs := SELECT *, name := ToUppercase(name) FROM newrefs ORDER BY ToUppercase(name);
     this->localhandlers := SELECT *, name := ToUppercase(name) FROM newhandlers ORDER BY ToUppercase(name);
+    RETURN saverefs;
   }
   OBJECT FUNCTION LookupScope(STRING scope)
   {
