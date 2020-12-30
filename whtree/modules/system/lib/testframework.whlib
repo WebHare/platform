@@ -1328,7 +1328,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       @long Ask the webserver to refresh its configuration read from the database and module definitions. The relevant changes need to be already committed. Returns when the webserver is reconfigured */
   PUBLIC MACRO RefreshWebserverConfig()
   {
-    IF (ObjectExists(GetPrimaryWebhareTransactionObject()) AND GetPrimary()->IsWorkOpen())
+    IF (HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen())
       GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR this->OnCommitRefreshWebserverConfig);
     ELSE
       this->OnCommitRefreshWebserverConfig(TRUE);
