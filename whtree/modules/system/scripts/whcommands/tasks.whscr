@@ -45,7 +45,7 @@ MACRO ImportTask(STRING ARRAY params)
     TerminateScriptWithError("");
   }
 
-  RECORD task := DecodeHSONBlob(GetDiskResource(subargs.path));
+  RECORD task := DecodeHSONBlob(subargs.path = "-" ? GetSTDINAsBlob() : GetDiskResource(subargs.path));
   task := EnforceStructure([__taskmeta := [ type := "" ]], task);
   IF(task.__taskmeta.type != "managedtask")
     THROW NEW Exception(`Unrecognized task type '${task.__taskmeta.type}`);
