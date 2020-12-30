@@ -98,18 +98,14 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   # FIXME: make sure no blobs are deleted during the backup
 
   [ "$VERBOSE" == "1" ] && echo "Making copy of the blobs"
-  for BLOBBASEFOLDER in blob ; do
-    if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
-      mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-      rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+  mkdir -p "$BLOBDEST/blob/"
+  rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/blob" "$BLOBDEST/"
 
-      RSYNCRETVAL="$?"
-      if [ "$RSYNCRETVAL" != "0" ]; then
-        echo "First rsync with error code $RSYNCRETVAL"
-        exit 1
-      fi
-    fi
-  done
+  RSYNCRETVAL="$?"
+  if [ "$RSYNCRETVAL" != "0" ]; then
+    echo "First rsync with error code $RSYNCRETVAL"
+    exit 1
+  fi
 
   [ "$VERBOSE" == "1" ] && echo "Make database backup"
   PSROOT="${WEBHARE_DATAROOT}postgresql"
@@ -117,18 +113,13 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
   pg_basebackup -D "$BACKUPDEST/backup/" -h "$PSROOT/db" -F tar -P -v -h "$PSROOT" --compress=1
 
   [ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
-  for BLOBBASEFOLDER in blob ` cd $STORAGEPATH ; echo blob-* `; do
-    if [ -d "$STORAGEPATH/$BLOBBASEFOLDER" ]; then
-      mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-      rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+  rsync -av $RSYNCOPTS --link-dest "$STORAGEPATH/" "$STORAGEPATH/blob" "$BLOBDEST/"
 
-      RSYNCRETVAL="$?"
-      if [ "$RSYNCRETVAL" != "0" ]; then
-        echo "Second rsync with error code $RSYNCRETVAL"
-        exit 1
-      fi
-    fi
-  done
+  RSYNCRETVAL="$?"
+  if [ "$RSYNCRETVAL" != "0" ]; then
+    echo "Second rsync with error code $RSYNCRETVAL"
+    exit 1
+  fi
 else
   echo "Unknown database type $__WEBHARE_DBASE"
   exit 1
