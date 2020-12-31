@@ -157,12 +157,12 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
     RETURN href;
   }
 
-  UPDATE PUBLIC STRING FUNCTION ResolveLink(RECORD linkrecord)
+  UPDATE PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD linkrecord)
   {
     IF(RecordExists(linkrecord) AND linkrecord.internallink = whconstant_whfsid_private_rootsettings AND linkrecord.append = "#goto-nowhere")
       linkrecord := MakeIntExtExternalLink("x-go-rewrite:#no-really");
 
-    RETURN BetaWebDesign::ResolveLink(linkrecord);
+    RETURN BetaWebDesign::GetIntExtLinkTarget(linkrecord);
   }
 >;
 

@@ -512,9 +512,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         IF(RecordExists(linkrecord))
         {
           IF (ObjectExists(outputobject->document->webdesign))
-            hyperlinkinfo.href := outputobject->document->webdesign->ResolveLink(linkrecord);
+            hyperlinkinfo.href := outputobject->document->webdesign->GetIntExtLinkTarget(linkrecord);
           ELSE
-            hyperlinkinfo.href := DefaultResolveLink(linkrecord);
+            hyperlinkinfo.href := GetIntExtLinkTarget(linkrecord);
         }
 
         IF(hyperlinkinfo.href != "")
@@ -754,21 +754,6 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
 
 >;
 
-PUBLIC STRING FUNCTION DefaultResolveLink(RECORD linkrecord)
-{
-  IF(NOT RecordExists(linkrecord))
-    RETURN "";
-
-  IF(linkrecord.externallink != "")
-    RETURN linkrecord.externallink;
-
-  STRING target := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = linkrecord.internallink;
-  IF(target = "")
-    RETURN "";
-
-  RETURN target || linkrecord.append;
-}
-
 PUBLIC STRING FUNCTION ResolveRichDocLink(RECORD ARRAY links, STRING src)
 {
   RECORD split := SplitIntLink(src);
@@ -776,7 +761,7 @@ PUBLIC STRING FUNCTION ResolveRichDocLink(RECORD ARRAY links, STRING src)
   IF(NOT RecordExists(matchlink))
     RETURN "";
 
-  RETURN DefaultResolveLink(MakeIntExtInternalLink(matchlink.linkref, split.append));
+  RETURN GetIntExtLinkTarget(MakeIntExtInternalLink(matchlink.linkref, split.append));
 }
 
 PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
