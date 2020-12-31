@@ -1621,6 +1621,16 @@ MACRO VariantArrayUpdateTest()
   o->SetIdx(0, TRUE);
 }
 
+MACRO TestSharedReferenceTest()
+{
+  OBJECT obj := NEW EmptyObjectType;
+  TestEQ(FALSE, __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(obj).isshared);
+
+  // Test if obj is returned, forces a second reference to exist
+  obj := NEW EmptyObjectType;
+  TestEQ([ isshared := TRUE, value := obj ], __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(obj));
+}
+
 PRINT("\n === Running TestObjects\n");
 BaseTest();
 InsertMemberTest();
@@ -1646,3 +1656,4 @@ TestHat();
 TestWeakObjects();
 TestReadWriteOnlyProperties();
 VariantArrayUpdateTest();
+TestSharedReferenceTest();

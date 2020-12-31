@@ -624,6 +624,7 @@ class BLEXLIB_PUBLIC VarMemory
         void const *    ObjectGetTypeDescriptor(VarId obj);
         void            ObjectSetTypeDescriptor(VarId obj, void const *newdescriptor);
         bool            ObjectHasDeletableMembers(VarId obj);
+        bool            ObjectIsSharedReference(VarId obj);
 
         /** Get the context pointer for an object, construct if necessary
             @param todestroy The object data */
