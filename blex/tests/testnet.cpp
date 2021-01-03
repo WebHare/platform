@@ -466,7 +466,7 @@ BLEX_TEST_FUNCTION(TestWriteWait)
 
 void SecureListener(Blex::Socket *rightend)
 {
-        Blex::SSLContext ccontext(false, "");
+        Blex::SSLContext ccontext(false, "",1);
         rightend->SetSecure(&ccontext);
 
         while(true)
@@ -495,7 +495,7 @@ BLEX_TEST_FUNCTION(TestSecureSockets)
         Blex::SocketSet sockets(Blex::Socket::Stream, false);
         sockets.GetLeftEnd().SetBlocking(false);
         sockets.GetRightEnd().SetBlocking(false);
-        Blex::SSLContext scontext(true, "");
+        Blex::SSLContext scontext(true, "",1);
         Blex::Thread listener(std::bind(SecureListener, &sockets.GetRightEnd()));
         listener.Start();
 
@@ -532,7 +532,7 @@ BLEX_TEST_FUNCTION(TestSecureNonBlockingSockets)
 #endif
         BLEX_TEST_CHECK(TryConnectSockets(lhs, rhs, false));
 
-        Blex::SSLContext scontext(true,""),ccontext(false,"");
+        Blex::SSLContext scontext(true,"",1),ccontext(false,"",1);
         lhs.SetBlocking(false);
         rhs.SetBlocking(false);
 
@@ -858,7 +858,7 @@ BLEX_TEST_FUNCTION(DispatSSLDataTest)
                 Blex::SleepThread(250);
         }
 
-        Blex::SSLContext ccontext(false, "");
+        Blex::SSLContext ccontext(false, "", 1);
         tcpsock.SetSecure(&ccontext);
         tcpsock.SetBlocking(false);
 

@@ -111,14 +111,16 @@ OBJECTTYPE LDAPConnection
     RETURN request;
   }
 
-  PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port, BOOLEAN secure)
+  PUBLIC BOOLEAN FUNCTION Connect(STRING host, INTEGER port, BOOLEAN secure, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(secureconnection_options, options);
+
     this->mainsocket := CreateTCPSocket();
     IF(this->mainsocket<=0)
       RETURN FALSE;
 
     IF(NOT ConnectSocket(this->mainsocket, host, port)
-       OR (secure AND NOT SetSecureConnection(this->mainsocket, TRUE)))
+       OR (secure AND NOT SetSecureConnection(this->mainsocket, TRUE, options)))
     {
       CloseSocket(this->mainsocket);
       this->mainsocket := 0;
