@@ -179,7 +179,7 @@
         <addheader header="X-Frame-Options" value="SAMEORIGIN"/>
         <addheader header="Strict-Transport-Security" value="max-age=15552000"/>
         <addheader header="X-XSS-Protection" value="1; mode=block"/>
-        <addheader header="Content-security-policy" value="script-src 'self'"/>
+        <csp policy="script-src 'self'"/>
       </webrule>
     </webruleset>
     <restapi path="root:/.webhare_testsuite/restapi/" apispec="tests/wh/webserver/remoting/restapi/restapi.xml" />
