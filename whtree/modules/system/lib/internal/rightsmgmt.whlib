@@ -1349,19 +1349,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
   }
 
 
-  /** Return user data for logging purposes
-      @return User data for logging purposes
-      @cell return.authobject Id of the authobject of this user
-      @cell return.when When this data was retrieved
-  */
-  PUBLIC RECORD FUNCTION GetUserDataForLogging()
-  {
-    RETURN
-        [ authobjectid := this->__pvt_authobjectid
-        , when :=         GetCurrentDatetime()
-        ];
-  }
-
   PUBLIC INTEGER FUNCTION __PVT_GetGrantTarget(BOOLEAN for_role)
   {
     THROW NEW Exception("This object cannot be granted to");
@@ -1401,6 +1388,19 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
   //
   // Public interface
   //
+
+  /** Return user data for logging purposes
+      @return User data for logging purposes
+      @cell return.authobject Id of the authobject of this user
+      @cell return.when When this data was retrieved
+  */
+  PUBLIC RECORD FUNCTION GetUserDataForLogging()
+  {
+    RETURN
+        [ authobjectid := this->__pvt_authobjectid
+        , when :=         GetCurrentDatetime()
+        ];
+  }
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasRole(INTEGER roleid)
   {
