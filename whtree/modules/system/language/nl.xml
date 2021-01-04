@@ -1527,6 +1527,7 @@
           <text tid="validfrom">Geldig vanaf</text>
           <text tid="validuntil">Geldig tot</text>
           <text tid="viewcertificatechain">Certificaatketting</text>
+          <text tid="warnexpirydays">Waarschuw bij verloop over</text>
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->

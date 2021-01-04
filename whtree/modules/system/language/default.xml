@@ -1716,6 +1716,7 @@
           <text tid="validfrom">Valid from</text>
           <text tid="validuntil">Valid until</text>
           <text tid="viewcertificatechain">Certificate chain</text>
+          <text tid="warnexpirydays">Warn if expiring in</text>
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->

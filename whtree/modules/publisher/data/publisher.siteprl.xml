@@ -901,6 +901,17 @@
 
   <!-- ======================================================================
 
+       Key store
+
+  ==== -->
+  <foldertype namespace="http://www.webhare.net/xmlns/system/keystorefolder">
+    <members>
+      <integer name="warnexpirydays" />
+    </members>
+  </foldertype>
+
+  <!-- ======================================================================
+
        Consilio indexes
 
   ==== -->
