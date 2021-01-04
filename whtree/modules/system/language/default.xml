@@ -1064,101 +1064,6 @@
     <textgroup gid="geoip">   <!-- sysmgmt.geoip -->
       <text tid="title">GeoIP management</text>
     </textgroup>
-    <textgroup gid="keystore">   <!-- sysmgmt.keystore -->
-      <text tid="invalidhostname">The webserver does not appear to be a valid hostname. Are you sure you want to use this value as Common Name?</text>
-      <text tid="invalidkeyfile">The file '<param p="1"/>' does not appear to be a valid private key</text>
-      <text tid="overwritewithselfsigned">Are you sure you want to replace the certificate of this key with a self-signed certificate?</text>
-      <text tid="rsa">RSA</text>
-      <text tid="suredeletekey">Are you sure you want to delete key '<param p="1"/>'? This operation can't be undone!</text>
-      <text tid="title">Keys and certificates</text>
-      <textgroup gid="createkey">   <!-- sysmgmt.keystore.createkey -->
-        <text tid="bits">Bits</text>
-        <text tid="createkey">Create key</text>
-        <text tid="duplicatekeyfile">This key is already in use</text>
-        <text tid="invalidname">The key name is invalid</text>
-        <text tid="ioerror">They key could not be saved due to an disk error.</text>
-        <text tid="keyfile">Key file</text>
-        <text tid="name">Name</text>
-        <text tid="title">Title</text>
-      </textgroup>
-      <textgroup gid="createselfsignedcert">   <!-- sysmgmt.keystore.createselfsignedcert -->
-        <text tid="altnames">Alternative DNS names</text>
-        <text tid="c">Country</text>
-        <text tid="cn">Common name (host)</text>
-        <text tid="createselfsignedcert">Create self-signed certificate</text>
-        <text tid="l">Locality</text>
-        <text tid="o">Organisation</text>
-        <text tid="ou">Organisation unit</text>
-        <text tid="st">State / province</text>
-        <text tid="validuntil">Valid until</text>
-        <text tid="valituntilmustbeinfuture">The 'valid until' date must be in the future.</text>
-      </textgroup>
-      <textgroup gid="generatecsr">   <!-- sysmgmt.keystore.generatecsr -->
-        <text tid="altnames">Alternative names</text>
-        <text tid="country">Country</text>
-        <text tid="csr">CSR</text>
-        <text tid="generate">Generate</text>
-        <text tid="generatecsr">Generate Certificate Signing Request</text>
-        <text tid="invalidhostname">Invalid host name</text>
-        <text tid="locality">City</text>
-        <text tid="organization">Organization</text>
-        <text tid="organizationunit">Organization unit</text>
-        <text tid="readfromcert">Read from certificate</text>
-        <text tid="readfromlastcsr">Read from last CSR</text>
-        <text tid="state">State</text>
-        <text tid="webserver">Webserver</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- sysmgmt.keystore.main -->
-        <text tid="addkey">Add key</text>
-        <text tid="certificate">Certificate</text>
-        <text tid="certificatealreadyinstalled">This certificate is already installed.</text>
-        <text tid="certificatedoesnotmatchissuer">The certificate issuer does not match the subject of the signing certificate.</text>
-        <text tid="certificatenotforthiskey">This certificate does not belong to the selected key.</text>
-        <text tid="createselfsignedcert">Create self-signed certificate</text>
-        <text tid="deletekey">Delete key</text>
-        <text tid="downloadcertificate">Download certificate</text>
-        <text tid="downloadkey">Download key</text>
-        <text tid="generatecsr">Generate CSR</text>
-        <text tid="keyfile">Key file</text>
-        <text tid="keylength">Key length</text>
-        <text tid="keystillreferencedbyentity">This key is still referenced by a WRD entity from schema '<param p="1"/>', type '<param p="2"/>', entity tag '<param p="3"/>'.</text>
-        <text tid="keystillreferencedbyport">This key is still used by the binding of port <param p="2"/>, IP <param p="1"/>.</text>
-        <text tid="main">Keys and certificates</text>
-        <text tid="missingcertificate">The certificate for issuer '<param p="1"/>' is not in the certificate file and not known in the central certificate store.</text>
-        <text tid="missingcertificatechain">This certificate file does not contain a certificate chain.</text>
-        <text tid="noncertificateinchain">This file contains an invalid certificate.</text>
-        <text tid="signatureverificationfailed">The validation of the certificate chain failed.</text>
-        <text tid="unsupportedsignaturealgorithm">The signature algorithm "<param p="1"/>" is not supported.</text>
-        <text tid="uploadcertificate">Install certificate</text>
-        <text tid="uploadkey">Upload key</text>
-        <text tid="validuntil">Valid until</text>
-        <text tid="viewcertificatechain">View certificates</text>
-      </textgroup>
-      <textgroup gid="viewcertificatechain">   <!-- sysmgmt.keystore.viewcertificatechain -->
-        <text tid="altnames">Alternative names</text>
-        <text tid="certificatechain">Certificate chain</text>
-        <text tid="certificatedata">Certificate date</text>
-        <text tid="commonname">Common name</text>
-        <text tid="country">Country</text>
-        <text tid="dns_altnames">DNS alternate names</text>
-        <text tid="expired"><html:b>Expired!</html:b></text>
-        <text tid="expires_in_days">Expires in <param p="1"/> days</text>
-        <text tid="expires_soon_in_days"><html:b>Expires in <param p="1"/> days</html:b></text>
-        <text tid="locality">Locality</text>
-        <text tid="notsignedbynextcert">Not signed by next certificate!</text>
-        <text tid="organization">Organization</text>
-        <text tid="selfsigned">Self-signed</text>
-        <text tid="signature">Signature</text>
-        <text tid="signaturenotchecked">Signature cannot be checked</text>
-        <text tid="signaturestatus">Status</text>
-        <text tid="signedbynextcert">Signed by next certificate</text>
-        <text tid="state">State/province</text>
-        <text tid="subject">Subject</text>
-        <text tid="validfrom">Valid from</text>
-        <text tid="validuntil">Valid until</text>
-        <text tid="viewcertificatechain">Certificate chain</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="main">   <!-- sysmgmt.main -->
       <text tid="app">System management</text>
       <text tid="main">System management</text>
@@ -1690,9 +1595,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
-      <textgroup gid="config">   <!-- tolliumapps.config.config -->
-        <text tid="config">Configuration</text>
-      </textgroup>
       <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
         <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
           <text tid="branchnotonorigin">The current branch of this module is not present on the origin. This may happen if you are working on a feature branch. Please commit and push first. Are you sure you want to proceed deploying this module?</text>
@@ -1732,6 +1634,88 @@
           <text tid="id">Commit ID</text>
           <text tid="message">Message</text>
           <text tid="reviewincomingcommits">Incoming commits</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="keystore">   <!-- tolliumapps.config.keystore -->
+        <textgroup gid="createkey">   <!-- tolliumapps.config.keystore.createkey -->
+          <text tid="bits">Bits</text>
+          <text tid="createkey">Create key</text>
+          <text tid="duplicatekeyfile">This key is already in use</text>
+          <text tid="invalidname">The key name is invalid</text>
+          <text tid="name">Name</text>
+          <text tid="title">Title</text>
+        </textgroup>
+        <textgroup gid="createselfsignedcert">   <!-- tolliumapps.config.keystore.createselfsignedcert -->
+          <text tid="altnames">Alternative DNS names</text>
+          <text tid="c">Country</text>
+          <text tid="cn">Common name (host)</text>
+          <text tid="createselfsignedcert">Create self-signed certificate</text>
+          <text tid="l">Locality</text>
+          <text tid="o">Organisation</text>
+          <text tid="ou">Organisation unit</text>
+          <text tid="st">State / province</text>
+          <text tid="validuntil">Valid until</text>
+          <text tid="valituntilmustbeinfuture">The 'valid until' date must be in the future.</text>
+        </textgroup>
+        <textgroup gid="generatecsr">   <!-- tolliumapps.config.keystore.generatecsr -->
+          <text tid="altnames">Alternative names</text>
+          <text tid="country">Country</text>
+          <text tid="csr">CSR</text>
+          <text tid="generate">Generate</text>
+          <text tid="generatecsr">Generate Certificate Signing Request</text>
+          <text tid="invalidhostname">Invalid host name</text>
+          <text tid="locality">City</text>
+          <text tid="organization">Organization</text>
+          <text tid="organizationunit">Organization unit</text>
+          <text tid="state">State</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+        <textgroup gid="main">   <!-- tolliumapps.config.keystore.main -->
+          <text tid="addkey">Add key</text>
+          <text tid="certificate">Certificate</text>
+          <text tid="certificatedoesnotmatchissuer">The certificate issuer does not match the subject of the signing certificate.</text>
+          <text tid="certificatenotforthiskey">This certificate does not belong to the selected key.</text>
+          <text tid="createselfsignedcert">Create self-signed certificate</text>
+          <text tid="deletekey">Delete key</text>
+          <text tid="downloadcertificate">Download certificate</text>
+          <text tid="downloadkey">Download key</text>
+          <text tid="generatecsr">Generate CSR</text>
+          <text tid="invalidkeyfile">The file '<param p="1"/>' does not appear to be a valid private key</text>
+          <text tid="keyfile">Key file</text>
+          <text tid="keylength">Key length</text>
+          <text tid="keystillreferencedbyentity">This key is still referenced by a WRD entity from schema '<param p="1"/>', type '<param p="2"/>', entity tag '<param p="3"/>'.</text>
+          <text tid="keystillreferencedbyport">This key is still used by the binding of port <param p="2"/>, IP <param p="1"/>.</text>
+          <text tid="main">Keys and certificates</text>
+          <text tid="missingcertificate">The certificate for issuer '<param p="1"/>' is not in the certificate file and not known in the central certificate store.</text>
+          <text tid="missingcertificatechain">This certificate file does not contain a certificate chain.</text>
+          <text tid="noncertificateinchain">This file contains an invalid certificate.</text>
+          <text tid="overwritewithselfsigned">Are you sure you want to replace the certificate of this key with a self-signed certificate?</text>
+          <text tid="signatureverificationfailed">The validation of the certificate chain failed.</text>
+          <text tid="suredeletekey">Are you sure you want to delete key '<param p="1"/>'? This operation can't be undone!</text>
+          <text tid="unsupportedsignaturealgorithm">The signature algorithm "<param p="1"/>" is not supported.</text>
+          <text tid="uploadcertificate">Install certificate</text>
+          <text tid="uploadkey">Upload key</text>
+          <text tid="validuntil">Valid until</text>
+          <text tid="viewcertificatechain">View certificates</text>
+        </textgroup>
+        <textgroup gid="viewcertificatechain">   <!-- tolliumapps.config.keystore.viewcertificatechain -->
+          <text tid="altnames">Alternative names</text>
+          <text tid="certificatechain">Certificate chain</text>
+          <text tid="certificatedata">Certificate date</text>
+          <text tid="dns_altnames">DNS alternate names</text>
+          <text tid="expired"><html:b>Expired!</html:b></text>
+          <text tid="expires_in_days">Expires in <param p="1"/> days</text>
+          <text tid="expires_soon_in_days"><html:b>Expires in <param p="1"/> days</html:b></text>
+          <text tid="notsignedbynextcert">Not signed by next certificate!</text>
+          <text tid="selfsigned">Self-signed</text>
+          <text tid="signature">Signature</text>
+          <text tid="signaturenotchecked">Signature cannot be checked</text>
+          <text tid="signaturestatus">Status</text>
+          <text tid="signedbynextcert">Signed by next certificate</text>
+          <text tid="subject">Subject</text>
+          <text tid="validfrom">Valid from</text>
+          <text tid="validuntil">Valid until</text>
+          <text tid="viewcertificatechain">Certificate chain</text>
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->

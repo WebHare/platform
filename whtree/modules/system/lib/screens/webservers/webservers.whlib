@@ -78,7 +78,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RegisterLocalDragType("local:webserveralias", DEFAULT STRING ARRAY);
 
     IF (RecordExists(data.message) AND data.message.task = "selectkey")
-      this->LoadScreen("sysmgmt/keystore.main", [ value := data.message.id ])->RunModal();
+      this->RunScreen("mod::system/tolliumapps/config/keystore.xml#main", [ value := data.message.id ]);
   }
 
   RECORD ARRAY FUNCTION GetAliases(RECORD ARRAY aliases)
@@ -381,7 +381,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DOKeystore()
   {
-    this->LoadScreen("sysmgmt/keystore.main")->RunModal();
+    this->RunScreen("mod::system/tolliumapps/config/keystore.xml#main");
   }
   MACRO DoFiletypes()
   {

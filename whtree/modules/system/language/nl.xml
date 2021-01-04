@@ -875,101 +875,6 @@
     <textgroup gid="geoip">   <!-- sysmgmt.geoip -->
       <text tid="title">GeoIP beheer</text>
     </textgroup>
-    <textgroup gid="keystore">   <!-- sysmgmt.keystore -->
-      <text tid="invalidhostname">De webserver lijkt geen geldige hostname te zijn. Weet u zeker dat u deze waarde als Common Name wilt gebruiken?</text>
-      <text tid="invalidkeyfile">Het bestand '<param p="1"/>' lijkt geen valide private key te zijn</text>
-      <text tid="overwritewithselfsigned">Weet u zeker dat u het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
-      <text tid="rsa">RSA</text>
-      <text tid="suredeletekey">Weet u zeker dat u sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
-      <text tid="title">Sleutels en certificaten</text>
-      <textgroup gid="createkey">   <!-- sysmgmt.keystore.createkey -->
-        <text tid="bits">Bits</text>
-        <text tid="createkey">Sleutel aanmaken</text>
-        <text tid="duplicatekeyfile">Deze sleutel bestaat al</text>
-        <text tid="invalidname">De naam van de sleutel is ongeldig</text>
-        <text tid="ioerror">Er is een fout opgestreden bij het opslaan van het bestand.</text>
-        <text tid="keyfile">Sleutelbestand</text>
-        <text tid="name">Naam</text>
-        <text tid="title">Titel</text>
-      </textgroup>
-      <textgroup gid="createselfsignedcert">   <!-- sysmgmt.keystore.createselfsignedcert -->
-        <text tid="altnames">Alternatieve DNS-namen</text>
-        <text tid="c">Land</text>
-        <text tid="cn">Algemene naam (host)</text>
-        <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
-        <text tid="l">Gemeente</text>
-        <text tid="o">Organisatie</text>
-        <text tid="ou">Organisatieeenheid</text>
-        <text tid="st">Staat / provincie</text>
-        <text tid="validuntil">Geldig tot</text>
-        <text tid="valituntilmustbeinfuture">De 'geldig tot' datum moet in de toekomst liggen.</text>
-      </textgroup>
-      <textgroup gid="generatecsr">   <!-- sysmgmt.keystore.generatecsr -->
-        <text tid="altnames">Alternatieve namen</text>
-        <text tid="country">Land</text>
-        <text tid="csr">CSR</text>
-        <text tid="generate">Genereren</text>
-        <text tid="generatecsr">Certificate Signing Request genereren</text>
-        <text tid="invalidhostname">Ongeldige hostnaam</text>
-        <text tid="locality">Stad</text>
-        <text tid="organization">Organisatie</text>
-        <text tid="organizationunit">Organisatieeenheid</text>
-        <text tid="readfromcert">Vullen met certificaat</text>
-        <text tid="readfromlastcsr">Vullen met laatste CSR</text>
-        <text tid="state">Provincie</text>
-        <text tid="webserver">Webserver</text>
-      </textgroup>
-      <textgroup gid="main">   <!-- sysmgmt.keystore.main -->
-        <text tid="addkey">Sleutel toevoegen</text>
-        <text tid="certificate">Certificaat</text>
-        <text tid="certificatealreadyinstalled">Dit certificaat is al geïnstalleerd.</text>
-        <text tid="certificatedoesnotmatchissuer">De issuer van het vertificaat komt niet overeen met de subject van het ondertekenende certificaat.</text>
-        <text tid="certificatenotforthiskey">Dit certificaat behoort niet bij de geselecteerde sleutel.</text>
-        <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
-        <text tid="deletekey">Sleutel verwijderen</text>
-        <text tid="downloadcertificate">Certificaat downloaden</text>
-        <text tid="downloadkey">Key downloaden</text>
-        <text tid="generatecsr">CSR Genereren</text>
-        <text tid="keyfile">Sleutelbestand</text>
-        <text tid="keylength">Sleutellengte</text>
-        <text tid="keystillreferencedbyentity">Deze sleutel wordt nog gerefereerd door een WRD entiteit van schema '<param p="1"/>', type '<param p="2"/>', entiteittag '<param p="3"/>'.</text>
-        <text tid="keystillreferencedbyport">Deze sleutel wordt nog gebruikt door de binding van poort <param p="2"/>, IP <param p="1"/>.</text>
-        <text tid="main">Sleutels and certificaten</text>
-        <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
-        <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
-        <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
-        <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
-        <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
-        <text tid="uploadcertificate">Certificaat installeren</text>
-        <text tid="uploadkey">Sleutel uploaden</text>
-        <text tid="validuntil">Geldig tot</text>
-        <text tid="viewcertificatechain">Certificaten bekijken</text>
-      </textgroup>
-      <textgroup gid="viewcertificatechain">   <!-- sysmgmt.keystore.viewcertificatechain -->
-        <text tid="altnames">Alternatieve namen</text>
-        <text tid="certificatechain">Certifcaatketen</text>
-        <text tid="certificatedata">Certificaatgegevens</text>
-        <text tid="commonname">Common name</text>
-        <text tid="country">Land</text>
-        <text tid="dns_altnames">DNS alternatieve namen</text>
-        <text tid="expired"><html:b>Verlopen!</html:b></text>
-        <text tid="expires_in_days">Verloopt over <param p="1"/> dagen</text>
-        <text tid="expires_soon_in_days"><html:b>Verloopt over <param p="1"/> dagen</html:b></text>
-        <text tid="locality">Plaats</text>
-        <text tid="notsignedbynextcert">Niet getekend door volgende certificaat!</text>
-        <text tid="organization">Organisatie</text>
-        <text tid="selfsigned">Zelf-ondertekend</text>
-        <text tid="signature">Ondertekening</text>
-        <text tid="signaturenotchecked">Ondertekening kan niet worden geverifieerd</text>
-        <text tid="signaturestatus">Status</text>
-        <text tid="signedbynextcert">Ondertekend door volgende certificaat</text>
-        <text tid="state">Staat/provincie</text>
-        <text tid="subject">Onderwerp</text>
-        <text tid="validfrom">Geldig vanaf</text>
-        <text tid="validuntil">Geldig tot</text>
-        <text tid="viewcertificatechain">Certificaatketting</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="main">   <!-- sysmgmt.main -->
       <text tid="app">Systeembeheer</text>
       <text tid="main">Systeembeheer</text>
@@ -1501,9 +1406,6 @@
       </textgroup>
     </textgroup>
     <textgroup gid="config">   <!-- tolliumapps.config -->
-      <textgroup gid="config">   <!-- tolliumapps.config.config -->
-        <text tid="config">Configuratie</text>
-      </textgroup>
       <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
         <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
           <text tid="branchnotonorigin">De huidige branch is niet beschikbaar op de repository server. Dit gebeurt bv. als er op een feature branch wordt gewerkt.<br/><br/>Commit en push aub alle wijzigingen eerst. Weet u zeker dat u de module wilt uitrollen?</text>
@@ -1543,6 +1445,88 @@
           <text tid="id">Commit ID</text>
           <text tid="message">Bericht</text>
           <text tid="reviewincomingcommits">Binnenkomende commits</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="keystore">   <!-- tolliumapps.config.keystore -->
+        <textgroup gid="createkey">   <!-- tolliumapps.config.keystore.createkey -->
+          <text tid="bits">Bits</text>
+          <text tid="createkey">Sleutel aanmaken</text>
+          <text tid="duplicatekeyfile">Deze sleutel bestaat al</text>
+          <text tid="invalidname">De naam van de sleutel is ongeldig</text>
+          <text tid="name">Naam</text>
+          <text tid="title">Titel</text>
+        </textgroup>
+        <textgroup gid="createselfsignedcert">   <!-- tolliumapps.config.keystore.createselfsignedcert -->
+          <text tid="altnames">Alternatieve DNS-namen</text>
+          <text tid="c">Land</text>
+          <text tid="cn">Algemene naam (host)</text>
+          <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
+          <text tid="l">Gemeente</text>
+          <text tid="o">Organisatie</text>
+          <text tid="ou">Organisatieeenheid</text>
+          <text tid="st">Staat / provincie</text>
+          <text tid="validuntil">Geldig tot</text>
+          <text tid="valituntilmustbeinfuture">De 'geldig tot' datum moet in de toekomst liggen.</text>
+        </textgroup>
+        <textgroup gid="generatecsr">   <!-- tolliumapps.config.keystore.generatecsr -->
+          <text tid="altnames">Alternatieve namen</text>
+          <text tid="country">Land</text>
+          <text tid="csr">CSR</text>
+          <text tid="generate">Genereren</text>
+          <text tid="generatecsr">Certificate Signing Request genereren</text>
+          <text tid="invalidhostname">Ongeldige hostnaam</text>
+          <text tid="locality">Stad</text>
+          <text tid="organization">Organisatie</text>
+          <text tid="organizationunit">Organisatieeenheid</text>
+          <text tid="state">Provincie</text>
+          <text tid="webserver">Webserver</text>
+        </textgroup>
+        <textgroup gid="main">   <!-- tolliumapps.config.keystore.main -->
+          <text tid="addkey">Sleutel toevoegen</text>
+          <text tid="certificate">Certificaat</text>
+          <text tid="certificatedoesnotmatchissuer">De issuer van het vertificaat komt niet overeen met de subject van het ondertekenende certificaat.</text>
+          <text tid="certificatenotforthiskey">Dit certificaat behoort niet bij de geselecteerde sleutel.</text>
+          <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
+          <text tid="deletekey">Sleutel verwijderen</text>
+          <text tid="downloadcertificate">Certificaat downloaden</text>
+          <text tid="downloadkey">Key downloaden</text>
+          <text tid="generatecsr">CSR Genereren</text>
+          <text tid="invalidkeyfile">Het bestand '<param p="1"/>' lijkt geen valide private key te zijn</text>
+          <text tid="keyfile">Sleutelbestand</text>
+          <text tid="keylength">Sleutellengte</text>
+          <text tid="keystillreferencedbyentity">Deze sleutel wordt nog gerefereerd door een WRD entiteit van schema '<param p="1"/>', type '<param p="2"/>', entiteittag '<param p="3"/>'.</text>
+          <text tid="keystillreferencedbyport">Deze sleutel wordt nog gebruikt door de binding van poort <param p="2"/>, IP <param p="1"/>.</text>
+          <text tid="main">Sleutels and certificaten</text>
+          <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
+          <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
+          <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
+          <text tid="overwritewithselfsigned">Weet u zeker dat u het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
+          <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
+          <text tid="suredeletekey">Weet u zeker dat u sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
+          <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
+          <text tid="uploadcertificate">Certificaat installeren</text>
+          <text tid="uploadkey">Sleutel uploaden</text>
+          <text tid="validuntil">Geldig tot</text>
+          <text tid="viewcertificatechain">Certificaten bekijken</text>
+        </textgroup>
+        <textgroup gid="viewcertificatechain">   <!-- tolliumapps.config.keystore.viewcertificatechain -->
+          <text tid="altnames">Alternatieve namen</text>
+          <text tid="certificatechain">Certifcaatketen</text>
+          <text tid="certificatedata">Certificaatgegevens</text>
+          <text tid="dns_altnames">DNS alternatieve namen</text>
+          <text tid="expired"><html:b>Verlopen!</html:b></text>
+          <text tid="expires_in_days">Verloopt over <param p="1"/> dagen</text>
+          <text tid="expires_soon_in_days"><html:b>Verloopt over <param p="1"/> dagen</html:b></text>
+          <text tid="notsignedbynextcert">Niet getekend door volgende certificaat!</text>
+          <text tid="selfsigned">Zelf-ondertekend</text>
+          <text tid="signature">Ondertekening</text>
+          <text tid="signaturenotchecked">Ondertekening kan niet worden geverifieerd</text>
+          <text tid="signaturestatus">Status</text>
+          <text tid="signedbynextcert">Ondertekend door volgende certificaat</text>
+          <text tid="subject">Onderwerp</text>
+          <text tid="validfrom">Geldig vanaf</text>
+          <text tid="validuntil">Geldig tot</text>
+          <text tid="viewcertificatechain">Certificaatketting</text>
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
