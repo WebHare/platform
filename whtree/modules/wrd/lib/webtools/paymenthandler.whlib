@@ -31,12 +31,42 @@ PUBLIC OBJECTTYPE ProcessPaymentStatus EXTEND WRDPaymentHandlerBase
 
 PUBLIC OBJECTTYPE PaymentSettings EXTEND FormComponentExtensionBase
 <
+  RECORD ARRAY FUNCTION GetMoneyAmountSources()
+  {
+    RECORD ARRAY sources;
+
+    RECORD ARRAY fields := this->contexts->formcomponentapi->GetFieldsForTypes(STRING[]);
+    FOREVERY (RECORD field FROM fields)
+    {
+      IF("money" IN field.supportedvalues OR "integer" IN field.supportedvalues)
+      {
+        INSERT [ rowkey := field.guid
+               , title := GetTid(field.title)
+               ] INTO sources AT END;
+      }
+      FOREVERY (RECORD extrafield FROM field.obj->GetExtraMergeFields(DEFAULT RECORD))
+      {
+        IF(CellExists(extrafield, 'hidden') AND extrafield.hidden)
+          CONTINUE; //do not offer in UI
+
+        IF (CellExists(extrafield, "supportedvalues"))
+        {
+          IF("money" IN extrafield.supportedvalues OR "integer" IN extrafield.supportedvalues)
+          {
+            INSERT [ rowkey := field.guid || "$" || extrafield.name
+                   , title := GetTid(field.title) || " - " || extrafield.title
+                   ] INTO sources AT END;
+          }
+        }
+      }
+    }
+
+    RETURN sources;
+  }
+
   UPDATE PUBLIC MACRO PostInitExtension()
   {
-    RECORD ARRAY candidates := SELECT rowkey := guid, title := GetTid(title)
-                                 FROM this->contexts->formcomponentapi->GetFieldsForTypes(STRING[])
-                                WHERE columntype IN ["money","integer"];
-    ^field->options := [[ rowkey := "", title := "", invalidselection := TRUE ]] CONCAT candidates;
+    ^field->options := [[ rowkey := "", title := "", invalidselection := TRUE ]] CONCAT this->GetMoneyAmountSources();
 
     IF(this->node->HasAttribute("fixedamount"))
     {
@@ -111,11 +141,20 @@ PUBLIC STATIC OBJECTTYPE PaymentHandler EXTEND FormHandlerBase
     IF(this->settings.fixedamount > 0)
       RETURN this->settings.fixedamount;
 
-    RECORD myfield := SELECT * FROM this->form->ListFields() WHERE guid = this->settings.fromfield;
+    STRING ARRAY fieldtoks := Tokenize(this->settings.fromfield, "$");
+    RECORD myfield := SELECT * FROM this->form->ListFields() WHERE guid = fieldtoks[0];
     IF(NOT RecordExists(myfield))
-      THROW NEW Exception(`Cannot find field '${this->settings.fromfield}' which should contain the amount to pay`);
+      THROW NEW Exception(`Cannot find field '${fieldtoks[0]}' which should contain the amount to pay`);
 
-    RETURN myfield.obj->value;
+    IF(Length(fieldtoks) = 1)
+      RETURN myfield.obj->value;
+
+    //NOTE the value to GetExtraMergeFields is the value normally provided during witty generation. It's *not* the current value
+    RECORD selected_subfield := SELECT * FROM myfield.obj->GetExtraMergeFields(DEFAULT RECORD) WHERE name = fieldtoks[1];
+    IF(NOT RecordExists(selected_subfield))
+     THROW NEW Exception(`Field '${fieldtoks[0]}' has no subfield '${fieldtoks[1]}'`);
+
+    RETURN selected_subfield.value.raw;
   }
 
   OBJECT FUNCTION GetPaymentMethodField()

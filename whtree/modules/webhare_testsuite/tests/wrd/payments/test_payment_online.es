@@ -179,4 +179,31 @@ test.registerTests(
       test.false(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
     }
 
+  , "Test custom field providing payment amounts"
+  , async function()
+    {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, addtslinecomp: true,withpayment: ["withissuer"], filename:"paymenthandlerform" });
+      await test.load(setupdata.url);
+      test.fill(`[name="firstname"]`,"Joepje");
+      test.fill('[id="webtoolform-tsline.field1"]',"55")
+      test.fill('[id="webtoolform-tsline.field2"]',"15")
+      test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
+      test.click("[type=submit]");
+
+      await test.wait('load');
+      test.eq("40.00", test.qS(".paymentamount").textContent);
+
+      await test.click("#approvepayment"); //approving it anyway! CCs can do this, rejecting first and then approving ANYWAY
+      await test.wait('load');
+
+      //should see confirmed text
+      test.true(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
+
+      let emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000, count: 2 });
+      test.eq(2, emails.length, "No emails!");
+      emails = emails.sort( (lhs,rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
+      test.eq("Payment is confirmed", emails[1].subject);
+      test.eqMatch(/TSLinecomp difference: \{40,00\}/, emails[1].plaintext);
+
+    }
   ]);
