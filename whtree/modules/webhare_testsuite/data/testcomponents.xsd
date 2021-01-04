@@ -283,6 +283,16 @@
       <xs:attributeGroup ref="tc:ComponentBase" />
     </xs:complexType>
   </xs:element>
+  <xs:element name="customlinkhandler3">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <s:tolliumcomponent placement="rte" objecttype="/lib/screens/components/customlinkhandler.whlib#CustomLinkHandler3" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="tc:ComponentBase" />
+    </xs:complexType>
+  </xs:element>
 
 
   <xs:attribute name="myattr" type="xs:string">
