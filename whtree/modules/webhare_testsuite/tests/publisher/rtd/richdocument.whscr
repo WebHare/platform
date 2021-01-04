@@ -35,7 +35,7 @@ MACRO RichDocumentTest()
   testfw->BeginWork();
   OBJECT basefolder := GetTestsuiteTempFolder();
   OBJECT workfolder := basefolder->EnsureFolder([name := "richdocument"]);
-  OBJECT testfile := workfolder->CreateFile([name:="richtest",publish:=TRUE]);
+  OBJECT testfile := workfolder->CreateFile([name:="richtest",publish:=TRUE], [ setindex := TRUE ]);
 
   OBJECT myrichdoc := NEW EditableRichDocument;
   TestEq(TRUE, ObjectExists(myrichdoc->body));
@@ -616,8 +616,10 @@ MACRO IntLinktest()
 
   OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
   links := doc->GetElements("a");
-  TestEq(4,Length(links));
-  TestEq("x-webdesign-takes-over-link:",links[3]->GetAttribute("href"));
+  TestEq(3,Length(links), "Only parserapitest link should not exist");
+  TestEq(workfolder->url,links[0]->GetAttribute("href"));
+  TestEq(testfile->url,links[1]->GetAttribute("href"));
+  TestEq("x-webdesign-takes-over-link:",links[2]->GetAttribute("href"));
 
   //Archive the testsite
   BLOB arc := workfolder->ExportFolder().files[0].data;
@@ -667,7 +669,7 @@ MACRO IntLinktest()
   OBJECT result := myrichdoc->RenderAllAsHTMLDocument();
  // print(result->outerxml||'\n');
   OBJECT ARRAY as_in_p := result->QuerySelectorAll("p > a")->GetCurrentElements();
-  TestEq(3, Length(as_in_p));
+  TestEq(2, Length(as_in_p));
   testfw->CommitWork();
 }
 
