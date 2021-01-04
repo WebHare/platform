@@ -94,7 +94,7 @@ RECORD ARRAY FUNCTION GetUploadableLogFiles(STRING logname, DATETIME startdate)
 
 PUBLIC MACRO RunDynamicPage()
 {
-  IF(ObjectExists(GetPrimary()))
+  IF(HavePrimaryTransaction())
   {
     IF(NOT HandleAccessControl())
       RETURN;

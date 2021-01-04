@@ -189,7 +189,7 @@ RECORD FUNCTION GetCachableDebuggerConfig()
   IF (config.dtapstage = "development")
   {
     OBJECT trans;
-    IF (NOT ObjectExists(GetPrimaryWebhareTransactionObject()))
+    IF (NOT HavePrimaryTransaction())
       trans := OpenPrimary();
 
     config.keep_errorterminated_msecs := ReadRegistryKey("system.backend.development.zombietimeout");
