@@ -13,6 +13,7 @@ RECORD defaultcontext :=
     , screen :=           DEFAULT OBJECT
     , webshop :=          DEFAULT OBJECT
     , wrdschema :=        DEFAULT OBJECT
+    , richdocument :=     DEFAULT OBJECT
     , fixed_wrdschema :=  FALSE
     , fixed_webshop :=    FALSE
     ];
@@ -85,6 +86,9 @@ PUBLIC OBJECTTYPE TolliumContexts
   /// Current opener of screens (screen ?? controller) - use for ->RunScreen etc
   PUBLIC PROPERTY opener(GetOpener, -);
 
+  /// Current richdocument opening the widget editor. Used to determinte rtdtype
+  PUBLIC PROPERTY richdocument(this->pvt_data.richdocument, SetRichdocument);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -153,6 +157,11 @@ PUBLIC OBJECTTYPE TolliumContexts
   MACRO SetObjectPropsAPI(OBJECT objectpropsapi)
   {
     this->pvt_data.objectpropsapi := objectpropsapi;
+  }
+
+  MACRO SetRichdocument(OBJECT richdocument)
+  {
+    this->pvt_data.richdocument := richdocument;
   }
 
   OBJECT FUNCTION GetWebShop()
