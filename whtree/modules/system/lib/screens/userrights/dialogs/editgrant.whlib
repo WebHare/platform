@@ -191,7 +191,7 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
       IF (new_withgrantoption)
         TolliumGrantRightTo(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, [ this->pvt_objectid ], TRUE, ^comment->value);
       ELSE
-        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, this->pvt_objectid, TRUE, FALSE);
+        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, new_rightname, this->pvt_objectid, TRUE);
     }
     ELSE
     {
@@ -215,7 +215,7 @@ PUBLIC OBJECTTYPE EditRightGrant EXTEND TolliumScreenBase
 
       // If the grant has failed; don't revoke.
       IF (NOT work->HasFailed())
-        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, this->org_rightname, this->pvt_objectid, FALSE, FALSE);
+        TolliumRevokeRightFrom(work, this->rightsinfo, this->tolliumuser, this->pvt_grantee, this->org_rightname, this->pvt_objectid, FALSE);
     }
 
     RETURN work->Finish();

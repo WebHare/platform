@@ -10,7 +10,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 /** Dummy dialog for revoking grants
 */
-OBJECTTYPE RevokeDialog
+STATIC OBJECTTYPE RevokeDialog
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -184,12 +184,7 @@ OBJECTTYPE RevokeDialog
     {
       IF (grant.grantee->ExistsInDatabase())
       {
-        INSERT
-            [ grantee :=      grant.grantee->authobjectid
-            , rightname :=    grant.rightname
-            , objectid :=     grant.objectid
-            ] INTO existing_raw_grants AT END;
-        TolliumRevokeRightFrom(work, rightsinfo, grantor, grant.grantee, grant.rightname, grant.objectid, FALSE, TRUE);
+        TolliumRevokeRightFrom(work, rightsinfo, grantor, grant.grantee, grant.rightname, grant.objectid, FALSE);
       }
       ELSE
         found_deleted := TRUE;
@@ -198,12 +193,7 @@ OBJECTTYPE RevokeDialog
     {
       IF (grant.grantee->ExistsInDatabase() AND grant.roleobj->ExistsInDatabase())
       {
-        INSERT
-            [ grantee :=      grant.grantee->authobjectid
-            , roleid :=       grant.roleobj->authobjectid
-            ] INTO existing_raw_rolegrants AT END;
-        IF (NOT this->screen->tolliumuser->HasRightOn("system:manageroles", grant.roleobj->authobjectid))
-          work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", grant.roleobj->GetUserRightsName()));
+        TolliumRevokeRoleFrom(this->screen->contexts, work, grant.roleobj, OBJECT[grant.grantee]);
       }
       ELSE
         found_deleted := TRUE;
@@ -211,18 +201,6 @@ OBJECTTYPE RevokeDialog
 
     IF (found_deleted)
       work->AddWarning(GetTid("system:userrights.commondialogs.errors.founddeleteduserorrole"));
-
-    IF (NOT work->HasFailed())
-    {
-      TRY
-      {
-        UserRightsBigRevoke(grantor->authobject, existing_raw_grants, existing_raw_rolegrants);
-      }
-      CATCH (OBJECT e)
-      {
-        work->AddError(e->what);
-      }
-    }
 
     IF (NOT work->Finish())
       RETURN "cancel";

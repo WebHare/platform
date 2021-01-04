@@ -22,6 +22,13 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEq(INTEGER[], GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role1")->entityid));
   TestEq(INTEGER[], GetTestController()->userapi->GetUserRoles(testfw->GetUserObject("user1")->entityid));
 
+  //Grant a right to the role
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers"));
+  TT("objecttree->objectlist->thelist")->selection := SELECT * FROM TT("objecttree->objectlist->thelist")->rows WHERE title = "Miscellaneous";
+  TT("rightslist")->value := "webhare_testsuite:globalright";
+  TT("comment")->Value := "I have my reasons";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
   // Test search
@@ -55,8 +62,8 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
 
   topscreen->frame->focused := TT("userrolerightslist->directpermissions");
-  TestEq(1, Length(TT("userrolerightslist->directpermissions")->rows));
-  TT("userrolerightslist->directpermissions")->selection :=TT("userrolerightslist->directpermissions")->rows;
+  TestEq(2, Length(TT("userrolerightslist->directpermissions")->rows));
+  TT("userrolerightslist->directpermissions")->selection := SELECT * FROM TT("userrolerightslist->directpermissions")->rows WHERE name="role1";
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->edit"));
   TestEq("WebHareTestSuite is testing this", TT("comment")->value);
