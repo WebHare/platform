@@ -856,7 +856,8 @@ PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
     RETURN intextlink.externallink;
   IF(intextlink.internallink=0)
     RETURN "";
-  STRING url := SELECT AS STRING indexurl FROM system.fs_objects WHERE id = intextlink.internallink AND isactive;
+
+  STRING url := SELECT AS STRING indexurl FROM system.fs_objects WHERE id = intextlink.internallink;
   IF (url != "")
     RETURN url || intextlink.append;
   RETURN "";
