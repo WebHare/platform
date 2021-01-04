@@ -26,11 +26,25 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
   MACRO NEW(STRING what, OBJECT browser)
   : Exception(what)
   {
-    IF(Objectexists(browser) AND browser->GetHTTPStatusCode() = 400)
+    IF (Objectexists(browser)
+        AND (browser->GetHTTPStatusCode() < 200 OR browser->GetHTTPStatusCode() > 200)
+        AND browser->mimetype = "application/json")
     {
       RECORD decoded := DecodeJSONBLOB(browser->content);
-      IF(RecordExists(decoded) AND CellExists(decoded,'error'))
+      IF(CellExists(decoded,'error') AND TypeID(decoded.error) = TypeID(RECORD))
       {
+        IF(CellExists(decoded.error,'root_cause'))
+        {
+          this->error := EnforceStructure([ "index" := ""
+                                          , "index_uuid" := ""
+                                          , "reason" := ""
+                                          , "type" := ""
+                                          ], decoded.error.root_cause);
+
+          IF(this->error.reason != "")
+            this->what := this->what || " (" || this->error.reason || ")";
+          RETURN;
+        }
         this->error := EnforceStructure([ "index" := ""
                                         , "index_uuid" := ""
                                         , "reason" := ""
@@ -99,7 +113,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
         IF (statuscode = 401)
         {
           FetcherDebug(ConsilioDebugInfo, `Authentication error while connecting to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
-          reject(NEW Exception(SearchNoAccess));
+          reject(NEW ElasticsearchException(SearchNoAccess, indexmanager.browser));
           RETURN;
         }
 
@@ -196,15 +210,11 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       }
       ELSE
       {
-        RECORD errorinfo := EnforceSTructure([ error := [ reason := "" ]], DecodeJSONBlob(indexmanager.browser->content));
-        STRING error := "Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText();
-        IF(errorinfo.error.reason != "")
-          error := error || " (" || errorinfo.error.reason || ")";
-
         // Got an unexpected code, but we'll let it slide
+        OBJECT exc := NEW ElasticsearchException("Unexpected response code " || statuscode, indexmanager.browser);
         IF(options.throwonfailure)
-          THROW NEW ElasticsearchException(error, indexmanager.browser);
-        FetcherDebug(ConsilioDebugInfo, error);
+          THROW exc;
+        FetcherDebug(ConsilioDebugInfo, exc->what);
         BREAK;
       }
     }
