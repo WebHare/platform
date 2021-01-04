@@ -196,10 +196,15 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       }
       ELSE
       {
+        RECORD errorinfo := EnforceSTructure([ error := [ reason := "" ]], DecodeJSONBlob(indexmanager.browser->content));
+        STRING error := "Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText();
+        IF(errorinfo.error.reason != "")
+          error := error || " (" || errorinfo.error.reason || ")";
+
         // Got an unexpected code, but we'll let it slide
         IF(options.throwonfailure)
-          THROW NEW ElasticsearchException("Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText(), indexmanager.browser);
-        FetcherDebug(ConsilioDebugInfo, "Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText());
+          THROW NEW ElasticsearchException(error, indexmanager.browser);
+        FetcherDebug(ConsilioDebugInfo, error);
         BREAK;
       }
     }
