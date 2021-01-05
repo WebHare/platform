@@ -183,24 +183,24 @@ OBJECT ASYNC FUNCTION PublisherNewFileProperties()
   Testeq("indexdoc.rtd", TT("filelist")->selection[0].name);
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
-  TestEq("indexdoc-1.rtd", TT("name")->value);
+  TestEq("indexdoc-2.rtd", TT("name")->value);
   TestEq(FALSE, TT("publish")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":{tollium:common.actions.save}"));
 
-  TestEq("indexdoc-1.rtd", TT("filelist")->selection[0].name);
+  TestEq("indexdoc-2.rtd", TT("filelist")->selection[0].name);
   TestEq(FALSE, OpenWHFSObject(TT("filelist")->value[0])->publish);
 
   //Test duplication, may not set the 'publish' flag by itself! - now WITH setting 'publish'
-  Testeq("indexdoc-1.rtd", TT("filelist")->selection[0].name);
+  Testeq("indexdoc-2.rtd", TT("filelist")->selection[0].name);
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
-  TestEq("indexdoc-2.rtd", TT("name")->value);
+  TestEq("indexdoc-3.rtd", TT("name")->value);
   TT("publish")->value := TRUE;
 
   AWAIT ExpectAndAnswerMessageBox("ok", PTR topscreen->TolliumExecuteSubmit(), [ messagemask := "*submitversionedfiletoapplychanges*" ]);
   AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
 
-  TestEq("indexdoc-2.rtd", TT("filelist")->selection[0].name);
+  TestEq("indexdoc-3.rtd", TT("filelist")->selection[0].name);
   TestEq(FALSE, OpenWHFSObject(TT("filelist")->value[0])->publish);
 
   DeleteFSObjects([ testfolder ]);
