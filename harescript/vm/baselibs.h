@@ -65,7 +65,7 @@ struct TCPIPContext
         int FinishConnectSocket(int connectionid, bool cancel);
 
         /** @short Make an opened TCP connection secure */
-        bool CreateSecureSocket(int connectionid, bool initiate, std::string const &ciphersuite, std::string const &hostname);
+        bool CreateSecureSocket(int connectionid, bool initiate, std::string const &ciphersuite, std::string const &hostname, int securitylevel);
 
         void DestroySecureSocket(int connectionid);
 

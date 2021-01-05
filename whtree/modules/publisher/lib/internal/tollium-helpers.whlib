@@ -777,6 +777,7 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
                                  , namespace
                                  , tolliumicon := filetype.tolliumicon
                                  , isdevelopertype := filetype.isdevelopertype
+                                 , iswidgettype := filetype.isembeddedobjecttype
                                  , requirescontent := filetype.requirescontent
                                  , __visible := FALSE
                               FROM csp.contenttypes

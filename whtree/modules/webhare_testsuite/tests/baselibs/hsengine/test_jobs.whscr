@@ -133,7 +133,7 @@ MACRO TestOverrideExecuteLibrary()
   job->SetConsoleArguments(["overrideexecutelibrary"]);
   job->Start();
 
-  DATETIME wait_until := AddTimeToDate(2000, GetCurrentDateTime());
+  DATETIME wait_until := AddTimeToDate(30000, GetCurrentDateTime());
 
   OBJECT link := port->Accept(wait_until);
   IF (NOT ObjectExists(link))

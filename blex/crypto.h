@@ -425,7 +425,8 @@ class BLEXLIB_PUBLIC SSLContext
                 KeyCertMismatch
         };
 
-        SSLContext(bool is_server, std::string const &ciphersuite);
+        /** @param securitylevel SSL Securitylevel - https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_security_level.html */
+        SSLContext(bool is_server, std::string const &ciphersuite, int securitylevel);
         ~SSLContext();
 
         LoadErrors Load(std::string const &keyfile,std::string const &certfile);

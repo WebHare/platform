@@ -1460,7 +1460,7 @@ void Main::UpdateListenPorts(unsigned numports, ListenAddress const ports[])
                                         DEBUGPRINT("UpdateListenPorts setup ssl for existing port");
 
                                         //Try to open a keyfile - FIXME restore errors but how?
-                                        new_ssl.reset(new SSLContext(true, itr->ciphersuite));
+                                        new_ssl.reset(new SSLContext(true, itr->ciphersuite, 1));
 
                                         if (!new_ssl->LoadPrivateKey(&itr->privatekey[0], itr->privatekey.size()))
                                         {
@@ -1504,7 +1504,7 @@ void Main::UpdateListenPorts(unsigned numports, ListenAddress const ports[])
                 {
                         DEBUGPRINT("UpdateListenPorts setup ssl for new port");
                         //Try to open a keyfile - FIXME restore errors but how?
-                        newport->ssl.reset(new SSLContext(true, itr->ciphersuite));
+                        newport->ssl.reset(new SSLContext(true, itr->ciphersuite, 1));
 
                         if (!newport->ssl->LoadPrivateKey(&itr->privatekey[0], itr->privatekey.size()))
                         {

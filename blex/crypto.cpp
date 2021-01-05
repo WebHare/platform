@@ -1239,7 +1239,7 @@ void GetDESCrypt(const void *keydata, unsigned keylen, const void *saltdata, uns
    - we can enable partial writes (see SSL_write manpage) so that we get data
      in 16KB chunks - allows us to lower our own buffering requirements? */
 
-SSLContext::SSLContext(bool is_server, std::string const &ciphersuite)
+SSLContext::SSLContext(bool is_server, std::string const &ciphersuite, int securitylevel)
 : is_server(is_server)
 {
         ctx=SSL_CTX_new(is_server ? SSLv23_server_method() : SSLv23_client_method());
@@ -1267,6 +1267,7 @@ SSLContext::SSLContext(bool is_server, std::string const &ciphersuite)
                 if(!SSL_CTX_set_cipher_list((SSL_CTX*)ctx, ciphersuite.c_str()))
                     throw std::runtime_error("Unable to setup SSL cipher list");
         }
+        SSL_CTX_set_security_level((SSL_CTX*)ctx, securitylevel);
 
         if (is_server)
         {
