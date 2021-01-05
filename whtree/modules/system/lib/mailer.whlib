@@ -21,9 +21,10 @@ LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
-LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
@@ -1460,8 +1461,11 @@ STATIC OBJECTTYPE WittyMailComposer
   STRING FUNCTION RewriteRTDLink(RECORD rtd, STRING url)
   {
     IF(url LIKE "x-richdoclink:*")
-      RETURN ResolveRichDocLink(rtd.links, url);
-
+    {
+      RECORD split := SplitIntLink(url);
+      RECORD matchlink := SELECT * FROM rtd.links WHERE "x-richdoclink:" || tag = split.link;
+      RETURN RecordExists(matchlink) ? GetIntExtLinkTarget(MakeIntExtInternalLink(matchlink.linkref, split.append)) : "";
+    }
     RETURN url;
   }
 

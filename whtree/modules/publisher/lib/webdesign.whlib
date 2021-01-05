@@ -842,10 +842,14 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN pageconfig;
   }
 
-  /** Get the target of an internal/external link, applying any custom rewrites
-      @param intextlink intextlink record
-      @return Final link target */
-  PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
+  /** @short Generate an link from a RTD or contenttype intextlink record
+      @long Override GetIntExtLinkTarget to override how URLs are generated from links (if you override, always consider that it might be invoked with a default record!)
+      @param intextlink The intextlink record
+      @cell(integer) intextlink.linkref ID of fsobject to which this link points
+      @cell(string) intextlink.append Text to append to URL
+      @return The final URL to use
+  */
+  PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD intextlink)
   {
     STRING textlink := GetIntExtlinkTarget(intextlink);
     IF(textlink != "")
@@ -861,23 +865,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC STRING FUNCTION RewriteHyperlink(STRING href)
   {
     RETURN href;
-  }
-
-  /** @short Generate an link from a RTD or contenttype intextlink record
-      @long Override ResolveLink to override how URLs are generated from links (if you override, always consider that it might be invoked with a default record!)
-      @param linkrecord The intextlink record
-      @cell(integer) linkrecord.linkref ID of fsobject to which this link points
-      @cell(string) linkrecord.append Text to append to URL
-      @return The final URL to use
-  */
-  PUBLIC STRING FUNCTION ResolveLink(RECORD linkrecord)
-  {
-    IF(RecordExists(linkrecord) AND linkrecord.externallink != "")
-    {
-      //Give 'old' RewriteHyperlink approach a chance to rewrite this links, though overriding ResolveLink is probably clearer
-      linkrecord.externallink := this->RewriteHyperlink(linkrecord.externallink);
-    }
-    RETURN DefaultResolveLink(linkrecord);
   }
 
   PUBLIC MACRO RunAfterStaticPage()
