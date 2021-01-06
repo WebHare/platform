@@ -458,7 +458,7 @@ PUBLIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     IF(this->suppressrendering)
       src := "?showmessage=1&msg=nopreview&lang=" || EncodeURL(this->owner->tolliumuser->language);
     ELSE IF(IsAbsoluteURL(this->currenturl))
-      src := UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.publisher/common/preview/browserframe.html"), [ "__whpub_commit_" := this->commit ]);
+      src := UpdateURLVariables(ResolveToAbsoluteUrl(this->currenturl, "/.webhare/direct/publisher/browserframe.html"), [ "__whpub_commit_" := this->commit ]);
 
     // (Re)load the browserframe if the src changed
     IF (src != this->browserframe->src)
