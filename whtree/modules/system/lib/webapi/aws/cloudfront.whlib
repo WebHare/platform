@@ -118,12 +118,16 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
     RETURN distributions;
   }
 
+  /** @cell(record array) options.tags Tags to associate with the distribution
+      @cell(string) options.tags.tag Key name
+      @cell(string) options.tags.value Key value
+  */
   PUBLIC RECORD FUNCTION CreateDistribution(STRING cdnid, RECORD options)
   {
     options := ValidateOptions([ comment := ""
                                , logbucket := ""
                                , mediapackageorigin := ""
-                               , tags := CELL[]
+                               , tags := RECORD[]
                                ], options);
     // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/live-streaming.html
     // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateDistributionWithTags.html
@@ -193,22 +197,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
      </DistributionConfig>
      <Tags>
         <Items>
-           <Tag>
-              <Key>Billing</Key>
-              <Value>${EncodeValue(options.tags.billing)}</Value>
-           </Tag>
-           <Tag>
-              <Key>Instance</Key>
-              <Value>${EncodeValue(options.tags.instance)}</Value>
-           </Tag>
-           <Tag>
-              <Key>CreationDate</Key>
-              <Value>${EncodeValue(options.tags.creationdate)}</Value>
-           </Tag>
-           <Tag>
-              <Key>WHLiveType</Key>
-              <Value>${EncodeValue(options.tags.whlivetype)}</Value>
-           </Tag>
+           ${Detokenize((SELECT AS STRING ARRAY `<Tag><Key>${EncodeValue(tags.tag)}</Key><Value>${EncodeValue(tags.value)}</Value></Tag>` FROM options.tags),"\n")}
         </Items>
      </Tags>
   </DistributionConfigWithTags>`;
