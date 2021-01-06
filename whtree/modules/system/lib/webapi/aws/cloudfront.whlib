@@ -220,67 +220,9 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
       RETURN this->GetDistribution(TrimWhitespace(Tokenize(e->errormessage,':')[1]));
     }
   }
->;
 
-PUBLIC OBJECTTYPE AmazonAWSCloudfrontInterface EXTEND AmazonAWSInterface
-<
-  STRING endpoint;
-
-  MACRO NEW(STRING accesskey, STRING accesssecret)
-  : AmazonAWSInterface("us-east-1", accesskey, accesssecret)
   {
-  }
 
-  PUBLIC RECORD ARRAY FUNCTION ListStreamingDistributions()
-  {
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET","https://cloudfront.amazonaws.com/" || "2018-11-05/streaming-distribution");
 
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "StreamingDistributionSummary")->GetCurrentElements();
-    RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
-    {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
-
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "S3Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
-    }
-    RETURN distributions;
-  }
-
-  PUBLIC RECORD ARRAY FUNCTION ListDistributions()
-  {
-    //ADDME paginated support
-
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET","https://cloudfront.amazonaws.com/" || "2018-11-05/distribution");
-
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "DistributionSummary")->GetCurrentElements();
-    RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
-    {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
-
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ id         := originnode->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                         , domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
-    }
-    RETURN distributions;
   }
 >;
