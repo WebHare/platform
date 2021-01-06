@@ -94,4 +94,4 @@ else
 fi
 
 echo "Starting PostgreSQL"
-exec $RUNAS $PSBIN/postgres -D "$PSROOT/db" 2>&1
+exec $RUNAS $PSBIN/postmaster -D "$PSROOT/db" 2>&1
