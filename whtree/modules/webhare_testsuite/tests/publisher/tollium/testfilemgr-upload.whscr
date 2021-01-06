@@ -62,11 +62,11 @@ OBJECT ASYNC FUNCTION DropStuff()
   ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
       [[ filename := "^^mydata1.txt", data := StringToBlob("^^Mydata1")  ]
       ]]);
-  TestEq("mydata1-1.txt", TT("filelist->mylist")->selection.name);
+  TestEq("mydata1-2.txt", TT("filelist->mylist")->selection.name);
   ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
       [[ filename := "^^mydata1.txt", data := StringToBlob("^^Mydata1")  ]
       ]]);
-  TestEq("mydata1-2.txt", TT("filelist->mylist")->selection.name);
+  TestEq("mydata1-3.txt", TT("filelist->mylist")->selection.name);
 
 
   //Now drop a folder structure

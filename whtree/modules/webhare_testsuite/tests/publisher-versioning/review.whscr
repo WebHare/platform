@@ -165,7 +165,7 @@ OBJECT ASYNC FUNCTION BaseReview()
   TT("folders")->value := root->id;
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
   AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR, [ namemask := "*#objectcopied" ]);
-  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-1.rtd}", topscreen->objectcopiedto->value);
+  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-2.rtd}", topscreen->objectcopiedto->value);
   testfile2 := root->OpenByName(Tokenize(Tokenize(topscreen->objectcopiedto->value, "|")[1], "}")[0]);
   TestEQ("first title", testfile2->title);
   TestEQ(FALSE, testfile2->publish);
@@ -178,7 +178,7 @@ OBJECT ASYNC FUNCTION BaseReview()
   TT("folders")->value := root->id;
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
   AWAIT ExpectScreenChange(1, DEFAULT FUNCTION PTR, [ namemask := "*#objectcopied" ]);
-  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-1.rtd}", topscreen->objectcopiedto->value);
+  TestEQ("{publisher:tolliumapps.versioning.objectcopiedto|test-2.rtd}", topscreen->objectcopiedto->value);
   testfile2 := root->OpenByName(Tokenize(Tokenize(topscreen->objectcopiedto->value, "|")[1], "}")[0]);
   TestEQ("second title", testfile2->title);
   TestEQ(FALSE, testfile2->publish);
