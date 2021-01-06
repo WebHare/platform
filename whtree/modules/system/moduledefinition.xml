@@ -339,7 +339,7 @@
 
     <!-- TODO: should there be a way to disable this builtin redirect? -->
     <webrule path="allroots:/.well-known/acme-challenge/" match="initial" handlebyscript="web/global/acme.shtml" priority="after" />
-    <webrule path="allroots:/.webhare/direct/" match="initial" handlebyscript="web/global/direct.shtml" priority="after" />
+    <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
 
     <webrule path="allroots:/.uc/"
              match="initial"
