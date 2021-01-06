@@ -6,6 +6,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
 
@@ -146,8 +147,8 @@ IF (lang != "")
   ELSE IF (browser->mimetype IN preview_image_mimetypes)
   {
     RECORD info := ScanBlob(browser->content);
-    Redirect(UpdateURLVariables("/.webhare/direct/publisher/showimage.shtml"
-                               , [ lang := lang, clienturl := clienturl, width := ToString(info.width), height := ToString(info.height), mimetype := browser->mimetype ]));
+    STRING img := EncryptForThisServer("publisher:showimage", CELL[ lang, clienturl, info.width, info.height, mimetype := browser->mimetype ]);
+    Redirect(UpdateURLVariables("/.webhare/direct/publisher/showimage.shtml", CELL[img]));
   }
 
   // For file types that cannot be shown directly in the browser, show the message page
