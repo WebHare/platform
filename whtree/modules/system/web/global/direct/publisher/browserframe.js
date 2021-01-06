@@ -119,7 +119,7 @@ function onIframeLoad(event)
     if (head)
     {
       var script = win.document.createElement("script");
-      script.setAttribute("src", "/.publisher/common/preview/preview.js" + commit);
+      script.setAttribute("src", "/.webhare/direct/publisher/preview.js" + commit);
       head.appendChild(script);
 
       win.addEventListener("mousedown", onInteraction, true);

@@ -1412,7 +1412,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       RECORD wittydata := [ link := loginpage
                           , challenge := encchallenge
                           , returnto := backurl
-                          , loginscript := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.publisher/common/preview/publisher_login.js")
+                          , loginscript := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.webhare/direct/publisher/publisher_login.js")
                           ];
       SendHTMLPage("mod::wrd/lib/internal/auth/publisher_login.witty", wittydata);
     }
