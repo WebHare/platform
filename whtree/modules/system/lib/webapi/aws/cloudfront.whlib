@@ -26,6 +26,16 @@ RECORD FUNCTION ParseDistribution(OBJECT node)
              ];
 }
 
+RECORD FUNCTION ParseInvalidation(OBJECT node)
+{
+  //https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#API_CreateInvalidation_ResponseSyntax
+  STRING status := node->ListChildren("*","Status")[0]->textcontent;
+  RETURN CELL[ id         := node->ListChildren("*", "Id")[0]->childrentext
+             , status     := status
+             , inprogress := status != "Completed"
+             ];
+}
+
 RECORD FUNCTION ParseDistributionSummary(OBJECT node)
 {
   STRING status := node->ListChildren("*","Status")[0]->textcontent;
@@ -221,8 +231,33 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
     }
   }
 
+  /** @param cdnid CDN ID we're invalidating
+      @param callerreference Unique caller-generated reference for this invalidation
+      @param paths Paths to invalidate. Must start with a slash */
+  PUBLIC RECORD FUNCTION CreateInvalidation(STRING cdnid, STRING callerreference, STRING ARRAY paths)
   {
+    FOREVERY(STRING path FROM paths)
+      IF(path NOT LIKE "/*")
+        THROW NEW Exception(`Invalid invalidation path '${path}'`);
 
+    // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#cloudfront-CreateInvalidation-request-InvalidationBatch
+    // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html#invalidation-specifying-objects
 
+    STRING invalidationrequest := `<?xml version="1.0" encoding="UTF-8"?>
+<InvalidationBatch xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">
+   <CallerReference>${EncodeValue(callerreference)}</CallerReference>
+   <Paths>
+      <Items>
+        ${Detokenize( (SELECT AS STRING ARRAY `<Path>${EncodeValue(path)}</Path>` FROM ToRecordArray(paths,'path')),"\n")}
+      </Items>
+      <Quantity>${Length(paths)}</Quantity>
+   </Paths>
+</InvalidationBatch>`;
+
+    OBJECT cloudfrontresult := this->RequestXML("POST", `https://cloudfront.amazonaws.com/2020-05-31/distribution/${EncodeURL(cdnid)}/invalidation`,
+      [ body := StringToBlob(invalidationrequest)
+      ]).doc;
+
+    RETURN ParseInvalidation(cloudfrontresult->documentelement);
   }
 >;
