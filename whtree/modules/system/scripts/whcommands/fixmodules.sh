@@ -61,7 +61,7 @@ if [ -z "$ONLYBROKEN" ]; then
         [ -f node_modules/.yarn-integrity ] && rm node_modules/.yarn-integrity #we're switching away from yarn. until everyone's up to date, force it to go away
 
         if [ -f package.json ]; then
-          npm install --no-save
+          wh npm install --no-save
           NPMRETVAL=$?
           if [ "$NPMRETVAL" != "0" ]; then
             echo NPM FAILED with errorcode $NPMRETVAL
@@ -77,7 +77,7 @@ else
     if cd "$path" 2>/dev/null ; then
       echo "Updating $path"
       if [ -f package.json ]; then
-        npm install --no-save
+        wh npm install --no-save
         NPMRETVAL=$?
         if [ "$NPMRETVAL" != "0" ]; then
           echo NPM FAILED with errorcode $NPMRETVAL

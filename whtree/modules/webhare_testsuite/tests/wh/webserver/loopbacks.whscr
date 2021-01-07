@@ -887,6 +887,7 @@ MACRO AccessRules()
   browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/tests/csp/");
   STRING requiredorigin := UnpackURL(testport.baseurl).origin;
   TestEqlike(`frame-ancestors *${requiredorigin}*;*`, browser->GetResponseheader("Content-Security-Policy"));
+  TestEq(FALSE, browser->GetResponseheader("Content-Security-Policy") LIKE "*13688*", "[webhare] should not list fallback ports");
 }
 
 MACRO AcceptRange()
