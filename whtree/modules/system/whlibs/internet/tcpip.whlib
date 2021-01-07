@@ -16,7 +16,7 @@ STATIC OBJECTTYPE SocketException EXTEND Exception
   MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
 >;
 
-//These ciphersuite settings are taken from the current internet.nl requirements. Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will not support IE11 on win8.1 ande below
+//These ciphersuite settings are taken from the current internet.nl requirements. Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will not support IE11 on win8.1 and below
 PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256";
 PUBLIC CONSTANT STRING default_ciphersuites := `${modern_ciphersuites}:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA`;
 
