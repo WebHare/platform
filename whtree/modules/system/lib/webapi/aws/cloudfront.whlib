@@ -26,6 +26,16 @@ RECORD FUNCTION ParseDistribution(OBJECT node)
              ];
 }
 
+RECORD FUNCTION ParseInvalidation(OBJECT node)
+{
+  //https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#API_CreateInvalidation_ResponseSyntax
+  STRING status := node->ListChildren("*","Status")[0]->textcontent;
+  RETURN CELL[ id         := node->ListChildren("*", "Id")[0]->childrentext
+             , status     := status
+             , inprogress := status != "Completed"
+             ];
+}
+
 RECORD FUNCTION ParseDistributionSummary(OBJECT node)
 {
   STRING status := node->ListChildren("*","Status")[0]->textcontent;
@@ -118,12 +128,16 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
     RETURN distributions;
   }
 
+  /** @cell(record array) options.tags Tags to associate with the distribution
+      @cell(string) options.tags.tag Key name
+      @cell(string) options.tags.value Key value
+  */
   PUBLIC RECORD FUNCTION CreateDistribution(STRING cdnid, RECORD options)
   {
     options := ValidateOptions([ comment := ""
                                , logbucket := ""
                                , mediapackageorigin := ""
-                               , tags := CELL[]
+                               , tags := RECORD[]
                                ], options);
     // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/live-streaming.html
     // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateDistributionWithTags.html
@@ -193,22 +207,7 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
      </DistributionConfig>
      <Tags>
         <Items>
-           <Tag>
-              <Key>Billing</Key>
-              <Value>${EncodeValue(options.tags.billing)}</Value>
-           </Tag>
-           <Tag>
-              <Key>Instance</Key>
-              <Value>${EncodeValue(options.tags.instance)}</Value>
-           </Tag>
-           <Tag>
-              <Key>CreationDate</Key>
-              <Value>${EncodeValue(options.tags.creationdate)}</Value>
-           </Tag>
-           <Tag>
-              <Key>WHLiveType</Key>
-              <Value>${EncodeValue(options.tags.whlivetype)}</Value>
-           </Tag>
+           ${Detokenize((SELECT AS STRING ARRAY `<Tag><Key>${EncodeValue(tags.tag)}</Key><Value>${EncodeValue(tags.value)}</Value></Tag>` FROM options.tags),"\n")}
         </Items>
      </Tags>
   </DistributionConfigWithTags>`;
@@ -231,67 +230,34 @@ PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
       RETURN this->GetDistribution(TrimWhitespace(Tokenize(e->errormessage,':')[1]));
     }
   }
->;
 
-PUBLIC OBJECTTYPE AmazonAWSCloudfrontInterface EXTEND AmazonAWSInterface
-<
-  STRING endpoint;
-
-  MACRO NEW(STRING accesskey, STRING accesssecret)
-  : AmazonAWSInterface("us-east-1", accesskey, accesssecret)
+  /** @param cdnid CDN ID we're invalidating
+      @param callerreference Unique caller-generated reference for this invalidation
+      @param paths Paths to invalidate. Must start with a slash */
+  PUBLIC RECORD FUNCTION CreateInvalidation(STRING cdnid, STRING callerreference, STRING ARRAY paths)
   {
-  }
+    FOREVERY(STRING path FROM paths)
+      IF(path NOT LIKE "/*")
+        THROW NEW Exception(`Invalid invalidation path '${path}'`);
 
-  PUBLIC RECORD ARRAY FUNCTION ListStreamingDistributions()
-  {
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET","https://cloudfront.amazonaws.com/" || "2018-11-05/streaming-distribution");
+    // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#cloudfront-CreateInvalidation-request-InvalidationBatch
+    // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html#invalidation-specifying-objects
 
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "StreamingDistributionSummary")->GetCurrentElements();
-    RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
-    {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
+    STRING invalidationrequest := `<?xml version="1.0" encoding="UTF-8"?>
+<InvalidationBatch xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">
+   <CallerReference>${EncodeValue(callerreference)}</CallerReference>
+   <Paths>
+      <Items>
+        ${Detokenize( (SELECT AS STRING ARRAY `<Path>${EncodeValue(path)}</Path>` FROM ToRecordArray(paths,'path')),"\n")}
+      </Items>
+      <Quantity>${Length(paths)}</Quantity>
+   </Paths>
+</InvalidationBatch>`;
 
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "S3Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
-    }
-    RETURN distributions;
-  }
+    OBJECT cloudfrontresult := this->RequestXML("POST", `https://cloudfront.amazonaws.com/2020-05-31/distribution/${EncodeURL(cdnid)}/invalidation`,
+      [ body := StringToBlob(invalidationrequest)
+      ]).doc;
 
-  PUBLIC RECORD ARRAY FUNCTION ListDistributions()
-  {
-    //ADDME paginated support
-
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET","https://cloudfront.amazonaws.com/" || "2018-11-05/distribution");
-
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "DistributionSummary")->GetCurrentElements();
-    RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
-    {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
-
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ id         := originnode->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                         , domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
-    }
-    RETURN distributions;
+    RETURN ParseInvalidation(cloudfrontresult->documentelement);
   }
 >;
