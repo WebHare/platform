@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/components/fsobjectoverviewbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 
 
@@ -111,6 +112,7 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
     //this->thelist->styles := [ name := "protected" ];
     this->thelist->empty := def.empty;
     this->thelist->onrestoreexpand := PTR this->OnListRestoreExpanded;
+    this->thelist->onrestoreselection := PTR this->OnListRestoreSelection;
 
     // if accepttypes is set we make folders which aren't of an acceptable type unselectable
     this->thelist->styles :=
@@ -242,6 +244,17 @@ PUBLIC OBJECTTYPE FolderTree EXTEND FSObjectOverviewBase
   {
     //never auto-openinactive files, whfs_private expansions are expensive
     RETURN [0] CONCAT SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE (id IN expandlist) AND isactive;
+  }
+  INTEGER FUNCTION OnListRestoreSelection(INTEGER selected)
+  {
+    IF(selected = 0)
+      RETURN selected;
+
+    STRING path := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = VAR selected;
+    IF(IsRecycleBinWHFSPath(path))
+      RETURN 0; //don't restore selection if the recyclebin was selected. may happen if an earlier saved selection has been deleted
+
+    RETURN selected;
   }
 
   // ---------------------------------------------------------------------------

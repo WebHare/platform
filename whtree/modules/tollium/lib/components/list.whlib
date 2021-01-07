@@ -450,6 +450,11 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   */
   PUBLIC PROPERTY onfocusin(pvt_onfocusin, pvt_onfocusin);
 
+  /** Called when restoring component state with the (list of) rowkey(s) to select, can be used to filter/expand that list.
+      Signature: VARIANT FUNCTION onrestoreselection(VARIANT rowkeys)
+  */
+  PUBLIC FUNCTION PTR onrestoreselection;
+
   /** Called when restoring component state with the list of rowkeys to expand, can be used
       to filter/expand that list.
       Signature: VARIANT FUNCTION onrestoreexpand(VARIANT rowkeys)
@@ -742,6 +747,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         BOOLEAN storedismultple := IsTypeidArray(TypeID(state.selection));
         IF( (this->selectmode = "single" AND NOT storedismultple) OR (this->selectmode = "multiple" AND storedismultple) )
         {
+          IF(this->onrestoreselection != DEFAULT MACRO PTR)
+            state.selection := this->onrestoreselection(state.selection);
           this->SetValueIfValid(state.selection);
         }
       }
