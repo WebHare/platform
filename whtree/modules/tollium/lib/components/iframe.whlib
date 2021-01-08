@@ -284,7 +284,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 
   STRING FUNCTION GetToddIframeUrl()
   {
-    RETURN "/.tollium/ui/js/external/toddiframe.js";
+    RETURN "/.webhare/direct/tollium/toddiframe.js";
   }
 
   MACRO SetZoom(MONEY zoom)
