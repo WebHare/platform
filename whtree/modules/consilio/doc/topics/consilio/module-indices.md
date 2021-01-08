@@ -146,7 +146,7 @@ To map all fields that have a name starting with `dn_` to a float field, set the
 
 ## Store-only fields
 
-By default, all fields are searchable and can be returned in the search results. If the field is never stored, but only used to store information, the `storeonly` attribute of the field can be set to `true`:
+By default, all fields are searchable and can be returned in the search results. If the field is never searched, but only used to store information, the `storeonly` attribute of the field can be set to `true`:
 
 ```xml
 <consilio>
