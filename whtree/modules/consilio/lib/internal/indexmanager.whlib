@@ -249,7 +249,7 @@ PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO 
       [ metrics := STRING[ "_all" ]
       ], options,
       [ enums :=
-          [ metrics := // https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-stats.html#index-stats-api-path-params```
+          [ metrics := // https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-stats.html#index-stats-api-path-params
               [ "_all", "completion", "docs", "fielddata", "flush", "get", "indexing", "merge", "query_cache", "refresh"
               , "request_cache", "search", "segments", "store", "suggest", "translog", "warmer"
               ]
