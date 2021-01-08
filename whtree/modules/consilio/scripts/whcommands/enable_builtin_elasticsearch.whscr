@@ -12,7 +12,7 @@ MACRO Main()
   {
     GetPrimary()->BeginWork();
     INSERT INTO consilio.indexmanagers(name, type, address)
-         VALUES ("Builtin Elastic search", 2, "builtin-elasticsearch");
+         VALUES ("Builtin Elasticsearch", 2, "builtin-elasticsearch");
     GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
     GetPrimary()->CommitWork();
   }

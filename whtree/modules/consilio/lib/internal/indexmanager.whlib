@@ -514,6 +514,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
+      , throwonfailure := TRUE
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
@@ -760,7 +761,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF(options.debug)
           Print("Final Elasticsearch query: " || EncodeJSON(searchquery) || "\n");
 
-        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, [ throwonfailure := FALSE]);
+        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure ]);
         IF(options.debug)
           DumpValue(response, "tree");
 
