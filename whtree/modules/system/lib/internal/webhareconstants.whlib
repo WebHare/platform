@@ -125,6 +125,9 @@ PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
 //ip address reported by the consilio fetcher
 PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";
 
+//base port offset for elasticsearch
+PUBLIC CONSTANT INTEGER whconstant_consilio_esportoffset := 6;
+
 //name of the publisher whfs catalog
 PUBLIC CONSTANT STRING whconstant_consilio_catalog_whfs := "publisher:whfs";
 
