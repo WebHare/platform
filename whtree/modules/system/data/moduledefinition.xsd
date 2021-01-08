@@ -2376,6 +2376,13 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="storeonly" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          If set to true, the field cannot be queried (defaults to false)
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
 

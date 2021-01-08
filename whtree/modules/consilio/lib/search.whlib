@@ -252,7 +252,7 @@ PUBLIC RECORD FUNCTION SearchForAll(STRING query, STRING catalog_name, STRING re
 
 
 
-OBJECTTYPE SearchObject
+STATIC OBJECTTYPE SearchObject
 < //////////////////////////////////////////////////////////////////////////////
   // Variables
   //
@@ -277,6 +277,7 @@ OBJECTTYPE SearchObject
   //
 
   PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN throwonfailure;
 
   /** @short The language used for searching
   */
@@ -502,6 +503,7 @@ OBJECTTYPE SearchObject
         , session := this->session
         , addscore := addscore
         , debug := this->debug
+        , throwonfailure := this->throwonfailure
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;

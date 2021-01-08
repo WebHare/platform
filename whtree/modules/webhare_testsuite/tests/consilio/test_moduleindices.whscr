@@ -285,6 +285,24 @@ MACRO TestESBulkInsertion()
       ]);
   TestEq(0, res.totalcount);
 
+  //Test store-only fields
+  catalog->EnsureIndex([ suffix := "sub1", fieldgroup := "webhare_testsuite:storeonly" ]);
+  catalog->AddObjects(
+                    [[ objectid := "test1"
+                     , documentfields := [ indexed := "test", stored := "test" ]
+                    ]],[ suffix := "sub1", synchronous := TRUE ]);
+
+  // 'indexed:test' can be found, the 'stored' field returned
+  res := RunConsilioSearch("webhare_testsuite:testindex", CQMatch("indexed", "=", "test"),
+      [ mapping := [ indexed := "", stored := "" ]
+      , summaryfield := ""
+      ]);
+  TestEq(1, res.totalcount);
+  TestEq([ indexed := "test", stored := "test" ], res.results[0]);
+
+  // The 'stored' field cannot be searched on
+  TestThrowsLike("*Cannot search*stored*not indexed*", PTR RunConsilioSearch("webhare_testsuite:testindex", CQMatch("stored", "=", "test"), [ throwonfailure := TRUE ]));
+
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
       [ [ objectid := "test1"

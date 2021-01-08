@@ -243,6 +243,48 @@ PUBLIC RECORD FUNCTION GetIndexManagerIndexList(INTEGER indexmgrid, RECORD optio
   RETURN result;
 }
 
+PUBLIC RECORD FUNCTION GetIndexStats(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ metrics := STRING[ "_all" ]
+      ], options,
+      [ enums :=
+          [ metrics := // https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-stats.html#index-stats-api-path-params
+              [ "_all", "completion", "docs", "fielddata", "flush", "get", "indexing", "merge", "query_cache", "refresh"
+              , "request_cache", "search", "segments", "store", "suggest", "translog", "warmer"
+              ]
+          ]
+      ]);
+  RECORD result :=
+      [ status := SearchIndexNotFound
+      , stats := DEFAULT RECORD
+      ];
+
+  RECORD indexmanager := GetIndexManagersForIndex(indexid);
+  IF (NOT RecordExists(indexmanager))
+   THROW NEW Exception(`No indexmanager configured for index #${indexid}`);
+
+  SWITCH (indexmanager.type)
+  {
+    CASE whconstant_consilio_indexmanager_legacybackend
+    {
+      // Not supported, ignore
+    }
+    CASE whconstant_consilio_indexmanager_elasticsearch
+    {
+      RECORD response := SendToElasticsearch(indexmanager.id, indexmanager.indexname, "/_stats/" || Detokenize(options.metrics, ","), DEFAULT RECORD, "GET", [ throwonfailure := TRUE ]);
+      result.status := response.status;
+      IF (response.status = SearchOk)
+        result.stats := GetCell(response.result.indices, indexmanager.indexname).total;
+    }
+  }
+
+  IF (__indexmanager_debugall)
+    LogDebug("IndexManager", "GetIndexStats", indexid, options.metrics, result);
+
+  RETURN result;
+}
+
 PUBLIC STRING FUNCTION EnsureIndexManagerIndex(INTEGER indexid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -514,6 +556,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       , session := DEFAULT RECORD
       , addscore := FALSE
       , debug := FALSE
+      , throwonfailure := TRUE
       ];
 
   RECORD options := ValidateOptions(defaultoptions, useroptions);
@@ -760,7 +803,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
         IF(options.debug)
           Print("Final Elasticsearch query: " || EncodeJSON(searchquery) || "\n");
 
-        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, [ throwonfailure := FALSE]);
+        RECORD response := SendRawJSONToElasticsearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ options.throwonfailure ]);
         IF(options.debug)
           DumpValue(response, "tree");
 

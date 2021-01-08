@@ -563,6 +563,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , restrict_url := ""
       , exclude_urls := STRING[]
       , debug := FALSE
+      , throwonfailure := FALSE
       ], options, [ optional := [ "orderdesc" ] ]);
   indextag := ValidateIndexTag(indextag);
   FOREVERY (RECORD ordering FROM options.ordering)
@@ -598,6 +599,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
     search_obj->session_site := options.save_searches_site;
   search_obj->summary_length := options.summary_length;
   search_obj->debug := options.debug;
+  search_obj->throwonfailure := options.throwonfailure;
   IF (RecordExists(options.mapping))
   {
     FOREVERY(RECORD cellrec FROM UnpackRecord(options.mapping))
