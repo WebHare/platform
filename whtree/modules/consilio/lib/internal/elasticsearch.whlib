@@ -142,7 +142,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
 
 PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname, STRING command, RECORD request, STRING method, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ throwonfailure := FALSE ], options);
+  options := ValidateOptions([ throwonfailure := FALSE ], options);
 
   STRING url := (indexname != "" ? "/" || indexname : "") || command;
   RECORD body := request;
@@ -246,13 +246,13 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
 
   // Get file system status (containing total and available disk space)
   RECORD fs_stats := SendToElasticsearch(indexmgrid, "", "/_nodes/stats/fs", DEFAULT RECORD, "GET");
-  IF (fs_stats.status != "ok")
+  IF (fs_stats.status != SearchOk)
     RETURN CELL[ ...result, status := fs_stats.status ];
 
   // Get cluster settings (containing disk thresholds)
-  RECORD settings := SendToElasticsearch(indexmgrid, "", "/_cluster/settings?flat_settings=true&include_defaults=true", DEFAULT RECORD, "GET");
-  IF (settings.status != "ok")
-    RETURN CELL[ ...result, status := settings.status ];
+  RECORD settings := GetElasticsearchSettings(indexmgrid, TRUE);
+  IF (NOT RecordExists(settings))
+    RETURN CELL[ ...result, status := SearchHTTPError ];
 
   // The nodes are named; we'll just use the first (and, at least for now, only) node
   RECORD node := UnpackRecord(fs_stats.result.nodes)[0].value;
@@ -265,39 +265,25 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
   INSERT `disk.total=${total_bytes}` INTO result.msg AT END;
 
   // Read cluster disk settings
-  /*
-    https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-update-settings.html#_order_of_precedence
-
-    The order of precedence for cluster settings is:
-
-    1. transient cluster settings
-    2. persistent cluster settings
-    3. settings in the elasticsearch.yml configuration file.
-  */
-  RECORD active_settings := CELL
-      [ ...settings.result.defaults
-      , ...settings.result.persistent
-      , ...settings.result.transient
-      ];
-  IF (active_settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
+  IF (settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
   {
-    INTEGER64 low_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
-    INTEGER64 high_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.high", total_bytes);
-    INTEGER64 flood_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
-    IF (available_bytes < flood_bytes AND CellExists(active_settings,"cluster.routing.allocation.disk.watermark.flood"))
+    INTEGER64 low_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
+    INTEGER64 high_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.high", total_bytes);
+    INTEGER64 flood_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
+    IF (available_bytes < flood_bytes AND CellExists(settings,"cluster.routing.allocation.disk.watermark.flood"))
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=flood=${active_settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
+      INSERT `disk.watermark=flood=${settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
     }
     ELSE IF (available_bytes < high_bytes)
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=high=${active_settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
+      INSERT `disk.watermark=high=${settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
     }
     ELSE IF (available_bytes < low_bytes)
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=low=${active_settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
+      INSERT `disk.watermark=low=${settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
     }
     ELSE
     {
@@ -324,6 +310,15 @@ PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN incl
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 
+  /*
+    https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-update-settings.html#_order_of_precedence
+
+    The order of precedence for cluster settings is:
+
+    1. transient cluster settings
+    2. persistent cluster settings
+    3. settings in the elasticsearch.yml configuration file.
+  */
   IF (include_defaults)
     RETURN CELL
       [ ...settings.result.defaults
