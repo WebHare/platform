@@ -1,6 +1,6 @@
 # We can't mark this script as executable as it shouldn't be run on a build host
 
-GETFILE=elasticsearch-oss-7.10.0-linux-x86_64.tar.gz
+GETFILE=elasticsearch-oss-7.10.1-linux-x86_64.tar.gz
 DLPATH=/tmp/downloads/$GETFILE
 
 if ! curl -fsS -o $DLPATH -z $DLPATH https://build.webhare.dev/whbuild/$GETFILE ; then
