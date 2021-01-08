@@ -355,7 +355,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   TRY
   {
-    CreateWHFSObjectPropsDialog(parentscreen, objectid)->RunModal();
+    __CreateHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], "publisher:commondialogs/objectprops.objectprops")->RunModal();
   }
   CATCH(OBJECT err)
   {
