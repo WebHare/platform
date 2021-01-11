@@ -11,4 +11,18 @@
     </attributes>
   </domain>
 
+  <object tag="TASKCLUSTER"> <!-- overrides for module task clusters -->
+    <attributes>
+      <free tag="CLUSTER" unique="true" required="true"/> <!-- must match the module:cluster tag -->
+      <integer tag="HARESCRIPTWORKERS" /> <!-- if set, overrides harescriptworkers value for this cluster (if the cluster actually requires harescript workers) -->
+    </attributes>
+  </object>
+
+  <object tag="EXTERNALSERVICE"> <!-- list services we are allowed to connect with -->
+    <attributes>
+      <free tag="url" required="true" />
+      <enum tag="type" required="true" allowedvalues="tika ?*:?*" />
+    </attributes>
+  </object>
+
 </schemadefinition>
