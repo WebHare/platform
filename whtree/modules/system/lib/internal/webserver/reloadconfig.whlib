@@ -93,7 +93,13 @@ MACRO ReconfigureProxies(RECORD config)
 
         browser->onauth := PTR FixedAuthHandler(rec.password, #1, #2);
         browser->timeout := 120000;
-        RECORD result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(rec.url, "/rpc"), "registerProxyClient", [ reg ]);
+        RECORD result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(rec.url, "/admin/rpc"), "registerProxyClient", [ reg ]);
+        IF (browser->GetHTTPStatusCode() IN [ 403, 404 ] AND NOT RecordExists(result))
+        {
+          // Support old URL scheme too
+          result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(rec.url, "/rpc"), "registerProxyClient", [ reg ]);
+        }
+
         STRING type := RecordExists(result)
             ? result.success
                   ? "ok"

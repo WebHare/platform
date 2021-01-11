@@ -192,6 +192,11 @@ Where command is one of:
 - updatebackend - Update the 'WebHare Backend' interface website
 - setsystemtype - Set the system type (production, acceptance, test or development)
 - waitstate     - Wait for the startup to reach a specified state
+- listproxies   - Show the list of configured proxies
+- getproxies    - Show the list of configured proxies, encoded as JSON
+- setproxies    - Sets the configured proxies (parameters: '{ proxies: [ { ... } , ... ] }'))
+- addproxy      - Adds a proxy (params: proxyurl, proxypassword, callbackurl)
+- deleteproxy   - Deletes a proxy (parameters: proxyid)
 `);
   }
   DEFAULT
