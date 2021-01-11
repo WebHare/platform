@@ -11,4 +11,11 @@
     </attributes>
   </domain>
 
+  <object tag="TASKCLUSTER"> <!-- overrides for module task clusters -->
+    <attributes>
+      <free tag="CLUSTER" unique="true" required="true"/> <!-- must match the module:cluster tag -->
+      <integer tag="HARESCRIPTWORKERS" /> <!-- if set, overrides harescriptworkers value for this cluster (if the cluster actually requires harescript workers) -->
+    </attributes>
+  </object>
+
 </schemadefinition>
