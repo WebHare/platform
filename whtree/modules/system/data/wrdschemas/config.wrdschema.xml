@@ -18,4 +18,11 @@
     </attributes>
   </object>
 
+  <object tag="EXTERNALSERVICE"> <!-- list services we are allowed to connect with -->
+    <attributes>
+      <free tag="url" required="true" />
+      <enum tag="type" required="true" allowedvalues="tika ?*:?*" />
+    </attributes>
+  </object>
+
 </schemadefinition>
