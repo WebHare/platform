@@ -57,7 +57,8 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
        WHERE cluster NOT IN activeclusters;
 
   tasktypes := SELECT *
-                 FROM tasktypes ORDER BY tasktype, ephemeral;
+                 FROM tasktypes
+             ORDER BY tasktype, ephemeral;
 
   clusters := SELECT TEMPORARY override := RECORD(SELECT * FROM overrides WHERE overrides.cluster = clusters.tag)
                    , *

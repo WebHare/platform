@@ -774,6 +774,7 @@ STATIC OBJECTTYPE QueueMgr
     RegisterMultiEventCallback("system:modulesupdate", PTR this->GotConfigUpdate);
     RegisterEventCallback("system:managedtasks.any.*", PTR this->OnTasksUpdate);
 
+    CheckMoreWorkers(); //also loads settings from database
     this->ReadManagedTasksFromDB(0);
 
     this->maxfailreschedule := 86400 * 1000;
@@ -835,6 +836,7 @@ STATIC OBJECTTYPE QueueMgr
              , failures
              , found :=       TRUE
              , timeout
+             , ephemeral := FALSE
           FROM system_internal.managedtasks
          WHERE finished = DEFAULT DATETIME
                AND NOT iscancelled
@@ -844,7 +846,7 @@ STATIC OBJECTTYPE QueueMgr
     // Enrich with cluster and other type-based info
     FOREVERY (RECORD rec FROM currenttasks)
     {
-      RECORD pos := RecordLowerBound(tasktypes, rec, [ "TASKTYPE" ]);
+      RECORD pos := RecordLowerBound(tasktypes, rec, [ "TASKTYPE", "EPHEMERAL" ]);
       RECORD tasktype := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
 
       INSERT CELL cluster := RecordExists(tasktype) ? tasktype.cluster : "system:default"
@@ -1227,11 +1229,8 @@ OBJECTTYPE QueueMgrClientConnection
 
     DATETIME now := GetCurrentDatetime();
 
-    RECORD tasktypeinfo :=
-        SELECT *
-          FROM tasktypes
-         WHERE COLUMN tasktype = VAR tasktype
-           AND ephemeral;
+    RECORD pos := RecordLowerBound(tasktypes, CELL[ tasktype, ephemeral := TRUE ], [ "TASKTYPE", "EPHEMERAL" ]);
+    RECORD tasktypeinfo := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
 
     IF (NOT RecordExists(tasktypeinfo))
       THROW NEW Exception(`Nu such ephemeral task type ${tasktype}`);
