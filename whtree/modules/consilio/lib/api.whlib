@@ -997,7 +997,10 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
       @cell name Name of the indexmanager
       @cell type Type of the indexmanager (1: consilio, 2: elasticsearch)
   */
-  PUBLIC PROPERTY indexmanager(GetIndexManager,-);
+  PUBLIC PROPERTY indexmanager(GetIndexManager, -);
+
+  /** Name of the index on the index manager (Elasticsearch only) */
+  PUBLIC PROPERTY indexname(GetIndexName, -);
 
   //have we ensured yet that the index exists?
   STRING ARRAY ensured;
@@ -1005,6 +1008,11 @@ STATIC OBJECTTYPE UnmanagedCatalog EXTEND Catalog
   RECORD FUNCTION GetIndexManager()
   {
     RETURN SELECT id, name, type FROM consilio.indexmanagers WHERE id = this->catalog.indexmanager;
+  }
+
+  STRING FUNCTION GetIndexName()
+  {
+    RETURN SELECT AS STRING indexname FROM consilio.indices WHERE indices.id = this->id;
   }
 
   /** @short Add objects to this catalog
