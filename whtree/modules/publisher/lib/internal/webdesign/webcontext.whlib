@@ -122,6 +122,8 @@ PUBLIC STATIC OBJECTTYPE WebContext
   PUBLIC PROPERTY targetapplytester(pvt_targetapplytester, -);
   ///The object providing the source. This will differ from targetobject if targetobject is a contentlink.
   PUBLIC PROPERTY contentobject(pvt_contentobject, -);
+  ///Current errorcode, if invoked by an error page, eg 404 or 500. May also be 200 (OK), or 0 if the context is unsure about the current error, so we generally recommend checking for ``>= 400`
+  PUBLIC PROPERTY errorcode(this->__config.errorcode, -);
 
   PUBLIC OBJECT __mergefields;
 
