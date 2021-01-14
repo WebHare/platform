@@ -82,36 +82,6 @@ MACRO TestUnique()
   testfw->CommitWork();
 }
 
-MACRO TestEnsureEntity_Classic()
-{
-  testfw->BeginWork();
-
-  OBJECT whunit := testfw->GetWRDSchema()->GetType("WHUSER_UNIT");
-  TestEq(0, Length(whunit->Runquery(DEFAULT RECORD)));
-
-  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tagxxx := "FIRSTUNIT" ], [ wrd_title := "Unit #1"]));
-  TestThrows(PTR whunit->EnsureEntity( [ wrd_leftentity := 0 ], [ wrd_title := "Unit #1"]));
-
-
-  OBJECT firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ wrd_title := "Unit #1"]);
-  OBJECT secondunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "SECONDUNIT" ], [ wrd_title := "Unit #2"]);
-  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
-  TestEq(TRUE, ObjectExists(firstunit));
-  TestEq("Unit #1", firstunit->Getfield("WRD_TITLE"));
-
-  firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT" ], [ wrd_title := "Unit #1b"]);
-  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
-  TestEq("Unit #1", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
-
-  firstunit := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b" ]);
-  TestEq(2, Length(whunit->Runquery(DEFAULT RECORD)));
-  TestEq("Unit #1b", firstunit->Getfield("WRD_TITLE")); //shouldn't have changed
-
-  TestThrows(PTR firstunit->UpdateEntity( [ wrd_leftentity := firstunit->id ]));
-
-  testfw->RollbackWork();
-}
-
 MACRO TestEnsureEntity()
 {
   testfw->BeginWork();
@@ -145,6 +115,5 @@ MACRO TestEnsureEntity()
 
 
 RunTestframework([ PTR TestUnique
-                 , PTR TestEnsureEntity_Classic
                  , PTR TestEnsureEntity
                  ]);

@@ -73,54 +73,62 @@
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/foreignfolder" cloneoncopy="true" />
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/systemfolder" cloneoncopy="true" />
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/photoalbum" cloneoncopy="true">
-    <member name="rows" type="string" />
-    <member name="columns" type="string" />
-    <member name="picturewidth" type="integer" />
-    <member name="pictureheight" type="integer" />
-    <member name="thumbnailwidth" type="integer" />
-    <member name="thumbnailheight" type="integer" />
-    <member name="publishoriginals" type="boolean" />
-  </contenttype>
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/tagfolder" cloneoncopy="true" />
 
   <!-- Editor for photoalbum settings -->
-  <propertyeditor name="photoalbum_settings">
-    <compositions>
-      <p:whfsinstance name="fsinstance" typedef="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    </compositions>
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="photoalbum_settings">
     <newtab gid="publisher:foldertypes.photoalbum-settings" tid=".tabtitle">
-      <t:line>
-        <t:textedit tid=".indexpage" width="5x" composition="fsinstance" cellname="rows" emptyvalue="0" placeholder="5" />
-        <t:text valuetid=".rows" />
-        <t:textedit width="5x" composition="fsinstance" cellname="columns" emptyvalue="0" placeholder="5" />
-        <t:text valuetid=".columns" />
-      </t:line>
-      <t:line>
-        <t:textedit tid=".picturewidth" width="6x" composition="fsinstance" cellname="picturewidth" valuetype="integer" emptyvalue="0" placeholder="600"/>
-        <t:text valuetid=".pixels" />
-      </t:line>
-      <t:line>
-        <t:textedit tid=".pictureheight" width="6x" composition="fsinstance" cellname="pictureheight" valuetype="integer" emptyvalue="0" placeholder="600"/>
-        <t:text valuetid=".pixels" />
-      </t:line>
-      <t:line>
-        <t:textedit tid=".thumbnailwidth" width="6x" composition="fsinstance" cellname="thumbnailwidth" valuetype="integer"  emptyvalue="0" placeholder="100"/>
-        <t:text valuetid=".pixels" />
-      </t:line>
-      <t:line>
-        <t:textedit tid=".thumbnailheight" width="6x" composition="fsinstance" cellname="thumbnailheight" valuetype="integer" emptyvalue="0" placeholder="100"/>
-        <t:text valuetid=".pixels" />
-      </t:line>
-      <t:line layout="left">
-        <t:checkbox title="" labeltid=".publishoriginals" composition="fsinstance" cellname="publishoriginals" />
-      </t:line>
+      <line>
+        <textedit composition="contentdata" cellname="rows" width="5x" emptyvalue="0" placeholder="5" tid=".indexpage" />
+        <text valuetid=".rows" />
+        <textedit composition="contentdata" cellname="columns" width="5x" emptyvalue="0" placeholder="5" />
+        <text valuetid=".columns" />
+      </line>
+      <line>
+        <textedit composition="contentdata"
+                  cellname="picturewidth"
+                  width="6x"
+                  emptyvalue="0"
+                  placeholder="600"
+                  tid=".picturewidth"
+                  valuetype="integer" />
+        <text valuetid=".pixels" />
+      </line>
+      <line>
+        <textedit composition="contentdata"
+                  cellname="pictureheight"
+                  width="6x"
+                  emptyvalue="0"
+                  placeholder="600"
+                  tid=".pictureheight"
+                  valuetype="integer" />
+        <text valuetid=".pixels" />
+      </line>
+      <line>
+        <textedit composition="contentdata"
+                  cellname="thumbnailwidth"
+                  width="6x"
+                  emptyvalue="0"
+                  placeholder="100"
+                  tid=".thumbnailwidth"
+                  valuetype="integer" />
+        <text valuetid=".pixels" />
+      </line>
+      <line>
+        <textedit composition="contentdata"
+                  cellname="thumbnailheight"
+                  width="6x"
+                  emptyvalue="0"
+                  placeholder="100"
+                  tid=".thumbnailheight"
+                  valuetype="integer" />
+        <text valuetid=".pixels" />
+      </line>
+      <line layout="left">
+        <checkbox composition="contentdata" cellname="publishoriginals" labeltid=".publishoriginals" title="" />
+      </line>
     </newtab>
-  </propertyeditor>
-  <apply>
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <extendproperties name="photoalbum_settings" />
-  </apply>
+  </tabsextension>
 
   <!-- DBfile publishing -->
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/dbpublication" cloneoncopy="false">
@@ -150,14 +158,23 @@
       indexfile="none"
   />
 
-  <foldertype
-      typedef="http://www.webhare.net/xmlns/publisher/photoalbum"
-      webhare_builtintypeid="3"
-      tid="publisher:foldertypes.photoalbum"
-      tolliumicon="tollium:folders/photoalbum"
-      indexfile="contentlisting"
-      protectindexfile="true"
-  />
+  <foldertype namespace="http://www.webhare.net/xmlns/publisher/photoalbum"
+              indexfile="contentlisting"
+              protectindexfile="true"
+              tid="publisher:foldertypes.photoalbum"
+              tolliumicon="tollium:folders/photoalbum"
+              webhare_builtintypeid="3">
+    <members>
+      <string name="rows" />
+      <string name="columns" />
+      <integer name="picturewidth" />
+      <integer name="pictureheight" />
+      <integer name="thumbnailwidth" />
+      <integer name="thumbnailheight" />
+      <boolean name="publishoriginals" />
+    </members>
+    <extendproperties extension="#photoalbum_settings" />
+  </foldertype>
 
   <foldertype
       typedef="http://www.webhare.net/xmlns/publisher/designfilessite"
@@ -227,8 +244,8 @@
       needsprofile="true"
       isacceptableindex="true"
       ispublishedassubdir="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
+      pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
   />
 
   <filetype
@@ -240,7 +257,6 @@
       extensions=".html .htm"
       needstemplate="true"
       isacceptableindex="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob">
     <setobjecteditor name="publisher:texteditor" />
   </filetype>
@@ -256,7 +272,6 @@
       needsprofile="false"
       isdevelopertype="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -285,7 +300,6 @@
       needsprofile="false"
       isdevelopertype="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -314,7 +328,6 @@
       requirescontent="true"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -394,7 +407,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -446,7 +458,6 @@
       needstemplate="false"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -473,7 +484,6 @@
       needstemplate="false"
       needsprofile="false"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -503,7 +513,6 @@
       isdevelopertype="true"
       isacceptableindex="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -519,7 +528,6 @@
       isdevelopertype="true"
       isacceptableindex="true"
       ispublishable="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -546,7 +554,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -560,7 +567,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -574,7 +580,6 @@
       needstemplate="false"
       needsprofile="false"
       isdevelopertype="true"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -595,7 +600,6 @@
       tolliumicon="tollium:files/application_x-webhare-richdocument"
       kind="virtualfile"
       extensions=".rtd"
-      searchprovider="../lib/search/searchproviders.whlib#RichDocumentSearchProvider"
       searchcontentprovider="publisher:rtd">
     <members>
       <file name="original" />
@@ -609,7 +613,6 @@
       tolliumicon="tollium:files/application_msword"
       extensions=".doc"
       kind="rawfile"
-      searchprovider="../lib/search/searchproviders.whlib#SearchProviderBase"
       searchcontentprovider="publisher:contentblob"
   />
 
@@ -837,7 +840,6 @@
   </apply>
 
   <apply>
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/designfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/tagfolder" />
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/foreignfolder" />
@@ -896,6 +898,17 @@
       <member name="remotepath" type="string" />
     </member>
   </contenttype>
+
+  <!-- ======================================================================
+
+       Key store
+
+  ==== -->
+  <foldertype namespace="http://www.webhare.net/xmlns/system/keystorefolder">
+    <members>
+      <integer name="warnexpirydays" />
+    </members>
+  </foldertype>
 
   <!-- ======================================================================
 

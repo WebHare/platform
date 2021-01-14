@@ -429,7 +429,7 @@ BOOLEAN FUNCTION ExecuteServiceCall(RECORD tp, RECORD servicedef, RECORD callinf
 PUBLIC MACRO RunRequest(RECORD ARRAY errors, STRING error_groupid, BOOLEAN iswebsocket)
 {
   // Should not have a primary transaction anymore
-  IF (ObjectExists(GetPrimaryWebhareTransactionObject()))
+  IF (HavePrimaryTransaction())
     ABORT("Have primary transaction!");
 
   STRING url := GetRequestURL();

@@ -6,6 +6,7 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
@@ -442,7 +443,19 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
         {
           OBJECT embeddedobject := OpenEmbeddedObject(outputobject->document, node);
           IF(ObjectExists(embeddedobject))
-            embeddedobject->RenderLive(); //only widgetbase derived stuff accepted inline, so no need to fallback to old render functions
+          {
+            IF(ObjectExists(outputobject->document->previewcontext))
+            {
+              IF(outputobject->document->previewcontext->__previewsearch)
+                embeddedobject->RenderSearchPreview();
+              ELSE
+                embeddedobject->Render();
+            }
+            ELSE
+            {
+              embeddedobject->RenderLive(); //only widgetbase derived stuff accepted inline, so no need to fallback to old render functions
+            }
+          }
         }
         ELSE IF(node->GetAttribute("data-wh-gettid") != "")
         {
@@ -469,7 +482,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       CASE "a"
       {
         STRING href := node->GetAttribute("href");
-        IF(NOT this->IsTagAcceptable("a-href"))
+        IF(NOT this->IsTagAcceptable("a-href") OR href="")
         {
           this->FormatNodes(outputobject, node, keepwhitespace);
           RETURN;
@@ -482,19 +495,26 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
                                 , opened :=    TRUE
                                 ];
 
+        RECORD linkrecord;
+
         IF(href LIKE "x-richdoclink:*")
         {
-          hyperlinkinfo.href := outputobject->document->__GetResolvedLinkRef(href);
+          RECORD split := SplitIntLink(href);
+          INTEGER fsref := outputobject->document->GetLinkRef(split.link);
+          IF(fsref != 0)
+            linkrecord := MakeIntExtInternalLink(fsref, split.append);
         }
         ELSE
         {
-          hyperlinkinfo.href := href;
+          linkrecord := MakeIntExtExternalLink(href);
         }
 
-        IF(hyperlinkinfo.href != "")
+        IF(RecordExists(linkrecord))
         {
           IF (ObjectExists(outputobject->document->webdesign))
-            hyperlinkinfo.href := outputobject->document->webdesign->RewriteHyperlink(hyperlinkinfo.href);
+            hyperlinkinfo.href := outputobject->document->webdesign->GetIntExtLinkTarget(linkrecord);
+          ELSE
+            hyperlinkinfo.href := GetIntExtLinkTarget(linkrecord);
         }
 
         IF(hyperlinkinfo.href != "")
@@ -741,11 +761,7 @@ PUBLIC STRING FUNCTION ResolveRichDocLink(RECORD ARRAY links, STRING src)
   IF(NOT RecordExists(matchlink))
     RETURN "";
 
-  STRING target := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = matchlink.linkref;
-  IF(target="")
-    RETURN "";
-
-  RETURN target || split.append;
+  RETURN GetIntExtLinkTarget(MakeIntExtInternalLink(matchlink.linkref, split.append));
 }
 
 PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
@@ -768,10 +784,6 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
     this->pvt_readonly := TRUE;
   }
 
-  PUBLIC STRING FUNCTION __GetResolvedLinkRef(STRING src)
-  {
-    RETURN ResolveRichDocLink(this->links, src);
-  }
   UPDATE PUBLIC MACRO ApplyStructureDefinition(OBJECT structure)
   {
     RichDocument::ApplyStructureDefinition(structure);

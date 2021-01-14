@@ -1,0 +1,235 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
+
+
+MACRO TestSAMLSigning()
+{
+  /** RSA 2048 bit private key
+      Generated with
+          OBJECT evpkey := GenerateCryptoKey("RSA", 2048);
+          STRING privatekey := evpkey->privatekey;
+  */
+  STRING privatekey :=
+      '-----BEGIN PRIVATE KEY-----\n' ||
+      'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDkT6t/6YbvtVcl\n' ||
+      'xL8AfjrArFXCURrPvZpyI5BhRlQnGxCNl7E6QTEPRibycPoHNoTen51zENI0mxA5\n' ||
+      'hSRz8xwwL4ISYyaKC9LzM80Xq0dqteJuxr5a1AGDbNu+1eu0miPUBCVA7uJYMe/7\n' ||
+      'aX5ne94Y8lj9y6JewBZvJQVbk8yBluAZLebaToytRO/cFKpcqRDq1vaIgf9xQjdj\n' ||
+      'OeJYx/RYkQVZiC2FHltfvSFTx2OByI0Ou0JMPseVkKwmb5wTg3kQl9m4B7hEzlvc\n' ||
+      'u/zCmGncvFSvB7/HI6yLH4nBommbUms4Fuodfj+UkGNQDLZuGgDzpg2YXiwh7Zdt\n' ||
+      'tcOuB46NAgMBAAECggEAP4kkUt5sHL08WVhdRwfZ1dCftQnZCkLbfjQDc+6ccJ2J\n' ||
+      'h73VJj8KJhQBtqpWCjfT1hhZOrJNrTIR28//ivz2tTojWnaZPQV5WRDrXFDf+QRQ\n' ||
+      '1T8dri0dlrNum7bwdzwGCHR24ZEZEC4leLOs56OC9TJMLaTDtNaD575HtWp2GQGb\n' ||
+      'H0lV8s3J5M4sJse2WPDJERyqARdPArB75YzPrJL1vwsEo2HYWkhOwu9knfh8+XNo\n' ||
+      'D7OjOz+s0zZDC8h7wQaLcpegbhURAg8mDN6bBPZ7s3eRPxZnrqscl5F2rov3SYgW\n' ||
+      'kBa8W97mFIcUOIJpNoBlLkrGOvUz7rfBIXTSjA+YAQKBgQDz9NKtht4uYhfo8bnC\n' ||
+      'prfTuej96OS7U16bsCtlkX+98G2lwTrf2EGg0RlegilFAgXpjrRo6ySyd1F28vLI\n' ||
+      'ZfReQWXVxs2L0K3H75VUBM/YWxHdv31hSt198bf1mt9CCKd2PNFwIMF7ysaCVYmZ\n' ||
+      '+Zs7b14/uP7di0DIl3x+H6NPAQKBgQDvlR7DzzCFHFIZLYIbjYduSu3fDVzAl/Vt\n' ||
+      'LnwYplffdsDszDsPPRC0rCR7sKwWGyPyifDazHD32nZ6/Zfzvphj7JnfQS/a/0/v\n' ||
+      'ldWAPNmZeuHmNXnSuMLIEPCSm3QopZHi3y4OoGozuW8F9PHdMXY2ssxqN1ygpdbH\n' ||
+      'k7DV7LALjQKBgD4F4oJHpbk5K0cIHehFJrtnqrrTOUP/ADCo63+ZLFcIB3h61hMP\n' ||
+      'EjBmuQJ0KTXoO8STiX6bOes9trJ9NgiJE0Xbbp6ZOqzvUx9f5CFGT+l7zeEIzEGu\n' ||
+      'HP3mNJT22Qga1yiScdUGHurwNOPyB1fkQ/kqaVXeHL4Kp1/YU8hlFsoBAoGBAM4i\n' ||
+      'DFVG96Ufh9eX2yDftY2EtIM8WPhwBj8JRsZioKpo33ceBRaIYM5CaiVuDbH7agNt\n' ||
+      'AakPS4dFFLmfZVTXQQCAeqemy4juMJWf4hEyyboPCzvp+MYAJ77BLGvHirrKMen0\n' ||
+      'QgldpeKZAlgqtsqsmtxXHB+rQGwMI+6VOQnmWlWlAoGAC2K0/mR40oCJA8SmGaW4\n' ||
+      'xiWdx8hfG+Sa3L/WMHZXtHDvEMY6sN30sN8ZHfX4G5m3XO+9r06TFCPMS0k9vnzy\n' ||
+      'ttr/of5ixQJIYxCx6V8qTSg2yIARBe1vuDV3eq8U/w0VtDX8lUEHwZsLpBQLpq3r\n' ||
+      'H86smi5SwE9SSvUIWRsZeFQ=\n' ||
+      '-----END PRIVATE KEY-----\n';
+
+  /** Certificate for previous key
+      Generated with code that looks like (rebuilt after losing it)
+          GetPrimary()->BeginWork();
+          OBJECT keypair := CreateKeyPair("samlkey", BobToString(privatekey), [ title := "samlkey", generateuniquename := TRUE ]);
+          BLOB csr := keypair->GenerateCSR([ c := "NL", st := "Overijssel", l := "Enschede", o := "WebHare BV", cn := "SAML test certificate" ]);
+          RECORD rec := keypair->SignCertificateRequest(csr, [ selfsign := TRUE, validuntil := MakeDate(2100, 1, 1) ]);
+          STRING certificate := BlobToString(rec.certificate);
+  */
+  STRING certificate :=
+      '-----BEGIN CERTIFICATE-----\n' ||
+      'MIIDqDCCApCgAwIBAgIQGUnNhxoRxY1evmg7vV9jsDANBgkqhkiG9w0BAQsFADBu\n' ||
+      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
+      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
+      'VQQDDAl3ZWJzZXJ2ZXIwHhcNMjAxMTMwMTA1NjI5WhcNMDAwMTAxMDAwMDAwWjBu\n' ||
+      'MQ4wDAYDVQQLDAVUZXN0czELMAkGA1UEBhMCTkwxEzARBgNVBAgMCk92ZXJpanNz\n' ||
+      'ZWwxETAPBgNVBAcMCEVuc2NoZWRlMRMwEQYDVQQKDApXZWJoYXJlIEJWMRIwEAYD\n' ||
+      'VQQDDAl3ZWJzZXJ2ZXIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDk\n' ||
+      'T6t/6YbvtVclxL8AfjrArFXCURrPvZpyI5BhRlQnGxCNl7E6QTEPRibycPoHNoTe\n' ||
+      'n51zENI0mxA5hSRz8xwwL4ISYyaKC9LzM80Xq0dqteJuxr5a1AGDbNu+1eu0miPU\n' ||
+      'BCVA7uJYMe/7aX5ne94Y8lj9y6JewBZvJQVbk8yBluAZLebaToytRO/cFKpcqRDq\n' ||
+      '1vaIgf9xQjdjOeJYx/RYkQVZiC2FHltfvSFTx2OByI0Ou0JMPseVkKwmb5wTg3kQ\n' ||
+      'l9m4B7hEzlvcu/zCmGncvFSvB7/HI6yLH4nBommbUms4Fuodfj+UkGNQDLZuGgDz\n' ||
+      'pg2YXiwh7ZdttcOuB46NAgMBAAGjQjBAMB0GA1UdDgQWBBR9fF4VVmNqvTUjf3To\n' ||
+      'eb/Hp8GhejAfBgNVHSMEGDAWgBR9fF4VVmNqvTUjf3Toeb/Hp8GhejANBgkqhkiG\n' ||
+      '9w0BAQsFAAOCAQEAagUH93/uug1P+5lKqwF0rRrlyaXcojzWhQwnbC7/nR0Q8KZc\n' ||
+      'UwtCet2SW46uwXNSnwdY5jtXVkLDDAgw7y2vSTdc2GahF0qXBqvdgHLuhFHQL694\n' ||
+      'UaZV7whHV+FeZBRPPOqqJ+dinzX+5XOcTjVQ3OnRZAWbdJgUrsUqITsDux0OEA5c\n' ||
+      '6h4OXiTeTjRZ/zCX0g/9Y+N2rnCzJPx3qwQrem9kI7JgUKSR+4hUdx6jGxrvf4DA\n' ||
+      '1FkaX7QCXMEI0p0Z/ohXSK5uSKEeOjb0r8slVAvKz5ntv/2qbM4zwLLHV0eVztbX\n' ||
+      'C9VrcpdNNIRXq6F9RAM5s7B37QtUSnyU9hB/vQ==\n' ||
+      '-----END CERTIFICATE-----\n';
+
+
+  RECORD request :=
+      [ type :=               "AuthnRequest"
+      , id :=                 "req-1"
+      , version :=            "2.0"
+      , issueinstant :=       MakeDate(2030, 1, 1)
+      , issuer :=             [ value := "http://example.com/sp" ]
+      , assertionconsumerserviceindex := 1 // respond via post (see generated SP metadata)
+      , providername :=       "example.com"
+      ];
+
+  RECORD encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", TRUE,
+      [ sign :=         privatekey
+      , destination :=  "http://example.com/destination"
+      , relaystate :=   "relaystate-1"
+      , signaturealgorithm := "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      ]);
+
+  TestEQ(
+      [ type := 'redirect'
+      , url := 'http://example.com/destination?SAMLRequest=lVHRasIwFH33K8Lds02qL1toKzIZCDrGdGPsLaQXDbRJ' ||
+               'zU1tP3%2BxTuZgGwzuS3LPuedwTjbr64od0ZNxNoc0EcDQalcau8vhZfswvoVZMcpI1VUj523Y22c8tEiBRaKlH' ||
+               'FpvpVNkSFpVI8mg5Wa%2BXslJImTjXXDaVXAGy9OVvxmKCH2IXq4pzf9UyuhqH0IjOe%2B6LummifM7PhFCcHHH' ||
+               'I6Yks7u5oHsyv8BT/rZebfQea2UsBWU1AlsucvB4GKfAXi%2BpTU6pLYlaXA64EL/EVIxFGmcrhBzmHdgi5masC' ||
+               'gPrUxN7VTcVJtrVvPzaA5tforh3ltoa/Qb90eioUWIfqwL25N3RlOgfYyQ5XB2CYihMDp588YMSNRm/hpxf3xsu' ||
+               'Rh8%3D&RelayState=relaystate-1&SigAlg=http%3A//www.w3.org/2000/09/xmldsig%23rsa-sha1&Si' ||
+               'gnature=iHXBOLEiYq5Knjt0oKsH4XJY9s8XbzEIKI4pBz/OUW9nIkF3tlTyo6CVW%2BUtZI/rAsBXpPnNbtD5o' ||
+               'WwUzpVnoC5emnjgmJtP/IpyMjx7%2BUStnjcsNjbiGsiupC3Iff%2BsYYP4bMz/6rjTC%2BIxTHAXRbnfgdz9gf' ||
+               'FG6rM48kcGn9gxgNWzqH1idwooUPeQpEdMz9/mPaHiV1CK1e5fRvFWsmKkixzmVml6OrW7o5kFb7DeWw76N2fju' ||
+               'IrxIKQTenxKSMp7oQ22P6fQALS47g6IVLtWXRjuPtSpKEsMPLyBjphvNavPVCBVLxPOwdClYZ49bsRWpP8PVEGY' ||
+               'DjAZ5Q1tdw%3D%3D'
+      ], encoded);
+
+  RECORD webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", encoded.url, GetAllVariablesFromUrl(encoded.url));
+
+  RECORD decoded := DecodeSAMLMessage(webdata, TRUE);
+  TestEQMembers(request, decoded.message, "*");
+
+  // shouldn't throw
+  decoded.validate(
+      [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+        , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+        ]
+      ]);
+
+
+  encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", TRUE,
+      [ sign :=         privatekey
+      , destination :=  "http://example.com/destination"
+      , relaystate :=   "relaystate-1"
+      , signaturealgorithm := "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+      ]);
+
+  TestEQ(
+      [ type := 'form'
+      , form :=
+            [ action := "http://example.com/destination"
+            , method := "POST"
+            , vars :=
+                [ [ name :=   'SAMLRequest'
+                  , value :=  'PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHNhbWxwOkF1dGhuUmVx' ||
+                              'dWVzdCB4bWxucz0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxu' ||
+                              'czpzYW1sPSJ1cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoyLjA6YXNzZXJ0aW9uIiB4bWxuczpz' ||
+                              'YW1scD0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIiB4bWxuczpkcz0i' ||
+                              'aHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgeG1sbnM6eHNpPSJodHRwOi8v' ||
+                              'd3d3LnczLm9yZy8yMDAxL1hNTFNjaGVtYWluc3RhbmNlIiBJRD0icmVxLTEiIFZlcnNpb249' ||
+                              'IjIuMCIgSXNzdWVJbnN0YW50PSIyMDMwLTAxLTAxVDAwOjAwOjAwWiIgRGVzdGluYXRpb249' ||
+                              'Imh0dHA6Ly9leGFtcGxlLmNvbS9kZXN0aW5hdGlvbiIgQXNzZXJ0aW9uQ29uc3VtZXJTZXJ2' ||
+                              'aWNlSW5kZXg9IjEiIFByb3ZpZGVyTmFtZT0iZXhhbXBsZS5jb20iPjxzYW1sOklzc3Vlcj5o' ||
+                              'dHRwOi8vZXhhbXBsZS5jb20vc3A8L3NhbWw6SXNzdWVyPjxkczpTaWduYXR1cmU+PGRzOlNp' ||
+                              'Z25lZEluZm8+PGRzOkNhbm9uaWNhbGl6YXRpb25NZXRob2QgQWxnb3JpdGhtPSJodHRwOi8v' ||
+                              'd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48ZHM6U2lnbmF0dXJlTWV0aG9k' ||
+                              'IEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnI3JzYS1zaGEx' ||
+                              'Ii8+PGRzOlJlZmVyZW5jZSBVUkk9IiNyZXEtMSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5z' ||
+                              'Zm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyNlbnZl' ||
+                              'bG9wZWQtc2lnbmF0dXJlIi8+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cu' ||
+                              'dzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGln' ||
+                              'ZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2ln' ||
+                              'I3NoYTEiLz48ZHM6RGlnZXN0VmFsdWU+enVEVHdNemZaRkxyWDl4dTBadHY4b25UL1VZPTwv' ||
+                              'ZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWdu' ||
+                              'YXR1cmVWYWx1ZT5XWllOWTJlL3lpaVVhb0RJMDFiQks5WG01YlN4WnVvOTZrOUVLOFJoM2Fw' ||
+                              'RTBTYnBFY1UyZDczTEtiNjJld0pWblNwUTJCVTMrS0FGa0FiREhYYitaQlZNeEVESjl5TlYz' ||
+                              'Q01INklDWnZqYjhwVHJXMUszN09lMjNUWm54TmNndXJta1VWT3JpM2xtYVZOZjltWWU4cnU3' ||
+                              'd044UVI5T2pVemZDaGUra3RPVHFSblp3OVhjVVBLUm9WQXZPOFladmtUR3ZYUWpTeEFYTnJw' ||
+                              'MElxY2R4Mlp6d3hDbjBzaCs3T25ZMFNydGNPS3g0WEZuQ1JqdVRXVm8wRVhRZHZyVTZpVEpy' ||
+                              'ajdua0NLU01LQ1RFV2dTMDNvbGxyZ1VnZ2daWnVBeEFBWFEwb3RCNE15MVgwU2RucHJMQ3h3' ||
+                              'aUoveldnUzJVOHhES2F4WDdOQVEwb3MrSHVOcnc9PTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9k' ||
+                              'czpTaWduYXR1cmU+PC9zYW1scDpBdXRoblJlcXVlc3Q+Cg=='
+                  ]
+                , [ name := 'RelayState'
+                  , value := 'relaystate-1'
+                  ]
+                ]
+            ]
+      ], encoded);
+
+  webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", encoded.form.action, encoded.form.vars);
+
+  decoded := DecodeSAMLMessage(webdata, TRUE);
+  TestEQMembers(request, decoded.message, "*");
+
+  // shouldn't throw
+  decoded.validate(
+      [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+        , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+        ]
+      ]);
+
+  FOREVERY (STRING signalg FROM
+        [ "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha224"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha384"
+        , "http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"
+        ])
+  {
+    encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", TRUE,
+        [ sign :=         privatekey
+        , destination :=  "http://example.com/destination"
+        , relaystate :=   "relaystate-1"
+        , signaturealgorithm := signalg
+        ]);
+
+    webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", encoded.url, GetAllVariablesFromUrl(encoded.url));
+
+    decoded := DecodeSAMLMessage(webdata, TRUE);
+
+    // shouldn't throw
+    decoded.validate(
+        [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+          , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+          ]
+        ]);
+
+    encoded := EncodeSAMLDocument(request, "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", TRUE,
+        [ sign :=         privatekey
+        , destination :=  "http://example.com/destination"
+        , relaystate :=   "relaystate-1"
+        ]);
+
+    webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST", encoded.form.action, encoded.form.vars);
+
+    decoded := DecodeSAMLMessage(webdata, TRUE);
+
+    // shouldn't throw
+    decoded.validate(
+        [ [ acceptuntil :=    MakeDate(2100, 1, 1)
+          , data :=           WrapBlob(StringToBlob(certificate), "certificate.pem")
+          ]
+        ]);
+  }
+}
+
+RunTestFramework([ PTR TestSAMLSigning
+                 ]);

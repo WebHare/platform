@@ -15,6 +15,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/taskqueue.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/queuemgr.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 INTEGER restart_workers_after := 15 * 60 * 1000; //restart workers after
@@ -140,6 +142,7 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
       @cell(boolean) isephemeral Whether this is an ephemeral task
       @cell(string) queueid Description of the task (eg id, type)
       @cell(integer) id Id of the managed task  (managed tasks only)
+      @cell(integer) failreschedule Reschedule after this many ms on failure
       @cell(boolean) removed Whether the managed task DB record was removed (managed tasks only)
       @cell(record) taskdata Ephemeral task taskdata (ephemeral tasks only)
       @cell(record) options Ephemeral task options (ephemeral tasks only)
@@ -744,7 +747,7 @@ MACRO ShutdownFailed()
 STATIC OBJECTTYPE QueueMgr
 <
   /// Interval in mulliseconds when failed processes are rescheduled
-  PUBLIC INTEGER failreschedule;
+  PUBLIC INTEGER maxfailreschedule;
   BOOLEAN requestedworkcheck;
 
   /// Queue
@@ -771,9 +774,10 @@ STATIC OBJECTTYPE QueueMgr
     RegisterMultiEventCallback("system:modulesupdate", PTR this->GotConfigUpdate);
     RegisterEventCallback("system:managedtasks.any.*", PTR this->OnTasksUpdate);
 
+    CheckMoreWorkers(); //also loads settings from database
     this->ReadManagedTasksFromDB(0);
 
-    this->failreschedule := 15 * 60 * 1000;
+    this->maxfailreschedule := 86400 * 1000;
   }
 
   MACRO GotConfigUpdate(STRING event, RECORD ARRAY data)
@@ -832,20 +836,22 @@ STATIC OBJECTTYPE QueueMgr
              , failures
              , found :=       TRUE
              , timeout
+             , ephemeral := FALSE
           FROM system_internal.managedtasks
          WHERE finished = DEFAULT DATETIME
                AND NOT iscancelled
                AND (updateid = 0 ? TRUE: id = updateid)
       ORDER BY id;
 
-    // Enrich with cluster
+    // Enrich with cluster and other type-based info
     FOREVERY (RECORD rec FROM currenttasks)
     {
-      RECORD pos := RecordLowerBound(tasktypes, rec, [ "TASKTYPE" ]);
+      RECORD pos := RecordLowerBound(tasktypes, rec, [ "TASKTYPE", "EPHEMERAL" ]);
       RECORD tasktype := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
 
       INSERT CELL cluster := RecordExists(tasktype) ? tasktype.cluster : "system:default"
                 , maxfailures := RecordExists(tasktype) ? tasktype.maxfailures : -1
+                , failreschedule := RecordExists(tasktype) ? tasktype.failreschedule : whconstant_default_failreschedule
              INTO currenttasks[#rec];
     }
 
@@ -883,6 +889,7 @@ STATIC OBJECTTYPE QueueMgr
         , rec.iterations
         , removed :=        FALSE
         , queueid :=        `managed task ${rec.id}, ${rec.tasktype}`
+        , failreschedule := rec.failreschedule
         , maxfailures :=    rec.maxfailures
         , failures :=       rec.failures
         , onfinished :=     PTR this->FinishedManagedTaskItem
@@ -1079,7 +1086,7 @@ STATIC OBJECTTYPE QueueMgr
     IF(item->taskdata.maxfailures >= 0 AND item->taskdata.failures >= item->taskdata.maxfailures)
       isfatal := TRUE;
 
-    DATETIME plannextattempt := isfatal ? DEFAULT DATETIME : AddTimeToDate(this->failreschedule, now);
+    DATETIME plannextattempt := isfatal ? DEFAULT DATETIME : AddTimeToDate(MIN[](INTEGER[item->taskdata.failreschedule, this->maxfailreschedule]), now);
     UPDATE system_internal.managedtasks
            SET nextattempt := plannextattempt
              , finished := isfatal ? now : finished
@@ -1222,11 +1229,8 @@ OBJECTTYPE QueueMgrClientConnection
 
     DATETIME now := GetCurrentDatetime();
 
-    RECORD tasktypeinfo :=
-        SELECT *
-          FROM tasktypes
-         WHERE COLUMN tasktype = VAR tasktype
-           AND ephemeral;
+    RECORD pos := RecordLowerBound(tasktypes, CELL[ tasktype, ephemeral := TRUE ], [ "TASKTYPE", "EPHEMERAL" ]);
+    RECORD tasktypeinfo := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
 
     IF (NOT RecordExists(tasktypeinfo))
       THROW NEW Exception(`Nu such ephemeral task type ${tasktype}`);
@@ -1340,7 +1344,7 @@ MACRO ReportProfile()
 }
 
 RECORD args := ParseArguments(GetConsoleArguments(),
-                              [ [ name := "failreschedule", type := "stringopt" ]
+                              [ [ name := "maxfailreschedule", type := "stringopt" ]
                               , [ name := "restartafter", type := "stringopt" ]
                               , [ name := "debug", type := "switch" ]
                               , [ name := "profile", type := "switch" ]
@@ -1351,7 +1355,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: managedqueuemgr [--failreschedule <failreschedule>] [--restartafter <secs>] [--debug] [--profile] [--profileworkers] [--manualjs] [--manualhs]\n");
+  Print("Syntax: managedqueuemgr [--maxfailreschedule <maxfailreschedule>] [--restartafter <secs>] [--debug] [--profile] [--profileworkers] [--manualjs] [--manualhs]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
@@ -1375,8 +1379,8 @@ IF(args.restartafter != "")
 
 OpenPrimary();
 controller := NEW QueueMgr;
-IF(ToInteger(args.failreschedule,-1)>=0)
-  controller->failreschedule := ToInteger(args.failreschedule,-1);
+IF(ToInteger(args.maxfailreschedule,-1) >= 0)
+  controller->maxfailreschedule := ToInteger(args.maxfailreschedule,-1);
 
 IF(debug)
   Print("starting service...\n");

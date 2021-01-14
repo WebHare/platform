@@ -5,6 +5,7 @@ LOADLIB "mod::system/lib/database.whlib" EXPORT OpenLocalService;
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib" EXPORT RetrieveWebHareResource, GetModuleNameFromResourcePath, IsAbsoluteResourcePath, MakeAbsoluteResourcePath, GetResourceEventMasks;
 LOADLIB "wh::internal/interface.whlib";
 
@@ -221,6 +222,8 @@ PUBLIC STRING FUNCTION GetResourceNameFromDiskPath(STRING diskpath, RECORD optio
     @return The URL, if available - it will usually start with '/', similar to the image cache urls. To get an absolute URL, you may have to ResolvetoAbsoluteURL(GetPrimaryWebhareInterfaceURL(), ....) the result */
 PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
 {
+  IF(resourcename LIKE "moduleroot::?*" AND GetDTAPStage() = "development")
+    THROW NEW Exception(`Resource paths starting with moduleroot:: are deprecated`);
   IF(resourcename NOT LIKE "moduleroot::?*/webdesigns/?*/web/*" AND resourcename NOT LIKE "mod::?*/webdesigns/?*/web/*")
     RETURN "";
 

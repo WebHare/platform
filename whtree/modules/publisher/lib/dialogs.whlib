@@ -80,13 +80,54 @@ PUBLIC INTEGER ARRAY FUNCTION RunBrowseForFSObjectsDialog(OBJECT parentscreen, R
   RETURN DEFAULT INTEGER ARRAY;
 }
 
+/** Run the 'select filetype/foldertype/template dialog'
+    @long This function invokes the standard select type for new file/folder dialog, but doesn't run the actual creation steps
+    @param parentscreen Screen invoking us
+    @param parentfolder Folder which will receive the new object
+    @cell(boolean) options.isfolder If true, create a folder
+    @cell(integer array) options.limittypes If set, allow only templates and types with one of these IDs to be added
+    @return A record describing the creation request, or a DEFAULT RECORD if the dialog was cancelled
+    @cell(integer) return.createtype FS type ID to create
+    @cell(integer) return.template FS object ID to duplicate
+    ID of the newly generated fsobject, 0 if creation was cancelled
+*/
+PUBLIC RECORD FUNCTION RunSelectNewFSObjectTypeDialog(OBJECT parentscreen, INTEGER parentfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  //We will require 'isfolder' for now, but may drop that in the future if we're not going to require either
+  options := ValidateOptions([ isfolder := FALSE
+                             , limittypes := INTEGER[]
+                             , __v2 := FALSE
+                             ], options, [ required := [ "isfolder" ]
+                                         , optional := [ "limittypes" ]
+                                         ]);
+
+  IF(CellExists(options,'limittypes') AND Length(options.limittypes) = 0)
+    RETURN DEFAULT RECORD;
+
+  IF(options.__v2)
+    RETURN parentscreen->RunScreen("mod::publisher/tolliumapps/filemanager/types.xml#selecttype", CELL[ ...options, parentfolder, DELETE isfolder, DELETE __v2 ]);
+
+  OBJECT typesdialog := parentscreen->LoadScreen("publisher:filemgrdialogs.selecttype",
+      [ parent := parentfolder
+      , foldertypes := options.isfolder
+      , limittypes := CellExists(options, 'limittypes') ? options.limittypes : INTEGER[]
+      ]);
+
+  IF (typesdialog->RunModal() != "ok")
+    RETURN DEFAULT RECORD;
+
+  RETURN [ createtype := typesdialog->selectedtype
+         , template := typesdialog->selectedtemplate
+         ];
+}
+
 /** Run the 'create new object' flow
     @long This function invokes the standard 'new object' flow (which currently starts with a type selection and then runs the objectproperties dialog)
     @param parentscreen Screen invoking us
     @param parentfolder Folder which will receive the new object
+    @param options @includecelldef %RunSelectNewFSObjectTypeDialog.options
     @cell options.template If not 0, duplicate this object. (isfolder and type options are ignored)
     @cell options.issite If true, create a site
-    @cell options.isfolder If true, create a folder
     @cell options.type Type to create. If not set, this flow may launch a 'select type' dialog
     @return ID of the newly generated fsobject, 0 if creation was cancelled
 */
@@ -107,46 +148,37 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
   IF(options.issite AND options.template != 0) //are you duplicating a site, cloning a non-site folder as a site, or... ? need use case
     THROW NEW Exception("Site duplication is not supported");
 
-  INTEGER createtype, template;
+  RECORD createres;
+
   IF(options.template != 0)
   {
-    template := options.template;
-    createtype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = options.template;
+    createres := [ template := options.template
+                 , createtype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = options.template
+                 ];
   }
   ELSE IF(CellExists(options,'type'))
   {
-    createtype := options.type;
-  }
-  ELSE IF(options.__v2)
-  {
-    RECORD sel := parentscreen->RunScreen("mod::publisher/tolliumapps/filemanager/types.xml#selecttype", [ parent := parentfolder ]);
-    IF(NOT RecordExists(sel))
-      RETURN 0;
-
-    createtype := sel.createtype;
-    template := sel.template;
+    createres := [ template := 0
+                 , createtype := options.type
+                 ];
   }
   ELSE IF(NOT options.issite)
   {
-    //Then we'll need to trigger the Select Type flow
-    OBJECT typesdialog := parentscreen->LoadScreen("publisher:filemgrdialogs.selecttype", [ parent := parentfolder
-                                                                                          , foldertypes := options.isfolder
-                                                                                          ]);
-
-    IF (typesdialog->RunModal() != "ok")
+    createres := RunSelectNewFSObjectTypeDialog(parentscreen, parentfolder, CELL[ options.__v2
+                                                                                , options.isfolder
+                                                                                ]);
+    IF(NOT RecordExists(createres))
       RETURN 0;
-
-    createtype := typesdialog->selectedtype;
-    template := typesdialog->selectedtemplate;
   }
 
-  OBJECT creationdialog := __CreateHistoryPropsDialog(parentscreen
-                                                     , [ why := template !=0 ? "duplicate" : options.issite ? "newsite" : options.isfolder ? "newfolder" : "newfile"
-                                                       , parentfolder := parentfolder
-                                                       , type := createtype
-                                                       , fsobj := template
-                                                       ], options.issite ? "mod::publisher/screens/commondialogs/siteprops.xml"
-                                                                         : "mod::publisher/screens/commondialogs/objectprops.xml");
+  //only path where createres can be a DEFAULT RECORD is where options.issite = TRUE
+  OBJECT creationdialog := __CreateHistoryPropsDialog(parentscreen,
+      [ why := options.issite ? "newsite" : createres.template != 0 ? "duplicate" : options.isfolder ? "newfolder" : "newfile"
+      , parentfolder := parentfolder
+      , type := options.issite ? 0 : createres.createtype
+      , fsobj := options.issite ? 0 : createres.template
+      ], options.issite ? "mod::publisher/screens/commondialogs/siteprops.xml"
+                        : "mod::publisher/screens/commondialogs/objectprops.xml");
 
   IF(creationdialog->RunModal() != "ok")
     RETURN 0;
@@ -321,27 +353,15 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
     RETURN;
   }
 
-  OBJECT dlg;
   TRY
   {
-    dlg := CreateWHFSObjectPropsDialog(parentscreen, objectid);
+    CreateWHFSObjectPropsDialog(parentscreen, objectid)->RunModal();
   }
   CATCH(OBJECT err)
   {
     // don't crash on any exception, we can just choose to not open the properties dialog
     // which is better than to crash the whole Publisher
     RunExceptionReportDialog(parentscreen, err);
-    RETURN;
-  }
-
-  IF(dlg->RunModal() = "ok")
-  {
-    GetPrimary()->BeginWork();
-    IF ( (SELECT AS BOOLEAN isfolder FROM system.fs_objects WHERE id = VAR objectid))
-      RunEditFolderHooks(DEFAULT RECORD, objectid);
-    ELSE
-      RunEditFileHooks(DEFAULT RECORD, objectid);
-    GetPrimary()->CommitWork();
   }
 }
 

@@ -16,6 +16,8 @@
   </meta>
 
   <servicemanager>
+    <runonce tag="cleanupblit" script="scripts/runonce/cleanupblit.whscr" when="poststart" />
+
     <task runat="53  3 * * *"  runtz="maintenance" tag="maintenance_task" script="scripts/tasks/executemaintenance.whscr" description="Publisher maintenance task"/>
     <task runat="33  3 * * *"  runtz="maintenance" tag="cleanup_webtool_results" script="scripts/tasks/cleanupwebtoolresults.whscr" description="Cleanup outdated Webtools form results"/>
     <task runat="17  2 * * *"  runtz="maintenance" tag="archiveoutput" script="scripts/tasks/archiveoutput.whscr" description="Move folders not associated with a site to the archive"/>
@@ -419,9 +421,8 @@
           2: intermediary result
           3: cancelled result (the user has deleted this entry)
           4: no-longer-valid result. if edited, the 'replacedby' contains the id of
-             the new result. if deleted, replacedby = 0
+             the new result. if deleted, replacedby = 0. deprecated
           5: pending result, waiting on email confirmation
-          6: confirmed result, the 'replacedby' contains the id of the new result (with confirmed data)
         </d:documentation>
       </d:integer>
 
@@ -466,6 +467,12 @@
       <d:datetime name="when" nullable="false">
         <d:documentation>
           When these results were submitted.
+        </d:documentation>
+      </d:datetime>
+
+      <d:datetime name="confirmed">
+        <d:documentation>
+          When these results were confirmed by a confirmation handler
         </d:documentation>
       </d:datetime>
 
@@ -975,8 +982,6 @@
 
     <siteprofile path="data/publisher.siteprl.xml"/>
     <siteprofile path="data/embeddedobjects.siteprl.xml"/>
-    <siteprofile path="data/designfilessiteprofile.siteprl.xml"/>
-    <siteprofile path="data/blitsiteprofile.siteprl.xml"/>
     <siteprofile path="data/siteprofiles/webtools.siteprl.xml"/>
     <siteprofile path="widgets/widgets.siteprl.xml"/>
 
@@ -1047,9 +1052,11 @@
     <searchfilter name="whfstype" tid="filemanager.search.filtertypes.whfstype" filterobject="lib/search/searchfilters.whlib#whfstypefilter" />
 
     <!-- The fsobject contentprovider simply returns the fs_objects.data member (ie assumes 'blobiscontent') -->
-    <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#BaseSearchProvider" version="1.0.0" />
+    <searchcontentprovider name="contentblob" objectname="lib/search/searchproviders.whlib#SearchProviderBase" version="1.0.0" />
     <!-- The rtd contentprovider parses and http://www.webhare.net/xmlns/publisher/richdocumentfile data -->
     <searchcontentprovider name="rtd" objectname="lib/search/searchproviders.whlib#RichDocumentSearchProvider" version="1.0.0" />
+    <!-- The form contentprovider parses webtool forms and their widget version and can be used for custom form types -->
+    <searchcontentprovider name="webtoolform" objectname="lib/internal/forms/searchprovider.whlib#WebtoolFormProvider" version="1.0.0" />
 
     <!-- Publisher search fields for documents with draft support (richdocuments and form files) -->
     <indexfield fieldfunc="lib/internal/consiliocontent.whlib#getitemfield" name="hasdraft"/>
@@ -1104,8 +1111,6 @@
     <target name="sites_aftercreation" /> <!-- This hook is invoked whenever a site is created -->
     <target name="findopen" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
-
-    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions"/>
   </hooking>
 
   <documentation>

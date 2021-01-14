@@ -526,39 +526,6 @@ PUBLIC OBJECT FUNCTION MakeTreeDataKeeper()
 }
 
 
-PUBLIC OBJECT FUNCTION FindRepositoryRoot(OBJECT whfsobj)
-{
-  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
-  WHILE (ObjectExists(whfsobj) AND whfsobj->id != 0)
-  {
-    IF (repostype->GetInstanceData(whfsobj->id).repository_url != "")
-      RETURN whfsobj;
-    whfsobj := whfsobj->parentobject;
-  }
-  RETURN DEFAULT OBJECT;
-}
-
-PUBLIC OBJECT FUNCTION FindAnySubRepository(OBJECT whfsobj)
-{
-  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
-  INTEGER ARRAY objectids := repostype->FindObjectsByMemberValueMask("repository_url", "*", TRUE);
-
-  INTEGER ARRAY worklist := [ INTEGER(whfsobj->id) ];
-  WHILE (LENGTH(worklist) != 0)
-  {
-    worklist :=
-        SELECT AS INTEGER ARRAY id
-          FROM system.fs_objects
-         WHERE parent IN worklist;
-
-    FOREVERY (INTEGER id FROM worklist)
-      IF (id IN objectids)
-        RETURN OpenWHFSObject(id);
-  }
-
-  RETURN DEFAULT OBJECT;
-}
-
 PUBLIC STRING FUNCTION GetFileDiff(BLOB orgfile, BLOB newfile, STRING path, STRING org_suffix, STRING new_suffix)
 {
   OBJECT differ := MakeTextDiffGenerator();
@@ -1046,85 +1013,7 @@ PUBLIC MACRO UpdateFSCache(OBJECT rtree)
   trans->PopWork();
 }
 
-PUBLIC RECORD FUNCTION LocateRepository(OBJECT fsobject)
-{
-  OBJECT repostype := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder");
 
-  STRING ARRAY path;
-  IF (NOT ObjectExists(fsobject))
-    RETURN DEFAULT RECORD;
-
-  //PRINT("Locating " || fsobject->whfspath || "\n");
-
-  WHILE (fsobject->id != 0)
-  {
-    RECORD repodata := repostype->GetInstanceData(fsobject->id);
-    IF (repodata.repository_url != "")
-    {
-      IF (repodata.repository_url NOT LIKE "http*://*/wh_services/blitserver/repository/"
-          AND repodata.repository_url NOT LIKE "http*://*/wh_services/blitserver/repository_anon/")
-      {
-        IF (repodata.repository_url NOT LIKE "http*://*")
-          repodata.repository_url := "http://" || repodata.repository_url;
-        repodata.repository_url := ResolveToAbsoluteUrl(repodata.repository_url, "/wh_services/blitserver/repository/");
-      }
-
-      //PRINT("Found, local path " || Detokenize(path, "/") || "\n");
-
-      RETURN
-          [ fsobject :=     fsobject
-          , path :=         path
-          , root :=         fsobject
-          , repodata :=     repodata
-          ];
-    }
-
-    INSERT fsobject->name INTO path AT 0;
-    fsobject := fsobject->parentobject;
-  }
-
-  RETURN DEFAULT RECORD;
-}
-
-/// Check server RPC result for api level
-PUBLIC MACRO CheckServerAPILevel(RECORD rpcresult)
-{
-  IF (rpcresult.apilevel < min_server_api)
-    THROW NEW Exception("Repository servers with API level " || rpcresult.apilevel || " cannot be accessed by this version, please upgrade the repository server");
-}
-
-PUBLIC RECORD FUNCTION GetRepositoryByFiles(INTEGER ARRAY fileids)
-{
-  OBJECT root;
-  RECORD repodata;
-  RECORD ARRAY items;
-
-  FOREVERY (INTEGER sel FROM fileids)
-  {
-    OBJECT fsobject := OpenWHFSObject(sel);
-
-    RECORD rec := LocateRepository(OpenWHFSObject(sel));
-    IF (NOT RecordExists(rec))
-      RETURN [ status := "notarepository" ];
-
-    IF (NOT ObjectExists(root))
-    {
-      root := rec.root;
-      repodata := rec.repodata;
-    }
-    ELSE
-      IF (root->id != rec.root->id)
-        RETURN [ status := "mixedrepositories" ];
-    INSERT rec INTO items AT END;
-  }
-
-  RETURN
-      [ status :=     "ok"
-      , root :=       root
-      , repodata :=   repodata
-      , items :=      items
-      ];
-}
 
 PUBLIC RECORD FUNCTION GetDecompressedObjectTree(OBJECT repo, STRING roothash, INTEGER depth DEFAULTSTO -1)
 {

@@ -378,7 +378,7 @@ bool TCPIPContext::GetPeerCertificateChain(int connectionid, std::string *dest)
         return true;
 }
 
-bool TCPIPContext::CreateSecureSocket(int connectionid, bool initiate, std::string const &ciphersuite, std::string const &hostname)
+bool TCPIPContext::CreateSecureSocket(int connectionid, bool initiate, std::string const &ciphersuite, std::string const &hostname, int securitylevel)
 {
         SocketInfo *info = GetSocket(connectionid);
         if (info == NULL || info->sslcontext.get())
@@ -390,7 +390,7 @@ bool TCPIPContext::CreateSecureSocket(int connectionid, bool initiate, std::stri
             info->socket.SetRemoteHostname(hostname);
 
         // Try to setup SSL connection (FIXME: Support immediate handshaking again to speed up connect error detection (now handsahke is transparent so errors are detected later)
-        info->sslcontext.reset(new Blex::SSLContext(initiate==false, ciphersuite));
+        info->sslcontext.reset(new Blex::SSLContext(initiate==false, ciphersuite, securitylevel));
         if(!info->ssl_cert_key.empty())
         {
                 if (!info->sslcontext->LoadCertificateChain(&info->ssl_cert_key[0], info->ssl_cert_key.size())
@@ -627,7 +627,11 @@ void HS_TCPIP_CreateSecureSocket(HareScript::VarId id_set, HareScript::VirtualMa
 {
         // Open tcp/ip interface
         Baselibs::SystemContext context(vm->GetContextKeeper());
-        HSVM_BooleanSet(*vm, id_set, context->tcpip.CreateSecureSocket(HSVM_IntegerGet(*vm, HSVM_Arg(0)), HSVM_BooleanGet(*vm, HSVM_Arg(1)), HSVM_StringGetSTD(*vm, HSVM_Arg(2)), HSVM_StringGetSTD(*vm, HSVM_Arg(3))));
+        HSVM_BooleanSet(*vm, id_set, context->tcpip.CreateSecureSocket( HSVM_IntegerGet(*vm, HSVM_Arg(0))
+                                                                      , HSVM_BooleanGet(*vm, HSVM_Arg(1))
+                                                                      , HSVM_StringGetSTD(*vm, HSVM_Arg(2))
+                                                                      , HSVM_StringGetSTD(*vm, HSVM_Arg(3))
+                                                                      , HSVM_IntegerGet(*vm, HSVM_Arg(4))));
 }
 
 void HS_TCPIP_DestroySecureSocket(HareScript::VirtualMachine *vm)
@@ -1002,7 +1006,7 @@ void InitTCPIP(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_BIND::B:ISI",HS_TCPIP_Bind));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ACCEPTONTCPSOCKET::I:I",HS_TCPIP_Accept));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_SETCERT::B:IX",HS_TCPIP_SetSecureSocketCertificate));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_SETSECURECONNECTION::B:IBSS",HS_TCPIP_CreateSecureSocket));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_SETSECURECONNECTION::B:IBSSI",HS_TCPIP_CreateSecureSocket));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETPEERCERTIFICATECHAIN::S:I",HS_TCPIP_GetPeerCertificateChain));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DESTROYSECURECONNECTION:::I",HS_TCPIP_DestroySecureSocket));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SHUTDOWNSOCKET:::IBB",HS_TCPIP_ShutdownSocket));

@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/lookups.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -63,39 +64,6 @@ PUBLIC RECORD ARRAY FUNCTION GetWHFSIndexModuleStartingPoints()
   RETURN GetAdhocCached([tyoe := "GetWHFSIndexModuleStartingPoints"], PTR GetCacheableModuleStartingPoints);
 }
 
-/** looks up a second level named node by qualified name */
-PUBLIC OBJECT FUNCTION LookupModuleDefNamedNode(STRING topnodename, STRING subnodename, STRING qualifiedname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(CELL[ title := `<${subnodename}>`
-                                 , nameattribute := "name"
-                                 ], options);
-
-  STRING ARRAY toks := Tokenize(qualifiedname, ':');
-  IF(Length(toks) != 2)
-    THROW NEW Exception(`Invalid ${options.title} name '${qualifiedname}'`);
-
-  OBJECT moduledef := GetModuleDefinitionXML(toks[0]);
-  IF(NOT ObjectExists(moduledef))
-    THROW NEW Exception(`No such module '${toks[0]}' while looking for ${options.title} '${qualifiedname}'`);
-
-  OBJECT topnode := PickFirst(moduledef->documentelement->ListChildren(whconstant_xmlns_moduledef, topnodename));
-  IF(ObjectExists(topnode))
-    FOREVERY(OBJECT subnode FROM topnode->ListChildren(whconstant_xmlns_moduledef, subnodename))
-      IF(subnode->GetAttribute(options.nameattribute) = toks[1])
-        RETURN subnode;
-
-  THROW NEW Exception(`No such ${options.title} '${toks[1]}' in module '${toks[0]}`);
-}
-
-
-RECORD FUNCTION GetSearchContentProvider(STRING name)
-{
-  OBJECT node := LookupModuleDefNamedNode("publisher", "searchcontentprovider", name, [ title := "searchcontentprovider"]);
-  RETURN [ objectname := MakeAbsoluteResourcePath(`mod::${Tokenize(name,':')[0]}/`, node->GetAttribute("objectname"))
-         , version := node->GetAttribute("version") ?? "unspecified"
-         ];
-}
-
 RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
 {
   STRING ARRAY eventmasks := [ "system:whfs.types" ]; // broadcast after siteprofile recompile (searchproviders may have changed)
@@ -118,11 +86,6 @@ RECORD FUNCTION GetTypeSearchProviderUncached(INTEGER type, BOOLEAN isfolder)
     RECORD scp := GetSearchContentProvider(typeinfo.searchcontentprovider);
     retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || typeinfo.searchcontentprovider || "\t" || typeinfo.indexversion || "\t" || scp.version));
     retval.searchprovider := scp.objectname;
-  }
-  ELSE
-  {
-    retval.searchprovider := SELECT AS STRING COLUMN searchprovider FROM system.fs_types WHERE id = type;
-    retval.versionhash := EncodeBase16(GetSHA1Hash(retval.typehash || "\t" || retval.searchprovider || "\t" || typeinfo.indexversion));
   }
 
   RETURN CELL

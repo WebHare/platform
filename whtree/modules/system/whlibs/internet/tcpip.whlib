@@ -16,9 +16,14 @@ STATIC OBJECTTYPE SocketException EXTEND Exception
   MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
 >;
 
-//These ciphersuite settings are taken from NCSC-NL ICT beveiligingsrichtlijnen voor Transport Layer Security appendix
-PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDH-ECDSA-AES256-GCM-SHA384:ECDH-ECDSA-AES128-GCM-SHA256:ECDH-RSA-AES256-GCM-SHA384:ECDH-RSA-AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-GCM-SHA256";
-PUBLIC CONSTANT STRING default_ciphersuites := modern_ciphersuites || ":ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:ECDH-ECDSA-AES256-SHA384:ECDH-ECDSA-AES128-SHA256:ECDH-ECDSA-AES256-SHA:ECDH-ECDSA-AES128-SHA:ECDH-ECDSA-DES-CBC3-SHA:ECDH-RSA-AES256-SHA384:ECDH-RSA-AES128-SHA256:ECDH-RSA-AES256-SHA:ECDH-RSA-AES128-SHA:ECDH-RSA-DES-CBC3-SHA:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA";
+//These ciphersuite settings are taken from the current internet.nl requirements. Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will not support IE11 on win8.1 and below
+PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256";
+PUBLIC CONSTANT STRING default_ciphersuites := `${modern_ciphersuites}:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA`;
+
+PUBLIC CONSTANT RECORD secureconnection_options :=
+    [ ciphersuites := default_ciphersuites
+    , securitylevel := 1 //openssl security level. see https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_security_level.html
+    ];
 
 
 STATIC OBJECTTYPE Socket EXTEND __HS_INTERNAL_OutputObject
@@ -469,7 +474,6 @@ OBJECT FUNCTION* ConnectSocketInternal(INTEGER connectionid, STRING host, INTEGE
   RETURN FALSE;
 }
 
-
 /** @short Make a current TCP connection secure using SSL
     @param connectionid ID of connection to secure
     @param initiate True to initiate a secure connection, false to accept a secure connection
@@ -480,9 +484,11 @@ OBJECT FUNCTION* ConnectSocketInternal(INTEGER connectionid, STRING host, INTEGE
 */
 PUBLIC BOOLEAN FUNCTION SetSecureConnection(INTEGER connectionid, BOOLEAN initiate DEFAULTSTO TRUE, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ hostname := "", ciphersuites := default_ciphersuites ], options);
+  options := ValidateOptions([ hostname := ""
+                             , ...secureconnection_options
+                             ], options);
 
-  RETURN __HS_TCPIP_SetSecureConnection(connectionid, initiate, options.ciphersuites, options.hostname);
+  RETURN __HS_TCPIP_SetSecureConnection(connectionid, initiate, options.ciphersuites, options.hostname, options.securitylevel);
 }
 
 

@@ -11,6 +11,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
@@ -30,11 +31,19 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     STRING tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
     INTEGER priority := ParseXSInt(catalognode.node->Getattribute("priority"));
 
-    INSERT CELL[ tag
-               , priority
-               , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
-               , contentsources := RECORD[]
-               ] INTO wantcatalogs AT END;
+    RECORD catalog := CELL[ tag
+                          , priority
+                          , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+                          , contentsources := RECORD[]
+                          ];
+
+    STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
+    IF(ongetsources != "")
+      catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
+                                                  , fsobject := 0
+                                                 ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), INTEGER[])());
+
+    INSERT catalog INTO wantcatalogs AT END;
   }
 
   RECORD siteprofs := GetCachedSiteProfiles();
@@ -49,9 +58,19 @@ RECORD ARRAY FUNCTION GetRequiredCatalogs()
     }
 
     INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
-    FOREVERY(INTEGER site FROM addtocatalog.siteids)
+    FOREVERY(INTEGER siteid FROM addtocatalog.siteids)
     {
-      INSERT CELL[ ...addtocatalog, fsobject := site ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+      OBJECT site := OpenSite(siteid);
+      IF(NOT ObjectExists(site))
+        CONTINUE; //race, just deleted ?
+
+      OBJECT target := site->OpenByPath(addtocatalog.folder, [ allowinitialslash := TRUE ]);
+      IF(NOT ObjectExists(target) OR NOT target->isfolder)
+      {
+        PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting folder '${addtocatalog.folder}' in site '${site->name}'\n`);
+        CONTINUE;
+      }
+      INSERT CELL[ ...addtocatalog, fsobject := target->id ] INTO wantcatalogs[matchcatalog].contentsources AT END;
     }
   }
 
@@ -155,6 +174,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       indexrec := [ id := MakeAutonumber(consilio.indices, "id") ];
       INSERT INTO consilio.indices(id, name, description, indexmanager, priority, type)
              VALUES(indexrec.id, indexname, "", builtin_indexmanager, setpriority, settype);
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
     ELSE
     {
@@ -164,6 +184,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
            SET priority := setpriority
              , type := settype
          WHERE id = indexrec.id;
+        GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
       }
     }
 
@@ -390,6 +411,7 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       indexid := MakeAutonumber(consilio.indices, "id");
       INSERT INTO consilio.indices(id, name, description, indexmanager)
              VALUES(indexid, indexname, "", builtin_indexmanager);
+      GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
     }
 
     OBJECT catalog := OpenConsilioCatalogById(indexid);
@@ -597,7 +619,8 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
           /* Nothing to update (yet?)
           UPDATE consilio.indices
              SET
-           WHERE id = indexrec.id;*/
+           WHERE id = indexrec.id;
+          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);*/
         }
         ELSE
         {
@@ -608,6 +631,7 @@ MACRO UpdateModuleIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
               , priority := setpriority
               ];
           INSERT indexrec INTO consilio.indices;
+          GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
         }
         INSERT CELL[ indexrec.id, indexrec.name ] INTO allindices AT END;
       }

@@ -349,6 +349,12 @@ lock->Close();
 */
 PUBLIC OBJECT FUNCTION OpenLockManager()
 {
+  /* The lock manager is currently dependent on the webserver mutexmanager
+     script, so locks only function correctly when a single webserver is
+     running in the cluster.
+
+     Deadlock detection is not implemented yet.
+  */
   IF (NOT ObjectExists(lockmgr))
   {
     STRING clientname := "";//GetClientRemoteIp() || ":" || GetClientRemotePort() || " " || GetClientUsername();

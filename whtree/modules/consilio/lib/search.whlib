@@ -252,7 +252,7 @@ PUBLIC RECORD FUNCTION SearchForAll(STRING query, STRING catalog_name, STRING re
 
 
 
-OBJECTTYPE SearchObject
+STATIC OBJECTTYPE SearchObject
 < //////////////////////////////////////////////////////////////////////////////
   // Variables
   //
@@ -277,6 +277,7 @@ OBJECTTYPE SearchObject
   //
 
   PUBLIC BOOLEAN debug;
+  PUBLIC BOOLEAN throwonfailure;
 
   /** @short The language used for searching
   */
@@ -470,6 +471,11 @@ OBJECTTYPE SearchObject
     RETURN result;
   }
 
+  PUBLIC RECORD FUNCTION SearchQuery(RECORD query, INTEGER first, INTEGER count)
+  {
+    RETURN this->__SearchQuery(query, first, count, FALSE);
+  }
+
   PUBLIC RECORD FUNCTION __SearchQuery(RECORD query, INTEGER first, INTEGER count, BOOLEAN addscore)
   {
     IF (this->catalog_id = 0 AND NOT this->catalog_all)
@@ -497,6 +503,7 @@ OBJECTTYPE SearchObject
         , session := this->session
         , addscore := addscore
         , debug := this->debug
+        , throwonfailure := this->throwonfailure
         ];
     IF (this->have_empty_result_record)
       INSERT CELL mapping := this->empty_result_record INTO options;
@@ -512,11 +519,6 @@ OBJECTTYPE SearchObject
     RETURN [ totalcount := result.totalcount
            , results := result.results
            ];
-  }
-
-  PUBLIC RECORD FUNCTION SearchQuery(RECORD query, INTEGER first, INTEGER count)
-  {
-    RETURN this->__SearchQuery(query, first, count, FALSE);
   }
 
   PUBLIC MACRO ResetEmptyResultRecord()

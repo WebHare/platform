@@ -696,7 +696,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
           newname := newname || this->curtype.extensions[0];
         //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
         //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
-        newname := CreateFileName([ id := this->parentfolder->id ], ToLowercase(GetTid("publisher:commondialogs.objectprops.newfile-name", newname)));
+        newname := this->parentfolder->GenerateUniqueName(ToLowercase(GetTid("publisher:commondialogs.objectprops.newfile-name", newname)));
       }
       ^name->value := newname;
     }
@@ -1756,7 +1756,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0)
       suggestedname := suggestedname || this->curtype.extensions[0];
 
-    RETURN CreateFileName([ id := this->parentfolder->id ], suggestedname);
+    RETURN this->parentfolder->GenerateUniqueName(suggestedname);
   }
 
   RECORD FUNCTION GenerateTemplateProfileMetadataChanges()

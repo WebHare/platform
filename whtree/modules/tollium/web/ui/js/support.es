@@ -66,7 +66,6 @@ $todd.customactions = {};
 $todd.dummyimage = null;
 
 $todd.intolerant = window.location.href.indexOf('intolerant=1') != -1;
-$todd.commfallback = window.location.href.indexOf('commfallback=1') != -1;
 $todd.fastunload= window.location.href.indexOf('fastunload=1') != -1;
 
 /****************************************************************************************************************************
@@ -387,18 +386,6 @@ $todd.tolliumservice = '';
 /****************************************************************************************************************************
  * Window events
  */
-
-$todd.globalevents.OnUnload = function(event)
-{
-  // prepare transportmgr for unload
-  $todd.transportmgr.prepareForUnload();
-
-  // Let every app send their shutdown message
-  $todd.applicationstack.forEach(function(app) { app.queueUnloadMessage(); });
-  $todd.transportmgr.executeUnload();
-
-  $todd.transportmgr.destroy();
-};
 
 $todd.mouse = { clickstatus: null
               , hoverstatus: { tooltipshowtimeout: null

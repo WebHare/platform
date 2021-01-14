@@ -144,6 +144,19 @@ To map all fields that have a name starting with `dn_` to a float field, set the
 </consilio>
 ```
 
+## Store-only fields
+
+By default, all fields are searchable and can be returned in the search results. If the field is never searched, but only used to store information, the `storeonly` attribute of the field can be set to `true`:
+
+```xml
+<consilio>
+  <index tag="myindex">
+    <text name="title" />
+    <text name="extradata" storeonly="true" />
+  </index>
+</consilio>
+```
+
 ## Field groups
 
 A field group is a reusable group of fields. Field groups are defined as `<fieldgroup>` nodes within the `<consilio>` node in the module definition. A field group contains other fields, for example:

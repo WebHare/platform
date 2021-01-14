@@ -81,6 +81,8 @@ RECORD FUNCTION ParseIndexField(OBJECT fieldnode, STRING module, RECORD state)
                     , subfields := ParseIndexField(subfield, module, state)
                     , type := type
                     ];
+    IF (subfield->HasAttribute("storeonly"))
+      INSERT CELL "index" := NOT ParseXSBoolean(subfield->GetAttribute("storeonly")) INTO field.settings;
 
     SWITCH(type)
     {

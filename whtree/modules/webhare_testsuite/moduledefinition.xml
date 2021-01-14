@@ -21,7 +21,8 @@
     <task          tag="singleshottest" script="scripts/tasks/singleshottest.whscr" description="Test singleshot tasks"/>
     <task          tag="resettestsite" runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" description="Periodically reset testsite and testdata" />
     <managedtask   type="aftercompile" library="lib/internal/tasks.whlib" objectname="aftercompiletask"/> <!-- used by assetmgr-brokentest -->
-    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask"/>
+    <managedtask   type="applyruletask" library="lib/internal/tasks.whlib" objectname="applyruletask"/> <!-- used by actions.whscr -->
+    <managedtask   type="ping" objectname="lib/internal/tasks.whlib#pingtask" failreschedule="4000" />
     <managedtask   type="pingretry2" objectname="lib/internal/tasks.whlib#pingtask" maxfailures="1"/>
     <managedtask   type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask"/>
     <managedtask   type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask"/>
@@ -43,7 +44,7 @@
     </linkapp>
 
 
-    <application name="runscreen" library="tollium.whlib" startmacro="RunScreen">
+    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen">
       <accesscheck/>
     </application>
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
@@ -178,7 +179,7 @@
         <addheader header="X-Frame-Options" value="SAMEORIGIN"/>
         <addheader header="Strict-Transport-Security" value="max-age=15552000"/>
         <addheader header="X-XSS-Protection" value="1; mode=block"/>
-        <addheader header="Content-security-policy" value="script-src 'self'"/>
+        <csp policy="script-src 'self'"/>
       </webrule>
     </webruleset>
     <restapi path="root:/.webhare_testsuite/restapi/" apispec="tests/wh/webserver/remoting/restapi/restapi.xml" />
@@ -247,6 +248,7 @@
       <record name="addressverification" />
       <datetime name="lastaftercompile" />
       <datetime name="tempfailretryat" />
+      <boolean name="taskthrownow" />
     </node>
     <node name="apis">
       <obsoletekey name="google_oauth_clientid" />
@@ -314,11 +316,13 @@
 
     <registerslot name="testsite" tid="module.testsite.title" descriptiontid="module.testsite.description" initialvalue="site::webhare testsuite site" type="site" />
     <registerslot name="testslot" title="Test Slot" description="Test Description" initialvalue="whfs::/webhare_testsuite.testfolder/testslot" type="folder" fallback="whfs::/webhare_testsuite.testfolder/testslot-fallback"/>
+
+    <searchcontentprovider name="testprovider" objectname="lib/publisher/publishersearch.whlib#testprovider" version="1.0.0" />
   </publisher>
 
   <consilio>
     <!-- modern syntax -->
-    <catalog tag="testsitecatalog" />
+    <catalog tag="testsitecatalog" ongetsources="lib/consilio/sources.whlib#GetTestSiteCatalogSources" />
 
     <!-- legacy syntax -->
     <index tag="testindex">
@@ -414,6 +418,11 @@
 
     <fieldgroup tag="unspecifiedwildcards">
       <record name="unspecified_record" strict="false" />
+    </fieldgroup>
+
+    <fieldgroup tag="storeonly">
+      <keyword name="indexed" ignore_above="16" />
+      <keyword name="stored" ignore_above="16" storeonly="true" />
     </fieldgroup>
 
     <addtowhfsindex privatefolder="addtowhfsindex/aftersites" priority="aftersites" />

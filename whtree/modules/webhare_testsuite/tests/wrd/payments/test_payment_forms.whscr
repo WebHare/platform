@@ -7,6 +7,8 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
 LOADLIB "mod::wrd/lib/payments.whlib";
 
 LOADLIB "mod::wrd/lib/testfw/payments.whlib";
@@ -18,15 +20,11 @@ OBJECT pm2;
 PUBLIC MACRO BuildForm()
 {
   OBJECT paymentapi := GetWRDTestPaymentAPI();
-  testfw->BeginWork();
-  pm2 := testfw->wrdschema->^payprov->CreateEntity(
-    [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test")
-    ]);
-  testfw->CommitWork();
-
   BuildWebtoolForm([addpaymentmethod := TRUE, addcustompaymenthandler := TRUE]);
+  BuildWebtoolForm([filename := "custompaymentfield", addpaymentmethod := TRUE, addpaymenthandler := TRUE, addtslinecomp := TRUE]);
   BuildCustomWebtoolForm([addpaymentmethod:=TRUE]);
+
+  pm2 := testfw->wrdschema->^payprov->GetEntity(testfw->wrdschema->^payprov->Search("wrd_title", "TestMethod"));
 }
 
 PUBLIC MACRO FillInForm()
@@ -123,8 +121,32 @@ MACRO CustomForm()
   TEsteq("Test<b>WITH</b>Issuer (test mode)", labels[1]->innerhtml);
 }
 
-RunTestframework([ PTR CreateWRDTestSchema
+ASYNC MACRO TestEditPaymentHandler()
+{
+  //Ensure the form is up
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/custompaymentfield");
+  IF(testfw->debug)
+    Print('Form URL: ' || formfile->url||'\n');
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := STRING[ formfile->whfspath ] ]));
+  TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Request payment";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
+  OBJECT paymentextension := TT("tabs")->ListExtensions()[0].extension;
+  TestEq(3, Length(paymentextension->^field->options));
+  TestEq("TSLine - Sum", paymentextension->^field->options[1].title);
+  TestEq("TSLine - Difference", paymentextension->^field->selection.title);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR CreateWRDTestSchema([withpayment := STRING["noissuer","withissuer"] ])
                  , PTR BuildForm
                  , PTR FillInForm
                  , PTR CustomForm
-                 ], [ wrdauth := FALSE ]);
+                 , PTR TestEditPaymentHandler
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

@@ -116,8 +116,8 @@ test.registerTests(
         test.eqHTML('<ol class="ordered"><li>'+alwaysblockfill+'</li></ol>', win.rte.getValue());
 
         //Test code element
-        rte.setContentsHTML('<code class="language-harescript">&lt;wh Print("Hello, World\n");</code>');
-        test.eqHTML('<code class="language-harescript">&lt;wh Print("Hello, World\n");</code>', win.rte.getValue());
+        rte.setContentsHTML('<code class="language-harescript">&lt;wh Print("Hello, World\\n");</code>');
+        test.eqHTML('<code class="language-harescript">&lt;wh Print("Hello, World\\n");</code>', win.rte.getValue());
       }
     }
 

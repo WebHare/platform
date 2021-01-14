@@ -26,8 +26,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   // Variables
   //
 
-  RECORD ARRAY saveoptions;
-
   INTEGER current_linktype;
 
   BOOLEAN initialvalueset;
@@ -77,7 +75,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     TolliumFragmentBase::StaticInit(def);
-    this->saveoptions := ^linktype->options;
     this->title := def.title;
     this->__internallinks := def.internallinks;
     IF(ObjectExists(def.linkhandlers))
@@ -142,12 +139,12 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(NOT RecordExists(selected) OR selected.rowkey = 0) //'no link'
       RETURN DEFAULT RECORD;
 
-    IF(^linktype->value = 2) //intnternal link
+    IF(^linktype->value = 2) //internal link
       RETURN this->GetCurrentInternalLinkValue();
-    ELSE IF(^linktype->value = 1) //intnternal link
+    ELSE IF(^linktype->value = 1) //external link
       RETURN MakeIntExtExternalLink(^external->value);
 
-    RETURN MakeIntExtExternalLink(selected.handler->GetLink());
+    RETURN selected.handler->GetLinkRecord();
   }
 
   // ---------------------------------------------------------------------------
@@ -201,12 +198,6 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
       ^append->value := "";
       ^external->value := "";
     }
-    ELSE IF(value.internallink != 0 AND this->internallinks)
-    {
-      ^linktype->value := 2;
-      ^internal->value := value.internallink;
-      ^append->value := value.append;
-    }
     ELSE
     {
       BOOLEAN didset;
@@ -215,7 +206,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
         IF(opt.rowkey < 100) //not handling builtins here
          CONTINUE;
 
-        IF(opt.handler->SetLinkIfSupported(value.externallink))
+        IF(opt.handler->SetLinkRecordIfSupported(value))
         {
           didset := TRUE;
           ^linktype->value := opt.rowkey;
@@ -224,8 +215,17 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
       }
       IF(NOT didset)
       {
-        ^linktype->value := 1; //external link
-        ^external->value := value.externallink;
+        IF(value.internallink != 0 AND this->internallinks)
+        {
+          ^linktype->value := 2;
+          ^internal->value := value.internallink;
+          ^append->value := value.append;
+        }
+        ELSE
+        {
+          ^linktype->value := 1; //external link
+          ^external->value := value.externallink;
+        }
       }
     }
 

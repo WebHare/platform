@@ -6,15 +6,4 @@
   Throw: <span id="throwmessage">[throwmessage]</span><br>
   WCS: <span id="wcsresult">[if wcsresult][targetobjectid][/if]</span><br>
   WDS: <span id="wdsresult">[if wdsresult][siteroot][/if]</span><br>
-  <p>Assets:</p>
-  <table id="assets">
-    [forevery assets]
-      <tr>
-        <td>[subpath]</td>
-        <td>[rooturl]</td>
-        <td>[if compressed]true[else]false[/if]</td>
-        <td>[if sourcemap]true[else]false[/if]</td>
-      </tr>
-    [/forevery]
-  </table>
 [/component]

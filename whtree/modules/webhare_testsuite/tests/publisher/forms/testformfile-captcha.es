@@ -8,7 +8,7 @@ let confirmlink;
 test.registerTests(
   [ async function()
     {
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { filename: "formcaptcha" });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha" });
 
       await test.load(setupdata.url + '?skipcaptcha=1');
 
@@ -17,6 +17,17 @@ test.registerTests(
       await test.wait('ui');
       test.true(test.qS('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have succeeded");
 
+      await test.load(setupdata.url + '?wh-debug=nsc');
+
+      //A server side error should not trigger a recatpcha (but it did errors coming from Submit handlers. Trigger one by messing with the name field
+      test.fill(`[name=firstname]`, "reject");
+      test.click('.wh-form__button--submit');
+      await test.wait('ui');
+
+      test.false(test.qS('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
+      test.eq(0, test.qSA('.mydialog').length);
+
+      //trigger it!
       await test.load(setupdata.url + '?wh-debug=nsc');
 
       test.click('.wh-form__button--submit');
@@ -33,7 +44,7 @@ test.registerTests(
   , async function()
     {
       //Note using formcaptcha2 because we saw us racing and sometimes showing a recyclebin version of the previous file instead of the one we're creating
-      setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'BuildWebtoolForm', { filename: "formcaptcha2", mailconfirmation: true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha2", mailconfirmation: true });
 
       await test.load(setupdata.url + '?wh-debug=nsc');
 
@@ -52,7 +63,7 @@ test.registerTests(
       test.true(test.qS('[data-wh-form-group-for="thankyou_confirmed"]').classList.contains('wh-form__fieldgroup--hidden'));
 
       let testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      let formresult = await test.invoke("module::webhare_testsuite/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"captcha2", allowpending: true });
+      let formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "GetWebtoolFormResult", testemail_guid, { which:"captcha2", allowpending: true });
       test.true(formresult.response);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);
@@ -61,7 +72,7 @@ test.registerTests(
   , "Process confirmation mail"
   , async function()
     {
-      const emails = await test.waitForEmails(testemail, { timeout: 6000 });
+      const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 

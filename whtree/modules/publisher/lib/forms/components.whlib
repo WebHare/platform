@@ -41,6 +41,11 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
     RETURN "cancel" IN this->__handlerinfo.handler.handlertaskfor;
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetConfirmationFormSubmitTypes()
+  {
+    RETURN RECORD[];
+  }
+
   /** @short Prefill form fields
   */
   PUBLIC MACRO PrepareRendering()
@@ -87,6 +92,10 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
     RETURN result;
   }
 
+  /** @short Invoked before we show a confirm, pending or duplicate page */
+  PUBLIC MACRO RunConfirmationUpdates(RECORD formresult)
+  {
+  }
 
   /** @short Get the title for use in the form editor */
   PUBLIC STRING FUNCTION GetFormEditTitle()
@@ -103,10 +112,10 @@ PUBLIC STATIC OBJECTTYPE FormHandlerBase
   {
     THROW NEW Exception("Must override RunTestResult if IsTestableForResults returns TRUE");
   }
-  /** @short Whether to consider this submission as a duplicate confirmation, eg a double vote */
-  PUBLIC BOOLEAN FUNCTION IsDuplicateSubmission(RECORD result, OBJECT formresults)
+  /** @short The new submission status (eg "duplicate", "confirm", "pending") when landing on the confirmation page  */
+  PUBLIC STRING FUNCTION DetermineNewSubmissionStatus(RECORD result, OBJECT formresults)
   {
-    RETURN FALSE;
+    THROW NEW Exception("Must override DetermineNewSubmissionStatus");
   }
 >;
 
@@ -532,7 +541,11 @@ PUBLIC OBJECTTYPE FormFieldBase
     IF(this->IsFrontendVisible())
       this->form->__GetRenderer()->RenderIntoSubField(this->__GetRenderData());
   }
-
+  PUBLIC MACRO RenderFieldSearchPreview(RECORD previewsettings, OBJECT context)
+  {
+    IF(NOT this->hidetitle)
+      Print(`<div>${this->htmltitle}</div>`);
+  }
   PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
 

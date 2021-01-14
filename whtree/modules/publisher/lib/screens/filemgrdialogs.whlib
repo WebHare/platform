@@ -39,16 +39,19 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
   BOOLEAN showdeveloper;
   RECORD ARRAY initialcolumns;
   RECORD ARRAY templates;
+  INTEGER ARRAY limittypes;
 
   MACRO Init(RECORD data)
   {
     data := ValidateOptions([ parent := 0
                             , foldertypes := FALSE
                             , fsobjects := INTEGER[]
+                            , limittypes := INTEGER[]
                             ], data);
 
     this->showdeveloper := this->tolliumuser->HasRight("system:supervisor");
     this->initialcolumns := ^types->columns;
+    this->limittypes := data.limittypes;
     //show all types to people who have full publisher browse access (if only shown to developers, it leaks information about customers through filetype urls)
     ^showalltypes->visible := this->showdeveloper AND this->tolliumuser->HasRightOn("system:fs_browse", 0);
 
@@ -178,7 +181,8 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
                               , contenttype := namespace
                               , type := id
                               , template := 0
-                           FROM types;
+                           FROM types
+                          WHERE Length(this->limittypes) = 0 OR id IN this->limittypes;
 
     //And add any templates
     rows := rows CONCAT SELECT rowkey := "template:" || id
@@ -187,7 +191,8 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
                              , contenttype := namespace
                              , type
                              , template := id
-                          FROM this->templates;
+                          FROM this->templates
+                          WHERE Length(this->limittypes) = 0 OR type IN this->limittypes;
 
     IF(^filter->value != "")
     {
@@ -312,7 +317,7 @@ PUBLIC STATIC OBJECTTYPE GoToObject EXTEND TolliumScreenBase
 
   RECORD FUNCTION FigureOutID(OBJECT work)
   {
-    //What is it ? Officially, we assume you're entering a site or an id
+    //What is it ? Officially, we assume you're entering a site or an id, but if we can make a better guess at what you mean we'll use that
     IF(^obj->value LIKE "http:*" OR ^obj->value LIKE "https:*")
     {
       //check the history first... as LookupPublisherURL is too eager to match entries

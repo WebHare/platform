@@ -208,7 +208,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
   RECORD elrec := [ name := element.name
                   , namespace := element.namespaceuri
                   , matchattribute := matchattribute
-                  , icon := compinfo->GetAttribute("tolliumicon")
+                  , icon := compinfo->GetAttribute("tolliumicon") ?? compinfo->GetAttribute("icon")
                   , linecomponent := ParseXSBoolean(compinfo->GetAttribute("linecomponent"))
                   , title := ParseXMLTidPtr(resourcename, "", compinfo, "title")
                   , description := ParseXMLTidPtr(resourcename, "" , compinfo, "description")
@@ -289,7 +289,7 @@ RECORD FUNCTION ParseHandler(RECORD element, OBJECT handler, STRING modulename, 
   RECORD ARRAY errors, warnings;
   RECORD elrec := [ name := element.name
                   , namespace := element.namespaceuri
-                  , icon := handler->GetAttribute("tolliumicon")
+                  , icon := handler->GetAttribute("tolliumicon") ?? handler->GetAttribute("ocon")
                   , title := ParseXMLTidPtr(resourcename, "", handler, "title")
                   , description := ParseXMLTidPtr(resourcename, "" , handler, "description")
                   , editextension := ""

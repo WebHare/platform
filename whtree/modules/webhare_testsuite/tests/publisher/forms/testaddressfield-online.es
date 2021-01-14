@@ -19,6 +19,7 @@ test.registerTests(
     [ 'Check UX'
     , async function()
       {
+        await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
 
         test.eq(0, getFormRPCRequests().length, "Verify initial state");
@@ -55,8 +56,6 @@ test.registerTests(
     , 'Check UX - BE'
     , async function()
       {
-        let initialrequestcount = getFormRPCRequests().length;
-
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
         test.fill("#addressform-address\\.country", "BE");
         test.fill("#addressform-address\\.nr_detail", "100");

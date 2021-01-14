@@ -8,12 +8,14 @@
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions"
+  xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:html="http://www.w3.org/1999/xhtml"
   targetNamespace="http://www.webhare.net/xmlns/wrd/forms"
   elementFormDefault="qualified"
   xml:lang="en">
 
   <xs:import namespace="http://www.webhare.net/xmlns/publisher/forms" schemaLocation="mod::publisher/data/forms/formdef.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
 
   <xs:element name="paymentmethod">
     <xs:complexType>
@@ -49,6 +51,24 @@
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="f:HandlerAttributes" />
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="paymenthandler">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <f:formhandler
+            tid="forms.paymenthandler.handler"
+            handlerobject="/lib/webtools/paymenthandler.whlib#PaymentHandler"
+            editextension="/lib/webtools/paymenthandler.xml#paymentsettings"
+            parserfunc="/lib/webtools/paymenthandler.whlib#PaymentHandlerParser" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="sc:FormHandlerAttributes" />
+      <xs:attribute name="fromfield" />
+      <xs:attribute name="fixedamount" />
+      <xs:attribute name="orderid" />
     </xs:complexType>
   </xs:element>
 

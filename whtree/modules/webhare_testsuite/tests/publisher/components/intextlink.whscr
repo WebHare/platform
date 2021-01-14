@@ -116,21 +116,57 @@ ASYNC MACRO TestIntExtLink_WithLinkHandlers()
 {
   STRING intextlink_withlinkhandlers := `<?xml version="1.0" encoding="UTF-8"?>
   <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:p="http://www.webhare.net/xmlns/publisher/components" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
-    <screen name="firstscreen" implementation="none"><body><p:intextlink name="link" required="true" internallinks="false"><linkhandlers><test:customlinkhandler/></linkhandlers></p:intextlink></body></screen>
+    <screen name="firstscreen" implementation="none"><body><p:intextlink name="link" required="true" internallinks="false"><linkhandlers><test:customlinkhandler/><test:customlinkhandler2/></linkhandlers></p:intextlink></body></screen>
   </screens>`;
 
-  // test loadscreen rejecting these - must see a load error
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(`inline::${intextlink_withlinkhandlers}`));
 
-  TestEq(["External link","custom link handler"], SELECT AS STRING ARRAY title FROM TT("link")->^linktype->options);
+  TestEq(["External link","custom link handler","custom link handler2"], SELECT AS STRING ARRAY title FROM TT("link")->^linktype->options);
   TT("link")->value := MakeIntExtExternalLink("x-webharetestsuite-customlink:15");
   TestEq("custom link handler", TT("link")->^linktype->selection.title);
   TestEq(15, TT("link")->^linktype->selection.enablecomponents[0]->value);
   TestEq(MakeIntExtExternalLink("x-webharetestsuite-customlink:15"), TT("link")->value);
 
+  TT("link")->value := MakeIntExtinternalLink(1,"#test");
+  TestEq("custom link handler2", TT("link")->^linktype->selection.title);
+  TestEQ(MakeIntExtinternalLink(1,"#test"), TT("link")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // test through screen
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none"><body><includefragment name="linkfragment" fragment="#firstfragment"/></body></screen>
+    <fragment name="firstfragment" implementation="none"><contents><p:intextlink name="link" required="true"><linkhandlers><test:customlinkhandler/><test:customlinkhandler2/></linkhandlers></p:intextlink></contents></fragment>`)));
+  TestEq(["External link","Internal link","custom link handler","custom link handler2"], SELECT AS STRING ARRAY title FROM TT("linkfragment->link")->^linktype->options);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestIntExtLink_Tabsextension()
+{
+  // test through tabsextension
+  STRING screenwithtabsresouce := InlineScreens(`
+    <screen name="firstscreen" implementation="none"><body><tabs name="tabs" /></body></screen>
+    <tabsextension name="tabs"><newtab><p:intextlink name="link" required="true"><linkhandlers><test:customlinkhandler/><test:customlinkhandler2/></linkhandlers></p:intextlink></newtab></tabsextension>
+    <fragment name="firstfragment" implementation="none"><contents><p:intextlink name="link" required="true"><linkhandlers><test:customlinkhandler/><test:customlinkhandler2/></linkhandlers></p:intextlink></contents></fragment>`);
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(screenwithtabsresouce));
+  OBJECT ext := TT("tabs")->LoadTabsextension(screenwithtabsresouce || "#tabs").extension;
+  TestEq(["External link","Internal link","custom link handler","custom link handler2"], SELECT AS STRING ARRAY title FROM ext->^link->^linktype->options);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // test through tabsextension with component references
+  STRING screenwithtabsresouce2 := InlineScreens(`
+    <screen name="firstscreen" implementation="none"><compositions><record name="rowcomp"/></compositions><body><tabs name="tabs" /></body></screen>
+    <tabsextension name="tabs"><newtab><textedit composition="row" cellname="rich"/><p:intextlink composition="row" cellname="link" name="link" required="true"><linkhandlers><test:customlinkhandler/><test:customlinkhandler3/></linkhandlers></p:intextlink></newtab></tabsextension>
+    <fragment name="firstfragment" implementation="none"><contents><p:intextlink name="link" required="true"><linkhandlers><test:customlinkhandler/><test:customlinkhandler3/></linkhandlers></p:intextlink></contents></fragment>`);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(screenwithtabsresouce2));
+  TT("tabs")->extendcomponents := [[ name := "row", component := TT("rowcomp") ]];
+  ext := TT("tabs")->LoadTabsextension(screenwithtabsresouce2 || "#tabs").extension;
+  TestEq(["External link","Internal link","custom link handler","custom link handler3"], SELECT AS STRING ARRAY title FROM ext->^link->^linktype->options);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR TestIntExtLink
                  , PTR TestIntExtLink_WithLinkHandlers
+                 , PTR TestIntExtLink_Tabsextension
                  ]);

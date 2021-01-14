@@ -448,14 +448,14 @@ PUBLIC OBJECTTYPE ScreenManager
 
     //this->LogDebug("Dispatching pending event to "||poppedevent.src->name||", type:"||poppedevent.type || "\n");
 
-    BOOLEAN isworkopen := ObjectExists(GetPrimary()) AND GetPrimary()->IsWorkOpen();
+    BOOLEAN isworkopen := HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen();
     TRY
     {
       poppedevent.src->TolliumDispatchEvent(poppedevent.type, poppedevent.data);
     }
     FINALLY
     {
-      IF(isworkopen = FALSE AND ObjectExists(GetPrimary()) AND GetPrimary()->IsWorkOpen())
+      IF(isworkopen = FALSE AND HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen())
       {
         LogError("tollium:doevents", "Work leak in " || this->frame->name || " handling event ", [ errortype := "workleak", src := poppedevent.src->name, eventtype := poppedevent.type ]);
         GetPrimary()->RollbackWork();

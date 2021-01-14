@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
@@ -76,6 +77,13 @@ IF(Length(cmdargs.skipattr) > 0)
 }
 
 BLOB file := exporter->RunExport();
+
+LogAuditEvent("wrd:schemaexport", CELL
+    [ wrdschema := wrdschema->tag
+    , cmdargs.skiptype
+    , cmdargs.skipattr
+    ]);
+
 trans->RollbackWork();
 
 StoreDiskFile(cmdargs.filename, file);

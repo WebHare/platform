@@ -862,9 +862,7 @@ OBJECTTYPE WebConfigBuilder
     }
 
     hosts := EnrichWebserversWithOutputFolder(hosts);
-
-    IF(NOT this->minimalconfig) //EnrichWithListenHosts requires the DB
-      hosts := EnrichWithListenHosts(hosts);
+    hosts := EnrichWithListenHosts(hosts, this->minimalconfig);
 
     INSERT [ id := whwebserverconfig_proxywebserverid
            , outputfolder := ""
@@ -1027,7 +1025,8 @@ OBJECTTYPE WebConfigBuilder
     STRING ARRAY interfaceorigins := SELECT AS STRING ARRAY DISTINCT UnpackURL(baseurl).origin
                                        FROM hosts
                                       WHERE is_interface_webserver
-                                            AND baseurl != "";
+                                            AND baseurl != ""
+                                            AND id != whwebserverconfig_rescuewebserverid;
     FOREVERY(RECORD rule FROM rules)
       FOREVERY(RECORD csp FROM rule.csps)
         INSERT [ name := "Content-Security-Policy"

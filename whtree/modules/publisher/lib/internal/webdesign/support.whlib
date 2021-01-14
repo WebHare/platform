@@ -5,11 +5,8 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
-
-LOADLIB "mod::publisher/lib/internal/blit/api.whlib";
 
 /** Read the designfiles header from a file
     @param data File data
@@ -228,47 +225,4 @@ PUBLIC RECORD FUNCTION GetAssetSettings(STRING description)
   RETURN [ flags := Detokenize(flags," ")
          , conflictgroup := conflictgroup
          ];
-}
-
-PUBLIC RECORD FUNCTION GetDependencySettings(INTEGER fsobjectid)
-{
-  OBJECT designfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfolder");
-  OBJECT localsettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/localdesignsettings");
-
-  //Validate folder type
-  RECORD folderinfo := SELECT type,parent FROM system.fs_objects WHERE id=fsobjectid;
-  IF(folderinfo.type != designfoldertype->id)
-    THROW NEW Exception("Folder #" || fsobjectid || " is not a design folder");
-
-  //Get the settings from the design folder first
-  RECORD currentdeps := designfoldertype->GetInstanceData(fsobjectid);
-  RECORD currentlocaldeps := localsettingstype->GetInstanceData(fsobjectid);
-
-  RECORD ARRAY repos := SELECT server, repository, uuid, version FROM currentdeps.repositories;
-  FOREVERY(RECORD repo FROM repos)
-    INSERT CELL localversion := (SELECT AS INTEGER localversion FROM currentlocaldeps.repositories WHERE repositories.uuid = repo.uuid) INTO repos[#repo];
-
-  RETURN [ repositories := repos
-         ];
-}
-
-PUBLIC MACRO ForceCacheFolderRebuild(STRING repo_uuid, INTEGER version, STRING path)
-{
-  OBJECT reporoot := GetRepositoryStoreFolder(repo_uuid);
-
-  STRING versionfoldername := "v" || version;
-  OBJECT versionfolder := reporoot->OpenByPath(versionfoldername);
-
-  OBJECT rebuildfolder := versionfolder->OpenByPath(path);
-
-  IF (ObjectExists(rebuildfolder) AND rebuildfolder->isfolder)
-  {
-    OBJECT lockmgr := OpenLockManager();
-    OBJECT lock := lockmgr->LockMutex("publisher:create_designfiles_checkout");
-
-    OBJECT fstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfiles/cachedfolder");
-    WriteWorkingCopyPackagesToDisk(rebuildfolder, TRUE, FALSE, fstype);
-
-    lock->Close();
-  }
 }

@@ -31,7 +31,7 @@ export HISTFILESIZE=2000000
 shopt -s histappend
 ## Multiple commands on one line show up as a single line
 shopt -s cmdhist
-## Ignore redundant or space commands
+## Disable ignore redundant or space commands
 export HISTCONTROL=
 ## Set time format
 export HISTTIMEFORMAT='%F %T '

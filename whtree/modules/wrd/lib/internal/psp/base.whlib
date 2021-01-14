@@ -20,6 +20,7 @@ PUBLIC RECORD paymentbaseoptions :=
   , orderdescription := "" //DEPRECATED!
   , language := ""
   , ipaddress := ""
+  , userdata := DEFAULT RECORD
 
   , wrdpersonentity := DEFAULT OBJECT
   , wrdpersonfields := DEFAULT RECORD
@@ -86,6 +87,8 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
   PUBLIC PROPERTY amountpayable(pvt_payable,-);
 
   PUBLIC PROPERTY interactiontype(pvt_interactiontype, -);
+
+  PUBLIC RECORD userdata;
 
   /** @param contexttag
       @param type Type of this payment provider (set by derived implementations)
@@ -255,6 +258,7 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
                                            , orderid := ""
                                            , orderdescription := "" //legacy name
                                            ]
+                                    , x := DEFAULT RECORD
                                     ], paymentmetadata.__paymentdata);
 
     this->__issuer := meta.m.issuer;
@@ -265,6 +269,7 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
     this->pvt_paymentdate := meta.d;
     this->pvt_status := meta.s ?? "pending";
     this->paymenthandler := meta.h;
+    this->userdata := meta.x;
     this->__paymentuuid := meta.u;
   }
 
@@ -286,6 +291,9 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
                             , u := STRING(this->paymentuuid)
                             , provider := this->__paymentapi_mydata.paymentprovider
                             ];
+
+    IF(RecordExists(this->userdata)) //only store 'x' when needed
+      INSERT CELL x := RECORD(this->userdata) INTO __paymentdata;
     RETURN CreatePaymentRecord([__paymentdata]);
   }
 

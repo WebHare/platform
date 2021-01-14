@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
@@ -116,7 +117,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     IF(val LIKE "site::*")
       RETURN val;
 
-    IF(val LIKE "module::*" OR val LIKE "site::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*" OR val LIKE "mod::*")
+    IF(val LIKE "module::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*")
+    {
+      this->AddWarning(node, `Old module resource namespaces (eg, module::, moduledata::) are deprecated`);
+      RETURN MakeAbsoluteResourcePath("",val);
+    }
+    IF(val LIKE "site::*" OR val LIKE "mod::*")
       RETURN MakeAbsoluteResourcePath("",val);
 
     IF(val LIKE "currentsite::*")
@@ -305,7 +311,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       }
     }
 
-    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon");
+    ctype.filetype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     ctype.filetype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
     IF(ftype->HasAttribute("blobiscontent"))
      ctype.filetype.blobiscontent := ParseXSBoolean(ftype->GetAttribute("blobiscontent"));
@@ -325,7 +331,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       ctype.fstype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.fstype.previewlibrary := ftype->GetAttribute("previewlibrary");
     ctype.fstype.previewobjectname := ftype->GetAttribute("previewobjectname");
-    ctype.fstype.searchprovider := this->ParseSearchProvider(ftype);
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.fstype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
@@ -363,7 +368,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
   RECORD FUNCTION ReadFolderType(RECORD ctype, OBJECT ftype)
   {
-    STRING tolliumicon := ftype->GetAttribute("tolliumicon");
+    STRING tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     IF(tolliumicon NOT LIKE '*:*')
       tolliumicon := "tollium:folders/normal";
 
@@ -548,7 +553,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.line := ctype->linenum;
     typeinfo.col := 0;
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || ns;
-    typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon");
+    typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.fstype := [...GetFSTypeBase(), cloneoncopy := set_cloneoncopy ];
     INSERT CELL members := newmembers.members INTO typeinfo;
@@ -695,33 +700,26 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             ];
   }
 
-  STRING FUNCTION ParseSearchProvider(OBJECT node)
+  MACRO ValidateRegex(OBJECT node, STRING pattern, STRING attributename)
   {
-    STRING provider := this->ParseFSPath(node, "searchprovider");
-    IF (provider = "")
-      RETURN "";
+    IF(pattern = "")
+      RETURN;
 
-    STRING ARRAY parts := Tokenize(provider, "#");
-    IF (Length(parts) != 2)
+    OBJECT compiledpattern := NEW RegEx(pattern, "i"); //case insensitive
+    TRY compiledpattern->Test("");
+    CATCH (OBJECT e)
     {
-      this->AddError(node, "Invalid search provider, expected '<library>#<object>'");
-      RETURN "";
+      //if it throws, the regex is broken
+      this->AddError(node, `Invalid regular expression in '${attributename}': ${e->what}`);
     }
-    TRY
-    {
-      OBJECT providerobj := MakeObject(parts[0], parts[1]);
-      IF (providerobj NOT EXTENDSFROM SearchProviderBase)
-      {
-        this->AddError(node, `Search provider '${provider}' does not derive from SearchProviderBase`);
-        RETURN "";
-      }
-    }
-    CATCH
-    {
-      this->AddError(node, `Could not find search provider '${provider}'`);
-      RETURN "";
-    }
-    RETURN provider;
+  }
+
+  MACRO ValidateSiteFilter(OBJECT node, RECORD sitefilter)
+  {
+    IF(CellExists(sitefilter, "siteregex"))
+      this->ValidateRegex(node, sitefilter.siteregex, "siteregex");
+    IF(CellExists(sitefilter, "webrootregex"))
+      this->ValidateRegex(node, sitefilter.webrootregex, "webrootregex");
   }
 
   PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
@@ -767,6 +765,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , prebuiltmasks := ParseXSList(ToUppercase(crit->GetAttribute("prebuiltmasks")))
                        , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
                        ];
+
+            this->ValidateSiteFilter(crit, applyto);
+            IF(applyto.pathregex != "")
+              this->ValidateRegex(crit, applyto.pathregex, "pathregex");
+            IF(applyto.parentregex != "")
+              this->ValidateRegex(crit, applyto.parentregex, "parentregex");
+            IF(applyto.whfspathregex != "")
+              this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
 
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
@@ -817,7 +823,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     {
       STRING applynodetype := applyblock->localname;
 
-      IF(NOT CellExists(counters, applynodetype))
+      IF(NOT CellExists(counters, applynodetype)) //is it <apply>, <filetype> or <foldertype> ?
         CONTINUE; //don't care for this node
 
 
@@ -827,7 +833,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       IF(NOT IsNodeApplicableToThisWebHare(applyblock))
         CONTINUE;
 
-      RECORD apply := this->ImportApplyItems(applyblock);
+      RECORD apply := this->ImportApplyItems(applyblock, applynodetype = "apply" ? "" : applyblock->GetAttribute("namespace"));
       IF(NOT RecordExists(apply))
         CONTINUE; //no content
 
@@ -872,7 +878,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN applyrules;
   }
 
-  RECORD FUNCTION ImportApplyItems(OBJECT applyblock)
+  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)
   {
     BOOLEAN errorsarenowfatal;
     BOOLEAN anynode;
@@ -897,6 +903,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , plugins := DEFAULT RECORD ARRAY
                     , republishes := DEFAULT RECORD ARRAY
                     , scheduletasknows := DEFAULT RECORD ARRAY
+                    , schedulemanagedtasks := RECORD[]
                     , setobjecteditor := DEFAULT RECORD
                     , setwidget := DEFAULT RECORD ARRAY
                     , sitelanguage := DEFAULT RECORD
@@ -947,11 +954,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "extendproperties", "undoextendproperties"
             {
               STRING extension := this->ParseTolliumRef(node,"extension");
-              STRING contenttype := node->GetAttribute("contenttype");
-              IF(contenttype = "" AND extension != "")
-                this->AddError(node, "An extendproperties with extension= requires a content type");
-              IF(node->HasAttribute("name") AND applyblock->localname != "apply") //we really need to deprecate these...
-                this->AddError(node, "Only <extendproperties contenttype=> can be used in a <filetype> or <foldertype>");
+              STRING contenttype := node->GetAttribute("contenttype") ?? targetnamespace;
+              IF(targetnamespace = "") //an <apply> block
+              {
+                IF(contenttype = "" AND extension != "")
+                  this->AddError(node, "An extendproperties with extension= requires a content type");
+              }
+              ELSE //inside a type definition
+              {
+                IF(node->HasAttribute("name"))
+                  this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
+              }
 
               RECORD applynode := [ isundo := node->localname = "undoextendproperties"
                                   , contenttype := contenttype
@@ -1093,6 +1106,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             {
               INSERT [ task := node->GetAttribute("task")
                      ] INTO apply.scheduletasknows AT END;
+              CONTINUE;
+            }
+            CASE "schedulemanagedtask"
+            {
+              INSERT [ task := node->GetAttribute("task")
+                     ] INTO apply.schedulemanagedtasks AT END;
               CONTINUE;
             }
             CASE "folderindex"
@@ -1355,6 +1374,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
                             ];
+      this->ValidateSiteFilter(siteset, sitesetting.sitefilter);
 
       OBJECT ARRAY sitewebrules := siteset->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webruleset")->GetCurrentElements();
       FOREVERY(OBJECT webruleset FROM sitewebrules)
@@ -1420,6 +1440,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                            , siteprofile := this->siteprof->name
                            , line := addtocatalog->linenum
                            , col := 0
+                           , folder := addtocatalog->GetAttribute("folder") ?? "/"
                            ];
 
         INSERT theindex INTO sitesetting.addtocatalogs AT END;
@@ -1439,7 +1460,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       RECORD typeinfo :=
           [ namespace :=          gtype->GetAttribute("namespace")
           , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
-          , tolliumicon :=        gtype->GetAttribute("tolliumicon")
+          , tolliumicon :=        gtype->GetAttribute("tolliumicon") ?? gtype->GetAttribute("icon") //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
           , members :=            DEFAULT RECORD ARRAY
           ];
 

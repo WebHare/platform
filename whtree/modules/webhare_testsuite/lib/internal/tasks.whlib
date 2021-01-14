@@ -35,6 +35,8 @@ PUBLIC OBJECTTYPE PingTask EXTEND ManagedTaskBase
       ABORT("PING-TASK-Abort");
     IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROW")
       THROW NEW Exception("PING-TASK-Throw");
+    IF(TypeID(data.ping) = TypeID(STRING) AND data.ping="THROWNOW" AND ReadRegistryKey("webhare_testsuite.tests.taskthrownow"))
+      THROW NEW Exception("PING-TASK-Throw-Now");
 
     this->ResolveByCompletion([ pong := data.ping, managedtaskid := this->GetTaskMetadata().taskid ]);
   }
@@ -88,6 +90,14 @@ PUBLIC OBJECTTYPE AfterCompileTask EXTEND ManagedTaskBase
   {
     WriteRegistryKey("webhare_testsuite.tests.lastaftercompile", GetCurrentDatetime());
     this->ResolveByCompletion(DEFAULT RECORD);
+  }
+>;
+
+PUBLIC OBJECTTYPE ApplyRuleTask EXTEND ManagedTaskBase
+<
+  UPDATE PUBLIC MACRO RunTask(RECORD data)
+  {
+    this->ResolveByCompletion(CELL[ received_whfsid := data.whfsid ]);
   }
 >;
 

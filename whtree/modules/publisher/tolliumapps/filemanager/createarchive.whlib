@@ -115,7 +115,7 @@ PUBLIC OBJECTTYPE CreateArchiveFile EXTEND TolliumScreenBase
     IF (ObjectExists(this->savefolder))
     {
       this->savelocation->value := this->savefolder->id;
-      suggestname := this->savefolder->GenerateUniqueName(suggestname, 0);
+      suggestname := this->savefolder->GenerateUniqueName(suggestname);
     }
     this->suggestlocalname := suggestname;
 

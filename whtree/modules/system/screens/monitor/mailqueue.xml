@@ -70,12 +70,12 @@
                     flags="isfinished hasresult"
                     borders="right bottom"
                     >
-                <column type="datetime" name="creationdate" storeutc="true" width="18x" />
+                <column type="datetime" name="creationdate" storeutc="true" width="18x" precision="seconds" />
                 <column type="text"     name="sender" />
                 <column type="text"     name="subject" tid="~subject" />
                 <column type="text"     name="receiver" />
                 <column type="icon"     name="status" align="center" width="7x" tid="~status" />
-                <column type="datetime" name="nextattempt" storeutc="true" width="16x" />
+                <column type="datetime" name="nextattempt" storeutc="true" width="16x" precision="seconds" />
               </list>
             </panel>
           </cell>

@@ -2317,7 +2317,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO DoObjectHistory()
   {
     OBJECT liveobject := OpenWHFSObject(this->GetCurrentlySelectedFSobject());
-    OBJECT screen := this->LoadScreen("moduleroot::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
+    OBJECT screen := this->LoadScreen("mod::publisher/tolliumapps/versioning/versioning.xml#history", [ liveobject := liveobject ]);
     screen->RunModal();
   }
 

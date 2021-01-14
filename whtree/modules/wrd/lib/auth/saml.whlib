@@ -33,9 +33,9 @@ PUBLIC OBJECTTYPE SAMLSPConfigBase
 
   /** Process an incoming SAML AuthenticationStatement
       @param statement Decoded SAML statement
-      @return
-      @cell return.entityid
-      @cell return.name
+      @return Processing result
+      @cell return.entityid Entity ID
+      @cell return.name Name of the user
       @cell return.code 'ok', 'unknownlogin', 'error'
   */
   PUBLIC RECORD FUNCTION ProcessAuthenticationStatement(RECORD statement)

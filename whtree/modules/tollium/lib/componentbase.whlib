@@ -6,6 +6,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 
@@ -2099,12 +2101,15 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     }
   }
 
-  RECORD FUNCTION GetValue()
+  RECORD FUNCTION GatherValue(BOOLEAN only_update_values)
   {
     RECORD rec := this->extradata;
 
     FOREVERY(OBJECT subcell FROM this->cells)
     {
+      IF(only_update_values AND NOT subcell->IsUpdateValue())
+        CONTINUE;
+
       IF (CellExists(rec, subcell->cellname))
         THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
 
@@ -2122,19 +2127,14 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     RETURN rec;
   }
 
+  RECORD FUNCTION GetValue()
+  {
+    RETURN this->GatherValue(FALSE);
+  }
+
   UPDATE PUBLIC VARIANT FUNCTION GetUpdateValue()
   {
-    RECORD rec := CELL[];
-
-    FOREVERY(OBJECT subcell FROM this->cells)
-      IF(subcell->IsUpdateValue())
-      {
-        IF (CellExists(rec, subcell->cellname))
-          THROW NEW TolliumException(this, "Cell name '"||subcell->cellname||"' used twice, second time in component '" || subcell->name || "'");
-        rec := CellInsert(rec, subcell->cellname, subcell->value);
-      }
-
-    RETURN rec;
+    RETURN this->GatherValue(TRUE);
   }
 
   // ---------------------------------------------------------------------------
@@ -2211,6 +2211,9 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     FOREVERY(OBJECT cellobj FROM this->pvt_cells)
       IF(cellobj EXTENDSFROM TolliumIsComposable)
         INSERT cellobj->cellname INTO retval AT END;
+
+    FOREVERY(RECORD subcell FROM this->__virtualcells)
+      INSERT subcell.name INTO retval AT END;
 
     FOREVERY(OBJECT mergedobj FROM this->mergecompositions)
       retval := retval CONCAT mergedobj->GetComposedCellNames();
@@ -3027,6 +3030,17 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
   }
 
   /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)
+      @param link Link to set (intextlink)
+      @return TRUE if the link was valid */
+  PUBLIC BOOLEAN FUNCTION SetLinkRecordIfSupported(RECORD link)
+  {
+    IF(link.externallink != "")
+      RETURN this->SetLinkIfSupported(link.externallink);
+    ELSE
+      RETURN FALSE;
+  }
+
+  /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)
       @param inlink Link to set
       @return TRUE if the link was valid */
   UPDATE PUBLIC BOOLEAN FUNCTION SetLinkIfSupported(STRING inlink)
@@ -3037,6 +3051,11 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
   PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
   {
     RETURN DEFAULT OBJECT ARRAY;
+  }
+  PUBLIC RECORD FUNCTION GetLinkRecord()
+  {
+    STRING extlink := this->GetLink();
+    RETURN extlink != "" ? MakeIntExtExternalLink(extlink) : DEFAULT RECORD;
   }
   PUBLIC STRING FUNCTION GetLink()
   {

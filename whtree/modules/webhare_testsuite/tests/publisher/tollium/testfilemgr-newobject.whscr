@@ -1,6 +1,9 @@
 <?wh
 
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -44,6 +47,32 @@ ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the 
   TestEq("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents", indexdoc->typens);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
+}
+
+ASYNC MACRO TestCreateObjectDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id, [ isfolder := FALSE ] ));
+  //dumpvalue(TT("types")->rows,'boxed');
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id,
+    [ isfolder := FALSE
+    , limittypes := INTEGER[ 18, OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id ]
+    ] ));
+
+  //dumpvalue(TT("types")->rows,'boxed');
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq([ createtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+         , template := OpenTestsuiteSite()->OpenByPath("testpages/consenttest.rtd")->Id
+         ], AWAIT res.expectcallreturn());
 }
 
 ASYNC MACRO CreateUsingTemplates()
@@ -101,13 +130,13 @@ ASYNC MACRO CreateUsingTemplates()
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "index.rtd";
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
-  TestEq("index-1.rtd", TT("name")->value);
+  TestEq("index-2.rtd", TT("name")->value);
   TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "anyfield")->value);
   // The 'nocopyprops' properties (having cloneoncopy set to false) should not have been copied
   TestEq("", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", "idfield")->value);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  created := GetTestsuiteTempFolder()->OpenByName("index-1.rtd");
+  created := GetTestsuiteTempFolder()->OpenByName("index-2.rtd");
   TestEq(TRUE, ObjectExists(created));
 
   // New folder in root (just accessing the dialog, but that already broke in 4.18)
@@ -124,6 +153,7 @@ ASYNC MACRO CreateUsingTemplates()
 }
 
 RunTestframework([ PTR DynFolderIndex
+                 , PTR TestCreateObjectDialog
                  , PTR CreateUsingTemplates
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);

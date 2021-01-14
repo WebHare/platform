@@ -247,8 +247,5 @@ PUBLIC OBJECT FUNCTION LookupBaseFSObject(OBJECT composition, STRING sitename, S
   IF(siteroot=0)
     RETURN DEFAULT OBJECT;
 
-  IF(fullpath LIKE "/*")
-    fullpath := Substring(fullpath,1);
-
-  RETURN OpenWHFSObject(siteroot)->OpenByPath(fullpath);
+  RETURN OpenWHFSObject(siteroot)->OpenByPath(fullpath, [ allowinitialslash := TRUE ]);
 }

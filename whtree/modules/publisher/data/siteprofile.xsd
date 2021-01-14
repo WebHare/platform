@@ -348,7 +348,8 @@
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attributeGroup ref="WidgetSettings" />
-    <xs:attribute name="tolliumicon" type="ImageSrc" />
+    <xs:attribute name="icon" /> <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
+    <xs:attribute name="tolliumicon" type="sc:ImageSrc" />
     <xs:attribute name="requiremergefieldscontext" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
@@ -414,6 +415,7 @@
     </xs:attribute>
     <xs:attributeGroup ref="WidgetBaseAttrs" />
     <xs:attributeGroup ref="IndexTypeAttrs" />
+    <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 
   <xs:complexType name="UploadTypeMapping">
@@ -751,7 +753,8 @@
   <xs:complexType name="GroupType">
     <xs:attribute name="namespace" type="xs:anyURI" use="required"/>
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="tolliumicon" type="ImageSrc" />
+    <xs:attribute name="icon" type="sc:ImageSrc" />
+    <xs:attribute name="tolliumicon" type="sc:ImageSrc" />
   </xs:complexType>
 
   <xs:complexType name="InGroup">
@@ -766,11 +769,10 @@
     </xs:attribute>
     <xs:attribute name="typedef" type="xs:anyURI" />  <!-- Pre-4.28, deprecate -->
     <xs:attributeGroup ref="sc:TidOrTitle" />
-    <xs:attribute name="icon" type="xs:string" />
-    <xs:attribute name="tolliumicon" type="ImageSrc" />
+    <xs:attribute name="icon" type="xs:string" /> <!-- Pre-4.28, deprecate -->
+    <xs:attribute name="tolliumicon" type="sc:ImageSrc" /> <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
     <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
-    <xs:attribute name="searchprovider" type="tc:ScreenFragmentReference" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 
@@ -955,6 +957,7 @@
       <xs:element name="urlevents" type="UrlEvents" />
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
+      <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
       <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
       <xs:element name="intercept" type="sc:Intercept" />
@@ -1556,6 +1559,17 @@
     </xs:attribute>
   </xs:complexType>
 
+  <xs:complexType name="ScheduleManagedTask">
+    <xs:annotation>
+      <xs:documentation>Schedule a managed task for every applied items that is modified</xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="task" type="ModuleNamespacedName" use="required">
+      <xs:annotation>
+        <xs:documentation>Schedulde task to run</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
   <xs:complexType name="DisableLegacySiteSettings">
     <xs:annotation>
       <xs:documentation>
@@ -1615,6 +1629,11 @@
             <xs:attribute name="catalog" use="required">
               <xs:annotation>
                 <xs:documentation>Target catalog name</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="folder">
+              <xs:annotation>
+                <xs:documentation>Optional subfolder of the site to add</xs:documentation>
               </xs:annotation>
             </xs:attribute>
           </xs:complexType>
@@ -1949,12 +1968,6 @@
   <xs:simpleType name="Name">
     <xs:restriction base="xs:string">
       <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-
-  <xs:simpleType name="ImageSrc">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(\c+:)?(\c+/)*\c+"/>
     </xs:restriction>
   </xs:simpleType>
 

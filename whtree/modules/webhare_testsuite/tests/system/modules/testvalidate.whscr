@@ -145,9 +145,9 @@ BLOB badglobalhandler := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <screen name="testbadglobalhandler" implementation="none">
     <body>
       <select name="pulldown" type="pulldown">
-        <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#NoSuchFunction" />
-        <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler" />
-        <optionsource name="os3" ongetoptions="mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#GoodFreeOptionsHandler" />
+        <optionsource name="os1" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#NoSuchFunction" />
+        <optionsource name="os2" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler" />
+        <optionsource name="os3" ongetoptions="mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#GoodFreeOptionsHandler" />
       </select>
     </body>
   </screen>
@@ -388,8 +388,8 @@ MACRO TestBasicValidate()
 
   //We can't detect bad handlers yet as we cannot instantiate during validation
   res := ValidateSingleFile("mod::system/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
-  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib\'' ]
-                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium-components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
+  TestEqMembers([[ resourcename := "mod::system/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib\'' ]
+                ,[ resourcename := "mod::system/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
                 ],res.errors, "*");
   TestEq(RECORD[],res.warnings);
 
@@ -467,6 +467,18 @@ MACRO TestValidateModuleDef()
   //DumpValue(res.errors);
   TestEq([[ line := 4, message := "<appcontexts> have been deprecated" ]
          ], SELECT line, message FROM res.hints ORDER BY line,message)  ;
+
+  BLOB moduledef_badsearchproviders := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+    <meta />
+    <publisher>
+      <searchcontentprovider name="testprov1" objectname="lib/nosuch.whlib#SearchProviderBase" version="1.0.0" />
+    </publisher>
+  </module>`);
+
+  res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
+  TestEq([[ line := 5, message := `No such library 'mod::webhare_testsuite/lib/nosuch.whlib' (looking for 'SearchProviderBase')` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 }
 
 MACRO TestSiteProfiles()
@@ -532,6 +544,30 @@ MACRO TestSiteProfiles()
          ,[ line := 5, message := 'A type cannot define <members> unless it uses namespace= instead of typedef=' ]
          ,[ line := 7, message := 'kind= cannot be used with typedef=, you need to switch to namespace=' ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+
+  BLOB missing_searchcontentprovider := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/searchcontentprovidertest" kind="datafile" searchcontentprovider="webhare_testsuite:missingprovider" />
+    <apply><to type="all"/><schedulemanagedtask task="webhare_testsuite:missingtask" /></apply>
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := missing_searchcontentprovider ]);
+  TestEq([[ line := 3, message := `No such searchcontentprovider 'missingprovider' in module \'webhare_testsuite'` ]
+         ,[ line := 4, message := `No such managed task type 'webhare_testsuite:missingtask'` ]
+         ], SELECT line, message FROM res.errors ORDER BY line,message) ;
+
+  BLOB badregexes := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
+  <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+    <apply>
+      <to type="file" parentregex="*" />
+      <to type="file" pathregex="*" />
+      <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/strong-em" /> <!-- we need *something* to ensure the apply rule gets parsed -->
+    </apply>
+  </siteprofile>`);
+
+  res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badregexes ]);
+  TestEqLike("Invalid regular expression in \'parentregex\'*", res.errors[0].message);
+  TestEqLike("Invalid regular expression in \'pathregex\'*", res.errors[1].message);
 }
 
 MACRO TestTidScan()
@@ -769,7 +805,7 @@ MACRO TestValidateForm()
 <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
   <form name="webtoolform">
     <handlers>
-      <mailresultshandler conditionid="NKDqO6fcJ5uBw9fgZ60WeQ" receivers="info@example.net" />
+      <mailresultshandler conditionid="NKDqO6fcJ5uBw9fgZ60WeQ" receivers="info@example.net" guid="formhandler:abcdO6fcJ5uBw9fgZ60WeQ" />
     </handlers>
     <page guid="formpage:jGDRJcu2rEjtrI2ygq0jKA">
       <richtext guid="formcomp:yN8o9yU2syriPxc52Cm0AQ" textid="cvveT8A_rqevOdapoMWCog" title="thanks!"/>

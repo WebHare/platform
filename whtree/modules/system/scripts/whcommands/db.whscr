@@ -14,7 +14,7 @@ LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 
-// command: database <command>
+// command: db <command>
 // short: database control
 
 

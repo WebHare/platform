@@ -5,6 +5,26 @@ import ParsedStructure from "@mod-tollium/web/ui/components/richeditor/internal/
 
 // Runs restructuring tests from mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib
 
+function getFixedRTEInput(rte)
+{
+  return getComparableRTEText(rte.getContentBodyNode());
+}
+
+function getComparableRTEText(rtenode)
+{
+  let input = rtenode.innerHTML;
+
+  // Ignore width and height styling, they can differ between browsers
+  input = input.replaceAll(/ style="(width|height):[^"]*"/g, "");
+
+  let tempdiv = document.createElement("div");
+  tempdiv.innerHTML = input;
+  test.qSA(tempdiv, `[contenteditable="false"]`).forEach(_ => _.removeAttribute("contenteditable"));
+  test.qSA(tempdiv, `.wh-rtd-embeddedobject`).forEach(_ => _.innerHTML="");
+
+  return tempdiv.innerHTML;
+}
+
 test.registerTests(
   [
     { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
@@ -30,12 +50,10 @@ test.registerTests(
           let parser = new DOMParser();
           let expect_doc = parser.parseFromString(subtest.expect, "text/html");
 
-          // Ignore width and height styling, they can differ between browsers
-          const removestyleregex = / style="(width|height):[^"]*"/g;
-          test.eqHTML(expect_doc.querySelector("body").innerHTML.replace(removestyleregex, ""), rte.getContentBodyNode().innerHTML.replace(removestyleregex, ""), `input: ${subtest.input}`);
+          test.eqHTML(getComparableRTEText(expect_doc.querySelector("body")), getFixedRTEInput(rte), `input: ${subtest.input}`);
 
           rte.setContentsHTML(subtest.expect);
-          test.eqHTML(expect_doc.querySelector("body").innerHTML.replace(removestyleregex, ""), rte.getContentBodyNode().innerHTML.replace(removestyleregex, ""), `second restructure: ${subtest.expect}`);
+          test.eqHTML(getComparableRTEText(expect_doc.querySelector("body")), getFixedRTEInput(rte), `second restructure: ${subtest.expect}`);
         }
       }
     }

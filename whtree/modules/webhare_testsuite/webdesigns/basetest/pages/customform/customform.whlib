@@ -52,16 +52,19 @@ PUBLIC OBJECTTYPE CustomFormPage EXTEND WebtoolFormPage
     TestEq("", emailfield.obj->value); //not prefilled yet
     INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
 
-    STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
-    IF(editguid != "")
+    IF(GetFormWebVariable("cancel") != "1") //don't go through EditExistingResult if we'll be cancelling, as it shouldn't be needed
     {
-      //test availability of api - this broke because of complex file openings in the code, and some users will try to open a result directly without using the load API
-      RECORD existingresult := this->webdesign->webtoolform->formresults->GetSingleResult(editguid);
-      IF(RecordExists(existingresult))
-        TestEq(TRUE, CellExists(existingresult, "submittype"));
+      STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
+      IF(editguid != "")
+      {
+        //test availability of api - this broke because of complex file openings in the code, and some users will try to open a result directly without using the load API
+        RECORD existingresult := this->webdesign->webtoolform->formresults->GetSingleResult(editguid);
+        IF(RecordExists(existingresult))
+          TestEq(TRUE, CellExists(existingresult, "submittype"));
+      }
+      IF (editguid != "" AND this->form->EditExistingResult(editguid))
+        emailfield.obj->enabled := FALSE;
     }
-    IF (editguid != "" AND this->form->EditExistingResult(editguid))
-      emailfield.obj->enabled := FALSE;
 
     IF(MemberExists(this->form,"^PM"))
     {
@@ -74,10 +77,11 @@ PUBLIC OBJECTTYPE CustomFormPage EXTEND WebtoolFormPage
 
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
-    IF (this->form->IsEditing() AND GetFormWebVariable("cancel") = "1")
+    IF (GetFormWebVariable("cancel") = "1")
     {
+      STRING editguid := DecryptForThisServer("webhare_testsuite:customform", GetFormWebVariable("editguid"), [ fallback := "" ]);
       GetPrimary()->BeginWork();
-      this->form->CancelExistingResult(this->form->editingguid);
+      this->form->CancelExistingResult(editguid);
       GetPrimary()->CommitWork();
     }
     RETURN WebtoolFormPage::GetPageBody();

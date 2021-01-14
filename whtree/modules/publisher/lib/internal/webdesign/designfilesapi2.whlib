@@ -207,19 +207,6 @@ STATIC OBJECTTYPE Resolver
     RETURN GetHashForBundle(this->requestedbundle);
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetAllAssets(STRING assetcachebuster DEFAULTSTO "")
-  {
-    this->EnsurePackingInfo();
-    BLOB statefile := GetDiskResource(GetBundleOutputPath(this->assetpack ?? this->packinginfo.outputtag) || "assetpackstate.hson");
-
-    RECORD ARRAY baseinfo := DecodeHSONBlob(statefile).generatedassets;
-    RETURN SELECT subpath
-                , rooturl := (assetcachebuster != "" AND subpath LIKE "ap.*" ? "/!" || assetcachebuster : "" ) || this->bundlebaseurl || subpath
-                , compressed := subpath LIKE "*.gz"
-                , sourcemap := subpath LIKE "*.map" OR subpath LIKE "*.map.gz"
-             FROM baseinfo;
-  }
-
   MACRO EnsurePackingInfo()
   {
     IF(RecordExists(this->packinginfo))
@@ -309,11 +296,6 @@ STATIC OBJECTTYPE Resolver
             || '})()</script>');
       Print('<noscript><link rel="stylesheet" href="' || EncodeValue(bundlebaseurl || 'ap.css') || '"></noscript>');
     }
-  }
-
-  PUBLIC MACRO Close()
-  {
-
   }
 >;
 

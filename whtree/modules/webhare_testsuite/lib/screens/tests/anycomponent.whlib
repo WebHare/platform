@@ -149,6 +149,12 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
         this->comp->value := [[ text := "Row 1", checkbox := TRUE ]];
         this->comp->roweditscreen := "webhare_testsuite:tests/anycomponent.roweditor";
       }
+      CASE "movetoselect"
+      {
+        this->comp->columns := [[ type := "text", name := "text", title := "Text" ]];
+        this->comp->rows := SELECT rowkey := "r" || #row+1, text := "Row " || #row+1 FROM Repeatelement(CELL[],5) AS row;
+        this->comp->value := ["r1","r3"];
+      }
       CASE "textedit", "textarea"
       {
         this->AddComponents(
@@ -606,6 +612,7 @@ PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase
     ^row->RegisterVirtualCell("text", PTR this->GetVirtualText, PTR this->SetVirtualText);
     TolliumRowEditScreenBase::Init(data);
     TestEq("mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor", this->openingcomponent->roweditscreen, "test if openingcomponent appears to be our arrayedit");
+    TestEq(TRUE, "text" IN ^row->GetComposedCellNames());
   }
   STRING FUNCTION GetVirtualText()
   {

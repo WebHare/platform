@@ -96,13 +96,7 @@ PUBLIC OBJECTTYPE WHFSInstanceOptions EXTEND TolliumOptionSourceBase
         siteroot := SELECT AS INTEGER root FROM system.sites WHERE ToUppercase(name)=ToUppercase(this->site);
 
       IF(siteroot!=0)
-      {
-        STRING searchpath := this->fullpath;
-        IF(searchpath LIKE "/*")
-          searchpath := Substring(searchpath,1);
-
-        instanceobject := OpenWHFSObject(siteroot)->OpenByPath(searchpath);
-      }
+        instanceobject := OpenWHFSObject(siteroot)->OpenByPath(this->fullpath, [ allowinitialslash := TRUE ]);
     }
 
     RECORD ARRAY results;

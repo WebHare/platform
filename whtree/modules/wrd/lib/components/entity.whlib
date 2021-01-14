@@ -28,7 +28,6 @@ MACRO DestroyStorage(INTEGER entityid)
 
 PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 <
-  STRING ARRAY pvt_fields;
   OBJECT pvt_wrdtype;
   OBJECT pvt_entity;
   STRING pvt_attributebase;
@@ -107,6 +106,9 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     OBJECT wrdtype := this->wrdtype;
     IF(NOT ObjectExists(wrdtype))
       THROW NEW TolliumException(this, "Load() requires a wrdtype= to be set on the entity");
+    FOREVERY(OBJECT field FROM this->cells)
+      IF(field EXTENDSFROM TolliumWRDField)
+        THROW NEW TolliumException(this, "TolliumWRDField is not supported by the 2017 WRD API");
 
     IF(id=0)
     {
@@ -118,7 +120,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
       IF(NOT ObjectExists(this->pvt_entity))
         THROW NEW TolliumException(this, `No such entity #${id}`);
 
-      this->value := this->pvt_entity->GetFields(this->GetFields());
+      this->value := this->pvt_entity->GetFields(this->GetComposedCellNames());
     }
 
     this->DestroyCurrentStorage();
@@ -162,7 +164,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
   MACRO GotUpdateEvent()
   {
     IF(ObjectExists(this->pvt_entity))
-      this->value := this->pvt_entity->GetFields(this->GetFields());
+      this->value := this->pvt_entity->GetFields(this->GetComposedCellNames());
     IF(this->onupdate != DEFAULT MACRO PTR)
       this->onupdate();
   }
@@ -225,17 +227,6 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     RETURN this->pvt_wrdtype->GetAttribute(this->pvt_attributebase || cellname); //FIXME: Embed into WRDField
   }
 
-  STRING ARRAY FUNCTION GetFields()
-  {
-    STRING ARRAY fields;
-    FOREVERY(OBJECT field FROM this->cells)
-    {
-      IF(field EXTENDSFROM TolliumWRDField)
-        THROW NEW TolliumException(this, "TolliumWRDField is not supported by the 2017 WRD API");
-      INSERT field->cellname INTO fields AT END;
-    }
-    RETURN fields;
-  }
   MACRO SetWRDType(OBJECT newtype)
   {
     IF(this->__hasstaticwrdtype)
@@ -246,12 +237,13 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 
     this->pvt_entity := DEFAULT OBJECT; //reset entity after a type change
     this->pvt_wrdtype := newtype;
-    this->pvt_fields := DEFAULT STRING ARRAY;
+
+    STRING ARRAY fields;
 
     FOREVERY(OBJECT field FROM this->cells)
     {
       STRING tag := ToUppercase(field->cellname);
-      IF (tag IN this->pvt_fields)
+      IF (tag IN fields)
       {
         STRING ARRAY names := SELECT AS STRING ARRAY cells->name FROM ToRecordArray(this->cells, "CELLS") WHERE cells->cellname = field->cellname AND cells->name != "";
 
@@ -259,7 +251,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
         THROW NEW TolliumException(this, `Multiple components use field ${field->cellname} ${componentnames}`); // in type ${this->pvt_wrdtype->tag}`);
       }
 
-      INSERT tag INTO this->pvt_fields AT END;
+      INSERT tag INTO fields AT END;
       IF(MemberExists(field,'attrinfo')) //FIXME
       {
         field->attrinfo := this->GetLocalAttributeInfoByTag(field->cellname);
@@ -301,7 +293,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     }
 
     this->pvt_entity := newentity;
-    this->value := newentity->GetFields(this->pvt_fields);
+    this->value := newentity->GetFields(this->GetComposedCellNames());
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetUpdateValue()
@@ -529,7 +521,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
   UPDATE PUBLIC MACRO Invalidate()
   {
     IF (ObjectExists(this->wrdentity))
-      this->value := this->wrdentity->GetFields(this->pvt_fields);
+      this->value := this->wrdentity->GetFields(this->GetComposedCellNames());
   }
 
   /** Return the fields that would be modified when calling StoreEntity (optionally with additional values)

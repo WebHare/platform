@@ -304,10 +304,7 @@ PUBLIC OBJECTTYPE FSObjects EXTEND ObjectSourceBase
       IF(siteroot!=0)
       {
         STRING searchpath := this->fullpath;
-        IF(searchpath LIKE "/*")
-          searchpath := Substring(searchpath,1);
-
-        searchroot := OpenWHFSObject(siteroot)->OpenByPath(searchpath);
+        searchroot := OpenWHFSObject(siteroot)->OpenByPath(searchpath, [ allowinitialslash := TRUE ]);
         IF(ObjectExists(searchroot) AND NOT searchroot->isfolder)
           searchroot := DEFAULT OBJECT;
       }

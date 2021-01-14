@@ -40,11 +40,9 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   {
   }
 
-  UPDATE PUBLIC MACRO ValidateValue(OBJECT work)
+  PUBLIC MACRO ValidateCaptcha(OBJECT work)
   {
-    IF(NOT work->HasFailed() //no need to validate us if work is already failing
-       AND this->IsNowRequired()
-       AND NOT this->IsSet() //we're only set if the captcha challenge succeeded
+    IF(NOT this->IsSet() //we're only set if the captcha challenge succeeded
        AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
     {
       STRING apikey := this->form->formcontext->GetCaptchaAPIKey();

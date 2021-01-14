@@ -3,6 +3,7 @@
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
@@ -560,6 +561,110 @@ BOOLEAN FUNCTION UserHasDirectGrantFor(STRING rightname, OBJECT grantee, INTEGER
   RETURN (objectid IN grantobjids);
 }
 
+PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees, STRING comment)
+{
+  IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
+  {
+    work->AddError(GetTid("system:userrights.commondialogs.errors.norighttomanagerole", roleobj->GetUserRightsName()));
+    RETURN;
+  }
+
+  IF (NOT roleobj->ExistsInDatabase())
+  {
+    work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", roleobj->GetUserRightsName()));
+    RETURN;
+  }
+
+  FOREVERY (OBJECT obj FROM grantees)
+    IF (NOT obj->ExistsInDatabase())
+    {
+      IF (obj->type = 3)
+        work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
+      ELSE
+        work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
+    }
+
+  IF (work->HasFailed())
+    RETURN;
+
+  OBJECT roleunit := contexts->userapi->GetUnitOf(roleobj);
+
+  FOREVERY (OBJECT obj FROM grantees)
+  {
+    // User either should have the right to browse the new role, or should get it with the new role
+    IF (NOT roleunit->IsVisibleFor(obj) AND NOT roleunit->IsVisibleFor(roleobj))
+      work->AddWarning(GetTid("system:userrights.commondialogs.errors.usercannotviewunitofrole", obj->GetUserRightsName(), roleobj->GetUserRightsName()));
+  }
+
+  FOREVERY (OBJECT obj FROM grantees)
+  {
+    LogAuditEvent("system:userrights", CELL[ action :=  "grant-role"
+                                           , grantee := obj->GetUserDataForLogging()
+                                           , roleauthobjectid := roleobj->authobjectid
+                                           , roleentityid := roleobj->entityid
+                                           , rolename := roleobj->GetUserRightsName()
+                                           , comment
+                                           ]);
+    TRY
+    {
+      contexts->user->GrantRoleTo(roleobj, obj, [ comment := comment ]);
+    }
+    CATCH (OBJECT e)
+    {
+      work->AddError(e->what);
+    }
+  }
+}
+
+PUBLIC MACRO TolliumRevokeRoleFrom(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees)
+{
+  IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
+  {
+    work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", roleobj->GetUserRightsName()));
+    RETURN;
+  }
+
+  IF (NOT roleobj->ExistsInDatabase())
+  {
+    work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", roleobj->GetUserRightsName()));
+    RETURN;
+  }
+
+  FOREVERY (OBJECT obj FROM grantees)
+    IF (NOT obj->ExistsInDatabase())
+    {
+      IF (obj->type = 3)
+        work->AddError(GetTid("system:userrights.commondialogs.errors.rolehasbeendeleted", obj->GetUserRightsName()));
+      ELSE
+        work->AddError(GetTid("system:userrights.commondialogs.errors.userhasbeendeleted", obj->GetUserRightsName()));
+    }
+
+  IF (work->HasFailed())
+    RETURN;
+
+  FOREVERY (OBJECT obj FROM grantees)
+  {
+    LogAuditEvent("system:userrights", CELL[ action :=  "revoke-role"
+                                           , grantee := obj->GetUserDataForLogging()
+                                           , roleauthobjectid := roleobj->authobjectid
+                                           , roleentityid := roleobj->entityid
+                                           , rolename := roleobj->GetUserRightsName()
+                                           ]);
+    TRY
+    {
+      contexts->user->RevokeRoleFrom(roleobj, obj);
+    }
+    CATCH (OBJECT e)
+    {
+      work->AddError(e->what);
+    }
+  }
+}
+
+MACRO LogRightAction(BOOLEAN isgrant, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER ARRAY objectids, BOOLEAN withgrantoption, STRING comment)
+{
+}
+
 PUBLIC MACRO TolliumGrantRightTo(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER ARRAY objectids, BOOLEAN withgrantoption, STRING comment)
 {
   BOOLEAN right_is_global := IsRightGlobal(right_name);
@@ -598,6 +703,14 @@ PUBLIC MACRO TolliumGrantRightTo(OBJECT work, OBJECT rightsinfo, OBJECT grantor,
 
   TRY
   {
+    LogAuditEvent("system:userrights", CELL[ action :=  "grant-right"
+                                           , grantee := grantee->GetUserDataForLogging()
+                                           , right := right_name
+                                           , objectids
+                                           , withgrantoption
+                                           , comment
+                                           ]);
+
     IF (right_is_global)
       grantor->GrantRightTo(right_name, grantee, withgrantoption, FALSE, comment);
     ELSE FOREVERY (INTEGER objectid FROM objectids)
@@ -622,7 +735,7 @@ PUBLIC BOOLEAN FUNCTION IsRevokeDangerous(OBJECT grantor, OBJECT grantee, STRING
   RETURN LENGTH(other_grantor_grants) = 0;
 }
 
-PUBLIC MACRO TolliumRevokeRightFrom(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER objectid, BOOLEAN onlyremovegrantoption, BOOLEAN only_check)
+PUBLIC MACRO TolliumRevokeRightFrom(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER objectid, BOOLEAN onlyremovegrantoption)
 {
   BOOLEAN right_is_global := IsRightGlobal(right_name);
 
@@ -646,11 +759,14 @@ PUBLIC MACRO TolliumRevokeRightFrom(OBJECT work, OBJECT rightsinfo, OBJECT grant
     }
   }
 
-  IF (only_check)
-    RETURN;
-
   TRY
   {
+    LogAuditEvent("system:userrights", CELL[ action :=  "revoke-right"
+                                           , grantee := grantee->GetUserDataForLogging()
+                                           , right := right_name
+                                           , objectids := right_is_global ? INTEGER[] : INTEGER[objectid]
+                                           ]);
+
     IF (right_is_global)
       grantor->RevokeRightFrom(right_name, grantee, onlyremovegrantoption);
     ELSE

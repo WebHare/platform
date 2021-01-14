@@ -11,7 +11,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 OBJECT richdocumentfile_type;
 
-
 /** @short An object that provides search information for publisher search
 */
 PUBLIC STATIC OBJECTTYPE SearchProviderBase
@@ -19,7 +18,7 @@ PUBLIC STATIC OBJECTTYPE SearchProviderBase
   /** @short Get the file contents of an object as indexable content
       @long If the filetype contains an array index field, this function can return a wrapped blob record for each of the
           array elements.
-      @param The id of the object
+      @param objid The id of the object
       @return The contents of the file as a list of wrapped blobs
   */
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSearchContents(INTEGER objid)
@@ -30,11 +29,6 @@ PUBLIC STATIC OBJECTTYPE SearchProviderBase
     ELSE
       RETURN DEFAULT RECORD ARRAY;
   }
->;
-
-/** @private we deprecated BaseSearchProvider because it's not named xxxxBase (for consistency) - still need 2 modules to switch to SearchProviderBase */
-PUBLIC STATIC OBJECTTYPE BaseSearchProvider EXTEND SearchProviderBase
-<
 >;
 
 PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
@@ -53,7 +47,6 @@ PUBLIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
     IF(NOT RecordExists(content))
       RETURN DEFAULT RECORD ARRAY;
 
-    //FIXME design a nicer return type than extending a wrapped blob
     RETURN [ CELL[ ...WrapBlob(content.htmltext, "richdocumentfile.html")
                  , indextypes := content.indextypes
                  , indexversions := content.indexversions

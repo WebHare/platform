@@ -3,6 +3,7 @@
   <test name="drawlib"    path="drawlib/" />
   <test name="ldap"       path="ldap/" />
   <test name="xml"        path="xml/" />
+  <test name="internet"   path="internet/" />
 
 <!-- the xbase (DBASE files) tests have been removed because they were based on
      data files which we cannot release. contact us if you need to run this test

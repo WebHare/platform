@@ -61,8 +61,15 @@ PUBLIC RECORD FUNCTION TestWebHareProxy(STRING url, STRING password, STRING reve
 
     // Generate a new verification code for this registration round
     browser->timeout := 5000;
-    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(url, "/rpc"), "test", [ STRING(reverseaddress), verificationurl ]);
+    result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(url, "/admin/rpc"), "test", [ STRING(reverseaddress), verificationurl ]);
     statuscode := browser->GetHTTPStatusCode();
+
+    IF (browser->GetHTTPStatusCode() IN [ 403, 404 ] AND NOT RecordExists(result))
+    {
+      // Support old proxy URL scheme too
+      result := browser->InvokeJSONRPC(ResolveToAbsoluteURL(url, "/rpc"), "test", [ STRING(reverseaddress), verificationurl ]);
+      statuscode := browser->GetHTTPStatusCode();
+    }
   }
   FINALLY
   {

@@ -79,7 +79,7 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     [ [ title :=          "Extra surronding divs"
       , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml"
       , input :=          `<div><div><p>Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden <br/><br/>Natuur &amp; Techniek</p></div></div>`
-      , expect :=         `<p class="normal">Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden <br/><br/>Natuur &amp; Techniek</p>`
+      , expect :=         `<p class="normal">Medewerker onderzoek onderzoeksgroep Beliefs 2012 - heden<br/><br/>Natuur &amp; Techniek</p>`
       ]
     , [ title :=          "Word pasted stuff"
       , structure :=      "mod::webhare_testsuite/data/test/custompage.structure.xml"
@@ -96,9 +96,15 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       , input :=          '<html><body><ol><li>item</li></ol></body></html>'
       , expect :=         '<body><ol class="ordered"><li>item</li></ol></body>'
       ]
+    , [ title :=          "Parsing lists in lists"
+      , structure :=      listtest_structure
+      , input :=          '<html><body><ol><li>item<ol><li>deeper item</li></ol></li></ol></body></html>'
+      , expect :=         '<body><ol class="ordered"><li>item<ol class="ordered"><li>deeper item</li></ol></li></ol></body>'
+      ]
+
 
     , [ structure :=      pages_rte_test_structure
-      , title :=          "Remove extra attributes"
+      , title :=          "Remove extra attributes and superfluous br"
       , input :=          `<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/" trash="true">stijl</a>.</p>`
       , expect :=         `<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/">stijl</a>.</p>`
       ]
@@ -108,6 +114,19 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       , input :=          `<h1>Kop</h1><p>paragraaf<br>metsoftenter</p><img height="50" width="50" src="/tests/webhare.png" />`
       , expect :=         `<h1 class="heading1">Kop</h1><p class="normal">paragraaf<br>metsoftenter</p><p class="normal"><img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" /></p>`
       ]
+
+    , [ structure :=      pages_rte_test_structure
+      , title :=          "Softenter and spaces #1"
+      , input :=          `<p>paragraaf\n<br>\nmet \nsoft enter\n</p><p>lege regels\nvoor\rformatting</p><p>111\n<b>111 </b>11\n222<b>\n222\n</b> 333\n<b>\n333</b>44 <i>44\n</i>\n4</p><p>ne\u200Bxt pa\u200Bra\n\r\n\r!</p>`
+      , expect :=         `<p class="normal">paragraaf<br>met soft enter</p><p class="normal">lege regels voor formatting</p><p class="normal">111 <b>111 </b>11 222<b> 222 </b>333 <b>333</b>44 <i>44 </i>4</p><p class="normal">next para !</p>`
+      ]
+
+    , [ structure :=      pages_rte_test_structure
+      , title :=          "Softenter and spaces #2"
+      , input :=          `<p>para<b> </b>graaf <br> <span> </span> a<br> <b> </b> b<br>c<b> </b><br>d <b> </b> </p>`
+      , expect :=         `<p class="normal">para<b> </b>graaf<br>a<br>b<br>c<br>d</p>`
+      ]
+
     , [ structure :=      pages_rte_test_structure
       , title :=          "Links with hash urls"
       , input :=          `<p class="normal">Twee links: <a href="#1">nummer 1</a> en <a href="#2">nummer 2</a></p>`
@@ -155,13 +174,13 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                             `<tbody>` ||
                               `<tr style="height: 18px;">` ||
                                 `<td class="wh-rtd__tablecell red"><p class="normal">EOS</p></td>` ||
-                                `<td class="wh-rtd__tablecell blue"><p class="normal">Team </p></td>` ||
-                                `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages </p></td>` ||
+                                `<td class="wh-rtd__tablecell blue"><p class="normal">Team</p></td>` ||
+                                `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages</p></td>` ||
                               `</tr>` ||
                               `<tr style="height: 521px;">` ||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Mission Statement</li><li>Strategic Plan </li><li>Who\`s who </li><li>Internet pages</li><li>MSc topics EOS 2014/2015</li><li>Posters EOS MSc topics 2015 </li></ul><p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a> <br> -<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br> -<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br> -<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br> -<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p><p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p></td>` ||
-                                `<td class="wh-rtd__tablecell"><h2 class="heading2">As of  1 July 2013</h2><ul class="unordered"><li>Chair: Prof. Dr. Ir. M.G. Vosselman </li><li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. Stein</li><li>Portfolio manager Education: J.P.G. Bakx</li><li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. Bijker </li><li>Management Assistant : Ms. T.K.A. Brefeld </li></ul></td>` ||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Minutes and other social information for department members only </li></ul></td>` ||
+                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Mission Statement</li><li>Strategic Plan</li><li>Who\`s who</li><li>Internet pages</li><li>MSc topics EOS 2014/2015</li><li>Posters EOS MSc topics 2015</li></ul><p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a><br>-<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br>-<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br>-<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br>-<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p><p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p></td>` ||
+                                `<td class="wh-rtd__tablecell"><h2 class="heading2">As of 1 July 2013</h2><ul class="unordered"><li>Chair: Prof. Dr. Ir. M.G. Vosselman</li><li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. Stein</li><li>Portfolio manager Education: J.P.G. Bakx</li><li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. Bijker</li><li>Management Assistant : Ms. T.K.A. Brefeld</li></ul></td>` ||
+                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Minutes and other social information for department members only</li></ul></td>` ||
                               `</tr>` ||
                               `<tr style="height: 86px;">` ||
                                 `<td class="wh-rtd__tablecell"><p class="normal">1</p><p class="normal">2</p><p class="mystyle">3</p><p class="mystyle">4</p><p class="normal">9</p></td>` ||
@@ -182,13 +201,13 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
                             `<tbody>` ||
                               `<tr>` ||
                                 `<td class="wh-rtd__tablecell"><p class="normal">EOS</p></td>`||
-                                `<td class="wh-rtd__tablecell"><p class="normal">Team </p></td>`||
-                                `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages </p></td>`||
+                                `<td class="wh-rtd__tablecell"><p class="normal">Team</p></td>`||
+                                `<td class="wh-rtd__tablecell"><p class="normal">EOS private pages</p></td>`||
                               `</tr>`||
                               `<tr>`||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Mission Statement</li><li>Strategic Plan </li><li>Who\`s who </li><li>Internet pages</li><li>MSc topics EOS 2014/2015</li><li>Posters EOS MSc topics 2015 </li></ul><p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a> <br> -<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br> -<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br> -<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br> -<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p><p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p></td>` ||
-                                `<td class="wh-rtd__tablecell"><h2 class="heading2">As of  1 July 2013</h2><ul class="unordered"><li>Chair: Prof. Dr. Ir. M.G. Vosselman </li><li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. Stein</li><li>Portfolio manager Education: J.P.G. Bakx</li><li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. Bijker </li><li>Management Assistant : Ms. T.K.A. Brefeld </li></ul></td>` ||
-                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Minutes and other social information for department members only </li></ul></td>` ||
+                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Mission Statement</li><li>Strategic Plan</li><li>Who\`s who</li><li>Internet pages</li><li>MSc topics EOS 2014/2015</li><li>Posters EOS MSc topics 2015</li></ul><p class="normal">-<a href="x-richdoclink:RL-QsoeIvbyqCJk_9FWpHEtVg">Methods</a><br>-<a href="x-richdoclink:RL-wJvgXcyjtTAQYaPdKZ8oMA">Spatial Data Qualit</a>y<br>-<a href="x-richdoclink:RL-bTO0wx6YhU3ttPzhEhzrbg">Image Analysis</a><br>-<a href="x-richdoclink:RL-dRhU2ksUBfNV1Cu-w0h9Ug">Integration of imagery, point clouds and (3D) map data</a><br>-<a href="x-richdoclink:RL-pERBro9D3uz5WexVMfrwkA">Mapping and modeling indoor environments using RGB-D data</a></p><p class="normal">-<a href="x-richdoclink:RL-cPcYGbGYA1px2vhfJr93jA">Information extraction from Airborne and Mobile Laser Scanner data</a></p></td>` ||
+                                `<td class="wh-rtd__tablecell"><h2 class="heading2">As of 1 July 2013</h2><ul class="unordered"><li>Chair: Prof. Dr. Ir. M.G. Vosselman</li><li>Vice chair and Portfolio manager Research: Prof. Dr. Ir. A. Stein</li><li>Portfolio manager Education: J.P.G. Bakx</li><li>Portfolio manager Capacity Building: Ms. Dr. Ir. W. Bijker</li><li>Management Assistant : Ms. T.K.A. Brefeld</li></ul></td>` ||
+                                `<td class="wh-rtd__tablecell"><ul class="unordered"><li>Minutes and other social information for department members only</li></ul></td>` ||
                               `</tr>` ||
                               `<tr>` ||
                                 `<td class="wh-rtd__tablecell"><p class="normal">1</p><p class="normal">2</p><p class="mystyle">3</p><p class="mystyle">4</p><p class="normal">9</p></td>`||
@@ -272,4 +291,10 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       , expect :=         `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test1</sup></sub></strike></u></b></i></del></ins></a></p>` ||
                           `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test2</sup></sub></strike></u></b></i></del></ins></a></p>`
       ]
+    , [ structure :=      allowallinlines_structure
+      , title :=          "Inline Embedded object" //HS doesn't need --inline classes and instanceid, JS uses encrypted refs
+      , input :=          `<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="ref"></span> object</p>`
+      , expect :=         `<p class="normal">Paragraph with inline <span class="wh-rtd-embeddedobject wh-rtd-embeddedobject--inline" data-instanceref="ref"></span> object</p>`
+      ]
+
     ];

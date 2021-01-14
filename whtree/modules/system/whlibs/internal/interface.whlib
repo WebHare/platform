@@ -267,7 +267,7 @@ PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_BIND(INTEGER connid, STRING ip, INTE
 PUBLIC                  MACRO    __HS_TCPIP_SETLASTERROR(INTEGER connid, INTEGER errorcode) __ATTRIBUTES__(EXTERNAL);
 PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_SETCERT(INTEGER connid, BLOB cert) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING           FUNCTION __HS_TCPIP_CanonicalizeIP(STRING address, INTEGER networkprefix) __ATTRIBUTES__(EXTERNAL);
-PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_SetSecureConnection(INTEGER connectionid, BOOLEAN initiate, STRING ciphersuites, STRING hostname) __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __HS_TCPIP_SetSecureConnection(INTEGER connectionid, BOOLEAN initiate, STRING ciphersuites, STRING hostname, INTEGER securitylevel) __ATTRIBUTES__(EXTERNAL);
 PUBLIC INTEGER          FUNCTION __HS_TCPIP_GetSocketTimeout(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING           FUNCTION __HS_TCPIP_GetPeerCertificateChain(INTEGER connectionid) __ATTRIBUTES__(EXTERNAL);
 

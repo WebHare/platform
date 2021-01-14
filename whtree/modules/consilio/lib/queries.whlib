@@ -744,8 +744,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
     IF (this->debug)
       Print("  State_PhraseStart\n");
 
-    //ADDME: Search other fields as well (maybe we should have a PhraseQuery per field?)
-    this->query_term := this->MakePhraseQuery(this->query_field ?? "body");
+    this->query_term := this->MakePhraseQuery(this->query_field);
 
     this->query_token := this->reader->GetNextToken(); // Eat '"'
     IF (RecordExists(this->query_token)) // Invalid token means end of text
@@ -885,7 +884,7 @@ PUBLIC STATIC OBJECTTYPE QueryParser
     IF (this->query_term._type != "phrase")
     {
       // The last word was the first phrase term, delete current subquery
-      this->query_term := this->MakePhraseQuery(this->query_field ?? "body");
+      this->query_term := this->MakePhraseQuery(this->query_field);
       this->query_words := DEFAULT STRING ARRAY;
 
       IF (this->query_field = "")
@@ -1182,6 +1181,14 @@ PUBLIC STATIC OBJECTTYPE QueryParser
     IF (this->debug)
       Print("    MakePhraseQuery\n");
 
+    IF (field = "")
+    {
+      FLOAT ARRAY boosts := SELECT AS FLOAT ARRAY COLUMN boost FROM this->defaultfields;
+      IF (Length(boosts) > 0)
+        RETURN MakeMatchPhraseQuery((SELECT AS STRING ARRAY COLUMN field FROM this->defaultfields), STRING[], boosts, boost);
+      ELSE
+        field := "body"; // If there are no default fields, search the body
+    }
     RETURN MakePhraseQuery(field, DEFAULT STRING ARRAY, boost);
   }
 
@@ -1600,8 +1607,22 @@ PUBLIC RECORD FUNCTION MakePhraseQuery(STRING field, STRING ARRAY words, FLOAT b
 
   RETURN [ _type := "phrase"
          , field := field
-         , words := DEFAULT STRING ARRAY
+         , words := words
          , slop := 0
+         , boost := boost
+         ];
+}
+
+PUBLIC RECORD FUNCTION MakeMatchPhraseQuery(STRING ARRAY fields, STRING ARRAY words, FLOAT ARRAY boosts DEFAULTSTO DEFAULT FLOAT ARRAY, FLOAT boost DEFAULTSTO 1f)
+{
+  IF (Length(fields) = 0)
+    THROW NEW Exception("Query fields are required for match phrase query");
+
+  RETURN [ _type := "phrase"
+         , fields := fields
+         , words := words
+         , slop := 0
+         , boosts := boosts
          , boost := boost
          ];
 }
@@ -1773,7 +1794,30 @@ STRING FUNCTION FormatQueryRecursive(INTEGER indexid, RECORD query, STRING field
     }
     CASE "phrase"
     {
+      IF (Length(query.words) = 0)
+        RETURN "";
       STRING slop := query.slop != 0 ? "~" || query.slop : "";
+      IF (CellExists(query, "fields")) // Multi-field phrase search
+      {
+        IF (Length(query.fields) = 0)
+          RETURN "";
+        IF (Length(query.fields) > 1)
+        {
+          STRING ARRAY boosts :=
+              SELECT AS STRING ARRAY __FormatBoost(fieldboost)
+                FROM ToRecordArray(query.boosts ?? [ 1f ], "fieldboost");
+          RECORD ARRAY query_fields := ToRecordArray(query.fields, "query_field");
+          STRING ARRAY clauses := SELECT AS STRING ARRAY (query_field != field ? query_field || ":" : "") || "\"" || Detokenize(query.words, " ") || "\"" || slop || boosts[#query_fields % Length(boosts)] FROM query_fields;
+          RETURN boost != "" ? "(" || Detokenize(clauses, " ") || ")" || boost : Detokenize(clauses, " ");
+        }
+        ELSE
+        {
+          // Treat as single-field phrase search
+          INSERT CELL field := query.fields[0] INTO query;
+          IF (Length(query.boosts) > 0)
+            query.boost := query.boost * query.boosts[0];
+        }
+      }
       RETURN (query.field != field AND query.field != "" ? query.field || ":" : "") || "\"" || Detokenize(query.words, " ") || "\"" || slop || boost;
     }
     CASE "range"

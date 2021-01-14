@@ -9,7 +9,8 @@ LOADLIB "mod::system/lib/remoting/remotable.whlib";
 LOADLIB "mod::system/lib/remoting/server.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webserver/reloadconfig.whlib";
 
 OBJECTTYPE TestObject EXTEND RemotableObject
 < UPDATE PUBLIC STRING ARRAY FUNCTION __GetRemotableMethods() { RETURN [ "GetStr1", "CallTest", "Crash" ]; }
@@ -120,6 +121,16 @@ PUBLIC RECORD FUNCTION RPC_LoginTest()
 {
   OBJECT rpcuser := GetEffectiveUser();
   RETURN [ user := ObjectExists(rpcuser) ? rpcuser->entityid : 0 ];
+}
+
+PUBLIC RECORD FUNCTION RPC_TestMinimalConfig()
+{
+  RECORD minimalconfig := CreateMinimalWebserverConfig();
+  ReloadPreviousConfig(minimalconfig);
+  RECORD fullconfig := DownloadWebserverConfig();
+  ReloadPreviousConfig(fullconfig);
+
+  RETURN CELL [ success := TRUE ];
 }
 
 PUBLIC RECORD FUNCTION RPC_ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD newdata)

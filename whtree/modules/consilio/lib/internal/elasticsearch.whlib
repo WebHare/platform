@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -25,11 +26,25 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
   MACRO NEW(STRING what, OBJECT browser)
   : Exception(what)
   {
-    IF(Objectexists(browser) AND browser->GetHTTPStatusCode() = 400)
+    IF (Objectexists(browser)
+        AND (browser->GetHTTPStatusCode() < 200 OR browser->GetHTTPStatusCode() > 200)
+        AND browser->mimetype = "application/json")
     {
       RECORD decoded := DecodeJSONBLOB(browser->content);
-      IF(RecordExists(decoded) AND CellExists(decoded,'error'))
+      IF(CellExists(decoded,'error') AND TypeID(decoded.error) = TypeID(RECORD))
       {
+        IF(CellExists(decoded.error,'root_cause'))
+        {
+          this->error := EnforceStructure([ "index" := ""
+                                          , "index_uuid" := ""
+                                          , "reason" := ""
+                                          , "type" := ""
+                                          ], decoded.error.root_cause);
+
+          IF(this->error.reason != "")
+            this->what := this->what || " (" || this->error.reason || ")";
+          RETURN;
+        }
         this->error := EnforceStructure([ "index" := ""
                                         , "index_uuid" := ""
                                         , "reason" := ""
@@ -98,7 +113,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
         IF (statuscode = 401)
         {
           FetcherDebug(ConsilioDebugInfo, `Authentication error while connecting to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
-          reject(NEW Exception(SearchNoAccess));
+          reject(NEW ElasticsearchException(SearchNoAccess, indexmanager.browser));
           RETURN;
         }
 
@@ -127,7 +142,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
 
 PUBLIC RECORD FUNCTION SendToElasticsearch(INTEGER indexmgrid, STRING indexname, STRING command, RECORD request, STRING method, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ throwonfailure := FALSE ], options);
+  options := ValidateOptions([ throwonfailure := FALSE ], options);
 
   STRING url := (indexname != "" ? "/" || indexname : "") || command;
   RECORD body := request;
@@ -196,9 +211,10 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
       ELSE
       {
         // Got an unexpected code, but we'll let it slide
+        OBJECT exc := NEW ElasticsearchException("Unexpected response code " || statuscode, indexmanager.browser);
         IF(options.throwonfailure)
-          THROW NEW ElasticsearchException("Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText(), indexmanager.browser);
-        FetcherDebug(ConsilioDebugInfo, "Unexpected response code " || statuscode || ":" || indexmanager.browser->GetHTTPStatusText());
+          THROW exc;
+        FetcherDebug(ConsilioDebugInfo, exc->what);
         BREAK;
       }
     }
@@ -230,13 +246,13 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
 
   // Get file system status (containing total and available disk space)
   RECORD fs_stats := SendToElasticsearch(indexmgrid, "", "/_nodes/stats/fs", DEFAULT RECORD, "GET");
-  IF (fs_stats.status != "ok")
+  IF (fs_stats.status != SearchOk)
     RETURN CELL[ ...result, status := fs_stats.status ];
 
   // Get cluster settings (containing disk thresholds)
-  RECORD settings := SendToElasticsearch(indexmgrid, "", "/_cluster/settings?flat_settings=true&include_defaults=true", DEFAULT RECORD, "GET");
-  IF (settings.status != "ok")
-    RETURN CELL[ ...result, status := settings.status ];
+  RECORD settings := GetElasticsearchSettings(indexmgrid, TRUE);
+  IF (NOT RecordExists(settings))
+    RETURN CELL[ ...result, status := SearchHTTPError ];
 
   // The nodes are named; we'll just use the first (and, at least for now, only) node
   RECORD node := UnpackRecord(fs_stats.result.nodes)[0].value;
@@ -249,39 +265,25 @@ PUBLIC RECORD FUNCTION GetElasticsearchStatus(INTEGER indexmgrid)
   INSERT `disk.total=${total_bytes}` INTO result.msg AT END;
 
   // Read cluster disk settings
-  /*
-    https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-update-settings.html#_order_of_precedence
-
-    The order of precedence for cluster settings is:
-
-    1. transient cluster settings
-    2. persistent cluster settings
-    3. settings in the elasticsearch.yml configuration file.
-  */
-  RECORD active_settings := CELL
-      [ ...settings.result.defaults
-      , ...settings.result.persistent
-      , ...settings.result.transient
-      ];
-  IF (active_settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
+  IF (settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
   {
-    INTEGER64 low_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
-    INTEGER64 high_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.high", total_bytes);
-    INTEGER64 flood_bytes := ReadWatermark(active_settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
-    IF (available_bytes < flood_bytes AND CellExists(active_settings,"cluster.routing.allocation.disk.watermark.flood"))
+    INTEGER64 low_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
+    INTEGER64 high_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.high", total_bytes);
+    INTEGER64 flood_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.flood_stage", total_bytes);
+    IF (available_bytes < flood_bytes AND CellExists(settings,"cluster.routing.allocation.disk.watermark.flood"))
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=flood=${active_settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
+      INSERT `disk.watermark=flood=${settings."cluster.routing.allocation.disk.watermark.flood"}` INTO result.msg AT END;
     }
     ELSE IF (available_bytes < high_bytes)
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=high=${active_settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
+      INSERT `disk.watermark=high=${settings."cluster.routing.allocation.disk.watermark.high"}` INTO result.msg AT END;
     }
     ELSE IF (available_bytes < low_bytes)
     {
       INSERT `indexstatus=0` INTO result.msg AT END;
-      INSERT `disk.watermark=low=${active_settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
+      INSERT `disk.watermark=low=${settings."cluster.routing.allocation.disk.watermark.low"}` INTO result.msg AT END;
     }
     ELSE
     {
@@ -308,6 +310,15 @@ PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN incl
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 
+  /*
+    https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-update-settings.html#_order_of_precedence
+
+    The order of precedence for cluster settings is:
+
+    1. transient cluster settings
+    2. persistent cluster settings
+    3. settings in the elasticsearch.yml configuration file.
+  */
   IF (include_defaults)
     RETURN CELL
       [ ...settings.result.defaults
@@ -381,7 +392,7 @@ PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 
 PUBLIC BOOLEAN FUNCTION ElasticsearchMappingExists(INTEGER indexmgrid, INTEGER indexid, STRING type)
 {
-  RETURN GetAdhocCached([ type := type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
+  RETURN GetAdhocCached(CELL[ type ], PTR ElasticsearchMappingExists_Uncached(indexmgrid, indexid, type));
 }
 
 RECORD FUNCTION ElasticsearchMappingExists_Uncached(INTEGER indexmgrid, INTEGER indexid, STRING type)
@@ -422,6 +433,47 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, STRING language)
   RECORD query := input;
   IF (CellExists(query, "query"))
     query := query.query;
+
+  IF (CellExists(input, "ordering"))
+  {
+    IF (RecordExists(input.ordering))
+    {
+      // The 'sort' field is an array of strings and objects
+      VARIANT ARRAY sort;
+      FOREVERY (RECORD orderfield FROM input.ordering)
+      {
+        IF (CellExists(orderfield, "orderdesc"))
+        {
+          IF (CellExists(orderfield, "ordermode"))
+          {
+            // When both orderdesc and ordermode are given, insert an object with an object property
+            // { "myfield": { "order": "asc", "mode": "min" } }
+            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ "order" := orderfield.orderdesc ? "desc" : "asc", "mode" := orderfield.ordermode ]) INTO sort AT END;
+          }
+          ELSE
+          {
+            // When only orderdesc is given, insert on object with a string property
+            // { "myfield": "asc" }
+            INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, orderfield.orderdesc ? "desc" : "asc") INTO sort AT END;
+          }
+        }
+        ELSE IF (CellExists(orderfield, "ordermode"))
+        {
+          // When only ordermode is given, insert an object with an object property
+          // { "myfield": { "mode": "min" } }
+          INSERT CellInsert(DEFAULT RECORD, orderfield.orderby, [ mode := orderfield.ordermode ]) INTO sort AT END;
+        }
+        ELSE
+        {
+          // When only the field is given, insert the field name
+          // "myfield"
+          INSERT orderfield.orderby INTO sort AT END;
+        }
+      }
+      result := CELL[ ...result, sort ];
+    }
+    DELETE CELL ordering FROM input;
+  }
 
   result.query := CreateElasticsearchQueryRecursive(query, language);
 
@@ -477,6 +529,7 @@ PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY f
   RETURN query;
 }
 
+//ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
 RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
 {
   IF (NOT CellExists(query, "_type"))
@@ -549,26 +602,48 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD query, STRING language)
     }
     CASE "literal"
     {
-      result :=
-          [ constant_score :=
-              [ filter :=
-                  [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ]
-              ]
-          ];
+      result := [ term := CellInsert(DEFAULT RECORD, query.field, query.term) ];
     }
     CASE "phrase"
     {
-      result :=
-          [ match_phrase := CellInsert(DEFAULT RECORD, query.field, Detokenize(query.words, " ")) ];
-      IF (query.slop != 0)
+      IF (CellExists(query, "fields") AND Length(query.fields) > 1)
       {
-        // Convert [ match_phrase := [ my_field := "my_value" ] ] into
-        // [ match_phrase := [ my_field := [ query := "my_value", slop := my_slop ] ] ]
-        RECORD slop_query :=
-            [ query := GetCell(result.match_phrase, query.field)
-            , slop := query.slop
+        STRING ARRAY boosts :=
+            SELECT AS STRING ARRAY __FormatBoost(boost)
+              FROM ToRecordArray(query.boosts ?? [ 1f ], "boost");
+        result :=
+            [ multi_match :=
+                [ query := Detokenize(query.words, " ")
+                , type := "phrase"
+                , fields :=
+                    (SELECT AS STRING ARRAY field || boosts[#fields % Length(boosts)]
+                       FROM ToRecordArray(query.fields, "field") AS fields)
+                ]
             ];
-        result.match_phrase := CellInsert(CellDelete(result.match_phrase, query.field), query.field, slop_query);
+        IF (query.slop != 0)
+          INSERT CELL slop := query.slop INTO result.multi_match;
+      }
+      ELSE
+      {
+        // This is a multi-field phrase query with one field
+        IF (CellExists(query, "fields"))
+        {
+          INSERT CELL field := query.fields[0] INTO query;
+          IF (Length(query.boosts) > 0)
+            query.boost := query.boost * query.boosts[0];
+        }
+        result :=
+            [ match_phrase := CellInsert(DEFAULT RECORD, query.field, Detokenize(query.words, " ")) ];
+        IF (query.slop != 0)
+        {
+          // Convert [ match_phrase := [ my_field := "my_value" ] ] into
+          // [ match_phrase := [ my_field := [ query := "my_value", slop := my_slop ] ] ]
+          RECORD slop_query :=
+              [ query := GetCell(result.match_phrase, query.field)
+              , slop := query.slop
+              ];
+          result.match_phrase := CellInsert(CellDelete(result.match_phrase, query.field), query.field, slop_query);
+        }
       }
     }
     CASE "date", "range"
@@ -738,6 +813,87 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
 }
 
+PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, STRING ARRAY requested_fields, RECORD mapping)
+{
+  RECORD ARRAY results;
+  FOREVERY (RECORD hit FROM hits)
+  {
+    RECORD lineresult;
+    FOREVERY (STRING fld FROM requested_fields)
+    {
+      IF (fld = "indexid")
+        lineresult := CellInsert(lineresult, "indexid", GetAdhocCached(CELL[ hit._index ], PTR GetIndexIdUncached(hit._index)));
+      ELSE IF (fld = "_score")
+        lineresult := CellInsert(lineresult, "_score", hit._score);
+      ELSE IF (CellExists(hit, "highlight") AND CellExists(hit.highlight, fld))
+        lineresult := CellInsert(lineresult, fld, GetCell(hit.highlight, fld)[0]);
+      ELSE
+        lineresult := ReadResultField(lineresult, hit._source, fld);
+    }
+
+    RECORD singleresult := ParseSingleElasticsearchResult(lineresult, mapping);
+    IF (RecordExists(singleresult))
+      INSERT singleresult INTO results AT END;
+  }
+  RETURN results;
+}
+
+RECORD FUNCTION GetIndexIdUncached(STRING indexid)
+{
+  INTEGER value :=
+      SELECT AS INTEGER id
+        FROM consilio.indices
+       WHERE indexname != ""
+             AND (indexname = indexid OR indexid LIKE indexname || "-*");
+  RETURN CELL
+      [ value
+      , eventmasks := [ "consilio:indiceschanged" ]
+      ];
+}
+
+RECORD FUNCTION ReadResultField(RECORD lineresult, RECORD hit, STRING fld)
+{
+  // Check if a record subfield was requested
+  STRING subfld;
+  IF (fld LIKE "*.*")
+  {
+    subfld := Substring(fld, SearchSubstring(fld, ".") + 1);
+    fld := Left(fld, SearchSubstring(fld, "."));
+  }
+  IF (CellExists(hit, fld))
+  {
+    IF (subfld != "")
+    {
+      // Get the current record (array)
+      VARIANT value := CellExists(lineresult, fld) ? GetCell(lineresult, fld) : GetTypeDefaultValue(TypeID(GetCell(hit, fld)));
+      IF (TypeID(value) = TypeID(RECORD ARRAY))
+      {
+        // Process each record within the array separately
+        FOREVERY (RECORD subhit FROM GetCell(hit, fld))
+        {
+          // Add a default record if necessary
+          IF (Length(value) <= #subhit)
+            INSERT DEFAULT RECORD INTO value AT END;
+          // Read the subfield result
+          value[#subhit] := ReadResultField(value[#subhit], subhit, subfld);
+        }
+      }
+      ELSE
+      {
+        // Read the subfield result
+        value := ReadResultField(value, GetCell(hit, fld), subfld);
+      }
+      // Replace or add the new value
+      lineresult := CellExists(lineresult, fld) ? CellUpdate(lineresult, fld, value) : CellInsert(lineresult, fld, value);
+    }
+    ELSE IF (fld LIKE "date_*")
+      lineresult := CellInsert(lineresult, fld, MakeDateFromText(GetCell(hit, fld)));
+    ELSE
+      lineresult := CellInsert(lineresult, fld, GetCell(hit, fld));
+  }
+  RETURN lineresult;
+}
+
 PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
 {
   RECORD singleresult;
@@ -750,23 +906,73 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
     IF (CellExists(lineresult, field.name))
     {
       VARIANT value := GetCell(lineresult, field.name);
-      IF (TypeID(value) = TypeID(field.value)) // Either STRING or DATETIME
+      IF (CanCastTypeTo(TypeID(value), TypeID(RECORD)) AND RecordExists(value))
       {
-        singleresult := CellInsert(singleresult, field.name, value);
+        // Recursively convert the subfields of this RECORD (ARRAY) field
+        IF (TypeID(field.value) = TypeID(RECORD ARRAY))
+        {
+          // Expecting an array (this returns an array with one record if the actual result was a single record)
+          RECORD ARRAY subresults;
+          // Parse the records within the array
+          FOREVERY (RECORD subvalue FROM TypeID(value) = TypeID(RECORD ARRAY) ? value : RECORD[ value ])
+            INSERT ParseSingleElasticsearchResult(subvalue, field.value) INTO subresults AT END;
+          singleresult := CellInsert(singleresult, field.name, subresults);
+        }
+        ELSE
+        {
+          // Parse the result record (this returns the first record if the actual result was an array)
+          singleresult := CellInsert(singleresult, field.name, ParseSingleElasticsearchResult(value, field.value));
+        }
         CONTINUE;
       }
-      ELSE IF (TypeID(value) = TypeID(STRING)) // Convert STRING to desired type
+      ELSE
       {
-        // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
-        value := Substitute(value, "\x1D", "");
-        value := Substitute(value, "\x1C", "");
+        // Convert values or arrays of values
+        INTEGER mappingtype := TypeID(field.value);
+        BOOLEAN mappingisarray := IsTypeIDArray(mappingtype);
+        IF (mappingisarray)
+          mappingtype := TypeID(GetArrayTypeDefaultElement(mappingtype));
+        BOOLEAN valueisarray := IsTypeIDArray(TypeID(value));
 
-        // We're only decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
-        VARIANT decoded := DecodeJSON(value);
-        IF (CanCastTypeTo(TypeID(decoded), TypeID(field.value)))
+        VARIANT mappedvalue;
+        IF (mappingisarray)
         {
-          field.value := decoded;
-          singleresult := CellInsert(singleresult, field.name, field.value);
+          mappedvalue := GetTypeDefaultArray(mappingtype);
+          IF (valueisarray)
+          {
+            // Expecting an array, got an array, convert all values
+            FOREVERY (VARIANT val FROM value)
+            {
+              val := DecodeFieldValue(val, mappingtype);
+              IF (NOT IsDefaultValue(val))
+                INSERT val INTO mappedvalue AT END;
+            }
+          }
+          ELSE
+          {
+            // Expecting an array, got a single value, make an array containg the converted single value
+            value := DecodeFieldValue(value, mappingtype);
+            IF (NOT IsDefaultValue(value))
+              INSERT value INTO mappedvalue AT END;
+          }
+        }
+        ELSE IF (valueisarray)
+        {
+          // Expecting a single value, got an array, take the first array element and convert it
+          IF (Length(value) > 0)
+            mappedvalue := DecodeFieldValue(value[0], mappingtype);
+          ELSE
+            mappedvalue := GetTypeDefaultValue(mappingtype);
+        }
+        ELSE
+        {
+          // Expecting a single value, got a single value, convert it
+          mappedvalue := DecodeFieldValue(value, mappingtype);
+        }
+
+        IF (NOT IsDefaultValue(mappedvalue))
+        {
+          singleresult := CellInsert(singleresult, field.name, mappedvalue);
           CONTINUE;
         }
       }
@@ -775,4 +981,38 @@ PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD 
     singleresult := CellInsert(singleresult, field.name, field.value);
   }
   RETURN singleresult;
+}
+
+VARIANT FUNCTION DecodeFieldValue(VARIANT value, INTEGER expectedtype)
+{
+  IF (TypeID(value) = expectedtype)
+  {
+    // Either STRING or DATETIME don't have to be converted
+    RETURN value;
+  }
+  ELSE IF (TypeID(value) = TypeID(STRING))
+  {
+    // Convert STRING to desired type (either BOOLEAN, DATETIME or a numeric type)
+    // Get rid of search term highlighting markers (\x1D and \x1C), they mess up the string to type conversion
+    value := Substitute(value, "\x1D", "");
+    value := Substitute(value, "\x1C", "");
+
+    IF (expectedtype = TypeID(DATETIME))
+      value := MakeDateFromText(value);
+    ELSE
+    {
+      // We're decoding to BOOLEAN or numeric value, so we'll use DecodeJSON
+      value := DecodeJSON(value);
+    }
+  }
+  IF (CanCastTypeTo(TypeID(value), expectedtype))
+    RETURN CastTo(value, expectedtype);
+  ELSE IF (TypeID(value) = TypeID(FLOAT))
+  {
+    IF (expectedtype = TypeID(MONEY))
+      RETURN FloatToMoney(value);
+    ELSE IF (expectedtype = TypeID(INTEGER64))
+      RETURN INTEGER64(value);
+  }
+  RETURN DEFAULT RECORD;
 }

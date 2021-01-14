@@ -25,7 +25,6 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 */
 STRING ARRAY ignored_types :=
     [ "http://www.webhare.net/xmlns/publisher/previewinfo"
-    , "http://www.webhare.net/xmlns/blexdev_blit/v2/checkedoutfolder" // clone on copy for targz & copying, may not end op in repository
     ];
 
 STRING ARRAY fulltree_ignored_types :=
@@ -34,7 +33,6 @@ STRING ARRAY fulltree_ignored_types :=
 
 STRING ARRAY basedata_included_types :=
     [ "http://www.webhare.net/xmlns/publisher/sitesettings"
-    , "http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings"
     ];
 
 RECORD defaultbasedata :=
@@ -74,64 +72,6 @@ STATIC OBJECTTYPE BlitInclusionSettings
 
   MACRO NEW(RECORD data)
   {
-    OBJECT inclusionsettings_type := OpenWHFSType("http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings");
-    FOREVERY (OBJECT source FROM data.sources)
-    {
-      IF (source EXTENDSFROM WHFSDescriptionTreeBase)
-      {
-        IF (RecordExists(source->root))
-        {
-          RECORD instancedata :=
-                SELECT AS RECORD COLUMN data
-                  FROM source->root.instances
-                 WHERE typens = "http://www.webhare.net/xmlns/blexdev_blit/v2/inclusionsettings";
-
-          RECORD ARRAY settings;
-          settings := RecordExists(instancedata) ? instancedata.settings : DEFAULT RECORD ARRAY;
-
-          this->inclusionsettings :=
-              SELECT path :=          ToUppercase(SubString(fsobject, 5))
-                   , self
-                   , recursive
-                   , basefields :=    CellExists(settings, "BASEFIELDS") ? basefields : DEFAULT STRING ARRAY
-                FROM settings
-               WHERE fsobject LIKE "repo:*";
-        }
-      }
-      ELSE
-      {
-        RECORD ARRAY settings := inclusionsettings_type->GetInstanceData(source->id).settings;
-
-        settings :=
-            SELECT *
-                 , obj :=    OpenWHFSObject(fsobject)
-              FROM settings;
-
-        STRING rootpath := source->whfspath;
-        IF (RecordExists(SELECT FROM settings WHERE NOT ObjectExists(obj) OR obj->whfspath NOT LIKE rootpath || "*"))
-          THROW NEW Exception("The Blit inclusion settings for this repository are inconsistent, please fix first");
-
-        this->inclusionsettings :=
-            SELECT path :=    obj->whfspath
-                 , self
-                 , recursive
-                 , basefields
-              FROM settings;
-
-        this->inclusionsettings :=
-            SELECT *
-                 , path :=    ToUppercase(SubString(path, LENGTH(rootpath), LENGTH(path) - LENGTH(rootpath) - (path LIKE "*/" ? 1 : 0)))
-              FROM this->inclusionsettings
-             WHERE path LIKE rootpath || "*";
-      }
-    }
-
-    this->inclusionsettings :=
-        SELECT *
-          FROM this->inclusionsettings
-      ORDER BY ToUppercase(path);
-
-    //PRINT(AnyToString(this->inclusionsettings, "boxed"));
   }
 
   // ---------------------------------------------------------------------------

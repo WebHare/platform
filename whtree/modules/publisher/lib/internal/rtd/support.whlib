@@ -77,15 +77,13 @@ PUBLIC OBJECT FUNCTION CreateInstanceBlockNode(OBJECT doc, STRING instanceid)
   RETURN myblock;
 }
 
-/* this object is created by
-   - <richdocument> itself - so child documents in a widget can get the settings, cleaning out inheritance
-   - objectproperties - allowing inheritance of the rtd settings
-   - editdocument - the context for editdoc(*)
-
-   (*) not yet, editdocument uses __ExplicitSetupFile until it has switched to dynamic contents */
+/** Context for widgeteditors opened by <rtdtype> */
 PUBLIC OBJECTTYPE RichDocumentContext
 <
-  PUBLIC RECORD rtdtypeinfo;
+  PUBLIC RECORD __rtdtypeinfo; //used to implement <richdocument> rtdtype and 'inherit'. might change or go away
+
+  ///<rtdtype> of current <richdocument>
+  PUBLIC PROPERTY rtdtype(this->__rtdtypeinfo.namespace, -);
 >;
 
 PUBLIC OBJECTTYPE AnchorableBase

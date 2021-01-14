@@ -155,7 +155,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->frontendid := GenerateUFS128BitId();
 
     this->personalsettingsapp := "system:personalsettings";
-    this->jsversion := GetAssetPackCacheBuster("tollium:webinterface" || (AreOutputToolsActive() ? ".dev" : ""));
+    this->jsversion := GetAssetPackBuildVersion("tollium:webinterface" || (AreOutputToolsActive() ? ".dev" : ""));
   }
 
   RECORD FUNCTION GetRunData()
@@ -173,7 +173,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       , intolerant       := this->intolerant
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
-      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || GetAssetPackCacheBuster(sharedworker_bundletag)
+      , sharedworker     := "/.ap/" || Substitute(sharedworker_bundletag, ":", ".") || "/ap.js?ts=" || GetAssetPackBuildVersion(sharedworker_bundletag)
       , allowinframe     := this->allowinframe
       , jsversion        := this->jsversion
       ];

@@ -1,0 +1,97 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/components/list.whlib";
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+
+PUBLIC OBJECTTYPE MoveToSelect EXTEND TolliumFragmentBase
+<
+  FUNCTION PTR __onsourcefilter;
+  PUBLIC PROPERTY columns(^sourcelist->columns, SetColumns);
+  PUBLIC PROPERTY onsourcefilter(__onsourcefilter, SetOnSourceFilter);
+
+  MACRO NEW()
+  {
+    EXTEND this BY StoredListComponentBase;
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->storage->selectmode := "multiple";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD description)
+  {
+    TolliumFragmentBase::StaticInit(description);
+    ^sourcelist->columns := description.columns;
+    ^selectionlist->columns := description.columns;
+    ^sourcelist->sortcolumn := ""; //will pick first column
+    ^selectionlist->sortcolumn := ""; //will pick first column
+    this->StaticInitStoredListComponentBase(description);
+    this->onsourcefilter := description.onsourcefilter;
+  }
+
+  MACRO LTH_UpdatedAllRows()
+  {
+    ^sourcelist->Invalidate();
+    ^selectionlist->Invalidate();
+  }
+  MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    ^sourcelist->Invalidate();
+    ^selectionlist->Invalidate();
+  }
+
+  MACRO SetOnSourceFilter(MACRO PTR newfilter)
+  {
+    IF(newfilter = this->__onsourcefilter)
+      RETURN;
+
+    this->__onsourcefilter := newfilter;
+    ^sourcefilterfield->visible := newfilter != DEFAULT FUNCTION PTR;
+    ^sourcelist->Invalidate();
+  }
+
+  MACRO SetColumns(RECORD ARRAY cols)
+  {
+    ^sourcelist->columns := cols;
+    ^selectionlist->columns := cols;
+    this->rows := RECORD[];
+  }
+
+  RECORD ARRAY FUNCTION GetSourceRows()
+  {
+    RECORD ARRAY rows := SELECT *, DELETE tolliumselected FROM this->rows WHERE NOT tolliumselected;
+    IF(this->__onsourcefilter != DEFAULT FUNCTION PTR)
+      rows := this->__onsourcefilter(rows, ^sourcefilterfield->value);
+    RETURN rows;
+  }
+
+  RECORD ARRAY FUNCTION GetSelectionRows()
+  {
+    RETURN SELECT *, DELETE tolliumselected FROM this->rows WHERE tolliumselected;
+  }
+
+  MACRO OnSourceFilterChange()
+  {
+    ^sourcelist->Invalidate();
+  }
+
+  MACRO DoAddToSelection()
+  {
+    VARIANT toselect := ^sourcelist->value;
+    this->value := this->value CONCAT toselect;
+    ^selectionlist->value := toselect;
+  }
+
+  MACRO DoRemoveFromSelection()
+  {
+    VARIANT todeselect := ^selectionlist->value;
+    this->value := ArrayDelete(this->value, todeselect);
+    ^sourcelist->value := todeselect;
+  }
+>;

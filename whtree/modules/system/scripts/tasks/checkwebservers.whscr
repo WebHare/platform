@@ -21,7 +21,7 @@ INTEGER numsleeps := 0;
 
 STRING FUNCTION CheckHost(STRING baseurl)
 {
-  STRING gotourl := ResolveToAbsoluteURL(baseurl, "/.webhare/direct/uuid");
+  STRING gotourl := ResolveToAbsoluteURL(baseurl, "/.webhare/direct/system/uuid.shtml");
   IF(NOT browser->GotoWebPage(gotourl))
   {
     IF(numsleeps < 5)

@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/forms/components.whlib";
@@ -110,6 +111,32 @@ PUBLIC OBJECTTYPE TSLineCompField EXTEND ComposedFormFieldBase
     this->customselect->value := val.customselect;
   }
 
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetExtraMergeFields(RECORD value)
+  {
+    //this payment-request API can use some optimizing... we're probably overloading GetExtraMergeFields too much using it for formconditionsources, mergefields and payment info!
+    STRING field1 := RecordExists(value) ? value.raw.field1 : this->field1->value;
+    STRING field2 := RecordExists(value) ? value.raw.field2 : this->field2->value;
+    INTEGER sum := ToInteger(field1, 0) + ToInteger(field2, 0);
+    INTEGER difference := ToInteger(field1, 0) - ToInteger(field2, 0);
+
+    RETURN [ [ name := "sum"
+             , title := "Sum"
+             , value := [ ...value
+                        , raw := sum
+                        , text := FormatMoney(sum,2,',','',TRUE)
+                        ]
+             , supportedvalues := ["money"]
+             ]
+           , [ name := "difference"
+             , title := "Difference"
+             , value := [ ...value
+                        , raw := difference
+                        , text := FormatMoney(difference,2,',','',TRUE)
+                        ]
+             , supportedvalues := ["money"]
+             ]
+           ];
+  }
 >;
 
 PUBLIC OBJECTTYPE TSCustomCompField EXTEND FormFieldBase

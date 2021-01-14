@@ -116,8 +116,9 @@ export WEBHARE_BASEPORT
 export WEBHARE_DATAROOT
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
+# Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8
+export LANG="C.UTF-8"
+export LC_ALL="C.UTF-8"
 
 if [ ! -d "$WEBHARE_DIR" ]; then
   echo "Cannot find WebHare installation" 2>&1
@@ -359,13 +360,13 @@ setup_buildsystem()
 
     # We also want pdf-box. Homebrew/Fedora don't ship it so we'll just manually download it
     PDFBOX_BASEDIR="$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines/"
-    PDFBOX_VERSION="2.0.8"
+    PDFBOX_VERSION="2.0.21"
     PDFBOX_DOWNLOADPATH="$PDFBOX_BASEDIR/pdfbox-app-$PDFBOX_VERSION.jar"
     PDFBOX_FINALPATH="$PDFBOX_BASEDIR/pdfbox-app.jar"
 
     if [ ! -f "$PDFBOX_DOWNLOADPATH" -o ! -f "$PDFBOX_FINALPATH" ]; then
       mkdir -p "$PDFBOX_BASEDIR"
-      if ! curl https://build.webhare.org/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
+      if ! curl https://build.webhare.dev/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
         echo PDFBOX download failed
         exit 1
       fi

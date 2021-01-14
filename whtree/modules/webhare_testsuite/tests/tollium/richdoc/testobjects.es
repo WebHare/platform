@@ -105,7 +105,7 @@ test.registerTests(
           test.eqHTML(
               '<html><body><h2 class="heading2">This docs opens with a heading2. It should be selected in the Pulldown!</h2>'
              +'<div class="wh-rtd-embeddedobject" data-instanceid="'+id_1+'"></div>'
-             +'<p class="normal"> is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"/></p>'
+             +'<p class="normal">is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"/></p>'
              +'<div class="wh-rtd-embeddedobject" data-instanceid="'+id_2+'"></div>'
              +'<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>'
              +'</body></html>', rawcode);

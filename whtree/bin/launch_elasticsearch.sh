@@ -41,7 +41,7 @@ fi
 export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  exec chpst -u elasticsearch:elasticsearch:whdata "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT
+  exec chpst -u elasticsearch:elasticsearch:whdata "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ediscovery.type=single-node
 else
-  exec "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT
+  exec "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ediscovery.type=single-node
 fi

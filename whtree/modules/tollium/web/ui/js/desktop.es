@@ -53,7 +53,6 @@ $todd.ApplicationBar = class
 
     var navtab = this.dyn_node.querySelector(".t-apptabs__navtab");
     navtab.addEventListener("click", this._onNavMenuClick.bind(this));
-    navtab.addEventListener("wh:menu-activateitem", this._onActivateTab.bind(this));
 
     this.scroll_left_node.addEventListener("mouseover", evt => this._scrollMouseOver(evt,-1));
     this.scroll_left_node.addEventListener("mouseout", evt => this._scrollCancel(evt));
@@ -139,10 +138,10 @@ $todd.ApplicationBar = class
     menu.openAt(this.appnavmenu, this.nav_node, { direction: 'down', align: 'right' });
   }
 
-  _onActivateTab(event)
+  _onActivateTab(event, app)
   {
-    event.detail.menuitem.todd_app.activateApp();
-    event.stopPropagation();
+    dompack.stop(event);
+    app.activateApp();
   }
 
   _gotoApp(how, idx)
@@ -181,8 +180,7 @@ $todd.ApplicationBar = class
         // New application
         newtab.root =
             <div className="t-apptab t-apptab--hasicon"
-                 on={{ "wh:menu-activateitem": event => this.onTabContextMenuClick(app,event)
-                     , "contextmenu": event => this.onTabContextMenu(app,event)
+                 on={{ "contextmenu": event => this.onTabContextMenu(app,event)
                      , "click": event => this.onTabClick(app,event)
                     }}>
               {newtab.icon=<ToddImage image={app.appicon || 'tollium:tollium/tollium'}
@@ -201,7 +199,7 @@ $todd.ApplicationBar = class
         newtab.onupdatescreen = this.onUpdateScreen.bind(this, newtab);
         newtab.onupdateapp = this.onUpdateApp.bind(this, newtab);
         newtab.app = app;
-        newtab.menuitem = <li>{app.title}</li>;
+        newtab.menuitem = <li onClick={evt => this._onActivateTab(evt,app)}>{app.title}</li>;
         newtab.menuitem.todd_app = app;
         newtab.fixed = fixed;
 
@@ -341,17 +339,17 @@ $todd.ApplicationBar = class
     dompack.empty(this.apptabmenu);
     appmenu.forEach(menuitem =>
     {
-      let item = menuitem.isdivider ? <li class="divider" /> : <li propMenuitem={menuitem}>{menuitem.title}</li>;
+      let item = menuitem.isdivider ? <li class="divider" /> : <li onClick={evt => this.onTabContextMenuClick(evt, app, menuitem)}>{menuitem.title}</li>;
       this.apptabmenu.appendChild(item);
     });
 
     menu.openAt(this.apptabmenu, event);
   }
-  onTabContextMenuClick(app, event)
+  onTabContextMenuClick(event, app, menuitem)
   {
-    var action = event.detail.menuitem.propMenuitem;
-    if(action && action.cmd)
-      app.executeCommand(action.cmd);
+    dompack.stop(event);
+    if(menuitem.cmd)
+      app.executeCommand(menuitem.cmd);
   }
   onUpdateScreen(tab, event)
   {

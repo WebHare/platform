@@ -52,10 +52,14 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
       UpdateWebCookie("__whpub_preview",'', [ httponly := FALSE, lifetime := 30*86400  ]);
     }
 
+    RECORD cookieopts := [ httponly := FALSE, lifetime := 30*86400 ];
+    IF(GetRequestURL() LIKE "https:*") //ensures 'etr' can be set for cross-domain RPC calls
+      cookieopts := CELL[ ...cookieopts,  samesite := "none", secure := TRUE ];
+
     IF(this->issupervisor) //only for supervisors we allow the private flags and will actually sign
-      UpdateWebCookie("wh-debug", GetSignedWHDebugOptions(debugopts), [ httponly := FALSE, lifetime := 30*86400  ]);
+      UpdateWebCookie("wh-debug", GetSignedWHDebugOptions(debugopts), cookieopts);
     ELSE
-      UpdateWebCookie("wh-debug", Detokenize(debugopts,'.'), [ httponly := FALSE, lifetime := 30*86400  ]);
+      UpdateWebCookie("wh-debug", Detokenize(debugopts,'.'), cookieopts);
 
     Redirect("/" || GetWebVariable("b"));
   }

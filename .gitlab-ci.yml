@@ -166,19 +166,6 @@ testtollium:
     expire_in: 1 week
   interruptible: true
 
-testtollium-components:
-  stage: test
-  except:
-    - /^docs\/.*$/
-  script:
-    - whtree/bin/wh testdocker --tag=-external tollium-components
-  artifacts:
-    paths:
-      - artifacts
-    when: on_failure
-    expire_in: 1 week
-  interruptible: true
-
 testconsilio:
   stage: test
   except:
@@ -300,7 +287,6 @@ testsftp:
 
 testtwohares:
   stage: test
-  allow_failure: true
   except:
     - /^docs\/.*$/
   script:

@@ -9,7 +9,7 @@ function getFormRPCRequests()
 test.registerTests(
   [ async function()
     {
-      await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupEmailFieldtest'); //creates a simple blacklist
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupEmailFieldtest'); //creates a simple blacklist
     }
 
   , 'Check smart email field BLOCKING ON SUBMIT'

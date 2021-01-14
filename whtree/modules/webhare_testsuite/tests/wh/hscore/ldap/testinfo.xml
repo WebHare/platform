@@ -1,9 +1,3 @@
-<!--
-  These tests are meant to test the testscript:
-  * Are parameters correctly parsed?
-  * Does nesting of tests and running different groups work?
-  * Are failing tests recognized properly?
--->
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
 
   <group name="ber">

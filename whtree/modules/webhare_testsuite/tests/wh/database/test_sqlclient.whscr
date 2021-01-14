@@ -39,11 +39,13 @@ MACRO WithArguments()
   STRING runscript := GetWebhareConfiguration().installationroot || "bin/runscript";
   OBJECT proc;
   proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--showmode","json","? 1 + 1"],FALSE,TRUE,TRUE,TRUE);
-  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name !="WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
+  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
   TestEq("2",TrimWhitespace(GetOutputUntilTermination(proc)));
-  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--user", "webhare_testsuite_user2", "--showmode","json","select from system.fs_objects limit 1"],FALSE,TRUE,TRUE,TRUE);
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr", "--showmode","json","select from system.fs_objects limit 1"],FALSE,TRUE,TRUE,TRUE);
+  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
   TestEq("[{}]",TrimWhitespace(GetOutputUntilTermination(proc))); //one empty record..
-  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr","--user", "webhare_testsuite_user2", "--showmode","json","select * from wrd.entity_settings limit 1"],FALSE,TRUE,TRUE,TRUE);
+  proc := CreateProcess(runscript, ["mod::system/scripts/whcommands/sql.whscr", "--showmode","json","select * from wrd.entity_settings limit 1"],FALSE,TRUE,TRUE,TRUE);
+  proc->SetEnvironment(RECORD[ ...(SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_CLI_USER"), [ name := "WEBHARE_CLI_USER", value := "webhare_testsuite_user1" ] ]);
   RECORD res := DecodeJSON(GetOutputUntilTermination(proc));
   TestEq(TRUE, RecordExists(res));
 
@@ -59,7 +61,7 @@ MACRO WithArguments()
     IF (NOT RecordExists(rec))
       BREAK;
 
-    IF (rec.parts[0] = "system:sqlclient" AND rec.parts[2] LIKE "webhare_testsuite_user*")
+    IF (rec.parts[0] = "system:sqlclient" AND rec.parts[2] LIKE "webhare_testsuite_user1")
       INSERT rec INTO items AT END;
   }
   stream->Close();

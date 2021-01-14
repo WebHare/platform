@@ -2,12 +2,12 @@
 # https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md
 
 # See https://github.com/phusion/baseimage-docker
-FROM       phusion/baseimage:0.11
+FROM       ubuntu:20.04
 MAINTAINER WebHare bv <info@webhare.com>
 
 # Environment variables
 ENV WEBHARE_IN_DOCKER=1 \
-  WEBHARE_UBUNTU=1804 \
+  WEBHARE_UBUNTU=2004 \
   WEBHARE_DATAROOT=/opt/whdata \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
@@ -39,11 +39,6 @@ RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
 RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
     /bin/bash /setup-pdfbox.sh
-
-# Install mariaodbc
-RUN --mount=type=bind,source=/setup-mariaodbc.sh,target=/setup-mariaodbc.sh \
-    --mount=type=cache,id=mariaodbc,target=/tmp/downloads \
-    /bin/bash /setup-mariaodbc.sh
 
 # Install elasticsearch
 RUN --mount=type=bind,source=/setup-elasticsearch.sh,target=/setup-elasticsearch.sh \

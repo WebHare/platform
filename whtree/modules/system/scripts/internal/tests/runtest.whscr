@@ -989,7 +989,7 @@ WHILE (TRUE)
     {
       Print(' - ' || failure.testname);
       IF(failure.type="jstest")
-        Print(' (' || UpdateURLVariables("https://my.webhare.dev/" || UnpackURL(failure.baseurl).urlpath, [ mask := failure.testname ]) || ")");
+        Print(' ' || UpdateURLVariables("https://my.webhare.dev/" || UnpackURL(failure.baseurl).urlpath, [ mask := failure.testname ]));
       Print('\n');
     }
 

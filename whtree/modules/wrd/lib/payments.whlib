@@ -208,6 +208,7 @@ STATIC OBJECTTYPE PaymentAPI
                             , p := ""
                             , d := DEFAULT DATETIME
                             , h := ""
+                            , x := DEFAULT RECORD
                             , provider := paymentdata.paymentprovider
                             ];
     RETURN CreatePaymentRecord([__paymentdata]);
@@ -307,6 +308,7 @@ STATIC OBJECTTYPE PaymentAPI
       RETURN retval;
     }
     psp->pvt_paymentref := paymentdata.paymentref;
+    psp->userdata := paymentdata.userdata;
 
     RECORD ARRAY paymentoptions := psp->GetPaymentOptions();
     IF(Length(paymentoptions) = 0)

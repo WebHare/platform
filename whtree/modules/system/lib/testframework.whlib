@@ -1291,8 +1291,8 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
           OBJECT trans := GetPrimary();
           IF(ObjectExists(trans))
           {
-            IF(trans->IsWorkOpen())
-              trans->RollbackWork();
+            WHILE(trans->IsWorkOpen())
+              trans->PopWork();
           }
         }
 
@@ -1328,7 +1328,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
       @long Ask the webserver to refresh its configuration read from the database and module definitions. The relevant changes need to be already committed. Returns when the webserver is reconfigured */
   PUBLIC MACRO RefreshWebserverConfig()
   {
-    IF (ObjectExists(GetPrimaryWebhareTransactionObject()) AND GetPrimary()->IsWorkOpen())
+    IF (HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen())
       GetPrimary()->RegisterCommitHandler("webserver:configreload", PTR this->OnCommitRefreshWebserverConfig);
     ELSE
       this->OnCommitRefreshWebserverConfig(TRUE);
@@ -1582,18 +1582,6 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     RETURN this->testoutputserver;
   }
 
-  /** Request an extension on all rate limits. Must currently be renewed once a minute, invoke testframework with
-      keepratelimits := TRUE if you don't want this bump (but previous tests can currently still have a lingering enabling) */
-  PUBLIC MACRO DisableRateLimits()
-  {
-    this->BeginWork();
-    DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
-    //TODO once we get a more generic mechanisme, deal with that. ideally we only disable limits for as long as the current test runs (Even if the test crashes)
-    IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
-      WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
-    this->CommitWork();
-  }
-
   /** Create a test website, and optionally unpack the selected archive
       Requires its caller to setup a transaction/work */
   PUBLIC RECORD FUNCTION SetupTestWebsite(BLOB archive)
@@ -1796,7 +1784,9 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
   {
     options := ValidateOptions([ annotation := ""
                                , maxmse := 0f
+                               , resizeimgifneeded := FALSE
                                ], options);
+
     STRING respath := resource;
     BLOB expectdata;
     TRY
@@ -1811,7 +1801,20 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
     FLOAT mse;
     FLOAT maxmse := options.maxmse;
 
-    BOOLEAN dimension_mismatch := expectcanvas->width != gotcanvas->width OR expectcanvas->height != gotcanvas->height;
+    BOOLEAN dimension_mismatch;
+    IF(expectcanvas->width != gotcanvas->width OR expectcanvas->height != gotcanvas->height)
+    {
+      IF(options.resizeimgifneeded)
+      {
+        Print(`Rescaling image from ${gotcanvas->width}x${gotcanvas->height} to ${expectcanvas->width}x${expectcanvas->height}\n`);
+        gotcanvas->SetImageSize(expectcanvas->width, expectcanvas->height);
+      }
+      ELSE
+      {
+        dimension_mismatch := TRUE;
+      }
+    }
+
     BOOLEAN iserror := dimension_mismatch;
     IF (iserror)
       PRINT("Image dimensions does not match reference image\n");
@@ -1892,7 +1895,7 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
   PUBLIC RECORD FUNCTION GenerateKeyPair(STRING commonname)
   {
-    OBJECT evpkey := GenerateCryptoKey("RSA", 1024);
+    OBJECT evpkey := GenerateCryptoKey("RSA", 2048);
     RECORD res := this->CreateKeyPair(commonname, StringToBlob(evpkey->privatekey), DEFAULT BLOB);
     BLOB csr := res.keypair->GenerateCSR([ cn := commonname ]);
     RECORD certdata := res.keypair->SignCertificateRequest(csr, [ selfsign := TRUE ]);
@@ -2097,7 +2100,7 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
   }
   ELSE
   {
-    retval.error := "Publication error code #" || outputrun->errorcode;
+    retval.error := "Publication error code #" || outputrun->errorcode || " (" || outputrun->errordata || ")";
   }
   /*
   Print(Retval||"<br>");
@@ -2209,7 +2212,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
   }
 
   IF(options.usedatabase AND NOT options.keepratelimits)
-    testfw->DisableRateLimits();
+    SnoozeRateLimits();
 
   testfw->RunTests();
 }
@@ -2317,4 +2320,16 @@ PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
 
   OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
   site->SetPrimaryOutput(backendsite->outputweb, `/testoutput/${subfolder}/`);
+}
+
+/** Request an extension on all rate limits. Must currently be renewed once a minute, invoke testframework with
+    keepratelimits := TRUE if you don't want this bump (but previous tests can currently still have a lingering enabling) */
+PUBLIC MACRO SnoozeRateLimits()
+{
+  GetPrimary()->BeginWork();
+  DATETIME bumpuntil := AddTimeToDate(60000, GetCurrentDatetime());
+  //TODO once we get a more generic mechanisme, deal with that. ideally we only disable limits for as long as the current test runs (Even if the test crashes)
+  IF(ReadRegistryKey("publisher.forms.disableratelimits") < bumpuntil)
+    WriteRegistryKey("publisher.forms.disableratelimits", bumpuntil);
+  GetPrimary()->CommitWork();
 }

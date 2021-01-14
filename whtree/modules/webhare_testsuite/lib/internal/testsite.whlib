@@ -31,15 +31,19 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , addcustompaymenthandler := FALSE
+                              , addpaymenthandler := FALSE
                               , addintegerfield := FALSE
+                              , addmoneyfield := FALSE
                               , addpulldown := FALSE
                               , adddatecondition := FALSE
+                              , openingrichtext := FALSE
                               , checkboxes := FALSE
                               , checkboxsubs := FALSE
                               , addcheckboxfield := FALSE
@@ -66,7 +70,85 @@ RECORD testformfileoptions := [ addpaymentmethod := FALSE
                               , customformedits := DEFAULT MACRO PTR
                               //optionally set emailfieldname, simplifies some tests and they don't all need to test dynamic field names...
                               , emailfieldname := ""
+                              , withpayment := STRING[]
                               ];
+
+MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
+{
+  rtdmailhandler->SetAttribute("sendername","Pietje");
+  rtdmailhandler->SetAttribute("sender","mailfeedbackhandler@beta.webhare.net");
+  rtdmailhandler->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
+
+  OBJECT formdefs := formpage->formdefinition->formdefinitions;
+
+  OBJECT checkboxesfield := formpage->LookupComponent("checkboxes");
+  OBJECT tslinecomp := formpage->LookupComponent("tsline");
+
+  //Create a simple RTD response with an image
+  STRING rtdtext := formdefs->CreateInstance(
+    [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , data := [ htmltext := StringToBlob('<html><body>'
+                                || '<p class="normal">Dear <b><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_firstname"></span></b>, </p>'
+                                || (options.iscustom ? '<p class="normal">Confirmation with <a href="x-witty:[pagedata.editlink]">edit link</a> and a <a href="x-richdoclink:sfdjkleearterg">internal link</a></p>' : "")
+                                || '<p class="normal">This mail was sent to: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_email"></span></p>'
+                                || '<p class="normal">We asked you when: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_when"></span>}</p>'
+                                || '<p class="normal">Your checkboxes: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_checkboxes"></span>}</p>'
+                                || (options.addtslinecomp AND options.addpaymenthandler ? '<p class="normal">TSLinecomp difference: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_tslinecompcost"></span>}</p>' : "")
+                                || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
+                                || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
+                                || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
+                                || '</body></html>')
+              , links := [[ tag := "sfdjkleearterg", linkref := OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->id ]
+                         ]
+              , instances := [[ instanceid := "embedobj_firstname"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_email"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := emailfield->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_when"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("date")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_checkboxes"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := ObjectExists(checkboxesfield) ? checkboxesfield->GetAttribute("guid") : ""
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_tslinecompcost"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := ObjectExists(tslinecomp) ? tslinecomp->GetAttribute("guid") || "$difference" : ""
+                                        ]
+                              ]
+                             ]
+                             CONCAT (options.custommergefields ?
+                             [[ instanceid := "embedobj_reversed"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
+                                        , fieldname := formpage->LookupComponent("reversed")->GetAttribute("guid") || "$reversed"
+                                        ]
+                              ]
+                             ,[ instanceid := "embedobj_custom"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
+                                        , fieldname := formpage->LookupComponent("firstname")->GetAttribute("guid")
+                                        ]
+                              ]
+                             ] : RECORD[])
+                             CONCAT (options.embeddedresults ?
+                             [[ instanceid := "embedobj_results"
+                              , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formresultsfield" ]
+                              ]
+                             ] : RECORD[])
+              ]
+    ]);
+
+  rtdmailhandler->SetAttribute("textid", rtdtext);
+}
+
 
 MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 {
@@ -101,6 +183,32 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                                                       , value := [ type ]
                                                                       ]);
     }
+  }
+
+  //Add a 'simple' thankyou - simple in quotes as we currently only have richtext
+  IF(options.openingrichtext)
+  {
+    OBJECT openingrichtext := formpage->AppendComponent("richtext");
+    openingrichtext->SetAttribute("name", "openingtext");
+
+    STRING rtdtext := formdefs->CreateInstance(
+      [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+      , data := [ htmltext := StringToBlob('<html><body>'
+                                  || '<h1 class="heading1">Welcome to this form!</h1>'
+                                  || '<p class="normal">Hi!</p>'
+                                  || '<div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-usGy9kO-g"></div>'
+                                  || '</body></html>')
+                , instances := [[ instanceid := "_1ra7ve1TrCw-usGy9kO-g"
+                                , data := [ whfstype := "http://www.webhare.net/xmlns/beta/embedblock1"
+                                          , id := "abcdefgh"
+                                          , styletitle := "embedblock1 title1"
+                                          ]
+                                ]
+                               ]
+                ]
+      ]);
+
+    openingrichtext->SetAttribute("textid", rtdtext);
   }
 
   //Add some fields
@@ -287,6 +395,15 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     integerfield->SetAttribute("valuetype","integer");
   }
 
+  OBJECT moneyfield;
+  IF(options.addmoneyfield)
+  {
+    moneyfield := formpage->AppendComponent("textedit");
+    moneyfield->SetAttribute("name","moneyfield");
+    moneyfield->SetAttribute("title","Money");
+    moneyfield->SetAttribute("valuetype","money");
+  }
+
   OBJECT addedcheckboxfield;
   IF(options.addcheckboxfield)
   {
@@ -458,10 +575,14 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     paymentmethodfield->SetAttribute("name","pm");
     paymentmethodfield->SetAttribute("title","Pay using");
     paymentmethodfield->SetAttribute("required","true");
-    paymentmethodfield->SetAttribute("wrdschema",whconstant_wrd_testschema);
-    paymentmethodfield->SetAttribute("providerfield","payprov.method");
-    paymentmethodfield->SetAttribute("paymentfield","paydata.data");
     paymentmethodfield->SetAttribute("pins","existence");
+
+    IF(NOT options.addpaymenthandler) //the payment handlers configures these fields implicitly through general siteprofiles
+    {
+      paymentmethodfield->SetAttribute("wrdschema",whconstant_wrd_testschema);
+      paymentmethodfield->SetAttribute("providerfield","payprov.method");
+      paymentmethodfield->SetAttribute("paymentfield","paydata.data");
+    }
   }
   IF(options.wrdprefill)
   {
@@ -471,9 +592,10 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   OBJECT testsuitehandler := formdef->AddHandler("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler");
   testsuitehandler->SetAttribute("x","42@webhare.net");
 
+  OBJECT tsfield;
   IF(options.addtslinecomp)
   {
-    OBJECT tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tslinecomp");
+    tsfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#tslinecomp");
     tsfield->SetAttribute("name","tsline");
     tsfield->SetAttribute("title","TSLine");
   }
@@ -579,7 +701,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   richtext->SetAttribute("textid", rtdtext);
 
 
-  IF(options.iscustom)
+  IF(options.iscustom OR options.addpaymenthandler)
   {
     //only show thank you if the use is really new/changing
     formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
@@ -601,6 +723,41 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
                                                                     , matchtype := "IN"
                                                                     , value := ["cancel"]
+                                                                    ]);
+
+  }
+  IF(options.addpaymenthandler)
+  {
+    //add separate confirmation text, payment handlers like this
+    richtext := thankyoupage->AppendComponent("richtext");
+    OBJECT body := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","body");
+    OBJECT h1 := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","h1");
+    h1->SetAttribute("class","heading1");
+    h1->textcontent := "Confirmation!";
+
+    body->AppendChild(h1);
+    richtext->SetAttribute("name", "thankyou_confirmed");
+    richtext->AppendChild(body);
+
+    formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
+                                                                    , matchtype := "IN"
+                                                                    , value := ["confirm"]
+                                                                    ]);
+
+    //add separate pending text
+    richtext := thankyoupage->AppendComponent("richtext");
+    body := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","body");
+    h1 := richtext->ownerdocument->CreateElementNS("http://www.w3.org/1999/xhtml","h1");
+    h1->SetAttribute("class","heading1");
+    h1->textcontent := "Pending!";
+
+    body->AppendChild(h1);
+    richtext->SetAttribute("name", "thankyou_pending");
+    richtext->AppendChild(body);
+
+    formdefs->SetConditionAttribute(richtext, "visibleconditionid", [ field := "formsubmittype"
+                                                                    , matchtype := "IN"
+                                                                    , value := ["pending"]
                                                                     ]);
   }
 
@@ -657,71 +814,31 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   {
     //Also test RTDs with custom fields
     OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
-    rtdmailhandler->SetAttribute("sendername","Pietje");
-    rtdmailhandler->SetAttribute("sender","mailfeedbackhandler@beta.webhare.net");
-    rtdmailhandler->SetAttribute("receiverfield", emailfield->GetAttribute("guid"));
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
     rtdmailhandler->SetAttribute("subject", "RTD with confirmation");
-
-    //Create a simple RTD response with an image
-    rtdtext := formdefs->CreateInstance(
-      [ whfstype := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-      , data := [ htmltext := StringToBlob('<html><body>'
-                                  || '<p class="normal">Dear <b><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_firstname"></span></b>, </p>'
-                                  || '<p class="normal">Confirmation with <a href="x-witty:[pagedata.editlink]">edit link</a> and a <a href="x-richdoclink:sfdjkleearterg">internal link</a></p>'
-                                  || '<p class="normal">This mail was sent to: <span class="wh-rtd-embeddedobject" data-instanceid="embedobj_email"></span></p>'
-                                  || '<p class="normal">We asked you when: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_when"></span>}</p>'
-                                  || '<p class="normal">Your checkboxes: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_checkboxes"></span>}</p>'
-                                  || (options.custommergefields ? '<p class="normal">Reversed text: {<span class="wh-rtd-embeddedobject" data-instanceid="embedobj_reversed"></span>}</p>' : '')
-                                  || (options.custommergefields ? '<div class="wh-rtd-embeddedobject" data-instanceid="embedobj_custom"></div>' : '')
-                                  || (options.embeddedresults ? '<p class="normal">:BEFORERESULTS:</p><div class="wh-rtd-embeddedobject" data-instanceid="embedobj_results"></div><p class="normal">:AFTERRESULTS:</p>' : '')
-                                  || '</body></html>')
-                , links := [[ tag := "sfdjkleearterg", linkref := OpenTestsuiteSite()->OpenByPath("testpages/staticpage")->id ]
-                           ]
-                , instances := [[ instanceid := "embedobj_firstname"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := firstnamefield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_email"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := emailfield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_when"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := whenfield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_checkboxes"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := ObjectExists(checkboxesfield) ? checkboxesfield->GetAttribute("guid") : ""
-                                          ]
-                                ]
-                               ]
-                               CONCAT (options.custommergefields ?
-                               [[ instanceid := "embedobj_reversed"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formmergefield"
-                                          , fieldname := reversedfield->GetAttribute("guid") || "$reversed"
-                                          ]
-                                ]
-                               ,[ instanceid := "embedobj_custom"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/customformwidget"
-                                          , fieldname := firstnamefield->GetAttribute("guid")
-                                          ]
-                                ]
-                               ] : RECORD[])
-                               CONCAT (options.embeddedresults ?
-                               [[ instanceid := "embedobj_results"
-                                , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formresultsfield" ]
-                                ]
-                               ] : RECORD[])
-                ]
-      ]);
-
-    rtdmailhandler->SetAttribute("textid", rtdtext);
     formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
                                                                    , matchtype := "IN"
                                                                    , value := ["new","change"]
+                                                                   ]);
+  }
+
+  IF(options.addpaymenthandler)
+  {
+    //Also test RTDs with custom fields
+    OBJECT rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
+    rtdmailhandler->SetAttribute("subject", "Payment is confirmed");
+    formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
+                                                                   , matchtype := "IN"
+                                                                   , value := ["confirm"]
+                                                                   ]);
+
+    rtdmailhandler := formdef->AddHandler("mailfeedbackhandler");
+    SetupMailFeedbackHandler(rtdmailhandler, formpage, emailfield, options);
+    rtdmailhandler->SetAttribute("subject", "Payment has failed");
+    formdefs->SetConditionAttribute(rtdmailhandler, "conditionid", [ field := "formsubmittype"
+                                                                   , matchtype := "IN"
+                                                                   , value := ["cancel"]
                                                                    ]);
   }
 
@@ -763,10 +880,6 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                                                  , value := ["copt3"]
                                                                  ]);
   }
-  ELSE
-  {
-    mailhandler2->RemoveAttribute("guid"); //random generate guid, to test it being put back (was an upgrade issue)
-  }
 
   IF(options.addcustompaymenthandler)
   {
@@ -775,6 +888,19 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     customhandler->SetAttribute("title","Custom Payment Handler");
     customhandler->SetAttribute("handlerobject", "mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.whlib#PaymentFormHandler");
     customhandler->SetAttribute("pins","existence");
+  }
+
+  IF(options.addpaymenthandler)
+  {
+    OBJECT paymenthandler := formdef->AddHandler("http://www.webhare.net/xmlns/wrd/forms#paymenthandler");
+    IF(options.addmoneyfield)
+      paymenthandler->SetAttribute("fromfield", moneyfield->GetAttribute("guid"));
+    ELSE IF(options.addtslinecomp)
+      paymenthandler->SetAttribute("fromfield", tsfield->GetAttribute("guid") || "$difference");
+    ELSE
+      paymenthandler->SetAttribute("fixedamount", "42.42");
+
+    paymenthandler->SetAttribute("orderid","TESTFW-ORDER");
   }
 
   IF(options.addtscustomcomp)
@@ -942,7 +1068,7 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath(options.infolder);
   TestEq(TRUE, ObjectExists(webtoolsfolder), `'${options.infolder}' folder missing in testsite, run resettestsite.whscr?`);
 
-  testfw->BeginWork();
+  GetPrimary()->PushWork();
   STRING filename := options.filename ?? "form";
   OBJECT formfile := webtoolsfolder->OpenByName(filename);
   IF(ObjectExists(formfile))
@@ -954,18 +1080,9 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
                                           , publish := options.publish AND NOT options.iswidget
                                           ]);
   FillTestFormFile(formfile, options);
+  GetPrimary()->PopWork();
 
-  //Reload it
-  OBJECT formdefs := OpenWHFSFormDefinitionsFile(formfile);
-  OBJECT formdef := formdefs->OpenFormDefinition("webtoolform");
-  OBJECT formpage := formdef->GetPage(0);
-
-  OBJECT firstnamefield := formpage->node->firstelementchild;
-  TestEq("textedit", firstnamefield->localname);
-
-  testfw->CommitWork();
-
-  IF(options.publish)
+  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
   RETURN [ url := formfile->indexurl
@@ -978,7 +1095,7 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
   options := ValidateOptions( testformfileoptions, options);
   options := CELL[...options, iscustom := TRUE ];
 
-  testfw->BeginWork();
+  GetPrimary()->PushWork();
 
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
   OBJECT customformfile := webtoolsfolder->OpenByName("customform");
@@ -991,11 +1108,12 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm(RECORD options DEFAULTSTO CELL[])
 
   FillTestFormFile(customformfile, options);
 
-  testfw->CommitWork();
-  IF(options.publish)
+  GetPrimary()->PopWork();
+  IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
   RETURN [ url := customformfile->indexurl
+         , id := customformfile->id
          , formfile := customformfile
          ];
 }
@@ -1031,16 +1149,20 @@ PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])
          ];
 }
 
-
 PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[...testformfileoptions,  which := "" ], options);
+  options := ValidateOptions(CELL[...testformfileoptions, which := "" ], options);
 
   OpenPrimary();
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
 
   RECORD formoptions := CELL[...options, DELETE which];
   RECORD result := options.which = "custom" ? BuildCustomWebtoolForm(formoptions) : BuildWebtoolForm(formoptions);
+  IF(Length(options.withpayment) > 0)
+  {
+    CreateWRDTestSchema(CELL[options.withpayment]);
+  }
+
   RETURN CELL[...result, DELETE formfile ];
 }
 PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1243,7 +1365,7 @@ PUBLIC MACRO TestInvoke_LogoutStaticLogin()
   GetWRDAuthPlugin(testsite->OpenByPath("staticlogin")->url)->LogOut();
 }
 
-PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
+PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
 {
   RunTestFramework(DEFAULT MACRO PTR ARRAY);
   OBJECT testsite := OpenTestsuiteSite();
@@ -1278,12 +1400,13 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_idp->GetType("WRD_AUTHDOMAIN_SAML_IDP")->CreateEntity(
+  wrdschema_idp->GetType("WRD_AUTHDOMAIN_SAML_IDP")->CreateEntity(CELL
       [ wrd_tag :=                "TEST-IDP"
       , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test IDP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/idp"
       , keypair :=                MakeIntExtInternalLink(keypair_idp.id, "")
+      , hashmethod
       , organization_name :=      "webhare_testsuite IDP"
       , organization_displayname := "webhare_testsuite IDP"
       , organization_url :=       "http://b-lex.com"
@@ -1297,12 +1420,13 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
   //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
   //    ]);
 
-  wrdschema_sp->GetType("WRD_AUTHDOMAIN_SAML_SP")->CreateEntity(
+  wrdschema_sp->GetType("WRD_AUTHDOMAIN_SAML_SP")->CreateEntity(CELL
       [ wrd_tag :=                "TEST-SP"
       , wrd_leftentity :=         "WEBHAREBACKEND"
 //      , wrd_title :=              "Test SP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/sp"
       , keypair :=                MakeIntExtInternalLink(keypair_sp.id, "")
+      , hashmethod
       , organization_name :=      "webhare_testsuite SP"
       , organization_displayname := "webhare_testsuite SP"
       , organization_url :=       "http://b-lex.com"
@@ -1332,7 +1456,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml()
     authplugin->LogOut();
   }
 
-  RETURN GetOverrideTokenURL(15 * 60 * 1000); //15 minutes is still pretty minimal for debugging..
+  RETURN GetOrExtendOverrideURL(15 * 60 * 1000, DEFAULT DATETIME); //15 minutes is still pretty minimal for debugging..
 }
 
 PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1349,7 +1473,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
   {
     OpenPrimary();
     STRING peerserver := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface");
-    RETURN InvokeRemoteFunction(ResolveToAbsoluteURL(peerserver,"/wh_services/system/jstests/invoke"), Resolve(""), "SetupForTestSetup", VARIANT[CELL[ ...options, DELETE onpeerserver ]]);
+    RETURN InvokeRemoteFunction(ResolveToAbsoluteURL(peerserver,"/wh_services/system/jstests/invoke"), Resolve("#SetupForTestSetup"), VARIANT[CELL[ ...options, DELETE onpeerserver ]]);
   }
 
   RECORD testfwoptions := [ testusers := RECORD[]
@@ -1360,7 +1484,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
 
   RunTestFramework(DEFAULT MACRO PTR ARRAY, testfwoptions); //just cleanup/reset stuff - note, implies OpenPrimary
 
-  RECORD retval := [ overridetoken := GetOverrideTokenURL(60 * 60 * 10000)
+  RECORD retval := [ overridetoken := GetOrExtendOverrideURL(60 * 60 * 10000, DEFAULT DATETIME)
                    , sysopuser     := options.createsysop ? testfw->GetUserLogin("sysop") : ""
                    , sysoppassword := options.createsysop ? testfw->GetUserPassword("sysop") : ""
                    , testportalurl := GetTestTolliumPortalURL()
@@ -1570,3 +1694,10 @@ PUBLIC MACRO TestInvoke_SetupEmailFieldtest()
 {
   RunTestframework([ PTR SetupTestWhitelists ]);
 }
+
+PUBLIC MACRO Testinvoke_SnoozeRateLimits()
+{
+  OpenPrimary();
+  SnoozeRateLimits();
+}
+

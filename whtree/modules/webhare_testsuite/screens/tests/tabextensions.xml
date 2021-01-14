@@ -1,8 +1,10 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         lib="screens/tests/tabextensions.whlib"
-         xmlns:blex_alpha="http://www.webhare.net/xmlns/beta/components">
+         lib="screens/tests/tabextensions.whlib">
 
   <screen name="test">
+    <actions>
+      <action name="loadextension2" title="load extension 2 ('level43')" onexecute="doloadextension2"/>
+    </actions>
     <compositions>
       <radiogroup name="mainradio" />
     </compositions>
@@ -13,6 +15,9 @@
           <radiobutton group="mainradio" label="Radio button sharedable with other tabs" rowkey="k1" value="true" />
         </tab>
       </tabs>
+      <line>
+        <button action="loadextension2" />
+      </line>
     </body>
     <footer>
       <defaultformbuttons buttons="close" />

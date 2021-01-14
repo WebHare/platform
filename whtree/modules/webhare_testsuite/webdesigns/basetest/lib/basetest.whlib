@@ -6,6 +6,7 @@ LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/forum.whlib";
@@ -14,6 +15,7 @@ LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 //stuff shared between site:: and mod:: based designs
@@ -95,6 +97,8 @@ OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
       this->AddLoadlibToOutput(this->designfolder || "lib/basetest-loadlib.whlib");
 
     TestEq("mod::webhare_testsuite/webdesigns/basetest/", this->designfolder);
+    TestEq("webhare_testsuite:basetest", this->assetpack);
+    TestEqLike("20??????T??????Z", GetAssetPackBuildVersion(this->assetpack));
   }
 
   UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
@@ -148,7 +152,17 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
         }
       }
     }
+    IF (href = "x-go-rewrite:#no-really") //this is passed here to verify RewriteHyperlink ALSO gets a shot at rewriting links
+      RETURN "x-webdesign-takes-over-link:";
     RETURN href;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD linkrecord)
+  {
+    IF(RecordExists(linkrecord) AND linkrecord.internallink = whconstant_whfsid_private_rootsettings AND linkrecord.append = "#goto-nowhere")
+      linkrecord := MakeIntExtExternalLink("x-go-rewrite:#no-really");
+
+    RETURN BetaWebDesign::GetIntExtLinkTarget(linkrecord);
   }
 >;
 
@@ -215,7 +229,6 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
                        , throwmessage := throwmessage
                        , wcsresult := wcsresult
                        , wdsresult := wdsresult
-                       , assets := DEFAULT RECORD ARRAY
                        , subpath := webdesign->pageobject->subpath
                        ]);
   }
@@ -324,6 +337,17 @@ PUBLIC BOOLEAN FUNCTION SkipCaptcha(OBJECT webcontext)
 {
   RETURN GetFormWebVariable("skipcaptcha") = "1";
 }
+
+PUBLIC STATIC OBJECTTYPE CaptchaFormHooks EXTEND WebtoolFormHooks
+<
+  UPDATE PUBLIC MACRO Validate(OBJECT work)
+  {
+    //Note that we can't do this in Submit() - recaptcha validation will have run before us
+    RECORD namefield := SELECT * FROM this->form->ListFields() WHERE GetTid(title)="First name";
+    IF(namefield.obj->value = "reject")
+      work->AddErrorFor(namefield.obj, "Rejected!");
+  }
+>;
 
 PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
 <

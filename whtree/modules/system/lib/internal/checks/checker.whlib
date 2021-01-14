@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -219,6 +220,15 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
            ] INTO messages AT END;
   }
 
+  IF(GetDatabaseType() = "postgresql")
+  {
+    //warn if the transaction range shows vacuuming not working. you can also manually check this using `wh psql -c 'SELECT max(age(datfrozenxid)) FROM pg_database'`
+    INTEGER maxxidage := SendPostgreSQLCommand(GetPrimary()->id, "SELECT max(age(datfrozenxid)) FROM pg_database").max;
+    IF(maxxidage >= 5000000000) //500 million is a good indication something is wrong
+      INSERT [ msg := `:PostgreSQL reports ${maxxidage} transaction ids in range, it may not be properly vacuuming`
+             ] INTO messages AT END;
+  }
+
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
   {
     INSERT [ msg := ":Logins for non-sysops have been closed"
@@ -286,6 +296,10 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
         , messagetag := [ type := "system:checker.mailerrorrate" ]
         ] INTO messages AT END;
   }
+
+  //Legacy database directory
+  IF(GetDatabaseType() = "postgresql" AND RecordExists(GetDiskFileProperties(MergePath(GetWebhareConfiguration().basedataroot, "dbase"))))
+    INSERT [ msg := ":The 'dbase' directory can be removed if you've completed the switch to PostgreSQL" ] INTO messages AT END;
 
   // Tollium registry stuff
   STRING backendurl := GetPrimaryWebhareInterfaceURL();

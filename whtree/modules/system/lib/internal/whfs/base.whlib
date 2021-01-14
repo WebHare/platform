@@ -96,7 +96,8 @@ PUBLIC OBJECTTYPE WHFSException EXTEND Exception
 >;
 
 
-/** Generate an unique name, based on a base name
+/** Generate an unique, safe name, based on a base name
+    @long Uses GetSafeFilename to generate a proper name. If the name is already taken by another file, appends -2, -3, ... until a unique name is found
     @param parentfolder Id of the parent folder
     @param suggestion Suggested name
     @cell options.ignoreobject Existing object to ignore (ie if renaming a file), defaults to 0
@@ -140,12 +141,12 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
   IF (basename LIKE "*-*")
   {
     INTEGER p := SearchLastSubString(basename, "-");
-    IF(p>=1)
+    IF(p >= 1)
     {
       STRING nr := SubString(basename, p + 1);
       IF (ToInteger(nr, -1) > 0)
       {
-        counter := ToInteger(nr, -1);
+        counter := ToInteger(nr, -1) - 1;
         basename := Left(basename, p);
       }
     }
@@ -159,8 +160,8 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
   WHILE (TRUE)
   {
     STRING testname;
-    IF(counter>0)
-      testname := basename || "-" || counter || extension;
+    IF(counter > 0)
+      testname := basename || "-" || (counter + 1) || extension;
     ELSE
       testname := basename || extension;
 

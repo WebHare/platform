@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
@@ -178,10 +179,27 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
         CELL[ ...sharedpageprepoptions ], options);
 
     AWAIT this->RunSharedPagePreparation(options);
+    AWAIT this->WaitForFontsReady();
 
     RECORD result := AWAIT this->pvt_client->^Page->^captureScreenshot([ format := "png" ]);
     RETURN [ screenshot := WrapBlob(StringToBlob(DecodeBase64(result.data)),"screenshot.png")
            ];
+  }
+
+  ASYNC MACRO WaitForFontsReady()
+  {
+    //Wait for the fonts to be ready, up to 15 seconds.
+    AWAIT this->Evaluate(`window.__whpdf_fontsloaded = false; document.fonts.ready.then( function() { window.__whpdf_fontsloaded = true} );`);
+
+    DATETIME deadline := AddTimeToDate(15000, GetCurrentDatetime());
+    WHILE(TRUE)
+    {
+      IF(AWAIT this->Evaluate(`window.__whpdf_fontsloaded`))//done?
+        BREAK;
+      IF(GetCurrentDatetime() > deadline)
+        BREAK;
+      Sleep(100);
+    }
   }
 
   PUBLIC OBJECT ASYNC FUNCTION PDF(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -240,6 +258,8 @@ PUBLIC STATIC OBJECTTYPE Page EXTEND EventEmitter
             , options.pageranges
             , options.prefercsspagesize
             ];
+
+    AWAIT this->WaitForFontsReady();
 
     RECORD result := AWAIT this->pvt_client->^Page->^PrintToPDF(parameters);
     RETURN StringToBlob(DecodeBase64(result.data));

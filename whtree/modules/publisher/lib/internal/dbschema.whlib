@@ -106,6 +106,7 @@ PUBLIC SCHEMA
     , STRING "url"
     , STRING "languagecode"
     , DATETIME "when"
+    , DATETIME "confirmed"
     , DATETIME "modified"
     , DATETIME "expiration"
     , DATETIME "deletion"

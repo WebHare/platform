@@ -1,69 +1,263 @@
 <?wh
 
-LOADLIB "mod::system/lib/webapi/aws/awsbase.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "relative::awsbase.whlib";
 
 CONSTANT STRING ns_cf20181105 := "http://cloudfront.amazonaws.com/doc/2018-11-05/";
 
-PUBLIC OBJECTTYPE AmazonAWSCloudfrontInterface EXTEND AmazonAWSInterface
-<
-  STRING endpoint;
+RECORD FUNCTION ParseCloudfrontConfig(OBJECT node)
+{
+  RETURN CELL[ comment    := node->ListChildren("*","Comment")[0]->textcontent
+             , enabled    := ParseXSBoolean(node->ListChildren("*","Enabled")[0]->textcontent)
+             ];
+}
 
-  MACRO NEW(STRING accesskey, STRING accesssecret)
-  : AmazonAWSInterface("us-east-1", accesskey, accesssecret)
+RECORD FUNCTION ParseDistribution(OBJECT node)
+{
+  STRING status := node->ListChildren("*","Status")[0]->textcontent;
+  RETURN CELL[ id         := node->ListChildren("*", "Id")[0]->childrentext
+             , domainname := node->ListChildren("*", "DomainName")[0]->childrentext
+             , config     := ParseCloudfrontConfig(node->ListChildren("*", "DistributionConfig")[0])
+             , status     := status
+             , inprogress := status = "InProgress"
+             ];
+}
+
+RECORD FUNCTION ParseInvalidation(OBJECT node)
+{
+  //https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#API_CreateInvalidation_ResponseSyntax
+  STRING status := node->ListChildren("*","Status")[0]->textcontent;
+  RETURN CELL[ id         := node->ListChildren("*", "Id")[0]->childrentext
+             , status     := status
+             , inprogress := status != "Completed"
+             ];
+}
+
+RECORD FUNCTION ParseDistributionSummary(OBJECT node)
+{
+  STRING status := node->ListChildren("*","Status")[0]->textcontent;
+  RECORD summary :=
+         CELL[ ...ParseCloudfrontConfig(node) //we'll probably have to split ParseCloudfrontConfig into two at some pint
+             , id         := node->ListChildren("*", "Id")[0]->childrentext
+             , domainname := node->ListChildren("*", "DomainName")[0]->childrentext
+             , status     := status
+             , inprogress := status = "InProgress"
+             , origins    := RECORD[]
+             ];
+  OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "Origin")->GetCurrentElements();
+  FOREVERY(OBJECT originnode FROM originnodes)
   {
-    this->endpoint := "https://cloudfront.amazonaws.com/";
+    RECORD origin := [ id         := originnode->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
+                     , domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
+                     ];
+    INSERT origin INTO summary.origins AT END;
+  }
+  RETURN summary;
+}
+
+PUBLIC STATIC OBJECTTYPE AmazonAWSCloudfrontService EXTEND AmazonAWSService
+<
+  MACRO NEW(OBJECT awsconfig)
+  : AmazonAWSService(awsconfig, "us-east-1", "cloudfront")
+  {
   }
 
-  PUBLIC RECORD ARRAY FUNCTION ListStreamingDistributions()
+  PUBLIC RECORD FUNCTION GetDistribution(STRING cloudfrontid)
   {
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET",this->endpoint || "2018-11-05/streaming-distribution");
+    RECORD result := this->RequestXML("GET", `https://cloudfront.amazonaws.com/2020-05-31/distribution/${cloudfrontid}`, [ accept404 := TRUE ]);
+    IF(NOT RecordExists(result))
+      RETURN DEFAULT RECORD;
 
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "StreamingDistributionSummary")->GetCurrentElements();
-    RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
+    RETURN ParseDistribution(result.doc->documentelement);
+  }
+
+  PUBLIC MACRO UpdateDistribution(STRING distributionid, RECORD changes DEFAULTSTO DEFAULT RECORD)
+  {
+    changes := ValidateOptions( [ enabled := TRUE ], changes, [ optional := ["enabled"]]);
+
+    RECORD req:= this->RequestXML("GET", `${"https://cloudfront.amazonaws.com/"}2020-05-31/distribution/${distributionid}/config`);
+
+    IF(CellExists(changes, 'enabled'))
     {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
-
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "S3Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
+      OBJECT enablednode := req.doc->documentelement->ListChildren("*","Enabled")[0];
+      enablednode->textcontent := changes.enabled ? "true" : "false";
     }
-    RETURN distributions;
+
+    RECORD putres := this->RequestXML("PUT", `${"https://cloudfront.amazonaws.com/"}2020-05-31/distribution/${distributionid}/config`,
+      [ body := req.doc->GetDocumentBLob(FALSE)
+      , headers := [[ field := "If-Match", value := req.etag ]]
+      ]);
+  }
+
+  PUBLIC MACRO DeleteDistribution(STRING distributionid)
+  {
+    RECORD req := this->RequestXML("GET", `${"https://cloudfront.amazonaws.com/"}2020-05-31/distribution/${distributionid}/config`);
+    this->RequestXML("DELETE", `${"https://cloudfront.amazonaws.com/"}2020-05-31/distribution/${distributionid}`,
+      [ headers := [[ field := "If-Match", value := req.etag ]]
+      ]);
   }
 
   PUBLIC RECORD ARRAY FUNCTION ListDistributions()
   {
-    //ADDME paginated support
-
-    OBJECT doc := this->RawAWS4Request("cloudfront","GET",this->endpoint || "2018-11-05/distribution");
-
-    OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "DistributionSummary")->GetCurrentElements();
+    // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ListDistributions.html
     RECORD ARRAY distributions;
-    FOREVERY(OBJECT node FROM distributionnodes)
-    {
-      RECORD distr := [ id         := node->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                      , domainname := node->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                      , origins    := DEFAULT RECORD ARRAY
-                      ];
 
-      OBJECT ARRAY originnodes := node->GetElementsByTagNameNS(ns_cf20181105, "Origin")->GetCurrentElements();
-      FOREVERY(OBJECT originnode FROM originnodes)
-      {
-        RECORD origin := [ id         := originnode->GetElementsByTagNameNS(ns_cf20181105, "Id")->Item(0)->childrentext
-                         , domainname := originnode->GetElementsByTagNameNS(ns_cf20181105, "DomainName")->Item(0)->childrentext
-                         ];
-        INSERT origin INTO distr.origins AT END;
-      }
-      INSERT distr INTO distributions AT END;
+    STRING nextmarker;
+    WHILE(TRUE)
+    {
+      OBJECT doc := this->RequestXML("GET", "https://cloudfront.amazonaws.com/" || "2018-11-05/distribution",
+        [ urlparameters := [[ name := "MaxItems", value := "50" ]
+                           ,[ name := "Marker", value := nextmarker ]
+                           ]
+        ]).doc;
+
+      BOOLEAN istruncated := ParseXSBoolean(doc->ListElements("*","IsTruncated")[0]->textcontent);
+      OBJECT nextmarkernode := Pickfirst(doc->ListElements("*","NextMarker"));
+      nextmarker := ObjectExists(nextmarkernode) ? nextmarkernode->textcontent : "";
+
+      OBJECT ARRAY distributionnodes := doc->GetElementsByTagNameNS(ns_cf20181105, "DistributionSummary")->GetCurrentElements();
+      FOREVERY(OBJECT node FROM distributionnodes)
+        INSERT ParseDistributionSummary(node) INTO distributions AT END;
+
+      IF(NOT istruncated OR Length(distributionnodes) = 0)
+        BREAK;
     }
     RETURN distributions;
+  }
+
+  /** @cell(record array) options.tags Tags to associate with the distribution
+      @cell(string) options.tags.tag Key name
+      @cell(string) options.tags.value Key value
+  */
+  PUBLIC RECORD FUNCTION CreateDistribution(STRING cdnid, RECORD options)
+  {
+    options := ValidateOptions([ comment := ""
+                               , logbucket := ""
+                               , mediapackageorigin := ""
+                               , tags := RECORD[]
+                               ], options);
+    // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/live-streaming.html
+    // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateDistributionWithTags.html
+
+    STRING cloudfrontdescription := `<?xml version="1.0" encoding="UTF-8"?>
+  <DistributionConfigWithTags xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">
+     <DistributionConfig>
+        <CallerReference>${cdnid}</CallerReference>
+        <Comment>${EncodeValue(options.comment)}</Comment>
+        <CustomErrorResponses>
+           <Items>
+              <CustomErrorResponse>
+                 <ErrorCachingMinTTL>0</ErrorCachingMinTTL>
+                 <ErrorCode>404</ErrorCode>
+              </CustomErrorResponse>
+           </Items>
+           <Quantity>1</Quantity>
+        </CustomErrorResponses>
+        <DefaultCacheBehavior>
+           <ForwardedValues>
+              <Cookies><Forward>none</Forward></Cookies>
+              <Headers>
+                <Items><Name>Origin</Name></Items>
+                <Quantity>1</Quantity>
+              </Headers>
+              <QueryString>true</QueryString>
+              <QueryStringCacheKeys>
+                 <Items>
+                    <Name>m</Name>
+                    <Name>aws.manifestfilter</Name>
+                 </Items>
+                <Quantity>2</Quantity>
+              </QueryStringCacheKeys>
+           </ForwardedValues>
+           <TargetOriginId>mediapackage</TargetOriginId>
+          <TrustedSigners>
+            <Enabled>false</Enabled>
+            <Quantity>0</Quantity>
+          </TrustedSigners>
+          <MinTTL>0</MinTTL>
+          <ViewerProtocolPolicy>https-only</ViewerProtocolPolicy>
+        </DefaultCacheBehavior>
+        <Enabled>true</Enabled>
+        <IsIPV6Enabled>true</IsIPV6Enabled>
+        <Logging>
+           <Bucket>${EncodeValue(options.logbucket)}.s3.amazonaws.com</Bucket>
+           <Enabled>true</Enabled>
+           <IncludeCookies>false</IncludeCookies>
+           <Prefix>log/adhoccdn/${cdnid}/</Prefix>
+        </Logging>
+        <Origins>
+           <Items>
+              <Origin>
+                 <DomainName>${UnpackURL(options.mediapackageorigin).host}</DomainName>
+                 <Id>mediapackage</Id>
+                 <OriginPath></OriginPath>
+                 <CustomOriginConfig>
+                   <HTTPPort>80</HTTPPort>
+                   <HTTPSPort>443</HTTPSPort>
+                   <OriginProtocolPolicy>https-only</OriginProtocolPolicy>
+                 </CustomOriginConfig>
+              </Origin>
+           </Items>
+           <Quantity>1</Quantity>
+        </Origins>
+        <PriceClass>PriceClass_100</PriceClass>
+     </DistributionConfig>
+     <Tags>
+        <Items>
+           ${Detokenize((SELECT AS STRING ARRAY `<Tag><Key>${EncodeValue(tags.tag)}</Key><Value>${EncodeValue(tags.value)}</Value></Tag>` FROM options.tags),"\n")}
+        </Items>
+     </Tags>
+  </DistributionConfigWithTags>`;
+
+    TRY
+    {
+      OBJECT cloudfrontresult := this->RequestXML("POST", "https://cloudfront.amazonaws.com/2020-05-31/distribution",
+        [ urlparameters := [[ name := "WithTags", value := "" ]
+                           ]
+        , body := StringToBlob(cloudfrontdescription)
+        ]).doc;
+
+      RETURN ParseDistribution(cloudfrontresult->documentelement);
+    }
+    CATCH(OBJECT<AmazonAWSException> e)
+    {
+      IF(e->errorcode != "DistributionAlreadyExists")
+        THROW;
+
+      RETURN this->GetDistribution(TrimWhitespace(Tokenize(e->errormessage,':')[1]));
+    }
+  }
+
+  /** @param cdnid CDN ID we're invalidating
+      @param callerreference Unique caller-generated reference for this invalidation
+      @param paths Paths to invalidate. Must start with a slash */
+  PUBLIC RECORD FUNCTION CreateInvalidation(STRING cdnid, STRING callerreference, STRING ARRAY paths)
+  {
+    FOREVERY(STRING path FROM paths)
+      IF(path NOT LIKE "/*")
+        THROW NEW Exception(`Invalid invalidation path '${path}'`);
+
+    // https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_CreateInvalidation.html#cloudfront-CreateInvalidation-request-InvalidationBatch
+    // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html#invalidation-specifying-objects
+
+    STRING invalidationrequest := `<?xml version="1.0" encoding="UTF-8"?>
+<InvalidationBatch xmlns="http://cloudfront.amazonaws.com/doc/2020-05-31/">
+   <CallerReference>${EncodeValue(callerreference)}</CallerReference>
+   <Paths>
+      <Items>
+        ${Detokenize( (SELECT AS STRING ARRAY `<Path>${EncodeValue(path)}</Path>` FROM ToRecordArray(paths,'path')),"\n")}
+      </Items>
+      <Quantity>${Length(paths)}</Quantity>
+   </Paths>
+</InvalidationBatch>`;
+
+    OBJECT cloudfrontresult := this->RequestXML("POST", `https://cloudfront.amazonaws.com/2020-05-31/distribution/${EncodeURL(cdnid)}/invalidation`,
+      [ body := StringToBlob(invalidationrequest)
+      ]).doc;
+
+    RETURN ParseInvalidation(cloudfrontresult->documentelement);
   }
 >;

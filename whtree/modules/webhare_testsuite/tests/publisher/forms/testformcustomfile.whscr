@@ -257,7 +257,7 @@ PUBLIC MACRO CustomForm()
   result := ImportFormResults(migrationfile.data);
   testfw->CommitWork();
   TestEq(TRUE, result.success);
-  TestEq(3, result.numresults);
+  TestEq(2, result.numresults);
 
   // Export results and check with previous export (don't check result id's as they would differ after being reimported)
   exportaftermigration := webtoolresults->CreateExporter([ withattachments := TRUE ])->ExportAllResultsWithAttachments();
@@ -282,6 +282,8 @@ PUBLIC MACRO CustomForm()
 
 MACRO CustomForm_SuppressMail()
 {
+  SnoozeRateLimits();
+
   // Make sure no email tasks are running anymore
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
@@ -321,6 +323,8 @@ MACRO CustomForm_SuppressMail()
 
 MACRO CustomForm_NL()
 {
+  SnoozeRateLimits();
+
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform");
   OBJECT customformfile_nl := OpenTestsuiteSite()->OpenByPath("webtools/customform-nl");
   TestEq(TRUE, testfw->browser->GotoWebPage(customformfile_nl->url));
@@ -385,6 +389,8 @@ MACRO CustomForm_NL()
 
 ASYNC MACRO EditCustomForm()
 {
+  SnoozeRateLimits();
+
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform" ], target := DEFAULT RECORD ]));
 

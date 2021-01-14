@@ -12,11 +12,11 @@ function getAppInStartMenuByName(name)
 test.registerTests(
   [ { test: async function()
       {
-        setupdata = await test.invoke('module::webhare_testsuite/internal/testsite.whlib', 'SetupForTestSetup');
+        setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup');
       }
     }
   , { name: "Start backend"
-    , loadpage: function() { return webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en" + test.getTestArgument(0) ; }
+    , loadpage: function() { return webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en&transport=" + test.getTestArgument(0) ; }
     , waits:[ 'ui'] // Also wait for user profile data (applications & such)
     }
   , { name: "Launch usermanagement"
@@ -115,7 +115,7 @@ test.registerTests(
   , ToddTest.plainButton("Confirm user as sysop", "OK")
 
   , { name: "login as jantje"
-    , loadpage: function() { return webroot + 'portal1/?language=en' + test.getTestArgument(0); }
+    , loadpage: function() { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0); }
     }
   , { test: function()
       {
@@ -143,7 +143,7 @@ test.registerTests(
       }
     }
   , { name: "login as pietje"
-    , loadpage: function() { return webroot + "portal1/?openas=" + pietjeguid + "&language=en" + test.getTestArgument(0); }
+    , loadpage: function() { return webroot + "portal1/?openas=" + pietjeguid + "&language=en&transport=" + test.getTestArgument(0); }
     , waits: ['ui']
     }
   , { test:function(doc,win)
@@ -154,7 +154,7 @@ test.registerTests(
       }
     }
   , { name: "logout as pietje action"
-    , loadpage: function() { return webroot + 'portal1/?language=en' + test.getTestArgument(0) + '?wh-debug=aut'; }
+    , loadpage: function() { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0) + '&wh-debug=aut'; }
     , waits: [ 'ui' ]
     }
   , { test:function(doc,win)

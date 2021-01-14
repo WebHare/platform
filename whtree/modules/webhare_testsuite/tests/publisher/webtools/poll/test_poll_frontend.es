@@ -17,7 +17,7 @@ test.registerTests(
         if(key.startsWith("wh-webtools-votetime:"))
           localStorage.removeItem(key);
 
-      let result = await test.invoke('moduleroot::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib', 'resetTestPoll');
+      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/poll/poll.whlib', 'resetTestPoll');
       pollurl = result.pollurl;
     }
 

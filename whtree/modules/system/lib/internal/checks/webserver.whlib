@@ -9,6 +9,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 
 
@@ -121,7 +123,10 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
   RECORD ARRAY messages;
   DATETIME now := GetCurrentDatetime();
 
-  FOREVERY (RECORD keypair FROM ListKeyPairs())
+  RECORD ARRAY keypairs := ListKeyPairs();
+  keypairs := OpenWHFSType("http://www.webhare.net/xmlns/system/keystorefolder")->Enrich(keypairs, "id", ["warnexpirydays"]);
+
+  FOREVERY (RECORD keypair FROM keypairs)
   {
     OBJECT obj := OpenKeyPair(keypair.id);
     IF(NOT ObjectExists(obj))
@@ -158,7 +163,7 @@ PUBLIC RECORD ARRAY FUNCTION CheckCertificates()
             , jumpto := jumpto
             , messagetag := [ type := "system:webserver.key", keyname := obj->name ]
             ] INTO messages AT END;
-      ELSE IF (certdata.valid_until < AddDaysToDate(21, now))
+      ELSE IF (certdata.valid_until < AddDaysToDate(keypair.warnexpirydays ?? whconstant_default_warnexpirydays, now))
       {
         RECORD diff := GetDateTimeDifference(now, certdata.valid_until);
         INSERT

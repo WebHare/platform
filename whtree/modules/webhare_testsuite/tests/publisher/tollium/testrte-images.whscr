@@ -29,7 +29,7 @@ OBJECT ASYNC FUNCTION CreateDoc()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
 
-  BLOB inputimg := GetWebhareResource("moduleroot::webhare_testsuite/data/test/landscape_5.jpg");
+  BLOB inputimg := GetWebhareResource("mod::webhare_testsuite/data/test/landscape_5.jpg");
   Rte()->InsertImage(inputimg, "landscape_5.jpg");
 
   RECORD insertedimageinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertImage";

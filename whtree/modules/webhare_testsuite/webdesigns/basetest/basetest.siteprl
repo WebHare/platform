@@ -314,7 +314,7 @@
   <apply>
     <to type="all" pathmask="*formcaptcha*" />
     <captchaintegration skipfunction="lib/basetest.whlib#SkipCaptcha" />
-    <formintegration allowsubmittype="true" usecaptcha="1" />
+    <formintegration allowsubmittype="true" usecaptcha="1" webtoolformhooks="lib/basetest.whlib#CaptchaFormHooks" />
   </apply>
 
   <apply>
@@ -386,6 +386,7 @@
     </widgets>
     <t:linkhandlers>
       <test:customlinkhandler />
+      <test:customlinkhandler2 />
     </t:linkhandlers>
   </rtdtype>
 
@@ -434,6 +435,11 @@
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
                renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
+  </apply>
+
+  <apply>
+    <to type="file" pathmask="/webtools/paymenthandlerform" />
+    <formpayments xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" providerfield="payprov.method" paymentfield="paydata.data" />
   </apply>
 
   <apply>
@@ -672,12 +678,6 @@
   </apply>
 
   <apply>
-    <to type="folder" parentregex="/tmp/[S][u]][b]" />
-    <to type="folder" pathregex="xxxx" />
-    <xyz:test data="parentregex-tmp-sub" />
-  </apply>
-
-  <apply>
     <to type="folder" pathregex="/applytest1/$" />
     <xyz:test data="pathregex-applytest1" />
   </apply>
@@ -852,7 +852,8 @@
   </sitesettings>
 
   <sitesettings sitename="WebHare testsuite site" webrootregex="^https?://[^/]+/testoutput/webhare_testsuite/$"> <!-- and not: alt test host -->
-    <addtocatalog catalog="testsitecatalog" />
+    <addtocatalog catalog="testsitecatalog" folder="/testpages/" />
+    <addtocatalog catalog="testsitecatalog" folder="/webtools/" />
   </sitesettings>
 
 </siteprofile>

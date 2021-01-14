@@ -12,6 +12,7 @@ LOADLIB "wh::internal/enrichment.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -126,7 +127,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
 
       // Update if needed
       current[pos.position].used := TRUE;
-      BOOLEAN settingmodified;
+
       IF (cur.setting != rec.setting
          OR cur.entity != rec.entity
          OR cur.rawdata != rec.rawdata
@@ -150,7 +151,7 @@ RECORD FUNCTION HandleSettingsUpdates(INTEGER wrdschema, RECORD ARRAY current, R
         INSERT rec INTO settingupdates AT END;
       }
     }
-    ELSE
+    ELSE //not found
     {
       INSERT rec INTO wrd.entity_settings;
       INSERT rec INTO settingupdates AT END;
@@ -2363,6 +2364,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     IF(NOT CellExists(options,'entitykey') AND NOT CellExists(options,'ifnew')) //4.28- style call
     {
+      IF(GetDtapStage()="development")
+        THROW NEW Exception(`Old style EnsureEntity calls are no longer supported. You need to explicitly set the 'entitykey'`);
+
       STRING ARRAY entitykey;
       FOREVERY(RECORD cellrec FROM UnpackRecord(requiredfields))
       {

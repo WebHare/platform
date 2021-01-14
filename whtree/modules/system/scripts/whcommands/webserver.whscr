@@ -91,11 +91,12 @@ MACRO AddBackend(STRING ARRAY params)
 {
   RECORD subargs := ParseArguments(params,
       [ [ name := "url", type := "param", required := TRUE ]
+      , [ name := "virtual", type := "switch" ]
       ]);
 
   IF(NOT RecordExists(subargs))
   {
-    Print("Syntax: wh webserver addbackend <url>\n");
+    Print("Syntax: wh webserver addbackend [--virtual] <url>\n");
     SetConsoleExitCode(1);
     TerminateScript();
   }
@@ -107,7 +108,7 @@ MACRO AddBackend(STRING ARRAY params)
   GetPrimary()->BeginWork();
 
   INTEGER webserver_port_id;
-  IF(unpacked.port NOT IN [80, 443]) //80 and 443 are auto-offered by nginx, but anything else requires a port;
+  IF(unpacked.port NOT IN [80, 443] AND NOT subargs.virtual) //80 and 443 are auto-offered by nginx, but anything else requires a port;
   {
     RECORD ARRAY matchport := SELECT * FROM system_internal.ports WHERE port = unpacked.port;
     IF(Length(matchport) = 0)

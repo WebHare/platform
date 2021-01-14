@@ -1,8 +1,11 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <jstest file="testsetup.es" name="setup-standard" exclusive="true" tags="wrdauth">
-    <arg value="" />
+  <jstest file="testsetup.es" name="setup-sharedworker" exclusive="true" tags="wrdauth">
+    <arg value="sharedworker" />
   </jstest>
-  <jstest file="testsetup.es" name="setup-commfallback" exclusive="true" tags="wrdauth">
-    <arg value="?commfallback=1" />
+  <jstest file="testsetup.es" name="setup-websocket" exclusive="true" tags="wrdauth">
+    <arg value="websocket" />
+  </jstest>
+  <jstest file="testsetup.es" name="setup-jsonrpc" exclusive="true" tags="wrdauth">
+    <arg value="jsonrpc" />
   </jstest>
 </group>

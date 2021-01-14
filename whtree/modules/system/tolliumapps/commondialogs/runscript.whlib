@@ -36,7 +36,9 @@ OBJECT FUNCTION CreateRunscriptProcess(
           take_errors,
           merge_output_errors);
 
-  IF (ObjectExists(GetEffectiveUser()) AND GetEnvironmentVariable("WEBHARE_CLI_USER") = "")
+  /* A runscript launched by a user should be associated with him. We'll always overwrite WEBHARE_CLI_USER as that could
+     have been set before this WebHare was even started (eg development machine, rescue-mode startup) */
+  IF (ObjectExists(GetEffectiveUser()))
   {
     proc->SetEnvironment(
         [ ...GetEnvironment()

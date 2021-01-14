@@ -94,7 +94,7 @@ export default class ObjMenuItem extends ComponentBase
   {
     let enabled = this.isEnabled();
     let node = dompack.create('li', { textContent: this.title
-                                    , dataset: { menuitem: this.name
+                                    , dataset: { menuitem: this.name //TODO this should go away? frame.es used it to dispatch the click event...  but tests stil rely on it!...
                                                }
                                     , className: { hassubmenu: this.items.length
                                                  , disabled: !enabled
@@ -102,6 +102,7 @@ export default class ObjMenuItem extends ComponentBase
                                                  }
                                     , style: { marginLeft: this.indent ? (this.indent*6) + 'px' : 0
                                              }
+                                    , on: { click: evt => this.onClick(evt) }
                                     });
     if(this.shortcut)
       node.dataset.menushortcut = this.shortcut;
@@ -157,6 +158,13 @@ export default class ObjMenuItem extends ComponentBase
 
   buildNode()
   {
+  }
+
+  onClick(evt)
+  {
+    dompack.stop(evt);
+    if(this.enabled)
+      this.owner.executeAction(this.action);
   }
 
   openMenuAt(evt, options)
@@ -226,5 +234,4 @@ export default class ObjMenuItem extends ComponentBase
   {
     this.menunode/*div*/.firstChild/*div*/.scrollTop = scrollbar.cur;
   }
-};
-
+}

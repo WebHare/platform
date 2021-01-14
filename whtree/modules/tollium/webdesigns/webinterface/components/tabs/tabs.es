@@ -165,7 +165,7 @@ export default class ObjTabs extends ComponentBase
         }
 
         console.log("Setting selection",this.name,i,this.pages[i]?this.pages[i].name:'');
-        this.setSelected(i >= 0 ? this.pages[i].name : '', false, false);
+        this.setSelected(i >= 0 ? this.pages[i].name : '', false);
       }
     }
 
@@ -354,7 +354,7 @@ export default class ObjTabs extends ComponentBase
   {
     if(this.tabtype == "regular")
     {
-      this.nodes = {}
+      this.nodes = {};
       this.nodes.root = <t-tabs class="regular" data-name={this.name} propTodd={this}>
                           <nav>
                             { this.nodes.nav = <div class="nav" /> }
@@ -378,8 +378,6 @@ export default class ObjTabs extends ComponentBase
                           { this.nodes.pagesmenu = <ul class="wh-menu wh-menulist pagesmenu" /> }
                         </t-tabs>
 
-      this.nodes["nav-tabs"].addEventListener("wh:menu-activateitem", this.onActivateTab.bind(this));
-
       this.node = this.nodes.root;
       this.nodes.nav.addEventListener('keydown',this.onTabKeyDown.bind(this),true);
       this.nodes.nav.addEventListener('keyup',this.onTabKeyUp.bind(this),true);
@@ -387,14 +385,15 @@ export default class ObjTabs extends ComponentBase
 
       this.pages.forEach(page=>
       {
-        page.labelnode = dompack.create("div", { dataset: { tab: page.name }
-                                               , on: { "click": evt => { evt.stopPropagation(); this.selectTab(page.name); }}
+        page.labelnode = dompack.create("div", { dataset: { tab: page.name } //TODO remove this? but tests are probably relying on it
+                                               , onClick: evt => this.selectTab(evt, page.name)
                                                , childNodes: [page.titlecomp.getNode()]
                                                });
         this.nodes.nav.appendChild(page.labelnode);
 
         page.menunode = dompack.create("li", { textContent: page.comp.getTitle() || '\u00a0' //fallback to NBSP to reserve height
-                                             , dataset: { tab: page.name }
+                                             , dataset: { tab: page.name } //TODO remove this? but tests are probably relying on it
+                                             , onClick: evt => this.selectTab(evt, page.name)
                                              });
         this.nodes.pagesmenu.appendChild(page.menunode);
         page.contentnode = dompack.create("div", { className: "tabsheet"
@@ -428,7 +427,7 @@ export default class ObjTabs extends ComponentBase
           if (page.titlecomp)
           {
             page.labelnode = dompack.create("div", { dataset: { tab: page.name }
-                                                   , on: { "click": evt => { evt.stopPropagation(); this.selectTab(page.name); }}
+                                                   , onClick: evt => this.selectTab(evt, page.name)
                                                    , childNodes: [page.titlecomp.getNode()]
                                                    , className: "tablabel"
                                                    });
@@ -492,13 +491,13 @@ export default class ObjTabs extends ComponentBase
   {
     var i = this.pages.indexOf(this.getSelectedTab());
     if(i > 0)
-      this.selectTab(this.pages[i-1].name);
+      this.selectTab(null, this.pages[i-1].name);
   }
   nextTab()
   {
     var i = this.pages.indexOf(this.getSelectedTab());
     if(i > -1 && i < this.pages.length - 1)
-      this.selectTab(this.pages[i+1].name);
+      this.selectTab(null, this.pages[i+1].name);
   }
 
 /****************************************************************************************************************************
@@ -703,8 +702,10 @@ export default class ObjTabs extends ComponentBase
     });
   }
 
-  selectTab(tabname)
+  selectTab(evt, tabname)
   {
+    if(evt)
+      dompack.stop(evt);
     this.setSelected(tabname, true);
   }
 
@@ -727,12 +728,6 @@ export default class ObjTabs extends ComponentBase
   {
     // ADDME: let the menu component handle keeping the list in view and making it scrollable
     menuapi.openAt(this.nodes.pagesmenu, this.nodes["nav-tabs"], { direction: 'down', align: 'right' });
-  }
-
-  onActivateTab(event)
-  {
-    this.setSelected(event.detail.menuitem.dataset.tab);
-    event.stopPropagation();
   }
 
 /****************************************************************************************************************************

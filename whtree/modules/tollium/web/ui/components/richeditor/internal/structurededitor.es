@@ -22,6 +22,62 @@ const debugicc = false; //debug insert container contents. needed to figure out 
 //  The structured editor
 //
 
+function explainIntoLines(parsed)
+{
+  let lines = [];
+  let curinlineitems = [];
+  for(let node of parsed)
+  {
+    if(['block','table','list','br'].includes(node.type) || (node.type == "embeddedobject" && node.embedtype != 'inline')) //a block starts
+    {
+      if(curinlineitems.length)
+      {
+        lines.push({ inline: curinlineitems });
+        curinlineitems = [];
+      }
+      lines.push({block: node});
+    }
+    else
+    {
+      curinlineitems.push(node);
+    }
+  }
+
+  if(curinlineitems.length)
+    lines.push({ inline: curinlineitems });
+
+  return lines;
+}
+function fixIntralineSpaves(items)
+{
+  //Remove any initial space
+  while(items.length && items[0].type == 'text' && items[0].value[0] == ' ')
+  {
+    items[0].value = items[0].value.substr(1);
+    if(!items[0].value) //that was all the data we had?
+      items.shift(); //remove first element
+  }
+
+  //Remove any final space
+  while(items.length && items[items.length-1].type == 'text' && items[items.length-1].value.endsWith(' '))
+  {
+    items[items.length-1].value = items[items.length-1].value.substr(0, items[items.length-1].value.length-1);
+    if(!items[items.length-1].value) //that was all the data we had?
+      items.pop(); //remove last element
+  }
+
+  //If two consecutive text nodes both have a space on their shared edge, remove it from the second node
+  for(let i = 1; i < items.length; ++i)
+  {
+    if(items[i].type == 'text' && items[i].value[0] == ' ' && items[i-1].type == 'text' && items[i-1].value.endsWith(' '))
+      items[i].value = items[i].value.substr(1); //strip the starting space
+  }
+
+  //Remove any fully empty textnodes
+  items = items.filter(_ => !(_.type == 'text' && !_.value));
+  return items;
+}
+
 export default class StructuredEditor extends EditorBase
 {
   constructor(element, rte, options, undonode)
@@ -54,16 +110,14 @@ export default class StructuredEditor extends EditorBase
 
   _onStyleSwitch(event,style)
   {
-    dompack.stop(event);
-
     let findcontainertag = ["P","H1","H2","H3","H4","H5","H6","UL","OL","CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
     let currentstyle = this.getSelectionState().blockstyle;
-    let availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag == findcontainertag);
+    let availablestyles = this.getAvailableBlockStyles().filter(style => style.def.containertag.toUpperCase() == findcontainertag);
     let currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
-
     if(availablestyles.length == 0)
       return;
 
+    dompack.stop(event);
     this.setSelectionBlockStyle(availablestyles[(currentindex + 1) % availablestyles.length].classname); //switch to next style, if already in same category
   }
 
@@ -1591,7 +1645,16 @@ export default class StructuredEditor extends EditorBase
           } break;
         case 'text':
           {
-            var text = type.data.replace('\u200b', '');
+            var text = type.data;
+            //remove stray undisplayed charactesr
+            text = text.replaceAll('\u200b', '');
+
+            //convert linefeeds to spaces, remove double spaces
+            text = text.replaceAll('\r', ' ');
+            text = text.replaceAll('\n', ' ');
+            while(text.includes("  "))
+              text = text.replaceAll("  "," ");
+
             if (text != type.data)
               block.forcevisible = true;
             if (text != '')
@@ -1807,16 +1870,14 @@ export default class StructuredEditor extends EditorBase
   _insertParsed(locator, nodes, inblock, inlist, intable, preservelocators, undoitem)
   {
     preservelocators = preservelocators || [];
-    var e = nodes.length;
-    for (var i = 0; i < e; ++i)
+    for(let line of explainIntoLines(nodes))
     {
-      var node = nodes[i];
-
-      //console.log('pre-insert parsed node ', node.type, 'at', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
-
-      switch (node.type)
+      if(line.block)
       {
-        case 'block':
+        let node = line.block;
+        switch (node.type)
+        {
+          case 'block':
           {
             if (inblock && node.temporary)
             {
@@ -1844,13 +1905,13 @@ export default class StructuredEditor extends EditorBase
               //console.log(' inserted blocknode, fnl', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
             }
           } break;
-        case 'embeddedobject':
+          case 'embeddedobject':
           {
-            var embobjnode = this._createEmbeddedObjectNode(node);
+            let embobjnode = this._createEmbeddedObjectNode(node);
             locator = this._insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem).afternodelocator;
             break;
           }
-        case 'table':
+          case 'table':
           {
             if(intable || inblock || inlist)
             { //squash the unexpected table
@@ -1870,28 +1931,7 @@ export default class StructuredEditor extends EditorBase
             }
             break;
           }
-        case 'text':
-          {
-            let formatting = new EditorBase.TextFormattingState();
-            formatting.textstyles = node.textstyles;
-            let newnode = document.createTextNode(node.value);
-            locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
-          } break;
-        case "img":
-          {
-            let newnode = this.createTextStyleNode(node.value);
-            let formatting = new EditorBase.TextFormattingState();
-            formatting.textstyles = node.textstyles;
-            locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
-          } break;
-        case 'br':
-          {
-            let formatting = new EditorBase.TextFormattingState();
-            let newnode = document.createElement("br");
-            formatting.textstyles = [];
-            locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
-          } break;
-        case 'list':
+          case 'list':
           {
             if (!node.nodes.length)
               continue;
@@ -1917,11 +1957,53 @@ export default class StructuredEditor extends EditorBase
             else
               locator = domlevel.Locator.newPointingAfter(res.node);
           } break;
-        default:
-          console.error("Unexpected nodetype '" + node.type + "'",node);
-          break;
+          case 'br':
+          {
+            let formatting = new EditorBase.TextFormattingState();
+            let newnode = document.createElement("br");
+            formatting.textstyles = [];
+            locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
+          } break;
+        }
       }
+      else
+      {
+        for(let node of fixIntralineSpaves(line.inline))
+        {
+          switch(node.type)
+          {
+            case 'text':
+            {
+              let formatting = new EditorBase.TextFormattingState();
+              formatting.textstyles = node.textstyles;
 
+              let textnode  = document.createTextNode(node.value);
+              locator = this.insertInlineFormattedNode(locator, textnode, formatting, preservelocators, undoitem).after;
+            } break;
+
+            case "img":
+            {
+              let newnode = this.createTextStyleNode(node.value);
+              let formatting = new EditorBase.TextFormattingState();
+              formatting.textstyles = node.textstyles;
+              locator = this.insertInlineFormattedNode(locator, newnode, formatting, preservelocators, undoitem).after;
+            } break;
+
+            case 'embeddedobject':
+            {
+              let embobjnode = this._createEmbeddedObjectNode(node);
+              locator = this._insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem).afternodelocator;
+              break;
+            }
+
+            default:
+            {
+              console.error("Unexpected nodetype '" + node.type + "'",node);
+              break;
+            }
+          }
+        }
+      }
       //console.log('post-insert parsed node ', node.type, 'at', richdebug.getStructuredOuterHTML(this.getContentBodyNode(), { locator: locator }))
     }
     return locator;

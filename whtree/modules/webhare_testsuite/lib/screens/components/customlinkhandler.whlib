@@ -1,7 +1,10 @@
 <?wh
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 
-PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
 <
   OBJECT timestampobject;
 
@@ -39,5 +42,51 @@ PUBLIC OBJECTTYPE CustomLinkHandler EXTEND TolliumLinkHandlerBase
   {
     RETURN "x-webharetestsuite-customlink:" || this->timestampobject->value;
   }
+>;
 
+
+PUBLIC STATIC OBJECTTYPE CustomLinkHandler2 EXTEND TolliumLinkHandlerBase
+<
+  MACRO NEW()
+  {
+    this->title := "custom link handler2";
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION SetLinkRecordIfSupported(RECORD inlink)
+  {
+    RETURN inlink.internallink = 1 AND inlink.append="#test";
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetLinkRecord()
+  {
+    RETURN MakeIntExtInternalLink(1,"#test");
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CustomLinkHandler3 EXTEND TolliumLinkHandlerBase
+<
+  OBJECT subobject;
+
+  MACRO NEW()
+  {
+    this->title := "custom link handler3";
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION CreateComponents(OBJECT screen)
+  {
+    //we need to retrigger the fragment loader to hit the unsaved-SetLocalRefs bug
+    this->subobject := screen->CreateCustomComponent("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents","fragcomp");
+    RETURN [ this->subobject ];
+  }
+  UPDATE PUBLIC MACRO DestroyComponents()
+  {
+    this->subobject->DeleteComponent();
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION SetLinkRecordIfSupported(RECORD inlink)
+  {
+    RETURN inlink.internallink = 1 AND inlink.append="#test3";
+  }
+  UPDATE PUBLIC RECORD FUNCTION GetLinkRecord()
+  {
+    RETURN MakeIntExtInternalLink(1,"#test3");
+  }
 >;

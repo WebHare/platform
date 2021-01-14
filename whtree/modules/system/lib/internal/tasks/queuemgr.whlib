@@ -1,0 +1,85 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/tasks.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+/** Returns all task types and taskclusters, for adhoccache
+    @return Cachable task & taskcluster data
+    @cell(string array) return.eventmasks Masks for events that invalidate this data
+    @cell(record) return.value All managed/ephemeral tasktypes and taskclusters
+    @cell return.value.tasktypes @includecelldef #ParseTaskNode.return
+    @cell(record array) return.value.clusters List of taskclusters
+    @cell(string) return.value.clusters.tag Tag of the taskcluster
+    @cell(integer) return.value.clusters.harescriptworkers Number of harescript workers
+    @cell(integer) return.value.clusters.javascriptworkers Number of javascript workers
+*/
+RECORD FUNCTION GetCachableAllTaskTypeInfo()
+{
+  RECORD ARRAY tasktypes;
+  STRING ARRAY resources;
+
+  // Default cluster
+  RECORD ARRAY clusters  :=
+      [ [ tag :=                    "system:default"
+        , harescriptworkers :=      1
+        , harescriptworkerthreads := 1
+        , javascriptworkers :=      2
+        ]
+      ];
+
+  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+  {
+    STRING resname := GetModuleDefinitionXMLResourceName(modulename);
+    OBJECT xmldoc := GetModuleDefinitionXML(modulename);
+
+    RECORD parsed := ParseModuleTasks(modulename, resname, xmldoc);
+    clusters := clusters CONCAT parsed.clusters;
+    tasktypes := tasktypes CONCAT parsed.tasktypes;
+    INSERT resname INTO resources AT END;
+  }
+
+  // Get overrides from system:config schema
+  OBJECT taskclusterstype := OpenWRDSchema("system:config")->^taskcluster;
+  RECORD ARRAY overrides := taskclusterstype->RunQuery(
+      [ outputcolumns := CELL[ "CLUSTER", "HARESCRIPTWORKERS" ]
+      , cachettl := 15 * 60 * 1000
+      ]);
+
+  // Fix task types to remove clusters that aren't available anymore (or set the default when not provided)
+  STRING ARRAY activeclusters := [ "system:default", ...SELECT AS STRING ARRAY tag FROM clusters ];
+  UPDATE tasktypes
+         SET cluster := "system:default"
+       WHERE cluster NOT IN activeclusters;
+
+  tasktypes := SELECT *
+                 FROM tasktypes
+             ORDER BY tasktype, ephemeral;
+
+  clusters := SELECT TEMPORARY override := RECORD(SELECT * FROM overrides WHERE overrides.cluster = clusters.tag)
+                   , *
+                     //take override, but only if we already desired HS workers
+                   , harescriptworkers := harescriptworkers > 0 ? (RecordExists(override) ? override.harescriptworkers : 0) ?? harescriptworkers : 0
+                FROM clusters
+            ORDER BY tag;
+
+  RETURN
+      [ value :=      CELL[ tasktypes, clusters ]
+      , eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources)
+      ];
+}
+
+
+/** Get all tasktype and taskclusters
+    @return @includecelldef #GetCachableAllTaskTypeInfo.return.value
+*/
+PUBLIC RECORD FUNCTION GetAllTaskTypeInfo()
+{
+  RETURN GetAdhocCached(CELL[ "tasktypes" ], PTR GetCachableAllTaskTypeInfo());
+}
+
+

@@ -256,6 +256,10 @@ MACRO AutoCreateTypes()
       , arecord := [ arbitrarydata := "val" ]
       ]);
 
+  OBJECT deletedtestfile := testdatafolder->CreateFile([ name := "deletedtestfile" ]);
+  deletedtestfile->SetInstanceData("http://www.webhare.net/xmlns/beta/instance2", [ str2 := "str2" ]);
+  deletedtestfile->RecycleSelf();
+
   INTEGER ARRAY instanceids := SELECT AS INTEGER ARRAY id FROM system.fs_instances WHERE fs_object = testfile->id;
 
   VerifyAutoCreateTestFile(testfile, FALSE);
@@ -296,8 +300,22 @@ MACRO AutoCreateTypes()
   RECORD saverich := result.rich;
 
   OBJECT fstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/beta/instance2");
+  //verify legacy TRUE/FALSE flag, and that inactive objects aren't normally found
   TestEQ(FALSE, testfile->id IN fstype_instance1->FindObjectsByMemberValue("STR1", "str1", TRUE));
   TestEQ(TRUE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", TRUE));
+  TestEQ(FALSE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "STR2", TRUE));
+  TestEQ(TRUE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", FALSE));
+  TestEQ(FALSE, deletedtestfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", TRUE));
+
+  //test options-style call
+  TestEQ(FALSE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "STR2"));
+  TestEQ(TRUE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "STR2", [matchcase := FALSE]));
+  TestEQ(FALSE, deletedtestfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", [matchcase := FALSE]));
+
+  //test finding inactive files
+  TestEQ(TRUE, testfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", [ findinprivate := TRUE ]));
+  TestEQ(TRUE, deletedtestfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", [ findinprivate := TRUE ]));
+  TestEQ(FALSE, deletedtestfile->id IN fstype_instance2->FindObjectsByMemberValue("STR2", "str2", [ findinprivate := FALSE ]));
 
   // Update instance
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/autocreatetest",
@@ -346,6 +364,7 @@ MACRO AutoCreateTypes()
   BLOB arc := testdatafolder->ExportFolder().files[0].data;
 
   testdatafolder->DeleteSelf();
+  deletedtestfile->DeleteSelf();
   testsite->UpdateSiteMetadata([webfeatures := STRING[] ]);
 
   testfw->CommitWork();

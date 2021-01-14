@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -398,17 +399,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       FOREVERY (RECORD role FROM add_roles)
         IF (role.role NOT IN existing_roles)
-          this->tolliumuser->authobject->GrantRoleTo(role.role, copy_to->authobject, [ comment := role.comment ]);
+          TolliumGrantRoleTo(this->contexts, work, GetRoleObject(role.role), OBJECT[copy_to->authobject], "Copied: " || role.comment);
     }
 
+    OBJECT rightsinfo := GetRightsInfoObject(this->tolliumuser);
     FOREVERY (RECORD grant FROM add_grants)
       IF (NOT RecordLowerBound(existing_grants, grant, grant_columns).found)
-      {
-        IF (IsRightGlobal(grant.rightname))
-          this->tolliumuser->GrantRightTo(grant.rightname, copy_to, grant.withgrantoption);
-        ELSE
-          this->tolliumuser->GrantRightToOn(grant.rightname, copy_to, grant.objectid, grant.withgrantoption);
-      }
+        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to->authobject, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
 
     work->Finish();
   }

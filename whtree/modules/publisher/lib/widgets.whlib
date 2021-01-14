@@ -154,6 +154,7 @@ PUBLIC OBJECTTYPE WidgetBase
       STRING wittycomponent := options.component ?? this->__pvt_widgetsettings.previewcomponent ?? this->__pvt_widgetsettings.wittycomponent;
       emptywitty->CallWithScope(PTR EmbedWittyComponent(wittycomponent, data),
                                 [ languagecode := this->context->languagecode
+                                , imgroot      := this->context->imgroot
                                 , isrtdpreview := TRUE
                                 ]
                                 );

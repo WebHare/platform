@@ -83,20 +83,6 @@ OBJECT FUNCTION ExecuteRouter(INTEGER fileid, RECORD redirectinfo, BOOLEAN servi
   RETURN pageobject;
 }
 
-BOOLEAN FUNCTION ValidateLibrary(STRING libname)
-{
-  RECORD libstatus := GetHarescriptLibraryInfo(libname);
-  IF(Length(libstatus.errors) = 0)
-    RETURN TRUE;
-
-  // This route doesn't set status 500, do it manually here. GenerateHTTPErrorPage expects it set.
-  AddHTTPHeader("Status", "500 Internal server error", FALSE);
-  LogHarescriptErrors(libstatus.errors);
-  GenerateHTTPErrorPage(500, [ allerrors := libstatus.errors, groupid := GetCurrentGroupId(), resources := STRING[] ]
-                       );
-  RETURN FALSE;
-}
-
 PUBLIC OBJECT FUNCTION RunThePage(INTEGER fileid, RECORD redirectinfo, INTEGER contentobjectid)
 {
   OBJECT pageobject;

@@ -22,6 +22,8 @@ PUBLIC RECORD FUNCTION ValidatePaymentValue(RECORD val)
       RETURN DEFAULT RECORD;
     IF(NOT CellExists(payment.__paymentdata,'m') OR TypeID(payment.__paymentdata.m) != TYPEID(RECORD))
       RETURN DEFAULT RECORD;
+    IF(CellExists(payment.__paymentdata,'x') AND TypeID(payment.__paymentdata.x) != TYPEID(RECORD)) //x = user data
+      RETURN DEFAULT RECORD;
     IF(NOT CellExists(payment.__paymentdata,'s') OR TypeID(payment.__paymentdata.s) != TYPEID(STRING) OR payment.__paymentdata.s NOT IN validstatusses)
       RETURN DEFAULT RECORD;
     IF(NOT CellExists(payment,'paymentprovider') OR TypeID(payment.paymentprovider) != TYPEID(INTEGER))
@@ -79,19 +81,6 @@ PUBLIC OBJECT FUNCTION InstantiatePaymentHandler(OBJECT paymententity, STRING ha
   }
 }
 
-PUBLIC MACRO ProcessStartedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity)
-{
-  RECORD currentstatus := paymententity->GetField(paymentattribute);
-  IF(currentstatus.status != "pending")
-    THROW NEW Exception(`Status should not be '${currentstatus.status}' when invoking ProcessStartedPayment`);
-
-  IF(paymenthandler != "")
-  {
-    OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
-    handler->OnPaymentStarted(paymentobject->MakePaymentValue());
-  }
-}
-
 PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paymentattribute, OBJECT paymentobject, OBJECT paymententity, BOOLEAN nostatuscheck)
 {
   IF(paymentobject->pvt_paymentdate = DEFAULT DATETIME)
@@ -116,7 +105,7 @@ PUBLIC BOOLEAN FUNCTION ProcessUpdatedPayment(STRING paymenthandler, STRING paym
 
   IF(setstatus.status != "pending")
   {
-    IF(paymenthandler != "")
+    IF(paymenthandler != ""  AND setstatus.status != currentstatus.status)
     {
       OBJECT handler := InstantiatePaymentHandler(paymententity, paymenthandler);
       handler->OnPaymentFinalized(paymentobject->MakePaymentValue());
@@ -134,6 +123,7 @@ PUBLIC RECORD FUNCTION CreatePaymentRecord(RECORD ARRAY paymentrows)
                                 , status := STRING(s)
                                 , paymentref := STRING(p)
                                 , paymentdate := DATETIME(d)
+                                , userdata := RECORD(CellExists(paymentrows,'x') ? paymentrows.x : DEFAULT RECORD)
                                 , __paymentdata := CELL[ ...paymentrows, DELETE provider ]
                              FROM paymentrows;
 
@@ -148,6 +138,7 @@ PUBLIC RECORD FUNCTION CreatePaymentRecord(RECORD ARRAY paymentrows)
          , status          := RecordExists(bestpayment) ? bestpayment.status : "pending"
          , paymentref      := RecordExists(bestpayment) ? bestpayment.paymentref : ""
          , paymentdate     := RecordExists(bestpayment) ? bestpayment.paymentdate : DEFAULT DATETIME
+         , userdata        := RecordExists(bestpayment) ? bestpayment.userdata : DEFAULT RECORD
          , payments        := payments
          , __bestpayment   := bestpayment
          ];

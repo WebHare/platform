@@ -486,7 +486,15 @@
     <text tid="samlspendpoint">SAML SP endpoint</text>
     <text tid="schemaarchive">Archived WRD schema</text>
   </textgroup>
-  <textgroup gid="forms">   <!-- forms -->
+  <textgroup gid="forms" limitlanguages="en nl">   <!-- forms -->
+    <textgroup gid="paymenthandler">   <!-- forms.paymenthandler -->
+      <text tid="amounttype">Amount type</text>
+      <text tid="amounttype-fixed">fixed amount</text>
+      <text tid="amounttype-fromfield">from field</text>
+      <text tid="handler">Request payment</text>
+      <text tid="orderid">Order reference</text>
+      <text tid="requireonepaymentmethod">The payment handler requires the form to have a payment method field</text>
+    </textgroup>
     <textgroup gid="paymentmethod">   <!-- forms.paymentmethod -->
       <text tid="name">Payment method</text>
     </textgroup>
@@ -606,7 +614,7 @@
     <text tid="superuser">WRD Superuser</text>
     <text tid="superuser_descr">May fully manage WRD</text>
   </textgroup>
-  <textgroup gid="samlauth">   <!-- samlauth -->
+  <textgroup gid="samlauth" limitlanguages="en nl">   <!-- samlauth -->
     <text tid="editnameidformat">Edit name identifier format</text>
     <text tid="nameidformat">Name identifier format</text>
     <textgroup gid="editcertificate">   <!-- samlauth.editcertificate -->
@@ -675,6 +683,12 @@
       <text tid="contacts">Contacts</text>
       <text tid="editprovider">Edit provider</text>
       <text tid="givenname">Given name</text>
+      <text tid="hashmethod">Hash method for signatures</text>
+      <text tid="hashmethod-sha-1">SHA-1 (deprecated)</text>
+      <text tid="hashmethod-sha-224">SHA-224</text>
+      <text tid="hashmethod-sha-256">SHA-256</text>
+      <text tid="hashmethod-sha-384">SHA-384</text>
+      <text tid="hashmethod-sha-512">SHA-512</text>
       <text tid="keypair">Keypair</text>
       <text tid="nameidformat">Name identifier format</text>
       <text tid="nameidpolicy">Name identifier policy</text>

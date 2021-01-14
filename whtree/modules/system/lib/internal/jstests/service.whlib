@@ -193,12 +193,14 @@ VARIANT FUNCTION TranslateElementReferences(OBJECT session, VARIANT value, BOOLE
   RETURN value;
 }
 
-PUBLIC VARIANT FUNCTION RPC_Invoke(STRING lib, STRING func, VARIANT ARRAY params)
+PUBLIC VARIANT FUNCTION RPC_Invoke(STRING libfunc, VARIANT ARRAY params)
 {
   INTEGER ARRAY intypes;
   FOREVERY(VARIANT param FROM params)
     INSERT TypeID(param) INTO intypes AT END;
-  FUNCTION PTR funcptr := MakeFunctionPtr(lib || "#TestInvoke_" || func, -1, intypes);
+
+  STRING ARRAY toks := Tokenize(libfunc,'#');
+  FUNCTION PTR funcptr := MakeFunctionPtr(toks[0] || "#TestInvoke_" || toks[1], -1, intypes);
   VARIANT result := CallAnyPtrVA(funcptr, params);
   IF (TypeID(result) = TypeID(OBJECT) AND result EXTENDSFROM PromiseBase)
     result := WaitForPromise(result);

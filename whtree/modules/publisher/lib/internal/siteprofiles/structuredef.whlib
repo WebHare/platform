@@ -133,6 +133,62 @@ STRING ARRAY blocknodes :=
 
 STRING ARRAY textstyletags := [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup', 'img' ];
 
+RECORD ARRAY FUNCTION ExplainIntoLines(RECORD ARRAY parsed)
+{
+  RECORD ARRAY lines;
+  RECORD ARRAY curinlineitems;
+  FOREVERY(RECORD rec FROM parsed)
+  {
+    IF (rec.type = "block" OR rec.type = "table" OR rec.type = "embeddedobject" OR rec.type = "br") //block starts
+    {
+      IF(Length(curinlineitems) > 0)
+      {
+        INSERT [ block := DEFAULT RECORD, inline := curinlineitems ] INTO lines AT END;
+        curinlineitems := RECORD[];
+      }
+      INSERT [ block := rec ] INTO lines AT END;
+      CONTINUE;
+    }
+    ELSE
+    {
+      INSERT rec INTO curinlineitems AT END;
+    }
+  }
+  IF(Length(curinlineitems) > 0)
+    INSERT [ block := DEFAULT RECORD, inline := curinlineitems ] INTO lines AT END;
+  RETURN lines;
+}
+
+RECORD ARRAY FUNCTION FixIntralineSpaces(RECORD ARRAY items)
+{
+  //Remove any initial space
+  WHILE(Length(items) > 0 AND items[0].type = "text" AND items[0].value LIKE " *")
+  {
+    items[0].value := Substring(items[0].value, 1);
+    IF(items[0].value = "") //that was all the data we had?
+      DELETE FROM items AT 0;
+  }
+  //Remove any final space
+  WHILE(Length(items) > 0  AND items[END-1].type = "text" AND items[END-1].value LIKE "* ")
+  {
+    items[END-1].value := Left(items[END-1].value, Length(items[END-1].value) - 1);
+    IF(items[END-1].value = "")
+      DELETE FROM items AT END-1;
+  }
+
+  //If two consecutive text nodes both have a space on their shared edge, remove it from the second node
+  FOREVERY(RECORD node FROM items)
+  {
+    IF(#node > 0 AND node.type = "text" AND node.value LIKE " *" AND items[#node-1].type = "text" AND items[#node-1].value LIKE "* ")
+      items[#node].value := Substring(items[#node].value, 1); //strip the starting space
+  }
+
+  //Remove any fully empty textnodes
+  DELETE FROM items WHERE type = "text" AND value = "";
+
+  RETURN items;
+}
+
 /// Parsed block
 OBJECTTYPE ParsedBlock
 <
@@ -733,7 +789,16 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         }
         CASE "text"
         {
-          STRING text := Substitute(type.data, '\u200b', '');
+          STRING text := type.data;
+          //remove stray undisplayed charactesr
+          text := Substitute(text, '\u200b', '');
+
+          //convert linefeeds to spaces, remove double spaces
+          text := Substitute(text, '\r', ' ');
+          text := Substitute(text, '\n', ' ');
+          WHILE(text LIKE "*  *")
+            text := Substitute(text, '  ', ' ');
+
           IF (text != type.data)
             block->forcevisible := TRUE;
           IF (text != "")
@@ -1096,99 +1161,102 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
   {
     RECORD retval := [ isvisible := FALSE ];
 
-    RECORD ARRAY textstylestate;
-
-    FOREVERY (RECORD rec FROM parsed)
+    RECORD ARRAY lines := ExplainIntoLines(parsed);
+    FOREVERY(RECORD line FROM lines)
     {
-      IF (rec.type = "block")
+      IF(RecordExists(line.block))
       {
-        OBJECT block := rec.block;
-
-        STRING tag := block->style.containertag;
-        IF (block->type = "listitem")
-          tag := "li";
-
-        OBJECT blocknode := node->ownerdocument->CreateElement(tag);
-        IF (block->type != "listitem")
-          blocknode->SetAttribute("class", ToLowercase(block->style.tag));
-
-        RECORD bretval := this->BuildFromParsedRecursive(blocknode, block->nodes, intable, TRUE, inlist);
-
-        IF (block->forcevisible)
+        RECORD rec := line.block;
+        IF (rec.type = "block")
         {
-          bretval.isvisible := TRUE;
-          this->EnsureBlockVisible(blocknode);
-        }
+          OBJECT block := rec.block;
 
-        IF (bretval.isvisible)
-        {
-          node->AppendChild(blocknode);
-          retval.isvisible := TRUE;
-        }
-        CONTINUE;
-      }
-      ELSE IF (rec.type = "table")
-      {
-        IF(intable OR inblock OR inlist)
-        {
-          //squash the unexpected table
-          FOREVERY (RECORD rowitem FROM rec.block->nodes)
-            FOREVERY (OBJECT cellitem FROM rowitem.nodes)
-            {
-              RECORD bretval := this->BuildFromParsedRecursive(node, cellitem->nodes, intable, TRUE, inlist);
-              IF(bretval.isvisible)
-                retval.isvisible := TRUE;
-            }
+          STRING tag := block->style.containertag;
+          IF (block->type = "listitem")
+            tag := "li";
+
+          OBJECT blocknode := node->ownerdocument->CreateElement(tag);
+          IF (block->type != "listitem")
+            blocknode->SetAttribute("class", ToLowercase(block->style.tag));
+
+          RECORD bretval := this->BuildFromParsedRecursive(blocknode, block->nodes, intable, TRUE, inlist);
+
+          IF (block->forcevisible)
+          {
+            bretval.isvisible := TRUE;
+            this->EnsureBlockVisible(blocknode);
+          }
+
+          IF (bretval.isvisible)
+          {
+            node->AppendChild(blocknode);
+            retval.isvisible := TRUE;
+          }
           CONTINUE;
         }
-        OBJECT newtable := this->CreateTableNode(node, rec);
-        node->AppendChild(newtable);
-        retval.isvisible := TRUE;
-        CONTINUE;
+        ELSE IF (rec.type = "table")
+        {
+          IF(intable OR inblock OR inlist)
+          {
+            //squash the unexpected table
+            FOREVERY (RECORD rowitem FROM rec.block->nodes)
+              FOREVERY (OBJECT cellitem FROM rowitem.nodes)
+              {
+                RECORD bretval := this->BuildFromParsedRecursive(node, cellitem->nodes, intable, TRUE, inlist);
+                IF(bretval.isvisible)
+                  retval.isvisible := TRUE;
+              }
+            CONTINUE;
+          }
+          OBJECT newtable := this->CreateTableNode(node, rec);
+          node->AppendChild(newtable);
+          retval.isvisible := TRUE;
+          CONTINUE;
+        }
+        ELSE IF (rec.type = "embeddedobject")
+        {
+          OBJECT newobj := this->CreateEmbeddedObject(node, rec);
+          node->AppendChild(newobj);
+          retval.isvisible := TRUE;
+          CONTINUE;
+        }
+        ELSE IF(rec.type = "br")
+        {
+          node->AppendChild(node->ownerdocument->CreateElement("br"));
+          retval.isvisible := TRUE;
+        }
       }
-      ELSE IF (rec.type = "embeddedobject")
+      ELSE
       {
-        OBJECT newobj := this->CreateEmbeddedObject(node, rec);
-        node->AppendChild(newobj);
-        retval.isvisible := TRUE;
-        CONTINUE;
-      }
+        RECORD ARRAY textstylestate;
+        FOREVERY(RECORD rec FROM FixIntralineSpaces(line.inline))
+        {
+          RECORD res := this->UpdateTextStyleState(node, textstylestate, rec.textstyles);
+          textstylestate := res.currentstate;
 
-      RECORD res := this->UpdateTextStyleState(node, textstylestate, rec.textstyles);
-      textstylestate := res.currentstate;
-
-      IF (rec.type != "text" OR TrimWhitespace(rec.value) != "")
-        retval.isvisible := TRUE;
-
-      SWITCH (rec.type)
-      {
-        CASE "text"
-        {
-          res.node->AppendChild(node->ownerdocument->CreateTextNode(rec.value));
-          IF (TrimWhitespace(rec.value) != "")
-            retval.isvisible := TRUE;
-        }
-        CASE "br"
-        {
-          res.node->AppendChild(node->ownerdocument->CreateElement("br"));
-          retval.isvisible := TRUE;
-        }
-        CASE "img"
-        {
-          this->InsertTextStyleNode(res.node, rec.value);
-//          res.node->AppendChild(node->ownerdocument->CreateElement("img"));
-
-          retval.isvisible := TRUE;
-        }
-        CASE "inlineobject"
-        {
-          OBJECT newobj := this->CreateEmbeddedObject(res.node, rec);
-          res.node->AppendChild(newobj);
-          retval.isvisible := TRUE;
-        }
-        DEFAULT
-        {
-          THROW NEW Exception(`Unhandled: ${rec.type}`);
+          SWITCH (rec.type)
+          {
+            CASE "text"
+            {
+              res.node->AppendChild(node->ownerdocument->CreateTextNode(rec.value));
+              retval.isvisible := TRUE;
+            }
+            CASE "img"
+            {
+              this->InsertTextStyleNode(res.node, rec.value);
+              retval.isvisible := TRUE;
+            }
+            CASE "inlineobject"
+            {
+              OBJECT newobj := this->CreateEmbeddedObject(res.node, rec);
+              res.node->AppendChild(newobj);
+              retval.isvisible := TRUE;
+            }
+            DEFAULT
+            {
+              THROW NEW Exception(`Unhandled: ${rec.type}`);
+            }
+          }
         }
       }
     }

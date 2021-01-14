@@ -354,85 +354,21 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   */
   BOOLEAN FUNCTION BuildRowkeyMapping()
   {
-    // Sort is probably quickest
     RECORD ARRAY newmapping :=
         SELECT rowkey
-             , pos :=     #pvt_rows
+             , pos :=     Any(#pvt_rows)
           FROM this->pvt_rows
+      GROUP BY rowkey
       ORDER BY rowkey;
 
-    // Check for duplicates (needs to be very quick) ADDME: (would SELECT DISTINCT & LENGTH compare be quicker?)
-    INTEGER len := LENGTH(newmapping);
-    BOOLEAN have_duplicates;
-    IF (LENGTH(newmapping) != 0)
+    this->pvt_rowkeymapping := newmapping;
+    IF(Length(newmapping) < Length(this->pvt_rows)) //any dupes?
     {
-      VARIANT current_rowkey := newmapping[0].rowkey;
-      FOR (INTEGER i := 1; i < len; i := i + 1)
-      {
-        VARIANT rowkey := newmapping[i].rowkey;
-        IF (rowkey != current_rowkey)
-          current_rowkey := rowkey;
-        ELSE
-        {
-          // We have a duplicate!
-          have_duplicates := TRUE;
-          BREAK;
-        }
-      }
-    }
-
-    IF (have_duplicates)
-    {
-      // Filter out the duplicates. Might be quicker to use the newmapping we created earlier, though not
-      // probable this path is critical enough to afford the rewrite.
-      RECORD ARRAY newrows;
-      RECORD ARRAY duplicates;
-      BOOLEAN first := TRUE;
-      FOREVERY (RECORD row FROM this->pvt_rows)
-      {
-        // Find first occurence of this rowkey. If the position not the same, this is a second+ occurence
-        RECORD pos := RecordLowerBound(newmapping, row, [ "ROWKEY" ]);
-        IF (#row != newmapping[pos.position].pos)
-        {
-          IF (first)
-          {
-            Print("Detected duplicate rowkey ("||row.rowkey||") in list " || this->pvt_callback->name || ": filtering for duplicates\n");
-            first := FALSE;
-          }
-          ELSE
-            Print("Another duplicate rowkey ("||row.rowkey||")\n");
-
-          INSERT row INTO duplicates AT END;
-        }
-        ELSE
-          INSERT row INTO newrows AT END;
-      }
-
-      PRINT("All items:\n" ||
-          AnyToString((SELECT rowkey
-                           , title :=   CellExists(duplicates, "TITLE") ? title : "n/a"
-                        FROM this->pvt_rows), "boxed"));
-
-      IF(Length(duplicates) > 0)
-      {
-        PRINT("Duplicates:\n" ||
-            AnyToString((SELECT rowkey
-                             , title :=   CellExists(duplicates, "TITLE") ? title : "n/a"
-                          FROM duplicates), "boxed"));
-      }
-      newmapping :=
-          SELECT rowkey
-               , pos :=     #newrows
-            FROM newrows
-        ORDER BY rowkey;
-
-      this->pvt_rows := newrows;
-      this->pvt_rowkeymapping := newmapping;
+      INTEGER ARRAY validpositions := GetSortedSet(SELECT AS INTEGER ARRAY pos FROM newmapping);
+      this->pvt_rows := SELECT * FROM this->pvt_rows AS row WHERE BinaryFind(validpositions, #row) >= 0;
       this->pvt_callback->LTH_UpdatedAllRows();
       RETURN FALSE;
     }
-
-    this->pvt_rowkeymapping := newmapping;
     RETURN TRUE;
   }
 

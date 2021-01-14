@@ -483,8 +483,8 @@ PUBLIC OBJECTTYPE BEREncoder
     RETURN int_index;
   }
 
-  /** Add a base16-encoded integer. If the highest bit of the left digit is 1 (the first digit is 8, 9, A, B, C, D, E or F), the number is assumed to be negative
-      Length should be a multiple of 2.
+  /** Add a base16-encoded integer. If the highest bit of the left digit is 1 (the first digit is 8, 9, A, B, C, D, E or F), the number is assumed to be negative, so if
+      you know the number must be interpreted unsigned, simply add "00" in front of it. The length should be a multiple of 2.
   */
   PUBLIC INTEGER FUNCTION AddBigInteger(STRING base16enc)
   {
@@ -517,6 +517,21 @@ PUBLIC OBJECTTYPE BEREncoder
     RETURN str_index;
   }
 
+  PUBLIC INTEGER FUNCTION AddNull()
+  {
+    INTEGER null_index := Length(this->request);
+    this->InsertTag(null_index, FALSE, BER_Class_Universal, BER_Universal_Null);
+    this->InsertLength(Length(this->request), 0);
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added NULL at " || null_index || " (" || BER_Class_Universal || ":" || BER_Universal_Null || ")\n");
+      INSERT null_index INTO this->replacabletags AT END;
+    }
+
+    RETURN null_index;
+  }
+
   PUBLIC INTEGER FUNCTION AddBoolean(BOOLEAN value)
   {
     INTEGER bool_index := Length(this->request);
@@ -531,6 +546,25 @@ PUBLIC OBJECTTYPE BEREncoder
     }
 
     RETURN bool_index;
+  }
+
+  PUBLIC INTEGER FUNCTION AddBitString(STRING value, INTEGER unusedbits)
+  {
+    IF(unusedbits < 0 OR unusedbits >= 8)
+      THROW NEW Exception(`Incorrect unusedbits '${unusedbits}'`);
+
+    INTEGER str_index := Length(this->request);
+    this->InsertTag(str_index, FALSE, BER_Class_Universal, BER_Universal_BitString);
+    this->InsertLength(Length(this->request), Length(value) + 1);
+    this->request := this->request || ByteToString(unusedbits) || value;
+
+    IF (debug_encode)
+    {
+      PRINT(RepeatText(" ", LENGTH(this->constructions)) || "Added BIT STRING at " || str_index || " (" || BER_Class_Universal || ":" || BER_Universal_BitString || ")\n");
+      INSERT str_index INTO this->replacabletags AT END;
+    }
+
+    RETURN str_index;
   }
 
   PUBLIC INTEGER FUNCTION AddOctetString(STRING value)

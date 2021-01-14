@@ -560,7 +560,6 @@ class MenuBase
     this.options = { openonhover: true, ...menuoptions, ...options};
 
     this._onMouseDownOnItem = this._onMouseDownOnItem.bind(this);
-    this._onClickItem = this._onClickItem.bind(this);
     this._onMouseEnter = this._onMouseEnter.bind(this);
     this._onMouseLeave = this._onMouseLeave.bind(this);
     this._onMouseMove = this._onMouseMove.bind(this);
@@ -568,7 +567,7 @@ class MenuBase
     this._onRefresh = this._onRefresh.bind(this);
 
     this.el.addEventListener("mousedown", this._onMouseDownOnItem);
-    this.el.addEventListener("click", this._onClickItem);
+    this.el.addEventListener("click", this._closeAfterClick, true); //capture
     this.el.addEventListener("mouseenter", this._onMouseEnter);
     this.el.addEventListener("mouseleave", this._onMouseLeave);
     this.el.addEventListener("mousemove", this._onMouseMove);
@@ -580,7 +579,7 @@ class MenuBase
   {
     this._closeMenu();
     this.el.removeEventListener("mousedown", this._onMouseDownOnItem);
-    this.el.removeEventListener("click", this._onClickItem);
+    this.el.removeEventListener("click", this._closeAfterClick, true);
     this.el.removeEventListener("mouseenter", this._onMouseEnter);
     this.el.removeEventListener("mouseleave", this._onMouseLeave);
     this.el.removeEventListener("mousemove", this._onMouseMove);
@@ -745,36 +744,15 @@ class MenuBase
     event.preventDefault();
   }
 
-  _onClickItem(event)
+  _closeAfterClick(event)
   {
-    let li = event.target.closest( "li");
-    if (!li)
+    let li = event.target.closest("li");
+    //See if the item is clickable (TODO being clickable should be 'opt in', or use <a> or something similar? can also add proper aria roles to the clickable items then)
+    if (!li || li.classList.contains("hassubmenu") || li.classList.contains("disabled")|| li.classList.contains("divider"))
       return;
 
-    var eventnode = controller.getEventNode();
-    if(dompack.debugflags.men)
-        console.log("[men] dispatching wh-menu-activateitem for menuitem ", li, " to ", eventnode, " in tree ", getParents(eventnode));
-
-    /* Make sure the field value is synced for replaced components
-       ADDME test, we'll need selenium, reproduced on chrome and firefox
-       tollium basecomponents testdatetime triggers
-
-       Test: http://sites.moe.sf.b-lex.com/tollium_todd.res/tollium_dev/jstests/?mask=webhare_testsuite.tollium.basecomponents.testdatetime&nocatch=1
-    $wh.flushFocusedChanges();
-
-    FIXME Ensure the bug is gone
-*/
-    if(li.classList.contains("hassubmenu") || li.classList.contains("disabled"))
-      return; //ignore clicks on things with a submenu or disabled items
-
-    if(!dompack.dispatchCustomEvent(eventnode, "wh:menu-activateitem", { bubbles: true, cancelable: true, detail: { menuitem: li }}))
-    {
-      if(dompack.debugflags.men)
-        console.log("[men] menu close cancelled by event");
-      return;
-    }
-
-    controller.closeAll();
+    //remove the menus on the next tick (don't interfere with current action)
+    setTimeout( () => controller.closeAll());
   }
 
   _onMouseMove(event)
@@ -964,7 +942,7 @@ class MenuBase
     if (!this.selecteditem)
       return false;
 
-    this._onClickItem(event, this.selecteditem);
+    this.selecteditem.click();
     return true;
   }
 }

@@ -58,7 +58,7 @@ MACRO TestQueryParserBasics()
 
   // Non-alphanumeric characters are used to create phrase
   query := parser->Parse("http/1.0", "");
-  TestEq("(\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"http 1 0\"^5 keywords:\"http 1 0\"^10 description:\"http 1 0\"^5 \"http 1 0\")", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(TRUE, "http" IN query.words);
   TestEq(TRUE, "1" IN query.words);
@@ -66,28 +66,28 @@ MACRO TestQueryParserBasics()
 
   // Phrase searches
   query := parser->Parse("\"transfer protocol\"", "");
-  TestEq("(\"transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"transfer protocol\"^5 keywords:\"transfer protocol\"^10 description:\"transfer protocol\"^5 \"transfer protocol\")", __FormatQuery(0, query.query));
   TestEq(2, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
 
   // Phrase searches, with boost factor
   query := parser->Parse("\"transfer protocol\"^4.4", "");
-  TestEq("(\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq("((title:\"transfer protocol\"^5 keywords:\"transfer protocol\"^10 description:\"transfer protocol\"^5 \"transfer protocol\")^4.4)", __FormatQuery(0, query.query));
   TestEq(2, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
 
   // Phrase searches, with slop factor
   query := parser->Parse("\"transfer protocol\"~2", "");
-  TestEq("(\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq("(title:\"transfer protocol\"~2^5 keywords:\"transfer protocol\"~2^10 description:\"transfer protocol\"~2^5 \"transfer protocol\"~2)", __FormatQuery(0, query.query));
   TestEq(2, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
 
   // Phrase searches, ignore non-alphanumeric characters
   query := parser->Parse("\"http/1.0\"", "");
-  TestEq("(\"http 1 0\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"http 1 0\"^5 keywords:\"http 1 0\"^10 description:\"http 1 0\"^5 \"http 1 0\")", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(TRUE, "http" IN query.words);
   TestEq(TRUE, "1" IN query.words);
@@ -95,7 +95,7 @@ MACRO TestQueryParserBasics()
 
   // 'Direct' phrase searches
   query := parser->Parse("hypertext-transfer-protocol", "");
-  TestEq("(\"hypertext transfer protocol\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"hypertext transfer protocol\"^5 keywords:\"hypertext transfer protocol\"^10 description:\"hypertext transfer protocol\"^5 \"hypertext transfer protocol\")", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(TRUE, "hypertext" IN query.words);
   TestEq(TRUE, "transfer" IN query.words);
@@ -103,14 +103,14 @@ MACRO TestQueryParserBasics()
 
   // 'Direct' phrase searches, with boost factor
   query := parser->Parse("transfer+protocol^4.4", "");
-  TestEq("(\"transfer protocol\"^4.4)", __FormatQuery(0, query.query));
+  TestEq("((title:\"transfer protocol\"^5 keywords:\"transfer protocol\"^10 description:\"transfer protocol\"^5 \"transfer protocol\")^4.4)", __FormatQuery(0, query.query));
   TestEq(2, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
 
   // 'Direct' phrase searches, with slop factor
   query := parser->Parse("transfer-protocol~2", "");
-  TestEq("(\"transfer protocol\"~2)", __FormatQuery(0, query.query));
+  TestEq("(title:\"transfer protocol\"~2^5 keywords:\"transfer protocol\"~2^10 description:\"transfer protocol\"~2^5 \"transfer protocol\"~2)", __FormatQuery(0, query.query));
   TestEq(2, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
@@ -270,7 +270,7 @@ MACRO TestQueryParserFields()
   query := parser->Parse("title:**", "");
   TestEq("(title:*)", __FormatQuery(0, query.query));
   query := parser->Parse("title:*test*", ""); // test* is interpreted as (start of) a phrase query
-  TestEq("(title:*) (\"test\")", __FormatQuery(0, query.query));
+  TestEq("(title:*) (title:\"test\"^5 keywords:\"test\"^10 description:\"test\"^5 \"test\")", __FormatQuery(0, query.query));
   query := parser->Parse("test title:* keywords:test", "");
   TestEq("(title:test^5 keywords:test^10 description:test^5 test) (title:*) (keywords:test)", __FormatQuery(0, query.query));
 }
@@ -309,7 +309,7 @@ MACRO TestStemmedQueryParser()
 
   // Phrases should not be stemmed
   query := parser->Parse("\"transfers transferring transferred\"", "en");
-  TestEq("(\"transfers transferring transferred\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"transfers transferring transferred\"^5 keywords:\"transfers transferring transferred\"^10 description:\"transfers transferring transferred\"^5 \"transfers transferring transferred\")", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(FALSE, "transfer" IN query.words);
   TestEq(TRUE, "transfers" IN query.words);
@@ -318,7 +318,7 @@ MACRO TestStemmedQueryParser()
 
   // 'Direct' phrases should not be stemmed
   query := parser->Parse("transfers-transferring+transferred", "en");
-  TestEq("(\"transfers transferring transferred\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"transfers transferring transferred\"^5 keywords:\"transfers transferring transferred\"^10 description:\"transfers transferring transferred\"^5 \"transfers transferring transferred\")", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(FALSE, "transfer" IN query.words);
   TestEq(TRUE, "transfers" IN query.words);
@@ -368,7 +368,7 @@ MACRO TestQueryParserFilters()
   // Leaving out field name: no filter
   query := parser->Parse("[start,finish]", "");
   TestEq(0, Length(query.filters));
-  TestEq("(\"start finish\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"start finish\"^5 keywords:\"start finish\"^10 description:\"start finish\"^5 \"start finish\")", __FormatQuery(0, query.query));
 
   // Leaving out both start and finish: no filter
   query := parser->Parse("field:[,]", "");
@@ -392,7 +392,7 @@ MACRO TestQueryParserFilters()
   // ']' is ingored
   query := parser->Parse("field:{start finish} field:[start field:{start} field[start,finish]", "");
   TestEq(0, Length(query.filters));
-  TestEq("(\"finish\") (\"field start finish\")", __FormatQuery(0, query.query));
+  TestEq("(title:\"finish\"^5 keywords:\"finish\"^10 description:\"finish\"^5 \"finish\") (title:\"field start finish\"^5 keywords:\"field start finish\"^10 description:\"field start finish\"^5 \"field start finish\")", __FormatQuery(0, query.query));
 
   // Range filter on untokenized fields
   query := parser->Parse("indexid:[start,finish]", "");
@@ -421,14 +421,14 @@ MACRO TestQueryParserCombinations()
   RECORD query;
 
   query := parser->Parse("-hypertext +\"transfer protocol\"~2 http^15", "");
-  TestEq("-(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext) +(\"transfer protocol\"~2) (title:http^5 keywords:http^10 description:http^5 http)^15", __FormatQuery(0, query.query));
+  TestEq("-(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext) +(title:\"transfer protocol\"~2^5 keywords:\"transfer protocol\"~2^10 description:\"transfer protocol\"~2^5 \"transfer protocol\"~2) (title:http^5 keywords:http^10 description:http^5 http)^15", __FormatQuery(0, query.query));
   TestEq(3, Length(query.words));
   TestEq(TRUE, "transfer" IN query.words);
   TestEq(TRUE, "protocol" IN query.words);
   TestEq(TRUE, "http" IN query.words);
 
   query := parser->Parse("hypertext^2.0 +\"transfer protocol\"~2^0.5 http", "");
-  TestEq("(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext)^2 +(\"transfer protocol\"~2^0.5) (title:http^5 keywords:http^10 description:http^5 http)", __FormatQuery(0, query.query));
+  TestEq("(title:hypertext^5 keywords:hypertext^10 description:hypertext^5 hypertext)^2 +((title:\"transfer protocol\"~2^5 keywords:\"transfer protocol\"~2^10 description:\"transfer protocol\"~2^5 \"transfer protocol\"~2)^0.5) (title:http^5 keywords:http^10 description:http^5 http)", __FormatQuery(0, query.query));
   TestEq(4, Length(query.words));
   TestEq(TRUE, "hypertext" IN query.words);
   TestEq(TRUE, "transfer" IN query.words);
@@ -459,7 +459,7 @@ MACRO TestQueryParserCombinations()
   // '2616' is a single term query
   //   A boost factor of 0.5 is set for the query (the query '0' may be ommitted)
   query := parser->Parse("- hypertext-transfer-^.4 +\"title:protocol\" ~3 http ^2 +rfc+ 2616^.5", "");
-  TestEq("(\"hypertext transfer\") (title:4^5 keywords:4^10 description:4^5 4) +(\"title protocol\") (title:3^5 keywords:3^10 description:3^5 3) (title:http^5 keywords:http^10 description:http^5 http) (title:2^5 keywords:2^10 description:2^5 2) +(\"rfc\") (title:2616^5 keywords:2616^10 description:2616^5 2616)^0.5", __FormatQuery(0, query.query));
+  TestEq("(title:\"hypertext transfer\"^5 keywords:\"hypertext transfer\"^10 description:\"hypertext transfer\"^5 \"hypertext transfer\") (title:4^5 keywords:4^10 description:4^5 4) +(title:\"title protocol\"^5 keywords:\"title protocol\"^10 description:\"title protocol\"^5 \"title protocol\") (title:3^5 keywords:3^10 description:3^5 3) (title:http^5 keywords:http^10 description:http^5 http) (title:2^5 keywords:2^10 description:2^5 2) +(title:\"rfc\"^5 keywords:\"rfc\"^10 description:\"rfc\"^5 \"rfc\") (title:2616^5 keywords:2616^10 description:2616^5 2616)^0.5", __FormatQuery(0, query.query));
   TestEq(10, Length(query.words));
   TestEq(TRUE, "hypertext" IN query.words);
   TestEq(TRUE, "transfer" IN query.words);
@@ -489,11 +489,11 @@ MACRO TestNestedQueries()
 
   // Normal nested query
   query := parser->Parse("+(\"transfer\" +\"test\")^2 \"wow\" ", "");
-  TestEq("+(((\"transfer\") +(\"test\"))^2) (\"wow\")", __FormatQuery(0, query.query));
+  TestEq("+(((title:\"transfer\"^5 keywords:\"transfer\"^10 description:\"transfer\"^5 \"transfer\") +(title:\"test\"^5 keywords:\"test\"^10 description:\"test\"^5 \"test\"))^2) (title:\"wow\"^5 keywords:\"wow\"^10 description:\"wow\"^5 \"wow\")", __FormatQuery(0, query.query));
 
   // Nested query, but not terminated
   query := parser->Parse("\"wow\" +(\"transfer\" +\"test", "");
-  TestEq("(\"wow\") +((\"transfer\") +(\"test\"))", __FormatQuery(0, query.query));
+  TestEq("(title:\"wow\"^5 keywords:\"wow\"^10 description:\"wow\"^5 \"wow\") +((title:\"transfer\"^5 keywords:\"transfer\"^10 description:\"transfer\"^5 \"transfer\") +(title:\"test\"^5 keywords:\"test\"^10 description:\"test\"^5 \"test\"))", __FormatQuery(0, query.query));
 }
 
 MACRO TestUserQueryExtraction()
@@ -647,7 +647,7 @@ MACRO TestCQAPI()
   //FIXME: '€' and '🍻' are treated as non-text characters and therefore not included in the user query
   //TestEq('+(title:"€"^5 keywords:"€"^10 description:"€"^5 "€")', __FormatQuery(0, CQParseUserQuery("€")));
   //TestEq('+(title:"🍻"^5 keywords:"🍻"^10 description:"🍻"^5 "🍻")', __FormatQuery(0, CQParseUserQuery("🍻")));
-  TestEq('+("a")', __FormatQuery(0, CQParseUserQuery("\"å\"")));
+  TestEq('+(title:"a"^5 keywords:"a"^10 description:"a"^5 "a")', __FormatQuery(0, CQParseUserQuery("\"å\"")));
   //FIXME: '€' and '🍻' are treated as non-text characters and therefore not included in the user query
   //TestEq('+("€")', __FormatQuery(0, CQParseUserQuery("\"€\"")));
   //TestEq('+("🍻")', __FormatQuery(0, CQParseUserQuery("\"🍻\"")));

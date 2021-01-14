@@ -78,6 +78,10 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
   {
     RETURN this->editscreen->GetFieldByTag(tag);
   }
+  PUBLIC RECORD ARRAY FUNCTION ListFormFields()
+  {
+    RETURN this->editscreen->ListFormFields();
+  }
 
   PUBLIC RECORD FUNCTION GetInstance(STRING id)
   {

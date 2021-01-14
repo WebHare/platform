@@ -101,13 +101,3 @@ PUBLIC STRING FUNCTION GetOrExtendOverrideURL(INTEGER setduration, DATETIME minv
   }
   RETURN "/?overridetoken=" || overridetoken;
 }
-
-PUBLIC STRING FUNCTION GetOverrideTokenURL(INTEGER duration)
-{
-  LogAuditEvent("system:recover", [ type := "GETOVERRIDE" ]);
-
-  IF(duration = 0)
-    duration := ReadRegistryKey("system.backend.security.override.duration");
-
-  RETURN GetOrExtendOverrideURL(duration, DEFAULT DATETIME);
-}

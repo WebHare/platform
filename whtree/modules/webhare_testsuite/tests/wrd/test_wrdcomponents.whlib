@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 PUBLIC OBJECTTYPE TestRunQuery EXTEND TolliumScreenBase
 <
@@ -17,5 +18,22 @@ PUBLIC OBJECTTYPE TestEntitiesEdit EXTEND TolliumScreenBase
     FOREVERY (INTEGER rowkey FROM rowkeys)
       wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);
     work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditEntity2 EXTEND WRDEntityEditScreenBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    ^entity->RegisterVirtualCell("wrd_title", PTR this->GetTitle, PTR this->SetTitle);
+    WRDEntityEditScreenBase::Init(data);
+  }
+  STRING FUNCTION GetTitle()
+  {
+    RETURN Tokenize(^mytitle->value, ";")[0];
+  }
+  MACRO SetTitle(STRING value)
+  {
+    ^mytitle->value := value || "; virtualcell";
   }
 >;

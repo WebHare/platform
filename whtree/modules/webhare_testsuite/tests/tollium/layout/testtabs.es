@@ -173,10 +173,9 @@ test.registerTests(
       }
     , waits: [ 'ui' ]
     }
-  , //use the menu to go to a different tab
-    { name: 'testmenu'
-    , test:function(doc,win)
-      {
+  , 'testmenu' //use the menu to go to a different tab
+  , async function(doc,win)
+    {
         var tablabel = test.compByName('tabs').querySelector('.nav-tabs');
         test.true(test.isElementClickable(tablabel), 'nav pulldown should have appeared');
         test.click(tablabel);
@@ -192,11 +191,12 @@ test.registerTests(
         test.true(tab3, "No menu item named '... long name for tab 3'");
 
         test.click(tab3);
-        test.false(test.getOpenMenu(), 'menu should be closed');
+        await test.wait(() => !test.getOpenMenu()); //menu should closed
+        await test.wait('ui');
         var tabs = getTabs(test.compByName('tabs'));
         test.true(tabs[3].classList.contains("active"));
         test.true(test.isElementClickable(tabs[3]));
-      }
+        test.eq('tab3', test.compByName('selectedtab').textContent);
     }
 
   ]);

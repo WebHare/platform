@@ -50,7 +50,7 @@ PUBLIC RECORD FUNCTION GetFSTypeBase()
   RETURN CELL [ cloneoncopy := TRUE, isfiletype := FALSE, isfoldertype := FALSE, orphan := FALSE
               , isacceptableindex := FALSE, needsprofile := FALSE
               , needstemplate := FALSE, ispublishable := FALSE, ispublishedassubdir := FALSE
-              , generatepreview := FALSE, previewobjectname:="", previewlibrary := "", searchprovider := ""
+              , generatepreview := FALSE, previewobjectname:="", previewlibrary := ""
               , isdynamicexecution := FALSE, capturesubpaths := FALSE
               ];
 }

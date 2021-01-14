@@ -41,6 +41,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
 //Folder/site id of the WebHare Backend site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
 
+//Default key expiry warning (days)
+PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 21;
+
 //Default index page for webserver. Must be lowercase!
 PUBLIC CONSTANT STRING whconstant_webserver_indexbasename := "index";
 
@@ -159,6 +162,9 @@ PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
 
 //valid user-supplied debug tokens
 PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
+
+//standard failed task reschedule time
+PUBLIC CONSTANT INTEGER whconstant_default_failreschedule := 15 * 60 * 1000;
 
 //common namespaces
 PUBLIC CONSTANT STRING whconstant_xmlns_moduledef := "http://www.webhare.net/xmlns/system/moduledefinition";

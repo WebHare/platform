@@ -1041,7 +1041,7 @@ INTEGER FUNCTION GetCronToAdd(STRING crontokpart, INTEGER current, INTEGER min, 
     RETURN 0;
 
   INTEGER ARRAY vals := GetCronVals(crontokpart, min, max, title);
-  INTEGER pos := __HS_SQL_UPPERBOUND(vals, current); //__HS_SQL_UPPERBOUND is UpperBound without a comparator function
+  INTEGER pos := __HS_SQL_LOWERBOUND(vals, current).position; //__HS_SQL_LOWERBOUND is UpperBound without a comparator function
   INTEGER toset := pos >= Length(vals) ? vals[0] : vals[pos];
 
   RETURN toset - current + (current > toset ? max + 1: 0);
@@ -1094,6 +1094,14 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
   INTEGER cur_hour := unpnow.hour;
   INTEGER add_hour := GetCronToAdd(crontoks[1], cur_hour, 0, 23, 'hour');
   now := AddTimeTodate(add_hour * 60 * 60 * 1000, now);
+
+  IF(cur_minute + add_minute >= 60 OR add_hour > 0) //we moved to the next hour above... then we need to look for the next minute again from the *start* of the hour
+  {
+    unpnow := UnpackDateTime(now);
+    cur_minute := unpnow.minute;
+    add_minute := GetCronToAdd(crontoks[0], 0, 0, 59, 'minute');
+    now := AddTimeTodate((add_minute - cur_minute) * 60 * 1000, now);
+  }
 
   //If you set any of day-of-month, month, or day-of-week, just pick first one that matches the constraints
   //Brute forcing it for now, we're lazy :-)

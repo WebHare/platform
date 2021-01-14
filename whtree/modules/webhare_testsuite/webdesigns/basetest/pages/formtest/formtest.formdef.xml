@@ -71,7 +71,7 @@
       <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue"/><!-- dynamic invisible -->
       <address name="address" title="Address" countrylist="NL BE" />
       <wt:twolevel name="twolevel" title="" groupclasses="wh-testsuite-twolevel-groupclasses"/>
-      <textarea name="textarea" title="Textarea" placeholder="Type a text in this area" />
+      <textarea name="textarea" title="Textarea" placeholder="Type a text in this area" maxlength="70" />
       <checkbox name="agree" title="Agree?" required="true" labeltid=".terms"/>
 
       <checkbox name="condition_or_1" title="OR 1" />
