@@ -7,7 +7,6 @@ MAINTAINER WebHare bv <info@webhare.com>
 
 # Environment variables
 ENV WEBHARE_IN_DOCKER=1 \
-  WEBHARE_UBUNTU=2004 \
   WEBHARE_DATAROOT=/opt/whdata \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
@@ -16,8 +15,6 @@ ENV WEBHARE_IN_DOCKER=1 \
   WEBHARE_BABELCACHE=/opt/wh/whtree/currentinstall/babelcache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
-  DEBIAN_FRONTEND=noninteractive \
-  APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/mssql-tools/bin
 
 # Expose usual WebHare hostingports

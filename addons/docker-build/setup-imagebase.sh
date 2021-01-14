@@ -19,6 +19,9 @@
 # Fail on any error
 set +e
 
+export DEBIAN_FRONTEND=noninteractive
+export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+
 # Add the postgres user before installing the postgresql packages
 useradd --system --uid 20003 --user-group postgres
 
