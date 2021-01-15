@@ -41,7 +41,7 @@
 
       <action name="managetypes" frameflags="right_metadata" onexecute="domanagetypes" />
       <action name="manageschemas" onexecute="domanageschemas" shortcut="ctrl+o" />
-      <action name="managependingpayments" onexecute="domanagependingpayments" />
+      <action name="managependingpayments" onexecute="domanagependingpayments" frameflags="right_readwrite" />
       <action name="managepaymentproviders" onexecute="domanagepaymentproviders" />
       <action name="exportschema" onexecute="doexportschema"  />
       <action name="exportxmlmetadata" onexecute="doexportxmlmetadata"  />
@@ -49,7 +49,7 @@
       <action name="addtostartmenu" tid="tollium:common.actions.addtostartmenu" onexecute="doaddtostartmenu" />
 
       <action name="newfree" frameflags="right_readwrite" onexecute="donewfree" />
-      <action name="schemaprops"  onexecute="doschemaprops" />
+      <action name="schemaprops"  onexecute="doschemaprops" frameflags="right_metadata" />
       <action name="auditlog"  onexecute="doauditlog" frameflags="has_accounts" />
       <action name="samlauth"  onexecute="dosamlauth" frameflags="has_usermgmt" />
 
@@ -79,7 +79,7 @@
       <action name="toggledataviewer" onexecute="dotoggledataviewer" />
 
       <action name="querybuilder" onexecute="doquerybuilder" />
-      <action name="anonymize"  onexecute="doanonymize" />
+      <action name="anonymize"  onexecute="doanonymize" frameflags="right_metadata" />
     </actions>
 
     <menus gid=".menu">

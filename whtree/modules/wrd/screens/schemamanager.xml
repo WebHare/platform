@@ -36,8 +36,8 @@
       </action>
 
       <uploadaction name="importschema" frameflags="right_schemacreate" onupload="onimport" />
-      <action name="synchronize" onexecute="DoSynchronize" frameflags="right_superuser">
-        <enableon source="schemas" min="1" max="1" checkflags="!isprotected" />
+      <action name="synchronize" onexecute="DoSynchronize">
+        <enableon source="schemas" min="1" max="1" checkflags="!isprotected right_metadata" />
       </action>
     </actions>
 
