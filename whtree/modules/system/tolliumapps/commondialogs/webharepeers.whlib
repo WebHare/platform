@@ -62,7 +62,7 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
       RETURN;
     }
 
-    RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := ["system:sysop"] ]);
+    RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value);
     urlreceiver->SendUrl(resp.requesturl);
     IF(AWAIT resp.tokenpromise != "")
     {
@@ -79,16 +79,13 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase
 <
-  STRING ARRAY scopes;
-
   MACRO Init(RECORD data)
   {
-    this->scopes := data.scopes;
     ^url->value := data.url;
   }
   ASYNC MACRO DoAuthServer(OBJECT urlreceiver)
   {
-    RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->scopes ]);
+    RECORD resp := GetWebHareRequestTokenURL(this, ^url->value);
     urlreceiver->SendUrl(resp.requesturl);
     IF(AWAIT resp.tokenpromise != "")
       this->tolliumresult := "ok";

@@ -874,7 +874,7 @@
       <text tid="errortitle">Er is een fout opgetreden</text>
       <text tid="explanation">De volgende server wil toegang tot deze server verkrijgen:</text>
       <text tid="oauthtitle">Autorisatie</text>
-      <text tid="question">Wilt u deze toegang verlenen?</text>
+      <text tid="question">De vragende server zal rechten hebben op alles wat uw account op deze server mag. Weet u zeker dat u deze toegang wil verlenen?</text>
       <text tid="scopes">Scopes</text>
       <textgroup gid="messages">   <!-- shell.oauth.messages -->
         <text tid="invalid_redirect">Er is een ongeldige redirect-URL opgegeven (deze moet binnen de client-URL vallen.)</text>

@@ -182,7 +182,6 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
     {
       IF(screen->contexts->screen->RunScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#reauthserver",
                                               [ url := url
-                                              , scopes := options.scopes
                                               ]) != "ok")
         RETURN DEFAULT OBJECT; //cancelled
 
@@ -197,10 +196,7 @@ PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECO
 {
   url := ResolveToAbsoluteURL(url,"/");
 
-  options := ValidateOptions([ scopes := STRING[]
-                             ], options);
-  IF(Length(options.scopes) = 0)
-    THROW NEW Exception("Must request at last one scope");
+  options := ValidateOptions(CELL[], options);
 
   STRING baseurl := screen->contexts->controller->baseurl;
   RECORD defer := CreateDeferredPromise();
@@ -213,7 +209,7 @@ PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECO
   url := UpdateURLVariables(url,
         [ app :=            "tollium:builtin.oauth"
         , oauth_clientid := baseurl
-        , oauth_scopes :=   Detokenize(options.scopes, ",")
+        , oauth_scopes :=   "webhare"
         , oauth_redirect := redirecturl
         ]);
 
