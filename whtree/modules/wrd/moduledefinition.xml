@@ -40,9 +40,7 @@
     </webservice>
 
     <webservice name="sync" transports="whremoting" library="internal/sync/service.whlib" primarytrans="auto" prefix="rpc_" requirewhaccount="true">
-      <accesscheck>
-        <requireright right="system:sysop" />
-      </accesscheck>
+      <accesscheck />
     </webservice>
   </services>
 

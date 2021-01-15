@@ -22,6 +22,22 @@ LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
 */
 PUBLIC RECORD FUNCTION RPC_GetSyncInstructions(STRING schemaname, RECORD ARRAY currentcontents, RECORD options)
 {
+  OBJECT user := GetEffectiveUser();
+  IF(NOT ObjectExists(user) OR NOT user->HasRightOnAny("wrd:read"))
+    THROW NEW Exception(`Access denied`);
+
+  OBJECT wrdschema := OpenWRDSchema(schemaname);
+  IF (NOT ObjectExists(wrdschema))
+    THROW NEW Exception(`No such schema '${schemaname}'`);
+
+  IF(NOT user->HasRightOn("wrd:read", wrdschema->id))
+    THROW NEW Exception(`No read access to schema '${schemaname}'`);
+
+  RETURN GetSyncInstructions(wrdschema, currentcontents, options);
+}
+
+PUBLIC RECORD FUNCTION GetSyncInstructions(OBJECT wrdschema, RECORD ARRAY currentcontents, RECORD options)
+{
   options := ValidateOptions(
       [ excludetypes := STRING[]
       , includetypes := STRING[]
@@ -43,9 +59,6 @@ PUBLIC RECORD FUNCTION RPC_GetSyncInstructions(STRING schemaname, RECORD ARRAY c
 
   RECORD ARRAY returntypes;
 
-  OBJECT wrdschema := OpenWRDSchema(schemaname);
-  IF (NOT ObjectExists(wrdschema))
-    THROW NEW Exception(`No such schema '${schemaname}'`);
 
   FOREVERY (RECORD typerec FROM SELECT * FROM wrdschema->ListTypes() ORDER BY ToUppercase(tag)) //order types to make sync issues more predictable
   {

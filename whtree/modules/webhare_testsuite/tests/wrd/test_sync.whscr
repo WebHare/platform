@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
@@ -52,10 +53,14 @@ OBJECT syncpeer;
 
 MACRO PrepareSchemaContent()
 {
-  // Add a payment
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
+
+  //fix rights
+  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), testfw->wrdschema->id, FALSE, TRUE);
+
+  // Add a payment
   RECORD keypair := testfw->GenerateKeyPair("payments");
   OBJECT pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
@@ -88,8 +93,7 @@ MACRO TestSync()
 {
   OBJECT userapi := GetWRDAuthUserAPI(testfw->wrdschema);
 
-  OBJECT user_sysop := testfw->GetUserObject("sysop");
-  RECORD tokenrec := userapi->GenerateOAuthAccessToken(user_sysop->entityid, STRING[]);
+  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("wrd_readrights")->entityid, STRING[]);
 
   STRING token := tokenrec.token;
 
@@ -101,6 +105,7 @@ MACRO TestSync()
         [ title := "webhare_testsuite schema, sync target"
         , description := "The webhare_testsuite WRD schema sync target"
         ]);
+  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), synctarget->id, FALSE, TRUE);
 
   OBJECT linktometype := testfw->GetWRDSchema()->CreateDomain("ZZ_LAST");
   OBJECT linktome1 := linktometype->CreateEntity([wrd_tag := "LINKTOME1"]);
@@ -118,6 +123,15 @@ MACRO TestSync()
       ]);
 
   //RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+  testfw->BeginWork();
+  TestThrowsLike("*Access denied*", PTR RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag)); //set syncpeer to DEFAULT OBJECT to test locally
+  GetPrimary()->PopWork(); //TODO it's not nice we have to do this after exception recovery, but what's the alternative? pehaps RunSYnc should set the transaction into ERROR mode before doing a popwork to prevent invalid commits?
+  testfw->RollbackWork();
+
+  testfw->BeginWork();
+  testfw->GetUserObject("wrd_readrights")->GrantRightToOn("wrd:read", testfw->GetUserObject("wrd_readrights"), testfw->wrdschema->id, FALSE, TRUE);
+  testfw->CommitWork();
+
   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
 
   RECORD ARRAY org_persons :=
@@ -300,6 +314,9 @@ MACRO TestSyncHistory()
         , description := "The webhare_testsuite WRD schema 2nd sync target"
         ]);
 
+  //done with schema-specific grants, we'll just give our accounts access to all schemas now
+  testfw->GetUserObject("wrd_metadatarights")->GrantRightToOn("wrd:metadata", testfw->GetUserObject("wrd_metadatarights"), 0, FALSE, TRUE);
+  testfw->GetUserObject("wrd_readrights")->GrantRightToOn("wrd:read", testfw->GetUserObject("wrd_readrights"), 0, FALSE, TRUE);
   testfw->CommitWork();
 
   STRING org_creationsource := synctarget->creationsource;
@@ -320,7 +337,7 @@ MACRO TestSyncHistory()
         , excludetypes :=       STRING[ "DOESNOTEXIST" ]
         , includetypes :=       STRING[]
         , remotesynchistory :=  RECORD[]
-        , user :=               [ login := "sysop@beta.webhare.net" ]
+        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
         ]
       ], synctarget->GetSchemaSetting("wrd:sync.history"), "*");
 
@@ -342,7 +359,7 @@ MACRO TestSyncHistory()
         , excludetypes :=       STRING[ "DOESNOTEXIST2" ]
         , includetypes :=       STRING[]
         , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "sysop@beta.webhare.net" ]
+        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
         ]
       ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
 
@@ -360,7 +377,7 @@ MACRO TestSyncHistory()
         , excludetypes :=       STRING[]
         , includetypes :=       STRING[]
         , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "sysop@beta.webhare.net" ]
+        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
         ]
       ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
 
@@ -378,7 +395,7 @@ MACRO TestSyncHistory()
         , excludetypes :=       STRING[]
         , includetypes :=       STRING[]
         , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "sysop@beta.webhare.net" ]
+        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
         ]
       ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
 
@@ -449,6 +466,7 @@ RunTestframework(
     , PTR TestLocalBlobUsage()
     ],
     [ testusers :=
-          [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+          [ [ login := "wrd_metadatarights" ]
+          , [ login := "wrd_readrights" ]
           ]
     ]);
