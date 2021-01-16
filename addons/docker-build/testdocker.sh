@@ -66,6 +66,10 @@ while true; do
   elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ]; then
     RUNTESTARGS="$RUNTESTARGS $1"
     shift
+  elif [ "$1" == "--env" ]; then # docker env
+    shift
+    DOCKERARGS="$DOCKERARGS --env $1"
+    shift
   elif [ "$1" == "--port" ]; then
     shift
     DOCKERARGS="$DOCKERARGS -p $1:8000"

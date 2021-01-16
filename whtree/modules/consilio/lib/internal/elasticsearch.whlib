@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -18,6 +19,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 <
@@ -92,7 +94,7 @@ ASYNC MACRO ConnectElasticsearch(INTEGER indexmgrid, FUNCTION PTR resolve, FUNCT
                       ];
 
       IF (indexmanager.address = "builtin-elasticsearch")
-        indexmanager.address := "http://127.0.0.1:" || GetWebhareConfiguration().baseport + 6;
+        indexmanager.address := `http://${GetEnvironmentVariable("WEBHARE_ELASTICSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_esportoffset}`;
 
       // Make sure the address doesn't end with a slash
       IF (indexmanager.address LIKE "*/")

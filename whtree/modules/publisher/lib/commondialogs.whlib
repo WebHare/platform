@@ -90,7 +90,7 @@ PUBLIC OBJECT FUNCTION CreateNewSiteDialog(OBJECT parent, INTEGER parentfolder, 
 
 /** @short Create a "WHFS Object properties" dialog
 */
-PUBLIC OBJECT FUNCTION CreateWHFSObjectPropsDialog(OBJECT parent, INTEGER fsobj)
+PUBLIC OBJECT FUNCTION CreateWHFSObjectPropsDialog(OBJECT parent, INTEGER fsobj) __ATTRIBUTES__(DEPRECATED "This API will be removed. Switch to RunFSObjectPropertiesDialog")
 {
   //IF(Length(SELECT * FROM system.fs_objects WHERE id = fsobj AND parentsite = fsobj) = 1)
   //  RETURN __CreateHistoryPropsDialog(parent, [ why := "edit", fsobj := fsobj], "publisher:commondialogs/objectprops.siteprops");

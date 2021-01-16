@@ -5,6 +5,10 @@ eval `$WEBHARE_DIR/bin/webhare printparameters`
 ELASTICSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
 ELASTICSEARCHROOT=$WEBHARE_DATAROOT/elasticsearch
 
+if [ -z "$WEBHARE_ELASTICSEARCH_BINDHOST" ]; then
+  WEBHARE_ELASTICSEARCH_BINDHOST=127.0.0.1
+fi
+
 mkdir -p $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   chown elasticsearch:elasticsearch $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
@@ -40,8 +44,9 @@ fi
 
 export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m"
 
+CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  exec chpst -u elasticsearch:elasticsearch:whdata "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ediscovery.type=single-node
-else
-  exec "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ediscovery.type=single-node
+  CHPST="chpst -u elasticsearch:elasticsearch:whdata "
 fi
+
+exec $CHPST "$ELASTICSEARCHBINARY" -Epath.data="$ELASTICSEARCHROOT/data" -Epath.logs="$ELASTICSEARCHROOT/logs" -Epath.repo="$ELASTICSEARCHROOT/repo" -Ehttp.port=$ELASTICSEARCHPORT -Ehttp.host=$WEBHARE_ELASTICSEARCH_BINDHOST -Ediscovery.type=single-node
