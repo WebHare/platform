@@ -156,7 +156,7 @@ PUBLIC OBJECTTYPE EditFolder EXTEND TolliumScreenBase
   {
     IF(NOT ObjectExists(this->selectedpeer))
     {
-      this->selectedpeer := OpenWebHarePeer(this, ^peer->value, [ scopes := [ "system:sysop" ] ]);
+      this->selectedpeer := OpenWebHarePeer(this, ^peer->value);
       IF (NOT ObjectExists(this->selectedpeer))
         RETURN;
     }
@@ -509,7 +509,7 @@ PUBLIC STATIC OBJECTTYPE SyncFolder EXTEND TolliumScreenBase
     OBJECT peer;
     TRY
     {
-      peer := OpenWebHarePeer(this, tosync.peer, [ scopes := [ "system:sysop" ] ]);
+      peer := OpenWebHarePeer(this, tosync.peer);
       IF(NOT ObjectExists(peer))
         RETURN;
     }

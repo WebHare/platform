@@ -315,7 +315,8 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    IF (NOT this->tolliumuser->HasRight("system:sysop"))
+    IF (NOT this->tolliumuser->HasRightOn("wrd:metadata", this->contexts->wrdschema->id)
+        OR (this->contexts->wrdschema->usermgmt AND NOT this->tolliumuser->HasRight("system:sysop")))
     {
       this->tolliumresult := "cancel";
       RETURN;

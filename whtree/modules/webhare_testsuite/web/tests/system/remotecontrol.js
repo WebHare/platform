@@ -11,7 +11,7 @@ window.addEventListener("message", function(event)
     if(login)
     {
       //use an override token to pass the login dialog, as wrdauth cookies won't work on non-https due to samestie= restrictions, and CI runs on http
-      let newurl = new URL(location.href);
+      var newurl = new URL(location.href);
       newurl.searchParams.set("overridetoken", event.data.dopeering.overridetoken);
       newurl.searchParams.set("openas", "twoharetest@beta.webhare.net");
       console.log(newurl.toString());
@@ -19,8 +19,8 @@ window.addEventListener("message", function(event)
       return;
     }
 
-    var scopes = document.querySelector("t-text[data-name=scopes]");
-    if(scopes)
+    var clientid = document.querySelector("t-text[data-name=clientid]");
+    if(clientid)
     {
       var grantbutton = document.querySelector("t-button[data-name=submitbutton]");
       if (grantbutton)

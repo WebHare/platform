@@ -473,7 +473,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
                            WHERE (linkfrom = type->id OR linkto = type->id));
 
     RETURN SELECT *
-                , can_edit_entity := TRUE // FIXME (can we define rights on entity level? if not, is that a needed feature?)
+                , can_edit_entity := this->frame->flags.right_readwrite // FIXME (can we define rights on entity level? if not, is that a needed feature?)
                 , can_add_link := link_available
                 , type := type
              FROM results;

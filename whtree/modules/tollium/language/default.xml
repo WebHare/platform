@@ -905,7 +905,7 @@
       <text tid="errortitle">An error has occurred</text>
       <text tid="explanation">The following server wants to get access to this server:</text>
       <text tid="oauthtitle">Authorization</text>
-      <text tid="question">Do you want to grant this access?</text>
+      <text tid="question">The requesting server will have access to everything your account has access to on this server. Are you sure you want to grant this access?</text>
       <text tid="scopes">Scopes</text>
       <textgroup gid="messages">   <!-- shell.oauth.messages -->
         <text tid="invalid_redirect">An invalid redirect URL has been specified (must lie within the client URL.)</text>

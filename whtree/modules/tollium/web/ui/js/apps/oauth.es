@@ -47,7 +47,7 @@ class OauthApp
     if (this.oauth_clientid == "")
       error = getTid("tollium:shell.oauth.messages.missing_client");
     else if (!scopes.length)
-      error = getTid("tollium:shell.oauth.messages.missing_scopes");
+      error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
     else if (this.oauth_redirect == "")
       error = getTid("tollium:shell.oauth.messages.missing_redirect");
     else if (this.oauth_redirect.indexOf(this.oauth_clientid))
@@ -83,11 +83,12 @@ class OauthApp
                                             }
                                           ]
                                  }
+                                 /*
                                , { title: getTid("tollium:shell.oauth.scopes")
                                  , items: [ { item: "scopes"
                                             }
                                           ]
-                                 }
+                                 }*/
                                , { title: ""
                                  , items: [ { item: "question_text"
                                             }
@@ -111,11 +112,11 @@ class OauthApp
 
       , explanation_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.explanation") }
 
-      , question_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.question") }
+      , question_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.question"), wordwrap:true, width:"1pr", minwidth:"70x" }
 
       , clientid:     { type: "text", title: "", value: this.oauth_clientid }
 
-      , scopes:       { type: "text", title: "", value: this.oauth_scopes.join(", ") }
+      // , scopes:       { type: "text", title: "", value: this.oauth_scopes.join(", ") }
 
       , submitbutton: { type: "button", title: getTid("tollium:common.actions.yes"), action: "submitaction" }
 
