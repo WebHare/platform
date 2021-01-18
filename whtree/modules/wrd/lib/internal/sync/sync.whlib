@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
 LOADLIB "mod::wrd/lib/imexport.whlib";
+LOADLIB "mod::wrd/lib/objectapi.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
@@ -355,7 +356,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
   YIELD [ status := `Getting sync instructions`, progress := 20m, important := TRUE ];
   IF (NOT ObjectExists(remotepeer))
-    res := RPC_GetSyncInstructions(remoteschemaname, currentcontents, syncinstructionoptions);
+    res := GetSyncInstructions(OpenWRDSchemaByName(remoteschemaname), currentcontents, syncinstructionoptions);
   ELSE
     res := remotepeer->InvokeWRDSyncService("GetSyncInstructions", remoteschemaname, currentcontents, syncinstructionoptions);
 

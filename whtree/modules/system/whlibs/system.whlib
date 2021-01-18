@@ -397,7 +397,7 @@ INTEGER example1 := Length("abcdef");
 // returns 8 (the euro character consists of three bytes)
 INTEGER example2 := Length("€ 2,50");
 
-// returns 5 (the euro character is one character in UNICODE(UTF-8))
+// returns 6 (the euro character is one character in UNICODE(UTF-8))
 INTEGER example2 := UCLength("€ 2,50");
 
 // returns 4

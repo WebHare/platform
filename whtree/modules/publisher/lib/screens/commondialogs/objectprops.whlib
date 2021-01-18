@@ -2563,15 +2563,17 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
   {
     FOREVERY(RECORD extendprop FROM this->extendprops)
       FOREVERY(OBJECT comp FROM extendprop.compositions)
-        IF(comp EXTENDSFROM whfsinstance AND comp->type->namespace = whfstype)
+      {
+        IF(comp EXTENDSFROM WHFSInstance AND comp->type->namespace = whfstype)
         {
           OBJECT cellcomp := comp->GetComponent(cellname);
           IF(ObjectExists(cellcomp))
             RETURN cellcomp;
         }
+      }
 
     FOREVERY(RECORD extendprop FROM this->extendprops)
-      IF(extendprop.contenttype=whfstype)
+      IF(extendprop.contenttype = whfstype)
       {
         OBJECT cellobj := extendprop.instance->GetComponent(cellname);
         IF(ObjectExists(cellobj))
