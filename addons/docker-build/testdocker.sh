@@ -17,7 +17,6 @@ STOPONFAIL=
 RUNTESTARGS=
 PORTMAPPING=
 JSTESTBROWSER=
-SELENIUMHOST=
 EXPLICITPORT=
 COVERAGE=
 ADDMODULES=
@@ -81,10 +80,6 @@ while true; do
   elif [ "$1" == "--jstests" ]; then
     shift
     JSTESTBROWSER=$1
-    shift
-  elif [ "$1" == "--seleniumhost" ]; then
-    shift
-    SELENIUMHOST=$1
     shift
   elif [ "$1" == "--skips" ]; then
     shift
@@ -415,10 +410,6 @@ create_container()
   elif [ "$PROFILE" == "1" ]; then
     echo "WEBHARE_DEBUG=apr" >> ${TEMPBUILDROOT}/env-file
     echo "WEBHARE_DEBUGSESSION=functionprofile" >> ${TEMPBUILDROOT}/env-file
-  fi
-
-  if [ -n "$SELENIUMHOST" ]; then
-    echo "WH_SELENIUMHOST=$SELENIUMHOST" >> ${TEMPBUILDROOT}/env-file
   fi
 
   if [ -n "$USERSERVERCONFIG" ]; then
