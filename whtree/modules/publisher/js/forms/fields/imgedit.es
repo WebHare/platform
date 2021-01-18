@@ -41,8 +41,6 @@ export default class ImgEditField extends FileEditBase
 
   checkForUploadOrClear(evt)
   {
-    console.log(evt.keyCode, evt);
-
     // We only interested when the enter or space key was pressed
     if (evt.keyCode != 13 && evt.keyCode != 32)
       return;

@@ -156,23 +156,9 @@ function initializeVideoElementV2(node)
         activateVideo(videonode, video, opts);
       });
 
-
-    /*
-    Reading of the title disabled for now because Voice Over already shows the title.
-    (It'll tell you something like "Play video,button,My video name")
-    Not sure what other screenreaders do.
-
-    let container = videonode.closest(".wh-video");
-    let title = "";
-    if (container)
-      title = container.getAttribute("title");
-    */
-
-
     let playbutton = videonode.querySelector(".wh-video__playbutton");
     playbutton.setAttribute("tabindex", "0");
     playbutton.setAttribute("role", "button");
-    // playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria", title));
     playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));
 
     playbutton.addEventListener("click", function()
