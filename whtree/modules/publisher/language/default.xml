@@ -1639,6 +1639,9 @@
       <text tid="title">Verification</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-groupelement-replace"><param p="1"/>, Replace image</text>
+      <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload image</text>
+      <text tid="imgedit-remove">Remove image</text>
       <text tid="nextpage">Next</text>
       <text tid="previouspage">Previous</text>
       <text tid="selectfile">Select file</text>

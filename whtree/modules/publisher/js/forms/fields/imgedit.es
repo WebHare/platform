@@ -2,6 +2,7 @@
 */
 import * as dompack from 'dompack';
 import * as preload from 'dompack/extra/preload';
+import { getTid } from "@mod-tollium/js/gettid";
 import FileEditBase from './fileeditbase';
 import './imgedit.css';
 
@@ -82,10 +83,17 @@ export default class ImgEditField extends FileEditBase
         dompack.remove(this.deletebutton);
 
       this.node.classList.remove('wh-form__imgedit--hasimage');
+
+      // Set the aria-label to a combined label of the field together with the action which activating it through click/enter/space will perform
+      this.node.setAttribute("aria-label", getTid("publisher:site.forms.imgedit-groupelement-upload", this.node.dataset.arialabel));
+
       return;
     }
 
     this.node.classList.add('wh-form__imgedit--hasimage');
+
+    // Set the aria-label to a combined label of the field together with the action which activating it through click/enter/space will perform
+    this.node.setAttribute("aria-label", getTid("publisher:site.forms.imgedit-groupelement-replace", this.node.dataset.arialabel));
 
     // if we already created the delete button, reinsert it into the DOM
     if(this.deletebutton)
@@ -94,11 +102,16 @@ export default class ImgEditField extends FileEditBase
       return;
     }
 
-    this.deletebutton = dompack.create('div', { className: 'wh-form__imgeditdelete'
-                                              , on: { click: evt => this.doDelete(evt) }
-                                              });
-    this.deletebutton.setAttribute("tabindex", "0");
-    this.deletebutton.setAttribute("role", "button");
+
+    this.deletebutton =
+            <div class="wh-form__imgeditdelete"
+                 on={{ click:  evt => this.doDelete(evt) }}
+                 aria-label={getTid("publisher:site.forms.imgedit-remove")}
+                 tabindex="0"
+                 role="button"
+                 >
+            </div>
+
     this.node.appendChild(this.deletebutton);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }
