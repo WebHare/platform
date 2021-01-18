@@ -883,7 +883,7 @@
        changing a root folder's type becomes irreversible. The following rule fixes it
   ==== -->
   <apply priority="99999">
-    <to type="folder" />
+    <to type="folder" pathmask="/" />
     <allowfoldertype typedef="http://www.webhare.net/xmlns/publisher/normalfolder" />
   </apply>
 
