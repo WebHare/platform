@@ -42,7 +42,7 @@ export default class UploadField extends FileEditBase
                                       <input class="wh-form__uploadfieldfilename" type="text"
                                              placeholder={getTid("publisher:site.forms.upload-emptytext")}
                                              aria-label={label}
-                                             readonly="true"
+                                             disabled
                                              />
                              }
                              { this._deletebutton =
