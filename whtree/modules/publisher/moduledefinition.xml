@@ -1110,6 +1110,7 @@
     <target name="publisher_objectprops_extensions" /> <!-- Register extensions to the publisher object properties dialog -->
     <target name="sites_aftercreation" /> <!-- This hook is invoked whenever a site is created -->
     <target name="findopen" /> <!-- Hooks find and open ('open in publisher') -->
+    <target name="findopen_precheck" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
   </hooking>
 
