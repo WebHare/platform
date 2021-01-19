@@ -1,5 +1,8 @@
 import * as dompack from 'dompack';
-require('./video.css');
+import { getTid } from "@mod-tollium/js/gettid";
+import "./video.css";
+import "../internal/rtd.lang.json";
+
 
 let youtubedomain = 'www.youtube.com';
 
@@ -144,11 +147,44 @@ function initializeVideoElementV2(node)
   let opts = node.dataset.whVideoOptions ? JSON.parse(node.dataset.whVideoOptions) : {};
   opts.autoplay=true;
 
-  dompack.qSA(node, ".wh-video--activate").forEach(el => el.addEventListener("click", function()
+  let videonodes = dompack.qSA(node, ".wh-video--activate");
+
+  for(let videonode of videonodes)
   {
-    node.querySelector(".wh-video__innerframe__preview").hidden = true;
-    launchVideo(el, video, opts);
-  }));
+    videonode.addEventListener("click", function()
+      {
+        activateVideo(videonode, video, opts);
+      });
+
+    let playbutton = videonode.querySelector(".wh-video__playbutton");
+    playbutton.setAttribute("tabindex", "0");
+    playbutton.setAttribute("role", "button");
+    playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));
+
+    playbutton.addEventListener("click", function()
+      {
+        activateVideo(videonode, video, opts);
+      });
+
+    playbutton.addEventListener("keypress", function(evt)
+      {
+        // we are only interested in enter and space keypressed
+        if (evt.keyCode != 13 && evt.keyCode != 32)
+          return;
+
+        activateVideo(videonode, video, opts);
+      });
+  }
+}
+
+function activateVideo(videonode, video, opts)
+{
+  if (videonode.__initialized)
+    return;
+
+  videonode.querySelector(".wh-video__innerframe__preview").hidden = true;
+  videonode.__initialized = true;
+  launchVideo(videonode, video, opts);
 }
 
 dompack.register('.wh-video', node => node.dataset.video ? initializeVideoElementV1(node) : initializeVideoElementV2(node));

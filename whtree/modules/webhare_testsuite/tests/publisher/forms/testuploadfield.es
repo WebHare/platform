@@ -162,23 +162,23 @@ test.registerTests(
   , { name: 'Test disable (for all fields, not just upload)'
     , test: async function()
       {
-        test.false(test.qS('[data-wh-form-group-for=file] button').disabled);
-        test.false(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
-        test.false(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'));
+        test.false(test.qS('[data-wh-form-group-for=file] button').disabled,                         "custom file upload field button expected to not have the disabled attribute");
+        test.false(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'), "imgedit component expected to not have the data-wh-form-disabled attribute");
+        test.false(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'),     "RTD component expected to not have the data-wh-form-disabled attribute");
 
         let filegroup = dompack.closest(test.qS('#rtdtest-file'), '.wh-form__fieldgroup');
         test.click(test.qS('#rtdtest-enablefields'));
-        test.true(test.qS('[data-wh-form-group-for=file] button').disabled);
-        test.true(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
-        test.true(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'));
+        test.true(test.qS('[data-wh-form-group-for=file] button').disabled,                          "custom file upload field button missing disabled attribute");
+        test.true(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'),  "imgedit component missing data-wh-form-disabled attribute");
+        test.true(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'),      "RTD component missing data-wh-form-disabled attribute");
         test.false(test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
         test.true(filegroup.querySelector('.wh-form__uploadfieldfilename').disabled);
 
         test.click(test.qS('#rtdtest-enablefields'));
-        test.false(test.qS('[data-wh-form-group-for=file] button').disabled);
-        test.false(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
-        test.false(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'));
+        test.false(test.qS('[data-wh-form-group-for=file] button').disabled,                          "disabled attribute should have been reenabled for file (browse) button");
+        test.false(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'),  "data-wh-form-disabled attribute should have been reenabled for the imageedit component");
+        test.false(test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'),      "data-wh-form-disabled attribute should have been reenabled for the RTD component");
         test.true(test.qS('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
 
         test.true(filegroup.querySelector('.wh-form__uploadfieldfilename').disabled, "The name field should remain disabled");

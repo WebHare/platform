@@ -2,6 +2,7 @@
 */
 import * as dompack from 'dompack';
 import * as preload from 'dompack/extra/preload';
+import { getTid } from "@mod-tollium/js/gettid";
 import FileEditBase from './fileeditbase';
 import './imgedit.css';
 
@@ -27,6 +28,7 @@ export default class ImgEditField extends FileEditBase
   {
     super(node, options);
     this.node.addEventListener('click', evt => this.selectFile(evt));
+    this.node.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
     this.setupComponent();
     if (window.FileReader)
@@ -37,9 +39,32 @@ export default class ImgEditField extends FileEditBase
     }
     this._afterConstruction();
   }
+
+  checkForUploadOrClear(evt)
+  {
+    // We're only interested when the enter or space key was pressed
+    if (evt.keyCode != 13 && evt.keyCode != 32)
+      return;
+
+    let deletebutton = evt.target.closest(".wh-form__imgeditdelete");
+    if (deletebutton)
+    {
+      dompack.stop(evt);
+      this.doDelete(evt);
+      return;
+    }
+
+    dompack.stop(evt);
+    this.selectFile(evt);
+  }
+
   _updateEnabledStatus(nowenabled)
   {
     this.node.tabIndex = nowenabled ? 0 : -1;
+
+    if (this.deletebutton) // it is created the first time it's needed
+      this.deletebutton.tabIndex = nowenabled ? 0 : -1;
+
     if(nowenabled)
       this.node.removeAttribute("data-wh-form-disabled");
     else
@@ -58,19 +83,35 @@ export default class ImgEditField extends FileEditBase
         dompack.remove(this.deletebutton);
 
       this.node.classList.remove('wh-form__imgedit--hasimage');
+
+      // Set the aria-label to a combined label of the field together with the action which activating it through click/enter/space will perform
+      this.node.setAttribute("aria-label", getTid("publisher:site.forms.imgedit-groupelement-upload", this.node.dataset.arialabel));
+
       return;
     }
 
     this.node.classList.add('wh-form__imgedit--hasimage');
+
+    // Set the aria-label to a combined label of the field together with the action which activating it through click/enter/space will perform
+    this.node.setAttribute("aria-label", getTid("publisher:site.forms.imgedit-groupelement-replace", this.node.dataset.arialabel));
+
+    // if we already created the delete button, reinsert it into the DOM
     if(this.deletebutton)
     {
       this.node.appendChild(this.deletebutton);
       return;
     }
 
-    this.deletebutton = dompack.create('div', { className: 'wh-form__imgeditdelete'
-                                              , on: { click: evt => this.doDelete(evt) }
-                                              });
+
+    this.deletebutton =
+            <div class="wh-form__imgeditdelete"
+                 on={{ click:  evt => this.doDelete(evt) }}
+                 aria-label={getTid("publisher:site.forms.imgedit-remove")}
+                 tabindex="0"
+                 role="button"
+                 >
+            </div>
+
     this.node.appendChild(this.deletebutton);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
   }

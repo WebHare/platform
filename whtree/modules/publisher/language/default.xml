@@ -1639,6 +1639,9 @@
       <text tid="title">Verification</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-groupelement-replace"><param p="1"/>, Replace image</text>
+      <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload image</text>
+      <text tid="imgedit-remove">Remove image</text>
       <text tid="nextpage">Next</text>
       <text tid="previouspage">Previous</text>
       <text tid="selectfile">Select file</text>
@@ -1650,6 +1653,9 @@
       <text tid="splitdatetime-year-arialabel">year</text>
       <text tid="starsrequired">* indicates a required field</text>
       <text tid="submit">Submit</text>
+      <text tid="upload-emptytext">No file chosen</text>
+      <text tid="upload-filename">Uploaded file is <param p="1"/></text>
+      <text tid="upload-remove">Remove file</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">The address could not be found.</text>
         <text tid="invalid_nr_detail">Invalid house number.</text>
@@ -1705,6 +1711,7 @@
     </textgroup>
     <textgroup gid="rtd" limitlanguages="en nl">   <!-- site.rtd -->
       <textgroup gid="embedvideo">   <!-- site.rtd.embedvideo -->
+        <text tid="playbutton-aria">Play video</text>
         <text tid="unrecognized">The URL is not recognized as a supported video URL</text>
         <text tid="videourl">Video URL</text>
       </textgroup>

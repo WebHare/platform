@@ -1639,6 +1639,9 @@
       <text tid="title">Verificatie</text>
     </textgroup>
     <textgroup gid="forms">   <!-- site.forms -->
+      <text tid="imgedit-groupelement-replace"><param p="1"/>, Vervang afbeelding</text>
+      <text tid="imgedit-groupelement-upload"><param p="1"/>, Upload afbeelding</text>
+      <text tid="imgedit-remove">Verwijder afbeelding2</text>
       <text tid="nextpage">Volgende</text>
       <text tid="previouspage">Vorige</text>
       <text tid="selectfile">Selecteer bestand</text>
@@ -1650,6 +1653,9 @@
       <text tid="splitdatetime-year-arialabel">jaar</text>
       <text tid="starsrequired">* betekent dat een veld verplicht is</text>
       <text tid="submit">Versturen</text>
+      <text tid="upload-emptytext">Geen bestand geselecteerd</text>
+      <text tid="upload-filename">Geselecteerde bestand is <param p="1"/></text>
+      <text tid="upload-remove">Verwijder bestand</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">Het adres kon niet worden gevonden.</text>
         <text tid="invalid_nr_detail">Ongeldig huisnummer.</text>
@@ -1705,6 +1711,7 @@
     </textgroup>
     <textgroup gid="rtd">   <!-- site.rtd -->
       <textgroup gid="embedvideo">   <!-- site.rtd.embedvideo -->
+        <text tid="playbutton-aria">Speel video af</text>
         <text tid="unrecognized">De URL is niet herkend als een ondersteunde video URL</text>
         <text tid="videourl">Video URL</text>
       </textgroup>

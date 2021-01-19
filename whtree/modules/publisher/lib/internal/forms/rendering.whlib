@@ -415,6 +415,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
     {
       Print(`<label class="wh-form__label"`);
 
+      // We want the group to be labelled, not only the first checkbox/radiobutton
       IF (groupdescription.type IN ["radiogroup", "checkboxgroup"])
         Print(` id="${EncodeValue(groupdescription.firstid)}-label"`);
 
@@ -714,12 +715,16 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
       CASE "imgedit"
       {
         /* We must set data-wh-form-state-listener="true" during rendering to the element that will receive
-           data-wh-form-disabled otherwise we may race to receive dynamic disabling events during form construction */
-        Print(`<div${idstr} class="wh-form__imgedit" data-wh-form-name="${EncodeValue(fielddescription.name)}" tabindex="0" data-wh-form-state-listener="true"`);
+           data-wh-form-disabled otherwise we may race to receive dynamic disabling events during form construction
+
+           data-arialabel is combined with the description of what the current action will be when using click/space/enter
+           (because we don't use a seperate button for this)
+        */
+        Print(`<div${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
         IF(NOT fielddescription.enabled)
           Print(` data-wh-form-disabled`);
         IF(fielddescription.required)
-          Print(` data-wh-form-required`);
+          Print(` data-wh-form-required aria-required`);
         IF(RecordExists(fielddescription.value))
           Print(` data-wh-filename="${EncodeValue(fielddescription.value.filename)}"`);
         Print(`>`);

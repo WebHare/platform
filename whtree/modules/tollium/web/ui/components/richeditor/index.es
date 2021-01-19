@@ -316,6 +316,11 @@ export class RTE
     var editor;
     if(this.options.structure)
     {
+      /*
+      NOTE: contenteditable makes the node focusable, however the wh-rtd__undoholder is a hidden node we don't want to be focused.
+            We prevent it from appearing in (and messing up) tabnavigation we also add tabindex="-1" in addition to the contenteditable="true".
+      */
+
       let undonode = null;
       if (this.options.undoholder) //FIXME not sure if we need this, might be needed for page editor
       {
