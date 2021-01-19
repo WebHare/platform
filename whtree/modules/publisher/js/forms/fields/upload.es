@@ -14,7 +14,7 @@ function getLabelText(node)
   {
     let labelnode = document.querySelector(`label[for="${node.id}"]`);
     if (labelnode)
-      label = labelnode.innerText;
+      label = labelnode.textContent;
 
     return label;
   }
