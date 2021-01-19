@@ -54,7 +54,7 @@ export default class ImgEditField extends FileEditBase
       return;
     }
 
-    evt.preventDefault();
+    dompack.stop(evt);
     this.selectFile(evt);
   }
 
