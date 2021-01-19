@@ -1654,7 +1654,7 @@
       <text tid="starsrequired">* betekent dat een veld verplicht is</text>
       <text tid="submit">Versturen</text>
       <text tid="upload-emptytext">Geen bestand geselecteerd</text>
-      <text tid="upload-filename">Geselecteerde file is <param p="1"/></text>
+      <text tid="upload-filename">Geselecteerde bestand is <param p="1"/></text>
       <text tid="upload-remove">Verwijder bestand</text>
       <textgroup gid="addressfield">   <!-- site.forms.addressfield -->
         <text tid="address_not_found">Het adres kon niet worden gevonden.</text>
