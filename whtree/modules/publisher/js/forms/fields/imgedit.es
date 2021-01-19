@@ -42,7 +42,7 @@ export default class ImgEditField extends FileEditBase
 
   checkForUploadOrClear(evt)
   {
-    // We only interested when the enter or space key was pressed
+    // We're only interested when the enter or space key was pressed
     if (evt.keyCode != 13 && evt.keyCode != 32)
       return;
 
