@@ -49,7 +49,7 @@ export default class ImgEditField extends FileEditBase
     let deletebutton = evt.target.closest(".wh-form__imgeditdelete");
     if (deletebutton)
     {
-      evt.preventDefault();
+      dompack.stop(evt);
       this.doDelete(evt);
       return;
     }
