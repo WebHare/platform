@@ -720,10 +720,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase
            data-arialabel is combined with the description of what the current action will be when using click/space/enter
            (because we don't use a seperate button for this)
         */
-        Print(`<div${idstr} class="wh-form__imgedit"
-                            role="group" tabindex="0"
-                            data-arialabel="${EncodeValue(fielddescription.title)}"
-                            data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
+        Print(`<div${idstr} class="wh-form__imgedit" role="group" tabindex="0" data-arialabel="${EncodeValue(fielddescription.title)}" data-wh-form-name="${EncodeValue(fielddescription.name)}" data-wh-form-state-listener="true"`);
         IF(NOT fielddescription.enabled)
           Print(` data-wh-form-disabled`);
         IF(fielddescription.required)
