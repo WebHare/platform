@@ -148,7 +148,6 @@ RECORD data := [ printheaders :=    PTR depsolver->PrintHeaders(DEFAULT OBJECT,"
                , mask :=            masks
                , skips :=           skips
                , testlisturl :=     testlisturl
-               , seleniumref :=     GetWebVariable("seleniumref")
                , testsiteroot :=    testsiteroot
                , webhareversionnumber := GetWebhareVersionNumber()
                ];

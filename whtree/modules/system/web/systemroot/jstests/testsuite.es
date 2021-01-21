@@ -1195,10 +1195,8 @@ class TestFramework
       this.wait4setuptests.donePreload(true);
 
     // Pass selenium data back to the test script
-    return (
-        { seleniumref: document.body.getAttribute('data-seleniumref')
-        , testsession: document.body.getAttribute('data-testsession')
-        });
+    return { testsession: document.body.getAttribute('data-testsession')
+           };
   }
 
   log(text)

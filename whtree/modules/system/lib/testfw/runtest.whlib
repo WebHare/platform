@@ -8,7 +8,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webdriver.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
@@ -39,14 +38,6 @@ RECORD FUNCTION ApplyTestSettings(RECORD settings, OBJECT elt)
   IF(elt->HasAttribute("tags"))
     settings.tags := ParseXSList(elt->GetAttribute("tags"));
   RETURN settings;
-}
-
-PUBLIC STRING FUNCTION GetSeleniumHubURL()
-{
-  STRING seleniumhub := GetEnvironmentVariable("WH_SELENIUMHOST");
-  IF (seleniumhub != "" AND seleniumhub NOT LIKE "http://*")
-    seleniumhub := `http://${seleniumhub}${seleniumhub NOT LIKE "*:*"?":4444":""}/wd/hub/`;
-  RETURN seleniumhub ?? "http://ci.b-lex.com:4444/wd/hub/";
 }
 
 RECORD FUNCTION GetCachedModuleValidationConfig(STRING modulename)
@@ -468,7 +459,6 @@ PUBLIC STATIC OBJECTTYPE TestRunnerBase
   /** @param browser
       @param options
       @cell options.debug
-      @cell options.webdriverurl
   */
   MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -654,103 +644,6 @@ PUBLIC STATIC OBJECTTYPE TestRunnerBase
 
 
 
-PUBLIC STATIC OBJECTTYPE WebDriverTestRunner EXTEND TestRunnerBase
-< // ---------------------------------------------------------------------------
-  //
-  // Variables
-  //
-
-  /// URL to webdriver interface
-  STRING webdriverurl;
-
-  /// Webdriver connection object
-  OBJECT webdriver;
-
-  /// Webdriver capabilities object
-  OBJECT capa;
-
-  /// Current webdriver test session
-  OBJECT session;
-
-  // ---------------------------------------------------------------------------
-  //
-  // Public properties
-  //
-
-  // ---------------------------------------------------------------------------
-  //
-  // Constructor
-  //
-
-  /** @param browser
-      @param options
-      @cell options.debug
-      @cell options.webdriverurl
-  */
-  MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
-  : TestRunnerBase(browser, CELL[ ...options, DELETE webdriverurl])
-  {
-    this->webdriverurl := GetSeleniumHubURL();
-
-    IF (CellExists(options, "WEBDRIVERURL"))
-      this->webdriverurl := options.webdriverurl;
-
-    this->webdriver := NEW WebDriverConnection(this->webdriverurl);
-    this->capa := NEW WebDriverCapabilities(browser);
-  }
-
-  UPDATE ASYNC MACRO StartSession()
-  {
-    IF (NOT ObjectExists(this->session))
-    {
-      IF (this->options.debug)
-        PRINT("Creating a new session for " || this->browser || "\n");
-      this->session := AWAIT this->webdriver->CreateSession(this->capa);
-      this->sessiontestcount := 0;
-    }
-  }
-
-  UPDATE ASYNC MACRO LoadTestPage(STRING testurl)
-  {
-    STRING seleniumref := EncryptForThisServer("system:runtest",
-        [ h := this->webdriverurl
-        , s := this->session->sessionid
-        ]);
-
-    testurl := AddVariableToUrl(testurl, "seleniumref", seleniumref);
-
-    AWAIT this->session->SetURL(testurl);
-  }
-
-  UPDATE ASYNC MACRO StartTests()
-  {
-    OBJECT startbuttonref := AWAIT this->session->LookupElement("id", "starttests");
-    AWAIT this->session->ClickElement(startbuttonref);
-  }
-
-  UPDATE ASYNC FUNCTION GetLogs(RECORD report)
-  {
-    THROW NEW Exception("Must be overridden");
-    // FireFox, EDGE and IE don't support getting browser logs at the moment
-    IF (this->browser NOT LIKE "ie*" AND this->browser NOT LIKE "edge*" AND this->browser NOT LIKE "firefox*")
-    {
-      //VARIANT logtypes := AWAIT this->session->GetLogTypes();
-
-      // Wait a second to give the logs time to settle
-      AWAIT NEW WaitableTimer(1000);
-      report.logdata := AWAIT this->session->GetLog("browser");
-    }
-  }
-
-  UPDATE ASYNC MACRO DiscardSession()
-  {
-    IF (ObjectExists(this->session))
-    {
-      this->session->Close();
-      this->session := DEFAULT OBJECT;
-    }
-  }
->;
 
 PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
 < // ---------------------------------------------------------------------------
@@ -796,7 +689,6 @@ PUBLIC STATIC OBJECTTYPE ChromeDevtoolsTestRunner EXTEND TestRunnerBase
   /** @param browser
       @param options
       @cell options.debug
-      @cell options.webdriverurl
   */
   MACRO NEW(STRING browser, RECORD options DEFAULTSTO DEFAULT RECORD)
   : TestRunnerBase(browser, CELL[ ...options

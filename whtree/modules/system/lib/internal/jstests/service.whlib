@@ -3,21 +3,16 @@
 /* The services in this file are protected by maxservertype="development" in the <service> definition
 */
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::internet/webdriver.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/testfw/emails.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 
 
@@ -69,128 +64,10 @@ PUBLIC RECORD FUNCTION RPC_ReportJSError(RECORD details)
   RETURN [ success := TRUE ];
 }
 
-PUBLIC RECORD FUNCTION RPC_SeleniumRequest(STRING seleniumref, STRING method, VARIANT ARRAY params DEFAULTSTO DEFAULT VARIANT ARRAY)
-{
-  OBJECT lock := OpenLockManager()->LockMutex("selenium-" || GetSHA1Hash(seleniumref));
-  OBJECT session;
-  RECORD seleniumdata;
-  TRY
-  {
-    IF (seleniumref = "")
-      THROW NEW Exception("Test isn't being run under selenium");
-
-    seleniumdata :=  DecryptForThisServer("system:runtest", seleniumref);
-
-    OBJECT conn := NEW WebDriverConnection(seleniumdata.h);
-    session := conn->OpenExistingSession(seleniumdata.s);
-
-    RECORD testinfo := GetWebSessionData("seleniumsession-" || seleniumdata.s, "system:selenium");
-    IF (RecordExists(testinfo))
-      session->state := testinfo.driverstate;
-
-    FUNCTION PTR methodptr := GetObjectMethodPtr(session, method);
-
-    VARIANT oldparams := params;
-    params := TranslateElementReferences(session, params, FALSE);
-    //LogDebug("jsservice", "translated from json", oldparams, AnyToString(params, "tree"));
-
-    INTEGER ARRAY paramtypes;
-    FOREVERY (VARIANT v FROM params)
-      INSERT TypeID(v) INTO paramtypes AT END;
-
-      //ABORT(__INTERNAL_DEBUGFUNCTIONPTRTORECORD(methodptr));
-
-    IF (ValidateFunctionPtr(methodptr, TypeID(VARIANT), paramtypes))
-    {
-      OBJECT retvalpromise := CreateResolvedPromise(CallFunctionPtrVA(methodptr, params));
-      VARIANT retval := WaitForPromise(retvalpromise);
-      //LogDebug("jsservice", "translating to json", AnyToString(retval, "tree"));
-      retval := TranslateElementReferences(session, retval, TRUE);
-      //LogDebug("jsservice", "translated to json", retval);
-
-      RETURN [ success := TRUE, value := retval ];
-    }
-    ELSE
-    {
-      CallMacroPtrVA(methodptr, params);
-      RETURN [ success := TRUE ];
-    }
-  }
-  FINALLY
-  {
-    IF (ObjectExists(session))
-    {
-      __UpdateWebSession("seleniumsession-" || seleniumdata.s, "system:selenium",
-          [ driverstate := session->state ], TRUE, 5);
-    }
-    lock->Close();
-  }
-}
-
 PUBLIC RECORD FUNCTION RPC_JSTestLog(STRING reportid, RECORD ARRAY lines)
 {
   BroadcastEvent("system:jstestlog", CELL[ reportid, lines ]);
   RETURN DEFAULT RECORD;
-}
-
-VARIANT FUNCTION GetTypedArray(VARIANT ARRAY vs)
-{
-  INTEGER t;
-  FOREVERY (VARIANT v FROM vs)
-  {
-    IF (t = 0)
-      t := TypeID(v);
-    ELSE IF (t > 0 AND t != TypeID(v))
-      t := -1;
-  }
-  IF (t = TypeID(RECORD))
-    RETURN RECORD ARRAY(vs);
-  ELSE IF (t = TypeID(OBJECT))
-    RETURN OBJECT ARRAY(vs);
-  RETURN vs;
-}
-
-VARIANT FUNCTION TranslateElementReferences(OBJECT session, VARIANT value, BOOLEAN tojson)
-{
-  SWITCH (TypeID(value))
-  {
-    CASE TypeID(OBJECT)
-    {
-      IF (tojson AND value EXTENDSFROM SeleniumElementReference)
-        RETURN [ __SeleniumElementReference := TRUE, id := value->id ];
-    }
-    CASE TypeID(OBJECT ARRAY)
-    {
-      VARIANT ARRAY retval;
-      FOREVERY (VARIANT v FROM value)
-        INSERT TranslateElementReferences(session, v, tojson) INTO retval AT END;
-      RETURN GetTypedArray(retval);
-    }
-    CASE TypeID(RECORD)
-    {
-      IF (NOT tojson AND CellExists(value, "__SELENIUMELEMENTREFERENCE"))
-        RETURN NEW SeleniumElementReference(session, value.id);
-      RECORD retval;
-      FOREVERY (RECORD rec FROM UnpackRecord(value))
-        retval := CellInsert(retval, rec.name, TranslateElementReferences(session, rec.value, tojson));
-      RETURN retval;
-    }
-    CASE TypeID(RECORD ARRAY)
-    {
-      VARIANT ARRAY retval;
-      FOREVERY (RECORD rec FROM value)
-        INSERT TranslateElementReferences(session, rec, tojson) INTO retval AT END;
-      RETURN GetTypedArray(retval);
-    }
-    CASE TypeID(VARIANT ARRAY)
-    {
-      VARIANT ARRAY retval;
-      FOREVERY (VARIANT rec FROM value)
-        INSERT TranslateElementReferences(session, rec, tojson) INTO retval AT END;
-      RETURN retval;
-    }
-  }
-  RETURN value;
 }
 
 PUBLIC VARIANT FUNCTION RPC_Invoke(STRING libfunc, VARIANT ARRAY params)

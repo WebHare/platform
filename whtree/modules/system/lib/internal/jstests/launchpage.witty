@@ -6,8 +6,7 @@
     [printheaders]
     <script src="testdata.shtml?type=js"></script>
   </head>
-  <body data-seleniumref="[seleniumref]"
-        data-testslist="[testlisturl]"
+  <body data-testslist="[testlisturl]"
         >
     <div id="testheader">
       <button id="starttests">Start</button>

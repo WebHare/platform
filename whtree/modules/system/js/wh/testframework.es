@@ -19,7 +19,6 @@ let module_exports;
 
 //basic test functions
 var testfw = window.parent ? window.parent.__testframework : null;
-var seleniumref;
 
 //if(testfw && testfw.takeconsolelog)
 //  testfw.doConsoleTakeover(window);
@@ -34,8 +33,7 @@ function setTestSuiteCallbacks(cb)
 
 function initialize_tests(steps)
 {
-  var res = testfw.runTestSteps(steps, setTestSuiteCallbacks, module_exports);
-  seleniumref = res.seleniumref;
+  testfw.runTestSteps(steps, setTestSuiteCallbacks, module_exports);
 }
 
 function rewriteNodeAttributes(node)
@@ -616,235 +614,6 @@ function qSA(node_or_selector, selector)
   return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
 }
 
-// ---------------------------------------------------------------------------
-//
-// Selenium support
-//
-
-var scheduledefer;
-
-/** Schedules a selenium post. Returns a promise that will be fulfilled when the query has finished
-*/
-async function doSeleniumRequest(method, params)
-{
-  if (!seleniumref)
-    throw new Error("This test must be run with selenium!");
-
-  if (!scheduledefer)
-    scheduledefer = Promise.resolve(true);
-
-  let newdefer = dompack.createDeferred();
-
-  // Wait until current request is done, then run the new one.
-  try
-  {
-    await scheduledefer;
-  }
-  finally
-  {
-    // Replace the scheduledefer by the new deferred promise
-    scheduledefer = newdefer;
-
-    let topass = [ seleniumref, method, params ? Array.from(params) : [] ];
-    newdefer.resolve(jstestsrpc.seleniumRequest(...topass).then(result => result.value));
-  }
-
-  return newdefer.promise;
-}
-
-var id_counter = 0;
-function requireElementId(element)
-{
-  if (!element.id)
-    element.id = "__selenium_" + (++id_counter);
-  return element.id;
-}
-
-var $selenium =
-{ // Testframe used for element lookups
-  framepath: [ 'testframe' ]
-
-, _keys:
-      { "add": '\ue025'
-      , "alt": '\ue00a'
-      , "arrow_down": '\ue015'
-      , "arrow_left": '\ue012'
-      , "arrow_right": '\ue014'
-      , "arrow_up": '\ue013'
-      , "backspace": '\ue003'
-      , "back_space": '\ue003'
-      , "cancel": '\ue001'
-      , "clear": '\ue005'
-      , "command": '\ue03d'
-      , "control": '\ue009'
-      , "decimal": '\ue028'
-      , "delete": '\ue017'
-      , "divide": '\ue029'
-      , "down": '\ue015'
-      , "end": '\ue010'
-      , "enter": '\ue007'
-      , "equals": '\ue019'
-      , "escape": '\ue00c'
-      , "f1": '\ue031'
-      , "f10": '\ue03a'
-      , "f11": '\ue03b'
-      , "f12": '\ue03c'
-      , "f2": '\ue032'
-      , "f3": '\ue033'
-      , "f4": '\ue034'
-      , "f5": '\ue035'
-      , "f6": '\ue036'
-      , "f7": '\ue037'
-      , "f8": '\ue038'
-      , "f9": '\ue039'
-      , "help": '\ue002'
-      , "home": '\ue011'
-      , "insert": '\ue016'
-      , "left": '\ue012'
-      , "left_alt": '\ue00a'
-      , "left_control": '\ue009'
-      , "left_shift": '\ue008'
-      , "meta": '\ue03d'
-      , "multiply": '\ue024'
-      , "null": '\ue000'
-      , "numpad0": '\ue01a'
-      , "numpad1": '\ue01b'
-      , "numpad2": '\ue01c'
-      , "numpad3": '\ue01d'
-      , "numpad4": '\ue01e'
-      , "numpad5": '\ue01f'
-      , "numpad6": '\ue020'
-      , "numpad7": '\ue021'
-      , "numpad8": '\ue022'
-      , "numpad9": '\ue023'
-      , "page_down": '\ue00f'
-      , "page_up": '\ue00e'
-      , "pause": '\ue00b'
-      , "return": '\ue006'
-      , "right": '\ue014'
-      , "semicolon": '\ue018'
-      , "separator": '\ue026'
-      , "shift": '\ue008'
-      , "space": '\ue00d'
-      , "subtract": '\ue027'
-      , "tab": '\ue004'
-      , "up": '\ue013'
-
-        // More in line with spec: https://w3c.github.io/webdriver/webdriver-spec.html#dfn-element-send-keys
-      , "NULL":         '\uE000'
-      , "Add":          '\uE025'
-      , "Alt":          '\uE00A'
-      , "ArrowDown":    '\uE015'
-      , "ArrowLeft":    '\uE012'
-      , "ArrowRight":   '\uE014'
-      , "ArrowUp":      '\uE013'
-      , "Backspace":    '\uE003'
-      , "Cancel":       '\uE001'
-      , "Clear":        '\uE005'
-      , "Command":      '\uE03D'
-      , "Control":      '\uE009'
-      , "Decimal":      '\uE028'
-      , "Delete":       '\uE017'
-      , "Divide":       '\uE029'
-      , "End":          '\uE010'
-      , "Enter":        '\uE007'
-      , "Equals":       '\uE019'
-      , "Escape":       '\uE00C'
-      , "F1":           '\uE031'
-      , "F2":           '\uE032'
-      , "F3":           '\uE033'
-      , "F4":           '\uE034'
-      , "F5":           '\uE035'
-      , "F6":           '\uE036'
-      , "F7":           '\uE037'
-      , "F8":           '\uE038'
-      , "F9":           '\uE039'
-      , "F10":          '\uE03A'
-      , "F11":          '\uE03B'
-      , "F12":          '\uE03C'
-      , "Help":         '\uE002'
-      , "Home":         '\uE011'
-      , "Insert":       '\uE016'
-      , "AltLeft":      '\uE00A'
-      , "ControlLeft":  '\uE009'
-      , "ShiftLeft":    '\uE008'
-      , "Meta":         '\uE03D'
-      , "Multiply":     '\uE024'
-      , "PageDown":     '\uE00F'
-      , "PageUp":       '\uE00E'
-      , "Pause":        '\uE00B'
-      , "Return":       '\uE006'
-      , "Semicolon":    '\uE018'
-      , "Separator":    '\uE026'
-      , "Shift":        '\uE008'
-      , "Space":        '\uE00D'
-      , "Subtract":     '\uE027'
-      , "Tab":          '\uE004'
-      , "OSLeft":       "\uE03D"
-      , "OSRight":      "\uE053"
-      , "AltRight":     "\uE052"
-      , "ControlRight": "\uE051"
-      , "ShiftRight":   "\uE050"
-      }
-
-, haveSelenium: function()
-  {
-    console.log('hs', seleniumref);
-
-    return !!seleniumref;
-  }
-
-  // Returns a promise with the element id
-, getElementSeleniumId: async function(element)
-  {
-    // FIXME: lookup and compare the frame path
-    let seleniumid = element.retrieve('seleniumid');
-    if (seleniumid)
-      return seleniumid;
-
-    let id = requireElementId(element);
-
-    //Lookup the element
-    seleniumid = await doSeleniumRequest('LookupElement', [ 'id', id, { framepath: this.framepath } ]);
-    element.store('seleniumid', seleniumid);
-    return seleniumid;
-  }
-
-, clickElement: function(element)
-  {
-    // First lookup the element, when we have the id click on it
-    return this.getElementSeleniumId(element).then(function(seleniumid)
-    {
-      return doSeleniumRequest('ClickElement', [ seleniumid ]);
-    });
-  }
-
-, getKey: function(name)
-  {
-    var res = this._keys[name];
-    if (!res)
-      throw new Error("No such special key '" + name + "'");
-    return res;
-  }
-
-/* not supported in W3C webdriver spec anymore, FF doesn't implement it.
-, sendKeys: function(keys)
-  {
-    keys = Array.from(keys);
-    return doSeleniumRequest('SendKeys', [ keys ]);
-  }
-*/
-, sendKeysToElement: function(element, keys)
-  {
-    keys = Array.from(keys);
-
-    return this.getElementSeleniumId(element).then(function(seleniumid)
-    {
-      return doSeleniumRequest('SendKeysToElement', [ seleniumid, keys ]);
-    });
-  }
-};
-
 async function invoke(libfunc, ...params)
 {
   if(!libfunc.includes('#'))
@@ -1018,7 +787,6 @@ module.exports = { registerTests: registerJSTests
                  , fill: fill //note: soon in dompack but not fully compatible for some selectors
                  , fillUpload: fillUpload
                  , getTestSiteRoot: getTestSiteRoot
-                 , selenium: $selenium
                  , findElementWithText: findElementWithText
                  , getWebhareVersionNumber
                  , waitForEvent: test.waitForEvent

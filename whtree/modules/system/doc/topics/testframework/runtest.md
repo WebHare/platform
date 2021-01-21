@@ -85,7 +85,7 @@ docker exec -ti webhare-test /bin/bash
 Running javascript tests
 ```
 wh builddocker
-wh testdocker --jstests <browser> [ --seleniumhost my-selenium-hub ] <testmasks>
+wh testdocker --jstests <browser> <testmasks>
 ```
 
 Running coverage tests for a single test

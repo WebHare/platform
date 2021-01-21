@@ -7,10 +7,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAppRunnerConfig()
       [ name :=       "webhare_testsuite:webharetestservice"
       , cmdline :=    "runscript mod::webhare_testsuite/scripts/internal/webharetestservice.whscr"
       ] INTO apps AT END;
-  INSERT
-      [ name :=       "webhare_testsuite:jstestservice"
-      , cmdline :=    "runscript mod::webhare_testsuite/scripts/internal/jstestservice.whscr"
-      ] INTO apps AT END;
 
   RETURN apps;
 }

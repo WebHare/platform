@@ -81,7 +81,7 @@ test.registerTests(
   [
     { loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
     }
-  , { ignore: !test.selenium.haveSelenium()
+  , { ignore: true //FIXME is there a way to get this running under chrome dev protoocl?
     , test: async function(doc,win)
       {
         var rte = win.rte.getEditor();
@@ -109,7 +109,6 @@ test.registerTests(
       }
     }
   , { name: "simulate paste"
-    , ignore: test.selenium.haveSelenium()
     , test: async function(doc, win)
       {
         let rte = win.rte.getEditor();

@@ -32,11 +32,6 @@
   </servicemanager>
 
   <portal>
-    <application name="jstests" tid="jstests.apptitle" screen="jstests.jstests" group="system:development" isdeveloperapp="true">
-      <accesscheck>
-        <requireright right="system:sysop"/>
-      </accesscheck>
-    </application>
     <linkapp name="localtests" group="system:development" link="/tests/" tid="localtests.apptitle" isdeveloperapp="true">
       <accesscheck>
         <requireright right="system:sysop"/>
