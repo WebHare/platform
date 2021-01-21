@@ -4,6 +4,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -103,10 +105,12 @@ PUBLIC RECORD ARRAY FUNCTION RunWebserverChecks()
         [ msg := ":Webserver " || badhost.baseurl || " has a HSTS policy shorter that the recommended 1 year"
         , messagetag := [ type := "system:webserver.badhsts", hostname := badhost.baseurl ]
         ] INTO messages AT END;
+
+  STRING ARRAY disablehttpschecks := ParseXSList(ReadRegistryKey("system.webserver.checks.disablehttpschecks"));
   FOREVERY(RECORD badhost FROM SELECT baseurl FROM system.webservers WHERE baseurl LIKE "http:*")
   {
     RECORD unp := UnpackURL(badhost.baseurl);
-    IF(unp.port = 80 AND unp.host NOT IN ["localhost"] AND NOT IsPrivateIPAddress(unp.host))
+    IF(unp.port = 80 AND unp.host NOT IN ["localhost"] AND NOT IsPrivateIPAddress(unp.host) AND NOT __MatchesAnyMask(unp.host, disablehttpschecks))
     {
       INSERT
           [ msg := ":Webserver " || badhost.baseurl || " is not secure, it should use https://"

@@ -1,23 +1,4 @@
 <?wh
-LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
-OBJECT trans := OpenPrimary();
-RECORD lookupres := LookupPublisherURL(GetWebVariable("url"));
-IF(lookupres.folder=0)
-{
-  AbortWithHTTPError(404, "Unable to find the specified URL");
-}
-
-RECORD hookdata := [ lookupurl := GetWebVariable("url")
-                   , appurl := ""
-                   , lookupresult := lookupres
-                   ];
-hookdata := RunModuleHookTarget("publisher:findopen", hookdata);
-
-IF(hookdata.appurl = "")
-  hookdata.appurl := "?app=publisher(" || (lookupres.file??lookupres.folder) || ")";
-Redirect(GetPrimaryWebhareInterfaceURL() || hookdata.appurl);
+Redirect("/.webhare/direct/publisher/find/?url=" || EncodeURL(GetWebVariable("url")));
