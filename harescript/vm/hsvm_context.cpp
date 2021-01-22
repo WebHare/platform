@@ -2348,7 +2348,7 @@ void VirtualMachine::DoArrayInsert()
         if (idx < 0 || (unsigned)idx > stackmachine.ArraySize(arg1))
             throw VMRuntimeError (Error::ArrayIndexOutOfBounds, Blex::AnyToString(idx));
 
-        stackmachine.MoveFrom(stackmachine.ArrayElementInsert(arg1, stackmachine.GetInteger(arg2)), arg3);
+        stackmachine.MoveFrom(stackmachine.ArrayElementInsert(arg1, idx), arg3);
         stackmachine.PopVariablesN(2);
 }
 
@@ -2365,7 +2365,7 @@ void VirtualMachine::DoArraySet()
         if (idx < 0 || (unsigned)idx >= stackmachine.ArraySize(arg1))
             throw VMRuntimeError (Error::ArrayIndexOutOfBounds, Blex::AnyToString(idx));
 
-        stackmachine.MoveFrom(stackmachine.ArrayElementRef(arg1, stackmachine.GetInteger(arg2)), arg3);
+        stackmachine.MoveFrom(stackmachine.ArrayElementRef(arg1, idx), arg3);
         stackmachine.PopVariablesN(2);
 }
 
@@ -2415,12 +2415,14 @@ void VirtualMachine::DoDeepOperation(DeepOperation::Type type, bool thisaccess)
 
         unsigned curpos = 0;
         bool root_is_object = false;
+        bool require_set_cast = true;
         while(true)
         {
                 Blex::StringPair sp = stackmachine.GetString(description); //Cannot cache the string: The *Ref invalidate the memory pool (ADDME: Fix the memory pool moving around)
                 if(curpos >= sp.size())
                     break;
 
+                require_set_cast = true;
                 if (sp.begin[curpos] == 'O')
                 {
                         if (curpos != 0)
@@ -2490,8 +2492,11 @@ void VirtualMachine::DoDeepOperation(DeepOperation::Type type, bool thisaccess)
                         // id must be an integer (checked by compiler
                         int32_t idx = stackmachine.GetInteger(extra_params - curpos++);
 
-                        if (!(stackmachine.GetType(lvalue) & VariableTypes::Array))
+                        VariableTypes::Type arraytype = stackmachine.GetType(lvalue);
+                        if (!(arraytype & VariableTypes::Array))
                             throw VMRuntimeError (Error::TypeNotArray);
+
+                        require_set_cast = arraytype != VariableTypes::VariantArray;
 
                         if (idx < 0 || (unsigned)idx >= stackmachine.ArraySize(lvalue))
                             throw VMRuntimeError (Error::ArrayIndexOutOfBounds, Blex::AnyToString(idx));
@@ -2525,7 +2530,8 @@ void VirtualMachine::DoDeepOperation(DeepOperation::Type type, bool thisaccess)
             {
                     VarId newvalue = extra_params - curpos++;
 
-                    stackmachine.CastTo(newvalue, stackmachine.GetType(lvalue));
+                    if (require_set_cast)
+                        stackmachine.CastTo(newvalue, stackmachine.GetType(lvalue));
                     stackmachine.MoveFrom(lvalue, newvalue);
             } break;
         case DeepOperation::Append:
