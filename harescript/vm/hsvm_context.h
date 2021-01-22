@@ -554,6 +554,7 @@ class ColumnNameCache
         ColumnNameId col_variables;
         ColumnNameId col_vm;
         ColumnNameId col_week;
+        ColumnNameId col_wrapobjects;
         ColumnNameId col_write;
         ColumnNameId col_year;
         ColumnNameId col_yearofweek;

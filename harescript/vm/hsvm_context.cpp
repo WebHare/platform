@@ -4424,6 +4424,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_variables = columnnamemapper.GetMapping("VARIABLES");
         col_vm = columnnamemapper.GetMapping("VM");
         col_week = columnnamemapper.GetMapping("WEEK");
+        col_wrapobjects = columnnamemapper.GetMapping("WRAPOBJECTS");
         col_write = columnnamemapper.GetMapping("WRITE");
         col_year = columnnamemapper.GetMapping("YEAR");
         col_yearofweek = columnnamemapper.GetMapping("YEAROFWEEK");

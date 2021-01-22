@@ -1,0 +1,353 @@
+<?wh
+
+LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+
+INTEGER clonecount;
+
+MACRO OnClone(OBJECT obj)
+{
+  clonecount := clonecount + 1;
+}
+
+OBJECTTYPE tx < >;
+
+MACRO TestJSONEnDeCode(STRING encoded, VARIANT toencode, RECORD translations)
+{
+  STRING encval := EncodeJSON(toencode, translations);
+  TestEq(encoded, encval);
+  TestEq(toencode, DecodeJSON(encval, translations));
+}
+
+PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
+
+FUNCTION PTR emptyfunccall;
+
+MACRO KeepAlive(VARIANT v)
+{
+  IF (IsDefaultValue(v) OR IsValueSet(v))
+    RETURN;
+  emptyfunccall(); // make sure this function depends on all globals and outsidestate
+}
+
+MACRO TestJSON()
+{
+  TestJSONEnDeCode('{"a":0,"b":1,"c":2}', [ c := 2, b := 1, a := 0 ], DEFAULT RECORD); // test ordering
+
+  TestJSONEnDeCode('{"Line":0}', [line:=0], [line:="Line"]);
+  TestJSONEnDeCode('{"Line":0}', [line:=0], [line:="Line"]);
+  TestJSONEnDeCode('{"Line":12,"line":15}', [line:=12,aaa:=15], [line:="Line",aaa:="line"]);
+
+  TestJSONEnDeCode('5', 5, DEFAULT RECORD);
+  TestJSONEnDeCode('"Ab\\"cd\'efgh"', "Ab\"cd\'efgh", DEFAULT RECORD);
+  TestJSONEnDeCode('[1,2,3]', [1,2,3], DEFAULT RECORD);
+  TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+
+  // Test for canonical form
+  RECORD x := [ feedtag := "test" ];
+  INSERT CELL feed := 5 INTO x;
+  TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+  //TestJSONEnDeCode('{"feed":5,"feedtag":"test"}', [FEED:=5,feedtag:="test"], DEFAULT RECORD);
+
+  TestJSONEnDeCode('{}', CELL[], DEFAULT RECORD);
+  TestJSONEnDeCode('null', DEFAULT RECORD, DEFAULT RECORD);
+
+  TestEq([action:="$activate", param := DEFAULT RECORD, forms := DEFAULT VARIANT ARRAY, pushsession := "", taskbar := FALSE ],
+                DecodeJSON('{"action":"$activate","param":null,"forms":[],"pushsession":"","taskbar":false}'));
+
+  TestJSONEnDeCode('0.582346', FLOAT(0.5823461), DEFAULT RECORD);
+
+  TestEq([line:=0], DecodeJSON('{"line":0}'));
+
+  // Member names without string encoding (outside JSON spec)
+  TestEq([line:=0], DecodeJSON('{line:0}'));
+  // UTF-16 encoding of code points outside BMP
+  TestJSONEnDeCode('{"str":"\\uD834\\uDD1E"}', [str:=UCToString(0x1D11E)], DEFAULT RECORD);
+
+  //Google adds superfluous spaces - outofspec, but we have to cope
+  TestEq([code:="nl",cities:=[[name:="Almere",lat:=52299999,lon:=4769999]]], DecodeJSON('{code: "nl",cities: [{name: "Almere",lat: 52299999,lon: 4769999}]} '));
+
+  TestJSONEnDeCode('"\\"\\\\\\b\\f\\n\\r\\t\\u1234"', '\"\\\b\f\n\r\t\u1234', DEFAULT RECORD);
+  TestEq("a/b", DecodeJSON('"a\\/b"'));
+
+// No confusion over properly charset embedded chars
+  TestEq('Ch\u00E2tel', DecodeJSON('"Ch\u00E2tel"'));
+  TestEq([ 'Ch\u00E2tel' := "yeey" ], DecodeJSON('{ "Ch\u00E2tel" : "yeey" }'));
+
+  TestEq("-1.5", EncodeJSON(-1.5));
+  TestEq("-1.500000", EncodeJSON(-1.5f));
+  TestEq('"2012-11-10T09:08:07.654Z"', EncodeJSON(AddTimeToDate(654,MakeDateTime(2012,11,10,9,8,7))));
+  TestEq('"2012-11-10T09:08:07.000Z"', EncodeJSON(MakeDateTime(2012,11,10,9,8,7)));
+  TestEq('"2012-11-10T00:00:00.000Z"', EncodeJSON(MakeDate(2012,11,10)));
+  TestEq('"<\\/script>"', EncodeJSON("</script>"));
+  TestEq('"<\\/"', EncodeJSON("</"));
+  TestEq('"a/b/c"', EncodeJSON("a/b/c"));
+  TestEq('"a\\"b"', EncodeJSON("a\"b"));
+  TestEq('"a\'b"', EncodeJSON("a\'b")); //single quote should NOT be escaped
+  TestEq('"\\u0007"', EncodeJSON('\a')); //do not encode \a as a \a, just as \u0007.
+
+  TestEQ("null", EncodeJSON(DEFAULT OBJECT));
+  TestEQ("[]", EncodeJSON(DEFAULT OBJECT ARRAY));
+  TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT WEAKOBJECT));
+  TestEQ("[]", EncodeJSON(DEFAULT WEAKOBJECT ARRAY));
+  TestThrowsLike("*encode*", PTR EncodeJSON(DEFAULT FUNCTION PTR));
+  TestEQ("[]", EncodeJSON(DEFAULT FUNCTION PTR ARRAY));
+
+  OBJECT y := NEW tx;
+  TestThrowsLike("*encode*", PTR EncodeJSON(WEAKOBJECT(y))); // Test WEAKOBJECT first, so y still exists
+  TestThrowsLike("*encode*", PTR EncodeJSON([ WEAKOBJECT(y) ]));
+  TestThrowsLike("*encode*", PTR EncodeJSON(y));
+  TestThrowsLike("*encode*", PTR EncodeJSON([ y ]));
+  TestThrowsLike("*encode*", PTR EncodeJSON(PTR PRINT));
+  TestThrowsLike("*encode*", PTR EncodeJSON([ PTR PRINT ]));
+
+  TestEQ(0, DecodeJSON('0'));
+  TestEQ(2147483647, DecodeJSON('2147483647'));
+  TestEQ(-2147483648, DecodeJSON('-2147483648'));
+  TestEQ(2147483648f, DecodeJSON('2147483648'));
+  TestEQ(-2147483649f, DecodeJSON('-2147483649'));
+  TestEQ(1.7976931348623157e+308, DecodeJSON('1.7976931348623157e+308'));
+  TestEQ(-1.7976931348623157e+308, DecodeJSON('-1.7976931348623157e+308'));
+
+  TestEQ('""', EncodeJSON(DEFAULT BLOB));
+  TestEQ('"SGVsbG8sAFdvcmxkIQ=="', EncodeJSON(StringToBlob("Hello,\0World!")));
+
+  // empty key translation
+  TestEQ(DEFAULT RECORD, DecodeJSON(`{"":1}`));
+  TestEQ([ e := 1 ], DecodeJSON(`{"":1}`, [ e := "" ]));
+
+  // allowcomments
+  STRING testjson := `%{%"a"%:%-%2%,%b%:%[%"a"%,%"c"%,%true%,%false%,%null%]%}%`;
+  TestEQ(DEFAULT RECORD, DecodeJSON(Substitute(testjson, '%', '/**/'), DEFAULT RECORD, [ allowcomments := FALSE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '/**/'), DEFAULT RECORD, [ allowcomments := TRUE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '/*\n*c*/'), DEFAULT RECORD, [ allowcomments := TRUE ]));
+  TestEQ([ a := -2, b := VARIANT[ "a", "c", TRUE, FALSE, DEFAULT RECORD ] ], DecodeJSON(Substitute(testjson, '%', '//\n'), DEFAULT RECORD, [ allowcomments := TRUE ]));
+  TestThrowsLike("Unexpected option*NOSUCHOPTION*", PTR DecodeJSON(`4`, DEFAULT RECORD, [ nosuchoption := TRUE ]));
+  TestThrowsLike("*ALLOWCOMMENTS*wrong type*", PTR DecodeJSON(`4`, DEFAULT RECORD, [ allowcomments := 16 ]));
+  TestThrowsLike("Unexpected option*NOSUCHOPTION*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ nosuchoption := TRUE ]));
+  TestThrowsLike("*ALLOWCOMMENTS*wrong type*", PTR DecodeJSONBlob(StringToBlob(`4`), DEFAULT RECORD, [ allowcomments := 16 ]));
+}
+
+
+MACRO TestWrappedJSONEncodeDecode()
+{
+  VARIANT v := FALSE;
+
+  v := DecodeJSON(`{"a":"b"}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  TestEQ(TypeID(OBJECT), TypeID(v));
+  TestEQ([ a := "b" ], v->GetValue());
+  TestEQ(`{"a":"b"}`, EncodeJSON(v));
+
+  v := DecodeJSON(`{"a":[{"B":1},2]}`, DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  TestEQ(TypeID(OBJECT), TypeID(v));
+  TestEQ([ a := VARIANT[ [ "b" := 1 ], 2 ] ], v->GetValue());
+  TestEQ(`{"a":[{"B":1},2]}`, EncodeJSON(v));
+  TestEQ(`[{"B":1},2]`, EncodeJSON(v->GetProp("a")));
+
+  v := NEW JSONObject([ a := VARIANT[ [ "b" := 1 ], 2 ] ]);
+  TestEQ(`{"a":[{"b":1},2]}`, EncodeJSON(v));
+
+  v := NEW JSONArray(VARIANT[ [ "b" := 1 ], 2 ]);
+  TestEQ(`[{"b":1},2]`, EncodeJSON(v));
+
+  // Allow empty keys for wrapped objects
+  TestEQ(`{"":""}`, EncodeJSON(DecodeJSON(`{"":""}`, DEFAULT RECORD, [ wrapobjects := TRUE ])));
+
+  // Ignore translations for wrapped objects
+  TestEQ(`[{"a":1},{"b":2},{"c":3},{"d":4}]`, EncodeJSON(DecodeJSON(`[{"a":1},{"b":2},{"c":3},{"d":4}]`, [ a := "b" ], [ wrapobjects := TRUE ]), [ c := "d" ]));
+
+  TestEQ(0, clonecount);
+
+  TestEQ(DEFAULT OBJECT, DecodeJSON("null", DEFAULT RECORD, [ wrapobjects := TRUE ]));
+  TestEQ(DEFAULT OBJECT, DecodeJSON("faildecode", DEFAULT RECORD, [ wrapobjects := TRUE ]));
+}
+
+
+MACRO TestJSONObject()
+{
+  OBJECT obj := NEW JSONObject();
+
+  clonecount := 0;
+
+  // GetKeys, GetKey, SetKey. Keys are sorted by utf-8 encoding
+  TestEQ(0, LENGTH(obj->GetKeys()));
+  obj->SetProp("B", 3);
+  obj->SetProp("", 1);
+  obj->SetProp("a", 2);
+  TestEQ([ "", "B", "a" ], obj->GetKeys());
+  TestEQ(1, obj->GetProp(""));
+  TestEQ(2, obj->GetProp("a"));
+  TestEQ(3, obj->GetProp("B"));
+  TestThrowsLike(`No such property "c"`, PTR obj->GetProp("c"));
+  obj->SetProp("a", 2.5m);
+  TestEQ(2.5m, obj->GetProp("a"));
+  TestEQ(4, obj->GetProp("c", [ fallback := 4 ]));
+  TestEQ(VARIANT[4], obj->GetProp("c", [ fallback := [4] ])->GetValue());
+
+  // Unpack
+  TestEQ(
+      [ [ name := "",   value :=  1 ]
+      , [ name := "B",  value :=  3 ]
+      , [ name := "a",  value :=  2.5m ]
+      ], obj->Unpack());
+
+  // Delete key. Ignores deletes of non-existing keys
+  TestEQ(TRUE, obj->HasProp(""));
+  obj->DeleteProp("");
+  TestEQ(FALSE, obj->HasProp(""));
+  TestEQ([ "B", "a" ], obj->GetKeys());
+  obj->DeleteProp("");
+  TestEQ([ "B", "a" ], obj->GetKeys());
+
+  // GetValue
+  TestEQ([ a := 2.5m, b := 3 ], obj->GetValue());
+  obj := NEW JSONObject([ c := [ a := 2.5m, b := 3 ], d := [ [ e := 1 ] ] ]);
+  TestEQ([ c := [ a := 2.5m, b := 3 ], d := VARIANT[ [ e := 1 ] ] ], obj->GetValue());
+
+  // Assign, translations
+  obj->Assign([ a := 3.5m, c := 1 ]);
+  TestEQ(`{"a":3.5,"c":1,"d":[{"e":1}]}`, EncodeJSON(obj));
+  obj->Assign(WrapJSONObjects([ a := 3.6m, d := [ [ f := 2 ] ] ], [ translations := [ d := "D", f := "F" ] ]));
+  TestEQ(`{"D":[{"F":2}],"a":3.6,"c":1,"d":[{"e":1}]}`, EncodeJSON(obj));
+  TestThrowsLike(`Multiple properties*"a"*`, PTR WrapJSONObjects([ a := 1, b := 2 ], [ translations := [ b := "a" ] ]));
+
+  // Copy when multiple references
+  TestEQ(0, clonecount);
+  OBJECT obj2 := WrapJSONObjects([ e := 7 ], [ translations := [ e := "Z" ] ]);
+  TestEQ(`{"Z":7}`, EncodeJSON(obj2));
+
+  obj->SetProp("e", obj2);
+  obj->Assign(WrapJSONObjects([ f := obj2 ]));
+
+  TestEQ(2, clonecount);
+  KeepAlive(obj2);
+
+  // Test deepclone
+  OBJECT c := obj->DeepClone();
+  TestEQ(EncodeJSON(obj), EncodeJSON(c));
+  TestEQ(FALSE, __INTERNAL_GETOBJECTID(obj->GetProp("d")) = __INTERNAL_GETOBJECTID(c->GetProp("d")));
+  TestEQ(FALSE, __INTERNAL_GETOBJECTID(obj->GetProp("d")->GetElt(0)) = __INTERNAL_GETOBJECTID(c->GetProp("d")->GetElt(0)));
+
+  // error resiliency
+  TestEQ(
+      [ [ name := "a", value := 2 ]
+      , [ name := "b", value := 1 ]
+      , [ name := "c", value := 3 ]
+      ], DecodeJSON(`{"a":1,"a":2,"b":1,"c":1,"c":2,"c":3}`, DEFAULT RECORD, [ wrapobjects := TRUE ])->Unpack());
+  TestEQ(
+      [ [ name := "a", value := 2 ]
+      , [ name := "b", value := 1 ]
+      ], DecodeJSON(`{"a":1,"a":2,"b":1}`, DEFAULT RECORD, [ wrapobjects := TRUE ])->Unpack());
+
+  TestEQ(DEFAULT OBJECT, DecodeJSON(`null`, DEFAULT RECORD, [ wrapobjects := TRUE ]));
+  TestEQ([ a := DEFAULT RECORD ], WrapJSONObjects([ a := DEFAULT OBJECT ])->GetValue());
+
+  obj := NEW JSONObject();
+  obj->SetValue([ a := [ [ b := DEFAULT OBJECT ] ] ]);
+  TestEQ(`{"a":[{"b":null}]}`, EncodeJSON(obj));
+
+  TestThrowsLike("Expected*RECORD*JSONObject*", PTR obj->Assign(1));
+  TestThrowsLike("Expected*RECORD*JSONObject*", PTR obj->Assign(VARIANT[]));
+  TestThrowsLike("Can only*JSONObject*JSONArray*", PTR obj->Assign(NEW Exception("a")));
+  obj->Assign(DEFAULT RECORD);
+  TestEQ(`{"a":[{"b":null}]}`, EncodeJSON(obj));
+  obj->Assign([ c := 1 ]);
+  TestEQ(`{"a":[{"b":null}],"c":1}`, EncodeJSON(obj));
+
+  TestThrowsLike("Can only*JSONObject*JSONArray*", PTR WrapJSONObjects([ NEW Exception("a") ]));
+}
+
+MACRO TestJSONArray()
+{
+  OBJECT obj := NEW JSONArray();
+  clonecount := 0;
+
+  TestEQ(0, obj->length);
+  TestThrowsLike("No such*-1*0 elements*", PTR obj->GetElt(-1));
+  TestThrowsLike("No such*0*0 elements*", PTR obj->GetElt(0));
+  TestThrowsLike("No such*-1*0 elements*", PTR obj->SetElt(-1, 1));
+  TestThrowsLike("No such*0*0 elements*", PTR obj->SetElt(0, 1));
+
+  obj->Push([ a := 1 ]);
+  TestEQ([ a := 1 ], obj->GetElt(0)->GetValue());
+  obj->SetElt(0, 2);
+  TestEQ(2, obj->GetElt(0));
+  obj->SetElt(0, [ a := 1 ]);
+  obj->Push(obj->GetElt(0)); // clone
+  TestEQ([ a := 1 ], obj->GetElt(1)->GetValue());
+  obj->GetElt(1)->SetProp("a", 2);
+  TestEQ(VARIANT[ [ a := 1 ], [ a := 2 ] ], obj->GetValue());
+  obj->Push([ b := 1 ]);
+  obj->Push(obj->GetElt(2)); // clone
+  obj->GetElt(3)->SetProp("b", 2);
+  obj->Push(WrapJSONObjects([ b := 3 ])); // no clone
+  TestEQ(VARIANT[ [ a := 1 ], [ a := 2 ], [ b := 1 ], [ b := 2 ], [ b := 3 ] ], obj->GetValue());
+  TestEQ(VARIANT[ DEFAULT RECORD ], WrapJSONObjects([ DEFAULT OBJECT ])->GetValue());
+  TestEQ(VARIANT[ DEFAULT RECORD ], WrapJSONObjects([ DEFAULT RECORD ])->GetValue());
+
+  TestEQ(2, clonecount);
+
+  obj := NEW JSONArray();
+  clonecount := 0;
+  obj->Unshift([ a := 1 ]);
+  obj->Unshift(obj->GetElt(0)); // clone array element
+  obj->GetElt(1)->SetProp("a", 2);
+  obj->Unshift(WrapJSONObjects([ a := 0 ])); // no clone
+  TestEQ(VARIANT[ [ a := 0 ], [ a := 1 ], [ a := 2 ] ], obj->GetValue());
+  TestEQ(1, clonecount);
+
+  clonecount := 0;
+  obj->SetValue([ [ a := 1 ], [ a := 2 ] ]);
+  obj->AppendArray(obj); // 2 clones for array elemtns
+  obj->AppendArray(WrapJSONObjects(VARIANT[ [ a := 5 ], [ a := 6 ], 7 ])); // no clones
+  obj->GetElt(2)->SetProp("a", 3);
+  obj->GetElt(3)->SetProp("a", 4);
+  TestEQ(VARIANT[ [ a := 1 ], [ a := 2 ], [ a := 3 ], [ a := 4 ], [ a := 5 ], [ a := 6 ], 7 ], obj->GetValue());
+  TestEQ(2, clonecount);
+
+  clonecount := 0;
+  obj->SetValue([ [ a := 1 ], [ a := 5 ], [ a := 9 ] ]);
+  obj->Splice(1, 1, [ a := 3 ], WrapJSONObjects([ a := 5 ]), obj->GetElt(0));
+  obj->GetElt(3)->SetProp("a", 7);
+  TestEQ(VARIANT[ [ a := 1 ], [ a := 3 ], [ a := 5 ], [ a := 7 ], [ a := 9 ] ], obj->GetValue());
+
+  TestEQ(`{"A":1,"C":[3],"b":{"z":2}}`, EncodeJSON(RepackJSONObject([ [ name := "A", value := 1 ], [ name := "b", value := [ z := 2 ] ], [ name := "C", value := [ 3 ] ] ])));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[]`, EncodeJSON(obj->Splice(0, 0, 1)));
+  TestEQ(`[1,2,4,6]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[4]`, EncodeJSON(obj->Splice(1, 1, 1)));
+  TestEQ(`[2,1,6]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[4,6]`, EncodeJSON(obj->Splice(1, 10, 1)));
+  TestEQ(`[2,1]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[]`, EncodeJSON(obj->Splice(10, 10, 1)));
+  TestEQ(`[2,4,6,1]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[6]`, EncodeJSON(obj->Splice(-1, 10, 1))); // negative start counts from end
+  TestEQ(`[2,4,1]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[2]`, EncodeJSON(obj->Splice(-10, 1, 1)));
+  TestEQ(`[1,4,6]`, EncodeJSON(obj));
+
+  obj := WrapJSONObjects([ 2, 4, 6 ]);
+  TestEQ(`[]`, EncodeJSON(obj->Splice(1, -1, 1)));
+  TestEQ(`[2,1,4,6]`, EncodeJSON(obj));
+}
+
+__system_jsonobjectclonehook := PTR OnClone;
+
+PRINT("\n === Running TestJSON\n");
+TestJSON();
+TestWrappedJSONEncodeDecode();
+TestJSONObject();
+TestJSONArray();

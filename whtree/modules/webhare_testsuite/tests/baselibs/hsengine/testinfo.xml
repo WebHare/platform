@@ -28,6 +28,7 @@
   <test script="test_internet.whscr" />
   <test script="test_ipc.whscr" />
   <test script="test_jobs.whscr" />
+  <test script="test_json.whscr" />
   <test script="test_libdump.whscr" />
   <test script="test_loadlib.whscr" />
   <test script="test_localization.whscr" />
