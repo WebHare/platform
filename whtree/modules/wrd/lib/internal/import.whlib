@@ -16,6 +16,7 @@ INTEGER ARRAY supportedattrtypes := [ 1/*domain single*/
                                     , 6//date
                                     , 7//password
                                     ,12//datetime
+                                    ,14//money
                                     ,15/*integer*/
                                     ,16/*boolean*/
                                     ,18/*integer64*/
@@ -358,7 +359,7 @@ PUBLIC OBJECTTYPE WRDImporter
 
     IF(subfield="")
     {
-      IF(attrinfo.tag != "WRD_GUID" AND attrinfo.attributetype NOT IN [2,4,5,6,7,12,15,18,21])
+      IF(attrinfo.tag != "WRD_GUID" AND attrinfo.attributetype NOT IN [2,4,5,6,7,12,14,15,18,21])
         THROW NEW Exception("Direct import not supported for attribute '" || wrdtag || "'");
     }
     ELSE
@@ -496,6 +497,10 @@ PUBLIC OBJECTTYPE WRDImporter
       CASE 6,12
       {
         RETURN MakeDateFromText(data);
+      }
+      CASE 14//money
+      {
+        RETURN ToMoney(data,0);
       }
       CASE 1,15,18
       {
