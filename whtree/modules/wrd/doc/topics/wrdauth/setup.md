@@ -48,6 +48,7 @@ Make sure the value of sitetag is the same as the `<field tag="WRD_TAG">WEBSITE<
 Optional attributes:
 - cachefields: a space-separated list of WRD fields from the loggedin entity to store in the user info (refreshed at login or session restoration)
 - supportobjectname: reference to a support object to handle logins, eg to override the JavaScript userinfo
+- passwordresetlifetime: how long a password reset link is valid, in minutes. defaults to 3 days
 
 An example support object:
 ```harescript
