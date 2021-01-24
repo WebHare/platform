@@ -1,0 +1,95 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+
+STRING secret := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056");
+STRING secret32 := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aed");
+STRING secret64 := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf7");
+
+MACRO TestHOTP()
+{
+  TestEq("734867", GetHOTPCode(secret, 0));
+  TestEq("411237", GetHOTPCode(secret, 1));
+  TestEq("2286586", GetHOTPCode(secret, 2, [ digits := 7 ]));
+  TestEq("59566234", GetHOTPCode(secret, 3, [ digits := 8 ]));
+
+  TestEq("047588", GetHOTPCode(secret32, 4, [ hmac := "HMAC:SHA-256" ]));
+  TestEq("5726632", GetHOTPCode(secret32, 5, [ hmac := "HMAC:SHA-256", digits := 7 ]));
+  TestEq("72429261", GetHOTPCode(secret32, 6, [ hmac := "HMAC:SHA-256", digits := 8 ]));
+
+  TestEq("302192", GetHOTPCode(secret64, 7, [ hmac := "HMAC:SHA-512" ]));
+  TestEq("6968794", GetHOTPCode(secret64, 8, [ hmac := "HMAC:SHA-512", digits := 7 ]));
+  TestEq("12540670", GetHOTPCode(secret64, 9, [ hmac := "HMAC:SHA-512", digits := 8 ]));
+
+  TestThrows(PTR GetHOTPCode(secret32, 0));
+  TestThrows(PTR GetHOTPCode(secret64, 0));
+  TestThrows(PTR GetHOTPCode(secret, 0, [ hmac := "HMAC:SHA-256" ]));
+  TestThrows(PTR GetHOTPCode(secret64, 0, [ hmac := "HMAC:SHA-256" ]));
+  TestThrows(PTR GetHOTPCode(secret, 0, [ hmac := "HMAC:SHA-512" ]));
+  TestThrows(PTR GetHOTPCode(secret32, 0, [ hmac := "HMAC:SHA-512" ]));
+}
+
+MACRO TestTOTP()
+{
+  DATETIME now := MakeDateTime(2020, 1, 1, 12, 34, 56);
+
+  TestEq("988448", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("6988448", GetTOTPCode(secret, CELL[ now, digits := 7 ]));
+  TestEq("46988448", GetTOTPCode(secret, CELL[ now, digits := 8 ]));
+
+  TestEq("430059", GetTOTPCode(secret, CELL[ now, interval := 60 ]));
+  TestEq("316805", GetTOTPCode(secret, CELL[ now, start := MakeDate(2000, 1, 1) ]));
+
+  TestEq("581437", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("943474", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  TestThrows(PTR GetTOTPCode(secret32));
+  TestThrows(PTR GetTOTPCode(secret64));
+  TestThrows(PTR GetTOTPCode(secret, [ hmac := "HMAC:SHA-256" ]));
+  TestThrows(PTR GetTOTPCode(secret64, [ hmac := "HMAC:SHA-256" ]));
+  TestThrows(PTR GetTOTPCode(secret, [ hmac := "HMAC:SHA-512" ]));
+  TestThrows(PTR GetTOTPCode(secret32, [ hmac := "HMAC:SHA-512" ]));
+
+  // Test vectors from RFC 6238 appendix B.:
+  secret := "12345678901234567890";
+  secret32 := "12345678901234567890123456789012";
+  secret64 := "1234567890123456789012345678901234567890123456789012345678901234";
+
+  now := MakeDateTime(1970, 1, 1, 0, 0, 59);
+  TestEq("287082", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("119246", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("693936", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  now := MakeDateTime(2005, 3, 18, 1, 58, 29);
+  TestEq("081804", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("084774", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("091201", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  now := MakeDateTime(2005, 3, 18, 1, 58, 31);
+  TestEq("050471", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("062674", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("943326", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  now := MakeDateTime(2009, 2, 13, 23, 31, 30);
+  TestEq("005924", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("819424", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("441116", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  now := MakeDateTime(2033, 5, 18, 3, 33, 20);
+  TestEq("279037", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("698825", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("618901", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+
+  now := MakeDateTime(2603, 10, 11, 11, 33, 20);
+  TestEq("353130", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("737706", GetTOTPCode(secret32, CELL[ now, hmac := "HMAC:SHA-256" ]));
+  TestEq("863826", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
+}
+
+RunTestframework([ PTR TestHOTP
+                 , PTR TestTOTP
+                 ]);

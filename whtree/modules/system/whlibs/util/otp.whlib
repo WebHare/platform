@@ -1,0 +1,169 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+/*
+Time-based One-time Password Algorithm - Wikipedia, the free encyclopedia
+  http://en.wikipedia.org/wiki/Time-based_One-time_Password_Algorithm
+RFC 4226 -- HOTP: An HMAC-Based One-Time Password Algorithm
+  http://www.ietf.org/rfc/rfc4226.txt
+RFC 4648 -- The Base16, Base32, and Base64 Data Encodings
+  http://www.ietf.org/rfc/rfc4648.txt
+RFC 6238 -- TOTP: Time-Based One-Time Password Algorithm
+  http://www.ietf.org/rfc/rfc6238.txt
+Key Uri Format · google/google-authenticator Wiki · GitHub
+  https://github.com/google/google-authenticator/wiki/Key-Uri-Format
+*/
+
+RECORD defaultoptions := [ interval := 30
+                         , hmac :=     "HMAC:SHA-1"
+                         , digits :=   6
+                         , now :=      DEFAULT DATETIME
+                         , start :=    MakeDate(1970, 1, 1)
+                         ];
+
+INTEGER FUNCTION GetKeyLength(STRING hmac)
+{
+  SWITCH (hmac)
+  {
+    CASE "HMAC:SHA-512" { RETURN 64; }
+    CASE "HMAC:SHA-256" { RETURN 32; }
+    CASE "HMAC:SHA-1"   { RETURN 20; }
+  }
+  THROW NEW Exception(`Invalid HMAC algorithm: '${hmac}'`);
+}
+
+/** @short Generate an HMAC-based one-time password
+    @long This function generates a HMAC-based one-time password. Please note that external applications may not support all
+        of the options and will fallback to the defaults.
+    @param secret The key to use (raw byte value)
+    @param counter The counter value
+    @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
+    @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
+    @return The generated password
+    @see GetTOTPCode GetHOTPUrl
+*/
+PUBLIC STRING FUNCTION GetHOTPCode(STRING secret, INTEGER64 counter, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := MakeUpdatedRecord(CELL[ ...defaultoptions, now := GetCurrentDateTime() ], options);
+  IF (options.digits < 6 OR options.digits > 8)
+    THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
+  IF (options.hmac NOT LIKE "HMAC:*")
+    THROW NEW Exception(`Invalid HMAC algorithm: '${options.hmac}'`);
+
+  INTEGER expectedlength := GetKeyLength(options.hmac);
+  IF (Length(secret) != expectedlength)
+    THROW NEW Exception(`Expected secret of ${expectedlength} bytes, got ${Length(secret)} bytes`);
+
+  // Convert INTEGER64 bits
+  STRING countstring := DecodeBase16(Right("0000000000000000" || ToString(counter, 16), 16));
+  // Calculate the hash
+  STRING hs := GetHashForString(countstring, options.hmac, secret);
+  // Get the code offset within the hash
+  INTEGER offs := GetByteValue(Right(hs, 1)) BITAND 0xF;
+  // Convert code bits to INTEGER
+  INTEGER snum := ((GetByteValue(Substring(hs, offs, 1)) BITAND 0x7F) BITLSHIFT 24) +
+                  ((GetByteValue(Substring(hs, offs + 1, 1)) BITAND 0xFF) BITLSHIFT 16) +
+                  ((GetByteValue(Substring(hs, offs + 2, 1)) BITAND 0xFF) BITLSHIFT 8) +
+                  (GetByteValue(Substring(hs, offs + 3, 1)) BITAND 0xFF);
+  // Truncate and pad with leading zeroes to specified length
+  INTEGER mod10 := 1;
+  FOR (INTEGER i := 0; i < options.digits; i := i + 1)
+    mod10 := mod10 * 10;
+  RETURN Right(RepeatText("0", options.digits) || (snum % mod10), options.digits);
+}
+
+/** @short Generate a time-based one-time password
+    @long This function generates a time-based one-time password. Please note that external applications may not support all
+        of the options and will fallback to the defaults.
+    @param secret The key to use (raw byte value)
+    @cell(integer) options.interval The interval to use in seconds, defaults to 30
+    @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
+    @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
+    @cell(datetime) options.now The timestamp to use as 'now', defaults to current date and time
+    @cell(datetime) options.start The timestamp to use as offset date and time, defaults to 1970-01-01T00:00Z
+    @return The generated password
+    @see GetHOTPCode GetTOTPUrl
+*/
+PUBLIC STRING FUNCTION GetTOTPCode(STRING secret, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := MakeUpdatedRecord(CELL[ ...defaultoptions, now := GetCurrentDateTime() ], options);
+
+  // Get the step counter (the number of second intervals since the epoch)
+  INTEGER64 stamp := GetUnixTimestampMsecs(options.now) / 1000;
+  INTEGER64 step := (stamp - (GetUnixTimestampMsecs(options.start) / 1000)) / options.interval;
+  // Create the one-time password
+  RETURN GetHOTPCode(secret, step, options);
+}
+
+/** @short Create a url which encodes the HOTP secret for use in external applications
+    @long This function creates a URL that can be used by external applications to initialize HOTP authentication. This URL
+        can be used to create a QR code that can be scanned by such applications. Please note that external applications may
+        not support all of the options and will fallback to the defaults.
+    @param secret The key to use (raw byte value)
+    @param account The name of the user's account (may be left empty)
+    @param issuer The name of the issuer of the secret (may be left empty)
+    @param counter The counter value to start from
+    @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
+    @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
+    @return The url that can be used in external applications (for example by encoding it in a scannable QR code)
+*/
+PUBLIC STRING FUNCTION GetHOTPUrl(STRING secret, STRING account, STRING issuer, INTEGER64 counter, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN CreateOTPUrl("hotp", secret, account, issuer, counter, options);
+}
+
+/** @short Create a url which encodes the TOTP secret for use in external applications
+    @long This function creates a URL that can be used by external applications to initialize TOTP authentication. This URL
+        can be used to create a QR code that can be scanned by such applications. Please note that the 'now' and 'start'
+        options that are supported by GetTOTPCode cannot be specified on a url and that external applications may not support
+        all of the options and will fallback to the defaults.
+    @param secret The key to use (raw byte value)
+    @param account The name of the user's account (may be left empty)
+    @param issuer The name of the issuer of the secret (may be left empty)
+    @cell(integer) options.interval The interval to use in seconds, defaults to 30
+    @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
+    @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
+    @return The url that can be used in external applications (for example by encoding it in a scannable QR code)
+*/
+PUBLIC STRING FUNCTION GetTOTPUrl(STRING secret, STRING account, STRING issuer, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN CreateOTPUrl("totp", secret, account, issuer, 0, options);
+}
+
+STRING FUNCTION CreateOTPUrl(STRING type, STRING secret, STRING account, STRING issuer, INTEGER64 counter, RECORD options)
+{
+  INTEGER expectedlength := GetKeyLength(options.hmac ?? "HMAC:SHA-1");
+  IF (Length(secret) != expectedlength)
+    THROW NEW Exception(`Expected secret of ${expectedlength} bytes, got ${Length(secret)} bytes`);
+  STRING ARRAY otpurl := [ `otpauth://${EncodeURL(type)}/${issuer != "" ? EncodeURL(issuer) || ":" : ""}${EncodeURL(account)}?secret=${Tokenize(EncodeBase32(secret), "=")[0]}` ];
+  IF (issuer != "")
+    INSERT `issuer=${EncodeURL(issuer)}` INTO otpurl AT END;
+  IF (type = "hotp")
+    INSERT `counter=${counter}` INTO otpurl AT END;
+  IF (RecordExists(options))
+  {
+    IF (CellExists(options, "hmac") AND options.hmac != defaultoptions.hmac)
+    {
+      // Convert "HMAC:SHA-1" to "SHA1"
+      STRING algorithm := options.hmac;
+      IF (algorithm LIKE "HMAC:*")
+        algorithm := Substitute(Substring(options.hmac, 5), "-", "");
+      INSERT `algorithm=${EncodeURL(algorithm)}` INTO otpurl AT END;
+    }
+    IF (CellExists(options, "digits") AND options.digits != defaultoptions.digits)
+      INSERT `digits=${options.digits}` INTO otpurl AT END;
+    IF (type = "totp" AND CellExists(options, "interval") AND options.interval != defaultoptions.interval)
+      INSERT `period=${options.interval}` INTO otpurl AT END;
+  }
+  RETURN Detokenize(otpurl, "&");
+}
+
+/** @short Create a new HOTP/TOTP secret
+    @param hmac The HMAC algorithm for which the secret is used, defaults to "HMAC:SHA-1"
+    @return A new random secret
+*/
+PUBLIC STRING FUNCTION GenerateOTPSecret(STRING hmac DEFAULTSTO "HMAC:SHA-1")
+{
+  RETURN DecodeBase16(GenerateRandomText(2 * GetKeyLength(hmac), "0123456789abcdef"));
+}
