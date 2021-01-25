@@ -799,7 +799,7 @@
             <xs:restriction base="xs:string">
               <xs:enumeration value="rawfile">
                 <xs:annotation>
-                  <xs:documentation>Raw published file, eg .DOCX (implies blobiscontent, requirescontent, ispublishable)</xs:documentation>
+                  <xs:documentation>Raw published file, eg .DOCX (implies blobiscontent, ispublishable)</xs:documentation>
                 </xs:annotation>
               </xs:enumeration>
               <xs:enumeration value="virtualfile">
@@ -816,7 +816,11 @@
           </xs:simpleType>
         </xs:attribute>
         <xs:attribute name="blobiscontent" type="xs:boolean" />
-        <xs:attribute name="requirescontent" type="xs:boolean" />
+        <xs:attribute name="requirescontent" type="xs:boolean">
+          <xs:annotation>
+            <xs:documentation>This file cannot be empty (cannot be offered in New file dialogs)</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
         <xs:attribute name="needstemplate" type="xs:boolean" />
         <xs:attribute name="needsprofile" type="xs:boolean" />
         <xs:attribute name="isacceptableindex" type="xs:boolean" />

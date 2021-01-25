@@ -296,7 +296,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       CASE "rawfile"
       {
         ctype.filetype.blobiscontent := TRUE;
-        ctype.filetype.requirescontent := TRUE;
         ctype.fstype.ispublishable := TRUE;
       }
       CASE "virtualfile"
