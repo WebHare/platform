@@ -246,6 +246,7 @@
       ispublishedassubdir="true"
       searchcontentprovider="publisher:contentblob"
       pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
+      requirescontent="true"
   />
 
   <filetype
@@ -614,6 +615,7 @@
       extensions=".doc"
       kind="rawfile"
       searchcontentprovider="publisher:contentblob"
+      requirescontent="true"
   />
 
   <filetype

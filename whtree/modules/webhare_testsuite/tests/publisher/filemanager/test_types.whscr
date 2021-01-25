@@ -14,6 +14,7 @@ ASYNC MACRO TestNewItem()
   TestEq("files", TT("typesgroup")->value);
   //the list should only contain file types, no templates
   TestEq(RECORD[], SELECT title FROM TT("types")->rows WHERE ToUppercase(title) LIKE "*FOLDER*");
+  TestEq(FALSE, RecordExists(SELECT FROM TT("types")->rows WHERE ToUppercase(title) LIKE "*WORD DOC*"));
 
   //FIXME when editing a folder, do not offer Foreign Folder as an option, only when creating!
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Rich text document";
