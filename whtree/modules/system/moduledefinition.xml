@@ -52,7 +52,7 @@
     <applicationgroup name="cms" tid="module.appgroups.cms" orderbefore="apps" />
     <applicationgroup name="apps" tid="module.appgroups.apps" orderbefore="setup" orderafter="cms" />
     <applicationgroup name="setup" tid="module.appgroups.setup" orderbefore="documentation" orderafter="apps" />
-    <applicationgroup name="documentation" tid="module.appgroups.documentation" orderbefore="development" orderafter="documentation" />
+    <applicationgroup name="documentation" tid="module.appgroups.documentation" orderbefore="development" orderafter="setup" />
     <applicationgroup name="development" tid="module.appgroups.development" orderafter="documentation" />
 
     <application name="dashboard" group="setup" tid="module.apps.dashboard" screen="tolliumapps/dashboard/dashboard.xml#main" icon="system:sysmgmt/monitoring" shortcut="ctrl+shift+d">
