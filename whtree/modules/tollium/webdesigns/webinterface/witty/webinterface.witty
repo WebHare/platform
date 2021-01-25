@@ -1,6 +1,13 @@
 [component htmlhead]
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" type="image/png" href="[favicon]" />
+  <link rel="apple-touch-icon" sizes="180x180" href="[favicon.touchicon]">
+  <link rel="icon" type="image/png" sizes="32x32" href="[favicon.icon32]">
+  <link rel="icon" type="image/png" sizes="16x16" href="[favicon.icon16]">
+  <link rel="manifest" href="[favicon.webmanifest]">
+  <link rel="mask-icon" href="[favicon.maskicon]" color="[favicon.iconcolor]">
+  <meta name="msapplication-TileColor" content="[favicon.themecolor]">
+  <meta name="msapplication-config" content="[favicon.browserconfig]"/>
+  <meta name="theme-color" content="[favicon.themecolor]">
 [/component]
 
 [component htmlbody]
