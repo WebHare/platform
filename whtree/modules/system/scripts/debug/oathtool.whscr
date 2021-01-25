@@ -1,8 +1,11 @@
 <?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "module::otp/api.whlib";
-LOADLIB "module::system/internal/resourcemanager.whlib"; // GetWebhareModuleInfo
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
 
 /*  This tool is modelled after oathtool and follows its behaviour as closely as possible. There are a number of differences
     between oathtool and oathtool.whscr:
@@ -40,8 +43,7 @@ IF (RecordExists(args) AND args."key" = "" AND NOT args.help AND NOT args.versio
   args := DEFAULT RECORD;
 IF (NOT RecordExists(args) OR args.help)
 {
-  RECORD otpmodule := GetWebhareModuleInfo("otp");
-  Print(`oathtool.whscr ${otpmodule.version}
+  Print(`oathtool.whscr
 
 Generate and validate OATH one-time passwords.
 
@@ -74,17 +76,7 @@ Usage: oathtool.whscr [OPTIONS]... [KEY [OTP]]...
 
 IF (args.version)
 {
-  RECORD otpmodule := GetWebhareModuleInfo("otp");
-  Print(`oathtool (${otpmodule.description}) ${otpmodule.version}\n`);
-  IF (otpmodule.copyright != "")
-    Print(otpmodule.copyright || "\n");
-  IF (otpmodule.author != "")
-  {
-    Print(otpmodule.author);
-    IF (otpmodule.authorlink != "")
-      Print(`" <${otpmodule.authorlink}>"`);
-    Print("\n");
-  }
+  Print(`oathtool (integrated in WebHare ${GetWebhareVersionInfo().version})\n`);
   RETURN;
 }
 
@@ -227,7 +219,7 @@ WHILE (window >= 0)
   IF (args.totp)
     code := GetTOTPCode(secret, options);
   ELSE
-    code := GetHOTPCode(secret, counter, options);
+    code := GetHOTPCode(secret, counter, CELL[ options.digits, options.hmac ]);
 
   IF (args.otp != "")
   {

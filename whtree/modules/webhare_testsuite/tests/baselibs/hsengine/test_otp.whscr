@@ -2,8 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/otp.whlib";
-
-LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
 
 
 STRING secret := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056");
@@ -90,6 +89,186 @@ MACRO TestTOTP()
   TestEq("863826", GetTOTPCode(secret64, CELL[ now, hmac := "HMAC:SHA-512" ]));
 }
 
-RunTestframework([ PTR TestHOTP
-                 , PTR TestTOTP
-                 ]);
+MACRO TestURLS()
+{
+  STRING url;
+
+  url := GetTOTPUrl(secret, "account", "issuer");
+  TestEQ(
+    [ type :=     "totp"
+    , secret :=   secret
+    , account :=  "account"
+    , issuer :=   "issuer"
+    , options :=  [ hmac :=       "HMAC:SHA-1"
+                  , digits :=     6
+                  , interval :=   30
+                  ]
+    ], UnpackOTPUrl(url));
+
+  url := GetTOTPUrl(secret32, "account", "issuer", [ hmac := "HMAC:SHA-256", digits := 8, interval := 60 ]);
+  TestEQ(
+    [ type :=     "totp"
+    , secret :=   secret32
+    , account :=  "account"
+    , issuer :=   "issuer"
+    , options :=  [ hmac :=       "HMAC:SHA-256"
+                  , digits :=     8
+                  , interval :=   60
+                  ]
+    ], UnpackOTPUrl(url));
+
+  url := GetHOTPUrl(secret, "account", "issuer", 17);
+  TestEQ(
+    [ type :=     "hotp"
+    , secret :=   secret
+    , account :=  "account"
+    , issuer :=   "issuer"
+    , counter :=  17i64
+    , options :=  [ hmac :=       "HMAC:SHA-1"
+                  , digits :=     6
+                  ]
+    ], UnpackOTPUrl(url));
+
+  url := GetHOTPUrl(secret32, "account", "issuer", 17, [ hmac := "HMAC:SHA-256", digits := 8 ]);
+  TestEQ(
+    [ type :=     "hotp"
+    , secret :=   secret32
+    , account :=  "account"
+    , issuer :=   "issuer"
+    , counter :=  17i64
+    , options :=  [ hmac :=       "HMAC:SHA-256"
+                  , digits :=     8
+                  ]
+    ], UnpackOTPUrl(url));
+}
+
+MACRO TestTestCode()
+{
+  DATETIME now;
+
+  now := MakeDateTime(2603, 10, 11, 11, 33, 20);
+
+  secret := "12345678901234567890";
+  TestEq("353130", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("952948", GetTOTPCode(secret, CELL[ now := AddTimeToDate(-21*1000, now) ]));
+  TestEq("128202", GetTOTPCode(secret, CELL[ now := AddTimeToDate(+10*1000, now) ]));
+  TestEq("630850", GetTOTPCode(secret, CELL[ now := AddTimeToDate(+40*1000, now) ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "353130", CELL[ now ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := -1
+      , driftseconds :=   -30
+      ], TestTOTPCode(secret, "952948", CELL[ now ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 1
+      , driftseconds :=   30
+      ], TestTOTPCode(secret, "128202", CELL[ now ]));
+
+  TestEQ(
+      [ success :=        FALSE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "630850", CELL[ now ]));
+
+  // Test prefer smallest drift, and higher allowdrift
+  now := MakeDateTime(1970, 11, 13, 5, 28, 30);
+  TestEq("911617", GetTOTPCode(secret, CELL[ now ]));
+  TestEq("911617", GetTOTPCode(secret, CELL[ now := AddTimeToDate(30*1000, now) ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "911617", CELL[ now ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 1
+      , driftseconds :=   30
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(-30*1000, now)]));
+
+  TestEQ(
+      [ success :=        FALSE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(-60*1000, now)]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 2
+      , driftseconds :=   60
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(-60*1000, now), allowdrift := 60]));
+
+  TestEQ(
+      [ success :=        FALSE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(-90*1000, now), allowdrift := 60 ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := -1
+      , driftseconds :=   -30
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(60*1000, now)]));
+
+  TestEQ(
+      [ success :=        FALSE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(90*1000, now)]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := -2
+      , driftseconds :=   -60
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(90*1000, now), allowdrift := 60 ]));
+
+  TestEQ(
+      [ success :=        FALSE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "911617", CELL[ now := AddTimeToDate(120*1000, now), allowdrift := 60 ]));
+
+  // Test passing options to TestOTPCode
+  secret := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056");
+  secret32 := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aed");
+  now := MakeDateTime(2020, 1, 1, 12, 34, 56);
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "46988448", CELL[ now, digits := 8 ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "430059", CELL[ now, interval := 60 ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret, "316805", CELL[ now, start := MakeDate(2000, 1, 1) ]));
+
+  TestEQ(
+      [ success :=        TRUE
+      , driftintervals := 0
+      , driftseconds :=   0
+      ], TestTOTPCode(secret32, "581437", CELL[ now, hmac := "HMAC:SHA-256" ]));
+}
+
+PRINT("\n === Running TestOTP\n");
+TestHOTP();
+TestTOTP();
+TestURLs();
+TestTestCode();

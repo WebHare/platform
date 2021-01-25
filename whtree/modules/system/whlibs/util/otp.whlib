@@ -1,6 +1,12 @@
 <?wh
+
+/** @topic harescript-utils/otp
+*/
+
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
 
 /*
 Time-based One-time Password Algorithm - Wikipedia, the free encyclopedia
@@ -15,12 +21,15 @@ Key Uri Format · google/google-authenticator Wiki · GitHub
   https://github.com/google/google-authenticator/wiki/Key-Uri-Format
 */
 
-RECORD defaultoptions := [ interval := 30
-                         , hmac :=     "HMAC:SHA-1"
-                         , digits :=   6
-                         , now :=      DEFAULT DATETIME
-                         , start :=    MakeDate(1970, 1, 1)
-                         ];
+RECORD defaultoptions :=
+    [ interval := 30
+    , hmac :=     "HMAC:SHA-1"
+    , digits :=   6
+    , now :=      DEFAULT DATETIME
+    , start :=    MakeDate(1970, 1, 1)
+    ];
+
+CONSTANT STRING ARRAY allowed_hmacs := [ "HMAC:SHA-1", "HMAC:SHA-256", "HMAC:SHA-512" ];
 
 INTEGER FUNCTION GetKeyLength(STRING hmac)
 {
@@ -45,11 +54,16 @@ INTEGER FUNCTION GetKeyLength(STRING hmac)
 */
 PUBLIC STRING FUNCTION GetHOTPCode(STRING secret, INTEGER64 counter, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := MakeUpdatedRecord(CELL[ ...defaultoptions, now := GetCurrentDateTime() ], options);
+  options := ValidateOptions(CELL
+      [ defaultoptions.hmac
+      , defaultoptions.digits
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
+
+
   IF (options.digits < 6 OR options.digits > 8)
     THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
-  IF (options.hmac NOT LIKE "HMAC:*")
-    THROW NEW Exception(`Invalid HMAC algorithm: '${options.hmac}'`);
 
   INTEGER expectedlength := GetKeyLength(options.hmac);
   IF (Length(secret) != expectedlength)
@@ -70,7 +84,8 @@ PUBLIC STRING FUNCTION GetHOTPCode(STRING secret, INTEGER64 counter, RECORD opti
   INTEGER mod10 := 1;
   FOR (INTEGER i := 0; i < options.digits; i := i + 1)
     mod10 := mod10 * 10;
-  RETURN Right(RepeatText("0", options.digits) || (snum % mod10), options.digits);
+
+  RETURN Right(RepeatText("0", options.digits) || (snum % mod10), options.digits);;
 }
 
 /** @short Generate a time-based one-time password
@@ -87,13 +102,24 @@ PUBLIC STRING FUNCTION GetHOTPCode(STRING secret, INTEGER64 counter, RECORD opti
 */
 PUBLIC STRING FUNCTION GetTOTPCode(STRING secret, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := MakeUpdatedRecord(CELL[ ...defaultoptions, now := GetCurrentDateTime() ], options);
+  options := ValidateOptions(CELL
+      [ defaultoptions.interval
+      , defaultoptions.hmac
+      , defaultoptions.digits
+      , defaultoptions.start
+      , now :=        GetCurrentDateTime()
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
+
+  IF (options.digits < 6 OR options.digits > 8)
+    THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
 
   // Get the step counter (the number of second intervals since the epoch)
   INTEGER64 stamp := GetUnixTimestampMsecs(options.now) / 1000;
   INTEGER64 step := (stamp - (GetUnixTimestampMsecs(options.start) / 1000)) / options.interval;
   // Create the one-time password
-  RETURN GetHOTPCode(secret, step, options);
+  RETURN GetHOTPCode(secret, step, CELL[ options.hmac, options.digits ]);
 }
 
 /** @short Create a url which encodes the HOTP secret for use in external applications
@@ -110,6 +136,16 @@ PUBLIC STRING FUNCTION GetTOTPCode(STRING secret, RECORD options DEFAULTSTO DEFA
 */
 PUBLIC STRING FUNCTION GetHOTPUrl(STRING secret, STRING account, STRING issuer, INTEGER64 counter, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL
+      [ defaultoptions.hmac
+      , defaultoptions.digits
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
+
+  IF (options.digits < 6 OR options.digits > 8)
+    THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
+
   RETURN CreateOTPUrl("hotp", secret, account, issuer, counter, options);
 }
 
@@ -128,12 +164,23 @@ PUBLIC STRING FUNCTION GetHOTPUrl(STRING secret, STRING account, STRING issuer, 
 */
 PUBLIC STRING FUNCTION GetTOTPUrl(STRING secret, STRING account, STRING issuer, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL
+      [ defaultoptions.interval
+      , defaultoptions.hmac
+      , defaultoptions.digits
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
+
+  IF (options.digits < 6 OR options.digits > 8)
+    THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
+
   RETURN CreateOTPUrl("totp", secret, account, issuer, 0, options);
 }
 
 STRING FUNCTION CreateOTPUrl(STRING type, STRING secret, STRING account, STRING issuer, INTEGER64 counter, RECORD options)
 {
-  INTEGER expectedlength := GetKeyLength(options.hmac ?? "HMAC:SHA-1");
+  INTEGER expectedlength := GetKeyLength(options.hmac);
   IF (Length(secret) != expectedlength)
     THROW NEW Exception(`Expected secret of ${expectedlength} bytes, got ${Length(secret)} bytes`);
   STRING ARRAY otpurl := [ `otpauth://${EncodeURL(type)}/${issuer != "" ? EncodeURL(issuer) || ":" : ""}${EncodeURL(account)}?secret=${Tokenize(EncodeBase32(secret), "=")[0]}` ];
@@ -141,22 +188,85 @@ STRING FUNCTION CreateOTPUrl(STRING type, STRING secret, STRING account, STRING 
     INSERT `issuer=${EncodeURL(issuer)}` INTO otpurl AT END;
   IF (type = "hotp")
     INSERT `counter=${counter}` INTO otpurl AT END;
-  IF (RecordExists(options))
+  IF (options.hmac != "HMAC:SHA-1")
   {
-    IF (CellExists(options, "hmac") AND options.hmac != defaultoptions.hmac)
-    {
-      // Convert "HMAC:SHA-1" to "SHA1"
-      STRING algorithm := options.hmac;
-      IF (algorithm LIKE "HMAC:*")
-        algorithm := Substitute(Substring(options.hmac, 5), "-", "");
-      INSERT `algorithm=${EncodeURL(algorithm)}` INTO otpurl AT END;
-    }
-    IF (CellExists(options, "digits") AND options.digits != defaultoptions.digits)
-      INSERT `digits=${options.digits}` INTO otpurl AT END;
-    IF (type = "totp" AND CellExists(options, "interval") AND options.interval != defaultoptions.interval)
-      INSERT `period=${options.interval}` INTO otpurl AT END;
+    // Convert "HMAC:SHA-1" to "SHA1"
+    STRING algorithm := options.hmac;
+    IF (algorithm LIKE "HMAC:*")
+      algorithm := Substitute(Substring(options.hmac, 5), "-", "");
+    INSERT `algorithm=${EncodeURL(algorithm)}` INTO otpurl AT END;
   }
+  IF (options.digits != 6)
+    INSERT `digits=${options.digits}` INTO otpurl AT END;
+  IF (type = "totp" AND options.interval != 30)
+    INSERT `period=${options.interval}` INTO otpurl AT END;
+
   RETURN Detokenize(otpurl, "&");
+}
+
+/** Unpacks an OTP url
+    @param url URL to unpack
+    @return Unpacked URL
+    @cell(string) return.type URL type ('totp' / 'hotp')
+    @cell(string) return.secret The key to use (raw byte value)
+    @cell(string) return.account The name of the user's account
+    @cell(string) return.issuer The name of the issuer of the secret
+    @cell(integer) return.counter The counter value to start from (HOTP only)
+    @cell(record) return.options TOTP/HOTP options
+    @cell(string) return.options.hmac The HMAC algorithm
+    @cell(integer) return.options.digits The length of the resulting password, range [6-8]
+    @cell(integer) return.options.interval The interval in seconds (TOTP only)
+*/
+PUBLIC RECORD FUNCTION UnpackOTPUrl(STRING url)
+{
+  RECORD retval :=
+      [ type :=     ""
+      , issuer :=   ""
+      , account :=  ""
+      , secret :=   ""
+      , options :=  DEFAULT RECORD
+      ];
+
+  RECORD options := defaultoptions;
+
+  RECORD unpacked := UnpackURL(url);
+  STRING path := Tokenize(unpacked.urlpath, "?")[0];
+  IF (path LIKE "*:*")
+  {
+    retval.issuer := Tokenize(path, ":")[0];
+    retval.account := SubString(path, LENGTH(retval.issuer) + 1);
+  }
+  ELSE
+    retval.account := path;
+
+  retval.secret := DecodeBase32(GetVariableFromURL(url, "secret"));
+  options.hmac := `HMAC:${Substitute(GetVariableFromURL(url, "algorithm") ?? "SHA1", "SHA", "SHA-")}`;
+  options.digits := ToInteger(GetVariableFromURL(url, "digits") ?? "6", 6);
+
+  IF (unpacked.origin = "otpauth://totp")
+  {
+    retval.type := "totp";
+    options.interval := ToInteger(GetVariableFromURL(url, "period") ?? "30", 30);
+    retval.options := CELL
+        [ options.hmac
+        , options.digits
+        , options.interval
+        ];
+  }
+  ELSE IF (unpacked.origin = "otpauth://hotp")
+  {
+    retval.type := "hotp";
+    INSERT CELL counter := ToInteger64(GetVariableFromURL(url, "counter") ?? "0", 0) INTO retval;
+
+    retval.options := CELL
+        [ options.hmac
+        , options.digits
+        ];
+  }
+  ELSE
+    THROW NEW Exception(`Passed URL is not a valid OTP url`);
+
+  RETURN retval;
 }
 
 /** @short Create a new HOTP/TOTP secret
@@ -166,4 +276,63 @@ STRING FUNCTION CreateOTPUrl(STRING type, STRING secret, STRING account, STRING 
 PUBLIC STRING FUNCTION GenerateOTPSecret(STRING hmac DEFAULTSTO "HMAC:SHA-1")
 {
   RETURN DecodeBase16(GenerateRandomText(2 * GetKeyLength(hmac), "0123456789abcdef"));
+}
+
+/** Test if a TOTP code matches the expected value
+    @param secret The key to use (raw byte value)
+    @param code Expected code
+    @cell(integer) options.interval The interval to use in seconds, defaults to 30
+    @cell(string) options.hmac The HMAC algorithm to use, defaults to "HMAC:SHA-1"
+    @cell(integer) options.digits The length of the resulting password, range [6-8], defaults to 6
+    @cell(datetime) options.now Current time
+    @cell(integer) options.allowdrift Allowed drift in seconds. Rounded down to whole intervals.
+    @return Match result
+    @cell(boolean) return.success Whether a match was found
+    @cell(integer) return.driftintervals Drift in interval steps
+    @cell(integer) return.driftseconds Drift in seconds
+*/
+PUBLIC RECORD FUNCTION TestTOTPCode(STRING secret, STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL
+      [ defaultoptions.interval
+      , defaultoptions.hmac
+      , defaultoptions.digits
+      , defaultoptions.start
+      , now :=          GetCurrentDateTime()
+      , allowdrift :=   30
+      ], options);
+
+  IF (options.digits < 6 OR options.digits > 8)
+    THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
+
+  options.allowdrift := RoundToMultiple(options.allowdrift, options.interval, "toward-zero");
+  BOOLEAN success;
+  INTEGER driftintervals, absdriftintervals;
+
+  INTEGER maxdriftsteps := options.allowdrift / options.interval;
+
+  // Work from zero drift outward, record only the first match
+  FOR (INTEGER driftsteps := -maxdriftsteps; driftsteps <= maxdriftsteps; driftsteps := driftsteps + 1)
+  {
+    INTEGER drift := driftsteps * options.interval * 1000;
+    INTEGER absdriftsteps := driftsteps < 0 ? -driftsteps : driftsteps;
+    DATETIME testtime := AddTimeToDate(drift, options.now);
+
+    STRING expectcode := GetTOTPCode(secret, CELL[ ...options, now := AddTimeToDate(drift, options.now), DELETE allowdrift ]);
+    IF (expectcode = code)
+    {
+      IF (NOT success OR absdriftintervals > absdriftsteps)
+      {
+        success := TRUE;
+        driftintervals := driftsteps;
+        absdriftintervals := absdriftsteps;
+      }
+    }
+  }
+
+  RETURN CELL
+      [ success
+      , driftintervals
+      , driftseconds :=     driftintervals * options.interval
+      ];
 }
