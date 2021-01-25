@@ -4,6 +4,13 @@
    xmlns:p="http://www.webhare.net/xmlns/publisher/components"
    xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
 
+  <apply>
+    <!-- defaults for filetypes -->
+    <to type="file" />
+    <bodyrenderer objectname="mod::publisher/lib/webdesign.whlib#StaticPageBase" />
+    <baseproperties description="true" keywords="true" title="true" />
+  </apply>
+
   <!--
 
       This is the publisher base site profile. It always applies and
@@ -785,12 +792,6 @@
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/wittyfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/templatefile" />
     <setobjecteditor name="publisher:texteditor" />
-  </apply>
-
-  <apply>
-    <to type="file" />
-    <bodyrenderer objectname="mod::publisher/lib/webdesign.whlib#StaticPageBase" />
-    <baseproperties title="true" description="true" keywords="true" />
   </apply>
 
   <apply>
