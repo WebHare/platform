@@ -11,7 +11,6 @@ LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
-LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 PUBLIC RECORD __screenbuildinfo;
 PUBLIC STRING ns_xmlschema := "http://www.w3.org/2001/XMLSchema";

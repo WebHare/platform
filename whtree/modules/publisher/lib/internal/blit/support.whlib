@@ -10,11 +10,9 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
-LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
-LOADLIB "mod::publisher/lib/internal/blit/hashapi.whlib";
 
 // Uses first 28 bits of hash + bit for directory/file
 PUBLIC INTEGER FUNCTION GetHashIntegerHash(STRING s)

@@ -4,8 +4,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
 
 /** Read the designfiles header from a file

@@ -18,7 +18,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception

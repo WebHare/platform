@@ -19,7 +19,6 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";

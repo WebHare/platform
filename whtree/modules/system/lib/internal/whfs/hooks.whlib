@@ -7,8 +7,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-
 RECORD FUNCTION GetCachablePreviewableTypes()
 {
   INTEGER ARRAY types :=

@@ -9,7 +9,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";

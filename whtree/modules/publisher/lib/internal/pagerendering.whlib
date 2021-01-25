@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
 
@@ -14,7 +13,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/remoting/transports.whlib";
-LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 
 RECORD FUNCTION InvokeWebpageFunctionWCS(INTEGER fileid, OBJECT pageobject, STRING method, VARIANT ARRAY args)
 {

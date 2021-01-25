@@ -1,22 +1,15 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/localization.whlib";
 
 
-LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
-LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
-LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 

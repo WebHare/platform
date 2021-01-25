@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/components/menuitem.whlib";
 

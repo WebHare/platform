@@ -3,8 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

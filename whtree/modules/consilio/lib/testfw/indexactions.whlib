@@ -1,12 +1,10 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
-LOADLIB "mod::consilio/lib/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";

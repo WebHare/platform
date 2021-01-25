@@ -21,7 +21,6 @@ LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/forms/tasks.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/rtd/previewcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 

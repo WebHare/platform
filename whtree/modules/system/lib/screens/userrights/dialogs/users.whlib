@@ -13,7 +13,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
-LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase

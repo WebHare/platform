@@ -3,7 +3,6 @@
     @topic forms/standardhandlers
 */
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

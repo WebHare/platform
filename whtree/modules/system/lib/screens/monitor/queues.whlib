@@ -8,9 +8,7 @@ LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

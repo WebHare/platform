@@ -4,7 +4,6 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
-LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
 RECORD FUNCTION __ConsilioGetQueueManagerStatus(STRING ARRAY options DEFAULTSTO DEFAULT STRING ARRAY)
 {
