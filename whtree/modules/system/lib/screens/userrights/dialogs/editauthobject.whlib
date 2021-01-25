@@ -4,10 +4,6 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
-LOADLIB "mod::system/lib/screens/userrights/support.whlib";
-LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
-
 
 PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
 <

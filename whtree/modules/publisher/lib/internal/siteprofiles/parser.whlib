@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "mod::publisher/lib/search/searchproviders.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";

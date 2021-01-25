@@ -9,7 +9,6 @@ LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 

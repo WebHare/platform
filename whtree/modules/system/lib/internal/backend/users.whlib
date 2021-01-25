@@ -4,7 +4,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/authsupport.whlib";
 

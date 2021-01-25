@@ -12,7 +12,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 

@@ -3,14 +3,12 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::dbase/dynquery.whlib";
 
 LOADLIB "mod::consilio/lib/queries.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 INTEGER publisher_index, publisher_source;

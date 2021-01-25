@@ -11,7 +11,6 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib" EXPORT GetWebhareModules, GetWebhareModuleInfo;
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
-LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 

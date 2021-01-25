@@ -3,8 +3,9 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
+
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
-LOADLIB "mod::system/lib/cluster.whlib";
 
 OBJECT contentobject;
 

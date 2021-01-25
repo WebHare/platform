@@ -1,21 +1,16 @@
 <?wh
 
 LOADLIB "wh::money.whlib";
-LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
-LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
-LOADLIB "mod::publisher/lib/webtools/formcomponents/richtext.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rpc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 
-LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/webtools/paymentmethod.whlib";
 

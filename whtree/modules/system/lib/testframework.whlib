@@ -36,7 +36,6 @@ LOADLIB "mod::system/lib/internal/modules/support.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/remoting/restapisupport.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
-LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

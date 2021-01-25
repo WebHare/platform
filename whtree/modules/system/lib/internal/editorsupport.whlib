@@ -9,7 +9,6 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
-LOADLIB "mod::system/lib/internal/validation/config.whlib";
 
 /** @schemadef system
 */
