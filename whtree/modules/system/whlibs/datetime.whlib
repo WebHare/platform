@@ -495,10 +495,11 @@ PUBLIC BOOLEAN FUNCTION IsAnniversaryAt(DATETIME creation_date, DATETIME date)
     @long This function returns the difference between two timestamps, split into days and milliseconds
     @param fromdate Source date
     @param todate Destination date  (the 'later' date, if you want a positive result)
-    @return A record explaining the difference. The days and msecs will always have the same sign (ie, if days is positive, then msecs is positive). If one of the arguments is DEFAULT DATETIME the function will return DEFAULT RECORD.
+    @return A record explaining the difference. The days, msecs and totalmsecs cells will always have the same sign (ie, if days is positive, then msecs is positive). If one of the arguments is DEFAULT DATETIME the function will return DEFAULT RECORD.
     @cell(integer) return.days The total difference in days
     @cell(integer) return.msecs The remaining difference in milliseconds
-    @cell(integer) return.years The number of anniversaries between the dates */
+    @cell(integer) return.years The number of anniversaries between the dates
+    @cell(integer64) return.totalmsecs The total difference in milliseconds */
 PUBLIC RECORD FUNCTION GetDatetimeDifference(DATETIME fromdate, DATETIME todate)
 {
   IF (fromdate = DEFAULT DATETIME OR todate = DEFAULT DATETIME)
@@ -544,7 +545,7 @@ PUBLIC RECORD FUNCTION GetDatetimeDifference(DATETIME fromdate, DATETIME todate)
   IF (td.year > fd.year AND todate_dayofyear < fromtodate_dayofyear)
     yeardiff := yeardiff - 1;
 
-  RETURN [ days := daydiff, msecs := msecond_diff, years := yeardiff ];
+  RETURN [ days := daydiff, msecs := msecond_diff, years := yeardiff, totalmsecs := daydiff * 86400000i64 + msecond_diff ];
 }
 
 /** @short Get difference between two timestamps in milliseconds

@@ -173,7 +173,7 @@ MACRO CalcTests()
   TestEq(             0, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,0), MakeDateTime(2004,1,1,0,0,0)));
   TestEq(          1000, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,0), MakeDateTime(2004,1,1,0,0,1)));
   TestEq(         -1000, GetMsecsDifference(MakeDateTime(2004,1,1,0,0,1), MakeDateTime(2004,1,1,0,0,0)));
-  TestEq( [days := 0, msecs := 2*60*60*1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,1,23,0,0), MakeDateTime(2004,1,2,1,0,0)));
+  TestEq( [days := 0, msecs := 2*60*60*1000, years := 0, totalmsecs := 2*60*60*1000i64 ], GetDatetimeDifference(MakeDateTime(2004,1,1,23,0,0), MakeDateTime(2004,1,2,1,0,0)));
   TestEq(  2*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1,23,0,0), MakeDateTime(2004,1,2,1,0,0)));
   TestEq( -2*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,2, 1,0,0), MakeDateTime(2004,1,1,23,0,0)));
   TestEq( 24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1, 1,0,0), MakeDateTime(2004,1,2,1,0,0)));
@@ -181,8 +181,9 @@ MACRO CalcTests()
   TestEq( 24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,1, 1,0,0), MakeDateTime(2004,1,2,1,0,1)));
   TestEq(-24*60*60*1000, GetMsecsDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2004,1,2,23,0,0)));
 
-  TestEq( [days := -1, msecs := -1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2004,1,2,23,0,0)));
-  TestEq( [days := 1, msecs := (86400-50)*1000, years := 0], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,50), MakeDateTime(2004,1,5,23,0,0)));
+  TestEq( (86400*2-50)*1000i64, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,50), MakeDateTime(2004,1,5,23,0,0)).totalmsecs);
+  TestEq( [days := -1, msecs := -1000, years := 0, totalmsecs := (86400*-1-1)*1000i64 ], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2004,1,2,23,0,0)));
+  TestEq( [days := 1, msecs := (86400-50)*1000, years := 0, totalmsecs := 172750000i64 ], GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,50), MakeDateTime(2004,1,5,23,0,0)));
   TestEq( 0, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,2,23,0,0)).years);
   TestEq( 1, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,3,23,0,0)).years);
   TestEq( 1, GetDatetimeDifference(MakeDateTime(2004,1,3,23,0,1), MakeDateTime(2005,1,4,23,0,0)).years);
