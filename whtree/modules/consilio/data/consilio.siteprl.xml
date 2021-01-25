@@ -1,7 +1,4 @@
-﻿<siteprofile
-   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!--
 
@@ -9,44 +6,43 @@
       is parsed before any global or site local profile
 
   -->
-
   <!-- Gathered links for checks -->
   <contenttype namespace="http://www.webhare.net/xmlns/consilio/gatheredlinks" cloneoncopy="false">
-    <member name="links" type="array">
-      <member name="link" type="url" />
-      <member name="text" type="string" />
-    </member>
+    <array name="links">
+      <url name="link" />
+      <string name="text" />
+    </array>
   </contenttype>
 
   <!-- Content type for link check reports -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck" cloneoncopy="true">
-    <member name="sorting" type="string" />
-    <member name="type_link" type="boolean" />
-    <member name="grouping" type="string" />
-    <member name="scope" type="string" />
-    <member name="show_auth" type="boolean" />
-    <member name="show_valid" type="boolean" />
-    <member name="show_notfound" type="boolean" />
-    <member name="show_server" type="boolean" />
-    <member name="show_http" type="boolean" />
-    <member name="show_other" type="boolean" />
-    <member name="type_hyperlink" type="boolean" />
-    <member name="type_image" type="boolean" />
-    <member name="type_script" type="boolean" />
-    <member name="type_stylesheet" type="boolean" />
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck">
+    <string name="sorting" />
+    <boolean name="type_link" />
+    <string name="grouping" />
+    <string name="scope" />
+    <boolean name="show_auth" />
+    <boolean name="show_valid" />
+    <boolean name="show_notfound" />
+    <boolean name="show_server" />
+    <boolean name="show_http" />
+    <boolean name="show_other" />
+    <boolean name="type_hyperlink" />
+    <boolean name="type_image" />
+    <boolean name="type_script" />
+    <boolean name="type_stylesheet" />
   </contenttype>
 
   <!-- Content type for searches reports -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/queries" cloneoncopy="true">
-    <member name="sorting" type="string" />
-    <member name="sortdesc" type="boolean" />
-    <member name="grouping" type="boolean" />
-    <member name="limit" type="string" />
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/queries">
+    <string name="sorting" />
+    <boolean name="sortdesc" />
+    <boolean name="grouping" />
+    <string name="limit" />
   </contenttype>
 
   <!-- Content type for extra indexing keywords -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords" cloneoncopy="true">
-    <member name="words" type="stringarray" />
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords">
+    <stringarray name="words" />
   </contenttype>
 
 </siteprofile>

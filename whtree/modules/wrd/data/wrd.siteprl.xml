@@ -1,48 +1,27 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
-             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-             xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!-- WRD login page -->
-  <contenttype namespace="http://www.webhare.net/xmlns/wrd/loginpage">
-  </contenttype>
-
-  <filetype typedef="http://www.webhare.net/xmlns/wrd/loginpage" tid="wrd:siteprofiles.loginpage" blobiscontent="false">
+  <filetype namespace="http://www.webhare.net/xmlns/wrd/loginpage" kind="datafile" tid="wrd:siteprofiles.loginpage">
     <dynamicexecution webpageobjectname="mod::wrd/lib/internal/auth/loginpage.whlib#LoginPage" />
   </filetype>
 
   <!-- SAML IDP -->
-  <contenttype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint" cloneoncopy="true">
-  </contenttype>
-
-  <filetype
-      typedef="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
-      tid="wrd:filetypes.samlidpendpoint"
-      tolliumicon="tollium:files/samlidpendpoint"
-      blobiscontent="false"
-      needstemplate="false"
-      needsprofile="false"
-      isacceptableindex="false"
-      ispublishable="true"
-      ispublishedassubdir="true">
+  <filetype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
+            blobiscontent="false"
+            icon="tollium:files/samlidpendpoint"
+            ispublishable="true"
+            ispublishedassubdir="true"
+            tid="wrd:filetypes.samlidpendpoint">
     <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlidpendpoint.whlib#RunSAMLIdpEndpoint" />
   </filetype>
 
   <!-- SAML SP -->
-  <contenttype namespace="http://www.webhare.net/xmlns/wrd/samlspendpoint" cloneoncopy="true">
-  </contenttype>
-
-  <filetype
-      typedef="http://www.webhare.net/xmlns/wrd/samlspendpoint"
-      tid="wrd:filetypes.samlspendpoint"
-      tolliumicon="tollium:files/samlspendpoint"
-      blobiscontent="false"
-      needstemplate="false"
-      needsprofile="false"
-      isacceptableindex="false"
-      ispublishable="true"
-      ispublishedassubdir="true">
+  <filetype namespace="http://www.webhare.net/xmlns/wrd/samlspendpoint"
+            blobiscontent="false"
+            icon="tollium:files/samlspendpoint"
+            ispublishable="true"
+            ispublishedassubdir="true"
+            tid="wrd:filetypes.samlspendpoint">
     <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlspendpoint.whlib#RunSAMLSpEndpoint" />
   </filetype>
 
@@ -52,20 +31,12 @@
   </apply>
 
   <!-- WRD Schema archive -->
-  <contenttype namespace="http://www.webhare.net/xmlns/wrd/schemaarchive" cloneoncopy="true">
-  </contenttype>
-  <filetype
-      typedef="http://www.webhare.net/xmlns/wrd/schemaarchive"
-      tid="wrd:filetypes.schemaarchive"
-      tolliumicon="tollium:files/application_wharchive"
-      extensions=".wrdarchive"
-      blobiscontent="true"
-      needstemplate="false"
-      needsprofile="false"
-      isdevelopertype="true"
-      ispublishable="false"
-      requirescontent="true"
-  />
-
+  <filetype namespace="http://www.webhare.net/xmlns/wrd/schemaarchive"
+            blobiscontent="true"
+            extensions=".wrdarchive"
+            icon="tollium:files/application_wharchive"
+            isdevelopertype="true"
+            requirescontent="true"
+            tid="wrd:filetypes.schemaarchive" />
 
 </siteprofile>

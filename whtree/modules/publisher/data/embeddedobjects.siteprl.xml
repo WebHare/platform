@@ -1,35 +1,39 @@
-<siteprofile
-  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-  xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <grouptype namespace="http://www.webhare.net/xmlns/publisher/generalwidgets" tid="siteprofile.widgets.general" />
 
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
                  name="embedhtml"
+                 allowresize="true"
                  gid="widgets.htmlwidget"
                  implementation="lib"
-                 lib="components/embedhtml.whlib"
-                 allowresize="true">
+                 lib="components/embedhtml.whlib">
     <newtab>
-      <textarea name="html" minwidth="70x" minheight="10x" width="1pr" height="1pr" maxlength="4096" maxlengthmeasure="bytes" showcounter="true" />
+      <textarea name="html"
+                width="1pr"
+                height="1pr"
+                minwidth="70x"
+                minheight="10x"
+                maxlength="4096"
+                maxlengthmeasure="bytes"
+                showcounter="true" />
       <textarea composition="contentdata" cellname="html" name="actualhtml" visible="false" />
     </newtab>
   </tabsextension>
 
   <embeddedobjecttype editextension="#embedhtml"
+                      generatepreview="true"
+                      isfiletype="true"
                       namespace="http://www.webhare.net/xmlns/publisher/embedhtml"
                       renderobjectname="mod::publisher/lib/components/embedhtml.whlib#EmbeddedHTMLObject"
-                      tid="widgets.htmlwidget.title"
-                      generatepreview="true"
-                      isfiletype="true">
+                      tid="widgets.htmlwidget.title">
     <member name="html" type="string" />
     <ingroup type="http://www.webhare.net/xmlns/publisher/generalwidgets" />
   </embeddedobjecttype>
 
-  <widgettype editextension="#embedhtml"
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
+              editextension="#embedhtml"
               embedtype="inline"
-              namespace="http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
               renderobjectname="mod::publisher/lib/widgets/htmlwidget.whlib#InlineHTMLWidgetBase"
               tid="widgets.htmlwidget.title-inline">
     <members>
@@ -38,15 +42,14 @@
   </widgettype>
 
   <!-- RTD Video component -->
-  <embeddedobjecttype
-    namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
-    editlibrary="mod::publisher/widgets/video/video.whlib"
-    editfunctionname="EditEmbeddedVideoInstance"
-    renderlibrary="mod::publisher/lib/internal/embedvideo.whlib"
-    tid="siteprofile.widgets.embedvideo"
-    renderobjectname="EmbedVideoObject"
-    generatepreview="true"
-    isfiletype="true">
+  <embeddedobjecttype editfunctionname="EditEmbeddedVideoInstance"
+                      editlibrary="mod::publisher/widgets/video/video.whlib"
+                      generatepreview="true"
+                      isfiletype="true"
+                      namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
+                      renderlibrary="mod::publisher/lib/internal/embedvideo.whlib"
+                      renderobjectname="EmbedVideoObject"
+                      tid="siteprofile.widgets.embedvideo">
     <member name="network" type="string" />
     <member name="videoid" type="string" />
     <member name="thumbnail" type="file" />
@@ -66,7 +69,9 @@
 
   <apply>
     <to type="all" />
-    <setwidget contenttype="http://www.webhare.net/xmlns/publisher/embedvideo" renderlibrary="mod::publisher/lib/widgets/videowidget.whlib" renderobjectname="VideoWidgetBase" />
+    <setwidget contenttype="http://www.webhare.net/xmlns/publisher/embedvideo"
+               renderlibrary="mod::publisher/lib/widgets/videowidget.whlib"
+               renderobjectname="VideoWidgetBase" />
     <setwidget contenttype="http://www.webhare.net/xmlns/publisher/embedhtml"
                renderlibrary="mod::publisher/lib/widgets/htmlwidget.whlib"
                renderobjectname="HTMLWidgetBase" />

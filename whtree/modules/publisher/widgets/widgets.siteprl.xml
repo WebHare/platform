@@ -1,26 +1,21 @@
-<siteprofile
-  xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-  xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-  xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!-- Anchor -->
-  <widgettype
-    namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
-    editextension="widgets.xml#anchorwidget"
-    tid="widgets.anchorwidget.title"
-    wittycomponent="widgets.witty:anchor">
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
+              editextension="widgets.xml#anchorwidget"
+              tid="widgets.anchorwidget.title"
+              wittycomponent="widgets.witty:anchor">
     <members>
       <member name="name" type="string" />
     </members>
   </widgettype>
 
   <!-- Slideshow. Simple show with embedded images -->
-  <widgettype
-    namespace="http://www.webhare.net/xmlns/publisher/widgets/slideshow"
-    editextension="widgets.xml#slideshowwidget"
-    tid="widgets.slideshowwidget.title"
-    wittycomponent="widgets.witty:slideshow"
-    renderobjectname="/lib/widgets/slideshowwidget.whlib#SlideshowWidgetBase">
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/slideshow"
+              editextension="widgets.xml#slideshowwidget"
+              renderobjectname="/lib/widgets/slideshowwidget.whlib#SlideshowWidgetBase"
+              tid="widgets.slideshowwidget.title"
+              wittycomponent="widgets.witty:slideshow">
     <members>
       <member name="slides" type="array">
         <member name="title" type="string" />
@@ -32,9 +27,9 @@
 
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/twocolumns"
               editextension="widgets.xml#twocolumnswidget"
-              wittycomponent="widgets.witty:twocolumns"
+              renderobjectname="/lib/widgets/twocolumnswidget.whlib#TwoColumnsWidgetBase"
               tid="widgets.twocolumnswidget.title"
-              renderobjectname="/lib/widgets/twocolumnswidget.whlib#TwoColumnsWidgetBase">
+              wittycomponent="widgets.witty:twocolumns">
     <members>
       <member name="rtdleft" type="richdocument" />
       <member name="rtdright" type="richdocument" />

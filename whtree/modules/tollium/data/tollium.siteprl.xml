@@ -1,30 +1,27 @@
-<siteprofile
-   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-   xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
-   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
-
-  <contenttype namespace="http://www.webhare.net/xmlns/tollium/applicationportal">
-  </contenttype>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!-- NOTE: we define both webpageobjectname and startmacro, as webpageobjectname receives RPCs -->
-  <filetype typedef="http://www.webhare.net/xmlns/tollium/applicationportal" blobiscontent="false" ispublishedassubdir="true" isacceptableindex="true" webhare_builtintypeid="36">
-    <dynamicexecution webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage"
-                      startmacro="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#RunApplicationPortal" />
+  <filetype namespace="http://www.webhare.net/xmlns/tollium/applicationportal"
+            kind="datafile"
+            isacceptableindex="true"
+            ispublishedassubdir="true"
+            webhare_builtintypeid="36">
+    <dynamicexecution startmacro="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#RunApplicationPortal"
+                      webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage" />
   </filetype>
 
   <apply priority="50">
     <to type="file" filetype="http://www.webhare.net/xmlns/tollium/applicationportal" />
 
     <!-- Setup default webdesign. Sync with webinterface.siteprl -->
-    <webdesign designfolder="mod::tollium/webdesigns/webinterface"
-               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
-               objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"
+    <webdesign assetpack="webinterface"
+               async="false"
+               designfolder="mod::tollium/webdesigns/webinterface"
                maxcontentwidth="960px"
-               assetpack="webinterface"
-               supportserrors="true"
+               objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"
                supportsaccessdenied="true"
-               async="false" />
+               supportserrors="true"
+               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty" />
   </apply>
 
 </siteprofile>
