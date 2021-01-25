@@ -1430,7 +1430,7 @@ PUBLIC OBJECT FUNCTION MakeNewOOXMLSpreadSheetFile()
     @cell(string) options.columns.title Column title
     @cell(string) options.columns.type Column type
     @cell(boolean) options.columns.storeutc Set to TRUE if the column's value is in UTC
-    @cell(string) options.exporttitle Export title (base for filename and frame title
+    @cell(string) options.exporttitle Export title (base for filename and frame title)
     @cell(string) options.timezone Timezone to use for datetime fields
     @return Validated options */
 PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
