@@ -26,7 +26,6 @@ STATIC OBJECTTYPE WRDAuth
 
   OBJECT wrdschema;
   OBJECT domaintype;
-  OBJECT extensions;
   INTEGER domainid;
   RECORD domainrec;
   RECORD loginfield;
@@ -160,7 +159,7 @@ STATIC OBJECTTYPE WRDAuth
 
   /** Creates login cookies
       @param userid
-      @param types List if "session", "external", "persistent"
+      @param types List of "session", "external", "persistent"
       @param extra
       @cell extra.path Path to encode in external cookie (optional)
       @return Encoded cookies
@@ -340,7 +339,7 @@ STATIC OBJECTTYPE WRDAuth
 
   /** Encrypts and signes data with the domain secret
       @param indata Data to encrypt
-      @param type Type of data (also needed for descryption)
+      @param type Type of data (also needed for decryption)
       @return Encoded and encrypted data
   */
   PUBLIC STRING FUNCTION EncryptData(RECORD indata, STRING type DEFAULTSTO "")
@@ -400,10 +399,7 @@ STATIC OBJECTTYPE WRDAuth
   */
   PUBLIC INTEGER FUNCTION LookupLogin(STRING login)
   {
-    IF(ObjectExists(this->extensions))
-      RETURN this->extensions->LookupLogin(login);
-    ELSE
-      RETURN this->DoLookup(this->loginfield.tag, login);
+    RETURN this->DoLookup(this->loginfield.tag, login);
   }
 
   /** Looks up a user based on the email address. The user must have a non-default password.
