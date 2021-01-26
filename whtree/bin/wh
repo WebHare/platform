@@ -58,7 +58,7 @@ if [ -z "$WEBHARE_DATAROOT" ] ; then
 fi
 
 # Discover which database we'll be using
-if [ "$WEBHARE_INITIALDB" == "postgres" -o "$WEBHARE_INITIALDB" == "postgresql"  ]; then  #support postgres as alias
+if [ "$WEBHARE_INITIALDB" == "postgres" -o "$WEBHARE_INITIALDB" == "postgresql" -o "$(uname).$(uname -m)" == "Darwin.arm64" ]; then  #support postgres as alias
   WEBHARE_INITIALDB=postgresql
 elif [ "$WEBHARE_INITIALDB" == "dbserver" -o "$WEBHARE_INITIALDB" == "" ]; then
   WEBHARE_INITIALDB=dbserver

@@ -32,9 +32,10 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	BREWPREFIX := $(BREWPREFIX)
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
+	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
 
 
-	ifneq (,$(wildcard /usr/local/lib/libocci.dylib))
+	ifneq (,$(wildcard $(BREWPREFIX)/lib/libocci.dylib))
 		#OCI detected, enable it if WHBUILD_OCI is not yet set
 		WHBUILD_OCI ?= 1
 	endif
@@ -827,8 +828,8 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 
 # We need to find dependencies in a fixed location, because brew's "adding/deleting, not updating" files is not detected by make
 
-harescript/modules/git/git.o: /usr/local/lib/libgit2.dylib
-$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: /usr/local/opt/icu4c/INSTALL_RECEIPT.json
+harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
+$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
 
 endif # end darwin check
 

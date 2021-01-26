@@ -9,6 +9,7 @@ class Webhare < Formula
   depends_on "icu4c"
   depends_on "pixman"
   depends_on "libtiff"
+  depends_on "libpng"
   depends_on "freetype"
   depends_on "giflib"
   depends_on "libmaxminddb"
