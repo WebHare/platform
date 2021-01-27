@@ -1,10 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile
-   xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-   xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-   xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <apply priority="-1"> <!-- make sure our settings appear first, to stabilize ordering -->
+  <apply priority="-1">
+    <!-- make sure our settings appear first, to stabilize ordering -->
     <to type="all" />
     <debugsettings title="Commonly used">
       <option tag="debugmode" title="Enable output debugmode" />
@@ -53,4 +50,5 @@
       <option tag="testfw" title="Testframework" />
     </debugsettings>
   </apply>
- </siteprofile>
+
+</siteprofile>

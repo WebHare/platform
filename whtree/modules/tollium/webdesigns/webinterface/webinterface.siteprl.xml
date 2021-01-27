@@ -1,9 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
-             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
-             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-             xmlns:w="http://www.webhare.net/xmlns/wrd/components">
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
   <!-- Global site settings -->
   <apply>
@@ -17,54 +12,53 @@
 
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
-
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
-             wrdschema="system:usermgmt"
-             sitetag="WEBHAREBACKEND"
-             loginpage="currentsite::/"
              api2017="true"
              cookiename="webharelogin-webharebackend"
-             supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport" />
+             loginpage="currentsite::/"
+             sitetag="WEBHAREBACKEND"
+             supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport"
+             wrdschema="system:usermgmt" />
 
     <!-- Setup default webdesign. Sync with tollium/data/siteprofile.xml. We need it here for 404 and /.publisher/debug pages -->
-    <webdesign designfolder="mod::tollium/webdesigns/webinterface"
-               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
-               library="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib"
-               objectname="WebinterfaceDesign"
-               assetpack="webinterface"
+    <webdesign assetpack="webinterface"
+               designfolder="mod::tollium/webdesigns/webinterface"
                maxcontentwidth="960px"
+               objectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#WebinterfaceDesign"
+               supportsaccessdenied="true"
                supportserrors="true"
-               supportsaccessdenied="true" />
+               witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty" />
 
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
-
-    <robots xmlns="http://www.webhare.net/xmlns/consilio" noindex="true" nofollow="true" />
-
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowwebhareinstall="true"/>
+    <robots xmlns="http://www.webhare.net/xmlns/consilio" nofollow="true" noindex="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowwebhareinstall="true" />
   </apply>
 
   <!-- on dev servers, open up a /testportal -->
   <apply maxservertype="development">
     <to type="file" pathmask="/testportal" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" allowwebhareinstall="false"/>
-    <wrdauth cookiename="webharelogin-testportal" xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" loginpage="currentsite::/testportal" sitetag="" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" allowwebhareinstall="false" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             cookiename="webharelogin-testportal"
+             loginpage="currentsite::/testportal"
+             sitetag=""
+             wrdschema="wrd:testschema" />
   </apply>
 
   <applysiteprofile path="pages/manual/manual.siteprl.xml" />
 
   <!-- on test and above, /testportal just blocks -->
   <sitesettings>
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" >
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
       <webrule path="/" match="initial">
         <!-- <addheader header="X-Frame-Options" value="DENY"/>  applicationportal.whlib controls this currently -->
-        <addheader header="X-XSS-Protection" value="1; mode=block"/>
-        <addheader header="X-Content-Type-Options" value="nosniff"/>
-        <addheader header="Referrer-Policy" value="no-referrer"/>
+        <addheader header="X-XSS-Protection" value="1; mode=block" />
+        <addheader header="X-Content-Type-Options" value="nosniff" />
+        <addheader header="Referrer-Policy" value="no-referrer" />
       </webrule>
       <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
     </webruleset>
   </sitesettings>
-
 
 </siteprofile>

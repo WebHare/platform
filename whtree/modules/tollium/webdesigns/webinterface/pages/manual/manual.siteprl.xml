@@ -1,6 +1,6 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webdesigns.webinterface.pages.manual">
 
-  <rtdtype namespace="http://www.webhare.net/xmlns/tollium/manualrtdtype" bodyclass="wh-tollium--manual">
+  <rtdtype bodyclass="wh-tollium--manual" namespace="http://www.webhare.net/xmlns/tollium/manualrtdtype">
     <css path="manual.css" />
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" textstyles="" />
