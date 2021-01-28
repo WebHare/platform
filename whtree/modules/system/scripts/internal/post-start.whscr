@@ -35,7 +35,7 @@ MACRO ApplyServerConfig()
   OBJECT serverconfigxsd := MakeXMLSchema(GetWebhareResource("mod::system/data/serverconfig.xsd"));
   STRING baseroot := GetWebHareConfiguration().basedataroot;
 
-  STRING varconfiglocation := MergePath(GetWebHareConfiguration().varroot, "currentserverconfig.xml");
+  STRING varconfiglocation := MergePath(GetWebHareConfiguration().varroot, "serverconfig.xml");
 
   OBJECT browser := NEW WebBrowser;
   STRING configurl := GetEnvironmentVariable("WEBHARE_CONFIGURL");
