@@ -117,15 +117,14 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
   //
 
   RECORD ARRAY allcontenttypes;
-  RECORD rtdtypeinfo;
-  RECORD ARRAY addwidgets;
+  RECORD ARRAY widgets;
 
   // ---------------------------------------------------------------------------
   //
@@ -141,13 +140,12 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    this->rtdtypeinfo := data.rtdtypeinfo;
-    this->addwidgets := data.addwidgets;
+    this->widgets := data.widgets;
     this->RefreshList();
-    IF(Length(this->groups->rows)=1)
-      this->groups->selection := this->groups->rows[0];
-    ELSE IF(NOT RecordExists(this->groups->selection))
-      this->groups->SetValueIfValid("http://www.webhare.net/xmlns/publisher/generalwidgets");
+    IF(Length(^groups->rows)=1)
+      ^groups->selection := ^groups->rows[0];
+    ELSE IF(NOT RecordExists(^groups->selection))
+      ^groups->SetValueIfValid("http://www.webhare.net/xmlns/publisher/generalwidgets");
   }
 
   // ---------------------------------------------------------------------------
@@ -157,14 +155,14 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   STRING FUNCTION GetValue()
   {
-    RETURN this->contenttypes->value;
+    RETURN ^contenttypes->value;
   }
 
   MACRO SetValue(STRING newvalue)
   {
     STRING groupns := SELECT AS STRING primarygroup.namespace FROM this->allcontenttypes WHERE namespace = newvalue;
-    this->groups->value := groupns;
-    this->contenttypes->value := newvalue;
+    ^groups->value := groupns;
+    ^contenttypes->value := newvalue;
   }
 
   // ---------------------------------------------------------------------------
@@ -181,16 +179,11 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
   //
   // List refreshes
   //
-  RECORD ARRAY FUNCTION GetApplicableTypes(RECORD rtdtypeinfo)
+  RECORD ARRAY FUNCTION GetApplicableTypes()
   {
     RECORD ARRAY contenttypes;
-    RECORD ARRAY allowedobjects := rtdtypeinfo.allowedobjects CONCAT this->addwidgets;
 
-    IF(NOT this->rtdtypeinfo.ignoresiteprofilewidgets AND ObjectExists(this->contexts->applytester))
-      FOREVERY(RECORD setting FROM this->contexts->applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowwidgettype"))
-        INSERT ParseAllowWidgetType(setting.node) INTO allowedobjects AT END;
-
-    FOREVERY (RECORD rec FROM allowedobjects)
+    FOREVERY (RECORD rec FROM this->widgets)
     {
       STRING lookuptype := rec.type;
       RECORD newtype := LookupContentType(lookuptype);
@@ -218,7 +211,7 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
 
   MACRO RefreshList()
   {
-    RECORD ARRAY contenttypes := this->GetApplicableTypes(this->rtdtypeinfo);
+    RECORD ARRAY contenttypes := this->GetApplicableTypes();
     RECORD default_group :=
         [ namespace :=          "_default_group"
         , title :=              ":" || this->GetTid(".other")
@@ -230,35 +223,34 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
              , rowkey :=        namespace
              , title :=         GetTid(title)
              , primarygroup :=  primarygroup ?? default_group
-             , icon :=          tolliumicon != "" ? this->contenttypes->GetIcon(tolliumicon) : 0
+             , icon :=          tolliumicon != "" ? ^contenttypes->GetIcon(tolliumicon) : 0
           FROM contenttypes;
-
-    this->groups->rows :=
+     ^groups->rows :=
         SELECT rowkey :=        Any(primarygroup.namespace)
              , namespace :=     Any(primarygroup.namespace)
              , title :=         GetTid(Any(primarygroup.title))
-             , icon :=          Any(primarygroup.tolliumicon) != "" ? this->groups->GetIcon(Any(primarygroup.tolliumicon)) : 0
+             , icon :=          Any(primarygroup.tolliumicon) != "" ? ^groups->GetIcon(Any(primarygroup.tolliumicon)) : 0
           FROM this->allcontenttypes
       GROUP BY primarygroup.namespace;
 
-    IF (Length(this->groups->rows) = 1)
+    IF (Length(^groups->rows) = 1)
     {
-      this->groups->selection := this->groups->rows[0];
-      this->groupspart->visible := FALSE;
-      this->contenttypes->borders.left := TRUE;
+      ^groups->selection := ^groups->rows[0];
+      ^groupspart->visible := FALSE;
+      ^contenttypes->borders.left := TRUE;
     }
     ELSE
     {
-      this->groupspart->visible := TRUE;
-      this->contenttypes->borders.left := FALSE;
+      ^groupspart->visible := TRUE;
+      ^contenttypes->borders.left := FALSE;
     }
   }
 
   MACRO OnGroupSelect()
   {
-    this->contenttypes->rows :=
+    ^contenttypes->rows :=
         SELECT *
           FROM this->allcontenttypes
-         WHERE primarygroup.namespace = this->groups->value;
+         WHERE primarygroup.namespace = ^groups->value;
   }
 >;

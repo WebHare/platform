@@ -19,6 +19,7 @@ LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/screenparser.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 BOOLEAN debugrtddirty;
@@ -419,14 +420,28 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         ];
   }
 
+  RECORD ARRAY FUNCTION GetAllowedWidgetTypes()
+  {
+    RECORD ARRAY allowedtypes;
+    IF(RecordExists(this->rtdtypeinfo))
+      allowedtypes := this->rtdtypeinfo.allowedobjects;
+
+    IF(NOT this->rtdtypeinfo.ignoresiteprofilewidgets AND ObjectExists(this->contexts->applytester))
+      FOREVERY(RECORD setting FROM this->contexts->applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowwidgettype"))
+        INSERT ParseAllowWidgetType(setting.node) INTO allowedtypes AT END;
+
+    allowedtypes := allowedtypes CONCAT this->GetAddedWidgetTypes();
+    RETURN allowedtypes;
+  }
+
   UPDATE PUBLIC MACRO TolliumWebRender()
   {
     IF (this->dirtyflags.fully)
     {
-      BOOLEAN allownewembeddedobjects := (RecordExists(this->rtdtypeinfo) AND RecordExists(SELECT FROM this->rtdtypeinfo.allowedobjects WHERE type != "http://www.webhare.net/xmlns/publisher/embedvideo"))
-                                         OR (Length(this->GetAddedWidgetTypes()) > 0);
+      RECORD ARRAY allowedtypes := this->GetAllowedWidgetTypes();
+      BOOLEAN allownewembeddedobjects := RecordExists(SELECT FROM allowedtypes WHERE type != "http://www.webhare.net/xmlns/publisher/embedvideo");
+      BOOLEAN allowvideo := RecordExists(SELECT FROM allowedtypes WHERE type = "http://www.webhare.net/xmlns/publisher/embedvideo");
 
-      BOOLEAN allowvideo := RecordExists(this->rtdtypeinfo) AND RecordExists(SELECT FROM this->rtdtypeinfo.allowedobjects WHERE type = "http://www.webhare.net/xmlns/publisher/embedvideo");
       RECORD compinfo := [ areatype := this->type IN [ "html-block", "html-inline" ] ? "html" : this->type
                          , value := this->GetRenderValue()
                          , valuedirtycount := this->valuedirtycount
@@ -658,7 +673,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       CASE "object-insert"
       {
-        OBJECT screen := this->owner->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ this->rtdtypeinfo, addwidgets := this->GetAddedWidgetTypes() ]);
+        OBJECT screen := this->owner->LoadScreen("mod::publisher/screens/commondialogs/embeddedobjects.xml#choosetype", CELL[ widgets := this->GetAllowedWidgetTypes() ]);
         IF (screen->RunModal() = "ok")
         {
           RECORD insertvalue := DoEditWidget(this->owner, this, screen->value, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE);

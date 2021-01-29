@@ -351,6 +351,41 @@ MACRO TagFilterKeepNewLines()
   TestEq("geen lege regel<br/>hierboven<br/><br/>maar wel hierboven<br/>hierboven weer niet", BlobToSTring(scr->myrte->value.htmltext));
 }
 
+ASYNC MACRO TestRichDocument()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none"><body><richdocument name="richdoc" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1"/></body></screen>`)));
+
+  RECORD richdoc;
+  richdoc := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="component" AND target LIKE "*:richdoc";
+  TestEq(TRUE, richdoc.allowvideo);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none"><body><richdocument name="richdoc" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2"/></body></screen>`)));
+
+  richdoc := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="component" AND target LIKE "*:richdoc";
+  TestEq(FALSE, richdoc.allowvideo);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteTempFolder()->CreateFile([name := "lvl2-with-video.rtd", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="firstscreen" implementation="none"><body><richdocument name="richdoc" /></body></screen>`)
+     , DEFAULT RECORD
+     , [ contexts := [ applytester := GetApplyTesterForObject(testfile->id) ]]
+     ));
+
+  richdoc := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="component" AND target LIKE "*:richdoc";
+  TestEq(TRUE, richdoc.allowvideo);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework( [ PTR TestRequired
                   , PTR RTEDocumentTypes
                   , PTR TestRegressionTruncation
@@ -358,4 +393,5 @@ RunTestFramework( [ PTR TestRequired
                   , PTR TestStructuredBlocksRTE
                   , PTR TagFilterKeepBR
                   , PTR TagFilterKeepNewLines
+                  , PTR TestRichDocument
                   ]);
