@@ -67,7 +67,7 @@ PUBLIC INTEGER PubPrio_SubFolderRepub := 21;      //put on queue because of a re
 PUBLIC INTEGER PublishedFlag_OncePublished  := 100000;
 PUBLIC INTEGER PublishedFlag_Scheduled      := 200000;
 PUBLIC INTEGER PublishedFlag_Warning        := 400000;
-PUBLIC INTEGER PublishedFlag_HasWebDesign   :=  800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0x
+PUBLIC INTEGER PublishedFlag_HasWebDesign   :=  800000; //this file depends on a <webdesign> or template, so it needs to be republished even if template=0
 PUBLIC INTEGER PublishedFlag_StripExtension := 1600000; //strip the extension from the file's url
 PUBLIC INTEGER PublishedFlag_HasPublicDraft := 3200000; //there are drafts associated with the file
 PUBLIC INTEGER PublishedFlag_SubmittedForApproval := 6400000; // the draft has been submitted for approval (versioning)
