@@ -30,7 +30,7 @@
     </debugsettings>
     <debugsettings title="Formsapi">
       <option tag="fhv" title="Validation" />
-      <option tag="fhp" title="Enable prefiller" />
+      <option tag="nofhp" title="Disable prefiller in debugmode" />
       <option tag="fdv" title="Disable client-side validation" />
       <option tag="fhx" title="Form UI/UX" />
     </debugsettings>
