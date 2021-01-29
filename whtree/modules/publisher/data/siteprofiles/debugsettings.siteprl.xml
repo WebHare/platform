@@ -15,7 +15,7 @@
       <option tag="isc" title="Image editor: Debug smartcrop" />
       <option tag="ixf" title="Image editor: Experimental functions" />
       <option tag="rll" title="Render label lines" />
-      <option tag="whc" title="WebHare Connect" />
+      <option tag="whc" title="WebHare dev-agent" />
     </debugsettings>
     <debugsettings title="Site testing">
       <option tag="nsc" title="No spam checks (disable recaptchas etc)" />
