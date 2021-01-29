@@ -193,28 +193,25 @@ PUBLIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
     FOREVERY (RECORD rec FROM allowedobjects)
     {
       STRING lookuptype := rec.type;
-      RECORD ARRAY newtypes := LookupContentTypes(lookuptype);
+      RECORD newtype := LookupContentType(lookuptype);
 
-      IF(Length(newtypes) = 0)
+      IF(NOT RecordExists(newtype))
       {
         Print("The type '" || lookuptype || "' did not match any installed type\n");
         CONTINUE;
       }
 
-      FOREVERY(RECORD type FROM newtypes)
+      IF(NOT newtype.isembeddedobjecttype)
       {
-        IF(NOT type.isembeddedobjecttype)
-        {
-          Print("Ignoring type '" || type.namespace || "', it is not an <embeddedobjecttype>\n");
-          CONTINUE;
-        }
-        IF(type.namespace = "http://www.webhare.net/xmlns/publisher/embedvideo")
-          CONTINUE; //ignore, we have a button for this
-
-        IF(RecordExists(SELECT FROM contenttypes WHERE contenttypes.namespace = type.namespace))
-          CONTINUE; //dupe
-        INSERT type INTO contenttypes AT END;
+        Print("Ignoring type '" || newtype.namespace || "', it is not an <embeddedobjecttype>\n");
+        CONTINUE;
       }
+      IF(newtype.namespace = "http://www.webhare.net/xmlns/publisher/embedvideo")
+        CONTINUE; //ignore, we have a button for this
+
+      IF(RecordExists(SELECT FROM contenttypes WHERE contenttypes.namespace = newtype.namespace))
+        CONTINUE; //dupe
+      INSERT newtype INTO contenttypes AT END;
     }
     RETURN contenttypes;
   }
