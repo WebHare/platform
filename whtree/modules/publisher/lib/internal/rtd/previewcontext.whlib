@@ -18,7 +18,7 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
   STRING ARRAY indextypes;
   STRING ARRAY indexversions;
   PUBLIC STRING languagecode;
-  PUBLIC STRING imgroot;
+  PUBLIC STRING imgrooturl;
 
   //This preview context is running for search previews
   PUBLIC BOOLEAN __previewsearch;
@@ -38,7 +38,12 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
     this->rtdtypeinfo := rtdtypeinfo;
 
     this->languagecode := ObjectExists(applytester) ? applytester->GetSiteLanguage() : "en";
-    this->imgroot := ObjectExists(applytester) ? GetModuleResourceURL(applytester->GetWebDesignObjinfo().designfolder || "web/img/") : "";
+    IF(ObjectExists(applytester)) //just having applytester doesn't guarantee we have a webdesign... forms might live in eg /webhare-private/
+    {
+      RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+      IF(RecordExists(webdesigninfo))
+        this->imgrooturl := GetModuleResourceURL(webdesigninfo.designfolder || "web/img/");
+    }
 
     this->__previewsearch := forsearch;
   }

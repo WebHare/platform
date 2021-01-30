@@ -35,7 +35,7 @@
 [component level2widget]
 <div class="level2widget" data-lang="[languagecode]" data-mytype="[mytype]" data-rtdtype="[rtdtype]" data-targetsite="[targetsite]"
      data-targetfolder="[targetfolder]" data-whfssettingid="[whfssettingid]" data-whfsfileid="[whfsfileid]"
-     data-gettid-test="[gettid basetest.title]">
+     data-gettid-test="[gettid basetest.title]" data-imgroot="[imgroot]">
   [rtd]
 </div>
 [/component]
