@@ -27,16 +27,6 @@ PUBLIC SCHEMA
     ; KEY id
     > urlhistory
 
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , STRING "hash"
-    , DATETIME "created"
-    , DATETIME "lastuse"
-    , INTEGER "designfolder" NULL := 0
-    , STRING datahash
-    ; KEY id
-    > compileddesigns
-
 
     ///////////////////////////////////////////////////////////////
     //

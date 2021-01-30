@@ -304,7 +304,7 @@ PUBLIC OBJECT FUNCTION CreateDependencyResolverForModuleDesign(RECORD webdesigni
   IF(webdesigninfo.designfolder="")
     THROW NEW Exception("No module design folder specified");
 
-  OBJECT res := NEW Resolver(webdesigninfo.assetpack, webdesigninfo.designfolder, webdesigninfo.basedependency, webdesigninfo.supportedlanguages, devversion);
+  OBJECT res := NEW Resolver(webdesigninfo.assetpack, webdesigninfo.designfolder, "", webdesigninfo.supportedlanguages, devversion);
   RETURN res;
 }
 

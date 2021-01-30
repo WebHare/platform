@@ -337,7 +337,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
   RECORD webdesign := [ objectname      := "mod::publisher/lib/webdesign.whlib#WebDesignBase"
                       , witty           := "mod::publisher/lib/defaultwebdesign.witty"
                       , assetpack       := ""
-                      , basedependency  := ""
                       , designfolder    := ""
                       , maxcontentwidth := ""
                       , wittyencoding   := "HTML"
@@ -1433,7 +1432,6 @@ STATIC OBJECTTYPE ApplyRuleTester
         webdesign.supportedlanguages   := apply.webdesign.supportedlanguages;
       }
 
-      webdesign.basedependency       := apply.webdesign.has_basedependency       ? apply.webdesign.basedependency       : webdesign.basedependency;
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
       webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
