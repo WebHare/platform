@@ -248,22 +248,6 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
 
     RETURN this->screenmgr->GetComponent(compname);
   }
-  PUBLIC OBJECT ARRAY FUNCTION GetCheckComponents(STRING ARRAY compname)
-  {
-    //FIXME Support localrefs
-    RETURN this->screenmgr->GetComponents(compname);
-  }
-
-  PUBLIC OBJECT FUNCTION GetFrame()
-  {
-    OBJECT ret := this->screen->frame;
-    RETURN ret;
-  }
-  PUBLIC OBJECT FUNCTION GetScreen()
-  {
-    OBJECT ret := MakePublicObjectReference(this->screen);
-    RETURN ret;
-  }
 
   PUBLIC RECORD ARRAY FUNCTION GetErrors()
   {
@@ -2072,11 +2056,6 @@ PUBLIC STATIC OBJECTTYPE TolliumControllerBase EXTEND TolliumAppContextSystem
     RETURN screen;
   }
 
-
-  PUBLIC BOOLEAN FUNCTION IsRunning()
-  {
-    RETURN this->running;
-  }
 
   MACRO ValidateControllerSetup()
   {

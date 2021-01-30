@@ -50,15 +50,6 @@ RECORD FUNCTION ValidateXpathQuery(RECORD xpath)
    * The Document.doctype and Document.implementation attributes
 */
 
-/** This function implements the internals of the normalizeNamespaces function
-    given in DOM Level 3 Core annex B.
-    @param(object %XmlNode) node XML node to normalize
-*/
-MACRO NormalizeNamespaces(OBJECT node)
-{
-  NormalizeNamespacesInternal(node, DEFAULT RECORD ARRAY, "", 0);
-}
-
 
 /** Implements the internals of the normalizeNamespaces function given in DOM Level 3 Core annex B.
     http://www.w3.org/TR/DOM-Level-3-Core/namespaces-algorithms.html
@@ -256,28 +247,6 @@ RECORD FUNCTION MapLevel1Attribute(STRING name)
            , localname := name
            ];
   }
-}
-
-// Test if a node is readonly (i.e. a child node within a read-only document)
-BOOLEAN FUNCTION IsReadOnlyNode(OBJECT doc, OBJECT node)
-{
-        IF (NOT ObjectExists(doc))
-            RETURN TRUE; // Got no doc, return read-only
-        IF (NOT ObjectExists(node))
-            RETURN doc->readonly; // Got no node, return document read-only status
-
-        OBJECT docrootnode := doc->documentelement;
-        WHILE (ObjectExists(node))
-        {
-                // If we got to the document root node, the node is inserted in
-                // the DOM tree, return the read-only status of the document
-                IF (node->IsSameNode(docrootnode))
-                    RETURN doc->readonly;
-                node := node->parentnode;
-        }
-
-        // The node is not part of the document tree, so it can be modified
-        RETURN FALSE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -248,11 +248,6 @@ PUBLIC RECORD ARRAY FUNCTION GetGlobalDragTypes()
       ], PTR GetCachableGlobalDragTypes);
 }
 
-STRING FUNCTION GetVertexName(OBJECT v)
-{
-  RETURN v->data.name;
-}
-
 PUBLIC BOOLEAN FUNCTION IsApplicationAccessible(OBJECT user, RECORD apprec)
 {
   RETURN DoAccessCheckFor(apprec.accesscheck, user);

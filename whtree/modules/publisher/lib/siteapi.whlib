@@ -427,12 +427,6 @@ PUBLIC OBJECT FUNCTION OpenSite(INTEGER siteid)
   RETURN NEW SiteObject(siterec);
 }
 
-MACRO ScanAllCompilablesOnCommit(BOOLEAN iscommit)
-{
-  IF(iscommit)
-    ScanAllCompilables(FALSE);
-}
-
 /** Converts a WHFS folder into a site
     @param rootfolderid WHFS id of the folder to convert
     @return(object %SiteObject) Site object

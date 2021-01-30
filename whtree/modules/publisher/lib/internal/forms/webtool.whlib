@@ -444,14 +444,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     RETURN result;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION __GetOriginalFields()
-  {
-    RECORD ARRAY fields;
-    FOREVERY(RECORD page FROM this->__form.pages)
-      fields := fields CONCAT page.fields;
-    RETURN fields;
-  }
-
   PUBLIC MACRO PTR FUNCTION GetFormBody()
   {
     RETURN PTR this->RenderForm();

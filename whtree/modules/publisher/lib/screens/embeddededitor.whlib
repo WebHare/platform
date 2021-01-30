@@ -6,14 +6,6 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECT FUNCTION GetTabsExtension(OBJECT xmldoc, STRING name)
-{
-  FOREVERY(OBJECT editor FROM xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium/screens", "tabsextension")->GetCurrentElements())
-    IF(editor->GetAttribute("name")=name)
-      RETURN editor;
-  RETURN DEFAULT OBJECT;
-}
-
 PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 <
   INTEGER fsobjectid;

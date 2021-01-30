@@ -118,30 +118,6 @@ PUBLIC STATIC OBJECTTYPE SiteProfileObject
   // Public API
   //
 
-  PUBLIC OBJECT FUNCTION GetTabsExtension(STRING name)
-  {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_screens, "tabsextension")->GetCurrentElements())
-      IF(editor->GetAttribute("name")=name)
-        RETURN editor;
-    RETURN DEFAULT OBJECT;
-  }
-
-  PUBLIC OBJECT FUNCTION GetPropertyEditor(STRING name)
-  {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "propertyeditor")->GetCurrentElements())
-      IF(editor->GetAttribute("name")=name)
-        RETURN editor;
-    RETURN DEFAULT OBJECT;
-  }
-
-  PUBLIC OBJECT FUNCTION GetContentEditor(STRING name)
-  {
-    FOREVERY(OBJECT editor FROM this->xmldoc->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "contenteditor")->GetCurrentElements())
-      IF(editor->GetAttribute("name")=name)
-        RETURN editor;
-    RETURN DEFAULT OBJECT;
-  }
-
   PUBLIC STRING FUNCTION ParseFSPath(OBJECT node, STRING attrname)
   {
     IF(NOT node->HasAttribute(attrname))
@@ -209,30 +185,6 @@ PUBLIC INTEGER FUNCTION GetHareScriptTypeForMember(RECORD memberrec)
   }
 }
 
-VARIANT FUNCTION StringToMemberType(STRING membercontent, INTEGER membertype)
-{
-  //                                     0     1           2        3                4          5      6         7         8       9       10    11        12
-  //member type is index of typename in ["nvt","SELECTONE","STRING","SELECTMULTIPLE","DATETIME","FILE","BOOLEAN","INTEGER","FLOAT","MONEY","nvt","WHFSREF","ARRAY"]
-  SWITCH (membertype)
-  {
-    CASE 1,2,3
-    {
-      RETURN membercontent;
-    }
-    CASE 6
-    {
-      RETURN ToUppercase(membercontent) IN [ "1", "TRUE" ];
-    }
-    CASE 7
-    {
-      RETURN ToInteger(membercontent, 0);
-    }
-    DEFAULT
-    {
-      THROW NEW Exception("Unsupported member type " || membertype);
-    }
-  }
-}
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -733,23 +685,6 @@ STATIC OBJECTTYPE ApplyRuleTesterCache
   // Public interface
   //
 
-  PUBLIC INTEGER FUNCTION GetWHFSTypeId(STRING namespace)
-  {
-    RECORD pos := RecordLowerBound(this->typecache, [ namespace := namespace ], [ "NAMESPACE"]);
-    IF (NOT pos.found)
-    {
-      RECORD rec :=
-          [ namespace :=  namespace
-          , id :=         GetTypeForNamespace(namespace)
-          , obj :=        DEFAULT OBJECT
-          ];
-
-      INSERT rec INTO this->typecache AT pos.position;
-      INSERT rec INTO this->revtypecache AT RecordUpperBound(this->revtypecache, rec, [ "ID" ]);
-    }
-    RETURN this->typecache[pos.position].id;
-  }
-
   PUBLIC STRING FUNCTION GetWHFSTypeNamespace(INTEGER id, BOOLEAN isfolder)
   {
     IF (id = 0)
@@ -1182,12 +1117,6 @@ STATIC OBJECTTYPE ApplyRuleTester
   //
   // Public API
   //
-
-  PUBLIC MACRO InitForBaseInfo(INTEGER fsobjectid)
-  {
-    this->objinfo := GetBaseInfoForApplyCheck(fsobjectid);
-    this->ReadCSP();
-  }
 
   /** Is this a type needing a template?
       @return TRUE if this file type needs a template

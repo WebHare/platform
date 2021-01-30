@@ -530,18 +530,6 @@ PUBLIC STRING FUNCTION CreateWidgetPreviewLink(DATETIME validuntil, STRING passw
   RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
 }
 
-PUBLIC STRING FUNCTION CreateInstancePreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview, INTEGER instanceid)
-{
-  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = baseobj;
-  IF(baseurl="")
-    RETURN "";
-
-  RECORD viewdata := [ id := toview, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = toview), v := validuntil, p := password, t := "w", i := instanceid ];
-  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
-  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
-}
-
-
 PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit)
 {
   // Lookup embeddedobjecttype directly

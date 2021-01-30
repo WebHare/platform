@@ -32,22 +32,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAllWHFSRegisterSlots()
   RETURN allslots;
 }
 
-RECORD FUNCTION SimpleEnsure(INTEGER parent, RECORD settings)
-{
-  RECORD item := SELECT id, filelink FROM system.fs_objects WHERE fs_objects.parent = VAR parent AND ToUppercase(name) = ToUppercase(settings.name);
-  IF(RecordExists(item))
-    RETURN [ existing := TRUE, filelink := item.filelink, id := item.id ];
-
-  item := [ id := MakeAutonumber(system.fs_objects,"id")
-          , parent := parent
-          , creationdate := GetCurrentDatetime()
-          , modificationdate := GetCurrentDatetime()
-          , ...settings
-          ];
-  INSERT item INTO system.fs_objects;
-  RETURN [ existing := FALSE, filelink := 0, id := item.id ];
-}
-
 OBJECT FUNCTION EnsureSlotFile(RECORD slot)
 {
   OBJECT slotfolder := OpenWHFSObject(whconstant_whfsid_registerslots);

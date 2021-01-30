@@ -264,12 +264,6 @@ STATIC OBJECTTYPE WRDAuth
   // Public API
   //
 
-  PUBLIC MACRO SetupExtensions()
-  {
-//    IF(this->domainrec.wrdauth_extensionlibrary != "")
-  //    this->extensions := MakeObject(this->domainrec.wrdauth_extensionlibrary, "WRDAuthExtension", this);
-  }
-
   /** Returns the user entityid from a cookie
       @param cookie Cookie
       @param ispersistentcookie Whether the cookie is a persistent cookie (otherwise it is a session cookie)

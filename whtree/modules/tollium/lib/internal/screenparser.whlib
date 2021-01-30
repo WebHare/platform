@@ -1101,20 +1101,6 @@ PUBLIC INTEGER FUNCTION ReadIntAttr(OBJECT el, STRING attrname, INTEGER defaultv
   ELSE
     RETURN defaultvalue;
 }
-PUBLIC MONEY FUNCTION ReadMoneyAttr(OBJECT el, STRING attrname, MONEY defaultvalue)
-{
-  IF(el->HasAttribute(attrname))
-    RETURN ToMoney(el->GetAttribute(attrname), defaultvalue);
-  ELSE
-    RETURN defaultvalue;
-}
-PUBLIC FLOAT FUNCTION ReadFloatAttr(OBJECT el, STRING attrname, FLOAT defaultvalue)
-{
-  IF(el->HasAttribute(attrname))
-    RETURN ToFloat(el->GetAttribute(attrname), defaultvalue);
-  ELSE
-    RETURN defaultvalue;
-}
 
 PUBLIC STRING FUNCTION ReadNameAttr(OBJECT el)
 {
@@ -1178,41 +1164,6 @@ PUBLIC RECORD FUNCTION ReadHandlerAttr(OBJECT element, STRING fieldname, INTEGER
   RETURN ReadHandlerRef(element->GetAttribute(fieldname), callback_signature);
 }
 
-
-// -----------------------------------------------------------------------------
-//
-//   Other helper functions
-//
-
-/* Get the TID the element would be based on in case it would have no title.
-   This TID can be used as prefix for <option>'s
-*/
-STRING FUNCTION ParseTidPointer(STRING module, OBJECT el, STRING type, STRING gid)
-{
-  STRING tid := el->GetAttribute(type||"tid");
-  IF(tid!="")
-  {
-    IF(Left(tid,1)='.')
-      tid := gid||tid;
-    RETURN tid;
-  }
-
-  IF(gid!="" AND el->HasAttribute("cellname") AND type="")
-  {
-    STRING name := el->GetAttribute("cellname");
-    name := Substring(name,  SearchLastSubstring(name,'.')+1, 256);
-    RETURN gid||'.'||name;
-  }
-
-  IF(gid!="" AND el->HasAttribute("name") AND type="")
-  {
-    STRING name := el->GetAttribute("name");
-    name := Substring(name,  SearchLastSubstring(name,'.')+1, 256);
-    RETURN gid||'.'||name;
-  }
-
-  RETURN '';
-}
 
 // -----------------------------------------------------------------------------
 //
@@ -2196,21 +2147,6 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
   RETURN options;
 }
 
-/** Get the node with the specified type and name
-    @param screensdoc Element whose child nodes must be looked at
-    @param type Type of element ('screen', 'fragment')
-    @param pagename Name of element (searched for in attribute 'name')
-    @return Node is returned if found.
-*/
-OBJECT FUNCTION GetPageByName(OBJECT screensdoc, STRING type, STRING pagename)
-{
-  FOR(OBJECT node := screensdoc->documentelement->firstchild; ObjectExists(node); node := node->nextsibling)
-    IF(node->localname=type AND node->GetAttribute("name")=pagename)
-      RETURN node;
-
-  RETURN DEFAULT OBJECT;
-}
-
 PUBLIC RECORD FUNCTION ParseAllowWidgetType(OBJECT typenode)
 {
   RETURN [ type := typenode->GetAttribute("type")
@@ -2237,15 +2173,6 @@ PUBLIC RECORD FUNCTION ParseXMLPageNode(STRING resourcename, STRING scope, OBJEC
   {
     curpageparser := saveparser;
   }
-}
-
-PUBLIC RECORD FUNCTION ParseXMLSingleNode(STRING resourcename, STRING selector, OBJECT screendoc, STRING scope)
-{
-  OBJECT fragment := screendoc->GetEvaluatedElement(DEFAULT OBJECT, selector);
-  IF(NOT ObjectExists(fragment))
-    RETURN DEFAULT RECORD;
-
-  RETURN ParseXMLPageNode(resourcename, scope, fragment);
 }
 
 PUBLIC RECORD FUNCTION ParseXMLPage(STRING resourcename, STRING selector, OBJECT screendoc, STRING pagetype, STRING initialgid)

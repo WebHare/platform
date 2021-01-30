@@ -17,15 +17,6 @@ PUBLIC OBJECTTYPE Proxies EXTEND TolliumScreenBase
     this->ReloadList();
   }
 
-  RECORD FUNCTION FixedAuthHandler(STRING password, STRING realm, STRING url)
-  {
-    RETURN
-        [ username := "webhare"
-        , password := password
-        ];
-  }
-
-
   MACRO GotProxyUpdate(RECORD ARRAY events)
   {
     this->ReloadList();

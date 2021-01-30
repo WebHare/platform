@@ -75,17 +75,6 @@ MACRO AddXMLType(OBJECT wrdschema, RECORD typeinfo, OBJECT parentnode)
     AddXMLAttribute(type, attr, attributesnode);
 }
 
-MACRO AddXMLQuery(OBJECT wrdschema, RECORD queryinfo, OBJECT parentnode)
-{
-  OBJECT basenode := parentnode->ownerdocument->CreateElementNS(query_ns, "query");
-  parentnode->AppendChild(basenode);
-
-  OBJECT storedquery := NEW WRDStoredQuery(wrdschema, queryinfo, FALSE);
-  storedquery->wrd_query->SerializeToXML(basenode);
-
-  basenode->SetAttribute("tag", queryinfo.tag);
-}
-
 PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
 {
   RECORD ARRAY basetypes := SELECT tag

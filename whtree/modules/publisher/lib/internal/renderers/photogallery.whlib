@@ -36,34 +36,6 @@ PUBLIC STATIC OBJECTTYPE PhotoGalleryRenderer EXTEND StaticPageBase
 
   ********************************************************************************/
 
-  //limit a picture's size to specific dimensions
-  RECORD FUNCTION CalcOutputPicSize(INTEGER picturewidth, INTEGER pictureheight, INTEGER maxwidth, INTEGER maxheight)
-  {
-    //Calculate required horizonal compression
-    INTEGER x_compression_factor := maxwidth * 100000 / picturewidth;
-    INTEGER y_compression_factor := maxheight * 100000 / pictureheight;
-
-    //Get the smallest compression factor (this will guarantee both height and width fall inside their max)
-    INTEGER image_compression_factor;
-    IF (y_compression_factor < x_compression_factor)
-      image_compression_factor := y_compression_factor;
-    ELSE
-      image_compression_factor := x_compression_factor;
-
-    IF (image_compression_factor < 100000)
-    {
-      RETURN [resize_width  := picturewidth * image_compression_factor / 100000,
-              resize_height := pictureheight * image_compression_factor / 100000,
-              resize := TRUE];
-    }
-    ELSE
-    {
-      RETURN [resize_width  := picturewidth,
-              resize_height := pictureheight,
-              resize := FALSE];
-    }
-  }
-
   /** @short Retrieves the thumbnail page id of a photo
       @long  This function returns the id of the thumbnail page where the thumbnail of the photo with ID photoid
              is shown.

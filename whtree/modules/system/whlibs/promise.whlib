@@ -970,11 +970,6 @@ PUBLIC OBJECT FUNCTION CreatePromiseAll(OBJECT ARRAY promises)
   RETURN NEW PromiseListBookkeeping(promises, TRUE, FALSE)->promise;
 }
 
-MACRO WrapResolve(RECORD defer, OBJECT promise, VARIANT value)
-{
-  defer.resolve([ source := promise, value := value ]);
-}
-
 /** The race function returns a new promise which is settled in the same way as the first passed promise to settle.
     @param promises List of promises
     @cell options.wrap If TRUE, wrap resolved promises values in a record [ source := resolved promise, value := resolved value ]

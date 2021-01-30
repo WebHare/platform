@@ -790,13 +790,6 @@ MACRO UpdateValuesRecursive(OBJECT local_type, RECORD ARRAY local_domvals, RECOR
   }
 }
 
-BOOLEAN FUNCTION AreCellsEqual(RECORD left, RECORD right, STRING name)
-{
-  IF (TypeID(GetCell(left, name)) = TypeID(STRING))
-    RETURN ToUppercase(GetCell(left, name)) = ToUppercase(GetCell(right, name));
-  RETURN GetCell(left, name) = GetCell(right, name);
-}
-
 RECORD FUNCTION GetDiff(RECORD ARRAY left, RECORD ARRAY right, STRING cellname)
 {
   RECORD ARRAY comb;

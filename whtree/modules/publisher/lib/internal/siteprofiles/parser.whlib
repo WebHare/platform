@@ -43,12 +43,6 @@ STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
   RETURN haslist;
 }
 
-BOOLEAN FUNCTION TestWebhareResource(STRING path)
-{
-  TRY { GetWebhareResource(path); RETURN TRUE; }
-  CATCH RETURN FALSE;
-}
-
 STATIC OBJECTTYPE SiteprofileCompilationContext
 <
   RECORD ARRAY errormessages;
@@ -93,15 +87,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     INSERT [ resourcename:= this->filename
            , line  :=        node->linenum
-           , col :=          0
-           , message :=      error
-           ] INTO this->errormessages AT END;
-  }
-
-  PUBLIC MACRO AddErrorElsewhere(STRING filename, INTEGER line, STRING error)
-  {
-    INSERT [ resourcename := filename
-           , line :=         line
            , col :=          0
            , message :=      error
            ] INTO this->errormessages AT END;

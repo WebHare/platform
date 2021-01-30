@@ -564,19 +564,6 @@ PUBLIC STRING FUNCTION GetNamespaceForType(INTEGER find_id, BOOLEAN isfolder)
                     : "http://www.webhare.net/xmlns/publisher/unknownfile";
   RETURN SELECT AS STRING namespace FROM system.fs_types WHERE id = find_id;
 }
-PUBLIC INTEGER FUNCTION GetTypeForNamespace(STRING namespace)
-{
-  //ADDME: remove this 2.31rc series workaround in later versions
-  IF(namespace LIKE "http://www.webhare.net/publisher/*")
-    namespace := Substitute(namespace,"http://www.webhare.net/publisher/","http://www.webhare.net/xmlns/publisher/");
-
-  IF(namespace="http://www.webhare.net/xmlns/publisher/normalfolder")
-    RETURN 0;
-  IF(namespace="http://www.webhare.net/xmlns/publisher/unknownfile")
-    RETURN 0;
-
-  RETURN SELECT AS INTEGER id FROM system.fs_types WHERE fs_types.namespace=VAR namespace;
-}
 
 /** Set the owner of all files in parentfolder (recursive). Published is set to trigger republish
     if currently republished

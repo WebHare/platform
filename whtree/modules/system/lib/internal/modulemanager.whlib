@@ -15,16 +15,6 @@ LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 
-STRING FUNCTION GetRole(STRING module, STRING roletext, STRING defaultval)
-{
-  STRING name := ToUppercase(roletext);
-  IF(name="")
-    RETURN defaultval;
-  IF(name NOT IN ["PUBLIC","_SYSTEM"])
-    name := module||"."||name;
-  RETURN name;
-}
-
 RECORD ARRAY FUNCTION RecurseRegKey(OBJECT parentnode, STRING nodesofar)
 {
   RECORD ARRAY keys;
@@ -110,17 +100,6 @@ PUBLIC RECORD ARRAY FUNCTION GetModuleDatabaseSchema(STRING modname)
     INSERT ParseWHDBSchemaSpec(modname, spec) INTO retval AT END;
 
   RETURN retval;
-}
-
-BOOLEAN FUNCTION AnyActiveNodes(RECORD curlevel)
-{
-  FOREVERY(RECORD subkey FROM curlevel.keys)
-    IF(subkey.type != 0)
-      RETURN TRUE;
-  FOREVERY(RECORD subnode FROM curlevel.subnodes)
-    IF(AnyActiveNodes(subnode))
-      RETURN TRUE;
-  RETURN FALSE;
 }
 
 PUBLIC RECORD FUNCTION InitModuleRegistryKeys(RECORD ARRAY modules)

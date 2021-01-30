@@ -35,12 +35,6 @@ STRING ARRAY accesscontrol_exposedheaders := [ "content-length", "date" ];
 
 OBJECT trans;
 
-MACRO LogFilePrint(STRING prefix, STRING msg)
-{
-  FOREVERY (STRING line FROM Tokenize(msg, "\n"))
-    LogWebserverError(prefix || ": " || line);
-}
-
 MACRO SetupLogging(RECORD servicedef, RECORD callinfo)
 {
   IF (callinfo.modulename != "" AND callinfo.servicename != "")

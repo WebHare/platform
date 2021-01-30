@@ -45,20 +45,6 @@ PUBLIC MACRO SetMissingTidCallback(MACRO PTR callback)
   missingtidcallback := callback;
 }
 
-RECORD ARRAY FUNCTION ExtractTexts(OBJECT curgroup, STRING pathsofar)
-{
-  RECORD ARRAY texts;
-  FOREVERY(RECORD node FROM curgroup->nodes)
-  {
-    STRING nodepath := pathsofar || node.name;
-    IF(node.isgroup)
-      texts := texts CONCAT ExtractTexts(node.textgroup, nodepath || ".");
-    ELSE
-      INSERT [ tid := nodepath, text := node.text ] INTO texts AT END;
-  }
-  RETURN texts;
-}
-
 RECORD FUNCTION ParseIfParam(OBJECT fragment)
 {
   RECORD retval :=

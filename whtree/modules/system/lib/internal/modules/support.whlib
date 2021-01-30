@@ -79,22 +79,6 @@ MACRO InstantiateTemplateFolder(STRING sourcefolder, STRING destfolder, RECORD d
   }
 }
 
-PUBLIC BOOLEAN FUNCTION IsValidModuleDirectory(STRING path)
-{
-  IF(path NOT LIKE "*/")
-    RETURN FALSE; //we expect a path with a terminating slash
-
-  FOREVERY(STRING moduledir FROM GetWebHareConfiguration().moduledirs)
-  {
-    IF(#moduledir=0) //builtin dir
-      CONTINUE;
-
-    IF(ToUppercase(path) = ToUppercase(moduledir) OR ToUppercase(GetDirectoryFromPath(Left(path,Length(path)-1))) = ToUppercase(moduledir))
-      RETURN TRUE;
-  }
-  RETURN FALSE;
-}
-
 PUBLIC BOOLEAN FUNCTION IsValidModuleName(STRING modulename)
 {
   IF(NOT NEW RegEx("^[a-z][a-z0-9_]+[a-z0-9]$")->Test(modulename)) //also enforces 3+ chars and lowercase

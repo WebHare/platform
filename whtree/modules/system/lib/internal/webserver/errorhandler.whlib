@@ -41,13 +41,6 @@ PUBLIC RECORD FUNCTION GetErrorMessages(STRING langcode, INTEGER errorcode)
   RETURN retval;
 }
 
-STRING FUNCTION Fixup(STRING filename)
-{
-  IF(filename LIKE "direct::*") //can't leak these to webservers!
-    filename := GetNameFromPath(filename);
-  RETURN filename;
-}
-
 PUBLIC MACRO PrintErrorBody(RECORD msg, INTEGER errorcode, RECORD harescriptinfo)
 {
   Print("\n<p>" || EncodeHTML(msg.text) || "</p>");

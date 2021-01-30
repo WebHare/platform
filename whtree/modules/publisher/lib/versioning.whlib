@@ -12,11 +12,6 @@ LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::publisher/tolliumapps/versioning/versioning.whlib";
 
 
-PUBLIC STRING FUNCTION CreateDraftPreviewLink(OBJECT draftobject)
-{
-  RETURN CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", draftobject->source, draftobject->id);
-}
-
 PUBLIC MACRO RunVersioningApplication(STRING site, OBJECT controller, RECORD appdata)
 {
   INSERT CELL sitename := site INTO appdata;

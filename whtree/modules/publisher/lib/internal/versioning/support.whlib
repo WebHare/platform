@@ -862,12 +862,6 @@ PUBLIC RECORD ARRAY FUNCTION RetrieveSiteVersioningEvents(INTEGER siteid, RECORD
 }
 
 
-RECORD ARRAY AGGREGATE FUNCTION KeepNewestEvents(RECORD ARRAY events)
-{
-  // Only return the most recently finished event chain
-  RETURN (SELECT * FROM events ORDER BY objevents[0].when DESC)[0].objevents;
-}
-
 PUBLIC RECORD FUNCTION GetLastVersionEvent(INTEGER fileid)
 {
   RETURN

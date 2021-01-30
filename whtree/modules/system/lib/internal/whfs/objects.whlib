@@ -1130,10 +1130,6 @@ OBJECTTYPE WHFSObject
     RETURN fstype->FilterInstanceDataUpdates(this->id, newdata);
   }
 
-  PUBLIC RECORD FUNCTION FilterInstanceDataUpdatesByType(OBJECT type, RECORD newdata)
-  {
-    RETURN type->FilterInstanceDataUpdates(this->id, newdata);
-  }
 
   // ---------------------------------------------------------------------------
   //

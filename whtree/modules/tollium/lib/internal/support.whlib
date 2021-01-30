@@ -349,31 +349,6 @@ STRING FUNCTION GetTolliumExceptionWhat(OBJECT badobj, STRING what)
 }
 
 
-/* utility functions for tollium implementations */
-
-PUBLIC RECORD ARRAY FUNCTION GetLCGroups(RECORD ARRAY lines)
-{
-  RECORD ARRAY lcgroups;
-  RECORD curgroup;
-
-  FOREVERY(RECORD line FROM lines)
-  {
-    IF(RecordExists(curgroup) AND curgroup.layout != line.layout) //start a new group
-    {
-      INSERT curgroup INTO lcgroups AT END;
-      curgroup := DEFAULT RECORD;
-    }
-
-    IF(NOT RecordExists(curgroup))
-      curgroup := [layout:=line.layout, lines:=DEFAULT RECORD ARRAY ];
-    INSERT line INTO curgroup.lines AT END;
-  }
-  IF(RecordExists(curgroup)) //start a new group
-    INSERT curgroup INTO lcgroups AT END;
-
-  RETURN lcgroups;
-}
-
 PUBLIC STRING FUNCTION TypeToString(VARIANT data, INTEGER type)
 {
   SWITCH(type)
@@ -515,150 +490,6 @@ PUBLIC BOOLEAN FUNCTION CheckEnabledFlags(RECORD ARRAY selection, STRING ARRAY a
 
   IF(__debugactions AND selectionmatch="any" AND NOT any) PRINT(`- - No row matched the flags (flags: '${Detokenize(checkflags, " ")}'), selectionmatch: ${selectionmatch})\n`);
   RETURN selectionmatch = "all" OR (selectionmatch = "any" AND any);
-}
-
-//ADDME: Maybe this should be merged with RichHTMLProcessor? For now, this is just a simple straightforward
-//       HTML parser.
-//ADDME: Furthermore, it does not seem to be used anywhere...
-PUBLIC OBJECTTYPE HtmlSanitizer
-<
-  STRING sanitized_html;
-  RECORD ARRAY element_stack;/*STRING tag, BOOLEAN adding*/
-
-  // List of (uppercase) tag names which are allowed in the sanitized HTML (set to empty to allow all tags)
-  PUBLIC STRING ARRAY allowed_tags;
-  // List of (uppercase) tag attribute names which are allowed in the sanitized HTML (set to empty to allow all attributes)
-  PUBLIC STRING ARRAY allowed_attrs;
-  // List of (uppercase) tags that will be omitted, but whose contents will be parsed
-  PUBLIC STRING ARRAY stripped_tags;
-  // List of (uppercase) empty tags
-  PUBLIC STRING ARRAY empty_tags;
-  // Allow comments
-  PUBLIC BOOLEAN allow_comments;
-
-  MACRO NEW()
-  {
-    this->allowed_tags :=
-      [ 'HTML', 'BODY'
-      , 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'OL', 'UL', 'LI', 'PRE', 'DL', 'DIV', 'BLOCKQUOTE', 'HR'
-      , 'I', 'B', 'U', 'BIG', 'SMALL', 'CITE', 'ABBR', 'ACRONYM', 'A', 'IMG', 'BR', 'SUB', 'SUP', 'SPAN' ];
-
-    this->allowed_attrs :=
-      [ 'CITE', 'HEIGHT', 'HREF', 'NAME', 'SRC', 'STYLE', 'WIDTH' ];
-
-    this->empty_tags :=
-      [ 'BR', 'IMG' ];
-
-    this->allow_comments := TRUE;
-  }
-
-  PUBLIC STRING FUNCTION SanitizeHtml(STRING source)
-  {
-    // Replace Windows CRLF with just LF
-    source := Substitute(source, '\r\n', '\n');
-
-    this->sanitized_html := '';
-    this->element_stack := DEFAULT RECORD ARRAY;
-
-    RECORD callbacks := [ start_element := PTR this->SanitizeElementStart
-                        , end_element := PTR this->SanitizeElementEnd
-                        , text_node := PTR this->SanitizeText
-                        ];
-    IF (this->allow_comments)
-      INSERT CELL comment_node := PTR this->SanitizeComment INTO callbacks;
-
-    ParseHTMLAsXMLWithCallbacks(StringToBlob(source), callbacks, "UTF-8");
-
-    RETURN this->sanitized_html;
-  }
-
-  MACRO SanitizeElementStart(STRING name, RECORD ARRAY attrs)
-  {
-    RECORD element := [ tag := ToUppercase(name), adding := FALSE ];
-
-    // Rewrite some elements
-    SWITCH (element.tag)
-    {
-      CASE 'STRONG'
-      {
-        element.tag := 'B';
-      }
-
-      CASE 'EM'
-      {
-        element.tag := 'I';
-      }
-    }
-
-    IF (element.tag IN this->stripped_tags)
-    {
-      element.adding := Length(this->element_stack) = 0 OR this->element_stack[0].adding;
-    }
-    ELSE IF (Length(this->allowed_tags) = 0 OR element.tag IN this->allowed_tags)
-    {
-      this->sanitized_html := this->sanitized_html || '<' || ToLowercase(EncodeValue(element.tag));
-
-      FOREVERY (RECORD attr FROM attrs)
-      {
-        IF (Length(this->allowed_attrs) > 0 AND ToUppercase(attr.field) IN this->allowed_attrs)
-          this->sanitized_html := this->sanitized_html || ' ' || ToLowercase(EncodeValue(attr.field)) || '="' || EncodeValue(attr.value) || '"';
-      }
-
-      IF (element.tag IN this->empty_tags)
-        this->sanitized_html := this->sanitized_html || '/';
-      ELSE
-        element.adding := Length(this->element_stack) = 0 OR this->element_stack[0].adding;
-
-      this->sanitized_html := this->sanitized_html || '>';
-    }
-
-//Print('INSERT:\n'||AnyToString(element,'boxed'));
-    INSERT element INTO this->element_stack AT 0;
-  }
-
-  MACRO SanitizeElementEnd(STRING name)
-  {
-    RECORD element := this->element_stack[0];
-    IF ((Length(this->allowed_tags) = 0 OR element.tag IN this->allowed_tags) AND element.tag NOT IN this->empty_tags AND element.tag NOT IN this->stripped_tags)
-      this->sanitized_html := this->sanitized_html || '</' || ToLowercase(EncodeValue(element.tag)) || '>';
-
-//Print('DELETE:\n'||AnyToString(element,'boxed'));
-    DELETE FROM this->element_stack AT 0;
-  }
-
-  MACRO SanitizeText(STRING text)
-  {
-//Print('Text: '||EncodeJava(text)||'\n');
-    IF (Length(this->element_stack) > 0 AND NOT this->element_stack[0].adding)
-      RETURN;
-
-    // Cleanup text
-    text := substitute(text, '‘','\'');
-    text := substitute(text, '’','\'');
-    text := substitute(text, '“','"');
-    text := substitute(text, '”','"');
-
-    this->sanitized_html := this->sanitized_html || EncodeValue(text);
-  }
-
-  MACRO SanitizeComment(STRING text)
-  {
-    this->sanitized_html := this->sanitized_html || '<!--';
-    this->SanitizeText(text);
-    this->sanitized_html := this->sanitized_html || '-->';
-  }
->;
-
-PUBLIC INTEGER FUNCTION ParseValidColor(STRING htmlcolor)
-{
-  TRY
-  {
-    RETURN GfxCreateColorFromCSS(htmlcolor);
-  }
-  CATCH (OBJECT e)
-  {
-  }
-  RETURN 0;
 }
 
 PUBLIC STRING FUNCTION GetValidColor(STRING htmlcolor, BOOLEAN disable_transparency DEFAULTSTO FALSE)
@@ -814,19 +645,6 @@ PUBLIC INTEGER FUNCTION ParseRowKeyType(STRING rowkeytype)
       RETURN 0;
     }
   }
-}
-
-PUBLIC STRING FUNCTION ResolveTIDPtr(RECORD tidptr, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-{
-  RETURN ResolveTIDPtrForLanguage(GetTIDLanguage(), tidptr, p1,p2,p3,p4);
-}
-PUBLIC STRING FUNCTION ResolveTIDPtrForLanguage(STRING langcode, RECORD tidptr, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
-{
-  IF(tidptr.type=2)
-    RETURN tidptr.data;
-  IF(tidptr.type=1)
-    RETURN GetTIDForLanguage(langcode, tidptr.data, p1, p2, p3, p4);
-  THROW NEW Exception("Unknown tidptr type " || tidptr.type);
 }
 
 PUBLIC OBJECT FUNCTION CreateMessageBox(OBJECT parent, STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")

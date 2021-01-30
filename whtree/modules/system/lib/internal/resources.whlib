@@ -127,16 +127,6 @@ PUBLIC BLOB FUNCTION CanonicalizeWebhareSchemaLocations(BLOB data)
 }
 
 
-PUBLIC STRING FUNCTION GetDefaultIncludeFromScreenPath(STRING resname)
-{
-  IF(resname NOT LIKE "mod::*.xml")
-    THROW NEW Exception("Cannot decode screen path '" || resname || "'");
-
-  STRING name := Substring(resname, 5); //remove modt::
-  STRING modname := Tokenize(name,'/')[0];
-  RETURN "module::" || modname || Substring(name, Length(modname), Length(name) - Length(modname) - 4) || ".whlib";
-}
-
 /** Retrieve a WebHare resource, returning data, path and modification date
     @topic modules/resources
     @public
