@@ -1010,6 +1010,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               IF(apply.usepublishtemplate.script = "")
               {
                 apply.usepublishtemplate.script := this->siteprof->ParseFSTwopartPathString(node->GetAttribute("site"), node->GetAttribute("fullpath"));
+                this->AddWarning(node, `<usepublishtemplate/> should use path=, not site=/fullpath=`);
               }
               CONTINUE;
             }
