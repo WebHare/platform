@@ -424,11 +424,13 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   {
     RECORD ARRAY allowedtypes;
     IF(RecordExists(this->rtdtypeinfo))
+    {
       allowedtypes := this->rtdtypeinfo.allowedobjects;
 
-    IF(NOT this->rtdtypeinfo.ignoresiteprofilewidgets AND ObjectExists(this->contexts->applytester))
-      FOREVERY(RECORD setting FROM this->contexts->applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowwidgettype"))
-        INSERT ParseAllowWidgetType(setting.node) INTO allowedtypes AT END;
+      IF(NOT this->rtdtypeinfo.ignoresiteprofilewidgets AND ObjectExists(this->contexts->applytester))
+        FOREVERY(RECORD setting FROM this->contexts->applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowwidgettype"))
+          INSERT ParseAllowWidgetType(setting.node) INTO allowedtypes AT END;
+    }
 
     allowedtypes := allowedtypes CONCAT this->GetAddedWidgetTypes();
     RETURN allowedtypes;
