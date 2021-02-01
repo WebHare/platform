@@ -15,7 +15,7 @@
       <option tag="isc" title="Image editor: Debug smartcrop" />
       <option tag="ixf" title="Image editor: Experimental functions" />
       <option tag="rll" title="Render label lines" />
-      <option tag="whc" title="WebHare Connect" />
+      <option tag="whc" title="WebHare dev-agent" />
     </debugsettings>
     <debugsettings title="Site testing">
       <option tag="nsc" title="No spam checks (disable recaptchas etc)" />
@@ -30,7 +30,7 @@
     </debugsettings>
     <debugsettings title="Formsapi">
       <option tag="fhv" title="Validation" />
-      <option tag="fhp" title="Enable prefiller" />
+      <option tag="nofhp" title="Disable prefiller in debugmode" />
       <option tag="fdv" title="Disable client-side validation" />
       <option tag="fhx" title="Form UI/UX" />
     </debugsettings>

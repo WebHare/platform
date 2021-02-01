@@ -17,7 +17,7 @@ RECORD cmdargs := ParseArguments(GetConsoleArguments(),
 
 IF(NOT RecordExists(cmdargs))
 {
-  Print("Syntax: wh wrd:clone [ --dryrun  ] source target\n");
+  Print("Syntax: wh wrd:clone [ --dryrun ] source target\n");
   TerminateScriptWithError("Invalid syntax");
 }
 

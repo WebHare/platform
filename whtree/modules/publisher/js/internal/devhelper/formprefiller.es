@@ -108,7 +108,7 @@ function onPrefillChoice(event)
 
 export function scanPrefillableForms()
 {
-  if(!document.documentElement.classList.contains('dompack--debug-fhp'))
+  if(document.documentElement.classList.contains('dompack--debug-nofhp'))
     return;
   var forms = document.querySelectorAll("form[method=post]:not(.wh-form--neverprefill)");
   for(var i=0;i<forms.length;++i)
