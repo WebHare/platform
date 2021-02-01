@@ -7,12 +7,6 @@ LOADLIB "mod::consilio/lib/parsers/parser_html.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 
 
-MACRO LineToStream(INTEGER streamid, STRING line)
-{
-  PrintTo(streamid,line);
-  PrintTo(streamid,"\r\n");
-}
-
 PUBLIC OBJECTTYPE SystemService //transaction-integrated services
 <
   PUBLIC MACRO ProcessRemovedLinkCheckedSettings(INTEGER ARRAY removed_settings)

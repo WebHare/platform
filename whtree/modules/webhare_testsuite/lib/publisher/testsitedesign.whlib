@@ -22,16 +22,8 @@ PUBLIC OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
     IF(this->targetobject->name IN ["loadlib.html","loadlib.shtml"])
       this->AddLoadlibToOutput("module::webhare_testsuite/publisher/testsitedesign-loadlib.whlib");
 
-    IF(this->targetobject->whfspath LIKE "*withdesignfolder*")
-    {
-      IF(this->designfolder != "site::webhare_testsuite.site/design/")
-        ABORT("Unexpected design folder: " || this->designfolder);
-    }
-    ELSE
-    {
-      IF(this->designfolder != "")
-        ABORT("Unexpected design folder: " || this->designfolder);
-    }
+    IF(this->designfolder != "")
+      ABORT("Unexpected design folder: " || this->designfolder);
   }
 
   UPDATE PUBLIC RECORD FUNCTION GetPageConfig()

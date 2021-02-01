@@ -244,31 +244,7 @@
       <d:obsoletecolumn name="expirydate" /> <!-- created but never appeared in dbschema.whlib -->
     </d:table>
 
-    <d:table name="compileddesigns" primarykey="id">
-      <d:integer name="id" autonumberstart="1"/>
-      <d:integer name="designfolder" references="system.fs_objects" ondelete="cascade" nullable="false">
-        <d:documentation>
-          The design folder for which this design is compiled. Allows the deletion of compiled designs for obsolete sites
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="hash" maxlength="64" nullable="false" unique="1">
-        <d:documentation>
-          A hash calculated for this exact dependency set and its configuration, which will be used as the directory name for this compiled design
-        </d:documentation>
-      </d:varchar>
-      <d:datetime name="created" nullable="false">
-        <d:documentation>
-          Creation date of the design files.
-        </d:documentation>
-      </d:datetime>
-      <d:datetime name="lastuse" nullable="false">
-        <d:documentation>
-          Last known usage of these design files. Note that compiled versions with old usage date but infrequently/broken republished files, may still cause references to an old compilation
-        </d:documentation>
-      </d:datetime>
-      <d:varchar name="datahash" maxlength="64" />
-
-    </d:table>
+    <d:obsoletetable name="compileddesigns" />
 
     <d:table name="blithashcache" primarykey="id">
       <d:integer name="id" references="system.fs_objects" ondelete="cascade"/>

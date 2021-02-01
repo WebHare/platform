@@ -336,32 +336,6 @@ PUBLIC INTEGER FUNCTION GetAttributeHSType(INTEGER attrtype)
   }
 }
 
-RECORD ARRAY FUNCTION GetAllInternalTags(STRING languagecode, INTEGER wrdschema)
-{
-  STRING ARRAY requiredfields, uniquefields;
-  IF (wrdschema != 0)
-  {
-    RECORD schemarec := SELECT required_fields, unique_fields FROM wrd.schemas WHERE id = wrdschema;
-    IF (RecordExists(schemarec))
-    {
-      requiredfields := Tokenize(ToUpperCase(schemarec.required_fields), ",");
-      uniquefields   := Tokenize(ToUpperCase(schemarec.unique_fields), ",");
-    }
-  }
-
-  RECORD lang := GetLangTexts(languagecode);
-  RECORD ARRAY all_int_tags := [ [ tag := "WRD_TAG",     base := TRUE,  attributetype := 2, cellname := "tag", name := lang.attrlabels.wrd_tag, readonly := FALSE, isrequired := FALSE, isunique := FALSE ]
-                               ];
-
-  FOREVERY (RECORD inttag FROM all_int_tags)
-  {
-    all_int_tags[#inttag].isrequired := inttag.tag IN requiredfields;
-    all_int_tags[#inttag].isunique := inttag.tag IN uniquefields;
-  }
-
-  RETURN all_int_tags;
-}
-
 PUBLIC RECORD ARRAY FUNCTION GetPersonTitles (STRING languagecode)
 {
   RETURN [ [ value := 'AA'              , prefix := FALSE ]

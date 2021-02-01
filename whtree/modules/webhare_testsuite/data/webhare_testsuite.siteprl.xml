@@ -170,11 +170,6 @@
   </apply>
 
   <apply>
-    <to type="all" pathmask="/withdesignfolder/*" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
-    <webdesign designfolder="site::webhare_testsuite.site/design/" basedependency="js/test.js" />
-  </apply>
-
-  <apply>
     <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" pathmask="/filtered*/" />
     <foldersettings filterscreen="mod::webhare_testsuite/screens/tests/publisher.xml#filterpanel">
       <contentslisthandler library="../lib/screens/tests/publisher.whlib" objectname="newslisthandler" />

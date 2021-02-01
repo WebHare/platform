@@ -21,11 +21,6 @@ PUBLIC MACRO SetUserAgent(STRING name)
   browser->useragent := Tokenize(browser->useragent, ";")[0] || "; " || name || ")";
 }
 
-RECORD FUNCTION ProvideAuthentication(RECORD authdata, STRING forurl, STRING realm, STRING url)
-{
-  RETURN url = forurl ? authdata : DEFAULT RECORD;
-}
-
 /** @short HTTP connection API for fetcher/linkchecker
     @param get_url True for GET, false for HEAD
     @return A record with connection info
@@ -44,7 +39,6 @@ PUBLIC RECORD FUNCTION GetHTTPUrl(BOOLEAN get_url, STRING url, RECORD options DE
     browser->SetupWebHareTrustedPort(trustedhost, trustedport, fetcher_trusted_ip);
   ELSE IF (options.username != "")
     browser->SetPassword(url || "*", options.username, options.password);//FIXME set the auth for the index root, not just this url
-    //browser->onauth := PTR ProvideAuthentication([ username := options.username, password := options.password ], url, #1, #2);
 
   // The fetcher doesn't want 301 transparently redirected, as it will the contents of the new location at the old location
   IF (options.autofollow_301)

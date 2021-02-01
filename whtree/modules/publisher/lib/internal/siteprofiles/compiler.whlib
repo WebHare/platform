@@ -52,18 +52,6 @@ INTEGER ARRAY FUNCTION GetMatchesBySiteFilter(RECORD sitefilter, INTEGER ARRAY l
                 AND (CellExists(sitefilter, "webrootregex") ? compiledwebrootpattern->Test(sites.webroot) : TRUE);
 }
 
-INTEGER ARRAY FUNCTION GetMatchingSiteids(OBJECT matchnode, INTEGER ARRAY limitids)
-{
-  RECORD sitefilter := ReadSiteFilter(matchnode);
-  RETURN GetMatchesBySiteFilter(sitefilter, limitids);
-}
-
-BOOLEAN FUNCTION TestWebhareResource(STRING path)
-{
-  TRY { GetWebhareResource(path); RETURN TRUE; }
-  CATCH RETURN FALSE;
-}
-
 PUBLIC STATIC OBJECTTYPE RecompileContext
 <
   RECORD ARRAY current_fs_types;
@@ -109,39 +97,9 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     RETURN this->result.errors;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetWarnings()
-  {
-    RETURN this->result.warnings;
-  }
-
   MACRO LogSPError(STRING filename, STRING error, INTEGER line)
   {
     INSERT INTO this->result.errors(resourcename, message, line, col) VALUES(filename, error, line, 0) AT END;
-  }
-
-  PUBLIC RECORD FUNCTION LookupType(STRING ns)
-  {
-    INTEGER pos := RecordBinaryFind(this->current_fs_types, [ namespace := ns ], ["namespace"]);
-    IF(pos=-1)
-      RETURN DEFAULT RECORD;
-    ELSE
-      RETURN this->current_fs_types[pos];
-  }
-
-  PUBLIC INTEGER FUNCTION SetType(STRING ns, RECORD updates)
-  {
-    RECORD loc := RecordLowerBound(this->current_fs_types, [ namespace := ns ], ["namespace"]);
-    IF(NOT loc.found)
-    {
-      INTEGER newid := MakeAutonumber(system.fs_types, "ID");
-      INSERT INTO system.fs_types(id, namespace)
-             VALUES(newid, ns);
-
-      INSERT RECORD(SELECT * FROM system.fs_types WHERE id = newid) INTO this->current_fs_types AT loc.position;
-    }
-    this->current_fs_types[loc.position] := MakeUpdatedRecord(this->current_fs_types[loc.position], updates);
-    UPDATE system.fs_types SET RECORD updates WHERE id = this->current_fs_types[loc.position].id;
-    RETURN this->current_fs_types[loc.position].id;
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetMembersFor(INTEGER gettype)
@@ -184,22 +142,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
           INSERT fs_type INTO this->grouptypes[pos.position].members AT pos2.position;
       }
     }
-  }
-
-  RECORD ARRAY loadedsiteprofiles;
-  RECORD ARRAY loadsiteprofiles;
-
-  BOOLEAN FUNCTION EnsureLoadSiteprofile(STRING siteprofilename, STRING scope)
-  {
-    RECORD loadedpos := RecordLowerBound(this->loadedsiteprofiles, [ name := siteprofilename, scope := scope ], ["NAME","SCOPE"]);
-    IF(loadedpos.found)
-      RETURN TRUE; //we have it loaded, process it
-
-    RECORD loadpos := RecordLowerBound(this->loadsiteprofiles, [ name := siteprofilename, scope := scope ], ["NAME","SCOPE"]);
-    IF(NOT loadpos.found)
-      INSERT [ name := siteprofilename, scope := scope ] INTO this->loadsiteprofiles AT loadpos.position;
-
-    RETURN FALSE; //reloop, still need it
   }
 
   RECORD ARRAY siteprofiles;
@@ -584,12 +526,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   }
 >;
 
-INTEGER nextruleid := -1000000;
-RECORD FUNCTION GetBaseRule(STRING path, INTEGER priority, STRING source)
-{
-  nextruleid := nextruleid - 1;
-  RETURN GetBaseWebRule(nextruleid, path, 0, source);
-}
 MACRO SaveCompiledSiteProfiles(RECORD result)
 {
   OBJECT cspparent :=OpenWHFSPrivateFolder("publisher");

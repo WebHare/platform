@@ -43,12 +43,6 @@ STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
   RETURN haslist;
 }
 
-BOOLEAN FUNCTION TestWebhareResource(STRING path)
-{
-  TRY { GetWebhareResource(path); RETURN TRUE; }
-  CATCH RETURN FALSE;
-}
-
 STATIC OBJECTTYPE SiteprofileCompilationContext
 <
   RECORD ARRAY errormessages;
@@ -93,15 +87,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     INSERT [ resourcename:= this->filename
            , line  :=        node->linenum
-           , col :=          0
-           , message :=      error
-           ] INTO this->errormessages AT END;
-  }
-
-  PUBLIC MACRO AddErrorElsewhere(STRING filename, INTEGER line, STRING error)
-  {
-    INSERT [ resourcename := filename
-           , line :=         line
            , col :=          0
            , message :=      error
            ] INTO this->errormessages AT END;
@@ -599,7 +584,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname")
                         , witty                    := this->ParseFSPath(node, "witty")
                         , assetpack                := ""
-                        , basedependency           := node->GetAttribute("basedependency")
                         , wittyencoding            := node->GetAttribute("wittyencoding")
                         , designfolder             := this->ParseFSPath(node, "designfolder")
                         , maxcontentwidth          := node->GetAttribute("maxcontentwidth")
@@ -612,7 +596,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
 
                         , has_assetpack            := node->HasAttribute("assetpack")
-                        , has_basedependency       := node->HasAttribute("basedependency")
                         , has_supportserrors       := node->HasAttribute("supportserrors")
                         , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
                         , has_asyncbundle          := node->HasAttribute("async")
@@ -645,28 +628,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
     IF(webdesign.designfolder != "" AND webdesign.designfolder NOT LIKE "*/")
       webdesign.designfolder := webdesign.designfolder || "/";
-
-    IF(node->HasAttribute("basedependency")
-       AND this->filename NOT LIKE "site::*"
-       AND this->filename NOT LIKE "mod::webhare_testsuite/*")  //is testing old APIs
-    {
-      this->AddError(node, "For WebHare 4.06 and up, you should move away from basedependency=, use assetpack= and add an <assetpack> to your moduledefinition");
-    }
-
-    IF(node->GetAttribute("basedependency") != "" AND webdesign.designfolder LIKE "mod::*")
-    {
-      STRING basedep := this->ParseFSPath(node, "basedependency");
-      IF(TestWebhareResource(basedep) OR TestWebhareResource(basedep || ".js") OR TestWebhareResource(basedep || ".es"))
-      {
-        webdesign.basedependency := basedep;
-      }
-      ELSE
-      {
-        //Try to resolve the base dependency versus the designfolder
-        STRING relativetodesign := MakeAbsoluteResourcePath(webdesign.designfolder, webdesign.basedependency);
-        this->AddError(node, "Unable to find the base dependency '" || webdesign.basedependency || "', tried '" || basedep || "' and '" || relativetodesign || "'");
-      }
-    }
 
     RETURN webdesign;
   }

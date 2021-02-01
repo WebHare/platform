@@ -230,28 +230,6 @@ PUBLIC DATETIME FUNCTION MakeDateTime(  INTEGER year,
 }
 
 
-INTEGER FUNCTION CalculateWeek(INTEGER dayofyear, INTEGER dayofweek, INTEGER year)
-{
-  // Calculate place of the thursday in the week (year in which the thursday falls is the year that 'owns' that week)
-  dayofyear := dayofyear + (4-dayofweek);
-
-  // Out of range (bottom)? Calc the day of year for the previous year
-  if (dayofyear < 1)
-    dayofyear := dayofyear + GetYearLength(year-1);
-  ELSE
-  {
-    INTEGER yearlength := GetYearLength(year);
-
-    // Out of range (top)? Calc the day of year for the next year
-    IF (dayofyear > yearlength)
-      dayofyear := dayofyear - yearlength;
-  }
-
-  // Make the day of year 0-based, and then we can divide by 7, yielding the number of thursdays
-  // before the current one, and that's the weeknr - 1.
-  RETURN ((dayofyear - 1) / 7) + 1;
-}
-
 /** @short Returns a DateTime value for a specified week
     @param year The weekyear
     @param week The week number
@@ -561,71 +539,6 @@ PUBLIC INTEGER FUNCTION GetMsecsDifference(DATETIME fromdate, DATETIME todate)
   RECORD diff := GetDatetimeDifference(fromdate,todate);
   RETURN diff.days >= 1 ? (24*60*60*1000) : diff.days <= -1 ? -(24*60*60*1000) : diff.msecs;
 }
-
-
-
-// Used internally to generate the Formatted Datetimes
-PRIVATE STRING FUNCTION __FormatPart(BOOLEAN strip_zeroes, STRING formatchar, RECORD elements, STRING ARRAY datetexts)
-{
-    //Now process the special character
-    IF (formatchar = 'a') //dayofweek name, abbreviated
-      RETURN datetexts[32+elements.dayofweek];
-
-    IF (formatchar = 'A') //dayofweek name, full
-      RETURN datetexts[13+elements.dayofweek];
-
-    IF (formatchar = 'b') //month name, abbreviated
-      RETURN datetexts[20+elements.month];
-
-    IF (formatchar = 'B') //month name
-      RETURN datetexts[1+elements.month];
-
-    IF (formatchar = 'C') //century number
-      RETURN ''||((elements.year+1)/100);
-
-    IF (formatchar = 'd') //day of month
-      RETURN strip_zeroes OR elements.dayofmonth >= 10 ? ''||(elements.dayofmonth) : "0" || elements.dayofmonth;
-
-    IF (formatchar = 'H') //hour of the day (24 hours format)
-      RETURN strip_zeroes OR elements.hour >= 10 ? ''||(elements.hour) : "0" || elements.hour;
-
-    IF (formatchar = 'I') //hour of the day (12 hours format)
-    {
-      IF (elements.hour%12=0)
-        RETURN "12";
-      RETURN strip_zeroes OR elements.hour%12 >= 10 ? ''||(elements.hour%12) : "0" || elements.hour%12;
-    }
-
-    IF (formatchar = 'j') //day of the year (three-digit)
-      RETURN strip_zeroes ? ''||(elements.dayofyear) : RIGHT('00' || elements.dayofyear,3);
-
-    IF (formatchar = 'M') //two digit minute
-      RETURN strip_zeroes OR elements.minute >= 10 ? ''||(elements.minute) : "0" || elements.minute;
-
-    IF (formatchar = 'm') //two digit month
-      RETURN strip_zeroes OR elements.month >= 10 ? ''||(elements.month) : "0" || elements.month;
-
-    IF (formatchar = 'p') //am/pm
-      RETURN elements.hour>=0 AND elements.hour<=11 ? datetexts[0] : datetexts[1];
-
-    IF (formatchar = 'Q') //millisecond (three-digit)
-      RETURN strip_zeroes ? ''||(elements.msecond) : RIGHT('00' || elements.msecond,3);
-
-    IF (formatchar = 'S') //two digit second
-      RETURN strip_zeroes OR elements.second >= 10 ? ''||(elements.second) : "0" || elements.second;
-
-    IF (formatchar = 'V') //week number
-      RETURN strip_zeroes OR elements.week >= 10 ? ''||(elements.week) : "0" || elements.week;
-
-    IF (formatchar = 'Y') //year, with century
-      RETURN strip_zeroes OR elements.year >= 10000 ? ''||(elements.year) : RIGHT('000' || elements.year,4);
-
-    IF (formatchar = 'y') //year, without century
-      RETURN strip_zeroes ? ''||(elements.year%100) : RIGHT('0' || elements.year%100,2);
-
-    RETURN formatchar;
-}
-
 
 
 

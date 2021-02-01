@@ -41,24 +41,6 @@ PUBLIC STRING ARRAY compressible_filetypes :=
             , "text/xml" // given back by WrapBlob
             ];
 
-PUBLIC RECORD FUNCTION ParseIntExtLinkString(STRING value)
-{
-  IF(value LIKE "externallink::*")
-    RETURN [ externallink := Substring(value,14), internallink := 0, append := "" ];
-
-  STRING append;
-  IF (value LIKE "*|*")
-  {
-    append := Substring(value, SearchSubstring(value, "|") + 1);
-    value := Left(value, SearchSubstring(value, "|"));
-    abort([value:=value,append:=append]);
-  }
-  INTEGER intlinkdest := LookupWHFSObject(0, value);
-  IF(intlinkdest != -1)
-    RETURN [ externallink := "", internallink := intlinkdest, append := append ];
-
-  RETURN DEFAULT RECORD;
-}
 PUBLIC STRING FUNCTION GetConflictingOutputFile(INTEGER fileid)
 {
   RECORD config := GetPublisherConfiguration();

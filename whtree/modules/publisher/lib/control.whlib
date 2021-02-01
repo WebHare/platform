@@ -273,18 +273,6 @@ PUBLIC OBJECT FUNCTION MakeChangesIndexedPromise()
   RETURN GetWHFSCommitHandler()->WaitForChangesIndexed();
 }
 
-INTEGER ARRAY FUNCTION GetInterestingFolders(INTEGER curfolder)
-{
-  INTEGER ARRAY result;
-  INTEGER ARRAY worklist := [ curfolder ];
-  WHILE (LENGTH(worklist) != 0)
-  {
-    result := result CONCAT worklist;
-    worklist := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN worklist AND isfolder=TRUE;
-  }
-  RETURN result;
-}
-
 BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN recursive)
 {
   // See if any object is marked as currently publishing

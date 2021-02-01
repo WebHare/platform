@@ -1625,32 +1625,6 @@ PUBLIC STATIC OBJECTTYPE HtmlRewriter EXTEND XmlCallbackParser
     this->EndDocument();
   }
 
-  PUBLIC MACRO RewriteFontTags(BOOLEAN dorewrite)
-  {
-    // Add font tag to list if not on list already, otherwise reset it
-    RECORD defaulttag := SELECT * FROM htmltags WHERE tag = "FONT";
-    INTEGER fonttag := (SELECT AS INTEGER #tags + 1 FROM this->htmltags AS tags WHERE tags.tag = "FONT") - 1;
-    IF (fonttag < 0)
-    {
-      fonttag := Length(this->htmltags);
-      INSERT defaulttag INTO this->htmltags AT END;
-    }
-    ELSE
-      this->htmltags[fonttag] := defaulttag;
-
-    IF (dorewrite)
-    {
-      INSERT CELL rewrite := PTR this->FixLooseTags INTO this->htmltags[fonttag];
-    }
-    ELSE
-    {
-      INSERT CELL attrs := [ "COLOR" ] INTO this->htmltags[fonttag];
-    }
-
-    IF (this->debug)
-      this->PrintDebug(AnyToString(this->htmltags, "boxed"));
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Property getters/setters

@@ -89,20 +89,6 @@ RECORD FUNCTION GetCacheableUIFilesKey()
          ];
 }
 
-STRING FUNCTION GetAssetPackCacheBuster(STRING bundletag)
-{
-  DATETIME sharedworker_lastmod := GetBundleLastModDate(bundletag);
-  IF (sharedworker_lastmod = DEFAULT DATETIME)
-  {
-    // The bundle did not exist yet, wait for compilation
-    OBJECT assetpackcontroller := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-    WaitForPromise(assetpackcontroller->WaitForCompile(bundletag, TRUE));
-    assetpackcontroller->CloseService();
-    sharedworker_lastmod := GetBundleLastModDate(bundletag);
-  }
-  RETURN FormatISO8601Datetime(sharedworker_lastmod, "", "", "", FALSE);
-}
-
 PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 <
   PUBLIC STRING initialskin;
