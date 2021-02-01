@@ -503,7 +503,10 @@ PUBLIC STRING FUNCTION SimpleTextDiff(STRING leftfile, STRING rightfile, RECORD 
   options := ValidateOptions(
       [ color :=  FALSE
       , header := TRUE
-      ], options);
+      , contextlines := 0
+      ], options,
+      [ optional := [ "contextlines" ]
+      ]);
 
   OBJECT differ := MakeTextDiffGenerator();
 
@@ -513,7 +516,9 @@ PUBLIC STRING FUNCTION SimpleTextDiff(STRING leftfile, STRING rightfile, RECORD 
   differ->LoadOldVersion(StringToBlob(leftfile));
   differ->LoadNewVersion(StringToBlob(rightfile));
 
-  IF (NOT options.header)
+  IF (CellExists(options, "contextlines"))
+    differ->context_lines := options.contextlines;
+  ELSE IF (NOT options.header)
     differ->context_lines := 9999999;
 
   RECORD ARRAY diff := differ->GetDifferences();
