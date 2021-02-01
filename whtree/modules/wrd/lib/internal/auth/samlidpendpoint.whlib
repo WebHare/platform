@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
-LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
+LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 
 
@@ -18,7 +18,7 @@ PUBLIC MACRO RunSAMLIdpEndpoint()
 {
   RECORD pageparams := GetDynamicPageParameters();
 
-  OBJECT wrdauthplugin := GetAuthIntegrationPlugin(pageparams.absolutebaseurl);
+  OBJECT wrdauthplugin := GetWRDAuthPlugin(pageparams.absolutebaseurl);
 
   OBJECT idp := GetAuthPluginIDP(wrdauthplugin);
 

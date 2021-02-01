@@ -15,7 +15,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
 PUBLIC OBJECTTYPE OpenAuthDomain EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
@@ -37,7 +36,7 @@ PUBLIC OBJECTTYPE OpenAuthDomain EXTEND TolliumScreenBase
     this->domains->wrdtype := data.wrdschema->GetType("WRD_AUTHDOMAIN");
 
     IF (CellExists(data, "SITETAG"))
-      this->LoadSCreen(".main", [ wrdschema := this->wrdschema, sitetag := data.sitetag ])->RunModal();
+      this->LoadScreen(".main", [ wrdschema := this->wrdschema, sitetag := data.sitetag ])->RunModal();
   }
 
   // ---------------------------------------------------------------------------
@@ -87,19 +86,17 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->wrd_sp := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
     this->wrd_providerbase := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE");
     this->wrd_connectedproviders := this->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
-    TRY
+    OBJECT wrd_authdomain := this->wrdschema->GetType("wrd_authdomain");
+
+    IF (NOT ObjectExists(wrd_authdomain))
     {
-      this->wrdauth := OpenWRDAuthDomain(this->wrdschema, data.sitetag);
-    }
-    CATCH (OBJECT e)
-    {
-      LogHarescriptException(e);
       this->RunMessageBox(".authnotcorrectlyconfigured");
       this->tolliumresult := "cancel";
       RETURN;
     }
 
-    IF (NOT ObjectExists(this->wrd_providerbase) OR NOT ObjectExists(this->wrdauth))
+    this->authdomain_wrdid := wrd_authdomain->Search("WRD_TAG", data.sitetag, [ matchcase := FALSE ]);
+    IF (NOT ObjectExists(this->wrd_providerbase) OR this->authdomain_wrdid = 0)
     {
       this->RunMessageBox(".notconfiguredforsaml");
       this->tolliumresult := "cancel";

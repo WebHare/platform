@@ -3,6 +3,8 @@
     @topic wrdauth/api
 */
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib" EXPORT WRDAuthSupportBase;
 LOADLIB "mod::wrd/lib/internal/userapi.whlib" EXPORT GetWRDAuthUserAPI;
 
@@ -15,6 +17,11 @@ LOADLIB "mod::wrd/lib/internal/userapi.whlib" EXPORT GetWRDAuthUserAPI;
 PUBLIC OBJECT FUNCTION GetWRDAuthPlugin(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ clientwebserver := -1 ], options);
-  RETURN GetAuthIntegrationPlugin(url, options);
+
+  OBJECT wrdauthplugin := GetWebContextForURL(url, options)->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
+  IF(NOT ObjectExists(wrdauthplugin))
+    THROW NEW Exception("No wrdauth plugin registered for URL " || url);
+
+  RETURN wrdauthplugin;
 }
 

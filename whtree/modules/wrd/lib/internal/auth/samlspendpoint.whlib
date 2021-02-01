@@ -13,9 +13,9 @@ LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
 
 MACRO CheckAssertionConditions(RECORD conditions, STRING spentityid)
@@ -48,7 +48,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
 
   STRING tag := ToUppercase(SubString(filename, 8));
 
-  OBJECT authplugin := GetAuthIntegrationPlugin(pageparams.absolutebaseurl);
+  OBJECT authplugin := GetWRDAuthPlugin(pageparams.absolutebaseurl);
   OBJECT wrd_samlidp := authplugin->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
   IF (NOT ObjectExists(wrd_samlidp))
     THROW NEW Exception("SAML is not configured for this authentication domain");
