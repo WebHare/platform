@@ -18,16 +18,6 @@ LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 
 INTEGER session_version := 6;
 
-OBJECTTYPE WRDAuthExtensionBase
-<
-  OBJECT authdomain;
-
-  MACRO NEW(OBJECT authdomain)
-  {
-    this->authdomain := authdomain;
-  }
->;
-
 STATIC OBJECTTYPE WRDAuth
 < // ---------------------------------------------------------------------------
   //
@@ -48,7 +38,6 @@ STATIC OBJECTTYPE WRDAuth
   // Public properties
   //
 
-  PUBLIC PROPERTY domainentity(GetDomainEntity,-);
   PUBLIC PROPERTY id(domainid,-);
   PUBLIC PROPERTY accounttype(this->wrdschema->accounttype,-);
   PUBLIC PROPERTY loginfieldtag(this->loginfield.tag,-);
@@ -163,15 +152,6 @@ STATIC OBJECTTYPE WRDAuth
     RETURN Length(q)=1 ? q[0].id : 0;
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // Getters & setters
-  //
-
-  RECORD FUNCTION GetDomainEntity()
-  {
-    RETURN this->domaintype->GetEntity(this->domainid);
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -648,7 +628,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   PUBLIC MACRO PTR loginfilter;
 
-  PUBLIC PROPERTY loginname(GetLoginName, -);
   PUBLIC PROPERTY id(domainid, -);
 
   PUBLIC BOOLEAN debug;
@@ -712,11 +691,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
     RETURN this->cookiecache;
   }
 
-  PUBLIC MACRO UpdatedUserPassword()
-  {
-    //It's no longer needed to invoke us
-  }
-
   STRING FUNCTION MaskInternalId(STRING id)
   {
     IF(Length(id) <= 8)
@@ -778,12 +752,6 @@ STATIC OBJECTTYPE WRDAuthIntegration
   {
     STRING sessid := this->GetLoginSessionId();
     RETURN this->sessiondata; // GetWebSessionData(sessid, "");
-  }
-
-  STRING FUNCTION GetLoginName()
-  {
-    RECORD sessdata := this->GetCurrentSession();
-    RETURN RecordExists(sessdata) ? sessdata.login : "";
   }
 
   PUBLIC MACRO __ReestablishSession(BOOLEAN force)
@@ -853,7 +821,7 @@ STATIC OBJECTTYPE WRDAuthIntegration
 
   /** @short Get sessionid of current login session
       @return The id of the current login session. An empty string if the user is not logged in*/
-  PUBLIC STRING FUNCTION GetLoginSessionId()
+  STRING FUNCTION GetLoginSessionId()
   {
     IF(this->sessionid != "" OR NOT IsRequest())
       RETURN this->sessionid;

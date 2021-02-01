@@ -21,7 +21,10 @@ function isNodeCollection(node)
 }
 function getErrorFields(validationresult)
 {
-  return validationresult.failed.map(field => field.name || field.dataset.whFormName || field.dataset.whFormGroupFor || "?").sort().join(" ");
+  return validationresult.failed.map(field => field.name || field.dataset.whFormName || field.dataset.whFormGroupFor || "?")
+                                .sort()
+                                .filter( (value, index, self) => self.indexOf(value) === index) //unique filter
+                                .join(" ");
 }
 function hasEverFailed(field)
 {

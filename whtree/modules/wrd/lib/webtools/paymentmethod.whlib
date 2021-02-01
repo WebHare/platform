@@ -175,7 +175,7 @@ PUBLIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
   MACRO SetValue(RECORD value)
   {
     IF(NOT ObjectExists(this->paymentmethodselect) AND RecordExists(value))
-      THROW NEW Exception("Must configure payment API settings before setting a value");
+      THROW NEW Exception("Must configure payment API settings before setting a value. This may be triggered by a deleted form");
 
     RECORD toselect := SELECT * FROM this->paymentoptions WHERE paymentprovider = value.paymentprovider AND paymentoptiontag = value.paymentoptiontag;
     IF(NOT RecordExists(toselect))

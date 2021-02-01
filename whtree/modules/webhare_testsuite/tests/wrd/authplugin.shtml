@@ -31,7 +31,7 @@ RECORD FUNCTION GetStatus()
     THROW NEW Exception("IsLoggedIn is inconsistent!"); //This was triggered by deleting a user when a sessioncookie still points to him, caused by this->sessiondata not being cleared
 
   RETURN [ isloggedin := isloggedin
-         , loginname := plugin->wrdauth->loginname
+         , loginname := (plugin->GetLoggedinEntityFields(["wrd_contact_email"]) ?? [wrd_contact_email:=""]).wrd_contact_email
          , entityid := plugin->GetLoggedinEntity()
          ];
 }
