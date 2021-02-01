@@ -76,8 +76,8 @@ OBJECT ASYNC FUNCTION CreateDoc()
 
   //Create a simple HTML BLOCK
   AWAIT ExpectScreenChange(+1, PTR Rte()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
-  topscreen->contenttypes->selection := SELECT * FROM topscreen->contenttypes->rows WHERE title = "HTML block";
-  TestEq(TRUE, RecordExists(topscreen->contenttypes->selection), "cannot find embedhtml widget type");
+  topscreen->^contenttypes->selection := SELECT * FROM topscreen->^contenttypes->rows WHERE title = "HTML block";
+  TestEq(TRUE, RecordExists(topscreen->^contenttypes->selection), "cannot find embedhtml widget type");
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
   TT(":HTML code")->value := "Test!";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

@@ -438,6 +438,12 @@
   </apply>
 
   <apply>
+    <to type="file" pathmask="*/lvl2-with-video.rtd" />
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="/webtools/paymenthandlerform" />
     <formpayments xmlns="http://www.webhare.net/xmlns/wrd" wrdschema="wrd:testschema" providerfield="payprov.method" paymentfield="paydata.data" />
   </apply>
