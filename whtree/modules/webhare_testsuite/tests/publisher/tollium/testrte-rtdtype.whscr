@@ -292,11 +292,13 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   RECORD insertdata := insertedobjectinstr.messages[0].data;
   TestEqLIke('*level2widget*This is the <a*href*>text</a> entered into a <a*href*>level 2 rtd</a>*', insertdata.htmltext);
 
+
   OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.htmltext),"UTF-8",FALSE,TRUE);
   TestEq("div", insertedobj->documentelement->nodename);
   TestEq("en", insertedobj->documentelement->GetAttribute("data-lang"));
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2", insertedobj->documentelement->GetAttribute("data-mytype"));
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", insertedobj->documentelement->GetAttribute("data-rtdtype"));
+  TestEq("/.publisher/sd/webhare_testsuite/basetest/img/", insertedobj->documentelement->GetAttribute("data-imgroot"));
 
   AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties", [ type := "embeddedobject", subaction := "edit", instanceref := insertdata.instanceref, targetid := "XX" ]));
 
