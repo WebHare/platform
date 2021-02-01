@@ -168,7 +168,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
 
 /** Returns the contenttype record of the namespace
     @param namespace Contenttype
-    @return Matching contenttypes
+    @return Matching contenttype
     @cell(string) return.namespace
     @cell(string) return.type
     @cell(string) return.siteprofile
