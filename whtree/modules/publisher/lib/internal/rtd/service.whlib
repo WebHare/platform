@@ -853,39 +853,6 @@ PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, 
   RETURN innerbody ? sourcedoc->body->innerhtml : sourcedoc->outerhtml;
 }
 
-/** Returns all allowed types of embedded object from a structure
-*/
-PUBLIC RECORD ARRAY FUNCTION GetEmbeddableObjectTypes(OBJECT structure)
-{
-  RECORD ARRAY contenttypes;
-//   RECORD ARRAY nodes := GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "allowembeddedobject", this->fsobjectid);
-
-  FOREVERY (RECORD rec FROM structure->GetAllowedObjects())
-  {
-    STRING lookuptype := rec.type;
-    RECORD ARRAY newtypes := LookupContentTypes(lookuptype);
-
-    IF (Length(newtypes) = 0)
-      CONTINUE;
-
-    FOREVERY (RECORD type FROM newtypes)
-    {
-      IF (NOT type.isembeddedobjecttype)
-        CONTINUE;
-
-      RECORD pos := RecordLowerBound(contenttypes, type, [ "NAMESPACE" ]);
-      IF (pos.found)
-        CONTINUE;
-
-      INSERT type INTO contenttypes AT pos.position;
-    }
-  }
-
-  RETURN
-      SELECT namespace
-        FROM contenttypes;
-}
-
 STRING embtemp_instance_packet := "file:L,instance:L,cc:L,md:L,ms:L";
 BOOLEAN use_dbg_instance_packet;
 INTEGER dbb_instance_packet_counter;

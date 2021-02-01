@@ -38,11 +38,9 @@ RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttypens)
 RECORD FUNCTION DescribeWidgetType(STRING widgettype, OBJECT applytester, STRING rtdtype)
 {
   // Lookup embeddedobjecttype directly
-  RECORD ARRAY typedefs := LookupContentTypes(widgettype);
-  IF (LENGTH(typedefs) != 1 OR typedefs[0].namespace != widgettype OR NOT typedefs[0].isembeddedobjecttype)
+  RECORD typeinfo := LookupContentType(widgettype);
+  IF (NOT RecordExists(typeinfo) OR NOT typeinfo.isembeddedobjecttype)
     THROW NEW Exception(`Type '${widgettype}' is not registered as an embedded object type`);
-
-  RECORD typeinfo := typedefs[0];
 
   //Add missing base fields
   OBJECT whfstype := OpenWHFSType(widgettype); //FIXME can't we combine our check above with data from here ?
@@ -168,48 +166,24 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
 
 }
 
-/** Returns the contenttype record of the namespace, or all the contenttypes that are member of the specified group
-    @param namespace Contenttype or grouptype
-    @return List of matching contenttypes
+/** Returns the contenttype record of the namespace
+    @param namespace Contenttype
+    @return Matching contenttype
     @cell(string) return.namespace
     @cell(string) return.type
     @cell(string) return.siteprofile
     @cell(record array) return.groupmemberships
     @cell(integer) return.groupmemberships.namespace
 */
-PUBLIC RECORD ARRAY FUNCTION LookupContentTypes(STRING namespace)
+PUBLIC RECORD FUNCTION LookupContentType(STRING namespace)
 {
   RECORD csp := GetCachedSiteProfiles();
+  RECORD pos := RecordLowerBound(csp.contenttypes, [ namespace := namespace ], [ "NAMESPACE" ]);
+  IF (NOT pos.found)
+    RETURN DEFAULT RECORD;
 
-  RECORD ARRAY contenttypes;
-
-  RECORD pos := RecordLowerBound(csp.grouptypes, [ namespace := namespace ], [ "NAMESPACE" ]);
-  IF (pos.found)
-    contenttypes := csp.grouptypes[pos.position].members;
-  ELSE
-  {
-    pos := RecordLowerBound(csp.contenttypes, [ namespace := namespace ], [ "NAMESPACE" ]);
-    IF (pos.found)
-      contenttypes := [ RECORD(csp.contenttypes[pos.position]) ];
-  }
-
-  contenttypes :=
-      SELECT *
-           , primarygroup :=    GetContentTypePrimaryGroup(csp, COLUMN namespace)
-        FROM contenttypes;
-
-  RETURN contenttypes;
-}
-
-PUBLIC RECORD ARRAY FUNCTION __GetContentTypesByType(STRING type)
-{
-  RECORD csp := GetCachedSiteProfiles();
-
-  RECORD ARRAY contenttypes :=
-      SELECT *
-           , primarygroup :=    GetContentTypePrimaryGroup(csp, COLUMN namespace)
-        FROM csp.contenttypes
-       WHERE COLUMN type = VAR type;
-
-  RETURN contenttypes;
+  RECORD ct := csp.contenttypes[pos.position];
+  RETURN CELL[ ...ct
+             , primarygroup := GetContentTypePrimaryGroup(csp, namespace)
+             ];
 }
