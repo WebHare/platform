@@ -1,7 +1,9 @@
 #!/bin/bash
+rm $WEBHARE_DATAROOT/.dbserver.pid 2>/dev/null
 
 if [ "$__WEBHARE_DBASE" == "dbserver" ]; then
   echo "Starting database server"
+  echo $$ > $WEBHARE_DATAROOT/.dbserver.pid
   exec ${BASH_SOURCE%/*}/dbserver --listen 127.0.0.1:$WEBHARE_BASEPORT --dbasefolder $WEBHARE_DATAROOT/dbase #forward to classic dbserver
 fi
 
@@ -62,7 +64,7 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   echo "Prepare PostgreSQL database in $PSROOT"
-  if ! $RUNAS $PSBIN/initdb -D $PSROOT/tmp_initdb --auth-local=trust -E 'UTF-8' --locale='en_US.UTF-8' ; then
+  if ! $RUNAS $PSBIN/initdb -U postgres -D $PSROOT/tmp_initdb --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
     echo DB initdb failed
     exit 1
   fi
@@ -89,9 +91,17 @@ if [ ! -d "$PSROOT/db" ]; then
 
   mv $PSROOT/tmp_initdb/ $PSROOT/db/
 else
+
+  if [ -d "$PSROOT/db.switchto" ]; then
+    echo "Switching to NEW postgresql database!"
+    mv "$PSROOT/db" "$PSROOT/db.bak.$(date +%Y%m%dT%H%M%S)"
+    mv "$PSROOT/db.switchto" "$PSROOT/db"
+  fi
+
   # Ensure configuration file is set
   cp "$WEBHARE_DIR/etc/initial_postgresql.conf" "$PSROOT/db/postgresql.conf"
 fi
 
 echo "Starting PostgreSQL"
+echo $$ > $WEBHARE_DATAROOT/.dbserver.pid
 exec $RUNAS $PSBIN/postmaster -D "$PSROOT/db" 2>&1
