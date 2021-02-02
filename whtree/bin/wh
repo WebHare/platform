@@ -118,8 +118,8 @@ export WEBHARE_DATAROOT
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
 # Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8
-export LANG="C.UTF-8"
-export LC_ALL="C.UTF-8"
+export LANG="C"
+export LC_ALL="C"
 
 if [ ! -d "$WEBHARE_DIR" ]; then
   echo "Cannot find WebHare installation" 2>&1
