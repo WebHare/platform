@@ -1,3 +1,4 @@
+estimate_buildj
 NOMODE=""
 
 while [[ -n "$1" ]]; do
@@ -33,7 +34,18 @@ if [ -z "$NOMODE" ]; then
   wh db setserver readonly
 fi
 
-$RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j8 -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare
+function cleanup()
+{
+  if [ -n "$POSTMASTER_PID" ]; then
+    POSTMASTER_PID=""
+    pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
+  fi
+  exit 1
+}
+trap cleanup EXIT SIGINT
+
+echo "Will dump/restore using $WHBUILD_NUMPROC threads"
+$RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare
 
 mkdir ${WEBHARE_DATAROOT}/postgresql/db.localefix
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
@@ -45,6 +57,7 @@ cp $WEBHARE_DIR/etc/initial_postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.lo
 
 $RUNAS $PSBIN/postmaster -p 7777 -D ${WEBHARE_DATAROOT}/postgresql/db.localefix &
 POSTMASTER_PID=$!
+
 
 until $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres -c '\q'; do
   >&2 echo "Postgres is unavailable - sleeping"
@@ -60,10 +73,10 @@ GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;
 GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;
 HERE
 
-$RUNAS $PSBIN/pg_restore -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j 8 --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
+$RUNAS $PSBIN/pg_restore -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
 
-kill $POSTMASTER_PID
-wait $POSTMASTER_PID
+POSTMASTER_PID=""
+pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
 
 # prepare for in place-move
 mv ${WEBHARE_DATAROOT}/postgresql/db.localefix ${WEBHARE_DATAROOT}/postgresql/db.switchto
