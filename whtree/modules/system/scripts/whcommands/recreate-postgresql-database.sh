@@ -45,7 +45,10 @@ function cleanup()
 trap cleanup EXIT SIGINT
 
 echo "Will dump/restore using $WHBUILD_NUMPROC threads"
-$RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare
+if ! $RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare ; then
+  echo "pg_dump failed with errorcode $?"
+  exit 1
+fi
 
 mkdir ${WEBHARE_DATAROOT}/postgresql/db.localefix
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
@@ -58,12 +61,12 @@ cp $WEBHARE_DIR/etc/initial_postgresql.conf ${WEBHARE_DATAROOT}/postgresql/db.lo
 $RUNAS $PSBIN/postmaster -p 7777 -D ${WEBHARE_DATAROOT}/postgresql/db.localefix &
 POSTMASTER_PID=$!
 
-
-until $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres -c '\q'; do
+until $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres -c '\q' 2>/dev/null ; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep .2
 done
 
+export PGOPTIONS="-c default_transaction_read_only=off"
 $PSBIN/psql -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -U postgres << HERE
 CREATE DATABASE webhare;
 CREATE USER root;
@@ -73,7 +76,12 @@ GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;
 GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;
 HERE
 
-$RUNAS $PSBIN/pg_restore -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
+export PGOPTIONS="-c default_transaction_read_only=off"
+if ! $RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump ; then
+  ERRORCODE=$?
+  echo "Restore failed with error code $ERRORCODE"
+  exit $ERRORCODE
+fi
 
 POSTMASTER_PID=""
 pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
