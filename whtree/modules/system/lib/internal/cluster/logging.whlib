@@ -607,20 +607,30 @@ PUBLIC MACRO ModuleLog(STRING name, STRING line)
 }
 
 
+/** Opens archived log files for reading
+    @param files  Files to parse, sorted in date order
+    @cell(string) files.path Disk path to file
+    @cell(integer64) files.size64 File size
+    @cell(datetime) files.date Date of first log entry
+    @return(object #MultiFileLogReader) Log reader
+    @topic modules/services
+    @public
+    @loadlib mod::system/lib/logging.whlib
+*/
 PUBLIC OBJECT FUNCTION OpenWebHareLogStreamFromFiles(RECORD ARRAY files, STRING format, DATETIME startentries, DATETIME limitentries) //Currently unused!
 {
   RETURN NEW MultiFileLogReader(format, startentries, limitentries, SELECT path, date, size64 FROM files);
 }
 
 
-/** Opens a logging stream for reading
+/** Opens an active logging stream for reading
     @param logfile Base name of the log file (eg 'access')
     @param startentries Timestamp to start reading
     @param limitentries Timestamp to stop reading
     @return(object #MultiFileLogReader) Log reader
     @topic modules/services
     @public
-    @loadlib mod::system/lib/services.whlib
+    @loadlib mod::system/lib/logging.whlib
 */
 PUBLIC OBJECT FUNCTION OpenWebHareLogStream(STRING logfile, DATETIME startentries, DATETIME limitentries)
 {
