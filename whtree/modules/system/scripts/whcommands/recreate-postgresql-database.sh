@@ -38,7 +38,7 @@ function cleanup()
 {
   if [ -n "$POSTMASTER_PID" ]; then
     POSTMASTER_PID=""
-    pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
+    $RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
   fi
   exit 1
 }
@@ -84,7 +84,7 @@ if ! $RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_resto
 fi
 
 POSTMASTER_PID=""
-pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
+$RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db.localefix -m fast stop
 
 # prepare for in place-move
 mv ${WEBHARE_DATAROOT}/postgresql/db.localefix ${WEBHARE_DATAROOT}/postgresql/db.switchto
@@ -97,7 +97,7 @@ rm -rf $TEMPNAME &
 disown
 
 # restart the database server
-pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
+$RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
 
 if [ -z "$NOMODE" ]; then
   wh db setserver readwrite
