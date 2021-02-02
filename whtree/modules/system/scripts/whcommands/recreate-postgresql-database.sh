@@ -98,7 +98,7 @@ disown
 
 if [ -z "$NOMODE" ]; then
   # restart the database server
-  if [ -n "$WEBHARE_IN_DOCKER"] ; then
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then
     sv restart webhare #only restarting webhare is currently safe until at least until https://gitlab.webhare.com/webharebv/codekloppers/-/issues/200 is fixed
   else
     $RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
