@@ -3,6 +3,7 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 
 REQUIRENPMVERSION="5.3.0"
 export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
+export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "-v" -o "$1" == "--verbose" ]; then
@@ -117,8 +118,8 @@ export WEBHARE_DATAROOT
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
 # Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8
-export LANG="C.UTF-8"
-export LC_ALL="C.UTF-8"
+export LANG="C"
+export LC_ALL="C"
 
 if [ ! -d "$WEBHARE_DIR" ]; then
   echo "Cannot find WebHare installation" 2>&1
@@ -219,28 +220,6 @@ check_webhare_not_running()
 
   if is_webhare_running ; then
     echo "WebHare is already running"
-    exit 1
-  fi
-}
-
-estimate_buildj()
-{
-  if [ -n "$WHBUILD_NUMPROC" ]; then
-    return
-  fi
-
-  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
-    WHBUILD_NUMPROC=$(( `sysctl hw.ncpu | cut -d":" -f2` + 1 ))
-  elif [ "$WHBUILD_PLATFORM" == "linux" ]; then
-    WHBUILD_NUMPROC=`LANG=en_US.utf8 lscpu 2>/dev/null | grep "^CPU(s):" | cut -d: -f2` #2>/dev/null because centos 5 util-linux does not include lscpu
-    MAXPROC=$(( `cat /proc/meminfo | grep ^MemTotal | cut -b10-24` / 1024000 ))
-    if [ -z "$WHBUILD_NUMPROC" ]; then
-      WHBUILD_NUMPROC=4
-    elif [ $WHBUILD_NUMPROC -gt $MAXPROC ]; then
-      WHBUILD_NUMPROC=$MAXPROC
-    fi
-  else
-    echo "Unable to estimate proper build flags"
     exit 1
   fi
 }
@@ -405,6 +384,7 @@ setup_webhare_envsettings()
   > $WEBHARE_DATAROOT/.webhare-envsettings.sh
 
   cat << HERE > $WEBHARE_DATAROOT/.webhare-envsettings.sh
+export PGUSER="root"
 export WEBHARE_DIR="$WEBHARE_DIR"
 export WEBHARE_DATAROOT="$WEBHARE_DATAROOT"
 export WEBHARE_BASEPORT="$WEBHARE_BASEPORT"

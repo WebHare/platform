@@ -38,12 +38,11 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 IF (NOT RecordExists(args))
   ShowSyntax("Illegal syntax");
 
-OBJECT trans := OpenPrimary();
-
 SWITCH (args.command)
 {
   CASE "transactions"
   {
+    OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.args,
         [ [ name := "allinfo", type := "switch" ]
         ]);
@@ -77,6 +76,7 @@ SWITCH (args.command)
   }
   CASE "locks"
   {
+    OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.args, RECORD
         [
         ]);
@@ -158,6 +158,7 @@ SWITCH (args.command)
 
   CASE "sequences"
   {
+    OBJECT trans := OpenPrimary();
     RECORD subargs := ParseArguments(args.args,
         [ [ name := "reset", type := "switch" ]
         ]);
