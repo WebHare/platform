@@ -62,7 +62,7 @@ if [ ! -d "$PSROOT/db" ]; then
   fi
 
   echo "Prepare PostgreSQL database in $PSROOT"
-  if ! $RUNAS $PSBIN/initdb -D $PSROOT/tmp_initdb --auth-local=trust -E 'UTF-8' --locale='en_US.UTF-8' ; then
+  if ! $RUNAS $PSBIN/initdb -D $PSROOT/tmp_initdb --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
     echo DB initdb failed
     exit 1
   fi

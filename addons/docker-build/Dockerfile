@@ -6,7 +6,8 @@ FROM       ubuntu:20.04
 MAINTAINER WebHare bv <info@webhare.com>
 
 # Environment variables
-ENV WEBHARE_IN_DOCKER=1 \
+ENV LC_ALL=C \
+  WEBHARE_IN_DOCKER=1 \
   WEBHARE_DATAROOT=/opt/whdata \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
