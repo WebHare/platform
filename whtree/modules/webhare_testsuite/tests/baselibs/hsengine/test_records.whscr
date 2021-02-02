@@ -45,6 +45,9 @@ MACRO RecordInitializerTest()
   errors := TestCompile('<?wh RECORD a := [ ]; ?>');
   MustContainError(6, errors, 73, "]");
 
+  errors := TestCompile('<?wh RECORD a := CELL{ ]; ?>');
+  MustContainError(0, errors, 257, "[");
+
   TestEQ(CELL[], CELL[]);
   TestEQ([ a := 1 ], CELL[ a := 1]);
 

@@ -27,7 +27,8 @@ ConstantRecord* Parser::P_Record_Constant()
         PARSERULE("<record-constant> ::= CELL? *'[' <set-expression> ( ',' <set-expression ) * ']'");
 
         bool have_cell = TryParse(Lexer::Cell);
-        NextToken(); // Eat the '['
+        if (!TryParse(Lexer::OpenSubscript))
+            lexer.AddError(Error::ExpectedToken, "[");
 
         if (!have_cell || TokenType() != Lexer::CloseSubscript)
         {
