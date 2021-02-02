@@ -307,13 +307,13 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   IF(GetDatabaseType() = "postgresql")
   {
     IF(RecordExists(GetDiskFileProperties(MergePath(GetWebhareConfiguration().basedataroot, "dbase"))))
-      INSERT [ msg := ":The 'dbase' directory can be removed if you've completed the switch to PostgreSQL" ] INTO messages AT END;
+      INSERT [ msg := ":The 'dbase' directory can be removed if you've completed the switch to PostgreSQL - use `wh remove-old-databases` to clean up" ] INTO messages AT END;
     FOREVERY(RECORD unused_db FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().basedataroot,"postgresql"),"db.*"))
     {
       IF(unused_db.name="db.switchto")
         INSERT [ msg := `:Your database server needs to be restarted to activate a restored/migrated database in ${unused_db.path}` ]INTO messages AT END;
       ELSE
-        INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path}` ]INTO messages AT END;
+        INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path} - use \`wh remove-old-databases\` to clean up` ]INTO messages AT END;
     }
   }
 
