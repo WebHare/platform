@@ -96,9 +96,12 @@ mv ${WEBHARE_DATAROOT}/postgresql/localefix.dump $TEMPNAME
 rm -rf $TEMPNAME &
 disown
 
-# restart the database server
-$RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
-
 if [ -z "$NOMODE" ]; then
-  wh db setserver readwrite
+  # restart the database server
+  if [ -n "$WEBHARE_IN_DOCKER"] ; then
+    sv restart webhare #only restarting webhare is currently safe until at least until https://gitlab.webhare.com/webharebv/codekloppers/-/issues/200 is fixed
+  else
+    $RUNAS $PSBIN/pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
+    wh db setserver readwrite
+  fi
 fi
