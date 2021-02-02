@@ -3,6 +3,7 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 
 REQUIRENPMVERSION="5.3.0"
 export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
+export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "-v" -o "$1" == "--verbose" ]; then
@@ -405,6 +406,7 @@ setup_webhare_envsettings()
   > $WEBHARE_DATAROOT/.webhare-envsettings.sh
 
   cat << HERE > $WEBHARE_DATAROOT/.webhare-envsettings.sh
+export PGUSER="root"
 export WEBHARE_DIR="$WEBHARE_DIR"
 export WEBHARE_DATAROOT="$WEBHARE_DATAROOT"
 export WEBHARE_BASEPORT="$WEBHARE_BASEPORT"
