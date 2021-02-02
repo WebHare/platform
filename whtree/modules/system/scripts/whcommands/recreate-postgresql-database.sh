@@ -1,3 +1,17 @@
+NOMODE=""
+
+while [[ -n "$1" ]]; do
+  if [ "$1" == "--nosetserver" ]; then
+    echo "Not changing server types or restarting databases"
+    shift
+    NOMODE=1
+  else
+    echo "Syntax: wh recreate-postgresql-database [--nosetserver]"
+    exit 1
+  fi
+  shift
+done
+
 if [ -d ${WEBHARE_DATAROOT}/postgresql/db.switchto ]; then
   echo "${WEBHARE_DATAROOT}/postgresql/db.switchto exists. Delete to abort current migration"
   exit 1
@@ -14,6 +28,10 @@ fi
 
 cd /
 rm -rf ${WEBHARE_DATAROOT}/postgresql/db.localefix ${WEBHARE_DATAROOT}/postgresql/localefix.dump
+
+if [ -z "$NOMODE" ]; then
+  wh db setserver readonly
+fi
 
 $RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j8 -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare
 
@@ -59,3 +77,7 @@ disown
 
 # restart the database server
 pg_ctl -D ${WEBHARE_DATAROOT}/postgresql/db -m fast stop
+
+if [ -z "$NOMODE" ]; then
+  wh db setserver readwrite
+fi
