@@ -346,13 +346,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
   // Rowkey lookup
   //
 
-
-  /** Rebuilds the mapping of rowkeys to row numbers. Call this function every time
-      after records are inserted/deleted from pvt_rows
-      @return Whether the rowkeys passed the unique check. If not, all duplicate records
-          were eliminated.
-  */
-  BOOLEAN FUNCTION BuildRowkeyMapping()
+  MACRO CalculateRowkeyMapping()
   {
     RECORD ARRAY newmapping :=
         SELECT rowkey
@@ -362,11 +356,22 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       ORDER BY rowkey;
 
     this->pvt_rowkeymapping := newmapping;
-    IF(Length(newmapping) < Length(this->pvt_rows)) //any dupes?
+  }
+
+  /** Rebuilds the mapping of rowkeys to row numbers. Call this function every time
+      after records are inserted/deleted from pvt_rows
+      @return Whether the rowkeys passed the unique check. If not, all duplicate records
+          were eliminated.
+  */
+  BOOLEAN FUNCTION BuildRowkeyMapping()
+  {
+    this->CalculateRowkeyMapping();
+    IF(Length(this->pvt_rowkeymapping) < Length(this->pvt_rows)) //any dupes?
     {
-      INTEGER ARRAY validpositions := GetSortedSet(SELECT AS INTEGER ARRAY pos FROM newmapping);
+      INTEGER ARRAY validpositions := GetSortedSet(SELECT AS INTEGER ARRAY pos FROM this->pvt_rowkeymapping);
       this->pvt_rows := SELECT * FROM this->pvt_rows AS row WHERE BinaryFind(validpositions, #row) >= 0;
       this->pvt_callback->LTH_UpdatedAllRows();
+      this->CalculateRowkeyMapping();
       RETURN FALSE;
     }
     RETURN TRUE;
