@@ -768,6 +768,22 @@
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="flags" type="s:Flags">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+    <xs:attribute name="selectableflags" type="s:Flags">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>The flags that will be checked to determine if a row is selectable.</html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
     <xs:attributeGroup ref="ContextAndType" />
     <xs:attributeGroup ref="s:ListContextMenus" />
   </xs:complexType>
@@ -801,13 +817,6 @@
   <xs:complexType name="EntitiesEdit">
     <xs:complexContent>
       <xs:extension base="EntityListBase">
-        <xs:attribute name="flags" type="s:Flags">
-          <xs:annotation>
-            <xs:documentation>
-              <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
-            </xs:documentation>
-          </xs:annotation>
-        </xs:attribute>
         <xs:attribute name="deletemode" type="DeleteMethod">
           <xs:annotation>
             <xs:documentation>
@@ -918,15 +927,7 @@
     </xs:annotation>
     <xs:complexType>
       <xs:complexContent>
-        <xs:extension base="EntityListBase">
-          <xs:attribute name="flags" type="s:Flags">
-            <xs:annotation>
-              <xs:documentation>
-                <html:p>Define the list flags here, which will be used by selectableflags and by a droptarget's sourceflags and targetflags.</html:p>
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-        </xs:extension>
+        <xs:extension base="EntityListBase" />
       </xs:complexContent>
     </xs:complexType>
     <xs:unique name="uniquecolumnnames_entitylist">

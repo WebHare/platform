@@ -104,6 +104,8 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
   //PUBLIC MACRO PTR onchange;
   PUBLIC PROPERTY flags(^entities->flags, ^entities->flags);
 
+  PUBLIC PROPERTY selectableflags(^entities->selectableflags, ^entities->selectableflags);
+
   PUBLIC PROPERTY savestate(^entities->savestate, ^entities->savestate);
 
   PUBLIC PROPERTY empty(^entities->empty, ^entities->empty);
@@ -164,6 +166,7 @@ PUBLIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
     this->eventlistener := this->CreateSubComponent("eventlistener");
     this->eventlistener->onevent := PTR this->GotEvent;
     this->flags := definition.flags;
+    this->selectableflags := definition.selectableflags;
 
     IF(definition.wrdtype != "" AND NOT this->owner->tolliumcontroller->isvalidation) // skip when validating
     {

@@ -120,6 +120,8 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY deletableflags(GetDeletableFlags, SetDeletableFlags);
 
+  PUBLIC PROPERTY selectableflags(this->list->selectableflags, this->list->selectableflags);
+
   /** Give access to the list component embedded in this component.
       This makes it possible to for example use listedit->embeddedlist->GetIcon().
   */
@@ -157,6 +159,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->flags := description.flags;
     this->editableflags := description.editableflags;
     this->deletableflags := description.deletableflags;
+    this->selectableflags := description.selectableflags;
     this->sortable := description.sortable;
     this->showbuttons := description.showbuttons;
 
