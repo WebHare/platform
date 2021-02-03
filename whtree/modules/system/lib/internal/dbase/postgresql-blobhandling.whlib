@@ -626,7 +626,7 @@ PUBLIC OBJECT FUNCTION GetBlobResolverByConfig(RECORD config)
       config := ValidateOptions(
           [ type :=             ""
           , blobfolder :=       MergePath(__SYSTEM_WHCOREPARAMETERS().basedataroot, "postgresql")
-          , keepdeleteddays :=  30
+          , keepdeleteddays :=  3
           ], config);
 
       RETURN NEW DiskBlobPartStorage(config.blobfolder, config.keepdeleteddays);
