@@ -25,6 +25,7 @@ MACRO TestEmbedGTM()
   DownloadEmbeddableScript("GTM", ourgtmtestcontainer);
   TestEq(TRUE, testfw->browser->GotoWebPage(embeddableurl));
   savelastmod := SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="LAST-MODIFIED";
+  dumpvalue(cell[savelastmod]);
   nextsecond := GetRoundedDatetime(AddTimeToDate(999, GetCurrentDatetime()), 1000);
 
   TestEq("public, max-age=600", SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="CACHE-CONTROL");
@@ -41,15 +42,5 @@ MACRO TestEmbedGTM()
   TestEq(TRUE, output LIKE `*socialite:gtm*${ourgtmtestcontainer}*`);
 }
 
-MACRO TestNoRedownload()
-{
-  //ensure we don't redownload by checking lastmod
-  WaitUntil(CELL[], nextsecond);
-  DownloadEmbeddableScript("GTM", ourgtmtestcontainer);
-  TestEq(TRUE, testfw->browser->GotoWebPage(embeddableurl));
-  TestEq(savelastmod, SELECT AS STRING value FROM testfw->browser->responseheaders WHERE ToUppercase(field)="LAST-MODIFIED");
-}
-
 RunTestframework([ PTR TestEmbedGTM
-                 , PTR TestNoRedownload
                  ]);
