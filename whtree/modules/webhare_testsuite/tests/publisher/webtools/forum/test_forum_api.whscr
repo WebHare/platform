@@ -100,9 +100,9 @@ MACRO TestCommentsForumApi()
   //Request the first page
   RECORD ARRAY msgs := forumapi->GetMessagesByPage(0,"");
   TestEq(seenpostids[1], msgs[1].id, "Cannot verify AddPost id");
-  //verify creationdate at most 10secs behind
+
   TestEq(TRUE, msgs[0].creationdate <= GetCurrentDatetime());
-  TestEq(TRUE, msgs[0].creationdate >= AddTimeToDate(-10000, GetCurrentDatetime()));
+  TestEq(TRUE, msgs[0].creationdate >= testfw->starttime);
   TestEq("hoihoi msg #0", msgs[1].content);
   TestEq("test", msgs[0].subject);
   TestEq("test", msgs[1].subject);
