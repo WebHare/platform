@@ -49,7 +49,7 @@ PUBLIC OBJECTTYPE ImportArchive EXTEND TolliumBackgroundTask
     OBJECT work := this->BeginWork();
     GetPrimary()->DisableWorkTimeout();
 
-    OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, DEFAULT RECORD);
+    OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, [ renameto := this->data.renameto ]);
     importer->onprogresscallback := PTR this->OnStatusUpdate;
     importer->onoverwritingschema := PTR this->OnImportOverwrite;
     importer->ignoremissingreferences := this->data.ignoremissingreferences;

@@ -96,6 +96,7 @@
   <screen name="importschema" gid=".importschema">
     <body>
       <checkbox name="ignoremissingreferences" title="" labeltid=".ignoremissingreferences" value="true" />
+      <textedit name="renameto" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />

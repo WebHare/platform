@@ -780,6 +780,7 @@
     <textgroup gid="importschema">   <!-- schemamanager.importschema -->
       <text tid="ignoremissingreferences">Negeer missende WHFS referenties</text>
       <text tid="importschema">Importeer schema</text>
+      <text tid="renameto">Hernoem naar</text>
     </textgroup>
     <textgroup gid="main">   <!-- schemamanager.main -->
       <text tid="main">Beheer WRD schema's</text>

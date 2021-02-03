@@ -260,7 +260,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC OBJECTTYPE ImportSchema EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ImportSchema EXTEND TolliumScreenBase
 <
   PUBLIC INTEGER schemaid;
   RECORD infile;
@@ -276,7 +276,8 @@ PUBLIC OBJECTTYPE ImportSchema EXTEND TolliumScreenBase
                                           "ImportArchive",
                                           [ data := this->infile.data
                                           , userid := this->tolliumuser->authobjectid //FIXME is this safe to transfer this way?  should send auth object
-                                          , ignoremissingreferences := this->ignoremissingreferences->value
+                                          , ignoremissingreferences := ^ignoremissingreferences->value
+                                          , renameto := ^renameto->value
                                           ]);
     IF(screen->RunModal() != "ok") //cancelled (FIXME what happens if _we_ get a cancel but the background task completed anyway?)
       RETURN TRUE;
