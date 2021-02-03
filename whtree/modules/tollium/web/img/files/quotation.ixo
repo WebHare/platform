@@ -1,0 +1,5 @@
+<icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
+  <layer src="tollium:files/normal" />
+  <layer src="tollium:overlays/filetypes/addition" />
+  <layer src="tollium:overlays/filetypes/quotation" />
+</icon>
