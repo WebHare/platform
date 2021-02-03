@@ -195,6 +195,14 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TestEq(1, Length(TT("fragment1!attachments!files!list")->rows));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  //Test adding a page and moving it to top. This crashed earlier once the form had handlers
+  TTClick("doceditor->addpage");
+  TestEq("Page 2", TT("doceditor->questions")->selection.title);
+  TTClick("doceditor->movetotop");
+  TestEq("Page 1", TT("doceditor->questions")->selection.title);
+
+
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   //AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
