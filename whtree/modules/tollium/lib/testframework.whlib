@@ -729,17 +729,6 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectScreenChange(INTEGER diff, MACRO PTR call, RE
   RETURN [ expectcallreturn := waitcallresult ];
 }
 
-PUBLIC ASYNC MACRO ExpectApplicationOpen(FUNCTION PTR call)
-{
-  IF (NOT IsDefaultValue(call))
-    AWAIT ExpectNoScreenChange(call);
-
-  RECORD applaunchinstruction := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="sendappmessage";
-  TestEq(TRUE, RecordExists(applaunchinstruction));
-
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp(applaunchinstruction.app, [ calltype := "direct", ...applaunchinstruction, DELETE app, DELETE instr, DELETE reuse ]));
-}
-
 /** Expect a file to be sent to the user
     @param call Trigger call that will cause the screen change to happen
     @param options
