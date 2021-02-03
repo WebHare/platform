@@ -45,9 +45,11 @@ function cleanup()
 trap cleanup EXIT SIGINT
 
 echo "Will dump/restore using $WHBUILD_NUMPROC threads"
-if ! $RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare ; then
-  echo "pg_dump failed with errorcode $?"
-  exit 1
+$RUNAS $PSBIN/pg_dump --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC -f ${WEBHARE_DATAROOT}/postgresql/localefix.dump --format=d -v webhare
+ERRORCODE="$?"
+if [ "$ERRORCODE" != "0" ]; then
+  echo "pg_dump failed with errorcode $ERRORCODE"
+  exit $ERRORCODE
 fi
 
 mkdir ${WEBHARE_DATAROOT}/postgresql/db.localefix
@@ -82,9 +84,10 @@ if [ "$WHBUILD_PLATFORM" = "darwin" ]; then
 fi
 
 export PGOPTIONS="-c default_transaction_read_only=off"
-if ! $RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore $RESTOREOPTIONS -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump ; then
-  ERRORCODE=$?
-  echo "Restore failed with error code $ERRORCODE"
+$RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore $RESTOREOPTIONS -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump
+ERRORCODE="$?"
+if [ "$ERRORCODE" != "0" ]; then
+  echo "restore failed with errorcode $ERRORCODE"
   exit $ERRORCODE
 fi
 
