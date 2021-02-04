@@ -88,7 +88,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 
 IF (NOT RecordExists(args))
 {
-  Print("Syntax: wh run mod::system/scripts/database/migration.whscr [--dryrun] [--nowait]");
+  Print("Syntax: wh convert-to-postgresql [--dryrun] [--nowait]");
   TerminateScriptWithError(`Invalid arguments`);
 }
 

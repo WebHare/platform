@@ -227,6 +227,12 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     IF(maxxidage >= 5000000000) //500 million is a good indication something is wrong
       INSERT [ msg := `:PostgreSQL reports ${maxxidage} transaction ids in range, it may not be properly vacuuming`
              ] INTO messages AT END;
+
+    STRING collation :=SendPostgreSQLCommand(GetPrimary()->id, "SHOW lc_collate").lc_collate;
+    IF(collation != "C")
+      INSERT [ msg := `:PostgreSQL reports it's in the '${collation}' collation, you need to 'wh recreate-postgresql-database' as soon as possible`
+             ] INTO messages AT END;
+
   }
 
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
@@ -298,8 +304,40 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   }
 
   //Legacy database directory
-  IF(GetDatabaseType() = "postgresql" AND RecordExists(GetDiskFileProperties(MergePath(GetWebhareConfiguration().basedataroot, "dbase"))))
-    INSERT [ msg := ":The 'dbase' directory can be removed if you've completed the switch to PostgreSQL" ] INTO messages AT END;
+  IF(GetDatabaseType() = "postgresql")
+  {
+    IF(RecordExists(GetDiskFileProperties(MergePath(GetWebhareConfiguration().basedataroot, "dbase"))))
+      INSERT [ msg := ":The 'dbase' directory can be removed if you've completed the switch to PostgreSQL - use `wh remove-old-databases` to clean up" ] INTO messages AT END;
+    FOREVERY(RECORD unused_db FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().basedataroot,"postgresql"),"db.*"))
+    {
+      IF(unused_db.name="db.switchto")
+        INSERT [ msg := `:Your database server needs to be restarted to activate a restored/migrated database in ${unused_db.path}` ]INTO messages AT END;
+      ELSE
+        INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path} - use \`wh remove-old-databases\` to clean up` ]INTO messages AT END;
+    }
+
+    //Check the rights tables, there were various earier upgrade issues
+    RECORD ARRAY alltables;
+    FOREVERY(RECORD schemarec FROM GetPrimary()->GetSchemaListing())
+      IF(NOT schemarec.is_system_schema)
+        alltables := alltables CONCAT (SELECT *, schema_name := schemarec.schema_name FROM GetPrimary()->GetTableListing(schemarec.schema_name));
+
+    RECORD ARRAY rightstables := SELECT * FROM GetPrimary()->GetTableListing("system_rights") WHERE table_name NOT IN ["global_rights"];
+    FOREVERY(RECORD tab FROM rightstables)
+    {
+      RECORD reference := (SELECT * FROM GetPrimary()->GetColumnListing("system_rights", tab.table_name) WHERE column_name = "object");
+      IF(NOT RecordExists(reference))
+      {
+        INSERT [ msg := `:Rights table 'system_rights.${tab.table_name}' is broken, no 'object' column` ] INTO messages AT END;
+        CONTINUE;
+      }
+      IF(tab.table_name != "o_" || reference.referenced_table_oid)
+      {
+        INSERT [ msg := `:Rights table 'system_rights.${tab.table_name}' is broken, it references table #${reference.referenced_table_oid} (${reference.referenced_table_schema}.${reference.referenced_table_name})` ] INTO messages AT END;
+        CONTINUE;
+      }
+    }
+  }
 
   // Tollium registry stuff
   STRING backendurl := GetPrimaryWebhareInterfaceURL();

@@ -1444,6 +1444,7 @@ OBJECTTYPE WHPostgreSQLTransaction EXTEND BuiltinTransactionBase
              , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
              , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
              , referenced_table_schema :=   RecordExists(foreignkey) ? foreignkey.referenced_table_schema : ""
+             , referenced_table_oid :=      RecordExists(foreignkey) ? foreignkey.confrelid : 0
           FROM catalog.pg_attribute
              , catalog.pg_type
          WHERE attrelid = table_oid
