@@ -15,6 +15,8 @@ PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
   EnsureExtensions(trans);
   EnsureBlobTable(trans);
   EnsureStoredProcedures(trans);
+  /* dump/restore does not preserve OIDs (not even with pg_dump --oid, that only preserves OIDs inside tables and is deprecated) but we currently require 
+     our rights tables to be named after the target table OIDs. So we check and fix inconsistencies at boot time */
   FixSystemRightsTableNames(trans);
 }
 
