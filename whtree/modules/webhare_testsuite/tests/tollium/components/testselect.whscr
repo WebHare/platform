@@ -81,10 +81,32 @@ ASYNC MACRO TestOptionSource()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestDupeElimination()
+{
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(
+    `<screen name="test" implementation="none">
+      <body><select name="pulldown" type="pulldown" /></body>
+     </screen>`)));
+
+  TT("pulldown")->options := [[ rowkey := "a", title := "A" ]
+                             ,[ rowkey := "b", title := "B" ]
+                             ,[ rowkey := "a", title := "A2" ]
+                             ,[ rowkey := "c", title := "C" ]
+                             ,[ rowkey := "d", title := "D" ]
+                             ];
+
+  TT("pulldown")->value := "c";
+  TestEq("c", TT("pulldown")->value, "earlier regression set this to 'a' not 'c'");
+  TestEq(4, Length(TT("pulldown")->options));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+ }
+
 RunTestframework([ PTR TestRadio
                  , PTR TestSubscreenRegression
                  , PTR TestSubcomponentsRegression
                  , PTR TestInvisibleSelectRegression
                  , PTR TestCheckboxList
                  , PTR TestOptionSource
+                 , PTR TestDupeElimination
                  ]);
