@@ -316,7 +316,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
         INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path} - use \`wh remove-old-databases\` to clean up` ]INTO messages AT END;
     }
 
-    //Check the rights tables, there were various earier upgrade issues
+    //Check the rights tables, there were various earlier upgrade issues
     RECORD ARRAY alltables;
     FOREVERY(RECORD schemarec FROM GetPrimary()->GetSchemaListing())
       IF(NOT schemarec.is_system_schema)
