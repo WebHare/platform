@@ -76,8 +76,13 @@ GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;
 GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;
 HERE
 
+RESTOREOPTIONS=""
+if [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+  RESTOREOPTIONS="--no-owner"
+fi
+
 export PGOPTIONS="-c default_transaction_read_only=off"
-if ! $RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump ; then
+if ! $RUNAS env PGOPTIONS="-c default_transaction_read_only=off" $PSBIN/pg_restore $RESTOREOPTIONS -p 7777 --host ${WEBHARE_DATAROOT}/postgresql/ -j $WHBUILD_NUMPROC --format=d -v -d webhare ${WEBHARE_DATAROOT}/postgresql/localefix.dump ; then
   ERRORCODE=$?
   echo "Restore failed with error code $ERRORCODE"
   exit $ERRORCODE
