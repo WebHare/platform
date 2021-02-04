@@ -7,11 +7,15 @@ LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 /** Contains initialization code for a WebHare PostgreSQL database
 */
 
+/** Bootstraps the PostgreSQL database
+    @param trans Transaction
+*/
 PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
 {
   EnsureExtensions(trans);
   EnsureBlobTable(trans);
   EnsureStoredProcedures(trans);
+  FixSystemRightsTableNames(trans);
 }
 
 MACRO EnsureExtensions(OBJECT trans)
@@ -605,6 +609,47 @@ END;$$`
       trans->__ExecSQL(`ROLLBACK TO SAVEPOINT sp`);
       trans->__ExecSQL(`DROP FUNCTION ${PostgreSQLEscapeIdentifier(rec.name)} CASCADE`); // triggers will be recreated later
       trans->__ExecSQL(rec.code);
+    }
+  }
+  trans->CommitWork();
+}
+
+MACRO FixSystemRightsTableNames(OBJECT trans)
+{
+  // List all tables in system_rights and check if they are still named after the table they reference
+  RECORD ARRAY tbls :=
+      SELECT TEMPORARY obj :=    (SELECT * FROM trans->GetColumnListing("system_rights", table_name) WHERE column_name = "object")
+           , *
+           , referenced_table_oid :=    RecordExists(obj) ? obj.referenced_table_oid : 0
+        FROM trans->GetTableListing("system_rights") AS l
+       WHERE table_name LIKE "o_*";
+
+  RECORD ARRAY valid_tables :=
+      SELECT *
+        FROM tbls
+       WHERE referenced_table_oid != 0
+         AND table_name = `o_${referenced_table_oid}`;
+
+  RECORD ARRAY invalid_tables :=
+      SELECT *
+        FROM tbls
+       WHERE referenced_table_oid != 0
+         AND table_name != `o_${referenced_table_oid}`
+         AND table_name NOT LIKE "o_*_*";
+
+  trans->BeginWork();
+  FOREVERY (RECORD tbl FROM invalid_tables)
+  {
+    RECORD valid_table := SELECT FROM valid_tables WHERE referenced_table_oid = tbl.referenced_table_oid;
+    IF (NOT RecordExists(valid_table))
+    {
+      PRINT(`Rename rights table system_rights."${tbl.table_name}" to "o_${tbl.referenced_table_oid}" - please fix index / constraint names manually\n`);
+      trans->__ExecSQL(`ALTER TABLE "system_rights"."${tbl.table_name}" RENAME TO "o_${tbl.referenced_table_oid}"`);
+    }
+    ELSE
+    {
+      PRINT(`Rights table system_rights."${tbl.table_name}" references a table with OID ${tbl.referenced_table_oid}, but a table with name "o_${tbl.referenced_table_oid}" already exists\n`);
+      PRINT(`Please copy the rights records manually\n`);
     }
   }
   trans->CommitWork();
