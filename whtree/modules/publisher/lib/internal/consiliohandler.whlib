@@ -80,7 +80,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
         , groupid := "fsobj_" || objid
         ];
 
-    DeleteGroup(data, [ refresh := TRUE ]);
+    DeleteGroup(data);
 
     IF(options.progress)
       Print(`Deleting ${#objid+1}/${Length(to_delete)}: #${objid}\r`);
@@ -102,9 +102,7 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
       Print(`Updating ${#objid+1}/${Length(to_update)}: #${objid}\r`);
 
     //TODO pass queueing priority based on startingpoint ordering
-    RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP"
-                                      , refresh := TRUE
-                                      ]);
+    RECORD result := CheckGroup(data, [ rebuild := data.action != "UPDATEGROUP" ]);
     INSERT CELL[ objid, result ] INTO results AT END;
   }
 
@@ -114,6 +112,17 @@ PUBLIC RECORD ARRAY FUNCTION ReindexWHFSChanges(RECORD ARRAY to_reindex, RECORD 
 
   IF(options.progress AND Length(to_update) > 0)
     Print(`\n`);
+
+  // If anything was deleted or updated, refresh the index to make sure the results are available
+  IF (Length(to_delete) + Length(to_update) > 0)
+  {
+    IF (options.progress)
+      Print("Refreshing index...");
+    RefreshIndexManager(0, publisher_index);
+    IF (options.progress)
+      Print("\n");
+  }
+
   IF (options.eventid != "")
     BroadcastEvent(`system:whfs.index.response.${options.eventid}`, [ deleted := to_delete, updated := to_update ]);
 
