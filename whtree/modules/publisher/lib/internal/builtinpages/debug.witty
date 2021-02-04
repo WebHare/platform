@@ -52,7 +52,7 @@
     }
   </style>
 
-  <form method="POST" action="[feedbackurl]">
+  <form method="POST" action="[feedbackurl]" class="wh-form--neverprefill">
     [if userwarning]
       <div class="wh-debugpage__userwarning">
         [userwarning]

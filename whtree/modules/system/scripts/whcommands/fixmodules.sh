@@ -58,7 +58,6 @@ if [ -z "$ONLYBROKEN" ]; then
     for Q in $MODULEDIR/webdesigns/?* ; do
       if cd $Q 2>/dev/null ; then
         echo "Updating webdesign '$MODULENAME:`basename \"$Q\"`'"
-        [ -f node_modules/.yarn-integrity ] && rm node_modules/.yarn-integrity #we're switching away from yarn. until everyone's up to date, force it to go away
 
         if [ -f package.json ]; then
           wh npm install --no-save

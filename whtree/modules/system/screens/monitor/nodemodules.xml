@@ -34,7 +34,7 @@
         <enableon source="modules" min="1" checkflags="isnodemodule" onexecute="@notimplemented" />
       </action>
 
-      <action name="fetchnewcopy"><!-- force yarn/node to re-download the selected modules -->
+      <action name="fetchnewcopy"><!-- force node to re-download the selected modules -->
         <enableon source="modules" min="1" onexecute="@notimplemented" />
       </action>
 

@@ -12,6 +12,12 @@ fi
 mkdir -p $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   chown elasticsearch:elasticsearch $ELASTICSEARCHROOT/logs $ELASTICSEARCHROOT/data $ELASTICSEARCHROOT/repo
+else
+  # macOS ?
+  # correct broken brew config files
+  if [ -f /usr/local/etc/elasticsearch/jvm.options.default ] && grep -q "^-XX.*UseConcMarkSweepGC" /usr/local/etc/elasticsearch/jvm.options ; then
+    cp /usr/local/etc/elasticsearch/jvm.options.default /usr/local/etc/elasticsearch/jvm.options
+  fi
 fi
 
 if [ -x /opt/elasticsearch/bin/elasticsearch ]; then
