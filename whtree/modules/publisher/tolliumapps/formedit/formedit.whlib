@@ -634,7 +634,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO DoMoveToTop()
   {
     OBJECT node := ^questions->selection.node;
-    node->parentnode->InsertBefore(node, node->parentnode->firstelementchild);
+    node->parentnode->InsertBefore(node, this->curform->GetPage(0)->node);
     this->ReloadList();
   }
   MACRO DoMoveUp()
