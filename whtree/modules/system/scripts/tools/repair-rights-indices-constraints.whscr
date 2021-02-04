@@ -1,0 +1,144 @@
+<?wh
+
+LOADLIB "wh::dbase/postgresql.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
+
+OBJECT trans := OpenPrimary();
+
+
+RECORD ARRAY FUNCTION GetIndices()
+{
+  SCHEMA catalog LIKE postgresql_pg_catalog;
+  catalog := BindTransactionToSchema(trans->id, "pg_catalog");
+
+  RECORD ARRAY allindices := trans->__ExecSQL(`
+SELECT n.nspname AS table_schema
+     , rc.relname AS table_name
+     , ic.relname AS index_name
+  FROM pg_catalog.pg_index i
+       JOIN pg_catalog.pg_class ic ON indexrelid = ic.oid
+       JOIN pg_catalog.pg_class rc ON indrelid = rc.oid
+       JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+`);
+
+  RETURN allindices;
+}
+
+RECORD ARRAY FUNCTION GetConstraints()
+{
+  SCHEMA catalog LIKE postgresql_pg_catalog;
+  catalog := BindTransactionToSchema(trans->id, "pg_catalog");
+
+  RECORD ARRAY allindices := trans->__ExecSQL(`
+SELECT n.nspname AS table_schema
+     , rc.relname AS table_name
+     , c.conname AS constraint_name
+     , c.contype AS contype
+  FROM pg_catalog.pg_constraint c
+       JOIN pg_catalog.pg_class rc ON conrelid = rc.oid
+       JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+ WHERE conrelid IS NOT NULL
+`);
+
+  RETURN allindices;
+}
+
+
+RECORD ARRAY right_indices :=
+    SELECT TEMPORARY postfix := SubString(index_name, SearchSubString(index_name, "_", 2))
+         , *
+         , postfix := postfix
+         , expectname := `${table_name}${postfix}`
+      FROM GetIndices()
+     WHERE table_schema = "system_rights"
+       AND table_name LIKE "o_*"
+  ORDER BY `${table_name}${postfix}`;
+
+//DumpValue(right_indices, [ format := "boxed", outputid := 2 ]);
+
+RECORD ARRAY faulty_right_indices :=
+    SELECT *
+      FROM right_indices
+     WHERE index_name NOT LIKE table_name || "_*";
+
+STRING ARRAY index_renames;
+
+FOREVERY (RECORD rec FROM faulty_right_indices)
+{
+  RECORD existing_right_index :=
+      SELECT *
+        FROM right_indices
+       WHERE table_schema = rec.table_schema
+         AND index_name = rec.expectname;
+
+  PRINTTO(2, `# for table ${rec.table_schema}.${rec.table_name}, index ${rec.index_name}\n`);
+  IF (RecordExists(existing_right_index))
+  {
+    IF (existing_right_index.table_name = rec.table_name)
+    {
+      PRINTTO(2, `# index ${rec.expectname} already exists and is for the same table, assuming that one is enough\n`);
+      PRINT(`DROP INDEX system_rights."${rec.index_name}";\n\n`);
+    }
+    ELSE
+    {
+      PRINTTO(2, `# ** index system_rights."${rec.index_name}" cannot be renamed to ${rec.expectname}, an index with that name already exists (but for table ${existing_right_index.table_name})\n\n`);
+    }
+  }
+  ELSE IF (rec.expectname IN index_renames)
+  {
+    PRINTTO(2, `# ** index system_rights."${rec.index_name}" cannot be renamed to ${rec.expectname}, another index is already renamed to that name\n\n`);
+  }
+  ELSE
+  {
+    PRINT(`ALTER INDEX system_rights."${rec.index_name}" RENAME TO "${rec.expectname}";\n\n`);
+    INSERT rec.expectname INTO index_renames AT END;
+  }
+}
+
+RECORD ARRAY right_constraints :=
+    SELECT TEMPORARY postfix :=  SubString(constraint_name, SearchSubString(constraint_name, "_", 2))
+         , *
+         , expectname := `${table_name}${postfix}`
+      FROM GetConstraints()
+     WHERE table_schema = "system_rights"
+       AND table_name LIKE "o_*"
+       AND constraint_name NOT LIKE "*_pkey" // already renamed by index rename
+  ORDER BY `${table_name}${postfix}`;
+
+//DumpValue(right_constraints, [ format := "boxed", outputid := 2 ]);
+
+RECORD ARRAY faulty_right_constraints :=
+    SELECT *
+      FROM right_constraints
+     WHERE constraint_name NOT LIKE table_name || "_*";
+
+STRING ARRAY constraint_renames;
+
+
+FOREVERY (RECORD rec FROM faulty_right_constraints)
+{
+  RECORD existing_right_constraint :=
+      SELECT *
+        FROM right_constraints
+       WHERE table_schema = rec.table_schema
+         AND constraint_name = rec.expectname;
+
+  PRINTTO(2, `# for table ${rec.table_schema}.${rec.table_name}, constraint_name ${rec.constraint_name}\n`);
+  IF (RecordExists(existing_right_constraint))
+  {
+    PRINTTO(2, `# ** constraint system_rights."${rec.constraint_name}" cannot be renamed to ${rec.expectname}, a constraint with that name already exists\n\n`);
+  }
+  ELSE IF (rec.expectname IN constraint_renames)
+  {
+    PRINTTO(2, `# ** constraint system_rights."${rec.constraint_name}" cannot be renamed to ${rec.expectname}, another constraint is already renamed to that name\n\n`);
+  }
+  ELSE
+  {
+    PRINT(`ALTER TABLE system_rights."${rec.table_name}" RENAME CONSTRAINT "${rec.constraint_name}" TO "${rec.expectname}";\n\n`);
+    INSERT rec.expectname INTO constraint_renames AT END;
+  }
+}
+
+PrintTo(2,`\nTo execute this script:  wh psql -c "$(wh run repair-rights-indices-constraints.whscr 2>/dev/null)"\n`);
