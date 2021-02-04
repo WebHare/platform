@@ -92,4 +92,4 @@ ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # Control core sizes with ulimit... so that we can still raise them later!
 ulimit -Sc 0
 
-exec /usr/bin/dumb-init -- /usr/bin/runsvdir -P /etc/service
+exec /usr/bin/dumb-init -- /usr/bin/runsvdir /etc/service
