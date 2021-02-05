@@ -1082,12 +1082,11 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
       }
 
       {
-        // Get current indices for the current table
+        // Get current indices in the schema (index names are scoped to their schema)
         RECORD ARRAY current_indices :=
                                 SELECT *
                                   FROM GetIndices(trans) AS indices
-                                 WHERE table_schema = schemaspec.name
-                                       AND table_name = tablerec.name;
+                                 WHERE table_schema = schemaspec.name;
 
         tablerec.indices :=
             SELECT *
@@ -1125,7 +1124,8 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
           IF (RecordExists(old_index))
           {
             // Check if the indexdefinition is identical; if not delete the old index
-            BOOLEAN is_identical := old_index.indisunique = ind.is_unique;
+            BOOLEAN is_identical := old_index.indisunique = ind.is_unique
+                                    AND old_index.table_name = tablerec.name;
 
             IF (is_identical AND LENGTH(old_index.cols) != LENGTH(ind.columns))
               is_identical := FALSE;

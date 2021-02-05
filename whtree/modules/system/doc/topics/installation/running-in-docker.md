@@ -45,6 +45,17 @@ which will fail on this filesystem. See also [https://www.virtualbox.org/piperma
 
 ## Troubleshooting
 
+### Manual startup
+By appending `/bin/bash` to a docker started with `-ti` you can manually
+control the startup. Once in the container, run `/opt/container/launch.sh` to
+start WebHare.
+
+You can also `wh exec dbserver` to start just the postgres database and then
+use `wh psql` to connect to this database if you need to fix pre-launch issues.
+
+If you cannot startup the database server, use `wh postgres-single` to launch
+the database in single user mode. You'll land in a command prompt immediately.
+
 ### Core dumps
 Process core dumps are disabled by default but you can enable them with `prlimit`:
 

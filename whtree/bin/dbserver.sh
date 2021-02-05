@@ -13,7 +13,7 @@ if [ -z "$WEBHARE_DBASENAME" ]; then
   exit 1
 fi
 
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
+if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
   RUNAS="chpst -u postgres:whdata"
   PSBIN="/usr/lib/postgresql/11/bin/"
 elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
