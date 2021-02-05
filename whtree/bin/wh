@@ -672,8 +672,12 @@ case $INSTR in
     PROCESS="$1"
     shift
 
-    if [ ! -x "$PROCESS" -a -x "$WEBHARE_DIR/bin/$PROCESS" ]; then #resolve to bin path ?
+    if [ -x "$WEBHARE_DIR/bin/${PROCESS}.sh" ]; then #so 'wh exec dbserver' launches the proper database and we can use the .sh extension for syntax highlighting
+      PROCESS="$WEBHARE_DIR/bin/${PROCESS}.sh"
+    elif [ -x "$WEBHARE_DIR/bin/$PROCESS" ]; then
       PROCESS="$WEBHARE_DIR/bin/$PROCESS"
+    else
+      echo "No such subbinary '$PROCESS'"
     fi
 
     exec $PROCESS "$@"
