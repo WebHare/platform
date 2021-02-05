@@ -5,6 +5,7 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
@@ -26,6 +27,7 @@ PUBLIC STATIC OBJECTTYPE PDOKLocationServerAPI EXTEND WRDNLAddressVerificationBa
   MACRO NEW(RECORD settings)
   {
     this->webbrowser := NEW WebBrowser();
+    LogRPCForWebBrowser("wrd:pdok", "", this->webbrowser);
   }
 
   UPDATE RECORD FUNCTION __LookupNLAddressByZip(STRING zip, INTEGER houseno)
