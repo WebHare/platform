@@ -101,7 +101,7 @@ INTEGER cachettl_constants := 15*60*1000; //cache things that never change for 1
 
 // https://developers.facebook.com/docs/facebook-login/permissions/
 RECORD ARRAY facebook_permissions :=
-    [ 
+    [
     // Instagram platform
 
     // Live Video API
@@ -110,6 +110,8 @@ RECORD ARRAY facebook_permissions :=
 
     // Pages and Business Assets
       [ name :=   "manage_pages" ]
+    , [ name :=   "pages_read_engagement" ]
+    , [ name :=   "pages_read_user_content" ]
     , [ name :=   "read_insights" ]
     // addme: incomplete list
 
@@ -573,7 +575,7 @@ PUBLIC OBJECTTYPE FacebookV3Connection EXTEND OauthNetworkConnection
                 "id", "first_name", "installed", "last_name", "name", "name_format", "security_settings", "video_upload_limits"
 
                 "link" - Link to the profile, only usable by friends of the user (requires "user_link" permission and review)
-                
+
       @return
       @cell(string) name
       @cell(string) picture
