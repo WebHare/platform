@@ -198,9 +198,8 @@ PUBLIC STATIC OBJECTTYPE Reader
     //If there was no error, mark the file as published
     IF (errortype = 0)
     {
-      published := SetFlagsInPublished(published, PublishedFlag_OncePublished, true);
-      IF(has_webdesign)
-        published := SetFlagsInPublished(published, PublishedFlag_HasWebdesign, true);
+      published := SetFlagsInPublished(published, PublishedFlag_OncePublished, TRUE);
+      published := SetFlagsInPublished(published, PublishedFlag_HasWebdesign, has_webdesign);
       this->FlushDBFiles(fileid, dbfiles);
     }
 
