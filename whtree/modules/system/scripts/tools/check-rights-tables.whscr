@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+openprimary();
+
+TABLE
+<
+  INTEGER id;
+  KEY id
+> boundtable;
+
+INTEGER FUNCTION GetNumRights(STRING tablename)
+{
+  boundtable := BindTransactionToTable(GetPrimary()->id, "system_rights." || tablename);
+  RETURN Length(SELECT FROM boundtable);
+}
+
+RECORD ARRAY alltables;
+FOREVERY(RECORD schemarec FROM getprimary()->GetSchemaListing())
+  IF(NOT schemarec.is_system_schema)
+    alltables := alltables CONCAT (SELECT *, schema_name := schemarec.schema_name FROM getprimary()->Gettablelisting(schemarec.schema_name));
+//dumpvalue(alltables[0]);
+
+record array rightstables := getprimary()->GetTableListing("system_rights");
+//dumpvalue(rightstables[0]);
+
+rightstables := SELECT TEMPORARY reference := (SELECT * FROM getprimary()->GetColumnListing("system_rights", rightstables.table_name) WHERE column_name = "object")
+                     , table_name
+                     , match_by_object_id := (SELECT AS STRING schema_name || "."  || table_name FROM alltables WHERE alltables.object_id = ToInteger(Substring(rightstables.table_name,2),0))
+                     , match_by_references := (RecordExists(reference) ? reference.referenced_table_schema || "." || reference.referenced_table_name : "")
+                     , numrights := GetNumRights(rightstables.table_name)
+                 FROM rightstables
+                WHERE table_name LIKE "o_*" AND table_name NOT LIKE "o_*_*";
+
+dumpvalue(rightstables,[ format := 'boxed', outputid := 2]);
+
+STRING timestamp := ToLowercase(FormatDatetime("%#d%b%y", GetCurrentDatetime()));
+FOREVERY(RECORD tab FROM SELECT * FROM rightstables WHERE match_by_references != "" AND match_by_object_id != match_by_references)
+{
+  IF(tab.numrights = 0)
+  {
+    PrintTo(2,`# table ${tab.table_name} referring to ${tab.match_by_references} is empty, just ignore it\n`);
+    //Print(`alter table system_rights.${tab.table_name} rename to ${tab.table_name}_backup_${timestamp};\n\n`);
+    CONTINUE;
+  }
+
+  RECORD conflicttable := SELECT * FROM rightstables WHERE match_by_object_id = tab.match_by_references;
+  IF(NOT RecordExists(conflicttable))
+  {
+    PrintTo(2,`# no match for table ${tab.table_name} referring to ${tab.match_by_references}, obsolete rights table? \n`);
+    CONTINUE;
+  }
+
+  PrintTo(2,`# table ${tab.table_name} is referring to ${tab.match_by_references}, should replace incorrect table ${conflicttable.table_name}\n`);
+  //Print(`alter table system_rights.${conflicttable.table_name} rename to ${conflicttable.table_name}_backup_${timestamp};\n`);
+  //Print(`alter table system_rights.${tab.table_name} rename to ${conflicttable.table_name};\n\n`);
+  Print(`insert into system_rights.${conflicttable.table_name}("id","grantee","grantor","object","right","withgrantoption","creationdate","comment","grantordata")\n(select "id","grantee","grantor","object","right","withgrantoption","creationdate","comment","grantordata" from system_rights.${tab.table_name});\n\n`);
+}
+
+PrintTo(2,`\nTo execute this script:  wh psql -c "$(wh run check-rights-tables.whscr 2>/dev/null)"\n`);
