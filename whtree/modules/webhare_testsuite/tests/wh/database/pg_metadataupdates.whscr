@@ -77,6 +77,19 @@ BOOLEAN FUNCTION TextFieldHasNotNullCheck(STRING for_table_schema, STRING for_ta
   RETURN RecordExists(SELECT FROM candidates WHERE check_clause = `(((${for_column_name})::text <> \'\'::text))`);
 }
 
+MACRO TestColumnCreate()
+{
+  // float column was modified every update
+  ApplyTempDatabaseSchema(`
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="colcreatetest" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:float name="myfloat" />
+    </d:table>
+  </databaseschema>
+`);
+}
+
 MACRO TestColumnAttributes()
 {
   ApplyTempDatabaseSchema(`
@@ -117,5 +130,6 @@ MACRO TestColumnAttributes()
 RunTestframework([ PTR SetupTempSchema
                  , PTR TestByteaConversion
                  , PTR TestIndexDrops
+                 , PTR TestColumnCreate()
                  , PTR TestColumnAttributes
                  ]);
