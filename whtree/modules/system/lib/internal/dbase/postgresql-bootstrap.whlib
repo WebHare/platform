@@ -639,6 +639,8 @@ MACRO FixSystemRightsTableNames(OBJECT trans)
          AND table_name != `o_${referenced_table_oid}`
          AND table_name NOT LIKE "o_*_*";
 
+  STRING ARRAY phase1,phase2;
+  STRING tmpsuffix := ToString(Random(1000,9999));
   trans->BeginWork();
   FOREVERY (RECORD tbl FROM invalid_tables)
   {
@@ -646,7 +648,8 @@ MACRO FixSystemRightsTableNames(OBJECT trans)
     IF (NOT RecordExists(valid_table))
     {
       PRINT(`Rename rights table system_rights."${tbl.table_name}" to "o_${tbl.referenced_table_oid}" - please fix index / constraint names manually\n`);
-      trans->__ExecSQL(`ALTER TABLE "system_rights"."${tbl.table_name}" RENAME TO "o_${tbl.referenced_table_oid}"`);
+      INSERT `ALTER TABLE "system_rights"."${tbl.table_name}" RENAME TO "o_${tbl.referenced_table_oid}_${tmpsuffix}"` INTO phase1 AT END;
+      INSERT `ALTER TABLE "system_rights"."o_${tbl.referenced_table_oid}_${tmpsuffix}" RENAME TO "o_${tbl.referenced_table_oid}"` INTO phase2 AT END;
     }
     ELSE
     {
@@ -654,5 +657,7 @@ MACRO FixSystemRightsTableNames(OBJECT trans)
       PRINT(`Please copy the rights records manually\n`);
     }
   }
+  FOREVERY(STRING cmd FROM phase1 CONCAT phase2)
+    trans->__ExecSQL(cmd);
   trans->CommitWork();
 }
