@@ -90,6 +90,7 @@ PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD optio
 /** @short Run a dialog in which the user can compose a (rich) mail
     @param parent Screen or controller loading this dialog
     @cell(string) options.mailfrom Suggested mail sender
+    @cell(string) options.sendbuttontitle Text for sendbutton
     @cell(boolean) options.readonlyfrom If TRUE, make the From: address readonly
     @cell(boolean) options.descriptive_to Use the mailto value as a description (actually send the mail to hiddenbcc)
     @cell(string array) options.mailto Suggested mail receiver
@@ -114,9 +115,10 @@ PUBLIC MACRO RunSendEmailDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT
                               , email := DEFAULT OBJECT
                               , onqueuedmail := DEFAULT MACRO PTR
                               , attachments := RECORD[]
+                              , sendbuttontitle := ""
                               ], options, [ optional := ["mailfrom","mailto","mailcc","mailbcc","subject"]]);
 
-  OBJECT screen := parent->LoadScreen("mod::system/screens/commondialogs.xml#mailer");
+  OBJECT screen := parent->LoadScreen("mod::system/screens/commondialogs.xml#mailer", CELL[ options.sendbuttontitle ] );
   IF(ObjectExists(options.email))
   {
     //FIXME should avoid the EML step and directly process the composer

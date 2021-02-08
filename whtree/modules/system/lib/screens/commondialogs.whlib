@@ -59,10 +59,15 @@ PUBLIC STATIC OBJECTTYPE Mailer EXTEND TolliumScreenBase
   // Init & submit
   //
 
-  PUBLIC MACRO Init()
+  PUBLIC MACRO Init(RECORD data)
   {
+    data := ValidateOptions([sendbuttontitle := ""], data);
+
     ^mailerfrom->placeholder := ReadRegistryKey("system.services.smtp.mailfrom");
     ^mailerfrom->required := ^mailerfrom->placeholder = "";
+
+    IF(data.sendbuttontitle != "")
+      ^sendbutton->title := data.sendbuttontitle;
   }
 
   BOOLEAN FUNCTION Submit()
