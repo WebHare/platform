@@ -531,8 +531,8 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
   }
 
   //Get the siteprofile information about this type
-  RECORD ARRAY typedefs := LookupContentTypes(fileobj->typens);
-  IF(RecordExists(typedefs) AND Length(typedefs)=1 AND typedefs[0].isembeddedobjecttype)
+  RECORD typedef := LookupContentType(fileobj->typens);
+  IF(RecordExists(typedef) AND typedef.isembeddedobjecttype)
   {
     RECORD data := fileobj->GetInstanceData(fileobj->typens);
     RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, fileobj->typens, data, fileobj, applytester, TRUE);

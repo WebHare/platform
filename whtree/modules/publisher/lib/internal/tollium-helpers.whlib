@@ -545,7 +545,7 @@ PUBLIC STRING FUNCTION CreateInstancePreviewLink(DATETIME validuntil, STRING pas
 PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit)
 {
   // Lookup embeddedobjecttype directly
-  RECORD typedef := LookupContentTypes(whfstype);
+  RECORD typedef := LookupContentType(whfstype);
   IF(NOT RecordExists(typedef))
     THROW NEW Exception(`Unable to find the object editor for widget type '${whfstype}'`);
   IF(NOT typedef.isembeddedobjecttype)

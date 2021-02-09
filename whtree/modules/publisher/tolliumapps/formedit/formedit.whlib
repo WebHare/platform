@@ -234,8 +234,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       {
         FOREVERY (RECORD instance FROM rtd.instances)
         {
-
-          RECORD type := LookupContentTypes(instance.data.whfstype);
+          RECORD type := LookupContentType(instance.data.whfstype);
           IF (RecordExists(type) AND type.requiremergefieldscontext)
           {
             RECORD fielddesc := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage ]);
