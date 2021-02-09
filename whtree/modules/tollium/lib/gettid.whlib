@@ -311,11 +311,7 @@ STRING FUNCTION MissingTid(STRING module, STRING langcode, STRING tid, STRING AR
 
 STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY params, BOOLEAN rich)
 {
-  IF(tid LIKE "~*")
-    tid := "tollium:tilde." || Substring(tid,1);
-  ELSE IF(tid LIKE "tollium:common.buttons.*")
-    tid := "tollium:common.actions." || Substring(tid,23);
-
+  tid := GetCanonicalTid(tid);
   IF(tid = "tollium:tilde.locale.datetimestrings")
     RETURN WrapForMode(GetLanguageDatetimeStrings(langcode), rich);
 
@@ -473,4 +469,18 @@ PUBLIC STRING ARRAY FUNCTION GetTIDListForLanguage(STRING langcode, STRING gid)
            FROM compiled.texts
           WHERE tid LIKE VAR gidpath || ".*"
                 AND tid NOT LIKE VAR gidpath || ".*.*";
+}
+
+/** Returns the canonical tid for a tid (eg tollium:tilde.xxx for ~xxx)
+    @param tid Tid to rewrite
+    @return Canonical tid
+*/
+PUBLIC STRING FUNCTION GetCanonicalTid(STRING tid)
+{
+  IF(tid LIKE "~*")
+    tid := "tollium:tilde." || Substring(tid,1);
+  ELSE IF(tid LIKE "tollium:common.buttons.*")
+    tid := "tollium:common.actions." || Substring(tid,23);
+
+  RETURN tid;
 }
