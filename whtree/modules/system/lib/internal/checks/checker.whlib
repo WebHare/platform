@@ -337,6 +337,19 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
         CONTINUE;
       }
     }
+
+    STRING ARRAY systemrighttables := SELECT AS STRING ARRAY ToUppercase(table_name) FROM GetPrimary()->GetTableListing("system_rights");
+    RECORD ARRAY objecttypes_without_storage :=
+        SELECT name := `${modules.name}:${module_objecttypes.name}`
+             , storagetable
+          FROM system.module_objecttypes
+             , system.modules
+         WHERE module = modules.id
+           AND ToUppercase(storagetable) LIKE "SYSTEM_RIGHTS.*"
+           AND ToUppercase(Substring(storagetable,14)) NOT IN systemrighttables;
+
+    FOREVERY (RECORD rec FROM objecttypes_without_storage)
+      INSERT [ msg := `:Module objecttype '${rec.name}' storage table '${rec.storagetable}' does not exist` ] INTO messages AT END;
   }
 
   // Tollium registry stuff

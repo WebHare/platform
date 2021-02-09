@@ -172,15 +172,6 @@ PUBLIC RECORD FUNCTION InitModuleIndependents(RECORD ARRAY modules, BOOLEAN list
   }
   ExecuteSQLUpdates(GetPrimary(), result.commands);
 
-  IF(NOT pre)
-  {
-    //Scan for obsolete objecttypes (their storagetable is gone, so probably their entire schema is)
-    STRING ARRAY systemrighttables := SELECT AS STRING ARRAY ToUppercase(table_name) FROM GetPrimary()->GetTableListing("system_rights");
-    DELETE FROM system.module_objecttypes
-          WHERE ToUppercase(storagetable) LIKE "SYSTEM_RIGHTS.*"
-                AND ToUppercase(Substring(storagetable,14)) NOT IN systemrighttables;
-  }
-
   //ADDME: Blame them to specific modules
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
 
