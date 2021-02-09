@@ -1,12 +1,15 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::money.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
+LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 
 CONSTANT INTEGER expire_pending_payments := 7; //days
@@ -208,9 +211,32 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
                         ];
       }
     }
+
+    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go irht
+    UPDATE paymentmethod.orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
+    DELETE FROM paymentmethod.orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hoepfully it fixes Back-end: een niet nader gespecificeerde fout
+
     this->msporderdata := [ ...defaultpaymentdata
                           , language := paymentmethod.language
                           , customer := customer
+                          , shopping_cart := [ items := (SELECT name := title
+                                                              , description := title
+                                                              , unit_price := FormatMoney(linetotal / (amount ?? 1),2,".","",FALSE)
+                                                              , quantity := amount
+                                                              , merchant_item_id := (type="shipping" ? "msp-shipping" : type="payment" ? "payment-fee" : sku) ?? "orderline-" || (#orderlines+1)
+                                                              , tax_table_selector := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
+                                                           FROM paymentmethod.orderlines)
+                                             ]
+                          , checkout_options := [ "default" := [ "shipping_taxed" := "true"
+                                                               , "rate" := "0.21"
+                                                               ]
+                                                , tax_tables := [[ alternate := SELECT standalone := "true"
+                                                                                     , name := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
+                                                                                     , rules := [[ rate := FormatMoney(vatpercentage/100m, 0, ".", "", FALSE) ]]
+                                                                                  FROM paymentmethod.orderlines
+                                                                              GROUP BY vatpercentage
+                                                                ]]
+                                                ]
                           ];
   }
 
@@ -229,8 +255,14 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     RETURN this->msporderdata;
   }
 
-  PUBLIC UPDATE STRING FUNCTION GetPayRedirectUrl(STRING paymenttok)
+  UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
   {
+    RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , complete := FALSE
+                     , errors := RECORD[]
+                     , processnow := FALSE
+                     ];
+
     STRING returnurl := GetInternalReturnURL(paymenttok);
     STRING apibase := GetApiBase(this->settings.testmode);
 
@@ -246,7 +278,10 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
                          , cancel_url := returnurl
                          ]
                        , customer := this->msporderdata.customer
+                       , shopping_cart := this->msporderdata.shopping_cart
+                       , checkout_options := this->msporderdata.checkout_options
                        ];
+
 
     IF(this->issuer != "")
     {
@@ -263,16 +298,25 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
       THROW NEW Exception("Order post failed");
     }
 
-    RECORD result := DecodeJSONBlob(browser->content);
-    IF(NOT result.success)
-      THROW NEW Exception("Order post failed");
+    RECORD mspresult := DecodeJSONBlob(browser->content);
+    GetPrimary()->BeginWork();
+    UpdatePaymentMetadata(paymenttok, [ mspresult := mspresult
+                                      ]);
+    GetPrimary()->CommitWork();
+    IF(NOT mspresult.success)
+    {
+      this->pvt_status := "failed";
+      result.processnow := TRUE;
+      RETURN result;
+    }
 
     //GetPrimary()->BeginWork();
     //UpdatePaymentMetadata(paymenttok, [ transaction_id := result.data.transaction_id
     //                                  ]);
     //GetPrimary()->CommitWork();
 
-    RETURN result.data.payment_url;
+    result.submitinstruction := [ type := "redirect", url := mspresult.data.payment_url ];
+    RETURN result;
   }
 
   UPDATE PUBLIC MACRO RecheckPayment()
