@@ -139,9 +139,9 @@ test.registerTests(
   , 'Process mail'
   , async function()
     {
-      const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
-      test.eq(1,emails.length,"No emails!");
-      test.eq("Your Form Was Filled", emails[0].subject);
+      const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000, count: 2 });
+      test.eq(2,emails.length,"No emails!");
+      test.eq("Your Form Was Filled", emails[0].subject, "Should be two mails, both for the NEW and for the EDIT action");
     }
 
   , 'Test cancellation'
