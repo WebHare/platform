@@ -47,6 +47,19 @@ test.registerTests(
       test.click(test.compByName("writevaluebutton"));
       await test.wait("ui");
       test.eq(1, parseInt(test.compByName("onselectcount").textContent));
+
+      // test onselect call after another user change
+      setDate(test.compByName("thecomponent$*"), "14-01-2017");
+      await test.wait("ui");
+      test.eq(2, parseInt(test.compByName("onselectcount").textContent));
+
+      // test onselect call after clicking reset
+      let comp = test.compByName("thecomponent$*");
+      test.click(comp.querySelector('.tollium__datetime__reset'));
+      await test.wait("ui");
+
+      test.eq(3, parseInt(test.compByName("onselectcount").textContent));
+      test.eq("", comp.querySelector('.tollium__datetime__day').value);
     }
 
   , "Test right aligned datetime"
