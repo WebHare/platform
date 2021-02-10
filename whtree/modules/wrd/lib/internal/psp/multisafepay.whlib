@@ -212,9 +212,9 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
       }
     }
 
-    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go irht
+    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go right
     UPDATE paymentmethod.orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
-    DELETE FROM paymentmethod.orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hoepfully it fixes Back-end: een niet nader gespecificeerde fout
+    DELETE FROM paymentmethod.orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hopefully it fixes Back-end: een niet nader gespecificeerde fout
 
     this->msporderdata := [ ...defaultpaymentdata
                           , language := paymentmethod.language
