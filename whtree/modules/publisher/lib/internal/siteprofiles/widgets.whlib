@@ -187,3 +187,9 @@ PUBLIC RECORD FUNCTION LookupContentType(STRING namespace)
              , primarygroup := GetContentTypePrimaryGroup(csp, namespace)
              ];
 }
+
+PUBLIC RECORD ARRAY FUNCTION LookupContentTypes(STRING namespace) //this function exists ONLY in 4.30 to resolve some backwards/forwards compatibility issues due to a backport from 4.31 o 4.30.1
+{
+  RECORD res := LookupContentType(namespace);
+  RETURN RecordExists(res) ? [res] : RECORD[];
+}
