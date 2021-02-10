@@ -340,6 +340,11 @@ STATIC OBJECTTYPE PaymentAPI
                                 ];
 
     //Setting up a new payment
+    IF(CellExists(transoptions,'orderlines'))
+    {
+      transoptions.orderlines := EnforceStructure([[ type := ""
+                                                  ]], transoptions.orderlines);
+    }
     psp->__SetupNewTransaction(amount, transoptions);
 
     RETURN RunInSeparatePrimary(PTR this->DoStartPayment(entityid, psp, paymentdata));

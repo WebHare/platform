@@ -13,18 +13,27 @@ if [ -z "$WEBHARE_DBASENAME" ]; then
   exit 1
 fi
 
+# We put everything under a postgresql folder, so we can chown that to ourselves in the future
+eval `$WEBHARE_DIR/bin/webhare printparameters`
+PSROOT="${WEBHARE_DATAROOT}postgresql"
+
 if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
   RUNAS="chpst -u postgres:whdata"
   PSBIN="/usr/lib/postgresql/11/bin/"
 elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
-  PSBIN="$(brew --prefix)/bin/"
+  PGVERSION=$(cat $PSROOT/db/PG_VERSION 2>/dev/null )
+  if [ -n "$PGVERSION" -a  "$PGVERSION" != "13" ]; then
+    if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
+      PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
+    else
+      echo "This database requires postgres version @${PGVERSION}. Please install it"
+    fi
+  else
+    PSBIN="$(brew --prefix)/bin/"
+  fi
 else
   PSBIN="/usr/pgsql-11/bin/"
 fi
-
-# We put everything under a postgresql folder, so we can chown that to ourselves in the future
-eval `$WEBHARE_DIR/bin/webhare printparameters`
-PSROOT="${WEBHARE_DATAROOT}postgresql"
 
 ARGS=""
 
