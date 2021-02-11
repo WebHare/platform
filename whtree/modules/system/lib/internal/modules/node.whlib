@@ -248,7 +248,7 @@ RECORD ARRAY FUNCTION CheckNodeFolder(RECORD nodefolder)
     //Get the actual modules and their versions
     RECORD ARRAY actualnodemodules := ListActualPackages(nodefolder.modulespath);
     RECORD packagejson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package.json")));
-    RECORD packagelockjson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]) ?? StringToBlob("{}"));
+    RECORD packagelockjson := DecodeJSONBlob(GetDiskResource(MergePath(nodefolder.basepath, "package-lock.json"), [ allowmissing := TRUE ]) ?? StringToBlob("{}"), [ "__emptykey__" := "" ]);
 
     issues := issues CONCAT SELECT error := `${error} (${packagefile})` FROM actualnodemodules WHERE error != '';
 

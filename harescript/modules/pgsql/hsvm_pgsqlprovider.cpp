@@ -963,8 +963,14 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                             dt = Blex::DateTime::Max();
                         else
                         {
+                                // PostgreSQL stores an amount of microseconds, 1-1-2000 00:00 is 0 microseconds.
                                 int64_t days = (val / 86400000000) + Blex::DateTime::FromDate(2000, 1, 1).GetDays();
                                 int64_t usecs = val % 86400000000;
+
+                                /* Blex::DateTime must be initialize with positive msec count. When
+                                   doing modulo on a negative integer, we'll get a negative
+                                   amount of msecs. If that's the case, move a day to the usecs
+                                   to get it positive again */
                                 if (usecs < 0)
                                 {
                                         usecs += 86400000000;

@@ -529,7 +529,7 @@ STATIC OBJECTTYPE ManagedWorker
 
     IF (status.type = "taskfailed")
     {
-      FailTask(this->activetask, status.error, status.trace, status.isfatal);
+      FailTask(this->activetask, status.error, RECORD ARRAY(status.trace), status.isfatal);
     }
     ELSE IF (status.type = "taskdone")
     {

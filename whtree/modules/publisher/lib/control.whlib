@@ -298,7 +298,7 @@ BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN recursive)
     @param startingfolder Folder we're waiting to complete republishing (recursively)
     @cell(datetime) options.deadline Maximum time to wait (defaults to MAX_DATETIME)
     @cell(integer) options.reportfrequency If set, frequency (in ms) to report we're still waiting
-    @return Ttrue if publication completed, false on timeout*/
+    @return True if publication completed, false on timeout*/
 PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingfolder, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ deadline := MAX_DATETIME
