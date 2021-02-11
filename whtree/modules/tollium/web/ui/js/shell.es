@@ -29,7 +29,6 @@ todd_components = { ...FrameComponents
 
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
-import * as domfocus from 'dompack/browserfix/focus';
 import * as whintegration from '@mod-system/js/wh/integration';
 import './debugging/magicmenu';
 
@@ -39,6 +38,7 @@ var JSONRPC = require('@mod-system/js/net/jsonrpc');
 var MenuComponent = require('../components/basecontrols/menu');
 import * as whconnect from '@mod-system/js/wh/connect';
 import { setupWHCheck } from './shell/whcheck';
+import "./shell/mousehandling";
 
 var $todd = require('./support');
 import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
@@ -58,14 +58,6 @@ import TowlNotifications from './shell/towl';
 
 import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
-
-function getClosestValidFocusTarget(node)
-{
-  for(;node;node=node.parentNode)
-    if(node.nodeName === 'LABEL' || domfocus.canFocusTo(node) || (node.classList && node.classList.contains('selectable')))
-      return node;
-  return null;
-}
 
 class IndyShell
 { constructor()
@@ -275,13 +267,7 @@ class IndyShell
       document.documentElement.classList.add('browser-ie11');
 
     // Initialize global event handlers
-    window.addEventListener("dompack:movestart", this.onMovingUpdate.bind(this, true), true);
-    window.addEventListener("dompack:moveend", this.onMovingUpdate.bind(this, false), true);
     window.addEventListener("unload", evt => this.onUnload());
-    window.addEventListener("selectstart", this.onSelectStart.bind(this));
-    window.addEventListener("contextmenu", event => this.onContextMenuCapture(event), true);
-    window.addEventListener("mousedown", event => this.onMouseDownFallback(event));
-    window.addEventListener("click", event => this.onClick(event));
 
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));
@@ -386,10 +372,6 @@ class IndyShell
     //if not app is open, open something. not sure about the best approach, we'll just try to activate the last app on the tab bar (The most recently opened one)
     if(!$todd.getActiveApplication() && $todd.applicationBar.apps.length > 0)
       $todd.applicationBar.apps.slice(-1)[0].app.activateApp();
-  }
-  onMovingUpdate(start, event)
-  {
-    document.documentElement.classList.toggle("moveInProgress", start);
   }
   onApplicationEnded(app)
   {
@@ -678,49 +660,6 @@ class IndyShell
     }
 
     this.checkVersion();
-  }
-
-  onSelectStart(event)
-  {
-    var target = event.target.nodeType==3 ? event.target.parentNode : event.target;
-    if(['INPUT','TEXTAREA'].includes(target.tagName) || (['T-TEXT'].includes(target.tagName) && target.classList.contains('selectable')) || target.closest("div.wh-rtd-editor"))
-      return; //these are okay to select. MSIE needs these explicitly allowed
-    $todd.DebugTypedLog('ui', "preventing selection on: ",event.target);
-    event.preventDefault();
-  }
-
-  onMouseDownFallback(event)
-  {
-    let focusable = getClosestValidFocusTarget(event.target);
-    //console.log("*** mousedown reached toplevel for target:", event.target);
-    //console.log("focusable elment:", focusable);
-
-    if(!focusable)
-    {
-      //console.warn("*** Preventing focus transfer");
-      event.preventDefault(); //prevent the body from receiving focus.
-    }
-  }
-
-  onClick(event)
-  {
-    if (event.defaultPrevented)
-      return;
-
-    let link = event.target.closest("a");
-    if(link && (!link.target || link.target == "_self")) //under NO circumstance a hyperlink may replace the current tollium session - move it to a new window
-    {
-      window.open(link, '_blank');
-      event.preventDefault();
-    }
-  }
-
-  onContextMenuCapture(event)
-  {
-    if(event.ctrlKey && event.shiftKey)
-      event.stopPropagation(); //ensure that if both ctrl&shift are pressed, noone will intercept the context menu
-    else
-      event.preventDefault(); //in all other cases, we prevent the browser menu
   }
 
   _gotOffline()
