@@ -127,8 +127,6 @@ class PhotoFilters extends SurfaceTool
 
   start()
   {
-    var styles = this.surface.canvas.get('style');
-
     this.filterbox = <div class="wh-filterbox" style={this.surface.canvas.style.cssText} />;
     this.surface.container.append(this.filterbox);
 

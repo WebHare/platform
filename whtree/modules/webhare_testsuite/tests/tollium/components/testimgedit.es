@@ -168,7 +168,24 @@ var TestImageEditor =
       }
     }
 
-  , test.testClickTolliumButton("Cancel", { name: "cancel edit", waits: [ "ui" ]})
+  , "Apply filters"
+  , async function()
+    {
+      let filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Apply Filters'))[0];
+      test.true(filterbutton);
+      test.click(filterbutton);
+
+      let invertbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Invert'))[0];
+      test.true(invertbutton);
+      test.click(invertbutton);
+      await test.wait('ui');
+
+      test.clickTolliumButton("OK");
+      await test.wait('ui');
+
+      test.clickTolliumButton("Save");
+      await test.wait('ui');
+    }
   ];
 
 test.registerTests(
