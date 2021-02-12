@@ -11,6 +11,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/services/apprunner.whlib";
@@ -257,6 +258,7 @@ PUBLIC STATIC OBJECTTYPE AppRunner
        Delay running update to the next microtask slot, so no recursive
        calling into IntegrateApplications
     */
+    LogDebug("system:apprunner","GotReloadEvent",event);
     ScheduleMicroTask(PTR this->HandleReloadEvent(issoftreset, event, data));
   }
 
