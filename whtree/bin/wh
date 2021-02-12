@@ -249,7 +249,7 @@ setup_buildsystem()
         exit 1
       fi
       echo "Invoking Homebrew's installer"
-      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       if ! which brew >/dev/null 2>&1 ; then
         echo "Homebrew is still unavailable"
         exit 1
@@ -1202,7 +1202,7 @@ HERE
       fi
     fi
 
-    echo "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
+    echo "Command '$INSTR' not understood - use 'wh help' for a list of instructions" 1>&2
     exit 1
     ;;
 esac
