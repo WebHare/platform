@@ -163,6 +163,7 @@ elif [ "$RESTORE_DB" == "postgresql" ]; then
   fi
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
+    chown postgres:root "$WEBHARE_DATAROOT/postgresql/"
     chown -R postgres:root "$WEBHARE_DATAROOT/postgresql.restore/"
   fi
   mv "$WEBHARE_DATAROOT/postgresql.restore/"* "$RESTORETO/"
