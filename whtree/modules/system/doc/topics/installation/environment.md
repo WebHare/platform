@@ -71,7 +71,7 @@ Set the IP address binding for the secure/trusted port (usually 13684). If not s
 intended for the nginx reverse proxy and allows connections to fake their source port, IP and protocol.
 
 ### WEBHARE_RESCUEPORT_BINDIP
-Set the IP address binding for the rescue port (usually 13684). If not set it defaults to localhost. The rescueport hosts
+Set the IP address binding for the rescue port (usually 13688). If not set it defaults to localhost. The rescueport hosts
 an insecure WebHare backend interface
 
 ### WEBHARE_LOOPBACKPORT_BINDIP
