@@ -234,7 +234,7 @@ version=$WEBHARE_VERSION
 HERE
 
 # Fix permissions (crontab files cannot be world-writable)
-chmod 600 dropins/etc/cron.d/*
+chmod 600 dropins/etc/cron.d/* 2>/dev/null
 
 echo "Docker build args: ${DOCKERBUILDARGS[@]}"
 
