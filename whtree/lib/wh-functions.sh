@@ -240,6 +240,12 @@ get_absolute_path()
   fi
 }
 
+die()
+{
+  echo "$@" 1>&2
+  exit 1
+}
+
 trim()
 {
     local var="$*"
