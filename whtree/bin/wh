@@ -19,8 +19,7 @@ while [[ $1 =~ ^-.* ]]; do
     SETUPENV=1
     shift
   else
-    echo "Illegal option $1"
-    exit 1
+    die "Illegal option $1"
   fi
 done
 
@@ -64,8 +63,7 @@ if [ "$WEBHARE_INITIALDB" == "postgres" -o "$WEBHARE_INITIALDB" == "postgresql" 
 elif [ "$WEBHARE_INITIALDB" == "dbserver" -o "$WEBHARE_INITIALDB" == "" ]; then
   WEBHARE_INITIALDB=dbserver
 else
-  echo "Invalid WEBHARE_INITIALDB setting: $WEBHARE_INITIALDB"
-  exit 1
+  die "Invalid WEBHARE_INITIALDB setting: $WEBHARE_INITIALDB"
 fi
 
 if [ -f $WEBHARE_DATAROOT/postgresql/db/postgresql.conf ] || ( [ ! -f $WEBHARE_DATAROOT/dbase/translog.whdb -a "$WEBHARE_INITIALDB" == "postgresql" ] ); then
@@ -122,8 +120,7 @@ export LANG="C"
 export LC_ALL="C"
 
 if [ ! -d "$WEBHARE_DIR" ]; then
-  echo "Cannot find WebHare installation" 2>&1
-  exit 1
+  die "Cannot find WebHare installation"
 fi
 
 fixup_remotes()
@@ -207,8 +204,7 @@ check_webhare_running()
   fi
 
   if ! is_webhare_running ; then
-    echo "WebHare does not seem to be running"
-    exit 1
+    die "WebHare does not seem to be running"
   fi
 }
 
@@ -219,21 +215,19 @@ check_webhare_not_running()
   fi
 
   if is_webhare_running ; then
-    echo "WebHare is already running"
-    exit 1
+    die "WebHare is already running"
   fi
 }
 
 setup_buildsystem()
 {
   if [ -n "$WEBHARE_IN_DOCKER" -a -z "$WHBUILD_ALLOW" ]; then
-    echo "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
-    exit 1
+    # Prevent you from accidentally breaking a running WebHare installation - did you think you were running this locally?
+    die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
   fi
 
   if [ -z "$WEBHARE_BUILDDIR" ]; then
-    echo "Haven't determined the WebHare builddir - your checkout looks too different from what I'm used to"
-    exit 1
+    die "Haven't determined the WebHare builddir - your checkout looks too different from what I'm used to"
   fi
   mkdir -p $WEBHARE_BUILDDIR
 
@@ -245,14 +239,12 @@ setup_buildsystem()
       echo ""
       read answer
       if [ "$answer" != "YES" ]; then
-        echo "Then I fear you're on your own"
-        exit 1
+        die "Then I fear you're on your own"
       fi
       echo "Invoking Homebrew's installer"
-      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       if ! which brew >/dev/null 2>&1 ; then
-        echo "Homebrew is still unavailable"
-        exit 1
+        die "Homebrew is still unavailable"
       fi
     fi
 
@@ -294,16 +286,14 @@ setup_buildsystem()
       echo "$MISSINGPACKAGES"
       echo ""
       if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
-        echo "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
-        exit 1
+        die "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
       fi
       if [ "$FORCE" != "1" ]; then
         echo "If you want me to install them, type YES"
         echo ""
         read answer
         if [ "$answer" != "YES" ]; then
-          echo "Then I fear you're on your own"
-          exit 1
+          die "Then I fear you're on your own"
         fi
       fi
 
@@ -318,8 +308,7 @@ setup_buildsystem()
       echo "If you want me to install it, type YES (in uppercase)"
       read answer
       if [ "$answer" != "YES" ]; then
-        echo "Then I fear you're on your own"
-        exit 1
+        die "Then I fear you're on your own"
       fi
     fi
     npm install -g npm
@@ -346,8 +335,7 @@ setup_buildsystem()
     if [ ! -f "$PDFBOX_DOWNLOADPATH" -o ! -f "$PDFBOX_FINALPATH" ]; then
       mkdir -p "$PDFBOX_BASEDIR"
       if ! curl https://build.webhare.dev/whbuild/pdfbox-app-$PDFBOX_VERSION.jar > "$PDFBOX_DOWNLOADPATH.tmp" ; then
-        echo PDFBOX download failed
-        exit 1
+        die PDFBOX download failed
       fi
       mv "$PDFBOX_DOWNLOADPATH.tmp" "$PDFBOX_DOWNLOADPATH"
     fi
@@ -368,8 +356,7 @@ setup_webhare_envsettings()
   else
     getbaseversioninfo
     if [ -z "$WEBHARE_VERSION" ]; then
-      echo Cannot determine WebHare version
-      exit 1
+      die Cannot determine WebHare version
     fi
     export WEBHARE_VERSION="${WEBHARE_VERSION}-dev"
     export WEBHARE_DISPLAYBUILDINFO=$(
@@ -535,9 +522,7 @@ git_update_all()
   UPDATEFATAL=0
 
   if ! git merge-base --is-ancestor master origin/master && ! git merge-base --is-ancestor master upstream/master 2> /dev/null; then
-    echo "YOU HAVE MODIFIED THE MASTER BRANCH - but you're not allowed to commit directly"
-    echo "Aborting update, fix this first"
-    exit 1
+    die "It seems you have modified the master branch, but you can't commit there. Move your changes to a branch"
   fi
 
   if [ -z "$1" ] || [[ "webhare" =~ $1 ]]; then
@@ -631,8 +616,7 @@ git_update_all()
     echo "The following packages were not updated:$UPDATEERRORS"
   fi
   if [ "$UPDATEFATAL" == "1" ]; then
-    echo "This appears to be fatal, please fix!"
-    exit 1
+    die "This appears to be fatal, please fix!"
   fi
 }
 
@@ -769,8 +753,7 @@ case $INSTR in
       if [ "$1" == "-p" ]; then
         CLEARPERSISTENT=-p
       else
-        echo "Unknown option $1"
-        exit 1
+        die "Unknown option $1"
       fi
       shift
     done
@@ -780,8 +763,7 @@ case $INSTR in
   "run")
     getscripttorun SCRIPT "$@"
     if [ -z "$SCRIPT" ]; then
-      echo "Specify the script to run"
-      exit 1
+      die "Specify the script to run"
     fi
 
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" ]; then
@@ -802,7 +784,7 @@ case $INSTR in
         fi
       done
       exec node $NODEOPTIONS "$@"
-      exit 1
+      die Failed to invoke node for $1
     else
       if [ "$1" == "--whdebug" ]; then
         shift
@@ -903,21 +885,18 @@ case $INSTR in
     BASE_DIR=$WEBHARE_DIR/node_modules
     if [ -n "$COVERAGE" ]; then
       if [ -n "$EXTRA_WATCH" ]; then
-        echo "Coverage testing and watching are mutally exclusive"
-        exit 1
+        die "Coverage testing and watching are mutally exclusive"
       fi
 
       if ! which nyc >/dev/null 2>&1 ; then
-        echo "Install 'nyc' to run coverage tests (npm i -g nyc)"
-        exit 1
+        die "Install 'nyc' to run coverage tests (npm i -g nyc)"
       fi
 
       # Run nyc in /tmp, it creates a lot of directories. Resolve all files first
       MOCHAPARAMS=
       while [ "$#" -ne 0 ]; do
         if [[ $1 == -* ]]; then
-          echo "Unknown option $1"
-          exit 1
+          die "Unknown option $1"
         fi
         if [[ $1 == /* ]]; then
           MOCHAPARAMS="$MOCHAPARAMS $1"
@@ -1050,8 +1029,7 @@ HERE
 
   "waitfor")
     if [ "$1" != "poststart" -a "$1" != "poststartdone" ]; then
-      echo "Only poststart and poststartdone are supported"
-      exit 1
+      die "Only poststart and poststartdone are supported"
     fi
     eval `$WEBHARE_DIR/bin/webhare printparameters`
     WAITFOR="${WEBHARE_DATAROOT}ephemeral/system.servicestate/$1"
@@ -1071,9 +1049,7 @@ HERE
 
     ALLOWFRESHFILE="$WEBHARE_DATAROOT/etc/allow-fresh-db"
     if [ ! -f "$ALLOWFRESHFILE" ]; then
-      echo "freshdbconsole WIPES YOUR DATABASE on startup"
-      echo "To prove this is what you wish, please create a file named '$ALLOWFRESHFILE'"
-      exit 1
+      die "freshdbconsole WIPES YOUR DATABASE on startup. To prove this is what you wish, please create a file named '$ALLOWFRESHFILE'"
     fi
 
     rm -rf -- "$WEBHARE_DATAROOT"/postgresql
@@ -1137,8 +1113,7 @@ HERE
 
   "hstest")
     if [ -z "$1" ]; then
-      echo "Specify the test to run"
-      exit 1
+      die "Specify the test to run"
     fi
     setup_buildsystem
     estimate_buildj
@@ -1191,8 +1166,7 @@ HERE
         exec node "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "${OPTIONS[@]}"
       fi
 
-      echo "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"
-      exit 1
+      die "Don't know how to process command '$SUBCOMMAND' for module $TARGETMODULE"
     else #Command not in the form 'xxx:yyy'
       if [ -f "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" ]; then
         exec /bin/bash "$WEBHARE_DIR/modules/system/scripts/whcommands/$INSTR.sh" "${OPTIONS[@]}"
@@ -1202,7 +1176,6 @@ HERE
       fi
     fi
 
-    echo "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
-    exit 1
+    die "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
     ;;
 esac
