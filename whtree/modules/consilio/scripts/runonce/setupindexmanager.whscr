@@ -10,7 +10,17 @@ LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
+
+BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
+
+MACRO LogStartup(STRING text)
+{
+  LogDebug("consilio:setupindexmanager", text);
+  IF(debugstartup)
+    Print("Setupindexmanager: " || text || "\n");
+}
 
 OBJECT trans := OpenPrimary();
 
@@ -18,24 +28,20 @@ INTEGER builtin_indexmanager := GetDefaultIndexManager();
 IF(builtin_indexmanager != 0)
   RETURN; //we already have one
 
-BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
-IF(debugstartup)
-  Print("There is no inndexmanager yet, need to create one\n");
+LogStartup("There is no indexmanager yet, need to create one");
 
 trans->BeginWork();
 BOOLEAN setup_elasticsearch := GetEnvironmentVariable("TESTFW_SETUP_ELASTICSEARCH") != "";
 builtin_indexmanager := MakeAutonumber(consilio.indexmanagers,"id");
 IF(setup_elasticsearch)
 {
-  IF(debugstartup)
-    Print("Creating ElasticSearch\n");
+  LogStartup("Creating ElasticSearch");
   INSERT INTO consilio.indexmanagers(id, name, type, address)
        VALUES (builtin_indexmanager, "Builtin Elastic search", 2, "builtin-elasticsearch");
 }
 ELSE
 {
-  IF(debugstartup)
-    Print("Creating legacy indexmanager\n");
+  LogStartup("Creating legacy indexmanager");
   INSERT INTO consilio.indexmanagers(id, name, type, address, enablestemming, loglevel)
        VALUES (builtin_indexmanager, "Builtin Consilio", 1, "builtin", ReadRegistryKey("consilio.indexmanager.enablestemming"), ReadRegistryKey("consilio.indexmanager.loglevel"));
 }
@@ -43,21 +49,19 @@ ELSE
 GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
 trans->CommitWork();
 
-IF(debugstartup)
-  Print("Waiting for indexmanager to come online\n");
+LogStartup("Waiting for indexmanager to come online");
 
 STRING status := WaitForPromise(WaitForIndexManager(builtin_indexmanager));
 IF (status != SearchOk)
 {
+  LogStartup(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}`);
   Print(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}\n`);
   RETURN;
 }
 
-IF(debugstartup)
-  Print("Autocreated indexmanager is online\n");
+LogStartup("Autocreated indexmanager is online");
 
 FixConsilioIndices();
 
-IF(debugstartup)
-  Print("Autocreated indexmanager is configured\n");
+LogStartup("Autocreated indexmanager is configured");
 

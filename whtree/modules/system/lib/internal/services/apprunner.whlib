@@ -6,6 +6,7 @@ LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -137,6 +138,8 @@ RECORD ARRAY FUNCTION GetModuleApps()
       LogHarescriptException(e);
     }
   }
+
+  LogDebug("system:apprunner", SELECT name FROM apps ORDER BY name);
 
   RETURN apps;
 }
