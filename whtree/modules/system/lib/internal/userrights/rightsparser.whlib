@@ -1,0 +1,86 @@
+<?wh
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+
+PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
+{
+  RECORD ARRAY rightstables := GetPrimary()->GetTableListing("system_rights");
+  rightstables := SELECT TEMPORARY reference := (SELECT * FROM GetPrimary()->GetColumnListing("system_rights", rightstables.table_name) WHERE ToLowercase(column_name) = "object")
+                       , table_name
+                       //, match_by_object_id := (SELECT AS STRING schema_name || "."  || table_name FROM alltables WHERE alltables.object_id = ToInteger(Substring(rightstables.table_name,2),0))
+                       , match_by_references := ToLowercase(RecordExists(reference) ? reference.referenced_table_schema || "." || reference.referenced_table_name : "")
+                   FROM rightstables
+                  WHERE ToLowercase(table_name) LIKE "o_*" AND ToInteger(Substring(table_name,2),0) > 0;
+
+  RECORD ARRAY modules := SELECT id,name FROM system_internal.modules;
+  RECORD ARRAY db_objecttypes := SELECT id,module,name,primarykey FROM system_internal.module_objecttypes ORDER BY module, name;
+
+  STRING ARRAY issues;
+  RECORD ARRAY objecttypes;
+  STRING ARRAY missingrightstables;
+  FOREVERY (RECORD module FROM GetWebHareModules())
+  {
+    INTEGER moduleid := SELECT AS INTEGER id FROM modules WHERE modules.name = module.name;
+    IF(moduleid = 0)
+    {
+      INSERT `Module '${module.name} isn't in system.modules yet` INTO issues AT END;
+      CONTINUE;
+    }
+
+    IF(module.name = "system")
+    {
+      RECORD matchglobal := RecordLowerBound(db_objecttypes, CELL[module := moduleid, name := "#global" ], ["module","name"]);
+      INSERT CELL[ ...db_objecttypes[matchglobal.position]
+                 , storagetable := "system_rights.global_rights"
+                 , primarykey := ""
+                 , parentfield := ""
+                 , describer := ""
+                 , icon := ""
+                 , tablename := ""
+                 , rightsobjecttype := "system:#global"
+                 ] INTO objecttypes AT END;
+    }
+
+    FOREVERY(RECORD objtype FROM module.moduleobjects)
+    {
+      STRING localname := Tokenize(objtype.name,':')[1];
+      RECORD match := RecordLowerBound(db_objecttypes, CELL[module := moduleid, name := localname ], ["module","name"]);
+      IF(NOT RecordExists(match))
+      {
+        INSERT `Right objecttype '${objtype.name}' isn't in system.module_objecttypes yet` INTO issues AT END;
+        CONTINUE;
+      }
+
+      RECORD ARRAY match_rightstables := SELECT * FROM rightstables WHERE match_by_references = objtype.tablename;
+      IF(NOT RecordExists(match_rightstables))
+      {
+        INSERT `Right objecttype '${objtype.name}' requires a rightstable for '${objtype.tablename}' but it doesn't exist yet` INTO issues AT END;
+        IF(objtype.tablename NOT IN missingrightstables)
+          INSERT objtype.tablename INTO missingrightstables AT END;
+
+        CONTINUE;
+      }
+      IF(Length(match_rightstables)>1)
+      {
+        INSERT `Right objecttype '${objtype.name}' requires a rightstable for '${objtype.tablename}' but it lacks an unambiguous candidate` INTO issues AT END;
+        CONTINUE;
+      }
+      INSERT CELL[ ...objtype, ...db_objecttypes[match.position], storagetable := "system_rights." || match_rightstables[0].table_name, rightsobjecttype := objtype.name ] INTO objecttypes AT END;
+    }
+  }
+
+  objecttypes := SELECT * FROM objecttypes ORDER BY rightsobjecttype;
+  RETURN [ value := CELL[ objecttypes, issues, missingrightstables ]
+         , ttl := 15 * 60 * 1000
+         , eventmasks := [ "system:config.rights", "system:modulesupdate" ]
+         ];
+}
+
+PUBLIC RECORD FUNCTION GetModuleObjectTypes()
+{
+  RETURN GetAdhocCached([ type := "module_objecttypes" ], PTR __GetCacheableModuleObjectTypes());
+}

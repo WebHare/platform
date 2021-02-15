@@ -1171,12 +1171,17 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
+      <!-- FIXME Obsolete tablename, storagetable, parentfield, icon, describer. But do that once it seems unlikely that
+           users will accidentally upgrade try to downgrade immediately to a version requiring 'storagetable'.
+
+           we can't just comment them out, at least 'storagetable' requires its nullable=false to be revoked
+         -->
       <d:varchar name="tablename" maxlength="256">
         <d:documentation>
 
         </d:documentation>
       </d:varchar>
-      <d:varchar name="storagetable" maxlength="256" nullable="false">
+      <d:varchar name="storagetable" maxlength="256">
         <d:documentation>
 
         </d:documentation>

@@ -23,6 +23,8 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+
 
 RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
 
@@ -315,42 +317,10 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
       ELSE
         INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path} - use \`wh remove-old-databases\` to clean up` ]INTO messages AT END;
     }
-
-    //Check the rights tables, there were various earlier upgrade issues
-    RECORD ARRAY alltables;
-    FOREVERY(RECORD schemarec FROM GetPrimary()->GetSchemaListing())
-      IF(NOT schemarec.is_system_schema)
-        alltables := alltables CONCAT (SELECT *, schema_name := schemarec.schema_name FROM GetPrimary()->GetTableListing(schemarec.schema_name));
-
-    RECORD ARRAY rightstables := SELECT * FROM GetPrimary()->GetTableListing("system_rights") WHERE table_name NOT IN ["global_rights"];
-    FOREVERY(RECORD tab FROM rightstables)
-    {
-      RECORD reference := (SELECT * FROM GetPrimary()->GetColumnListing("system_rights", tab.table_name) WHERE column_name = "object");
-      IF(NOT RecordExists(reference))
-      {
-        INSERT [ msg := `:Rights table 'system_rights.${tab.table_name}' is broken, no 'object' column` ] INTO messages AT END;
-        CONTINUE;
-      }
-      IF(tab.table_name != "o_" || reference.referenced_table_oid)
-      {
-        INSERT [ msg := `:Rights table 'system_rights.${tab.table_name}' is broken, it references table #${reference.referenced_table_oid} (${reference.referenced_table_schema}.${reference.referenced_table_name})` ] INTO messages AT END;
-        CONTINUE;
-      }
-    }
-
-    STRING ARRAY systemrighttables := SELECT AS STRING ARRAY ToUppercase(table_name) FROM GetPrimary()->GetTableListing("system_rights");
-    RECORD ARRAY objecttypes_without_storage :=
-        SELECT name := `${modules.name}:${module_objecttypes.name}`
-             , storagetable
-          FROM system.module_objecttypes
-             , system.modules
-         WHERE module = modules.id
-           AND ToUppercase(storagetable) LIKE "SYSTEM_RIGHTS.*"
-           AND ToUppercase(Substring(storagetable,14)) NOT IN systemrighttables;
-
-    FOREVERY (RECORD rec FROM objecttypes_without_storage)
-      INSERT [ msg := `:Module objecttype '${rec.name}' storage table '${rec.storagetable}' does not exist` ] INTO messages AT END;
   }
+
+  FOREVERY(STRING issue FROM GetModuleObjectTypes().issues)
+    INSERT [ msg := ":" || issue ] INTO messages AT END;
 
   // Tollium registry stuff
   STRING backendurl := GetPrimaryWebhareInterfaceURL();

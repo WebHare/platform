@@ -7,6 +7,8 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+
 
 /*  Rights management library, version 2.
 
@@ -242,12 +244,6 @@ RECORD FUNCTION GetCachableRightByNameInternal(STRING rightname, STRING full_rig
            , fullname           := full_rightname
            , rightid            := module_rights.id
            , modulename         := modulename
-           , tablename          := module_objecttypes.tablename
-           , storagetable       := module_objecttypes.storagetable
-           , primarykey         := ToLowercase(module_objecttypes.primarykey)
-           , parentfield        := ToLowercase(module_objecttypes.parentfield)
-           , allowobjref        := module_objecttypes.tablename != ""
-           , isglobal           := module_objecttypes.tablename = ""
            , objecttypename     := objectmodule.name||":"||module_objecttypes.name
         FROM system_internal.module_rights
            , system_internal.module_objecttypes
@@ -259,6 +255,19 @@ RECORD FUNCTION GetCachableRightByNameInternal(STRING rightname, STRING full_rig
 
   IF (NOT RecordExists(rec))
     THROW NEW Exception("Right '"||orgrightname||"' does not exist, or module '"||modulename||"' is not initialized");
+
+  RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.rightsobjecttype = rec.objecttypename;
+  IF(NOT RecordExists(rightobjtype))
+    THROW NEW Exception(`Rights objecttype '${rec.objecttypename}' not registered`);
+
+  rec := CELL[ ...rec
+             , rightobjtype.tablename
+             , rightobjtype.storagetable
+             , primarykey         := ToLowercase(rightobjtype.primarykey)
+             , parentfield        := ToLowercase(rightobjtype.parentfield)
+             , allowobjref        := rightobjtype.tablename != ""
+             , isglobal           := rightobjtype.tablename = ""
+             ];
 
   RETURN [ value := rec
          , eventmasks := ["system:config.rights"]
@@ -494,21 +503,20 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
   STRING modulename := LEFT(type, mpos);
   STRING objtype := SubString(type, mpos + 1);
 
+ RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.rightsobjecttype = type;
+  IF(NOT RecordExists(rightobjtype))
+    THROW NEW Exception(`Object type '${type}' does not exist`);
+
   RECORD rec :=
-      SELECT "0" := type
-           , objecttypeid := module_objecttypes.id
+       CELL[ "0" := type
+           , objecttypeid := rightobjtype.id
            , objecttypename := type
            , modulename := modulename
-           , describer
-           , tablename
-           , primarykey         := ToLowercase(primarykey)
-           , parentfield        := ToLowercase(parentfield)
-        FROM system_internal.module_objecttypes
-           , system_internal.modules
-       WHERE modules.name = modulename
-         AND module_objecttypes.module = modules.id
-         AND module_objecttypes.name = objtype;
-
+           , rightobjtype.describer
+           , rightobjtype.tablename
+           , primarykey         := ToLowercase(rightobjtype.primarykey)
+           , parentfield        := ToLowercase(rightobjtype.parentfield)
+           ];
   IF (NOT RecordExists(rec))
     THROW NEW Exception("Object type '"||type||"' does not exist");
 

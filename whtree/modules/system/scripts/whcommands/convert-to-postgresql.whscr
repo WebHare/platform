@@ -589,48 +589,6 @@ cmd := GeneratePostgreSQLDependentSQLCommands(apply_schemadefs, postgresql_trans
 ExecuteSQLUpdates(postgresql_trans, cmd.commands);
 PRINT(`done\n`);
 
-/** Renames all system_rights object-tables to the name they will have using PostgreSQL table oids
-*/
-MACRO RenameRightsTables()
-{
-  SCHEMA postgresql_system LIKE system := BindTransactionToSchema(postgresql_trans->id, "system");
-
-  FOREVERY (RECORD objtype FROM SELECT names := GroupedValues(name), tablename, storagetable FROM system.module_objecttypes WHERE tablename != "" GROUP BY tablename, storagetable)
-  {
-    STRING obj_tablename := objtype.tablename;
-    STRING storagetable_localname := Tokenize(objtype.storagetable, ".")[1];
-
-    INTEGER dpos := SearchSubString(obj_tablename, ".");
-    STRING t_schema := LEFT(obj_tablename, dpos);
-    IF (t_schema = "")
-      t_schema := "PUBLIC";
-    STRING t_table := SubString(obj_tablename, dpos + 1);
-
-    RECORD tablerec :=
-        SELECT object_id
-             , primary_key_name
-          FROM postgresql_trans->GetTableListing(t_schema)
-         WHERE ToUppercase(table_name) = ToUppercase(t_table);
-
-    IF (NOT RecordExists(tablerec))
-      ABORT("Can't find referenced table '"||objtype.tablename||"' for object types " || Detokenize(objtype.names,','));
-
-    STRING new_storagetable_localname := "o_" || tablerec.object_id;
-
-    PRINT(`Rename "system_rights".${PostgreSQLEscapeIdentifier(storagetable_localname)} to ${PostgreSQLEscapeIdentifier(new_storagetable_localname)}\n`);
-
-    postgresql_trans->__ExecSQL(`ALTER TABLE "system_rights".${PostgreSQLEscapeIdentifier(storagetable_localname)} RENAME TO ${PostgreSQLEscapeIdentifier(new_storagetable_localname)}`);
-
-    UPDATE postgresql_system.module_objecttypes
-       SET storagetable := `system_rights.${new_storagetable_localname}`
-     WHERE tablename = objtype.tablename;
-  }
-}
-
-PRINT(`Renaming rights tables...\n`);
-RenameRightsTables();
-PRINT(`done\n`);
-
 PRINT("Committing\n");
 postgresql_trans->CommitWork();
 
