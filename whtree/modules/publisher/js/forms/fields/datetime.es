@@ -94,6 +94,8 @@ class MultiInputSubstition
       return;
 
     this._replacednode.value = '';
+    dompack.dispatchDomEvent(this._replacednode, 'input');
+    dompack.dispatchDomEvent(this._replacednode, 'change');
   }
   _handlePastedValue(inval)
   {
