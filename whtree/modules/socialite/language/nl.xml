@@ -200,7 +200,7 @@
   <textgroup gid="screens">   <!-- screens -->
     <textgroup gid="forms">   <!-- screens.forms -->
       <textgroup gid="gtmdatalayer">   <!-- screens.forms.gtmdatalayer -->
-        <text tid="formname">Formulier naam</text>
+        <text tid="formname">Formuliernaam</text>
       </textgroup>
     </textgroup>
     <textgroup gid="plugins">   <!-- screens.plugins -->
