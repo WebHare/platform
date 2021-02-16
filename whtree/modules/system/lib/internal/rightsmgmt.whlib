@@ -3162,9 +3162,6 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
 */
 PUBLIC INTEGER ARRAY FUNCTION GetObjectIdsOfDirectGrantsTo(STRING rightname, OBJECT user, BOOLEAN onlywithgrantoption)
 {
-  IF (NOT ObjectExists(user))
-    user := GetEffectiveUser();
-
   RECORD rightdata := GetRightByNameInternal(rightname);
 
   INTEGER ARRAY authobjects := user->__PVT_GetAllAuthObjects();

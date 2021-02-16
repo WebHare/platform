@@ -563,6 +563,9 @@ BOOLEAN FUNCTION UserHasDirectGrantFor(STRING rightname, OBJECT grantee, INTEGER
 
 PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees, STRING comment)
 {
+  IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
+    THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
+
   IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
   {
     work->AddError(GetTid("system:userrights.commondialogs.errors.norighttomanagerole", roleobj->GetUserRightsName()));
@@ -618,6 +621,9 @@ PUBLIC MACRO TolliumGrantRoleTo(OBJECT contexts, OBJECT work, OBJECT roleobj, OB
 
 PUBLIC MACRO TolliumRevokeRoleFrom(OBJECT contexts, OBJECT work, OBJECT roleobj, OBJECT ARRAY grantees)
 {
+  IF(NOT MemberExists(roleobj,"EnsureAuthObject"))
+    THROW NEW Exception(`Expecting a WRDAuthObject derived role`);
+
   IF (NOT contexts->user->HasRightOn("system:manageroles", roleobj->authobjectid))
   {
     work->AddError(GetTid("system:userrights.commondialogs.errors.norighttorevokerole", roleobj->GetUserRightsName()));
@@ -661,12 +667,11 @@ PUBLIC MACRO TolliumRevokeRoleFrom(OBJECT contexts, OBJECT work, OBJECT roleobj,
   }
 }
 
-MACRO LogRightAction(BOOLEAN isgrant, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER ARRAY objectids, BOOLEAN withgrantoption, STRING comment)
-{
-}
-
 PUBLIC MACRO TolliumGrantRightTo(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER ARRAY objectids, BOOLEAN withgrantoption, STRING comment)
 {
+  IF(NOT MemberExists(grantee,"EnsureAuthObject"))
+    THROW NEW Exception(`Expecting a WRDAuthObject derived grantee`);
+
   BOOLEAN right_is_global := IsRightGlobal(right_name);
 
   IF (right_is_global)
@@ -737,6 +742,9 @@ PUBLIC BOOLEAN FUNCTION IsRevokeDangerous(OBJECT grantor, OBJECT grantee, STRING
 
 PUBLIC MACRO TolliumRevokeRightFrom(OBJECT work, OBJECT rightsinfo, OBJECT grantor, OBJECT grantee, STRING right_name, INTEGER objectid, BOOLEAN onlyremovegrantoption)
 {
+  IF(NOT MemberExists(grantee,"EnsureAuthObject"))
+    THROW NEW Exception(`Expecting a WRDAuthObject derived grantee`);
+
   BOOLEAN right_is_global := IsRightGlobal(right_name);
 
   IF (NOT UserHasDirectGrantFor(right_name, grantee, objectid, onlyremovegrantoption))
