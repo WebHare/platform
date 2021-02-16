@@ -1,4 +1,7 @@
 <?wh
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
 /** @topic modules/integration */
 
 /** Open a user/role selection dialog
@@ -6,6 +9,7 @@
     @cell(boolean) options.roles Allow role selection (defaults to true)
     @cell(boolean) options.users Allow user selection (defaults to true)
     @cell(boolean) options.selectmutiple Allow multiple selection
+    @cell(integer array) options.value Values to pre-select
     @cell(string) options.explanation Explanation to show in the dialog
     @cell(integer) options.unit Unit entity to preselect
     @return The selected items, or an empty array if cancelled
@@ -19,6 +23,7 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
                              , selectmultiple := FALSE
                              , explanation := ""
                              , unit := 0
+                             , value := INTEGER[]
                              ], options);
 
   IF(NOT options.roles AND NOT options.users)
@@ -29,13 +34,29 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
   IF(options.selectmultiple)
     screen->selectmode := "multiple";
   screen->explanation := options.explanation;
+
+  IF(Length(options.value) > 0)
+  {
+    INTEGER parentunit;
+    RECORD descr := DescribeWRDEntity(options.value[0]);
+    IF(descr.wrdtypetag = "WHUSER_ROLE")
+      parentunit := parent->contexts->userapi->wrdschema->^whuser_role->GetEntityField(options.value[0], "WRD_LEFTENTITY");
+    ELSE
+      parentunit := parent->contexts->userapi->accounttype->GetEntityField(options.value[0], "WHUSER_UNIT");
+
+    IF(parentunit != 0)
+      screen->unit := parent->contexts->userapi->GetUnit(parentunit);
+
+    //TODO support multiple preselect but I think we need to fix the dialog first to just take IDs instead of a hard object translation. that gets easier when external callers (UT?) are cleaned
+    screen->value := OBJECT[ descr.wrdtypetag = "WHUSER_ROLE" ? parent->contexts->userapi->GetRole(options.value[0]) : parent->contexts->userapi->GetUser(options.value[0])];
+  }
   IF(options.unit != 0)
     screen->unit := parent->contexts->userapi->GetUnit(options.unit);
 
   IF(NOT options.roles)
     screen->filterontype := 1; //users only
   ELSE IF(NOT options.users)
-    screen->filterontype := 2; //roles only
+    screen->filterontype := 3; //roles only
 
   IF(screen->RunModal() != "ok")
     RETURN RECORD[];
