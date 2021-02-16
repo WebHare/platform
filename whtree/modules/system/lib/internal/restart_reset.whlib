@@ -139,18 +139,16 @@ MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
     HandleRunonceOutput(module, ro_result_2);
   }
 
-  FOREVERY(RECORD module FROM modlist)
-  {
-    IF(showinfo)
-      Print(">> " || module.name || " >> modulerights\n");
-    RECORD output2 := InitModuleRights(module, FALSE);
-    ReportOnInit(output2);
+  IF(showinfo)
+    Print(">> modulerights\n");
 
-    IF(GetPrimary()->IsWorkOpen())
-    {
-      PRINT("ERROR! Work was still open after InitModuleRights for '" || module.name || "'\n");
-      GetPrimary()->RollbackWork();
-    }
+  RECORD output2 := InitModuleRights(modlist, FALSE);
+  ReportOnInit(output2);
+
+  IF(GetPrimary()->IsWorkOpen())
+  {
+    PRINT("ERROR! Work was still open after InitModuleRights\n");
+    GetPrimary()->RollbackWork();
   }
 
   FOREVERY(RECORD module FROM modlist)
