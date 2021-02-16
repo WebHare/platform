@@ -9,10 +9,7 @@ if [ "$1" == "-f" ]; then
   shift
 fi
 
-if [ -z "$1" ]; then
-  echo "Which log file to read? eg 'rpc'"
-  exit 1
-fi
+[ -z "$1" ] && die "Which log file to read? eg 'rpc'"
 
 while [ -n "$1" ]; do
   getlog LOG $1
