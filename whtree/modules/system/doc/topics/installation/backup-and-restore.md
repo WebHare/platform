@@ -9,7 +9,7 @@ DATAFOLDER should be the folder from which you'll be running webhare, and should
 
 BACKUPFOLDER should be the folder containing the backup. we're assuming the backup is named 'backup too'
 ```
-docker run --rm -ti -v BACKUPFOLDER:/backup DATAFOLDER:/opt/whdata webhare/webhare-core:master /opt/webhare/bin/dbserver --restore /backup/backup --restoreto /opt/whdata/dbase
+docker run --rm -ti -v BACKUPFOLDER:/backup -v DATAFOLDER:/opt/whdata webhare/webhare-core:master /opt/webhare/bin/dbserver --restore /backup/backup --restoreto /opt/whdata/dbase
 ```
 
 
