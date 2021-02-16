@@ -399,13 +399,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       FOREVERY (RECORD role FROM add_roles)
         IF (role.role NOT IN existing_roles)
-          TolliumGrantRoleTo(this->contexts, work, GetRoleObject(role.role), OBJECT[copy_to->authobject], "Copied: " || role.comment);
+          TolliumGrantRoleTo(this->contexts, work, this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], "Copied: " || role.comment);
     }
 
     OBJECT rightsinfo := GetRightsInfoObject(this->tolliumuser);
     FOREVERY (RECORD grant FROM add_grants)
       IF (NOT RecordLowerBound(existing_grants, grant, grant_columns).found)
-        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to->authobject, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
+        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
 
     work->Finish();
   }
