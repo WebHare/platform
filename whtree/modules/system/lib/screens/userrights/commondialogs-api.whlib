@@ -493,7 +493,7 @@ PUBLIC MACRO RunEditRoleDialog(OBJECT parent, INTEGER role)
   parent->RunScreen("mod::system/screens/userrights/dialogs/editauthobject.xml#editrole", CELL[ role ]);
 }
 
-PUBLIC OBJECT FUNCTION MakeUserRoleSelectionDialog(OBJECT parent)
+PUBLIC OBJECT FUNCTION MakeUserRoleSelectionDialog(OBJECT parent) __ATTRIBUTES__(DEPRECATED "This internal API will be removed")
 {
   OBJECT screen := parent->LoadScreen("system:userrights/dialogs.selectuserrole");
   RETURN screen;

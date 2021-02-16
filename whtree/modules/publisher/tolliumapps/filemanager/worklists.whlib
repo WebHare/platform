@@ -5,6 +5,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/worklists.whlib";
 
+LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -370,19 +371,14 @@ PUBLIC STATIC OBJECTTYPE WorkListUsers EXTEND TolliumScreenBase
   // This function is only called to add users
   RECORD ARRAY FUNCTION OnEditUser(RECORD _unused_row)
   {
-    OBJECT dlg := MakeUserRoleSelectionDialog(this);
-    dlg->selectmode := "multiple";
-    dlg->filterontype := 1; // Users only, no roles
-    IF (dlg->RunModal() = "ok")
-    {
-      RETURN
-          SELECT id := user->authobjectid
+    RECORD ARRAY result := RunUserRoleSelectDialog(this, [ selectmultiple := TRUE, roles := FALSE ]);
+    RETURN
+          SELECT TEMPORARY user := this->contexts->userapi->GetUser(entityid)
+               , id := user->authobjectid
                , name := user->realname ?? user->login
                , email := user->emailaddress
                , obj := user
-            FROM ToRecordArray(dlg->value, "user");
-    }
-    RETURN RECORD[];
+            FROM result;
   }
 
   BOOLEAN FUNCTION Submit()

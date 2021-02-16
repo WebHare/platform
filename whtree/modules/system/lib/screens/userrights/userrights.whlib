@@ -3,6 +3,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
@@ -355,16 +356,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoCopyPermissions()
   {
-    OBJECT userselect := MakeUserRoleSelectionDialog(this);
-    userselect->explanation := this->GetTid(".selectusertocopyallpermissionsto");
-    userselect->unit := this->unittree->value;
-    userselect->selectmode := "single";
-
-    IF (userselect->RunModal() != "ok")
+    RECORD ARRAY target := RunUserRoleSelectDialog(this, [ explanation := this->GetTid(".selectusertocopyallpermissionsto")
+                                                         , unit := ^unittree->value->entityid
+                                                         ]);
+    IF (Length(target) = 0)
       RETURN;
 
     OBJECT copy_from := this->unitcontents->value[0];
-    OBJECT copy_to := userselect->value;
+    OBJECT copy_to := target[0].type = "role" ? this->contexts->userapi->GetRole(target[0].entityid) : this->contexts->userapi->GetUser(target[0].entityid);
 
     RECORD ARRAY add_roles :=
        SELECT role, comment := ANY(comment)

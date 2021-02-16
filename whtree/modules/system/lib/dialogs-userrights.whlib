@@ -1,0 +1,49 @@
+<?wh
+/** @topic modules/integration */
+
+/** Open a user/role selection dialog
+    @param parent Screen or controller loading this dialog
+    @cell(boolean) options.roles Allow role selection (defaults to true)
+    @cell(boolean) options.users Allow user selection (defaults to true)
+    @cell(boolean) options.selectmutiple Allow multiple selection
+    @cell(string) options.explanation Explanation to show in the dialog
+    @cell(integer) options.unit Unit entity to preselect
+    @return The selected items, or an empty array if cancelled
+    @cell(string) return.type 'user' or 'role'
+    @cell(integer) return.entityid Selected user/role's WRD entity id
+    @cell(integer) return.authobjectid Selected user/role's system authobject id */
+PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ roles := TRUE
+                             , users := TRUE
+                             , selectmultiple := FALSE
+                             , explanation := ""
+                             , unit := 0
+                             ], options);
+
+  IF(NOT options.roles AND NOT options.users)
+    THROW NEW InvalidOptionException("users", `One of users and roles must be enabled for a user/role selection dialog`);
+
+  OBJECT screen := parent->LoadScreen("mod::system/screens/userrights/dialogs.xml#selectuserrole");
+
+  IF(options.selectmultiple)
+    screen->selectmode := "multiple";
+  screen->explanation := options.explanation;
+  IF(options.unit != 0)
+    screen->unit := parent->contexts->userapi->GetUnit(options.unit);
+
+  IF(NOT options.roles)
+    screen->filterontype := 1; //users only
+  ELSE IF(NOT options.users)
+    screen->filterontype := 2; //roles only
+
+  IF(screen->RunModal() != "ok")
+    RETURN RECORD[];
+
+  RECORD ARRAY selection;
+  FOREVERY(OBJECT obj FROM screen->value)
+    IF(obj->type IN [1,3])
+      INSERT [ type := obj->type = 1 ? "user" : "role", entityid := obj->entityid, authobjectid := obj->authobjectid ] INTO selection AT END;
+
+  RETURN selection;
+}
