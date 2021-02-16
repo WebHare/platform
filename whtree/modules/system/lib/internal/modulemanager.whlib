@@ -263,17 +263,8 @@ PUBLIC RECORD FUNCTION InitModuleRights(RECORD module, BOOLEAN update_module_mod
   result.commands := SELECT *, module := "system_rights" FROM rightres.commands CONCAT right_cmds.commands;
   ExecuteSQLUpdates(GetPrimary(), result.commands);
 
-  // Run rights post-create functions
-  RECORD ARRAY pcerrors;
-  FOREVERY (FUNCTION PTR func FROM rightres.postcreatefuncs)
-  {
-    STRING ARRAY msgs := func();
-    FOREVERY (STRING msg FROM msgs)
-      INSERT [ module := "", message := msg ] INTO pcerrors AT END;
-  }
-
   //ADDME: Blame them to specific modules
-  FOREVERY(RECORD err FROM rightres.errors CONCAT pcerrors)
+  FOREVERY(RECORD err FROM rightres.errors)
     INSERT INTO result.commitmessages(module, text) VALUES(CellExists(err,"module") ? err.module : '', err.message) AT END;
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
 
@@ -675,7 +666,6 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
   INTEGER module_id := cmares.id;
 
   RECORD ARRAY db_rights;
-  FUNCTION PTR ARRAY postcreatefuncs;
   STRING ARRAY created_entries_for;
 
   FOREVERY (STRING rightname FROM module.moduleobsoleterights)
@@ -976,7 +966,6 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
     [ errors := errors
     , commands := DEFAULT RECORD ARRAY
     , objecttypes := objecttypes
-    , postcreatefuncs := postcreatefuncs
     ];
 }
 
