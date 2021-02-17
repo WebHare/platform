@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -82,6 +83,13 @@ MACRO CleanupAuthObjects()
   trans->CommitWork();
 }
 
+MACRO CleanupUserRights()
+{
+  trans->BeginWork();
+  CleanupObsoleteRights();
+  trans->CommitWork();
+}
+
 MACRO FixupUserMgmt()
 {
   trans->BeginWork();
@@ -100,6 +108,7 @@ MACRO RunExecuteMaintenance()
     CleanupDiversions();
     CleanupUserMgmt();
     CleanupAuthObjects();
+    CleanupUserRights();
   }
   FixupUserMgmt();
 }

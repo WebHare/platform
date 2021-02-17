@@ -17,11 +17,14 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
                   WHERE ToLowercase(table_name) LIKE "o_*" AND ToInteger(Substring(table_name,2),0) > 0;
 
   RECORD ARRAY modules := SELECT id,name FROM system_internal.modules;
+  RECORD ARRAY db_rights := SELECT id,module,name,objtype FROM system_internal.module_rights ORDER BY module, name;
   RECORD ARRAY db_objecttypes := SELECT id,module,name,primarykey FROM system_internal.module_objecttypes ORDER BY module, name;
 
   STRING ARRAY issues;
+  RECORD ARRAY rights;
   RECORD ARRAY objecttypes;
   STRING ARRAY missingrightstables;
+
   FOREVERY (RECORD module FROM GetWebHareModules())
   {
     INTEGER moduleid := SELECT AS INTEGER id FROM modules WHERE modules.name = module.name;
@@ -43,6 +46,21 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
                  , tablename := ""
                  , rightsobjecttype := "system:#global"
                  ] INTO objecttypes AT END;
+    }
+
+    FOREVERY(RECORD right FROM module.modulerights)
+    {
+      STRING localname := Tokenize(right.name,':')[1];
+      RECORD match := RecordLowerBound(db_rights, CELL[module := moduleid, name := localname ], ["module","name"]);
+      IF(NOT RecordExists(match))
+      {
+        INSERT `Right '${right.name}' isn't in system.module_rights yet` INTO issues AT END;
+        CONTINUE;
+      }
+
+      INSERT CELL[ ...right
+                 , ...db_rights[match.position]
+                 ] INTO rights AT END;
     }
 
     FOREVERY(RECORD objtype FROM module.moduleobjects)
@@ -69,12 +87,16 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
         INSERT `Right objecttype '${objtype.name}' requires a rightstable for '${objtype.tablename}' but it lacks an unambiguous candidate` INTO issues AT END;
         CONTINUE;
       }
-      INSERT CELL[ ...objtype, ...db_objecttypes[match.position], storagetable := "system_rights." || match_rightstables[0].table_name, rightsobjecttype := objtype.name ] INTO objecttypes AT END;
+      INSERT CELL[ ...objtype
+                 , ...db_objecttypes[match.position], storagetable := "system_rights." || match_rightstables[0].table_name
+                 , rightsobjecttype := objtype.name
+                 ] INTO objecttypes AT END;
     }
   }
 
   objecttypes := SELECT * FROM objecttypes ORDER BY rightsobjecttype;
-  RETURN [ value := CELL[ objecttypes, issues, missingrightstables ]
+
+  RETURN [ value := CELL[ objecttypes, rights, issues, missingrightstables ]
          , ttl := 15 * 60 * 1000
          , eventmasks := [ "system:config.rights", "system:modulesupdate" ]
          ];

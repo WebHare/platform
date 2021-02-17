@@ -4,7 +4,10 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -47,6 +50,10 @@ MACRO CreateProblemRight()
 
 ASYNC MACRO TestProblemRights()
 {
+  INTEGER testmoduleid := SELECT AS INTEGER id FROM system_internal.modules WHERE name = testfw_testmodule;
+  TestEq(TRUE, testmoduleid != 0);
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+
   DeleteModule(testfw_testmodule);
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
@@ -56,13 +63,34 @@ ASYNC MACRO TestProblemRights()
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="lisa@beta.webhare.net";
   TestEq(TRUE, REcordExists(TT("unitcontents->userandrolelist")->selection), 'user must be selected');
   AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers"));
-  RECORD problemrights := SELECT * FROM TT("objecttree->objectlist")->rows WHERE TITLE = "Obsolete rights";
+  RECORD problemrights := SELECT * FROM TT("objecttree->objectlist")->rows WHERE title = "Obsolete rights";
   TestEq(TRUE, RecordExists(problemrights));
 
   //Test that this doesn't crash:
   INSERT problemrights.rowkey INTO TT("objecttree->objectlist")->expanded AT END;
-
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+
+  testfw->BeginWork();
+  CleanupObsoleteRights(); //shouldn't clean our dangling right yet..
+  testfw->CommitWork();
+
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+
+  //Delete the right grant
+  TT("objecttree->objectlist")->selection := problemrights;
+  TestEq(TRUE, RecordExists(SELECT * FROM TT("objectrightslist->authobjectlistbyobject")->rows WHERE name = "lisa@beta.webhare.net"));
+  TT("objectrightslist->authobjectlistbyobject")->selection := SELECT * FROM TT("objectrightslist->authobjectlistbyobject")->rows WHERE name = "lisa@beta.webhare.net";
+  topscreen->frame->focused := TT("objectrightslist->authobjectlistbyobject");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("objectrightslist->revokerightonobject"));
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("objectrightslist->authobjectlistbyobject")->rows WHERE name = "lisa@beta.webhare.net"));
+
+  testfw->BeginWork();
+  CleanupObsoleteRights(); //shouldn now clean the dangling right
+  testfw->CommitWork();
+
+  TestEq(FALSE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

@@ -1,0 +1,42 @@
+<?wh
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+
+PUBLIC MACRO CleanupObsoleteRights()
+{
+  RECORD rightsinfo := __GetCacheableModuleObjectTypes().value;
+  /* Don't delete rights with dependencies. I'm not sure we even need to materialize implied-by so if we stop doing that
+     intermediate rights may become safe to delete. And if not, we can probably live with taking one or two extra maintenance
+     runs to fully delete all obsolete rights */
+
+  INTEGER ARRAY implyingrights := SELECT AS INTEGER ARRAY DISTINCT impliedby FROM system_internal.module_impliedbys;
+  RECORD ARRAY obsoleterights := SELECT module_rights.id
+                                      , module_rights.name
+                                      , module_rights.objtype
+                                      , module := modules.name
+                                      , rightname := modules.name || ":" || module_rights.name
+                                   FROM system_internal.module_rights
+                                      , system_internal.modules
+                                  WHERE modules.id = module_rights.module
+                                        AND module_rights.id NOT IN (SELECT AS INTEGER ARRAY id FROM rightsinfo.rights)
+                                        AND module_rights.id NOT IN implyingrights
+                               ORDER BY objtype, modules.name, module_rights.name;
+
+  INTEGER ARRAY deleterights;
+  FOREVERY(RECORD right FROM obsoleterights)
+  {
+    RECORD ARRAY grants := GetDirectGrantsForRight(right.rightname);
+    IF(Length(grants) > 0)
+      CONTINUE; //can't delete. TODO report somewhere that we have 'stuck' obsolete rights?
+
+    Print(`Deleting orphan right '${right.rightname}'\n`);
+    INSERT right.id INTO deleterights AT END;
+  }
+
+  IF(Length(deleterights) > 0)
+  {
+    DELETE FROM system_internal.module_rights WHERE id IN deleterights;
+    rightsinfo := __GetCacheableModuleObjectTypes().value;
+  }
+}
