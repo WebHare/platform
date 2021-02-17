@@ -1,0 +1,53 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webfeatures.savedurlhistory">
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
+                 name="savedurlhistory_edit"
+                 implementation="lib"
+                 library="savedurlhistory.whlib">
+    <newtab tid=".savedurlhistory">
+      <arrayedit composition="contentdata"
+                 cellname="urlhistory"
+                 width="1pr"
+                 height="1pr"
+                 onmaprows="maprows"
+                 roweditscreen="#editsavedurlhistory">
+        <column name="url" type="text" width="1pr" tid="~url" />
+        <column name="creationdate" type="datetime" width="18x" tid="~creationdate" />
+      </arrayedit>
+    </newtab>
+  </tabsextension>
+
+  <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
+          name="editsavedurlhistory"
+          footerbuttons="ok cancel"
+          library="savedurlhistory.whlib"
+          tid=".savedurlhistory">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row"
+                cellname="url"
+                name="url"
+                width="1pr"
+                minwidth="140x"
+                required="true"
+                tid="~url"
+                validationchecks="http-url secure-url" />
+      <datetime composition="row"
+                cellname="creationdate"
+                name="creationdate"
+                type="datetime"
+                tid="~creationdate"
+                title=""
+                visible="false" />
+    </body>
+  </screen>
+
+  <apply>
+    <to type="file" />
+    <extendproperties extension="#savedurlhistory_edit" contenttype="http://www.webhare.net/xmlns/publisher/savedurlhistory" />
+  </apply>
+
+</siteprofile>

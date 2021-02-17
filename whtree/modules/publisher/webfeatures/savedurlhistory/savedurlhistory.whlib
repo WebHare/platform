@@ -1,0 +1,36 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+PUBLIC OBJECTTYPE Savedurlhistory_edit EXTEND TolliumTabsExtensionBase
+<
+  RECORD ARRAY FUNCTION MapRows(RECORD ARRAY rows)
+  {
+    RETURN SELECT *, url := PrepareHistoryURLForDisplay(url) FROM rows;
+  }
+>;
+
+
+PUBLIC OBJECTTYPE EditSavedUrlHistory EXTEND TolliumRowEditScreenBase
+<
+  UPDATE MACRO Init(RECORD data)
+  {
+    TolliumRowEditScreenBase::Init(data);
+
+    IF( RecordExists(data.row) )
+      ^url->value := PrepareHistoryURLForDisplay(data.row.url);
+    ELSE
+      ^creationdate->value := GetCurrentDateTime();
+  }
+
+  UPDATE BOOLEAN FUNCTION Submit()
+  {
+    ^creationdate->value := UTCToLocal(GetCurrentDateTime(),"CET");
+
+    OBJECT work := this->BeginWork();
+    ^url->value := NormalizeHistoryURL(^url->value);
+    RETURN work->Finish();
+  }
+>;
