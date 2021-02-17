@@ -462,13 +462,6 @@ PUBLIC MACRO DenyApprovalRequestForDraft(OBJECT draftobject, RECORD options)
 */
 PUBLIC MACRO UpdateSubmittedDraft(OBJECT draftobject, RECORD ignorefields)
 {
-  INTEGER ARRAY copyableinstances :=
-      SELECT AS INTEGER ARRAY fs_types.id
-        FROM system.fs_instances, system.fs_types
-       WHERE fs_instances.fs_type = fs_types.id
-             AND fs_instances.fs_object = draftobject->source
-             AND fs_types.cloneoncopy = TRUE;
-
   RECORD orginfo := SELECT * FROM system.fs_objects WHERE id = draftobject->source;
 
   BOOLEAN isindex := RecordExists(SELECT FROM system.fs_objects WHERE id = orginfo.parent AND indexdoc = draftobject->source);
@@ -510,7 +503,7 @@ PUBLIC MACRO UpdateSubmittedDraft(OBJECT draftobject, RECORD ignorefields)
      SET RECORD updates
    WHERE id = draftobject->id;
 
-  FOREVERY (INTEGER cancopy FROM copyableinstances)
+  FOREVERY (INTEGER cancopy FROM GetCopyableInstanceTypes(draftobject->source))
     IF (cancopy NOT IN ignorefields.versioned_contenttypes)
     {
       OBJECT typeobj := OpenWHFSTypeById(cancopy);
