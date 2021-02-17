@@ -8,6 +8,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 
 
 /*  Rights management library, version 2.
@@ -71,25 +72,6 @@ RECORD ARRAY impliedbyes_cache;
 /// Cache for objecttypes
 RECORD ARRAY objecttypes_cache;
 
-/// Table used to check dynamic rights table
-TABLE
-  < INTEGER id NULL := 0
-  , INTEGER grantee NULL := 0
-  , INTEGER grantor NULL := 0
-  , INTEGER "object" NULL := 0
-  , INTEGER "right" NULL := 0
-  , DATETIME creationdate
-  , BOOLEAN withgrantoption
-  , STRING comment
-  , STRING grantordata
-  ; KEY id
-  > rights_table;
-
-/// Contains the name of the table that @a rights_table is currently bound to.
-STRING current_rights_table;
-
-/// Current generation of system schema mapping
-INTEGER current_system_binding_gen;
 
 /** Current (authenticated) user.
     The user will be able to modify this record and see all rights for everybody,
@@ -572,18 +554,6 @@ PUBLIC RECORD FUNCTION GetObjectTypeDataByName(STRING type)
 //
 // Raw db ops
 //
-
-/// Binds the table @a rights_table to the needed rights table
-MACRO BindStorageTable(STRING tablename)
-{
-  IF (current_rights_table != tablename OR current_system_binding_gen != __system_binding_gen)
-  {
-    INTEGER trans := GetBindingFromSchema(system_internal).transaction;
-    rights_table := BindTransactionToTable(trans, tablename);
-    current_rights_table := tablename;
-    current_system_binding_gen := __system_binding_gen;
-  }
-}
 
 
 

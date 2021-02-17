@@ -1,11 +1,14 @@
 <?wh
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 
 PUBLIC MACRO CleanupObsoleteRights()
 {
   RECORD rightsinfo := __GetCacheableModuleObjectTypes().value;
+
   /* Don't delete rights with dependencies. I'm not sure we even need to materialize implied-by so if we stop doing that
      intermediate rights may become safe to delete. And if not, we can probably live with taking one or two extra maintenance
      runs to fully delete all obsolete rights */
@@ -23,20 +26,33 @@ PUBLIC MACRO CleanupObsoleteRights()
                                         AND module_rights.id NOT IN implyingrights
                                ORDER BY objtype, modules.name, module_rights.name;
 
-  INTEGER ARRAY deleterights;
-  FOREVERY(RECORD right FROM obsoleterights)
+  IF(Length(obsoleterights) > 0)
   {
-    RECORD ARRAY grants := GetDirectGrantsForRight(right.rightname);
-    IF(Length(grants) > 0)
-      CONTINUE; //can't delete. TODO report somewhere that we have 'stuck' obsolete rights?
+    /* When rights are orphaned we might not have enough information to reconstruct their objecttpype, and thus we may not even
+       know which storagetable to check.
 
-    Print(`Deleting orphan right '${right.rightname}'\n`);
-    INSERT right.id INTO deleterights AT END;
+       So we'll just have to check them all */
+
+    RECORD ARRAY rightstables := GetPrimary()->GetTableListing("system_rights");
+    FOREVERY(RECORD tablerec FROM rightstables)
+    {
+      BindStorageTable("system_rights." || tablerec.table_name);
+
+      INTEGER ARRAY findids := SELECT AS INTEGER ARRAY id FROM obsoleterights;
+      INTEGER ARRAY seenids := SELECT AS INTEGER ARRAY DISTINCT rights_table.right FROM rights_table WHERE rights_table.right IN findids;
+      FOREVERY(INTEGER seenid FROM seenids)
+      {
+        RECORD right := SELECT * FROM obsoleterights WHERE id = seenid;
+        Print(`Right '${right.rightname}' is orphaned but still referred in system_rights.${tablerec.table_name}. Delete this right manually.\n`);
+      }
+      DELETE FROM obsoleterights WHERE id IN seenids;
+    }
   }
 
-  IF(Length(deleterights) > 0)
+  IF(Length(obsoleterights) > 0)
   {
-    DELETE FROM system_internal.module_rights WHERE id IN deleterights;
-    rightsinfo := __GetCacheableModuleObjectTypes().value;
+    FOREVERY(RECORD right FROM obsoleterights)
+      Print(`Deleting orphan right '${right.rightname}'\n`);
+    DELETE FROM system_internal.module_rights WHERE id IN (SELECT AS INTEGER ARRAY id FROM obsoleterights);
   }
 }
