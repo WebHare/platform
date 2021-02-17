@@ -2462,6 +2462,12 @@
       <text tid="hasversioneddraft">This file has a draft that has not been submitted.</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="webfeatures" limitlanguages="en nl">   <!-- webfeatures -->
+    <textgroup gid="savedurlhistory">   <!-- webfeatures.savedurlhistory -->
+      <text tid="savedurlhistory">Saved URL history</text>
+      <text tid="webfeaturetitle">Show 'saved URL history'</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="webtools" limitlanguages="en nl">   <!-- webtools -->
     <textgroup gid="confirmfield">   <!-- webtools.confirmfield -->
       <text tid="linktext">Link tekst</text>

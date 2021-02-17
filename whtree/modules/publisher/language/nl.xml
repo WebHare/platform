@@ -2462,6 +2462,12 @@
       <text tid="hasversioneddraft">Dit bestand heeft een conceptversie - deze is nog niet ingediend.</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="webfeatures">   <!-- webfeatures -->
+    <textgroup gid="savedurlhistory">   <!-- webfeatures.savedurlhistory -->
+      <text tid="savedurlhistory">Opgeslagen URL geschiedenis</text>
+      <text tid="webfeaturetitle">Toon 'opgeslagen URL geschiedenis'</text>
+    </textgroup>
+  </textgroup>
   <textgroup gid="webtools">   <!-- webtools -->
     <textgroup gid="confirmfield">   <!-- webtools.confirmfield -->
       <text tid="linktext">Linktekst</text>
