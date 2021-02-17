@@ -59,11 +59,8 @@ STRING FUNCTION GetHareScriptTypeFromSQLType(INTEGER type)
 }
 
 
-PUBLIC OBJECTTYPE ODBCTransaction EXTEND RetransLowlevelTransaction
+PUBLIC STATIC OBJECTTYPE ODBCTransaction EXTEND RetransLowlevelTransaction
 <
-  BOOLEAN cached_pgsql_check; //FIXME remove
-  BOOLEAN is_pgsql; //FIXME remove
-
   BOOLEAN pvt_isauto;
   BOOLEAN pvt_is_work_open;
 
@@ -88,27 +85,8 @@ PUBLIC OBJECTTYPE ODBCTransaction EXTEND RetransLowlevelTransaction
     RETURN this->pvt_isauto;
   }
 
-  BOOLEAN FUNCTION IsPostgresql()
-  {
-    IF(NOT this->cached_pgsql_check)
-    {
-      this->cached_pgsql_check := TRUE;
-      this->is_pgsql := GetODBCInfo(this->id).database_application="PostgreSQL";
-    }
-    RETURN this->is_pgsql;
-  }
-
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
   {
-    //ADDME Blind assumption of postgresql ....
-    IF(this->IsPostgresql())
-    {
-      RECORD ARRAY schemalist := SELECT schema_name := nspname
-                                      , is_system_schema := (nspname LIKE 'pg_*' OR nspname='information_schema')
-                                   FROM SendODBCCommand(this->id,'select nspname from pg_namespace');
-      RETURN schemalist;
-    }
-
     RECORD ARRAY schemalist := SELECT DISTINCT schema_name FROM GetODBCTables(this->id);
     schemalist := SELECT *
                        , is_system_schema := ToUppercase(schema_name) IN ["INFORMATION_SCHEMA"]
@@ -133,26 +111,6 @@ PUBLIC OBJECTTYPE ODBCTransaction EXTEND RetransLowlevelTransaction
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
   {
     RECORD ARRAY incols := GetODBCColumns(this->id, schemaname || "." || tablename);
-
-/*    RETURN
-        SELECT column_name
-             , data_type
-             , character_octet_length
-             , character_maximum_length
-             , is_nullable := not_null = FALSE
-             , column_default
-             , is_unique := columns."unique"
-          FROM incols;;
-          */
-
-          //this is what postgres returned, ODBC incompatibiltiy?!    RETURN
-//printrecordarrayto(0,incols,'boxed');
-
-//FIXME return proper data_types, getting '4' from unixodbc postgresql
-
-/*
-
-*/
 
     RETURN
         SELECT column_name
