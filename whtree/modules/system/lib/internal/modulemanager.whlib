@@ -674,47 +674,6 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
   RECORD ARRAY db_rights;
   STRING ARRAY created_entries_for;
 
-  FOREVERY (STRING rightname FROM module.moduleobsoleterights)
-  {
-    STRING localname := SubString(rightname, SearchSubString(rightname, ":") + 1);
-
-    INTEGER right_id :=
-        SELECT AS INTEGER id
-          FROM system.module_rights
-         WHERE name = localname
-           AND COLUMN module = module_id;
-
-    IF (right_id != 0)
-      DELETE FROM system.module_rights WHERE id = right_id;
-  }
-/* FIXME this is the work for a maintenance lib. unreferred objecttypes have little impact anyway
-  FOREVERY (RECORD rec FROM module.moduleobsoleteobjects)
-  {
-    STRING localname := SubString(rec.name, SearchSubString(rec.name, ":") + 1);
-
-    RECORD existing_rec :=
-        SELECT id
-             , tablename
-             , storagetable
-          FROM system_internal.module_objecttypes
-         WHERE name = localname
-           AND COLUMN module = module_id;
-
-    // Delete the objecttype only when the tablename is the same
-    IF (RecordExists(existing_rec) AND existing_rec.tablename = rec.tablename)
-    {
-      // The table will be deleted automatically when the objecttype record has been deleted
-      DELETE FROM system_internal.module_objecttypes WHERE id = existing_rec.id;
-    }
-    ELSE IF (RecordExists(existing_rec))
-    {
-      INSERT
-          [ module := module.name
-          , message := "Obsolete objecttype '"||rec.name||"' references table '"||existing_rec.tablename||"', while it was expected to reference table '"||rec.tablename||"'"
-          ] INTO errors AT END;
-    }
-  }
-*/
   IF (module.name = "system")
   {
     // Global rights table

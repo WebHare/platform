@@ -58,7 +58,6 @@
       <describer library="internal/support.whlib" objectname="wrdentitiesobjecttypedescriber" />
     </objecttype>
 
-    <obsoleteright name="superuser" /> <!-- superuser IS effectively sysop, with WRD user management. so removing it -->
     <right name="createschema" showafter="superuser" tid="rights.createschema" descriptiontid="rights.createschema_descr" >
       <impliedby right="system:sysop" />
     </right>

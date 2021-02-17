@@ -705,8 +705,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , modulerightsgroups    := DEFAULT RECORD ARRAY
       , moduleobjects        := DEFAULT RECORD ARRAY
       , modulerights         := DEFAULT RECORD ARRAY
-      , moduleobsoleteobjects := DEFAULT RECORD ARRAY
-      , moduleobsoleterights := DEFAULT STRING ARRAY
       , hooktargets          := DEFAULT RECORD ARRAY
       , hookintercepts       := DEFAULT RECORD ARRAY
 
@@ -1093,20 +1091,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                     }
                   }
                 INSERT rightrec INTO all_rights AT END;
-              }
-              CASE "obsoleteobjecttype"
-              {
-                STRING tablename := ToLowercase(subchild->GetAttribute("table"));
-                IF (LEFT(tablename, 1) = ".")
-                  tablename := modulename || tablename;
-
-                INSERT [ name := ParseXMLModuleNamed(modulename, subchild, "name")
-                       , tablename := tablename
-                       ] INTO this->moduledef.moduleobsoleteobjects AT END;
-              }
-              CASE "obsoleteright"
-              {
-                INSERT ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name")) INTO this->moduledef.moduleobsoleterights AT END;
               }
             }
           }

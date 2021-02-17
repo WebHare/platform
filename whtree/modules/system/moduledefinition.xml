@@ -244,8 +244,6 @@
      <describer library="internal/support.whlib" objectname="accessrulesdescriber" />
     </objecttype>
 
-    <obsoleteobjecttype name="dumps" table=".adhocdump_dumps" />
-
     <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*" isrootright="true">
       <impliedby right="sysop" />
     </right>
@@ -285,10 +283,6 @@
     <right name="urlaccess" objecttype="accessrules" tid="system:rights.urlaccess" descriptiontid="rights.urlaccess-descr">
       <impliedby right="webservermgmt" />
     </right>
-
-    <obsoleteright name="adhocdump_fullaccess" />
-    <obsoleteright name="adhocdump_editresults" />
-    <obsoleteright name="adhocdump_viewresults" />
   </rights>
 
   <backend>
