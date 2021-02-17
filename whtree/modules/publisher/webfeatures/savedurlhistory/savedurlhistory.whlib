@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC OBJECTTYPE Savedurlhistory_edit EXTEND TolliumTabsExtensionBase
+PUBLIC OBJECTTYPE SavedUrlHistory_Edit EXTEND TolliumTabsExtensionBase
 <
   RECORD ARRAY FUNCTION MapRows(RECORD ARRAY rows)
   {
