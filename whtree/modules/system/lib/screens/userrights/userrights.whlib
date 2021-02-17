@@ -3,6 +3,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
@@ -355,16 +356,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoCopyPermissions()
   {
-    OBJECT userselect := MakeUserRoleSelectionDialog(this);
-    userselect->explanation := this->GetTid(".selectusertocopyallpermissionsto");
-    userselect->unit := this->unittree->value;
-    userselect->selectmode := "single";
-
-    IF (userselect->RunModal() != "ok")
+    RECORD ARRAY target := RunUserRoleSelectDialog(this, [ explanation := this->GetTid(".selectusertocopyallpermissionsto")
+                                                         , unit := ^unittree->value->entityid
+                                                         ]);
+    IF (Length(target) = 0)
       RETURN;
 
     OBJECT copy_from := this->unitcontents->value[0];
-    OBJECT copy_to := userselect->value;
+    OBJECT copy_to := target[0].type = "role" ? this->contexts->userapi->GetRole(target[0].entityid) : this->contexts->userapi->GetUser(target[0].entityid);
 
     RECORD ARRAY add_roles :=
        SELECT role, comment := ANY(comment)
@@ -399,13 +398,13 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     {
       FOREVERY (RECORD role FROM add_roles)
         IF (role.role NOT IN existing_roles)
-          TolliumGrantRoleTo(this->contexts, work, GetRoleObject(role.role), OBJECT[copy_to->authobject], "Copied: " || role.comment);
+          TolliumGrantRoleTo(this->contexts, work, this->contexts->userapi->GetObjectByAuthObjectId(role.role), OBJECT[copy_to], "Copied: " || role.comment);
     }
 
     OBJECT rightsinfo := GetRightsInfoObject(this->tolliumuser);
     FOREVERY (RECORD grant FROM add_grants)
       IF (NOT RecordLowerBound(existing_grants, grant, grant_columns).found)
-        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to->authobject, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
+        TolliumGrantRightTo(work, rightsinfo, this->contexts->user, copy_to, grant.rightname, INTEGER[grant.objectid], grant.withgrantoption, "Copied: " || grant.comment);
 
     work->Finish();
   }
