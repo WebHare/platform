@@ -6,15 +6,98 @@ LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+//TODO We only need to a true 'scheduledtask, wait' cycle only once. After that we should be able to trust 'ExecuteAllTasksNow()'
+
+RECORD FUNCTION UnparseTask(INTEGER event, INTEGER folder)
+{
+  SWITCH(event)
+  {
+    CASE 6
+    {
+      RETURN CELL [ task := "replacewith", taskdata := [ source := folder ]];
+    }
+    DEFAULT
+    {
+      RETURN DEFAULT RECORD;
+    }
+  }
+}
+
+RECORD FUNCTION ParseTask(OBJECT taskedobj, STRING task, RECORD taskdata)
+{
+  RECORD data;
+  SWITCH(task)
+  {
+    CASE "replacewith"
+    {
+      taskdata := ValidateOptions([ source := 0 ], taskdata, [ title := "taskdata", required := [ "source" ]]);
+
+      RECORD sourceinfo := SELECT id, type, isfolder FROM system.fs_objects WHERE id = taskdata.source;
+      ValidateReplaceWith(taskedobj, sourceinfo);
+
+      data := CELL[ event := 6 //replacewith
+                  , folder := taskdata.source
+                  ];
+      RETURN data;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown task type '${task}'`);
+    }
+  }
+}
+
+/** Add a task
+    @param when When to execute the task. Times in the past are okay, but default/max are not.
+    @param tasktype Task to execute at the specified date. Eg "replacewith"
+    @param taskdata Settings for the task
+    @cell(integer) taskdata.source Source for 'replacewith' tasks
+    @return New task id */
+PUBLIC INTEGER FUNCTION AddScheduledTask(OBJECT fsobject, DATETIME when, STRING tasktype, RECORD taskdata DEFAULTSTO DEFAULT RECORD)
+{
+  // insert the event
+  RECORD task := CELL[ ...ParseTask(fsobject, tasktype, taskdata)
+                     , when
+                     , file := fsobject->id
+                     , modifiedby := GetEffectiveUserID()
+                     , id := MakeAutonumber(publisher.schedule, "ID")
+                     ];
+
+  INSERT task INTO publisher.schedule;
+
+  // mark the file as having a schedule attached
+  UPDATE system.fs_objects
+         SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE)
+         WHERE id = fsobject->id;
+
+  ScheduleTimedTask("publisher:scheduledtasks", CELL[when]);
+  RETURN task.id;
+}
+
+/** List scheduled tasks */
+PUBLIC RECORD ARRAY FUNCTION ListScheduledTasks(OBJECT fsobject)
+{
+  RECORD ARRAY tasks := SELECT id, when, unparsed := UnparseTask(event,folder), modifiedby FROM publisher.schedule WHERE file = fsobject->id;
+  RETURN SELECT id, when, task := unparsed.task, taskdata := unparsed.taskdata, owner := modifiedby
+           FROM tasks
+          WHERE RecordExists(unparsed)
+       ORDER BY when;
+}
+
+
+
 
 
 /** Wait for all publisher scheduled tasks triggered before a certain time
@@ -47,7 +130,8 @@ MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadlin
           WHERE tag = "publisher.scheduledtasks";
 
     IF (executetaskstatus.currentstart = DEFAULT DATETIME
-        AND executetaskstatus.nexttime = DEFAULT DATETIME)
+        AND (executetaskstatus.nexttime = DEFAULT DATETIME
+             OR GetDatetimeDIfference(GetCurrentDatetime(),executetaskstatus.nexttime).totalmsecs >= 60*60*1000)) //also ignore tasks after next hour in case you actually scheduled stuff
       BREAK;
 
     Sleep(10);
@@ -73,7 +157,7 @@ MACRO WaitForEventCompletions(DATETIME deadline)
 
     Sleep(10);
     IF(GetCurrentDatetime() >= deadline)
-      ABORT("publisher.scheduledtasks isn't completing");
+      ABORT("system:eventcompletion isn't completing");
   }
   eventcompletionlink->Close();
 }
@@ -98,6 +182,12 @@ MACRO WaitForOutputAnalyzer(INTEGER ARRAY folderids, DATETIME deadline)
       ABORT("outputanalyzer isn't completing");
   }
   outputanalyzer->CloseService();
+}
+
+MACRO ExecuteAllTasksNow()
+{
+  FOREVERY (RECORD task FROM GetScheduledTasksToExecute())
+    ExecuteScheduledTask(task);
 }
 
 MACRO EnsureTasksExecuted(DATETIME when)
@@ -179,8 +269,96 @@ MACRO PublicationMoveFile()
 
   tomovefile := OpenWHFSObject(tomovefile->id);
   TestEq(deletedfolder->id, tomovefile->parent);
+}
+
+MACRO TestReplaceContents()
+{
+  testfw->BeginWork();
+
+  OBJECT dummyhtml := GetTestsuiteTempFolder()->CreateFile(
+      [ name:=        "dummy.html"
+      , type :=       24
+      , publish :=    FALSE
+      ]);
+
+  OBJECT toreplacefile := GetTestsuiteTempFolder()->CreateFile(
+    [ name := "toreplace.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , title := "Index"
+    , publish := TRUE
+    , ispinned := TRUE
+    ], [setindex := TRUE]);
+  toreplacefile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", [ idfield :="dont-overwrite" ]);
+  toreplacefile->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+                          [ data := [ htmltext := StringToBlob('<html><body><p class="normal">First document</p></body></html>') ]
+                          ]);
 
 
+  OBJECT replacement1 := GetTestsuiteTempFolder()->CreateFile(
+    [ name := "v1.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := FALSE
+    , title := "V1"
+    , ispinned := FALSE
+    ]);
+  replacement1->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", [ idfield := "replace1" ]);
+  replacement1->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+            [ data := [ htmltext := StringToBlob('<html><body><p class="normal">V1</p></body></html>') ]
+            ]);
+
+  OBJECT replacement2 := GetTestsuiteTempFolder()->CreateFile(
+    [ name := "v2.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , publish := TRUE
+    , title := "V2"
+    , ispinned := TRUE
+    ]);
+  replacement2->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+            [ data := [ htmltext := StringToBlob('<html><body><p class="normal">V2</p></body></html>') ]
+            ]);
+
+  testfw->CommitWork();
+  WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
+
+  testfw->BeginWork();
+  TestEQ(TRUE, GetEffectiveUserID() != 0);
+
+  TestThrowsLike("Folders do not support*", PTR AddScheduledTask(GetTestsuiteTempFolder(),GetCurrentDatetime(), "replacewith",  [ source := GetTestsuiteTempFolder()->parent ]));
+  TestThrowsLike("*cannot*self*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith",  [ source := toreplacefile->id ]));
+  TestThrowsLike("*must be of*same type*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith", [ source := dummyhtml->id ]));
+  TestThrowsLike("*does not exist*", PTR AddScheduledTask(toreplacefile,GetCurrentDatetime(), "replacewith", [ source := 1999999999 ]));
+
+  TestEq(0, Length(ListScheduledTasks(toreplacefile)));
+  DATETIME now := GetCurrentDatetime();
+  INTEGER replacetask1 := AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement1->id ]);
+  TestEq([[ id := replacetask1, task := "replacewith", when := now, taskdata := [ source := replacement1->id ], owner := GetEffectiveUserID() ]], ListScheduledTasks(toreplacefile));
+
+  ExecuteAllTasksNow();
+  testfw->CommitWork();
+
+  TestEq(0, Length(ListScheduledTasks(toreplacefile)));
+
+  toreplacefile := OpenWHFSObject(toreplacefile->id);  //not sure if it's needed, but safer
+  TestEq(TRUE, toreplacefile->publish);
+  TestEq(`<html><body><p class="normal">V1</p></body></html>`, BlobToString(toreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+
+  RECORD ARRAY recycledfiles := SearchRecycleBin(CELL[ fromdate := testfw->starttime
+                                                     , site := GetTestsuiteTempFolder()->parentsite
+                                                     , owner := GetEffectiveUserID()
+                                                     , namecontains := "toreplace.rtd"
+                                                     ]);
+  TestEq(1,Length(recycledfiles));
+  TestEq(`<html><body><p class="normal">First document</p></body></html>`, BlobToString(OpenWHFSObject(recycledfiles[0].id)->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+
+
+  testfw->BeginWork();
+
+  AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement2->id ]);
+  ExecuteAllTasksNow();
+
+  TestEq(`<html><body><p class="normal">V2</p></body></html>`, BlobToString(toreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+
+  testfw->CommitWork();
 }
 
 MACRO PublicationDeleteFile()
@@ -348,9 +526,13 @@ MACRO SetIndexDocTest()
 }
 
 RunTestFramework([ PTR TestLifecycle
+                 , PTR TestReplaceContents
                  , PTR PublicationDeleteFile
                  , PTR PublicationDeleteFolder
                  , PTR PublicationMoveFile
                  , PTR PublicationStartStopTest
                  , PTR SetIndexDocTest
-                 ]);
+                 ], [ testusers :=
+                      [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
+                      ]
+                    ]);

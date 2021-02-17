@@ -1,5 +1,7 @@
 <?wh
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -8,10 +10,10 @@ LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 
 
-
 LOADLIB "mod::system/lib/database.whlib";
-
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/service.whlib";
 
 BOOLEAN report := TRUE; //ADDME: Allow us to set this through the registry
 
@@ -20,6 +22,19 @@ INTEGER FUNCTION SetScheduleBit(INTEGER fileid,INTEGER status)
 {
   BOOLEAN anytasks := RecordExists(SELECT FROM publisher.schedule WHERE file=fileid LIMIT 1);
   RETURN SetFlagsInPublished(status, PublishedFlag_Scheduled, anytasks);
+}
+
+PUBLIC MACRO ValidateReplaceWith(OBJECT taskedobj, RECORD sourceinfo)
+{
+  IF(taskedobj->isfolder)
+    THROW NEW Exception(`Folders do not support 'replacewith' tasks`); //if we ever did, make sure we don't corrupt eg sitesettings
+
+  IF(NOT RecordExists(sourceinfo))
+    THROW NEW Exception(`Target #${taskedobj->id} does not exist`);
+  IF(taskedobj->id = sourceinfo.id)
+    THROW NEW Exception(`File #${taskedobj->id} cannot be replaced with itself`);
+  IF(sourceinfo.type != taskedobj->type OR sourceinfo.isfolder != taskedobj->isfolder)
+    THROW NEW Exception(`Target #${taskedobj->id} must be of the same type as the source for a replacewith action`);
 }
 
 
@@ -162,6 +177,46 @@ MACRO DoSetIndexdoc(RECORD task)
     PRINT("Executed task 'setindexdoc " || file.whfspath || "'\n");
 }
 
+//TODO have tasks throw (for easier test-lifecycle) but do the THROW->Print conversion in the task runner so we can still dequeue broken tasks
+MACRO DoReplaceWith(RECORD task)
+{
+  OBJECT toreplace := OpenWHFSObject(task.file);
+  IF(NOT ObjectExists(toreplace))
+  {
+    PRINT(`Cannot executetask 'replacewith #${task.file}': source file no longer exists\n`);
+    RETURN;
+  }
+
+  RECORD replacewith := SELECT * FROM system.fs_objects WHERE id = task.folder;
+  TRY
+  {
+    ValidateReplaceWith(toreplace, replacewith); //tests things like matching types;
+  }
+  CATCH(OBJECT e)
+  {
+    PRINT(`Cannot executetask 'replacewith #${task.file}': ${e->what}\n`);
+    RETURN;
+  }
+
+  //Create a copy for the recyclebin so the original contents are not lost immediately
+  OBJECT copy := toreplace->CopyTo(toreplace->parentobject, GenerateUFS128BitId()); //copy to random name
+  NEW WHFSCalls->Recycle(INTEGER[copy->id], toreplace->name);
+
+  FOREVERY(INTEGER cancopy FROM ArrayIntersection(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
+  {
+    OBJECT typeobj := OpenWHFSTypeById(cancopy);
+    typeobj->SetInstanceData(toreplace->id, typeobj->GetInstanceData(replacewith.id), [ isvisibleedit := FALSE ]); //UpdateMetadata will take care of updating modtimes
+  }
+
+  toreplace->UpdateMetadata(CELL[ replacewith.filelink
+                                , replacewith.data
+                                , replacewith.title
+                                , replacewith.description
+                                , replacewith.externallink
+                                , replacewith.keywords
+                                ]);
+}
+
 PUBLIC MACRO ExecuteScheduledTask(RECORD task)
 {
   DELETE FROM publisher.schedule WHERE id=task.id;
@@ -176,6 +231,10 @@ PUBLIC MACRO ExecuteScheduledTask(RECORD task)
     DoDeleteFile(task);
   ELSE IF (task.event = 5) //Set index doc
     DoSetIndexDoc(task);
+  ELSE IF (task.event = 6)
+    DoReplaceWith(task);
+ ELSE
+    THROW NEW Exception(`Unrecognized task type #${task.event}`);
 
   //Reapply the 'is scheduled' bit (the clock icon)
   UPDATE system.fs_objects SET published := SetScheduleBit(fs_objects.id, fs_objects.published) WHERE id = task.file;

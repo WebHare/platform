@@ -255,6 +255,8 @@
       <text tid="event-endrecurse">End publication of all files in this folder and all subfolders</text>
       <text tid="event-move">Move to</text>
       <text tid="event-movefolder">Move to folder '<param p="1"/>'</text>
+      <text tid="event-replacewith">Replace contents</text>
+      <text tid="event-replacewithtarget">Replace contents from '<param p="1"/>'</text>
       <text tid="event-setindexdoc">Set as index document</text>
       <text tid="event-start">Start publication</text>
       <text tid="event-startrecurse">Start publication of all files in this folder and all subfolders</text>

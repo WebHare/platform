@@ -16,7 +16,7 @@ MACRO DiscardSitesRecursively(INTEGER startfolderid)
 
 PUBLIC STATIC OBJECTTYPE WHFSCalls
 <
-  PUBLIC RECORD FUNCTION Recycle(INTEGER ARRAY objectids)
+  PUBLIC RECORD FUNCTION Recycle(INTEGER ARRAY objectids, STRING overwrite_recycle_name DEFAULTSTO "") //TODO remove this DEFAULTSTO once we remove the WHFSCalls object entirely - just clean up the callers
   {
     RECORD retval := [ repubbedfiles := RECORD[] ];
 
@@ -27,6 +27,9 @@ PUBLIC STATIC OBJECTTYPE WHFSCalls
     torecyclegroups := SELECT parent, torecycle := GroupedValues(torecyclegroups)
                          FROM torecyclegroups
                      GROUP BY parent;
+
+    IF(overwrite_recycle_name != "" AND (Length(torecyclegroups) != 1 OR Length(torecyclegroups[0].torecycle) != 1))
+      THROW NEW Exception(`cannot specify overwrite_recycle_name when recycling more than one file`);
 
     FOREVERY(RECORD recyclegroup FROM torecyclegroups) //Recycle grouped by directory
     {
@@ -51,7 +54,7 @@ PUBLIC STATIC OBJECTTYPE WHFSCalls
       FOREVERY(RECORD recycle FROM torecycle)
       {
         INSERT INTO system.fs_history(fs_object, user, type, when, currentparent, currentname)
-               VALUES(recycle.id, GetEffectiveUserId(), 0, now, recycle.parent, recycle.name);
+               VALUES(recycle.id, GetEffectiveUserId(), 0, now, recycle.parent, overwrite_recycle_name ?? recycle.name);
       }
       UPDATE system.fs_objects SET name := ToString(id), parent := versionparent WHERE id IN (SELECT AS INTEGER ARRAY id FROM torecycle);
 
