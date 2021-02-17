@@ -96,6 +96,7 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                              , defaultlanguage := "en"
                              , description := ""
                              , aftermodulecreation := DEFAULT MACRO PTR
+                             , moduledefinition := ""
                              ], options);
 
   IF(subpath != "" AND (NOT IsValidWHFSName(subpath, FALSE) OR ToLowercase(subpath) != subpath))
@@ -132,6 +133,8 @@ PUBLIC RECORD FUNCTION SetupModule(STRING subpath, STRING modulename, RECORD opt
                                                         , destpath := destpath
                                                         ]);
 
+  IF(options.moduledefinition != "")
+    StoreDiskFile(MergePath(destpath, "moduledefinition.xml"), StringToBlob(options.moduledefinition), [ overwrite := TRUE ]);
   IF(options.aftermodulecreation != DEFAULT MACRO PTR)
     options.aftermodulecreation( [ moduleroot := destpath || "/" ]);
 

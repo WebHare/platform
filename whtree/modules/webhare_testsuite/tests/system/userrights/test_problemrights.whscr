@@ -21,27 +21,25 @@ MACRO Prepare()
   testfw->CommitWork();
 }
 
-MACRO AddRight(RECORD modoptions)
-{
-  STRING moduledefpath := modoptions.moduleroot || "moduledefinition.xml";
-  OBJECT moduledef := MakeXMLDocument(GetDiskResource(moduledefpath));
-  OBJECT rightsnode := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "rights");
-  moduledef->documentelement->AppendChild(rightsnode);
-
-  OBJECT right := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "right");
-  right->SetAttribute("name","danglingright");
-  rightsnode->AppendChild(right);
-
-  OBJECT impliedby := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "impliedby");
-  impliedby->SetAttribute("right","system:sysop");
-  right->AppendChild(impliedby);
-
-  StoreDiskFile(moduledefpath, moduledef->GetDocumentBlob(FALSE), [ overwrite := TRUE ]);
-}
-
 MACRO CreateProblemRight()
 {
-  testfw->SetupTestModule( [ aftermodulecreation := PTR AddRight ]);
+  testfw->SetupTestModule( [ moduledefinition :=
+    `<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <version>0.1.0</version>
+    <description>Test module</description>
+    <packaging download="true" requireversion="42700" />
+    <validation options="nowarnings" />
+  </meta>
+
+  <rights>
+    <right name="danglingright">
+      <impliedby right="system:sysop" />
+    </right>
+  </rights>
+</module>
+`]);
 
   testfw->BeginWork();
   testfw->GetUserObject("sysop")->GrantRightTo("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE);
