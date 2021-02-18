@@ -207,15 +207,6 @@ PUBLIC SCHEMA
     < INTEGER "id" NULL := 0
     , STRING "name"
     , INTEGER "module" NULL := 0
-    , STRING "primarykey"
-    ; KEY id
-    > module_objecttypes
-
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , STRING "name"
-    , INTEGER "objtype" NULL := 0
-    , INTEGER "module" NULL := 0
     , DATETIME orphansince
     ; KEY id
     > module_rights

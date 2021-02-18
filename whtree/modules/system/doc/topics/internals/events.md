@@ -15,8 +15,7 @@ Effect in C++ code: clears HareScript VM caches (TCP/IP context and any DLL call
 This event should never be directly listened to.
 
 ### `system:config.rights`
-Fired when any of the right registration tables are changed (eg system.module_rights, system.module_objecttypes),
-ie rights or objecttypes have appeared or been removed. This event is NOT fired right grant/removals or role creation.
+Fired when rights or objecttypes have appeared or been removed. This event is NOT fired right grant/removals or role creation.
 
 ### `system:config.servertype`
 This event is fired whenever the servertype (eg. development, production) is changed.

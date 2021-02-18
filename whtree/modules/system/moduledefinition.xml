@@ -381,7 +381,7 @@
     <d:grant permissions="select" table="authobjects" columns="id name parent type creationdate" grantee="public" />
     <d:grant permissions="select" table="rolegrants" grantee="public" />
     <d:grant permissions="select" table="modules" grantee="public" />
-    <d:grant permissions="select" table="module_objecttypes" grantee="public" />
+    <!-- <d:grant permissions="select" table="module_objecttypes" grantee="public" /> -->
     <d:grant permissions="select" table="module_rights" grantee="public" />
     <d:grant permissions="select" table="module_impliedbys" grantee="public" />
 
@@ -1149,62 +1149,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:datetime>
     </d:table>
 
-    <d:table name="module_objecttypes" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
+    <!-- FIXME Obsolete module_objecttypes. But do that once it seems unlikely that
+         users will accidentally upgrade try to downgrade immediately to a version requiring 'storagetable'.
 
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="256" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <!-- FIXME Obsolete tablename, storagetable, parentfield, icon, describer. But do that once it seems unlikely that
-           users will accidentally upgrade try to downgrade immediately to a version requiring 'storagetable'.
-
-           we can't just comment them out, at least 'storagetable' requires its nullable=false to be revoked
-         -->
-      <d:varchar name="tablename" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="storagetable" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="primarykey" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="parentfield" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="describer" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="icon" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
-        <d:documentation>
-        </d:documentation>
-      </d:index>
-    </d:table>
+    <d:obsoletetable name="module_objecttypes" />
+       -->
 
     <d:table name="module_rights" primarykey="id">
       <d:integer name="id" autonumberstart="1">
@@ -1217,7 +1166,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
-      <d:integer name="objtype" references=".module_objecttypes" ondelete="cascade" nullable="false">
+      <d:integer name="objtype"> <!-- references=".module_objecttypes" ondelete="cascade" nullable="false" --> <!-- FIXME Obsolete this column once module_objecttypes is gone -->
         <d:documentation>
 
         </d:documentation>

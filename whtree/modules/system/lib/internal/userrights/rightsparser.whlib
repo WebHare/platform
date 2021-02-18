@@ -17,12 +17,20 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
                   WHERE ToLowercase(table_name) LIKE "o_*" AND ToInteger(Substring(table_name,2),0) > 0;
 
   RECORD ARRAY modules := SELECT id,name FROM system_internal.modules;
-  RECORD ARRAY db_rights := SELECT id,module,name,objtype FROM system_internal.module_rights ORDER BY module, name;
-  RECORD ARRAY db_objecttypes := SELECT id,module,name,primarykey FROM system_internal.module_objecttypes ORDER BY module, name;
+  RECORD ARRAY db_rights := SELECT id,module,name FROM system_internal.module_rights ORDER BY module, name;
 
   STRING ARRAY issues;
   RECORD ARRAY rights;
-  RECORD ARRAY objecttypes;
+  RECORD ARRAY objecttypes :=
+      [[ storagetable := "system_rights.global_rights"
+       , primarykey := "id"
+       , parentfield := ""
+       , describer := ""
+       , icon := ""
+       , tablename := ""
+       , name := "system:#global"
+       ]
+      ];
   STRING ARRAY missingrightstables;
 
   FOREVERY (RECORD module FROM GetWebHareModules())
@@ -32,20 +40,6 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
     {
       INSERT `Module '${module.name} isn't in system.modules yet` INTO issues AT END;
       CONTINUE;
-    }
-
-    IF(module.name = "system")
-    {
-      RECORD matchglobal := RecordLowerBound(db_objecttypes, CELL[module := moduleid, name := "#global" ], ["module","name"]);
-      INSERT CELL[ ...db_objecttypes[matchglobal.position]
-                 , storagetable := "system_rights.global_rights"
-                 , primarykey := ""
-                 , parentfield := ""
-                 , describer := ""
-                 , icon := ""
-                 , tablename := ""
-                 , name := "system:#global"
-                 ] INTO objecttypes AT END;
     }
 
     FOREVERY(RECORD right FROM module.modulerights)
@@ -67,13 +61,6 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
     FOREVERY(RECORD objtype FROM module.moduleobjects)
     {
       STRING localname := Tokenize(objtype.name,':')[1];
-      RECORD match := RecordLowerBound(db_objecttypes, CELL[module := moduleid, name := localname ], ["module","name"]);
-      IF(NOT RecordExists(match))
-      {
-        INSERT `Right objecttype '${objtype.name}' isn't in system.module_objecttypes yet` INTO issues AT END;
-        CONTINUE;
-      }
-
       RECORD ARRAY match_rightstables := SELECT * FROM rightstables WHERE match_by_references = objtype.tablename;
       IF(NOT RecordExists(match_rightstables))
       {
@@ -89,9 +76,9 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
         CONTINUE;
       }
       INSERT CELL[ ...objtype
-                 , ...db_objecttypes[match.position]
                  , storagetable := "system_rights." || match_rightstables[0].table_name
                  , objtype.name //ensure we have the full name
+                 , primarykey := "id" //FIXME this might not always be correct...
                  ] INTO objecttypes AT END;
     }
   }

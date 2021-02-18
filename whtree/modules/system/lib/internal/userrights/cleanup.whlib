@@ -32,7 +32,6 @@ PUBLIC MACRO CleanupObsoleteRights()
   INTEGER ARRAY implyingrights := SELECT AS INTEGER ARRAY DISTINCT impliedby FROM system_internal.module_impliedbys;
   RECORD ARRAY obsoleterights := SELECT module_rights.id
                                       , module_rights.name
-                                      , module_rights.objtype
                                       , module := modules.name
                                       , module_rights.orphansince
                                       , rightname := modules.name || ":" || module_rights.name
@@ -41,7 +40,7 @@ PUBLIC MACRO CleanupObsoleteRights()
                                   WHERE modules.id = module_rights.module
                                         AND module_rights.id NOT IN (SELECT AS INTEGER ARRAY id FROM rightsinfo.rights)
                                         AND module_rights.id NOT IN implyingrights
-                               ORDER BY objtype, modules.name, module_rights.name;
+                               ORDER BY modules.name, module_rights.name;
 
   //reset orphansince on referred rights
   UPDATE system_internal.module_rights SET orphansince := DEFAULT DATETIME
@@ -66,8 +65,6 @@ PUBLIC MACRO CleanupObsoleteRights()
       FOREVERY(INTEGER seenid FROM seenids)
       {
         RECORD right := SELECT * FROM obsoleterights WHERE id = seenid;
-        Print(`Right '${right.rightname}' is orphaned but still referred in system_rights.${tablerec.table_name}. Delete this right manually.\n`);
-
         IF(right.orphansince = DEFAULT DATETIME) //set an orphan date for this right
           UPDATE system_internal.module_rights SET orphansince := GetCurrentDatetime() WHERE id = seenid;
       }

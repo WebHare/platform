@@ -104,8 +104,8 @@ PUBLIC OBJECT FUNCTION GetElevatedImpl()
 RECORD ARRAY FUNCTION GetRightsWithTables()
 {
   RECORD mot := GetModuleObjectTypes();
-  RECORD ARRAY objtypes := SELECT * FROM mot.objecttypes ORDER BY id;
-  RECORD ARRAY rights := SELECT TEMPORARY pos := RecordLowerBound(VAR objtypes, CELL[id := objtype],["id"])
+  RECORD ARRAY objtypes := SELECT * FROM mot.objecttypes ORDER BY name;
+  RECORD ARRAY rights := SELECT TEMPORARY pos := RecordLowerBound(VAR objtypes, CELL[name := objtype ?? "system:#global"],["name"])
                               , rights.*
                               , objtypeinfo := pos.found ? objtypes[pos.position] : DEFAULT RECORD
                            FROM mot.rights;
@@ -248,15 +248,18 @@ PUBLIC RECORD FUNCTION GetRightByNameInternal(STRING rightname)
   RECORD mot := GetModuleObjectTypes();
   RECORD rightinfo := SELECT * FROM mot.rights WHERE name = VAR rightname;
   IF (NOT RecordExists(rightinfo))
-    THROW NEW Exception("Right '"||rightname||"' does not exist, or its module not initialized");
+    THROW NEW Exception(`Right '${rightname}' does not exist or its module isn't initialized yet`);
 
-  RECORD objtype := SELECT * FROM mot.objecttypes WHERE id = rightinfo.objtype;
+  //TODO should we be less inconsistent whether objtype is "" or "system:#global" for global rights?
+  RECORD objtype := SELECT * FROM mot.objecttypes WHERE name = (rightinfo.objtype ?? "system:#global");
+  IF (NOT RecordExists(objtype))
+    THROW NEW Exception(`Objecttype '${rightinfo.objtype}' (referred from right '${rightname}') does not exist`);
 
   rec := [ "0"                := rightname
          , fullname           := rightname
          , rightid            := rightinfo.id
          , modulename         := Tokenize(rightname,':')[0]
-         , objecttypename     := objtype.name
+         , objecttypename     := objtype.name ?? "system:#global"
          , tablename          := objtype.tablename
          , storagetable       := objtype.storagetable
          , primarykey         := ToLowercase(objtype.primarykey)
@@ -395,12 +398,10 @@ PUBLIC RECORD ARRAY FUNCTION GetListOfRights()
 
 PUBLIC RECORD ARRAY FUNCTION GetListOfObjectTypes()
 {
-  RETURN SELECT name := modules.name || ":" || module_objecttypes.name
-              , module := modules.name
-           FROM system_internal.module_objecttypes
-              , system_internal.modules
-          WHERE modules.id = module_objecttypes.module
-                AND module_objecttypes.name != "#global";
+  RETURN SELECT name
+              , module := Tokenize(name,':')[0]
+           FROM GetModuleObjectTypes().objecttypes
+          WHERE name != "system:#global";
 }
 
 
@@ -451,7 +452,6 @@ PUBLIC RECORD FUNCTION GetRightByName(STRING name)
     @param type Objecttype (fully qualified with modulename)
     @return Objecttype description
     @cell return.library Library with object describer objecttype
-    @cell return.objecttypeid Id of the objecttype
     @cell return.objecttypename Name of the objecttype
     @cell return.objectname Name of object describer objecttype
     @cell return.tablename Table this objecttype works on (empty for global objecttype)
@@ -473,13 +473,13 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
   STRING modulename := LEFT(type, mpos);
   STRING objtype := SubString(type, mpos + 1);
 
- RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.name = type;
+  RECORD mot := GetModuleObjectTypes();
+  RECORD rightobjtype := SELECT * FROM mot.objecttypes WHERE objecttypes.name = type;
   IF(NOT RecordExists(rightobjtype))
     THROW NEW Exception(`Object type '${type}' does not exist`);
 
   RECORD rec :=
        CELL[ "0" := type
-           , objecttypeid := rightobjtype.id
            , objecttypename := type
            , modulename := modulename
            , rightobjtype.describer
@@ -492,8 +492,8 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
 
   INTEGER ARRAY rightids :=
       SELECT AS INTEGER ARRAY id
-        FROM system_internal.module_rights
-       WHERE COLUMN objtype = rec.objecttypeid;
+        FROM mot.rights
+       WHERE COLUMN objtype = rec.objecttypename;
 
   RECORD ARRAY rights;
   FOREVERY (INTEGER id FROM rightids)
@@ -505,38 +505,6 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
   RETURN rec;
 }
 
-
-
-/** Get data about a specific objecttype. Returns DEFAULT RECORD when not found.
-    @param type Objecttype (fully qualified with modulename)
-    @return Objecttype description
-    @cell return.library Library with object describer objecttype
-    @cell return.objecttypename Name of objecttype
-    @cell return.modulename Name of the module of this objecttype
-    @cell return.objectname Name of object describer objecttype
-    @cell return.tablename Table this objecttype works on (empty for global objecttype)
-    @cell return.primarykey Primary key of table
-    @cell return.parentfield Parent field of table (empty when no parentfield is present)
-*/
-PUBLIC RECORD FUNCTION GetObjectTypeDataByName(STRING type)
-{
-  TRY
-  {
-    RECORD rec := GetObjectTypeDataByNameInternal(type);
-    RETURN
-         [ objecttypename :=    rec.objecttypename
-         , describer :=         rec.describer
-         , modulename :=        rec.modulename
-         , tablename :=         rec.tablename
-         , primarykey :=        rec.primarykey
-         , parentfield :=       rec.parentfield
-         ];
-  }
-  CATCH (OBJECT e)
-  {
-    RETURN DEFAULT RECORD;
-  }
-}
 
 // -----------------------------------------------------------------------------
 //
