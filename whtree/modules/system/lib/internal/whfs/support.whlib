@@ -559,7 +559,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetWHFSDescendantIds(INTEGER basefolder, BOOLEAN r
 //list active instances linked to a object that should be copied
 PUBLIC INTEGER ARRAY FUNCTION GetCopyableInstanceTypes(INTEGER forobject)
 {
-  //TODO doesn't this incorrectly pick up instance-in-instances? It probably won't hurt though as GetInstanceData/SetInstanceData still filter the actual esults
+  //TODO doesn't this incorrectly pick up instance-in-instances? It probably won't hurt though as GetInstanceData/SetInstanceData still filter the actual results
   RETURN SELECT AS INTEGER ARRAY DISTINCT fs_types.id
            FROM system.fs_instances, system.fs_types
           WHERE fs_instances.fs_type = fs_types.id

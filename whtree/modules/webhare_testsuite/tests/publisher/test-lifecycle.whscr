@@ -131,7 +131,7 @@ MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadlin
 
     IF (executetaskstatus.currentstart = DEFAULT DATETIME
         AND (executetaskstatus.nexttime = DEFAULT DATETIME
-             OR GetDatetimeDIfference(GetCurrentDatetime(),executetaskstatus.nexttime).totalmsecs >= 60*60*1000)) //also ignore tasks after next hour in case you actually scheduled stuff
+             OR GetDatetimeDifference(GetCurrentDatetime(),executetaskstatus.nexttime).totalmsecs >= 60*60*1000)) //also ignore tasks after next hour in case you actually scheduled stuff
       BREAK;
 
     Sleep(10);
