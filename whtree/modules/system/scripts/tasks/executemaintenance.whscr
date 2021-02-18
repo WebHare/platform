@@ -76,8 +76,8 @@ MACRO CleanupUsermgmt()
 MACRO CleanupUserRights()
 {
   trans->BeginWork();
+  CleanupAuthObjects(); //always cleanup authobjects first, that may drop references to rights tables
   CleanupObsoleteRights();
-  CleanupAuthObjects();
   trans->CommitWork();
 }
 
@@ -98,7 +98,6 @@ MACRO RunExecuteMaintenance()
     CleanupUsageLogs();
     CleanupDiversions();
     CleanupUserMgmt();
-    CleanupAuthObjects();
     CleanupUserRights();
   }
   FixupUserMgmt();
