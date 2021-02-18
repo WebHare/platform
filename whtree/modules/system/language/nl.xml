@@ -678,8 +678,6 @@
     <text tid="sysop">Systeembeheerder</text>
     <text tid="sysop-descr">Volledige managementrechten voor deze installatie</text>
     <text tid="units">Eenheden</text>
-    <text tid="unreferenced">Vervallen rechten</text>
-    <text tid="unreferenced-descr">Rechten en objecttypes die niet (meer) door een module aangeboden worden</text>
     <text tid="urlaccess">URL toegang</text>
     <text tid="urlaccess-descr">Laat inloggen op deze URL toe</text>
     <text tid="webdav_datafolders">WebDav gegevensmappen</text>

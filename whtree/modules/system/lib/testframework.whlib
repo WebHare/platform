@@ -981,7 +981,11 @@ OBJECTTYPE TestFramework //can't make STATIC, breaks consilio extensions - TODO 
 
     GetPrimary()->Beginwork();
 
-    //Wipe existing schemas
+    //Wipe testmodule database schema if it exists
+    IF(GetPrimary()->SchemaExists(testfw_testmodule))
+      GetPrimary()->DropSchema(testfw_testmodule, [ cascade := TRUE ]);
+
+    //Wipe existing WRD schemas
     FOREVERY (STRING name FROM SELECT AS STRING ARRAY COLUMN tag
                                  FROM ListWRDSchemas()
                                 WHERE COLUMN tag = whconstant_wrd_testschema

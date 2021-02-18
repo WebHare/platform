@@ -44,7 +44,7 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
                  , describer := ""
                  , icon := ""
                  , tablename := ""
-                 , rightsobjecttype := "system:#global"
+                 , name := "system:#global"
                  ] INTO objecttypes AT END;
     }
 
@@ -60,6 +60,7 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
 
       INSERT CELL[ ...right
                  , ...db_rights[match.position]
+                 , right.name //ensure we have the full name
                  ] INTO rights AT END;
     }
 
@@ -88,13 +89,14 @@ PUBLIC RECORD FUNCTION __GetCacheableModuleObjectTypes()
         CONTINUE;
       }
       INSERT CELL[ ...objtype
-                 , ...db_objecttypes[match.position], storagetable := "system_rights." || match_rightstables[0].table_name
-                 , rightsobjecttype := objtype.name
+                 , ...db_objecttypes[match.position]
+                 , storagetable := "system_rights." || match_rightstables[0].table_name
+                 , objtype.name //ensure we have the full name
                  ] INTO objecttypes AT END;
     }
   }
 
-  objecttypes := SELECT * FROM objecttypes ORDER BY rightsobjecttype;
+  objecttypes := SELECT * FROM objecttypes ORDER BY name;
 
   RETURN [ value := CELL[ objecttypes, rights, issues, missingrightstables ]
          , ttl := 15 * 60 * 1000

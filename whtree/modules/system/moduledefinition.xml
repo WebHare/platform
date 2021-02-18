@@ -195,11 +195,6 @@
   </tollium>
 
   <rights>
-    <rightsgroup name="unreferenced"
-                tid="rights.unreferenced"
-                descriptiontid="rights.unreferenced-descr"
-                icon="tollium:smileys/frown"
-                />
     <rightsgroup name="default"
                 tid="rights.default"
                 descriptiontid="rights.default-descr"
@@ -1232,6 +1227,9 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
+      <d:datetime name="orphansince">
+        <d:documentation>Date since which we didn't see references to this right</d:documentation>
+      </d:datetime>
       <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
         <d:documentation>
         </d:documentation>

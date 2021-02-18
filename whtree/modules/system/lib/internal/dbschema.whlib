@@ -216,6 +216,7 @@ PUBLIC SCHEMA
     , STRING "name"
     , INTEGER "objtype" NULL := 0
     , INTEGER "module" NULL := 0
+    , DATETIME orphansince
     ; KEY id
     > module_rights
 

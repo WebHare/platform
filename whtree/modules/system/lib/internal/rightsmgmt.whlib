@@ -72,6 +72,13 @@ RECORD ARRAY impliedbyes_cache;
 /// Cache for objecttypes
 RECORD ARRAY objecttypes_cache;
 
+PUBLIC MACRO __ResetRightsCaches() //tests require this. but can we avoid the need for our 'own' cache, or at least be smarter in flushing like whfstypes can do?
+{
+  rights_cache := RECORD[];
+  rights_id_cache := RECORD[];
+  impliedbyes_cache := RECORD[];
+  objecttypes_cache := RECORD[];
+}
 
 /** Current (authenticated) user.
     The user will be able to modify this record and see all rights for everybody,
@@ -92,6 +99,24 @@ PUBLIC OBJECT FUNCTION GetElevatedImpl()
   IF(NOT ObjectExists(elevatedrightscalls_obj))
     NEW ElevatedRightsCalls;
   RETURN elevatedrightscalls_obj;
+}
+
+RECORD ARRAY FUNCTION GetRightsWithTables()
+{
+  RECORD mot := GetModuleObjectTypes();
+  RECORD ARRAY objtypes := SELECT * FROM mot.objecttypes ORDER BY id;
+  RECORD ARRAY rights := SELECT TEMPORARY pos := RecordLowerBound(VAR objtypes, CELL[id := objtype],["id"])
+                              , rights.*
+                              , objtypeinfo := pos.found ? objtypes[pos.position] : DEFAULT RECORD
+                           FROM mot.rights;
+  rights := SELECT *
+                 , storagetable := objtypeinfo.storagetable
+                 , tablename := objtypeinfo.tablename
+                 , objecttypename := objtypeinfo.name
+                 , DELETE objtypeinfo
+              FROM rights
+             WHERE RecordExists(objtypeinfo);
+  RETURN rights;
 }
 
 // -----------------------------------------------------------------------------
@@ -203,59 +228,6 @@ PUBLIC OBJECTTYPE ObjectTypeDescriber
 // (Cached) metadata info functions
 //
 
-RECORD FUNCTION GetCachableRightByNameInternal(STRING rightname, STRING full_rightname)
-{
-  INTEGER mpos := SearchSubString(rightname, ":");
-  IF (mpos = -1)
-    THROW NEW Exception("Illegal right name, expected a string in the form 'module:right', got '"||rightname||"'");
-
-  STRING orgrightname := rightname;
-  STRING modulename := ToLowercase(LEFT(rightname, mpos));
-  rightname := SubString(rightname, mpos + 1);
-
-  INTEGER moduleid :=
-      SELECT AS INTEGER id
-        FROM system_internal.modules
-       WHERE name = modulename;
-
-  IF (moduleid = 0)
-    THROW NEW Exception("Module '"||modulename||"' does not exist or is not initialized (searching for right '"||rightname||"')");
-
-  RECORD rec :=
-      SELECT "0"                := full_rightname
-           , fullname           := full_rightname
-           , rightid            := module_rights.id
-           , modulename         := modulename
-           , objecttypename     := objectmodule.name||":"||module_objecttypes.name
-        FROM system_internal.module_rights
-           , system_internal.module_objecttypes
-           , system_internal.modules AS objectmodule
-       WHERE module_objecttypes.id = module_rights.objtype
-         AND module_rights.name = rightname
-         AND module_rights.module = moduleid
-         AND module_objecttypes.module = objectmodule.id;
-
-  IF (NOT RecordExists(rec))
-    THROW NEW Exception("Right '"||orgrightname||"' does not exist, or module '"||modulename||"' is not initialized");
-
-  RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.rightsobjecttype = rec.objecttypename;
-  IF(NOT RecordExists(rightobjtype))
-    THROW NEW Exception(`Rights objecttype '${rec.objecttypename}' not registered`);
-
-  rec := CELL[ ...rec
-             , rightobjtype.tablename
-             , rightobjtype.storagetable
-             , primarykey         := ToLowercase(rightobjtype.primarykey)
-             , parentfield        := ToLowercase(rightobjtype.parentfield)
-             , allowobjref        := rightobjtype.tablename != ""
-             , isglobal           := rightobjtype.tablename = ""
-             ];
-
-  RETURN [ value := rec
-         , eventmasks := ["system:config.rights"]
-         ];
-}
-
 /** Looks up a right, throws on any error.
     @return Returns right data
     @cell return.rightid Id of the right
@@ -267,12 +239,32 @@ RECORD FUNCTION GetCachableRightByNameInternal(STRING rightname, STRING full_rig
 */
 PUBLIC RECORD FUNCTION GetRightByNameInternal(STRING rightname)
 {
-  STRING full_rightname := ToLowercase(rightname);
-  INTEGER pos := __HS_SQL_GetGroupPosition(rights_cache, [ "0" := full_rightname ]);
+  rightname := ToLowercase(rightname);
+  INTEGER pos := __HS_SQL_GetGroupPosition(rights_cache, [ "0" := rightname ]);
   IF (pos >= 0)
     RETURN rights_cache[pos];
 
-  RECORD rec := GetAdhocCached([ type := "rightbyname", rightname := rightname ], PTR GetCachableRightByNameInternal(rightname, full_rightname));
+  RECORD rec;
+  RECORD mot := GetModuleObjectTypes();
+  RECORD rightinfo := SELECT * FROM mot.rights WHERE name = VAR rightname;
+  IF (NOT RecordExists(rightinfo))
+    THROW NEW Exception("Right '"||rightname||"' does not exist, or its module not initialized");
+
+  RECORD objtype := SELECT * FROM mot.objecttypes WHERE id = rightinfo.objtype;
+
+  rec := [ "0"                := rightname
+         , fullname           := rightname
+         , rightid            := rightinfo.id
+         , modulename         := Tokenize(rightname,':')[0]
+         , objecttypename     := objtype.name
+         , tablename          := objtype.tablename
+         , storagetable       := objtype.storagetable
+         , primarykey         := ToLowercase(objtype.primarykey)
+         , parentfield        := ToLowercase(objtype.parentfield)
+         , allowobjref        := objtype.tablename != ""
+         , isglobal           := objtype.tablename = ""
+         ];
+
   INSERT rec INTO rights_cache AT -pos - 1;
   RETURN rec;
 }
@@ -385,14 +377,10 @@ PUBLIC BOOLEAN FUNCTION IsRightGlobal(STRING rightname)
 */
 PUBLIC RECORD ARRAY FUNCTION GetListOfRights()
 {
-  RECORD ARRAY results :=
-      SELECT AS RECORD ARRAY GetRightById(id)
-        FROM system_internal.module_rights;
-
   RETURN
-      SELECT rightid
-           , modulename
-           , rightname  := fullname
+      SELECT rightid := id
+           , modulename := Tokenize(name,':')[0]
+           , rightname  := name
            , tablename
            , objecttypename
            , isglobal := tablename = ""
@@ -401,8 +389,8 @@ PUBLIC RECORD ARRAY FUNCTION GetListOfRights()
                     , rightname  := fullname
                     , tablename
                     , fieldname
-                 FROM GetImpliedBysById(rightid)
-        FROM results;
+                 FROM GetImpliedBysById(id)
+        FROM GetRightsWithTables();
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetListOfObjectTypes()
@@ -485,7 +473,7 @@ RECORD FUNCTION GetObjectTypeDataByNameInternal(STRING type)
   STRING modulename := LEFT(type, mpos);
   STRING objtype := SubString(type, mpos + 1);
 
- RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.rightsobjecttype = type;
+ RECORD rightobjtype := SELECT * FROM GetModuleObjectTypes().objecttypes WHERE objecttypes.name = type;
   IF(NOT RecordExists(rightobjtype))
     THROW NEW Exception(`Object type '${type}' does not exist`);
 
@@ -1319,7 +1307,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
     RETURN LENGTH(this->__PVT_HasRightOn(right, this, TRUE, DEFAULT INTEGER ARRAY)) != 0;
   }
 
-
   /** Returns whether this authobject has any grantable right
   */
   UPDATE PUBLIC BOOLEAN FUNCTION HasAnyGrantableRight()
@@ -1330,7 +1317,7 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
     RECORD ARRAY alltables :=
        SELECT rights := GroupedValues(rec)
             , storagetable
-         FROM (SELECT AS RECORD ARRAY GetRightById(id) FROM system_internal.module_rights) AS rec
+         FROM GetRightsWithTables() AS rec
      GROUP BY storagetable;
 
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
@@ -3191,7 +3178,7 @@ PUBLIC RECORD ARRAY FUNCTION GetDirectGrantsTo(OBJECT user)
   RECORD ARRAY alltables :=
      SELECT rights := GroupedValues(rec)
           , storagetable
-       FROM (SELECT AS RECORD ARRAY GetRightById(id) FROM system_internal.module_rights) AS rec
+       FROM GetRightsWithTables() AS rec
    GROUP BY storagetable;
 
   INTEGER ARRAY authobjects := user->__PVT_GetAllAuthObjects();
@@ -3212,9 +3199,9 @@ PUBLIC RECORD ARRAY FUNCTION GetDirectGrantsTo(OBJECT user)
     FOREVERY (RECORD right FROM tablerights.rights)
       results := results CONCAT
           SELECT *
-               , rightname := right.fullname
+               , rightname := right.name
             FROM grants
-           WHERE rightid = right.rightid;
+           WHERE rightid = right.id;
   }
   RETURN results;
 }

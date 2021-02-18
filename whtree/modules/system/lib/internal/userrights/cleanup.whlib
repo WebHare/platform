@@ -34,6 +34,7 @@ PUBLIC MACRO CleanupObsoleteRights()
                                       , module_rights.name
                                       , module_rights.objtype
                                       , module := modules.name
+                                      , module_rights.orphansince
                                       , rightname := modules.name || ":" || module_rights.name
                                    FROM system_internal.module_rights
                                       , system_internal.modules
@@ -42,6 +43,12 @@ PUBLIC MACRO CleanupObsoleteRights()
                                         AND module_rights.id NOT IN implyingrights
                                ORDER BY objtype, modules.name, module_rights.name;
 
+  //reset orphansince on referred rights
+  UPDATE system_internal.module_rights SET orphansince := DEFAULT DATETIME
+                                       WHERE orphansince != DEFAULT DATETIME
+                                             AND id NOT IN (SELECT AS INTEGER ARRAY obsoleterights.id FROM obsoleterights);
+
+  DATETIME cutoff := GetCleanupCutoff();
   IF(Length(obsoleterights) > 0)
   {
     /* When rights are orphaned we might not have enough information to reconstruct their objecttpype, and thus we may not even
@@ -54,13 +61,17 @@ PUBLIC MACRO CleanupObsoleteRights()
     {
       BindStorageTable("system_rights." || tablerec.table_name);
 
-      INTEGER ARRAY findids := SELECT AS INTEGER ARRAY id FROM obsoleterights;
+      INTEGER ARRAY findids := SELECT AS INTEGER ARRAY id FROM obsoleterights WHERE orphansince = DEFAULT DATETIME OR orphansince > cutoff; //don't even scan for rights that are orphan too long. this will drop them
       INTEGER ARRAY seenids := SELECT AS INTEGER ARRAY DISTINCT rights_table.right FROM rights_table WHERE rights_table.right IN findids;
       FOREVERY(INTEGER seenid FROM seenids)
       {
         RECORD right := SELECT * FROM obsoleterights WHERE id = seenid;
         Print(`Right '${right.rightname}' is orphaned but still referred in system_rights.${tablerec.table_name}. Delete this right manually.\n`);
+
+        IF(right.orphansince = DEFAULT DATETIME) //set an orphan date for this right
+          UPDATE system_internal.module_rights SET orphansince := GetCurrentDatetime() WHERE id = seenid;
       }
+      //remove all rights from the deletion list we haven't seen
       DELETE FROM obsoleterights WHERE id IN seenids;
     }
   }
@@ -70,5 +81,6 @@ PUBLIC MACRO CleanupObsoleteRights()
     FOREVERY(RECORD right FROM obsoleterights)
       Print(`Deleting orphan right '${right.rightname}'\n`);
     DELETE FROM system_internal.module_rights WHERE id IN (SELECT AS INTEGER ARRAY id FROM obsoleterights);
+    GetPrimary()->BroadcastOnCommit("system:config.rights", DEFAULT RECORD);
   }
 }

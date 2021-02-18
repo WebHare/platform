@@ -86,56 +86,48 @@ STATIC OBJECTTYPE RightsInfo
              FROM mod.modulerightsgroups;
     }
 
-    // Get list of rights in DB
-    this->pvt_rights :=
-        SELECT name :=              rightname
-             , module :=            modulename
-             , objecttypename :=    isglobal ? "" : objecttypename
-             , isglobal
-          FROM GetListOfRights();
-
     // Get list of objecttypes in DB
-    this->pvt_objecttypes := GetListOfObjectTypes();
-
-    FOREVERY (RECORD type FROM this->pvt_objecttypes)
+    FOREVERY (RECORD type FROM GetListOfObjectTypes())
     {
       STRING title := type.name;
-      STRING rightsgroup := "system:unreferenced";
+      STRING rightsgroup;
       STRING icon;
       STRING description;
-      BOOLEAN has_definition;
 
       RECORD module := this->GetModuleByName(type.module);
-      IF (RecordExists(module))
-      {
-        RECORD rec := SELECT * FROM module.moduleobjects WHERE name = type.name;
-        IF (RecordExists(rec))
-        {
-          title := GetTid(rec.title);
-          description := GetTid(rec.description);
-          icon := rec.icon;
+      IF (NOT RecordExists(module))
+        CONTINUE;
 
-          IF (title = "") // No empty titles, please
-            title := type.name;
+      RECORD rec := SELECT * FROM module.moduleobjects WHERE name = type.name;
+      IF (NOT RecordExists(rec))
+        CONTINUE;
 
-          rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
-          has_definition := TRUE;
-        }
-      }
+      title := GetTid(rec.title);
+      description := GetTid(rec.description);
+      icon := rec.icon;
 
-      INSERT CELL title := title INTO this->pvt_objecttypes[#type];
-      INSERT CELL description := description INTO this->pvt_objecttypes[#type];
-      INSERT CELL icon := icon INTO this->pvt_objecttypes[#type];
-      INSERT CELL rightsgroup := rightsgroup INTO this->pvt_objecttypes[#type];
-      INSERT CELL has_definition := has_definition INTO this->pvt_objecttypes[#type];
+      IF (title = "") // No empty titles, please
+        title := type.name;
+
+      rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
+
+      INSERT CELL title := title INTO type;
+      INSERT CELL description := description INTO type;
+      INSERT CELL icon := icon INTO type;
+      INSERT CELL rightsgroup := rightsgroup INTO type;
+      INSERT type INTO this->pvt_objecttypes AT END;
     }
 
-    FOREVERY (RECORD right FROM this->pvt_rights)
+    // Get list of rights in DB
+    FOREVERY (RECORD right FROM SELECT name :=              rightname
+                                     , module :=            modulename
+                                     , objecttypename :=    isglobal ? "" : objecttypename
+                                     , isglobal
+                                  FROM GetListOfRights())
     {
       STRING title := right.name;
-      STRING rightsgroup := "system:unreferenced";
+      STRING rightsgroup;
       STRING description;
-      BOOLEAN has_definition := FALSE;
       INTEGER ordering := 999999;
 
       // For non-global rights, get the group from the objecttype
@@ -148,31 +140,30 @@ STATIC OBJECTTYPE RightsInfo
       }
 
       RECORD module := this->GetModuleByName(right.module);
-      IF (RecordExists(module))
-      {
-        RECORD rec := SELECT * FROM module.modulerights WHERE name = right.name;
-        IF (RecordExists(rec))
-        {
-          title := GetTid(rec.title);
-          description := GetTid(rec.description);
+      IF (NOT RecordExists(module))
+        CONTINUE;
 
-          // No empty titles, use the right name instead
-          IF (title = "")
-            title := right.name;
+      RECORD rec := SELECT * FROM module.modulerights WHERE name = right.name;
+      IF (NOT RecordExists(Rec))
+        CONTINUE;
 
-          IF (right.isglobal)
-            rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
+      title := GetTid(rec.title);
+      description := GetTid(rec.description);
 
-          has_definition := TRUE;
-          ordering := rec.ordering;
-        }
-      }
+      // No empty titles, use the right name instead
+      IF (title = "")
+        title := right.name;
 
-      INSERT CELL title := title INTO this->pvt_rights[#right];
-      INSERT CELL description := description INTO this->pvt_rights[#right];
-      INSERT CELL rightsgroup := rightsgroup INTO this->pvt_rights[#right];
-      INSERT CELL has_definition := has_definition INTO this->pvt_rights[#right];
-      INSERT CELL ordering := ordering INTO this->pvt_rights[#right];
+      IF (right.isglobal)
+        rightsgroup := this->VerifyRightsGroup(rec.rightsgroup);
+
+      ordering := rec.ordering;
+
+      INSERT CELL title := title INTO right;
+      INSERT CELL description := description INTO right;
+      INSERT CELL rightsgroup := rightsgroup INTO right;
+      INSERT CELL ordering := ordering INTO right;
+      INSERT right INTO this->pvt_rights AT END;
     }
 
     IF (NOT user->HasRight("system:sysop"))
