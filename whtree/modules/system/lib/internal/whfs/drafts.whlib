@@ -29,15 +29,9 @@ RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER destid, INTEGER versionparent, 
          WHERE id = orginfo.parent
            AND indexdoc = srcid);
 
-  RECORD ARRAY copyableinstances := SELECT fs_types.id
-                                      FROM system.fs_instances, system.fs_types
-                                     WHERE fs_instances.fs_type = fs_types.id
-                                           AND fs_instances.fs_object = srcid
-                                           AND fs_types.cloneoncopy = TRUE;
-
-  FOREVERY(RECORD cancopy FROM copyableinstances) //ADDME should orphan data be cloned too ?
+  FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(srcid))
   {
-    OBJECT typeobj := OpenWHFSTypeById(cancopy.id);
+    OBJECT typeobj := OpenWHFSTypeById(cancopy);
     typeobj->SetInstanceData(destid, typeobj->GetInstanceData(srcid));
   }
 
