@@ -100,7 +100,7 @@ ASYNC MACRO TestProblemRights()
   __ResetRightsCaches();
   //there's no way to revoke a broken right as we can't find its storage tables.
   TestThrowsLike("Right*does not exist*", PTR testfw->GetUserObject("sysop")->RevokeRightFrom("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE));
-  DELETE FROM my_rights_tree; //this should cascade danglighright2
+  DELETE FROM my_rights_tree; //this should cascade danglingright2
   CleanupObsoleteRights(); //should now clean the danglingright2
 
   testfw->CommitWork();
