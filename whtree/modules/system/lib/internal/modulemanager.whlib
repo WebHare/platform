@@ -7,11 +7,13 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/scripts.whlib";
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 
@@ -141,7 +143,7 @@ PUBLIC RECORD FUNCTION InitModuleIndependents(RECORD ARRAY modules, BOOLEAN list
 
 //  IF (NOT pre) //FIXME reuse data from GRSD
   {
-    RECORD rightsschemaspec := GetRightsSchemaDefinition(FALSE, DEFAULT INTEGER ARRAY, list_complete AND NOT pre, modules, pre);
+    RECORD rightsschemaspec := GetRightsSchemaDefinition(pre);
     INSERT rightsschemaspec INTO modules[0].databaseschemas AT 0;
   }
 
@@ -235,21 +237,26 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION InitModuleRights(RECORD module, BOOLEAN update_module_modtime)
+PUBLIC RECORD FUNCTION InitModuleRights(RECORD ARRAY modules, BOOLEAN update_module_modtime)
 {
+  //TODO it's most likely that any issues here are reported through exceptions, not through 'errors' lists, so we need to actually support *that* ...
   GetPrimary()->BeginWork([ mutex := "system:modulemanager.initmodulerights" ]);
 
   RECORD result := [ commitmessages := DEFAULT RECORD ARRAY, commands := DEFAULT RECORD ARRAY ];
-  RECORD rightres := CreateModuleRights(module, update_module_modtime);
-  IF(Length(rightres.errors)>0) //ADDME: Decide what to do with non critical modules? Mark as disabled?
+
+  FOREVERY(RECORD mod FROM modules)
   {
-    FOREVERY(RECORD err FROM rightres.errors)
-      INSERT INTO result.commitmessages(module,text) VALUES(module.name, err.message) AT END;
-    GetPrimary()->RollbackWork();
-    RETURN result;
+    RECORD rightres := CreateModuleRights(mod, update_module_modtime);
+    IF(Length(rightres.errors)>0) //ADDME: Decide what to do with non critical modules? Mark as disabled?
+    {
+      FOREVERY(RECORD err FROM rightres.errors)
+        INSERT INTO result.commitmessages(module,text) VALUES(mod.name, err.message) AT END;
+      GetPrimary()->RollbackWork();
+      RETURN result;
+    }
   }
 
-  RECORD rightschemadef := GetRightsSchemaDefinition(TRUE, rightres.objecttypes, FALSE, DEFAULT RECORD ARRAY, FALSE);
+  RECORD rightschemadef := GetRightsSchemaDefinition(FALSE);
 
   RECORD right_cmds := GenerateDependentSQLCommands([rightschemadef], GetPrimary());
   IF(Length(right_cmds.errors)>0) //ADDME: Decide what to do with non critical modules? Mark as disabled?
@@ -260,21 +267,10 @@ PUBLIC RECORD FUNCTION InitModuleRights(RECORD module, BOOLEAN update_module_mod
     RETURN result;
   }
 
-  result.commands := SELECT *, module := "system_rights" FROM rightres.commands CONCAT right_cmds.commands;
+  result.commands := SELECT *, module := "system_rights" FROM right_cmds.commands;
   ExecuteSQLUpdates(GetPrimary(), result.commands);
 
-  // Run rights post-create functions
-  RECORD ARRAY pcerrors;
-  FOREVERY (FUNCTION PTR func FROM rightres.postcreatefuncs)
-  {
-    STRING ARRAY msgs := func();
-    FOREVERY (STRING msg FROM msgs)
-      INSERT [ module := "", message := msg ] INTO pcerrors AT END;
-  }
-
   //ADDME: Blame them to specific modules
-  FOREVERY(RECORD err FROM rightres.errors CONCAT pcerrors)
-    INSERT INTO result.commitmessages(module, text) VALUES(CellExists(err,"module") ? err.module : '', err.message) AT END;
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
 
   GetPrimary()->BroadcastOnCommit("system:config.rights", DEFAULT RECORD);
@@ -320,107 +316,6 @@ RECORD ARRAY FUNCTION CompleteRightsColdefs(RECORD ARRAY coldefs, STRING primary
   RETURN results;
 }
 
-/** Checks whether an objecttype record exists in the database for a specific objecttype,
-    creates it if necessary. Call with DEFAULT RECORD to check global rights table.
-    @param objtype Definition of objecttype (see resourcemanager), DEFAULT RECORD for the global rights objecttype.
-    @param module Module
-    @return
-    @cell return.id Id of objecttype record (0 if an error occurred)
-    @cell created_entry True if entry didn't exist, and was just created
-    @cell error Description of the error when an error occurred
-*/
-RECORD FUNCTION GetCheckObjectType(RECORD objtype, RECORD module)
-{
-  RECORD retval :=
-    [ id                := 0
-    , created_entry     := FALSE
-    , error             := ""
-    ];
-
-  STRING obj_tablename;
-  STRING new_storagetable_localname;
-  STRING new_storagetable;
-  STRING primary_key;
-
-  STRING localname := Substring(objtype.name, SearchSubString(objtype.name, ":") + 1);
-
-  STRING new_parentfield;
-  STRING t_schema, t_table;
-  IF (objtype.tablename != "")
-  {
-    obj_tablename := objtype.tablename;
-
-    INTEGER dpos := SearchSubString(obj_tablename, ".");
-    t_schema := LEFT(obj_tablename, dpos);
-    IF (t_schema = "")
-      t_schema := "PUBLIC";
-    t_table := SubString(obj_tablename, dpos + 1);
-
-    RECORD tablerec :=
-        SELECT object_id
-             , primary_key_name
-          FROM GetPrimary()->GetTableListing(t_schema)
-         WHERE ToUppercase(table_name) = ToUppercase(t_table);
-
-    IF (NOT RecordExists(tablerec))
-    {
-      retval.error := "Can't find referenced table '"||objtype.tablename||"' for object type '" || objtype.name || "'";
-      RETURN retval;
-    }
-
-    primary_key := tablerec.primary_key_name;
-    new_parentfield := objtype.parentfield;
-
-    // Compute the name of the rights table; dependent on objecttype name and referenced table
-    new_storagetable_localname := "o_" || tablerec.object_id;
-    new_storagetable := "system_rights." || new_storagetable_localname;
-  }
-  ELSE
-  {
-    new_storagetable_localname := "global_rights";
-    new_storagetable := "system_rights.global_rights";
-  }
-
-  RECORD existing_rec :=
-      SELECT *
-        FROM system.module_objecttypes
-       WHERE name = localname
-         AND COLUMN module = VAR module.id;
-
-  IF (RecordExists(existing_rec))
-  {
-    IF (existing_rec.tablename != objtype.tablename
-        OR existing_rec.storagetable != new_storagetable
-        OR existing_rec.parentfield != new_parentfield
-        OR existing_rec.primarykey != primary_key
-        OR existing_rec.describer != objtype.describer
-        OR existing_rec.icon != objtype.icon)
-    {
-      UPDATE system.module_objecttypes
-        SET tablename := objtype.tablename
-          , storagetable := new_storagetable
-          , parentfield := new_parentfield
-          , primarykey := primary_key
-          , describer := objtype.describer
-          , icon := objtype.icon
-      WHERE id = existing_rec.id;
-    }
-
-    retval.id := existing_rec.id;
-  }
-  ELSE
-  {
-    retval.id := MakeAutoNumber(system.module_objecttypes, "ID");
-    INSERT INTO system.module_objecttypes(id, name, tablename, storagetable, module, primarykey, describer, icon, parentfield)
-        VALUES (retval.id, localname, obj_tablename, new_storagetable, module.id, primary_key, objtype.describer, objtype.icon, new_parentfield);
-
-    retval.created_entry := TRUE;
-  }
-
-  RETURN retval;
-}
-
-
 /** Returns (part of) the schema definition for the system_rights schema
     @param dofilter If true, return only the tables for objecttypes with the if in @a filteron
     @param filteron If filtering, id's of the objecttypes to look at
@@ -429,13 +324,12 @@ RECORD FUNCTION GetCheckObjectType(RECORD objtype, RECORD module)
     @param allmodules List of all modules, used when deleting obsolete rights
     @return Schema definition
 */
-RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN dofilter, INTEGER ARRAY filteron, BOOLEAN delete_obsolete, RECORD ARRAY allmodules, BOOLEAN pre)
+RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN pre)
 {
   RECORD retval := [ msgs := DEFAULT RECORD ARRAY
                    , success := TRUE
                    , roles := DEFAULT RECORD ARRAY
-                   , grants := dofilter ? DEFAULT RECORD ARRAY
-                                        : [[ permissions := ["select"]
+                   , grants := [[ permissions := ["select"]
                                 , to_schema := "system_rights"
                                 , to_table := ""
                                 , to_columns := DEFAULT STRING ARRAY
@@ -454,95 +348,36 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN dofilter, INTEGER ARRAY filter
   IF(pre)
     RETURN retval;
 
-  INTEGER transid := GetBindingFromSchema(system).transaction;
-  OBJECT trans := GetTransactionObjectById(transid);
+  STRING ARRAY currentrightstables := SELECT AS STRING ARRAY ToLowercase(table_name) FROM GetPrimary()->GetTableListing("system_rights");
 
-  RECORD ARRAY current_objecttypes :=
-      SELECT module_objecttypes.id
-           , module_objecttypes.name
-           , module_objecttypes.tablename
-           , module_objecttypes.storagetable
-           , modulename := modules.name
-           , fullname := modules.name || ":" || module_objecttypes.name
-        FROM system.module_objecttypes
-           , system.modules
-       WHERE module_objecttypes.module = modules.id
-         AND (dofilter ? module_objecttypes.id IN filteron : TRUE);
+  STRING ARRAY missingtablesfor := __GetCacheableModuleObjectTypes().value.missingrightstables;
+  IF("global_rights" NOT IN currentrightstables)
+    INSERT "#global" INTO missingtablesfor AT END;
 
-  FOREVERY (RECORD rec FROM current_objecttypes)
+  FOREVERY(STRING missing FROM missingtablesfor)
   {
-    BOOLEAN is_global := rec.tablename = "";
-
-    INTEGER dotpos := SearchSubString(rec.tablename, ".");
-    STRING t_schema := LEFT(rec.tablename, dotpos);
-    IF (t_schema = "")
-      t_schema := "public";
-    STRING t_table := SubString(rec.tablename, dotpos + 1);
-
-    STRING st_schema := Left(rec.storagetable, SearchSubString(rec.storagetable, "."));
-    STRING st_table := SubString(rec.storagetable, SearchSubString(rec.storagetable, ".") + 1);
-
-    IF (delete_obsolete)
+    STRING tablename, t_schema, t_table;
+    IF(missing = "#global")
     {
-      // See if this objecttype is obsolete
-      RECORD module :=
-          SELECT *
-            FROM allmodules
-           WHERE ToUppercase(name) = ToUppercase(rec.modulename);
+      tablename := "global_rights";
+    }
+    ELSE
+    {
+      t_schema := Tokenize(missing,'.')[0];
+      t_table := Tokenize(missing,'.')[1];
 
-      BOOLEAN found := RecordExists(module);
-      IF (found)
+      FOR(INTEGER trynum := 1;; trynum := trynum + 1)
       {
-        // Module exists. Does the objecttype exist?
-        RECORD type :=
-            SELECT *
-              FROM module.moduleobjects
-             WHERE ToUppercase(name) = ToUppercase(rec.fullname);
-
-        found := RecordExists(type) OR (module.name||":"||rec.name = "system:#global");
-      }
-      IF (NOT found)
-      {
-        BOOLEAN is_empty := TRUE;
-
-        IF (trans->ColumnExists(st_schema, st_table, "ID"))
-        {
-          // Table exists, there might be grants
-          TABLE
-            < INTEGER id
-            > test_table := BindTransactionToTable(transid, rec.storagetable);
-
-          IF (RecordExists(SELECT FROM test_table LIMIT 1))
-          {
-            // There are grants, don't drop!
-            is_empty := FALSE;
-          }
-        }
-        IF (is_empty)
-        {
-          // Delete the objecttype (will also cascade the rights)
-          DELETE FROM system.module_objecttypes WHERE id = rec.id;
-          CONTINUE;
-        }
+        //for backwards compatibility, simply desire that these tables are named "system_rights.o_<some number>". we used to follow tableid/oid
+        tablename := "o_" || trynum;
+        IF(tablename NOT IN currentrightstables)
+          BREAK;
       }
     }
 
-    RECORD pos := RecordLowerBound(retval.tables, [ name := st_table ], [ "NAME" ]);
-    IF (pos.found)
-      CONTINUE;
-
-    /* For global rights, use a self-reference to make sure the column will
-       be nullable. The object value stored is always 0, so no problems with
-       the contents of that field.
-    */
-    IF (t_table = "")
-    {
-      t_schema := retval.name;
-      t_table := st_table;
-    }
-
+    INSERT tablename INTO currentrightstables AT END;
     RECORD tablerec :=
-        [ name := st_table
+        [ name := tablename
         , primarykey := "id"
         , indices := DEFAULT RECORD ARRAY
         , obsoletecols := [[ name := "description" ]]
@@ -595,25 +430,8 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN dofilter, INTEGER ARRAY filter
               ], "id")
         ];
 
-    INSERT tablerec INTO retval.tables AT pos.position;
+    INSERT tablerec INTO retval.tables AT END;
   }
-
-  IF (delete_obsolete)
-  {
-    // Delete all empty tables in system_rights that don't have an objecttype record pointing to them
-    STRING ARRAY required_tables :=
-        SELECT AS STRING ARRAY name
-          FROM retval.tables;
-
-    RECORD ARRAY unreferenced :=
-        SELECT name := table_name
-             , drop := "restrict"
-          FROM trans->GetTableListing("system_rights")
-         WHERE ToUppercase(table_name) NOT IN required_tables;
-
-    retval.obsoletetables := unreferenced;
-  }
-
   RETURN retval;
 }
 
@@ -675,93 +493,7 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
   INTEGER module_id := cmares.id;
 
   RECORD ARRAY db_rights;
-  FUNCTION PTR ARRAY postcreatefuncs;
-  STRING ARRAY created_entries_for;
-
-  FOREVERY (STRING rightname FROM module.moduleobsoleterights)
-  {
-    STRING localname := SubString(rightname, SearchSubString(rightname, ":") + 1);
-
-    INTEGER right_id :=
-        SELECT AS INTEGER id
-          FROM system.module_rights
-         WHERE name = localname
-           AND COLUMN module = module_id;
-
-    IF (right_id != 0)
-      DELETE FROM system.module_rights WHERE id = right_id;
-  }
-
-  FOREVERY (RECORD rec FROM module.moduleobsoleteobjects)
-  {
-    STRING localname := SubString(rec.name, SearchSubString(rec.name, ":") + 1);
-
-    RECORD existing_rec :=
-        SELECT id
-             , tablename
-             , storagetable
-          FROM system.module_objecttypes
-         WHERE name = localname
-           AND COLUMN module = module_id;
-
-    // Delete the objecttype only when the tablename is the same
-    IF (RecordExists(existing_rec) AND existing_rec.tablename = rec.tablename)
-    {
-      // The table will be deleted automatically when the objecttype record has been deleted
-      DELETE FROM system.module_objecttypes WHERE id = existing_rec.id;
-    }
-    ELSE IF (RecordExists(existing_rec))
-    {
-      INSERT
-          [ module := module.name
-          , message := "Obsolete objecttype '"||rec.name||"' references table '"||existing_rec.tablename||"', while it was expected to reference table '"||rec.tablename||"'"
-          ] INTO errors AT END;
-    }
-  }
-
-  IF (module.name = "system")
-  {
-    // Global rights table
-    RECORD res := GetCheckObjectType(
-        [ name := "system:#global"
-        , tablename := ""
-        , describer := ""
-        , parentfield := ""
-        , icon := ""
-        , primarykey := ""
-        ], module);
-    IF (res.id = 0)
-    {
-      INSERT [ module := module.name
-             , message := res.error
-             ] INTO errors AT END;
-    }
-    ELSE
-    {
-      INSERT res.id INTO objecttypes AT END;
-      IF (res.created_entry)
-        INSERT "system:#global" INTO created_entries_for AT END;
-    }
-  }
-
-  FOREVERY (RECORD rec FROM module.moduleobjects)
-  {
-    RECORD res := GetCheckObjectType(rec, module);
-    IF (res.id = 0)
-    {
-      INSERT [ module := module.name
-             , message := res.error
-             ] INTO errors AT END;
-    }
-    ELSE
-    {
-      INSERT res.id INTO objecttypes AT END;
-      IF (res.created_entry)
-        INSERT rec.name INTO created_entries_for AT END;
-    }
-  }
-
-  STRING ARRAY dependencies;
+  STRING ARRAY dependencies; //TODO this should be a checkmodule or wh check thing, and not something to report during softreset ?
 
   FOREVERY (RECORD rec FROM module.modulerights)
   {
@@ -789,36 +521,17 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
     IF (objtype_module NOT IN dependencies)
       INSERT objtype_module INTO dependencies AT END;
 
-    RECORD objtype_rec :=
-        SELECT AS RECORD module_objecttypes
-          FROM system.module_objecttypes
-             , system.modules
-         WHERE module_objecttypes.module = modules.id
-           AND module_objecttypes.name = SubString(objtype_name, objtype_cpos + 1)
-           AND modules.name = objtype_module;
-
-    IF (NOT RecordExists(objtype_rec))
-    {
-      INSERT [ module := module.name
-             , message := "Cannot locate objecttype '" || objtype_name || "'"
-             ] INTO errors AT END;
-      CONTINUE;
-    }
-    INTEGER objtype_id := objtype_rec.id;
-
     // Re-insert the right if not present or incompatible.
     IF (NOT RecordExists(existing_rec))
     {
       right_id := MakeAutoNumber(system.module_rights, "ID");
 
-      INSERT INTO system.module_rights(id, name, objtype, module)
-             VALUES(right_id, localname, objtype_id, module_id);
+      INSERT INTO system.module_rights(id, name, module)
+             VALUES(right_id, localname, module_id);
     }
     ELSE
     {
       right_id := existing_rec.id;
-      IF (existing_rec.objtype != objtype_id)
-        UPDATE system.module_rights SET objtype := objtype_id WHERE id = existing_rec.id;
     }
 
     RECORD ARRAY new_impliedbys;
@@ -974,9 +687,7 @@ RECORD FUNCTION CreateModuleRights(RECORD module, BOOLEAN update_module_modtime)
 
   RETURN
     [ errors := errors
-    , commands := DEFAULT RECORD ARRAY
     , objecttypes := objecttypes
-    , postcreatefuncs := postcreatefuncs
     ];
 }
 

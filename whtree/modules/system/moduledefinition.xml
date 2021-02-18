@@ -195,11 +195,6 @@
   </tollium>
 
   <rights>
-    <rightsgroup name="unreferenced"
-                tid="rights.unreferenced"
-                descriptiontid="rights.unreferenced-descr"
-                icon="tollium:smileys/frown"
-                />
     <rightsgroup name="default"
                 tid="rights.default"
                 descriptiontid="rights.default-descr"
@@ -244,8 +239,6 @@
      <describer library="internal/support.whlib" objectname="accessrulesdescriber" />
     </objecttype>
 
-    <obsoleteobjecttype name="dumps" table=".adhocdump_dumps" />
-
     <right name="sysop" tid="rights.sysop" descriptiontid="rights.sysop-descr" showbefore="*" isrootright="true">
       <impliedby right="sysop" />
     </right>
@@ -285,10 +278,6 @@
     <right name="urlaccess" objecttype="accessrules" tid="system:rights.urlaccess" descriptiontid="rights.urlaccess-descr">
       <impliedby right="webservermgmt" />
     </right>
-
-    <obsoleteright name="adhocdump_fullaccess" />
-    <obsoleteright name="adhocdump_editresults" />
-    <obsoleteright name="adhocdump_viewresults" />
   </rights>
 
   <backend>
@@ -392,7 +381,7 @@
     <d:grant permissions="select" table="authobjects" columns="id name parent type creationdate" grantee="public" />
     <d:grant permissions="select" table="rolegrants" grantee="public" />
     <d:grant permissions="select" table="modules" grantee="public" />
-    <d:grant permissions="select" table="module_objecttypes" grantee="public" />
+    <!-- <d:grant permissions="select" table="module_objecttypes" grantee="public" /> -->
     <d:grant permissions="select" table="module_rights" grantee="public" />
     <d:grant permissions="select" table="module_impliedbys" grantee="public" />
 
@@ -1160,57 +1149,11 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
       </d:datetime>
     </d:table>
 
-    <d:table name="module_objecttypes" primarykey="id">
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>
+    <!-- FIXME Obsolete module_objecttypes. But do that once it seems unlikely that
+         users will accidentally upgrade try to downgrade immediately to a version requiring 'storagetable'.
 
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="name" maxlength="256" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="tablename" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="storagetable" maxlength="256" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:integer name="module" references=".modules" ondelete="cascade" nullable="false">
-        <d:documentation>
-
-        </d:documentation>
-      </d:integer>
-      <d:varchar name="primarykey" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="parentfield" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="describer" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:varchar name="icon" maxlength="256">
-        <d:documentation>
-
-        </d:documentation>
-      </d:varchar>
-      <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
-        <d:documentation>
-        </d:documentation>
-      </d:index>
-    </d:table>
+    <d:obsoletetable name="module_objecttypes" />
+       -->
 
     <d:table name="module_rights" primarykey="id">
       <d:integer name="id" autonumberstart="1">
@@ -1223,7 +1166,7 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:varchar>
-      <d:integer name="objtype" references=".module_objecttypes" ondelete="cascade" nullable="false">
+      <d:integer name="objtype"> <!-- references=".module_objecttypes" ondelete="cascade" nullable="false" --> <!-- FIXME Obsolete this column once module_objecttypes is gone -->
         <d:documentation>
 
         </d:documentation>
@@ -1233,6 +1176,9 @@ The port to which this webserver is bound. If this value is 0, this webserver ca
 
         </d:documentation>
       </d:integer>
+      <d:datetime name="orphansince">
+        <d:documentation>Date since which we didn't see references to this right</d:documentation>
+      </d:datetime>
       <d:index name="modulenameindex" columns="module name(32)" unique="true" uppercase="true">
         <d:documentation>
         </d:documentation>

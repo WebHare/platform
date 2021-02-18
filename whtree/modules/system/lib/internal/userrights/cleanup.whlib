@@ -1,0 +1,83 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+
+PUBLIC DATETIME FUNCTION GetCleanupCutoff()
+{
+  //shorter on test so issues are spotted faster
+  RETURN AddDaysToDate(0 - (IsDtapLive() ? 60 : 7), GetCurrentDatetime());
+}
+
+PUBLIC MACRO CleanupAuthObjects()
+{
+  DATETIME cutoff := GetCleanupCutoff();
+  DELETE FROM system.authobjects WHERE deletiondate != DEFAULT DATETIME AND deletiondate < cutoff;
+}
+
+PUBLIC MACRO CleanupObsoleteRights()
+{
+  RECORD rightsinfo := __GetCacheableModuleObjectTypes().value;
+
+  /* Don't delete rights with dependencies. I'm not sure we even need to materialize implied-by so if we stop doing that
+     intermediate rights may become safe to delete. And if not, we can probably live with taking one or two extra maintenance
+     runs to fully delete all obsolete rights */
+
+  INTEGER ARRAY implyingrights := SELECT AS INTEGER ARRAY DISTINCT impliedby FROM system_internal.module_impliedbys;
+  RECORD ARRAY obsoleterights := SELECT module_rights.id
+                                      , module_rights.name
+                                      , module := modules.name
+                                      , module_rights.orphansince
+                                      , rightname := modules.name || ":" || module_rights.name
+                                   FROM system_internal.module_rights
+                                      , system_internal.modules
+                                  WHERE modules.id = module_rights.module
+                                        AND module_rights.id NOT IN (SELECT AS INTEGER ARRAY id FROM rightsinfo.rights)
+                                        AND module_rights.id NOT IN implyingrights
+                               ORDER BY modules.name, module_rights.name;
+
+  //reset orphansince on referred rights
+  UPDATE system_internal.module_rights SET orphansince := DEFAULT DATETIME
+                                       WHERE orphansince != DEFAULT DATETIME
+                                             AND id NOT IN (SELECT AS INTEGER ARRAY obsoleterights.id FROM obsoleterights);
+
+  DATETIME cutoff := GetCleanupCutoff();
+  IF(Length(obsoleterights) > 0)
+  {
+    /* When rights are orphaned we might not have enough information to reconstruct their objecttpype, and thus we may not even
+       know which storagetable to check.
+
+       So we'll just have to check them all */
+
+    RECORD ARRAY rightstables := GetPrimary()->GetTableListing("system_rights");
+    FOREVERY(RECORD tablerec FROM rightstables)
+    {
+      BindStorageTable("system_rights." || tablerec.table_name);
+
+      INTEGER ARRAY findids := SELECT AS INTEGER ARRAY id FROM obsoleterights WHERE orphansince = DEFAULT DATETIME OR orphansince > cutoff; //don't even scan for rights that are orphan too long. this will drop them
+      INTEGER ARRAY seenids := SELECT AS INTEGER ARRAY DISTINCT rights_table.right FROM rights_table WHERE rights_table.right IN findids;
+      FOREVERY(INTEGER seenid FROM seenids)
+      {
+        RECORD right := SELECT * FROM obsoleterights WHERE id = seenid;
+        IF(right.orphansince = DEFAULT DATETIME) //set an orphan date for this right
+          UPDATE system_internal.module_rights SET orphansince := GetCurrentDatetime() WHERE id = seenid;
+      }
+      //remove all rights from the deletion list we haven't seen
+      DELETE FROM obsoleterights WHERE id IN seenids;
+    }
+  }
+
+  IF(Length(obsoleterights) > 0)
+  {
+    FOREVERY(RECORD right FROM obsoleterights)
+      Print(`Deleting orphan right '${right.rightname}'\n`);
+    DELETE FROM system_internal.module_rights WHERE id IN (SELECT AS INTEGER ARRAY id FROM obsoleterights);
+    GetPrimary()->BroadcastOnCommit("system:config.rights", DEFAULT RECORD);
+  }
+}

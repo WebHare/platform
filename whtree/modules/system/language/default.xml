@@ -857,8 +857,6 @@
     <text tid="sysop">Sysop</text>
     <text tid="sysop-descr">Full management rights for this installation</text>
     <text tid="units">Units</text>
-    <text tid="unreferenced">Obsolete rights</text>
-    <text tid="unreferenced-descr">Rights and objecttypes that are not or no longer offered by a module</text>
     <text tid="urlaccess">URL access</text>
     <text tid="urlaccess-descr">Allows access to this URL</text>
     <text tid="webdav_datafolders">WebDav data folders</text>

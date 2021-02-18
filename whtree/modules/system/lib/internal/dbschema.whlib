@@ -206,21 +206,8 @@ PUBLIC SCHEMA
   , TABLE
     < INTEGER "id" NULL := 0
     , STRING "name"
-    , STRING "tablename"
-    , STRING "storagetable"
     , INTEGER "module" NULL := 0
-    , STRING "primarykey"
-    , STRING "parentfield"
-    , STRING "describer"
-    , STRING "icon"
-    ; KEY id
-    > module_objecttypes
-
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , STRING "name"
-    , INTEGER "objtype" NULL := 0
-    , INTEGER "module" NULL := 0
+    , DATETIME orphansince
     ; KEY id
     > module_rights
 

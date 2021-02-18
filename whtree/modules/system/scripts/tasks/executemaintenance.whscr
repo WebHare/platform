@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -72,13 +73,11 @@ MACRO CleanupUsermgmt()
   trans->CommitWork();
 }
 
-MACRO CleanupAuthObjects()
+MACRO CleanupUserRights()
 {
   trans->BeginWork();
-
-  DATETIME cutoff := AddDaysToDate(0 - (IsDtapLive() ? 60 : 7), GetCurrentDatetime());
-  DELETE FROM system.authobjects WHERE deletiondate != DEFAULT DATETIME AND deletiondate < cutoff;
-
+  CleanupAuthObjects(); //always cleanup authobjects first, that may drop references to rights tables
+  CleanupObsoleteRights();
   trans->CommitWork();
 }
 
@@ -99,7 +98,7 @@ MACRO RunExecuteMaintenance()
     CleanupUsageLogs();
     CleanupDiversions();
     CleanupUserMgmt();
-    CleanupAuthObjects();
+    CleanupUserRights();
   }
   FixupUserMgmt();
 }

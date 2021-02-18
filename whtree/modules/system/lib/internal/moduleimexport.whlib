@@ -444,7 +444,7 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
     FOREVERY(STRING msg FROM ro_result.messages)
       INSERT msg INTO retval.warnings AT END;
 
-    result := InitModuleRights(moduleinfo, FALSE);
+    result := InitModuleRights([moduleinfo], FALSE);
     FOREVERY(RECORD msg FROM result.commitmessages)
       INSERT msg.text INTO retval.warnings AT END;
 

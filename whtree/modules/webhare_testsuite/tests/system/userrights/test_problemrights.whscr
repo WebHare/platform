@@ -1,15 +1,27 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
+LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+TABLE
+  < INTEGER id NULL := 0
+  , INTEGER parent NULL := 0
+  , STRING name
+  ; KEY id
+  > my_rights_tree;
 
 MACRO Prepare()
 {
@@ -18,52 +30,89 @@ MACRO Prepare()
   testfw->CommitWork();
 }
 
-MACRO AddRight(RECORD modoptions)
-{
-  STRING moduledefpath := modoptions.moduleroot || "moduledefinition.xml";
-  OBJECT moduledef := MakeXMLDocument(GetDiskResource(moduledefpath));
-  OBJECT rightsnode := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "rights");
-  moduledef->documentelement->AppendChild(rightsnode);
-
-  OBJECT right := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "right");
-  right->SetAttribute("name","danglingright");
-  rightsnode->AppendChild(right);
-
-  OBJECT impliedby := moduledef->CreateElementNS("http://www.webhare.net/xmlns/system/moduledefinition", "impliedby");
-  impliedby->SetAttribute("right","system:sysop");
-  right->AppendChild(impliedby);
-
-  StoreDiskFile(moduledefpath, moduledef->GetDocumentBlob(FALSE), [ overwrite := TRUE ]);
-}
-
 MACRO CreateProblemRight()
 {
-  testfw->SetupTestModule( [ aftermodulecreation := PTR AddRight ]);
+  testfw->SetupTestModule( [ moduledefinition :=
+    `<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <version>0.1.0</version>
+    <description>Test module</description>
+    <packaging download="true" requireversion="42700" />
+    <validation options="nowarnings" />
+  </meta>
+
+  <!-- create our own table so we can test full rights creation -->
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="rights_tree" primarykey="id">
+      <d:integer name="id" autonumberstart="1"/>
+      <d:varchar name="name" maxlength="256" nullable="0"/>
+      <d:integer name="parent" references=".rights_tree" ondelete="cascade"/>
+    </d:table>
+  </databaseschema>
+
+  <rights>
+    <objecttype name="rights_tree" table=".rights_tree" describer="mod::webhare_testsuite/lib/internal/support.whlib#unitobjecttypedescriber"/>
+    <right name="danglingright">
+      <impliedby right="system:sysop" />
+    </right>
+    <right name="danglingright2" objecttype="rights_tree">
+      <impliedby right="system:sysop" />
+    </right>
+  </rights>
+</module>
+`]);
 
   testfw->BeginWork();
+  my_rights_tree := BindTransactionToTable(GetPrimary()->id, "webhare_testsuite_temp.rights_tree");
+  INSERT INTO my_rights_tree(id,name,parent) VALUES(1,"Test 1",0);
+  INSERT INTO my_rights_tree(id,name,parent) VALUES(2,"Test 1.2",1);
   testfw->GetUserObject("sysop")->GrantRightTo("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE);
+  testfw->GetUserObject("sysop")->GrantRightToOn("webhare_testsuite_temp:danglingright2", testfw->GetUserObject("lisa"), 2, TRUE);
   testfw->CommitWork();
 }
 
 ASYNC MACRO TestProblemRights()
 {
+  INTEGER testsuitemoduleid := SELECT AS INTEGER id FROM system_internal.modules WHERE name = "webhare_testsuite";
+  INTEGER globalrightid := SELECT AS INTEGER id FROM system_internal.module_rights WHERE name = "globalright" AND module = testsuitemoduleid;
+  TestEq(TRUE, globalrightid != 0);
+
+  INTEGER testmoduleid := SELECT AS INTEGER id FROM system_internal.modules WHERE name = testfw_testmodule;
+  TestEq(TRUE, testmoduleid != 0);
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright2"));
+
   DeleteModule(testfw_testmodule);
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+  testfw->BeginWork();
+  UPDATE system_internal.module_rights SET orphansince := GetCurrentDatetime() WHERE id = globalrightid;
+  CleanupObsoleteRights(); //shouldn't clean our dangling rights yet..
+  testfw->CommitWork();
 
-  //Try to grant the user a right
-  TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="webhare_testsuite.unit";
-  TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="lisa@beta.webhare.net";
-  TestEq(TRUE, REcordExists(TT("unitcontents->userandrolelist")->selection), 'user must be selected');
-  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->addrighttousers"));
-  RECORD problemrights := SELECT * FROM TT("objecttree->objectlist")->rows WHERE TITLE = "Obsolete rights";
-  TestEq(TRUE, RecordExists(problemrights));
+  TestEq([[ orphansince := DEFAULT DATETIME ]], SELECT orphansince FROM system_internal.module_rights WHERE id = globalrightid, "Orphansince should have been reset on webhare_testsuite:globalright");
+  //dangling rights should not be removed yet, but they should be an orphan!
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright" AND orphansince != DEFAULT DATETIME));
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright2" AND orphansince != DEFAULT DATETIME));
 
-  //Test that this doesn't crash:
-  INSERT problemrights.rowkey INTO TT("objecttree->objectlist")->expanded AT END;
+  testfw->BeginWork();
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  __ResetRightsCaches();
+  //there's no way to revoke a broken right as we can't find its storage tables.
+  TestThrowsLike("Right*does not exist*", PTR testfw->GetUserObject("sysop")->RevokeRightFrom("webhare_testsuite_temp:danglingright", testfw->GetUserObject("lisa"), TRUE));
+  DELETE FROM my_rights_tree; //this should cascade danglingright2
+  CleanupObsoleteRights(); //should now clean the danglingright2
+
+  testfw->CommitWork();
+
+  TestEq(TRUE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+  TestEq(FALSE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright2"), "danglingright2 should have been safe for immediate removal");
+
+  testfw->BeginWork();
+  UPDATE system_internal.module_rights SET orphansince := MakeDate(2021,1,1) WHERE module = testmoduleid AND name = "danglingright";
+  CleanupObsoleteRights(); //should now clean the global danglingright
+  TestEq(FALSE, RecordExists(SELECT FROM system_internal.module_rights WHERE module = testmoduleid AND name = "danglingright"));
+  testfw->CommitWork();
 }
 
 MACRO TestFixUnconnectedItems()
