@@ -1,9 +1,25 @@
 <?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
+
+PUBLIC DATETIME FUNCTION GetCleanupCutoff()
+{
+  //shorter on test so issues are spotted faster
+  RETURN AddDaysToDate(0 - (IsDtapLive() ? 60 : 7), GetCurrentDatetime());
+}
+
+PUBLIC MACRO CleanupAuthObjects()
+{
+  DATETIME cutoff := GetCleanupCutoff();
+  DELETE FROM system.authobjects WHERE deletiondate != DEFAULT DATETIME AND deletiondate < cutoff;
+}
 
 PUBLIC MACRO CleanupObsoleteRights()
 {

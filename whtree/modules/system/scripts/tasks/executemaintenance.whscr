@@ -73,20 +73,11 @@ MACRO CleanupUsermgmt()
   trans->CommitWork();
 }
 
-MACRO CleanupAuthObjects()
-{
-  trans->BeginWork();
-
-  DATETIME cutoff := AddDaysToDate(0 - (IsDtapLive() ? 60 : 7), GetCurrentDatetime());
-  DELETE FROM system.authobjects WHERE deletiondate != DEFAULT DATETIME AND deletiondate < cutoff;
-
-  trans->CommitWork();
-}
-
 MACRO CleanupUserRights()
 {
   trans->BeginWork();
   CleanupObsoleteRights();
+  CleanupAuthObjects();
   trans->CommitWork();
 }
 
