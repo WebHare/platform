@@ -1027,20 +1027,6 @@ HERE
     is_webhare_running && exit 0 || exit 1
     ;;
 
-  "waitfor")
-    if [ "$1" != "poststart" -a "$1" != "poststartdone" ]; then
-      die "Only poststart and poststartdone are supported"
-    fi
-    eval `$WEBHARE_DIR/bin/webhare printparameters`
-    WAITFOR="${WEBHARE_DATAROOT}ephemeral/system.servicestate/$1"
-    while true; do
-      if [ -f "$WAITFOR" ]; then
-        exit 0
-      fi
-      sleep .2
-    done
-    ;;
-
   "freshdbconsole")
     check_webhare_not_running
     setup_for_console
