@@ -1,5 +1,13 @@
 #!/bin/bash
 
+testfail()
+{
+  echo ""
+  echo "$(c red)****** $2 *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+  echo ""
+  TESTFAIL=1
+}
+
 if [ -f $WEBHARE_DIR/lib/wh-functions.sh ] ; then
   # Running from a whtree
   source $WEBHARE_DIR/lib/wh-functions.sh
@@ -16,7 +24,6 @@ ENTERSHELL=
 STOPONFAIL=
 RUNTESTARGS=
 PORTMAPPING=
-JSTESTBROWSER=
 EXPLICITPORT=
 COVERAGE=
 ADDMODULES=
@@ -76,10 +83,6 @@ while true; do
     shift
   elif [ "$1" == "--generatexmltests" ]; then
     GENERATEXMLTESTS=1
-    shift
-  elif [ "$1" == "--jstests" ]; then
-    shift
-    JSTESTBROWSER=$1
     shift
   elif [ "$1" == "--skips" ]; then
     shift
@@ -386,10 +389,6 @@ create_container()
 
   echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
 
-  if [ "$NR" == "1" -a -n "$JSTESTBROWSER" -a -z "$EXPLICITPORT" ] ; then
-    CONTAINERDOCKERARGS="$CONTAINERDOCKERARGS -p 8000"
-  fi
-
   #######################
   #
   # Create the environment file
@@ -454,43 +453,37 @@ create_container()
 HERE
 
     if ! $SUDO docker cp "${TEMPBUILDROOT}/config" $CONTAINERID:/; then
-      TESTFAIL=1
-      echo "Failed installing the server configuration"
+      die "Failed installing the server configuration"
     fi
   fi
 
   if [ -n "$ADDMODULES" ]; then
     echo "`date` Copy modules from ${TEMPBUILDROOT}/docker-tests/modules/"
     if ! $SUDO docker cp ${TEMPBUILDROOT}/docker-tests/modules/ $CONTAINERID:/opt/whmodules/; then
-      TESTFAIL=1
+      die "Module copy failed!"
     fi
   fi
 
   if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
     echo "`date` Copying artifacts into $CONTAINERID"
     if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
-      echo "Copy failed!"
-      exit 1
+      die "Artifact copy failed!"
     fi
   fi
 
   echo "`date` Starting container$NR $CONTAINERID"
   if ! $SUDO docker start $CONTAINERID ; then
-    echo Container start failed
-    exit 1
+    die "Container start failed"
   fi
 
 if [ -n "$ISMODULETEST" ]; then
-    echo "`date` Fixup modules (npm etc)"
+    echo "`date` fixup/chown modules (npm etc)"
     if ! $SUDO docker exec $CONTAINERID chown -R root:root /opt/whmodules/; then
-      TESTFAIL=1
+      die "chown modules failed"
     fi
     FIXPARAMS=--onlymodules
     if ! $SUDO docker exec $CONTAINERID wh fixmodules $FIXPARAMS ; then
-      echo ""
-      echo "$(c red)****** FIXMODULES FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-      echo ""
-      TESTFAIL=1
+      testfail "wh fixmodules failed"
     fi
   fi
 
@@ -504,39 +497,35 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
+
 echo "`date` Wait for poststartdone container1"
-$SUDO docker exec $TESTENV_CONTAINER1 wh waitfor poststartdone
+if ! $SUDO docker exec $TESTENV_CONTAINER1 wh waitfor --timeout 600 poststartdone ; then
+  testfail "Wait for poststartdone container1 failed"
+fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then
   echo "`date` Wait for poststartdone container2"
-  $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor poststartdone
+  if ! $SUDO docker exec $TESTENV_CONTAINER2 wh waitfor --timeout 600 poststartdone ; then
+    testfail "Wait for poststartdone container2 failed"
+  fi
 fi
 
 if [ -n "$ISMODULETEST" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   echo "`date` Check assetpacks"
   if ! $SUDO docker exec $TESTENV_CONTAINER1 wh assetpacks check "*:*"; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
-    echo ""
-    echo "$(c red)****** WAIT ASSETPACKS FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-    echo ""
-    TESTFAIL=1
+    testfail "wait assetpacks failed (errorcode $?)"
   fi
 
   if [ -z "$RUNEXPLICITTESTS" ]; then
     echo "`date` Check module"
     if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkmodule --color $TESTINGMODULENAME ; then
-      echo ""
-      echo "$(c red)****** CHECK FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-      echo ""
-      TESTFAIL=1
+      testfail "wh checkmodule failed"
     fi
 
     echo "`date` System-wide check (eg against siteprofile inconsistencies)"
     if ! $SUDO docker exec $TESTENV_CONTAINER1 wh checkwebhare ; then
-      echo ""
-      echo "$(c red)****** WEBHARE CHECK FAILED (errorcode $?) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-      echo ""
-      TESTFAIL=1
+      testfail "wh checkwebhare failed"
     fi
   fi
 fi
@@ -566,30 +555,14 @@ if [ -n "$TESTSCRIPT" ]; then
   export TESTENV_CONTAINER2
 
   if ! $TESTSCRIPT ; then
-      echo "$(c red)Tests failed!$(c reset)"
-      TESTFAIL=1
+    testfail "The testscript $TESTCSRIPT failed"
   fi
 
-elif [ -n "$JSTESTBROWSER" ]; then
-  PORTMAPPING=$(docker port $TESTENV_CONTAINER1 | grep -e "^8000/" | grep -o "[0-9]*$")
-  SKIPS="designfiles $SKIPS"
-  HOSTNAME=$(hostname -f)
-  ARGS=
-  for SKIP in $SKIPS; do
-    ARGS="$SKIPARGS --skip $SKIP"
-  done
-  echo "wh run modulescript::webhare_testsuite/runjstests.whscr --browsers \"$JSTESTBROWSER\" --host $HOSTNAME --port $PORTMAPPING --noinit $SKIPARGS $TESTLIST"
-
-  if ! $SUDO docker exec $TESTENV_CONTAINER1 wh run modulescript::webhare_testsuite/runjstests.whscr --browsers "$JSTESTBROWSER" --noinit --host $HOSTNAME --port $PORTMAPPING --noinit $SKIPARGS $TESTLIST; then
-    echo "$(c red)Tests failed!$(c reset)"
-    TESTFAIL=1
-  fi
 else
   # When module testing, only run runtest if there actually appear to be any tests
   if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
     if ! $SUDO docker exec $TESTENV_CONTAINER1 wh runtest --outputdir /output --autotests $TERSE $STOPONFAIL $DEBUG $RUNTESTARGS $TESTLIST; then
-      echo "$(c red)Tests failed!$(c reset)"
-      TESTFAIL=1
+      testfail "One or more tests failed"
     fi
   fi
 fi

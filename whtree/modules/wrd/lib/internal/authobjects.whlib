@@ -527,19 +527,6 @@ PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
     authobj->RevokeRoleFrom(roleobj->authobjectid, grantee->EnsureAuthObject());
   }
 
-  /** Returns whether this user can manage a role
-      @param roleobj Role to test
-      @return TRUE if this user can managed the role
-  */
-  PUBLIC BOOLEAN FUNCTION CanManageRole(OBJECT roleobj)
-  {
-    OBJECT authobj := this->GetAuthObject();
-    IF (NOT ObjectExists(authobj))
-      RETURN FALSE;
-
-    RETURN authobj->CanManageRole(roleobj->authobjectid);
-  }
-
   /** Returns whether this user can manage a global right
       @param rightname Name of the global right
       @return TRUE if this user can managed the right

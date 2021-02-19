@@ -94,13 +94,6 @@ RECORD current_type_rec;
 /// Cached object for within elevated contexts
 OBJECT elevatedrightscalls_obj;
 
-PUBLIC OBJECT FUNCTION GetElevatedImpl()
-{
-  IF(NOT ObjectExists(elevatedrightscalls_obj))
-    NEW ElevatedRightsCalls;
-  RETURN elevatedrightscalls_obj;
-}
-
 RECORD ARRAY FUNCTION GetRightsWithTables()
 {
   RECORD mot := GetModuleObjectTypes();
@@ -403,49 +396,6 @@ PUBLIC RECORD ARRAY FUNCTION GetListOfObjectTypes()
            FROM GetModuleObjectTypes().objecttypes
           WHERE name != "system:#global";
 }
-
-
-/** Returns a specific right
-    @return Right (default record if the right does not exist)
-    @cell return.rightid Id of the right
-    @cell return.modulename Module of this right
-    @cell return.rightname Name of the right (prefixed with the name of the module and ':')
-    @cell return.tablename Name of the table this right refers to
-    @cell return.objecttypename Name of the objecttype
-    @cell return.isglobal Whether this is a global right
-    @cell return.impliedbys List of rights that imply this right
-    @cell return.impliedbys.modulename Module of this right
-    @cell return.impliedbys.rightname Name of the right (prefixed with the name of the module and ':')
-    @cell return.impliedbys.tablename Name of the table this right refers to
-*/
-PUBLIC RECORD FUNCTION GetRightByName(STRING name)
-{
-  RECORD rec;
-  TRY
-  {
-    rec := GetRightByNameInternal(name);
-  }
-  CATCH (OBJECT e)
-  {
-    RETURN DEFAULT RECORD;
-  }
-
-  RETURN
-      [ rightid := rec.rightid
-      , modulename := rec.modulename
-      , rightname  := rec.fullname
-      , tablename := rec.tablename
-      , objecttypename := rec.objecttypename
-      , isglobal := rec.tablename = ""
-      , impliedbys :=
-            SELECT modulename
-                 , rightname  := fullname
-                 , tablename
-                 , fieldname
-              FROM GetImpliedBysById(rec.rightid)
-      ];
-}
-
 
 
 /** Get data about a specific objecttype. Throws on error or not found.
@@ -1171,10 +1121,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   PUBLIC INTEGER ARRAY FUNCTION __PVT_HasRightOn(RECORD rightdata, OBJECT grantee, BOOLEAN ignore_objectids, INTEGER ARRAY objectids)
   {
-    // Super shortcut not needed; only calls are from HasRight[For[Any]]
-    IF (this->__PVT_IsSuper())
-      RETURN ignore_objectids ? [ 0 ] : objectids;
-
     // Add the role grants to the authobjects
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
 
@@ -1182,13 +1128,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
     RETURN FindObjectsWithRights(rightdata, [ INTEGER(rightdata.rightid) ], authobjects, ignore_objectids, objectids, FALSE);
   }
 
-
-
-  /// Returns whether this is a super-rights object, which is allowed to do anything.
-  PUBLIC BOOLEAN FUNCTION __PVT_IsSuper()
-  {
-    RETURN FALSE;
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -1222,10 +1161,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasRight(STRING rightname)
   {
-    // Suprt shortcut
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
-
     RECORD right := GetRightByNameInternal(rightname);
     IF (right.allowobjref)
       THROW NEW Exception("HasRight can only be used for global rights");
@@ -1236,10 +1171,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasRightOn(STRING rightname, INTEGER objectid)
   {
-    // Suprt shortcut
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
-
     RECORD right := GetRightByNameInternal(rightname);
     IF (NOT right.allowobjref)
       THROW NEW Exception("HasRightOn can only be used for object rights");
@@ -1250,10 +1181,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   UPDATE PUBLIC INTEGER ARRAY FUNCTION HasRightOnMultiple(STRING rightname, INTEGER ARRAY objectids)
   {
-    // Suprt shortcut
-    IF (this->__PVT_IsSuper())
-      RETURN (SELECT AS INTEGER ARRAY DISTINCT id FROM ToRecordArray(objectids, "ID") ORDER BY id);
-
     RECORD right := GetRightByNameInternal(rightname);
     IF (NOT right.allowobjref)
       THROW NEW Exception("HasRightOnMultiple can only be used for object rights");
@@ -1264,10 +1191,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasRightOnAny(STRING rightname)
   {
-    // Suprt shortcut
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
-
     RECORD right := GetRightByNameInternal(rightname);
     IF (NOT right.allowobjref)
       THROW NEW Exception("HasRightOnAny can only be used for object rights");
@@ -1279,9 +1202,6 @@ STATIC OBJECTTYPE RightsObject EXTEND AuthObject
   */
   UPDATE PUBLIC BOOLEAN FUNCTION HasAnyGrantableRight()
   {
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
-
     RECORD ARRAY alltables :=
        SELECT rights := GroupedValues(rec)
             , storagetable
@@ -1385,9 +1305,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   // Variables
   //
 
-  // If TRUE, assume the user has all rights.
-  BOOLEAN __pvt_super_mode;
-
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -1395,9 +1312,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
 
   /// Current user id
   PUBLIC PROPERTY id(__pvt_authobjectid, -);
-
-  // Whether this is a supermode user object (all grants allowed)
-  PUBLIC PROPERTY rights_super_mode(__pvt_super_mode, -);
 
   // ---------------------------------------------------------------------------
   //
@@ -1407,13 +1321,11 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   /* Constructor, builds a new rightsuser object
      @param userdata Descriptor for new object
      @cell userdata.authobjectid Id of webhare user
-     @cell userdata.super_mode If true, all grants are accepted.
   */
   MACRO NEW(RECORD userdata)
   : RightsObject(1, userdata.authobjectid)
   {
     this->__pvt_supportsrights := TRUE;
-    this->__pvt_super_mode := userdata.super_mode;
   }
 
   STRING FUNCTION GetName()
@@ -1441,20 +1353,12 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
 
 
 
-  UPDATE PUBLIC BOOLEAN FUNCTION __PVT_IsSuper()
-  {
-    RETURN this->__pvt_super_mode;
-  }
-
-
-
 
   PUBLIC UPDATE RECORD FUNCTION __PVT_GetExportdata()
   {
     RETURN
         [ type := "user"
         , authobjectid := this->__pvt_authobjectid
-        , super_mode := this->__pvt_super_mode
         ];
   }
 
@@ -1521,17 +1425,10 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
     trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
 
-    IF (FALSE /*trans->is_elevated*/)
-    {
-      GetElevatedImpl()->WL_RevokeRightFromOn(rightdata.fullname, this, grantee, obj, onlyremovegrantoption);
-    }
-    ELSE
-    {
-      RECORD grantordata := this->__PVT_GetExportdata();
-      RECORD granteedata := grantee->__PVT_GetExportdata();
+    RECORD grantordata := this->__PVT_GetExportdata();
+    RECORD granteedata := grantee->__PVT_GetExportdata();
 
-      __OpenLocalService("system:rights")->WL_RevokeRightFromOn(rightdata.fullname, grantordata, granteedata, obj, onlyremovegrantoption, allowselfassignment);
-    }
+    __OpenLocalService("system:rights")->WL_RevokeRightFromOn(rightdata.fullname, grantordata, granteedata, obj, onlyremovegrantoption, allowselfassignment);
   }
 
 
@@ -1597,42 +1494,19 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
     trans->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
 
-    IF (FALSE /*trans->is_elevated*/)
-    {
-      GetElevatedImpl()->RevokeRoleFrom(this, grantee, roleid);
-    }
-    ELSE
-    {
-      RECORD grantordata := this->__PVT_GetExportdata();
-      RECORD granteedata := grantee->__PVT_GetExportdata();
+    RECORD grantordata := this->__PVT_GetExportdata();
+    RECORD granteedata := grantee->__PVT_GetExportdata();
 
-      __OpenLocalService("system:rights")->WL_RevokeRoleFrom(grantordata, granteedata, roleid);
-      grantee->__PVT_GetExpandedAuthObjects(TRUE);
-    }
+    __OpenLocalService("system:rights")->WL_RevokeRoleFrom(grantordata, granteedata, roleid);
+    grantee->__PVT_GetExpandedAuthObjects(TRUE);
   }
 
-
-  PUBLIC BOOLEAN FUNCTION CanManageRole(INTEGER roleid)
-  {
-    RECORD rec :=
-        SELECT type
-             , parent
-          FROM system_internal.authobjects
-         WHERE id = roleid;
-
-    RETURN RecordExists(rec)
-       AND rec.type = 3
-       AND this->HasRightOn("system:manageroles", roleid);
-  }
 
   PUBLIC BOOLEAN FUNCTION CanManageRight(STRING rightname)
   {
     RECORD right := GetRightByNameInternal(rightname);
     IF (right.allowobjref)
       THROW NEW Exception("CanManageRight can only be used for global rights");
-
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
 
     // Add the role grants to the authobjects
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
@@ -1649,9 +1523,6 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
     IF (NOT right.allowobjref)
       THROW NEW Exception("CanManageRightOn can only be used for object rights, not for right '" || rightname || "'");
 
-    IF (this->__PVT_IsSuper())
-      RETURN TRUE;
-
     INTEGER ARRAY authobjects := this->__PVT_GetExpandedAuthObjects(FALSE);
 
     RETURN objectid IN FindObjectsWithRights(right, [ INTEGER(right.rightid) ], authobjects, FALSE, [ objectid ], TRUE);
@@ -1663,13 +1534,8 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   {
     OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
 
-    IF (FALSE /*trans->is_elevated*/)
-      RETURN GetElevatedImpl()->VerifyUserPassword(this, password);
-    ELSE
-    {
-      RECORD userdata := this->__PVT_GetExportdata();
-      RETURN __OpenLocalService("system:rights")->WL_VerifyUserPassword(userdata, password);
-    }
+    RECORD userdata := this->__PVT_GetExportdata();
+    RETURN __OpenLocalService("system:rights")->WL_VerifyUserPassword(userdata, password);
   }
 >;
 
@@ -1718,28 +1584,6 @@ STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
     RETURN SELECT AS STRING name FROM system_internal.authobjects WHERE authobjects.id = this->__pvt_authobjectid;
   }
 
-
-  PUBLIC INTEGER FUNCTION CreateUser(RECORD newrec)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    RETURN __OpenLocalService("system:rights")->CreateWebhareUser(this->__pvt_authobjectid, newrec);
-  }
-
-
-
-  PUBLIC MACRO UpdateUser(INTEGER userid, RECORD updaterec)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->UpdateWebhareUser(this->__pvt_authobjectid, userid, updaterec);
-  }
-
-
-
-  PUBLIC MACRO DeleteUser(INTEGER userid)
-  {
-    __INTERNAL_GetSystemSchemaBinding()->BroadcastOnCommit("system:rights.change", DEFAULT RECORD);
-    __OpenLocalService("system:rights")->DeleteWebhareUser(this->__pvt_authobjectid, userid);
-  }
 
 
 
@@ -1827,7 +1671,6 @@ OBJECT FUNCTION RecreateGrantorObject(RECORD grantordata)
 
   RECORD data :=
       [ authobjectid    := grantordata.authobjectid
-      , super_mode      := grantordata.super_mode
       ];
 
   RETURN NEW RightsUserObject(data);
@@ -1854,7 +1697,6 @@ OBJECT FUNCTION RecreateUserObject(RECORD grantordata, BOOLEAN check)
 
   RECORD data :=
       [ authobjectid    := grantordata.authobjectid
-      , super_mode      := grantordata.super_mode
       ];
 
   OBJECT current_user := check ? GetEffectiveUser() : DEFAULT OBJECT;
@@ -1949,18 +1791,11 @@ PUBLIC RECORD FUNCTION GetPresentationRightObjectsTree(STRING type, OBJECT user)
   IF (NOT ObjectExists(user))
     RETURN DEFAULT RECORD;
 
-  IF (FALSE /*trans->is_elevated*/)
-  {
-    RETURN GetElevatedImpl()->GetPresentationRightObjectsTree(type, user);
-  }
-  ELSE
-  {
-    IF(NOT user EXTENDSFROM RightsObject)
-      THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
+  IF(NOT user EXTENDSFROM RightsObject)
+    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
 
-    RECORD userdata := user->__PVT_GetExportdata();
-    RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsTree(type, userdata);
-  }
+  RECORD userdata := user->__PVT_GetExportdata();
+  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsTree(type, userdata);
 }
 
 
@@ -1978,16 +1813,11 @@ PUBLIC RECORD ARRAY FUNCTION GetPresentationRightObjectsChildren(STRING type, OB
   IF (NOT ObjectExists(user))
     RETURN DEFAULT RECORD ARRAY;
 
-  IF (FALSE /*trans->is_elevated*/)
-    RETURN GetElevatedImpl()->GetPresentationRightObjectsChildren(type, user, parentobjid, describe);
-  ELSE
-  {
-    IF(NOT user EXTENDSFROM RightsObject)
-      THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
+  IF(NOT user EXTENDSFROM RightsObject)
+    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
 
-    RECORD userdata := user->__PVT_GetExportdata();
-    RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsChildren(type, userdata, parentobjid, describe);
-  }
+  RECORD userdata := user->__PVT_GetExportdata();
+  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightObjectsChildren(type, userdata, parentobjid, describe);
 }
 
 
@@ -2010,16 +1840,11 @@ PUBLIC RECORD FUNCTION GetPresentationRightsObjectPath(STRING type, INTEGER obje
   IF (NOT ObjectExists(user))
     RETURN DEFAULT RECORD ARRAY;
 
-  IF (FALSE /*trans->is_elevated*/)
-    RETURN GetElevatedImpl()->GetPresentationRightsObjectPath(type, objectid, user);
-  ELSE
-  {
-    IF(NOT user EXTENDSFROM RightsObject)
-      THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
+  IF(NOT user EXTENDSFROM RightsObject)
+    THROW NEW Exception("The user object passed is not a RightsObject and cannot be used for rights validation");
 
-    RECORD userdata := user->__PVT_GetExportdata();
-    RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightsObjectPath(type, objectid, userdata);
-  }
+  RECORD userdata := user->__PVT_GetExportdata();
+  RETURN __OpenLocalService("system:rights")->WL_GetPresentationRightsObjectPath(type, objectid, userdata);
 }
 
 
@@ -2080,13 +1905,8 @@ INTEGER ARRAY FUNCTION GetRootObjectsInDB(STRING ARRAY rights, OBJECT user, BOOL
 {
   OBJECT trans := __INTERNAL_GetSystemSchemaBinding();
 
-  IF (FALSE /*trans->is_elevated*/)
-    RETURN GetElevatedImpl()->GetRootObjectsInDB(rights, user, onlygrantable, extra_roots);
-  ELSE
-  {
-    RECORD userdata := user->__PVT_GetExportdata();
-    RETURN __OpenLocalService("system:rights")->WL_GetRootObjectsInDB(rights, userdata, onlygrantable, extra_roots);
-  }
+  RECORD userdata := user->__PVT_GetExportdata();
+  RETURN __OpenLocalService("system:rights")->WL_GetRootObjectsInDB(rights, userdata, onlygrantable, extra_roots);
 }
 
 
@@ -2198,27 +2018,6 @@ PUBLIC RECORD ARRAY FUNCTION GetObjectsPaths(STRING ARRAY rights, OBJECT user, I
 
 // -----------------------------------------------------------------------------
 //
-// User mgmt
-//
-
-/** Returns whether a user can manage another user
-*/
-PUBLIC BOOLEAN FUNCTION CanManageUnit(OBJECT thisuser, INTEGER unitid)
-{
-  RETURN thisuser->HasRightOn("system:manageunit", unitid);
-}
-
-
-
-PUBLIC BOOLEAN FUNCTION CanManageRole(OBJECT thisuser, INTEGER roleid)
-{
-  RETURN thisuser->HasRightOn("system:manageroles", roleid);
-}
-
-
-
-// -----------------------------------------------------------------------------
-//
 // Weblet stubs
 //
 
@@ -2288,8 +2087,7 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
     // Check if the user has enough rights to grant this right
     IF (NOT (allowselfassignment AND grantor->authobjectid = grantee->authobjectid))
     {
-      IF (NOT grantor->__PVT_IsSuper()
-          AND NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
+      IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
       {
         THROW NEW Exception("The grantor does not have the right to grant this right");
       }
@@ -2370,8 +2168,7 @@ PUBLIC STATIC OBJECTTYPE ElevatedRightsCalls
     // Check if the user has enough rights to grant this right
     IF (NOT (allowselfassignment AND grantor->authobjectid = grantee->authobjectid))
     {
-      IF (NOT grantor->__PVT_IsSuper()
-          AND NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
+      IF (NOT RecordExists(LocateGrantsFor(rightdata, ExpandAuthobjectsWithRoleGrants([ grantor_authobject ], TRUE), FALSE, obj, FALSE, FALSE, TRUE)))
       {
         THROW NEW Exception("The grantor does not have the right to revoke this right");
       }
@@ -3284,90 +3081,6 @@ PUBLIC RECORD FUNCTION ExplainRoleGrantedTo(INTEGER roleid, OBJECT grantee)
          AND COLUMN grantee IN grantee_authobjects;
 }
 
-
-// Returns all authobjects that have a right
-PUBLIC INTEGER ARRAY FUNCTION GetAuthObjectsWithRightsOn(STRING rightname, INTEGER obj, BOOLEAN ignore_inheritance, BOOLEAN ignore_role_inheritance)
-{
-  INTEGER ARRAY grantees;
-
-  RECORD data := GetRightByNameInternal(rightname);
-  IF (NOT RecordExists(data))
-    RETURN DEFAULT INTEGER ARRAY;
-
-  INTEGER ARRAY objs;
-
-  INSERT obj INTO objs AT END;
-  IF (NOT ignore_inheritance)
-  {
-    WHILE (obj != 0)
-    {
-      obj := GetParentObject(data.objecttypename, obj);
-      INSERT obj INTO objs AT END;
-    }
-  }
-
-  RECORD ARRAY worklist :=
-      [ [ rightid :=        data.rightid
-        , storagetable :=   data.storagetable
-        , objs :=           objs
-        ]
-      ];
-
-  WHILE (LENGTH(worklist) != 0)
-  {
-    RECORD ARRAY new_worklist;
-    FOREVERY (RECORD rec FROM worklist)
-    {
-      grantees := grantees CONCAT GetAllSpecificGranteesFor(rec.rightid, rec.storagetable, rec.objs);
-
-      IF (ignore_inheritance)
-        CONTINUE;
-
-      RECORD ARRAY impliedbys := GetImpliedBysById(rec.rightid);
-
-      // Put impliedbys in the worklist (might be more than one)
-      FOREVERY (RECORD r FROM impliedbys)
-      {
-        RECORD wlitem :=
-            [ rightid :=        r.rightid
-            , storagetable :=   r.storagetable
-            , objs :=           (r.storagetable = rec.storagetable ? rec.objs : DEFAULT INTEGER ARRAY)
-            ];
-        INSERT wlitem INTO new_worklist AT END;
-      }
-    }
-    worklist := new_worklist;
-  }
-
-  // Remove duplicates
-  grantees :=
-      SELECT AS INTEGER ARRAY id
-        FROM ToRecordArray(grantees, "ID")
-    GROUP BY id;
-
-  // Now we have the list of all user/roles that have this right.
-  // Apply role grants.
-  IF (NOT ignore_role_inheritance)
-  {
-    WHILE (TRUE)
-    {
-      INTEGER ARRAY role_grantees :=
-          SELECT AS INTEGER ARRAY grantee
-            FROM system_internal.rolegrants
-           WHERE role IN grantees
-             AND grantee NOT IN grantees;
-
-      IF (LENGTH(role_grantees) = 0)
-        BREAK;
-
-      grantees := grantees CONCAT role_grantees;
-    }
-  }
-
-  RETURN grantees;
-}
-
-
 /** Returns whether a right is implied by another right
     @param rightname Right to determine of whether it is implied by another right
     @param impliedbyright Right to check if it implied the right @a rightname
@@ -3411,7 +3124,7 @@ PUBLIC OBJECT FUNCTION GetWebhareUserObject(INTEGER userid)
 {
   IF (userid = 0)
     RETURN GetEffectiveUser();
-  RETURN NEW RightsUserObject([ authobjectid := userid, super_mode := FALSE ]);
+  RETURN NEW RightsUserObject([ authobjectid := userid ]);
 }
 
 
@@ -3423,25 +3136,10 @@ PUBLIC OBJECT FUNCTION GetRoleObject(INTEGER roleid)
   RETURN NEW RightsRoleObject([ authobjectid := roleid ]);
 }
 
-PUBLIC OBJECT FUNCTION GetWebhareModuleRoleObject(INTEGER roleid)
-{
-  IF (roleid = 0)
-    THROW NEW Exception("Trying to create a role object for role 0");
-  RETURN NEW RightsUserObject([ authobjectid := roleid, super_mode := TRUE ]);
-}
-
-
 PUBLIC OBJECT FUNCTION GetWebhareUnitObject(INTEGER unitid)
 {
   RETURN NEW WebhareUnitObject(unitid);
 }
-
-
-PUBLIC MACRO ExtendWithWebhareUserObject(OBJECT extend_this, INTEGER userid)
-{
-  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(extend_this) BY RightsUserObject([ authobjectid := userid, super_mode := FALSE ]);
-}
-
 
 
 PUBLIC INTEGER FUNCTION GetUnitOfAuthObject(INTEGER authobject)
@@ -3471,77 +3169,7 @@ PUBLIC OBJECT FUNCTION GetWebhareRightsObject(INTEGER authobject)
   CASE 1 { RETURN GetWebhareUserObject(authobject); }
   CASE 2 { RETURN GetWebhareUnitObject(authobject); }
   CASE 3 { RETURN GetRoleObject(authobject); }
-  CASE 5 { RETURN GetWebhareModuleRoleObject(authobject); }
   DEFAULT { THROW NEW Exception("Could not open a rights object for an authobject with type #" || rec.type); }
-  }
-}
-
-// -----------------------------------------------------------------------------
-//
-// Legacy support functions
-//
-
-PUBLIC RECORD FUNCTION CreateWebhareUser(RECORD newrec)
-{
-  IF (NOT CellExists(newrec, "UNIT"))
-    RETURN [ success := FALSE, error := "Required cell 'UNIT' in user record missing" ];
-
-  TRY
-  {
-    INTEGER userid := GetWebhareUnitObject(newrec.unit)->CreateUser(newrec);
-    RETURN [ success := TRUE, userid := userid, error := "" ];
-  }
-  CATCH (OBJECT e)
-  {
-    RETURN [ success := FALSE, error := e->what ];
-  }
-}
-
-
-
-PUBLIC RECORD FUNCTION UpdateWebhareUser(INTEGER userid, RECORD newrec)
-{
-  INTEGER unitid :=
-      SELECT AS INTEGER parent
-        FROM system_internal.authobjects
-       WHERE id = userid
-         AND type = 1;
-
-  IF (unitid = 0)
-    RETURN [ success := FALSE, error := "No user with id #"||userid||" exists" ];
-
-  TRY
-  {
-    GetWebhareUnitObject(unitid)->UpdateUser(userid, newrec);
-    RETURN [ success := TRUE, userid := userid, error := "" ];
-  }
-  CATCH (OBJECT e)
-  {
-    RETURN [ success := FALSE, error := e->what ];
-  }
-}
-
-
-
-PUBLIC RECORD FUNCTION DeleteWebhareUser(INTEGER userid)
-{
-  INTEGER unitid :=
-      SELECT AS INTEGER parent
-        FROM system_internal.authobjects
-       WHERE id = userid
-         AND type = 1;
-
-  IF (unitid = 0)
-    RETURN [ success := FALSE, error := "No user with id #"||userid||" exists" ];
-
-  TRY
-  {
-    GetWebhareUnitObject(unitid)->DeleteUser(userid);
-    RETURN [ success := TRUE, error := "" ];
-  }
-  CATCH (OBJECT e)
-  {
-    RETURN [ success := FALSE, error := e->what ];
   }
 }
 
