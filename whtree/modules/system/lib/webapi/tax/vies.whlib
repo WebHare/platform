@@ -3,6 +3,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internet/soap.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 /* Hardcoded test values (only work on TEST and DEVELOPMENT dtap stages!)
@@ -15,9 +16,8 @@ LOADLIB "mod::system/lib/services.whlib";
    BE9999999903 - always fails
 */
 
-RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval)
+RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval, INTEGER timeout)
 {
-  //LogRPCForSoapClient("system:taxservices.vies", "", sc);
   IF((vatnumber LIKE "NL999996514B0?" OR vatnumber LIKE "BE999999990?") AND NOT IsDtapLive())
   {
     IF(Right(vatnumber,1)="1")
@@ -40,6 +40,8 @@ RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval)
   }
 
   OBJECT sc := NEW SoapClient;
+  LogRPCForSoapClient("system:taxservices.vies", "", sc);
+  sc->webbrowser->timeout := timeout;
   sc->LoadWSDLFromURL("http://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl");
 
   OBJECT viesinterface := sc->GetInterface();
@@ -63,7 +65,7 @@ RECORD FUNCTION DoViesVatLookup(STRING vatnumber, RECORD retval)
   RETURN retval;
 }
 
-RECORD FUNCTION GetCacheableViesCheck(STRING vatnumber)
+RECORD FUNCTION GetCacheableViesCheck(STRING vatnumber, INTEGER timeout)
 {
   RECORD retval := [ valid := FALSE
                    , serviceunavailable := FALSE
@@ -74,9 +76,16 @@ RECORD FUNCTION GetCacheableViesCheck(STRING vatnumber)
                    , rawresponse := DEFAULT RECORD
                    ];
 
+  STRING prefix := Left(vatnumber,2);
+  IF(prefix NOT IN GetValidViesPrefixes())
+  {
+    retval.error := `Invalid VAT number prefix '${prefix}'`;
+    RETURN [ ttl := 1, value := retval ]; //FIXME ttl 0 but that's not supported yet. - https://gitlab.com/webhare/platform/-/issues/25
+  }
+
   TRY
   {
-    retval := DoViesVatLookup(vatnumber, retval);
+    retval := DoViesVatLookup(vatnumber, retval, timeout);
   }
   CATCH(OBJECT e)
   {
@@ -95,17 +104,27 @@ RECORD FUNCTION GetCacheableViesCheck(STRING vatnumber)
              ];
 }
 
+/** Get acceptable VIES country prefiexs
+    @return A list of valid country codes in the EU VAT system, plus "XI" for Northern Ireland
+*/
+PUBLIC STRING ARRAY FUNCTION GetValidViesPrefixes()
+{
+  RETURN [ "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK", "XI" ];
+}
+
 /** Verify a vat number with the VIES service
+    @param vatnumber VAT Number to check
 */
 PUBLIC RECORD FUNCTION CheckViesVATCode(STRING vatnumber, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions(CELL[ timeout := 5000 ], options);
 
   //sanitize first
+  vatnumber := TrimWhitespace(vatnumber);
   vatnumber := ToUppercase(vatnumber);
   vatnumber := Substitute(vatnumber,' ','');
   vatnumber := Substitute(vatnumber,'.','');
 
   //don't hammer the service, auto-cache
-  RETURN GetAdhocCached([vatnumber := vatnumber], PTR GetCacheableViesCheck(vatnumber));
+  RETURN GetAdhocCached([vatnumber := vatnumber], PTR GetCacheableViesCheck(vatnumber, options.timeout));
 }
