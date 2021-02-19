@@ -360,6 +360,13 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN pre)
     IF(missing = "#global")
     {
       tablename := "global_rights";
+
+      /* For global rights, use a self-reference to make sure the column will
+         be nullable. The object value stored is always 0, so no problems with
+         the contents of that field.
+      */
+      t_schema := "system_rights";
+      t_table := "global_rights";
     }
     ELSE
     {
@@ -405,7 +412,7 @@ RECORD FUNCTION GetRightsSchemaDefinition(BOOLEAN pre)
                 , dbtype := "INTEGER"
                 , references_schema := t_schema
                 , references_table := t_table
-                , ondelete := t_table = "" ? "" : "cascade"
+                , ondelete := "cascade"
                 ]
               , [ name := "right"
                 , dbtype := "INTEGER"
