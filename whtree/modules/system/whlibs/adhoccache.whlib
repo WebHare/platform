@@ -12,9 +12,12 @@ MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING 
     @param cachetag Tag that uniquely identifies the result (local per calling whlib)
     @param cachegetter Function that generates the return value if no cache entry is present.
                Signature RECORD FUNCTION()
-    @cell cachegetter.return
-    @cell(integer) cachegetter.return.ttl Time to live in milliseconds
-    @cell(variant) cachegetter.return.value
+    @cell cachegetter.return Value to return and caching instructions
+    @cell(integer) cachegetter.return.ttl Time to live in milliseconds. A DATETIME can also be used to specify an expact expiry date.
+       Use 0 or DEFAULT DATETIME to return the value without storing it in the cache.
+    @cell(string array) cachegetter.return.eventmasks List of events that invalidate the cached value
+    @cell cachegetter.return.value Value to return
+    @cell options.exclusive Use a lock to ensure only one call to the cachecatter is run in parallel for his cachetag. Defaults to TRUE
     @return Returns the value in cache (or the value cell from the cachegetter call if not in cache)
 */
 PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -74,11 +77,15 @@ PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, R
       IF(TypeID(gotresult.ttl) = TypeID(DATETIME))
       {
         expires := gotresult.ttl;
+        IF (IsDefaultValue(expires)) // ttl = DEFAULT DATETIME - don't store in the cache
+          RETURN gotresult.value;
       }
       ELSE
       {
         INTEGER ttl := gotresult.ttl;
-        IF (ttl <= 0)
+        IF (ttl = 0) // ttl = 0 - don't store in the cache
+          RETURN gotresult.value;
+        IF (ttl < 0)
           THROW NEW Exception("Invalid cacheresult returned by " || ExplainFunctionPtrSignature(cachegetter) || ": invalid TTL (" || ttl || "), it must be positive");
         expires := AddTimeToDate(ttl, GetCurrentDatetime());
       }

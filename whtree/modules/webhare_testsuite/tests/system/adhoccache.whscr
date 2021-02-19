@@ -26,6 +26,13 @@ VARIANT FUNCTION ThrowNotCached()
   THROW NEW Exception("Value was not cached!");
 }
 
+INTEGER uncached_cntr;
+VARIANT FUNCTION ReturnUncachableValue(VARIANT ttl)
+{
+  uncached_cntr := uncached_cntr + 1;
+  RETURN CELL[ ttl, value := CELL[ cntr := uncached_cntr ] ];
+}
+
 // Send a value through the adhoc cache. Return the 2nd copy, to test state after first copy too
 VARIANT FUNCTION GetCachedClone(VARIANT value)
 {
@@ -97,6 +104,20 @@ MACRO AdHocCacheTest()
 
   RECORD ARRAY slowdata := RECORD ARRAY(WaitForPromise(CreatePromiseAll(requests)));
   TestEQ(RepeatElement([ v := 1 ], LENGTH(requests)), slowdata);
+
+  uncached_cntr := 0;
+  FOR (INTEGER i := 1; i <= 1000; i := i + 1)
+  {
+    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncachableValue(0));
+    TestEq(i, rec.cntr);
+  }
+
+  uncached_cntr := 0;
+  FOR (INTEGER i := 1; i <= 1000; i := i + 1)
+  {
+    RECORD rec := GetAdhocCached(CELL[ "uncached" ], PTR ReturnUncachableValue(0));
+    TestEq(i, rec.cntr);
+  }
 }
 
 MACRO AdHocTestMarshalledObjects()
