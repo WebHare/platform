@@ -7,6 +7,11 @@ MACRO TestVies()
 {
   RECORD result;
 
+  //broken values
+  result := CheckViesVATCode("003333862B34");
+  TestEq(FALSE, result.serviceunavailable);
+  TestEq(FALSE, result.valid);
+
   //hardcoded test values NL
   result := CheckViesVATCode("NL999996514B01");
   TestEq(TRUE, result.serviceunavailable);
