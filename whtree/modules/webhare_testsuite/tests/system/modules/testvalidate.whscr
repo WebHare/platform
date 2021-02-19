@@ -601,13 +601,16 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   TestEq(1,Length(res.errors));
   TestEq(1,Length(res.tids));
 
-  BLOB commenttid := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*tid*/"tollium:b.tid"; };`);
+  BLOB commenttid := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*tid*/"tollium:b.tid"; };
+                                        STRING FUNCTION y() { RETURN /*tid*/\`tollium:c.tid\`; };
+                                        STRING FUNCTION y() { RETURN /*tid*/\`tollium:\${ignore}.tid\`; };`);
   res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenttid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
-  TestEq([[ tid:="tollium:b.tid" ]], SELECT tid FROM res.tids);
+  TestEq([[ tid:="tollium:b.tid" ],[ tid:="tollium:c.tid" ]], SELECT tid FROM res.tids);
 
   //Test GetTIDForLanguage
   FOREVERY(STRING totest FROM [`OBJECT x; GetTIDForLanguage(x->formlanguagecode, "system:has.module");`
                               ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, "system:has.module");`
+                              ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, \`system:has.module\`);`
                               ])
   {
     BLOB testfile := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib"; ${totest}`);
@@ -618,6 +621,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   //Test space -> underscore mapping
   FOREVERY(STRING totest FROM [`GetTid("system:group.a_b_c");`
                               ,`GetTid("system:group.a b c");`
+                              ,`GetTid(\`system:group.a b c\`);`
                               ])
   {
     BLOB testfile := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib"; ${totest}`);

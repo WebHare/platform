@@ -1,7 +1,6 @@
 ﻿<?wh
+LOADLIB "wh::dbase/postgresql.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -66,6 +65,18 @@ MACRO TestIndexDrops()
 `);
 }
 
+BOOLEAN FUNCTION TextFieldHasNotNullCheck(STRING for_table_schema, STRING for_table_name, STRING for_column_name)
+{
+  RECORD ARRAY candidates := SELECT check_clause
+                               FROM postgresql_information_schema.table_constraints, postgresql_information_schema.check_constraints
+                              WHERE table_constraints.constraint_schema = for_table_schema
+                                    AND check_constraints.constraint_schema = for_table_schema
+                                    AND table_constraints.constraint_name = check_constraints.constraint_name
+                                    AND table_constraints.table_name = for_table_name;
+
+  RETURN RecordExists(SELECT FROM candidates WHERE check_clause = `(((${for_column_name})::text <> \'\'::text))`);
+}
+
 MACRO TestColumnAttributes()
 {
   ApplyTempDatabaseSchema(`
@@ -77,6 +88,8 @@ MACRO TestColumnAttributes()
   </databaseschema>
 `);
 
+  TestEq(FALSE, TextFieldHasNotNullCheck(testfw_testmodule, "attrtest", "name"));
+
   ApplyTempDatabaseSchema(`
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
     <d:table name="attrtest" primarykey="id">
@@ -85,6 +98,8 @@ MACRO TestColumnAttributes()
     </d:table>
   </databaseschema>
 `);
+
+  TestEq(TRUE, TextFieldHasNotNullCheck(testfw_testmodule, "attrtest", "name"));
 
   //and revert
   ApplyTempDatabaseSchema(`
@@ -95,6 +110,8 @@ MACRO TestColumnAttributes()
     </d:table>
   </databaseschema>
 `);
+
+  TestEq(FALSE, TextFieldHasNotNullCheck(testfw_testmodule, "attrtest", "name"));
 }
 
 RunTestframework([ PTR SetupTempSchema

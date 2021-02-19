@@ -7,9 +7,9 @@ To backup WebHare remotely, use https://gitlab.com/webhare/backup/
 ### Using Docker
 DATAFOLDER should be the folder from which you'll be running webhare, and should not contain a 'dbase' directory yet.
 
-BACKUPFOLDER should be the folder containing the backup. we're assuming the backup is named 'backup too'
+BACKUPFOLDER should be the folder containing the backup. we're assuming the backup is named 'backup' too
 ```
-docker run --rm -ti -v BACKUPFOLDER:/backup DATAFOLDER:/opt/whdata webhare/webhare-core:master /opt/webhare/bin/dbserver --restore /backup/backup --restoreto /opt/whdata/dbase
+docker run --rm -ti -v BACKUPFOLDER:/backup -v DATAFOLDER:/opt/whdata webhare/webhare-core:master /opt/webhare/bin/dbserver --restore /backup/backup --restoreto /opt/whdata/dbase
 ```
 
 

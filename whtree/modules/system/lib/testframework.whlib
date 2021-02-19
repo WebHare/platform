@@ -2325,7 +2325,7 @@ PUBLIC MACRO SetupSiteTestOutput(OBJECT site, STRING subfolder)
   site->SetPrimaryOutput(backendsite->outputweb, `/testoutput/${subfolder}/`);
 }
 
-/** Request an extension on all rate limits. Must currently be renewed once a minute, invoke testframework with
+/** Request an extension on all rate limits. Must currently be renewed every 10 minutes, invoke testframework with
     keepratelimits := TRUE if you don't want this bump (but previous tests can currently still have a lingering enabling) */
 PUBLIC MACRO SnoozeRateLimits()
 {

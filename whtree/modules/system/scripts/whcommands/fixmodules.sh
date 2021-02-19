@@ -23,8 +23,7 @@ while [[ $1 =~ -.* ]]; do
     shift
     break
   else
-    echo "Illegal option '$1'"
-    exit 1
+    die "Illegal option '$1'"
   fi
 done
 

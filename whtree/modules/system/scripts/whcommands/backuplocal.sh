@@ -5,8 +5,7 @@ source $WEBHARE_DIR/lib/wh-functions.sh
 
 getwhparameters
 if [ -z "$STORAGEPATH" ];then
-  echo "Failed to retrieve database configuration"
-  exit 1
+  die "Failed to retrieve database configuration"
 fi
 
 echo "STORAGEPATH: $STORAGEPATH"
@@ -34,8 +33,7 @@ rm -rf -- "$BACKUPDEST/dbase" "$BACKUPDEST/postgresql" "$BACKUPDEST/backup" "$BA
 mkdir -p -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"
 BLOBDEST="$BACKUPDEST"
 if ! is_webhare_running; then
-  echo "WebHare must be running for a backup";
-  exit 1
+  die "WebHare must be running for a backup"
 fi
 
 function control_c()
@@ -87,9 +85,8 @@ if [ "$__WEBHARE_DBASE" == "dbserver" ]; then
   fg %1 > /dev/null
   # See if backup has really finished
   if [ ! -f "$BACKUPDEST/backup/backup.md5" ]; then
-    echo "Database backup process failed"
     kill -INT %2
-    exit 1
+    die "Database backup process failed"
   fi
   sleep 1
   kill -INT %2
@@ -103,8 +100,7 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
 
   RSYNCRETVAL="$?"
   if [ "$RSYNCRETVAL" != "0" ]; then
-    echo "First rsync with error code $RSYNCRETVAL"
-    exit 1
+    die "First rsync with error code $RSYNCRETVAL"
   fi
 
   [ "$VERBOSE" == "1" ] && echo "Make database backup"
@@ -117,12 +113,10 @@ elif [ "$__WEBHARE_DBASE" == "postgresql" ]; then
 
   RSYNCRETVAL="$?"
   if [ "$RSYNCRETVAL" != "0" ]; then
-    echo "Second rsync with error code $RSYNCRETVAL"
-    exit 1
+    die "Second rsync with error code $RSYNCRETVAL"
   fi
 else
-  echo "Unknown database type $__WEBHARE_DBASE"
-  exit 1
+  die "Unknown database type $__WEBHARE_DBASE"
 fi
 
 echo "Your backup is in $BACKUPDEST/"
