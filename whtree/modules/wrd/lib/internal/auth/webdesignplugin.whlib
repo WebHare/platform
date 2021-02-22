@@ -116,9 +116,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /// Site tag
   PUBLIC PROPERTY sitetag(pvt_sitetag, -);
 
-  /// WRDAuthIntegration object
-  PUBLIC PROPERTY wrdauth(GetWRDAuth,-);
-
   /// Current webcontext/webdesign
   PUBLIC PROPERTY webcontext(pvt_webcontext, -);
 
@@ -613,7 +610,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->CheckNotFailed();
     RETURN this->pvt_wrdschema;
   }
-  OBJECT FUNCTION GetWRDAuth()
+  PUBLIC OBJECT FUNCTION __GetWRDAuth()
   {
     this->CheckNotFailed();
     RETURN this->__wrdauth;

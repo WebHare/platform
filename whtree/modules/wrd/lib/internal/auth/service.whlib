@@ -18,7 +18,7 @@ PUBLIC RECORD FUNCTION RPC_Login(STRING url, STRING login, STRING password, BOOL
 
   OBJECT wrdauthplugin := GetWRDAuthPlugin(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ]);
   IF(persistent)
-    wrdauthplugin->wrdauth->persistentcookie := TRUE;
+    wrdauthplugin->__GetWRDAuth()->persistentcookie := TRUE;
 
   RECORD result := wrdauthplugin->Login(login, password,
         [ challenge := challenge

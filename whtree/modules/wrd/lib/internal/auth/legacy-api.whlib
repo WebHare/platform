@@ -1138,7 +1138,7 @@ PUBLIC OBJECTTYPE WRDAuthSupportBase
   */
   PUBLIC RECORD FUNCTION Login(STRING login, STRING password, RECORD options)
   {
-    RETURN this->plugin->wrdauth->Login(login, password, options);
+    RETURN this->plugin->__GetWRDAuth()->Login(login, password, options);
   }
 
   PUBLIC OBJECT FUNCTION GetSAMLSPConfig(OBJECT plugin, STRING sp_tag, RECORD configdata)

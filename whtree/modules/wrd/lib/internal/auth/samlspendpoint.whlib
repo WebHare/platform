@@ -55,7 +55,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
 
   RECORD sp_data := wrd_samlidp->RunQuery(
       [ filters :=
-            [ [ field := "WRD_LEFTENTITY", value := authplugin->wrdauth->id ]
+            [ [ field := "WRD_LEFTENTITY", value := authplugin->__GetWRDAuth()->id ]
             , [ field := "WRD_TAG", value := tag ]
             ]
       , outputcolumns :=

@@ -37,7 +37,7 @@ ELSE
 IF(NOT seenrule)
   THROW NEW Exception("requireright.whscr invoked but no applicable rules");
 
-STRING webharelogin := authplugin->wrdauth->cookiename;
+STRING webharelogin := authplugin->__GetWRDAuth()->cookiename;
 IF(webharelogin = "")
   THROW NEW Exception("Expected a webharelogin cookie"); //ADDME base on configurable cookie name
 
