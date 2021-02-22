@@ -780,7 +780,11 @@ STATIC OBJECTTYPE Catalog
              , title
              , fsobject
              , isorphan := orphansince != DEFAULT DATETIME
-             , isdeleted := tag LIKE "$consilio$deleted$*" OR (contentprovider = "publisher:webhare" AND fsobject = 0)
+             , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
+                            OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
+                                AND fsobject = 0
+                                AND (data = ""  OR NOT CellExists(DecodeHSON(data),"folder")) //AND has been converted by setcontentsourcefsobjects.whscr
+                               )
              , definedby
           FROM consilio.contentsources
          WHERE indexid = this->catalog.id;
