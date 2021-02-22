@@ -1,20 +1,13 @@
 ﻿<?wh
-LOADLIB "wh::datetime.whlib";
-LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
-
-LOADLIB "mod::publisher/lib/internal/actions.whlib";
-LOADLIB "mod::publisher/lib/internal/files.whlib";
-
 
 
 LOADLIB "mod::system/lib/database.whlib";
 
-LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
 
 
 
-BOOLEAN report := TRUE; //ADDME: Allow us to set this through the registry
 
 TRY
 {
@@ -22,189 +15,19 @@ TRY
 }
 CATCH(OBJECT e)
 {
-  Sleep(1000); //don't overload active database (ADDME: Make the entire script well behaved when the  dbserver is unavailable)
+  Sleep(1000); //don't overload active database (ADDME: Make the entire script well behaved when the  dbserver is unavailable) - FIXME why isn't task executer handling this ?
   THROW;
-}
-
-//FIXME: Re-optimize this code
-RECORD ARRAY tasks_to_execute := SELECT * FROM publisher.schedule WHERE when <= GetCurrentDateTime() ORDER BY when;
-
-///update a status mask to set the schedule bit to the new state for the fsobj. separate function so it can run inside UPDATE's record lock
-INTEGER FUNCTION SetScheduleBit(INTEGER fileid,INTEGER status)
-{
-  BOOLEAN anytasks := RecordExists(SELECT FROM publisher.schedule WHERE file=fileid LIMIT 1);
-  RETURN SetFlagsInPublished(status, PublishedFlag_Scheduled, anytasks);
-}
-
-
-MACRO DoStartPublish(RECORD task)
-{
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'start publish #" || task.file || "': it no longer exists\n");
-    RETURN;
-  }
-
-  IF(fsobj.isfolder)
-  {
-    RecurseUpdatePublish(fsobj.id, TRUE);
-  }
-  ELSE
-  {
-    IF (fsobj.publish = TRUE)
-    {
-      // Just republish the file
-      ScheduleFileRepublish(fsobj.id);
-    }
-    ELSE //FIle is not yet published
-    {
-      OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=TRUE]);
-      //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj, fsobj.id);
-    }
-  }
-
-  IF (report)
-    PRINT("Executed task 'start publish " || fsobj.whfspath || "'\n");
-}
-
-MACRO DoStopPublish(RECORD task)
-{
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'stop publish #" || task.file || "': it no longer exists\n");
-    RETURN;
-  }
-
-  IF(fsobj.isfolder)
-  {
-    RecurseUpdatePublish(fsobj.id, FALSE);
-  }
-  ELSE
-  {
-    IF (fsobj.publish = FALSE)
-    {
-      IF (report)
-        PRINT("Cannot execute task 'stop publish " || fsobj.whfspath || "': fsobj is not marked for publishing\n");
-      RETURN;
-    }
-
-    OpenWHFSObject(fsobj.id)->UpdateMetadata([publish:=FALSE]);
-    //UpdateMetadata triggers an asynchronous "replacefile" completion. no need to invoke RunEditFileHooks(fsobj, fsobj.id);
-  }
-
-  IF (report)
-    PRINT("Executed task 'stop publish " || fsobj.whfspath || "'\n");
-}
-
-MACRO DoMoveFile(RECORD task)
-{
-  STRING sourcepath, destpath;
-  IF(report)
-  {
-    sourcepath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = task.file;
-    destpath := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = task.folder;
-    IF(sourcepath="")
-      sourcepath := "#" || task.file;
-    IF(destpath="")
-      destpath := "#" || task.folder;
-  }
-
-
-  TRY
-  {
-    //FIXME audit these events instead of reporting
-    OBJECT mover := NEW ObjectCopyMover("move", task.folder);
-    mover->AddSourceById(task.file);
-    mover->Go(DEFAULT OBJECT); //FIXME don't require the use of sysop for tasks
-    IF (report)
-      PRINT("Executed task 'move " || sourcepath || " to " || destpath || "'\n");
-
-  }
-  CATCH(OBJECT<Exception> ex)
-  {
-    IF (report)
-      Print("Exception during move " || sourcepath || " to " || destpath || ": " || ex->what || "\n");
-  }
-}
-
-MACRO DoDeleteFile(RECORD task)
-{
-  RECORD fsobj := SELECT * FROM system.fs_objects WHERE fs_objects.id=task.file AND fs_objects.isactive;
-  IF (NOT RecordExists(fsobj))
-  {
-    PRINT("Cannot execute task 'delete #" || task.file || "': it no longer exists\n");
-    RETURN;
-  }
-
-  IF(fsobj.isfolder)
-    RunFolderDelete(fsobj.id, fsobj.modifiedby);
-  ELSE
-    RunFileDelete(fsobj.id, fsobj.modifiedby);
-
-  IF (report)
-    PRINT("Executed task 'delete " || fsobj.whfspath || "'\n");
-}
-
-MACRO DoSetIndexdoc(RECORD task)
-{
-  RECORD file := SELECT * FROM system.fs_objects WHERE id = task.file AND fs_objects.isactive AND NOT fs_objects.isfolder;
-
-  IF (NOT RecordExists(file))
-  {
-    PRINT("Cannot executetask 'setindexdoc #" || task.file || "': file no longer exists\n");
-    RETURN;
-  }
-
-  RECORD folder := SELECT id, indexdoc FROM system.fs_objects WHERE id = file.parent;
-
-  INTEGER oldindexdoc := folder.indexdoc;
-  OpenWHFSObject(folder.id)->UpdateMetadata([indexdoc := task.file]);
-
-
-  RunEditFileHooks(file, file.id);
-  RunEditFolderHooks(folder, folder.id);
-  IF (oldindexdoc != 0)
-  {
-    RECORD fs_oldindex := SELECT * FROM system.fs_objects WHERE fs_objects.id=oldindexdoc AND fs_objects.isactive AND NOT fs_objects.isfolder;
-    IF (RecordExists(fs_oldindex))
-      RunEditFileHooks(fs_oldindex, oldindexdoc);
-  }
-
-  IF (report)
-    PRINT("Executed task 'setindexdoc " || file.whfspath || "'\n");
 }
 
 GetPrimary()->BeginWork();
 
-FOREVERY (RECORD task FROM tasks_to_execute)
-{
-  DELETE FROM publisher.schedule WHERE id=task.id;
-
-  IF (task.event = 1) //Start publish/republish
-    DoStartPublish(task);
-  ELSE IF (task.event = 2) //Stop publish
-    DoStopPublish(task);
-  ELSE IF (task.event = 3) //Move fsobj
-    DoMoveFile(task);
-  ELSE IF (task.event = 4) //Delete fsobj
-    DoDeleteFile(task);
-  ELSE IF (task.event = 5) //Set index doc
-    DoSetIndexDoc(task);
-
-  //Reapply the 'is scheduled' bit (the clock icon)
-  UPDATE system.fs_objects SET published := SetScheduleBit(fs_objects.id, fs_objects.published) WHERE id = task.file;
-}
+FOREVERY (RECORD task FROM GetScheduledTasksToExecute())
+  ExecuteScheduledTask(task);
 
 //Any more tasks to do?
 RECORD nexttask := SELECT when FROM publisher.schedule ORDER BY when LIMIT 1;
 IF (RecordExists(nexttask)) //reschedule the publish script for this task
   GetPrimary()->ScheduleTask("publisher:scheduledtasks", nexttask.when);
 
-RECORD ARRAY errors := GetPrimary()->CommitWork();
-FOREVERY(RECORD err FROM errors)
-{
-  PRINT("Publisher scheduled tasks: " || err.message || "\n");
-}
+GetPrimary()->CommitWork();
 Print("Completed scheduled tasks\n");

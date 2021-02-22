@@ -80,6 +80,11 @@ STRING FUNCTION GetTaskTitle(RECORD task)
     {
       RETURN GetTid("publisher:commondialogs.taskprops.event-setindexdoc");
     }
+    CASE 6
+    {
+      OBJECT replacewith := OpenWHFSObject(task.folder);
+      RETURN GetTid("publisher:commondialogs.taskprops.event-replacewithtarget", (ObjectExists(replacewith) ? replacewith->name : ""));
+    }
   }
   RETURN "";
 }
@@ -2609,6 +2614,7 @@ PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
       this->event->value := ToString(data.event);
       this->folder->value := data.event = 3 ? data.folder : 0;
       this->when->value := data.when;
+      ^replacewith->value := data.event = 6 ? data.folder : 0;
     }
     ELSE
       ABORT("Unknown 'why'");
@@ -2617,6 +2623,11 @@ PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
     {
       this->start->label := GetTid("publisher:commondialogs.taskprops.event-startrecurse");
       this->"end"->label := GetTid("publisher:commondialogs.taskprops.event-endrecurse");
+      ^button_replacewith->enabled := FALSE;
+    }
+    ELSE
+    {
+      ^replacewith->accepttypes := STRING[ this->contexts->applytester->objtypens ];
     }
 
     this->siteroot := data.siteroot;
@@ -2627,7 +2638,7 @@ PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
     OBJECT work := this->BeginWork();
 
     INTEGER event := ToInteger(this->event->value, 0);
-    IF (event < 1 OR event > 5)
+    IF (event < 1 OR event > 6)
       work->AddError(GetTid("tollium:common.errors.field_required", this->start->title));
 
     IF (NOT work->HasFailed() AND event = 3 AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->folder->value))
@@ -2644,7 +2655,7 @@ PUBLIC OBJECTTYPE TaskProps EXTEND TolliumScreenbase
   RECORD FUNCTION GetTask()
   {
     RETURN [ event := ToInteger(this->event->value, 0)
-           , folder := this->event->value = "3" ? this->folder->value : 0
+           , folder := this->event->value = "3" ? ^folder->value : this->event->value = "6" ? ^replacewith->value : 0
            , when := this->when->value
            ];
   }

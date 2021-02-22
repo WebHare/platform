@@ -255,6 +255,8 @@
       <text tid="event-endrecurse">Beëindig publicatie van alle bestanden in deze map en alle submappen</text>
       <text tid="event-move">Verplaats naar</text>
       <text tid="event-movefolder">Verplaats naar map '<param p="1"/>'</text>
+      <text tid="event-replacewith">Vervang inhoud</text>
+      <text tid="event-replacewithtarget">Vervang inhoud door '<param p="1"/>'</text>
       <text tid="event-setindexdoc">Maak indexbestand</text>
       <text tid="event-start">Start publicatie</text>
       <text tid="event-startrecurse">Start publicatie van alle bestanden in deze map en alle submappen</text>

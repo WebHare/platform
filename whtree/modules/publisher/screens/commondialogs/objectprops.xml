@@ -175,6 +175,10 @@
       </line>
       <radiobutton name="delete" group="event" rowkey="4" title="" labeltid=".event-delete" />
       <radiobutton name="setindexdoc" group="event" rowkey="5" title="" labeltid=".event-setindexdoc" />
+      <line>
+        <radiobutton name="button_replacewith" group="event" rowkey="6" title="" labeltid=".event-replacewith" enablecomponents="replacewith" />
+        <publisher:browseforobject name="replacewith" acceptfolders="false" required="true" errorlabeltid=".event-replacewith" title="" showclear="false"/>
+      </line>
       <datetime name="when" type="datetime" precision="minutes" required="true" storeutc="true" />
     </body>
     <footer>
