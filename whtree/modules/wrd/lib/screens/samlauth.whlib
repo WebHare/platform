@@ -69,9 +69,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   OBJECT wrd_connectedproviders;
 
-  OBJECT wrdauth;
-
   INTEGER curprovider;
+  INTEGER authdomain_wrdid;
 
   // ---------------------------------------------------------------------------
   //
@@ -111,7 +110,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->samlproviders->eventmasks := this->wrd_connectedproviders->GetEventMasks();
 
     this->samlproviders->wrdtype := this->wrd_providerbase;
-    this->samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->wrdauth->id ] ];
+    this->samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ];
 
     this->connectedproviders->wrdtype := this->wrd_connectedproviders;
 
@@ -128,7 +127,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO CalculateFrameFlags()
   {
     this->frame->flags.haveidp := RecordExists(this->wrd_idp->RunQuery(
-        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->wrdauth->id ] ]
+        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ]
         ]));
 
     IF (this->samlproviders->value = 0)
@@ -215,26 +214,26 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAddSP()
   {
-    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0, domainid := this->wrdauth->id ]);
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0, domainid := this->authdomain_wrdid ]);
     IF (id != 0)
       this->samlproviders->value := id;
   }
 
   MACRO DoAddIDP()
   {
-    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0, domainid := this->wrdauth->id ]);
+    INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0, domainid := this->authdomain_wrdid ]);
     IF (id != 0)
       this->samlproviders->value := id;
   }
 
   MACRO DoEditSP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := this->samlproviders->value, domainid := this->wrdauth->id  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := this->samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
   }
 
   MACRO DoEditIDP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := this->samlproviders->value, domainid := this->wrdauth->id  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := this->samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
   }
 
   MACRO DoDeleteSP()
