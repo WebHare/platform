@@ -55,7 +55,7 @@ PUBLIC OBJECTTYPE OpenAuthDomain EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -102,19 +102,19 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       RETURN;
     }
 
-    this->eventlistener->masks :=
+    ^eventlistener->masks :=
           this->wrd_providerbase->GetEventMasks() CONCAT
           this->wrd_connectedproviders->GetEventMasks();
 
     // Samlproviders need to refresh when connected providers refresh too
-    this->samlproviders->eventmasks := this->wrd_connectedproviders->GetEventMasks();
+    ^samlproviders->eventmasks := this->wrd_connectedproviders->GetEventMasks();
 
-    this->samlproviders->wrdtype := this->wrd_providerbase;
-    this->samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ];
+    ^samlproviders->wrdtype := this->wrd_providerbase;
+    ^samlproviders->listfilters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ];
 
-    this->connectedproviders->wrdtype := this->wrd_connectedproviders;
+    ^connectedproviders->wrdtype := this->wrd_connectedproviders;
 
-    this->samlproviders->embeddedlist->rowkeytype := TypeID(INTEGER);
+    ^samlproviders->embeddedlist->rowkeytype := TypeID(INTEGER);
     this->CalculateFrameFlags();
     this->OnProviderSelect();
   }
@@ -130,11 +130,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         [ filters := [ [ field := "WRD_LEFTENTITY", value := this->authdomain_wrdid ] ]
         ]));
 
-    IF (this->samlproviders->value = 0)
+    IF (^samlproviders->value = 0)
       this->frame->flags.haveconnected := FALSE;
     ELSE
       this->frame->flags.haveconnected := RecordExists(this->wrd_connectedproviders->RunQuery(
-        [ filters := [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ] ]
+        [ filters := [ [ field := "WRD_LEFTENTITY", value := ^samlproviders->value ] ]
         ]));
   }
 
@@ -186,16 +186,16 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     BOOLEAN selected_idp;
     BOOLEAN haveconnected;
 
-    this->curprovider := this->samlproviders->value;
+    this->curprovider := ^samlproviders->value;
 
-    IF (this->samlproviders->value != 0)
+    IF (^samlproviders->value != 0)
     {
-      RECORD data := this->wrd_providerbase->GetEntityFields(this->samlproviders->value, [ "WRD_TYPE" ]);
+      RECORD data := this->wrd_providerbase->GetEntityFields(^samlproviders->value, [ "WRD_TYPE" ]);
       selected_sp := data.wrd_type = this->wrd_sp->id;
       selected_idp := data.wrd_type = this->wrd_idp->id;
 
       haveconnected := RecordExists(this->wrd_connectedproviders->RunQuery(
-            [ filters := [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ] ] ]));
+            [ filters := [ [ field := "WRD_LEFTENTITY", value := ^samlproviders->value ] ] ]));
     }
 
     this->frame->flags.selected_sp := selected_sp;
@@ -203,8 +203,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->flags.haveconnected := haveconnected;
 
     // -1 is somewhat faster to generate no results
-    this->connectedproviders->listfilters :=
-        [ [ field := "WRD_LEFTENTITY", value := this->samlproviders->value ?? -1 ] ];
+    ^connectedproviders->listfilters :=
+        [ [ field := "WRD_LEFTENTITY", value := ^samlproviders->value ?? -1 ] ];
   }
 
   // ---------------------------------------------------------------------------
@@ -216,24 +216,24 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_sp, id := 0, domainid := this->authdomain_wrdid ]);
     IF (id != 0)
-      this->samlproviders->value := id;
+      ^samlproviders->value := id;
   }
 
   MACRO DoAddIDP()
   {
     INTEGER id := this->RunScreen("#editprovider", [ wrdtype := this->wrd_idp, id := 0, domainid := this->authdomain_wrdid ]);
     IF (id != 0)
-      this->samlproviders->value := id;
+      ^samlproviders->value := id;
   }
 
   MACRO DoEditSP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := this->samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_sp, id := ^samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
   }
 
   MACRO DoEditIDP()
   {
-    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := this->samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
+    this->LoadScreen(".editprovider", [ wrdtype := this->wrd_idp, id := ^samlproviders->value, domainid := this->authdomain_wrdid  ])->RunModal();
   }
 
   MACRO DoDeleteSP()
@@ -241,7 +241,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->RunMessageBox(".suredeletesp") = "yes")
     {
       OBJECT work := this->BeginWork();
-      this->wrd_sp->GetEntity(this->samlproviders->value)->CloseOrDeleteEntity();
+      this->wrd_sp->GetEntity(^samlproviders->value)->CloseOrDeleteEntity();
       work->Finish();
     }
   }
@@ -251,7 +251,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->RunMessageBox(".suredeleteidp") = "yes")
     {
       OBJECT work := this->BeginWork();
-      this->wrd_idp->GetEntity(this->samlproviders->value)->CloseOrDeleteEntity();
+      this->wrd_idp->GetEntity(^samlproviders->value)->CloseOrDeleteEntity();
       work->Finish();
     }
   }
@@ -262,7 +262,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         [ wrdtype :=  this->wrd_connectedproviders
         , id :=       0
         , type :=     "idp"
-        , parent :=   this->samlproviders->value
+        , parent :=   ^samlproviders->value
         ])->RunModal();
   }
 
@@ -272,7 +272,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         [ wrdtype :=  this->wrd_connectedproviders
         , id :=       0
         , type :=     "sp"
-        , parent :=   this->samlproviders->value
+        , parent :=   ^samlproviders->value
         ])->RunModal();
   }
 
@@ -280,9 +280,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->LoadScreen(".editconnectedprovider",
         [ wrdtype :=  this->wrd_connectedproviders
-        , id :=       this->connectedproviders->value
+        , id :=       ^connectedproviders->value
         , type :=     "sp"
-        , parent :=   this->samlproviders->value
+        , parent :=   ^samlproviders->value
         ])->RunModal();
   }
 
@@ -290,9 +290,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->LoadScreen(".editconnectedprovider",
         [ wrdtype :=  this->wrd_connectedproviders
-        , id :=       this->connectedproviders->value
+        , id :=       ^connectedproviders->value
         , type :=     "idp"
-        , parent :=   this->samlproviders->value
+        , parent :=   ^samlproviders->value
         ])->RunModal();
   }
 
@@ -301,7 +301,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->RunMessageBox(".suredeleteconnectedidp") = "yes")
     {
       OBJECT work := this->BeginWork();
-      this->wrd_connectedproviders->GetEntity(this->connectedproviders->value)->CloseOrDeleteEntity();
+      this->wrd_connectedproviders->GetEntity(^connectedproviders->value)->CloseOrDeleteEntity();
       work->Finish();
     }
   }
@@ -311,7 +311,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (this->RunMessageBox(".suredeleteconnectedsp") = "yes")
     {
       OBJECT work := this->BeginWork();
-      this->wrd_connectedproviders->GetEntity(this->connectedproviders->value)->CloseOrDeleteEntity();
+      this->wrd_connectedproviders->GetEntity(^connectedproviders->value)->CloseOrDeleteEntity();
       work->Finish();
     }
   }
