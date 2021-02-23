@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -59,7 +61,14 @@ PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
 
     IF(GetWebVariable('pwdreset')='1')
     {
-      RECORD result := wrdauthplugin->ProcessPasswordResetPost(GetWebVariable("password"), TRUE);
+      RECORD result := wrdauthplugin->ProcessVerificationLink(GetWebVariable("_ed"),GetWebVariable("verifier"));
+      IF(result.success)
+      {
+        GetPrimary()->BeginWork();
+        wrdauthplugin->accounttype->UpdateEntity(result.entityid, [ password := CreateWebharePasswordHash(GetWebVariable("password"))]);
+        GetPrimary()->CommitWork();
+        wrdauthplugin->LoginByid(result.entityid, FALSE);
+      }
       INSERT CELL back := this->absolutebaseurl INTO result;
       data.pwdresetresult := PTR EmbedWittyComponent("pwdresetdone", result);
     }

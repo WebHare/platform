@@ -21,8 +21,8 @@ IF(hasdomaintype)
 ELSE //domainless test
   plugin := GetWRDAuthPlugin(OpenTestsuiteSite()->webroot || "portal1-domainless/");
 
-plugin->wrdauth->persistentcookie := GetWebVariable("persistent") = "1";
-plugin->wrdauth->debug := TRUE;
+plugin->__GetWRDAuth()->persistentcookie := GetWebVariable("persistent") = "1";
+plugin->__GetWRDAuth()->debug := TRUE;
 
 RECORD FUNCTION GetStatus()
 {
@@ -53,7 +53,7 @@ RECORD FUNCTION ProcessReq()
     CASE "logout-checkstatus"
     {
       RECORD oldstatus := GetStatus();
-      plugin->wrdauth->Logout();
+      plugin->__GetWRDAuth()->Logout();
 
       RECORD res := CELL[...GetStatus(), oldstatus];
       RETURN res;

@@ -838,7 +838,7 @@ PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
 
   RECORD idp_data := wrd_samlidp->RunQuery(
       [ filters :=
-            [ [ field := "WRD_LEFTENTITY", value := wrdauthplugin->wrdauth->id ]
+            [ [ field := "WRD_LEFTENTITY", value := wrdauthplugin->__GetWRDAuth()->id ]
             ]
       , outputcolumns :=
             [ "WRD_ID"
