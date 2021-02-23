@@ -2048,7 +2048,7 @@ The full base URL on which this site will be published, calculated by combining 
   <registry>
     <node name="publisher">
       <node name="publication">
-        <integer name="numworkers" description="Number of worker processes to start" initialval="2" />
+        <obsoletekey name="numworkers" />
         <integer name="maxpublishtime" description="Maximum publication time (seconds)" initialval="600" />
         <integer name="loglevel" description="Queuemanager logging level" />
         <string name="defaultcontentlisting" description="Default content listing file" initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />

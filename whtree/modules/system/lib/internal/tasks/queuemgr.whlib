@@ -12,6 +12,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
     @return Cachable task & taskcluster data
     @cell(string array) return.eventmasks Masks for events that invalidate this data
     @cell(record) return.value All managed/ephemeral tasktypes and taskclusters
+    @cell(string array) return.value.eventmasks Masks for events that invalidate this data
     @cell return.value.tasktypes @includecelldef #ParseTaskNode.return
     @cell(record array) return.value.clusters List of taskclusters
     @cell(string) return.value.clusters.tag Tag of the taskcluster
@@ -67,12 +68,12 @@ RECORD FUNCTION GetCachableAllTaskTypeInfo()
                 FROM clusters
             ORDER BY tag;
 
+  STRING ARRAY eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources) CONCAT taskclusterstype->GetEventMasks();
   RETURN
-      [ value :=      CELL[ tasktypes, clusters ]
-      , eventmasks := [ "system:modulesupdate" ] CONCAT GetResourceEventMasks(resources)
+      [ value :=      CELL[ tasktypes, clusters, eventmasks ]
+      , eventmasks := eventmasks
       ];
 }
-
 
 /** Get all tasktype and taskclusters
     @return @includecelldef #GetCachableAllTaskTypeInfo.return.value

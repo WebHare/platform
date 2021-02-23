@@ -7,7 +7,6 @@ PUBLIC OBJECTTYPE FileSystem EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    this->processes->value := ReadRegistryKey("publisher.publication.numworkers");
     this->maxpublishtime->value := ReadRegistryKey("publisher.publication.maxpublishtime");
     this->queueloglevel->SetValueIfValid(ReadRegistryKey("publisher.publication.loglevel"));
     this->defaultcontentlisting->value := ReadRegistryKey("publisher.publication.defaultcontentlisting");
@@ -20,7 +19,6 @@ PUBLIC OBJECTTYPE FileSystem EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork();
 
-    WriteRegistryKey("publisher.publication.numworkers", this->processes->value);
     WriteRegistryKey("publisher.publication.maxpublishtime", this->maxpublishtime->value);
     WriteRegistryKey("publisher.publication.loglevel", this->queueloglevel->value);
     WriteRegistryKey("publisher.publication.defaultcontentlisting", this->defaultcontentlisting->value);
@@ -28,10 +26,6 @@ PUBLIC OBJECTTYPE FileSystem EXTEND TolliumScreenBase
     WriteRegistryKey("publisher.trashcan.trashcanexpire", this->trashcanexpire->value);
     WriteRegistryKey("publisher.trashcan.trashcanmaxsize", this->trashcanmaxsize->value);
 
-    IF(NOT work->Finish())
-      RETURN FALSE;
-
-    ReloadWebhareConfig2("PUBLISHMGR");
-    RETURN TRUE;
+    RETURN work->Finish();
   }
 >;

@@ -694,11 +694,16 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
     IF (NOT RecordExists(addressdata))
       RETURN TRUE;
 
-    OBJECT lookup := ObjectExists(this->contexts->applytester)
-        ? GetAddressLookupAPI(this->contexts->applytester, addressdata.country)
-        : ObjectExists(this->wrdschema)
-            ? GetWRDAddressLookupAPI(this->wrdschema, addressdata.country)
-            : DEFAULT OBJECT;
+    OBJECT lookup;
+    IF(ObjectExists(this->contexts->applytester))
+      lookup := GetAddressLookupAPI(this->contexts->applytester, addressdata.country);
+
+    IF(NOT ObjectExists(lookup))
+    {
+      OBJECT wrdschema := this->wrdschema ?? this->contexts->wrdschema;
+      IF(ObjectExists(wrdschema))
+        lookup := GetWRDAddressLookupAPI(this->wrdschema, addressdata.country);
+    }
 
     IF(NOT ObjectExists(lookup))
       RETURN TRUE;

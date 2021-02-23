@@ -7,9 +7,6 @@
     <body>
       <box name="publication">
         <line>
-          <textedit name="processes" valuetype="integer" minvalue="1" maxvalue="32" width="8x" />
-        </line>
-        <line>
           <textedit name="maxpublishtime" valuetype="integer" minvalue="60" maxvalue="1000000" width="8x" emptyvalue="0" />
           <text valuetid="tollium:common.units.seconds" />
         </line>

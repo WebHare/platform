@@ -3,12 +3,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queue.whlib";
-
+LOADLIB "mod::system/lib/internal/tasks/queuemgr.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debuglevel", type := "stringopt" ]
@@ -23,12 +24,13 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
   MACRO NEW(STRING tasktype, RECORD options)
   : PersistentDiskQueue(tasktype, options)
   {
+    RECORD config := RunInSeparatePrimary(PTR this->GetConfig());
     FOREVERY (STRING event FROM
-        [ "system:softreset"
-        , "system:clearcaches"
-        , "system:modulesupdate"
-        , ...GetRegistryKeyEventMasks([ "publisher.publication.numworkers" ])
-        ])
+        GetSortedSet([ "system:softreset"
+                     , "system:clearcaches"
+                     , "system:modulesupdate"
+                     , ...config.eventmasks
+                     ]))
     {
       RegisterMultiEventCallback(event, PTR this->GotConfigUpdate);
     }
@@ -38,8 +40,14 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
 
   RECORD FUNCTION GetConfig()
   {
+    RECORD tasktypeinfo := GetAllTaskTypeInfo();
+    INTEGER numrunners := SELECT AS INTEGER harescriptworkers FROM tasktypeinfo.clusters WHERE tag = "publisher:publicationqueue";
+    IF(numrunners = 0)
+      THROW NEW Exception(`Numrunners for our queue not set`);
+
     RETURN
-        [ runners :=    ReadRegistryKey("publisher.publication.numworkers")
+        [ eventmasks := tasktypeinfo.eventmasks
+        , runners :=    numrunners
         , timeout :=    ReadRegistryKey("publisher.publication.maxpublishtime") * 1000
         ];
   }
@@ -48,7 +56,7 @@ PUBLIC STATIC OBJECTTYPE PublisherQueue EXTEND PersistentDiskQueue
   {
     RECORD config := RunInSeparatePrimary(PTR this->GetConfig());
     this->SetSchedulingInfo(
-        [ concurrenttasks :=    Min[]([ 4, config.runners ]) // only 4 runners available
+        [ concurrenttasks :=    config.runners
         , timeout :=            config.timeout
         ]);
   }
