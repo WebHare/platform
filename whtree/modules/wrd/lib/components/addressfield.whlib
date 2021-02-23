@@ -3,6 +3,8 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/components/entity.whlib";
+
 
 PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
 <
@@ -46,7 +48,7 @@ PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
 
   UPDATE PUBLIC MACRO CompositionMetadataIsUpdated()
   {
-    IF(ObjectExists(this->composition) AND MemberExists(this->composition,"UpdateEntityAt"))
+    IF(ObjectExists(this->composition) AND this->composition EXTENDSFROM TolliumWRDEntity)
     {
       this->wrdschema := this->composition->wrdtype->wrdschema;
     }
