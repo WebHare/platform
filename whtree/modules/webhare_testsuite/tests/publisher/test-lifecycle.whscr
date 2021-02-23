@@ -293,6 +293,11 @@ MACRO TestReplaceContents()
                           [ data := [ htmltext := StringToBlob('<html><body><p class="normal">First document</p></body></html>') ]
                           ]);
 
+  OBJECT emptyreplacefile := GetTestsuiteTempFolder()->CreateFile(
+    [ name := "emptyfile.rtd"
+    , typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    , title := "Empty file"
+    ]);
 
   OBJECT replacement1 := GetTestsuiteTempFolder()->CreateFile(
     [ name := "v1.rtd"
@@ -333,6 +338,8 @@ MACRO TestReplaceContents()
   INTEGER replacetask1 := AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement1->id ]);
   TestEq([[ id := replacetask1, task := "replacewith", when := now, taskdata := [ source := replacement1->id ], owner := GetEffectiveUserID() ]], ListScheduledTasks(toreplacefile));
 
+  AddScheduledTask(emptyreplacefile, now, "replacewith", [ source := replacement2->id ]);
+
   ExecuteAllTasksNow();
   testfw->CommitWork();
 
@@ -341,6 +348,7 @@ MACRO TestReplaceContents()
   toreplacefile := OpenWHFSObject(toreplacefile->id);  //not sure if it's needed, but safer
   TestEq(TRUE, toreplacefile->publish);
   TestEq(`<html><body><p class="normal">V1</p></body></html>`, BlobToString(toreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+  TestEq(`<html><body><p class="normal">V2</p></body></html>`, BlobToString(emptyreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
 
   RECORD ARRAY recycledfiles := SearchRecycleBin(CELL[ fromdate := testfw->starttime
                                                      , site := GetTestsuiteTempFolder()->parentsite

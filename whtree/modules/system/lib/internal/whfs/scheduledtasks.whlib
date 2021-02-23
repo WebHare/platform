@@ -202,7 +202,7 @@ MACRO DoReplaceWith(RECORD task)
   OBJECT copy := toreplace->CopyTo(toreplace->parentobject, GenerateUFS128BitId()); //copy to random name
   NEW WHFSCalls->Recycle(INTEGER[copy->id], toreplace->name);
 
-  FOREVERY(INTEGER cancopy FROM ArrayIntersection(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
+  FOREVERY(INTEGER cancopy FROM ArrayUnion(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
   {
     OBJECT typeobj := OpenWHFSTypeById(cancopy);
     typeobj->SetInstanceData(toreplace->id, typeobj->GetInstanceData(replacewith.id), [ isvisibleedit := FALSE ]); //UpdateMetadata will take care of updating modtimes
