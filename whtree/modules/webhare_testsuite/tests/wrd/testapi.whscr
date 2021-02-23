@@ -2931,13 +2931,17 @@ MACRO TestTemporary() //one of the last tests so as much tests as possible are e
   INTEGER personid := tempentity->id;
 
   //test with links
-  OBJECT linktype := testfw->GetWRDSchema()->CreateType("LINKTYPE", [ linkfrom := persontype->id, linkto := persontype->id ]);
-  tempentity := linktype->CreateEntity(CELL[], [ temp := TRUE ]);
+  OBJECT personorglink := testfw->GetWRDSchema()->^personorglink;
+  INTEGER testorg := testfw->GetWRDSchema()->^wrd_organization->Search("WRD_ORGNAME", "The Org");
+  tempentity := personorglink->CreateEntity(CELL[], [ temp := TRUE ]);
+
+  //should be safe to update without setting required links field
+  tempentity->UpdateEntity([text := "Still a temp"]);
 
   //bring the links to live
   TestThrowsLike("*WRD_LEFTENTITY*required", PTR tempentity->UpdateEntity([ wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]));
-  tempentity->UpdateEntity(CELL[ wrd_leftentity := personid, wrd_rightentity := personid, wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]);
-  TestEq(personid, linktype->GetEntityField(tempentity->id,"WRD_RIGHTENTITY"));
+  tempentity->UpdateEntity(CELL[ wrd_leftentity := personid, wrd_rightentity := testorg, wrd_creationdate := MakeDate(2010,1,1), wrd_limitdate := MAX_DATETIME ]);
+  TestEq(testorg, personorglink->GetEntityField(tempentity->id,"WRD_RIGHTENTITY"));
 
   persontype->DeleteAttribute("REQUIRED_ATTR");
 

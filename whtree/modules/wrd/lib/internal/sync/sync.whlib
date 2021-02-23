@@ -446,25 +446,27 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
         nowrecords := nowrecords + 1;
 
         RECORD entityrec := CELL[ entity.wrd_guid, wrd_modificationdate := AddTimeToDate(-1, entity.wrd_modificationdate) ];
-        IF (linkfrom)
+        IF (linkfrom AND (entity.wrd_creationdate != MAX_DATETIME OR entity.wrd_leftentity != "")) //temp entities may ignore leftenity/rightentity requirements
         {
           RECORD xpos := RecordLowerBound(lexisting, [ wrd_guid := entity.wrd_leftentity ], [ "WRD_GUID" ]);
           IF (NOT xpos.found)
-            THROW NEW Exception(`Could not locate wrd_leftentity ${entity.wrd_leftentity} from ${ltypetag} for ${typerec.tag}`);
+            THROW NEW Exception(`${typerec.tag} ${entity.wrd_guid}'s leftentity tries to refer to ${ltypetag} ${entity.wrd_leftentity ?? "<no wrd_guid>"} but it was not found`);
+
           INSERT CELL wrd_leftentity := lexisting[xpos.position].wrd_id INTO entityrec;
         }
-        IF (linkto)
+        IF (linkto AND (entity.wrd_creationdate != MAX_DATETIME OR entity.wrd_rightentity != "")) //temp entities may ignore leftenity/rightentity requirements
         {
           RECORD xpos := RecordLowerBound(rexisting, [ wrd_guid := entity.wrd_rightentity ], [ "WRD_GUID" ]);
           IF (NOT xpos.found)
-            THROW NEW Exception(`Could not locate wrd_rightentity ${entity.wrd_rightentity} from ${rtypetag} for ${typerec.tag}`);
+            THROW NEW Exception(`${typerec.tag} ${entity.wrd_guid}'s rightentity tries to refer to ${rtypetag} ${entity.wrd_rightentity ?? "<no wrd_guid>"} but it was not found`);
+
           INSERT CELL wrd_rightentity := rexisting[xpos.position].wrd_id INTO entityrec;
         }
 
         RECORD pos := RecordLowerBound(existing, entity, [ "WRD_GUID" ]);
         IF (NOT pos.found)
         {
-          OBJECT obj := type->CreateEntity(entityrec, CELL[ importmode := TRUE, whfsmapper ]);
+          OBJECT obj := type->CreateEntity(entityrec, CELL[ importmode := TRUE, whfsmapper, temp := entity.wrd_creationdate = MAX_DATETIME ]);
           INSERT CELL wrd_id := obj->id INTO entityrec;
           INSERT entityrec INTO existing AT pos.position;
         }
