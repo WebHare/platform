@@ -112,7 +112,7 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   /** @short Get an empty result record
       @long Searching a catalog returns record containing all field defined by the content sources within the catalog. The
             default content provider returns a number of standard fields, useful for searching HTML pages (used by the
-            publisher:webhare and consilio:external content providers). The fields returned here have to be supplied by the
+            publisher:webhare content provider). The fields returned here have to be supplied by the
             content provider (via the FetchObject function), except for the standard consilio fields 'score' and 'summary'.
             The fields 'objectid' and 'groupid' are always returned and do not have to be specified.
   */

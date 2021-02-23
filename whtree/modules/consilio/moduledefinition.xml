@@ -532,11 +532,6 @@
 
   <consilio>
     <contentprovider
-      name="external" tid="contentproviders.external.providertitle" icon="tollium:filemgr/site"
-      library="contentproviders/externalcontent.whlib" contentproviderobject="ExternalContentProvider"
-      settingsscreen="contentproviders.external"
-    />
-    <contentprovider
       name="custom" tid="contentproviders.custom.providertitle" icon="tollium:database/database"
       library="contentproviders/customcontent.whlib" contentproviderobject="CustomContentProvider"
       settingsscreen="contentproviders.custom"
