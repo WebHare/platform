@@ -467,7 +467,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
   PUBLIC BOOLEAN FUNCTION UpdateEntity(OBJECT work, RECORD additional_values DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT ObjectExists(this->pvt_entity))
-      ABORT("Invoking UpdateEntityAt without having set the 'entity' member");
+      ABORT("Invoking UpdateEntity without having set the 'entity' member");
 
     RECORD updates := this->__GetEntityUpdates(additional_values);
     IF (work->HasFailed())
