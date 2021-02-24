@@ -510,6 +510,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
     CASE "datetime"     { colrec.dbtype := "timestamp"; }
     CASE "string"       { colrec.dbtype := "varchar"; }
     CASE "integer64"    { colrec.dbtype := "int8"; }
+    CASE "float"        { colrec.dbtype := "float8"; }
     CASE "money"        { colrec.dbtype := "numeric"; }
     CASE "blob"
     {
@@ -545,7 +546,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
          , "bigserial"  { defaultvalue := ``; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; } // already has default by type
       CASE "int4"
          , "int8"
-         , "float"
+         , "float8"
          , "numeric"    { defaultvalue := `0`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> 0))`; }
       CASE "varchar"    { defaultvalue := `''::text`; nullcheck := `(((${PostgreSQLEscapeIdentifier(colrec.name)})::text <> ''::text))`; }
       CASE "bool"       { defaultvalue := `false`; nullcheck := `((${PostgreSQLEscapeIdentifier(colrec.name)} <> false))`; }

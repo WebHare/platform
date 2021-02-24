@@ -56,6 +56,9 @@ PUBLIC MACRO ApplyTempDatabaseSchema(STRING s)
   testfw->BeginWork();
   ExecuteSQLUpdates(GetPrimary(), cmd.commands);
   testfw->CommitWork();
+
+  // no updates should be necessary afterwards
+  TestEQ(RECORD[], GenerateDependentSQLCommands([ parsed ], GetPrimary()).commands);
 }
 
 PUBLIC MACRO SetupTempSchema()

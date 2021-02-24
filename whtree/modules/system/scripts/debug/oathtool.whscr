@@ -1,0 +1,240 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+/*  This tool is modelled after oathtool and follows its behaviour as closely as possible. There are a number of differences
+    between oathtool and oathtool.whscr:
+      * Because ParseArguments is case insensitive, shorthand arguments are not supported (we cannot distinguish between -v
+        and -V or between -s and -S) and all arguments must be provided using their full name
+      * Because ParseArguments doesn't support dashes in argument names, "time-step-size" and "start-time" must be provided
+        using "timestepsize" and "starttime", respectively
+      * Because an argument parsed by ParseArguments cannot be both a switch (only the name is supplied) and a string option
+        (name and value are supplied), the MAC algorithm must be supplied using the "hmac" argument instead of the "totp"
+        argument, which has the added benefit that the MAC algorithm can be set for hotp
+      * Time step size can only be supplied as a number of seconds
+      * Start time and now can be given in one of the formats specified in RFC822, RFC850, RFC1123 and ISO8601
+      * Times are displayed using ISO8601 formatting
+    See http://www.nongnu.org/oath-toolkit/man-oathtool.html and http://savannah.nongnu.org/projects/oath-toolkit
+*/
+
+RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "help",         type := "switch"     ]
+                                                     , [ name := "hotp",         type := "switch",    defaultvalue := TRUE ]
+                                                     , [ name := "totp",         type := "switch"     ]
+                                                     , [ name := "hmac",         type := "stringopt", defaultvalue := "sha1" ]
+                                                     , [ name := "base32",       type := "switch"     ]
+                                                     , [ name := "counter",      type := "stringopt"  ]
+                                                     , [ name := "timestepsize", type := "stringopt"  ]
+                                                     , [ name := "starttime",    type := "stringopt"  ]
+                                                     , [ name := "now",          type := "stringopt"  ]
+                                                     , [ name := "digits",       type := "stringopt"  ]
+                                                     , [ name := "window",       type := "stringopt"  ]
+                                                     , [ name := "verbose",      type := "switch"     ]
+                                                     , [ name := "key",          type := "param"      ]
+                                                     , [ name := "otp",          type := "param"      ]
+                                                     ]);
+// If the key argument would have been marked as required, calling the script with just --help  would fail
+IF (RecordExists(args) AND args."key" = "" AND NOT args.help)
+  args := DEFAULT RECORD;
+IF (NOT RecordExists(args) OR args.help)
+{
+  Print(`oathtool.whscr
+
+Generate and validate OATH one-time passwords.
+
+Usage: oathtool.whscr [OPTIONS]... [KEY [OTP]]...
+
+  --help                  Print help and exit
+  --hotp                  use event-based HOTP mode  (default=on)
+  --totp                  use time-variant TOTP mode
+  --hmac=STRING           MAC algorithm to use (possible values=
+                            "sha1", "sha256", "sha-512"
+                            default=\`sha1')
+  --base32                use base32 encoding of KEY instead of hex
+                            (default=off)
+  --counter=COUNTER       HOTP counter value
+  --timestepsize=DURATION TOTP time-step duration  (default=\`30')
+  --starttime=TIME        when to start counting time steps for TOTP
+                            (default=\`1970-01-01T00:00:00Z')
+  --now=TIME              use this time as current time for TOTP
+                            (default=\`now')
+  --digits=DIGITS         number of digits in one-time password
+  --window=WIDTH          window of counter values to test when
+                            validating OTPs
+  --verbose               explain what is being done  (default=off)
+`);
+  IF (NOT RecordExists(args))
+    SetConsoleExitCode(1);
+  RETURN;
+}
+
+// Read arguments
+STRING hmac := SELECT AS STRING "HMAC:" || algo
+                 FROM [ [ name := "sha1", algo := "SHA-1" ]
+                      , [ name := "sha256", algo := "SHA-256" ]
+                      , [ name := "sha512", algo := "SHA-512" ]
+                      ]
+                WHERE name = args.hmac;
+INTEGER64 counter := ToInteger64(args.counter, 0);
+INTEGER interval := ToInteger(args.timestepsize, 30);
+DATETIME start := MakeDateFromText(args.starttime);
+DATETIME now := MakeDateFromText(args.now);
+INTEGER digits := ToInteger(args.digits, 6);
+INTEGER window := ToInteger(args.window, 0);
+STRING secret := args.base32 ? DecodeBase32(Substitute(TrimWhitespace(args."key"), " ", "")) : DecodeBase16(TrimWhitespace(args."key"));
+
+// Check arguments
+IF (hmac = "")
+{
+  IF (args.hmac != "")
+  {
+    Print(`oathtool.whscr: invalid argument, "${args.hmac}", for option \`--hmac'\n`);
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+  hmac := "HMAC:SHA-1";
+}
+IF (counter = 0 AND args.counter != "" AND ToInteger64(args.counter, -1) = -1)
+{
+  Print(`oathtool.whscr: invalid numeric value: ${args.counter}\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF (interval = 30 AND args.timestepsize != "" AND ToInteger(args.timestepsize, -1) = -1)
+{
+  Print(`oathtool.whscr: invalid numeric value: ${args.timestepsize}\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF (start = DEFAULT DATETIME)
+{
+  IF (args.starttime != "")
+  {
+    Print(`oathtool.whscr: cannot parse time \`${args.starttime}'\n`);
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+  start := MakeDate(1970, 1, 1);
+}
+IF (now = DEFAULT DATETIME)
+{
+  IF (args.now != "")
+  {
+    Print(`oathtool.whscr: cannot parse time \`${args.now}'\n`);
+    SetConsoleExitCode(1);
+    RETURN;
+  }
+  now := GetCurrentDateTime();
+}
+IF (digits = 6 AND args.digits != "" AND ToInteger(args.digits, -1) = -1)
+{
+  Print(`oathtool.whscr: invalid numeric value: ${args.digits}\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+ELSE IF (digits < 6 OR digits > 8)
+{
+  Print(`oathtool.whscr: only digits 6, 7 and 8 are supported\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF (window = 0 AND args.window != "" AND ToInteger(args.window, -1) = -1)
+{
+  Print(`oathtool.whscr: invalid numeric value: ${args.window}\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+IF (args.base32 AND secret = "")
+{
+  Print(`oathtool.whscr: base32 decoding of secret key failed\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+ELSE IF (NOT args.base32 AND ToUppercase(EncodeBase16(secret)) != ToUppercase(args."key"))
+{
+  Print(`oathtool.whscr: hex decoding of secret key failed\n`);
+  SetConsoleExitCode(1);
+  RETURN;
+}
+
+INTEGER64 nowstamp := GetUnixTimestampMSecs(now) / 1000;
+INTEGER64 startstamp := GetUnixTimestampMSecs(start) / 1000;
+INTEGER64 startcounter := args.totp ? ((nowstamp - startstamp) / interval) : counter;
+
+IF (args.verbose)
+{
+  Print(`Hex secret: ${EncodeBase16(secret)}\n`);
+  Print(`Base32 secret: ${EncodeBase32(secret)}\n`);
+  IF (args.otp != "")
+    Print(`OTP: ${args.otp}\n`);
+  Print(`Digits: ${digits}\n`);
+  Print(`Window size: ${window}\n`);
+  IF (args.totp)
+  {
+    Print(`Step size (seconds): ${interval}\n`);
+    Print(`Start time: ${FormatISO8601DateTime(start)} (${startstamp})\n`);
+    Print(`Time now: ${FormatISO8601DateTime(now)} (${nowstamp})\n`);
+    Print(`Counter: 0x${ToString(startcounter, 16)} (${startcounter})\n`);
+  }
+  ELSE
+  {
+    Print(`Start counter: 0x${ToString(startcounter, 16)} (${startcounter})\n`);
+  }
+  Print(`\n`);
+}
+
+IF (args.otp != "" AND args.totp)
+{
+  // If checking a time-based one-time password Go half the window size back in time (rounded up)
+  // NOTE: This isn't displayed in the verbose information!
+  now := AddTimeToDate((window / 2) * interval * -1000, now);
+  nowstamp := GetUnixTimestampMSecs(now) / 1000;
+  startcounter := (nowstamp - startstamp) / interval;
+  window := window - 1;
+}
+
+// OTP generation options
+RECORD options := [ digits := digits
+                  , interval := interval
+                  , now := now
+                  , start := start
+                  , hmac := hmac
+                  ];
+WHILE (window >= 0)
+{
+  // Generate the OTP
+  STRING code;
+  IF (args.totp)
+    code := GetTOTPCode(secret, options);
+  ELSE
+    code := GetHOTPCode(secret, counter, CELL[ options.digits, options.hmac ]);
+
+  IF (args.otp != "")
+  {
+    // When checking a code, break if it's correct
+    IF (args.otp = code)
+    {
+      Print(counter || "\n");
+      BREAK;
+    }
+  }
+  ELSE
+  {
+    // Not checking, just print the generated code
+    Print(code || "\n");
+  }
+
+  // Decrease the window size left
+  window := window - 1;
+  // Increase the time for TOTP
+  options.now := AddTimeToDate(options.interval * 1000, options.now);
+  // Increate the counter for HOTP
+  counter := counter + 1;
+}
+
+// If we have seen the complete window, we haven't found the code we were looking for
+IF (args.otp != "" AND window < 0)
+{
+  Print(`oathtool.whscr: password "${args.otp}" not found in range ${startcounter} .. ${startcounter + counter - 1}\n`);
+}

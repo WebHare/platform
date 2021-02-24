@@ -7,4 +7,5 @@
   <section name="geo" title="Latitude/longitude calculations" />
   <section name="localization" title="Localization and internationalization (i18n)" />
   <section name="luhn" title="Luhn algorithm" />
+  <section name="otp" title="OTP functions" />
 </topic>

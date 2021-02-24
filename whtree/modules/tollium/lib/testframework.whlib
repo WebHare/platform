@@ -1550,6 +1550,7 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
     STRING searchcell;
     RECORD ARRAY rows;
     BOOLEAN selectmultiple;
+    STRING detokenizedvalueseparator;
 
     IF ("TOLLIUMLIST" IN extendnames)
     {
@@ -1596,6 +1597,7 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
       searchcell := options.cellname ?? "title";
       rows := comp->options;
       selectmultiple := comp->type = "checkbox";
+      detokenizedvalueseparator := comp->detokenizedvalueseparator;
     }
 
     FOREVERY (VARIANT v FROM val)
@@ -1624,7 +1626,12 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
     }
 
     IF (selectmultiple)
-      comp->value := CastTo(rowkeys, TypeID(comp->value));
+    {
+      IF (detokenizedvalueseparator = "")
+        comp->value := CastTo(rowkeys, TypeID(comp->value));
+      ELSE
+        comp->value := Detokenize(STRING ARRAY(rowkeys), detokenizedvalueseparator);
+    }
     ELSE IF (LENGTH(rowkeys) = 0)
       comp->value := GetTypeDefaultValue(TypeID(comp->value));
     ELSE
