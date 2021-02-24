@@ -79,27 +79,69 @@ MACRO HashTest()
 
 }
 
+MACRO TestDistribution(STRING allowedchars, FUNCTION PTR gen)
+{
+  /* addme: use chi-squared or so, but need expected values for that test */
+
+  INTEGER amount := 2048; // amount of chars to generate per allowed character
+  INTEGER bandwidth := 192; // max allowed deviation from expectation value
+
+  RECORD ARRAY failures;
+  FOR (INTEGER attempt := 0; attempt < 16; attempt := attempt + 1)
+  {
+    //PRINT(`Attempt ${attempt}\n`);
+    INTEGER ARRAY counts := RepeatElement(0, 256);
+    INTEGER wantchars := (LENGTH(allowedchars) ?? 256) * amount;
+    STRING rndval := gen(wantchars);
+
+    // test exact amount of characters generated
+    TestEQ(wantchars, LENGTH(rndval));
+
+    // count all bytes
+    FOR (INTEGER i := 0, e := LENGTH(rndval); i < e; i := i + 1)
+    {
+      INTEGER val := GetByteValue(SubString(rndval, i, 1));
+      counts[val] :=  counts[val] + 1;
+    }
+
+    // test if amounts of allowed characters are within bandwidth, and rest is zero
+    failures :=
+        SELECT TEMPORARY expected := (IsDefaultValue(allowedchars)
+                    ? TRUE
+                    : SearchSubString(allowedchars, ByteToString(#row)) != -1) ? amount : 0
+             , val :=   #row
+             , char :=  ByteToString(#row)
+             , got :=   cnt
+             , expected := expected
+             , diff :=  expected - cnt
+          FROM ToRecordArray(counts, "cnt") AS row
+         WHERE (IsDefaultValue(allowedchars)
+                    ? TRUE
+                    : SearchSubString(allowedchars, ByteToString(#row)) != -1)
+                  ? (cnt < (amount - bandwidth) OR cnt > (amount + bandwidth))
+                  : cnt != 0;
+
+    IF (LENGTH(failures) = 0)
+      BREAK;
+  }
+
+  TestEQ(RECORD[], failures, "Should have roughly equal probabilities for every possible character");
+}
+
 MACRO PasswordTest()
 {
-  INTEGER oldseed := SeedRandomizer(42);
-
-  TestEq("basevVXrg5Wd", GeneratePassword("base", 8));
-
-  SeedRandomizer(42);
-  TestEq("basevVXrg5WdVQGqrxRz922U", GeneratePassword("base", 20));
-
-  SeedRandomizer(42);
-  TestEq("4afC5d4E36DcFCdffE56", GenerateRandomText(20, "0123456ABCDEFabcdef"));
-
-  SeedRandomizer(41);
-  TestEq("360b45d24201b5b0ea03", GenerateRandomText(20, "0123456ABCDEFabcdef"));
-
-  SeedRandomizer(41);
-  TestEq("", GenerateRandomText(20, ""));
-
   TestEq("11111111111111111111", GenerateRandomText(20, "1"));
 
-  SeedRandomizer(oldseed);
+  TestEqLike("base*", GeneratePassword("base", 8));
+  TestDistribution("23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz", PTR GeneratePassword("", #1));
+  TestDistribution("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", PTR GeneratePassword("", #1, FALSE));
+
+  TestDistribution("0123456ABCDEFabcdef", PTR GenerateRandomText(#1, "0123456ABCDEFabcdef"));
+
+  FOR (INTEGER i := 1; i < 200; i := i + 1)
+    TestEQ(i, LENGTH(GenerateRandomBinaryValue(i)));
+
+  TestDistribution("", PTR GenerateRandomBinaryValue(#1));
 }
 
 MACRO SignTest()
