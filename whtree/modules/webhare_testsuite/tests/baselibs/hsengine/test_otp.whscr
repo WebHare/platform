@@ -9,6 +9,13 @@ STRING secret := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056");
 STRING secret32 := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aed");
 STRING secret64 := DecodeBase16("d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf71cfbbc934da74aedbb0de229f0c3e056d99dcdf7");
 
+MACRO TestGenerate()
+{
+  TestEq(20, LENGTH(GenerateOTPSecret()));
+  TestEq(32, LENGTH(GenerateOTPSecret([ hmac := "HMAC:SHA-256" ])));
+  TestEq(64, LENGTH(GenerateOTPSecret([ hmac := "HMAC:SHA-512" ])));
+}
+
 MACRO TestHOTP()
 {
   TestEq("734867", GetHOTPCode(secret, 0));
@@ -268,6 +275,7 @@ MACRO TestTestCode()
 }
 
 PRINT("\n === Running TestOTP\n");
+TestGenerate();
 TestHOTP();
 TestTOTP();
 TestURLs();

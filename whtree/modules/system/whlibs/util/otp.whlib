@@ -270,12 +270,18 @@ PUBLIC RECORD FUNCTION UnpackOTPUrl(STRING url)
 }
 
 /** @short Create a new HOTP/TOTP secret
-    @param hmac The HMAC algorithm for which the secret is used, defaults to "HMAC:SHA-1"
+    @cell(string) options.hmac The HMAC algorithm for which the secret is used, defaults to "HMAC:SHA-1"
     @return A new random secret
 */
-PUBLIC STRING FUNCTION GenerateOTPSecret(STRING hmac DEFAULTSTO "HMAC:SHA-1")
+PUBLIC STRING FUNCTION GenerateOTPSecret(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN DecodeBase16(GenerateRandomText(2 * GetKeyLength(hmac), "0123456789abcdef"));
+  options := ValidateOptions(CELL
+      [ defaultoptions.hmac
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
+
+  RETURN GenerateRandomBinaryValue(GetKeyLength(options.hmac));
 }
 
 /** Test if a TOTP code matches the expected value
@@ -300,7 +306,9 @@ PUBLIC RECORD FUNCTION TestTOTPCode(STRING secret, STRING code, RECORD options D
       , defaultoptions.start
       , now :=          GetCurrentDateTime()
       , allowdrift :=   30
-      ], options);
+      ], options,
+      [ enums := [ hmac := allowed_hmacs ]
+      ]);
 
   IF (options.digits < 6 OR options.digits > 8)
     THROW NEW Exception(`Invalid number of digits: ${options.digits}`);
