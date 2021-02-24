@@ -4,9 +4,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/otp.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
-
 /*  This tool is modelled after oathtool and follows its behaviour as closely as possible. There are a number of differences
     between oathtool and oathtool.whscr:
       * Because ParseArguments is case insensitive, shorthand arguments are not supported (we cannot distinguish between -v
@@ -23,7 +20,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 */
 
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "help",         type := "switch"     ]
-                                                     , [ name := "version",      type := "switch"     ]
                                                      , [ name := "hotp",         type := "switch",    defaultvalue := TRUE ]
                                                      , [ name := "totp",         type := "switch"     ]
                                                      , [ name := "hmac",         type := "stringopt", defaultvalue := "sha1" ]
@@ -38,8 +34,8 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "help",        
                                                      , [ name := "key",          type := "param"      ]
                                                      , [ name := "otp",          type := "param"      ]
                                                      ]);
-// If the key argument would have been marked as required, calling the script with just --help or --version would fail
-IF (RecordExists(args) AND args."key" = "" AND NOT args.help AND NOT args.version)
+// If the key argument would have been marked as required, calling the script with just --help  would fail
+IF (RecordExists(args) AND args."key" = "" AND NOT args.help)
   args := DEFAULT RECORD;
 IF (NOT RecordExists(args) OR args.help)
 {
@@ -50,7 +46,6 @@ Generate and validate OATH one-time passwords.
 Usage: oathtool.whscr [OPTIONS]... [KEY [OTP]]...
 
   --help                  Print help and exit
-  --version               Print version and exit
   --hotp                  use event-based HOTP mode  (default=on)
   --totp                  use time-variant TOTP mode
   --hmac=STRING           MAC algorithm to use (possible values=
@@ -71,12 +66,6 @@ Usage: oathtool.whscr [OPTIONS]... [KEY [OTP]]...
 `);
   IF (NOT RecordExists(args))
     SetConsoleExitCode(1);
-  RETURN;
-}
-
-IF (args.version)
-{
-  Print(`oathtool (integrated in WebHare ${GetWebhareVersionInfo().version})\n`);
   RETURN;
 }
 
