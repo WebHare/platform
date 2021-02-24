@@ -2779,7 +2779,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     IF(NOT is_new)
       entity_base_info := SELECT creationdate, limitdate FROM wrd.entities WHERE id=entityid;
 
-    BOOLEAN is_temp_coming_alive := entity_creation != DEFAULT DATETIME AND entity_creation != MAX_DATETIME AND NOT is_new AND entity_base_info.creationdate = MAX_DATETIME;
+    BOOLEAN is_temp := is_new ? options.temp : RecordExists(entity_base_info) AND entity_base_info.creationdate = MAX_DATETIME;
+    BOOLEAN is_temp_coming_alive := is_temp AND NOT is_new AND entity_creation != DEFAULT DATETIME AND entity_creation != MAX_DATETIME;
 
     IF(entity_creation = DEFAULT DATETIME OR entity_limit = DEFAULT DATETIME)
     {
@@ -2794,9 +2795,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     IF(this->typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
     {
-      IF(NOT options.temp AND (NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
+      IF((NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
       {
-        IF(this->typerec.metatype != 4) //for domains its optional
+        IF(NOT is_temp AND this->typerec.metatype != 4) //for domains its optional
         {
           options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -2815,10 +2816,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     IF(this->typerec.metatype = 2 AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
     {
-      IF(NOT options.temp AND (NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
+      IF((NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
       {
-        options.errorcallback([tag := "WRD_RIGHTENTITY", code := "REQUIRED" ]);
-        anyerror := TRUE;
+        IF(NOT is_temp)
+        {
+          options.errorcallback([tag := "WRD_RIGHTENTITY", code := "REQUIRED" ]);
+          anyerror := TRUE;
+        }
       }
       ELSE IF(CellExists(splitdata.entityrec,"rightentity") AND splitdata.entityrec.rightentity = entityid)
       {

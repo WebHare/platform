@@ -171,6 +171,12 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   schemaobj->CreateType("PERSONATTACHMENT", CELL[ title := "Test person attachments", linkfrom := schemaobj->^wrd_person->id, options.keephistorydays ]);
   schemaobj->^personattachment->CreateAttribute("ATTACHFREE",           "FREE",            [ title := "Free text attribute" ]);
 
+  OBJECT org := schemaobj->^wrd_organization->CreateEntity([ wrd_orgname := "The Org" ]);
+
+  schemaobj->CreateType("PERSONORGLINK", CELL[ title := "Test person/org link", linkfrom := schemaobj->^wrd_person->id, linkto := schemaobj->^wrd_organization->id ]);
+  schemaobj->^personorglink->CreateAttribute("TEXT","FREE");
+  schemaobj->^personorglink->CreateEntity([ text := "Some text"],[temp := TRUE ]);
+
   schemaobj->CreateDomain("PAYPROV", CELL[ options.keephistorydays ]);
   schemaobj->^payprov->CreateAttribute("METHOD", "PAYMENTPROVIDER", [ isrequired := TRUE ]);
 

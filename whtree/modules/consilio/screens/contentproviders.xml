@@ -2,24 +2,6 @@
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="contentproviders">
 
-  <screen name="external" gid=".external" title="" lib="contentproviders/externalcontent.whlib">
-    <compositions>
-      <record name="mysettings" public="true" />
-    </compositions>
-    <body>
-      <textedit composition="mysettings" cellname="url" name="url" required="true" validationchecks="http-url" width="1pr" />
-
-      <!-- The STRING lastcontentscheck composition value is stored here and displayed as DATETIME in the lastcontentscheck text -->
-      <textedit composition="mysettings" cellname="lastcontentscheck" visible="false" />
-      <text name="lastcontentscheck" />
-
-      <box tid=".loginrequired" checkbox="true" enablecomponents="username password">
-        <textedit composition="mysettings" cellname="http_username" name="username" width="20x" />
-        <textedit composition="mysettings" cellname="http_password" name="password" password="true" width="20x" />
-      </box>
-    </body>
-  </screen>
-
   <screen name="custom" gid=".custom" title="" lib="contentproviders/customcontent.whlib">
     <compositions>
       <record name="mysettings" />

@@ -21,7 +21,7 @@ RECORD settings := ParseArguments(GetConsoleArguments(), [ [ name := "debug", ty
 OBJECT trans := OpenPrimary([ clientname := "consilio execute index tasks" ]);
 
 
-// Create CheckIndex commands for each of the Consilio content sources (consilio:external and consilio:custom)
+// Create CheckIndex commands for Consilio custom content sources
 RECORD ARRAY to_recheck := SELECT contentsources.id
                                 , contentsources.contentprovider
                                 , contentsources.data
@@ -30,7 +30,7 @@ RECORD ARRAY to_recheck := SELECT contentsources.id
                                 , consilio.indices
                             WHERE contentsources.indexid = indices.id
                                   AND contentsources.status >= 0
-                                  AND contentprovider IN [ "consilio:external", "consilio:custom" ]
+                                  AND contentprovider IN [ "consilio:custom" ]
                                   AND indices.name NOT LIKE "$consilio$deleted$*"
                                   AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
@@ -47,8 +47,7 @@ FOREVERY (RECORD contentsource FROM to_recheck)
   INTEGER contentcheckinterval := CellExists(data, "contentcheckinterval") ? data.contentcheckinterval : 0;
   IF (contentcheckinterval < 0)
     CONTINUE;
-  // Check once per day by default (consilio:external does not have a contentcheckinterval cell (yet), so it will always be
-  // checked once a day)
+  // Check once per day by default
   contentcheckinterval := contentcheckinterval ?? 1440;
 
   // See if this content source has been checked before
