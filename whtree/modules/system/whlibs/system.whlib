@@ -2718,12 +2718,21 @@ PUBLIC MACRO DumpValue(VARIANT data, VARIANT options DEFAULTSTO DEFAULT RECORD)
                               , name := "DumpValue"
                               , format := "tree:3"
                               , outputid := 0
+                              , stacktrace := 0
                               ], options);
 
-  RECORD caller := GetStackTrace()[options.callerlevel];
+  RECORD ARRAY stacktrace := GetStackTrace();
+  RECORD caller := stacktrace[options.callerlevel];
   IF(options.name != "")
     PrintTo(options.outputid, `${options.name} from ${caller.filename}:${caller.line}:${caller.col} (${caller.func})\n`);
-
+  IF(options.stacktrace != 0)
+  {
+    FOR (INTEGER i := options.callerlevel + 1; i < LENGTH(stacktrace) AND i < options.callerlevel + 1 + options.stacktrace; i := i + 1)
+    {
+      RECORD item := stacktrace[i];
+      PrintTo(options.outputid, `At ${item.filename}#${item.line}:${item.col} (${item.func})\n`);
+    }
+  }
   __PrintAnyTo(options.outputid, data, options.format);
   IF(options.name != "")
     PrintTo(options.outputid, "\n");
