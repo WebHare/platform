@@ -201,6 +201,11 @@ OBJECTTYPE Application
   {
     IF(ObjectExists(this->process))
     {
+      //TODO asynchronously wait for termination, and give a bit more time. This is mostly a quick fix but still better than SIGKILL and orphan childprocesses
+      this->process->SendInterrupt();
+      FOR(INTEGER i:=0;i<10 AND this->process->IsRunning();i:=i+1)
+        Sleep(100);
+
       this->process->Terminate();
       this->process->Close();
     }
