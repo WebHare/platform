@@ -446,7 +446,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
         nowrecords := nowrecords + 1;
 
         RECORD entityrec := CELL[ entity.wrd_guid, wrd_modificationdate := AddTimeToDate(-1, entity.wrd_modificationdate) ];
-        IF (linkfrom AND (entity.wrd_creationdate != MAX_DATETIME OR entity.wrd_leftentity != "")) //temp entities may ignore leftenity/rightentity requirements
+        IF (linkfrom AND (entity.wrd_creationdate != MAX_DATETIME OR entity.wrd_leftentity != "")) //temp entities may ignore leftentity/rightentity requirements
         {
           RECORD xpos := RecordLowerBound(lexisting, [ wrd_guid := entity.wrd_leftentity ], [ "WRD_GUID" ]);
           IF (NOT xpos.found)
