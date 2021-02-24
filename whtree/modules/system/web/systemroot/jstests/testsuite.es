@@ -69,6 +69,8 @@ class TestFramework
     this.scheduledlogs = [];
     this.scheduledlogscb = null;
 
+    this.waitstack = [];
+
     if(window.__testframework)
       return console.error("Multiple testframeworks registered. Only one instance of a TestFramework may be created");
     if(window.parent && window.parent.__testframework)
@@ -140,26 +142,38 @@ class TestFramework
     this.scriptframedoc = null;
   }
 
-  /// Returns a function that rejects the deferred promise with an Error, with the specified message
-  bindDeferredWithError(deferred, errormsg)
+  /// Constuct an error with a fixed stack trace
+  constructErrorWithTrace(errormsg)
   {
-    let thrown_exception;
     try
     {
       throw new Error(errormsg);
     }
     catch (e)
     {
-      thrown_exception = e;
+      return e;
     }
+  }
 
-    return () => deferred.reject(thrown_exception);
+  throwWaitError(deferred)
+  {
+    deferred.reject(this.waitstack[this.waitstack.length - 1]);
+  }
+
+  removeFromWaitStack(e)
+  {
+    let i = this.waitstack.indexOf(e);
+    if (i !== -1)
+      this.waitstack.splice(i, 1);
   }
 
   /// Rejects the deferred promise with a message on a timeout
   timedReject(deferred, msg, timeout)
   {
-    setTimeout(this.bindDeferredWithError(deferred, msg + ", waited for " + timeout + "ms"), timeout);
+    const err = this.constructErrorWithTrace(msg + ", waited for " + timeout + "ms");
+    this.waitstack.push(err);
+    setTimeout(() => this.throwWaitError(deferred), timeout);
+    deferred.promise.then(() => this.removeFromWaitStack(err), () => this.removeFromWaitStack(err));
   }
 
   async sendDevtoolsRequest(request)
