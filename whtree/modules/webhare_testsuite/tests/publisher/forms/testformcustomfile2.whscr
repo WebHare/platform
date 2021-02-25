@@ -58,7 +58,7 @@ PUBLIC MACRO BuildForm()
 PUBLIC MACRO CustomForm()
 {
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
-  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url));
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?price=NissanMicra"));
 
   OBJECT formtag := testfw->browser->QS("form");
   RECORD submit := DecodeJSON(formtag->GetAttribute("data-gtm-submit"));
@@ -95,6 +95,7 @@ PUBLIC MACRO CustomForm()
                       , radio := ["opt"]
                       , "reversed.text" := "Euro & €"
                       , email := "testfw+formtest@beta.webhare.net"
+                      , price := "ToyotaStarlet" //try to overwrite the hidden field
                       ];
 
   RECORD res := tester->SubmitForm(submitrec);
@@ -104,6 +105,7 @@ PUBLIC MACRO CustomForm()
 
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   TestEQ("new", submitted.submittype);
+  TestEq("NissanMicra", submitted.response.price);
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("testfw+formtest@beta.webhare.net", submitted.response.email);
   TestEq("NL", submitted.response.address.country);

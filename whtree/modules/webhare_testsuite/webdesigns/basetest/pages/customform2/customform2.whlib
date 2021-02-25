@@ -15,6 +15,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 
 PUBLIC OBJECTTYPE Props EXTEND FormSettingsExtensionBase
@@ -159,13 +160,16 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 <
   MACRO NEW()
   {
-    RECORD ARRAY trace := getstacktrace();
-    IF(RecordExists(SELECT FROM trace WHERE filename LIKE "*results.whlib*"))
-      THROW NEW Exception(`Results processing should not load custom formhooks`);
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
     INSERT CELL test := MakeDate(2017,2,1) INTO emailfield.obj->dataset;
 
     TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
+
+    OBJECT price := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "price", [ ishidden := TRUE ]);
+    IF(IsRequest()) //running in frontend
+    {
+      price->value := GetFormWebVariable("price");
+    }
   }
   UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)
   {

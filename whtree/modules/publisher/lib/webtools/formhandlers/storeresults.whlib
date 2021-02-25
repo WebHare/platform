@@ -47,9 +47,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     RECORD ARRAY formfields := form->ListFields();
     FOREVERY(RECORD field FROM formfields)
     {
-      STRING storename := ToUppercase(field.guid);
-      IF(storename = "")
-        THROW NEW Exception(`Field '${field.name}' has no GUID!`);
+      STRING storename := ToUppercase(field.guid ?? field.name);
       IF(field.obj->IsNowSettable())
         INSERT storename INTO storerow.__formmeta.setfields AT END;
 

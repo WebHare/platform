@@ -35,6 +35,7 @@ PUBLIC RECORD basefieldstructure :=
 , required := FALSE
 , enabled := TRUE
 , isstatic := FALSE
+, ishidden := FALSE
 , novalue := FALSE
 , dataset := DEFAULT RECORD
 , groupdataset := DEFAULT RECORD

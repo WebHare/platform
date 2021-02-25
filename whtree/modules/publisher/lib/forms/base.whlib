@@ -497,6 +497,7 @@ PUBLIC OBJECTTYPE FormBase
     INSERT
         CELL[ name := ToUppercase(field.name ?? field.guid)
             , field.isstatic
+            , field.ishidden
             , field.isgroup
             , field.formpage
             , field.formgroup
@@ -793,13 +794,16 @@ PUBLIC OBJECTTYPE FormBase
       @param name Field name to use in the form
       @cell(record) options.match Settings needed to select the proper field subtype
       @cell(string) options.valuetype Requests a specific valuetype from a <textedit> (shorthand for `[match := [valuetype := "..." ]]`)
+      @cell(boolean) options.ishidden Creates a hidden field that will still be visible for results, merging and conditions just like static fields
       @return The newly created component
   */
   PUBLIC OBJECT FUNCTION AppendFormField(OBJECT parent, STRING type, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ match := DEFAULT RECORD
                                , valuetype := ""
+                               , ishidden := FALSE
                                ], options);
+
     IF(ObjectExists(parent) AND NOT (parent EXTENDSFROM FormFieldBase))
       THROW NEW Exception("The specified parent is not a form field");
     IF(ObjectExists(this->GetFormField(name)))
@@ -825,10 +829,15 @@ PUBLIC OBJECTTYPE FormBase
     field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
     field.name := name ?? "dynamic$" || Length(this->__formfields); //FIXME dedupe
     field.type := comptype.parsertype;
+    field.ishidden := options.ishidden;
+    IF(field.ishidden)
+    {
+    //only bother with parsing supportedvalues if we'll actually be used as a first-class field.
     IF(comptype.supportedvaluesfunc != "")
       field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
     ELSE
       field.supportedvalues := comptype.defaultvaluetypes;
+    }
 
     RETURN this->__InstantiateField(parent, field);
   }
@@ -1047,7 +1056,7 @@ PUBLIC OBJECTTYPE FormBase
 
   PUBLIC RECORD ARRAY FUNCTION ListFields()
   {
-    RETURN SELECT * FROM this->__formfields WHERE isstatic AND Length(supportedvalues) > 0;
+    RETURN SELECT * FROM this->__formfields WHERE (isstatic OR ishidden) AND Length(supportedvalues) > 0;
   }
 
   PUBLIC MACRO PrefillWithSingleResult(RECORD results)
