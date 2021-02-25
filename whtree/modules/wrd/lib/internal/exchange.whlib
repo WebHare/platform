@@ -30,7 +30,6 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
 <
   OBJECT export_wrdschema;
   OBJECT import_wrdschema;
-  STRING oldschemaname;
   OBJECT rtdtype;
   OBJECT instancetype;
   RECORD options;
@@ -39,6 +38,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   INTEGER newschemaid;
   DATETIME now;
 
+  PUBLIC STRING oldschemarenamedto;
   PUBLIC STRING newschemaname;
   PUBLIC MACRO PTR onoverwritingschema;
   PUBLIC MACRO PTR onimportedreference;
@@ -262,7 +262,8 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
           UPDATE wrd.schemas
              SET name := tryname
            WHERE id = currschema.id;
-          this->oldschemaname := tryname;
+
+          this->oldschemarenamedto := tryname;
           BREAK;
         }
       }
