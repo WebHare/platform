@@ -13,6 +13,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/internal/payments/endpoints.whlib";
 LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 
@@ -102,9 +104,9 @@ RECORD FUNCTION DoMollieRequest(STRING apikey, STRING method, STRING endpoint, R
   RETURN data;
 }
 
-RECORD FUNCTION GetCacheableMethods(STRING apikey)
+RECORD FUNCTION GetCacheableMethods(STRING apikey, STRING locale)
 {
-  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?include=issuers", RECORD[], [ nofail := TRUE ]);
+  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?include=issuers&locale=" || EncodeURL(locale), RECORD[], [ nofail := TRUE ]);
   IF(CellExists(methodsresponse,'error'))
     RETURN [ value := RECORD[], ttl := 5000 ];
 
@@ -130,8 +132,9 @@ PUBLIC STATIC OBJECTTYPE MolliePaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
   {
-    //FIXME precache!
-    RECORD ARRAY methods := GetAdhocCached([ apikey := this->settings.apikey ], PTR GetCacheableMethods(this->settings.apikey));
+    //TODO precache! periodically poll from mollie eg during merchant-check and store
+    STRING locale := GetTidLanguage() = "nl" ? "nl_NL" : "en_US";
+    RECORD ARRAY methods := GetAdhocCached(CELL[ apikey := this->settings.apikey, locale ], PTR GetCacheableMethods(this->settings.apikey, locale));
     DELETE FROM methods WHERE rowkey NOT IN (SELECT AS STRING ARRAY rowkey FROM this->settings.methods);
 
     RETURN SELECT paymentoptiontag := rowkey
@@ -232,7 +235,8 @@ PUBLIC RECORD FUNCTION CheckMollieMerchant(STRING apikey)
   IF(apikey = "")
     RETURN DEFAULT RECORD;
 
-  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods", RECORD[], [ nofail := TRUE ]);
+  STRING locale := GetTidLanguage() = "nl" ? "nl_NL" : "en_US";
+  RECORD methodsresponse := DoMollieRequest(apikey, "GET", "v2/methods?locale=" || EncodeURL(locale), RECORD[], [ nofail := TRUE ]);
   IF(CellExists(methodsresponse,'error'))
     RETURN DEFAULT RECORD;
 
