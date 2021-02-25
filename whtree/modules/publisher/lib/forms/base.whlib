@@ -791,22 +791,30 @@ PUBLIC OBJECTTYPE FormBase
       @param parent Owner of the new field. DEFAULT OBJECT if the field will be a toplevel field
       @param type Type of the new field. If not specified a random name is set.
       @param name Field name to use in the form
-      @param matchattributes Settings needed to select the proper field subtype
+      @cell(record) options.match Settings needed to select the proper field subtype
+      @cell(string) options.valuetype Requests a specific valuetype from a <textedit> (shorthand for `[match := [valuetype := "..." ]]`)
+      @return The newly created component
   */
-  PUBLIC OBJECT FUNCTION AppendFormField(OBJECT parent, STRING type, STRING name, RECORD matchattributes DEFAULTSTO DEFAULT RECORD)
+  PUBLIC OBJECT FUNCTION AppendFormField(OBJECT parent, STRING type, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ match := DEFAULT RECORD
+                               , valuetype := ""
+                               ], options);
     IF(ObjectExists(parent) AND NOT (parent EXTENDSFROM FormFieldBase))
       THROW NEW Exception("The specified parent is not a form field");
     IF(ObjectExists(this->GetFormField(name)))
       THROW NEW Exception(`A field named '${name}' already exists`);
+    IF(options.valuetype != "")
+      options.match := CELL[ ...options.match, valuetype := options.valuetype ];
 
     RECORD ARRAY comptypes := GetFormComponentDef("", type, [ nofail := TRUE ]);
     RECORD field := basefieldstructure;
     RECORD comptype;
+
     FOREVERY (RECORD testtype FROM comptypes)
-      IF (AttributesMatch(matchattributes, testtype))
+      IF (AttributesMatch(options.match, testtype))
       {
-        field := CELL[ ...field, ...matchattributes ];
+        field := CELL[ ...field, ...options.match ];
         comptype := testtype;
         BREAK;
       }
