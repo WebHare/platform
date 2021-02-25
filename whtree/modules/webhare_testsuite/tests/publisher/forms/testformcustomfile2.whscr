@@ -118,6 +118,9 @@ PUBLIC MACRO CustomForm()
   TestEQ(FALSE, witty.iscancel);
   TestEQ(FALSE, witty.ischange);
   TestEq("Language = en", witty.field.tsline.customselect_witty.text);
+  TestEq("NissanMicra", witty.field.price.text);
+  TestEq("You won a", witty.field.price.title);
+  TestEQ(TRUE, witty.field.price.issubmitted);
 
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
@@ -134,6 +137,7 @@ PUBLIC MACRO CustomForm()
   TestEqLike("*Confirmation*edit link*", TrimWhitespace(confirmmaildoc->body->textcontent));
   TestEqLike("*sent to: testfw+formtest@beta.webhare.net*", TrimWhitespace(confirmmaildoc->body->outerxml));
   TestEqLike("*We asked you when: {22 June 2017}*", TrimWhitespace(confirmmaildoc->body->outerxml));
+  TestEqLike("*You won a*NissanMicra*", TrimWhitespace(confirmmaildoc->body->outerxml));
   TestEqLike("*Your checkboxes: {CheckboxOpt1; CheckboxOpt3}*", TrimWhitespace(confirmmaildoc->body->outerxml));
   TestEqLike("*Reversed text: {€ & oruE}*", TrimWhitespace(confirmmaildoc->body->textcontent));
   TestEqLike(`*<div class="custom-form-widget">Custom Form Widget with value 'P. Giménez &amp; Henkie 😇'</div>*`, TrimWhitespace(confirmmaildoc->body->outerxml));

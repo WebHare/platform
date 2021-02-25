@@ -947,13 +947,13 @@ PUBLIC OBJECTTYPE FormBase
       retval.useragent := GetWebHeader("User-agent");
     }
 
-    FOREVERY(RECORD page FROM this->__formpages)
+    FOREVERY(RECORD page FROM (this->__formpages CONCAT [DEFAULT RECORD])) //'default record' allows us to add unpaged elements ('ishidden') to the results too
     {
-      IF(page.obj->role != "")
+      IF(RecordExists(page) AND page.obj->role != "")
         CONTINUE;
 
       RECORD ARRAY bygroup;
-      FOREVERY(RECORD field FROM SELECT * FROM this->__formfields WHERE COLUMN formpage = #page)
+      FOREVERY(RECORD field FROM SELECT * FROM this->__formfields WHERE COLUMN formpage = (RecordExists(page) ? #page : -1))
       {
         IF(field.isgroup)
         {
@@ -963,7 +963,7 @@ PUBLIC OBJECTTYPE FormBase
                  ] INTO bygroup AT END;
           CONTINUE;
         }
-        IF(NOT field.isstatic OR Length(field.supportedvalues) = 0) //not a writable field
+        IF(NOT (field.isstatic OR field.ishidden) OR Length(field.supportedvalues) = 0) //not a writable field
           CONTINUE;
 
         IF(NOT RecordExists(bygroup) OR ToUppercase(field.formgroup) != ToUppercase(bygroup[END-1].name)) //open a group
@@ -1026,7 +1026,13 @@ PUBLIC OBJECTTYPE FormBase
                       , anysubmitted := RecordExists(SELECT FROM bygroup.fields WHERE issubmitted)
                    FROM bygroup;
 
-      INSERT CELL[ title := page.obj->title
+      IF(NOT RecordExists(page) //this is the 'extra' page for ishidden fields
+         AND Length(bygroup)=0) // but there weren't any
+      {
+        CONTINUE;
+      }
+
+      INSERT CELL[ title := RecordExists(page) ? page.obj->title : ""
                  , groups := bygroup
                  , anysubmitted := RecordExists(SELECT FROM bygroup WHERE anysubmitted)
                  ] INTO retval.pages AT END;

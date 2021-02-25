@@ -48,7 +48,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     FOREVERY(RECORD field FROM formfields)
     {
       STRING storename := ToUppercase(field.guid ?? field.name);
-      IF(field.obj->IsNowSettable())
+      IF(field.ishidden OR field.obj->IsNowSettable()) //need to flag any 'ishidden' field as explicitly set (but they might need an opt-out in the future?)
         INSERT storename INTO storerow.__formmeta.setfields AT END;
 
       RECORD tostorage := field.obj->GetStorageValue();
