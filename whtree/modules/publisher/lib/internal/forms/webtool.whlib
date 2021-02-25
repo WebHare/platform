@@ -101,6 +101,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
 
           IF(NOT (this->directhookobject EXTENDSFROM WebtoolFormHooks))
             THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
+
+          //If WebtoolFormHooks are available then allow the RPCs to talk to these directly. It's a lot faster and avoids issues with routers not allowing us to access the form and breaking RPC calls
+          this->__form.externalformname := "__formwidget:" || EncryptForThisServer("publisher:formwidget", [ target := this->__form.webtoolformid]);
         }
         FINALLY
         {
