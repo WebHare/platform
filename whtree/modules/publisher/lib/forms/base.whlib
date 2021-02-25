@@ -817,6 +817,10 @@ PUBLIC OBJECTTYPE FormBase
     field.fieldobject := PTR MakeObject(comptype.fieldobject, #1, #2, #3);
     field.name := name ?? "dynamic$" || Length(this->__formfields); //FIXME dedupe
     field.type := comptype.parsertype;
+    IF(comptype.supportedvaluesfunc != "")
+      field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
+    ELSE
+      field.supportedvalues := comptype.defaultvaluetypes;
 
     RETURN this->__InstantiateField(parent, field);
   }
