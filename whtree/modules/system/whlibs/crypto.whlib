@@ -218,14 +218,45 @@ PUBLIC STRING FUNCTION GenerateRandomText(INTEGER len, STRING allowed_chars)
   IF (allowed_chars = "")
     RETURN "";
 
-  //FIXME: Use cryptographic random
-  STRING result;
-  INTEGER charmax := LENGTH(allowed_chars) - 1;
+  INTEGER charcount := LENGTH(allowed_chars);
+  INTEGER first_unusable_val := 256 - (256 % charcount);
 
-  FOR (INTEGER i := 0; i < len; i := i + 1)
-    result := result || SubString(allowed_chars, Random(0, charmax), 1);
+  STRING result;
+  STRING randomvals;
+  INTEGER rpos := 8;
+  WHILE (LENGTH(result) < len)
+  {
+    IF (rpos = 8)
+    {
+      randomvals := DecodeUFS(GenerateUFS128BitId());
+      rpos := 0;
+    }
+
+    // get a single byte from random vals
+    INTEGER val := GetByteValue(SubString(randomvals, rpos, 1));
+    rpos := rpos + 1;
+    IF (val >= first_unusable_val)
+      CONTINUE;
+
+    result := result || SubString(allowed_chars, val % charcount, 1);
+  }
 
   RETURN result;
+}
+
+/** Returns a random binary string
+    @param len Length of string to return
+    @return A random binary string
+*/
+PUBLIC STRING FUNCTION GenerateRandomBinaryValue(INTEGER len)
+{
+  STRING retval;
+  WHILE (TRUE)
+  {
+    retval := retval || DecodeUFS(GenerateUFS128BitId());
+    IF (LENGTH(retval) >= len)
+      RETURN Left(retval, len);
+  }
 }
 
 // Byte-for-byte XOR of two strings of equal length
@@ -577,7 +608,7 @@ OBJECTTYPE EVPKey
     @param options Options for key verification
     @cell(integer) options.numbits For RSA keys, the key length (1024 - 4096)
     @cell(string) options.curve For EC keys, the curve to use ("prime256v1", "secp384r1", "secp521r1")
-    @return(object evpkey) The generated key
+    @return(object #EVPKey) The generated key
 */
 PUBLIC OBJECT FUNCTION GenerateCryptoKey(STRING type, VARIANT options)
 {
@@ -607,7 +638,7 @@ PUBLIC OBJECT FUNCTION GenerateCryptoKey(STRING type, VARIANT options)
 
 /** @short Read a cryptograpic key from private or public key data
     @param keydata PEM-encoded private or public key
-    @return(object evpkey) The key, or a default object if it could not be read
+    @return(object #EVPKey) The key, or a default object if it could not be read
 */
 PUBLIC OBJECT FUNCTION MakeCryptoKey(STRING keydata)
 {
