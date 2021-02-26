@@ -603,9 +603,12 @@ GetTid("missing.module"); GetTid("system:has.module");`);
 
   BLOB commenttid := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*tid*/"tollium:b.tid"; };
                                         STRING FUNCTION y() { RETURN /*tid*/\`tollium:c.tid\`; };
-                                        STRING FUNCTION y() { RETURN /*tid*/\`tollium:\${ignore}.tid\`; };`);
+                                        STRING FUNCTION z() { RETURN /*tid*/\`tollium:\${"A"}.tid\`; };
+                                        /*tid*/\`tollium:group.see-me\`;
+                                        /*tid*/\`hovi_editor:tolliumapps.edit\${"A"}.\${ToLowercase("A")}.\${ToLowercase("A")}\`;
+                                        `);
   res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenttid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
-  TestEq([[ tid:="tollium:b.tid" ],[ tid:="tollium:c.tid" ]], SELECT tid FROM res.tids);
+  TestEq([[ tid:="tollium:b.tid" ],[ tid:="tollium:c.tid" ], [tid := "tollium:group.see-me" ]], SELECT tid FROM res.tids);
 
   //Test GetTIDForLanguage
   FOREVERY(STRING totest FROM [`OBJECT x; GetTIDForLanguage(x->formlanguagecode, "system:has.module");`
