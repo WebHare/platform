@@ -52,6 +52,38 @@ test.registerTests(
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     }
+  , "Test restoring sessions after loss of the _c cookie"
+  , async function()
+    {
+      let wrdconfig = JSON.parse(test.getDoc().querySelector("script#wh-config").textContent)["wrd:auth"];
+      let cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
+      let cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')[1];
+
+      test.true(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
+      test.true(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
+
+      //kill cookie_c
+      test.getDoc().cookie = wrdconfig.cookiename + "_c" + "=---;path=/";
+      cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
+      test.eq("---", cookie_c);
+
+      //reload and wait for us to see the login test again
+      test.getWin().location.reload();
+      await test.wait("load");
+      await test.wait( () => test.qS('#isloggedin'));
+
+      //verify session restoration
+      test.true(test.qS('#isloggedin').checked);
+      test.true(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
+      test.eq('Pietje Tester', test.qS('#js_fullname').value);
+
+      //verify the cookies look sane. if not, we may have misunderstood it (TODO check that session id didn't even change, then cross-server login session sharing is more viable?)
+      cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
+      cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')[1];
+
+      test.true(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
+      test.true(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
+    }
   , { name:"Set new user details"
     , test:function(doc,win)
       {

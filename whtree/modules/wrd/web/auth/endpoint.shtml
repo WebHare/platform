@@ -58,7 +58,7 @@ IF (urlpath LIKE ".wrd/auth/logout.shtml*")
 }
 ELSE IF (urlpath LIKE ".wrd/auth/restoresession.shtml*")
 {
-  SetCurrentStateCookie(authplugin->wrdauth, authplugin);
+  SetCurrentStateCookie(authplugin->__GetWRDAUth(), authplugin);
 
   IF (IsWHDebugOptionSet("aut"))
     LogDebug("wrd:auth", "restoresession to " || "/" || claimedbackurl);
