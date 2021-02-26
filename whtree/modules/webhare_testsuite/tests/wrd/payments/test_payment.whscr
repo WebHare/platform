@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -401,7 +402,7 @@ MACRO TestPaymentPersonEntity()
          ,FIELD:= 'WRD_CONTACT_EMAIL'
          ]], precheck.errors);
 
-  //Even ppreflighting is forbidden with open work
+  //Even preflighting is forbidden with open work
   testfw->BeginWork();
   TestThrowsLike('*open work*',PTR paymentapi->StartPayment(0, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "precheckfail@beta.webhare.net"] ]));
   testfw->RollbackWork();
@@ -438,6 +439,44 @@ MACRO TestPaymentPersonEntity()
 
   //Can the provider tell us more ?
   TestEqLike("Not trusting users with '<b>fraud</b>' in their last name", paymentapi->ExplainPayment(payment).htmlstatusforuser);
+}
+
+STRING FUNCTION GenerateUncompressableText(INTEGER minbytes)
+{
+  STRING text;
+  WHILE(length(text) < minbytes)
+    text := text || DecodeUFS(GenerateUFS128BitId());
+
+  RETURN EncodeBase64(text);
+}
+
+MACRO TestPaymentOrderLines()
+{
+  testfw->BeginWork();
+
+  RECORD bigrequest := [ paymentprovider := pm2->id
+                       , paymentoptiontag := "NOISSUER"
+                       , wrdpersonfields := [ wrd_contact_email := "bigorder@beta.webhare.net"
+                                            ]
+                       , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                       , orderlines := [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := 131.67 - 2m, vatpercentage := 21m ]
+                                       ,[ title := "Something else: " || GenerateUncompressableText(5000), sku := "", amount := 1, linetotal := 2m, vatpercentage := 21m ]
+                                       ]
+                       ];
+  OBJECT pdf1 := paymentapi->paymenttype->CreateEntity( [ wrd_tag := "PDF1"]);
+  testfw->CommitWork();
+
+  //Test preflighting
+  RECORD precheck := paymentapi->StartPayment(0, 13.27m, bigrequest);
+  TestEq(0, Length(precheck.errors));
+
+  STRING gotourl := StartWRDTestPayment(paymentapi, pdf1->id, 13.28m, bigrequest);
+  CompleteWRDTestpayment(gotourl, "approved");
+  RECORD payment := paymentapi->GetPaymentData(pdf1->id);
+
+  Testeq(TRUE, Length(EncodeHSON(payment))>8000, "If its less than 8K it's not storing all data...");
+  TestEq(bigrequest.orderlines[1].title, payment.__bestpayment.__paymentdata.m.orderlines[1].title, "white-box inspection of stored orderlines failed");
+  TestEq("approved", payment.status);
 }
 
 MACRO TestOrderNrFormats()
@@ -719,6 +758,7 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestPaymentManual
                  , PTR TestPaymentOverview
                  , PTR TestPaymentPersonEntity
+                 , PTR TestPaymentOrderLines
                  , PTR TestOrderNrFormats
                  , PTR TestPendingPaymentsDialog
                  , PTR TestPaymentProvidersDialog

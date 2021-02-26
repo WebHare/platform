@@ -2083,7 +2083,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF(RecordExists(val))
           FOREVERY(RECORD payment FROM val.payments)
-            INSERT [ setting := payment.paymentprovider, rawdata := EncodeHSON(payment.__paymentdata), blobdata := DEFAULT BLOB, ordering := #payment + 1 ] INTO newsets AT END;
+          {
+            STRING data := EncodeHSON(payment.__paymentdata);
+            IF(Length(data) <= 4096)
+              INSERT [ setting := payment.paymentprovider, ordering := #payment + 1, rawdata := data, blobdata := DEFAULT BLOB ] INTO newsets AT END;
+            ELSE
+              INSERT [ setting := payment.paymentprovider, ordering := #payment + 1, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
+          }
       }
       CASE 27 //SUPPORTECORD
       {
