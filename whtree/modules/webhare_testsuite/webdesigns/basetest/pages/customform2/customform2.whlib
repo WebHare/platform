@@ -165,11 +165,11 @@ PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
 
     TestEQ("TSHANDLERPROOF-41", this->form->formdataset.testsuitehandlerproof);
 
-    OBJECT price := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "price", [ ishidden := TRUE ]);
-    price->title := "You won a";
+    OBJECT prize := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "prize", [ ishidden := TRUE ]);
+    prize->title := "You won a";
     IF(IsRequest()) //running in frontend
     {
-      price->value := GetFormWebVariable("price");
+      prize->value := GetFormWebVariable("prize");
     }
   }
   UPDATE PUBLIC RECORD FUNCTION Submit(OBJECT work, RECORD extradata)

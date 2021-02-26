@@ -58,7 +58,7 @@ PUBLIC MACRO BuildForm()
 PUBLIC MACRO CustomForm()
 {
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
-  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?price=NissanMicra"));
+  TestEq(TRUE, testfw->browser->GotoWebPage(customformfile->url || "?prize=NissanMicra"));
 
   OBJECT formtag := testfw->browser->QS("form");
   RECORD submit := DecodeJSON(formtag->GetAttribute("data-gtm-submit"));
@@ -95,7 +95,7 @@ PUBLIC MACRO CustomForm()
                       , radio := ["opt"]
                       , "reversed.text" := "Euro & €"
                       , email := "testfw+formtest@beta.webhare.net"
-                      , price := "ToyotaStarlet" //try to overwrite the hidden field
+                      , prize := "ToyotaStarlet" //try to overwrite the hidden field
                       ];
 
   RECORD res := tester->SubmitForm(submitrec);
@@ -105,7 +105,7 @@ PUBLIC MACRO CustomForm()
 
   RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
   TestEQ("new", submitted.submittype);
-  TestEq("NissanMicra", submitted.response.price);
+  TestEq("NissanMicra", submitted.response.prize);
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("testfw+formtest@beta.webhare.net", submitted.response.email);
   TestEq("NL", submitted.response.address.country);
@@ -118,9 +118,9 @@ PUBLIC MACRO CustomForm()
   TestEQ(FALSE, witty.iscancel);
   TestEQ(FALSE, witty.ischange);
   TestEq("Language = en", witty.field.tsline.customselect_witty.text);
-  TestEq("NissanMicra", witty.field.price.text);
-  TestEq("You won a", witty.field.price.title);
-  TestEQ(TRUE, witty.field.price.issubmitted);
+  TestEq("NissanMicra", witty.field.prize.text);
+  TestEq("You won a", witty.field.prize.title);
+  TestEQ(TRUE, witty.field.prize.issubmitted);
 
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
