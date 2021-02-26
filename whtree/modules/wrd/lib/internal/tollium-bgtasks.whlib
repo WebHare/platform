@@ -87,7 +87,7 @@ PUBLIC OBJECTTYPE ImportArchive EXTEND TolliumBackgroundTask
     }
 
     IF(ObjectExists(this->overwrittenschema))
-      this->result := [ status := "renamed", schemaname := OpenWRDSchemaById(newschemaid)->tag, renamedschemaname := OpenWRDSchemaById(this->overwrittenschema->id)->tag, schemaid := newschemaid ];
+      this->result := [ status := "renamed", schemaname := OpenWRDSchemaById(newschemaid)->tag, renamedschemaname := importer->oldschemarenamedto, schemaid := newschemaid ];
     ELSE
       this->result := [ status := "ok", schemaname := OpenWRDSchemaById(newschemaid)->tag, schemaid := newschemaid ];
   }
