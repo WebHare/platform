@@ -13,6 +13,7 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
   STRING lastname;
   STRING email;
   STRING rejectreason;
+  RECORD ARRAY orderlines;
 
   MACRO NEW(RECORD settings)
   : WRDPaymentProviderBase("wrd:test", "redirect", settings)
@@ -98,16 +99,18 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
     RECORD personfields := this->GetCustomerInfo(baseoptions);
     this->lastname := personfields.wrd_lastname;
     this->email := personfields.wrd_contact_email;
+    this->orderlines := paymentmethod.baseoptions.orderlines;
   }
 
   UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
   {
     WRDPaymentProviderBase::__SetupExistingTransaction(payment);
-    RECORD opts := EnforceStructure([ expires := DEFAULT DATETIME, lastname := "", email := "", rejectreason := "" ], payment.__paymentdata.m);
+    RECORD opts := EnforceStructure([ expires := DEFAULT DATETIME, lastname := "", email := "", rejectreason := "", orderlines := RECORD[] ], payment.__paymentdata.m);
     this->expires := opts.expires;
     this->lastname := opts.lastname;
     this->email := opts.email;
     this->rejectreason := opts.rejectreason;
+    this->orderlines := opts.orderlines;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION ProcessReturnURL(STRING returnurl)
@@ -144,6 +147,7 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
            , lastname := this->lastname
            , email := this->email
            , rejectreason := this->rejectreason
+           , orderlines := this->orderlines
            ];
   }
 
