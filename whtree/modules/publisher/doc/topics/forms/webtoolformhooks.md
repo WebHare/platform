@@ -10,6 +10,29 @@ using the webtoolformhooks in a siteprofile formintegration, eg:
   </apply>
 ```
 
+## Hidden fields
+The hooks can pass 'hidden fields' with form submissions which allow you to
+set and pass additional fields with the form results. For example
+
+```harescript
+PUBLIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
+<
+  MACRO NEW()
+  {
+    //Create a textedit, mark it as a hidden field
+    OBJECT prize := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "prize", [ ishidden := TRUE ]);
+    prize->title := "You won a";
+
+    IF(IsRequest()) //If we're running in the website, set the prize field
+    {
+      prize->value := DecryptForThisServer("myexample:prize", GetFormWebVariable("prize"));
+    }
+  }
+```
+
+You need to wrap `GetFormVariable` calls inside `IsRequest()` to make sure it's
+not invoked outside a web context, eg when running the email handlers
+
 ## Fast form RPCs.
 When you setup a webtoolformhook the RPC calls done by the form will avoid your
 webdesign and pages. We intend to make this the default behaviour for all webtool
