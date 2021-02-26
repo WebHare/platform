@@ -3356,6 +3356,7 @@ PUBLIC RECORD ARRAY FUNCTION GetDirectGrantsTo(OBJECT user)
            , grantee
            , withgrantoption
            , rightid    := COLUMN "right"
+           , comment
         FROM rights_table
        WHERE grantee IN authobjects;
 
