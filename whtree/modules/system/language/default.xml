@@ -1871,7 +1871,7 @@
         <text tid="password_lowercase">Minimum number of lowercase letters</text>
         <text tid="password_minlength">Minimum number of characters</text>
         <text tid="password_symbols">Minimum number of other symbols</text>
-        <text tid="password_uppercase">Mimumum number of uppercase letters</text>
+        <text tid="password_uppercase">Minimum number of uppercase letters</text>
         <text tid="passwordcheckhibp">Check password in HIBP-database</text>
         <text tid="passwordminlength">Minimum length</text>
         <text tid="passwordrestrictions">Password restrictions</text>
