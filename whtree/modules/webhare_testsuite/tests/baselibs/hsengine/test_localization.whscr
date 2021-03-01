@@ -449,7 +449,7 @@ MACRO TimeZoneTests()
   TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "short",  "en"));
   TestEq("GMT+1", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "short",  "en"));
   TestEq("CEST",  GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "short",  "nl"));
-  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "long",   "nl") IN ["GMT", "Geco\u00F6rdineerde wereldtijd"]); //Geco..tijd = 59.1/2017b
+  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "long",   "nl") IN ["GMT", "Geco\u00F6rdineerde wereldtijd", "geco\u00F6rdineerde wereldtijd"]); //Geco..tijd = 59.1/2017b, geco...=68.2/2020d
   TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "long",   "en"));
   TestEq("Central European Standard Time", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "long", "en"));
   TestEq("Midden-Europese zomertijd",      GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "long", "nl"));

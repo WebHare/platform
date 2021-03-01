@@ -608,7 +608,7 @@ void FormatNumber(HSVM *hsvm, HSVM_VariableId id_set)
         nf->setGroupingUsed(grouping);
         if (significant)
         {
-                ((DecimalFormat *)nf.get())->setSignificantDigitsUsed(TRUE);
+                ((DecimalFormat *)nf.get())->setSignificantDigitsUsed(true);
                 ((DecimalFormat *)nf.get())->setMinimumSignificantDigits(minfracdigits);
                 ((DecimalFormat *)nf.get())->setMaximumSignificantDigits(maxfracdigits);
         }
