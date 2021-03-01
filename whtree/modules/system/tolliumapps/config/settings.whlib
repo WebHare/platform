@@ -72,7 +72,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
 
-    OBJECT wrdschema := GetPrimaryWebhareUserAPI()->wrdschema;
+    OBJECT wrdschema := this->contexts->userapi->wrdschema;
     STRING validationchecks := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
     RECORD ARRAY parsed_validationchecks := ParsePasswordChecks(validationchecks);
     ^password_hibp->value := RecordExists(SELECT FROM parsed_validationchecks WHERE check = "hibp");

@@ -790,7 +790,7 @@
       <text tid="flushcache">Leeggooien</text>
       <text tid="hits">Hits</text>
       <text tid="maxentries">Maximaal aantal items</text>
-      <text tid="minperlibrary">Minumum per library</text>
+      <text tid="minperlibrary">Minimum per library</text>
       <text tid="misses">Gemist</text>
       <text tid="oldestitem">Oudste item</text>
       <text tid="refresh">Verversen</text>
@@ -1679,9 +1679,9 @@
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
         <text tid="password_digits">Minimum aantal cijfers</text>
-        <text tid="password_lowercase">Mimumum aantal kleine letters</text>
-        <text tid="password_minlength">Minumum aantal karakters</text>
-        <text tid="password_symbols">Mimumum aantal andere symbolen</text>
+        <text tid="password_lowercase">Minimum aantal kleine letters</text>
+        <text tid="password_minlength">Minimum aantal karakters</text>
+        <text tid="password_symbols">Minimum aantal andere symbolen</text>
         <text tid="password_uppercase">Minimum aantal hoofdletters</text>
         <text tid="passwordcheckhibp">Zoek wachtwoord op in HIBP-database</text>
         <text tid="passwordminlength">Minimum lengte</text>
