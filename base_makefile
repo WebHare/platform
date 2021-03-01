@@ -160,8 +160,10 @@ endif
 GLOBALLDFLAGS += -rdynamic
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
-	CXXFLAGS += -mmacosx-version-min=10.7
-	GLOBALLDFLAGS += -mmacosx-version-min=10.7
+	# Use current MacOS version, no need for binaries to be portable between machines
+	MACOSVERSION := $(shell sw_vers | grep ProductVersion | cut -f 2 | cut -d "." -f 1-2)
+	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
+	GLOBALLDFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 
 	ifneq ($(BUILDSYSTEM),llvm)
 		GLOBALLDFLAGS += -pthread
