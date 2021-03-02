@@ -2,7 +2,6 @@
 */
 
 import { closest } from 'dompack';
-import { URL } from 'dompack/browserfix/url';
 
 let linkopenoptions = null;
 

@@ -1,6 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
 import { createDeferred } from "dompack";
-import { URL } from 'dompack/browserfix/url';
 
 var socket;
 

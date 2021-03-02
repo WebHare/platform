@@ -7,7 +7,6 @@ import './internal/requiredstyles.css';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./internal/form.lang.json";
 import { reportValidity, setFieldError, setupValidator } from './internal/customvalidation.es';
-import { URL } from 'dompack/browserfix/url';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl.es';
 

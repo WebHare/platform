@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import { URL } from 'dompack/browserfix/url';
 import * as browser from 'dompack/extra/browser';
 import '@mod-system/js/wh/integration'; //make debugflags work
 
