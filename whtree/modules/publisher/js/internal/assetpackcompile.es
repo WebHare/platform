@@ -156,13 +156,9 @@ function getWebpackCompiler(bundle, baseconfig, directcompile)
   if(bundle.isdev && bundle.bundleconfig.environment == 'window')
     extrarequires.push('@mod-publisher/js/internal/devhelper');
 
-  const dompackpath = fs.realpathSync(path.join(baseconfig.coreinstalledmodules, "dompack"));
-  if (!dompackpath)
-    throw new Error(`Could not resolve the symlink to module 'dompack', is it installed correctly? (path: ${path.join(baseconfig.coreinstalledmodules, "dompack")})`);
-
-  //FIXME cleaner method to merge global and user dompacks - or allow modules to opt-out of dompack replacement
+  let modsystemroot = baseconfig.installedmodules.find(_ => _.name == "system").root;
   let builderconfig =
-      { resolvealias:       { dompack: dompackpath }
+      { resolvealias:       { dompack: path.join(modsystemroot,"js/dompack") }
       , entrypoint:         bundle.entrypoint
                             //never polyfill for eg. sharedworker environments
       , extrapolyfills:     bundle.bundleconfig.webharepolyfills ? ["@mod-publisher/js/internal/polyfills/index.es"] : []

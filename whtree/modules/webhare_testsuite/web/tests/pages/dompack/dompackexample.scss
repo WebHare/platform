@@ -1,0 +1,120 @@
+@import "~dompack/components/mixins";
+@import '~dompack/browserfix/reset.css';
+@import "~dompack/components/dialog/mixins";
+
+
+/////////////////////////////////////////////////////////////////////
+// Our theme
+//
+@mixin mypulldowntheme
+{
+  &__current
+  {
+    position:relative;
+
+    border: 1px solid #000000;
+    border-radius: 6px;
+    background-image: linear-gradient(to bottom, #FCFCFC 0%, #EBEBEB 89%);
+  }
+  &__current, &__item, &__optgroup
+  {
+    padding: 4px 24px 4px 4px;
+  }
+
+  &__current:after
+  {
+    content:"⇩";
+
+    float: none;
+    position: absolute;
+    right: 8px;
+    top: 4px;
+  }
+  &__item
+  {
+    background:#ffffff;
+
+    &--selected
+    {
+      outline: 1px solid red;
+      outline-offset: -1px;
+    }
+    &__item:hover
+    {
+      background-color: #95cdfe;
+    }
+  }
+}
+
+
+html
+{
+  font:10pt Helvetica, Arial, sans-serif;
+}
+
+.selectlist
+{
+  @include dompack-selectlist;
+  @include mypulldowntheme;
+  height:28px;
+
+  &__item, &__optgroup
+  {
+    min-height: 28px;
+  }
+}
+
+#topmiddle
+{
+  position:absolute;
+  left:400px;
+  top:0;
+}
+
+#onepixelshort
+{
+  position:absolute;
+  left:0;
+  bottom:83px;/* we need 3 options, so one 3*28 - 1 = 83 is just one short */
+}
+#justenoughbottom
+{
+  position:absolute;
+  left:50%;
+  bottom:84px;/* we need 3 optoins, so one 3*28 = 84 is exactly enough */
+}
+#ridiculousbottom
+{
+  position:absolute;
+  left:30%;
+  bottom:96px;
+}
+
+#withoptgroups
+{
+  position:absolute;
+  left:10%;
+  top:20%;
+}
+.hidden
+{
+  display:none;
+}
+
+.fieldexamples
+{
+  padding:40px 0;
+
+  label
+  {
+    display:inline-block;
+    min-width:120px;
+  }
+}
+
+.mydialog
+{
+  @include dompack-dialog;
+  background: white;
+  padding: 20px;
+}

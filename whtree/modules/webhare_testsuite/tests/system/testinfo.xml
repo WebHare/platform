@@ -1,5 +1,6 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_mailersmtp_performance.whscr">
   <test name="testfw" path="testfw/" />
+  <test name="dompack" path="dompack/" />
   <test script="test_mailerlib.whscr" />
   <test script="test_mailersmtp.whscr" />
   <test script="test_mailerrules.whscr" />
