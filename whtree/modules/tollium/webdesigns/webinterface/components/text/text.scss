@@ -4,3 +4,50 @@ t-text
 {
   margin-top: $linetext-top-margin;
 }
+
+t-text
+{
+  white-space: nowrap;
+}
+t-text.overflow
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+t-text.ellipsis
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+t-text.wrapped
+{
+  white-space: normal;
+}
+
+t-text
+{
+  cursor: text;
+}
+t-text.label
+{
+  cursor: pointer;
+}
+
+
+///////////// label underlines (flag RLL)
+html.dompack--debug-rll t-text.label
+{
+  position:relative;
+}
+html.dompack--debug-rll t-text.label:after
+{
+  position:absolute;
+  z-index:999999999;
+  display:block;
+  content:"";
+  border-bottom:1px dotted black;
+  width:1000%;
+  margin-top:-3px;
+}
+
+

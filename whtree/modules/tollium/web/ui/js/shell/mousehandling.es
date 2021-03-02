@@ -1,8 +1,10 @@
 /* sets up global handlers for mouse related events
 */
 
+import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import $todd from "@mod-tollium/web/ui/js/support";
+import "./mousehandling.scss";
 
 function onClick(event)
 {
@@ -17,21 +19,50 @@ function onClick(event)
   }
 }
 
+function stopSelectionCapture()
+{
+  window.removeEventListener("mousedown", stopSelectionCapture, true);
+  document.documentElement.classList.remove("mousehandling--selecting");
+  dompack.qSA(".mousehandling--selectionbase").forEach(node => node.classList.remove("mousehandling--selectionbase"));
+}
+function captureSelection(selectbase)
+{
+  console.log("allow select on",selectbase);
+
+  window.addEventListener("mousedown", stopSelectionCapture, true);
+  selectbase.classList.add("mousehandling--selectionbase");
+  document.documentElement.classList.add("mousehandling--selecting");
+}
 function onSelectStart(event)
 {
-  var target = event.target.nodeType==3 ? event.target.parentNode : event.target;
-  if(['INPUT','TEXTAREA'].includes(target.tagName) || (['T-TEXT'].includes(target.tagName) && target.classList.contains('selectable')) || target.closest("div.wh-rtd-editor"))
+  let target = event.target.nodeType == 3 ? event.target.parentNode : event.target;
+  if(target.matches('input,textarea') || target.closest("div.wh-rtd-editor"))
     return; //these are okay to select. MSIE needs these explicitly allowed
 
-  $todd.DebugTypedLog('ui', "preventing selection on: ",event.target);
+  /* allow selection on:
+     - textnodes (but not labels, they're a t-text too. they are supposed to be clickable)
+  */
+  let t_text = target.closest('t-text:not(.label)');
+  if(t_text)
+  {
+    captureSelection(t_text);
+    return; //these are okay to select. MSIE needs these explicitly allowed
+  }
+
+  $todd.DebugTypedLog('ui', "preventing selection on: ",target);
   event.preventDefault();
 }
-
+function onSelectionChange(event)
+{
+  let sel = window.getSelection();
+  if(!sel || !sel.anchorNode) //no more selection
+    stopSelectionCapture();
+}
 
 function getClosestValidFocusTarget(node)
 {
   for(;node;node=node.parentNode)
-    if(node.nodeName === 'LABEL' || domfocus.canFocusTo(node) || (node.classList && node.classList.contains('selectable')))
+    if(node.nodeName === 'LABEL' || domfocus.canFocusTo(node) || (node.matches&&node.matches('t-text:not(.label)')))
       return node;
   return null;
 }
@@ -44,7 +75,7 @@ function onMouseDownFallback(event)
 
   if(!focusable)
   {
-    //console.warn("*** Preventing focus transfer");
+    // console.warn("*** Preventing focus transfer");
     event.preventDefault(); //prevent the body from receiving focus.
   }
 }
@@ -63,11 +94,13 @@ function onMovingUpdate(start)
   document.documentElement.classList.toggle("moveInProgress", start);
 }
 
-
-window.addEventListener("selectstart", onSelectStart);
-window.addEventListener("mousedown", onMouseDownFallback);
-window.addEventListener("click", event => onClick);
-window.addEventListener("dompack:movestart", () => onMovingUpdate(true), true);
-window.addEventListener("dompack:moveend", () => onMovingUpdate(false), true);
-window.addEventListener("contextmenu", onContextMenuCapture, true);
-
+export function setupMouseHandling()
+{
+  document.addEventListener("selectstart", onSelectStart);
+  document.addEventListener("selectionchange", onSelectionChange);
+  window.addEventListener("mousedown", onMouseDownFallback);
+  window.addEventListener("click", event => onClick);
+  window.addEventListener("dompack:movestart", () => onMovingUpdate(true), true);
+  window.addEventListener("dompack:moveend", () => onMovingUpdate(false), true);
+  window.addEventListener("contextmenu", onContextMenuCapture, true);
+}
