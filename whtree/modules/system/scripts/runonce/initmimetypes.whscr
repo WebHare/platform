@@ -67,7 +67,7 @@ RECORD ARRAY standard_mimetypes :=
 , [ mimetype := "application/resource-lists-diff+xml", extensions := "rld", parsetype := 0 ]
 , [ mimetype := "application/rls-services+xml", extensions := "rs", parsetype := 0 ]
 , [ mimetype := "application/rsd+xml", extensions := "rsd", parsetype := 0 ]
-, [ mimetype := "application/rss+xml", extensions := "rss", parsetype := 0 ]
+, [ mimetype := "application/rss+xml; charset=utf-8", extensions := "rss", parsetype := 0 ]
 , [ mimetype := "application/rtf", extensions := "rtf", parsetype := 0 ]
 , [ mimetype := "application/sbml+xml", extensions := "sbml", parsetype := 0 ]
 , [ mimetype := "application/scvp-cv-request", extensions := "scq", parsetype := 0 ]
@@ -606,6 +606,7 @@ DELETE FROM system.mimetypes WHERE mimetype="application/mp4" AND extension="mp4
 STRING ARRAY curextensions := SELECT AS STRING ARRAY ToUppercase(extension) FROM system.mimetypes;
 UPDATE system.mimetypes SET mimetype := "text/css; charset=UTF-8" WHERE mimetype = "text/css" AND extension = "css";
 UPDATE system.mimetypes SET mimetype := "text/calendar; charset=UTF-8" WHERE mimetype = "text/calendar" AND extension IN ["ics","ifb"];
+UPDATE system.mimetypes SET mimetype := "application/rss+xml; charset=UTF-8" WHERE mimetype = "application/rss+xml" AND extension IN ["rss"];
 UPDATE system.mimetypes SET mimetype := "application/javascript" WHERE mimetype = "application/x-javascript" AND extension = "js";
 UPDATE system.mimetypes SET mimetype := "application/vnd.apple.mpegurl" WHERE mimetype = "audio/x-mpegurl" AND extension = "m3u8";
 
