@@ -31,6 +31,10 @@ ASYNC MACRO TestAddRoleToUsers()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
 
+  // Verify the rolegrant in the export
+  TestEq([[ login := "role1", rightname := "webhare_testsuite:globalright", comment := "I have my reasons" ]],
+         SELECT login, rightname,comment FROM ListRightsAndRolesForExport(testfw->userapi) WHERE login="role1");
+
   // Test search
   TT("selectuserrole->searchfor")->value := "user1";
   TTClick(":Search");
@@ -57,6 +61,9 @@ ASYNC MACRO TestAddRoleToUsers()
   TT(":Comments")->value := "WebHareTestSuite is testing this";
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq([[ login := "user1@beta.webhare.net", rightname := "", comment := "WebHareTestSuite is testing this", objectpath := ["role1"] ]],
+         SELECT login, rightname,comment,objectpath FROM ListRightsAndRolesForExport(testfw->userapi) WHERE type="ROLEGRANT");
 
   TestEQ(TRUE, testfw->GetUserObject("user1")->HasRole(testfw->GetRoleObject("role1")));
   TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
@@ -88,7 +95,6 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEQ(TRUE, testfw->GetUserObject("user2")->HasRole(testfw->GetRoleObject("role1")));
   TestEQ(FALSE, testfw->GetUserObject("user1")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
   TestEQ(FALSE, testfw->GetUserObject("user2")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
-
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -109,6 +115,7 @@ ASYNC MACRO TestEditRole()
   AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->edit"));
   TT(":Name")->value := "role1-renamed";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  TestEq("role1-renamed", TT("unitcontents->userandrolelist")->selection[0].name);
 
   AWAIT ExpectAndAnswerMessagebox("YES", PTR TTClick("unitcontents->delete"));
 
@@ -120,7 +127,7 @@ MACRO TestExport()
   //Test the export
   RECORD ARRAY userexport := ListRightsAndRolesForExport(testfw->userapi);
   //dumpvalue(userexport,'boxed');
-  RECORD ARRAY grants := SELECT * FROM userexport WHERE type = "GRANT";
+  RECORD ARRAY grants := SELECT * FROM userexport WHERE type = "GRANT" ORDER BY comment;
 
   TestEq(1,Length(grants)); //this is the initial assignment by testfw
   TestEq("Granted by RunTestframework", grants[0].comment);
