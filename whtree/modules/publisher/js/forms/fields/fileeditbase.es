@@ -27,7 +27,7 @@ export default class FileEditBase
       return; //then don't replace it!
 
     this.node = node;
-    //FIXME properly cooperate with required... but parsley will insist on validating if required is set
+    //FIXME properly cooperate with required... but parsley will insist on validating if required is set (TODO so might not be relevant anymore)
     this.isrequired = node.required || node.hasAttribute("data-wh-form-required");
     node.required = false;
     this.node.whFormsApiChecker = () => this._check();

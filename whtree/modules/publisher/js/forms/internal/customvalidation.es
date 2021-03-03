@@ -44,7 +44,7 @@ function setupServerErrorClear(field)
 }
 
 
-export function setFieldError(field, error, options) //as we support parsley and possible future alternatives... we'll do this with events for now
+export function setFieldError(field, error, options)
 {
   if(dompack.debugflags.fhv)
     console.log(`[fhv] ${error?"Setting":"Clearing"} error for field ${field.name}`, field, error, options);
