@@ -832,11 +832,11 @@ PUBLIC OBJECTTYPE FormBase
     field.ishidden := options.ishidden;
     IF(field.ishidden)
     {
-    //only bother with parsing supportedvalues if we'll actually be used as a first-class field.
-    IF(comptype.supportedvaluesfunc != "")
-      field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
-    ELSE
-      field.supportedvalues := comptype.defaultvaluetypes;
+      //only bother with parsing supportedvalues if we'll actually be used as a first-class field.
+      IF(comptype.supportedvaluesfunc != "")
+        field.supportedvalues := MakeFunctionPtr(comptype.supportedvaluesfunc)(field);
+      ELSE
+        field.supportedvalues := comptype.defaultvaluetypes;
     }
 
     RETURN this->__InstantiateField(parent, field);
