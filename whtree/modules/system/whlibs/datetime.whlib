@@ -1054,3 +1054,63 @@ PUBLIC DATETIME FUNCTION GetNextCronTime(DATETIME now, STRING cronmask)
 
   RETURN now;
 }
+
+/** Calculate oh which day a specific yearly holiday will fall
+    @param year Year
+    @param holiday The holiday, one of easter, ascensionday, pentecost, christmas, newyear, newyearseve, nl-kingsday
+    @return Requested holiday
+*/
+PUBLIC DATETIME FUNCTION GetYearlyHoliday(INTEGER year, STRING holiday)
+{
+  SWITCH(holiday)
+  {
+    CASE "easter"
+    {
+      // Calculates Easter in the Gregorian/Western (Catholic and Protestant) calendar  based on the algorithm by Oudin (1940) from http://www.tondering.dk/claus/cal/easter.php
+      // Golden Number - 1
+      INTEGER g := year % 19;
+      INTEGER c := year/100;
+      // related to Epact
+      INTEGER h := (c - (c / 4) - ((8 * c + 13)/25) + 19 * g + 15) % 30;
+      // number of days from 21 March to the Paschal full moon
+      INTEGER i := h - (h/28) * (1 - (29/(h + 1)) * ((21-g)/11));
+      // weekday for the Paschal full moon
+      INTEGER j := (year + (year / 4) + I + 2 - C + (C / 4)) % 7;
+      // number of days from 21 March to the Sunday on or before the Paschal full moon
+      INTEGER l := I - J;
+      INTEGER month := 3 + ((L + 40)/44);
+      RETURN MakeDate(year, month, L + 28 - 31 * (month / 4));
+    }
+    CASE "ascensionday"
+    {
+      RETURN AddDaysToDate(39,GetYearlyHoliday(year, "easter"));
+    }
+    CASE "pentecost"
+    {
+      RETURN AddDaysToDate(49,GetYearlyHoliday(year, "easter"));
+    }
+    CASE "christmas"
+    {
+      RETURN MakeDate(year,12,25);
+    }
+    CASE "newyear"
+    {
+      RETURN MakeDate(year,1,1);
+    }
+    CASE "newyearseve"
+    {
+      RETURN MakeDate(year,12,31);
+    }
+    CASE "nl-kingsday"
+    {
+      DATETIME kingsday := MakeDate(year,4,27);
+      IF(UnpackDateTime(kingsday).dayofweek = 7) //if it's a sunday, move to saturday
+        kingsday := AddDaysTodate(-1, kingsday);
+      RETURN kingsday;
+    }
+    DEFAULT
+    {
+      THROW NEW Exception(`Unknown holiday '${holiday}'`);
+    }
+  }
+}

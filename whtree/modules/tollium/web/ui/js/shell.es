@@ -38,7 +38,7 @@ var JSONRPC = require('@mod-system/js/net/jsonrpc');
 var MenuComponent = require('../components/basecontrols/menu');
 import * as whconnect from '@mod-system/js/wh/connect';
 import { setupWHCheck } from './shell/whcheck';
-import "./shell/mousehandling";
+import { setupMouseHandling } from "./shell/mousehandling";
 
 var $todd = require('./support');
 import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
@@ -83,6 +83,8 @@ class IndyShell
     dompack.onDomReady(() => this.onDomReady());
     document.documentElement.addEventListener("tollium-shell:broadcast", evt => this.onBroadcast(evt));
     window.addEventListener("hashchange", evt => this._onHashChange(evt));
+
+    setupMouseHandling();
   }
 
   _onHashChange()

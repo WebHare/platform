@@ -1140,56 +1140,6 @@ t-codeedit > textarea[readonly]
 }
 
 /****************************************************************************************************************************
- * Text
- */
-t-text
-{
-/*  vertical-align: top;*/
-  white-space: nowrap;
-}
-t-text.overflow
-{
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-t-text.ellipsis
-{
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-t-text.wrapped
-{
-  white-space: normal;
-}
-
-.t-screen.active t-text.label
-{
-  cursor: pointer;
-}
-
-.t-screen.active t-text.selectable
-{
-  cursor: text;
-}
-
-///////////// label underlines (flag RLL)
-html.dompack--debug-rll t-text.label
-{
-  position:relative;
-}
-html.dompack--debug-rll t-text.label:after
-{
-  position:absolute;
-  z-index:999999999;
-  display:block;
-  content:"";
-  border-bottom:1px dotted black;
-  width:1000%;
-  margin-top:-3px;
-}
-
-
-/****************************************************************************************************************************
  * HR (</box> closer)
  */
 t-hr

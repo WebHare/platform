@@ -9,7 +9,6 @@ import { RPCFormBase, registerHandler, setupValidator } from '@mod-publisher/js/
 import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
 import UploadField from '@mod-publisher/js/forms/fields/upload';
 import RTDField from '@mod-publisher/js/forms/fields/rtd';
-import { URL } from 'dompack/browserfix/url';
 
 //Include extensions to the RTD
 import * as embedvideo from '@mod-publisher/js/forms/fields/rtd/embedvideo';

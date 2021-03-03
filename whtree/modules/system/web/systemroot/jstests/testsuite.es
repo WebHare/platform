@@ -3,7 +3,6 @@ import { qS, qSA } from 'dompack';
 import * as dombusy from 'dompack/src/busy';
 import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
-import { URL } from 'dompack/browserfix/url';
 import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
 import minimatch from "minimatch";

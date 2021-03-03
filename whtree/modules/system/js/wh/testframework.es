@@ -3,7 +3,6 @@
 
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
-import { URL } from 'dompack/browserfix/url';
 
 import * as domfocus from "dompack/browserfix/focus";
 var domlevel = require('@mod-tollium/web/ui/components/richeditor/internal/domlevel');

@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import { URL } from 'dompack/browserfix/url';
 import * as toddrpc from "@mod-tollium/js/internal/todd.rpc.json";
 
 let connectconfig = null;

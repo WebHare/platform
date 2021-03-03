@@ -3,7 +3,6 @@
 import * as dompack from 'dompack';
 import * as domcookie from 'dompack/extra/cookie';
 import * as whintegration from '@mod-system/js/wh/integration';
-import { URL } from 'dompack/browserfix/url';
 import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';

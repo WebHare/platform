@@ -6,7 +6,6 @@
 
 import * as dompack from 'dompack';
 var JSONRPC = require('@mod-system/js/net/jsonrpc');
-import { URL } from 'dompack/browserfix/url';
 import * as browser from 'dompack/extra/browser';
 let StackTrace = require("stacktrace-js");
 

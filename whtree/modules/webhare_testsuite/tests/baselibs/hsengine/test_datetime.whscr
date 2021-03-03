@@ -682,6 +682,22 @@ MACRO CronTest()
   TestEq(MakeDatetime(2020,12,30,8,10,0), GetNextCronTime(MakeDatetime(2020,12,29,18,40,0), "10,40 8,9,10,11,12,13,14,15,16,17,18 * * 1,2,3,4,5"));
 }
 
+MACRO HolidayTest()
+{
+  TestEq(MakeDate(2021,4,4), GetYearlyHoliday(2021,"easter"));
+  TestEq(MakeDate(2021,4,27), GetYearlyHoliday(2021,"nl-kingsday"));
+  TestEq(MakeDate(2014,4,26), GetYearlyHoliday(2014,"nl-kingsday"));
+  TestEq(MakeDate(2025,4,26), GetYearlyHoliday(2025,"nl-kingsday"));
+  TestEq(MakeDate(2021,5,13), GetYearlyHoliday(2021,"ascensionday"));
+  TestEq(MakeDate(2021,5,23), GetYearlyHoliday(2021,"pentecost"));
+  TestEq(MakeDate(2021,12,25), GetYearlyHoliday(2021,"christmas"));
+  TestEq(MakeDate(2021,12,31), GetYearlyHoliday(2021,"newyearseve"));
+  TestEq(MakeDate(2021,1,1), GetYearlyHoliday(2021,"newyear"));
+  TestEq(MakeDate(2020,4,12), GetYearlyHoliday(2020,"easter"));
+  TestEq(MakeDate(2015,4,5), GetYearlyHoliday(2015,"easter"));
+  TestEq(MakeDate(2013,3,31), GetYearlyHoliday(2013,"easter"));
+}
+
 PRINT("\n === Running TestDateTime\n");
 CalcTests();
 MakeTest();
@@ -694,3 +710,4 @@ ISOTimestampTest();
 MSTimestampTest();
 LimitsTest();
 CronTest();
+HolidayTest();

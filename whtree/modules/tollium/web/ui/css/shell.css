@@ -33,40 +33,11 @@
  * Basic layout
  */
 
-/* NOTE: we shouldn't casually override html & body to remain compatible with sites
-/* line 28, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less
-html
-{
-  overflow: hidden;
-}
-/* line 39, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less
-body
-{
-  width: 100%;
-  height: 100%;
-  position: relative;
-  /* enforce minwidth/minheight * /
-
-  cursor: default;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-  -webkit-text-size-adjust: none;
-  -webkit-touch-callout: none;
-  -moz-user-select: none;
-}
-*/
-
 html
 {
   cursor: default;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   -webkit-touch-callout: none;
-  -moz-user-select: none;
-}
-
-  body div.wh-rtd-editor
-, body t-text.selectable
-{
-  -moz-user-select: text;
 }
 
 body div.wh-rtd-editor

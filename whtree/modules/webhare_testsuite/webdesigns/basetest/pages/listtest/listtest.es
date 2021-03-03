@@ -1,5 +1,4 @@
 import * as dompack from "dompack";
-import { URL } from "dompack/browserfix/url";
 
 import "./listtest.scss";
 
