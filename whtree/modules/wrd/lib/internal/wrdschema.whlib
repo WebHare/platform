@@ -690,7 +690,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       {
         OBJECT typeobj := this->__GetTypeByTag(attachtype);
         IF(ObjectExists(typeobj))
-          typeobj->UpdateTypeMetadata( [ parenttype := newtypeid ] );
+          typeobj->UpdateMetadata( [ parenttype := newtypeid ] );
       }
     }
 
