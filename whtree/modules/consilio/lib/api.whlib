@@ -764,9 +764,23 @@ STATIC OBJECTTYPE ContentSource
   PUBLIC MACRO UpdateContentSource(RECORD settings)
   {
     settings := ValidateOptions([ definedby := ""
+                                , settings := DEFAULT RECORD
                                 ], settings, [ optional := [ "definedby" ]
                                              , title := "settings"
                                              ]);
+
+    //If 'settings' is set we'll be merging it with the current data. but this whole settings thing is ugly and should
+    //probably be made transparant/flat... but we use it for contentobject which should preferably go away at all and
+    //be taken from moduledefs
+    IF(RecordExists(settings.settings))
+    {
+      RECORD newsettings := settings.settings;
+      STRING cursettings := SELECT AS STRING data FROM consilio.contentsources WHERE id = this->id;
+      IF(cursettings != "")
+        newsettings := CELL[ ...DecodeHSON(cursettings), ...newsettings];
+      settings := CELL[ ...settings, data := EncodeHSON(newsettings), DELETE settings ];
+    }
+
     UPDATE consilio.contentsources SET RECORD settings WHERE id = this->id;
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
   }
@@ -835,6 +849,7 @@ STATIC OBJECTTYPE Catalog
       @return List of contentsources
       @cell(integer) return.id Id of the contentsource
       @cell(string) return.contentprovider Content provider type
+      @cell(string) return.contentobject Content objecttype implement with this source
       @cell(string) return.tag Tag of the contentsource
       @cell(string) return.title Title of the contentsource
       @cell(integer) return.fsobject Associated filesystem object
@@ -844,8 +859,11 @@ STATIC OBJECTTYPE Catalog
   {
     options := ValidateOptions([ __withdeleted := FALSE ], options);
     RECORD ARRAY sources :=
-        SELECT id
+        SELECT TEMPORARY settings := (data = "" ? DEFAULT RECORD : DecodeHSON(data))
+             , id
              , contentprovider
+                                //TODO lookup contentobject from moduledefs where possible, bad experiences with db-stored HS references
+             , contentobject := CellExists(settings, 'contentobject') AND settings.contentobject != "" ? settings.library || "#" || settings.contentobject : ""
              , tag
              , title
              , fsobject
@@ -853,7 +871,7 @@ STATIC OBJECTTYPE Catalog
              , isdeleted := tag LIKE "$consilio$deleted$*" //flagged as deleted
                             OR (contentprovider = "publisher:webhare"  //contentsource whose target folder is deleted
                                 AND fsobject = 0
-                                AND (data = ""  OR NOT CellExists(DecodeHSON(data),"folder")) //AND has been converted by setcontentsourcefsobjects.whscr
+                                AND NOT CellExists(settings,"folder") //AND has been converted by setcontentsourcefsobjects.whscr
                                )
              , definedby
           FROM consilio.contentsources
