@@ -139,5 +139,4 @@ IF (Length(updated_contentsources) > 0) //ADDME also fire something on eg priori
 IF (changes)
 {
   BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
-  BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
 }

@@ -901,7 +901,6 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
     IF(NOT work->Finish())
       RETURN 0;
 
-    BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
     BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
     RETURN newcatalogid ?? this->catalogid;
   }
@@ -1348,7 +1347,7 @@ PUBLIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
       this->cursettings->Validate(work);
 
     BOOLEAN result := work->Finish();
-    BroadcastEvent("consilio:fetchers.config", DEFAULT RECORD);
+    BroadcastEvent("consilio:contentsourceschanged", DEFAULT RECORD);
     RETURN result;
   }
 
