@@ -4,6 +4,7 @@
        docorder="basicsetup
                  address-validation
                  captcha
+                 webtoolformhooks
                  customforms
                  custom-question-types
                  custom-handler-types

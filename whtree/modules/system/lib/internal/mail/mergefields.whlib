@@ -46,9 +46,12 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
                 FROM data
                WHERE fieldguid = field.name
                      OR ToUppercase(fieldname) = ToUppercase(field.name);
+
+          RECORD fielddescr := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]);
+          STRING title := RecordExists(fielddescr) ? fielddescr.pathtitle : field.obj->title;
           INSERT
               [ name := field.guid
-              , title := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]).pathtitle
+              , title := title
               , value := value
               , type := field.obj->qname
               , isadditional := FALSE
@@ -59,7 +62,7 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
           {
             INSERT
                 [ name := field.guid || "$" || extrafield.name
-                , title := this->source.formdef->DescribeField(field.guid, [ languagecode := this->language, __listfields := fields ]).pathtitle || " – " || extrafield.title
+                , title := title || " – " || extrafield.title
                 , value := extrafield.value
                 , type := field.obj->qname
                 , isadditional := TRUE

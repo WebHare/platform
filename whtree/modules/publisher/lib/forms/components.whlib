@@ -405,6 +405,9 @@ PUBLIC OBJECTTYPE FormFieldBase
   // has to be sent to the client)
   PUBLIC BOOLEAN FUNCTION IsFrontendVisible()
   {
+    IF(this->field.ishidden)
+      RETURN FALSE;
+
     OBJECT formgroup := this->formgroup;
     IF (ObjectExists(formgroup) AND NOT formgroup->visible)
       RETURN FALSE;

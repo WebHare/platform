@@ -340,6 +340,12 @@ PUBLIC BOOLEAN FUNCTION SkipCaptcha(OBJECT webcontext)
 
 PUBLIC STATIC OBJECTTYPE CaptchaFormHooks EXTEND WebtoolFormHooks
 <
+  MACRO NEW()
+  {
+    IF(IsRequest()) //allows ?wh-debug=nsc to work in the captcha tests - this use to be in BetaSharedDesign but using webtoolformhooks= now routes around the webdesign
+      ProcessWHDebugVariablesUnchecked();
+  }
+
   UPDATE PUBLIC MACRO Validate(OBJECT work)
   {
     //Note that we can't do this in Submit() - recaptcha validation will have run before us

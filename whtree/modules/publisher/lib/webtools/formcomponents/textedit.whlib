@@ -383,20 +383,20 @@ PUBLIC RECORD FUNCTION ParseFormTextedit(RECORD fielddef, OBJECT node, RECORD pa
   RETURN fielddef;
 }
 
-PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(OBJECT node)
+PUBLIC STRING ARRAY FUNCTION GetFormTextEditSupportedValues(RECORD field)
 {
-  IF (NOT ObjectExists(node))
-    RETURN [ "string" ];
+  IF(CellExists(field,'validationchecks')) //These may not have been set if we came through AppendFormField and no match option was set
+  {
+    IF ("email" IN field.validationchecks)
+      RETURN [ "email", "string" ];
+    IF ("emails" IN field.validationchecks)
+      RETURN [ "emailarray", "stringarray" ];
+  }
 
-  STRING ARRAY validationchecks := node->GetAttribute("validationchecks") != ""
-      ? Tokenize(node->GetAttribute("validationchecks"), " ")
-      : DEFAULT STRING ARRAY;
-  IF ("email" IN validationchecks)
-    RETURN [ "email", "string" ];
-  IF ("emails" IN validationchecks)
-    RETURN [ "emailarray", "stringarray" ];
+  IF(CellExists(field,'valuetype')) //These may not have been set if we came through AppendFormField and no match option was set
+    RETURN STRING[ field.valuetype ];
 
-  RETURN node->HasAttribute("valuetype") ? STRING[ node->GetAttribute("valuetype") ] : [ "string" ];
+  RETURN ["string"];
 }
 
 PUBLIC OBJECTTYPE TextEditField EXTEND TextEditFieldBase

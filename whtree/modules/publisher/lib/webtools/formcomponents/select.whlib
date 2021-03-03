@@ -697,15 +697,12 @@ RECORD ARRAY FUNCTION GetOptions(STRING valtype, OBJECT parent, STRING parenttid
   RETURN opts;
 }
 
-PUBLIC STRING ARRAY FUNCTION GetFormSelectSupportedValues(OBJECT node)
+PUBLIC STRING ARRAY FUNCTION GetFormSelectSupportedValues(RECORD field)
 {
-  IF (NOT ObjectExists(node))
-    RETURN [ "options", "string" ];
+  IF(CellExists(field,'rowkeytype')) //These may not have been set if we came through AppendFormField and no match option was set
+    RETURN [ "options", field.rowkeytype || (field.type = "checkbox" ? "array" : "") ];
 
-  BOOLEAN isarray := node->GetAttribute("type") = "checkbox";
-  RETURN node->HasAttribute("rowkeytype")
-      ? [ "options", node->GetAttribute("rowkeytype") || (isarray ? "array" : "") ]
-      : [ "options", "string" || (isarray ? "array" : "") ];
+  RETURN [ "options", "string" ];
 }
 
 PUBLIC OBJECTTYPE SelectField EXTEND FormFieldBase

@@ -47,10 +47,8 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     RECORD ARRAY formfields := form->ListFields();
     FOREVERY(RECORD field FROM formfields)
     {
-      STRING storename := ToUppercase(field.guid);
-      IF(storename = "")
-        THROW NEW Exception(`Field '${field.name}' has no GUID!`);
-      IF(field.obj->IsNowSettable())
+      STRING storename := ToUppercase(field.guid ?? field.name);
+      IF(field.ishidden OR field.obj->IsNowSettable()) //need to flag any 'ishidden' field as explicitly set (but they might need an opt-out in the future?)
         INSERT storename INTO storerow.__formmeta.setfields AT END;
 
       RECORD tostorage := field.obj->GetStorageValue();
