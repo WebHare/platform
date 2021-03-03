@@ -342,10 +342,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       {
         // Add the existing username and password to the new data
         RECORD existingdata := DecodeHSON(existing.data);
-        IF (CellExists(existingdata, "http_username"))
-          INSERT CELL http_username := existingdata.http_username INTO data;
-        IF (CellExists(existingdata, "http_password"))
-          INSERT CELL http_password := existingdata.http_password INTO data;
 
         srcid := existing.id;
         IF(srcid IN unreferredsources)
@@ -432,9 +428,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         CONTINUE;
       }
       STRING whfspath := OpenWHFSObject(siteid)->whfspath;
-      FOREVERY (STRING field FROM [ "http_username", "http_password" ])
-        IF (GetCell(addtoindex, field) != "")
-          data := CellInsert(data, field, GetCell(addtoindex, field));
 
       // If a folder was specified, check if it's not already covered within the index
       RECORD existing;
@@ -508,10 +501,6 @@ MACRO UpdateConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
         {
           // Add the existing username and password to the new data
           RECORD existingdata := DecodeHSON(existing.data);
-          IF (CellExists(existingdata, "http_username"))
-            INSERT CELL http_username := existingdata.http_username INTO data;
-          IF (CellExists(existingdata, "http_password"))
-            INSERT CELL http_password := existingdata.http_password INTO data;
 
           // Update the existing content source
           IF (existing.contentprovider != contentprovider.name

@@ -444,10 +444,7 @@
   <textgroup gid="contentproviders" limitlanguages="en nl">   <!-- contentproviders -->
     <textgroup gid="webhare">   <!-- contentproviders.webhare -->
       <text tid="folder">Folder to index</text>
-      <text tid="http_password">Password</text>
-      <text tid="http_username">Login name</text>
       <text tid="lastcontentscheck">Last automatic update of dynamic pages</text>
-      <text tid="loginrequired">This folder requires logging on</text>
       <text tid="never">Never</text>
       <text tid="providertitle">WebHare folder</text>
       <textgroup gid="messages">   <!-- contentproviders.webhare.messages -->

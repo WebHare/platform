@@ -18,8 +18,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 // Content provider for WebHare documents
 PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 < INTEGER rootfolder;
-  STRING http_username;
-  STRING http_password;
   OBJECT boostwords_type;
 
   // File types we're not fetching (e.g. image files, zip archives, internal/external links)
@@ -272,9 +270,7 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
   /*  @param contentsource The content source record which contains the configuration for the content provider
       @cell contentsource.data(record) Initialization data
       @cell contentsource.data.folder(integer) WebHare folder id of the index root folder
-      @cell contentsource.data.http_username(string) User name to use if the output url is login-protected (optional)
-      @cell contentsource.data.http_password(string) Password to use if the output url is login-protected (optional)
-  */
+   */
   UPDATE PUBLIC MACRO Init(RECORD contentsource)
   {
     ConsilioContentProvider::Init(contentsource);
@@ -284,17 +280,11 @@ PUBLIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
     IF (this->rootfolder = 0)
       THROW NEW Exception("Tried to initialize with non-existing folder, maybe it was deleted");
 
-    // HTTP login data
-    this->http_username := CellExists(contentsource.data, "http_username") ? contentsource.data.http_username : "";
-    this->http_password := this->http_username != "" AND CellExists(contentsource.data, "http_password") ? contentsource.data.http_password : "";
-
     // Initialize file types
     this->InitializeFileTypes();
     this->boostwords_type := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords");
 
     this->DebugLog(ConsilioDebugInfo, "Initialized with root folder " || this->rootfolder);
-    IF (this->http_username != "")
-      this->DebugLog(ConsilioDebugInfo, "Initialized with http login '" || this->http_username || "'/'" || this->http_password || "'");
   }
 
   UPDATE PUBLIC STRING FUNCTION GetIdentifier()
@@ -487,8 +477,6 @@ PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    IF (CellExists(data, "http_username") AND CellExists(data, "http_password") AND (data.http_username != "" OR data.http_password != ""))
-      this->loginrequired->value := TRUE;
   }
 
   PUBLIC MACRO Validate(OBJECT work)
@@ -507,17 +495,6 @@ PUBLIC OBJECTTYPE WebHare EXTEND TolliumScreenBase
     {
       LogHarescriptException(e);
       work->AddError(GetTid("publisher:contentproviders.webhare.messages.invalidfolder"));
-    }
-
-    IF (NOT work->HasFailed())
-    {
-      IF (this->loginrequired->value AND this->username->value = "" AND this->password->value = "")
-        this->loginrequired->value := FALSE;
-      ELSE IF (NOT this->loginrequired->value)
-      {
-        this->username->value := "";
-        this->password->value := "";
-      }
     }
   }
 

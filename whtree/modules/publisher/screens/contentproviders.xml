@@ -15,11 +15,6 @@
       <line layout="left">
         <text name="lastcontentscheck" />
       </line>
-
-      <!-- Username/password authentication is no longer used by Consilio -->
-      <heading name="loginrequired" checkbox="true" enablecomponents="username password" visible="false" />
-      <textedit composition="mysettings" cellname="http_username" name="username" width="20x" visible="false" />
-      <textedit composition="mysettings" cellname="http_password" name="password" password="true" width="20x" visible="false" />
     </body>
   </screen>
 

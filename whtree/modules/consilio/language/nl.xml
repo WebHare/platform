@@ -196,15 +196,6 @@
         <text tid="invalidobject">Het object '<param p="1"/>:<param p="2"/>' is geen valide custom content object</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="external">   <!-- contentproviders.external -->
-      <text tid="http_password">Wachtwoord</text>
-      <text tid="http_username">Inlognaam</text>
-      <text tid="lastcontentscheck">Laatst nagelopen</text>
-      <text tid="loginrequired">Voor deze URL moet worden ingelogd</text>
-      <text tid="never">nooit</text>
-      <text tid="providertitle">Externe webserver</text>
-      <text tid="url">URL</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="queries">   <!-- monitor.queries -->
