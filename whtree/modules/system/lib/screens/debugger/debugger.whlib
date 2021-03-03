@@ -70,7 +70,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   /** List of vms, and libraries per vm
       @cell(integer) vm VM id
       @cell(recordarray) libraries
-      @cell(string) libraries.liburi URI of the libary
+      @cell(string) libraries.liburi URI of the library
       @cell(integer) libraries.globalvarlocation Position of the global variable section of this library on the heap
       @cell(datetime) libraries.sourcetime Source modificationdate of this library
       @cell(datetime) libraries.compile_id Compile-id of the compiled library
@@ -79,7 +79,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   /** List of all libraries in all vms
       @cell(integer) vm VM id
-      @cell(string) liburi URI of the libary
+      @cell(string) liburi URI of the library
       @cell(integer) globalvarlocation Position of the global variable section of this library on the heap
       @cell(datetime) sourcetime Source modificationdate of this library
       @cell(datetime) compile_id Compile-id of the compiled library
@@ -93,7 +93,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       @cell(integer) maxstacksize Stop when stacksize gets above this value (-1 for don't stop). Relative to currstatus.stacksize
       @cell(recordarray) breakpoints Extra breakpoints to add to user breakpoints
       @cell(integer) breakpoints.vm VM id
-      @cell(string) breakpoints.liburi URI of the libary
+      @cell(string) breakpoints.liburi URI of the library
       @cell(string) breakpoints.compile_id Compile-id of the compiled library
       @cell(integer) breakpoints.codeptr Codeptr in library where to stop
       @cell(boolean) breakpoints.fixed Whether this is a fixed breakpoint (always FALSE in this array)

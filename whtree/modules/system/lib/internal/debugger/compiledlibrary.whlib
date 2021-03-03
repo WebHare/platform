@@ -26,7 +26,7 @@ PUBLIC STATIC OBJECTTYPE CompiledLibrary
   */
   PUBLIC PROPERTY libdump(pvt_dump, -);
 
-  /* Raw debug information from libary
+  /* Raw debug information from library
   */
   PUBLIC PROPERTY debuginfo(pvt_debuginfo, -);
 
