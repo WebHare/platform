@@ -63,14 +63,16 @@ The following encodings are supported for strings:
 | Encoding | Effect |
 | --- | --- |
 | none | No encoding (prints the string unmodified) |
-| base16 | Base-16 encoding (hexadecimal) |
-| base64 | Base-64 encoding (MIME) |
-| value | Value encoding: escape all quotes, <, >, &amp; and linefeeds as HTML entities (&amp;#62;....) |
+| base16 | Base-16 encoding (hexadecimal) (%EncodeBase16)|
+| base64 | Base-64 encoding (MIME) (%EncodeBase64)|
+| value | Value encoding: escape all quotes, <, >, &amp; and linefeeds as HTML entities (%EncodeValue) |
 | xml | XML encoding: a synonym for value encoding |
-| html | HTML encoding: like value encoding, but remove carriage returns and encode linefeeds as &#39;<br />&#39; tags |
+| html | HTML encoding: like value encoding, but remove carriage returns and encode linefeeds as &#39;<br />&#39; tags (%EncodeHTML)|
 | xhtml | A synonym for HTML encoding |
-| url | URL parameter encoding: encode data for use as parameter in a URL |
-| java | Java/JavaScript encoding: escape all quotes, backslashes and control characters with a backslash. |
+| url | URL parameter encoding: encode data for use as parameter in a URL (%EncodeURL)|
+| java | Java/JavaScript encoding: escape all quotes, backslashes and control characters with a backslash. (%EncodeJava)|
+| json | Encode value as JSON (%EncodeJSON) |
+| jsonvalue | Encode as JSON and then as value, needed when used in eg. HTML attributes (%EncodeJSON + %EncodeValue) |
 
 ## If-blocks
 
